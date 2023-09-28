@@ -7,10 +7,18 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-jax = "^0.4.16"
-jaxlib = "^0.4.16"
-torch = "^2.0.1"
+torch = { version = "^2.0,!=2.0.1", source = "pytorch" }
 
+[[tool.poetry.source]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "secondary"
+
+
+[[tool.poetry.source]]
+name = "jax"
+url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
+priority = "primary"
 
 [build-system]
 requires = ["poetry-core"]
