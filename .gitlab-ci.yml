@@ -1,0 +1,39 @@
+stages:
+  - build
+  - test
+
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  # Avoid TLS because it's not enabled in our runner
+  DOCKER_TLS_CERTDIR: ""
+  CI_REGISTRY_IMAGE: "gitlab-master.nvidia.com:5005/tensorrt/poc/tripy"
+
+
+build_container:
+  stage: build
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker pull $CI_REGISTRY_IMAGE:latest || true
+    - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
+    - docker push $CI_REGISTRY_IMAGE
+  tags:
+    - tensorrt-runner
+  only:
+    - main
+    - merge_requests
+
+
+l0:
+  stage: test
+  image: $CI_REGISTRY_IMAGE
+  script:
+    - python3 -m pytest tests/ -v
+  tags:
+    - tensorrt-runner
+  only:
+    - main
+    - merge_requests

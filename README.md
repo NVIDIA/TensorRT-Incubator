@@ -11,17 +11,23 @@
 ## Examples
 
 
-## Developer instructions
+## Setup instructions
 
-### Setup instructions
+### Using A Prebuilt Container
 
+From the [`tripy` root directory](.), run:
+```bash
+docker login gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
+docker pull gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
+docker run --gpus all -it -v $(pwd):/tripy/ --rm gitlab-master.nvidia.com:5005/tensorrt/poc/tripy:latest
 ```
-docker build -t tripy_container .
-docker run --gpus all  -it -v /path_to_tripy/tripy/:/tripy/ --rm tripy_container:latest
 
-## Inside the container
-poetry install
-poetry run pip install --upgrade "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+### Building A Container Locally
+
+From the [`tripy` root directory](.), run:
+```bash
+docker build -t tripy .
+docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
 ```
 
 Hacks required:
