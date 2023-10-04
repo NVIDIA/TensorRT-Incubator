@@ -1,0 +1,1 @@
+from tripy.frontend.tensor_expression import TensorExpression

@@ -21,4 +21,4 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     python3 -m pip install poetry
 
 COPY pyproject.toml /tripy/pyproject.toml
-RUN poetry config virtualenvs.create false && poetry install && poetry cache clear --all . -n && rm -rf /root/.cache/pypoetry/artifacts
+RUN poetry config virtualenvs.create false && poetry install --with docs --with dev --with test && poetry cache clear --all . -n && rm -rf /root/.cache/pypoetry/artifacts
