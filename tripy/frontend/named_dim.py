@@ -3,23 +3,24 @@ from dataclasses import dataclass
 
 ShapeTuple = Union[int, Tuple[int, int], Tuple[int, int, int]]
 
+
 class NamedDim:
     """
     Represents a named dimension with the range of values it can take.
-    The range of values allow the compiler to optimize the program with 
+    The range of values allow the compiler to optimize the program with
     dynamic shapes while obeying the constraints of the dimension.
 
-    Args: 
+    Args:
         name : Dimension name
         dim_range :  Union[int, Tuple[int, int], Tuple[int, int, int]]
-            Provide the dynamic range of this dimension which will be used by 
+            Provide the dynamic range of this dimension which will be used by
             the compiler to optimize the program.
-            If only integer is provided, the dimension will be considered as 
+            If only integer is provided, the dimension will be considered as
             static shape.
             If tuple of integers are provided, the dimension will be assumed to
             vary along the dynamic range and the compiler will optimize the
             program specifically for dim_range[1] shape.
-            
+
     Example:
     >>> print(NamedDim("batch", 2))
         NamedDim(name=batch, dim_range=2)
@@ -28,7 +29,8 @@ class NamedDim:
     >>> print(NamedDim("batch", (2,3,4)))
         NamedDim(name=batch, dim_range=(2, 3, 4))
     """
-    def __init__(self, name: str, dim_range : ShapeTuple):
+
+    def __init__(self, name: str, dim_range: ShapeTuple):
         self._name = name
         self._opt = self._min = self._max = -1
         if isinstance(dim_range, int):
@@ -48,14 +50,14 @@ class NamedDim:
     @property
     def min(self):
         return self._min
-    
+
     @property
     def opt(self):
         return self._opt
-    
+
     @property
     def max(self):
         return self._max
-    
+
     def __repr__(self) -> str:
-        return f"NamedDim(name=\"{self._name}\", dim_range=({self._min}, {self._opt}, {self._max}))"
+        return f'NamedDim(name="{self._name}", dim_range=({self._min}, {self._opt}, {self._max}))'

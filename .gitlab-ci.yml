@@ -1,5 +1,6 @@
 stages:
   - build
+  - lint
   - test
 
 
@@ -26,6 +27,15 @@ build_container:
     - main
     - merge_requests
 
+pre-commit:
+  stage: lint
+  image: python:3.9
+  tags:
+    - tensorrt-runner
+  before_script:
+    - pip install pre-commit
+  script:
+    - pre-commit run --all-files
 
 l0:
   stage: test

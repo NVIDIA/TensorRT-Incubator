@@ -15,7 +15,10 @@ class TestTensorExpression:
         assert isinstance(a.params, ValueParameters)
         assert a.params.values == VALUES
 
-    @pytest.mark.parametrize("func, operation", [(lambda a, b: a + b, BinaryElementwiseParameters.Operation.SUM)])
+    @pytest.mark.parametrize(
+        "func, operation",
+        [(lambda a, b: a + b, BinaryElementwiseParameters.Operation.SUM)],
+    )
     def test_binary_elementwise(self, func, operation):
         a = TensorExpression.tensor([1])
         b = TensorExpression.tensor([2])
