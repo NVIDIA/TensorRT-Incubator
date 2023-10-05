@@ -1,9 +1,7 @@
-from tripy.frontend.parameters import (
-    BaseParameters,
-    BinaryElementwiseParameters,
-    ValueParameters,
-)
-from typing import List, Any
+from typing import Any, List
+
+from tripy import util
+from tripy.frontend.parameters import BaseParameters, BinaryElementwiseParameters, ValueParameters
 
 
 class TensorExpression:
@@ -11,6 +9,8 @@ class TensorExpression:
     Represents an operation applied to zero or more input tensors.
     """
 
+    # It is very important that this is the only entrypoint to creating a tensor expression.
+    # We include logic here that needs to be applied to all tensor expressions.
     def __init__(self, inputs: "List[TensorExpression]", params: BaseParameters) -> None:
         """
         Args:
@@ -19,6 +19,7 @@ class TensorExpression:
         """
         self.inputs = inputs
         self.params = params
+        self._stack_info = util.get_stack_info()
 
     @staticmethod
     def tensor(values: Any) -> "TensorExpression":
