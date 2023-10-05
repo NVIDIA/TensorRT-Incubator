@@ -21,8 +21,6 @@ autodoc_mock_imports = []
 autodoc_default_options = {
     "members": True,
     "show-inheritance": True,
-    "exclude-members": "activate_impl, deactivate_impl, get_input_metadata_impl, BaseNetworkFromOnnx, Encoder, Decoder, add_json_methods, constantmethod",
-    "special-members": "__call__, __getitem__, __bool__, __enter__, __exit__",
 }
 
 autodoc_member_order = "bysource"

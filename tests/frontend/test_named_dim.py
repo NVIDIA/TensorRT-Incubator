@@ -3,10 +3,9 @@ import pytest
 
 
 class TestNamedDim:
-
     def test_named_dim_repr(self):
-        dim = NamedDim("dim", (2,3,4))
-        assert repr(dim) == "NamedDim(name=\"dim\", dim_range=(2, 3, 4))"
+        dim = NamedDim("dim", (2, 3, 4))
+        assert repr(dim) == 'NamedDim(name="dim", dim_range=(2, 3, 4))'
         eval_dim = eval(repr(dim))
         assert eval_dim.min == 2 and eval_dim.opt == 3 and eval_dim.max == 4
 

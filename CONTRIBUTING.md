@@ -2,6 +2,14 @@
 
 ## Local Development
 
+### Install pre-commit
+
+From the [`tripy` root directory](.), run:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ### Using A Prebuilt Container
 
 From the [`tripy` root directory](.), run:

@@ -1,19 +1,21 @@
 """
-This script dumps out JAX MHLO IR for debugging" 
+This script dumps out JAX MHLO IR for debugging"
 """
 import jax
 import jax.numpy as jnp
-import jaxlib
+
+
+def func(x):
+    return x.at[0].get()
+
 
 x = jnp.zeros((2,))
-f = lambda x: x.at[0].get()
-
 # Get JAXExpr IR
-jaxpr = jax.make_jaxpr(f)(x)
-ir = jax.jit(f).lower(x)
+jaxpr = jax.make_jaxpr(func)(x)
+ir = jax.jit(func).lower(x)
 
 # Get MHLO IR
-mhlo = ir.compiler_ir('mhlo')
+mhlo = ir.compiler_ir("mhlo")
 print(f"MHLO IR: \n{mhlo}")
 # # Get optimized_mhlo
 compiled_mhlo = ir.compile()

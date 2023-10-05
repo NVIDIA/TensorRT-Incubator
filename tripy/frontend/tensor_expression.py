@@ -1,4 +1,8 @@
-from tripy.frontend.parameters import BaseParameters, BinaryElementwiseParameters, ValueParameters
+from tripy.frontend.parameters import (
+    BaseParameters,
+    BinaryElementwiseParameters,
+    ValueParameters,
+)
 from typing import List, Any
 
 
@@ -31,4 +35,7 @@ class TensorExpression:
         Returns:
             A tensor expression representing an elementwise sum.
         """
-        return TensorExpression([self, other], BinaryElementwiseParameters(BinaryElementwiseParameters.Operation.SUM))
+        return TensorExpression(
+            [self, other],
+            BinaryElementwiseParameters(BinaryElementwiseParameters.Operation.SUM),
+        )
