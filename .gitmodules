@@ -1,0 +1,3 @@
+[submodule "mlir-tensorrt"]
+	path = mlir-tensorrt
+	url = https://gitlab-master.nvidia.com/TensorRT/poc/mlir/mlir-tensorrt
