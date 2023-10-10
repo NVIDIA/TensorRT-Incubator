@@ -21,15 +21,13 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     python3 -m pip install poetry
 
 
-# Install the recommended version of CUDNN & TensorRT for development.
+# Install the recommended version of TensorRT for development.
 ARG CUDNN_VERSION=8.9.2.26-1+cuda12.1
 ARG TRT_VERSION=8.6.1.6-1+cuda12.0
 RUN apt-get update && \
     apt-get install -y \
         tensorrt-libs=${TRT_VERSION} \
-        tensorrt-dev=${TRT_VERSION} \
-        libcudnn8=${CUDNN_VERSION} \
-        libcudnn8-dev=${CUDNN_VERSION} && \
+        tensorrt-dev=${TRT_VERSION} && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/*
 
