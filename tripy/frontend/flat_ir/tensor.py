@@ -9,8 +9,11 @@ class Tensor:
     Represents a single tensor in the FlatIR
     """
 
-    id: int
-    """A unique integer ID for the tensor"""
+    name: str
+    """A unique name for the tensor"""
 
     stack_info: StackInfo
     """Information about the stack where the tensor was created"""
+
+    def __str__(self) -> str:
+        return self.name
