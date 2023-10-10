@@ -20,5 +20,18 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     python3 -m pip install --upgrade pip && \
     python3 -m pip install poetry
 
+
+# Install the recommended version of TensorRT for development.
+ARG CUDNN_VERSION=8.9.2.26-1+cuda12.1
+ARG TRT_VERSION=8.6.1.6-1+cuda12.0
+RUN apt-get update && \
+    apt-get install -y \
+        tensorrt-libs=${TRT_VERSION} \
+        tensorrt-dev=${TRT_VERSION} && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt/lists/*
+
+
 COPY pyproject.toml /tripy/pyproject.toml
 RUN poetry config virtualenvs.create false && poetry install --with docs --with dev --with test && poetry cache clear --all . -n && rm -rf /root/.cache/pypoetry/artifacts
+

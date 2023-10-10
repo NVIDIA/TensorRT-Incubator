@@ -27,6 +27,44 @@ docker build -t tripy .
 docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
 ```
 
+### Build mlir-tensorrt
+
+Building `mlir-tensorrt` is done in a separate container than `tripy` as eventually `mlir-tensorrt` will not be shipped externally and saves adding additional complexity to `tripy` containers.
+
+From the [`tripy` root directory](.), run:
+
+Get `mlir-tensorrt` repository:
+```bash
+git submodule update --init --recursive
+```
+
+Install docker-compose:
+```bash
+sudo apt-get install docker-compose
+```
+
+Launch `mlir-tensorrt` container and build `mlir-tensorrt`:
+```bash
+cd build_tools/docker
+docker compose up -d
+docker compose exec mlir-tensorrt-poc-dev bash
+
+cd /workspaces/mlir-tensorrt/
+cmake -B build -S . -G Ninja \
+	 -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+	 -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+	 -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+	 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+	 -DLLVM_USE_LINKER=lld
+
+ninja -C build all
+
+# To verify the build, the below command should dump out .mlir file with tensorrt operations
+./build/tools/mlir-tensorrt-opt examples/matmul_mhlo.mlir -pass-pipeline="builtin.module(func.func(convert-hlo-to-tensorrt{allow-i64-to-i32-conversion},tensorrt-expand-ops,translate-tensorrt-to-engine))" -mlir-elide-elementsattrs-if-larger=128
+```
+
+After building `mlir-tensorrt` project, the build will be available in the `tripy` container at `tripy/mlir-tensorrt/build` directory.
+
 ## Running Tests
 
 You can run tests locally by running:

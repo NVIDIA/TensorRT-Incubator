@@ -15,7 +15,7 @@ from tests.helper import ROOT_DIR
 README_TEST_CASES = [
     path
     for path in glob.glob(os.path.join(ROOT_DIR, "**", "*.md"), recursive=True)
-    if not path.startswith(os.path.join(ROOT_DIR, "build"))
+    if not path.startswith((os.path.join(ROOT_DIR, "build"), os.path.join(ROOT_DIR, "mlir-tensorrt")))
 ]
 
 
