@@ -18,6 +18,7 @@ class FlatIR:
 
         Example:
         ::
+            from tripy.frontend import TensorExpression, FlatIR
 
             a = TensorExpression.tensor([0])
 
