@@ -32,9 +32,10 @@ def get_stack_info() -> StackInfo:
     stack_info = StackInfo([])
     # Exclude the current stack frame since we don't care about the get_stack_info() function itself.
     for frame in inspect.stack()[1:]:
+        module = inspect.getmodule(frame.frame)
         stack_info.append(
             SourceInfo(
-                module=inspect.getmodule(frame.frame).__name__,
+                module=module.__name__ if module else None,
                 file=frame.filename,
                 line=frame.lineno,
                 function=frame.function,

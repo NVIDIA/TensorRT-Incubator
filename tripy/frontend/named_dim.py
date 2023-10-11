@@ -1,6 +1,6 @@
-from typing import Union, Tuple, Any, Optional, Sequence, Dict, Callable
-from dataclasses import dataclass
-from ..util import default
+from typing import Callable, Optional
+
+from tripy.util import default
 
 
 def validate_profile(method: Callable) -> Callable:
@@ -19,26 +19,6 @@ class NamedDim:
     Represents a named dimension with the range of values it can take.
     The range of values allow the compiler to optimize the program with
     dynamic shapes while obeying the constraints of the dimension.
-
-    Args:
-        name : Dimension name
-        runtime_value : Runtime shape of the dimension
-        min: Optional[int]
-        max: Optional[int]
-        opt: Optional[int]
-            min/max/opt values provide the dynamic range of this dimension which will be used by
-            the compiler to optimize the program.
-            If only one of these values are provided, the compiler will assume static shapes for this dimension.
-            If only min and max are provided, the opt value will be inferred as the mid point between min and max.
-    Example:
-    ::
-        batch = NamedDim("batch", 2)
-        assert batch.min == batch.opt == batch.max == 2
-
-        dim = NamedDim("dim", 3, min=2, opt=4, max=9))
-        assert dim.min == 2
-        assert dim.opt == 4
-        assert dim.max == 9
     """
 
     def __init__(
@@ -49,6 +29,30 @@ class NamedDim:
         opt: Optional[int] = None,
         max: Optional[int] = None,
     ):
+        """
+        Args:
+            name : Dimension name
+            runtime_value : Runtime shape of the dimension
+            min:
+            max:
+            opt:
+                min/max/opt values provide the dynamic range of this dimension which will be used by
+                the compiler to optimize the program.
+                If only one of these values are provided, the compiler will assume static shapes for this dimension.
+                If only min and max are provided, the opt value will be inferred as the mid point between min and max.
+
+        Example:
+        ::
+            from tripy.frontend import NamedDim
+
+            batch = NamedDim("batch", 2)
+            assert batch.min == batch.opt == batch.max == 2
+
+            dim = NamedDim("dim", 3, min=2, opt=4, max=9)
+            assert dim.min == 2
+            assert dim.opt == 4
+            assert dim.max == 9
+        """
         self._name = name
         self._runtime_value = runtime_value
 
