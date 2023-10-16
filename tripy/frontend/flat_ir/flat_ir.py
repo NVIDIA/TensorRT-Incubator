@@ -1,4 +1,4 @@
-from typing import List, Sequence, Dict
+from typing import List, Sequence, Dict, Set
 
 from tripy.frontend.flat_ir.layer import Layer
 from tripy.frontend.flat_ir.tensor import Tensor
@@ -38,8 +38,14 @@ class FlatIR:
             return _tensor_names[tid]
 
         exprs = list(tensor_expressions)
+        seen_tensor_ids: Set[int] = set()
         while exprs:
             head = exprs.pop(0)
+
+            if id(head) in seen_tensor_ids:
+                continue
+            seen_tensor_ids.add(id(head))
+
             exprs.extend(head.inputs)
             self.layers.append(
                 Layer(
