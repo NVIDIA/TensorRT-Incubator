@@ -41,6 +41,21 @@ class TestFlatIR:
         # The final layer should be 'c'. The ordering of 'a' and 'b' doesn't matter.
         assert flat_ir.layers[-1].output.name == "t2"
 
+    def test_duplicate_traces_are_skipped(self):
+        a = TensorExpression.tensor([0])
+        b = TensorExpression.tensor([1])
+
+        c = a + b
+        # In a naive implementation, we might end up tracing the `c` expression twice.
+        # Our implementation should not do that.
+        d = c + c
+
+        flat_ir = FlatIR([d])
+
+        # If we end up tracing `c` twice, we'll end up with 7 layers: [a, b, a, b, c, c, d].
+        # Without duplication, we should just have [a, b, c, d].
+        assert len(flat_ir.layers) == 4
+
     # For a given program, we should generate identical FlatIRs each time.
     def test_ir_consistent_across_runs(self):
         def make_expr():
