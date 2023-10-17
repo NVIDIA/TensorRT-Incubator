@@ -1,49 +1,25 @@
-[tool.poetry]
+[project]
 name = "tripy"
 version = "0.1.0"
 description = ""
-authors = ["Parth Chadha <pchadha@nvidia.com>"]
+authors = [{name = "Parth Chadha", email="pchadha@nvidia.com"}]
 readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "3.10.12"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-torch = { version = "2.0.0", source = "pytorch" }
-ml_dtypes = "0.2.0"
-jaxlib = { version = "0.4.16+cuda12.cudnn89", source = "jax", extras = ["cuda12_pip"] }
-jax = "0.4.16"
-
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-sphinx-rtd-theme = "1.3.0"
-sphinx = "7.2.6"
-docutils = "0.18.1"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "7.1.3"
-
-[[tool.poetry.source]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cu118"
-priority = "explicit"
-
-[[tool.poetry.source]]
-name = "jax"
-url = "https://storage.googleapis.com/jax-releases/jax_cuda_releases.html"
-priority = "explicit"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[project.optional-dependencies]
+dev = [
+  "torch==2.0.0",
+  "ml_dtypes==0.2.0",
+  "jaxlib[cuda12_pip]==0.4.16",
+  "jax==0.4.16",
+]
+docs = [
+  "sphinx-rtd-theme==1.3.0",
+  "sphinx==7.2.6",
+  "docutils==0.18.1"
+]
+test = [
+  "pytest==7.1.3"
+]
 
 [tool.black]
 line-length = 120
