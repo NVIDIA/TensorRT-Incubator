@@ -23,9 +23,11 @@ build_container:
     - docker push $CI_REGISTRY_IMAGE
   tags:
     - tensorrt-runner
-  only:
-    - main
-    - merge_requests
+  rules:
+    - changes:
+      - Dockerfile
+      - pyproject.toml
+
 
 pre-commit:
   stage: lint
@@ -37,6 +39,7 @@ pre-commit:
   script:
     - pre-commit run --all-files
 
+
 l0:
   stage: test
   image: $CI_REGISTRY_IMAGE
@@ -46,4 +49,5 @@ l0:
     - tensorrt-runner
   only:
     - main
+    - develop
     - merge_requests
