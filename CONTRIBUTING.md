@@ -69,12 +69,12 @@ After building `mlir-tensorrt` project, the build will be available in the `trip
 
 You can run tests locally by running:
 ```bash
-poetry run pytest -v
+pytest -v
 ```
 
 ## Building Documentation
 
 You can build the documentation locally by running:
 ```bash
-poetry run sphinx-build docs build/docs -j 6 -W
+sphinx-build docs build/docs -j 6 -W
 ```
