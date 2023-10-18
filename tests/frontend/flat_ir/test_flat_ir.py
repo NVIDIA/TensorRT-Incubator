@@ -79,21 +79,20 @@ class TestFlatIR:
         c = a + b
 
         flat_ir = FlatIR([c])
-
         assert (
             str(flat_ir)
             == dedent(
                 """
                 Inputs: []
-                Output: 't1'
+                Output: 't1 [[1]]'
                 Parameters: ValueParameters(values=[1])
 
                 Inputs: []
-                Output: 't0'
+                Output: 't0 [[1]]'
                 Parameters: ValueParameters(values=[0])
 
-                Inputs: ['t0', 't1']
-                Output: 't2'
+                Inputs: ['t0 [[1]]', 't1 [[1]]']
+                Output: 't2 [[1]]'
                 Parameters: BinaryElementwiseParameters(operation=<Operation.SUM: 0>)
                 """
             ).strip()

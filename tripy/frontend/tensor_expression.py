@@ -2,6 +2,7 @@ from typing import Any, List
 
 from tripy import util
 from tripy.frontend.parameters import BaseParameters, BinaryElementwiseParameters, ValueParameters
+from tripy.util.logging import G_LOGGER
 
 
 class TensorExpression:
@@ -40,3 +41,14 @@ class TensorExpression:
             [self, other],
             BinaryElementwiseParameters(BinaryElementwiseParameters.Operation.SUM),
         )
+
+    def eval(self) -> None:
+        from tripy.frontend.flat_ir import FlatIR
+        from tripy.backend.mlir.__experimental_.compile import compile
+
+        flatIR = FlatIR([self])
+        G_LOGGER.ir_printer(f"flatIR :\n{flatIR}")
+        compile(flatIR)
+
+    def __repr__(self) -> str:
+        return f"{self.eval()}"
