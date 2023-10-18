@@ -1,14 +1,13 @@
-import time
 import subprocess
-import numpy as np
 
-from jax._src.lib.mlir import dialects
-from jax._src.lib.mlir import ir
+import numpy as np
+from jax._src.lib.mlir import dialects, ir
 from jax._src.lib.mlir.dialects import hlo
-from tripy.frontend.flat_ir import FlatIR
+
+from tripy.flat_ir import FlatIR
 from tripy.frontend.parameters.value import ValueParameters
-from tripy.util.logging import G_LOGGER
-from tripy.util.util import log_time
+from tripy.logging import G_LOGGER
+from tripy.util import log_time
 
 
 def make_ir_context() -> ir.Context:
@@ -27,7 +26,7 @@ def execute_binary(bin_path):
     result = subprocess.Popen(
         bin_path, shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
-    output, error = result.communicate()
+    output, _ = result.communicate()
     if result.returncode != 0:
         G_LOGGER.error(f"Command failed with return code {result.returncode}")
     print(output)

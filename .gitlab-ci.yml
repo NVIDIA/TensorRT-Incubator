@@ -27,6 +27,7 @@ build_container:
     - changes:
       - Dockerfile
       - pyproject.toml
+      if: $CI_COMMIT_BRANCH != null
 
 
 pre-commit:

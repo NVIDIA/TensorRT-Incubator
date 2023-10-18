@@ -16,7 +16,8 @@ import requests
 
 import tripy
 from tests.helper import ROOT_DIR
-from tripy.frontend import FlatIR, TensorExpression
+from tripy.flat_ir import FlatIR
+from tripy.frontend import TensorExpression
 
 
 class TestReadme:

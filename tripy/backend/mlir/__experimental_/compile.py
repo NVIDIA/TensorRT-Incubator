@@ -1,18 +1,16 @@
-from typing import Any, Dict
 import os
+from typing import Any, Dict
+
 import numpy as np
-from jinja2 import Template
-
-
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import func as func_dialect
 from jax._src.lib.mlir.dialects import hlo
+from jinja2 import Template
 
-from tripy.frontend.flat_ir import FlatIR
-from tripy.frontend.parameters import ValueParameters, BinaryElementwiseParameters
-from tripy.backend.mlir.utils import make_ir_context
-from tripy.backend.mlir.utils import execute_binary, value_param_to_ir_const, collect_input_output
-from tripy.util.logging import G_LOGGER
+from tripy.backend.mlir.utils import collect_input_output, execute_binary, make_ir_context, value_param_to_ir_const
+from tripy.flat_ir import FlatIR
+from tripy.frontend.parameters import BinaryElementwiseParameters, ValueParameters
+from tripy.logging import G_LOGGER
 
 
 def lower_flat_ir_to_mlir(flatIR: FlatIR):

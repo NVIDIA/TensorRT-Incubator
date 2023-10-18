@@ -1,4 +1,4 @@
-from tripy.util.logging import G_LOGGER
+from tripy.logging import G_LOGGER
 import time
 
 

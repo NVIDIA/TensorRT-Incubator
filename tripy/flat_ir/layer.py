@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from tripy.frontend.flat_ir.tensor import Tensor
+from tripy.flat_ir.tensor import Tensor
 from tripy.frontend.parameters import BaseParameters
 
 
