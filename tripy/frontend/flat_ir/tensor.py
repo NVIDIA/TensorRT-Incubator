@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 from tripy.util import StackInfo
 
+ShapeInfo = tuple[int, ...]
+
 
 @dataclass
 class Tensor:
@@ -15,5 +17,8 @@ class Tensor:
     stack_info: StackInfo
     """Information about the stack where the tensor was created"""
 
+    shape: ShapeInfo
+    """Information about the shape of this tensor"""
+
     def __str__(self) -> str:
-        return self.name
+        return f"{self.name} [{self.shape}]"
