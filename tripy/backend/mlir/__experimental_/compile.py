@@ -29,12 +29,12 @@ def lower_flat_ir_to_mlir(flatIR: FlatIR):
                 hlo_tensors: Dict[str, Any] = {}
                 for l in flatIR.layers:
                     if type(l.params) == ValueParameters:
-                        hlo_tensors[l.output.name] = value_param_to_ir_const(l.params)
+                        hlo_tensors[l.outputs[0].name] = value_param_to_ir_const(l.params)
                     elif type(l.params) == BinaryElementwiseParameters:
                         assert type(l.params) == BinaryElementwiseParameters
                         if l.params.operation == BinaryElementwiseParameters.Operation.SUM:
                             add_out = hlo.AddOp(*[hlo_tensors[ip.name] for ip in l.inputs])
-                            hlo_tensors[l.output.name] = add_out
+                            hlo_tensors[l.outputs[0].name] = add_out
                             ops.append(add_out)
                         else:
                             assert False, "Only Operation.SUM is supported by MLIR backend."
@@ -63,7 +63,7 @@ def compile(flatIR: FlatIR):
     }
     """
     template = Template(host_template)
-    output_shape = flatIR.layers[-1].output.shape[0]
+    output_shape = flatIR.layers[-1].outputs[0].shape[0]
     prefix = template.render(output_shape=output_shape, repeat_count=2)
     if textual.endswith("}\n"):
         textual = textual[:-2] + prefix + "}"

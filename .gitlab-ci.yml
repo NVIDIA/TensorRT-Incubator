@@ -28,7 +28,7 @@ build_container:
       - Dockerfile
       - pyproject.toml
       if: $CI_COMMIT_BRANCH != null
-
+      when: always
 
 pre-commit:
   stage: lint

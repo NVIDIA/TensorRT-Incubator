@@ -14,8 +14,8 @@ class Layer:
     inputs: List[Tensor]
     """The inputs of this layer"""
 
-    output: Tensor
-    """The output of this layer"""
+    outputs: List[Tensor]
+    """The outputs of this layer"""
 
     params: BaseParameters
     """Parameters describing the operation of this layer"""

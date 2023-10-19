@@ -46,4 +46,5 @@ def collect_input_output(flatIR: FlatIR):
             if type(l.params) == ValueParameters:
                 inputs.append(l)
 
-    return inputs, [flatIR.layers[-1].output]
+    # TODO (#7): This needs to return any outputs requested by the user in the FlatIR constructor.
+    return inputs, flatIR.layers[-1].outputs
