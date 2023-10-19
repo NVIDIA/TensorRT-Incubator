@@ -14,9 +14,9 @@ class ValueParameters(BaseParameters):
     values: Any  # TODO: This should be a GPU-backed tensor.
 
     def shape(self):
-        assert type(self.values) == list or type(self.values) == np.ndarray
-        if type(self.values) == list:
+        assert isinstance(self.values, list) or isinstance(self.values, np.ndarray)
+        if isinstance(self.values, list):
             return [len(self.values)]
-        elif type(self.values) == np.ndarray:
+        elif isinstance(self.values, np.ndarray):
             return self.values.shape
         return None

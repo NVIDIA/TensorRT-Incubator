@@ -1,18 +1,22 @@
-from typing import List, Sequence, Dict, Set
-import numpy as np
+from typing import Callable, Dict, List, Sequence, Set
 
-from tripy.frontend.flat_ir.layer import Layer
-from tripy.frontend.flat_ir.tensor import Tensor
+from tripy.flat_ir.layer import Layer
+from tripy.flat_ir.tensor import ShapeInfo, Tensor
+from tripy.frontend.parameters import BaseParameters
 from tripy.frontend.tensor_expression import TensorExpression
-from tripy.frontend.parameters.binary_elementwise import BinaryElementwiseParameters
-from tripy.frontend.parameters.value import ValueParameters
-from tripy.frontend.flat_ir.tensor import ShapeInfo
+from tripy.util import FunctionRegistry
 
 
 class FlatIR:
     """
     A flattened representation of a computation expressed by one or more TensorExpressions.
     """
+
+    str_from_params = FunctionRegistry(Callable[[BaseParameters, List[str], str], str])
+    """Maps parameter types to functions that return string representations of the operation given the parameters, input names, and output name."""
+
+    shape_inference = FunctionRegistry(Callable[[BaseParameters, List[ShapeInfo]], ShapeInfo])
+    """Maps parameter types to functions that return the shape of the output of an operation given the parameters and input shapes"""
 
     def __init__(self, tensor_expressions: Sequence[TensorExpression]) -> None:
         """
@@ -22,7 +26,8 @@ class FlatIR:
 
         Example:
         ::
-            from tripy.frontend import TensorExpression, FlatIR
+            from tripy.frontend import TensorExpression
+            from tripy.flat_ir import FlatIR
 
             a = TensorExpression.tensor([0])
 
@@ -37,8 +42,8 @@ class FlatIR:
 
         _tensor_names: Dict[int, str] = {}
 
-        def get_tensor_name(tensor):
-            tid = id(tensor)
+        def get_tensor_name(tensor_expression):
+            tid = id(tensor_expression)
             if tid not in _tensor_names:
                 _tensor_names[tid] = f"t{len(_tensor_names)}"
             return _tensor_names[tid]
@@ -70,17 +75,14 @@ class FlatIR:
         layer_strs: List[str] = []
         for layer in self.layers:
             layer_strs.append(
-                f"Inputs: {[inp.__str__() for inp in layer.inputs]}\nOutput: '{layer.output.__str__()}'\nParameters: {layer.params}"
+                FlatIR.str_from_params[type(layer.params)](
+                    layer.params, [inp.name for inp in layer.inputs], layer.output.name
+                )
             )
-        return "\n\n".join(layer_strs)
+        return "\n".join(layer_strs)
 
     def __eq__(self, other: "FlatIR") -> bool:
         return self.layers == other.layers
-
-    def set_tensor_shape(self, tensor, shape):
-        tensor.shape = shape
-        if tensor.name not in shape:
-            self._shape_map[tensor.name] = shape
 
     def infer_shapes(self):
         """
@@ -88,18 +90,9 @@ class FlatIR:
         """
         # Compute and cache shape information for all tensors
         for layer in self.layers:
-            if type(layer.params) == ValueParameters:
-                self._shape_map[layer.output.name] = layer.params.shape()
-            elif type(layer.params) == BinaryElementwiseParameters:
-                assert (
-                    len(layer.inputs) == 2
-                ), f"Exepected BinaryElementwiseParameters to have 2 inputs, got {len(layer.inputs)}."
-                ip1_shape = self._shape_map[layer.inputs[0].name]
-                ip2_shape = self._shape_map[layer.inputs[1].name]
-                assert (
-                    ip1_shape == ip2_shape
-                ), f"Input tensor shape for BinaryElementwiseParameters should be same. Got {ip1_shape}, {ip2_shape}"
-                self._shape_map[layer.output.name] = ip1_shape
+            self._shape_map[layer.output.name] = FlatIR.shape_inference[type(layer.params)](
+                layer.params, [self._shape_map[inp.name] for inp in layer.inputs]
+            )
 
         # Assign cached shape information to corresponding Tensor
         for layer in self.layers:

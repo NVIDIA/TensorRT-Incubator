@@ -2,7 +2,7 @@ from typing import Any, List
 
 from tripy import util
 from tripy.frontend.parameters import BaseParameters, BinaryElementwiseParameters, ValueParameters
-from tripy.util.logging import G_LOGGER
+from tripy.logging import G_LOGGER
 
 
 class TensorExpression:
@@ -43,7 +43,7 @@ class TensorExpression:
         )
 
     def eval(self) -> None:
-        from tripy.frontend.flat_ir import FlatIR
+        from tripy.flat_ir import FlatIR
         from tripy.backend.mlir.__experimental_.compile import compile
 
         flatIR = FlatIR([self])

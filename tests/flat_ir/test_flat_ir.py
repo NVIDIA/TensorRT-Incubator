@@ -1,5 +1,9 @@
-from tripy.frontend import FlatIR, TensorExpression
 from textwrap import dedent
+
+import numpy as np
+
+from tripy.frontend import TensorExpression
+from tripy.flat_ir import FlatIR
 
 
 class TestFlatIR:
@@ -79,21 +83,27 @@ class TestFlatIR:
         c = a + b
 
         flat_ir = FlatIR([c])
+
+        print(flat_ir)  # Makes it easier to debug when the test fails.
         assert (
             str(flat_ir)
             == dedent(
                 """
-                Inputs: []
-                Output: 't1 [[1]]'
-                Parameters: ValueParameters(values=[1])
-
-                Inputs: []
-                Output: 't0 [[1]]'
-                Parameters: ValueParameters(values=[0])
-
-                Inputs: ['t0 [[1]]', 't1 [[1]]']
-                Output: 't2 [[1]]'
-                Parameters: BinaryElementwiseParameters(operation=<Operation.SUM: 0>)
+                t1 : values=([1]), shape=(), stride=(), loc=()
+                t0 : values=([0]), shape=(), stride=(), loc=()
+                t2 = t0 + t1
                 """
             ).strip()
         )
+
+    def test_infer_shapes(self):
+        shape = (5, 5)
+        a = TensorExpression.tensor(np.ones(shape))
+        b = TensorExpression.tensor(np.ones(shape))
+
+        c = a + b
+
+        flat_ir = FlatIR([c])
+        flat_ir.infer_shapes()
+
+        assert flat_ir.layers[-1].output.shape == shape
