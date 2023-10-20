@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from typing import Any
-import numpy as np
 
 from tripy.ops.base import BaseOperator
 
@@ -14,6 +13,8 @@ class Value(BaseOperator):
     values: Any  # TODO: This should be a GPU-backed tensor.
 
     def shape(self):
+        import numpy as np
+
         assert isinstance(self.values, list) or isinstance(self.values, np.ndarray)
         if isinstance(self.values, list):
             return [len(self.values)]

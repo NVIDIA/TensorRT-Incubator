@@ -5,7 +5,7 @@ from tripy.util import StackInfo
 
 
 @dataclass
-class Tensor:
+class FIRTensor:
     """
     Represents a single tensor in the FlatIR
     """

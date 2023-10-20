@@ -2,6 +2,7 @@ import enum
 from dataclasses import dataclass
 
 from tripy.ops.base import BaseOperator
+from tripy.ops.registry import TENSOR_METHOD_REGISTRY
 
 
 @dataclass
@@ -25,3 +26,23 @@ class BinaryElementwise(BaseOperator):
     def infer_shapes(self, input_shapes):
         assert self.kind == BinaryElementwise.Kind.SUM, "Only SUM is supported for now!"
         return [input_shapes[0]]
+
+
+@TENSOR_METHOD_REGISTRY("__add__")
+def add(self: "Tensor", other: "Tensor") -> "Tensor":
+    # TODO (#8): Add an example here.
+    """
+    Performs an elementwise sum.
+
+    Args:
+        other: The tensor to add to this one.
+
+    Returns:
+        The sum of the inputs.
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build(
+        [self, other],
+        BinaryElementwise(BinaryElementwise.Kind.SUM),
+    )

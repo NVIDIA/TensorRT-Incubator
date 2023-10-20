@@ -1,47 +1,47 @@
 from typing import Dict, List, Sequence, Set
 
-from tripy.flat_ir.layer import Layer
-from tripy.flat_ir.tensor import Tensor
-from tripy.frontend import TensorExpression
+from tripy import frontend
+from tripy.flat_ir.layer import FIRLayer
+from tripy.flat_ir.tensor import FIRTensor
 from tripy.types import ShapeInfo
 
 
 class FlatIR:
     """
-    A flattened representation of a computation expressed by one or more TensorExpressions.
+    A flattened representation of a computation expressed by one or more Tensors.
     """
 
-    def __init__(self, tensor_expressions: Sequence[TensorExpression]) -> None:
+    def __init__(self, tensors: Sequence[frontend.Tensor]) -> None:
         """
         Args:
-            tensor_expressions: The tensor expressions to evaluate. These are effectively
+            tensors: The tensor(s) to evaluate. These are effectively
                 the desired outputs.
 
         Example:
         ::
-            from tripy.frontend import TensorExpression
+            from tripy.frontend import Tensor
             from tripy.flat_ir import FlatIR
 
-            a = TensorExpression.tensor([0])
+            a = Tensor([0])
 
             flat_ir = FlatIR([a])
 
             assert flat_ir.layers[0].inputs == []
             assert flat_ir.layers[0].outputs[0].name == "t0"
         """
-        self.layers: List[Layer] = []
+        self.layers: List[FIRLayer] = []
         # Dict to cache shape information of a Tensor
         self._shape_map: Dict[str, ShapeInfo] = {}
 
         _tensor_names: Dict[int, str] = {}
 
-        def get_tensor_name(tensor_expression):
-            tid = id(tensor_expression)
+        def get_tensor_name(tensor):
+            tid = id(tensor)
             if tid not in _tensor_names:
                 _tensor_names[tid] = f"t{len(_tensor_names)}"
             return _tensor_names[tid]
 
-        exprs = list(tensor_expressions)
+        exprs = list(tensors)
         seen_tensor_ids: Set[int] = set()
         while exprs:
             head = exprs.pop(0)
@@ -52,9 +52,9 @@ class FlatIR:
 
             exprs.extend(head.inputs)
             self.layers.append(
-                Layer(
-                    [Tensor(get_tensor_name(inp), inp._stack_info, ShapeInfo()) for inp in head.inputs],
-                    [Tensor(get_tensor_name(head), head._stack_info, ShapeInfo())],
+                FIRLayer(
+                    [FIRTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo()) for inp in head.inputs],
+                    [FIRTensor(get_tensor_name(head), head._stack_info, ShapeInfo())],
                     head.op,
                 )
             )

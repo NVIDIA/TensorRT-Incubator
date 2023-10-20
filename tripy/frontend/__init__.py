@@ -1,2 +1,2 @@
-from tripy.frontend.tensor_expression import TensorExpression
+from tripy.frontend.tensor import Tensor
 from tripy.frontend.named_dim import NamedDim
