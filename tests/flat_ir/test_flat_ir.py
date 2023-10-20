@@ -17,7 +17,7 @@ class TestFlatIR:
 
         assert layer.params == a.params
         assert layer.inputs == []
-        assert layer.output.name == "t0"
+        assert layer.outputs[0].name == "t0"
 
     def test_flat_ir_recurses_inputs(self):
         a = TensorExpression.tensor([0])
@@ -28,7 +28,7 @@ class TestFlatIR:
         flat_ir = FlatIR([c])
 
         assert len(flat_ir.layers) == 3
-        names = {layer.output.name for layer in flat_ir.layers}
+        names = {layer.outputs[0].name for layer in flat_ir.layers}
 
         assert names == {"t0", "t1", "t2"}
 
@@ -43,7 +43,7 @@ class TestFlatIR:
         assert len(flat_ir.layers) == 3
 
         # The final layer should be 'c'. The ordering of 'a' and 'b' doesn't matter.
-        assert flat_ir.layers[-1].output.name == "t2"
+        assert flat_ir.layers[-1].outputs[0].name == "t2"
 
     def test_duplicate_traces_are_skipped(self):
         a = TensorExpression.tensor([0])
@@ -106,4 +106,4 @@ class TestFlatIR:
         flat_ir = FlatIR([c])
         flat_ir.infer_shapes()
 
-        assert flat_ir.layers[-1].output.shape == shape
+        assert flat_ir.layers[-1].outputs[0].shape == shape

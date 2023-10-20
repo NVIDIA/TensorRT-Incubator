@@ -3,12 +3,13 @@ from tripy.frontend.parameters import BinaryElementwiseParameters
 
 
 @FlatIR.str_from_params(BinaryElementwiseParameters)
-def to_str(params, input_names, output_name):
+def to_str(params, input_names, output_names):
     assert params.operation == BinaryElementwiseParameters.Operation.SUM, "Only SUM is supported for now!"
-    return f"{output_name} = {' + '.join(input_names)}"
+    assert len(output_names) == 1, "BinaryElementwise should have exactly one output!"
+    return f"{output_names[0]} = {' + '.join(input_names)}"
 
 
 @FlatIR.shape_inference(BinaryElementwiseParameters)
 def infer_shapes(params, input_shapes):
     assert params.operation == BinaryElementwiseParameters.Operation.SUM, "Only SUM is supported for now!"
-    return input_shapes[0]
+    return [input_shapes[0]]

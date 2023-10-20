@@ -12,11 +12,11 @@ class FlatIR:
     A flattened representation of a computation expressed by one or more TensorExpressions.
     """
 
-    str_from_params = FunctionRegistry(Callable[[BaseParameters, List[str], str], str])
+    str_from_params = FunctionRegistry(Callable[[BaseParameters, List[str], List[str]], str])
     """Maps parameter types to functions that return string representations of the operation given the parameters, input names, and output name."""
 
-    shape_inference = FunctionRegistry(Callable[[BaseParameters, List[ShapeInfo]], ShapeInfo])
-    """Maps parameter types to functions that return the shape of the output of an operation given the parameters and input shapes"""
+    shape_inference = FunctionRegistry(Callable[[BaseParameters, List[ShapeInfo]], List[ShapeInfo]])
+    """Maps parameter types to functions that return the shape(s) of the output(s) of an operation given the parameters and input shapes"""
 
     def __init__(self, tensor_expressions: Sequence[TensorExpression]) -> None:
         """
@@ -34,7 +34,7 @@ class FlatIR:
             flat_ir = FlatIR([a])
 
             assert flat_ir.layers[0].inputs == []
-            assert flat_ir.layers[0].output.name == "t0"
+            assert flat_ir.layers[0].outputs[0].name == "t0"
         """
         self.layers: List[Layer] = []
         # Dict to cache shape information of a Tensor
@@ -61,7 +61,7 @@ class FlatIR:
             self.layers.append(
                 Layer(
                     [Tensor(get_tensor_name(inp), inp._stack_info, ShapeInfo()) for inp in head.inputs],
-                    Tensor(get_tensor_name(head), head._stack_info, ShapeInfo()),
+                    [Tensor(get_tensor_name(head), head._stack_info, ShapeInfo())],
                     head.params,
                 )
             )
@@ -76,7 +76,7 @@ class FlatIR:
         for layer in self.layers:
             layer_strs.append(
                 FlatIR.str_from_params[type(layer.params)](
-                    layer.params, [inp.name for inp in layer.inputs], layer.output.name
+                    layer.params, [inp.name for inp in layer.inputs], [out.name for out in layer.outputs]
                 )
             )
         return "\n".join(layer_strs)
@@ -90,13 +90,13 @@ class FlatIR:
         """
         # Compute and cache shape information for all tensors
         for layer in self.layers:
-            self._shape_map[layer.output.name] = FlatIR.shape_inference[type(layer.params)](
+            out_shapes = FlatIR.shape_inference[type(layer.params)](
                 layer.params, [self._shape_map[inp.name] for inp in layer.inputs]
             )
+            for out, shape in zip(layer.outputs, out_shapes):
+                self._shape_map[out.name] = shape
 
         # Assign cached shape information to corresponding Tensor
         for layer in self.layers:
-            for ip in layer.inputs:
-                ip.shape = self._shape_map[ip.name]
-
-            layer.output.shape = self._shape_map[layer.output.name]
+            for io in layer.inputs + layer.outputs:
+                io.shape = self._shape_map[io.name]
