@@ -1,7 +1,7 @@
 from typing import Any, List
 
 from tripy import util
-from tripy.frontend.parameters import BaseParameters, BinaryElementwiseParameters, ValueParameters
+from tripy.ops import BaseOperator, BinaryElementwise, Value
 from tripy.logging import G_LOGGER
 
 
@@ -12,20 +12,20 @@ class TensorExpression:
 
     # It is very important that this is the only entrypoint to creating a tensor expression.
     # We include logic here that needs to be applied to all tensor expressions.
-    def __init__(self, inputs: "List[TensorExpression]", params: BaseParameters) -> None:
+    def __init__(self, inputs: "List[TensorExpression]", op: BaseOperator) -> None:
         """
         Args:
             inputs: The inputs to this expression.
-            params: The parameters that describe the operation being applied.
+            op: The operation being applied.
         """
         self.inputs = inputs
-        self.params = params
+        self.op = op
         self._stack_info = util.get_stack_info()
 
     @staticmethod
     def tensor(values: Any) -> "TensorExpression":
         # TODO: This should accept a GPU-backed tensor
-        return TensorExpression([], ValueParameters(values))
+        return TensorExpression([], Value(values))
 
     def __add__(self, other) -> "TensorExpression":
         """
@@ -39,7 +39,7 @@ class TensorExpression:
         """
         return TensorExpression(
             [self, other],
-            BinaryElementwiseParameters(BinaryElementwiseParameters.Operation.SUM),
+            BinaryElementwise(BinaryElementwise.Kind.SUM),
         )
 
     def eval(self) -> None:

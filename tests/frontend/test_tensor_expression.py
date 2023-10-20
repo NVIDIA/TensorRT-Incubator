@@ -6,8 +6,8 @@ import pytest
 from tripy.frontend import TensorExpression
 
 # Internal-only imports
-from tripy.frontend.parameters import BinaryElementwiseParameters, ValueParameters
 from tripy.util.stack_info import SourceInfo
+import tripy.ops
 
 
 class TestTensorExpression:
@@ -17,14 +17,14 @@ class TestTensorExpression:
 
         assert isinstance(a, TensorExpression)
         assert a.inputs == []
-        assert isinstance(a.params, ValueParameters)
-        assert a.params.values == VALUES
+        assert isinstance(a.op, tripy.ops.Value)
+        assert a.op.values == VALUES
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     def test_stack_info_is_populated(self):
         # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
         expected_line_number = sys._getframe().f_lineno + 1
-        a = TensorExpression(inputs=[], params=None)
+        a = TensorExpression(inputs=[], op=None)
 
         # We don't check line number within TensorExpression because it's diffficult to determine.
         assert a._stack_info[0] == SourceInfo(
@@ -40,12 +40,12 @@ class TestTensorExpression:
             function=TestTensorExpression.test_stack_info_is_populated.__name__,
         )
 
-    @pytest.mark.parametrize("func, operation", [(lambda a, b: a + b, BinaryElementwiseParameters.Operation.SUM)])
-    def test_binary_elementwise(self, func, operation):
+    @pytest.mark.parametrize("func, kind", [(lambda a, b: a + b, tripy.ops.BinaryElementwise.Kind.SUM)])
+    def test_binary_elementwise(self, func, kind):
         a = TensorExpression.tensor([1])
         b = TensorExpression.tensor([2])
 
         out = func(a, b)
         assert isinstance(out, TensorExpression)
-        assert isinstance(out.params, BinaryElementwiseParameters)
-        assert out.params.operation == operation
+        assert isinstance(out.op, tripy.ops.BinaryElementwise)
+        assert out.op.kind == kind

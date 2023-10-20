@@ -1,0 +1,1 @@
+ShapeInfo = tuple[int, ...]

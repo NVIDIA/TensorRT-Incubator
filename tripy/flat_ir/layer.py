@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List
 
 from tripy.flat_ir.tensor import Tensor
-from tripy.frontend.parameters import BaseParameters
+from tripy.ops import BaseOperator
 
 
 @dataclass
@@ -17,5 +17,5 @@ class Layer:
     outputs: List[Tensor]
     """The outputs of this layer"""
 
-    params: BaseParameters
-    """Parameters describing the operation of this layer"""
+    op: BaseOperator
+    """The operation applied by this layer"""
