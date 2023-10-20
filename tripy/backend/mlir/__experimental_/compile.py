@@ -1,7 +1,6 @@
 import os
 from typing import Any, Dict
 
-import numpy as np
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import func as func_dialect
 from jax._src.lib.mlir.dialects import hlo
@@ -9,8 +8,8 @@ from jinja2 import Template
 
 from tripy.backend.mlir.utils import collect_input_output, execute_binary, make_ir_context, value_param_to_ir_const
 from tripy.flat_ir import FlatIR
-from tripy.frontend.parameters import BinaryElementwiseParameters, ValueParameters
 from tripy.logging import G_LOGGER
+from tripy.ops import BinaryElementwise, Value
 
 
 def lower_flat_ir_to_mlir(flatIR: FlatIR):
@@ -28,11 +27,11 @@ def lower_flat_ir_to_mlir(flatIR: FlatIR):
                 ops = []
                 hlo_tensors: Dict[str, Any] = {}
                 for l in flatIR.layers:
-                    if type(l.params) == ValueParameters:
-                        hlo_tensors[l.outputs[0].name] = value_param_to_ir_const(l.params)
-                    elif type(l.params) == BinaryElementwiseParameters:
-                        assert type(l.params) == BinaryElementwiseParameters
-                        if l.params.operation == BinaryElementwiseParameters.Operation.SUM:
+                    if isinstance(l.op, Value):
+                        hlo_tensors[l.outputs[0].name] = value_param_to_ir_const(l.op)
+                    else:
+                        assert isinstance(l.op, BinaryElementwise)
+                        if l.op.kind == BinaryElementwise.Kind.SUM:
                             add_out = hlo.AddOp(*[hlo_tensors[ip.name] for ip in l.inputs])
                             hlo_tensors[l.outputs[0].name] = add_out
                             ops.append(add_out)
@@ -40,8 +39,6 @@ def lower_flat_ir_to_mlir(flatIR: FlatIR):
                             assert False, "Only Operation.SUM is supported by MLIR backend."
                 func_dialect.ReturnOp(ops[-1])
         return module
-
-    return None
 
 
 def compile(flatIR: FlatIR):

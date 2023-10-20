@@ -15,7 +15,7 @@ class TestFlatIR:
         assert len(flat_ir.layers) == 1
         layer = flat_ir.layers[0]
 
-        assert layer.params == a.params
+        assert layer.op == a.op
         assert layer.inputs == []
         assert layer.outputs[0].name == "t0"
 

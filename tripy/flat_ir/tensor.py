@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 
+from tripy.types import ShapeInfo
 from tripy.util import StackInfo
-
-ShapeInfo = tuple[int, ...]
 
 
 @dataclass

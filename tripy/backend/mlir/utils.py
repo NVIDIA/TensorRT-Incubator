@@ -5,7 +5,7 @@ from jax._src.lib.mlir import dialects, ir
 from jax._src.lib.mlir.dialects import hlo
 
 from tripy.flat_ir import FlatIR
-from tripy.frontend.parameters.value import ValueParameters
+from tripy.ops.value import Value
 from tripy.logging import G_LOGGER
 from tripy.util import log_time
 
@@ -43,7 +43,7 @@ def collect_input_output(flatIR: FlatIR):
     inputs = []
     for l in flatIR.layers:
         if len(l.inputs) == 0:
-            if type(l.params) == ValueParameters:
+            if isinstance(l.op, Value):
                 inputs.append(l)
 
     # TODO (#7): This needs to return any outputs requested by the user in the FlatIR constructor.
