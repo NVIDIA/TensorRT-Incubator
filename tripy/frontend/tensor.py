@@ -48,11 +48,16 @@ class Tensor(metaclass=TensorMeta):
 
     def eval(self) -> None:
         from tripy.flat_ir import FlatIR
-        from tripy.backend.mlir.__experimental_.compile import compile
+        from tripy.backend.mlir.compiler import FlatIRCompiler
+        from tripy.backend.mlir.executor import FlatIRExecutor
 
-        flatIR = FlatIR([self])
-        G_LOGGER.ir_printer(f"flatIR :\n{flatIR}")
-        compile(flatIR)
+        flat_ir = FlatIR([self])
+        G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
+
+        with FlatIRCompiler() as compiler, FlatIRExecutor(flat_ir) as executor:
+            executable = compiler.compile(flat_ir)
+            # Todo: introduce computed_value field and store the result.
+            return executor.execute(executable)
 
     def __repr__(self) -> str:
         return f"{self.eval()}"
