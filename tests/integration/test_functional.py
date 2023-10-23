@@ -13,4 +13,4 @@ class TestFunctional:
 
         c = a + b
         out = c + c
-        out.__repr__()
+        assert (out.eval() == np.array([6.0, 8.0])).all()

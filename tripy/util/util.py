@@ -1,5 +1,9 @@
-from tripy.logging import G_LOGGER
 import time
+import glob
+import os
+from typing import List
+
+from tripy.logging import G_LOGGER
 
 
 def default(value, default):
@@ -32,3 +36,18 @@ def log_time(func):
         return result
 
     return wrapper
+
+
+def find_file_in_dir(file_name: str, search_directory: str) -> List:
+    """
+    Search for file_name recursively in the root_directory.
+
+    Args:
+        file_name: The file name or pattern with wildcards.
+        search_directory: The root directory from where to search for file_name.
+    Returns:
+        List of absolute path for matching files.
+    """
+    search_pattern = os.path.join(search_directory, "**", file_name)
+    matching_files = glob.glob(search_pattern, recursive=True)
+    return matching_files

@@ -15,7 +15,7 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     echo 'trtuser:nvidia' | chpasswd && \
     mkdir -p /workspace && chown trtuser /workspace && \
     apt-get update && \
-    apt-get install -y software-properties-common sudo fakeroot python3-pip && \
+    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
 
@@ -24,10 +24,13 @@ RUN groupadd -r -f -g ${gid} trtuser && \
 ARG CUDNN_VERSION=8.9.2.26-1+cuda12.1
 ARG TRT_VERSION=8.6.1.6-1+cuda12.0
 RUN apt-get update && \
-    apt-get install -y libnvinfer8=${TRT_VERSION} && \
+    apt-get install -y \
+    tensorrt-libs=${TRT_VERSION} \
+    tensorrt-dev=${TRT_VERSION} && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/*
 
 
 COPY pyproject.toml /tripy/pyproject.toml
 RUN pip install .[docs,dev,test] --extra-index-url https://download.pytorch.org/whl/cu118 --extra-index-url https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/:/usr/local/cuda-12.2/targets/x86_64-linux/lib/:$LD_LIBRARY_PATH
