@@ -17,7 +17,7 @@ import requests
 import tripy
 from tests.helper import ROOT_DIR
 from tripy.flat_ir import FlatIR
-from tripy.frontend import TensorExpression
+from tripy.frontend import Tensor
 
 
 class TestReadme:
@@ -68,7 +68,11 @@ def discover_modules():
 def discover_tripy_objects():
     for mod in discover_modules():
         yield from [
-            obj for obj in mod.__dict__.values() if hasattr(obj, "__module__") and obj.__module__.startswith("tripy")
+            obj
+            for obj in mod.__dict__.values()
+            if hasattr(obj, "__module__")
+            and obj.__module__.startswith("tripy")
+            and (inspect.isclass(obj) or inspect.isfunction(obj))
         ]
 
 
@@ -80,7 +84,7 @@ def get_all_tripy_interfaces():
         all_objects.update({member for _, member in inspect.getmembers(obj, inspect.isfunction)})
 
     # Some sanity checks to make sure we're actually getting all the objects we expect
-    assert TensorExpression in all_objects
+    assert Tensor in all_objects
     assert FlatIR in all_objects
 
     return all_objects
