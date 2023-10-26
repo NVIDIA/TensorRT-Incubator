@@ -26,7 +26,7 @@ def lower_flat_ir_to_mlir(flat_ir: FlatIR) -> ir.Module:
             out_types = [ir.RankedTensorType.get(outputs[0].shape, ir.F32Type.get())]
             ftype = ir.FunctionType.get(inp_types, out_types)
             # Todo: Function name should be a property of flatIR and used here.
-            func_op = func_dialect.FuncOp("tripyFunc", ftype, ip=ip)
+            func_op = func_dialect.FuncOp("main", ftype, ip=ip)
             entry_block = func_op.add_entry_block()
             with ir.InsertionPoint(entry_block):
                 ops = []
