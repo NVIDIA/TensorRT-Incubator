@@ -1,6 +1,3 @@
-import ctypes
-from jinja2 import Template
-
 from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
 from tripy.flat_ir import FlatIR
 from tripy.logging import G_LOGGER
@@ -15,38 +12,6 @@ class FlatIRCompiler:
 
     def __init__(self) -> None:
         self.compiler = mlir_wrapper()
-
-    def insert_host_code(self, flat_ir: FlatIR, textual_ir: str) -> str:
-        """
-        Insert host code which calls the StableHLO device code in MLIR representation.
-        Args:
-            flat_ir: flat_ir representation of the program.
-            texutal_ir: StableHLOs textual representation of the program.
-        Returns:
-            textual_ir: StableHLO textual representation with device and host code.
-        """
-
-        # Todo #3: Executor.print is not required but currently the program fails if executor.print is removed!
-        host_template = """
-        func.func @main() -> tensor<{{output_shape}}xf32> {
-        %0 = func.call @tripyFunc() : () -> tensor<{{output_shape}}xf32>
-        {% for i in range(repeat_count) %}
-            %c_{{i}} = arith.constant {{i}} : index
-            %1{{i}} = tensor.extract %0[%c_{{i}}] : tensor<{{output_shape}}xf32>
-            executor.print "%f "(%1{{i}} : f32)
-        {% endfor %}
-        return %0 : tensor<{{output_shape}}xf32>
-        }
-        """
-        template = Template(host_template)
-        assert len(flat_ir.layers[-1].outputs) == 1, "MLIR host code insertion expects only 1 output."
-        output_shape = flat_ir.layers[-1].outputs[0].shape[0]
-        prefix = template.render(output_shape=output_shape, repeat_count=2)
-        if textual_ir.endswith("}\n"):
-            textual_ir = textual_ir[:-2] + prefix + "}"
-
-        G_LOGGER.ir_printer(f"StableHLO IR:\n{textual_ir}")
-        return textual_ir
 
     def __enter__(self):
         return self
@@ -71,5 +36,5 @@ class FlatIRCompiler:
         # Lower flatIR to corresponding StableHLO IR.
         mlir_module = lower_flat_ir_to_mlir(flat_ir)
         mlir_textual = mlir_module.__str__()
-        mlir_textual = self.insert_host_code(flat_ir, mlir_textual)
+        G_LOGGER.ir_printer(f"StableHLO IR:\n{mlir_textual}")
         return self.compiler.compile(mlir_textual)
