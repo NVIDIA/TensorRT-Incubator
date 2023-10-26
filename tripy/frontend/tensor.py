@@ -28,12 +28,11 @@ class Tensor(metaclass=TensorMeta):
         self.op = op
         self._stack_info = util.get_stack_info()
 
-    def __init__(self, values: Any) -> None:
-        if values is not None:
-            from tripy.ops import Value
+    def __init__(self, data: Any) -> None:
+        if data is not None:
+            from tripy.ops import Storage
 
-            # TODO: This should accept a GPU-backed tensor
-            self._finalize([], Value(values))
+            self._finalize([], Storage(data))
 
     @staticmethod
     def build(inputs: "List[Tensor]", op: "tripy.ops.BaseOperator") -> None:
@@ -42,7 +41,7 @@ class Tensor(metaclass=TensorMeta):
             inputs: The inputs to this tensor.
             op: The operation being applied.
         """
-        tensor = Tensor(values=None)
+        tensor = Tensor(data=None)
         tensor._finalize(inputs, op)
         return tensor
 

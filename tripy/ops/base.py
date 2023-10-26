@@ -30,3 +30,16 @@ class BaseOperator(abc.ABC):
             The shapes of the output tensor(s).
         """
         ...
+
+    @abc.abstractmethod
+    def to_mlir(self, inputs: List) -> List:
+        """
+        Generates MLIR HLO ops for the operation.
+
+        Args:
+            inputs: The input MLIR HLO operations.
+
+        Returns:
+            The MLIR HLO op(s) corresponding to this operation.
+        """
+        ...
