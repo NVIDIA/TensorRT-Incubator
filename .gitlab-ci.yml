@@ -39,8 +39,6 @@ build_container:
       - pyproject.toml
       - mlir-tensorrt
       - .gitlab-ci.yml
-      if: $CI_COMMIT_BRANCH != null
-      when: always
 
 pre-commit:
   stage: lint
