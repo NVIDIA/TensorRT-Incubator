@@ -30,7 +30,8 @@ class _MlirCompiler:
 
     @log_time
     def __init__(self) -> None:
-        lib_path = find_file_in_dir("libtripy_backend*.so", "/tripy/mlir-tensorrt/build/")
+        # TODO: Make this not use a hard-coded path.
+        lib_path = find_file_in_dir("libtripy_backend*.so", "/usr/lib/mlir-tensorrt/")
         assert len(lib_path) == 1, "Compiler expects exactly 1 tripy backend library to be available."
         self.compiler_lib = ctypes.CDLL(lib_path[0])
 

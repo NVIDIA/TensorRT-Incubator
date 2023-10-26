@@ -39,7 +39,7 @@ build_container:
       - pyproject.toml
       - mlir-tensorrt
       - .gitlab-ci.yml
-      if: $CI_COMMIT_BRANCH != null && $CI_PIPELINE_SOURCE == "merge_request_event"
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
 
 pre-commit:
