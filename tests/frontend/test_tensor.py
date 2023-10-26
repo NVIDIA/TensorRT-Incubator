@@ -14,8 +14,8 @@ class TestTensor:
 
         assert isinstance(a, Tensor)
         assert a.inputs == []
-        assert isinstance(a.op, tripy.ops.Value)
-        assert a.op.values == VALUES
+        assert isinstance(a.op, tripy.ops.Storage)
+        assert list(a.op.data) == VALUES
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     def test_stack_info_is_populated(self):

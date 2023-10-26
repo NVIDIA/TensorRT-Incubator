@@ -31,9 +31,7 @@ class _MlirCompiler:
     @log_time
     def __init__(self) -> None:
         lib_path = find_file_in_dir("libtripy_backend*.so", "/tripy/mlir-tensorrt/build/")
-        assert (
-            len(lib_path) == 1
-        ), f"Compiler expects only 1 tripy backend library to be available. Found {len(lib_path)} libraries."
+        assert len(lib_path) == 1, "Compiler expects exactly 1 tripy backend library to be available."
         self.compiler_lib = ctypes.CDLL(lib_path[0])
 
         # Entry points of the MLIR compiler.

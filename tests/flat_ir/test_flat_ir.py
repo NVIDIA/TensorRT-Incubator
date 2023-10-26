@@ -89,8 +89,8 @@ class TestFlatIR:
             str(flat_ir)
             == dedent(
                 """
-                t1 : values=([1]), shape=(), stride=(), loc=()
-                t0 : values=([0]), shape=(), stride=(), loc=()
+                t1 : data=([1]), shape=(), stride=(), loc=()
+                t0 : data=([0]), shape=(), stride=(), loc=()
                 t2 = t0 + t1
                 """
             ).strip()

@@ -1,12 +1,10 @@
 import subprocess
 
-import numpy as np
 from jax._src.lib.mlir import dialects, ir
-from jax._src.lib.mlir.dialects import hlo
 
 from tripy.flat_ir import FlatIR
-from tripy.ops.value import Value
 from tripy.logging import G_LOGGER
+from tripy.ops import Storage
 from tripy.util import log_time
 
 
@@ -32,18 +30,11 @@ def execute_binary(bin_path):
     print(output)
 
 
-def value_param_to_ir_const(param):
-    if type(param.values) == np.ndarray or type(param.values) == list:
-        array = np.array(param.values, dtype=np.float32)
-        attr = ir.DenseElementsAttr.get(np.ascontiguousarray(array), type=ir.F32Type.get(), shape=array.shape)
-        return hlo.ConstantOp(attr).result
-
-
 def collect_input_output(flatIR: FlatIR):
     inputs = []
     for l in flatIR.layers:
         if len(l.inputs) == 0:
-            if isinstance(l.op, Value):
+            if isinstance(l.op, Storage):
                 inputs.append(l)
 
     # TODO (#7): This needs to return any outputs requested by the user in the FlatIR constructor.
