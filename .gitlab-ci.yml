@@ -9,15 +9,25 @@ variables:
   # Avoid TLS because it's not enabled in our runner
   DOCKER_TLS_CERTDIR: ""
   CI_REGISTRY_IMAGE: "gitlab-master.nvidia.com:5005/tensorrt/poc/tripy"
-
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_FORCE_HTTPS: "true"
+  GIT_SUBMODULE_PATHS: ":(exclude)third_party/jax"
 
 build_container:
   stage: build
-  image: docker:24.0.5
+  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
   services:
     - docker:24.0.5-dind
+  before_script:
+    - export GROUP_CICD_TOKEN=$GROUP_CICD_TOKEN
+    - docker login -u gitlab-ci-token -p "${CI_JOB_TOKEN}" "${CI_REGISTRY}"
+  timeout: 3 hours
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd mlir-tensorrt/
+    - cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DLLVM_USE_LINKER=lld
+    - ninja -C build all
+    - cd ..
     - docker pull $CI_REGISTRY_IMAGE:latest || true
     - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
     - docker push $CI_REGISTRY_IMAGE
@@ -27,6 +37,8 @@ build_container:
     - changes:
       - Dockerfile
       - pyproject.toml
+      - mlir-tensorrt
+      - .gitlab-ci.yml
       if: $CI_COMMIT_BRANCH != null
       when: always
 
