@@ -32,7 +32,8 @@ RUN apt-get update && \
 
 
 COPY pyproject.toml /tripy/pyproject.toml
-RUN mkdir -p /tripy/mlir-tensorrt/build
-COPY mlir-tensorrt/build/lib/Integrations /tripy/mlir-tensorrt/build/lib/Integrations
 RUN pip install .[docs,dev,test] --extra-index-url https://download.pytorch.org/whl/cu118 --extra-index-url https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-ENV LD_LIBRARY_PATH=/tripy/mlir-tensorrt/build/lib/Integrations/PJRT/:/usr/local/cuda/lib64/:/usr/local/cuda-12.2/targets/x86_64-linux/lib/:$LD_LIBRARY_PATH
+
+RUN mkdir -p /usr/lib/mlir-tensorrt/
+COPY mlir-tensorrt/build/lib/Integrations /usr/lib/mlir-tensorrt/
+ENV LD_LIBRARY_PATH=/usr/lib/mlir-tensorrt//PJRT/:/usr/local/cuda/lib64/:/usr/local/cuda-12.2/targets/x86_64-linux/lib/:$LD_LIBRARY_PATH
