@@ -47,6 +47,9 @@ Launch `mlir-tensorrt` container and build `mlir-tensorrt`:
 ```bash
 cd build_tools/docker
 docker compose up -d
+# copy ssh key to mlir-tensorrt container, use docker ps to find {container-id}
+docker cp ~/.ssh/id_rsa {container-id}:/root/.ssh
+# launch mlir-tensorrt container
 docker compose exec mlir-tensorrt-poc-dev bash
 
 cd /workspaces/mlir-tensorrt/
@@ -63,7 +66,7 @@ ninja -C build all
 ./build/tools/mlir-tensorrt-opt examples/matmul_mhlo.mlir -pass-pipeline="builtin.module(func.func(convert-hlo-to-tensorrt{allow-i64-to-i32-conversion},tensorrt-expand-ops,translate-tensorrt-to-engine))" -mlir-elide-elementsattrs-if-larger=128
 ```
 
-After building `mlir-tensorrt` project, the build will be available in the `tripy` container at `tripy/mlir-tensorrt/build` directory.
+After building `mlir-tensorrt` project, the build will be available in the `tripy` container. The integrated tripy lib file is `libtripy_backend_lib.so`.
 
 ## Running Tests
 
