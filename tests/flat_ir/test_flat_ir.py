@@ -89,9 +89,10 @@ class TestFlatIR:
             str(flat_ir)
             == dedent(
                 """
-                t1 : data=([1]), shape=(), stride=(), loc=()
                 t0 : data=([0]), shape=(), stride=(), loc=()
+                t1 : data=([1]), shape=(), stride=(), loc=()
                 t2 = t0 + t1
+                outputs: t2
                 """
             ).strip()
         )
@@ -107,3 +108,27 @@ class TestFlatIR:
         flat_ir.infer_shapes()
 
         assert flat_ir.layers[-1].outputs[0].shape == shape
+
+    def test_multiple_outputs(self):
+        shape = 1
+        a = Tensor(np.ones(shape))
+        b = Tensor(np.ones(shape))
+
+        c = a + b
+        d = c + c
+
+        # The order c,d is important to test topological sort correctness, since if its d,c the dependencies are managed automatically.
+        flat_ir = FlatIR([c, d])
+        print(flat_ir)
+        assert (
+            str(flat_ir)
+            == dedent(
+                """
+                t0 : data=([1.]), shape=(), stride=(), loc=()
+                t1 : data=([1.]), shape=(), stride=(), loc=()
+                t2 = t0 + t1
+                t3 = t2 + t2
+                outputs: t2, t3
+                """
+            ).strip()
+        )
