@@ -37,5 +37,4 @@ def collect_input_output(flatIR: FlatIR):
             if isinstance(l.op, Storage):
                 inputs.append(l)
 
-    # TODO (#7): This needs to return any outputs requested by the user in the FlatIR constructor.
-    return inputs, flatIR.layers[-1].outputs
+    return inputs, flatIR.outputs

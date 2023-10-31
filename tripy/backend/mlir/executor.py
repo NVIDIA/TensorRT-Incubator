@@ -1,4 +1,5 @@
 import numpy as np
+import ctypes
 
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
 from tripy.logging import G_LOGGER
@@ -34,11 +35,11 @@ class FlatIRExecutor:
         Returns:
             numpy array for the output tensor.
         """
-        assert len(self.flat_ir.layers[-1].outputs) == 1, "MLIR host code insertion expects only 1 output."
-        output_shape = self.flat_ir.layers[-1].outputs[0].shape[0]
-
+        arrays = (ctypes.c_void_p * len(self.flat_ir.outputs))()
         # Create an empty numpy array representing the output tensor of flatIR.
-        output = np.zeros(output_shape, dtype=np.float32)
-        output_ptr = output.ctypes.data_as(void_ptr)
-        self.compiler.execute(executable, output_ptr)
-        return output
+        outputs = [np.zeros(o.shape, dtype=np.float32) for o in self.flat_ir.outputs]
+        for i in range(len(self.flat_ir.outputs)):
+            arrays[i] = outputs[i].ctypes.data_as(void_ptr)
+
+        self.compiler.execute(executable, arrays)
+        return outputs

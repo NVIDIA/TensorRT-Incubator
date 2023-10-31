@@ -9,6 +9,7 @@ from tripy.util import log_time
 void_ptr = ctypes.c_void_p
 char_ptr = ctypes.c_char_p
 c_int = ctypes.c_int
+POINTER = ctypes.POINTER
 
 
 def func_wrapper(lib, c_func, argtypes, restype):
@@ -32,14 +33,16 @@ class _MlirCompiler:
     def __init__(self) -> None:
         # TODO: Make this not use a hard-coded path.
         lib_path = find_file_in_dir("libtripy_backend*.so", "/usr/lib/mlir-tensorrt/")
-        assert len(lib_path) == 1, "Compiler expects exactly 1 tripy backend library to be available."
+        assert (
+            len(lib_path) == 1
+        ), f"Compiler expects exactly 1 tripy backend library to be available.  Found {len(lib_path)} libraries."
         self.compiler_lib = ctypes.CDLL(lib_path[0])
 
         # Entry points of the MLIR compiler.
         self.mlir_initialize = func_wrapper(self.compiler_lib, "initialize", [], void_ptr)
         self.mlir_destroy = func_wrapper(self.compiler_lib, "destroy", [void_ptr], None)
         self.mlir_compile = func_wrapper(self.compiler_lib, "compile", [void_ptr, char_ptr, c_int], void_ptr)
-        self.mlir_execute = func_wrapper(self.compiler_lib, "execute", [void_ptr, void_ptr], None)
+        self.mlir_execute = func_wrapper(self.compiler_lib, "execute", [void_ptr, POINTER(void_ptr)], None)
 
         self.compiler = self.mlir_initialize()
         if not self.compiler:
@@ -64,8 +67,9 @@ class _MlirCompiler:
         """
         Args:
             executable: MLIR executable.
-            output_ptr: Address of the output array.
+            output_ptr: Address of the output (array of arrays).
         """
+
         self.mlir_execute(void_ptr(executable), output_ptr)
 
 
