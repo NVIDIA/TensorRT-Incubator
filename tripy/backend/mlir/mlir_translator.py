@@ -21,7 +21,7 @@ def lower_flat_ir_to_mlir(flat_ir: FlatIR) -> ir.Module:
             # Lets assume only one function with inline code (#9 will fix it)
             _, outputs = collect_input_output(flat_ir)
             inp_types = []
-            out_types = [ir.RankedTensorType.get(outputs[0].shape, ir.F32Type.get())]
+            out_types = [ir.RankedTensorType.get(o.shape, ir.F32Type.get()) for o in outputs]
             ftype = ir.FunctionType.get(inp_types, out_types)
             # Todo: Function name should be a property of flatIR and used here.
             func_op = func_dialect.FuncOp("main", ftype, ip=ip)
@@ -33,5 +33,6 @@ def lower_flat_ir_to_mlir(flat_ir: FlatIR) -> ir.Module:
                     out_ops = l.op.to_mlir([hlo_tensors[inp.name] for inp in l.inputs])
                     ops.extend(out_ops)
                     hlo_tensors.update(zip([out.name for out in l.outputs], out_ops))
-                func_dialect.ReturnOp(ops[-1])
+
+                func_dialect.ReturnOp([hlo_tensors[o.name] for o in flat_ir.outputs])
         return module
