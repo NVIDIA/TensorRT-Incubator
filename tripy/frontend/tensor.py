@@ -49,14 +49,22 @@ class Tensor(metaclass=TensorMeta):
         from tripy.flat_ir import FlatIR
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
+        from tripy.ops import Storage
+
+        if isinstance(self.op, Storage):
+            return self.op.data
 
         flat_ir = FlatIR([self])
         G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
 
         with FlatIRCompiler() as compiler, FlatIRExecutor(flat_ir) as executor:
             executable = compiler.compile(flat_ir)
-            # Todo: introduce computed_value field and store the result.
-            return executor.execute(executable)
+            # Upon computing the value of this tensor, we switch it to have a `Storage`
+            # parameter so that it does not need to be computed again.
+            value = executor.execute(executable)
+            self.inputs = []
+            self.op = Storage(value)
+            return value
 
     def __repr__(self) -> str:
         return f"{self.eval()}"

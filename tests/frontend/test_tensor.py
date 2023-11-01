@@ -1,6 +1,7 @@
 import inspect
 import sys
 
+import numpy as np
 
 import tripy.ops
 from tripy.frontend import Tensor
@@ -36,3 +37,23 @@ class TestTensor:
             line=expected_line_number,
             function=TestTensor.test_stack_info_is_populated.__name__,
         )
+
+    def test_eval_of_storage_tensor_is_nop(self):
+        a = Tensor(np.array([1], dtype=np.float32))
+
+        # TODO: Verify that we don't compile/execute somehow.
+        assert list(a.eval()) == [1]
+
+    def test_evaled_tensor_becomes_concrete(self):
+        a = Tensor(np.array([1], dtype=np.float32))
+        b = Tensor(np.array([2], dtype=np.float32))
+
+        c = a + b
+        assert isinstance(c.op, tripy.ops.BinaryElementwise)
+
+        assert list(c.eval()) == [3]
+
+        assert isinstance(c.op, tripy.ops.Storage)
+        # Storage tensors should have no inputs since we don't want to trace back from them.
+        assert c.inputs == []
+        assert list(c.op.data) == [3]

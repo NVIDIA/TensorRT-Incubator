@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from tripy.frontend import Tensor
 from tripy.flat_ir import FlatIR
