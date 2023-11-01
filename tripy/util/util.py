@@ -51,3 +51,12 @@ def find_file_in_dir(file_name: str, search_directory: str) -> List:
     search_pattern = os.path.join(search_directory, "**", file_name)
     matching_files = glob.glob(search_pattern, recursive=True)
     return matching_files
+
+
+def prefix_with_line_numbers(text: str) -> str:
+    """
+    Adds prefix line number to text.
+    """
+    lines = text.split("\n")
+    numbered_lines = [f"{i+1}: {line}" for i, line in enumerate(lines)]
+    return "\n".join(numbered_lines)
