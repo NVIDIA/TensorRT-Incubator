@@ -1,7 +1,7 @@
 from typing import Any, Dict
 
-from jax._src.lib.mlir import ir
-from jax._src.lib.mlir.dialects import func as func_dialect
+from mlir import ir
+from mlir.dialects import func as func_dialect
 
 from tripy.backend.mlir.utils import collect_input_output, make_ir_context
 from tripy.flat_ir import FlatIR

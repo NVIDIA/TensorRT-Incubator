@@ -2,7 +2,7 @@ import enum
 from dataclasses import dataclass
 from typing import List
 
-from jax._src.lib.mlir.dialects import hlo
+from mlir.dialects import stablehlo
 
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
@@ -32,7 +32,7 @@ class BinaryElementwise(BaseOperator):
 
     def to_mlir(self, inputs: List) -> List:
         assert self.kind == BinaryElementwise.Kind.SUM, "Only Operation.SUM is supported by MLIR backend."
-        add_out = hlo.AddOp(*inputs)
+        add_out = stablehlo.AddOp(*inputs)
         return [add_out]
 
 

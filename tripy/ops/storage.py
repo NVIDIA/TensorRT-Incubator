@@ -1,8 +1,8 @@
 from typing import Any
 
 import numpy as np
-from jax._src.lib.mlir import ir
-from jax._src.lib.mlir.dialects import hlo
+from mlir import ir
+from mlir.dialects import stablehlo
 
 from tripy.ops.base import BaseOperator
 
@@ -34,4 +34,4 @@ class Storage(BaseOperator):
         # TODO (#11): Support non-FP32 types here.
         array = np.array(self.data, dtype=np.float32)
         attr = ir.DenseElementsAttr.get(np.ascontiguousarray(array), type=ir.F32Type.get(), shape=array.shape)
-        return [hlo.ConstantOp(attr)]
+        return [stablehlo.ConstantOp(attr)]
