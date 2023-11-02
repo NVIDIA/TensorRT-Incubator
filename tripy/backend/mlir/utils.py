@@ -1,6 +1,6 @@
 import subprocess
 
-from jax._src.lib.mlir import dialects, ir
+from mlir import dialects, ir
 
 from tripy.flat_ir import FlatIR
 from tripy.logging import G_LOGGER
@@ -13,9 +13,7 @@ def make_ir_context() -> ir.Context:
 
     context.enable_multithreading(False)
 
-    dialects.mhlo.register_mhlo_dialect(context)
-    dialects.chlo.register_dialect(context)
-    dialects.hlo.register_dialect(context)
+    dialects.stablehlo.register_dialect(context)
     return context
 
 
