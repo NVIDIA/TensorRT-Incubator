@@ -35,7 +35,9 @@ From the [`tripy` root directory](.), run:
 
 Get `mlir-tensorrt` repository:
 ```bash
-git submodule update --init --recursive
+git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/poc/mlir/mlir-tensorrt.git
+cd mlir-tensorrt && git checkout $(cat ../mlir-tensorrt.txt)
+git submodule update --init --depth 1
 ```
 
 Install docker-compose:
@@ -45,6 +47,7 @@ sudo apt-get install docker-compose
 
 Launch `mlir-tensorrt` container and build `mlir-tensorrt`:
 ```bash
+# Build mlir-tensorrt container locally
 cd build_tools/docker
 docker compose up -d
 # copy ssh key to mlir-tensorrt container, use docker ps to find {container-id}
