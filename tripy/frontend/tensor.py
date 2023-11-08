@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List
 
 from tripy import util
 from tripy.logging import G_LOGGER
@@ -28,12 +28,6 @@ class Tensor(metaclass=TensorMeta):
         self.op = op
         self._stack_info = util.get_stack_info()
 
-    def __init__(self, data: Any) -> None:
-        if data is not None:
-            from tripy.ops import Storage
-
-            self._finalize([], Storage(data))
-
     @staticmethod
     def build(inputs: "List[Tensor]", op: "tripy.ops.BaseOperator") -> None:
         """
@@ -41,15 +35,16 @@ class Tensor(metaclass=TensorMeta):
             inputs: The inputs to this tensor.
             op: The operation being applied.
         """
-        tensor = Tensor(data=None)
+        tensor = Tensor()
         tensor._finalize(inputs, op)
         return tensor
 
     def eval(self) -> None:
-        from tripy.flat_ir import FlatIR
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
+        from tripy.flat_ir import FlatIR
         from tripy.ops import Storage
+        from tripy.frontend.device import device
 
         if isinstance(self.op, Storage):
             return self.op.data
@@ -57,14 +52,14 @@ class Tensor(metaclass=TensorMeta):
         flat_ir = FlatIR([self])
         G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
 
-        with FlatIRCompiler() as compiler, FlatIRExecutor(flat_ir) as executor:
-            executable = compiler.compile(flat_ir)
+        with FlatIRCompiler(flat_ir) as executable, FlatIRExecutor(flat_ir) as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
-            value = executor.execute(executable)
+            value = executor.execute(*executable)
             self.inputs = []
-            self.op = Storage(value)
-            return value
+            assert len(value) == 1, "Expects only one output from MLIR executor"
+            self.op = Storage(value[0], device=device("cpu"))
+            return value[0]
 
     def __repr__(self) -> str:
-        return f"{self.eval()}"
+        return f"tensor({self.eval()}, dtype={self.op.data.dtype}, loc={self.op.device})"

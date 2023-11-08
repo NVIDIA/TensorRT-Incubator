@@ -1,4 +1,0 @@
-[submodule "mlir-tensorrt"]
-	path = mlir-tensorrt
-	url = ../mlir/mlir-tensorrt
-	ignore = dirty

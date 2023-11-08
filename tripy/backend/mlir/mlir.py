@@ -42,7 +42,9 @@ class _MlirCompiler:
         self.mlir_initialize = func_wrapper(self.compiler_lib, "initialize", [], void_ptr)
         self.mlir_destroy = func_wrapper(self.compiler_lib, "destroy", [void_ptr], None)
         self.mlir_compile = func_wrapper(self.compiler_lib, "compile", [void_ptr, char_ptr, c_int], void_ptr)
-        self.mlir_execute = func_wrapper(self.compiler_lib, "execute", [void_ptr, POINTER(void_ptr)], None)
+        self.mlir_execute = func_wrapper(self.compiler_lib, "execute", [void_ptr, POINTER(void_ptr), void_ptr], None)
+        self.mlir_executor_initialize = func_wrapper(self.compiler_lib, "loadedExecInitializer", [void_ptr], void_ptr)
+        self.mlir_executor_destroy = func_wrapper(self.compiler_lib, "loadedExecDestructor", [void_ptr, void_ptr], None)
 
         self.compiler = self.mlir_initialize()
         if not self.compiler:
@@ -54,6 +56,18 @@ class _MlirCompiler:
         """
         self.mlir_destroy(void_ptr(self.compiler))
 
+    def exec_initializer(self, executable: void_ptr):
+        """
+        Calls the initializer for loadable executable.
+        """
+        return self.mlir_executor_initialize(executable)
+
+    def exec_destroy(self, executable: void_ptr, execargs: void_ptr):
+        """
+        Calls the destructor for loadable executable.
+        """
+        self.mlir_executor_destroy(executable, execargs)
+
     def compile(self, code: str) -> void_ptr:
         """
         Args:
@@ -63,14 +77,14 @@ class _MlirCompiler:
         """
         return self.mlir_compile(void_ptr(self.compiler), code.encode(), len(code))
 
-    def execute(self, executable: void_ptr, output_ptr):
+    def execute(self, executable: void_ptr, dst, exec_args):
         """
         Args:
             executable: MLIR executable.
-            output_ptr: Address of the output (array of arrays).
+            exec_args: Address of the output (array of arrays).
         """
 
-        self.mlir_execute(void_ptr(executable), output_ptr)
+        self.mlir_execute(void_ptr(executable), dst, exec_args)
 
 
 G_COMPILER_BACKEND = None

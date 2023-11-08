@@ -24,7 +24,6 @@ class TestFunctional:
         d = c + c
         flat_ir = FlatIR([c, d])
 
-        with FlatIRCompiler() as compiler, FlatIRExecutor(flat_ir) as executor:
-            executable = compiler.compile(flat_ir)
-            out = executor.execute(executable)
+        with FlatIRCompiler(flat_ir) as executable, FlatIRExecutor(flat_ir) as executor:
+            out = executor.execute(*executable)
             assert len(out) == 2 and (out[0] == np.array([2.0, 2.0])).all() and (out[1] == np.array([4.0, 4.0])).all()

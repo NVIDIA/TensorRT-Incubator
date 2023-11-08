@@ -26,7 +26,7 @@ class FlatIRExecutor:
         return False
 
     @log_time
-    def execute(self, executable) -> np.ndarray:
+    def execute(self, executable, execargs) -> np.ndarray:
         """
         Executes the compiled MLIR program and returns the output of the computation as a numpy array.
         Execute function assumes that the inputs to the program are folded into the flatIR/MLIR computation as of 10/23/23.
@@ -41,5 +41,6 @@ class FlatIRExecutor:
         for i in range(len(self.flat_ir.outputs)):
             arrays[i] = outputs[i].ctypes.data_as(void_ptr)
 
-        self.compiler.execute(executable, arrays)
+        # Todo: arrays should be folded into execargs
+        self.compiler.execute(executable, arrays, execargs)
         return outputs

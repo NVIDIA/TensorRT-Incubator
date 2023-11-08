@@ -9,9 +9,10 @@ variables:
   # Avoid TLS because it's not enabled in our runner
   DOCKER_TLS_CERTDIR: ""
   CI_REGISTRY_IMAGE: "gitlab-master.nvidia.com:5005/tensorrt/poc/tripy"
-  GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_FORCE_HTTPS: "true"
+  GIT_SUBMODULE_DEPTH: 0
   GIT_SUBMODULE_PATHS: ":(exclude)third_party/jax"
+  GIT_DEPTH: 0
 
 build_container:
   stage: build
@@ -20,11 +21,19 @@ build_container:
     - docker:24.0.5-dind
   before_script:
     - export GROUP_CICD_TOKEN=$GROUP_CICD_TOKEN
-    - docker login -u gitlab-ci-token -p "${CI_JOB_TOKEN}" "${CI_REGISTRY}"
   timeout: 3 hours
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - cd mlir-tensorrt/
+    # Set up mlir-tensorrt repo
+    - git clone https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/TensorRT/poc/mlir/mlir-tensorrt.git
+    - cd mlir-tensorrt
+    - git fetch
+    - git checkout $(cat ../mlir-tensorrt.txt)
+    - git submodule init
+    # Replace ssh urls with https + CI tokens
+    - git submodule set-url third_party/llvm-project https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/initialdl/llvm-project-mirror.git
+    - git submodule set-url third_party/triton https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/initialdl/triton.git
+    - git submodule update --depth 1
     - cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DLLVM_USE_LINKER=lld
     - ninja -C build all
     - cd ..
@@ -37,7 +46,7 @@ build_container:
     - changes:
       - Dockerfile
       - pyproject.toml
-      - mlir-tensorrt
+      - mlir-tensorrt.txt
       - .gitlab-ci.yml
       if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
