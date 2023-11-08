@@ -1,0 +1,2 @@
+class TripyException(Exception):
+    pass

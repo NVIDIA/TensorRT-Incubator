@@ -2,7 +2,9 @@ import inspect
 import sys
 
 import numpy as np
+import pytest
 
+import tripy
 import tripy.ops
 from tripy.frontend import Tensor
 from tripy.util.stack_info import SourceInfo
@@ -17,6 +19,13 @@ class TestTensor:
         assert a.inputs == []
         assert isinstance(a.op, tripy.ops.Storage)
         assert list(a.op.data) == VALUES
+
+    @pytest.mark.parametrize("kind", ["cpu", "gpu"])
+    def test_tensor_device(self, kind):
+        a = Tensor([1, 2, 3], device=tripy.device(kind))
+
+        assert isinstance(a.op, tripy.ops.Storage)
+        assert a.op.device.kind == kind
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     def test_stack_info_is_populated(self):

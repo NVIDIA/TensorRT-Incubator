@@ -37,7 +37,7 @@ class BinaryElementwise(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("__add__")
-def add(self: "Tensor", other: "Tensor") -> "Tensor":
+def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     # TODO (#8): Add an example here.
     """
     Performs an elementwise sum.

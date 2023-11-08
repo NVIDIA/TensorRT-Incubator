@@ -11,16 +11,25 @@ class FlatIRCompiler:
     Represents the compiler for FlatIR which converts FlatIR into a StableHLO representation and compiles it into an executable using mlir-tensorrt compiler.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, flat_ir: FlatIR) -> None:
         self.compiler = mlir_wrapper()
+        self.flat_ir = flat_ir
+        # Store allocations done at the init of executor
+        self.execargs = None
+        self.executable = None
 
     def __enter__(self):
-        return self
+        self.executable = self.compile(self.flat_ir)
+        self.execargs = self.compiler.exec_initializer(self.executable)
+        return (self.executable, self.execargs)
 
     def __exit__(self, exc_type, exc_value, traceback):
         if exc_type is not None:
             info = (exc_type, exc_value, traceback)
             G_LOGGER.exception("Execption occured in FlatIRCompiler", exc_info=info)
+
+        # Destroy the allocations and the loadable executor.
+        self.compiler.exec_destroy(self.executable, self.execargs)
         return False
 
     @log_time
