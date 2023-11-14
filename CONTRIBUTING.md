@@ -18,20 +18,15 @@ docker login gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
 docker pull gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
 docker run --gpus all -it -v $(pwd):/tripy/ --rm gitlab-master.nvidia.com:5005/tensorrt/poc/tripy:latest
 ```
+All dependencies have been configured, you can directly run tests in the prebuilt container.
 
 ### Building A Container Locally
 
-From the [`tripy` root directory](.), run:
-```bash
-docker build -t tripy .
-docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
-```
+### Step 1 (Optional): Manually build `mlir-tensorrt` integration lib
 
-### Build mlir-tensorrt
+If you did not modify `mlir-tensorrt.txt`, you can skip this step. A script will automatically download the latest `mlir-tensorrt` package in Step 2.
 
 Building `mlir-tensorrt` is done in a separate container than `tripy` as eventually `mlir-tensorrt` will not be shipped externally and saves adding additional complexity to `tripy` containers.
-
-From the [`tripy` root directory](.), run:
 
 Get `mlir-tensorrt` repository:
 ```bash
@@ -70,6 +65,23 @@ ninja -C build all
 ```
 
 After building `mlir-tensorrt` project, the build will be available in the `tripy` container. The integrated tripy lib file is `libtripy_backend_lib.so`.
+
+### Step 2: Download dependencies from CI
+
+Download `stablehlo` and `mlir-tensorrt` (if you do not have to manully build it), the script will skip downloading if the packages already exist. If you want to download the latest build, make sure to remove the existing packages from the tripy directory.
+
+```bash
+export TRIPY_GITLAB_API_TOKEN=<your-access-token>
+python3 scripts/download_dependencies.py
+```
+
+### Step 3: Build the tripy container
+
+From the [`tripy` root directory](.), run:
+```bash
+docker build -t tripy .
+docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
+```
 
 ## Running Tests
 

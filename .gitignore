@@ -11,6 +11,9 @@ __pycache__/
 # mlir-tensorrt repo & build
 mlir-tensorrt/
 
+# stablehlo repo
+stablehlo/
+
 # Distribution / packaging
 .Python
 build/
