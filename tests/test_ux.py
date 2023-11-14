@@ -24,7 +24,13 @@ class TestReadme:
     README_TEST_CASES = [
         path
         for path in glob.glob(os.path.join(ROOT_DIR, "**", "*.md"), recursive=True)
-        if not path.startswith((os.path.join(ROOT_DIR, "build"), os.path.join(ROOT_DIR, "mlir-tensorrt")))
+        if not path.startswith(
+            (
+                os.path.join(ROOT_DIR, "build"),
+                os.path.join(ROOT_DIR, "mlir-tensorrt"),
+                os.path.join(ROOT_DIR, "stablehlo"),
+            )
+        )
     ]
 
     @pytest.mark.parametrize("readme", README_TEST_CASES)

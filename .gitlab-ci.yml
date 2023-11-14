@@ -1,5 +1,6 @@
 stages:
-  - build
+  - build-dependencies
+  - build-tripy-container
   - lint
   - test
 
@@ -14,8 +15,39 @@ variables:
   GIT_SUBMODULE_PATHS: ":(exclude)third_party/jax"
   GIT_DEPTH: 0
 
-build_container:
-  stage: build
+build_stablehlo:
+  stage: build-dependencies
+  image: $CI_REGISTRY_IMAGE
+  timeout: 3 hours
+  script:
+    # install build tools
+    - python3 -m pip install pybind11
+    - apt-get update && apt-get install -y clang ccache git-all lld ninja-build
+    # get stablehlo repo
+    - cd /usr/lib
+    - rm -rf stablehlo || true
+    - git clone --depth=1 https://github.com/openxla/stablehlo
+    - cd stablehlo && git clone --depth=1 https://github.com/llvm/llvm-project.git
+    - mkdir -p python-build
+    - build_tools/github_actions/ci_build_cmake_python_api.sh llvm-project python-build $PWD
+    # copy stablehlo lib to tripy directory
+    - cp -R /usr/lib/stablehlo $CI_PROJECT_DIR
+  artifacts:
+    name: "stablehlo-python-integration-lib"
+    paths:
+      - stablehlo
+    expire_in: 1 week
+    untracked: true
+  tags:
+    - tensorrt-runner
+  rules:
+    - changes:
+      - .gitlab-ci.yml
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+
+build_mlir_tensorrt:
+  stage: build-dependencies
   image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
   services:
     - docker:24.0.5-dind
@@ -36,7 +68,33 @@ build_container:
     - git submodule update --depth 1
     - cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DLLVM_USE_LINKER=lld
     - ninja -C build all
-    - cd ..
+  artifacts:
+    name: "mlir-tensorrt-integration-lib"
+    paths:
+      - mlir-tensorrt/build/lib/Integrations
+    expire_in: 1 week
+    untracked: true
+  tags:
+    - tensorrt-runner
+  rules:
+    - changes:
+      - mlir-tensorrt.txt
+      - .gitlab-ci.yml
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+
+build_container:
+  stage: build-tripy-container
+  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
+  services:
+    - docker:24.0.5-dind
+  before_script:
+    - export GROUP_CICD_TOKEN=$GROUP_CICD_TOKEN
+  timeout: 2 hours
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - ls mlir-tensorrt/build/lib/Integrations/tripy
+    - ls stablehlo
     - docker pull $CI_REGISTRY_IMAGE:latest || true
     - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
     - docker push $CI_REGISTRY_IMAGE
@@ -44,9 +102,9 @@ build_container:
     - tensorrt-runner
   rules:
     - changes:
+      - mlir-tensorrt.txt
       - Dockerfile
       - pyproject.toml
-      - mlir-tensorrt.txt
       - .gitlab-ci.yml
       if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
@@ -65,6 +123,7 @@ pre-commit:
 l0:
   stage: test
   image: $CI_REGISTRY_IMAGE
+  dependencies: []
   script:
     - python3 -m pytest tests/ -v
   tags:
