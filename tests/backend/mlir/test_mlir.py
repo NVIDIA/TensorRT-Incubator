@@ -70,11 +70,13 @@ class InitMockLib(ctypes.CDLL):
 # Test that the backend compiler library exports the functions that are required.
 def test_function_availability_from_backend(monkeypatch):
     global G_TEST_VAL
+    from tripy.backend.mlir.mlir import _MlirCompiler
+    import ctypes
+
     monkeypatch.setattr(ctypes, "CDLL", InitMockLib)
-    from tripy.backend.mlir import mlir
 
     try:
-        mlir.mlir_wrapper()
+        _MlirCompiler()
         assert G_TEST_VAL == FakeLibMemory.ALLOC
     except AttributeError as e:
         pytest.fail(f"_MlirCompiler backend library should have functions exported correctly. Exception {e} raised.")
@@ -95,11 +97,12 @@ def test_mlir_resource_freed(monkeypatch):
 
     from tripy.backend.mlir import mlir
 
-    importlib.reload(mlir)
-    mlir.mlir_wrapper()
+    old_compiler = mlir.G_COMPILER_BACKEND
 
+    importlib.reload(mlir)
+    mlir.G_COMPILER_BACKEND = mlir._MlirCompiler()
     for func, args, kwargs in registered_functions:
         func(*args, **kwargs)
 
-    mlir.G_COMPILER_BACKEND = None
+    mlir.G_COMPILER_BACKEND = old_compiler
     assert G_TEST_VAL == FakeLibMemory.DEALLOC
