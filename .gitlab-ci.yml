@@ -3,6 +3,7 @@ stages:
   - build-tripy-container
   - lint
   - test
+  - upload
 
 
 variables:
@@ -66,8 +67,35 @@ build_mlir_tensorrt:
     - git submodule set-url third_party/llvm-project https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/initialdl/llvm-project-mirror.git
     - git submodule set-url third_party/triton https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/initialdl/triton.git
     - git submodule update --depth 1
-    - cmake -B build -S . -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DLLVM_USE_LINKER=lld
+    # Setup bazel disk cache folder
+    - mkdir -p ../.bazel-disk-cache || true
+    - echo "build --disk_cache=$CI_PROJECT_DIR/.bazel-disk-cache" >> build_tools/bazel/.bazelrc
+    - cat build_tools/bazel/.bazelrc
+    - du -hd 0 ../.bazel-disk-cache || true
+    # Setup CCACHE
+    - export CCACHE_BASEDIR="$CI_PROJECT_DIR"
+    - export CCACHE_DIR="$CI_PROJECT_DIR/ccache"
+    - export CCACHE_COMPILERCHECK=content
+    - ccache --zero-stats || true
+    - ccache --show-stats || true
+    # build
+    - cmake -B build -S . -G Ninja
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER_LAUNCHER=ccache
+      -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+      -DLLVM_USE_LINKER=lld
+      -DMLIR_TRT_PACKAGE_CACHE_DIR="$CI_PROJECT_DIR/.cache.cpm"
     - ninja -C build all
+  after_script:
+    - export CCACHE_DIR="$CI_PROJECT_DIR/ccache"
+    - ccache --show-stats
+    - du -hd 0 .bazel-disk-cache || true
+  cache:
+    key: ${CI_JOB_NAME}
+    paths:
+      - .cache.cpm
+      - ccache
+      - .bazel-disk-cache
   artifacts:
     name: "mlir-tensorrt-integration-lib"
     paths:
@@ -93,6 +121,8 @@ build_container:
   timeout: 2 hours
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - export TRIPY_GITLAB_API_TOKEN=$CI_JOB_TOKEN
+    - python3 scripts/download_dependencies.py
     - ls mlir-tensorrt/build/lib/Integrations/tripy
     - ls stablehlo
     - docker pull $CI_REGISTRY_IMAGE:latest || true
@@ -132,3 +162,18 @@ l0:
     - main
     - develop
     - merge_requests
+
+
+upload-denpendencies:
+  stage: upload
+  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
+  script:
+   - python3 scripts/CI/upload_dependencies.py
+  tags:
+    - tensorrt-runner
+  rules:
+    - changes:
+      - mlir-tensorrt.txt
+      - .gitlab-ci.yml
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
