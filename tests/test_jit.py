@@ -60,3 +60,32 @@ class TestJIT:
 
         c, d = func(a, b)
         assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
+
+    def test_jit_decorator_const_argnums(self):
+        a = Tensor(np.array([2, 3], dtype=np.float32))
+        b = Tensor(np.ones(2, dtype=np.float32))
+
+        @jit(const_argnums=(0,))
+        def func(a, b):
+            c = a + b
+            d = c + c
+            return c, d
+
+        c, d = func(a, b)
+        assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
+
+    def test_jit_function_const_argnums(self):
+        a = Tensor(np.array([2, 3], dtype=np.float32))
+        b = Tensor(np.ones(2, dtype=np.float32))
+
+        def func(a, b):
+            c = a + b
+            d = c + c
+            return c, d
+
+        jitted_func = jit(
+            func,
+            const_argnums=(0, 1),
+        )
+        c, d = jitted_func(a, b)
+        assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()

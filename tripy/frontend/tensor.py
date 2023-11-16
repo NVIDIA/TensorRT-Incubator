@@ -27,6 +27,8 @@ class Tensor(metaclass=TensorMeta):
         self.inputs = inputs
         self.op = op
         self._stack_info = util.get_stack_info()
+        # Const fold the tensor in JIT functions
+        self.const_fold = False
 
     @staticmethod
     def build(inputs: "List[Tensor]", op: "tripy.ops.BaseOperator") -> None:
