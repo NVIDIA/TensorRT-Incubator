@@ -25,7 +25,7 @@ class FIRTensor:
     producer: "FIRLayer"
     """Producer of the tensor"""
 
-    dtype: "tripy.frontend.DataType"
+    dtype: "tripy.common.DataType"
     """Data type of the tensor"""
 
     def __str__(self) -> str:

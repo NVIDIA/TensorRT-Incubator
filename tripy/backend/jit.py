@@ -80,7 +80,7 @@ class JIT:
             flat_ir = FlatIR(return_tensors)
             G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
 
-            with FlatIRCompiler(flat_ir) as executable, FlatIRExecutor(flat_ir) as executor:
+            with FlatIRCompiler(flat_ir) as executable, FlatIRExecutor() as executor:
                 # Create a unique key based on the function's arguments for caching
                 cache_key = (args, tuple(sorted(kwargs.items())))
                 outputs = executor.execute(*executable)
