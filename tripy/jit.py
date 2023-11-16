@@ -66,6 +66,16 @@ class JIT:
             # compiling and caching a function's implementation.
             arg_eval_outs = [arg.eval() for arg in args]
 
+            if "const_argnums" in self.kwargs:
+                args = list(args)
+                for const_argnum in self.kwargs["const_argnums"]:
+                    assert const_argnum < len(args), "The const_argnum is not valid!"
+                    assert isinstance(args[const_argnum], Tensor), "The const argument must be a Tensor object!"
+                    const_tensor = Tensor(list(arg_eval_outs[const_argnum]))
+                    const_tensor.const_fold = True
+                    args[const_argnum] = const_tensor
+                args = tuple(args)
+
             return_tensors = func(*args, **kwargs)
             if isinstance(return_tensors, Tensor):
                 return_tensors = [return_tensors]
