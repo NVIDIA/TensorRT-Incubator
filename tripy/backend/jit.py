@@ -1,11 +1,11 @@
 import functools
-from typing import Callable, Dict, Tuple, List
+from typing import Callable, Dict, List, Tuple
 
-from tripy.logging import G_LOGGER
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.flat_ir import FlatIR
 from tripy.frontend.tensor import Tensor
+from tripy.logging import G_LOGGER
 
 
 class JIT:
@@ -22,18 +22,17 @@ class JIT:
 
         Example:
         ::
-            from tripy.frontend import Tensor
-            from tripy.jit import JIT as jit
+            import tripy
             import numpy as np
 
             # JIT as a decorator example.
-            @jit
+            @tripy.jit
             def adder(a, b):
                 c = a + b
                 return c
 
-            a = Tensor(np.ones(1, dtype=np.float32))
-            b = Tensor(np.ones(1, dtype=np.float32))
+            a = tripy.Tensor(np.ones(1, dtype=np.float32))
+            b = tripy.Tensor(np.ones(1, dtype=np.float32))
 
             out_decorator = adder(a, b)
 
@@ -42,7 +41,7 @@ class JIT:
                 c = a + b
                 return c
 
-            jitted_func = jit(adder)
+            jitted_func = tripy.jit(adder)
             out_func = jitted_func(a, b)
             assert out_decorator.eval() == out_func.eval()
         """
