@@ -3,7 +3,7 @@ from typing import Any, Dict
 from mlir import ir
 from mlir.dialects import func as func_dialect
 
-from tripy.backend.mlir.utils import collect_input_output, make_ir_context
+from tripy.backend.mlir.utils import make_ir_context
 from tripy.flat_ir import FlatIR
 
 
@@ -19,9 +19,8 @@ def lower_flat_ir_to_mlir(flat_ir: FlatIR) -> ir.Module:
         module = ir.Module.create()
         with ir.InsertionPoint(module.body) as ip:
             # Lets assume only one function with inline code (#9 will fix it)
-            _, outputs = collect_input_output(flat_ir)
-            inp_types = []
-            out_types = [ir.RankedTensorType.get(o.shape, ir.F32Type.get()) for o in outputs]
+            inp_types = [ir.RankedTensorType.get(inp[0].shape, ir.F32Type.get()) for inp in flat_ir.inputs]
+            out_types = [ir.RankedTensorType.get(o.shape, ir.F32Type.get()) for o in flat_ir.outputs]
             ftype = ir.FunctionType.get(inp_types, out_types)
             # Todo: Function name should be a property of flatIR and used here.
             func_op = func_dialect.FuncOp("main", ftype, ip=ip)
@@ -30,7 +29,14 @@ def lower_flat_ir_to_mlir(flat_ir: FlatIR) -> ir.Module:
                 ops = []
                 hlo_tensors: Dict[str, Any] = {}
                 for l in flat_ir.layers:
-                    out_ops = l.op.to_mlir([hlo_tensors[inp.name] for inp in l.inputs])
+                    operands = []
+                    for inp in l.inputs:
+                        if inp.name in flat_ir.inputs_idx:
+                            operands.append(entry_block.arguments[flat_ir.inputs_idx[inp.name]])
+                        else:
+                            operands.append(hlo_tensors[inp.name])
+                    out_ops = l.op.to_mlir(operands)
+
                     ops.extend(out_ops)
                     hlo_tensors.update(zip([out.name for out in l.outputs], out_ops))
 

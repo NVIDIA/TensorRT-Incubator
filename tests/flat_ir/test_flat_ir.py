@@ -132,3 +132,60 @@ class TestFlatIR:
                 """
             ).strip()
         )
+
+    def test_input_output(self):
+        a = Tensor(np.ones(1))
+        # a is an input
+        a.const_fold = False
+
+        flat_ir = FlatIR([a])
+        assert len(flat_ir.inputs) == 1
+        assert len(flat_ir.outputs) == 1
+        assert len(flat_ir.layers) == 0
+
+    def test_all_inputs(self):
+        shape = 1
+        a = Tensor(np.ones(shape))
+        b = Tensor(np.ones(shape))
+        # a and b are inputs
+        a.const_fold = False
+        b.const_fold = False
+
+        c = a + b
+        flat_ir = FlatIR([c])
+        print(flat_ir)
+        assert (
+            str(flat_ir)
+            == dedent(
+                """
+                inputs:
+                    t0 : data=([1.]), shape=(), stride=(), loc=(cpu:0)
+                    t1 : data=([1.]), shape=(), stride=(), loc=(cpu:0)
+                t2 = t0 + t1
+                outputs: t2
+                """
+            ).strip()
+        )
+
+    def test_const_and_input(self):
+        shape = 1
+        a = Tensor(np.ones(shape))
+        b = Tensor(np.ones(shape))
+        # a is an input
+        a.const_fold = False
+
+        c = a + b
+        flat_ir = FlatIR([c])
+        print(flat_ir)
+        assert (
+            str(flat_ir)
+            == dedent(
+                """
+                inputs:
+                    t0 : data=([1.]), shape=(), stride=(), loc=(cpu:0)
+                t1 : data=([1.]), shape=(), stride=(), loc=(cpu:0)
+                t2 = t0 + t1
+                outputs: t2
+                """
+            ).strip()
+        )

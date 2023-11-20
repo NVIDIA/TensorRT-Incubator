@@ -26,13 +26,3 @@ def execute_binary(bin_path):
     if result.returncode != 0:
         G_LOGGER.error(f"Command failed with return code {result.returncode}")
     print(output)
-
-
-def collect_input_output(flatIR: FlatIR):
-    inputs = []
-    for l in flatIR.layers:
-        if len(l.inputs) == 0:
-            if isinstance(l.op, Storage):
-                inputs.append(l)
-
-    return inputs, flatIR.outputs
