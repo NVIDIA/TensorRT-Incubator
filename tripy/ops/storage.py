@@ -8,7 +8,6 @@ from mlir.dialects import stablehlo
 from tripy import util
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.device import device
 from tripy.frontend.named_dim import NamedDim
 
 
@@ -18,12 +17,14 @@ class Storage(BaseOperator):
     """
 
     # TODO (#10): We should have a custom storage class here instead of depending on NumPy.
-    def __init__(self, data: Any, device: "tripy.frontend.Device" = device("cpu"), shape: List = None):
-        self._module = np if device.kind == "cpu" else cp
+    def __init__(self, data: Any, device: "tripy.frontend.Device" = None, shape: List = None):
+        from tripy.frontend import device as make_device
+
+        self.device = util.default(device, make_device("cpu"))
+        self._module = np if self.device.kind == "cpu" else cp
         # TODO (#11): Support non-FP32 types here.
         # TODO (#21): Support multiple devices
         self.data = self._module.array(data, dtype=self._module.float32)
-        self.device = device
         shape = util.make_tuple(shape)
         self.shape: List = self.data.shape if shape is None else [-1 if isinstance(s, NamedDim) else s for s in shape]
         self.shape_profile: List = shape
@@ -44,8 +45,9 @@ class Storage(BaseOperator):
     def to_mlir(self, inputs):
         assert not inputs, "Storage should have no inputs!"
         # TODO (#11): Support non-FP32 types here.
-        array = self._module.array(self.data, dtype=self._module.float32)
-        attr = ir.DenseElementsAttr.get(self._module.ascontiguousarray(array), type=ir.F32Type.get(), shape=array.shape)
+        attr = ir.DenseElementsAttr.get(
+            self._module.ascontiguousarray(self.data), type=ir.F32Type.get(), shape=self.data.shape
+        )
         return [stablehlo.ConstantOp(attr)]
 
 
