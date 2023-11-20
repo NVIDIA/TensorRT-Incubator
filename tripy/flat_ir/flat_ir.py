@@ -1,4 +1,4 @@
-from typing import Dict, List, Sequence, Set
+from typing import Dict, List, Sequence, Set, Any
 from collections import defaultdict
 
 from tripy import frontend
@@ -31,7 +31,10 @@ class FlatIR:
             assert flat_ir.layers[0].outputs[0].name == "t0"
         """
         self.layers: List[FIRLayer] = []
+        self.inputs: List[tuple(FIRTensor, Any)] = []
         self.outputs: List[FIRTensor] = []
+        # Dict to map input name to argument index
+        self.inputs_idx: Dict[str, int] = {}
         # Dict to cache shape information of a Tensor
         self._shape_map: Dict[str, ShapeInfo] = {}
 
@@ -57,20 +60,34 @@ class FlatIR:
                 continue
             seen_tensor_ids.add(id(head))
 
-            exprs.extend(head.inputs)
-            self.layers.append(
-                FIRLayer(
-                    [FIRTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo(), None) for inp in head.inputs],
-                    [FIRTensor(get_tensor_name(head), head._stack_info, ShapeInfo(), None)],
-                    head.op,
+            as_input = (len(head.inputs) == 0) and (head.const_fold is False)
+            if as_input:
+                input_fir_tensor = FIRTensor(
+                    get_tensor_name(head), head._stack_info, head.op.infer_shapes(None)[0], None
                 )
-            )
+                self.inputs.append((input_fir_tensor, head.op))
+                producer_dict[input_fir_tensor.name] = None
+            else:
+                exprs.extend(head.inputs)
+                self.layers.append(
+                    FIRLayer(
+                        [FIRTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo(), None) for inp in head.inputs],
+                        [FIRTensor(get_tensor_name(head), head._stack_info, ShapeInfo(), None)],
+                        head.op,
+                    )
+                )
 
-            for op in self.layers[-1].outputs:
-                producer_dict[op.name] = self.layers[-1]
+                for output in self.layers[-1].outputs:
+                    producer_dict[output.name] = self.layers[-1]
 
             if head in incoming_exprs:
-                self.outputs.append(*self.layers[-1].outputs)
+                if as_input:
+                    self.outputs.append(self.inputs[-1][0])
+                else:
+                    self.outputs.append(*self.layers[-1].outputs)
+
+        for idx, inp in enumerate(self.inputs):
+            self.inputs_idx[inp[0].name] = idx
 
         # Use the producer cache to fill the information for all tensors.
         for l in self.layers:
@@ -90,7 +107,7 @@ class FlatIR:
         def add_to_stack(v, visited, stack):
             visited[id(v)] = True
             for ip in v.inputs:
-                if id(ip.producer) not in visited:
+                if ip.producer and id(ip.producer) not in visited:
                     add_to_stack(ip.producer, visited, stack)
 
             stack.append(v)
@@ -104,6 +121,10 @@ class FlatIR:
 
     def __str__(self) -> str:
         layer_strs: List[str] = []
+        if len(self.inputs):
+            layer_strs.append("inputs:")
+        for inp in self.inputs:
+            layer_strs.append(f"    {inp[1].to_flat_ir_str(None, [inp[0].name])}")
         for layer in self.layers:
             layer_strs.append(
                 layer.op.to_flat_ir_str([inp.name for inp in layer.inputs], [out.name for out in layer.outputs])
@@ -112,13 +133,15 @@ class FlatIR:
         return "\n".join(layer_strs)
 
     def __eq__(self, other: "FlatIR") -> bool:
-        return self.layers == other.layers
+        return self.layers == other.layers and self.inputs == other.inputs
 
     def infer_shapes(self):
         """
         Extremely naive shape inference routine.
         """
         # Compute and cache shape information for all tensors
+        for inp in self.inputs:
+            self._shape_map[inp[0].name] = inp[0].shape
         for layer in self.layers:
             out_shapes = layer.op.infer_shapes([self._shape_map[inp.name] for inp in layer.inputs])
 

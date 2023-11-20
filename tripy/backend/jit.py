@@ -63,19 +63,15 @@ class JIT:
 
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            arg_eval_outs = [arg.eval() for arg in args]
+            eval_args = [Tensor(list(arg.eval())) for arg in args]
 
             if "const_argnums" in self.kwargs:
-                args = list(args)
-                for const_argnum in self.kwargs["const_argnums"]:
-                    assert const_argnum < len(args), "The const_argnum is not valid!"
-                    assert isinstance(args[const_argnum], Tensor), "The const argument must be a Tensor object!"
-                    const_tensor = Tensor(list(arg_eval_outs[const_argnum]))
-                    const_tensor.const_fold = True
-                    args[const_argnum] = const_tensor
-                args = tuple(args)
+                for i in range(len(args)):
+                    if i not in self.kwargs["const_argnums"]:
+                        eval_args[i].const_fold = False
+            eval_args = tuple(eval_args)
 
-            return_tensors = func(*args, **kwargs)
+            return_tensors = func(*eval_args, **kwargs)
             if isinstance(return_tensors, Tensor):
                 return_tensors = [return_tensors]
             flat_ir = FlatIR(return_tensors)
@@ -86,11 +82,10 @@ class JIT:
                 cache_key = (args, tuple(sorted(kwargs.items())))
                 outputs = executor.execute(*executable)
                 tensor_outputs = [Tensor(o) for o in outputs]
+                if len(tensor_outputs) == 1:
+                    tensor_outputs = tensor_outputs[0]
                 self.cache[cache_key] = tensor_outputs
-                if len(self.cache[cache_key]) == 1:
-                    return self.cache[cache_key][0]
-                else:
-                    return self.cache[cache_key]
+                return tensor_outputs
 
         return decorated
 
