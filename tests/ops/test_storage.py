@@ -5,7 +5,7 @@ from mlir import ir
 
 import tripy
 from tripy.backend.mlir import utils as mlir_utils
-from tripy.frontend.datatype import DATA_TYPES
+from tripy.datatype import DATA_TYPES
 from tripy.ops import Storage
 
 

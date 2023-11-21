@@ -8,7 +8,6 @@ from mlir.dialects import stablehlo
 from tripy import util
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.named_dim import NamedDim
 
 
 class Storage(BaseOperator):
@@ -17,12 +16,19 @@ class Storage(BaseOperator):
     """
 
     # TODO (#10): We should have a custom storage class here instead of depending on numpy/cupy.
-    def __init__(self, data: Any, dtype: "tripy.frontend.DataType" = None, device: "tripy.frontend.Device" = None, shape: List = None)):
-        import tripy.frontend.datatype
-        from tripy.frontend import device as make_device
+    def __init__(
+        self,
+        data: Any,
+        dtype: "tripy.frontend.DataType" = None,
+        device: "tripy.frontend.Device" = None,
+        shape: List = None,
+    ):
+        import tripy.datatype
+        from tripy.device import device as make_device
+        from tripy.frontend.named_dim import NamedDim
 
         self.device = util.default(device, make_device("cpu"))
-        self.dtype = util.default(dtype, tripy.frontend.datatype.float32)
+        self.dtype = util.default(dtype, tripy.datatype.float32)
 
         self._module = np if self.device.kind == "cpu" else cp
 
@@ -30,7 +36,7 @@ class Storage(BaseOperator):
         # TODO (#10): getattr mostly works here because our data type naming mostly matches numpy/cupy,
         #   but we will need to eventually update this for our custom storage implementation.
         def convert_dtype():
-            if self.dtype == tripy.frontend.datatype.bool:
+            if self.dtype == tripy.datatype.bool:
                 return self._module.bool_
             return getattr(self._module, self.dtype.name)
 
@@ -52,6 +58,10 @@ class Storage(BaseOperator):
         assert not input_shapes, "Storage should have no inputs!"
         return [util.make_tuple(self.shape)]
 
+    def infer_dtypes(self, input_dtypes):
+        assert not input_dtypes, "Storage should have no inputs!"
+        return [self.dtype]
+
     def to_mlir(self, inputs):
         from tripy.backend.mlir import utils as mlir_utils
 
@@ -68,7 +78,7 @@ def tensor_init(
     data: Any = None,
     dtype: "tripy.frontend.DataType" = None,
     device: "tripy.frontend.Device" = None,
-    shape: List = None
+    shape: List = None,
 ) -> None:
     """
     Creates a tensor.

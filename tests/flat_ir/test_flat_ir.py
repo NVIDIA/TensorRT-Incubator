@@ -97,7 +97,7 @@ class TestFlatIR:
             ).strip()
         )
 
-    def test_infer_shapes(self):
+    def test_infer_shapes_and_dtypes(self):
         shape = (5, 5)
         a = Tensor(np.ones(shape))
         b = Tensor(np.ones(shape))
@@ -105,9 +105,10 @@ class TestFlatIR:
         c = a + b
 
         flat_ir = FlatIR([c])
-        flat_ir.infer_shapes()
+        flat_ir.infer_shapes_and_dtypes()
 
         assert flat_ir.layers[-1].outputs[0].shape == shape
+        assert flat_ir.layers[-1].outputs[0].dtype == a.op.dtype
 
     def test_multiple_outputs(self):
         shape = 1
@@ -159,8 +160,8 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : data=([1.]), shape=((1,)), stride=(), loc=(cpu:0)
-                    t1 : data=([1.]), shape=((1,)), stride=(), loc=(cpu:0)
+                    t0 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                    t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs: t2
                 """
@@ -182,8 +183,8 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : data=([1.]), shape=((1,)), stride=(), loc=(cpu:0)
-                t1 : data=([1.]), shape=((1,)), stride=(), loc=(cpu:0)
+                    t0 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs: t2
                 """

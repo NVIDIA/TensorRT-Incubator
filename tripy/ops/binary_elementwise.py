@@ -35,6 +35,12 @@ class BinaryElementwise(BaseOperator):
         ), f"Input shapes for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
         return [make_tuple(input_shapes[0])]
 
+    def infer_dtypes(self, input_dtypes):
+        assert (
+            input_dtypes[0] == input_dtypes[1]
+        ), f"Input data types for BinaryElementwise must match. Got: {input_dtypes[0]} and {input_dtypes[1]}"
+        return [input_dtypes[0]]
+
     def to_mlir(self, inputs: List) -> List:
         assert self.kind == BinaryElementwise.Kind.SUM, "Only Operation.SUM is supported by MLIR backend."
         add_out = stablehlo.AddOp(*inputs)

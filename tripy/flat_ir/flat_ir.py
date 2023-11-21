@@ -1,7 +1,8 @@
-from typing import Dict, List, Sequence, Set, Any
 from collections import defaultdict
+from typing import Any, Dict, List, Sequence, Set
 
 from tripy import frontend
+from tripy.datatype import DataType
 from tripy.flat_ir.layer import FIRLayer
 from tripy.flat_ir.tensor import FIRTensor
 from tripy.types import ShapeInfo
@@ -37,6 +38,8 @@ class FlatIR:
         self.inputs_idx: Dict[str, int] = {}
         # Dict to cache shape information of a Tensor
         self._shape_map: Dict[str, ShapeInfo] = {}
+        # Dict to cache dtype information of a Tensor
+        self._dtype_map: Dict[str, DataType] = {}
 
         _tensor_names: Dict[int, str] = defaultdict(lambda: None)
 
@@ -63,16 +66,24 @@ class FlatIR:
             as_input = (len(head.inputs) == 0) and (head.const_fold is False)
             if as_input:
                 input_fir_tensor = FIRTensor(
-                    get_tensor_name(head), head._stack_info, head.op.infer_shapes(None)[0], None
+                    get_tensor_name(head),
+                    head._stack_info,
+                    head.op.infer_shapes([])[0],
+                    None,
+                    head.op.infer_dtypes([])[0],
                 )
                 self.inputs.append((input_fir_tensor, head.op))
                 producer_dict[input_fir_tensor.name] = None
             else:
                 exprs.extend(head.inputs)
+                # Shapes/dtypes for intermediate tensors are inferred by infer_shapes_and_dtypes().
                 self.layers.append(
                     FIRLayer(
-                        [FIRTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo(), None) for inp in head.inputs],
-                        [FIRTensor(get_tensor_name(head), head._stack_info, ShapeInfo(), None)],
+                        [
+                            FIRTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo(), None, None)
+                            for inp in head.inputs
+                        ],
+                        [FIRTensor(get_tensor_name(head), head._stack_info, ShapeInfo(), None, None)],
                         head.op,
                     )
                 )
@@ -98,7 +109,7 @@ class FlatIR:
         self.layers = self.topological_sort()
 
         # Perform shape inference to fill shape information for all tensors.
-        self.infer_shapes()
+        self.infer_shapes_and_dtypes()
 
     def topological_sort(self) -> List[FIRLayer]:
         stack = list()
@@ -135,20 +146,25 @@ class FlatIR:
     def __eq__(self, other: "FlatIR") -> bool:
         return self.layers == other.layers and self.inputs == other.inputs
 
-    def infer_shapes(self):
+    def infer_shapes_and_dtypes(self):
         """
         Extremely naive shape inference routine.
         """
         # Compute and cache shape information for all tensors
         for inp in self.inputs:
             self._shape_map[inp[0].name] = inp[0].shape
+            self._dtype_map[inp[0].name] = inp[0].dtype
+
         for layer in self.layers:
             out_shapes = layer.op.infer_shapes([self._shape_map[inp.name] for inp in layer.inputs])
+            out_dtypes = layer.op.infer_dtypes([self._dtype_map[inp.name] for inp in layer.inputs])
 
-            for out, shape in zip(layer.outputs, out_shapes):
+            for out, shape, dtype in zip(layer.outputs, out_shapes, out_dtypes):
                 self._shape_map[out.name] = shape
+                self._dtype_map[out.name] = dtype
 
         # Assign cached shape information to corresponding Tensor
         for layer in self.layers:
             for io in layer.inputs + layer.outputs:
                 io.shape = self._shape_map[io.name]
+                io.dtype = self._dtype_map[io.name]

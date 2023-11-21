@@ -6,8 +6,8 @@ import pytest
 
 import tripy
 import tripy.ops
+from tripy.datatype import DATA_TYPES
 from tripy.frontend import Tensor
-from tripy.frontend.datatype import DATA_TYPES
 from tripy.util.stack_info import SourceInfo
 
 

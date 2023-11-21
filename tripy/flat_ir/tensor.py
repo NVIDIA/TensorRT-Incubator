@@ -25,6 +25,9 @@ class FIRTensor:
     producer: "FIRLayer"
     """Producer of the tensor"""
 
+    dtype: "tripy.frontend.DataType"
+    """Data type of the tensor"""
+
     def __str__(self) -> str:
         return f"{self.name} [{self.shape}]"
 
@@ -32,6 +35,9 @@ class FIRTensor:
         return self.name == other.name and self.stack_info == other.stack_info and self.shape == other.shape
 
     def to_mlir(self):
+        from tripy.backend.mlir import utils as mlir_utils
+
         return ir.RankedTensorType.get(
-            [ir.ShapedType.get_dynamic_size() if s == -1 else s for s in make_list(self.shape)], ir.F32Type.get()
+            [ir.ShapedType.get_dynamic_size() if s == -1 else s for s in make_list(self.shape)],
+            mlir_utils.convert_dtype(self.dtype),
         )

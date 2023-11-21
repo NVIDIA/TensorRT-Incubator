@@ -1,6 +1,7 @@
 import pytest
-from tripy.frontend.datatype import DataType, DATA_TYPES
+
 import tripy
+from tripy.datatype import DATA_TYPES, DataType
 
 
 class TestDataType:
