@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from mlir import ir
 
 from tripy.types import ShapeInfo
-from tripy.util import StackInfo
+from tripy.util import StackInfo, make_list
 
 
 @dataclass
@@ -33,5 +33,5 @@ class FIRTensor:
 
     def to_mlir(self):
         return ir.RankedTensorType.get(
-            [ir.ShapedType.get_dynamic_size() if s == -1 else s for s in self.shape], ir.F32Type.get()
+            [ir.ShapedType.get_dynamic_size() if s == -1 else s for s in make_list(self.shape)], ir.F32Type.get()
         )

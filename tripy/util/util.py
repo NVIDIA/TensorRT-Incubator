@@ -62,7 +62,7 @@ def prefix_with_line_numbers(text: str) -> str:
     return "\n".join(numbered_lines)
 
 
-def ensure_list(obj):
+def make_list(obj):
     """
     Ensure the given object is a list. If it's not, convert it into a list.
 
@@ -71,6 +71,26 @@ def ensure_list(obj):
     Returns:
         A list.
     """
+    if isinstance(obj, tuple):
+        return list(obj)
+
     if not isinstance(obj, list) and obj is not None:
         return [obj]
+    return obj
+
+
+def make_tuple(obj):
+    """
+    Ensure the given object is a tuple. If it's not, convert it into a tuple.
+
+    Args:
+        obj: The object to be converted into a tuple if necessary.
+    Returns:
+        A tuple.
+    """
+    if isinstance(obj, list):
+        return tuple(obj)
+
+    if not isinstance(obj, tuple) and obj is not None:
+        return (obj,)
     return obj

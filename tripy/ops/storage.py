@@ -24,6 +24,7 @@ class Storage(BaseOperator):
         # TODO (#21): Support multiple devices
         self.data = self._module.array(data, dtype=self._module.float32)
         self.device = device
+        shape = util.make_tuple(shape)
         self.shape: List = self.data.shape if shape is None else [-1 if isinstance(s, NamedDim) else s for s in shape]
         self.shape_profile: List = shape
 
@@ -38,7 +39,7 @@ class Storage(BaseOperator):
 
     def infer_shapes(self, input_shapes):
         assert not input_shapes, "Storage should have no inputs!"
-        return util.ensure_list(self.shape)
+        return [util.make_tuple(self.shape)]
 
     def to_mlir(self, inputs):
         assert not inputs, "Storage should have no inputs!"
@@ -58,6 +59,5 @@ def tensor_init(
         from tripy.frontend import device as make_device
         from tripy.ops import Storage
 
-        shape = util.ensure_list(shape)
         device = util.default(device, make_device("cpu"))
         self._finalize([], Storage(data, device, shape))

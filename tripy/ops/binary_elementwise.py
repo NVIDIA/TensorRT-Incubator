@@ -4,6 +4,7 @@ from typing import List
 
 from mlir.dialects import stablehlo
 
+from tripy.util import make_tuple
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
 
@@ -28,10 +29,11 @@ class BinaryElementwise(BaseOperator):
 
     def infer_shapes(self, input_shapes):
         assert self.kind == BinaryElementwise.Kind.SUM, "Only SUM is supported for now!"
+        # Fix when broadcasting support is added (#25).
         assert (
             input_shapes[0] == input_shapes[1]
         ), f"Input shapes for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
-        return [input_shapes[0]]
+        return [make_tuple(input_shapes[0])]
 
     def to_mlir(self, inputs: List) -> List:
         assert self.kind == BinaryElementwise.Kind.SUM, "Only Operation.SUM is supported by MLIR backend."
