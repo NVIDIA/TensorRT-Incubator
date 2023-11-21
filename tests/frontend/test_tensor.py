@@ -7,6 +7,7 @@ import pytest
 import tripy
 import tripy.ops
 from tripy.frontend import Tensor
+from tripy.frontend.datatype import DATA_TYPES
 from tripy.util.stack_info import SourceInfo
 
 
@@ -26,6 +27,16 @@ class TestTensor:
 
         assert isinstance(a.op, tripy.ops.Storage)
         assert a.op.device.kind == kind
+
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    def test_dtype(self, dtype):
+        if dtype in {tripy.int4, tripy.bfloat16, tripy.float8e4m3fn}:
+            pytest.skip("Type is not supported by numpy/cupy")
+
+        tensor = Tensor([1, 2, 3], dtype=dtype)
+        assert tensor.op.dtype == dtype
+        assert tensor.op.data.dtype.name == dtype.name
+        assert tensor.op.data.dtype.itemsize == dtype.itemsize
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     def test_stack_info_is_populated(self):

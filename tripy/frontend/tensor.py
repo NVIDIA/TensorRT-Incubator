@@ -33,11 +33,6 @@ class Tensor(metaclass=TensorMeta):
 
     @staticmethod
     def build(inputs: "List[Tensor]", op: "tripy.ops.BaseOperator") -> None:
-        """
-        Args:
-            inputs: The inputs to this tensor.
-            op: The operation being applied.
-        """
         tensor = Tensor()
         tensor._finalize(inputs, op)
         return tensor
