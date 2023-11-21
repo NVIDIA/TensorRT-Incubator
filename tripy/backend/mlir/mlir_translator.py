@@ -19,8 +19,8 @@ def lower_flat_ir_to_mlir(flat_ir: FlatIR) -> ir.Module:
         module = ir.Module.create()
         with ir.InsertionPoint(module.body) as ip:
             # Lets assume only one function with inline code (#9 will fix it)
-            inp_types = [ir.RankedTensorType.get(inp[0].shape, ir.F32Type.get()) for inp in flat_ir.inputs]
-            out_types = [ir.RankedTensorType.get(o.shape, ir.F32Type.get()) for o in flat_ir.outputs]
+            inp_types = [inp[0].to_mlir() for inp in flat_ir.inputs]
+            out_types = [o.to_mlir() for o in flat_ir.outputs]
             ftype = ir.FunctionType.get(inp_types, out_types)
             # Todo: Function name should be a property of flatIR and used here.
             func_op = func_dialect.FuncOp("main", ftype, ip=ip)

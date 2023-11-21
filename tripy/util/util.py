@@ -60,3 +60,37 @@ def prefix_with_line_numbers(text: str) -> str:
     lines = text.split("\n")
     numbered_lines = [f"{i+1}: {line}" for i, line in enumerate(lines)]
     return "\n".join(numbered_lines)
+
+
+def make_list(obj):
+    """
+    Ensure the given object is a list. If it's not, convert it into a list.
+
+    Args:
+        obj: The object to be converted into a list if necessary.
+    Returns:
+        A list.
+    """
+    if isinstance(obj, tuple):
+        return list(obj)
+
+    if not isinstance(obj, list) and obj is not None:
+        return [obj]
+    return obj
+
+
+def make_tuple(obj):
+    """
+    Ensure the given object is a tuple. If it's not, convert it into a tuple.
+
+    Args:
+        obj: The object to be converted into a tuple if necessary.
+    Returns:
+        A tuple.
+    """
+    if isinstance(obj, list):
+        return tuple(obj)
+
+    if not isinstance(obj, tuple) and obj is not None:
+        return (obj,)
+    return obj

@@ -1,6 +1,7 @@
 import functools
 from typing import Callable, Dict, List, Tuple
 
+from tripy.util.util import make_list
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.flat_ir import FlatIR
@@ -63,7 +64,7 @@ class JIT:
 
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            eval_args = [Tensor(list(arg.eval())) for arg in args]
+            eval_args = [Tensor(list(arg.eval()), shape=arg.op.shape) for arg in args]
 
             if "const_argnums" in self.kwargs:
                 for i in range(len(args)):
