@@ -28,6 +28,9 @@ class BinaryElementwise(BaseOperator):
 
     def infer_shapes(self, input_shapes):
         assert self.kind == BinaryElementwise.Kind.SUM, "Only SUM is supported for now!"
+        assert (
+            input_shapes[0] == input_shapes[1]
+        ), f"Input shapes for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
         return [input_shapes[0]]
 
     def to_mlir(self, inputs: List) -> List:

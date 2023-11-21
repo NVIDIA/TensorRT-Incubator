@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 
 import cupy as cp
 import numpy as np
@@ -9,6 +9,7 @@ from tripy import util
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.device import device
+from tripy.frontend.named_dim import NamedDim
 
 
 class Storage(BaseOperator):
@@ -17,12 +18,14 @@ class Storage(BaseOperator):
     """
 
     # TODO (#10): We should have a custom storage class here instead of depending on NumPy.
-    def __init__(self, data: Any, device: "tripy.frontend.Device" = device("cpu")):
+    def __init__(self, data: Any, device: "tripy.frontend.Device" = device("cpu"), shape: List = None):
         self._module = np if device.kind == "cpu" else cp
         # TODO (#11): Support non-FP32 types here.
         # TODO (#21): Support multiple devices
         self.data = self._module.array(data, dtype=self._module.float32)
         self.device = device
+        self.shape: List = self.data.shape if shape is None else [-1 if isinstance(s, NamedDim) else s for s in shape]
+        self.shape_profile: List = shape
 
     def __eq__(self, other) -> bool:
         return self._module.array_equal(self.data, other.data)
@@ -31,13 +34,11 @@ class Storage(BaseOperator):
         assert not input_names, "Storage should have no inputs!"
         assert len(output_names) == 1, "Storage should have exactly one output!"
 
-        return (
-            f"{output_names[0]} : data=({self.data}), shape=(), stride=(), loc=({self.device.kind}:{self.device.index})"
-        )
+        return f"{output_names[0]} : data=({self.data}), shape=({self.shape}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
     def infer_shapes(self, input_shapes):
         assert not input_shapes, "Storage should have no inputs!"
-        return [self.data.shape]
+        return util.ensure_list(self.shape)
 
     def to_mlir(self, inputs):
         assert not inputs, "Storage should have no inputs!"
@@ -48,12 +49,15 @@ class Storage(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("__init__")
-def tensor_init(self: "tripy.Tensor", data: Any = None, device: "tripy.frontend.Device" = None) -> None:
+def tensor_init(
+    self: "tripy.Tensor", data: Any = None, device: "tripy.frontend.Device" = None, shape: List = None
+) -> None:
     # Note: It is important that we are able to call the Tensor constructor with no arguments
     # since this is used internally by Tensor.build()
     if data is not None:
         from tripy.frontend import device as make_device
         from tripy.ops import Storage
 
+        shape = util.ensure_list(shape)
         device = util.default(device, make_device("cpu"))
-        self._finalize([], Storage(data, device))
+        self._finalize([], Storage(data, device, shape))

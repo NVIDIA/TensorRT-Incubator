@@ -1,6 +1,8 @@
 from typing import List
 from dataclasses import dataclass
 
+from mlir import ir
+
 from tripy.types import ShapeInfo
 from tripy.util import StackInfo
 
@@ -28,3 +30,8 @@ class FIRTensor:
 
     def __eq__(self, other: "FIRTensor") -> bool:
         return self.name == other.name and self.stack_info == other.stack_info and self.shape == other.shape
+
+    def to_mlir(self):
+        return ir.RankedTensorType.get(
+            [ir.ShapedType.get_dynamic_size() if s == -1 else s for s in self.shape], ir.F32Type.get()
+        )

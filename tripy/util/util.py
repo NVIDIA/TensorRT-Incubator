@@ -60,3 +60,17 @@ def prefix_with_line_numbers(text: str) -> str:
     lines = text.split("\n")
     numbered_lines = [f"{i+1}: {line}" for i, line in enumerate(lines)]
     return "\n".join(numbered_lines)
+
+
+def ensure_list(obj):
+    """
+    Ensure the given object is a list. If it's not, convert it into a list.
+
+    Args:
+        obj: The object to be converted into a list if necessary.
+    Returns:
+        A list.
+    """
+    if not isinstance(obj, list) and obj is not None:
+        return [obj]
+    return obj

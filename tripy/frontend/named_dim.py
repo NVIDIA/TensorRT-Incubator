@@ -91,6 +91,11 @@ class NamedDim:
     def runtime_value(self) -> int:
         return self._runtime_value
 
+    def __eq__(self, other):
+        if isinstance(other, NamedDim):
+            return self.min == other.min and self.max == other.max and self.opt == other.opt
+        return False
+
     @runtime_value.setter
     @validate_profile
     def runtime_value(self, shape) -> None:
