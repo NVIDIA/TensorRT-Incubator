@@ -33,11 +33,6 @@ class Tensor(metaclass=TensorMeta):
 
     @staticmethod
     def build(inputs: "List[Tensor]", op: "tripy.ops.BaseOperator") -> None:
-        """
-        Args:
-            inputs: The inputs to this tensor.
-            op: The operation being applied.
-        """
         tensor = Tensor()
         tensor._finalize(inputs, op)
         return tensor
@@ -47,7 +42,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.executor import FlatIRExecutor
         from tripy.flat_ir import FlatIR
         from tripy.ops import Storage
-        from tripy.frontend.device import device
+        from tripy.device import device
 
         if isinstance(self.op, Storage):
             return self.op.data

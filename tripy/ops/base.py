@@ -1,6 +1,7 @@
 import abc
 from typing import List
 from tripy.types import ShapeInfo
+from tripy.datatype import DataType
 
 
 class BaseOperator(abc.ABC):
@@ -28,6 +29,19 @@ class BaseOperator(abc.ABC):
 
         Returns:
             The shapes of the output tensor(s).
+        """
+        ...
+
+    @abc.abstractmethod
+    def infer_dtypes(self, input_dtypes: List[DataType]) -> List[DataType]:
+        """
+        Infers dtypes for the operation.
+
+        Args:
+            input_dtypes: The dtypes of the input tensor(s).
+
+        Returns:
+            The dtypes of the output tensor(s).
         """
         ...
 
