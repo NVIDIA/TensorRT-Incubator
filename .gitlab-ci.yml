@@ -121,8 +121,7 @@ build_container:
   timeout: 2 hours
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - export TRIPY_GITLAB_API_TOKEN=$CI_JOB_TOKEN
-    - python3 scripts/download_dependencies.py
+    - python3 scripts/download_dependencies.py --ci
     - ls mlir-tensorrt/build/lib/Integrations/tripy
     - ls stablehlo
     - docker pull $CI_REGISTRY_IMAGE:latest || true

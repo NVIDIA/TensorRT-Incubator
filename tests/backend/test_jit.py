@@ -58,10 +58,9 @@ class TestJIT:
         c, d = func(a, b)
         assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
 
-    @pytest.mark.skip(reason="mlir-tensorrt's interface does not support inputs yet.")
     def test_jit_decorator_const_argnums(self):
-        a = tripy.Tensor(np.array([2, 3], dtype=np.float32))
-        b = tripy.Tensor(np.ones(2, dtype=np.float32))
+        a = tripy.Tensor(np.array([2, 3], dtype=np.float32), device=tripy.device("gpu"))
+        b = tripy.Tensor(np.ones(2, dtype=np.float32), device=tripy.device("gpu"))
 
         @tripy.jit(const_argnums=(0,))
         def func(a, b):
@@ -72,10 +71,9 @@ class TestJIT:
         c, d = func(a, b)
         assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
 
-    @pytest.mark.skip(reason="mlir-tensorrt's interface does not support inputs yet.")
     def test_jit_function_const_argnums(self):
-        a = tripy.Tensor(np.array([2, 3], dtype=np.float32))
-        b = tripy.Tensor(np.ones(2, dtype=np.float32))
+        a = tripy.Tensor(np.array([2, 3]), device=tripy.device("gpu"))
+        b = tripy.Tensor(np.ones(2), device=tripy.device("gpu"))
 
         def func(a, b):
             c = a + b

@@ -1,3 +1,4 @@
+import ctypes
 from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
 from tripy.flat_ir import FlatIR
 from tripy.logging import G_LOGGER
@@ -20,7 +21,15 @@ class FlatIRCompiler:
 
     def __enter__(self):
         self.executable = self.compile(self.flat_ir)
-        self.execargs = self.compiler.exec_initializer(self.executable)
+        # Prepare input arguments on device
+        device_inputs = []
+        for inp in self.flat_ir.inputs:
+            inp_storage = inp[1]
+            inp_array = inp_storage.data
+            assert inp_storage.device.kind == "gpu", "Input tensors must be on device!"
+            device_inputs.append(inp_array.data.ptr)
+        device_inputs_arr = (ctypes.c_void_p * len(device_inputs))(*device_inputs)
+        self.execargs = self.compiler.exec_initializer(self.executable, device_inputs_arr)
         return (self.executable, self.execargs)
 
     def __exit__(self, exc_type, exc_value, traceback):
