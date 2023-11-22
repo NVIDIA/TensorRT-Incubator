@@ -64,7 +64,9 @@ class JIT:
 
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            eval_args = [Tensor(list(arg.eval()), shape=arg.op.shape) for arg in args]
+            eval_args = [
+                Tensor(list(arg.eval()), dtype=arg.op.dtype, device=arg.op.device, shape=arg.op.shape) for arg in args
+            ]
 
             if "const_argnums" in self.kwargs:
                 for i in range(len(args)):

@@ -43,7 +43,9 @@ class _MlirCompiler:
         self.mlir_destroy = func_wrapper(self.compiler_lib, "destroy", [void_ptr], None)
         self.mlir_compile = func_wrapper(self.compiler_lib, "compile", [void_ptr, char_ptr, c_int], void_ptr)
         self.mlir_execute = func_wrapper(self.compiler_lib, "execute", [void_ptr, POINTER(void_ptr), void_ptr], None)
-        self.mlir_executor_initialize = func_wrapper(self.compiler_lib, "loadedExecInitializer", [void_ptr], void_ptr)
+        self.mlir_executor_initialize = func_wrapper(
+            self.compiler_lib, "loadedExecInitializer", [void_ptr, void_ptr], void_ptr
+        )
         self.mlir_executor_destroy = func_wrapper(self.compiler_lib, "loadedExecDestructor", [void_ptr, void_ptr], None)
 
         self.compiler = self.mlir_initialize()
@@ -56,11 +58,11 @@ class _MlirCompiler:
         """
         self.mlir_destroy(void_ptr(self.compiler))
 
-    def exec_initializer(self, executable: void_ptr):
+    def exec_initializer(self, executable: void_ptr, execargs: void_ptr):
         """
         Calls the initializer for loadable executable.
         """
-        return self.mlir_executor_initialize(executable)
+        return self.mlir_executor_initialize(executable, execargs)
 
     def exec_destroy(self, executable: void_ptr, execargs: void_ptr):
         """
@@ -81,7 +83,7 @@ class _MlirCompiler:
         """
         Args:
             executable: MLIR executable.
-            exec_args: Address of the output (array of arrays).
+            exec_args: execution arguments.
         """
 
         self.mlir_execute(void_ptr(executable), dst, exec_args)
