@@ -66,9 +66,12 @@ class Storage(BaseOperator):
         from tripy.backend.mlir import utils as mlir_utils
 
         assert not inputs, "Storage should have no inputs!"
-        attr = ir.DenseElementsAttr.get(
-            self._module.ascontiguousarray(self.data), type=mlir_utils.convert_dtype(self.dtype), shape=self.data.shape
+        data = (
+            np.ascontiguousarray(self._module.asnumpy(self.data))
+            if self.device.kind == "gpu"
+            else self._module.ascontiguousarray(self.data)
         )
+        attr = ir.DenseElementsAttr.get(data, type=mlir_utils.convert_dtype(self.dtype), shape=self.data.shape)
         return [stablehlo.ConstantOp(attr)]
 
 
