@@ -8,22 +8,21 @@ def validate_profile(method: Callable) -> Callable:
         result = method(self, *args, **kwargs)
         assert (
             self.is_valid()
-        ), f"NamedDim '{self._name}' should have min<=opt<=max but got min={self.min}, opt={self.opt} and max={self.max} with runtime shape={self._runtime_value}"
+        ), f"Dim should have min<=opt<=max but got min={self.min}, opt={self.opt} and max={self.max} with runtime shape={self._runtime_value}"
         return result
 
     return wrapper
 
 
-class NamedDim:
+class Dim:
     """
-    Represents a named dimension with the range of values it can take.
+    Represents a dimension with the range of values it can take.
     The range of values allow the compiler to optimize the program with
     dynamic shapes while obeying the constraints of the dimension.
     """
 
     def __init__(
         self,
-        name: str,
         runtime_value: int,
         min: Optional[int] = None,
         opt: Optional[int] = None,
@@ -31,7 +30,6 @@ class NamedDim:
     ):
         """
         Args:
-            name : Dimension name
             runtime_value : Runtime shape of the dimension
             min:
             max:
@@ -43,17 +41,16 @@ class NamedDim:
 
         Example:
         ::
-            from tripy.frontend import NamedDim
+            from tripy.frontend import Dim
 
-            batch = NamedDim("batch", 2)
+            batch = Dim(2)
             assert batch.min == batch.opt == batch.max == 2
 
-            dim = NamedDim("dim", 3, min=2, opt=4, max=9)
+            dim = Dim(3, min=2, opt=4, max=9)
             assert dim.min == 2
             assert dim.opt == 4
             assert dim.max == 9
         """
-        self._name = name
         self._runtime_value = runtime_value
 
         def get_opt_value():
@@ -65,7 +62,7 @@ class NamedDim:
 
         assert (
             self.is_valid()
-        ), f"NamedDim '{self._name}' should have min<=opt<=max but got min={self.min}, opt={self.opt} and max={self.max} with runtime shape={self._runtime_value}"
+        ), f"Dim should have min<=opt<=max but got min={self.min}, opt={self.opt} and max={self.max} with runtime shape={self._runtime_value}"
 
     def is_valid(self):
         return (
@@ -92,7 +89,7 @@ class NamedDim:
         return self._runtime_value
 
     def __eq__(self, other):
-        if isinstance(other, NamedDim):
+        if isinstance(other, Dim):
             return self.min == other.min and self.max == other.max and self.opt == other.opt
         return False
 
@@ -100,9 +97,9 @@ class NamedDim:
     @validate_profile
     def runtime_value(self, shape) -> None:
         """
-        Set runtime shape for a NamedDim
+        Set runtime shape for a Dim
         """
         self._runtime_value = shape
 
     def __repr__(self) -> str:
-        return f'NamedDim(name="{self._name}", runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})'
+        return f"Dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"

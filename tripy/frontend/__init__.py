@@ -1,2 +1,2 @@
 from tripy.frontend.tensor import Tensor
-from tripy.frontend.named_dim import NamedDim
+from tripy.frontend.dim import Dim

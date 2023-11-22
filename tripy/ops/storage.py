@@ -25,7 +25,7 @@ class Storage(BaseOperator):
     ):
         import tripy.datatype
         from tripy.device import device as make_device
-        from tripy.frontend.named_dim import NamedDim
+        from tripy.frontend.dim import Dim
 
         self.device = util.default(device, make_device("cpu"))
         self.dtype = util.default(dtype, tripy.datatype.float32)
@@ -42,7 +42,7 @@ class Storage(BaseOperator):
 
         self.data = self._module.array(data, dtype=convert_dtype())
         shape = util.make_tuple(shape)
-        self.shape: List = self.data.shape if shape is None else [-1 if isinstance(s, NamedDim) else s for s in shape]
+        self.shape: List = self.data.shape if shape is None else [-1 if isinstance(s, Dim) else s for s in shape]
         self.shape_profile: List = shape
 
     def __eq__(self, other) -> bool:
