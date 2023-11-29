@@ -6,7 +6,7 @@ from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.flat_ir import FlatIR
 from tripy.frontend.tensor import Tensor
-from tripy.logging import G_LOGGER
+from tripy.common.logging import G_LOGGER
 
 
 class JIT:

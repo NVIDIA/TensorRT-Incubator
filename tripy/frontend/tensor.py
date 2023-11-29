@@ -1,7 +1,7 @@
 from typing import List
 
 from tripy import util
-from tripy.logging import G_LOGGER
+from tripy.common.logging import G_LOGGER
 from tripy.ops import TENSOR_METHOD_REGISTRY
 
 
@@ -42,7 +42,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.executor import FlatIRExecutor
         from tripy.flat_ir import FlatIR
         from tripy.ops import Storage
-        from tripy.device import device
+        from tripy.common import device
 
         if isinstance(self.op, Storage):
             return self.op.data

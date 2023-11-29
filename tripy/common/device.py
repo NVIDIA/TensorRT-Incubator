@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy.exception import TripyException
+from tripy.common.exception import TripyException
 
 
 @dataclass

@@ -1,7 +1,7 @@
 import abc
 from typing import List
-from tripy.types import ShapeInfo
-from tripy.datatype import DataType
+from tripy.common.types import ShapeInfo
+from tripy.common.datatype import DataType
 
 
 class BaseOperator(abc.ABC):

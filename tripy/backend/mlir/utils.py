@@ -2,9 +2,7 @@ import subprocess
 
 from mlir import dialects, ir
 
-from tripy.flat_ir import FlatIR
-from tripy.logging import G_LOGGER
-from tripy.ops import Storage
+from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 
 

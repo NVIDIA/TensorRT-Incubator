@@ -23,12 +23,12 @@ class Storage(BaseOperator):
         device: "tripy.frontend.Device" = None,
         shape: List = None,
     ):
-        import tripy.datatype
-        from tripy.device import device as make_device
+        import tripy.common.datatype
+        from tripy.common import device as make_device
         from tripy.frontend.dim import Dim
 
         self.device = util.default(device, make_device("cpu"))
-        self.dtype = util.default(dtype, tripy.datatype.float32)
+        self.dtype = util.default(dtype, tripy.common.datatype.float32)
 
         self._module = np if self.device.kind == "cpu" else cp
 
@@ -36,7 +36,7 @@ class Storage(BaseOperator):
         # TODO (#10): getattr mostly works here because our data type naming mostly matches numpy/cupy,
         #   but we will need to eventually update this for our custom storage implementation.
         def convert_dtype():
-            if self.dtype == tripy.datatype.bool:
+            if self.dtype == tripy.common.datatype.bool:
                 return self._module.bool_
             return getattr(self._module, self.dtype.name)
 

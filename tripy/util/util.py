@@ -1,9 +1,9 @@
-import time
 import glob
 import os
+import time
 from typing import List
 
-from tripy.logging import G_LOGGER
+from tripy.common.logging import G_LOGGER
 
 
 def default(value, default):

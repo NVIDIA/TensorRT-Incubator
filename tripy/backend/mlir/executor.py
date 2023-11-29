@@ -1,8 +1,9 @@
-import numpy as np
 import ctypes
 
+import numpy as np
+
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
-from tripy.logging import G_LOGGER
+from tripy.common.logging import G_LOGGER
 from tripy.flat_ir import FlatIR
 from tripy.util import log_time
 
