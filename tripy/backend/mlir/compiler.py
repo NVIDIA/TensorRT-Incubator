@@ -1,9 +1,10 @@
 import ctypes
-from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
-from tripy.flat_ir import FlatIR
-from tripy.logging import G_LOGGER
-from tripy.util import log_time
+
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
+from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
+from tripy.common.logging import G_LOGGER
+from tripy.flat_ir import FlatIR
+from tripy.util import log_time
 from tripy.util.util import prefix_with_line_numbers
 
 

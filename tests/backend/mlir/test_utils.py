@@ -3,7 +3,7 @@ from mlir import ir
 
 import tripy
 from tripy.backend.mlir import utils as mlir_utils
-from tripy.datatype import DATA_TYPES
+from tripy.common.datatype import DATA_TYPES
 
 
 class TestUtils:

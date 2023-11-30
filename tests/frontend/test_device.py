@@ -1,7 +1,7 @@
 import pytest
 
 import tripy
-from tripy.exception import TripyException
+from tripy.common.exception import TripyException
 
 
 class TestDevice:

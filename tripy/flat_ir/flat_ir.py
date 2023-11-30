@@ -2,10 +2,10 @@ from collections import defaultdict
 from typing import Any, Dict, List, Sequence, Set
 
 from tripy import frontend
-from tripy.datatype import DataType
+from tripy.common.datatype import DataType
 from tripy.flat_ir.layer import FIRLayer
 from tripy.flat_ir.tensor import FIRTensor
-from tripy.types import ShapeInfo
+from tripy.common.types import ShapeInfo
 
 
 class FlatIR:

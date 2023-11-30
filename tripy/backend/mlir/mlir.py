@@ -1,10 +1,9 @@
 import atexit
 import ctypes
-from jinja2 import Template
 
-from tripy.logging import G_LOGGER
-from tripy.util.util import find_file_in_dir
+from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
+from tripy.util.util import find_file_in_dir
 
 void_ptr = ctypes.c_void_p
 char_ptr = ctypes.c_char_p

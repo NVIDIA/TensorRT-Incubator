@@ -1,11 +1,11 @@
 import numpy as np
 import pytest
 
-from tripy.device import device
-from tripy.frontend import Tensor
-from tripy.flat_ir import FlatIR
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
+from tripy.common.device import device
+from tripy.flat_ir import FlatIR
+from tripy.frontend import Tensor
 
 
 class TestFunctional:
