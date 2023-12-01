@@ -1,8 +1,9 @@
 import abc
 import cupy
 from tripy.ops.storage import Storage
-from tripy.backend.mlir.types import TensorShape
-from tripy.common.datatype import *
+from tripy.common.types import TensorShape
+
+from tripy.common.logging import G_LOGGER
 
 GPU_MEMORY_LIMIT = 1
 GPU_MEMORY_SIZE_BYTES = int(GPU_MEMORY_LIMIT * 1024**3)  # convert GB to bytes
@@ -16,14 +17,13 @@ class Allocator(abc.ABC):
 
 def memory_stats(func):
     def wrap(self, *args, **kwargs):
-        print()
-        print(f"Before Executing {func.__name__}, Memory limit: {self.memory_pool.used_bytes()}")
+        G_LOGGER.debug(f"Before Executing {func.__name__}, Memory limit: {self.memory_pool.used_bytes()}")
         try:
             result = func(self, *args, **kwargs)
         except Exception as e:
-            print(f"Exception during {func.__name__}: {e}")
+            G_LOGGER.debug(f"Exception during {func.__name__}: {e}")
             raise
-        print(f"After Executing {func.__name__}, Memory limit: {self.memory_pool.used_bytes()}")
+        G_LOGGER.debug(f"After Executing {func.__name__}, Memory limit: {self.memory_pool.used_bytes()}")
         return result
 
     return wrap
@@ -42,7 +42,7 @@ class GpuAllocator(Allocator):
         self.memory_pool.set_limit(self.memory_limit)
 
     def __del__(self):
-        print(f"Gpu allocator clean up")
+        G_LOGGER.debug(f"Gpu allocator clean up")
         self.memory_pool.free_all_blocks()
 
     @memory_stats
@@ -53,5 +53,5 @@ class GpuAllocator(Allocator):
                     self.memory_pool.malloc(s.get_size_in_bytes()), s.get_mlir_dtype(), self.device, s.get_shape_arr()
                 )
             except cupy.cuda.memory.OutOfMemoryError:
-                print("Error: Out of GPU memory.")
+                G_LOGGER.debug("Error: Out of GPU memory.")
                 raise

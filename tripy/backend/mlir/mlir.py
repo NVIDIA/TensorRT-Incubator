@@ -1,17 +1,17 @@
 import atexit
 from collections import namedtuple
 import ctypes
+import os
 
 from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
-from tripy.util.util import find_file_in_dir
+from tripy.util.util import find_file_in_dir, get_lib_path
 
-from tripy.ops.allocator import GpuAllocator
-from tripy.common.datatype import *  # Assuming you have specific types defined in this module
-from tripy.backend.mlir.types import *  # Assuming you have specific types defined in this module
+from tripy.common.allocator import GpuAllocator
+from tripy.common.types import void_ptr, char_ptr, c_int, TensorShape
 
 # Define a namedtuple to hold the result of the execution initializer
-ExecInitializerResult = namedtuple("ExecInitializerResult", ["input_shapes", "inputs", "output_shapes", "outputs"])
+ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "output_shapes", "outputs"])
 
 
 def func_wrapper(lib, c_func, argtypes, restype):
@@ -33,8 +33,7 @@ class _MlirCompiler:
 
     @log_time
     def __init__(self) -> None:
-        # TODO: Make this not use a hard-coded path.
-        lib_path = find_file_in_dir("libtripy_backend*.so", "/tripy/mlir-tensorrt/build/lib/Integrations/tripy")
+        lib_path = find_file_in_dir("libtripy_backend*.so", get_lib_path())
         assert (
             len(lib_path) == 1
         ), f"Compiler expects exactly 1 tripy backend library to be available.  Found {len(lib_path)} libraries."
@@ -49,12 +48,7 @@ class _MlirCompiler:
             "execute",
             [
                 void_ptr,
-                c_int,
-                c_int,
-                ctypes.POINTER(TensorShape),
                 void_ptr,
-                c_int,
-                ctypes.POINTER(TensorShape),
                 void_ptr,
             ],
             None,
@@ -93,21 +87,20 @@ class _MlirCompiler:
             allocator (void_ptr): Allocator for memory allocation.
 
         Returns:
-            ExecInitializerResult: A named tuple containing result buffers, shapes, num_devices, and num_outputs.
+            ExecInitializerResult: A named tuple containing input buffer, output buffer, and output shapes.
         """
         # Call the function and receive the pointers to the arrays and counts
         nb_outputs = ctypes.c_int()
 
         self.mlir_load_exec_init(executable, None, ctypes.byref(nb_outputs))
         output_shapes_arr = (TensorShape * nb_outputs.value)()
-        input_shapes_arr = (TensorShape * len(inputs))()
 
         self.mlir_load_exec_init(executable, output_shapes_arr, ctypes.byref(nb_outputs))
 
         # Allocate output memory and store buffer pointers.
         outputs = [self.allocator.allocate_async(shape) for shape in output_shapes_arr]
 
-        return ExecInitializerResult(input_shapes_arr, inputs, output_shapes_arr, outputs)
+        return ExecInitializerResult(inputs, output_shapes_arr, outputs)
 
     def exec_destroy(self, executable: void_ptr):
         """
@@ -134,7 +127,6 @@ class _MlirCompiler:
                 initializer, including buffers, sizes, the number of devices, and the number of outputs.
                 - exec_args.inputs: A list of Storage objects representing input buffers.
                 - exec_args.outputs: A list of Storage objects representing output buffers.
-                - exec_args.input_shapes: An array of input shapes.
                 - exec_args.output_shapes: An array of output shapes.
         """
         # Create ctypes compatible device memory void pointers from result buffers.
@@ -150,17 +142,9 @@ class _MlirCompiler:
             else None
         )
 
-        in_len = exec_args.input_shapes._length_ if len(exec_args.input_shapes) > 0 else 0
-        out_len = exec_args.output_shapes._length_ if len(exec_args.output_shapes) > 0 else 0
-
         self.mlir_execute(
             void_ptr(executable),
-            1,  # Assuming 1 device
-            in_len,
-            exec_args.input_shapes,
             in_mem_ptrs,
-            out_len,
-            exec_args.output_shapes,
             out_mem_ptrs,
         )
 

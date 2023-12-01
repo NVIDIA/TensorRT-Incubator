@@ -1,5 +1,6 @@
 import glob
 import os
+import sys
 import time
 from typing import List
 
@@ -36,6 +37,20 @@ def log_time(func):
         return result
 
     return wrapper
+
+
+def get_lib_path():
+    custom_integ_path = os.getenv("MLIR_TRT_INTEGRATION_PATH")
+    if custom_integ_path:
+        if custom_integ_path not in os.environ["LD_LIBRARY_PATH"]:
+            G_LOGGER.error(f"Trying to build with custom mlir backend but LD_LIBRARY_PATH is not updated.")
+            G_LOGGER.error(
+                f"export LD_LIBRARY_PATH={custom_integ_path}/PJRT:{custom_integ_path}/tripy:{os.environ['LD_LIBRARY_PATH']}"
+            )
+            sys.exit(0)
+
+    path = custom_integ_path or "/usr/lib/mlir-tensorrt/"
+    return os.path.join(path, "tripy")
 
 
 def find_file_in_dir(file_name: str, search_directory: str) -> List:

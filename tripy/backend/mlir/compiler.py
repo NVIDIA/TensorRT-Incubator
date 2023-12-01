@@ -6,7 +6,7 @@ from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 from tripy.util.util import prefix_with_line_numbers
 from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
-from tripy.backend.mlir.types import TensorShape
+from tripy.common.types import TensorShape
 
 import ctypes
 

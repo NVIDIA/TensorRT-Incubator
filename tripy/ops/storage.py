@@ -9,7 +9,7 @@ from tripy import util
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
 
-from tripy.backend.mlir.types import TensorShape
+from tripy.common.types import TensorShape
 
 
 class Storage(BaseOperator):
@@ -21,7 +21,7 @@ class Storage(BaseOperator):
         self,
         data: Any,
         dtype: "tripy.common.DataType" = None,
-        device: "tripy.frontend.Device" = None,
+        device: "tripy.common.Device" = None,
         shape: List = None,
     ) -> None:
         """
@@ -101,7 +101,7 @@ def tensor_init(
     self: "tripy.Tensor",
     data: Any = None,
     dtype: "tripy.common.DataType" = None,
-    device: "tripy.frontend.Device" = None,
+    device: "tripy.common.Device" = None,
     shape: List = None,
 ) -> None:
     """

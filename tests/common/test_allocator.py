@@ -3,10 +3,9 @@ from typing import List
 import ctypes
 import numpy as np
 
-from tripy.backend.mlir.types import TensorShape
-from tripy.ops.allocator import GpuAllocator
+from tripy.common.types import TensorShape, MlirDataType
+from tripy.common.allocator import GpuAllocator
 from tripy.ops.storage import Storage
-from tripy.backend.mlir.types import MlirDataType
 
 
 MEMORY_LIMIT: int = 1 * 1024**3  # 1GB
