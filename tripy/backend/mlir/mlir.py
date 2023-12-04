@@ -5,7 +5,7 @@ import os
 
 from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
-from tripy.util.util import find_file_in_dir, get_lib_path
+from tripy.util.util import find_file_in_dir
 
 from tripy.common.allocator import GpuAllocator
 from tripy.common.types import void_ptr, char_ptr, c_int, TensorShape
@@ -33,7 +33,7 @@ class _MlirCompiler:
 
     @log_time
     def __init__(self) -> None:
-        lib_path = find_file_in_dir("libtripy_backend*.so", get_lib_path())
+        lib_path = find_file_in_dir("libtripy_backend*.so", mlir_lib_path())
         assert (
             len(lib_path) == 1
         ), f"Compiler expects exactly 1 tripy backend library to be available.  Found {len(lib_path)} libraries."
@@ -168,6 +168,20 @@ def mlir_wrapper():
 def mlir_close():
     if G_COMPILER_BACKEND is not None:
         G_COMPILER_BACKEND.destroy()
+
+
+def mlir_lib_path():
+    custom_integ_path = os.getenv("MLIR_TRT_INTEGRATION_PATH")
+    if custom_integ_path:
+        if custom_integ_path not in os.environ["LD_LIBRARY_PATH"]:
+            G_LOGGER.error(f"Trying to build with custom mlir backend but LD_LIBRARY_PATH is not updated.")
+            G_LOGGER.error(
+                f"export LD_LIBRARY_PATH={custom_integ_path}/PJRT:{custom_integ_path}/tripy:{os.environ['LD_LIBRARY_PATH']}"
+            )
+            sys.exit(0)
+
+    path = custom_integ_path or "/usr/lib/mlir-tensorrt/"
+    return path
 
 
 atexit.register(mlir_close)
