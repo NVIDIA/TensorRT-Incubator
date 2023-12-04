@@ -1,45 +1,55 @@
-import ctypes
+from typing import Tuple
 
-from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
-from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
-from tripy.common.logging import G_LOGGER
+from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr, ExecInitializerResult
 from tripy.flat_ir import FlatIR
+from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 from tripy.util.util import prefix_with_line_numbers
+from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
+from tripy.common.types import TensorShape
+
+import ctypes
+
+from tripy.ops.storage import Storage
 
 
 class FlatIRCompiler:
     """
-    Represents the compiler for FlatIR which converts FlatIR into a StableHLO representation and compiles it into an executable using mlir-tensorrt compiler.
+    Represents the compiler for FlatIR, which converts FlatIR into a StableHLO representation
+    and compiles it into an executable using mlir-tensorrt compiler.
     """
 
     def __init__(self, flat_ir: FlatIR) -> None:
         self.compiler = mlir_wrapper()
         self.flat_ir = flat_ir
         # Store allocations done at the init of executor
-        self.execargs = None
-        self.executable = None
+        self.exec_args: ExecInitializerResult = None
+        self.executable: void_ptr = None
 
-    def __enter__(self):
+    def __enter__(self) -> Tuple[void_ptr, ExecInitializerResult]:
         self.executable = self.compile(self.flat_ir)
-        # Prepare input arguments on device
-        device_inputs = []
-        for inp in self.flat_ir.inputs:
-            inp_storage = inp[1]
-            inp_array = inp_storage.data
-            assert inp_storage.device.kind == "gpu", "Input tensors must be on device!"
-            device_inputs.append(inp_array.data.ptr)
-        device_inputs_arr = (ctypes.c_void_p * len(device_inputs))(*device_inputs)
-        self.execargs = self.compiler.exec_initializer(self.executable, device_inputs_arr)
-        return (self.executable, self.execargs)
 
-    def __exit__(self, exc_type, exc_value, traceback):
+        # Inputs are already allocated on device. Copy input shapes and device pointers.
+        inputs = []
+        for i in range(len(self.flat_ir.inputs)):
+            inp_storage = self.flat_ir.inputs[i][1]
+            assert inp_storage.device.kind == "gpu", "Input tensors must be on device!"
+            s = inp_storage.to_ctypes()
+            inputs.append(s)
+
+        # Populate output tensor shapes and device memory pointers.
+        self.exec_args = self.compiler.exec_initializer(self.executable, inputs)
+
+        return self.executable, self.exec_args
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
         if exc_type is not None:
             info = (exc_type, exc_value, traceback)
-            G_LOGGER.exception("Execption occured in FlatIRCompiler", exc_info=info)
+            G_LOGGER.exception("Exception occurred in FlatIRCompiler", exc_info=info)
 
         # Destroy the allocations and the loadable executor.
-        self.compiler.exec_destroy(self.executable, self.execargs)
+        self.compiler.exec_destroy(self.executable)
+
         return False
 
     @log_time

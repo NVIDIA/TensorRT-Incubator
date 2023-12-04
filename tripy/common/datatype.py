@@ -1,11 +1,12 @@
 import abc
 
+# A dictionary to store data types
+DATA_TYPES = {}
+
 
 class DataType(abc.ABC):
     pass
 
-
-DATA_TYPES = {}
 
 # We use `__all__` to control what is exported from this file. `import *` will only pull in objects that are in `__all__`.
 __all__ = []

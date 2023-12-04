@@ -9,20 +9,30 @@ from tripy import util
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
 
+from tripy.common.types import TensorShape
+
 
 class Storage(BaseOperator):
     """
-    Represents data stored in host memory.
+    Represents data stored in host or device memory.
     """
 
-    # TODO (#10): We should have a custom storage class here instead of depending on numpy/cupy.
     def __init__(
         self,
         data: Any,
-        dtype: "tripy.frontend.DataType" = None,
-        device: "tripy.frontend.Device" = None,
+        dtype: "tripy.common.DataType" = None,
+        device: "tripy.common.Device" = None,
         shape: List = None,
-    ):
+    ) -> None:
+        """
+        Initialize Storage instance.
+
+        Args:
+            data: The data to be stored.
+            dtype: Data type (default: float32).
+            device: The device where the data is stored (default: CPU).
+            shape: The shape of the data (default: None).
+        """
         import tripy.common.datatype
         from tripy.common import device as make_device
         from tripy.frontend.dim import Dim
@@ -40,7 +50,14 @@ class Storage(BaseOperator):
                 return self._module.bool_
             return getattr(self._module, self.dtype.name)
 
-        self.data = self._module.array(data, dtype=convert_dtype())
+        if self.device.kind == "gpu" and (
+            isinstance(data, cp.cuda.MemoryPointer) or isinstance(data, cp.cuda.memory.PooledMemory)
+        ):
+            # Store device memory pointer directly. Element type and shape are encoded in self.dtype and self.shape.
+            self.data = data
+        else:
+            self.data = self._module.array(data, dtype=convert_dtype())
+
         shape = util.make_tuple(shape)
         self.shape: List = self.data.shape if shape is None else [-1 if isinstance(s, Dim) else s for s in shape]
         self.shape_profile: List = shape
@@ -74,13 +91,17 @@ class Storage(BaseOperator):
         attr = ir.DenseElementsAttr.get(data, type=mlir_utils.convert_dtype(self.dtype), shape=self.data.shape)
         return [stablehlo.ConstantOp(attr)]
 
+    def to_ctypes(self):
+        shape = TensorShape(self.dtype(), self.shape)
+        return Storage(self.data.data.mem, self.dtype, self.device, shape)
+
 
 @TENSOR_METHOD_REGISTRY("__init__")
 def tensor_init(
     self: "tripy.Tensor",
     data: Any = None,
-    dtype: "tripy.frontend.DataType" = None,
-    device: "tripy.frontend.Device" = None,
+    dtype: "tripy.common.DataType" = None,
+    device: "tripy.common.Device" = None,
     shape: List = None,
 ) -> None:
     """

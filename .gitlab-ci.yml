@@ -28,8 +28,9 @@ build_stablehlo:
     - cd /usr/lib
     - rm -rf stablehlo || true
     - git clone --depth=1 https://github.com/openxla/stablehlo
-    - cd stablehlo && git clone --depth=1 https://github.com/llvm/llvm-project.git
-    - mkdir -p python-build
+    - cd stablehlo && git clone https://github.com/llvm/llvm-project.git
+    - cd llvm-project && git fetch && git checkout $(cat ../build_tools/llvm_version.txt)
+    - cd .. && mkdir -p python-build
     - build_tools/github_actions/ci_build_cmake_python_api.sh llvm-project python-build $PWD
     # copy stablehlo lib to tripy directory
     - cp -R /usr/lib/stablehlo $CI_PROJECT_DIR
@@ -80,6 +81,7 @@ build_mlir_tensorrt:
     - ccache --show-stats || true
     # build
     - cmake -B build -S . -G Ninja
+      -DMLIR_TRT_ENABLE_TRIPY=ON
       -DCMAKE_BUILD_TYPE=RelWithDebInfo
       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER_LAUNCHER=ccache
       -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++

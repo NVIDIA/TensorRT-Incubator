@@ -1,14 +1,17 @@
 import atexit
+from collections import namedtuple
 import ctypes
+import os
 
 from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 from tripy.util.util import find_file_in_dir
 
-void_ptr = ctypes.c_void_p
-char_ptr = ctypes.c_char_p
-c_int = ctypes.c_int
-POINTER = ctypes.POINTER
+from tripy.common.allocator import GpuAllocator
+from tripy.common.types import void_ptr, char_ptr, c_int, TensorShape
+
+# Define a namedtuple to hold the result of the execution initializer
+ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "output_shapes", "outputs"])
 
 
 def func_wrapper(lib, c_func, argtypes, restype):
@@ -30,8 +33,7 @@ class _MlirCompiler:
 
     @log_time
     def __init__(self) -> None:
-        # TODO: Make this not use a hard-coded path.
-        lib_path = find_file_in_dir("libtripy_backend*.so", "/usr/lib/mlir-tensorrt/")
+        lib_path = find_file_in_dir("libtripy_backend*.so", mlir_lib_path())
         assert (
             len(lib_path) == 1
         ), f"Compiler expects exactly 1 tripy backend library to be available.  Found {len(lib_path)} libraries."
@@ -41,33 +43,70 @@ class _MlirCompiler:
         self.mlir_initialize = func_wrapper(self.compiler_lib, "initialize", [], void_ptr)
         self.mlir_destroy = func_wrapper(self.compiler_lib, "destroy", [void_ptr], None)
         self.mlir_compile = func_wrapper(self.compiler_lib, "compile", [void_ptr, char_ptr, c_int], void_ptr)
-        self.mlir_execute = func_wrapper(self.compiler_lib, "execute", [void_ptr, POINTER(void_ptr), void_ptr], None)
-        self.mlir_executor_initialize = func_wrapper(
-            self.compiler_lib, "loadedExecInitializer", [void_ptr, void_ptr], void_ptr
+        self.mlir_execute = func_wrapper(
+            self.compiler_lib,
+            "execute",
+            [
+                void_ptr,
+                void_ptr,
+                void_ptr,
+            ],
+            None,
         )
-        self.mlir_executor_destroy = func_wrapper(self.compiler_lib, "loadedExecDestructor", [void_ptr, void_ptr], None)
+        self.mlir_load_exec_init = func_wrapper(
+            self.compiler_lib,
+            "loadedExecInitializer",
+            [
+                void_ptr,
+                ctypes.POINTER(TensorShape),
+                ctypes.POINTER(ctypes.c_int),
+            ],
+            None,
+        )
+        self.mlir_executor_destroy = func_wrapper(self.compiler_lib, "loadedExecDestructor", [void_ptr], None)
 
         self.compiler = self.mlir_initialize()
         if not self.compiler:
             G_LOGGER.critical("Could not load the backend compiler.")
+
+        self.allocator = GpuAllocator()
 
     def destroy(self):
         """
         Calls the MLIR compiler destructor to free up allocated memory.
         """
         self.mlir_destroy(void_ptr(self.compiler))
+        self.allocator = None
 
-    def exec_initializer(self, executable: void_ptr, execargs: void_ptr):
+    def exec_initializer(self, executable: void_ptr, inputs) -> ExecInitializerResult:
         """
-        Calls the initializer for loadable executable.
-        """
-        return self.mlir_executor_initialize(executable, execargs)
+        Calls the initializer for a loadable executable.
 
-    def exec_destroy(self, executable: void_ptr, execargs: void_ptr):
+        Args:
+            executable (void_ptr): Pointer to the MLIR executable.
+            allocator (void_ptr): Allocator for memory allocation.
+
+        Returns:
+            ExecInitializerResult: A named tuple containing input buffer, output buffer, and output shapes.
+        """
+        # Call the function and receive the pointers to the arrays and counts
+        nb_outputs = ctypes.c_int()
+
+        self.mlir_load_exec_init(executable, None, ctypes.byref(nb_outputs))
+        output_shapes_arr = (TensorShape * nb_outputs.value)()
+
+        self.mlir_load_exec_init(executable, output_shapes_arr, ctypes.byref(nb_outputs))
+
+        # Allocate output memory and store buffer pointers.
+        outputs = [self.allocator.allocate_async(shape) for shape in output_shapes_arr]
+
+        return ExecInitializerResult(inputs, output_shapes_arr, outputs)
+
+    def exec_destroy(self, executable: void_ptr):
         """
         Calls the destructor for loadable executable.
         """
-        self.mlir_executor_destroy(executable, execargs)
+        self.mlir_executor_destroy(executable)
 
     def compile(self, code: str) -> void_ptr:
         """
@@ -78,14 +117,36 @@ class _MlirCompiler:
         """
         return self.mlir_compile(void_ptr(self.compiler), code.encode(), len(code))
 
-    def execute(self, executable: void_ptr, dst, exec_args):
+    def execute(self, executable: void_ptr, exec_args: ExecInitializerResult) -> None:
         """
-        Args:
-            executable: MLIR executable.
-            exec_args: execution arguments.
-        """
+        Execute the MLIR executable with the provided execution arguments.
 
-        self.mlir_execute(void_ptr(executable), dst, exec_args)
+        Args:
+            executable (void_ptr): A pointer to the MLIR executable that will be executed.
+            exec_args (ExecInitializerResult): A named tuple containing the result of the execution
+                initializer, including buffers, sizes, the number of devices, and the number of outputs.
+                - exec_args.inputs: A list of Storage objects representing input buffers.
+                - exec_args.outputs: A list of Storage objects representing output buffers.
+                - exec_args.output_shapes: An array of output shapes.
+        """
+        # Create ctypes compatible device memory void pointers from result buffers.
+
+        in_mem_ptrs = (
+            (ctypes.c_void_p * len(exec_args.inputs))(*(r.data.ptr for r in exec_args.inputs))
+            if len(exec_args.inputs) > 0
+            else None
+        )
+        out_mem_ptrs = (
+            (ctypes.c_void_p * len(exec_args.outputs))(*(r.data.mem.ptr for r in exec_args.outputs))
+            if len(exec_args.outputs) > 0
+            else None
+        )
+
+        self.mlir_execute(
+            void_ptr(executable),
+            in_mem_ptrs,
+            out_mem_ptrs,
+        )
 
 
 G_COMPILER_BACKEND = None
@@ -107,6 +168,20 @@ def mlir_wrapper():
 def mlir_close():
     if G_COMPILER_BACKEND is not None:
         G_COMPILER_BACKEND.destroy()
+
+
+def mlir_lib_path():
+    custom_integ_path = os.getenv("MLIR_TRT_INTEGRATION_PATH")
+    if custom_integ_path:
+        if custom_integ_path not in os.environ["LD_LIBRARY_PATH"]:
+            G_LOGGER.error(f"Trying to build with custom mlir backend but LD_LIBRARY_PATH is not updated.")
+            G_LOGGER.error(
+                f"export LD_LIBRARY_PATH={custom_integ_path}/PJRT:{custom_integ_path}/tripy:{os.environ['LD_LIBRARY_PATH']}"
+            )
+            sys.exit(0)
+
+    path = custom_integ_path or "/usr/lib/mlir-tensorrt/"
+    return path
 
 
 atexit.register(mlir_close)

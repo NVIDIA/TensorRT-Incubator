@@ -50,7 +50,7 @@ class Tensor(metaclass=TensorMeta):
         flat_ir = FlatIR([self])
         G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
 
-        with FlatIRCompiler(flat_ir) as executable, FlatIRExecutor(flat_ir) as executor:
+        with FlatIRCompiler(flat_ir) as executable, FlatIRExecutor() as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
             value = executor.execute(*executable)
