@@ -56,7 +56,8 @@ cmake -B build -S . -G Ninja \
 	 -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
 	 -DCMAKE_C_COMPILER_LAUNCHER=ccache \
 	 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-	 -DLLVM_USE_LINKER=lld
+	 -DLLVM_USE_LINKER=lld \
+	 -DMLIR_TRT_ENABLE_TRIPY=ON
 
 ninja -C build all
 
