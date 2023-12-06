@@ -136,6 +136,7 @@ class _MlirCompiler:
             if len(exec_args.inputs) > 0
             else None
         )
+
         out_mem_ptrs = (
             (ctypes.c_void_p * len(exec_args.outputs))(*(r.data.mem.ptr for r in exec_args.outputs))
             if len(exec_args.outputs) > 0
@@ -173,12 +174,7 @@ def mlir_close():
 def mlir_lib_path():
     custom_integ_path = os.getenv("MLIR_TRT_INTEGRATION_PATH")
     if custom_integ_path:
-        if custom_integ_path not in os.environ["LD_LIBRARY_PATH"]:
-            G_LOGGER.error(f"Trying to build with custom mlir backend but LD_LIBRARY_PATH is not updated.")
-            G_LOGGER.error(
-                f"export LD_LIBRARY_PATH={custom_integ_path}/PJRT:{custom_integ_path}/tripy:{os.environ['LD_LIBRARY_PATH']}"
-            )
-            sys.exit(0)
+        G_LOGGER.info(f"Trying to build with custom mlir backend at {custom_integ_path}")
 
     path = custom_integ_path or "/usr/lib/mlir-tensorrt/"
     return path

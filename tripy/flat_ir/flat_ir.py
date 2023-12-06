@@ -32,7 +32,7 @@ class FlatIR:
             assert flat_ir.layers[0].outputs[0].name == "t0"
         """
         self.layers: List[FIRLayer] = []
-        self.inputs: List[tuple(FIRTensor, Any)] = []
+        self.inputs: List[FIRTensor] = []
         self.outputs: List[FIRTensor] = []
         # Dict to map input name to argument index
         self.inputs_idx: Dict[str, int] = {}
@@ -72,7 +72,7 @@ class FlatIR:
                     None,
                     head.op.infer_dtypes([])[0],
                 )
-                self.inputs.append((input_fir_tensor, head.op))
+                self.inputs.append(input_fir_tensor)
                 producer_dict[input_fir_tensor.name] = None
             else:
                 exprs.extend(head.inputs)
@@ -93,12 +93,12 @@ class FlatIR:
 
             if head in incoming_exprs:
                 if as_input:
-                    self.outputs.append(self.inputs[-1][0])
+                    self.outputs.append(self.inputs[-1])
                 else:
                     self.outputs.append(*self.layers[-1].outputs)
 
         for idx, inp in enumerate(self.inputs):
-            self.inputs_idx[inp[0].name] = idx
+            self.inputs_idx[inp.name] = idx
 
         # Use the producer cache to fill the information for all tensors.
         for l in self.layers:
@@ -135,7 +135,7 @@ class FlatIR:
         if len(self.inputs):
             layer_strs.append("inputs:")
         for inp in self.inputs:
-            layer_strs.append(f"    {inp[1].to_flat_ir_str(None, [inp[0].name])}")
+            layer_strs.append(f"    {str(inp)}")
         for layer in self.layers:
             layer_strs.append(
                 layer.op.to_flat_ir_str([inp.name for inp in layer.inputs], [out.name for out in layer.outputs])
@@ -152,8 +152,8 @@ class FlatIR:
         """
         # Compute and cache shape information for all tensors
         for inp in self.inputs:
-            self._shape_map[inp[0].name] = inp[0].shape
-            self._dtype_map[inp[0].name] = inp[0].dtype
+            self._shape_map[inp.name] = inp.shape
+            self._dtype_map[inp.name] = inp.dtype
 
         for layer in self.layers:
             out_shapes = layer.op.infer_shapes([self._shape_map[inp.name] for inp in layer.inputs])

@@ -29,7 +29,7 @@ class FIRTensor:
     """Data type of the tensor"""
 
     def __str__(self) -> str:
-        return f"{self.name} [{self.shape}]"
+        return f"{self.name} : shape=({self.shape}), dtype=({self.dtype.name})"
 
     def __eq__(self, other: "FIRTensor") -> bool:
         return self.name == other.name and self.stack_info == other.stack_info and self.shape == other.shape

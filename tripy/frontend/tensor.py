@@ -50,10 +50,11 @@ class Tensor(metaclass=TensorMeta):
         flat_ir = FlatIR([self])
         G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
 
-        with FlatIRCompiler(flat_ir) as executable, FlatIRExecutor() as executor:
+        compiler = FlatIRCompiler()
+        with FlatIRExecutor(compiler.compile(flat_ir)) as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
-            value = executor.execute(*executable)
+            value = executor.execute()
             self.inputs = []
             assert len(value) == 1, "Expects only one output from MLIR executor"
             self.op = Storage(value[0], device=device("cpu"))
