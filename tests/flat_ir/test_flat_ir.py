@@ -77,30 +77,35 @@ class TestFlatIR:
         assert irs[0] == irs[1]
 
     def test_str(self):
-        a = Tensor([0])
-        b = Tensor([1])
+        a = Tensor([0.0])
+        b = Tensor([1.0])
+        c = Tensor([0])
+        d = Tensor([1])
+        e = a + b
+        f = c + d
 
-        c = a + b
-
-        flat_ir = FlatIR([c])
+        flat_ir = FlatIR([e, f])
 
         print(flat_ir)  # Makes it easier to debug when the test fails.
         assert (
             str(flat_ir)
             == dedent(
                 """
-                t0 : data=([0.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
-                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t0 : data=([0.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
-                outputs: t2
+                t3 : data=([0]), shape=([1]), dtype=(int32), stride=(), loc=(cpu:0)
+                t4 : data=([1]), shape=([1]), dtype=(int32), stride=(), loc=(cpu:0)
+                t5 = t3 + t4
+                outputs: t2, t5
                 """
             ).strip()
         )
 
     def test_infer_shapes_and_dtypes(self):
         shape = (5, 5)
-        a = Tensor(np.ones(shape))
-        b = Tensor(np.ones(shape))
+        a = Tensor(np.ones(shape).tolist(), shape=shape)
+        b = Tensor(np.ones(shape).tolist(), shape=shape)
 
         c = a + b
 
@@ -111,9 +116,9 @@ class TestFlatIR:
         assert flat_ir.layers[-1].outputs[0].dtype == a.op.dtype
 
     def test_multiple_outputs(self):
-        shape = 1
-        a = Tensor(np.ones(shape))
-        b = Tensor(np.ones(shape))
+        shape = [1]
+        a = Tensor(np.ones(shape).tolist(), shape=shape)
+        b = Tensor(np.ones(shape).tolist(), shape=shape)
 
         c = a + b
         d = c + c
@@ -125,8 +130,8 @@ class TestFlatIR:
             str(flat_ir)
             == dedent(
                 """
-                t0 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
-                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t0 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 t3 = t2 + t2
                 outputs: t2, t3
@@ -135,7 +140,7 @@ class TestFlatIR:
         )
 
     def test_input_output(self):
-        a = Tensor(np.ones(1))
+        a = Tensor(np.ones(1).tolist())
         # a is an input
         a.const_fold = False
 
@@ -145,9 +150,9 @@ class TestFlatIR:
         assert len(flat_ir.layers) == 0
 
     def test_all_inputs(self):
-        shape = 1
-        a = Tensor(np.ones(shape))
-        b = Tensor(np.ones(shape))
+        shape = [1]
+        a = Tensor(np.ones(shape).tolist(), shape=shape)
+        b = Tensor(np.ones(shape).tolist(), shape=shape)
         # a and b are inputs
         a.const_fold = False
         b.const_fold = False
@@ -160,8 +165,8 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=((1,)), dtype=(float32)
-                    t1 : shape=((1,)), dtype=(float32)
+                    t0 : shape=([1]), dtype=(float32)
+                    t1 : shape=([1]), dtype=(float32)
                 t2 = t0 + t1
                 outputs: t2
                 """
@@ -169,9 +174,9 @@ class TestFlatIR:
         )
 
     def test_const_and_input(self):
-        shape = 1
-        a = Tensor(np.ones(shape))
-        b = Tensor(np.ones(shape))
+        shape = [1]
+        a = Tensor(np.ones(shape).tolist(), shape=shape)
+        b = Tensor(np.ones(shape).tolist(), shape=shape)
         # a is an input
         a.const_fold = False
 
@@ -183,8 +188,8 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=((1,)), dtype=(float32)
-                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                    t0 : shape=([1]), dtype=(float32)
+                t1 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs: t2
                 """

@@ -1,4 +1,7 @@
 import abc
+import numpy as np
+from typing import Any
+from tripy.util.util import StrictKeyTypeDict
 
 # A dictionary to store data types
 DATA_TYPES = {}
@@ -28,3 +31,43 @@ int32 = _make_datatype("int32", 4, "32-bit signed integer")
 int64 = _make_datatype("int64", 8, "64-bit signed integer")
 uint8 = _make_datatype("uint8", 1, "8-bit unsigned integer")
 bool = _make_datatype("bool", 1, "Boolean")
+
+
+class DataTypeConverter:
+    TRIPY_TO_NUMPY = StrictKeyTypeDict(
+        {
+            float32: np.float32,
+            int32: np.int32,
+            int8: np.int8,
+            int64: np.int64,
+            uint8: np.uint8,
+            float16: np.float16,
+        }
+    )
+
+    NUMPY_TO_TRIPY = StrictKeyTypeDict(
+        {
+            "int8": int8,
+            "int32": int32,
+            "int64": int64,
+            "uint8": uint8,
+            "float16": float16,
+            "float32": float32,
+            "bool": bool,
+        }
+    )
+
+    @classmethod
+    def convert_tripy_to_numpy_dtype(cls, dtype: Any) -> np.dtype:
+        """
+        Get the tripy.common.datatype equivalent of the data type.
+        """
+        return cls.TRIPY_TO_NUMPY[dtype]
+
+    @classmethod
+    def convert_numpy_to_tripy_dtype(cls, dtype: Any) -> Any:
+        """
+        Get the tripy.common.datatype equivalent of the data type.
+        """
+        assert isinstance(dtype, np.dtype)
+        return cls.NUMPY_TO_TRIPY.get(dtype.name, None)

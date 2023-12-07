@@ -27,7 +27,7 @@ def execute_binary(bin_path):
     print(output)
 
 
-def convert_dtype(dtype: "tripy.common.DataType"):
+def get_mlir_dtype(dtype: "tripy.common.DataType"):
     """
     Converts a tripy data type to an MLIR data type.
     """

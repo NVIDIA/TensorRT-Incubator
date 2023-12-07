@@ -14,7 +14,7 @@ class TestUtils:
 
         with mlir_utils.make_ir_context():
             assert (
-                mlir_utils.convert_dtype(dtype)
+                mlir_utils.get_mlir_dtype(dtype)
                 == {
                     "float32": ir.F32Type.get(),
                     "float16": ir.F16Type.get(),

@@ -38,8 +38,8 @@ class JIT:
                 c = a + b
                 return c
 
-            a = tripy.Tensor(np.ones(1, dtype=np.float32), device=tripy.device("gpu"))
-            b = tripy.Tensor(np.ones(1, dtype=np.float32), device=tripy.device("gpu"))
+            a = tripy.Tensor(np.ones(1, dtype=np.float32).tolist(), device=tripy.device("gpu"))
+            b = tripy.Tensor(np.ones(1, dtype=np.float32).tolist(), device=tripy.device("gpu"))
 
             out_decorator = adder(a, b)
 
@@ -93,7 +93,7 @@ class JIT:
             # compiling and caching a function's implementation.
             # TODO: make arg.eval() return Storage on the same device
             eval_args = [
-                Tensor(list(arg.eval()), dtype=arg.op.dtype, device=device("gpu"), shape=arg.op.shape) for arg in args
+                Tensor(arg.eval(), dtype=arg.op.dtype, device=device("gpu"), shape=arg.op.shape) for arg in args
             ]
             const_argnums = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
             for i in range(len(eval_args)):

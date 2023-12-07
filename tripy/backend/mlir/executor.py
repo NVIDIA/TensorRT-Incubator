@@ -6,6 +6,7 @@ import numpy as np
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr, ExecInitializerResult
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor
+from tripy.common.datatype import DataTypeConverter
 from tripy.ops import Storage
 from tripy.util import log_time
 
@@ -58,7 +59,7 @@ class FlatIRExecutor:
             assert isinstance(inp_storage, Storage), "Input tensors must be evaluated!"
             if inp_storage.device.kind != "gpu":
                 raise Exception("Input tensors must be on device!")
-            device_inputs.append(inp_storage.to_ctypes())
+            device_inputs.append(inp_storage)
         exec_args = self.compiler.exec_initializer(self.executable, device_inputs)
 
         # Execute and populate device pointers.
@@ -73,18 +74,11 @@ class FlatIRExecutor:
         for i in range(num_devices):
             for j in range(num_outputs):
                 index = i * num_outputs + j
-                shape = exec_args.output_shapes[index]
-
-                # Calculate the total number of elements in the tensor
-                nb_elements = np.prod(shape.dims.dims[: shape.dims.nb_dims])
-
-                # Create a Cupy array with the same data pointer
-                arr = cp.ndarray(
-                    shape=(nb_elements,),
-                    dtype=shape.get_cupy_dtype(),
-                    memptr=exec_args.outputs[index].data,
+                s = exec_args.outputs[index]
+                # Convert stored byte buffer to a numpy array and append to the list.
+                # We could have just returned the byte buffer and let user interpret the data.
+                outputs.append(
+                    s.data.byte_buffer.get().view(DataTypeConverter.convert_tripy_to_numpy_dtype(s.dtype)).tolist()
                 )
 
-                # Convert Cupy array to a numpy array and append to the list
-                outputs.append(cp.asnumpy(arr))
         return outputs

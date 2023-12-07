@@ -4,6 +4,8 @@ from tripy import util
 from tripy.common.logging import G_LOGGER
 from tripy.ops import TENSOR_METHOD_REGISTRY
 
+import numpy as np
+
 
 class TensorMeta(type):
     def __new__(cls, name, bases, dct):
@@ -37,7 +39,7 @@ class Tensor(metaclass=TensorMeta):
         tensor._finalize(inputs, op)
         return tensor
 
-    def eval(self) -> None:
+    def eval(self) -> List[int] or List[float]:
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
         from tripy.flat_ir import FlatIR
@@ -45,7 +47,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.common import device
 
         if isinstance(self.op, Storage):
-            return self.op.data
+            return self.op.data.view(self.op.dtype).tolist()
 
         flat_ir = FlatIR([self])
         G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
@@ -61,4 +63,4 @@ class Tensor(metaclass=TensorMeta):
             return value[0]
 
     def __repr__(self) -> str:
-        return f"tensor({self.eval()}, dtype={self.op.data.dtype}, loc={self.op.device})"
+        return f"tensor({self.eval()}, dtype={self.op.dtype}, loc={self.op.device})"

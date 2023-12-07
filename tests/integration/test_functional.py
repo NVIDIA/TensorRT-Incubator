@@ -7,23 +7,23 @@ from tripy.common.device import device
 from tripy.flat_ir import FlatIR
 from tripy.frontend import Tensor, Dim
 from tripy import jit
+from tripy.util.util import all_same
 
 
 class TestFunctional:
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_add_two_tensors(self, kind):
-        arr = np.array([2, 3], dtype=np.float32)
-        a = Tensor(arr, device=device(kind))
-        b = Tensor(np.ones(2, dtype=np.float32), device=device(kind))
+        a = Tensor([2.0, 3.0], shape=(2,), device=device(kind))
+        b = Tensor([1.0, 1.0], shape=(2,), device=device(kind))
 
         c = a + b
         out = c + c
-        assert (out.eval() == np.array([6.0, 8.0])).all()
+        assert all_same(out.eval(), [6.0, 8.0])
 
     @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
     def test_add_two_tensors_dynamic(self, dim):
-        a = Tensor(np.ones(2, dtype=np.float32), shape=(dim))
-        b = Tensor(np.ones(2, dtype=np.float32), shape=(dim))
+        a = Tensor([1.0, 1.0], shape=(dim))
+        b = Tensor([1.0, 1.0], shape=(dim))
 
         @jit
         def func(a, b):
@@ -31,12 +31,11 @@ class TestFunctional:
             return c
 
         out = func(a, b)
-        assert (out.eval() == np.array([2.0, 2.0])).all()
+        assert all_same(out.eval(), [2.0, 2.0])
 
     def test_multi_output_flat_ir(self):
-        shape = 2
-        a = Tensor(np.ones(shape))
-        b = Tensor(np.ones(shape))
+        a = Tensor([1.0, 1.0], shape=(2,))
+        b = Tensor([1.0, 1.0], shape=(2,))
         c = a + b
         d = c + c
         flat_ir = FlatIR([c, d])
@@ -44,4 +43,4 @@ class TestFunctional:
         compiler = FlatIRCompiler()
         with FlatIRExecutor(compiler.compile(flat_ir)) as executor:
             out = executor.execute()
-            assert len(out) == 2 and (out[0] == np.array([2.0, 2.0])).all() and (out[1] == np.array([4.0, 4.0])).all()
+            assert len(out) == 2 and all_same(out[0], [2.0, 2.0]) and all_same(out[1], [4.0, 4.0])
