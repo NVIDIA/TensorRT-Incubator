@@ -21,7 +21,7 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
+        assert (c.eval().get() == np.array([3.0, 4.0])).all() and (d.eval().get() == np.array([6.0, 8.0])).all()
 
     def test_functional_function(self, init_tensors):
         def func(a, b):
@@ -32,7 +32,7 @@ class TestJIT:
         jitted_func = tripy.jit(func)
         a, b = init_tensors
         c, d = jitted_func(a, b)
-        assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
+        assert (c.eval().get() == np.array([3.0, 4.0])).all() and (d.eval().get() == np.array([6.0, 8.0])).all()
 
     def test_functional_decorator_kwargs(self, init_tensors):
         # kwargs are not used by jit implementation as of 11/14/2023.
@@ -44,7 +44,7 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
+        assert (c.eval().get() == np.array([3.0, 4.0])).all() and (d.eval().get() == np.array([6.0, 8.0])).all()
 
     def test_functional_decorator_const_argnums(self, init_tensors):
         @tripy.jit(const_argnums=(0,))
@@ -55,7 +55,7 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
+        assert (c.eval().get() == np.array([3.0, 4.0])).all() and (d.eval().get() == np.array([6.0, 8.0])).all()
 
     def test_functional_function_const_argnums(self, init_tensors):
         def func(a, b):
@@ -69,7 +69,7 @@ class TestJIT:
         )
         a, b = init_tensors
         c, d = jitted_func(a, b)
-        assert (c.eval() == np.array([3.0, 4.0])).all() and (d.eval() == np.array([6.0, 8.0])).all()
+        assert (c.eval().get() == np.array([3.0, 4.0])).all() and (d.eval().get() == np.array([6.0, 8.0])).all()
 
     def test_cache_decorator(self, init_tensors):
         @tripy.jit

@@ -79,6 +79,10 @@ class Storage(BaseOperator):
         assert not input_dtypes, "Storage should have no inputs!"
         return [self.dtype]
 
+    def infer_devices(self, input_devices):
+        assert not input_devices
+        return [self.device]
+
     def to_mlir(self, inputs):
         from tripy.backend.mlir import utils as mlir_utils
 

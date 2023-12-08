@@ -39,15 +39,16 @@ class FlatIRExecutor:
         return False
 
     @log_time
-    def execute(self, inputs: List[Tensor] = []) -> List[np.ndarray]:
+    def execute(self, inputs: List[Tensor] = [], output_devices: List = []) -> List:
         """
         Executes the compiled MLIR program and returns the output of the computation as a list of numpy arrays.
 
         Args:
             inputs: a list of tripy Tensor for input tensors
+            output_devices: a list of output devices, if not provided, all outputs will be on device by default
 
         Returns:
-            List[np.ndarray]: List of numpy arrays for the output tensors.
+            A list of numpy or cupy arrays for the output tensors.
         """
         # Create execargs
         device_inputs = []
@@ -85,6 +86,8 @@ class FlatIRExecutor:
                     memptr=exec_args.outputs[index].data,
                 )
 
-                # Convert Cupy array to a numpy array and append to the list
-                outputs.append(cp.asnumpy(arr))
+                if output_devices and output_devices[index].kind == "cpu":
+                    # Convert Cupy array to a numpy array and append to the list
+                    arr = arr.get()
+                outputs.append(arr)
         return outputs

@@ -4,6 +4,7 @@ import numpy as np
 
 from tripy.frontend import Tensor
 from tripy.flat_ir import FlatIR
+from tripy.common.device import device
 
 
 class TestFlatIR:
@@ -97,7 +98,7 @@ class TestFlatIR:
             ).strip()
         )
 
-    def test_infer_shapes_and_dtypes(self):
+    def test_infer_tensor_info(self):
         shape = (5, 5)
         a = Tensor(np.ones(shape))
         b = Tensor(np.ones(shape))
@@ -105,10 +106,11 @@ class TestFlatIR:
         c = a + b
 
         flat_ir = FlatIR([c])
-        flat_ir.infer_shapes_and_dtypes()
+        flat_ir.infer_tensor_info()
 
         assert flat_ir.layers[-1].outputs[0].shape == shape
         assert flat_ir.layers[-1].outputs[0].dtype == a.op.dtype
+        assert flat_ir.layers[-1].outputs[0].device == device("cpu")
 
     def test_multiple_outputs(self):
         shape = 1
@@ -160,8 +162,8 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=((1,)), dtype=(float32)
-                    t1 : shape=((1,)), dtype=(float32)
+                    t0 : shape=((1,)), dtype=(float32), loc=(cpu:0)
+                    t1 : shape=((1,)), dtype=(float32), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs: t2
                 """
@@ -183,7 +185,7 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=((1,)), dtype=(float32)
+                    t0 : shape=((1,)), dtype=(float32), loc=(cpu:0)
                 t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs: t2

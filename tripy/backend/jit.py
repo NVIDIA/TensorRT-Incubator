@@ -52,6 +52,8 @@ class JIT:
             out_func = jitted_func(a, b)
             assert out_decorator.eval() == out_func.eval()
         """
+        # jit function will put outputs on device by default
+        self.output_device = device("gpu")
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}
         self.func: Callable = None
@@ -93,7 +95,7 @@ class JIT:
             # compiling and caching a function's implementation.
             # TODO: make arg.eval() return Storage on the same device
             eval_args = [
-                Tensor(list(arg.eval()), dtype=arg.op.dtype, device=device("gpu"), shape=arg.op.shape) for arg in args
+                Tensor(arg.eval(), dtype=arg.op.dtype, device=arg.op.device, shape=arg.op.shape) for arg in args
             ]
             const_argnums = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
             for i in range(len(eval_args)):
@@ -117,7 +119,7 @@ class JIT:
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
-            tensor_outputs = [Tensor(o) for o in outputs]
+            tensor_outputs = [Tensor(o, device=self.output_device, dtype=o.dtype, shape=o.dtype) for o in outputs]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]
             return tensor_outputs

@@ -17,7 +17,11 @@ class TestFunctional:
 
         c = a + b
         out = c + c
-        assert (out.eval() == np.array([6.0, 8.0])).all()
+        # TODO(#36): Implement comparison by mlir-tensorrt
+        out = out.eval()
+        if kind == "gpu":
+            out = out.get()
+        assert (out == np.array([6.0, 8.0])).all()
 
     def test_multi_output_flat_ir(self):
         shape = 2
@@ -26,8 +30,9 @@ class TestFunctional:
         c = a + b
         d = c + c
         flat_ir = FlatIR([c, d])
+        output_devices = [o.device for o in flat_ir.outputs]
 
         compiler = FlatIRCompiler()
         with FlatIRExecutor(compiler.compile(flat_ir)) as executor:
-            out = executor.execute()
+            out = executor.execute(output_devices=output_devices)
             assert len(out) == 2 and (out[0] == np.array([2.0, 2.0])).all() and (out[1] == np.array([4.0, 4.0])).all()
