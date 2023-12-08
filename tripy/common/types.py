@@ -89,8 +89,18 @@ class TensorShape(ctypes.Structure):
                 }
                 return to_mlir[dtype.name]
 
+        from tripy.frontend import Dim
+
         self.dtype = _get_mlir_dtype(dtype)
-        self.dims = Dims(len(shape), (ctypes.c_int * MAX_DIMS)(*shape))
+        dims = (ctypes.c_int * MAX_DIMS)()
+
+        for idx, s in enumerate(shape):
+            if isinstance(s, Dim):
+                # Use runtime value for final assignment.
+                dims[idx] = s.runtime_value
+            else:
+                dims[idx] = s
+        self.dims = Dims(len(shape), dims)
 
     def get_mlir_dtype(self) -> MlirDataType:
         """Get the data type of the tensor."""

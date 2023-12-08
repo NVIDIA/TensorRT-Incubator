@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from mlir import ir
 from mlir.dialects import func as func_dialect
@@ -41,4 +41,22 @@ def lower_flat_ir_to_mlir(flat_ir: FlatIR) -> ir.Module:
                     hlo_tensors.update(zip([out.name for out in l.outputs], out_ops))
 
                 func_dialect.ReturnOp([hlo_tensors[o.name] for o in flat_ir.outputs])
+
+            # Create tensorrt.shape_profile attribute for all function arguments
+            arg_attrs: List[Dict[str, ir.Attribute]] = [{} for _ in range(len(entry_block.arguments))]
+
+            for inp in flat_ir.inputs:
+                min_profile_list = inp.get_optimization_profile_list("min")
+                max_profile_list = inp.get_optimization_profile_list("max")
+                opt_profile_list = inp.get_optimization_profile_list("opt")
+
+                arg = {
+                    "tensorrt.shape_profile": ir.Attribute.parse(
+                        f"#tensorrt.shape_profile<min={min_profile_list}, opt={opt_profile_list}, max={max_profile_list}>"
+                    )
+                }
+                arg_attrs[flat_ir.inputs_idx[inp.name]] = arg
+
+            func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
+
         return module
