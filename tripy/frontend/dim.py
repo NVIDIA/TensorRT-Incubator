@@ -73,7 +73,7 @@ class Dim:
         )
 
     def is_static_shape(self):
-        return self._min == self._max and self._min == self._opt and self._min == self._runtime_value
+        return self._runtime_value == self._min == self._opt == self._max
 
     @property
     def min(self) -> int:
