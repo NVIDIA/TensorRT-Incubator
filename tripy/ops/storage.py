@@ -59,8 +59,7 @@ class Storage(BaseOperator):
             self.data = self._module.array(data, dtype=convert_dtype())
 
         shape = util.make_tuple(shape)
-        self.shape: List = self.data.shape if shape is None else [-1 if isinstance(s, Dim) else s for s in shape]
-        self.shape_profile: List = shape
+        self.shape: List = self.data.shape if shape is None else shape
 
     def __eq__(self, other) -> bool:
         return self._module.array_equal(self.data, other.data)

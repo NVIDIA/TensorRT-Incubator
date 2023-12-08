@@ -5,7 +5,8 @@ from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.device import device
 from tripy.flat_ir import FlatIR
-from tripy.frontend import Tensor
+from tripy.frontend import Tensor, Dim
+from tripy import jit
 
 
 class TestFunctional:
@@ -18,6 +19,19 @@ class TestFunctional:
         c = a + b
         out = c + c
         assert (out.eval() == np.array([6.0, 8.0])).all()
+
+    @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
+    def test_add_two_tensors_dynamic(self, dim):
+        a = Tensor(np.ones(2, dtype=np.float32), shape=(dim))
+        b = Tensor(np.ones(2, dtype=np.float32), shape=(dim))
+
+        @jit
+        def func(a, b):
+            c = a + b
+            return c
+
+        out = func(a, b)
+        assert (out.eval() == np.array([2.0, 2.0])).all()
 
     def test_multi_output_flat_ir(self):
         shape = 2

@@ -10,7 +10,8 @@ def make_ir_context() -> ir.Context:
     context = ir.Context()
 
     context.enable_multithreading(False)
-
+    # Allow unregistered dialects to assign trt shape_profile attribute to stablehlo program.
+    context.allow_unregistered_dialects = True
     dialects.stablehlo.register_dialect(context)
     return context
 

@@ -31,6 +31,8 @@ class JIT:
         ::
             import tripy
             import numpy as np
+            from tripy.common.logging import set_logger_mode, LoggerModes
+            set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
 
             # JIT as a decorator example.
             @tripy.jit
