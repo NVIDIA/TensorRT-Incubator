@@ -46,6 +46,19 @@ class BaseOperator(abc.ABC):
         ...
 
     @abc.abstractmethod
+    def infer_devices(self, input_devices: List) -> List:
+        """
+        Infers output devices for the operation.
+
+        Args:
+            input_devices: The devices of the input tensor(s).
+
+        Returns:
+            The devices of the output tensor(s).
+        """
+        ...
+
+    @abc.abstractmethod
     def to_mlir(self, inputs: List) -> List:
         """
         Generates MLIR HLO ops for the operation.

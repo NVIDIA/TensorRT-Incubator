@@ -80,7 +80,7 @@ class Storage(BaseOperator):
         return [self.dtype]
 
     def infer_devices(self, input_devices):
-        assert not input_devices
+        assert not input_devices, "Storage should have no inputs!"
         return [self.device]
 
     def to_mlir(self, inputs):

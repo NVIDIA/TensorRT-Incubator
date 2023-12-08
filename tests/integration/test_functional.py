@@ -33,6 +33,6 @@ class TestFunctional:
         output_devices = [o.device for o in flat_ir.outputs]
 
         compiler = FlatIRCompiler()
-        with FlatIRExecutor(compiler.compile(flat_ir)) as executor:
-            out = executor.execute(output_devices=output_devices)
+        with FlatIRExecutor(compiler.compile(flat_ir), output_devices) as executor:
+            out = executor.execute()
             assert len(out) == 2 and (out[0] == np.array([2.0, 2.0])).all() and (out[1] == np.array([4.0, 4.0])).all()

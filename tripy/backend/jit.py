@@ -52,8 +52,6 @@ class JIT:
             out_func = jitted_func(a, b)
             assert out_decorator.eval() == out_func.eval()
         """
-        # jit function will put outputs on device by default
-        self.output_device = device("gpu")
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}
         self.func: Callable = None
@@ -113,13 +111,17 @@ class JIT:
                     return_tensors = [return_tensors]
                 flat_ir = FlatIR(return_tensors)
                 G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
+                output_devices = [o.device for o in flat_ir.outputs]
 
                 compiler = FlatIRCompiler()
-                executor = FlatIRExecutor(compiler.compile(flat_ir))
+                executor = FlatIRExecutor(compiler.compile(flat_ir), output_devices)
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
-            tensor_outputs = [Tensor(o, device=self.output_device, dtype=o.dtype, shape=o.dtype) for o in outputs]
+            tensor_outputs = [
+                Tensor(o, device=executor.output_devices[idx], dtype=o.dtype, shape=o.dtype)
+                for idx, o in enumerate(outputs)
+            ]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]
             return tensor_outputs
