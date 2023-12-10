@@ -1,5 +1,9 @@
-from functools import reduce
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
+
+import numpy as np
+import cupy as cp
+import jax.numpy as jnp
+import torch
 
 from mlir import ir
 from mlir.dialects import stablehlo
@@ -18,7 +22,7 @@ class Storage(BaseOperator):
 
     def __init__(
         self,
-        data: List[int] or List[float],
+        data: Union[list, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray],
         shape: Optional[Tuple[int]] = None,
         dtype: "tripy.common.DataType" = None,
         device: "tripy.common.Device" = None,
@@ -32,38 +36,13 @@ class Storage(BaseOperator):
             device: The device where the data is stored (default: CPU).
             shape: The shape of the data (default: None).
         """
-        import tripy.common.datatype
         from tripy.common import device as make_device
         from tripy.frontend.dim import Dim
 
         self.device = util.default(device, make_device("cpu"))
-
-        assert data is not None or dtype is not None
-        assert data is not None or shape is not None
-
-        # Flatten the list before storing it. If shape is not known, we just treat it is a 1-D list.
-        e_type = tripy.common.datatype.float32
-        if data is not None:
-            data = util.flatten(data)
-            assert all(isinstance(item, type(data[0])) for item in data)
-            if len(data) > 0:
-                t = type(data[0])
-                assert t == float or t == int
-                e_type = tripy.common.datatype.float32 if t == float else tripy.common.datatype.int32
-
-        # For now require that required data type is same storage type.
-        # Remove this restriction when cast operation is removed.
-        assert dtype is None or e_type == dtype
-        self.dtype = dtype or e_type
-
-        shape = (len(data),) if shape is None else shape
-        if data is None:
-            assert shape is not None
-            static_shape = [s.max if isinstance(s, Dim) else s for s in shape]
-            nb_elements = reduce(lambda x, y: x * y, static_shape)
-            data = [0] * nb_elements
-        self.data = Array(data, self.dtype, self.device)
-        self.shape = util.make_list(shape)
+        self.data = Array(data, dtype, shape, self.device)
+        self.dtype = self.data.dtype
+        self.shape: Tuple[int] = util.make_tuple(self.data.shape if shape is None else shape)
         self.shape_profile: List = util.make_list(shape)
 
     def __eq__(self, other) -> bool:
@@ -77,7 +56,7 @@ class Storage(BaseOperator):
 
     def infer_shapes(self, input_shapes):
         assert not input_shapes, "Storage should have no inputs!"
-        return [util.make_tuple(self.shape)]
+        return [util.make_tuple(self.data.shape)]
 
     def infer_dtypes(self, input_dtypes):
         assert not input_dtypes, "Storage should have no inputs!"
@@ -88,7 +67,7 @@ class Storage(BaseOperator):
 
         assert not inputs, "Storage should have no inputs!"
         attr = ir.DenseElementsAttr.get(
-            array=self.data.view(self.dtype), type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.shape
+            array=self.data.view(self.dtype), type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape
         )
         return [stablehlo.ConstantOp(attr)]
 

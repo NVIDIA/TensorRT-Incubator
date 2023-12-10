@@ -91,11 +91,11 @@ class TestFlatIR:
             str(flat_ir)
             == dedent(
                 """
-                t0 : data=([0.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
-                t1 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
+                t0 : data=([0.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
-                t3 : data=([0]), shape=([1]), dtype=(int32), stride=(), loc=(cpu:0)
-                t4 : data=([1]), shape=([1]), dtype=(int32), stride=(), loc=(cpu:0)
+                t3 : data=([0]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
+                t4 : data=([1]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
                 t5 = t3 + t4
                 outputs: t2, t5
                 """
@@ -130,8 +130,8 @@ class TestFlatIR:
             str(flat_ir)
             == dedent(
                 """
-                t0 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
-                t1 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
+                t0 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 t3 = t2 + t2
                 outputs: t2, t3
@@ -165,8 +165,8 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=([1]), dtype=(float32)
-                    t1 : shape=([1]), dtype=(float32)
+                    t0 : shape=((1,)), dtype=(float32)
+                    t1 : shape=((1,)), dtype=(float32)
                 t2 = t0 + t1
                 outputs: t2
                 """
@@ -188,8 +188,8 @@ class TestFlatIR:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=([1]), dtype=(float32)
-                t1 : data=([1.0]), shape=([1]), dtype=(float32), stride=(), loc=(cpu:0)
+                    t0 : shape=((1,)), dtype=(float32)
+                t1 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs: t2
                 """

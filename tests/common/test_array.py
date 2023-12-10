@@ -1,57 +1,78 @@
-import numpy as np
+from typing import List
+
 import cupy as cp
+import jax.numpy as jnp
+import numpy as np
 import pytest
+import torch
 
-from tripy.common.device import device
-from tripy.common.datatype import int32, float32
 from tripy.common.array import Array
+from tripy.common.device import Device
+from tripy.common.datatype import DataTypeConverter
 
 
-@pytest.fixture
-def int_data():
-    return [1, 2, 3]
+def torch_type_supported(data: np.ndarray):
+    unsupported_dtypes = [np.uint16, np.uint32, np.uint64]
+    return data.dtype not in unsupported_dtypes
 
 
-@pytest.fixture
-def float_data():
-    return [1.0, 2.0, 3.0]
+# Supported NumPy data types
+numpy_dtypes = [
+    np.float16,
+    np.float32,
+    np.float64,
+    np.int8,
+    np.int16,
+    np.int32,
+    np.int64,
+    np.uint8,
+    np.uint16,
+    np.uint32,
+    np.uint64,
+]
+
+# Create NumPy input data list.
+np_data = [np.ones(1, dtype=dtype) for dtype in numpy_dtypes]
+data_list = []
+
+# Create a data list for NumPy arrays
+data_list.extend(np_data)
+
+# Extend the data list for Cupy arrays
+data_list.extend([cp.array(data) for data in np_data])
+
+# Extend the data list for Torch CPU tensors
+data_list.extend([torch.tensor(data) for data in list(filter(torch_type_supported, np_data))])
+
+# Extend the data list for Torch GPU tensors
+data_list.extend([torch.tensor(data).to(torch.device("cuda")) for data in list(filter(torch_type_supported, np_data))])
+
+# Extend the data list for Jax arrays
+data_list.extend([jnp.array(data) for data in np_data])
+
+# Define parameters for device type and index
+device_params = [
+    {"device_type": "cpu", "device_index": None},
+    {"device_type": "gpu", "device_index": 0},
+]
 
 
-def test_array_init_cpu(int_data):
-    a = Array(int_data, int32, device("cpu"))
-    assert isinstance(a, Array)
-    assert a.device.kind == "cpu"
+@pytest.mark.parametrize("device_param", device_params)
+@pytest.mark.parametrize("input_data", data_list)
+def test_array_creation(device_param, input_data):
+    """
+    Test the creation of Array objects with different devices and data types.
+    """
+    device_type = device_param["device_type"]
+    device_index = device_param["device_index"]
+    device = Device(device_type, device_index)
+    dtype = DataTypeConverter.convert_numpy_to_tripy_dtype(input_data.dtype)
+    shape = (len(List),) if isinstance(input_data, List) else input_data.shape
+    if dtype is not None:
+        arr = Array(input_data, dtype, shape, device)
 
-
-def test_array_init_gpu(int_data):
-    a = Array(cp.array(int_data), int32, device("gpu"))
-    assert isinstance(a, Array)
-    assert a.device.kind == "gpu"
-
-
-def test_array_view_cpu(float_data):
-    a = Array(float_data, float32, device("cpu"))
-    b = a.view(float32)
-
-    assert isinstance(b, np.ndarray)
-    assert b.dtype == np.float32
-    assert np.array_equal(b, np.array(float_data, dtype=np.float32))
-
-
-def test_array_view_gpu(float_data):
-    a = Array(cp.array(float_data), float32, device("gpu"))
-    b = a.view(float32)
-
-    assert isinstance(b, np.ndarray)
-    assert b.dtype == np.float32
-    assert np.array_equal(b, np.array(float_data, dtype=np.float32))
-
-
-def test_array_equality(int_data):
-    a = Array(int_data, int32, device("cpu"))
-    b = Array(int_data, int32, device("cpu"))
-    c = Array(cp.array(int_data), int32, device("gpu"))
-
-    assert a == b
-    assert a != c
-    assert b != c
+        assert isinstance(arr, Array)
+        assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
+        assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8
+        assert arr.device.kind == device_type
+        assert arr.device.index == device_index

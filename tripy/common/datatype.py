@@ -1,6 +1,7 @@
 import abc
 import numpy as np
-from typing import Any
+import torch
+from typing import Any, List
 from tripy.util.util import StrictKeyTypeDict
 
 # A dictionary to store data types
@@ -69,5 +70,10 @@ class DataTypeConverter:
         """
         Get the tripy.common.datatype equivalent of the data type.
         """
-        assert isinstance(dtype, np.dtype)
-        return cls.NUMPY_TO_TRIPY.get(dtype.name, None)
+        if isinstance(dtype, torch.dtype):
+            dtype_name = str(dtype).split(".", 1)[-1]
+        elif any(isinstance(dtype, type(d)) for d in [int, float]):
+            return float32 if dtype == float else int32
+        else:
+            dtype_name = dtype.name
+        return cls.NUMPY_TO_TRIPY.get(dtype_name, None)

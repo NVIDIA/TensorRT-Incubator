@@ -127,4 +127,4 @@ def all_same(a: List[int] or List[float], b: List[int] or List[float]):
 
 
 def flatten(data: List[Any]):
-    return list(chain.from_iterable((flatten(item) if isinstance(item, list) else [item] for item in data)))
+    return list(chain.from_iterable((flatten(item) if isinstance(item, List) else [item] for item in data)))
