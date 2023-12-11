@@ -159,9 +159,12 @@ class DlpackConverter:
             np.ndarray: Byte buffer containing converted data.
         """
         assert self.target_device == "cpu"
-        if isinstance(data, (torch.Tensor, jnp.ndarray)):
+        if isinstance(data, torch.Tensor):
             data = self._move_to_target_device(data, self.target_device)
-            return np.array(np.from_dlpack(data)).view(np.uint8)
+            return np.array(torch.utils.dlpack.from_dlpack(data)).view(np.uint8)
+        if isinstance(data, jnp.ndarray):
+            data = self._move_to_target_device(data, self.target_device)
+            return np.array(jax.dlpack.from_dlpack(data)).view(np.uint8)
         elif isinstance(data, list):
             return np.array(data, dtype=DataTypeConverter.convert_tripy_to_numpy_dtype(dtype)).view(np.uint8)
         elif isinstance(data, cp.ndarray):
@@ -183,9 +186,12 @@ class DlpackConverter:
             cp.ndarray: Byte buffer containing converted data.
         """
         assert self.target_device == "gpu"
-        if isinstance(data, (torch.Tensor, jnp.ndarray)):
-            data = self._move_to_target_device(data, "cuda")
-            return cp.array(torch.utils.dlpack.from_dlpack(data)).view(cp.uint8)
+        if isinstance(data, torch.Tensor):
+            data = self._move_to_target_device(data, self.target_device)
+            return cp.array(torch.utils.dlpack.from_dlpack(data)).view(np.uint8)
+        if isinstance(data, jnp.ndarray):
+            data = self._move_to_target_device(data, self.target_device)
+            return cp.array(jax.dlpack.from_dlpack(data)).view(np.uint8)
         elif isinstance(data, list):
             return cp.array(data, dtype=DataTypeConverter.convert_tripy_to_numpy_dtype(dtype)).view(cp.uint8)
         elif isinstance(data, (np.ndarray, cp.ndarray)):
@@ -206,6 +212,8 @@ class DlpackConverter:
         """
         if isinstance(data, torch.Tensor):
             if target_device not in str(data.device).lower():
+                if target_device == "gpu":
+                    target_device = "cuda"
                 data = data.to(target_device)
         elif isinstance(data, jnp.ndarray):
             if target_device not in str(jax.devices(target_device)[0]).lower():

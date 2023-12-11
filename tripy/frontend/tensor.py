@@ -4,8 +4,6 @@ from tripy import util
 from tripy.common.logging import G_LOGGER
 from tripy.ops import TENSOR_METHOD_REGISTRY
 
-import numpy as np
-
 
 class TensorMeta(type):
     def __new__(cls, name, bases, dct):

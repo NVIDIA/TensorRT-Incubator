@@ -5,34 +5,17 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch
+import jax
 
 from tripy.common.array import Array
 from tripy.common.device import Device
 from tripy.common.datatype import DataTypeConverter
 
-
-def torch_type_supported(data: np.ndarray):
-    unsupported_dtypes = [np.uint16, np.uint32, np.uint64]
-    return data.dtype not in unsupported_dtypes
-
-
-# Supported NumPy data types
-numpy_dtypes = [
-    np.float16,
-    np.float32,
-    np.float64,
-    np.int8,
-    np.int16,
-    np.int32,
-    np.int64,
-    np.uint8,
-    np.uint16,
-    np.uint32,
-    np.uint64,
-]
+from tests.helper import torch_type_supported
+from tests.helper import NUMPY_TYPES
 
 # Create NumPy input data list.
-np_data = [np.ones(1, dtype=dtype) for dtype in numpy_dtypes]
+np_data = [np.ones(1, dtype=dtype) for dtype in NUMPY_TYPES]
 data_list = []
 
 # Create a data list for NumPy arrays
@@ -47,8 +30,11 @@ data_list.extend([torch.tensor(data) for data in list(filter(torch_type_supporte
 # Extend the data list for Torch GPU tensors
 data_list.extend([torch.tensor(data).to(torch.device("cuda")) for data in list(filter(torch_type_supported, np_data))])
 
-# Extend the data list for Jax arrays
-data_list.extend([jnp.array(data) for data in np_data])
+# Extend the data list for Jax CPU arrays
+data_list.extend([jax.device_put(jnp.array(data), jax.devices("cpu")[0]) for data in np_data])
+
+# Extend the data list for Jax GPU arrays
+data_list.extend([jax.device_put(jnp.array(data), jax.devices("cuda")[0]) for data in np_data])
 
 # Define parameters for device type and index
 device_params = [

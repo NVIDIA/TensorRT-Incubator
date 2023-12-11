@@ -75,7 +75,7 @@ class Storage(BaseOperator):
 @TENSOR_METHOD_REGISTRY("__init__")
 def tensor_init(
     self: "tripy.Tensor",
-    data: List[float] or List[int] = None,
+    data: Union[list, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray] = None,
     shape: Optional[Tuple[int]] = None,
     dtype: "tripy.common.DataType" = None,
     device: "tripy.common.Device" = None,

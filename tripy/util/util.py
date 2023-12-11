@@ -7,14 +7,6 @@ from itertools import chain
 from tripy.common.logging import G_LOGGER
 
 
-class StrictKeyTypeDict(dict):
-    def __getitem__(self, key):
-        if key in self:
-            return super().__getitem__(key)
-        else:
-            raise KeyError(f"Unsupported key: {key}")
-
-
 def default(value, default):
     """
     Returns a specified default value if the provided value is None.
@@ -103,27 +95,6 @@ def make_tuple(obj):
     if not isinstance(obj, tuple) and obj is not None:
         return (obj,)
     return obj
-
-
-def all_same(a: List[int] or List[float], b: List[int] or List[float]):
-    """
-    Compare two lists element-wise for equality.
-
-    Args:
-        a (list): The first list.
-        b (list): The second list.
-
-    Returns:
-        bool: True if the lists have the same elements in the same order, False otherwise.
-    """
-    if len(a) != len(b):
-        return False
-
-    for a, b in zip(a, b):
-        if a != b:
-            return False
-
-    return True
 
 
 def flatten(data: List[Any]):

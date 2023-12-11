@@ -4,7 +4,6 @@ import numpy as np
 from typing import List
 
 import tripy.common.datatype
-from tripy.util.util import StrictKeyTypeDict
 
 MAX_DIMS = 8
 
@@ -36,7 +35,7 @@ class MlirDataType(ctypes.c_int):
 
 
 def convert_ctypes_to_tripy_dtype(dtype: MlirDataType):
-    ctypes_to_tripy = StrictKeyTypeDict(
+    ctypes_to_tripy = dict(
         {
             0: tripy.common.datatype.float32,
             1: tripy.common.datatype.float16,

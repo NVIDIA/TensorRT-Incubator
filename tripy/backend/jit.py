@@ -38,8 +38,8 @@ class JIT:
                 c = a + b
                 return c
 
-            a = tripy.Tensor(np.ones(1, dtype=np.float32).tolist(), device=tripy.device("gpu"))
-            b = tripy.Tensor(np.ones(1, dtype=np.float32).tolist(), device=tripy.device("gpu"))
+            a = tripy.Tensor(np.ones(1, dtype=np.float32), device=tripy.device("gpu"))
+            b = tripy.Tensor(np.ones(1, dtype=np.float32), device=tripy.device("gpu"))
 
             out_decorator = adder(a, b)
 

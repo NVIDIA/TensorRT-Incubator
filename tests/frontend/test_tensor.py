@@ -6,7 +6,7 @@ import pytest
 
 import tripy
 import tripy.ops
-from tripy.common.datatype import DATA_TYPES
+from tripy.common.datatype import DATA_TYPES, DataTypeConverter
 from tripy.frontend import Tensor
 from tripy.util.stack_info import SourceInfo
 
@@ -35,14 +35,11 @@ class TestTensor:
         if dtype in {tripy.int4, tripy.bfloat16, tripy.float8e4m3fn}:
             pytest.skip("Type is not supported by numpy/cupy")
 
-        if dtype in {tripy.int8, tripy.int64, tripy.float16, tripy.uint8, tripy.bool}:
-            pytest.skip("Skip test until cast operation implemented.")
-
-        data = [1, 2, 3] if dtype == tripy.int32 else [1.0, 2.0, 3.0]
-        tensor = Tensor(data, dtype=dtype)
+        # (38): Add cast operation to support unsupported backend types. Allow requested type to be different than init data type.
+        tensor = Tensor(np.array([1, 2, 3], dtype=DataTypeConverter.convert_tripy_to_numpy_dtype(dtype)), dtype=dtype)
         assert tensor.op.dtype == dtype
-        assert tensor.op.dtype.name == dtype.name
-        assert tensor.op.dtype.itemsize == dtype.itemsize
+        assert tensor.op.data.dtype.name == dtype.name
+        assert tensor.op.data.dtype.itemsize == dtype.itemsize
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     def test_stack_info_is_populated(self):
@@ -65,19 +62,19 @@ class TestTensor:
         )
 
     def test_eval_of_storage_tensor_is_nop(self):
-        a = Tensor([1.0])
+        a = Tensor(np.array([1], dtype=np.float32))
 
         # TODO: Verify that we don't compile/execute somehow.
-        assert a.eval() == [1.0]
+        assert list(a.eval()) == [1]
 
     def test_evaled_tensor_becomes_concrete(self):
-        a = Tensor([1.0])
-        b = Tensor([2.0])
+        a = Tensor(np.array([1], dtype=np.float32))
+        b = Tensor(np.array([2], dtype=np.float32))
 
         c = a + b
         assert isinstance(c.op, tripy.ops.BinaryElementwise)
 
-        assert c.eval() == [3.0]
+        assert list(c.eval()) == [3]
 
         assert isinstance(c.op, tripy.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.

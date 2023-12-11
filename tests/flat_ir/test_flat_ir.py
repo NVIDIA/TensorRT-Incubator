@@ -77,35 +77,30 @@ class TestFlatIR:
         assert irs[0] == irs[1]
 
     def test_str(self):
-        a = Tensor([0.0])
-        b = Tensor([1.0])
-        c = Tensor([0])
-        d = Tensor([1])
-        e = a + b
-        f = c + d
+        a = Tensor([0])
+        b = Tensor([1])
 
-        flat_ir = FlatIR([e, f])
+        c = a + b
+
+        flat_ir = FlatIR([c])
 
         print(flat_ir)  # Makes it easier to debug when the test fails.
         assert (
             str(flat_ir)
             == dedent(
                 """
-                t0 : data=([0.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
-                t1 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t0 : data=([0]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
+                t1 : data=([1]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
-                t3 : data=([0]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
-                t4 : data=([1]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
-                t5 = t3 + t4
-                outputs: t2, t5
+                outputs: t2
                 """
             ).strip()
         )
 
     def test_infer_shapes_and_dtypes(self):
         shape = (5, 5)
-        a = Tensor(np.ones(shape).tolist(), shape=shape)
-        b = Tensor(np.ones(shape).tolist(), shape=shape)
+        a = Tensor(np.ones(shape))
+        b = Tensor(np.ones(shape))
 
         c = a + b
 
@@ -116,9 +111,9 @@ class TestFlatIR:
         assert flat_ir.layers[-1].outputs[0].dtype == a.op.dtype
 
     def test_multiple_outputs(self):
-        shape = [1]
-        a = Tensor(np.ones(shape).tolist(), shape=shape)
-        b = Tensor(np.ones(shape).tolist(), shape=shape)
+        shape = 1
+        a = Tensor(np.ones(shape, dtype=np.float32))
+        b = Tensor(np.ones(shape, dtype=np.float32))
 
         c = a + b
         d = c + c
@@ -140,7 +135,7 @@ class TestFlatIR:
         )
 
     def test_input_output(self):
-        a = Tensor(np.ones(1).tolist())
+        a = Tensor(np.ones(1))
         # a is an input
         a.const_fold = False
 
@@ -150,9 +145,11 @@ class TestFlatIR:
         assert len(flat_ir.layers) == 0
 
     def test_all_inputs(self):
-        shape = [1]
-        a = Tensor(np.ones(shape).tolist(), shape=shape)
-        b = Tensor(np.ones(shape).tolist(), shape=shape)
+        shape = 1
+        # Need explicit data type here since by default dtype is np.float64 which is not yet supported.
+        # (38): Add cast operation to support unsupported backend types.
+        a = Tensor(np.ones(shape, dtype=np.float32))
+        b = Tensor(np.ones(shape, dtype=np.float32))
         # a and b are inputs
         a.const_fold = False
         b.const_fold = False
@@ -174,9 +171,9 @@ class TestFlatIR:
         )
 
     def test_const_and_input(self):
-        shape = [1]
-        a = Tensor(np.ones(shape).tolist(), shape=shape)
-        b = Tensor(np.ones(shape).tolist(), shape=shape)
+        shape = 1
+        a = Tensor(np.ones(shape, dtype=np.float32))
+        b = Tensor(np.ones(shape, dtype=np.float32))
         # a is an input
         a.const_fold = False
 

@@ -1,8 +1,7 @@
 import abc
 import numpy as np
 import torch
-from typing import Any, List
-from tripy.util.util import StrictKeyTypeDict
+from typing import Any
 
 # A dictionary to store data types
 DATA_TYPES = {}
@@ -35,7 +34,7 @@ bool = _make_datatype("bool", 1, "Boolean")
 
 
 class DataTypeConverter:
-    TRIPY_TO_NUMPY = StrictKeyTypeDict(
+    TRIPY_TO_NUMPY = dict(
         {
             float32: np.float32,
             int32: np.int32,
@@ -43,10 +42,11 @@ class DataTypeConverter:
             int64: np.int64,
             uint8: np.uint8,
             float16: np.float16,
+            bool: np.bool_,
         }
     )
 
-    NUMPY_TO_TRIPY = StrictKeyTypeDict(
+    NUMPY_TO_TRIPY = dict(
         {
             "int8": int8,
             "int32": int32,
@@ -61,7 +61,7 @@ class DataTypeConverter:
     @classmethod
     def convert_tripy_to_numpy_dtype(cls, dtype: Any) -> np.dtype:
         """
-        Get the tripy.common.datatype equivalent of the data type.
+        Get the numpy equivalent of tripy.common.datatype.
         """
         return cls.TRIPY_TO_NUMPY[dtype]
 

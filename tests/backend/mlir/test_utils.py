@@ -1,5 +1,6 @@
 import pytest
 from mlir import ir
+import numpy as np
 
 import tripy
 from tripy.backend.mlir import utils as mlir_utils
@@ -20,10 +21,10 @@ class TestUtils:
                     "float16": ir.F16Type.get(),
                     "float8e4m3fn": ir.Float8E4M3FNType.get(),
                     "bfloat16": ir.BF16Type.get(),
-                    "int4": ir.IntegerType.get_signed(4),
-                    "int8": ir.IntegerType.get_signed(8),
-                    "int32": ir.IntegerType.get_signed(32),
-                    "int64": ir.IntegerType.get_signed(64),
+                    "int4": ir.IntegerType.get_signless(4),
+                    "int8": ir.IntegerType.get_signless(8),
+                    "int32": ir.IntegerType.get_signless(32),
+                    "int64": ir.IntegerType.get_signless(64),
                     "uint8": ir.IntegerType.get_unsigned(8),
                     # TODO (pranavm): Figure out how to make boolean types work.
                 }[dtype.name]
