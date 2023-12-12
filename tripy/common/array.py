@@ -1,19 +1,51 @@
 from typing import Any, Optional, List, Tuple, Union
 import numpy as np
 import cupy as cp
-import jax.numpy as jnp
-import jax
-import torch
-from tripy import util
+
 import tripy.common.datatype
+from tripy import util
 from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to_numpy_dtype
 from tripy.common.device import Device
 
 
 class Array:
+    """
+    A versatile array container abstracting Torch, Jax, Cupy, NumPy, and List implementations.
+
+    Args:
+        data (list or np.ndarray or cp.ndarray or torch.Tensor or jnp.ndarray): Input data.
+        dtype (tripy.common.datatype): Data type of the array.
+        shape (Optional[Tuple[int]]): Shape information for static allocation.
+        device (Device): Target device ("cpu" or "gpu").
+
+    Attributes:
+        byte_buffer (Union[np.ndarray, cp.ndarray]): Byte buffer containing converted data.
+        shape (Tuple[int]): Shape information of the array.
+        dtype (tripy.common.datatype): Data type of the array.
+
+    Methods:
+        view(dtype: tripy.common.datatype) -> np.ndarray:
+            Create a view of the array with a different data type.
+
+        __eq__(other: Array) -> bool:
+            Check if two arrays are equal.
+
+    Notes:
+        - The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
+        - Data is stored as a byte buffer, enabling interoperability across array libraries.
+        - The byte buffer is created using the `_convert_to_byte_buffer` function.
+        - Views with different data types can be created using the `view` method.
+
+    Examples:
+        >>> arr = Array([1, 2, 3], dtype=tripy.common.datatype.int32, device=Device("cpu"))
+        >>> arr.view(tripy.common.datatype.float32)
+        >>> arr2 = Array(np.array([4, 5, 6]), device=Device("gpu"))
+        >>> arr == arr2
+    """
+
     def __init__(
         self,
-        data: Union[list, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray],
+        data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"],
         dtype: tripy.common.datatype,
         shape: Optional[Tuple[int]],
         device: Device,
@@ -48,8 +80,7 @@ class Array:
         # Allocate dummy data
         if data is None:
             assert shape is not None
-            data = np.zeros(dtype=convert_tripy_to_numpy_dtype(data_dtype), shape=static_shape)
-
+            data = self._module.empty(dtype=convert_tripy_to_numpy_dtype(data_dtype), shape=static_shape)
         # Convert input data to a byte buffer.
         self.byte_buffer: Union[np.ndarray, cp.ndarray] = _convert_to_byte_buffer(data, data_dtype, self.device.kind)
 
@@ -75,10 +106,7 @@ class Array:
         Returns:
             np.ndarray: Numpy array view with the specified data type.
         """
-        if self.device.kind == "gpu":
-            return np.ascontiguousarray(self.byte_buffer.get()).view(convert_tripy_to_numpy_dtype(dtype))
-        else:
-            return np.ascontiguousarray(self.byte_buffer).view(convert_tripy_to_numpy_dtype(dtype))
+        return self.byte_buffer.view(convert_tripy_to_numpy_dtype(dtype))
 
     def __eq__(self, other) -> bool:
         """
@@ -96,7 +124,7 @@ class Array:
 
 
 def _convert_to_byte_buffer(
-    data: Union[List, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray], dtype: tripy.common.datatype, device: str
+    data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"], dtype: tripy.common.datatype, device: str
 ) -> Union[np.ndarray, cp.ndarray]:
     """
     Common conversion logic for both CPU and GPU.
@@ -109,33 +137,10 @@ def _convert_to_byte_buffer(
     Returns:
         np.ndarray or cp.ndarray: Byte buffer containing converted data.
     """
-
-    def _move_to_device(data: Any, device: str) -> Any:
-        """Move input data to the target device."""
-        if isinstance(data, torch.Tensor):
-            # Use torch's to method to move data to the target device
-            if device not in str(data.device).lower():
-                device = "cuda" if device == "gpu" else device
-                data = data.to(device)
-        elif isinstance(data, jnp.ndarray):
-            # Use jax's device_put method to move data to the target device
-            if device not in str(jax.devices(device)[0]).lower():
-                data = jax.device_put(data, jax.devices(device)[0])
-        elif isinstance(data, cp.ndarray):
-            # Use Cupy's get method to move data to CPU
-            if device == "cpu":
-                data = data.get()
-        else:
-            # Ensure that data is either a NumPy array or a list
-            assert isinstance(data, (np.ndarray, List))
-
-        return data
-
     assert device in ["cpu", "gpu"]
 
     # Choose the appropriate module (NumPy or Cupy) based on the device
     _module = cp if device == "gpu" else np
-    data = _move_to_device(data, device)
 
     if isinstance(data, list):
         # Use array method with dtype to convert list to NumPy or Cupy array

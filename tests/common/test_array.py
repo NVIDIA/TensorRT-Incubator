@@ -1,18 +1,17 @@
-from typing import List
+from typing import List, Any
 
 import cupy as cp
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch
-import jax
 
 from tripy.common.array import Array
 from tripy.common.device import Device
 from tripy.common.datatype import convert_numpy_to_tripy_dtype
 
-from tests.helper import torch_type_supported
-from tests.helper import NUMPY_TYPES
+from tests.helper import torch_type_supported, NUMPY_TYPES
 
 # Create NumPy input data list.
 np_data = [np.ones(1, dtype=dtype) for dtype in NUMPY_TYPES]
@@ -25,10 +24,10 @@ data_list.extend(np_data)
 data_list.extend([cp.array(data) for data in np_data])
 
 # Extend the data list for Torch CPU tensors
-data_list.extend([torch.tensor(data) for data in list(filter(torch_type_supported, np_data))])
+data_list.extend([torch.tensor(data) for data in filter(torch_type_supported, np_data)])
 
 # Extend the data list for Torch GPU tensors
-data_list.extend([torch.tensor(data).to(torch.device("cuda")) for data in list(filter(torch_type_supported, np_data))])
+data_list.extend([torch.tensor(data).to(torch.device("cuda")) for data in filter(torch_type_supported, np_data)])
 
 # Extend the data list for Jax CPU arrays
 data_list.extend([jax.device_put(jnp.array(data), jax.devices("cpu")[0]) for data in np_data])
@@ -43,6 +42,28 @@ device_params = [
 ]
 
 
+def _move_to_device(data: Any, device: str) -> Any:
+    """Move input data to the target device."""
+    if isinstance(data, torch.Tensor):
+        # Use torch's to method to move data to the target device
+        if device not in str(data.device).lower():
+            device = "cuda" if device == "gpu" else device
+            data = data.to(device)
+    elif isinstance(data, jnp.ndarray):
+        # Use jax's device_put method to move data to the target device
+        if device not in str(jax.devices(device)[0]).lower():
+            data = jax.device_put(data, jax.devices(device)[0])
+    elif isinstance(data, cp.ndarray):
+        # Use Cupy's get method to move data to CPU
+        if device == "cpu":
+            data = data.get()
+    else:
+        # Ensure that data is either a NumPy array or a list
+        assert isinstance(data, (np.ndarray, List))
+
+    return data
+
+
 @pytest.mark.parametrize("device_param", device_params)
 @pytest.mark.parametrize("input_data", data_list)
 def test_array_creation(device_param, input_data):
@@ -55,8 +76,7 @@ def test_array_creation(device_param, input_data):
     dtype = convert_numpy_to_tripy_dtype(input_data.dtype)
     shape = (len(List),) if isinstance(input_data, List) else input_data.shape
     if dtype is not None:
-        arr = Array(input_data, dtype, shape, device)
-
+        arr = Array(_move_to_device(input_data, device_type), dtype, shape, device)
         assert isinstance(arr, Array)
         assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
         assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8

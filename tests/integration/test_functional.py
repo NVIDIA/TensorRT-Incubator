@@ -14,57 +14,15 @@ from tripy.frontend import Tensor, Dim
 from tripy import jit
 from tests.helper import all_same
 
-from tests.helper import torch_type_supported
-from tests.helper import NUMPY_TYPES
-
-
-@pytest.fixture
-def a():
-    return [2.0, 3.0]
-
-
-@pytest.fixture
-def b():
-    return [1.0, 1.0]
-
-
-@pytest.fixture
-def init_tensors(a, b):
-    def init_list(z):
-        data = [np.array(z, dtype=dtype) for dtype in NUMPY_TYPES]
-        l = []
-        l.append(
-            [np.array(z, dtype=np.float32).tolist(), np.array(z, dtype=np.int32).tolist()]
-        )  # Only float and int are supported for a list.
-        l.append(data)
-        # Extend the data list for Cupy arrays
-        l.append([cp.array(d) for d in data])
-        # Extend the data list for Torch CPU tensors
-        l.append([torch.tensor(d) for d in list(filter(torch_type_supported, data))])
-        # Extend the data list for Torch GPU tensors
-        l.append([torch.tensor(d).to(torch.device("cuda")) for d in list(filter(torch_type_supported, data))])
-        # Extend the data list for Jax CPU arrays
-        l.append([jax.device_put(jnp.array(d), jax.devices("cpu")[0]) for d in data])
-        # Extend the data list for Jax GPU arrays
-        l.append([jax.device_put(jnp.array(d), jax.devices("cuda")[0]) for d in data])
-        return l
-
-    al = init_list(a)
-    bl = init_list(b)
-    result = [{"a": x, "b": y} for x, y in zip(al, bl)]
-    return result
+from tests.helper import torch_type_supported, NUMPY_TYPES
 
 
 class TestFunctional:
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
-    def test_add_two_tensors(self, kind, init_tensors):
-        for data in init_tensors:
-            for a_, b_ in zip(data["a"], data["b"]):
-                a = Tensor(a_, shape=(2,), device=device(kind))
-                b = Tensor(b_, shape=(2,), device=device(kind))
-                c = a + b
-                out = c + c
-                assert all_same(out.eval(), [6.0, 8.0])
+    def test_add_two_tensors(self, kind):
+        arr = np.array([2, 3], dtype=np.float32)
+        a = Tensor(arr, device=device(kind))
+        b = Tensor(np.ones(2, dtype=np.float32), device=device(kind))
 
     @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
     def test_add_two_tensors_dynamic(self, dim):

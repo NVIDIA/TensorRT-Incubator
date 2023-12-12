@@ -167,21 +167,19 @@ def _from_dlpack(from_, to_):
         print(f"An error occurred: {e}")
 
 
-@pytest.fixture
-def data_array():
-    np_arr = np.ones(1, dtype=np.float32)
-    cp_arr = cp.ones(1, dtype=np.float32)
-    torch_cpu_arr = torch.tensor(np_arr)
-    torch_gpu_arr = torch_cpu_arr.to(torch.device("cuda"))
-    jax_cpu_arr = jax.device_put(np_arr, jax.devices("cpu")[0])
-    jax_gpu_arr = jax.device_put(np_arr, jax.devices("gpu")[0])
-    data = [np_arr, cp_arr, torch_cpu_arr, torch_gpu_arr, jax_cpu_arr, jax_gpu_arr]
-    return list(product(data, repeat=2))
+_np_arr = np.ones(1, dtype=np.float32)
+_cp_arr = cp.ones(1, dtype=np.float32)
+_torch_cpu_arr = torch.tensor(_np_arr)
+_torch_gpu_arr = _torch_cpu_arr.to(torch.device("cuda"))
+_jax_cpu_arr = jax.device_put(_np_arr, jax.devices("cpu")[0])
+_jax_gpu_arr = jax.device_put(_np_arr, jax.devices("gpu")[0])
+
+_DATA = [_np_arr, _cp_arr, _torch_cpu_arr, _torch_gpu_arr, _jax_cpu_arr, _jax_gpu_arr]
+_DATA_SUBTESTS = list(product(_DATA, repeat=2))
 
 
-def test_dlpack(data_array):
+@pytest.mark.parametrize("data", _DATA_SUBTESTS)
+def test_dlpack(data):
     """Test DLpack conversion across different modules and data types."""
     ...
-    for c in data_array:
-        print(f"{type(c[0])} -> {type(c[1])}")
-        _from_dlpack(c[0], c[1])
+    _from_dlpack(data[0], data[1])

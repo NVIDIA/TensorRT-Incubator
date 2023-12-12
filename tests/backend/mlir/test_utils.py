@@ -1,6 +1,5 @@
 import pytest
 from mlir import ir
-import numpy as np
 
 import tripy
 from tripy.backend.mlir import utils as mlir_utils

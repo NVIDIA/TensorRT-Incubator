@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 from tripy import util
 from tripy.common.logging import G_LOGGER
@@ -37,7 +37,7 @@ class Tensor(metaclass=TensorMeta):
         tensor._finalize(inputs, op)
         return tensor
 
-    def eval(self) -> List[int] or List[float]:
+    def eval(self) -> Union[List[int], List[float]]:
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
         from tripy.flat_ir import FlatIR

@@ -97,5 +97,5 @@ def make_tuple(obj):
     return obj
 
 
-def flatten(data: List[Any]):
+def flatten_list(data: List[Any]):
     return list(chain.from_iterable((flatten(item) if isinstance(item, List) else [item] for item in data)))

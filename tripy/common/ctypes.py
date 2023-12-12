@@ -34,7 +34,7 @@ class MlirDataType(ctypes.c_int):
     _fields_ = []
 
 
-def convert_ctypes_to_tripy_dtype(dtype: MlirDataType):
+def convert_mlirdtype_to_tripy_dtype(dtype: MlirDataType):
     ctypes_to_tripy = dict(
         {
             0: tripy.common.datatype.float32,

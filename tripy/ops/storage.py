@@ -1,10 +1,5 @@
 from typing import List, Optional, Tuple, Union
 
-import numpy as np
-import cupy as cp
-import jax.numpy as jnp
-import torch
-
 from mlir import ir
 from mlir.dialects import stablehlo
 
@@ -21,7 +16,7 @@ class Storage(BaseOperator):
 
     def __init__(
         self,
-        data: Union[List, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray],
+        data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
         shape: Optional[Tuple[int]] = None,
         dtype: "tripy.common.DataType" = None,
         device: "tripy.common.Device" = None,
@@ -38,7 +33,7 @@ class Storage(BaseOperator):
         from tripy.common import device as make_device
 
         # Let's not allow user to request a different type unless data is a list.
-        if any(isinstance(data, t) for t in [np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray]):
+        if hasattr(data, "to_dlpack"):
             # Ensure that dtype is not set.
             assert dtype is None
 
@@ -78,7 +73,7 @@ class Storage(BaseOperator):
 @TENSOR_METHOD_REGISTRY("__init__")
 def tensor_init(
     self: "tripy.Tensor",
-    data: Union[list, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray] = None,
+    data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"] = None,
     shape: Optional[Tuple[int]] = None,
     dtype: "tripy.common.DataType" = None,
     device: "tripy.common.Device" = None,
