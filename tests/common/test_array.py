@@ -9,7 +9,7 @@ import jax
 
 from tripy.common.array import Array
 from tripy.common.device import Device
-from tripy.common.datatype import DataTypeConverter
+from tripy.common.datatype import convert_numpy_to_tripy_dtype
 
 from tests.helper import torch_type_supported
 from tests.helper import NUMPY_TYPES
@@ -52,7 +52,7 @@ def test_array_creation(device_param, input_data):
     device_type = device_param["device_type"]
     device_index = device_param["device_index"]
     device = Device(device_type, device_index)
-    dtype = DataTypeConverter.convert_numpy_to_tripy_dtype(input_data.dtype)
+    dtype = convert_numpy_to_tripy_dtype(input_data.dtype)
     shape = (len(List),) if isinstance(input_data, List) else input_data.shape
     if dtype is not None:
         arr = Array(input_data, dtype, shape, device)

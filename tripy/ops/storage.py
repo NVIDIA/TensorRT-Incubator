@@ -12,7 +12,6 @@ from tripy import util
 from tripy.common.array import Array
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.common.datatype import DataTypeConverter
 
 
 class Storage(BaseOperator):
@@ -22,7 +21,7 @@ class Storage(BaseOperator):
 
     def __init__(
         self,
-        data: Union[list, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray],
+        data: Union[List, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray],
         shape: Optional[Tuple[int]] = None,
         dtype: "tripy.common.DataType" = None,
         device: "tripy.common.Device" = None,
@@ -37,7 +36,11 @@ class Storage(BaseOperator):
             shape: The shape of the data (default: None).
         """
         from tripy.common import device as make_device
-        from tripy.frontend.dim import Dim
+
+        # Let's not allow user to request a different type unless data is a list.
+        if any(isinstance(data, t) for t in [np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray]):
+            # Ensure that dtype is not set.
+            assert dtype is None
 
         self.device = util.default(device, make_device("cpu"))
         self.data = Array(data, dtype, shape, self.device)

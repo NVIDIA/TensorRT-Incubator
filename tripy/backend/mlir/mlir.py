@@ -11,8 +11,6 @@ from tripy.util.util import find_file_in_dir
 
 from tripy.common.ctypes import void_ptr, char_ptr, c_int, TensorShape, convert_ctypes_to_tripy_dtype
 from tripy.ops.storage import Storage
-from tripy.common.datatype import DataTypeConverter
-
 
 # Define a namedtuple to hold the result of the execution initializer
 ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "output_shapes", "outputs"])

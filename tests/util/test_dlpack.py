@@ -8,8 +8,6 @@ import jaxlib
 
 from itertools import product
 
-# Helper functions for DLpack conversion testing
-
 
 def _from_dlpack(from_, to_):
     """Helper function to test conversion from DLpack to specified module type."""

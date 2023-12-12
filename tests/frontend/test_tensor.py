@@ -6,7 +6,7 @@ import pytest
 
 import tripy
 import tripy.ops
-from tripy.common.datatype import DATA_TYPES, DataTypeConverter
+from tripy.common.datatype import DATA_TYPES, convert_tripy_to_numpy_dtype
 from tripy.frontend import Tensor
 from tripy.util.stack_info import SourceInfo
 
@@ -35,8 +35,8 @@ class TestTensor:
         if dtype in {tripy.int4, tripy.bfloat16, tripy.float8e4m3fn}:
             pytest.skip("Type is not supported by numpy/cupy")
 
-        # (38): Add cast operation to support unsupported backend types. Allow requested type to be different than init data type.
-        tensor = Tensor(np.array([1, 2, 3], dtype=DataTypeConverter.convert_tripy_to_numpy_dtype(dtype)), dtype=dtype)
+        # (38): Add cast operation to support unsupported backend types. Allow requested type to be different than init data type for list data type.
+        tensor = Tensor(np.array([1, 2, 3], dtype=convert_tripy_to_numpy_dtype(dtype)))
         assert tensor.op.dtype == dtype
         assert tensor.op.data.dtype.name == dtype.name
         assert tensor.op.data.dtype.itemsize == dtype.itemsize

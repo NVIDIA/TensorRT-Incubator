@@ -47,5 +47,5 @@ ENV PYTHONPATH=/usr/lib/stablehlo/python-build/tools/stablehlo/python_packages/s
 ########################################
 RUN mkdir -p /usr/lib/mlir-tensorrt/
 COPY mlir-tensorrt/build/lib/Integrations /usr/lib/mlir-tensorrt/
-ENV LD_LIBRARY_PATH=/usr/lib/mlir-tensorrt//PJRT/:/usr/local/cuda/lib64/:/usr/local/cuda/targets/x86_64-linux/lib/:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/lib/mlir-tensorrt//PJRT/:/usr/local/cuda/lib64/:/usr/local/cuda/targets/x86_64-linux/lib/:/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH
 ENV CUDA_PATH=/usr/local/cuda

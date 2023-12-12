@@ -4,10 +4,9 @@ import cupy as cp
 import jax.numpy as jnp
 import jax
 import torch
-import jaxlib
 from tripy import util
 import tripy.common.datatype
-from tripy.common.datatype import DataTypeConverter
+from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to_numpy_dtype
 from tripy.common.device import Device
 
 
@@ -35,7 +34,7 @@ class Array:
 
         data_dtype = util.default(dtype, tripy.common.datatype.float32)
         if data is not None:
-            data_dtype = DataTypeConverter.convert_numpy_to_tripy_dtype(
+            data_dtype = convert_numpy_to_tripy_dtype(
                 type(data[0]) if isinstance(data, List) and len(data) > 0 else data.dtype
             )
         assert dtype is None or data_dtype == dtype  # No Cast is supported.
@@ -49,11 +48,10 @@ class Array:
         # Allocate dummy data
         if data is None:
             assert shape is not None
-            data = np.zeros(dtype=DataTypeConverter.convert_tripy_to_numpy_dtype(data_dtype), shape=static_shape)
+            data = np.zeros(dtype=convert_tripy_to_numpy_dtype(data_dtype), shape=static_shape)
 
-        # Convert input data to a byte buffer using DlpackConverter
-        converter: DlpackConverter = DlpackConverter(self.device.kind)
-        self.byte_buffer: Union[np.ndarray, cp.ndarray] = converter.convert(data, data_dtype)
+        # Convert input data to a byte buffer.
+        self.byte_buffer: Union[np.ndarray, cp.ndarray] = _convert_to_byte_buffer(data, data_dtype, self.device.kind)
 
         # Figure out how to extract shape information? Does it work for jax and torch?
         self.shape = (
@@ -78,11 +76,9 @@ class Array:
             np.ndarray: Numpy array view with the specified data type.
         """
         if self.device.kind == "gpu":
-            return np.ascontiguousarray(self.byte_buffer.get()).view(
-                DataTypeConverter.convert_tripy_to_numpy_dtype(dtype)
-            )
+            return np.ascontiguousarray(self.byte_buffer.get()).view(convert_tripy_to_numpy_dtype(dtype))
         else:
-            return np.ascontiguousarray(self.byte_buffer).view(DataTypeConverter.convert_tripy_to_numpy_dtype(dtype))
+            return np.ascontiguousarray(self.byte_buffer).view(convert_tripy_to_numpy_dtype(dtype))
 
     def __eq__(self, other) -> bool:
         """
@@ -99,126 +95,51 @@ class Array:
         return self._module.array_equal(self.byte_buffer, other.byte_buffer)
 
 
-class DlpackConverter:
-    def __init__(self, target_device: str) -> None:
-        """
-        Initialize a DlpackConverter.
+def _convert_to_byte_buffer(
+    data: Union[List, np.ndarray, cp.ndarray, torch.Tensor, jnp.ndarray], dtype: tripy.common.datatype, device: str
+) -> Union[np.ndarray, cp.ndarray]:
+    """
+    Common conversion logic for both CPU and GPU.
 
-        Args:
-            target_device (str): Target device ("cpu" or "gpu").
-        """
-        self.target_device: str = target_device
-        self.converters: dict = {
-            np.ndarray: self._convert,
-            cp.ndarray: self._convert,
-            torch.Tensor: self._convert,
-            jaxlib.xla_extension.ArrayImpl: self._convert,
-            list: self._convert,
-        }
+    Args:
+        data: Input data.
+        dtype: Data type.
+        device (str): Target device ("cpu" or "gpu").
 
-    def convert(self, data: Any, dtype: Any) -> Union[np.ndarray, cp.ndarray]:
-        """
-        Convert input data to a byte buffer.
+    Returns:
+        np.ndarray or cp.ndarray: Byte buffer containing converted data.
+    """
 
-        Args:
-            data: Input data.
-            dtype: Data type.
-
-        Returns:
-            np.ndarray or cp.ndarray: Byte buffer containing converted data.
-        """
-        converter: Any = self.converters.get(type(data))
-        if converter is None:
-            raise ValueError("Unsupported input type")
-        return converter(data, dtype)
-
-    def _convert(self, data: Any, dtype: Any) -> Union[np.ndarray, cp.ndarray]:
-        """
-        Common conversion logic for both CPU and GPU.
-
-        Args:
-            data: Input data.
-            dtype: Data type.
-
-        Returns:
-            np.ndarray or cp.ndarray: Byte buffer containing converted data.
-        """
-        assert self.target_device in ["cpu", "gpu"]
-        move_fn: Any = self._to_cpu if self.target_device == "cpu" else self._to_gpu
-        return move_fn(data, dtype)
-
-    def _to_cpu(self, data: Any, dtype: Any) -> np.ndarray:
-        """
-        Convert input data to a byte buffer on CPU.
-
-        Args:
-            data: Input data.
-            dtype: Data type.
-
-        Returns:
-            np.ndarray: Byte buffer containing converted data.
-        """
-        assert self.target_device == "cpu"
+    def _move_to_device(data: Any, device: str) -> Any:
+        """Move input data to the target device."""
         if isinstance(data, torch.Tensor):
-            data = self._move_to_target_device(data, self.target_device)
-            return np.array(torch.utils.dlpack.from_dlpack(data)).view(np.uint8)
-        if isinstance(data, jnp.ndarray):
-            data = self._move_to_target_device(data, self.target_device)
-            return np.array(jax.dlpack.from_dlpack(data)).view(np.uint8)
-        elif isinstance(data, list):
-            return np.array(data, dtype=DataTypeConverter.convert_tripy_to_numpy_dtype(dtype)).view(np.uint8)
-        elif isinstance(data, cp.ndarray):
-            return np.array(data.get()).view(np.uint8)
-        elif isinstance(data, np.ndarray):
-            return np.array(data).view(np.uint8)
-        else:
-            raise ValueError("Unsupported input type")
-
-    def _to_gpu(self, data: Any, dtype: Any) -> cp.ndarray:
-        """
-        Convert input data to a byte buffer on GPU.
-
-        Args:
-            data: Input data.
-            dtype: Data type.
-
-        Returns:
-            cp.ndarray: Byte buffer containing converted data.
-        """
-        assert self.target_device == "gpu"
-        if isinstance(data, torch.Tensor):
-            data = self._move_to_target_device(data, self.target_device)
-            return cp.array(torch.utils.dlpack.from_dlpack(data)).view(np.uint8)
-        if isinstance(data, jnp.ndarray):
-            data = self._move_to_target_device(data, self.target_device)
-            return cp.array(jax.dlpack.from_dlpack(data)).view(np.uint8)
-        elif isinstance(data, list):
-            return cp.array(data, dtype=DataTypeConverter.convert_tripy_to_numpy_dtype(dtype)).view(cp.uint8)
-        elif isinstance(data, (np.ndarray, cp.ndarray)):
-            return cp.array(data).view(cp.uint8)
-        else:
-            raise ValueError("Unsupported input type")
-
-    def _move_to_target_device(self, data: Any, target_device: str) -> Any:
-        """
-        Move input data to the target device.
-
-        Args:
-            data: Input data.
-            target_device: Target device.
-
-        Returns:
-            data: Data moved to the target device.
-        """
-        if isinstance(data, torch.Tensor):
-            if target_device not in str(data.device).lower():
-                if target_device == "gpu":
-                    target_device = "cuda"
-                data = data.to(target_device)
+            # Use torch's to method to move data to the target device
+            if device not in str(data.device).lower():
+                device = "cuda" if device == "gpu" else device
+                data = data.to(device)
         elif isinstance(data, jnp.ndarray):
-            if target_device not in str(jax.devices(target_device)[0]).lower():
-                data = jax.device_put(data, jax.devices(target_device)[0])
+            # Use jax's device_put method to move data to the target device
+            if device not in str(jax.devices(device)[0]).lower():
+                data = jax.device_put(data, jax.devices(device)[0])
+        elif isinstance(data, cp.ndarray):
+            # Use Cupy's get method to move data to CPU
+            if device == "cpu":
+                data = data.get()
         else:
-            raise ValueError("Unsupported input type")
+            # Ensure that data is either a NumPy array or a list
+            assert isinstance(data, (np.ndarray, List))
 
         return data
+
+    assert device in ["cpu", "gpu"]
+
+    # Choose the appropriate module (NumPy or Cupy) based on the device
+    _module = cp if device == "gpu" else np
+    data = _move_to_device(data, device)
+
+    if isinstance(data, list):
+        # Use array method with dtype to convert list to NumPy or Cupy array
+        return _module.array(data, dtype=convert_tripy_to_numpy_dtype(dtype)).view(_module.uint8)
+    else:
+        # Use array method to convert data to NumPy or Cupy array
+        return _module.array(data).view(_module.uint8)

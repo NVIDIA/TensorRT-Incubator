@@ -6,7 +6,7 @@ import numpy as np
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr, ExecInitializerResult
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor
-from tripy.common.datatype import DataTypeConverter
+from tripy.common.datatype import convert_tripy_to_numpy_dtype
 from tripy.ops import Storage
 from tripy.util import log_time
 
@@ -77,8 +77,6 @@ class FlatIRExecutor:
                 s = exec_args.outputs[index]
                 # Convert stored byte buffer to a numpy array and append to the list.
                 # We could have just returned the byte buffer and let user interpret the data.
-                outputs.append(
-                    s.data.byte_buffer.get().view(DataTypeConverter.convert_tripy_to_numpy_dtype(s.dtype)).tolist()
-                )
+                outputs.append(s.data.byte_buffer.get().view(convert_tripy_to_numpy_dtype(s.dtype)).tolist())
 
         return outputs
