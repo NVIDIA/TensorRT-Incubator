@@ -8,6 +8,7 @@ from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.flat_ir import FlatIR
 from tripy.frontend.tensor import Tensor
+from tripy.frontend.nn import Parameter
 from tripy.ops import Storage
 from tripy.common.logging import G_LOGGER
 
@@ -54,6 +55,7 @@ class JIT:
         """
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}
+        self._const_args: Tuple[int] = ()
         self.func: Callable = None
         if func is not None:
             self.func = func
@@ -95,9 +97,14 @@ class JIT:
             eval_args = [
                 Tensor(list(arg.eval()), dtype=arg.op.dtype, device=device("gpu"), shape=arg.op.shape) for arg in args
             ]
-            const_argnums = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
+            self._const_args = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
+            # todo : switch to using isinstance(arg, Parameter) once metaclass is implemented.
+            self._const_args = self._const_args + tuple(
+                [index for index, arg in enumerate(args) if getattr(arg, "_is_param", False)]
+            )
+
             for i in range(len(eval_args)):
-                if i not in const_argnums:
+                if i not in self._const_args:
                     eval_args[i].const_fold = False
             eval_args = tuple(eval_args)
 
