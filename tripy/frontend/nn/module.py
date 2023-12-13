@@ -42,7 +42,7 @@ class Module:
         self._modules = {}
 
     def __repr__(self) -> str:
-        return f"Module({self._modules}{self._params})"
+        pass
 
     def save_weights(self, file_name: str):
         """Save Module parameters to file."""
