@@ -40,7 +40,7 @@ class FlatIRExecutor:
         return False
 
     @log_time
-    def execute(self, inputs: List[Tensor] = []) -> List[np.ndarray]:
+    def execute(self, inputs: List[Tensor] = []) -> List[Storage]:
         """
         Executes the compiled MLIR program and returns the output of the computation as a list of numpy arrays.
 
@@ -66,7 +66,7 @@ class FlatIRExecutor:
         self.compiler.execute(self.executable, exec_args)
 
         # Create a list to store the output arrays
-        outputs: List[np.ndarray] = []
+        outputs: List[Storage] = []
 
         num_outputs: int = exec_args.output_shapes._length_
         num_devices: int = 1  # Assuming 1 device, adjust as needed
@@ -75,8 +75,7 @@ class FlatIRExecutor:
             for j in range(num_outputs):
                 index = i * num_outputs + j
                 s = exec_args.outputs[index]
-                # Convert stored byte buffer to a numpy array and append to the list.
-                # We could have just returned the byte buffer and let user interpret the data.
-                outputs.append(s.data.byte_buffer.get().view(convert_tripy_to_numpy_dtype(s.dtype)).tolist())
+                # Let's return Storage and let user interpret it.
+                outputs.append(s)
 
         return outputs

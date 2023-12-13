@@ -24,7 +24,7 @@ class Array:
         dtype (tripy.common.datatype): Data type of the array.
 
     Methods:
-        view(dtype: tripy.common.datatype) -> np.ndarray:
+        cpu_view(dtype: tripy.common.datatype) -> np.ndarray:
             Create a view of the array with a different data type.
 
         __eq__(other: Array) -> bool:
@@ -38,7 +38,7 @@ class Array:
 
     Examples:
         >>> arr = Array([1, 2, 3], dtype=tripy.common.datatype.int32, device=Device("cpu"))
-        >>> arr.view(tripy.common.datatype.float32)
+        >>> arr.cpu_view(tripy.common.datatype.float32)
         >>> arr2 = Array(np.array([4, 5, 6]), device=Device("gpu"))
         >>> arr == arr2
     """
@@ -96,17 +96,26 @@ class Array:
         # Store dtype
         self.dtype = data_dtype
 
-    def view(self, dtype: tripy.common.datatype):
+    def cpu_view(self, dtype: Union[tripy.common.datatype.DataType, np.dtype]):
         """
-        Create a view of the array with a different data type.
+        Create a cpu view of the array with a different data type.
 
         Args:
-            dtype (tripy.common.datatype): Target data type for the view.
+            dtype (tripy.common.datatype.DataType): Target data type for the view.
 
         Returns:
             np.ndarray: Numpy array view with the specified data type.
         """
-        return self.byte_buffer.view(convert_tripy_to_numpy_dtype(dtype))
+        assert dtype is not None
+        if not issubclass(dtype, np.floating) and not issubclass(dtype, np.integer):
+            assert dtype.name in tripy.common.datatype.DATA_TYPES
+            dtype = convert_tripy_to_numpy_dtype(dtype)
+
+        if self.device.kind == "gpu":
+            # Copy data from gpu to cpu.
+            return self.byte_buffer.get().view(dtype)
+        else:
+            return self.byte_buffer.view(dtype)
 
     def __eq__(self, other) -> bool:
         """
@@ -124,7 +133,9 @@ class Array:
 
 
 def _convert_to_byte_buffer(
-    data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"], dtype: tripy.common.datatype, device: str
+    data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"],
+    dtype: tripy.common.datatype.DataType,
+    device: str,
 ) -> Union[np.ndarray, cp.ndarray]:
     """
     Common conversion logic for both CPU and GPU.

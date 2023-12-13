@@ -14,8 +14,6 @@ from tripy.frontend import Tensor, Dim
 from tripy import jit
 from tests.helper import all_same
 
-from tests.helper import torch_type_supported, NUMPY_TYPES
-
 
 class TestFunctional:
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
@@ -26,8 +24,9 @@ class TestFunctional:
 
     @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
     def test_add_two_tensors_dynamic(self, dim):
-        a = Tensor([1.0, 1.0], shape=(dim))
-        b = Tensor([1.0, 1.0], shape=(dim))
+        arr = np.ones(2, dtype=np.float32)
+        a = Tensor(arr, shape=(dim))
+        b = Tensor(arr, shape=(dim))
 
         @jit
         def func(a, b):
@@ -35,11 +34,12 @@ class TestFunctional:
             return c
 
         out = func(a, b)
-        assert all_same(out.eval(), [2.0, 2.0])
+        assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
 
     def test_multi_output_flat_ir(self):
-        a = Tensor([1.0, 1.0], shape=(2,))
-        b = Tensor([1.0, 1.0], shape=(2,))
+        arr = np.ones(2, dtype=np.float32)
+        a = Tensor(arr)
+        b = Tensor(arr)
         c = a + b
         d = c + c
         flat_ir = FlatIR([c, d])
@@ -47,4 +47,8 @@ class TestFunctional:
         compiler = FlatIRCompiler()
         with FlatIRExecutor(compiler.compile(flat_ir)) as executor:
             out = executor.execute()
-            assert len(out) == 2 and all_same(out[0], [2.0, 2.0]) and all_same(out[1], [4.0, 4.0])
+            assert (
+                len(out) == 2
+                and (out[0].data.cpu_view(np.float32) == np.array([2.0, 2.0])).all()
+                and (out[1].data.cpu_view(np.float32) == np.array([4.0, 4.0])).all()
+            )

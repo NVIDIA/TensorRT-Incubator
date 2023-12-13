@@ -2,6 +2,7 @@ from typing import List, Union
 
 from tripy import util
 from tripy.common.logging import G_LOGGER
+from tripy.common.array import Array
 from tripy.ops import TENSOR_METHOD_REGISTRY
 
 
@@ -37,7 +38,7 @@ class Tensor(metaclass=TensorMeta):
         tensor._finalize(inputs, op)
         return tensor
 
-    def eval(self) -> Union[List[int], List[float]]:
+    def eval(self) -> Array:
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
         from tripy.flat_ir import FlatIR
@@ -45,7 +46,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.common import device
 
         if isinstance(self.op, Storage):
-            return self.op.data.view(self.op.dtype).tolist()
+            return self.op.data
 
         flat_ir = FlatIR([self])
         G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
@@ -54,11 +55,11 @@ class Tensor(metaclass=TensorMeta):
         with FlatIRExecutor(compiler.compile(flat_ir)) as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
-            value = executor.execute()
+            storage_arr = executor.execute()
             self.inputs = []
-            assert len(value) == 1, "Expects only one output from MLIR executor"
-            self.op = Storage(value[0], device=device("cpu"))
-            return value[0]
+            assert len(storage_arr) == 1, "Expects only one output from MLIR executor"
+            self.op = storage_arr[0]
+            return self.op.data
 
     def __repr__(self) -> str:
         return f"tensor({self.eval()}, dtype={self.op.dtype}, loc={self.op.device})"

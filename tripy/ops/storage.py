@@ -50,7 +50,7 @@ class Storage(BaseOperator):
         assert not input_names, "Storage should have no inputs!"
         assert len(output_names) == 1, "Storage should have exactly one output!"
 
-        return f"{output_names[0]} : data=({self.data.view(self.dtype).tolist()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
+        return f"{output_names[0]} : data=({self.data.cpu_view(self.dtype).tolist()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
     def infer_shapes(self, input_shapes):
         assert not input_shapes, "Storage should have no inputs!"
@@ -65,7 +65,7 @@ class Storage(BaseOperator):
 
         assert not inputs, "Storage should have no inputs!"
         attr = ir.DenseElementsAttr.get(
-            array=self.data.view(self.dtype), type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape
+            array=self.data.cpu_view(self.dtype), type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape
         )
         return [stablehlo.ConstantOp(attr)]
 
