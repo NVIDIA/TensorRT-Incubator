@@ -91,9 +91,14 @@ class JIT:
         def decorated(*args, **kwargs):
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            # TODO: make arg.eval() return Storage on the same device
             eval_args = [
-                Tensor(arg.eval(), dtype=arg.op.dtype, device=arg.op.device, shape=arg.op.shape) for arg in args
+                Tensor(
+                    arg.eval().cpu_view(arg.op.dtype).tolist(),
+                    dtype=arg.op.dtype,
+                    device=arg.op.device,
+                    shape=arg.op.shape,
+                )
+                for arg in args
             ]
             const_argnums = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
             for i in range(len(eval_args)):
@@ -118,9 +123,9 @@ class JIT:
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
+            # TODO(#39): Remove data copy with an API like Tensor.from_storage()
             tensor_outputs = [
-                Tensor(o, device=executor.output_devices[idx], dtype=o.dtype, shape=o.dtype)
-                for idx, o in enumerate(outputs)
+                Tensor(o.data.byte_buffer, device=out_device) for o, out_device in zip(outputs, executor.output_devices)
             ]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]

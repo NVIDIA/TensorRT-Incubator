@@ -141,7 +141,9 @@ class FlatIR:
             layer_strs.append(
                 layer.op.to_flat_ir_str([inp.name for inp in layer.inputs], [out.name for out in layer.outputs])
             )
-        layer_strs.append(f'outputs: {", ".join(out.name for out in self.outputs)}')
+        layer_strs.append("outputs:")
+        for out in self.outputs:
+            layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
 
     def __eq__(self, other: "FlatIR") -> bool:

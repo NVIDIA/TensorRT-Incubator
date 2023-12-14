@@ -66,11 +66,14 @@ class Dim:
 
     def is_valid(self):
         return (
-            self._min <= self.opt
-            and self.opt <= self.max
+            self._min <= self._opt
+            and self._opt <= self._max
             and self._runtime_value >= self._min
             and self._runtime_value <= self._max
         )
+
+    def is_static_shape(self):
+        return self._runtime_value == self._min == self._opt == self._max
 
     @property
     def min(self) -> int:
@@ -92,6 +95,9 @@ class Dim:
         if isinstance(other, Dim):
             return self.min == other.min and self.max == other.max and self.opt == other.opt
         return False
+
+    def __hash__(self):
+        return hash((self.min, self.max, self.opt, self.runtime_value))
 
     @runtime_value.setter
     @validate_profile

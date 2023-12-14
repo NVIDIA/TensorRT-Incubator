@@ -6,6 +6,7 @@ import numpy as np
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr, ExecInitializerResult
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor
+from tripy.common.datatype import convert_tripy_to_numpy_dtype
 from tripy.ops import Storage
 from tripy.util import log_time
 
@@ -45,7 +46,7 @@ class FlatIRExecutor:
         return False
 
     @log_time
-    def execute(self, inputs: List[Tensor] = []) -> List:
+    def execute(self, inputs: List[Tensor] = []) -> List[Storage]:
         """
         Executes the compiled MLIR program and returns the output of the computation as a list of numpy arrays.
 
@@ -53,7 +54,7 @@ class FlatIRExecutor:
             inputs: a list of tripy Tensor for input tensors
 
         Returns:
-            A list of numpy or cupy arrays for the output tensors.
+            A list of Storage instances with data on self.output_devices
         """
         # Create execargs
         device_inputs = []
@@ -64,14 +65,14 @@ class FlatIRExecutor:
             assert isinstance(inp_storage, Storage), "Input tensors must be evaluated!"
             if inp_storage.device.kind != "gpu":
                 raise Exception("Input tensors must be on device!")
-            device_inputs.append(inp_storage.to_ctypes())
-        exec_args = self.compiler.exec_initializer(self.executable, device_inputs)
+            device_inputs.append(inp_storage)
+        exec_args = self.compiler.exec_initializer(self.executable, device_inputs, self.output_devices)
 
         # Execute and populate device pointers.
         self.compiler.execute(self.executable, exec_args)
 
         # Create a list to store the output arrays
-        outputs: List[np.ndarray] = []
+        outputs: List[Storage] = []
 
         num_outputs: int = exec_args.output_shapes._length_
         num_devices: int = 1  # Assuming 1 device, adjust as needed
@@ -79,20 +80,8 @@ class FlatIRExecutor:
         for i in range(num_devices):
             for j in range(num_outputs):
                 index = i * num_outputs + j
-                shape = exec_args.output_shapes[index]
+                s = exec_args.outputs[index]
+                # Let's return Storage and let user interpret it.
+                outputs.append(s)
 
-                # Calculate the total number of elements in the tensor
-                nb_elements = np.prod(shape.dims.dims[: shape.dims.nb_dims])
-
-                # Create a Cupy array with the same data pointer
-                arr = cp.ndarray(
-                    shape=(nb_elements,),
-                    dtype=shape.get_cupy_dtype(),
-                    memptr=exec_args.outputs[index].data,
-                )
-
-                if self.output_devices[index].kind == "cpu":
-                    # Convert Cupy array to a numpy array and append to the list
-                    arr = arr.get()
-                outputs.append(arr)
         return outputs
