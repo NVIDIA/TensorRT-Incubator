@@ -29,8 +29,8 @@ class TestFunctional:
     @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
     def test_add_two_tensors_dynamic(self, dim):
         arr = np.ones(2, dtype=np.float32)
-        a = Tensor(arr, shape=(dim))
-        b = Tensor(arr, shape=(dim))
+        a = Tensor(arr, shape=(dim,))
+        b = Tensor(arr, shape=(dim,))
 
         @jit
         def func(a, b):
@@ -93,12 +93,14 @@ class TestFunctional:
         else:
             xp_round_tripped = np.array(Tensor(xp_orig, device=device).op.data.cpu_view(np.float32))
         assert (xp_round_tripped == xp_orig).all()
+        # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # assert xp_round_tripped.data == xp_orig.data
 
         # Assert round-tripping for Torch tensor
         torch_orig = torch.as_tensor(data)
         torch_round_tripped = torch.as_tensor(Tensor(torch_orig, device=device).op.data.cpu_view(np.float32))
         assert torch.equal(torch_round_tripped, torch_orig)
+        # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # Below fails as we do allocate a new np array from Torch tensor data.
         # assert torch_data_round_tripped.data_ptr == torch_data.data_ptr
 
@@ -111,6 +113,7 @@ class TestFunctional:
             jax_orig = jax.device_put(jnp.array(data), jax.devices("cpu")[0])
         jax_round_tripped = jnp.array(Tensor(jax_orig, device=device).op.data.cpu_view(np.float32))
         assert jnp.array_equal(jax_round_tripped, jax_orig)
+        # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # Figure out how to compare two Jax data memory pointers.
 
         # Assert round-tripping for List data
@@ -118,6 +121,7 @@ class TestFunctional:
             list_orig = data.tolist()
             list_round_tripped = Tensor(list_orig, shape=(2,)).op.data.cpu_view(np.float32).tolist()
             assert list_round_tripped == list_orig
+            # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
             # assert id(list_round_tripped) == id(list_orig)
 
     def test_tensor_round_tripping(self):

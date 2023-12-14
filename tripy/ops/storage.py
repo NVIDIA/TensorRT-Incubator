@@ -49,7 +49,7 @@ class Storage(BaseOperator):
     def to_flat_ir_str(self, input_names, output_names):
         assert not input_names, "Storage should have no inputs!"
         assert len(output_names) == 1, "Storage should have exactly one output!"
-
+        # (39): Remove explicit CPU to GPU copies.
         return f"{output_names[0]} : data=({self.data.cpu_view(self.dtype).tolist()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
     def infer_shapes(self, input_shapes):
@@ -64,6 +64,7 @@ class Storage(BaseOperator):
         from tripy.backend.mlir import utils as mlir_utils
 
         assert not inputs, "Storage should have no inputs!"
+        # (39): Remove explicit CPU to GPU copies.
         attr = ir.DenseElementsAttr.get(
             array=self.data.cpu_view(self.dtype), type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape
         )

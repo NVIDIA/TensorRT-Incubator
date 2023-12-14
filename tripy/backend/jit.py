@@ -91,7 +91,7 @@ class JIT:
         def decorated(*args, **kwargs):
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            # TODO: make arg.eval() return Storage on the same device
+            # (39): Remove explicit CPU to GPU copies i.e. make arg.eval() return Storage on the same device
             eval_args = [
                 Tensor(
                     arg.eval().cpu_view(arg.op.dtype).tolist(),
@@ -123,6 +123,7 @@ class JIT:
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
+            # (39): Remove explicit CPU to GPU copies.
             tensor_outputs = [Tensor(o.data.cpu_view(o.dtype).tolist()) for o in outputs]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]

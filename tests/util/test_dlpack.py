@@ -9,7 +9,8 @@ import jaxlib
 from itertools import product
 
 
-def _from_dlpack(from_, to_):
+# (40): Refactor tests.
+def _test_from_dlpack(from_, to_):
     """Helper function to test conversion from DLpack to specified module type."""
     convert = {
         np.ndarray: np,
@@ -182,4 +183,4 @@ _DATA_SUBTESTS = list(product(_DATA, repeat=2))
 def test_dlpack(data):
     """Test DLpack conversion across different modules and data types."""
     ...
-    _from_dlpack(data[0], data[1])
+    _test_from_dlpack(data[0], data[1])

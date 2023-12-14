@@ -8,39 +8,22 @@ from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to
 from tripy.common.device import Device
 
 
+# The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
+# Data is stored as a byte buffer, enabling interoperability across array libraries.
+# The byte buffer is created using the `_convert_to_byte_buffer` function.
+# Views with different data types can be created using the `view` method.
 class Array:
     """
-    A versatile array container abstracting Torch, Jax, Cupy, NumPy, and List implementations.
+    A versatile array container that works with Torch, Jax, Cupy, NumPy, and List implementations.
+    It can be used to store any object implementing dlpack interface.
 
-    Args:
-        data (list or np.ndarray or cp.ndarray or torch.Tensor or jnp.ndarray): Input data.
-        dtype (tripy.common.datatype): Data type of the array.
-        shape (Optional[Tuple[int]]): Shape information for static allocation.
-        device (Device): Target device ("cpu" or "gpu").
+    Example:
+        from tripy.common.array import Array
+        arr = Array([1, 2, 3], dtype=tripy.common.datatype.int32, device=Device("cpu"))
+        assert arr.cpu_view(tripy.common.datatype.int32) == [1, 2, 3]
 
-    Attributes:
-        byte_buffer (Union[np.ndarray, cp.ndarray]): Byte buffer containing converted data.
-        shape (Tuple[int]): Shape information of the array.
-        dtype (tripy.common.datatype): Data type of the array.
-
-    Methods:
-        cpu_view(dtype: tripy.common.datatype) -> np.ndarray:
-            Create a view of the array with a different data type.
-
-        __eq__(other: Array) -> bool:
-            Check if two arrays are equal.
-
-    Notes:
-        - The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
-        - Data is stored as a byte buffer, enabling interoperability across array libraries.
-        - The byte buffer is created using the `_convert_to_byte_buffer` function.
-        - Views with different data types can be created using the `view` method.
-
-    Examples:
-        >>> arr = Array([1, 2, 3], dtype=tripy.common.datatype.int32, device=Device("cpu"))
-        >>> arr.cpu_view(tripy.common.datatype.float32)
-        >>> arr2 = Array(np.array([4, 5, 6]), device=Device("gpu"))
-        >>> arr == arr2
+        arr = Array(numpy.array([1, 2, 3], dtype=np.float32), device=Device("cpu"))
+        assert arr.cpu_view(np.float32) == np.array([1, 2, 3], np.float32)).all()
     """
 
     def __init__(
@@ -54,9 +37,10 @@ class Array:
         Initialize an Array object.
 
         Args:
-            data (list or np.ndarray or cp.ndarray or torch.Tensor or jnp.ndarray): Input data.
+            data: Input data list or an object implementing dlpack interface such as np.ndarray, cp.ndarray, torch.Tensor, or jnp.ndarray.
             dtype: Data type of the array.
-            device (str): Target device ("cpu" or "gpu").
+            shape: Shape information for static allocation.
+            device: Target device (tripy.device.Device("cpu") or tripy.device.Device("gpu")).
         """
         from tripy.frontend.dim import Dim
 
@@ -93,7 +77,7 @@ class Array:
             else data.shape
         )
 
-        # Store dtype
+        # Data type of the array.
         self.dtype = data_dtype
 
     def cpu_view(self, dtype: Union[tripy.common.datatype.DataType, np.dtype]):

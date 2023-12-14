@@ -73,9 +73,6 @@ class TestTensor:
 
         c = a + b
         assert isinstance(c.op, tripy.ops.BinaryElementwise)
-
-        r = c.eval()
-
         assert (c.eval().cpu_view(np.float32) == np.array([3])).all()
 
         assert isinstance(c.op, tripy.ops.Storage)
