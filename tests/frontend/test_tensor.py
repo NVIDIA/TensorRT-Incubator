@@ -6,7 +6,7 @@ import pytest
 
 import tripy
 import tripy.ops
-from tripy.common.datatype import DATA_TYPES
+from tripy.common.datatype import DATA_TYPES, convert_tripy_to_numpy_dtype
 from tripy.frontend import Tensor
 from tripy.util.stack_info import SourceInfo
 
@@ -19,7 +19,7 @@ class TestTensor:
         assert isinstance(a, Tensor)
         assert a.inputs == []
         assert isinstance(a.op, tripy.ops.Storage)
-        assert list(a.op.data) == VALUES
+        assert a.op.data.cpu_view(tripy.common.datatype.int32).tolist() == VALUES
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
@@ -30,10 +30,13 @@ class TestTensor:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_dtype(self, dtype):
+        # (32): Allow setting all tripy supported types here.
+        # Given a int/float data list, store data with requested data type.
         if dtype in {tripy.int4, tripy.bfloat16, tripy.float8e4m3fn}:
             pytest.skip("Type is not supported by numpy/cupy")
 
-        tensor = Tensor([1, 2, 3], dtype=dtype)
+        # (38): Add cast operation to support unsupported backend types. Allow requested type to be different than init data type for list data type.
+        tensor = Tensor(np.array([1, 2, 3], dtype=convert_tripy_to_numpy_dtype(dtype)))
         assert tensor.op.dtype == dtype
         assert tensor.op.data.dtype.name == dtype.name
         assert tensor.op.data.dtype.itemsize == dtype.itemsize
@@ -62,7 +65,7 @@ class TestTensor:
         a = Tensor(np.array([1], dtype=np.float32))
 
         # TODO: Verify that we don't compile/execute somehow.
-        assert list(a.eval()) == [1]
+        assert a.eval().cpu_view(np.float32).tolist() == [1]
 
     def test_evaled_tensor_becomes_concrete(self):
         a = Tensor(np.array([1], dtype=np.float32))
@@ -70,10 +73,10 @@ class TestTensor:
 
         c = a + b
         assert isinstance(c.op, tripy.ops.BinaryElementwise)
-
-        assert list(c.eval()) == [3]
+        assert (c.eval().cpu_view(np.float32) == np.array([3])).all()
 
         assert isinstance(c.op, tripy.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.inputs == []
-        assert list(c.op.data) == [3]
+        # Replace with byte buffer check here.
+        assert (c.op.data.cpu_view(np.float32) == np.array([3])).all()

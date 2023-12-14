@@ -1,14 +1,16 @@
 import atexit
-from collections import namedtuple
 import ctypes
+import cupy as cp
 import os
+
+from collections import namedtuple
 
 from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 from tripy.util.util import find_file_in_dir
 
-from tripy.common.allocator import GpuAllocator
-from tripy.common.types import void_ptr, char_ptr, c_int, TensorShape
+from tripy.common.ctypes import void_ptr, char_ptr, c_int, TensorShape, convert_mlirdtype_to_tripy_dtype
+from tripy.ops.storage import Storage
 
 # Define a namedtuple to hold the result of the execution initializer
 ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "output_shapes", "outputs"])
@@ -69,8 +71,6 @@ class _MlirCompiler:
         if not self.compiler:
             G_LOGGER.critical("Could not load the backend compiler.")
 
-        self.allocator = GpuAllocator()
-
     def destroy(self):
         """
         Calls the MLIR compiler destructor to free up allocated memory.
@@ -98,7 +98,12 @@ class _MlirCompiler:
         self.mlir_load_exec_init(executable, output_shapes_arr, ctypes.byref(nb_outputs))
 
         # Allocate output memory and store buffer pointers.
-        outputs = [self.allocator.allocate_async(shape) for shape in output_shapes_arr]
+        from tripy.common.device import device as make_device
+
+        outputs = [
+            Storage(None, shape.get_shape_arr(), convert_mlirdtype_to_tripy_dtype(shape.dtype), make_device("gpu:0"))
+            for shape in output_shapes_arr
+        ]
 
         return ExecInitializerResult(inputs, output_shapes_arr, outputs)
 
@@ -129,24 +134,28 @@ class _MlirCompiler:
                 - exec_args.outputs: A list of Storage objects representing output buffers.
                 - exec_args.output_shapes: An array of output shapes.
         """
-        # Create ctypes compatible device memory void pointers from result buffers.
 
-        in_mem_ptrs = (
-            (ctypes.c_void_p * len(exec_args.inputs))(*(r.data.ptr for r in exec_args.inputs))
-            if len(exec_args.inputs) > 0
-            else None
-        )
-
-        out_mem_ptrs = (
-            (ctypes.c_void_p * len(exec_args.outputs))(*(r.data.mem.ptr for r in exec_args.outputs))
-            if len(exec_args.outputs) > 0
-            else None
-        )
+        # Create ctypes compatible device memory void pointers for i/o buffers.
+        def get_mem_ptrs(data):
+            return (
+                (ctypes.c_void_p * len(data))(
+                    *map(
+                        lambda r: (
+                            r.data.byte_buffer.data.ptr
+                            if isinstance(r.data.byte_buffer.data, cp.cuda.memory.MemoryPointer)
+                            else r.data.byte_buffer.data
+                        ),
+                        data,
+                    )
+                )
+                if len(data) > 0
+                else None
+            )
 
         self.mlir_execute(
             void_ptr(executable),
-            in_mem_ptrs,
-            out_mem_ptrs,
+            get_mem_ptrs(exec_args.inputs),
+            get_mem_ptrs(exec_args.outputs),
         )
 
 

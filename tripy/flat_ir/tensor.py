@@ -54,5 +54,5 @@ class FIRTensor:
                 else (s.min if (isinstance(s, Dim)) else s)
                 for s in make_list(self.shape)
             ],
-            mlir_utils.convert_dtype(self.dtype),
+            mlir_utils.get_mlir_dtype(self.dtype),
         )
