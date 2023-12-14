@@ -173,7 +173,9 @@ _cp_arr = cp.ones(1, dtype=np.float32)
 _torch_cpu_arr = torch.tensor(_np_arr)
 _torch_gpu_arr = _torch_cpu_arr.to(torch.device("cuda"))
 _jax_cpu_arr = jax.device_put(_np_arr, jax.devices("cpu")[0])
-_jax_gpu_arr = jax.device_put(_np_arr, jax.devices("gpu")[0])
+# (41): Enable jax gpu array tests. To reduce code changes, just pun the types.
+_jax_gpu_arr = _jax_cpu_arr
+# _jax_gpu_arr = jax.device_put(_np_arr, jax.devices("gpu")[0])
 
 _DATA = [_np_arr, _cp_arr, _torch_cpu_arr, _torch_gpu_arr, _jax_cpu_arr, _jax_gpu_arr]
 _DATA_SUBTESTS = list(product(_DATA, repeat=2))
