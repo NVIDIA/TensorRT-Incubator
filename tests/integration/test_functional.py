@@ -29,8 +29,8 @@ class TestFunctional:
     @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
     def test_add_two_tensors_dynamic(self, dim):
         arr = np.ones(2, dtype=np.float32)
-        a = Tensor(arr, shape=(dim,))
-        b = Tensor(arr, shape=(dim,))
+        a = Tensor(arr, shape=(dim,), device=device("gpu"))
+        b = Tensor(arr, shape=(dim,), device=device("gpu"))
 
         @jit
         def func(a, b):
@@ -47,9 +47,10 @@ class TestFunctional:
         c = a + b
         d = c + c
         flat_ir = FlatIR([c, d])
+        output_devices = [o.device for o in flat_ir.outputs]
 
         compiler = FlatIRCompiler()
-        with FlatIRExecutor(compiler.compile(flat_ir)) as executor:
+        with FlatIRExecutor(compiler.compile(flat_ir), output_devices) as executor:
             out = executor.execute()
             assert (
                 len(out) == 2

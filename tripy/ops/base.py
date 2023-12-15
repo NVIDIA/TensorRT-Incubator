@@ -57,3 +57,21 @@ class BaseOperator(abc.ABC):
             The MLIR HLO op(s) corresponding to this operation.
         """
         ...
+
+    def infer_devices(self, input_devices: List) -> List:
+        """
+        Infers output devices for the operation.
+
+        Args:
+            input_devices: The devices of the input tensor(s).
+
+        Returns:
+            The devices of the output tensor(s).
+        """
+
+        def _all_same(inputs: List):
+            return all(inp == inputs[0] for inp in inputs)
+
+        if len(input_devices) > 1:
+            assert _all_same(input_devices), "Inputs are on different devices!"
+        return [input_devices[0]]

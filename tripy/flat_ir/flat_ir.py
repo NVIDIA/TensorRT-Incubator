@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from typing import Any, Dict, List, Sequence, Set
 
 from tripy import frontend
@@ -6,6 +6,8 @@ from tripy.common.datatype import DataType
 from tripy.flat_ir.layer import FIRLayer
 from tripy.flat_ir.tensor import FIRTensor
 from tripy.common.types import ShapeInfo
+
+FIRTensorInfo = namedtuple("FIRTensorInfo", ["shape", "dtype", "device"])
 
 
 class FlatIR:
@@ -36,10 +38,8 @@ class FlatIR:
         self.outputs: List[FIRTensor] = []
         # Dict to map input name to argument index
         self.inputs_idx: Dict[str, int] = {}
-        # Dict to cache shape information of a Tensor
-        self._shape_map: Dict[str, ShapeInfo] = {}
-        # Dict to cache dtype information of a Tensor
-        self._dtype_map: Dict[str, DataType] = {}
+        # Dict to cache tensor information
+        self._tensor_info_map: Dict[str, FIRTensorInfo] = {}
 
         _tensor_names: Dict[int, str] = defaultdict(lambda: None)
 
@@ -71,6 +71,7 @@ class FlatIR:
                     head.op.infer_shapes([])[0],
                     None,
                     head.op.infer_dtypes([])[0],
+                    head.op.infer_devices([])[0],
                 )
                 self.inputs.append(input_fir_tensor)
                 producer_dict[input_fir_tensor.name] = None
@@ -80,10 +81,10 @@ class FlatIR:
                 self.layers.append(
                     FIRLayer(
                         [
-                            FIRTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo(), None, None)
+                            FIRTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo(), None, None, None)
                             for inp in head.inputs
                         ],
-                        [FIRTensor(get_tensor_name(head), head._stack_info, ShapeInfo(), None, None)],
+                        [FIRTensor(get_tensor_name(head), head._stack_info, ShapeInfo(), None, None, None)],
                         head.op,
                     )
                 )
@@ -108,8 +109,8 @@ class FlatIR:
         # Reverse the order of the layers so they are topologically sorted
         self.layers = self.topological_sort()
 
-        # Perform shape inference to fill shape information for all tensors.
-        self.infer_shapes_and_dtypes()
+        # Perform shape/dtype/device inference to fill shape information for all tensors.
+        self.infer_tensor_info()
 
     def topological_sort(self) -> List[FIRLayer]:
         stack = list()
@@ -140,31 +141,33 @@ class FlatIR:
             layer_strs.append(
                 layer.op.to_flat_ir_str([inp.name for inp in layer.inputs], [out.name for out in layer.outputs])
             )
-        layer_strs.append(f'outputs: {", ".join(out.name for out in self.outputs)}')
+        layer_strs.append("outputs:")
+        for out in self.outputs:
+            layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
 
     def __eq__(self, other: "FlatIR") -> bool:
         return self.layers == other.layers and self.inputs == other.inputs
 
-    def infer_shapes_and_dtypes(self):
+    def infer_tensor_info(self):
         """
         Extremely naive shape inference routine.
         """
         # Compute and cache shape information for all tensors
         for inp in self.inputs:
-            self._shape_map[inp.name] = inp.shape
-            self._dtype_map[inp.name] = inp.dtype
+            self._tensor_info_map[inp.name] = FIRTensorInfo(inp.shape, inp.dtype, inp.device)
 
         for layer in self.layers:
-            out_shapes = layer.op.infer_shapes([self._shape_map[inp.name] for inp in layer.inputs])
-            out_dtypes = layer.op.infer_dtypes([self._dtype_map[inp.name] for inp in layer.inputs])
+            out_shapes = layer.op.infer_shapes([self._tensor_info_map[inp.name].shape for inp in layer.inputs])
+            out_dtypes = layer.op.infer_dtypes([self._tensor_info_map[inp.name].dtype for inp in layer.inputs])
+            out_devices = layer.op.infer_devices([self._tensor_info_map[inp.name].device for inp in layer.inputs])
 
-            for out, shape, dtype in zip(layer.outputs, out_shapes, out_dtypes):
-                self._shape_map[out.name] = shape
-                self._dtype_map[out.name] = dtype
+            for out, shape, dtype, device in zip(layer.outputs, out_shapes, out_dtypes, out_devices):
+                self._tensor_info_map[out.name] = FIRTensorInfo(shape, dtype, device)
 
         # Assign cached shape information to corresponding Tensor
         for layer in self.layers:
             for io in layer.inputs + layer.outputs:
-                io.shape = self._shape_map[io.name]
-                io.dtype = self._dtype_map[io.name]
+                io.shape = self._tensor_info_map[io.name].shape
+                io.dtype = self._tensor_info_map[io.name].dtype
+                io.device = self._tensor_info_map[io.name].device

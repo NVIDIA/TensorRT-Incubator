@@ -91,12 +91,11 @@ class JIT:
         def decorated(*args, **kwargs):
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            # (39): Remove explicit CPU to GPU copies i.e. make arg.eval() return Storage on the same device
             eval_args = [
                 Tensor(
                     arg.eval().cpu_view(arg.op.dtype).tolist(),
                     dtype=arg.op.dtype,
-                    device=device("gpu"),
+                    device=arg.op.device,
                     shape=arg.op.shape,
                 )
                 for arg in args
@@ -117,14 +116,17 @@ class JIT:
                     return_tensors = [return_tensors]
                 flat_ir = FlatIR(return_tensors)
                 G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
+                output_devices = [o.device for o in flat_ir.outputs]
 
                 compiler = FlatIRCompiler()
-                executor = FlatIRExecutor(compiler.compile(flat_ir))
+                executor = FlatIRExecutor(compiler.compile(flat_ir), output_devices)
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
-            # (39): Remove explicit CPU to GPU copies.
-            tensor_outputs = [Tensor(o.data.cpu_view(o.dtype).tolist()) for o in outputs]
+            # TODO(#39): Remove data copy with an API like Tensor.from_storage()
+            tensor_outputs = [
+                Tensor(o.data.byte_buffer, device=out_device) for o, out_device in zip(outputs, executor.output_devices)
+            ]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]
             return tensor_outputs

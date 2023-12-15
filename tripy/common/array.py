@@ -53,7 +53,7 @@ class Array:
             data_dtype = convert_numpy_to_tripy_dtype(
                 type(data[0]) if isinstance(data, List) and len(data) > 0 else data.dtype
             )
-        assert dtype is None or data_dtype == dtype  # No Cast is supported.
+        assert dtype is None or data_dtype == dtype, f"{data_dtype} vs {dtype}"  # No Cast is supported.
 
         self.device: Device = device
 

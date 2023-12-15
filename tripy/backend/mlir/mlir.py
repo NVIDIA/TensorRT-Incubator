@@ -78,13 +78,14 @@ class _MlirCompiler:
         self.mlir_destroy(void_ptr(self.compiler))
         self.allocator = None
 
-    def exec_initializer(self, executable: void_ptr, inputs) -> ExecInitializerResult:
+    def exec_initializer(self, executable: void_ptr, inputs, output_devices) -> ExecInitializerResult:
         """
         Calls the initializer for a loadable executable.
 
         Args:
             executable (void_ptr): Pointer to the MLIR executable.
-            allocator (void_ptr): Allocator for memory allocation.
+            inputs: A list of input Storage objects
+            output_devices: A list of output devices
 
         Returns:
             ExecInitializerResult: A named tuple containing input buffer, output buffer, and output shapes.
@@ -101,8 +102,13 @@ class _MlirCompiler:
         from tripy.common.device import device as make_device
 
         outputs = [
-            Storage(None, shape.get_shape_arr(), convert_mlirdtype_to_tripy_dtype(shape.dtype), make_device("gpu:0"))
-            for shape in output_shapes_arr
+            Storage(
+                None,
+                shape=shape.get_shape_arr(),
+                dtype=convert_mlirdtype_to_tripy_dtype(shape.dtype),
+                device=out_device,
+            )
+            for shape, out_device in zip(output_shapes_arr, output_devices)
         ]
 
         return ExecInitializerResult(inputs, output_shapes_arr, outputs)

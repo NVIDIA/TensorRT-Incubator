@@ -4,6 +4,7 @@ from mlir import ir
 from mlir.dialects import stablehlo
 
 from tripy import util
+from tripy.common import device as make_device
 from tripy.common.array import Array
 from tripy.ops.base import BaseOperator
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
@@ -30,8 +31,6 @@ class Storage(BaseOperator):
             device: The device where the data is stored (default: CPU).
             shape: The shape of the data (default: None).
         """
-        from tripy.common import device as make_device
-
         # Let's not allow user to request a different type unless data is a list.
         if hasattr(data, "to_dlpack"):
             # Ensure that dtype is not set.
@@ -59,6 +58,12 @@ class Storage(BaseOperator):
     def infer_dtypes(self, input_dtypes):
         assert not input_dtypes, "Storage should have no inputs!"
         return [self.dtype]
+
+    def infer_devices(self, input_devices):
+        assert not input_devices, "Storage should have no inputs!"
+        # This is different from self.device
+        # Constants are always on device when executed by mlir
+        return [make_device("gpu")]
 
     def to_mlir(self, inputs):
         from tripy.backend.mlir import utils as mlir_utils
