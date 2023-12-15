@@ -2,6 +2,7 @@ import inspect
 import sys
 
 import numpy as np
+import cupy as cp
 import pytest
 
 import tripy
@@ -19,7 +20,7 @@ class TestTensor:
         assert isinstance(a, Tensor)
         assert a.inputs == []
         assert isinstance(a.op, tripy.ops.Storage)
-        assert a.op.data.cpu_view(tripy.common.datatype.int32).tolist() == VALUES
+        assert a.to_numpy().tolist() == VALUES
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
@@ -65,7 +66,7 @@ class TestTensor:
         a = Tensor(np.array([1], dtype=np.float32))
 
         # TODO: Verify that we don't compile/execute somehow.
-        assert a.eval().cpu_view(np.float32).tolist() == [1]
+        assert a.to_numpy() == [1]
 
     def test_evaled_tensor_becomes_concrete(self):
         a = Tensor(np.array([1], dtype=np.float32))
@@ -73,10 +74,9 @@ class TestTensor:
 
         c = a + b
         assert isinstance(c.op, tripy.ops.BinaryElementwise)
-        assert (c.eval().cpu_view(np.float32) == np.array([3])).all()
+        assert (c.to_numpy() == np.array([3], dtype=np.float32)).all()
 
         assert isinstance(c.op, tripy.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.inputs == []
-        # Replace with byte buffer check here.
-        assert (c.op.data.cpu_view(np.float32) == np.array([3])).all()
+        assert (c.op.data.view().get() == np.array([3], dtype=np.float32)).all()

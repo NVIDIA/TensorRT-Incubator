@@ -51,7 +51,7 @@ class JIT:
 
             jitted_func = tripy.jit(adder)
             out_func = jitted_func(a, b)
-            assert out_decorator.eval() == out_func.eval()
+            assert out_decorator.to_numpy() == out_func.to_numpy()
         """
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}
@@ -95,7 +95,7 @@ class JIT:
             # compiling and caching a function's implementation.
             eval_args = [
                 Tensor(
-                    arg.eval().cpu_view(arg.op.dtype).tolist(),
+                    arg.eval().view(),
                     dtype=arg.op.dtype,
                     device=arg.op.device,
                     shape=arg.op.shape,
@@ -129,9 +129,8 @@ class JIT:
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
-            # TODO(#39): Remove data copy with an API like Tensor.from_storage()
             tensor_outputs = [
-                Tensor(o.data.byte_buffer, device=out_device) for o, out_device in zip(outputs, executor.output_devices)
+                Tensor(o.data.view(), device=out_device) for o, out_device in zip(outputs, executor.output_devices)
             ]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]

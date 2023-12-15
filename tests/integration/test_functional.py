@@ -12,7 +12,7 @@ from tripy.common.device import device
 from tripy.flat_ir import FlatIR
 from tripy.frontend import Tensor, Dim
 from tripy import jit
-from tests.helper import all_same
+import tripy.common.datatype
 
 
 class TestFunctional:
@@ -24,7 +24,7 @@ class TestFunctional:
 
         c = a + b
         out = c + c
-        assert (out.eval().cpu_view(np.float32) == np.array([6.0, 8.0])).all()
+        assert (out.to_numpy() == np.array([6.0, 8.0], dtype=np.float32)).all()
 
     @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
     def test_add_two_tensors_dynamic(self, dim):
@@ -38,7 +38,7 @@ class TestFunctional:
             return c
 
         out = func(a, b)
-        assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
+        assert (out.to_numpy() == np.array([2.0, 2.0], dtype=np.float32)).all()
 
     def test_multi_output_flat_ir(self):
         arr = np.ones(2, dtype=np.float32)
@@ -54,8 +54,8 @@ class TestFunctional:
             out = executor.execute()
             assert (
                 len(out) == 2
-                and (out[0].data.cpu_view(np.float32) == np.array([2.0, 2.0])).all()
-                and (out[1].data.cpu_view(np.float32) == np.array([4.0, 4.0])).all()
+                and (out[0].data.view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
+                and (out[1].data.view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
             )
 
     def _test_framework_interoperability(self, data, device):
@@ -70,7 +70,7 @@ class TestFunctional:
             c = Tensor(jax.device_put(jnp.array(data), jax.devices("cpu")[0]))
 
         out = a + b + c
-        assert (out.eval().cpu_view(np.float32) == np.array([3.0, 3.0])).all()
+        assert (out.to_numpy() == np.array([3.0, 3.0], dtype=np.float32)).all()
 
     def test_cpu_and_gpu_framework_interoperability(self):
         from tripy.common.device import device as make_device
@@ -78,9 +78,11 @@ class TestFunctional:
         self._test_framework_interoperability(np.ones(2, np.float32), device=make_device("cpu"))
         self._test_framework_interoperability(cp.ones(2, cp.float32), device=make_device("gpu"))
 
-    def _assert_round_tripping(self, original_data, tensor, round_trip, compare, data_type=np.float32):
+    def _assert_round_tripping(
+        self, original_data, tensor, round_trip, compare, data_type=tripy.common.datatype.float32
+    ):
         """Assert round-tripping for different frameworks."""
-        round_tripped_data = tensor.op.data.cpu_view(data_type)
+        round_tripped_data = tensor.to_numpy()
         assert (round_tripped_data == original_data).all()
         assert round_tripped_data.data == original_data.data
 
@@ -90,16 +92,16 @@ class TestFunctional:
         # Assert round-tripping for numpy or cupy array
         xp_orig = data
         if device.kind == "gpu":
-            xp_round_tripped = cp.array(Tensor(xp_orig, device=device).op.data.cpu_view(cp.float32))
+            xp_round_tripped = cp.array(Tensor(xp_orig, device=device).to_numpy())
         else:
-            xp_round_tripped = np.array(Tensor(xp_orig, device=device).op.data.cpu_view(np.float32))
+            xp_round_tripped = np.array(Tensor(xp_orig, device=device).to_numpy())
         assert (xp_round_tripped == xp_orig).all()
         # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # assert xp_round_tripped.data == xp_orig.data
 
         # Assert round-tripping for Torch tensor
         torch_orig = torch.as_tensor(data)
-        torch_round_tripped = torch.as_tensor(Tensor(torch_orig, device=device).op.data.cpu_view(np.float32))
+        torch_round_tripped = torch.as_tensor(Tensor(torch_orig, device=device).to_numpy())
         assert torch.equal(torch_round_tripped, torch_orig)
         # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # Below fails as we do allocate a new np array from Torch tensor data.
@@ -110,9 +112,10 @@ class TestFunctional:
             if isinstance(data, cp.ndarray):
                 data = data.get()
             jax_orig = jax.device_put(jnp.array(data), jax.devices("gpu")[0])
+            jax_round_tripped = jnp.array(Tensor(jax_orig, device=device).to_numpy())
         else:
             jax_orig = jax.device_put(jnp.array(data), jax.devices("cpu")[0])
-        jax_round_tripped = jnp.array(Tensor(jax_orig, device=device).op.data.cpu_view(np.float32))
+            jax_round_tripped = jnp.array(Tensor(jax_orig, device=device).to_numpy())
         assert jnp.array_equal(jax_round_tripped, jax_orig)
         # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # Figure out how to compare two Jax data memory pointers.
@@ -120,7 +123,7 @@ class TestFunctional:
         # Assert round-tripping for List data
         if device.kind == "cpu":
             list_orig = data.tolist()
-            list_round_tripped = Tensor(list_orig, shape=(2,)).op.data.cpu_view(np.float32).tolist()
+            list_round_tripped = Tensor(list_orig, shape=(2,)).to_numpy().tolist()
             assert list_round_tripped == list_orig
             # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
             # assert id(list_round_tripped) == id(list_orig)
