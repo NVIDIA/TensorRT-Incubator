@@ -93,9 +93,14 @@ class JIT:
         def decorated(*args, **kwargs):
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            # TODO: make arg.eval() return Storage on the same device
             eval_args = [
-                Tensor(list(arg.eval()), dtype=arg.op.dtype, device=device("gpu"), shape=arg.op.shape) for arg in args
+                Tensor(
+                    arg.eval().cpu_view(arg.op.dtype).tolist(),
+                    dtype=arg.op.dtype,
+                    device=arg.op.device,
+                    shape=arg.op.shape,
+                )
+                for arg in args
             ]
             self._const_args = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
             # todo : switch to using isinstance(arg, Parameter) once metaclass is implemented.
@@ -118,13 +123,17 @@ class JIT:
                     return_tensors = [return_tensors]
                 flat_ir = FlatIR(return_tensors)
                 G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
+                output_devices = [o.device for o in flat_ir.outputs]
 
                 compiler = FlatIRCompiler()
-                executor = FlatIRExecutor(compiler.compile(flat_ir))
+                executor = FlatIRExecutor(compiler.compile(flat_ir), output_devices)
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
-            tensor_outputs = [Tensor(o) for o in outputs]
+            # TODO(#39): Remove data copy with an API like Tensor.from_storage()
+            tensor_outputs = [
+                Tensor(o.data.byte_buffer, device=out_device) for o, out_device in zip(outputs, executor.output_devices)
+            ]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]
             return tensor_outputs

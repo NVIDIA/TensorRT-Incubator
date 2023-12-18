@@ -29,8 +29,11 @@ class FIRTensor:
     dtype: "tripy.common.DataType"
     """Data type of the tensor"""
 
+    device: "tripy.common.Device"
+    """Device location of the tensor"""
+
     def __str__(self) -> str:
-        return f"{self.name} : shape=({self.shape}), dtype=({self.dtype.name})"
+        return f"{self.name} : shape=({self.shape}), dtype=({self.dtype.name}), loc=({self.device.kind}:{self.device.index})"
 
     def __eq__(self, other: "FIRTensor") -> bool:
         return self.name == other.name and self.stack_info == other.stack_info and self.shape == other.shape
@@ -54,5 +57,5 @@ class FIRTensor:
                 else (s.min if (isinstance(s, Dim)) else s)
                 for s in make_list(self.shape)
             ],
-            mlir_utils.convert_dtype(self.dtype),
+            mlir_utils.get_mlir_dtype(self.dtype),
         )
