@@ -76,4 +76,3 @@ def convert_numpy_to_tripy_dtype(dtype: Any) -> Any:
     else:
         dtype_name = dtype.name
     return _NUMPY_TO_TRIPY.get(dtype_name, None)
-    NUMPY_TO_TRIPY = {val: key for key, val in TRIPY_TO_NUMPY}
