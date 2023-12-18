@@ -1,8 +1,15 @@
-from tripy.frontend.tensor import Tensor
+from tripy.frontend.tensor import Tensor, TensorMeta
 
 
-# todo: add metaclass to allow isintance(cls, Parameter) to return true if object is Tensor.
-class Parameter(Tensor):
+class ParamMeta(TensorMeta):
+    def __instancecheck__(self, instance):
+        # Return True if the instance is an instance of the parent Tensor class
+        return super().__instancecheck__(instance) or (
+            isinstance(instance, Tensor) and getattr(instance, "_is_param", False)
+        )
+
+
+class Parameter(Tensor, metaclass=ParamMeta):
     """Parameters are regular tripy tensors along with an extra attribute that helps the underlying
     compiler to optimize the network for performance.
     """

@@ -103,9 +103,8 @@ class JIT:
                 for arg in args
             ]
             self._const_args = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
-            # todo : switch to using isinstance(arg, Parameter) once metaclass is implemented.
             self._const_args = self._const_args + tuple(
-                [index for index, arg in enumerate(args) if getattr(arg, "_is_param", False)]
+                [index for index, arg in enumerate(args) if isinstance(arg, Parameter)]
             )
 
             for i in range(len(eval_args)):
