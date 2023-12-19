@@ -19,8 +19,8 @@ class Storage(BaseOperator):
         self,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
         shape: Optional[Tuple[int]] = None,
-        dtype: "tripy.common.DataType" = None,
-        device: "tripy.common.Device" = None,
+        dtype: "tripy.dtype" = None,
+        device: "tripy.common.device" = None,
     ) -> None:
         """
         Initialize Storage instance.
@@ -81,8 +81,8 @@ def tensor_init(
     self: "tripy.Tensor",
     data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"] = None,
     shape: Optional[Tuple[int]] = None,
-    dtype: "tripy.common.DataType" = None,
-    device: "tripy.common.Device" = None,
+    dtype: "tripy.dtype" = None,
+    device: "tripy.common.device" = None,
 ) -> None:
     """
     Creates a tensor.
@@ -96,9 +96,7 @@ def tensor_init(
     Example:
     ::
 
-        import tripy
-
-        tensor = tripy.Tensor([1.0, 2.0, 3.0], shape=(3,) , dtype=tripy.float32)
+        tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
     """
     # Note: It is important that we are able to call the Tensor constructor with no arguments
     # since this is used internally by Tensor.build()

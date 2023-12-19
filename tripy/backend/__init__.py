@@ -1,1 +1,3 @@
-from tripy.backend.jit import JIT as jit
+from tripy.backend.jit import jit
+
+__all__ = ["jit"]

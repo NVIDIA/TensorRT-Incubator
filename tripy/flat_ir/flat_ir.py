@@ -2,7 +2,7 @@ from collections import defaultdict, namedtuple
 from typing import Any, Dict, List, Sequence, Set
 
 from tripy import frontend
-from tripy.common.datatype import DataType
+from tripy.common.datatype import dtype
 from tripy.flat_ir.layer import FIRLayer
 from tripy.flat_ir.tensor import FIRTensor
 from tripy.common.types import ShapeInfo
@@ -20,18 +20,6 @@ class FlatIR:
         Args:
             tensors: The tensor(s) to evaluate. These are effectively
                 the desired outputs.
-
-        Example:
-        ::
-            from tripy.frontend import Tensor
-            from tripy.flat_ir import FlatIR
-
-            a = Tensor([0])
-
-            flat_ir = FlatIR([a])
-
-            assert flat_ir.layers[0].inputs == []
-            assert flat_ir.layers[0].outputs[0].name == "t0"
         """
         self.layers: List[FIRLayer] = []
         self.inputs: List[FIRTensor] = []

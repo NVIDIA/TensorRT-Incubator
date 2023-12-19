@@ -1,18 +1,18 @@
-from typing import List, Any
+from typing import Any, List
 
 import cupy as cp
 import jax
-import jaxlib
 import jax.numpy as jnp
+import jaxlib
 import numpy as np
 import pytest
 import torch
 
+import tripy as tp
+from tests.helper import NUMPY_TYPES, torch_type_supported
+from tripy import util
 from tripy.common.array import Array
-from tripy.common.device import Device
 from tripy.common.datatype import convert_numpy_to_tripy_dtype
-
-from tests.helper import torch_type_supported, NUMPY_TYPES
 
 # Create NumPy input data list.
 np_data = [np.ones(1, dtype=dtype) for dtype in NUMPY_TYPES]
@@ -65,15 +65,17 @@ def _move_to_device(data: Any, device: str) -> Any:
     return data
 
 
-@pytest.mark.parametrize("device_param", device_params)
-@pytest.mark.parametrize("input_data", data_list)
+@pytest.mark.parametrize(
+    "device_param", device_params, ids=lambda param: f"{param['device_type']}:{param['device_index']}"
+)
+@pytest.mark.parametrize("input_data", data_list, ids=lambda data: f"{type(data).__qualname__}")
 def test_array_creation(device_param, input_data):
     """
     Test the creation of Array objects with different devices and data types.
     """
     device_type = device_param["device_type"]
     device_index = device_param["device_index"]
-    device = Device(device_type, device_index)
+    device = tp.device(f"{device_type}:{device_index}" if device_index is not None else device_type)
     dtype = convert_numpy_to_tripy_dtype(input_data.dtype)
     shape = (len(List),) if isinstance(input_data, List) else input_data.shape
     if dtype is not None:
@@ -82,4 +84,4 @@ def test_array_creation(device_param, input_data):
         assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
         assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8
         assert arr.device.kind == device_type
-        assert arr.device.index == device_index
+        assert arr.device.index == util.default(device_index, 0)

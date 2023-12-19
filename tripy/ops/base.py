@@ -1,7 +1,7 @@
 import abc
 from typing import List
 from tripy.common.types import ShapeInfo
-from tripy.common.datatype import DataType
+from tripy.common.datatype import dtype
 
 
 class BaseOperator(abc.ABC):
@@ -33,7 +33,7 @@ class BaseOperator(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def infer_dtypes(self, input_dtypes: List[DataType]) -> List[DataType]:
+    def infer_dtypes(self, input_dtypes: List[dtype]) -> List[dtype]:
         """
         Infers dtypes for the operation.
 

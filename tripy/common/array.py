@@ -1,11 +1,11 @@
-from typing import Any, Optional, List, Tuple, Union
-import numpy as np
-import cupy as cp
+from typing import List, Optional, Tuple, Union
 
-import tripy.common.datatype
+import cupy as cp
+import numpy as np
+
 from tripy import util
 from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to_numpy_dtype
-from tripy.common.device import Device
+from tripy.common.device import device
 
 
 # The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
@@ -16,22 +16,14 @@ class Array:
     """
     A versatile array container that works with Torch, Jax, Cupy, NumPy, and List implementations.
     It can be used to store any object implementing dlpack interface.
-
-    Example:
-        from tripy.common.array import Array
-        arr = Array([1, 2, 3], dtype=tripy.common.datatype.int32, device=Device("cpu"))
-        assert arr.cpu_view(tripy.common.datatype.int32) == [1, 2, 3]
-
-        arr = Array(numpy.array([1, 2, 3], dtype=np.float32), device=Device("cpu"))
-        assert arr.cpu_view(np.float32) == np.array([1, 2, 3], np.float32)).all()
     """
 
     def __init__(
         self,
         data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"],
-        dtype: tripy.common.datatype,
+        dtype: "tripy.dtype",
         shape: Optional[Tuple[int]],
-        device: Device,
+        device: device,
     ) -> None:
         """
         Initialize an Array object.
@@ -40,9 +32,10 @@ class Array:
             data: Input data list or an object implementing dlpack interface such as np.ndarray, cp.ndarray, torch.Tensor, or jnp.ndarray.
             dtype: Data type of the array.
             shape: Shape information for static allocation.
-            device: Target device (tripy.device.Device("cpu") or tripy.device.Device("gpu")).
+            device: Target device (tripy.Device("cpu") or tripy.Device("gpu")).
         """
         from tripy.frontend.dim import Dim
+        import tripy.common.datatype
 
         assert dtype is None or dtype.__name__ in tripy.common.datatype.DATA_TYPES, "Invalid data type"
 
@@ -53,9 +46,11 @@ class Array:
             data_dtype = convert_numpy_to_tripy_dtype(
                 type(data[0]) if isinstance(data, List) and len(data) > 0 else data.dtype
             )
-        assert dtype is None or data_dtype == dtype, f"{data_dtype} vs {dtype}"  # No Cast is supported.
+        assert (
+            dtype is None or data_dtype == dtype
+        ), f"Incorrect data type. Note: Input data had type: {data_dtype} but provided dtype was: {dtype}"  # No Cast is supported.
 
-        self.device: Device = device
+        self.device: device = device
 
         static_shape = None
         if shape is not None:
@@ -80,18 +75,20 @@ class Array:
         # Data type of the array.
         self.dtype = data_dtype
 
-    def cpu_view(self, dtype: Union[tripy.common.datatype.DataType, np.dtype]):
+    def cpu_view(self, dtype: Union["tripy.dtype", np.dtype]):
         """
         Create a cpu view of the array with a different data type.
 
         Args:
-            dtype (tripy.common.datatype.DataType): Target data type for the view.
+            dtype (tripy.dtype): Target data type for the view.
 
         Returns:
             np.ndarray: Numpy array view with the specified data type.
         """
         assert dtype is not None
         if not issubclass(dtype, np.floating) and not issubclass(dtype, np.integer):
+            import tripy.common.datatype
+
             assert dtype.name in tripy.common.datatype.DATA_TYPES
             dtype = convert_tripy_to_numpy_dtype(dtype)
 
@@ -118,7 +115,7 @@ class Array:
 
 def _convert_to_byte_buffer(
     data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"],
-    dtype: tripy.common.datatype.DataType,
+    dtype: "tripy.dtype",
     device: str,
 ) -> Union[np.ndarray, cp.ndarray]:
     """

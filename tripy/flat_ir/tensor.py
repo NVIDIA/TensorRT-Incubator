@@ -26,10 +26,10 @@ class FIRTensor:
     producer: "FIRLayer"
     """Producer of the tensor"""
 
-    dtype: "tripy.common.DataType"
+    dtype: "tripy.dtype"
     """Data type of the tensor"""
 
-    device: "tripy.common.Device"
+    device: "tripy.device"
     """Device location of the tensor"""
 
     def __str__(self) -> str:

@@ -58,6 +58,18 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
     Returns:
         The sum of the inputs.
+
+    Example:
+    ::
+
+        import numpy as np
+
+        a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+        b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+
+        out = a + b
+
+        assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
     """
     from tripy.frontend import Tensor
 

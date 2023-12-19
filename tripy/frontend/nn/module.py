@@ -1,38 +1,30 @@
 from typing import Any, Dict
 
-from tripy.frontend.tensor import Tensor
-from tripy.common.exception import TripyException
 from tripy.frontend.nn.parameter import Parameter
 
 
 class Module:
-    """Base class used to create all neural network modules.
-    Module class allows accessing all the parameters associated within nested Modules.
+    """
+    Base class for neural network modules.
+
     Example:
     ::
+
         import numpy as np
-        from tripy.frontend.nn.module import Module
 
-        class Network(Module):
+        class AddBias(tp.nn.Module):
             def __init__(self):
-                from tripy.frontend.nn.parameter import Parameter
-                from tripy.frontend import Tensor
-                import numpy as np
-
                 super().__init__()
-                self.param = Parameter(Tensor(np.ones(2, dtype=np.float32)))
+                self.bias = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
 
             def __call__(self, x):
-                return x + self.param
+                return x + self.bias
 
-        net = Network()
-        def infer(net):
-            from tripy.frontend import Tensor
-            import numpy as np
-            x = Tensor(np.ones(2, dtype=np.float32))
-            return net(x)
+        add_bias = AddBias()
+        inp = tp.Tensor([1.0, 1.0], dtype=tp.float32)
+        out = add_bias(inp)
 
-        assert(infer(net).eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
+        assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
     """
 
     _params: Dict[str, Any]
@@ -45,16 +37,28 @@ class Module:
     def __repr__(self) -> str:
         pass
 
-    def save_weights(self, file_name: str):
-        """Save Module parameters to file."""
+    def save_weights(self, path: str):
+        """
+        Save Module parameters to the specified path.
+
+        Args:
+            path: The path at which to save weights.
+        """
         pass
 
-    def load_weights(self, file_name: str):
-        """Load Module parameters from file."""
+    def load_weights(self, path: str):
+        """
+        Load Module parameters from the specified path.
+
+        Args:
+            path: The path from which to load weights.
+        """
         pass
 
-    def parameters(self):
-        """Returns the list of all parameters associated with this Module and parameters associated within nested Modules"""
+    def parameters(self) -> Dict[str, Any]:
+        """
+        Returns all parameters associated with this Module and any nested Modules.
+        """
         pass
 
     def __setattr__(self, __name: str, __value: Any) -> None:

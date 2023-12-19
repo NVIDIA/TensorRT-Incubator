@@ -14,7 +14,7 @@ from textwrap import dedent
 import pytest
 import requests
 
-import tripy
+import tripy as tp
 from tests.helper import ROOT_DIR
 from tripy.flat_ir import FlatIR
 from tripy.frontend import Tensor
@@ -56,7 +56,7 @@ class TestReadme:
 # In order to test docstrings, we need to recursively discover all submodules
 # and any classes/functions contained in those submodules.
 def discover_modules():
-    mods = [tripy]
+    mods = [tp]
     while mods:
         mod = mods.pop(0)
 
@@ -106,7 +106,7 @@ def get_all_docstrings_with_examples():
 
         # NOTE: For now, we assume that the example is the last thing in the docstring.
         # This simplifies the parsing logic. If we add other things after the example,
-        # please update this function!
+        # please update this function and `tests/README.md`!
         example_code = dedent(obj.__doc__.partition("Example:")[-1].partition("::")[-1])
 
         docstrings.append(example_code)
@@ -123,4 +123,9 @@ class TestDocstrings:
     def test_examples_in_docstrings(self, example_code):
         # Don't inherit variables from the current environment so we can be sure the docstring examples
         # work in total isolation.
-        exec(example_code, {}, {})
+
+        assert example_code, "Example code is empty! Is the formatting correct? Refer to `tests/README.md`."
+        assert "import tripy" not in example_code, "Avoid importing tripy in example docstrings"
+        assert "from tripy" not in example_code, "Avoid importing tripy in example docstrings"
+
+        exec(example_code, {"tp": tp}, {})
