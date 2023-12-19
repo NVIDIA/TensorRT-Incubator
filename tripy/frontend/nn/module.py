@@ -55,8 +55,12 @@ class Module:
         pass
 
     def save_weights(self, file_name: str):
-        """Save Module parameters to file."""
+        """
+        Save Module parameters to the specified path.
 
+        Args:
+            path: The path at which to save weights.
+        """
         param_dict = {}
         stack = [("", self)]
         while stack:
@@ -72,8 +76,12 @@ class Module:
         np.savez(file_name, **numpy_dict)
 
     def load_weights(self, file_name: str):
-        """Load Module parameters from file."""
+        """
+        Load Module parameters from the specified path.
 
+        Args:
+            path: The path from which to load weights.
+        """
         numpy_dict = np.load(file_name, allow_pickle=True)
         numpy_dict = {key: numpy_dict[key] for key in numpy_dict}
         param_dict = {}
@@ -107,10 +115,9 @@ class Module:
 
     def parameters(self, recurse=True) -> Dict[str, Parameter]:
         """
-        Returns a dict of all parameters associated with this Module and parameters associated within nested Modules
+        Returns all parameters associated with this Module and any nested Modules.
         Args:
             recurse: Recursively accesses all submodules associated with this module.
-
         """
         param_dict = {}
         stack = [("", self)]
