@@ -18,3 +18,10 @@ class TestParam:
 
         # Check that param is const folded into jitted function.
         assert func._const_args == (0,)
+
+    def test_param_instance(self):
+        param = Parameter(Tensor([1, 2, 3]))
+        assert isinstance(param, Parameter)
+
+        tensor = Tensor([1, 2, 3])
+        assert isinstance(tensor, Parameter) == False
