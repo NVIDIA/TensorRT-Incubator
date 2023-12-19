@@ -25,29 +25,39 @@ class jit:
         Constraints:
             All Tensors are provided as args, not kwargs
 
-        Example:
+        Using JIT as a decorator:
         ::
+
+            import numpy as np
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
 
-            # Using JIT as a decorator:
             @tp.jit
-            def adder(a, b):
+            def add(a, b):
                 c = a + b
                 return c
 
-            dec_out = adder(a, b)
+            out = add(a, b)
 
-            # Using JIT as a function:
-            def adder(a, b):
+            assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
+
+        Using JIT as a function:
+        ::
+
+            import numpy as np
+
+            a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+            b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+
+            def add(a, b):
                 c = a + b
                 return c
 
-            jitted_func = tp.jit(adder)
-            func_out = jitted_func(a, b)
+            jit_add = tp.jit(add)
+            out = jit_add(a, b)
 
-            assert dec_out.eval() == func_out.eval()
+            assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
         """
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}

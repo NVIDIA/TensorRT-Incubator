@@ -24,24 +24,17 @@ For public-facing interfaces, you should add examples in the docstrings.
 Avoid doing this for internal interfaces since we do not build documentation for
 those anyway.
 
-Any example code in docstrings is automatically tested by `tests/test_ux.py`.
-The test expects docstring examples to follow exactly this format:
+Any code blocks (i.e. `::` followed by a newline and then an indented block)
+in docstrings are automatically tested by `tests/test_ux.py`.
+
+For example:
 ```py
 """
-<docstring content>
-
-Example:
 ::
 
     <example code>
 """
 ```
-
-The example must be at the very end of the docstring and start with `Example:`.
-*Also note the indentation, spaces, and newlines!*
-
-Any deviations from this format will result in the test not being able to discover/run
-examples in the docstring.
 
 **NOTE: The docstring tests do *not* need to import `tripy`. It will be imported automatically as `tp`.**
     **Any other modules will need to be imported*.*
