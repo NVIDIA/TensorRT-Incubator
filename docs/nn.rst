@@ -2,4 +2,7 @@
 NN
 ##############
 
-.. automodule:: tripy.nn
+.. autoclass:: tripy.nn.Parameter
+    :class-doc-from: class
+
+.. autoclass:: tripy.nn.Module
