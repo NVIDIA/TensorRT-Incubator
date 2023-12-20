@@ -63,10 +63,9 @@ class TestFunctional:
         b = Tensor(torch.tensor(data), device=device)
 
         if device.kind == "gpu":
-            # (41): Enable jax gpu array tests. Enable this when upgrade to 12.2.
-            # Also, fix explicit .get() call here. can we construct Jax array from cupy directly.
-            # c = Tensor(jax.device_put(jnp.array(data.get()), jax.devices("gpu")[0]), device=device)
-            c = b  # This is hack to until we get #41 implemented.
+            if isinstance(data, cp.ndarray):
+                data = data.get()
+            c = Tensor(jax.device_put(jnp.array(data), jax.devices("gpu")[0]), device=device)
         else:
             c = Tensor(jax.device_put(jnp.array(data), jax.devices("cpu")[0]))
 
@@ -77,7 +76,7 @@ class TestFunctional:
         from tripy.common.device import device as make_device
 
         self._test_framework_interoperability(np.ones(2, np.float32), device=make_device("cpu"))
-        self._test_framework_interoperability(cp.ones(2, np.float32), device=make_device("gpu"))
+        self._test_framework_interoperability(cp.ones(2, cp.float32), device=make_device("gpu"))
 
     def _assert_round_tripping(self, original_data, tensor, round_trip, compare, data_type=np.float32):
         """Assert round-tripping for different frameworks."""
@@ -108,12 +107,9 @@ class TestFunctional:
 
         # Assert round-tripping for Jax data
         if device.kind == "gpu":
-            # (41): Enable jax gpu array tests. Enable this when upgrade to 12.2.
-            # Also, fix explicit .get() call here. can we construct Jax array from cupy directly.
-            # jax_orig = jax.device_put(jnp.array(data.get()), jax.devices("gpu")[0])
-            jax_orig = jax.device_put(
-                jnp.array(data.get()), jax.devices("cpu")[0]
-            )  # This is hack until we get #41 implemented.
+            if isinstance(data, cp.ndarray):
+                data = data.get()
+            jax_orig = jax.device_put(jnp.array(data), jax.devices("gpu")[0])
         else:
             jax_orig = jax.device_put(jnp.array(data), jax.devices("cpu")[0])
         jax_round_tripped = jnp.array(Tensor(jax_orig, device=device).op.data.cpu_view(np.float32))

@@ -34,8 +34,7 @@ data_list.extend([torch.tensor(data).to(torch.device("cuda")) for data in filter
 data_list.extend([jax.device_put(jnp.array(data), jax.devices("cpu")[0]) for data in np_data])
 
 # Extend the data list for Jax GPU arrays
-# (41): Enable jax gpu array tests.
-# data_list.extend([jax.device_put(jnp.array(data), jax.devices("cuda")[0]) for data in np_data])
+data_list.extend([jax.device_put(jnp.array(data), jax.devices("cuda")[0]) for data in np_data])
 
 # Define parameters for device type and index
 device_params = [
@@ -54,9 +53,6 @@ def _move_to_device(data: Any, device: str) -> Any:
     elif isinstance(data, jnp.ndarray):
         # Use jax's device_put method to move data to the target device
         if device not in str(jax.devices(device)[0]).lower():
-            import pdb
-
-            pdb.set_trace()
             data = jax.device_put(data, jax.devices(device)[0])
     elif isinstance(data, cp.ndarray):
         # Use Cupy's get method to move data to CPU
@@ -81,9 +77,6 @@ def test_array_creation(device_param, input_data):
     dtype = convert_numpy_to_tripy_dtype(input_data.dtype)
     shape = (len(List),) if isinstance(input_data, List) else input_data.shape
     if dtype is not None:
-        # (41): Enable jax gpu array tests.
-        if device.kind == "gpu" and isinstance(input_data, jaxlib.xla_extension.ArrayImpl):
-            return
         arr = Array(_move_to_device(input_data, device_type), dtype, shape, device)
         assert isinstance(arr, Array)
         assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
