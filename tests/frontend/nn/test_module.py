@@ -41,9 +41,10 @@ def test_parent_module(testNet):
 
 def test_nested_module_params(testNet):
     params = testNet.parameters()
+    print(params)
     assert (params["param"].eval().cpu_view(np.float32) == np.array([1.0, 1.0], dtype=np.float32)).all()
-    assert (params["param.0"].eval().cpu_view(np.float32) == np.array([0.0, 0.0], dtype=np.float32)).all()
-    assert (params["param.1"].eval().cpu_view(np.float32) == np.array([0.0, 1.0], dtype=np.float32)).all()
+    assert (params["dummy1.param"].eval().cpu_view(np.float32) == np.array([0.0, 0.0], dtype=np.float32)).all()
+    assert (params["dummy2.param"].eval().cpu_view(np.float32) == np.array([0.0, 1.0], dtype=np.float32)).all()
 
 
 def test_module_update_params(testNet):

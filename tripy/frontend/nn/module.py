@@ -66,10 +66,10 @@ class Module:
         while stack:
             m_prefix, module = stack.pop()
             current_params = module._params
-            current_params = {str(key) + m_prefix: val for key, val in current_params.items()}
+            current_params = {m_prefix + str(key): val for key, val in current_params.items()}
             param_dict = {**param_dict, **current_params}
-            for idx, m in enumerate(module._modules):
-                stack.append((m_prefix + "." + str(idx), module._modules[m]))
+            for m in module._modules:
+                stack.append((m_prefix + m + ".", module._modules[m]))
 
         # todo: fix cpu_view and should support all types without explicit param.
         numpy_dict = {key: value.eval().cpu_view(np.float32) for key, value in param_dict.items()}
@@ -89,11 +89,11 @@ class Module:
         while stack:
             m_prefix, module = stack.pop()
             for key, val in module._params.items():
-                new_key = str(key) + m_prefix
+                new_key = m_prefix + str(key)
                 module._params[key] = Parameter(Tensor(numpy_dict[new_key]))
 
-            for idx, m in enumerate(module._modules):
-                stack.append((m_prefix + "." + str(idx), module._modules[m]))
+            for m in module._modules:
+                stack.append((m_prefix + m + ".", module._modules[m]))
 
     def apply(self, fn: callable, recurse=True):
         """
@@ -110,8 +110,8 @@ class Module:
                 module._params[key] = fn(val)
 
             if recurse:
-                for idx, m in enumerate(module._modules):
-                    stack.append((m_prefix + "." + str(idx), module._modules[m]))
+                for m in module._modules:
+                    stack.append((m_prefix + m + ".", module._modules[m]))
 
     def parameters(self, recurse=True) -> Dict[str, Parameter]:
         """
@@ -124,11 +124,11 @@ class Module:
         while stack:
             m_prefix, module = stack.pop()
             current_params = module._params
-            current_params = {str(key) + m_prefix: val for key, val in current_params.items()}
+            current_params = {m_prefix + str(key): val for key, val in current_params.items()}
             param_dict = {**param_dict, **current_params}
             if recurse:
-                for idx, m in enumerate(module._modules):
-                    stack.append((m_prefix + "." + str(idx), module._modules[m]))
+                for m in module._modules:
+                    stack.append((m_prefix + m + ".", module._modules[m]))
 
         return param_dict
 
