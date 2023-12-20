@@ -41,12 +41,11 @@ build_stablehlo:
     expire_in: 1 week
     untracked: true
   tags:
-    - tensorrt-runner
+    - tripy-runner
   rules:
-    - changes:
-      - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"
       when: always
+    - when: never
 
 build_mlir_tensorrt:
   stage: build-dependencies
@@ -105,7 +104,7 @@ build_mlir_tensorrt:
     expire_in: 1 week
     untracked: true
   tags:
-    - tensorrt-runner
+    - tripy-runner
   rules:
     - changes:
       - mlir-tensorrt.txt
@@ -119,6 +118,7 @@ build_container:
   services:
     - docker:24.0.5-dind
   before_script:
+    - docker info
     - export GROUP_CICD_TOKEN=$GROUP_CICD_TOKEN
   timeout: 2 hours
   script:
@@ -126,11 +126,10 @@ build_container:
     - python3 scripts/download_dependencies.py --ci
     - ls mlir-tensorrt/build/lib/Integrations/tripy
     - ls stablehlo
-    - docker pull $CI_REGISTRY_IMAGE:latest || true
-    - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
     - docker push $CI_REGISTRY_IMAGE
   tags:
-    - tensorrt-runner
+    - tripy-runner
   rules:
     - changes:
       - mlir-tensorrt.txt
@@ -144,7 +143,7 @@ pre-commit:
   stage: lint
   image: python:3.9
   tags:
-    - tensorrt-runner
+    - tripy-runner
   before_script:
     - pip install pre-commit
   script:
@@ -158,20 +157,20 @@ l0:
   script:
     - python3 -m pytest tests/ -v
   tags:
-    - tensorrt-runner
+    - tripy-runner
   only:
     - main
     - develop
     - merge_requests
 
 
-upload-denpendencies:
+upload-dependencies:
   stage: upload
   image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
   script:
    - python3 scripts/CI/upload_dependencies.py
   tags:
-    - tensorrt-runner
+    - tripy-runner
   rules:
     - changes:
       - mlir-tensorrt.txt

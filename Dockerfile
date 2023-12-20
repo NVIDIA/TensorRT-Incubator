@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.0.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 WORKDIR /tripy
 
 LABEL maintainer="NVIDIA CORPORATION"
@@ -8,7 +8,7 @@ SHELL ["/bin/bash", "-c"]
 # Setup user account
 ARG uid=1000
 ARG gid=1000
-ENV DEBIAN_FRONTEND=noninteractive 
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN groupadd -r -f -g ${gid} trtuser && \
     useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash trtuser && \
