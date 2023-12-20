@@ -51,7 +51,7 @@ class JIT:
 
             jitted_func = tripy.jit(adder)
             out_func = jitted_func(a, b)
-            assert out_decorator.to_numpy() == out_func.to_numpy()
+            assert out_decorator.numpy() == out_func.numpy()
         """
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}

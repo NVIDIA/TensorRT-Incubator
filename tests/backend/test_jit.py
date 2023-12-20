@@ -22,8 +22,8 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.to_numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.to_numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
+            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
     def test_functional_function(self, init_tensors):
@@ -35,8 +35,8 @@ class TestJIT:
         jitted_func = tripy.jit(func)
         a, b = init_tensors
         c, d = jitted_func(a, b)
-        assert (c.to_numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.to_numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
+            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
     def test_functional_decorator_kwargs(self, init_tensors):
@@ -49,8 +49,8 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.to_numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.to_numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
+            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
     def test_functional_decorator_const_argnums(self, init_tensors):
@@ -62,8 +62,8 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.to_numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.to_numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
+            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
     def test_functional_function_const_argnums(self, init_tensors):
@@ -78,8 +78,8 @@ class TestJIT:
         )
         a, b = init_tensors
         c, d = jitted_func(a, b)
-        assert (c.to_numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.to_numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
+            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
     def test_cache_decorator(self, init_tensors):

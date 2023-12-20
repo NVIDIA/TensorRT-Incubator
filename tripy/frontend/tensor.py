@@ -62,7 +62,7 @@ class Tensor(metaclass=TensorMeta):
             self.op = storage_arr[0]
             return self.op.data
 
-    def to_numpy(self):
+    def numpy(self):
         from tripy.ops import Storage
         import cupy as cp
 
