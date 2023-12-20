@@ -11,8 +11,8 @@ class ParamMeta(TensorMeta):
 
 class Parameter(Tensor, metaclass=ParamMeta):
     """
-    Parameters are regular tripy tensors along with an extra attribute that helps the underlying
-    compiler to optimize the network for performance.
+    A Parameter is a special kind of :class:`tripy.Tensor` that treated by the compiler as a
+    constant, allowing for additional optimization opportunities.
 
     Example:
     ::

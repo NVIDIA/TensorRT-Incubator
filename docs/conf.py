@@ -22,6 +22,7 @@ autodoc_mock_imports = []
 autodoc_default_options = {
     "members": True,
     "no-undoc-members": True,
+    "show-inheritance": True,
 }
 
 autodoc_member_order = "bysource"
