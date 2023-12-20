@@ -49,7 +49,7 @@ build_stablehlo:
 
 build_mlir_tensorrt:
   stage: build-dependencies
-  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
+  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
   services:
     - docker:24.0.5-dind
   before_script:
@@ -114,7 +114,7 @@ build_mlir_tensorrt:
 
 build_container:
   stage: build-tripy-container
-  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
+  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
   services:
     - docker:24.0.5-dind
   before_script:
@@ -166,7 +166,7 @@ l0:
 
 upload-dependencies:
   stage: upload
-  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:job-runner
+  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
   script:
    - python3 scripts/CI/upload_dependencies.py
   tags:
