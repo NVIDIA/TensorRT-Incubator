@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
+FROM nvcr.io/nvidia/cuda:12.2.2-devel-ubuntu22.04
 WORKDIR /tripy
 
 LABEL maintainer="NVIDIA CORPORATION"
