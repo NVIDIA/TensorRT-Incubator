@@ -97,3 +97,16 @@ You can build the documentation locally by running:
 ```bash
 sphinx-build docs build/docs -j 6 -W
 ```
+
+## CI/CD GitLab Runner
+```
+ssh gitlab-runner@trt-dev-lab04.client.nvidia.com
+passwd: Contact @jhalakp
+bash install_gitlab_runner.sh
+```
+
+### How to add a GitLab runner
+![Alt text](artifacts/gitlab-runner-setup.png)
+
+### Gitlab runner GPU stats
+![Alt text](artifacts/gitlab-runner-nvidia-smi.png)
