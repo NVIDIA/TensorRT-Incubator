@@ -32,7 +32,7 @@ class Module:
             x = Tensor(np.ones(2, dtype=np.float32))
             return net(x)
 
-        assert(infer(net).eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
+        assert(infer(net).numpy() == np.array([2.0, 2.0], dtype=np.float32)).all()
     """
 
     _params: Dict[str, Any]

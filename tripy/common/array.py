@@ -20,10 +20,10 @@ class Array:
     Example:
         from tripy.common.array import Array
         arr = Array([1, 2, 3], dtype=tripy.common.datatype.int32, device=Device("cpu"))
-        assert arr.cpu_view(tripy.common.datatype.int32) == [1, 2, 3]
+        assert arr.view() == np.array([1, 2, 3], dtype=np.float32)
 
-        arr = Array(numpy.array([1, 2, 3], dtype=np.float32), device=Device("cpu"))
-        assert arr.cpu_view(np.float32) == np.array([1, 2, 3], np.float32)).all()
+        arr = Array(cupy.array([1, 2, 3], dtype=cp.float32), device=Device("gpu"))
+        assert arr.view() == cp.array([1, 2, 3], cp.float32)).all()
     """
 
     def __init__(
@@ -80,26 +80,14 @@ class Array:
         # Data type of the array.
         self.dtype = data_dtype
 
-    def cpu_view(self, dtype: Union[tripy.common.datatype.DataType, np.dtype]):
+    def view(self):
         """
-        Create a cpu view of the array with a different data type.
-
-        Args:
-            dtype (tripy.common.datatype.DataType): Target data type for the view.
-
-        Returns:
-            np.ndarray: Numpy array view with the specified data type.
+        Create a NumPy Or CuPy array of underlying datatype.
         """
-        assert dtype is not None
-        if not issubclass(dtype, np.floating) and not issubclass(dtype, np.integer):
-            assert dtype.name in tripy.common.datatype.DATA_TYPES
-            dtype = convert_tripy_to_numpy_dtype(dtype)
-
-        if self.device.kind == "gpu":
-            # Copy data from gpu to cpu.
-            return self.byte_buffer.get().view(dtype)
-        else:
-            return self.byte_buffer.view(dtype)
+        assert self.dtype is not None
+        assert self.dtype.name in tripy.common.datatype.DATA_TYPES
+        dtype = convert_tripy_to_numpy_dtype(self.dtype)
+        return self.byte_buffer.view(dtype)
 
     def __eq__(self, other) -> bool:
         """

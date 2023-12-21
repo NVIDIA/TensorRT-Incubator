@@ -62,5 +62,16 @@ class Tensor(metaclass=TensorMeta):
             self.op = storage_arr[0]
             return self.op.data
 
+    def numpy(self):
+        from tripy.ops import Storage
+        import cupy as cp
+
+        data = self.eval().view()
+        assert isinstance(self.op, Storage)
+        if isinstance(data, cp.ndarray):
+            # TODO: Implement using .to("cpu") operation.
+            data = data.get()
+        return data
+
     def __repr__(self) -> str:
         return f"tensor({self.eval()}, dtype={self.op.dtype}, loc={self.op.device})"

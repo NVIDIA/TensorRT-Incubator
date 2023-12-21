@@ -128,8 +128,8 @@ class TestFlatIR:
             str(flat_ir)
             == dedent(
                 """
-                t0 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
-                t1 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t0 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 t3 = t2 + t2
                 outputs:
@@ -193,7 +193,7 @@ class TestFlatIR:
                 """
                 inputs:
                     t0 : shape=((1,)), dtype=(float32), loc=(gpu:0)
-                t1 : data=([1.0]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs:
                     t2 : shape=((1,)), dtype=(float32), loc=(gpu:0)
