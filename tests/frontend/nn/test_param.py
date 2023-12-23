@@ -24,4 +24,4 @@ class TestParam:
         assert isinstance(param, Parameter)
 
         tensor = Tensor([1, 2, 3])
-        assert isinstance(tensor, Parameter) == False
+        assert not isinstance(tensor, Parameter)

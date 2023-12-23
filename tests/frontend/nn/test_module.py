@@ -28,37 +28,37 @@ class Network(Module):
 
 
 @pytest.fixture
-def testNet():
+def test_net():
     return Network()
 
 
-def test_parent_module(testNet):
-    assert len(testNet._params.keys()) == 1
-    assert len(testNet._modules.keys()) == 2
+def test_parent_module(test_net):
+    assert len(test_net._params.keys()) == 1
+    assert len(test_net._modules.keys()) == 2
 
-    assert (testNet().eval().cpu_view(np.float32) == np.array([1.0, 2.0])).all()
+    assert (test_net().eval().cpu_view(np.float32) == np.array([1.0, 2.0])).all()
 
 
-def test_nested_module_params(testNet):
-    params = testNet.parameters()
+def test_nested_module_params(test_net):
+    params = test_net.parameters()
     print(params)
     assert (params["param"].eval().cpu_view(np.float32) == np.array([1.0, 1.0], dtype=np.float32)).all()
     assert (params["dummy1.param"].eval().cpu_view(np.float32) == np.array([0.0, 0.0], dtype=np.float32)).all()
     assert (params["dummy2.param"].eval().cpu_view(np.float32) == np.array([0.0, 1.0], dtype=np.float32)).all()
 
 
-def test_module_update_params(testNet):
-    testNet.apply(lambda x: x + x)
-    assert (testNet().eval().cpu_view(np.float32) == np.array([2.0, 4.0], dtype=np.float32)).all()
+def test_module_update_params(test_net):
+    test_net.apply(lambda x: x + x)
+    assert (test_net().eval().cpu_view(np.float32) == np.array([2.0, 4.0], dtype=np.float32)).all()
 
 
-def test_module_save_load_params(testNet, tmp_path):
+def test_module_save_load_params(test_net, tmp_path):
     # Use tmp_path fixture to create/delete temp file.
     file_path = tmp_path / f"weights.npz"
-    testNet.save_weights(file_path)
-    testNet.apply(lambda x: x + x + x)
-    assert (testNet().eval().cpu_view(np.float32) == np.array([3.0, 6.0], dtype=np.float32)).all()
+    test_net.save_weights(file_path)
+    test_net.apply(lambda x: x + x + x)
+    assert (test_net().eval().cpu_view(np.float32) == np.array([3.0, 6.0], dtype=np.float32)).all()
 
-    testNet.load_weights(file_path)
-    testNet.apply(lambda x: x + x)
-    assert (testNet().eval().cpu_view(np.float32) == np.array([2.0, 4.0], dtype=np.float32)).all()
+    test_net.load_weights(file_path)
+    test_net.apply(lambda x: x + x)
+    assert (test_net().eval().cpu_view(np.float32) == np.array([2.0, 4.0], dtype=np.float32)).all()
