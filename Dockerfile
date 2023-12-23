@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
+FROM nvcr.io/nvidia/cuda:12.2.2-devel-ubuntu22.04
 WORKDIR /tripy
 
 LABEL maintainer="NVIDIA CORPORATION"
@@ -33,7 +33,7 @@ RUN apt-get update && \
 
 
 COPY pyproject.toml /tripy/pyproject.toml
-RUN pip install .[docs,dev,test] --extra-index-url https://download.pytorch.org/whl/cu118
+RUN pip install .[docs,dev,test] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html --extra-index-url https://download.pytorch.org/whl/cu118
 
 ########################################
 # Configure StableHLO python packages

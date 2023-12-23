@@ -45,11 +45,13 @@ class Storage(BaseOperator):
     def __eq__(self, other) -> bool:
         return self.data == other.data
 
+    def __str__(self) -> str:
+        return f"data=({self.data.view()}) : shape=({self.shape}), dtype=({self.dtype.name}), loc=({self.device.kind}:{self.device.index})"
+
     def to_flat_ir_str(self, input_names, output_names):
         assert not input_names, "Storage should have no inputs!"
         assert len(output_names) == 1, "Storage should have exactly one output!"
-        # (39): Remove explicit CPU to GPU copies.
-        return f"{output_names[0]} : data=({self.data.cpu_view(self.dtype).tolist()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
+        return f"{output_names[0]} : data=({self.data.view()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
     def infer_shapes(self, input_shapes):
         assert not input_shapes, "Storage should have no inputs!"
@@ -67,12 +69,15 @@ class Storage(BaseOperator):
 
     def to_mlir(self, inputs):
         from tripy.backend.mlir import utils as mlir_utils
+        import cupy as cp
 
         assert not inputs, "Storage should have no inputs!"
-        # (39): Remove explicit CPU to GPU copies.
-        attr = ir.DenseElementsAttr.get(
-            array=self.data.cpu_view(self.dtype), type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape
-        )
+        data = self.data.view()
+        if isinstance(data, cp.ndarray):
+            # This is required because MLIR-TRT backend requires constants to be on host.
+            # TODO: Implement using .to("cpu") operation.
+            data = data.get()
+        attr = ir.DenseElementsAttr.get(array=data, type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape)
         return [stablehlo.ConstantOp(attr)]
 
 
