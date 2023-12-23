@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-import numpy as np
+import pickle
 
 from tripy.frontend.tensor import Tensor
 from tripy.common.exception import TripyException
@@ -72,8 +72,9 @@ class Module:
                 stack.append((m_prefix + m + ".", module._modules[m]))
 
         # todo: fix cpu_view and should support all types without explicit param.
-        numpy_dict = {key: value.numpy() for key, value in param_dict.items()}
-        np.savez(file_name, **numpy_dict)
+        weights_dict = {key: value.numpy() for key, value in param_dict.items()}
+        with open(file_name, "wb") as f:
+            pickle.dump(weights_dict, f)
 
     def load_weights(self, file_name: str):
         """
@@ -82,15 +83,16 @@ class Module:
         Args:
             path: The path from which to load weights.
         """
-        numpy_dict = np.load(file_name, allow_pickle=True)
-        numpy_dict = {key: numpy_dict[key] for key in numpy_dict}
-        param_dict = {}
+        weights_dict = None
+        with open(file_name, "rb") as f:
+            weights_dict = pickle.load(f)
+
         stack = [("", self)]
         while stack:
             m_prefix, module = stack.pop()
             for key, val in module._params.items():
                 new_key = m_prefix + str(key)
-                module._params[key] = Parameter(Tensor(numpy_dict[new_key]))
+                module._params[key] = Parameter(Tensor(weights_dict[new_key]))
 
             for m in module._modules:
                 stack.append((m_prefix + m + ".", module._modules[m]))
