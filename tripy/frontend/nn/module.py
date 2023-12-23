@@ -72,7 +72,7 @@ class Module:
                 stack.append((m_prefix + m + ".", module._modules[m]))
 
         # todo: fix cpu_view and should support all types without explicit param.
-        numpy_dict = {key: value.eval().cpu_view(np.float32) for key, value in param_dict.items()}
+        numpy_dict = {key: value.numpy() for key, value in param_dict.items()}
         np.savez(file_name, **numpy_dict)
 
     def load_weights(self, file_name: str):

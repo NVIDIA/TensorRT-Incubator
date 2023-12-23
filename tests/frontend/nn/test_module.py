@@ -36,20 +36,20 @@ def test_parent_module(test_net):
     assert len(test_net._params.keys()) == 1
     assert len(test_net._modules.keys()) == 2
 
-    assert (test_net().eval().cpu_view(np.float32) == np.array([1.0, 2.0])).all()
+    assert (test_net().numpy() == np.array([1.0, 2.0])).all()
 
 
 def test_nested_module_params(test_net):
     params = test_net.parameters()
     print(params)
-    assert (params["param"].eval().cpu_view(np.float32) == np.array([1.0, 1.0], dtype=np.float32)).all()
-    assert (params["dummy1.param"].eval().cpu_view(np.float32) == np.array([0.0, 0.0], dtype=np.float32)).all()
-    assert (params["dummy2.param"].eval().cpu_view(np.float32) == np.array([0.0, 1.0], dtype=np.float32)).all()
+    assert (params["param"].numpy() == np.array([1.0, 1.0], dtype=np.float32)).all()
+    assert (params["dummy1.param"].numpy() == np.array([0.0, 0.0], dtype=np.float32)).all()
+    assert (params["dummy2.param"].numpy() == np.array([0.0, 1.0], dtype=np.float32)).all()
 
 
 def test_module_update_params(test_net):
     test_net.apply(lambda x: x + x)
-    assert (test_net().eval().cpu_view(np.float32) == np.array([2.0, 4.0], dtype=np.float32)).all()
+    assert (test_net().numpy() == np.array([2.0, 4.0], dtype=np.float32)).all()
 
 
 def test_module_save_load_params(test_net, tmp_path):
@@ -57,8 +57,8 @@ def test_module_save_load_params(test_net, tmp_path):
     file_path = tmp_path / f"weights.npz"
     test_net.save_weights(file_path)
     test_net.apply(lambda x: x + x + x)
-    assert (test_net().eval().cpu_view(np.float32) == np.array([3.0, 6.0], dtype=np.float32)).all()
+    assert (test_net().numpy() == np.array([3.0, 6.0], dtype=np.float32)).all()
 
     test_net.load_weights(file_path)
     test_net.apply(lambda x: x + x)
-    assert (test_net().eval().cpu_view(np.float32) == np.array([2.0, 4.0], dtype=np.float32)).all()
+    assert (test_net().numpy() == np.array([2.0, 4.0], dtype=np.float32)).all()
