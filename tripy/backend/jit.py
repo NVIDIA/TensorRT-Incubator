@@ -40,7 +40,7 @@ class jit:
 
             out = add(a, b)
 
-            assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
+            assert (out.numpy() == np.array([2.0, 2.0])).all()
 
         Using JIT as a function:
         ::
@@ -57,7 +57,7 @@ class jit:
             jit_add = tp.jit(add)
             out = jit_add(a, b)
 
-            assert (out.eval().cpu_view(np.float32) == np.array([2.0, 2.0])).all()
+            assert (out.numpy() == np.array([2.0, 2.0])).all()
         """
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}
@@ -101,7 +101,7 @@ class jit:
             # compiling and caching a function's implementation.
             eval_args = [
                 Tensor(
-                    arg.eval().cpu_view(arg.op.dtype).tolist(),
+                    arg.eval().view(),
                     dtype=arg.op.dtype,
                     device=arg.op.device,
                     shape=arg.op.shape,
@@ -135,9 +135,8 @@ class jit:
                 self.cache[cache_key] = executor
 
             outputs = executor.execute(eval_args)
-            # TODO(#39): Remove data copy with an API like Tensor.from_storage()
             tensor_outputs = [
-                Tensor(o.data.byte_buffer, device=out_device) for o, out_device in zip(outputs, executor.output_devices)
+                Tensor(o.data.view(), device=out_device) for o, out_device in zip(outputs, executor.output_devices)
             ]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]

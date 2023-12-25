@@ -4,7 +4,7 @@ import cupy as cp
 import numpy as np
 
 from tripy import util
-from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to_numpy_dtype
+from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to_numpy_dtype, DATA_TYPES
 from tripy.common.device import device
 
 
@@ -75,28 +75,14 @@ class Array:
         # Data type of the array.
         self.dtype = data_dtype
 
-    def cpu_view(self, dtype: Union["tripy.dtype", np.dtype]):
+    def view(self):
         """
-        Create a cpu view of the array with a different data type.
-
-        Args:
-            dtype (tripy.dtype): Target data type for the view.
-
-        Returns:
-            np.ndarray: Numpy array view with the specified data type.
+        Create a NumPy Or CuPy array of underlying datatype.
         """
-        assert dtype is not None
-        if not issubclass(dtype, np.floating) and not issubclass(dtype, np.integer):
-            import tripy.common.datatype
-
-            assert dtype.name in tripy.common.datatype.DATA_TYPES
-            dtype = convert_tripy_to_numpy_dtype(dtype)
-
-        if self.device.kind == "gpu":
-            # Copy data from gpu to cpu.
-            return self.byte_buffer.get().view(dtype)
-        else:
-            return self.byte_buffer.view(dtype)
+        assert self.dtype is not None
+        assert self.dtype.name in DATA_TYPES
+        dtype = convert_tripy_to_numpy_dtype(self.dtype)
+        return self.byte_buffer.view(dtype)
 
     def __eq__(self, other) -> bool:
         """

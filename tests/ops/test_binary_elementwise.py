@@ -1,15 +1,26 @@
 import pytest
 
-from tripy.frontend import Tensor
+import tripy
 from tripy.ops import BinaryElementwise
 
 
-@pytest.mark.parametrize("func, kind", [(lambda a, b: a + b, BinaryElementwise.Kind.SUM)])
+_BINARY_OPS = {
+    BinaryElementwise.Kind.SUM: lambda a, b: a + b,
+    BinaryElementwise.Kind.LESS: lambda a, b: a < b,
+    BinaryElementwise.Kind.LESS_EQUAL: lambda a, b: a <= b,
+    BinaryElementwise.Kind.EQUAL: lambda a, b: a == b,
+    BinaryElementwise.Kind.NOT_EQUAL: lambda a, b: a != b,
+    BinaryElementwise.Kind.GREATER_EQUAL: lambda a, b: a >= b,
+    BinaryElementwise.Kind.GREATER: lambda a, b: a > b,
+}
+
+
+@pytest.mark.parametrize("func, kind", [(func, kind) for kind, func in _BINARY_OPS.items()])
 def test_binary_elementwise(func, kind):
-    a = Tensor([1])
-    b = Tensor([2])
+    a = tripy.Tensor([1])
+    b = tripy.Tensor([2])
 
     out = func(a, b)
-    assert isinstance(out, Tensor)
+    assert isinstance(out, tripy.Tensor)
     assert isinstance(out.op, BinaryElementwise)
     assert out.op.kind == kind
