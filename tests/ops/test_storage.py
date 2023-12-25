@@ -45,10 +45,6 @@ class TestStorage:
         if dtype in {tripy.int4, tripy.bfloat16, tripy.float8e4m3fn}:
             pytest.skip("Type is not supported by numpy/cupy")
 
-        # TODO (#26): Figure out how to make boolean types work.
-        if dtype in {tripy.bool}:
-            pytest.skip("Bool is not working correctly yet")
-
         if dtype in {tripy.int8, tripy.int64, tripy.float16, tripy.uint8, tripy.bool}:
             pytest.skip("Skip test until cast operation implemented.")
 

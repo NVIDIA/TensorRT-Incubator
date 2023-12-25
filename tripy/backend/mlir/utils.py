@@ -41,5 +41,5 @@ def get_mlir_dtype(dtype: "tripy.common.DataType"):
         "int32": ir.IntegerType.get_signless(32),
         "int64": ir.IntegerType.get_signless(64),
         "uint8": ir.IntegerType.get_unsigned(8),
-        # TODO (#26): Figure out how to make boolean types work.
+        "bool": ir.IntegerType.get_signless(1),
     }[dtype.name]
