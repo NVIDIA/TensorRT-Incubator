@@ -50,7 +50,7 @@ class FlatIR:
             return _tensor_names[tid]
 
         # Track exprs that are being traced to pretty print later
-        incoming_exprs = list(tensors)
+        incoming_exprs = set(id(t) for t in tensors)
 
         exprs = list(tensors)
         seen_tensor_ids: Set[int] = set()
@@ -92,7 +92,7 @@ class FlatIR:
                 for output in self.layers[-1].outputs:
                     producer_dict[output.name] = self.layers[-1]
 
-            if head in incoming_exprs:
+            if id(head) in incoming_exprs:
                 if as_input:
                     self.outputs.append(self.inputs[-1])
                 else:
