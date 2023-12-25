@@ -1,8 +1,8 @@
-from typing import List, Union
+from typing import List
 
 from tripy import util
-from tripy.common.logging import G_LOGGER
 from tripy.common.array import Array
+from tripy.common.logging import G_LOGGER
 from tripy.ops import TENSOR_METHOD_REGISTRY
 
 
@@ -41,9 +41,9 @@ class Tensor(metaclass=TensorMeta):
     def eval(self) -> Array:
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
+        from tripy.common import device
         from tripy.flat_ir import FlatIR
         from tripy.ops import Storage
-        from tripy.common import device
 
         if isinstance(self.op, Storage):
             return self.op.data

@@ -1,23 +1,20 @@
 import atexit
 import functools
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, Tuple
 
-from tripy.common.device import device
-from tripy.util.util import make_list
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
-from tripy.flat_ir import FlatIR
-from tripy.frontend.tensor import Tensor
-from tripy.frontend.nn import Parameter
-from tripy.ops import Storage
 from tripy.common.logging import G_LOGGER
+from tripy.flat_ir import FlatIR
+from tripy.frontend import Tensor, nn
 
 
-class JIT:
+class jit:
     """
-    Represents JIT compilation which can be used to get an efficient implementation of any pure function.
-    The implementation is cached such that all invocations after the first use the cached implementation.
-    This interface provides capability to use jit as decorator and as a function.
+    Allows a function to be just-in-time compiled, which will replace the implementation of any pure
+    function with a more efficient one.
+    The implementation is cached such that all invocations after the first use the cached implementation
+    instead of recompiling.
     """
 
     def __init__(self, func: Callable = None, **kwargs):
@@ -28,30 +25,39 @@ class JIT:
         Constraints:
             All Tensors are provided as args, not kwargs
 
-        Example:
+        Using JIT as a decorator:
         ::
-            import tripy
+
             import numpy as np
 
-            # JIT as a decorator example.
-            @tripy.jit
-            def adder(a, b):
+            a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+            b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+
+            @tp.jit
+            def add(a, b):
                 c = a + b
                 return c
 
-            a = tripy.Tensor(np.ones(1, dtype=np.float32), device=tripy.device("gpu"))
-            b = tripy.Tensor(np.ones(1, dtype=np.float32), device=tripy.device("gpu"))
+            out = add(a, b)
 
-            out_decorator = adder(a, b)
+            assert (out.numpy() == np.array([2.0, 2.0])).all()
 
-            # JIT as a function example.
-            def adder(a, b):
+        Using JIT as a function:
+        ::
+
+            import numpy as np
+
+            a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+            b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+
+            def add(a, b):
                 c = a + b
                 return c
 
-            jitted_func = tripy.jit(adder)
-            out_func = jitted_func(a, b)
-            assert out_decorator.numpy() == out_func.numpy()
+            jit_add = tp.jit(add)
+            out = jit_add(a, b)
+
+            assert (out.numpy() == np.array([2.0, 2.0])).all()
         """
         self.kwargs = kwargs
         self.cache: Dict[Tuple, FlatIRExecutor] = {}
@@ -104,7 +110,7 @@ class JIT:
             ]
             self._const_args = self.kwargs["const_argnums"] if "const_argnums" in self.kwargs else ()
             self._const_args = self._const_args + tuple(
-                [index for index, arg in enumerate(args) if isinstance(arg, Parameter)]
+                [index for index, arg in enumerate(args) if isinstance(arg, nn.Parameter)]
             )
 
             for i in range(len(eval_args)):

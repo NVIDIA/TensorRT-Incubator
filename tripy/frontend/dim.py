@@ -30,23 +30,24 @@ class Dim:
     ):
         """
         Args:
-            runtime_value : Runtime shape of the dimension
-            min:
-            max:
-            opt:
-                min/max/opt values provide the dynamic range of this dimension which will be used by
-                the compiler to optimize the program.
-                If only one of these values are provided, the compiler will assume static shapes for this dimension.
-                If only min and max are provided, the opt value will be inferred as the mid point between min and max.
+            runtime_value : Runtime value of the dimension.
+            min: Minimum value of the dimension.
+            opt: Value of the dimension for which to optimize.
+            max: Maximum value of the dimension.
+
+        ``min``/``max``/``opt`` values provide the dynamic range of this dimension.
+        These will be used by the compiler to optimize the program.
+        If only one of these values is provided, it must be the same as `runtime_value` and the compiler
+        will assume static shapes for this dimension.
+        If only min and max are provided, the opt value will be inferred as the mid point between min and max.
 
         Example:
         ::
-            from tripy.frontend import Dim
 
-            batch = Dim(2)
+            batch = tp.Dim(2)
             assert batch.min == batch.opt == batch.max == 2
 
-            dim = Dim(3, min=2, opt=4, max=9)
+            dim = tp.Dim(3, min=2, opt=4, max=9)
             assert dim.min == 2
             assert dim.opt == 4
             assert dim.max == 9

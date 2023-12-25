@@ -2,13 +2,13 @@ from typing import Any, Dict
 
 import pickle
 
-from tripy.frontend.tensor import Tensor
-from tripy.common.exception import TripyException
+import tripy as tp
 from tripy.frontend.nn.parameter import Parameter
 
 
 class Module:
-    """Base class used to create all neural network modules.
+    """
+    Base class used to create all neural network modules.
     Module class allows accessing all the parameters associated within nested Modules.
 
     The implementation currently assumes that Parameters are associated with the Module
@@ -19,29 +19,22 @@ class Module:
 
     Example:
     ::
+
         import numpy as np
-        from tripy.frontend.nn.module import Module
 
-        class Network(Module):
+        class AddBias(tp.nn.Module):
             def __init__(self):
-                from tripy.frontend.nn.parameter import Parameter
-                from tripy.frontend import Tensor
-                import numpy as np
-
                 super().__init__()
-                self.param = Parameter(Tensor(np.ones(2, dtype=np.float32)))
+                self.bias = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
 
             def __call__(self, x):
-                return x + self.param
+                return x + self.bias
 
-        net = Network()
-        def infer(net):
-            from tripy.frontend import Tensor
-            import numpy as np
-            x = Tensor(np.ones(2, dtype=np.float32))
-            return net(x)
+        add_bias = AddBias()
+        inp = tp.Tensor([1.0, 1.0], dtype=tp.float32)
+        out = add_bias(inp)
 
-        assert(infer(net).numpy() == np.array([2.0, 2.0], dtype=np.float32)).all()
+        assert (out.numpy() == np.array([2.0, 2.0])).all()
     """
 
     _params: Dict[str, Parameter]
@@ -59,7 +52,7 @@ class Module:
         Save Module parameters to the specified path.
 
         Args:
-            path: The path at which to save weights.
+            file_name: The file name at which to save weights.
         """
         param_dict = {}
         stack = [("", self)]
@@ -81,7 +74,7 @@ class Module:
         Load Module parameters from the specified path.
 
         Args:
-            path: The path from which to load weights.
+            file_name: The file name from which to load weights.
         """
         weights_dict = None
         with open(file_name, "rb") as f:
@@ -92,7 +85,7 @@ class Module:
             m_prefix, module = stack.pop()
             for key, val in module._params.items():
                 new_key = m_prefix + str(key)
-                module._params[key] = Parameter(Tensor(weights_dict[new_key]))
+                module._params[key] = Parameter(tp.Tensor(weights_dict[new_key]))
 
             for m in module._modules:
                 stack.append((m_prefix + m + ".", module._modules[m]))

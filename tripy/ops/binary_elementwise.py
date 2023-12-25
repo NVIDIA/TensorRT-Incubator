@@ -96,11 +96,10 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import tripy
         import numpy as np
 
-        a = tripy.Tensor([1, 2])
-        b = tripy.Tensor([2, 3])
+        a = tp.Tensor([1, 2])
+        b = tp.Tensor([2, 3])
         out = a + b
         assert (out.numpy() == np.array([3, 5])).all()
     """
@@ -126,11 +125,10 @@ def less_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import tripy
         import numpy as np
 
-        a = tripy.Tensor([2, 3])
-        b = tripy.Tensor([1, 5])
+        a = tp.Tensor([2, 3])
+        b = tp.Tensor([1, 5])
         out = b < a
         assert (out.numpy() == np.array([True, False])).all()
     """
@@ -156,11 +154,10 @@ def less_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Te
     Example:
     ::
 
-        import tripy
         import numpy as np
 
-        a = tripy.Tensor([2, 3])
-        b = tripy.Tensor([2, 5])
+        a = tp.Tensor([2, 3])
+        b = tp.Tensor([2, 5])
         out = b <= a
         assert (out.numpy() == np.array([True, False])).all()
     """
@@ -186,11 +183,10 @@ def eq(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import tripy
         import numpy as np
 
-        a = tripy.Tensor([2, 3])
-        b = tripy.Tensor([2, 5])
+        a = tp.Tensor([2, 3])
+        b = tp.Tensor([2, 5])
         out = b == a
         assert (out.numpy() == np.array([True, False])).all()
     """
@@ -216,11 +212,10 @@ def not_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import tripy
         import numpy as np
 
-        a = tripy.Tensor([2, 3])
-        b = tripy.Tensor([1, 3])
+        a = tp.Tensor([2, 3])
+        b = tp.Tensor([1, 3])
         out = b != a
         assert (out.numpy() == np.array([True, False])).all()
     """
@@ -246,11 +241,10 @@ def greater_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy
     Example:
     ::
 
-        import tripy
         import numpy as np
 
-        a = tripy.Tensor([2, 3])
-        b = tripy.Tensor([2, 1])
+        a = tp.Tensor([2, 3])
+        b = tp.Tensor([2, 1])
         out = b >= a
         assert (out.numpy() == np.array([True, False])).all()
     """
@@ -276,11 +270,10 @@ def greater_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import tripy
         import numpy as np
 
-        a = tripy.Tensor([2, 3])
-        b = tripy.Tensor([3, 1])
+        a = tp.Tensor([2, 3])
+        b = tp.Tensor([3, 1])
         out = b > a
         assert (out.numpy() == np.array([True, False])).all()
     """

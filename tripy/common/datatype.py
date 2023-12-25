@@ -7,16 +7,20 @@ from typing import Any
 DATA_TYPES = {}
 
 
-class DataType(abc.ABC):
+class dtype(abc.ABC):
+    """
+    The base class for all data types supported by tripy.
+    """
+
     pass
 
 
 # We use `__all__` to control what is exported from this file. `import *` will only pull in objects that are in `__all__`.
-__all__ = []
+__all__ = ["dtype"]
 
 
 def _make_datatype(name, itemsize, docstring):
-    DATA_TYPES[name] = type(name, (DataType,), {"name": name, "itemsize": itemsize, "__doc__": docstring})
+    DATA_TYPES[name] = type(name, (dtype,), {"name": name, "itemsize": itemsize, "__doc__": docstring})
     __all__.append(name)
     return DATA_TYPES[name]
 

@@ -14,7 +14,7 @@ from textwrap import dedent
 import pytest
 import requests
 
-import tripy
+import tripy as tp
 from tests.helper import ROOT_DIR
 from tripy.flat_ir import FlatIR
 from tripy.frontend import Tensor
@@ -56,7 +56,7 @@ class TestReadme:
 # In order to test docstrings, we need to recursively discover all submodules
 # and any classes/functions contained in those submodules.
 def discover_modules():
-    mods = [tripy]
+    mods = [tp]
     while mods:
         mod = mods.pop(0)
 
@@ -97,20 +97,39 @@ def get_all_tripy_interfaces():
 
 
 def get_all_docstrings_with_examples():
+    # NOTE: If you edit the parsing logic here, please also update `tests/README.md`.
     docstrings = []
     ids = []
     for obj in get_all_tripy_interfaces():
-        if not obj.__doc__ or "Example:" not in obj.__doc__:
+        if not obj.__doc__ or "::" not in obj.__doc__:
             print(f"Skipping {obj.__qualname__} because no example was present in the docstring")
             continue
 
-        # NOTE: For now, we assume that the example is the last thing in the docstring.
-        # This simplifies the parsing logic. If we add other things after the example,
-        # please update this function!
-        example_code = dedent(obj.__doc__.partition("Example:")[-1].partition("::")[-1])
+        def get_indented_code_blocks():
+            doc = dedent(obj.__doc__)
 
-        docstrings.append(example_code)
-        ids.append(obj.__qualname__)
+            blocks = []
+            in_block = False
+            for line in doc.splitlines():
+                # Ignore blank lines
+                if not line:
+                    continue
+
+                if in_block:
+                    # Check if string starts with whitespace
+                    if line.lstrip() != line:
+                        blocks[-1] += line + "\n"
+                    else:
+                        in_block = False
+
+                if line.strip().startswith("::"):
+                    in_block = True
+                    blocks.append("")
+            return blocks
+
+        blocks = get_indented_code_blocks()
+        docstrings.extend([dedent(block) for block in blocks])
+        ids.extend([f"{obj.__qualname__}:{idx}" for idx in range(len(blocks))])
 
     return docstrings, ids
 
@@ -123,4 +142,9 @@ class TestDocstrings:
     def test_examples_in_docstrings(self, example_code):
         # Don't inherit variables from the current environment so we can be sure the docstring examples
         # work in total isolation.
-        exec(example_code, {}, {})
+
+        assert example_code, "Example code is empty! Is the formatting correct? Refer to `tests/README.md`."
+        assert "import tripy" not in example_code, "Avoid importing tripy in example docstrings"
+        assert "from tripy" not in example_code, "Avoid importing tripy in example docstrings"
+
+        exec(example_code, {"tp": tp}, {})

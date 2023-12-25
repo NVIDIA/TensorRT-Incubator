@@ -1,6 +1,6 @@
 # Tripy (Tri-Py): TensorRT meets Python
 
-##  What is Tripy
+## What is Tripy
 
 ## Overview
 
@@ -9,3 +9,7 @@
 ## Quick start
 
 ## Examples
+
+## Contributing
+
+For details on how to contribute to tripy, see [CONTRIBUTING.md](./CONTRIBUTING.md).

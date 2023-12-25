@@ -19,7 +19,7 @@ _DATA = [_np_arr, _cp_arr, _torch_cpu_arr, _torch_gpu_arr, _jax_cpu_arr]
 _DATA_SUBTESTS = list(product(_DATA, repeat=2))
 
 
-@pytest.mark.parametrize(("from_", "to_"), _DATA_SUBTESTS)
+@pytest.mark.parametrize("from_, to_", _DATA_SUBTESTS, ids=lambda arr: f"{type(arr).__qualname__}")
 def test_dlpack_interface(from_, to_):
     """Test framework interoperability using __dlpack__ interface."""
     assert hasattr(from_, "__dlpack__") and hasattr(to_, "__dlpack__")
