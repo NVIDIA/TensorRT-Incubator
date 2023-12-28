@@ -41,16 +41,17 @@ class Tensor(metaclass=TensorMeta):
     def eval(self) -> Array:
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
-        from tripy.common import device
-        from tripy.flat_ir import FlatIR
+        from tripy.trace import Trace
         from tripy.ops import Storage
 
         if isinstance(self.op, Storage):
             return self.op.data
 
-        flat_ir = FlatIR([self])
-        G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
-        output_devices = [o.device for o in flat_ir.outputs]
+        trace = Trace([self])
+        G_LOGGER.ir_printer(f"Trace :\n{trace}")
+        flat_ir = trace.to_flat_ir()
+        G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
+        output_devices = [o.device for o in trace.outputs]
 
         compiler = FlatIRCompiler()
         with FlatIRExecutor(compiler.compile(flat_ir), output_devices) as executor:

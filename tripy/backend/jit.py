@@ -5,8 +5,8 @@ from typing import Callable, Dict, Tuple
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import G_LOGGER
-from tripy.flat_ir import FlatIR
 from tripy.frontend import Tensor, nn
+from tripy.trace import Trace
 
 
 class jit:
@@ -126,9 +126,11 @@ class jit:
                 return_tensors = func(*eval_args, **kwargs)
                 if isinstance(return_tensors, Tensor):
                     return_tensors = [return_tensors]
-                flat_ir = FlatIR(return_tensors)
-                G_LOGGER.ir_printer(f"flatIR :\n{flat_ir}")
-                output_devices = [o.device for o in flat_ir.outputs]
+                trace = Trace(return_tensors)
+                G_LOGGER.ir_printer(f"Trace :\n{trace}")
+                flat_ir = trace.to_flat_ir()
+                G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
+                output_devices = [o.device for o in trace.outputs]
 
                 compiler = FlatIRCompiler()
                 executor = FlatIRExecutor(compiler.compile(flat_ir), output_devices)

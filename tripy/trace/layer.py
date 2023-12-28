@@ -1,20 +1,20 @@
 from dataclasses import dataclass
 from typing import List
 
-from tripy.flat_ir.tensor import FIRTensor
+from tripy.trace.tensor import TraceTensor
 from tripy.ops import BaseOperator
 
 
 @dataclass
-class FIRLayer:
+class TraceLayer:
     """
-    Represents a single layer in the FlatIR
+    Represents a single layer in the Trace
     """
 
-    inputs: List[FIRTensor]
+    inputs: List[TraceTensor]
     """The inputs of this layer"""
 
-    outputs: List[FIRTensor]
+    outputs: List[TraceTensor]
     """The outputs of this layer"""
 
     op: BaseOperator

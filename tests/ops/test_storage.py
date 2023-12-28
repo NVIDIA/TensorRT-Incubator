@@ -51,5 +51,9 @@ class TestStorage:
         data = [1, 2, 3] if dtype == tripy.int32 else [1.0, 2.0, 3.0]
         storage = Storage(data, shape=(3,), dtype=dtype)
         with mlir_utils.make_ir_context(), ir.Location.unknown():
-            outputs = storage.to_mlir(inputs=[])
+            from tripy.flat_ir.flat_ir import FlatIR
+
+            flat_ir = FlatIR()
+            storage.to_flat_ir(flat_ir, [], [])
+            outputs = flat_ir.ops[0].to_mlir(inputs=[])
             assert outputs[0].value.type.element_type == mlir_utils.get_mlir_dtype(dtype)

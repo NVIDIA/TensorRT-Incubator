@@ -16,7 +16,7 @@ import requests
 
 import tripy as tp
 from tests.helper import ROOT_DIR
-from tripy.flat_ir import FlatIR
+from tripy.trace import Trace
 from tripy.frontend import Tensor
 
 
@@ -91,7 +91,7 @@ def get_all_tripy_interfaces():
 
     # Some sanity checks to make sure we're actually getting all the objects we expect
     assert Tensor in all_objects
-    assert FlatIR in all_objects
+    assert Trace in all_objects
 
     return all_objects
 

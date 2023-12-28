@@ -9,7 +9,7 @@ import jax
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.device import device
-from tripy.flat_ir import FlatIR
+from tripy.trace import Trace
 from tripy.frontend import Tensor, Dim
 from tripy import jit
 import tripy.common.datatype
@@ -40,14 +40,15 @@ class TestFunctional:
         out = func(a, b)
         assert (out.numpy() == np.array([2.0, 2.0], dtype=np.float32)).all()
 
-    def test_multi_output_flat_ir(self):
+    def test_multi_output_trace(self):
         arr = np.ones(2, dtype=np.float32)
         a = Tensor(arr)
         b = Tensor(arr)
         c = a + b
         d = c + c
-        flat_ir = FlatIR([c, d])
-        output_devices = [o.device for o in flat_ir.outputs]
+        trace = Trace([c, d])
+        flat_ir = trace.to_flat_ir()
+        output_devices = [o.device for o in trace.outputs]
 
         compiler = FlatIRCompiler()
         with FlatIRExecutor(compiler.compile(flat_ir), output_devices) as executor:
