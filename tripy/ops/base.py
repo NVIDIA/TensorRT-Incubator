@@ -6,16 +6,16 @@ from tripy.common.datatype import dtype
 
 class BaseOperator(abc.ABC):
     @abc.abstractmethod
-    def to_flat_ir_str(self, input_names: List[str], output_names: List[str]) -> str:
+    def to_trace_str(self, input_names: List[str], output_names: List[str]) -> str:
         """
-        Returns a FlatIR string representation of the operation.
+        Returns a Trace string representation of the operation.
 
         Args:
             inputs_names: The names of the input tensor(s).
             output_names: The names of the output tensor(s).
 
         Returns:
-            The FlatIR string representation of the operation.
+            The Trace string representation of the operation.
         """
         ...
 
@@ -46,15 +46,14 @@ class BaseOperator(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def to_mlir(self, inputs: List) -> List:
+    def to_flat_ir(self, flat_ir, inputs: List, outputs: List) -> None:
         """
-        Generates MLIR HLO ops for the operation.
+        Generates FlatIR ops for the operation.
 
         Args:
-            inputs: The input MLIR HLO operations.
-
-        Returns:
-            The MLIR HLO op(s) corresponding to this operation.
+            flat_ir: FlatIR parent graph where new ops are inserted.
+            inputs: List of input tensors
+            outputs: List of output tensors
         """
         ...
 

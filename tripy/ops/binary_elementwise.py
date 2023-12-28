@@ -44,7 +44,7 @@ class BinaryElementwise(BaseOperator):
         Kind.GREATER,
     }
 
-    def to_flat_ir_str(self, input_names, output_names):
+    def to_trace_str(self, input_names, output_names):
         assert len(output_names) == 1, "BinaryElementwise should have exactly one output!"
         return f"{output_names[0]} = {self.kind.join(input_names)}"
 
@@ -63,22 +63,24 @@ class BinaryElementwise(BaseOperator):
             return [datatype.bool]
         return [input_dtypes[0]]
 
-    def to_mlir(self, inputs: List) -> List:
+    def to_flat_ir(self, flat_ir, inputs, outputs):
+        from tripy.flat_ir.ops import AddOp, CompareOp
+
         _MLIR_COMPARE_DIRECTIONS = {
-            BinaryElementwise.Kind.LESS: stablehlo.ComparisonDirectionAttr.get("LT"),
-            BinaryElementwise.Kind.LESS_EQUAL: stablehlo.ComparisonDirectionAttr.get("LE"),
-            BinaryElementwise.Kind.EQUAL: stablehlo.ComparisonDirectionAttr.get("EQ"),
-            BinaryElementwise.Kind.NOT_EQUAL: stablehlo.ComparisonDirectionAttr.get("NE"),
-            BinaryElementwise.Kind.GREATER_EQUAL: stablehlo.ComparisonDirectionAttr.get("GE"),
-            BinaryElementwise.Kind.GREATER: stablehlo.ComparisonDirectionAttr.get("GT"),
+            BinaryElementwise.Kind.LESS: "LT",
+            BinaryElementwise.Kind.LESS_EQUAL: "LE",
+            BinaryElementwise.Kind.EQUAL: "EQ",
+            BinaryElementwise.Kind.NOT_EQUAL: "NE",
+            BinaryElementwise.Kind.GREATER_EQUAL: "GE",
+            BinaryElementwise.Kind.GREATER: "GT",
         }
+
         if self.kind in self._COMPARE_OPS:
-            out = stablehlo.CompareOp(*inputs, _MLIR_COMPARE_DIRECTIONS[self.kind])
+            flat_ir.ops.append(CompareOp(self, inputs, outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind]))
         elif self.kind == BinaryElementwise.Kind.SUM:
-            out = stablehlo.AddOp(*inputs)
+            flat_ir.ops.append(AddOp(self, inputs, outputs))
         else:
             raise NotImplementedError()
-        return [out]
 
 
 @TENSOR_METHOD_REGISTRY("__add__")
