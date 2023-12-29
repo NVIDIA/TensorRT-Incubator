@@ -1,8 +1,5 @@
 from typing import List
 
-import cupy as cp
-import numpy as np
-
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr, ExecInitializerResult
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor

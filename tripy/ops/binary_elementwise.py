@@ -132,7 +132,8 @@ def less_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
         out = b < a
-        assert (out.numpy() == np.array([True, False])).all()
+        # TODO(#26): replace with out.numpy() after MLIR-TRT can handle i1 dtype's allocation
+        assert out.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -161,7 +162,7 @@ def less_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Te
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
         out = b <= a
-        assert (out.numpy() == np.array([True, False])).all()
+        assert out.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -190,7 +191,7 @@ def eq(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
         out = b == a
-        assert (out.numpy() == np.array([True, False])).all()
+        assert out.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -219,7 +220,7 @@ def not_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 3])
         out = b != a
-        assert (out.numpy() == np.array([True, False])).all()
+        assert out.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -248,7 +249,7 @@ def greater_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 1])
         out = b >= a
-        assert (out.numpy() == np.array([True, False])).all()
+        assert out.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -277,7 +278,7 @@ def greater_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         a = tp.Tensor([2, 3])
         b = tp.Tensor([3, 1])
         out = b > a
-        assert (out.numpy() == np.array([True, False])).all()
+        assert out.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 

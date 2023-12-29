@@ -79,4 +79,4 @@ class TestTensor:
         assert isinstance(c.op, tripy.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.inputs == []
-        assert (c.op.data.view().get() == np.array([3], dtype=np.float32)).all()
+        assert (c.op.data.view() == np.array([3], dtype=np.float32)).all()
