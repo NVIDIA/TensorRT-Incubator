@@ -134,3 +134,96 @@ class TestFunctional:
 
         self._test_round_tripping(np.ones(2, np.float32), device=make_device("cpu"))
         self._test_round_tripping(cp.ones(2, cp.float32), device=make_device("gpu"))
+
+
+class TestCopyFunctional:
+    @pytest.mark.parametrize("src", ["cpu", "gpu"])
+    @pytest.mark.parametrize("dst", ["cpu", "gpu"])
+    def test_single_copy(self, src, dst):
+        a = tripy.Tensor([1, 2], device=device(src))
+        out = a.to(device(dst))
+        out = out.eval()
+        assert out.device.kind == dst
+        assert out.view().tolist() == [1, 2]
+
+    def test_multiple_copy_1(self):
+        a = tripy.Tensor([1, 2])
+        a = a.to(device("gpu"))
+        a = a.to(device("cpu"))
+        out = a.eval()
+        assert out.device.kind == "cpu"
+        assert out.view().tolist() == [1, 2]
+
+    def test_multiple_copy_2(self):
+        a = tripy.Tensor([1, 2])
+        a = a.to(device("cpu"))
+        a = a.to(device("gpu"))
+        out = a.eval()
+        assert out.device.kind == "gpu"
+        assert out.view().tolist() == [1, 2]
+
+    @pytest.mark.parametrize("dst", ["cpu", "gpu"])
+    def test_jit_single_copy(self, dst):
+        a = tripy.Tensor([1, 2], device=device("gpu"))
+
+        @tripy.jit
+        def func(x):
+            x = x.to(device(dst))
+            return x
+
+        out = func(a)
+        out = out.eval()
+        assert out.device.kind == dst
+        assert out.view().tolist() == [1, 2]
+
+    def test_jit_multiple_copy_1(self):
+        a = tripy.Tensor([1, 2], device=device("gpu"))
+
+        @tripy.jit
+        def func(x):
+            x = x.to(device("cpu"))
+            x = x.to(device("gpu"))
+            return x
+
+        out = func(a)
+        out = out.eval()
+        assert out.device.kind == "gpu"
+        assert out.view().tolist() == [1, 2]
+
+    def test_jit_multiple_copy_2(self):
+        a = tripy.Tensor([1, 2], device=device("gpu"))
+
+        @tripy.jit
+        def func(x):
+            x = x.to(device("gpu"))
+            x = x.to(device("cpu"))
+            return x
+
+        out = func(a)
+        out = out.eval()
+        assert out.device.kind == "cpu"
+        assert out.view().tolist() == [1, 2]
+
+    def test_with_ops(self):
+        a = tripy.Tensor([1, 2])
+        b = tripy.Tensor([2, 3])
+        out = a + b
+        out = out.to(device("cpu"))
+        out = out.eval()
+        assert out.device.kind == "cpu"
+        assert out.view().tolist() == [3, 5]
+
+    def test_jit_with_ops(self):
+        a = tripy.Tensor([1, 2], device=device("gpu"))
+        b = tripy.Tensor([2, 3], device=device("gpu"))
+
+        @tripy.jit
+        def func(x, y):
+            out = x + y
+            out = out.to(device("cpu"))
+            return out
+
+        out = func(a, b)
+        out = out.eval()
+        assert out.device.kind == "cpu"
+        assert out.view().tolist() == [3, 5]

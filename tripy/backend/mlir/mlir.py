@@ -149,7 +149,7 @@ class _MlirCompiler:
                         lambda r: (
                             r.data.byte_buffer.data.ptr
                             if isinstance(r.data.byte_buffer.data, cp.cuda.memory.MemoryPointer)
-                            else r.data.byte_buffer.data
+                            else r.data.byte_buffer.ctypes.data
                         ),
                         data,
                     )
@@ -158,10 +158,14 @@ class _MlirCompiler:
                 else None
             )
 
+        output_device_arr = [1 if out.device.kind == "gpu" else 0 for out in exec_args.outputs]
+        output_devices = (ctypes.c_int * len(exec_args.outputs))(*output_device_arr)
+
         self.mlir_execute(
             void_ptr(executable),
             get_mem_ptrs(exec_args.inputs),
             get_mem_ptrs(exec_args.outputs),
+            output_devices,
         )
 
 

@@ -2,3 +2,4 @@ from tripy.ops.base import BaseOperator
 from tripy.ops.binary_elementwise import BinaryElementwise
 from tripy.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.ops.storage import Storage
+from tripy.ops.copy import Copy

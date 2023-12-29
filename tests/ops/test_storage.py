@@ -55,5 +55,5 @@ class TestStorage:
 
             flat_ir = FlatIR()
             storage.to_flat_ir(flat_ir, [], [])
-            outputs = flat_ir.ops[0].to_mlir(inputs=[])
+            outputs = flat_ir.ops[0].to_mlir(operands=[])
             assert outputs[0].value.type.element_type == mlir_utils.get_mlir_dtype(dtype)

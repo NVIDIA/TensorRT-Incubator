@@ -48,13 +48,13 @@ class FlatIR:
                 with ir.InsertionPoint(entry_block):
                     ops = []
                     hlo_tensors: Dict[str, Any] = {}
+                    # Initialize tensor dict with inputs
+                    for inp in self.inputs:
+                        hlo_tensors[inp.name] = entry_block.arguments[self.inputs_idx[inp.name]]
                     for l in self.ops:
                         operands = []
                         for inp in l.inputs:
-                            if inp.name in self.inputs_idx:
-                                operands.append(entry_block.arguments[self.inputs_idx[inp.name]])
-                            else:
-                                operands.append(hlo_tensors[inp.name])
+                            operands.append(hlo_tensors[inp.name])
                         out_ops = l.to_mlir(operands)
                         ops.extend(out_ops)
                         hlo_tensors.update(zip([out.name for out in l.outputs], out_ops))
@@ -79,5 +79,14 @@ class FlatIR:
                         arg_attrs[self.inputs_idx[inp.name]] = arg
 
                 func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
+
+                # Append device location if outputs are on host
+                res_attrs = []
+                for output in self.outputs:
+                    if output.device.kind == "cpu":
+                        res_attrs.append(ir.Attribute.parse("{tensorrt.host_tensor}"))
+                    else:
+                        res_attrs.append(ir.DictAttr.get({}))
+                func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
 
             return module

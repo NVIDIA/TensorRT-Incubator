@@ -75,7 +75,6 @@ class Storage(BaseOperator):
         data = self.data.view()
         if isinstance(data, cp.ndarray):
             # This is required because MLIR-TRT backend requires constants to be on host.
-            # TODO: Implement using .to("cpu") operation.
             data = data.get()
         flat_ir.ops.append(ConstantOp(self, inputs, outputs, data=data))
 
