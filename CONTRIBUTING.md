@@ -64,6 +64,13 @@ For details on how to build and add documentation, see [the documentation README
 
 	4. Copy your SSH key to the container. You can use `docker container ls` or `docker ps` to find the `<container-id>`
 
+		Launch the container and create .ssh folder in /root.
+		```bash
+		docker compose exec mlir-tensorrt-poc-dev bash
+		mkdir -p /root/.ssh
+		```
+
+		Now, copy SSH keys to the container.
 		```bash
 		docker cp ~/.ssh/id_rsa <container-id>:/root/.ssh
 		```
