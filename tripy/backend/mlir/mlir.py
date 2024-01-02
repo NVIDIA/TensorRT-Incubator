@@ -61,11 +61,17 @@ class _MlirCompiler:
             [
                 void_ptr,
                 ctypes.POINTER(TensorShape),
-                ctypes.POINTER(ctypes.c_int),
             ],
             None,
         )
         self.mlir_executor_destroy = func_wrapper(self.compiler_lib, "loadedExecDestructor", [void_ptr], None)
+        self.mlir_save_executable = func_wrapper(self.compiler_lib, "saveExecutable", [void_ptr, char_ptr], None)
+        self.mlir_load_executable_from_file = func_wrapper(
+            self.compiler_lib, "loadExecutableFromFile", [char_ptr], void_ptr
+        )
+        self.mlir_load_executable_from_string = func_wrapper(
+            self.compiler_lib, "loadExecutableFromString", [char_ptr], void_ptr
+        )
 
         self.compiler = self.mlir_initialize()
         if not self.compiler:
@@ -90,17 +96,12 @@ class _MlirCompiler:
         Returns:
             ExecInitializerResult: A named tuple containing input buffer, output buffer, and output shapes.
         """
-        # Call the function and receive the pointers to the arrays and counts
-        nb_outputs = ctypes.c_int()
+        nb_outputs = len(output_devices)
+        output_shapes_arr = (TensorShape * nb_outputs)()
 
-        self.mlir_load_exec_init(executable, None, ctypes.byref(nb_outputs))
-        output_shapes_arr = (TensorShape * nb_outputs.value)()
-
-        self.mlir_load_exec_init(executable, output_shapes_arr, ctypes.byref(nb_outputs))
+        self.mlir_load_exec_init(executable, output_shapes_arr)
 
         # Allocate output memory and store buffer pointers.
-        from tripy.common.device import device as make_device
-
         outputs = [
             Storage(
                 None,
@@ -167,6 +168,33 @@ class _MlirCompiler:
             get_mem_ptrs(exec_args.outputs),
             output_devices,
         )
+
+    def save(self, executable: void_ptr, filename: str) -> None:
+        """
+        Saves the MLIR executable to the given file
+
+        Args:
+            executable: Pointer to the MLIR executable
+            filename: A string of the file name
+        """
+        return self.mlir_save_executable(void_ptr(executable), filename.encode())
+
+    def load(self, path: str = None, data: bytes = None) -> void_ptr:
+        """
+        Loads the MLIR executable from the source
+
+        Args:
+            path: A string of the file name to load the executable
+            data: Byte data to load the executable
+        """
+        if path is not None:
+            if not os.path.exists(path):
+                raise Exception("File not found")
+            return self.mlir_load_executable_from_file(path.encode())
+        elif data is not None:
+            return self.mlir_load_executable_from_string(data)
+        else:
+            raise Exception("One of path/data must be given")
 
 
 G_COMPILER_BACKEND = None
