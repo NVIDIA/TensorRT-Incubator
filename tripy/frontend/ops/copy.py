@@ -1,13 +1,9 @@
-import enum
 from dataclasses import dataclass
 from typing import List
 
-from mlir import ir
-from mlir.dialects import bufferization
-
 from tripy.common.device import device
+from tripy.frontend.ops.base import BaseOperator
 from tripy.util import make_tuple
-from tripy.ops.base import BaseOperator
 
 
 @dataclass

@@ -8,7 +8,7 @@ from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor, nn
-from tripy.trace import Trace
+from tripy.frontend.trace import Trace
 
 
 class jit:

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import List
 
-from tripy.trace.tensor import TraceTensor
-from tripy.ops import BaseOperator
+from tripy.frontend.ops import BaseOperator
+from tripy.frontend.trace.tensor import TraceTensor
 
 
 @dataclass

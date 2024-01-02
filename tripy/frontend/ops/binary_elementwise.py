@@ -1,13 +1,10 @@
 import enum
 from dataclasses import dataclass
-from typing import List
-
-from mlir.dialects import stablehlo
 
 from tripy.common import datatype
+from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.util import make_tuple
-from tripy.ops.base import BaseOperator
-from tripy.ops.registry import TENSOR_METHOD_REGISTRY
 
 
 @dataclass

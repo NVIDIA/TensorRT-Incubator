@@ -1,13 +1,10 @@
 from typing import List, Optional, Tuple, Union
 
-from mlir import ir
-from mlir.dialects import stablehlo
-
 from tripy import util
 from tripy.common import device as make_device
 from tripy.common.array import Array
-from tripy.ops.base import BaseOperator
-from tripy.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
 class Storage(BaseOperator):
@@ -68,8 +65,9 @@ class Storage(BaseOperator):
         return [make_device("gpu")]
 
     def to_flat_ir(self, flat_ir, inputs, outputs):
-        from tripy.flat_ir.ops import ConstantOp
         import cupy as cp
+
+        from tripy.flat_ir.ops import ConstantOp
 
         assert not inputs, "Storage should have no inputs!"
         data = self.data.view()
@@ -104,6 +102,6 @@ def tensor_init(
     # Note: It is important that we are able to call the Tensor constructor with no arguments
     # since this is used internally by Tensor.build()
     if data is not None:
-        from tripy.ops import Storage
+        from tripy.frontend.ops import Storage
 
         self._finalize([], Storage(data, shape, dtype, device))

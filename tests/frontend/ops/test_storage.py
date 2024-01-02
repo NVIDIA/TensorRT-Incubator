@@ -6,7 +6,7 @@ from mlir import ir
 import tripy
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.datatype import DATA_TYPES
-from tripy.ops import Storage
+from tripy.frontend.ops import Storage
 
 
 class TestStorage:

@@ -2,7 +2,7 @@ import pytest
 
 import tripy
 from tripy.common import device
-from tripy.ops import Copy
+from tripy.frontend.ops import Copy
 
 
 @pytest.mark.parametrize("src, dst", [("cpu", "gpu"), ("gpu", "cpu")])

@@ -1,10 +1,10 @@
 from collections import defaultdict, namedtuple
-from typing import Any, Dict, List, Sequence, Set
+from typing import Dict, List, Sequence, Set
 
 from tripy import frontend
-from tripy.trace.layer import TraceLayer
-from tripy.trace.tensor import TraceTensor
 from tripy.common.types import ShapeInfo
+from tripy.frontend.trace.layer import TraceLayer
+from tripy.frontend.trace.tensor import TraceTensor
 
 TraceTensorInfo = namedtuple("TraceTensorInfo", ["shape", "dtype", "device"])
 

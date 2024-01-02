@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 from mlir import ir
 from mlir.dialects import func as func_dialect
 
-from tripy.flat_ir.ops import FIROps
+from tripy.flat_ir.ops import BaseFIROp
 from tripy.backend.mlir.utils import make_ir_context
 
 
@@ -17,7 +17,7 @@ class FlatIR:
     ):
         self.inputs: List["FIRTensor"] = []
         self.outputs: List["FIRTensor"] = []
-        self.ops: List[FIROps] = []
+        self.ops: List[BaseFIROp] = []
         # Dict to map input name to argument index
         self.inputs_idx: Dict[str, int] = {}
 

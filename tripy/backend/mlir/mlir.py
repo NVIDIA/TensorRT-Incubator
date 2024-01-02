@@ -10,7 +10,7 @@ from tripy.util import log_time
 from tripy.util.util import find_file_in_dir
 
 from tripy.common.ctypes import void_ptr, char_ptr, c_int, TensorShape, convert_mlirdtype_to_tripy_dtype
-from tripy.ops.storage import Storage
+from tripy.frontend.ops import Storage
 
 # Define a namedtuple to hold the result of the execution initializer
 ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "output_shapes", "outputs"])
