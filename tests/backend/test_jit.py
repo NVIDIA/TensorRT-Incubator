@@ -1,4 +1,6 @@
 import pytest
+import tempfile
+import os
 import numpy as np
 import cupy as cp
 
@@ -84,9 +86,11 @@ class TestJIT:
 
     def test_cache_decorator(self, init_tensors):
         @tripy.jit
-        def func(a, b, option=None):
+        def func(a, b, option=False):
             c = a + b
             d = c + c
+            if option is True:
+                d = d + d
             return c, d
 
         a, b = init_tensors
@@ -95,11 +99,11 @@ class TestJIT:
 
         a = a + a
         b = b + b
-        # Check cached executable is reused when different inputs have same shapes
+        # Check cached executable is reused when function ir is the same
         c, d = func(a, b)
         assert len(func.cache) == 1
 
-        # Different kwargs will trigger recompilation
+        # Different function ir will trigger recompilation
         c, d = func(a, b, option=True)
         assert len(func.cache) == 2
 
@@ -126,3 +130,63 @@ class TestJIT:
         b = b + b
         c, d = jitted_func(a, b)
         assert len(jitted_func.cache) == 2
+
+    def test_cache_save_load(self, init_tensors):
+        def func(a, b):
+            c = a + b
+            d = c + c
+            return c, d
+
+        jitted_func = tripy.jit(
+            func,
+            const_argnums=(1,),
+        )
+        a, b = init_tensors
+        c, d = jitted_func(a, b)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            jitted_func.save(tmp_dir)
+            assert os.path.exists(tmp_dir) and len(os.listdir(tmp_dir)) == 1
+
+            new_jitted_func = tripy.jit(
+                func,
+                const_argnums=(1,),
+            )
+            new_jitted_func.load(tmp_dir)
+            # check the engine is loaded
+            assert len(jitted_func.cache) == 1
+            c, d = new_jitted_func(a, b)
+            # check correctness of loaded engine
+            assert (c.eval().view().tolist() == [3.0, 4.0]) and (d.eval().view().tolist() == [6.0, 8.0])
+            # check the loaded engine is reused
+            assert len(jitted_func.cache) == 1
+
+    def test_cache_implicit_save_load(self, init_tensors):
+        def func(a, b):
+            c = a + b
+            d = c + c
+            return c, d
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            jitted_func = tripy.jit(
+                func,
+                const_argnums=(1,),
+                cache_dir=tmp_dir,
+            )
+            assert jitted_func.cache_dir == tmp_dir
+
+            a, b = init_tensors
+            c, d = jitted_func(a, b)
+
+            jitted_func.save()
+            # check cached engine is saved
+            assert len(os.listdir(tmp_dir)) == 1
+
+            new_jitted_func = tripy.jit(
+                func,
+                const_argnums=(1,),
+                cache_dir=tmp_dir,
+            )
+            assert new_jitted_func.cache_dir == tmp_dir
+            # check cached engine is loaded
+            assert len(new_jitted_func.cache) == 1

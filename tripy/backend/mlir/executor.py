@@ -71,7 +71,7 @@ class FlatIRExecutor:
         # Create a list to store the output arrays
         outputs: List[Storage] = []
 
-        num_outputs: int = exec_args.output_shapes._length_
+        num_outputs: int = len(exec_args.outputs)
         num_devices: int = 1  # Assuming 1 device, adjust as needed
 
         for i in range(num_devices):

@@ -1,5 +1,7 @@
 import atexit
 import functools
+import os
+import tempfile
 from typing import Callable, Dict, Tuple
 
 from tripy.backend.mlir.compiler import FlatIRCompiler
@@ -59,8 +61,13 @@ class jit:
 
             assert (out.numpy() == np.array([2.0, 2.0])).all()
         """
+        # TODO(#63): Move configs to `tripy.config`
+        # Fixed length of the function hash
+        self._HASH_LENGTH = 30
+        # Parent directory to save cached engines
+        self._JIT_CACHE_DIR = os.path.join(tempfile.gettempdir(), "tripy", "jit_caches")
         self.kwargs = kwargs
-        self.cache: Dict[Tuple, FlatIRExecutor] = {}
+        self.cache: Dict[str, "executable"] = {}
         self._const_args: Tuple[int] = ()
         self.func: Callable = None
         if func is not None:
@@ -68,29 +75,22 @@ class jit:
             self.decorated = self._helper(func)
         atexit.register(self.destroy)
 
-    def _get_input_signature(self, origin_tensors, eval_tensors, kwargs) -> Tuple:
-        """
-        Returns the input signature, which is used as the cache key of a JIT function
-        The function signature is a combination of:
-          - Shapes of evaluated input arguments
-          - IDs of constant arguments
-          - Values of keyword arguments
+        if "cache_dir" in kwargs:
+            self.cache_dir = kwargs["cache_dir"]
+            if not os.path.exists(self.cache_dir):
+                os.makedirs(self.cache_dir)
+            elif len(os.listdir(self.cache_dir)):
+                self.load(self.cache_dir)
+        else:
+            os.makedirs(self._JIT_CACHE_DIR, exist_ok=True)
+            self.cache_dir = tempfile.mkdtemp(dir=self._JIT_CACHE_DIR)
 
-        Args:
-            origin_tensors: a list of original input Tensors
-            eval_tensors: a list of evaluated input Tensors
-            kwargs: keyword argument dict of the original function
-        """
-        input_args = []
-        const_args = []
-        for i, eval_arg in enumerate(eval_tensors):
-            if eval_arg.const_fold:
-                const_args.append(id(origin_tensors[i]))
-            else:
-                input_args.append(tuple(eval_arg.op.shape))
+    def _get_jit_hash(self, ir_str):
+        from tripy import __version__ as tp_version
 
-        input_sig = hash((*input_args, *const_args, tuple(sorted(kwargs.items()))))
-        return input_sig
+        # TODO: improve the naive ir hash
+        hash_str = str(hash(tp_version + ir_str))
+        return hash_str.zfill(self._HASH_LENGTH)
 
     def _helper(self, func: Callable):
         # Use self.kwargs here to check JIT arguments.
@@ -118,24 +118,24 @@ class jit:
                     eval_args[i].const_fold = False
             eval_args = tuple(eval_args)
 
-            # To know the shapes of input tensors, we need evaluated tensors
-            cache_key = self._get_input_signature(args, eval_args, kwargs)
+            return_tensors = func(*eval_args, **kwargs)
+            if isinstance(return_tensors, Tensor):
+                return_tensors = [return_tensors]
+            trace = Trace(return_tensors)
+            G_LOGGER.ir_printer(f"Trace :\n{trace}")
+            flat_ir = trace.to_flat_ir()
+            G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
+            output_devices = [o.device for o in flat_ir.outputs]
+            cache_key = self._get_jit_hash(str(flat_ir))
+
             if cache_key in self.cache:
-                executor = self.cache[cache_key]
+                executable = self.cache[cache_key]
             else:
-                return_tensors = func(*eval_args, **kwargs)
-                if isinstance(return_tensors, Tensor):
-                    return_tensors = [return_tensors]
-                trace = Trace(return_tensors)
-                G_LOGGER.ir_printer(f"Trace :\n{trace}")
-                flat_ir = trace.to_flat_ir()
-                G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
-                output_devices = [o.device for o in trace.outputs]
-
                 compiler = FlatIRCompiler()
-                executor = FlatIRExecutor(compiler.compile(flat_ir), output_devices)
-                self.cache[cache_key] = executor
+                executable = compiler.compile(flat_ir)
+                self.cache[cache_key] = executable
 
+            executor = FlatIRExecutor(executable, output_devices)
             outputs = executor.execute(eval_args)
             tensor_outputs = [
                 Tensor(o.data.view(), device=out_device) for o, out_device in zip(outputs, executor.output_devices)
@@ -154,5 +154,72 @@ class jit:
             return self._helper(args[0])
 
     def destroy(self):
-        for _, executor in self.cache.items():
-            executor.destroy()
+        from tripy.backend.mlir.mlir import mlir_wrapper
+
+        self.save(self.cache_dir)
+        mlir_backend = mlir_wrapper()
+        for _, executable in self.cache.items():
+            mlir_backend.exec_destroy(executable)
+
+    def save(self, folder_path=None):
+        """
+        Saves all cached executables to a given folder
+
+        Args:
+            folder_path: A string of folder name
+
+        Example:
+        ::
+            import tempfile
+            import numpy as np
+
+            a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+            b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
+
+            @tp.jit
+            def add(a, b):
+                c = a + b
+                return c
+
+            out = add(a, b)
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                add.save(tmp_dir)
+                add.load(tmp_dir)
+        """
+        from tripy.backend.mlir.mlir import mlir_wrapper
+
+        G_LOGGER.info(f"Saving cached engines to {folder_path}")
+        mlir_backend = mlir_wrapper()
+        folder_path = folder_path if folder_path is not None else self.cache_dir
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        name_cnt = 0
+        for cache_key, executable in self.cache.items():
+            filename = os.path.join(folder_path, f"engine_{name_cnt}.engine")
+            if os.path.exists(filename):
+                os.remove(filename)
+            with open(filename, "wb") as f:
+                f.write(cache_key.encode())
+            mlir_backend.save(executable, filename)
+            name_cnt += 1
+
+    def load(self, folder_path=None):
+        """
+        Loads all compiled executables from a given directory
+
+        Args:
+            folder_path: A string of folder name
+        """
+        from tripy.backend.mlir.mlir import mlir_wrapper
+
+        G_LOGGER.info(f"Loading cached engines from {folder_path}")
+        mlir_backend = mlir_wrapper()
+        folder_path = folder_path if folder_path is not None else self.cache_dir
+        if not os.path.exists(folder_path):
+            raise Exception("Folder does not exist!")
+        for engine_name in os.listdir(folder_path):
+            engine_name = os.path.join(folder_path, engine_name)
+            with open(engine_name, "rb") as f:
+                cache_key = f.read(self._HASH_LENGTH).decode()
+                executable = mlir_backend.load(data=f.read())
+                self.cache[cache_key] = executable
