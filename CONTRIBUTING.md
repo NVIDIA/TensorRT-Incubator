@@ -67,7 +67,7 @@ For details on how to build and add documentation, see [the documentation README
 		Launch the container and create .ssh folder in /root.
 		```bash
 		docker compose exec mlir-tensorrt-poc-dev bash
-		mkdir /root/.ssh
+		mkdir -p /root/.ssh
 		```
 
 		Now, copy SSH keys to the container.
