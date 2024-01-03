@@ -16,7 +16,7 @@ import requests
 
 import tripy as tp
 from tests.helper import ROOT_DIR
-from tripy.trace import Trace
+from tripy.frontend.trace import Trace
 from tripy.frontend import Tensor
 
 

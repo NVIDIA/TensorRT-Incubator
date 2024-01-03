@@ -7,7 +7,7 @@ import tripy as tp
 
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
-from tripy.trace import Trace
+from tripy.frontend.trace import Trace
 
 
 @pytest.fixture

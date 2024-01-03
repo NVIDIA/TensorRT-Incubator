@@ -1,9 +1,8 @@
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
-from tripy.trace import Trace
+from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
 from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 from tripy.util.util import prefix_with_line_numbers
-from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
 
 
 class FlatIRCompiler:

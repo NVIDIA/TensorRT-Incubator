@@ -36,5 +36,5 @@ For example:
 """
 ```
 
-**NOTE: The docstring tests do *not* need to import `tripy`. It will be imported automatically as `tp`.**
-    **Any other modules will need to be imported*.*
+**NOTE: The docstrings must *not* import `tripy`. It will be imported automatically as `tp`.**
+    **Any other modules will need to be imported*.**

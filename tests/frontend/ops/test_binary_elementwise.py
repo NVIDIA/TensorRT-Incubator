@@ -1,7 +1,7 @@
 import pytest
 
 import tripy
-from tripy.ops import BinaryElementwise
+from tripy.frontend.ops import BinaryElementwise
 
 
 _BINARY_OPS = {

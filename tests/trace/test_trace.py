@@ -2,9 +2,9 @@ from textwrap import dedent
 
 import numpy as np
 
-from tripy.frontend import Tensor
-from tripy.trace import Trace
 from tripy.common.device import device
+from tripy.frontend import Tensor
+from tripy.frontend.trace import Trace
 
 
 class TestTrace:

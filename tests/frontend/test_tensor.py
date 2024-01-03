@@ -6,7 +6,7 @@ import cupy as cp
 import pytest
 
 import tripy
-import tripy.ops
+import tripy.frontend.ops
 from tripy.common.datatype import DATA_TYPES, convert_tripy_to_numpy_dtype
 from tripy.frontend import Tensor
 from tripy.util.stack_info import SourceInfo
@@ -19,14 +19,14 @@ class TestTensor:
 
         assert isinstance(a, Tensor)
         assert a.inputs == []
-        assert isinstance(a.op, tripy.ops.Storage)
+        assert isinstance(a.op, tripy.frontend.ops.Storage)
         assert a.numpy().tolist() == VALUES
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
         a = Tensor([1, 2, 3], device=tripy.device(kind))
 
-        assert isinstance(a.op, tripy.ops.Storage)
+        assert isinstance(a.op, tripy.frontend.ops.Storage)
         assert a.op.device.kind == kind
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
@@ -73,10 +73,10 @@ class TestTensor:
         b = Tensor(np.array([2], dtype=np.float32))
 
         c = a + b
-        assert isinstance(c.op, tripy.ops.BinaryElementwise)
+        assert isinstance(c.op, tripy.frontend.ops.BinaryElementwise)
         assert (c.numpy() == np.array([3], dtype=np.float32)).all()
 
-        assert isinstance(c.op, tripy.ops.Storage)
+        assert isinstance(c.op, tripy.frontend.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.inputs == []
         assert (c.op.data.view() == np.array([3], dtype=np.float32)).all()

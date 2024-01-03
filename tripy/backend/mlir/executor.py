@@ -4,7 +4,7 @@ from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr, ExecInitializerResul
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor
 from tripy.common.datatype import convert_tripy_to_numpy_dtype
-from tripy.ops import Storage
+from tripy.frontend.ops import Storage
 from tripy.util import log_time
 
 

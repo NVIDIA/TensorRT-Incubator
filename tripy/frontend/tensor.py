@@ -3,7 +3,7 @@ from typing import List
 from tripy import util
 from tripy.common.array import Array
 from tripy.common.logging import G_LOGGER
-from tripy.ops import Storage, TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops import TENSOR_METHOD_REGISTRY, Storage
 
 
 class TensorMeta(type):
@@ -41,7 +41,7 @@ class Tensor(metaclass=TensorMeta):
     def eval(self) -> Array:
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
-        from tripy.trace import Trace
+        from tripy.frontend.trace import Trace
 
         if isinstance(self.op, Storage):
             return self.op.data
@@ -63,7 +63,7 @@ class Tensor(metaclass=TensorMeta):
             return self.op.data
 
     def to(self, device):
-        from tripy.ops.copy import Copy
+        from tripy.frontend.ops import Copy
 
         if isinstance(self.op, Storage) and self.op.device == device:
             return self

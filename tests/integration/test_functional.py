@@ -1,18 +1,17 @@
-import pytest
 import cupy as cp
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch
-import jax
 
+import tripy.common.datatype
+from tripy import jit
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.device import device
-from tripy.trace import Trace
-from tripy.frontend import Tensor, Dim
-from tripy import jit
-import tripy.common.datatype
+from tripy.frontend import Dim, Tensor
+from tripy.frontend.trace import Trace
 
 
 class TestFunctional:
