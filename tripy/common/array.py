@@ -125,4 +125,13 @@ def _convert_to_byte_buffer(
         return _module.array(data, dtype=convert_tripy_to_numpy_dtype(dtype)).view(_module.uint8)
     else:
         # Use array method to convert data to NumPy or Cupy array
-        return _module.array(data).view(_module.uint8)
+        if data.shape == ():
+            # Numpy requires reshaping to 1d because of the following error:
+            #    "ValueError: Changing the dtype of a 0d array is only supported if the itemsize is unchanged"
+            return _module.array(
+                data.reshape(
+                    1,
+                )
+            ).view(_module.uint8)
+        else:
+            return _module.array(data).view(_module.uint8)
