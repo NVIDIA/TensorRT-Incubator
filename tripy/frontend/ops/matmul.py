@@ -44,7 +44,7 @@ class MatrixMultiplication(BaseOperator):
             return [make_tuple([a_shape[0], b_shape[1]])]
 
         if len(a_shape) != len(b_shape):
-            raise TripyException("Batched matmul or broadcasting is not implemented.")
+            raise TripyException("Batched matmul or broadcasting is not implemented, will be fixed by #65.")
 
     def infer_dtypes(self, input_dtypes):
         assert (
@@ -66,7 +66,7 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     This operation follows numpy like behavior for arguments.
     If both tensors are 1-D, scalar product is returned.
     If both tensors are 2-D, regular matrix-matrix multiplication is returned.
-    (TODO) If either argument is 1-D, 1 dimension is inserted and matrix
+    #65: If either argument is 1-D, 1 dimension is inserted and matrix
         multiplication is performed with relevant broadcast of dimension.
 
     Args:
