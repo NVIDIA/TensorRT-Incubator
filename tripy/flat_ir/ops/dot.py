@@ -18,7 +18,7 @@ class DotOp(BaseFIROp):
         self.batching_dim = kwargs.get("batching_dim", default_dict)
 
     def to_flat_ir_str(self, input_names, output_names) -> str:
-        assert len(output_names) == 1, "AddOp should have exactly one output!"
+        assert len(output_names) == 1, f"{self.__class__.__name__} should have exactly one output!"
         return f"{output_names[0]} = {self.__class__.__name__} {' '.join(input_names)}"
 
     def to_mlir(self, operands: List) -> List:
