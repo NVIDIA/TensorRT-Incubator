@@ -52,7 +52,7 @@ class Storage(BaseOperator):
 
     def infer_shapes(self, input_shapes):
         assert not input_shapes, "Storage should have no inputs!"
-        return [util.make_tuple(self.data.shape)]
+        return [util.make_tuple(self.shape)]
 
     def infer_dtypes(self, input_dtypes):
         assert not input_dtypes, "Storage should have no inputs!"
