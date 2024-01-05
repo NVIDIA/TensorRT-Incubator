@@ -1,6 +1,7 @@
 stages:
   - lint
   - build-dependencies
+  - push-fallback-container
   - build-tripy-container
   - test
   - upload
@@ -26,6 +27,8 @@ pre-commit:
     - pip install pre-commit
   script:
     - pre-commit run --all-files
+  only:
+    - merge_requests
 
 
 build_stablehlo:
@@ -126,6 +129,23 @@ build_mlir_tensorrt:
       when: always
 
 
+push_fallback_container:
+  stage: push-fallback-container
+  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker pull $CI_REGISTRY_IMAGE:latest
+    - docker tag $CI_REGISTRY_IMAGE:latest $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  tags:
+    - tripy-runner
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+
+
 build_container:
   stage: build-tripy-container
   image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
@@ -149,7 +169,7 @@ build_container:
       - Dockerfile
       - pyproject.toml
       - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: always
 
 
@@ -162,8 +182,6 @@ l0:
   tags:
     - tripy-runner
   only:
-    - main
-    - develop
     - merge_requests
 
 
@@ -188,6 +206,7 @@ upload-container:
   services:
     - docker:24.0.5-dind
   script:
+   - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
    - docker push $CI_REGISTRY_IMAGE:latest
