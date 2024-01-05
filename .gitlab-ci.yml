@@ -1,7 +1,6 @@
 stages:
   - lint
   - build-dependencies
-  - push-fallback-container
   - build-tripy-container
   - test
   - upload
@@ -17,7 +16,7 @@ variables:
   GIT_SUBMODULE_PATHS: ":(exclude)third_party/jax"
   GIT_DEPTH: 0
 
-
+# TODO: Update this to use the Tripy container so we don't incur the 6+ min overhead of installing pre-commit.
 pre-commit:
   stage: lint
   image: python:3.9
@@ -129,23 +128,6 @@ build_mlir_tensorrt:
       when: always
 
 
-push_fallback_container:
-  stage: push-fallback-container
-  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
-  services:
-    - docker:24.0.5-dind
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker pull $CI_REGISTRY_IMAGE:latest
-    - docker tag $CI_REGISTRY_IMAGE:latest $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-  tags:
-    - tripy-runner
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: always
-
-
 build_container:
   stage: build-tripy-container
   image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
@@ -158,31 +140,60 @@ build_container:
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - python3 scripts/download_dependencies.py --ci
-    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID .
+    - docker push $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID
   tags:
     - tripy-runner
   rules:
-    # NOTE: When changing these conditions, also update the `upload` stage.
+    # NOTE: When changing these conditions, also update the other stages.
     - changes:
       - mlir-tensorrt.txt
       - Dockerfile
       - pyproject.toml
       - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
 
 
-l0:
+l0-if-new-container:
   stage: test
-  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-  dependencies: []
+  image: $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID
+  services:
+    - docker:24.0.5-dind
   script:
     - python3 -m pytest tests/ -v
   tags:
     - tripy-runner
-  only:
-    - merge_requests
+  rules:
+    # NOTE: When changing these conditions, also update the other stages.
+    - changes:
+      - mlir-tensorrt.txt
+      - Dockerfile
+      - pyproject.toml
+      - .gitlab-ci.yml
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    
+
+l0-if-no-new-container:
+  stage: test
+  image: $CI_REGISTRY_IMAGE:latest
+  services:
+    - docker:24.0.5-dind
+  script:
+    - python3 -m pytest tests/ -v
+  tags:
+    - tripy-runner
+  rules:
+    # NOTE: When changing these conditions, also update the other stages.
+    - changes:
+      - mlir-tensorrt.txt
+      - Dockerfile
+      - pyproject.toml
+      - .gitlab-ci.yml
+      when: never
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - when: always
 
 
 upload-dependencies:
@@ -207,12 +218,13 @@ upload-container:
     - docker:24.0.5-dind
   script:
    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-   - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-   - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
-   - docker push $CI_REGISTRY_IMAGE:latest
+  #  We may not have pushed a container, in which case we should do nothing.
+   - (docker pull $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID && docker tag $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID $CI_REGISTRY_IMAGE:latest && docker push $CI_REGISTRY_IMAGE:latest) || true
   tags:
     - tripy-runner
   rules:
+    # NOTE: changes is probably pointless here since there's no reference point, so GitLab must assume that the files have changed.
+    # If we can figure out the original TOT of main prior to the change merging, we could use that as the reference.
     - changes:
       - mlir-tensorrt.txt
       - Dockerfile
