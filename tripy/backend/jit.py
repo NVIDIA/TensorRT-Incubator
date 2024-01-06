@@ -4,6 +4,7 @@ import os
 import tempfile
 from typing import Callable, Dict, Tuple
 
+from tripy import config
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import G_LOGGER
@@ -61,11 +62,6 @@ class jit:
 
             assert (out.numpy() == np.array([2.0, 2.0])).all()
         """
-        # TODO(#63): Move configs to `tripy.config`
-        # Fixed length of the function hash
-        self._HASH_LENGTH = 30
-        # Parent directory to save cached engines
-        self._JIT_CACHE_DIR = os.path.join(tempfile.gettempdir(), "tripy", "jit_caches")
         self.kwargs = kwargs
         self.cache: Dict[str, "executable"] = {}
         self._const_args: Tuple[int] = ()
@@ -82,15 +78,15 @@ class jit:
             elif len(os.listdir(self.cache_dir)):
                 self.load(self.cache_dir)
         else:
-            os.makedirs(self._JIT_CACHE_DIR, exist_ok=True)
-            self.cache_dir = tempfile.mkdtemp(dir=self._JIT_CACHE_DIR)
+            os.makedirs(config.JIT_CACHE_DIR, exist_ok=True)
+            self.cache_dir = tempfile.mkdtemp(dir=config.JIT_CACHE_DIR)
 
     def _get_jit_hash(self, ir_str):
         from tripy import __version__ as tp_version
 
         # TODO: improve the naive ir hash
         hash_str = str(hash(tp_version + ir_str))
-        return hash_str.zfill(self._HASH_LENGTH)
+        return hash_str.zfill(config.JIT_CACHE_HASH_LENGTH)
 
     def _helper(self, func: Callable):
         # Use self.kwargs here to check JIT arguments.
@@ -170,6 +166,7 @@ class jit:
 
         Example:
         ::
+
             import tempfile
             import numpy as np
 
@@ -220,6 +217,6 @@ class jit:
         for engine_name in os.listdir(folder_path):
             engine_name = os.path.join(folder_path, engine_name)
             with open(engine_name, "rb") as f:
-                cache_key = f.read(self._HASH_LENGTH).decode()
+                cache_key = f.read(config.JIT_CACHE_HASH_LENGTH).decode()
                 executable = mlir_backend.load(data=f.read())
                 self.cache[cache_key] = executable

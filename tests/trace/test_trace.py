@@ -101,8 +101,8 @@ class TestTrace:
 
     def test_infer_tensor_info(self):
         shape = (5, 5)
-        a = Tensor(np.ones(shape))
-        b = Tensor(np.ones(shape))
+        a = Tensor(np.ones(shape, dtype=np.float32))
+        b = Tensor(np.ones(shape, dtype=np.float32))
 
         c = a + b
 
@@ -141,7 +141,7 @@ class TestTrace:
         )
 
     def test_input_output(self):
-        a = Tensor(np.ones(1))
+        a = Tensor([1, 1])
         # a is an input
         a.const_fold = False
 

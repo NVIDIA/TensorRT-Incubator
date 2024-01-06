@@ -52,8 +52,11 @@ class TestStorage:
         storage = Storage(data, shape=(3,), dtype=dtype)
         with mlir_utils.make_ir_context(), ir.Location.unknown():
             from tripy.flat_ir.flat_ir import FlatIR
+            from tripy.flat_ir.tensor import FIRTensor
+            from tripy.frontend.trace.tensor import TraceTensor
 
             flat_ir = FlatIR()
-            storage.to_flat_ir(flat_ir, [], [])
+            out_tensor = TraceTensor("t0", None, [3], None, storage.dtype, None)
+            storage.to_flat_ir(flat_ir, [], [FIRTensor(out_tensor)])
             outputs = flat_ir.ops[0].to_mlir(operands=[])
             assert outputs[0].value.type.element_type == mlir_utils.get_mlir_dtype(dtype)

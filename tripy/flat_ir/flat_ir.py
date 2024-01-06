@@ -15,6 +15,7 @@ class FlatIR:
     def __init__(
         self,
     ):
+        self.tensor_cnt = 0
         self.inputs: List["FIRTensor"] = []
         self.outputs: List["FIRTensor"] = []
         self.ops: List[BaseFIROp] = []
@@ -90,3 +91,18 @@ class FlatIR:
                 func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
 
             return module
+
+    def add_tensor(self, instance, shape=None, dtype=None, device=None):
+        from tripy.flat_ir.tensor import FIRTensor
+
+        tensor = FIRTensor(instance)
+        tensor.name = f"t{self.tensor_cnt}"
+        self.tensor_cnt += 1
+
+        if shape is not None:
+            tensor.shape = shape
+        if dtype is not None:
+            tensor.dtype = dtype
+        if device is not None:
+            tensor.device = device
+        return tensor
