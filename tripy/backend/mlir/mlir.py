@@ -5,6 +5,7 @@ import os
 
 from collections import namedtuple
 
+from tripy import config
 from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 from tripy.util.util import find_file_in_dir
@@ -35,7 +36,7 @@ class _MlirCompiler:
 
     @log_time
     def __init__(self) -> None:
-        lib_path = find_file_in_dir("libtripy_backend*.so", mlir_lib_path())
+        lib_path = find_file_in_dir(config.MLIR_LIB_NAME, mlir_lib_path())
         assert (
             len(lib_path) == 1
         ), f"Compiler expects exactly 1 tripy backend library to be available.  Found {len(lib_path)} libraries."
@@ -223,7 +224,7 @@ def mlir_lib_path():
     if custom_integ_path:
         G_LOGGER.info(f"Trying to build with custom mlir backend at {custom_integ_path}")
 
-    path = custom_integ_path or "/usr/lib/mlir-tensorrt/"
+    path = custom_integ_path or config.MLIR_LIB_PATH
     return path
 
 

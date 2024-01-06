@@ -67,7 +67,7 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     If both tensors are 1-D, scalar product is returned.
     If both tensors are 2-D, regular matrix-matrix multiplication is returned.
     If either argument is 1-D, 1 dimension is inserted and matrix
-        multiplication is performed with relevant broadcast of dimension.
+    multiplication is performed with relevant broadcast of dimension.
 
     Args:
         other: The tensor to multiply to this one.
@@ -79,6 +79,7 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     ::
 
         import numpy as np
+
         a_np = np.ones((2,3), dtype=np.float32)
         b_np = np.ones((3,2), dtype=np.float32)
         a = tp.Tensor(a_np)

@@ -1,1 +1,3 @@
-ShapeInfo = tuple[int, ...]
+from typing import Sequence
+
+ShapeInfo = Sequence[int]

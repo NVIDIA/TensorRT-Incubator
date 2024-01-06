@@ -43,9 +43,9 @@ class Array:
 
         data_dtype = util.default(dtype, tripy.common.datatype.float32)
         if data is not None:
-            data_dtype = convert_numpy_to_tripy_dtype(
-                type(data[0]) if isinstance(data, List) and len(data) > 0 else data.dtype
-            )
+            foreign_dtype = type(data[0]) if isinstance(data, List) and len(data) > 0 else data.dtype
+            data_dtype = convert_numpy_to_tripy_dtype(foreign_dtype)
+            assert data_dtype is not None, f"Unsupported data type: {foreign_dtype}"
         assert (
             dtype is None or data_dtype == dtype
         ), f"Incorrect data type. Note: Input data had type: {data_dtype} but provided dtype was: {dtype}"  # No Cast is supported.

@@ -28,13 +28,13 @@ class Trace:
         # Dict to cache tensor information
         self._tensor_info_map: Dict[str, TraceTensorInfo] = {}
 
-        _tensor_names: Dict[int, str] = defaultdict(lambda: None)
+        self._tensor_names: Dict[int, str] = defaultdict(lambda: None)
 
         def get_tensor_name(tensor):
             tid = id(tensor)
-            if tid not in _tensor_names:
-                _tensor_names[tid] = f"t{len(_tensor_names)}"
-            return _tensor_names[tid]
+            if tid not in self._tensor_names:
+                self._tensor_names[tid] = f"t{len(self._tensor_names)}"
+            return self._tensor_names[tid]
 
         # Track exprs that are being traced to pretty print later
         incoming_exprs = set(id(t) for t in tensors)
@@ -68,10 +68,10 @@ class Trace:
                 self.layers.append(
                     TraceLayer(
                         [
-                            TraceTensor(get_tensor_name(inp), inp._stack_info, ShapeInfo(), None, None, None)
+                            TraceTensor(get_tensor_name(inp), inp._stack_info, [], None, None, None)
                             for inp in head.inputs
                         ],
-                        [TraceTensor(get_tensor_name(head), head._stack_info, ShapeInfo(), None, None, None)],
+                        [TraceTensor(get_tensor_name(head), head._stack_info, [], None, None, None)],
                         head.op,
                     )
                 )
@@ -163,6 +163,7 @@ class Trace:
         from tripy.flat_ir.flat_ir import FlatIR
 
         flat_ir = FlatIR()
+        flat_ir.tensor_cnt = len(self._tensor_names)
         flat_ir.inputs_idx = self.inputs_idx
 
         for ip in self.inputs:
