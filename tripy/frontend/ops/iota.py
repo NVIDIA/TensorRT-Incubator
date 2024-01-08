@@ -72,8 +72,8 @@ def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.floa
 
 def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None):
     """
-    Fills an output tensor with values in increasing order starting from zero along the given dimension
-    the output tensor's shape (and dtype if not given) are determined by the input.
+    Fills an output tensor with values in increasing order starting from zero along the given dimension.
+    The output tensor's shape (and dtype if not given) are determined by the input.
 
     Args:
         input: Input tensor to determine shape (and dtype if not given) of the resulting Tensor
