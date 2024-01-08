@@ -2,6 +2,7 @@ from mlir import ir
 from mlir.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.util.util import get_flat_tensor_info
 
 
 class BroadcastOp(BaseFIROp):
@@ -16,7 +17,7 @@ class BroadcastOp(BaseFIROp):
 
     def to_flat_ir_str(self, input_names, output_names) -> str:
         assert len(input_names) == 1, "BroadCastOp takes exactly 1 operands"
-        return f"{output_names[0]} : {self.__class__.__name__} operand={input_names[0]}, broadcast_dim={self.broadcast_dim}"
+        return f"{output_names[0]} : {self.__class__.__name__} operand={get_flat_tensor_info(input_names[0], self.inputs[0])}, broadcast_dim={self.broadcast_dim}"
 
     def to_mlir(self, operands):
         import numpy as np

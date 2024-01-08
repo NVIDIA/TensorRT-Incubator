@@ -41,7 +41,7 @@ class ConstantScalarOp(BaseFIROp):
         self.dtype = kwargs.get("dtype")
 
     def to_flat_ir_str(self, input_names, output_names) -> str:
-        return f"{output_names[0]} : {self.__class__.__name__} value={self.value}, dtype=({self.dtype.name})"
+        return f"{output_names[0]} : {self.__class__.__name__} data={self.value}, shape={self.data.shape}, dtype={self.dtype.name}, loc={self.device}"
 
     def to_mlir(self, operands):
         from tripy.backend.mlir import utils as mlir_utils
