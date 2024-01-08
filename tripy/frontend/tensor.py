@@ -51,9 +51,10 @@ class Tensor(metaclass=TensorMeta):
         flat_ir = trace.to_flat_ir()
         G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
         output_devices = [o.device for o in trace.outputs]
-
+        input_types, output_types = flat_ir.io_types()
         compiler = FlatIRCompiler()
-        with FlatIRExecutor(compiler.compile(flat_ir), output_devices) as executor:
+        executable = compiler.compile(flat_ir)
+        with FlatIRExecutor(executable, output_devices, input_types, output_types) as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
             storage_arr = executor.execute()

@@ -2,7 +2,6 @@ import glob
 import os
 import time
 from typing import List, Any
-from itertools import chain
 
 from tripy.common.logging import G_LOGGER
 
@@ -95,11 +94,6 @@ def make_tuple(obj):
     if not isinstance(obj, tuple) and obj is not None:
         return (obj,)
     return obj
-
-
-def flatten_list(data: List[Any]):
-    return list(chain.from_iterable((flatten(item) if isinstance(item, List) else [item] for item in data)))
-
 
 def get_flat_tensor_info(tensor_name: str, trace_tensor: "TraceTensor") -> str:
     from tripy.frontend.dim import Dim

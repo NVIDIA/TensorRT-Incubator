@@ -11,6 +11,7 @@ MAX_DIMS = 8
 void_ptr = ctypes.c_void_p
 char_ptr = ctypes.c_char_p
 c_int = ctypes.c_int
+c_int64 = ctypes.c_int64
 POINTER = ctypes.POINTER
 
 
@@ -58,10 +59,10 @@ class Dims(ctypes.Structure):
 
     Attributes:
         - nb_dims (int): Number of dimensions.
-        - dims (ctypes.c_int * MAX_DIMS): Array storing the dimensions.
+        - dims (ctypes.c_int64 * MAX_DIMS): Array storing the dimensions.
     """
 
-    _fields_ = [("nb_dims", ctypes.c_int), ("dims", (ctypes.c_int * MAX_DIMS))]
+    _fields_ = [("nb_dims", ctypes.c_int), ("dims", (ctypes.c_int64 * MAX_DIMS))]
 
 
 class TensorShape(ctypes.Structure):
