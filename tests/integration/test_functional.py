@@ -47,11 +47,11 @@ class TestFunctional:
         d = c + c
         trace = Trace([c, d])
         flat_ir = trace.to_flat_ir()
-        input_types, output_types = flat_ir.io_types()
+        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
         output_devices = [o.device for o in trace.outputs]
 
         compiler = FlatIRCompiler()
-        with FlatIRExecutor(compiler.compile(flat_ir), output_devices, input_types, output_types) as executor:
+        with FlatIRExecutor(compiler.compile(flat_ir), output_devices, i_tensor_info, o_tensor_info) as executor:
             out = executor.execute()
             assert (
                 len(out) == 2

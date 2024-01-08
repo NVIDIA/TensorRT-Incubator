@@ -107,14 +107,14 @@ class FlatIR:
             tensor.device = device
         return tensor
 
-    def io_types(self):
-        from tripy.common.types import TypeInfo
+    def io_tensor_info(self):
+        from tripy.common.types import TensorInfo
         from tripy.frontend import Dim
 
-        input_types = [
-            TypeInfo([s.runtime_value if isinstance(s, Dim) else s for s in i.shape], i.dtype) for i in self.inputs
+        i_tensor_info = [
+            TensorInfo([s.runtime_value if isinstance(s, Dim) else s for s in i.shape], i.dtype) for i in self.inputs
         ]
-        output_types = [
-            TypeInfo([s.runtime_value if isinstance(s, Dim) else s for s in o.shape], o.dtype) for o in self.outputs
+        o_tensor_info = [
+            TensorInfo([s.runtime_value if isinstance(s, Dim) else s for s in o.shape], o.dtype) for o in self.outputs
         ]
-        return input_types, output_types
+        return i_tensor_info, o_tensor_info

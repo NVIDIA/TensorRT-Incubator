@@ -23,7 +23,7 @@ from tripy.common.ctypes import (
 from tripy.frontend.ops import Storage
 
 # Define a namedtuple to hold the result of the execution initializer
-ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "input_types", "outputs", "output_types"])
+ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "i_tensor_info", "outputs", "o_tensor_info"])
 
 
 def func_wrapper(lib, c_func, argtypes, restype):
@@ -88,7 +88,7 @@ class _MlirCompiler:
         self.allocator = None
 
     def exec_initializer(
-        self, executable: void_ptr, inputs, output_devices, input_types, output_types
+        self, executable: void_ptr, inputs, output_devices, i_tensor_info, o_tensor_info
     ) -> ExecInitializerResult:
         """
         Calls the initializer for a loadable executable.
@@ -109,10 +109,10 @@ class _MlirCompiler:
                 dtype=types.dtype,
                 device=out_device,
             )
-            for types, out_device in zip(output_types, output_devices)
+            for types, out_device in zip(o_tensor_info, output_devices)
         ]
 
-        return ExecInitializerResult(inputs, input_types, outputs, output_types)
+        return ExecInitializerResult(inputs, i_tensor_info, outputs, o_tensor_info)
 
     def exec_destroy(self, executable: void_ptr):
         """
@@ -138,9 +138,9 @@ class _MlirCompiler:
             exec_args (ExecInitializerResult): A named tuple containing the result of the execution
                 initializer, including buffers, sizes, the number of devices, and the number of outputs.
                 - exec_args.inputs: A list of Storage objects representing input buffers.
-                - exec_args.input_types: An array of input types i.e. (shape, elemType).
+                - exec_args.i_tensor_info: An array of input types i.e. (shape, elemType).
                 - exec_args.outputs: A list of Storage objects representing output buffers.
-                - exec_args.output_types: An array of output types i.e. (shape, elemType).
+                - exec_args.o_tensor_info: An array of output types i.e. (shape, elemType).
         """
 
         # Create ctypes compatible device memory void pointers for i/o buffers.
@@ -170,7 +170,7 @@ class _MlirCompiler:
         self.mlir_execute(
             void_ptr(executable),
             get_mem_ptrs(exec_args.inputs),
-            get_shape_ptrs(exec_args.input_types),
+            get_shape_ptrs(exec_args.i_tensor_info),
             get_mem_ptrs(exec_args.outputs),
             output_devices,
         )
