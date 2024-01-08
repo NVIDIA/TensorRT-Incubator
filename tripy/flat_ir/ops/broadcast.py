@@ -9,10 +9,9 @@ class BroadcastOp(BaseFIROp):
     Operation to expand the dimensions and/or rank of an input tensor by duplicating its data.
     """
 
-    def __init__(self, origin_layer, inputs, outputs, **kwargs):
+    def __init__(self, origin_layer, inputs, outputs, broadcast_dim):
         super().__init__(inputs, outputs, origin_layer)
-        assert "broadcast_dim" in kwargs
-        self.broadcast_dim = kwargs.get("broadcast_dim")
+        self.broadcast_dim = broadcast_dim
 
     def to_mlir(self, operands):
         import numpy as np

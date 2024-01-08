@@ -9,11 +9,10 @@ class IotaOp(BaseFIROp):
     Operation to fill an output tensor with values in increasing order starting from zero along the given dimension
     """
 
-    def __init__(self, origin_layer, inputs, outputs, **kwargs):
+    def __init__(self, origin_layer, inputs, outputs, dim):
         super().__init__(inputs, outputs, origin_layer)
-        assert "dim" in kwargs
         assert len(self.outputs) == 1, "IotaOp should have exactly 1 output"
-        self.dim = kwargs.get("dim")
+        self.dim = dim
         self.shape = self.outputs[0].shape
         self.dtype = self.outputs[0].dtype
 

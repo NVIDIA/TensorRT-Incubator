@@ -10,10 +10,9 @@ class CopyOp(BaseFIROp):
     Operation to copy a tensor to another device
     """
 
-    def __init__(self, origin_layer, inputs, outputs, **kwargs):
+    def __init__(self, origin_layer, inputs, outputs, target):
         super().__init__(inputs, outputs, origin_layer)
-        assert "target" in kwargs
-        self.target = kwargs.get("target")
+        self.target = target
 
     def to_mlir(self, operands: List) -> List:
         from mlir.dialects import bufferization
