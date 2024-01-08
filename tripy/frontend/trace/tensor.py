@@ -60,11 +60,3 @@ class TraceTensor:
             ],
             mlir_utils.get_mlir_dtype(self.dtype),
         )
-
-    def to_flat_ir(self, flat_ir: FlatIR, is_input: bool):
-        from tripy.flat_ir.tensor import FIRTensor
-
-        if is_input:
-            flat_ir.inputs.append(FIRTensor(self))
-        else:
-            flat_ir.outputs.append(FIRTensor(self))
