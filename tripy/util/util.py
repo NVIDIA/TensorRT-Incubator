@@ -95,6 +95,7 @@ def make_tuple(obj):
         return (obj,)
     return obj
 
+
 def get_flat_tensor_info(tensor_name: str, trace_tensor: "TraceTensor") -> str:
     from tripy.frontend.dim import Dim
 

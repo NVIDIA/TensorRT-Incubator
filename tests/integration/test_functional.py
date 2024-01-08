@@ -247,5 +247,7 @@ class TestDynamic:
 
         a = Tensor(np.ones(3, dtype=np.float32), device=device("gpu"))
         b = Tensor(np.ones(3, dtype=np.float32), device=device("gpu"))
+
+        # 67: Fix dynamic shape JIT caching.
         out = func(a, b)
         assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()

@@ -163,14 +163,14 @@ class _MlirCompiler:
         output_device_arr = [1 if out.device.kind == "gpu" else 0 for out in exec_args.outputs]
         output_devices = (ctypes.c_int * len(exec_args.outputs))(*output_device_arr)
 
-        def get_shape_ptrs(types):
+        def get_shape_values(types):
             types = list(chain(*[t.shape for t in types]))
             return (ctypes.c_int64 * len(types))(*types)
 
         self.mlir_execute(
             void_ptr(executable),
             get_mem_ptrs(exec_args.inputs),
-            get_shape_ptrs(exec_args.i_tensor_info),
+            get_shape_values(exec_args.i_tensor_info),
             get_mem_ptrs(exec_args.outputs),
             output_devices,
         )
