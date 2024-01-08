@@ -17,9 +17,6 @@ class IotaOp(BaseFIROp):
         self.shape = self.outputs[0].shape
         self.dtype = self.outputs[0].dtype
 
-    def to_flat_ir_str(self, input_names, output_names) -> str:
-        return f"{output_names[0]} : {self.__class__.__name__} dim={self.dim}, shape={self.shape}, dtype={self.dtype.name}))"
-
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
         iota_dim = ir.IntegerAttr.get(

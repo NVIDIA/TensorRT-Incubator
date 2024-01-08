@@ -94,10 +94,3 @@ def make_tuple(obj):
     if not isinstance(obj, tuple) and obj is not None:
         return (obj,)
     return obj
-
-
-def get_flat_tensor_info(tensor_name: str, trace_tensor: "TraceTensor") -> str:
-    from tripy.frontend.dim import Dim
-
-    shape = f"{','.join([f'?' if isinstance(dim, Dim) else str(dim) for  dim in trace_tensor.shape])}"
-    return f"{tensor_name} [shape=({shape}), dtype=({trace_tensor.dtype.name}), loc=({trace_tensor.device})]"

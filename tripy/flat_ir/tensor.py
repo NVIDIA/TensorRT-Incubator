@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 
 from mlir import ir
@@ -14,11 +15,9 @@ class FIRTensor(TraceTensor):
     """
 
     def __init__(self, instance):
-        super().__init__(
-            instance.name, instance.stack_info, instance.shape, instance.producer, instance.dtype, instance.device
-        )
+        super().__init__(**{field.name: getattr(instance, field.name) for field in dataclasses.fields(instance)})
 
-    def to_stablehlo(self):
+    def to_mlir(self):
         from tripy.backend.mlir import utils as mlir_utils
 
         return ir.RankedTensorType.get(

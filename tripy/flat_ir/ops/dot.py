@@ -4,7 +4,6 @@ from mlir import ir
 from mlir.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFIROp
-from tripy.util.util import get_flat_tensor_info
 
 
 class DotOp(BaseFIROp):
@@ -17,10 +16,6 @@ class DotOp(BaseFIROp):
         default_dict = {"lhs": [], "rhs": []}
         self.contracting_dim = kwargs.get("contracting_dim", default_dict)
         self.batching_dim = kwargs.get("batching_dim", default_dict)
-
-    def to_flat_ir_str(self, input_names, output_names) -> str:
-        assert len(output_names) == 1, f"{self.__class__.__name__} should have exactly one output!"
-        return f"{output_names[0]} = {self.__class__.__name__} {', '.join([f'{get_flat_tensor_info(name, self.inputs[idx])}' for idx, name in enumerate(input_names)])}"
 
     def to_mlir(self, operands: List) -> List:
         # dot_general spec: https://github.com/openxla/stablehlo/blob/main/docs/spec.md#dot_general
