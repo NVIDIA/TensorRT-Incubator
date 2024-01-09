@@ -13,10 +13,6 @@ from tripy.common.device import device
 from tripy.frontend import Dim, Tensor
 from tripy.frontend.trace import Trace
 
-from tripy.common.logging import set_logger_mode, LoggerModes
-
-set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
-
 
 class TestFunctional:
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])

@@ -44,7 +44,7 @@ class Storage(BaseOperator):
         self.device = utils.default(device, make_device("cpu"))
         self.data = Array(data, dtype, shape, self.device)
         self.dtype = self.data.dtype
-        self.shape: Tuple[int] = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
+        self.shape: Tuple[Dim] = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
         self.shape_profile: List = utils.make_list(shape)
 
     def __eq__(self, other) -> bool:

@@ -55,7 +55,8 @@ class Array:
         static_shape = None
         if shape is not None:
             # Use runtime value here allocate only required output buffer.
-            static_shape = utils.make_tuple([s.runtime_value for s in utils.make_list(shape)])
+            static_shape = utils.make_tuple([s.runtime_value for s in util.make_list(shape)])
+            assert all(s > 0 for s in static_shape)
 
         # Allocate dummy data
         if data is None:

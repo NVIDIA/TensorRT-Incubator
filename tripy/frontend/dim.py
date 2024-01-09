@@ -120,3 +120,9 @@ class Dim:
             return f"Dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
         else:
             return f"{self.runtime_value}"
+
+    def is_a_subset_of(self, cached) -> bool:
+        if self.is_dynamic_dim():
+            return self.min > cached.min and self.max < cached.max
+        else:
+            return self.runtime_value > cached.min and self.runtime_value < cached.max
