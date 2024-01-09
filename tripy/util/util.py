@@ -99,3 +99,10 @@ def make_tuple(obj):
 
 def flatten_list(data: List[Any]):
     return list(chain.from_iterable((flatten(item) if isinstance(item, List) else [item] for item in data)))
+
+
+def get_flat_tensor_info(tensor_name: str, trace_tensor: "TraceTensor") -> str:
+    from tripy.frontend.dim import Dim
+
+    shape = f"{','.join([f'?' if isinstance(dim, Dim) else str(dim) for  dim in trace_tensor.shape])}"
+    return f"{tensor_name} [shape=({shape}), dtype=({trace_tensor.dtype.name}), loc=({trace_tensor.device})]"
