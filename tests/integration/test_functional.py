@@ -47,10 +47,11 @@ class TestFunctional:
         d = c + c
         trace = Trace([c, d])
         flat_ir = trace.to_flat_ir()
+        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
         output_devices = [o.device for o in trace.outputs]
 
         compiler = FlatIRCompiler()
-        with FlatIRExecutor(compiler.compile(flat_ir), output_devices) as executor:
+        with FlatIRExecutor(compiler.compile(flat_ir), output_devices, i_tensor_info, o_tensor_info) as executor:
             out = executor.execute()
             assert (
                 len(out) == 2
@@ -226,3 +227,27 @@ class TestCopyFunctional:
         out = out.eval()
         assert out.device.kind == "cpu"
         assert out.view().tolist() == [3, 5]
+
+
+class TestDynamic:
+    @pytest.mark.parametrize("dim", [Dim(4, min=2, opt=4, max=6)])
+    def test_dynamic_jit(self, dim):
+        a = Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=device("gpu"))
+        b = Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=device("gpu"))
+
+        @jit
+        def func(a, b):
+            c = a + b
+            return c
+
+        out = func(a, b)
+        assert (out.numpy() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
+
+        print("Re-run dynamic shape test with a different input shape.")
+
+        a = Tensor(np.ones(3, dtype=np.float32), device=device("gpu"))
+        b = Tensor(np.ones(3, dtype=np.float32), device=device("gpu"))
+
+        # 67: Fix dynamic shape JIT caching.
+        out = func(a, b)
+        assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()

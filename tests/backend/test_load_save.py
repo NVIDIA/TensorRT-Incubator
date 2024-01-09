@@ -24,6 +24,7 @@ def test_save_load_from_file(init_flat_ir):
     with tempfile.NamedTemporaryFile() as temp_file:
         filename = temp_file.name
         flat_ir = init_flat_ir
+        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
         output_devices = [o.device for o in flat_ir.outputs]
 
         compiler = FlatIRCompiler()
@@ -32,7 +33,7 @@ def test_save_load_from_file(init_flat_ir):
         assert os.path.exists(filename)
 
         executable = compiler.compiler.load(filename)
-        with FlatIRExecutor(executable, output_devices) as executor:
+        with FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info) as executor:
             out = executor.execute()
             assert len(out) == 1
             assert (out[0].data.view().get() == np.array([3, 5])).all()
@@ -42,6 +43,7 @@ def test_save_load_from_string(init_flat_ir):
     with tempfile.NamedTemporaryFile() as temp_file:
         filename = temp_file.name
         flat_ir = init_flat_ir
+        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
         output_devices = [o.device for o in flat_ir.outputs]
 
         compiler = FlatIRCompiler()
@@ -51,7 +53,7 @@ def test_save_load_from_string(init_flat_ir):
 
         exec_str = temp_file.read()
         executable = compiler.compiler.load(data=exec_str)
-        with FlatIRExecutor(executable, output_devices) as executor:
+        with FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info) as executor:
             out = executor.execute()
             assert len(out) == 1
             assert (out[0].data.view().get() == np.array([3, 5])).all()
