@@ -4,6 +4,7 @@ import glob
 import os
 import tempfile
 from typing import Callable, Dict, Tuple
+from collections import namedtuple
 
 from tripy import config, utils
 from tripy.backend.mlir.compiler import FlatIRCompiler
@@ -11,6 +12,8 @@ from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor, nn
 from tripy.frontend.trace import Trace
+
+JITValue = namedtuple("JITValue", ["executable", "flat_ir_tensor_info"])
 
 
 class jit:
@@ -64,7 +67,7 @@ class jit:
             assert (out.numpy() == np.array([2.0, 2.0])).all()
         """
         self.kwargs = kwargs
-        self.cache: Dict[str, "executable"] = {}
+        self.cache: Dict[str, JITValue] = {}
         self._const_args: Tuple[int] = ()
         self._func: Callable = None
         self._decorated: Callable = None
@@ -88,11 +91,37 @@ class jit:
         self._obj = obj
         return self
 
-    def _get_jit_hash(self, ir_str):
+    def _satisfy_dims(self, cache_key, flat_ir):
+        cached_inputs, _ = self.cache[cache_key].flat_ir_tensor_info
+        curr_inputs, _ = flat_ir.io_tensor_info()
+
+        assert len(curr_inputs) == len(cached_inputs)
+        for new, old in zip(curr_inputs, cached_inputs):
+            import pdb
+
+            pdb.set_trace()
+            if not new.is_a_subset_of(old):
+                return False
+
+        return True
+
+    def _get_jit_hash(self, flat_ir):
         from tripy import __version__ as tp_version
+        from tripy.frontend.dim import Dim
+
+        hashable_flat_ir = flat_ir.clone()
+        i_info, o_info = flat_ir.io_tensor_info()
+
+        for i in range(len(i_info)):
+            hashable_flat_ir.inputs[i].shape = [Dim(-1) for _ in range(len(i_info))]
+
+        for o in range(len(o_info)):
+            hashable_flat_ir.inputs[o].shape = [Dim(-1) for _ in range(len(o_info))]
+
+        G_LOGGER.ir_printer(f"Hashable FlatIR :\n{hashable_flat_ir}")
 
         # TODO: improve the naive ir hash
-        hash_str = str(hash(tp_version + ir_str))
+        hash_str = str(hash(tp_version + str(hashable_flat_ir)))
         return hash_str.zfill(config.JIT_CACHE_HASH_LENGTH)
 
     def _helper(self, func: Callable):
@@ -133,14 +162,18 @@ class jit:
             flat_ir = trace.to_flat_ir()
             G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
             output_devices = [o.device for o in flat_ir.outputs]
-            cache_key = self._get_jit_hash(str(flat_ir))
+            cache_key = self._get_jit_hash(flat_ir)
 
-            if cache_key in self.cache:
+            import pdb
+
+            pdb.set_trace()
+
+            if cache_key in self.cache and self._satisfy_dims(cache_key, flat_ir):
                 executable = self.cache[cache_key]
             else:
                 compiler = FlatIRCompiler()
                 executable = compiler.compile(flat_ir)
-                self.cache[cache_key] = executable
+                self.cache[cache_key] = JITValue(executable, flat_ir.io_tensor_info)
 
             i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
             executor = FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info)

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.utils import get_broadcast_dim, is_broadcast_compatible, make_tuple
+from tripy.utils import get_broadcast_dim, is_broadcast_compatible
 
 
 @dataclass

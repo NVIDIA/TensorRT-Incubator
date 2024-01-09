@@ -1,4 +1,5 @@
 from typing import Any, Dict, List
+from collections import namedtuple
 
 from mlir import ir
 from mlir.dialects import func as func_dialect
@@ -6,6 +7,8 @@ from mlir.dialects import func as func_dialect
 from tripy.backend.mlir.utils import make_ir_context
 from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops import BaseFIROp
+
+FlatIRTensorInfo = namedtuple("FlatIRTensorInfo", ["shape", "dtype"])
 
 
 class FlatIR:
@@ -32,6 +35,11 @@ class FlatIR:
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
+
+    def clone(self):
+        import copy
+
+        return copy.deepcopy(self)
 
     def to_mlir(self):
         inputs_idx = {inp.name: idx for idx, inp in enumerate(self.inputs)}

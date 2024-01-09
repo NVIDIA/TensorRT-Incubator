@@ -13,6 +13,10 @@ from tripy.common.device import device
 from tripy.frontend import Dim, Tensor
 from tripy.frontend.trace import Trace
 
+from tripy.common.logging import set_logger_mode, LoggerModes
+
+set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
+
 
 class TestFunctional:
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
@@ -277,6 +281,5 @@ class TestDynamic:
         a = Tensor(np.ones(3, dtype=np.float32), device=device("gpu"))
         b = Tensor(np.ones(3, dtype=np.float32), device=device("gpu"))
 
-        # 67: Fix dynamic shape JIT caching.
         out = func(a, b)
         assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()

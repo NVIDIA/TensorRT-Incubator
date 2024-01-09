@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from tripy import utils
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
+from tripy.frontend.dim import Dim
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.utils import to_dims
 
