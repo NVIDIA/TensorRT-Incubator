@@ -103,8 +103,11 @@ def tril(input: "tripy.Tensor", diagonal: int = 0):
     Returns the lower triangular part of the matrix (2-D tensor) or batch of matrices input, the other elements of the result tensor out are set to 0.
 
     Args:
-        input: input tensor
-        diagonal: the diagonal to consider
+        input: input tensor of shape (..., M, N)
+        diagonal: diagonal above which to zero elements. diagonal = 0 is the main diagonal, a negative value is below it and a positive value is above.
+
+    Returns:
+        Lower triangle of input of same shape and dtype (..., M, N)
 
     Example:
     ::

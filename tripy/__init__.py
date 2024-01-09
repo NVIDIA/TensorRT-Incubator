@@ -12,7 +12,7 @@ from tripy.frontend.ops.select import where
 from tripy.frontend.tensor_ops import *
 
 __all__ = (
-    ["jit", "Tensor", "Dim", "device", "nn", "arange", "arange_like", "full", "full_like"]
+    ["jit", "Tensor", "Dim", "device", "nn", "arange", "arange_like", "full", "full_like", "where"]
     + tripy.common.datatype.__all__
     + tripy.frontend.tensor_ops.__all__
 )

@@ -16,7 +16,7 @@ class Select(BaseOperator):
         assert len(input_shapes) == 3, "Select operation should have exactly 3 inputs!"
         assert (
             input_shapes[0] == input_shapes[1] and input_shapes[0] == input_shapes[2]
-        ), f"Input devices for Select do not match: condition={input_shapes[0]}, x={input_shapes[1]}, y={input_shapes[2]}"
+        ), f"Input shapes for Select do not match: condition={input_shapes[0]}, x={input_shapes[1]}, y={input_shapes[2]}"
         return [input_shapes[0]]
 
     def infer_dtypes(self, input_dtypes):
@@ -57,8 +57,10 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
 
         import numpy as np
 
-        # condition arrary of [[True, False], [True, True]]
         condition = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
+        print(condition)
+        # [[True, False],
+        #  [True, True]]
         x = tp.ones([2, 2])
         y = tp.zeros([2, 2])
         a = tp.where(condition, x, y)
