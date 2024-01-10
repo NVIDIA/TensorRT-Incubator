@@ -29,7 +29,7 @@ class FlatIR:
         for inp in self.inputs:
             layer_strs.append(f"    {str(inp)}")
         for op in self.ops:
-            layer_strs.append(op.to_flat_ir_str([inp.name for inp in op.inputs], [out.name for out in op.outputs]))
+            layer_strs.append(op.to_flat_ir_str())
         layer_strs.append("outputs:")
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")

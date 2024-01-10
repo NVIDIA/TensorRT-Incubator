@@ -18,6 +18,13 @@ class BaseFIROp(abc.ABC):
     origin_layer: "TraceLayer"
     """The operation applied by this layer"""
 
+    def __init__(self, inputs: List["TraceTensor"], outputs: List["TraceTensor"], origin_layer: "TraceLayer"):
+        from tripy.flat_ir.tensor import FIRTensor
+
+        self.inputs = list(map(FIRTensor, inputs))
+        self.outputs = list(map(FIRTensor, outputs))
+        self.origin_layer = origin_layer
+
     @abc.abstractmethod
     def to_mlir(self, inputs: List) -> List:
         """
@@ -31,16 +38,22 @@ class BaseFIROp(abc.ABC):
         """
         ...
 
-    @abc.abstractmethod
-    def to_flat_ir_str(self, inputs: List, output_names: List) -> str:
+    def to_flat_ir_str(self) -> str:
         """
         Returns a FlatIR string representation of the operation.
-
-        Args:
-            inputs_names: The names of the input tensor(s).
-            output_names: The names of the output tensor(s).
 
         Returns:
             The FlatIR string representation of the operation.
         """
-        ...
+        outputs_str = f"{self.outputs[0].name}" if len(self.outputs) == 1 else str([out.name for out in self.outputs])
+
+        return f"{outputs_str} = {self.name()}({', '.join(list(map(str, self.inputs)))})"
+
+    def name(self) -> str:
+        """
+        Returns the human readable name of this operation.
+
+        Returns:
+            The name of this operation.
+        """
+        return self.__class__.__name__
