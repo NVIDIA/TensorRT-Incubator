@@ -31,15 +31,9 @@ class BaseOperator(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def infer_shapes(self, input_shapes: List[ShapeInfo]) -> List[ShapeInfo]:
+    def infer_shapes(self):
         """
-        Infers shapes for the operation.
-
-        Args:
-            input_shapes: The shapes of the input tensor(s).
-
-        Returns:
-            The shapes of the output tensor(s).
+        Infers shapes for the operation and updates output tensor shapes accordingly.
         """
         ...
 

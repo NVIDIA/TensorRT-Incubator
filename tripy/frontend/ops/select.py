@@ -12,12 +12,12 @@ class Select(BaseOperator):
         assert len(output_names) == 1, "Select operation should have exactly one output!"
         return f"{output_names[0]} = Tensor.select(condition={input_names[0]}, x={input_names[1]}, y={input_names[2]})"
 
-    def infer_shapes(self, input_shapes):
-        assert len(input_shapes) == 3, "Select operation should have exactly 3 inputs!"
+    def infer_shapes(self):
+        assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         assert (
-            input_shapes[0] == input_shapes[1] and input_shapes[0] == input_shapes[2]
-        ), f"Input shapes for Select do not match: condition={input_shapes[0]}, x={input_shapes[1]}, y={input_shapes[2]}"
-        return [input_shapes[0]]
+            self.inputs[0].shape == self.inputs[1].shape and self.inputs[0].shape == self.inputs[2].shape
+        ), f"Input shapes for Select do not match: condition={self.inputs[0].shape}, x={self.inputs[1].shape}, y={self.inputs[2].shape}"
+        self.outputs[0].shape = self.inputs[0].shape
 
     def infer_dtypes(self, input_dtypes):
         assert len(input_dtypes) == 3, "Select operation should have exactly 3 inputs!"

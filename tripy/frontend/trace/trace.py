@@ -27,7 +27,7 @@ class Trace:
 
         exprs = [tensor.op for tensor in tensors]
         # Track outputs:
-        incoming_exprs = set(id(expr) for expr in exprs)
+        output_ids = set(id(expr) for expr in exprs)
         seen_op_ids: Set[int] = set()
 
         # Reset names each time we create a trace. This is a hack since we depend on
@@ -58,7 +58,7 @@ class Trace:
                 self.layers.append(head)
                 exprs.extend([inp.producer for inp in head.inputs])
 
-            if id(head) in incoming_exprs:
+            if id(head) in output_ids:
                 self.outputs.extend(head.outputs)
 
         # Reverse the order of the layers so they are topologically sorted
@@ -111,24 +111,23 @@ class Trace:
 
         # Compute and cache shape information for all tensors
         for inp in self.inputs:
-            inp.shape = inp.producer.infer_shapes([])[0]
+            inp.producer.infer_shapes()
             inp.dtype = inp.producer.infer_dtypes([])[0]
             inp.device = inp.producer.infer_devices([])[0]
 
-            self._tensor_info_map[inp.name] = TraceTensorInfo(inp.shape, inp.dtype, inp.device)
+            self._tensor_info_map[inp.name] = TraceTensorInfo(None, inp.dtype, inp.device)
 
         for layer in self.layers:
-            out_shapes = layer.infer_shapes([self._tensor_info_map[inp.name].shape for inp in layer.inputs])
+            layer.infer_shapes()
             out_dtypes = layer.infer_dtypes([self._tensor_info_map[inp.name].dtype for inp in layer.inputs])
             out_devices = layer.infer_devices([self._tensor_info_map[inp.name].device for inp in layer.inputs])
 
-            for out, shape, dtype, device in zip(layer.outputs, out_shapes, out_dtypes, out_devices):
-                self._tensor_info_map[out.name] = TraceTensorInfo(shape, dtype, device)
+            for out, dtype, device in zip(layer.outputs, out_dtypes, out_devices):
+                self._tensor_info_map[out.name] = TraceTensorInfo(None, dtype, device)
 
         # Assign cached shape information to corresponding Tensor
         for layer in self.layers:
             for io in layer.inputs + layer.outputs:
-                io.shape = self._tensor_info_map[io.name].shape
                 io.dtype = self._tensor_info_map[io.name].dtype
                 io.device = self._tensor_info_map[io.name].device
 

@@ -46,7 +46,8 @@ class BinaryElementwise(BaseOperator):
         assert len(output_names) == 1, "BinaryElementwise should have exactly one output!"
         return f"{output_names[0]} = {self.kind.join(input_names)}"
 
-    def infer_shapes(self, input_shapes):
+    def infer_shapes(self):
+        input_shapes = [inp.shape for inp in self.inputs]
         # Fix when broadcasting support is added (#25).
         assert len(input_shapes[0]) == len(
             input_shapes[1]
@@ -54,7 +55,7 @@ class BinaryElementwise(BaseOperator):
 
         assert is_broadcast_compatible(*input_shapes)
 
-        return [make_tuple([get_broadcast_dim(*d) for d in zip(*input_shapes)])]
+        self.outputs[0].shape = tuple(get_broadcast_dim(*d) for d in zip(*input_shapes))
 
     def infer_dtypes(self, input_dtypes):
         assert (

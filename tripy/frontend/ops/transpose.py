@@ -4,6 +4,7 @@ from typing import Sequence
 from tripy import util
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.common.exception import TripyException
 
 
 @dataclass
@@ -21,9 +22,9 @@ class Transpose(BaseOperator):
         assert len(output_names) == 1, "Transpose operation should have exactly one output!"
         return f"{output_names[0]} = Tensor.transpose(perm={self.permutation})"
 
-    def infer_shapes(self, input_shapes):
-        assert len(input_shapes) == 1, "Transpose operation should have exactly one input!"
-        origin_shape = input_shapes[0]
+    def infer_shapes(self):
+        assert len(self.inputs) == 1, "Transpose operation should have exactly one input!"
+        origin_shape = self.inputs[0].shape
 
         if self.permutation is None:
             # invoked via transpose()
@@ -32,11 +33,10 @@ class Transpose(BaseOperator):
             self.permutation = perm
 
         if len(self.permutation) != len(origin_shape):
-            raise Exception(
+            raise TripyException(
                 f"Transpose.permutation must be a permutation of [0, dim(input)), got permutation={self.permutation} and dim(input)={len(origin_shape)}"
             )
-        perm_shape = [origin_shape[idx] for idx in self.permutation]
-        return [util.make_tuple(perm_shape)]
+        self.outputs[0].shape = tuple(origin_shape[idx] for idx in self.permutation)
 
     def infer_dtypes(self, input_dtypes):
         assert len(input_dtypes) == 1, "Transpose operation should have exactly one input!"

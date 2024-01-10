@@ -57,9 +57,9 @@ class Storage(BaseOperator):
         assert len(output_names) == 1, "Storage should have exactly one output!"
         return f"{output_names[0]} : data=({self.data.view()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
-    def infer_shapes(self, input_shapes):
-        assert not input_shapes, "Storage should have no inputs!"
-        return [util.make_tuple(self.shape)]
+    def infer_shapes(self):
+        assert not self.inputs, "Storage should have no inputs!"
+        self.outputs[0].shape = self.shape
 
     def infer_dtypes(self, input_dtypes):
         assert not input_dtypes, "Storage should have no inputs!"

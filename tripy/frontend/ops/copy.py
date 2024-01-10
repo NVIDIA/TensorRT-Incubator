@@ -20,8 +20,8 @@ class Copy(BaseOperator):
         assert len(output_names) == 1, "Copy should have exactly one output!"
         return f"{output_names[0]} = copy({input_names[0]}, target = {self.target.kind}:{self.target.index})"
 
-    def infer_shapes(self, input_shapes):
-        return [make_tuple(input_shapes[0])]
+    def infer_shapes(self):
+        self.outputs[0].shape = self.inputs[0].shape
 
     def infer_dtypes(self, input_dtypes):
         return [input_dtypes[0]]

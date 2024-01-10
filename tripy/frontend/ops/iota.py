@@ -25,10 +25,10 @@ class Iota(BaseOperator):
         else:
             return f"{output_names[0]} = Tensor.iota(dim={self.dim}, shape={self.shape}, dtype={self.dtype.name})"
 
-    def infer_shapes(self, input_shapes):
-        if len(input_shapes) == 1:
-            self.shape = input_shapes[0]
-        return [util.make_tuple(self.shape)]
+    def infer_shapes(self):
+        if len(self.inputs) == 1:
+            self.shape = self.inputs[0].shape
+        self.outputs[0].shape = self.shape
 
     def infer_dtypes(self, input_dtypes):
         if len(input_dtypes) == 1 and self.dtype is None:
