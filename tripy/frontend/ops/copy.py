@@ -3,6 +3,7 @@ from typing import List
 
 from tripy.common.device import device
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.util import make_tuple
 
 
@@ -32,3 +33,33 @@ class Copy(BaseOperator):
         from tripy.flat_ir.ops import CopyOp
 
         flat_ir.ops.append(CopyOp(self, inputs, outputs, target=self.target))
+
+
+@TENSOR_METHOD_REGISTRY("to")
+def to(self: "tripy.Tensor", device: "tripy.device"):
+    """
+    Copies input Tensor to the target device.
+
+    Args:
+        device: target device
+
+    Returns:
+        Copied Tensor on target device
+
+    Example:
+    ::
+
+        import numpy as np
+
+        a = tp.Tensor([1, 2], device=tp.device("gpu"))
+        a = a.to(tp.device("cpu"))
+        assert (a.numpy() == np.array([1, 2], dtype=np.float32)).all()
+        assert a.op.device.kind == "cpu"
+    """
+    from tripy.frontend import Tensor
+    from tripy.frontend.ops import Storage
+
+    if isinstance(self.op, Storage) and self.op.device == device:
+        return self
+
+    return Tensor.build([self], Copy(device))

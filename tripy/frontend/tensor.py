@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Sequence
 
 from tripy import util
 from tripy.common.array import Array
@@ -62,14 +62,6 @@ class Tensor(metaclass=TensorMeta):
             assert len(storage_arr) == 1, "Expects only one output from MLIR executor"
             self.op = storage_arr[0]
             return self.op.data
-
-    def to(self, device):
-        from tripy.frontend.ops import Copy
-
-        if isinstance(self.op, Storage) and self.op.device == device:
-            return self
-
-        return Tensor.build([self], Copy(device))
 
     def numpy(self):
         from tripy.common.device import device
