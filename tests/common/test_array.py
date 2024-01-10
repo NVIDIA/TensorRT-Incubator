@@ -13,6 +13,7 @@ from tests.helper import NUMPY_TYPES, torch_type_supported
 from tripy import util
 from tripy.common.array import Array
 from tripy.common.datatype import convert_numpy_to_tripy_dtype
+from tripy.frontend.ops.utils import to_dims
 
 # Create NumPy input data list.
 np_data = [np.ones(1, dtype=dtype) for dtype in NUMPY_TYPES]
@@ -79,7 +80,7 @@ def test_array_creation(device_param, input_data):
     dtype = convert_numpy_to_tripy_dtype(input_data.dtype)
     shape = (len(List),) if isinstance(input_data, List) else input_data.shape
     if dtype is not None:
-        arr = Array(_move_to_device(input_data, device_type), dtype, shape, device)
+        arr = Array(_move_to_device(input_data, device_type), dtype, to_dims(shape), device)
         assert isinstance(arr, Array)
         assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
         assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8

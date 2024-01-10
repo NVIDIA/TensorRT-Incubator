@@ -4,6 +4,7 @@ from tripy import util
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.utils import to_dims
 
 
 @dataclass
@@ -67,7 +68,7 @@ def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.floa
 
     if dim < 0 or dim >= len(shape):
         raise Exception("Invalid arange dim")
-    return Tensor.build([], Iota(dim, shape, dtype))
+    return Tensor.build([], Iota(dim, to_dims(shape), dtype))
 
 
 def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None):
