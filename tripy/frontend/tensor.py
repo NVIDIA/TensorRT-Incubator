@@ -1,4 +1,4 @@
-from typing import List, Sequence
+from typing import List
 
 from tripy import util
 from tripy.common.array import Array
@@ -22,20 +22,40 @@ class Tensor(metaclass=TensorMeta):
     Represents a lazily evaluated tensor.
     """
 
-    def _finalize(self, inputs, op) -> None:
+    _COUNT = 0
+
+    def _finalize(self, inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
         # It is very important that this is called from all entrypoints to creating a tensor.
         # We include logic here that needs to be applied to all tensors.
-        self.inputs = inputs
-        self.op = op
-        self._stack_info = util.get_stack_info()
-        # Const fold the tensor in JIT functions
-        # Tensor will be treated as an input if set to False
-        self.const_fold = True
+        from tripy.frontend.trace.tensor import TraceTensor
 
+        def get_name():
+            name = f"t{Tensor._COUNT}"
+            Tensor._COUNT += 1
+            return name
+
+        self._stack_info = util.get_stack_info()
+
+        inp_trace_tensors = []
+        for inp in inputs:
+            assert len(inp.op.outputs) == 1, "Multiple outputs are not supported!"
+            out = inp.op.outputs[0]
+            inp_trace_tensors.append(out)
+
+        out_trace_tensors = [TraceTensor(get_name(), self._stack_info, [], None, None, None)]
+
+        self.op = OpType(inp_trace_tensors, out_trace_tensors, True, *args, **kwargs)
+
+        # Update producer:
+        self.op.outputs[0].producer = self.op
+
+    # This function expects to receive a BaseOperator type (not instance!) along
+    # with any extra arguments that it might need. It will then construct an instance
+    # with inputs, outputs, and the extra arguments
     @staticmethod
-    def build(inputs: "List[Tensor]", op: "tripy.ops.BaseOperator") -> None:
+    def build(inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
         tensor = Tensor()
-        tensor._finalize(inputs, op)
+        tensor._finalize(inputs, OpType, *args, **kwargs)
         return tensor
 
     def eval(self) -> Array:
@@ -58,7 +78,6 @@ class Tensor(metaclass=TensorMeta):
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
             storage_arr = executor.execute()
-            self.inputs = []
             assert len(storage_arr) == 1, "Expects only one output from MLIR executor"
             self.op = storage_arr[0]
             return self.op.data
@@ -67,8 +86,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.common.device import device
 
         data = self.to(device("cpu")).eval().view()
-        self.inputs = []
-        self.op = Storage(data)
+        self._finalize([], Storage, data)
         return data
 
     def __repr__(self) -> str:

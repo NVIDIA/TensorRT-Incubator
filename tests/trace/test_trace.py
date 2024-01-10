@@ -16,7 +16,7 @@ class TestTrace:
         assert len(trace.layers) == 1
         layer = trace.layers[0]
 
-        assert layer.op == a.op
+        assert layer == a.op
         assert layer.inputs == []
         assert layer.outputs[0].name == "t0"
 
@@ -142,7 +142,7 @@ class TestTrace:
     def test_input_output(self):
         a = Tensor([1, 1])
         # a is an input
-        a.const_fold = False
+        a.op.const_fold = False
 
         trace = Trace([a])
         assert len(trace.inputs) == 1
@@ -156,8 +156,8 @@ class TestTrace:
         a = Tensor(np.ones(shape, dtype=np.float32))
         b = Tensor(np.ones(shape, dtype=np.float32))
         # a and b are inputs
-        a.const_fold = False
-        b.const_fold = False
+        a.op.const_fold = False
+        b.op.const_fold = False
 
         c = a + b
         trace = Trace([c])
@@ -181,7 +181,7 @@ class TestTrace:
         a = Tensor(np.ones(shape, dtype=np.float32))
         b = Tensor(np.ones(shape, dtype=np.float32))
         # a is an input
-        a.const_fold = False
+        a.op.const_fold = False
 
         c = a + b
         trace = Trace([c])

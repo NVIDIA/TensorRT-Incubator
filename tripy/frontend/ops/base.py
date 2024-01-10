@@ -2,9 +2,20 @@ import abc
 from typing import List
 from tripy.common.types import ShapeInfo
 from tripy.common.datatype import dtype
+from dataclasses import dataclass
 
 
+@dataclass
 class BaseOperator(abc.ABC):
+    inputs: List["TraceTensor"]
+    """The inputs of this layer"""
+
+    outputs: List["TraceTensor"]
+    """The outputs of this layer"""
+
+    const_fold: bool
+    """Whether to treat the operation as a constant in JIT"""
+
     @abc.abstractmethod
     def to_trace_str(self, input_names: List[str], output_names: List[str]) -> str:
         """

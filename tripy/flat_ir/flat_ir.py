@@ -3,8 +3,8 @@ from typing import Any, Dict, List
 from mlir import ir
 from mlir.dialects import func as func_dialect
 
-from tripy.flat_ir.ops import BaseFIROp
 from tripy.backend.mlir.utils import make_ir_context
+from tripy.flat_ir.ops import BaseFIROp
 
 
 class FlatIR:
@@ -109,7 +109,6 @@ class FlatIR:
 
     def io_tensor_info(self):
         from tripy.common.types import TensorInfo
-        from tripy.frontend import Dim
 
         i_tensor_info = [TensorInfo([s for s in i.shape], i.dtype) for i in self.inputs]
         o_tensor_info = [TensorInfo([s for s in o.shape], o.dtype) for o in self.outputs]

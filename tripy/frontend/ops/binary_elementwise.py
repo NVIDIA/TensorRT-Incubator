@@ -126,10 +126,7 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.SUM),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUM)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
@@ -156,10 +153,7 @@ def less_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.LESS),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.LESS)
 
 
 @TENSOR_METHOD_REGISTRY("__le__")
@@ -185,10 +179,7 @@ def less_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Te
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.LESS_EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.LESS_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__eq__")
@@ -214,10 +205,7 @@ def eq(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__ne__")
@@ -243,10 +231,7 @@ def not_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.NOT_EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.NOT_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__ge__")
@@ -272,10 +257,7 @@ def greater_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.GREATER_EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.GREATER_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__gt__")
@@ -301,7 +283,4 @@ def greater_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.GREATER),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.GREATER)

@@ -1,12 +1,8 @@
-from typing import List
 from dataclasses import dataclass
 
-from mlir import ir
-
-from tripy.frontend import Dim
 from tripy.common.types import ShapeInfo
+from tripy.frontend import Dim
 from tripy.util import StackInfo, make_list
-from tripy.flat_ir.flat_ir import FlatIR
 
 
 @dataclass
@@ -24,7 +20,7 @@ class TraceTensor:
     shape: ShapeInfo
     """Information about the shape of this tensor"""
 
-    producer: "TraceLayer"
+    producer: "BaseOperator"
     """Producer of the tensor"""
 
     dtype: "tripy.common.dtype"

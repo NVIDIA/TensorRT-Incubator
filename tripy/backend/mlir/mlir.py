@@ -1,25 +1,13 @@
 import atexit
 import ctypes
-import cupy as cp
 import os
-
 from collections import namedtuple
-from itertools import chain
 
-from tripy import config
+import cupy as cp
+
+from tripy import config, util
+from tripy.common.ctypes import POINTER, c_int, c_int64, char_ptr, void_ptr
 from tripy.common.logging import G_LOGGER
-from tripy.util import log_time
-from tripy.util.util import find_file_in_dir
-
-from tripy.common.ctypes import (
-    void_ptr,
-    char_ptr,
-    c_int,
-    c_int64,
-    POINTER,
-    TensorShape,
-    convert_mlirdtype_to_tripy_dtype,
-)
 from tripy.frontend.ops import Storage
 
 # Define a namedtuple to hold the result of the execution initializer
@@ -43,9 +31,9 @@ class _MlirCompiler:
     Instead of a singleton class implementation, tripy assumes that `_MlirCompiler` will be imported from other modules.
     """
 
-    @log_time
+    @util.log_time
     def __init__(self) -> None:
-        lib_path = find_file_in_dir(config.MLIR_LIB_NAME, mlir_lib_path())
+        lib_path = util.find_file_in_dir(config.MLIR_LIB_NAME, mlir_lib_path())
         assert (
             len(lib_path) == 1
         ), f"Compiler expects exactly 1 tripy backend library to be available.  Found {len(lib_path)} libraries."
@@ -101,14 +89,24 @@ class _MlirCompiler:
         Returns:
             ExecInitializerResult: A named tuple containing input buffer, output buffer, and output shapes.
         """
+        from tripy.frontend.trace.tensor import TraceTensor
+
         # Allocate output memory and store buffer pointers.
-        outputs = [
-            Storage(
+        def make_storage(shape, dtype, device):
+            storage = Storage(
+                [],
+                [TraceTensor([], util.get_stack_info(), shape, None, dtype, device)],
+                True,
                 None,
-                shape=types.shape,
-                dtype=types.dtype,
-                device=out_device,
+                shape=shape,
+                dtype=dtype,
+                device=device,
             )
+            storage.outputs[0].producer = storage
+            return storage
+
+        outputs = [
+            make_storage(types.shape, types.dtype, out_device)
             for types, out_device in zip(o_tensor_info, output_devices)
         ]
 

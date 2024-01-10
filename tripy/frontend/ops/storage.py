@@ -16,6 +16,9 @@ class Storage(BaseOperator):
 
     def __init__(
         self,
+        inputs: List["Tensor"],
+        outputs: List["Tensor"],
+        const_fold: bool,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
         shape: Optional[Tuple["Dim"]] = None,
         dtype: "tripy.dtype" = None,
@@ -30,6 +33,8 @@ class Storage(BaseOperator):
             device: The device where the data is stored (default: CPU).
             shape: The shape of the data (default: None).
         """
+        super().__init__(inputs, outputs, const_fold)
+
         # Let's not allow user to request a different type unless data is a list.
         if hasattr(data, "to_dlpack"):
             # Ensure that dtype is not set.
@@ -106,4 +111,4 @@ def tensor_init(
     if data is not None:
         from tripy.frontend.ops import Storage
 
-        self._finalize([], Storage(data, to_dims(shape), dtype, device))
+        self._finalize([], Storage, data, to_dims(shape), dtype, device)

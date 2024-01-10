@@ -77,7 +77,7 @@ def transpose(self: "tripy.Tensor", dim0: int, dim1: int):
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Transpose(None, dim0, dim1))
+    return Tensor.build([self], Transpose, None, dim0, dim1)
 
 
 @TENSOR_METHOD_REGISTRY("permute")
@@ -104,4 +104,4 @@ def permute(self: "tripy.Tensor", perm: Sequence[int]):
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Transpose(perm, None, None))
+    return Tensor.build([self], Transpose, perm, None, None)

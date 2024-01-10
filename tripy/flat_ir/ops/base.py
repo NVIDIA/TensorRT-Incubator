@@ -9,8 +9,8 @@ class BaseFIROp(abc.ABC):
     Represents a single layer in the FlatIR.
     """
 
-    origin_layer: "TraceLayer"
-    """The trace layer used to generate this layer"""
+    origin_layer: "BaseOperator"
+    """The frontend operator that generated this op"""
 
     inputs: List["FIRTensor"]
     """The inputs of this layer"""
@@ -18,7 +18,7 @@ class BaseFIROp(abc.ABC):
     outputs: List["FIRTensor"]
     """The outputs of this layer"""
 
-    def __init__(self, origin_layer: "TraceLayer", inputs: List["TraceTensor"], outputs: List["TraceTensor"]):
+    def __init__(self, origin_layer: "BaseOperator", inputs: List["TraceTensor"], outputs: List["TraceTensor"]):
         from tripy.flat_ir.tensor import FIRTensor
 
         self.inputs = list(map(FIRTensor, inputs))
