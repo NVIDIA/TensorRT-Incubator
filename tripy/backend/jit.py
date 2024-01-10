@@ -65,10 +65,12 @@ class jit:
         self.kwargs = kwargs
         self.cache: Dict[str, "executable"] = {}
         self._const_args: Tuple[int] = ()
-        self.func: Callable = None
+        self._func: Callable = None
+        self._decorated: Callable = None
+        self._obj = None
         if func is not None:
-            self.func = func
-            self.decorated = self._helper(func)
+            self._func = func
+            self._decorated = self._helper(func)
         atexit.register(self.destroy)
 
         if "cache_dir" in kwargs:
@@ -80,6 +82,10 @@ class jit:
         else:
             os.makedirs(config.JIT_CACHE_DIR, exist_ok=True)
             self.cache_dir = tempfile.mkdtemp(dir=config.JIT_CACHE_DIR)
+
+    def __get__(self, obj, type=None):
+        self._obj = obj
+        return self
 
     def _get_jit_hash(self, ir_str):
         from tripy import __version__ as tp_version
@@ -114,7 +120,10 @@ class jit:
                     eval_args[i].const_fold = False
             eval_args = tuple(eval_args)
 
-            return_tensors = func(*eval_args, **kwargs)
+            if self._obj is not None:
+                return_tensors = func(self._obj, *eval_args, **kwargs)
+            else:
+                return_tensors = func(*eval_args, **kwargs)
             if isinstance(return_tensors, Tensor):
                 return_tensors = [return_tensors]
             trace = Trace(return_tensors)
@@ -144,11 +153,13 @@ class jit:
         return decorated
 
     def __call__(self, *args, **kwargs):
-        if callable(self.func):
-            return self.decorated(*args, **kwargs)
+        if callable(self._func):
+            return self._decorated(*args, **kwargs)
         else:
-            # args[0] represents the func passed as argument to jit. Ex: jitted_func = jit(func)
-            return self._helper(args[0])
+            # jit decorator with kwargs: @jit(...) triggers both __init__ and __call__
+            self._func = args[0]
+            self._decorated = self._helper(self._func)
+            return self
 
     def destroy(self):
         from tripy.backend.mlir.mlir import mlir_wrapper

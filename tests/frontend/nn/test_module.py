@@ -23,6 +23,7 @@ class Network(Module):
         self.dummy1 = TestOp(np.zeros(2, dtype=np.float32))
         self.dummy2 = TestOp(np.arange(2, dtype=np.float32))
 
+    @jit
     def __call__(self):
         return self.param + self.dummy1() + self.dummy2()
 
