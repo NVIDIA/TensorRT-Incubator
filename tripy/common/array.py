@@ -22,7 +22,7 @@ class Array:
         self,
         data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"],
         dtype: "tripy.dtype",
-        shape: Optional[Tuple[int]],
+        shape: Optional[Tuple["Dim"]],
         device: device,
     ) -> None:
         """
@@ -54,7 +54,8 @@ class Array:
 
         static_shape = None
         if shape is not None:
-            static_shape = util.make_tuple([s.max if isinstance(s, Dim) else s for s in util.make_list(shape)])
+            # Use runtime value here allocate only required output buffer.
+            static_shape = util.make_tuple([s.runtime_value for s in util.make_list(shape)])
 
         # Allocate dummy data
         if data is None:

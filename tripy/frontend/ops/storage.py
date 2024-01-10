@@ -4,6 +4,7 @@ from tripy import util
 from tripy.common import device as make_device
 from tripy.common.array import Array
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.utils import to_dims
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
@@ -15,7 +16,7 @@ class Storage(BaseOperator):
     def __init__(
         self,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        shape: Optional[Tuple[int]] = None,
+        shape: Optional[Tuple["Dim"]] = None,
         dtype: "tripy.dtype" = None,
         device: "tripy.common.device" = None,
     ) -> None:
@@ -36,7 +37,7 @@ class Storage(BaseOperator):
         self.device = util.default(device, make_device("cpu"))
         self.data = Array(data, dtype, shape, self.device)
         self.dtype = self.data.dtype
-        self.shape: Tuple[int] = util.make_tuple(self.data.shape if shape is None else shape)
+        self.shape: Tuple[int] = util.make_tuple(to_dims(self.data.shape) if shape is None else shape)
         self.shape_profile: List = util.make_list(shape)
 
     def __eq__(self, other) -> bool:
@@ -104,4 +105,4 @@ def tensor_init(
     if data is not None:
         from tripy.frontend.ops import Storage
 
-        self._finalize([], Storage(data, shape, dtype, device))
+        self._finalize([], Storage(data, to_dims(shape), dtype, device))

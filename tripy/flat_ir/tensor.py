@@ -21,11 +21,6 @@ class FIRTensor(TraceTensor):
         from tripy.backend.mlir import utils as mlir_utils
 
         return ir.RankedTensorType.get(
-            [
-                ir.ShapedType.get_dynamic_size()
-                if (isinstance(s, Dim) and not s.is_static_shape())
-                else (s.min if (isinstance(s, Dim)) else s)
-                for s in make_list(self.shape)
-            ],
+            [ir.ShapedType.get_dynamic_size() if s.is_dynamic_dim() else s.min for s in make_list(self.shape)],
             mlir_utils.get_mlir_dtype(self.dtype),
         )
