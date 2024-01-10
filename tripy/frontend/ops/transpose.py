@@ -46,10 +46,10 @@ class Transpose(BaseOperator):
         assert len(input_devices) == 1, "Transpose operation should have exactly one input!"
         return [input_devices[0]]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import TransposeOp
 
-        flat_ir.ops.append(TransposeOp(self, inputs, outputs, perm=self.permutation))
+        flat_ir.add_op(self, TransposeOp, self.inputs, self.outputs, perm=self.permutation)
 
 
 @TENSOR_METHOD_REGISTRY("transpose")

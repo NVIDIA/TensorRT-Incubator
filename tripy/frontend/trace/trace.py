@@ -22,12 +22,8 @@ class Trace:
         self.layers: List[BaseOperator] = []
         self.inputs: List[TraceTensor] = []
         self.outputs: List[TraceTensor] = []
-        # Dict to map input name to argument index
-        self.inputs_idx: Dict[str, int] = {}
         # Dict to cache tensor information
         self._tensor_info_map: Dict[str, TraceTensorInfo] = {}
-
-        self._tensor_names: Dict[int, str] = defaultdict(lambda: None)
 
         exprs = [tensor.op for tensor in tensors]
         # Track outputs:
@@ -37,11 +33,13 @@ class Trace:
         # Reset names each time we create a trace. This is a hack since we depend on
         # names being identical to identify structurally equivalent traces/flat_irs for JIT caching purposes.
         # TODO (#70): Remove this and instead use the tensor names set by the frontend.
+        _tensor_names = {}
+
         def get_name(tensor):
             tensor_id = id(tensor)
-            if tensor_id not in self._tensor_names:
-                self._tensor_names[tensor_id] = f"t{len(self._tensor_names)}"
-            return self._tensor_names[tensor_id]
+            if tensor_id not in _tensor_names:
+                _tensor_names[tensor_id] = f"t{len(_tensor_names)}"
+            return _tensor_names[tensor_id]
 
         while exprs:
             head = exprs.pop(0)
@@ -112,9 +110,7 @@ class Trace:
         """
 
         # Compute and cache shape information for all tensors
-        for idx, inp in enumerate(self.inputs):
-            self.inputs_idx[inp.name] = idx
-
+        for inp in self.inputs:
             inp.shape = inp.producer.infer_shapes([])[0]
             inp.dtype = inp.producer.infer_dtypes([])[0]
             inp.device = inp.producer.infer_devices([])[0]
@@ -138,19 +134,13 @@ class Trace:
 
     def to_flat_ir(self):
         from tripy.flat_ir.flat_ir import FlatIR
-        from tripy.flat_ir.tensor import FIRTensor
 
         flat_ir = FlatIR()
-        flat_ir.tensor_cnt = len(self._tensor_names)
-        flat_ir.inputs_idx = self.inputs_idx
 
-        for inp in self.inputs:
-            flat_ir.inputs.append(FIRTensor(inp))
-
-        for out in self.outputs:
-            flat_ir.outputs.append(FIRTensor(out))
+        flat_ir.inputs = [flat_ir.add_tensor(inp) for inp in self.inputs]
+        flat_ir.outputs = [flat_ir.add_tensor(inp) for inp in self.outputs]
 
         for l in self.layers:
-            l.to_flat_ir(flat_ir, l.inputs, l.outputs)
+            l.to_flat_ir(flat_ir)
 
         return flat_ir
