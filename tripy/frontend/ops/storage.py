@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple, Union
 
 from tripy import util
+from tripy.common.types import ShapeInfo
 from tripy.common import device as make_device
 from tripy.common.array import Array
 from tripy.frontend.ops.base import BaseOperator
@@ -82,7 +83,7 @@ class Storage(BaseOperator):
 def tensor_init(
     self: "tripy.Tensor",
     data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"] = None,
-    shape: Optional[Tuple[int]] = None,
+    shape: Optional[ShapeInfo] = None,
     dtype: "tripy.dtype" = None,
     device: "tripy.common.device" = None,
 ) -> None:

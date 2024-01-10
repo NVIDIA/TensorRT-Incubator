@@ -6,9 +6,15 @@ class TestDim:
     @pytest.mark.parametrize("range", [2, 3])
     def test_repr(self, range):
         dim = Dim(2, max=range)
-        assert repr(dim) == f"Dim(runtime_value=2, min=2, opt=2, max={range})"
-        eval_dim = eval(repr(dim))
-        assert eval_dim.min == 2 and eval_dim.opt == 2 and eval_dim.max == range and eval_dim.runtime_value == 2
+        if dim.is_dynamic_dim():
+            assert repr(dim) == f"Dim(runtime_value=2, min=2, opt=2, max={range})"
+            eval_dim = eval(repr(dim))
+            assert eval_dim.min == 2 and eval_dim.opt == 2 and eval_dim.max == range and eval_dim.runtime_value == 2
+        else:
+            # Static dim is optimized to an single integer when logged.
+            assert repr(dim) == f"{range}"
+            eval_dim = eval(repr(dim))
+            assert eval_dim == range
 
     @pytest.mark.parametrize("dim_range", [{"min": 3, "max": 5}, {"min": 3, "max": 5, "opt": 4}])
     def test_profile_dict(self, dim_range):

@@ -1,9 +1,11 @@
-from typing import List, Tuple, Union
+from typing import Tuple
 from tripy.frontend.dim import Dim
 from tripy.util import make_list, make_tuple
 
+from tripy.common.types import ShapeInfo
 
-def to_dims(shape: Tuple[Union[int, Dim]]):
+
+def to_dims(shape: ShapeInfo):
     """
     Convert the given shape tuple to a tuple of Dim objects.
 
@@ -16,4 +18,8 @@ def to_dims(shape: Tuple[Union[int, Dim]]):
     if shape is None:
         return None
 
-    return make_tuple(Dim(dim) if not isinstance(dim, Dim) else dim for dim in make_list(shape))
+    dims = make_list(shape)
+    for i in range(len(shape)):
+        if not isinstance(shape[i], Dim):
+            dims[i] = Dim(shape[i])
+    return make_tuple(dims)
