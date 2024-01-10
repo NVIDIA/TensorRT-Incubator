@@ -11,7 +11,7 @@ class CompareOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, compare_direction):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         self.compare_direction = compare_direction
 
     def to_mlir(self, operands: List) -> List:

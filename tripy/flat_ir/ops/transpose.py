@@ -9,7 +9,7 @@ class TransposeOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, perm):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         self.perm = perm
 
     def to_flat_ir_str(self) -> str:

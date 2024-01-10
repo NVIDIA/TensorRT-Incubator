@@ -10,7 +10,7 @@ class IotaOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, dim):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         assert len(self.outputs) == 1, "IotaOp should have exactly 1 output"
         self.dim = dim
         self.shape = self.outputs[0].shape

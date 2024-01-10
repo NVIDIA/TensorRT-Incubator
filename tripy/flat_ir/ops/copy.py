@@ -11,7 +11,7 @@ class CopyOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, target):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         self.target = target
 
     def to_mlir(self, operands: List) -> List:

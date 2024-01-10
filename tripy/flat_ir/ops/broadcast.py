@@ -10,7 +10,7 @@ class BroadcastOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, broadcast_dim):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         self.broadcast_dim = broadcast_dim
 
     def to_mlir(self, operands):

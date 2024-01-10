@@ -13,7 +13,7 @@ class DotOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, contracting_dim=None, batching_dim=None):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         default_dict = {"lhs": [], "rhs": []}
         self.contracting_dim = default(contracting_dim, default_dict)
         self.batching_dim = default(batching_dim, default_dict)
