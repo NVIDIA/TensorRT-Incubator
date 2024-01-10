@@ -45,8 +45,7 @@ class BaseFIROp(abc.ABC):
         Returns:
             The FlatIR string representation of the operation.
         """
-        outputs_str = f"{self.outputs[0].name}" if len(self.outputs) == 1 else str([out.name for out in self.outputs])
-
+        outputs_str = f"{str(self.outputs[0])}" if len(self.outputs) == 1 else str([out for out in self.outputs])
         return f"{outputs_str} = {self.name()}({', '.join(list(map(str, self.inputs)))})"
 
     def name(self) -> str:

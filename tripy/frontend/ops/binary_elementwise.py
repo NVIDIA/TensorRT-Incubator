@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.util import make_tuple
+from tripy.util import make_tuple, is_broadcast_compatible, get_broadcast_dim
+from tripy.frontend.dim import Dim
 
 
 @dataclass
@@ -47,10 +48,13 @@ class BinaryElementwise(BaseOperator):
 
     def infer_shapes(self, input_shapes):
         # Fix when broadcasting support is added (#25).
-        assert (
-            input_shapes[0] == input_shapes[1]
-        ), f"Input shapes for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
-        return [make_tuple(input_shapes[0])]
+        assert len(input_shapes[0]) == len(
+            input_shapes[1]
+        ), f"Input rank for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
+
+        assert is_broadcast_compatible(*input_shapes)
+
+        return [make_tuple([get_broadcast_dim(*d) for d in zip(*input_shapes)])]
 
     def infer_dtypes(self, input_dtypes):
         assert (
@@ -61,7 +65,7 @@ class BinaryElementwise(BaseOperator):
         return [input_dtypes[0]]
 
     def to_flat_ir(self, flat_ir, inputs, outputs):
-        from tripy.flat_ir.ops import AddOp, CompareOp
+        from tripy.flat_ir.ops import AddOp, CompareOp, BroadcastOp
 
         _MLIR_COMPARE_DIRECTIONS = {
             BinaryElementwise.Kind.LESS: "LT",
@@ -71,6 +75,25 @@ class BinaryElementwise(BaseOperator):
             BinaryElementwise.Kind.GREATER_EQUAL: "GE",
             BinaryElementwise.Kind.GREATER: "GT",
         }
+
+        dynamic_shape = False
+        requires_broadcast = False
+        for dim1, dim2 in zip(inputs[0].shape, inputs[1].shape):
+            requires_broadcast |= dim1 != dim2
+            if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
+                dynamic_shape = True
+
+        def add_broadcast(self, flat_ir, inp, out):
+            temp = flat_ir.add_tensor(out)
+            flat_ir.ops.append(BroadcastOp(self, [inp], [temp], broadcast_dim=list(range(len(inp.shape)))))
+            return temp
+
+        if requires_broadcast:
+            if not dynamic_shape:
+                inputs[0] = add_broadcast(self, flat_ir, inputs[0], outputs[0])
+                inputs[1] = add_broadcast(self, flat_ir, inputs[1], outputs[0])
+            else:
+                assert False, "Broadcast support with dynamic shapes is not enabled."
 
         if self.kind in self._COMPARE_OPS:
             flat_ir.ops.append(CompareOp(self, inputs, outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind]))

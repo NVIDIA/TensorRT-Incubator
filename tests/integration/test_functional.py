@@ -25,7 +25,7 @@ class TestFunctional:
         out = c + c
         assert (out.numpy() == np.array([6.0, 8.0], dtype=np.float32)).all()
 
-    @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=2, max=2)])
+    @pytest.mark.parametrize("dim", [Dim(2, min=2, opt=3, max=4)])
     def test_add_two_tensors_dynamic(self, dim):
         arr = np.ones(2, dtype=np.float32)
         a = Tensor(arr, shape=(dim,), device=device("gpu"))
@@ -38,6 +38,39 @@ class TestFunctional:
 
         out = func(a, b)
         assert (out.numpy() == np.array([2.0, 2.0], dtype=np.float32)).all()
+
+    @pytest.mark.parametrize(
+        "dim_a, dim_b",
+        [
+            ((1, 3), (3, 3)),  # naive broadcast at 0th dim
+            ((3, 3), (3, 1)),  # naive broadcast at 1sh dim of second operand
+            ((1, 3, 1), (4, 3, 7)),  # broadcast at multiple dim of same operand
+            ((1, 3, 7), (4, 3, 1)),  # broadcast at differnt dim of both operand
+        ],
+    )
+    @pytest.mark.parametrize(
+        "use_jit",
+        [False, True],
+    )
+    def test_static_broadcast_add_two_tensors(self, dim_a, dim_b, use_jit):
+        from tripy.common.logging import set_logger_mode, LoggerModes
+
+        set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
+
+        np_a = np.random.rand(*dim_a).astype(np.float32)
+        np_b = np.random.rand(*dim_b).astype(np.float32)
+        a = Tensor(np_a, shape=dim_a, device=device("gpu"))
+        b = Tensor(np_b, shape=dim_b, device=device("gpu"))
+
+        def func(a, b):
+            c = a + b
+            return c
+
+        if use_jit:
+            func = tripy.jit(func)
+
+        out = func(a, b)
+        assert (out.numpy() == np.array(np_a + np_b)).all()
 
     def test_multi_output_trace(self):
         arr = np.ones(2, dtype=np.float32)

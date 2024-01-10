@@ -94,3 +94,29 @@ def make_tuple(obj):
     if not isinstance(obj, tuple) and obj is not None:
         return (obj,)
     return obj
+
+
+def is_broadcast_compatible(shape1, shape2):
+    if len(shape1) != len(shape2):
+        # Todo: ranks dont need to be same, implicit broadcast should be inserted to expand ranks.
+        return False
+
+    # Now check each dimension pair
+    for dim1, dim2 in zip(shape1, shape2):
+        if dim1 != dim2 and dim1 != 1 and dim2 != 1:
+            return False
+
+    return True
+
+
+def get_broadcast_dim(dim1, dim2):
+    if dim1.is_static_dim() and dim2.is_static_dim():
+        assert dim1 == 1 or dim2 == 1 or dim1 == dim2
+        return max(dim1, dim2)
+    else:
+        from tripy.frontend.dim import Dim
+
+        if dim1.is_dynamic_dim():
+            return dim1
+        else:
+            return dim2
