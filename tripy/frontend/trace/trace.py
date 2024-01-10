@@ -161,16 +161,17 @@ class Trace:
 
     def to_flat_ir(self):
         from tripy.flat_ir.flat_ir import FlatIR
+        from tripy.flat_ir.tensor import FIRTensor
 
         flat_ir = FlatIR()
         flat_ir.tensor_cnt = len(self._tensor_names)
         flat_ir.inputs_idx = self.inputs_idx
 
-        for ip in self.inputs:
-            ip.to_flat_ir(flat_ir, True)
+        for inp in self.inputs:
+            flat_ir.inputs.append(FIRTensor(inp))
 
-        for op in self.outputs:
-            op.to_flat_ir(flat_ir, False)
+        for out in self.outputs:
+            flat_ir.outputs.append(FIRTensor(out))
 
         for l in self.layers:
             l.op.to_flat_ir(flat_ir, l.inputs, l.outputs)

@@ -29,7 +29,7 @@ class FlatIR:
         for inp in self.inputs:
             layer_strs.append(f"    {str(inp)}")
         for op in self.ops:
-            layer_strs.append(op.to_flat_ir_str([inp.name for inp in op.inputs], [out.name for out in op.outputs]))
+            layer_strs.append(op.to_flat_ir_str())
         layer_strs.append("outputs:")
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")
@@ -106,3 +106,15 @@ class FlatIR:
         if device is not None:
             tensor.device = device
         return tensor
+
+    def io_tensor_info(self):
+        from tripy.common.types import TensorInfo
+        from tripy.frontend import Dim
+
+        i_tensor_info = [
+            TensorInfo([s.runtime_value if isinstance(s, Dim) else s for s in i.shape], i.dtype) for i in self.inputs
+        ]
+        o_tensor_info = [
+            TensorInfo([s.runtime_value if isinstance(s, Dim) else s for s in o.shape], o.dtype) for o in self.outputs
+        ]
+        return i_tensor_info, o_tensor_info

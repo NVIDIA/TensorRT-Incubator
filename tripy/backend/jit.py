@@ -131,7 +131,8 @@ class jit:
                 executable = compiler.compile(flat_ir)
                 self.cache[cache_key] = executable
 
-            executor = FlatIRExecutor(executable, output_devices)
+            i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
+            executor = FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info)
             outputs = executor.execute(eval_args)
             tensor_outputs = [
                 Tensor(o.data.view(), device=out_device) for o, out_device in zip(outputs, executor.output_devices)

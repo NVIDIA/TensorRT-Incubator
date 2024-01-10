@@ -1,10 +1,8 @@
-from typing import Any
-from tripy import Tensor, jit
-from tripy.frontend.nn import Module, Parameter
-
 import numpy as np
 import pytest
-from tripy.common.logging import set_logger_mode, LoggerModes
+
+from tripy import Tensor
+from tripy.frontend.nn import Module, Parameter
 
 
 class TestOp(Module):

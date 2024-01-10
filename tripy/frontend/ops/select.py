@@ -58,7 +58,7 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
         import numpy as np
 
         condition = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
-        print(condition)
+        # print(condition.eval().view())
         # [[True, False],
         #  [True, True]]
         x = tp.ones([2, 2])

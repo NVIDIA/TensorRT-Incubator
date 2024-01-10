@@ -4,17 +4,26 @@ import cupy as cp
 import os
 
 from collections import namedtuple
+from itertools import chain
 
 from tripy import config
 from tripy.common.logging import G_LOGGER
 from tripy.util import log_time
 from tripy.util.util import find_file_in_dir
 
-from tripy.common.ctypes import void_ptr, char_ptr, c_int, TensorShape, convert_mlirdtype_to_tripy_dtype
+from tripy.common.ctypes import (
+    void_ptr,
+    char_ptr,
+    c_int,
+    c_int64,
+    POINTER,
+    TensorShape,
+    convert_mlirdtype_to_tripy_dtype,
+)
 from tripy.frontend.ops import Storage
 
 # Define a namedtuple to hold the result of the execution initializer
-ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "output_shapes", "outputs"])
+ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "i_tensor_info", "outputs", "o_tensor_info"])
 
 
 def func_wrapper(lib, c_func, argtypes, restype):
@@ -52,16 +61,9 @@ class _MlirCompiler:
             [
                 void_ptr,
                 void_ptr,
+                POINTER(c_int64),
                 void_ptr,
-            ],
-            None,
-        )
-        self.mlir_load_exec_init = func_wrapper(
-            self.compiler_lib,
-            "loadedExecInitializer",
-            [
-                void_ptr,
-                ctypes.POINTER(TensorShape),
+                POINTER(c_int),
             ],
             None,
         )
@@ -85,7 +87,9 @@ class _MlirCompiler:
         self.mlir_destroy(void_ptr(self.compiler))
         self.allocator = None
 
-    def exec_initializer(self, executable: void_ptr, inputs, output_devices) -> ExecInitializerResult:
+    def exec_initializer(
+        self, executable: void_ptr, inputs, output_devices, i_tensor_info, o_tensor_info
+    ) -> ExecInitializerResult:
         """
         Calls the initializer for a loadable executable.
 
@@ -97,23 +101,18 @@ class _MlirCompiler:
         Returns:
             ExecInitializerResult: A named tuple containing input buffer, output buffer, and output shapes.
         """
-        nb_outputs = len(output_devices)
-        output_shapes_arr = (TensorShape * nb_outputs)()
-
-        self.mlir_load_exec_init(executable, output_shapes_arr)
-
         # Allocate output memory and store buffer pointers.
         outputs = [
             Storage(
                 None,
-                shape=shape.get_shape_arr(),
-                dtype=convert_mlirdtype_to_tripy_dtype(shape.dtype),
+                shape=types.shape,
+                dtype=types.dtype,
                 device=out_device,
             )
-            for shape, out_device in zip(output_shapes_arr, output_devices)
+            for types, out_device in zip(o_tensor_info, output_devices)
         ]
 
-        return ExecInitializerResult(inputs, output_shapes_arr, outputs)
+        return ExecInitializerResult(inputs, i_tensor_info, outputs, o_tensor_info)
 
     def exec_destroy(self, executable: void_ptr):
         """
@@ -139,8 +138,9 @@ class _MlirCompiler:
             exec_args (ExecInitializerResult): A named tuple containing the result of the execution
                 initializer, including buffers, sizes, the number of devices, and the number of outputs.
                 - exec_args.inputs: A list of Storage objects representing input buffers.
+                - exec_args.i_tensor_info: An array of input types i.e. (shape, elemType).
                 - exec_args.outputs: A list of Storage objects representing output buffers.
-                - exec_args.output_shapes: An array of output shapes.
+                - exec_args.o_tensor_info: An array of output types i.e. (shape, elemType).
         """
 
         # Create ctypes compatible device memory void pointers for i/o buffers.
@@ -163,9 +163,14 @@ class _MlirCompiler:
         output_device_arr = [1 if out.device.kind == "gpu" else 0 for out in exec_args.outputs]
         output_devices = (ctypes.c_int * len(exec_args.outputs))(*output_device_arr)
 
+        def get_shape_values(types):
+            types = list(chain(*[t.shape for t in types]))
+            return (ctypes.c_int64 * len(types))(*types)
+
         self.mlir_execute(
             void_ptr(executable),
             get_mem_ptrs(exec_args.inputs),
+            get_shape_values(exec_args.i_tensor_info),
             get_mem_ptrs(exec_args.outputs),
             output_devices,
         )
