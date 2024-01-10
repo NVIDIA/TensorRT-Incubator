@@ -13,6 +13,10 @@ class BroadcastOp(BaseFIROp):
         super().__init__(origin_layer, inputs, outputs)
         self.broadcast_dim = broadcast_dim
 
+    def to_flat_ir_str(self) -> str:
+        outputs_str = f"{str(self.outputs[0])}"
+        return f"{outputs_str} = {self.name()}({', '.join(list(map(str, self.inputs)))}, broadcast_dim={self.broadcast_dim})"
+
     def to_mlir(self, operands):
         import numpy as np
 
