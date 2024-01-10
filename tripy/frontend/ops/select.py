@@ -19,13 +19,13 @@ class Select(BaseOperator):
         ), f"Input shapes for Select do not match: condition={self.inputs[0].shape}, x={self.inputs[1].shape}, y={self.inputs[2].shape}"
         self.outputs[0].shape = self.inputs[0].shape
 
-    def infer_dtypes(self, input_dtypes):
-        assert len(input_dtypes) == 3, "Select operation should have exactly 3 inputs!"
-        if input_dtypes[0] != datatype.bool:
-            raise TypeError(f"Condition of Select must be bool type, got {input_dtypes[0]}")
-        if input_dtypes[1] != input_dtypes[2]:
-            raise TypeError(f"Select's input datatypes mismatch, got {input_dtypes[1]} and {input_dtypes[2]}")
-        return [input_dtypes[1]]
+    def infer_dtypes(self):
+        assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
+        if self.inputs[0].dtype != datatype.bool:
+            raise TypeError(f"Condition of Select must be bool type, got {self.inputs[0].dtype}")
+        if self.inputs[1].dtype != self.inputs[2].dtype:
+            raise TypeError(f"Select's input datatypes mismatch, got {self.inputs[1].dtype} and {self.inputs[2].dtype}")
+        self.outputs[0].dtype = self.inputs[1].dtype
 
     def infer_devices(self, input_devices):
         assert len(input_devices) == 3, "Select operation should have exactly 3 inputs!"

@@ -61,9 +61,9 @@ class Storage(BaseOperator):
         assert not self.inputs, "Storage should have no inputs!"
         self.outputs[0].shape = self.shape
 
-    def infer_dtypes(self, input_dtypes):
-        assert not input_dtypes, "Storage should have no inputs!"
-        return [self.dtype]
+    def infer_dtypes(self):
+        assert not self.inputs, "Storage should have no inputs!"
+        self.outputs[0].dtype = self.dtype
 
     def infer_devices(self, input_devices):
         assert not input_devices, "Storage should have no inputs!"

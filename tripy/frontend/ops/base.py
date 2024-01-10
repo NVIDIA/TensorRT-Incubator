@@ -37,28 +37,14 @@ class BaseOperator(abc.ABC):
         """
         ...
 
-    @abc.abstractmethod
-    def infer_dtypes(self, input_dtypes: List[dtype]) -> List[dtype]:
+    def infer_dtypes(self):
         """
-        Infers dtypes for the operation.
-
-        Args:
-            input_dtypes: The dtypes of the input tensor(s).
-
-        Returns:
-            The dtypes of the output tensor(s).
+        Infers dtypes for the operation and updates output tensor dtypes accordingly.
         """
-        ...
-
-    @abc.abstractmethod
-    def to_flat_ir(self, flat_ir) -> None:
-        """
-        Generates FlatIR ops for the operation.
-
-        Args:
-            flat_ir: FlatIR parent graph where new ops are inserted.
-        """
-        ...
+        assert (
+            self.inputs and len(self.outputs) == 1 and all(inp.dtype == self.inputs[0].dtype for inp in self.inputs)
+        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different data types. Please override."
+        self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_devices(self, input_devices: List) -> List:
         """
@@ -77,3 +63,13 @@ class BaseOperator(abc.ABC):
         if len(input_devices) > 1:
             assert _all_same(input_devices), "Inputs are on different devices!"
         return [input_devices[0]]
+
+    @abc.abstractmethod
+    def to_flat_ir(self, flat_ir) -> None:
+        """
+        Generates FlatIR ops for the operation.
+
+        Args:
+            flat_ir: FlatIR parent graph where new ops are inserted.
+        """
+        ...

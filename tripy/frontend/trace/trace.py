@@ -1,4 +1,4 @@
-from collections import defaultdict, namedtuple
+from collections import  namedtuple
 from typing import Dict, List, Sequence, Set
 
 from tripy.frontend.ops import BaseOperator
@@ -112,23 +112,22 @@ class Trace:
         # Compute and cache shape information for all tensors
         for inp in self.inputs:
             inp.producer.infer_shapes()
-            inp.dtype = inp.producer.infer_dtypes([])[0]
+            inp.producer.infer_dtypes()
             inp.device = inp.producer.infer_devices([])[0]
 
-            self._tensor_info_map[inp.name] = TraceTensorInfo(None, inp.dtype, inp.device)
+            self._tensor_info_map[inp.name] = TraceTensorInfo(None, None, inp.device)
 
         for layer in self.layers:
             layer.infer_shapes()
-            out_dtypes = layer.infer_dtypes([self._tensor_info_map[inp.name].dtype for inp in layer.inputs])
+            layer.infer_dtypes()
             out_devices = layer.infer_devices([self._tensor_info_map[inp.name].device for inp in layer.inputs])
 
-            for out, dtype, device in zip(layer.outputs, out_dtypes, out_devices):
-                self._tensor_info_map[out.name] = TraceTensorInfo(None, dtype, device)
+            for out, device in zip(layer.outputs, out_devices):
+                self._tensor_info_map[out.name] = TraceTensorInfo(None, None, device)
 
         # Assign cached shape information to corresponding Tensor
         for layer in self.layers:
             for io in layer.inputs + layer.outputs:
-                io.dtype = self._tensor_info_map[io.name].dtype
                 io.device = self._tensor_info_map[io.name].device
 
     def to_flat_ir(self):

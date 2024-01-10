@@ -38,10 +38,6 @@ class Transpose(BaseOperator):
             )
         self.outputs[0].shape = tuple(origin_shape[idx] for idx in self.permutation)
 
-    def infer_dtypes(self, input_dtypes):
-        assert len(input_dtypes) == 1, "Transpose operation should have exactly one input!"
-        return [input_dtypes[0]]
-
     def infer_devices(self, input_devices):
         assert len(input_devices) == 1, "Transpose operation should have exactly one input!"
         return [input_devices[0]]

@@ -30,10 +30,10 @@ class Iota(BaseOperator):
             self.shape = self.inputs[0].shape
         self.outputs[0].shape = self.shape
 
-    def infer_dtypes(self, input_dtypes):
-        if len(input_dtypes) == 1 and self.dtype is None:
-            self.dtype = input_dtypes[0]
-        return [self.dtype]
+    def infer_dtypes(self):
+        if len(self.inputs) == 1 and self.dtype is None:
+            self.dtype = self.inputs[0].dtype
+        self.outputs[0].dtype = self.dtype
 
     def infer_devices(self, input_devices):
         from tripy.common import device

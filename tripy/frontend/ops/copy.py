@@ -23,9 +23,6 @@ class Copy(BaseOperator):
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
 
-    def infer_dtypes(self, input_dtypes):
-        return [input_dtypes[0]]
-
     def infer_devices(self, input_devices: List) -> List:
         return [self.target]
 

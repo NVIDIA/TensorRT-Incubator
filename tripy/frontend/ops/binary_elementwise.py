@@ -57,13 +57,12 @@ class BinaryElementwise(BaseOperator):
 
         self.outputs[0].shape = tuple(get_broadcast_dim(*d) for d in zip(*input_shapes))
 
-    def infer_dtypes(self, input_dtypes):
+    def infer_dtypes(self):
         assert (
-            input_dtypes[0] == input_dtypes[1]
-        ), f"Input data types for BinaryElementwise must match. Got: {input_dtypes[0]} and {input_dtypes[1]}"
-        if self.kind in self._COMPARE_OPS:
-            return [datatype.bool]
-        return [input_dtypes[0]]
+            self.inputs[0].dtype == self.inputs[1].dtype
+        ), f"Input data types for BinaryElementwise must match. Got: {self.inputs[0].dtype} and {self.inputs[1].dtype}"
+
+        self.outputs[0].dtype = datatype.bool if self.kind in self._COMPARE_OPS else self.inputs[0].dtype
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import AddOp, BroadcastOp, CompareOp
