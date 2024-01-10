@@ -17,14 +17,21 @@ class Fill(BaseOperator):
     dtype: datatype.dtype
 
     def to_trace_str(self, input_names, output_names):
-        assert len(input_names) == 0, "Fill operation should have no input!"
-        assert len(output_names) == 1, "Fill operation should have exactly one output!"
-        return f"{output_names[0]} = Tensor.fill(value={self.value}, shape={self.shape}, dtype={self.dtype.name})"
+        assert len(input_names) == 0 or len(input_names) == 1, "Fill operation should have 0 ir 1 input!"
+        assert len(output_names) == 1, "Fill operation should exactly ones output!"
+        if len(input_names) == 1:
+            return f"{output_names[0]} = Tensor.fill_like(value={self.value}, like={input_names[0]})"
+        else:
+            return f"{output_names[0]} = Tensor.fill(value={self.value}, shape={self.shape}, dtype={self.dtype.name})"
 
     def infer_shapes(self, input_shapes):
+        if len(input_shapes) == 1:
+            self.shape = input_shapes[0]
         return [util.make_tuple(self.shape)]
 
     def infer_dtypes(self, input_dtypes):
+        if len(input_dtypes) == 1 and self.dtype is None:
+            self.dtype = input_dtypes[0]
         return [self.dtype]
 
     def infer_devices(self, input_devices):
@@ -43,49 +50,52 @@ class Fill(BaseOperator):
         flat_ir.ops.append(BroadcastOp(self, [const_val_tensor], outputs, broadcast_dim=[]))
 
 
-def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
+def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32):
     """
-    Creates a Tensor with all elements set to 1.
+    Creates a Tensor of `shape` filled with `fill_value`.
 
     Args:
         shape: A list or tuple of integers
+        fill_value: A numeric scalar value to fill the resulting Tensor.
         dtype: Optional datatype of an element in the resulting Tensor.
 
     Returns:
-        A Tensor with all elements set to 1.
+        A Tensor with all elements set to fill_value.
 
     Example:
     ::
 
         import numpy as np
 
-        a = tp.ones([2, 3])
-        assert (a.numpy() == np.ones([2, 3], dtype=np.float32)).all()
+        a = tp.full([2, 3], 2)
+        assert (a.numpy() == np.full([2, 3], 2, dtype=np.float32)).all()
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([], Fill(1, shape, dtype))
+    return Tensor.build([], Fill(fill_value, shape, dtype))
 
 
-def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
+def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
     """
-    Creates a Tensor with all elements set to 0.
+    Creates a Tensor filled with `fill_value`, its shape (and dtype if not given) are determined by the `input` Tensor.
 
     Args:
-        shape: A list or tuple of integers
+        input: Input Tensor to determine the resulting Tensor's shape (and dtype if not given).
+        fill_value: A numeric scalar value to fill the resulting Tensor.
         dtype: Optional datatype of an element in the resulting Tensor.
 
     Returns:
-        A Tensor with all elements set to 0.
+        A Tensor with all elements set to fill_value.
 
     Example:
     ::
 
         import numpy as np
 
-        a = tp.zeros([2, 3])
-        assert (a.numpy() == np.zeros([2, 3], dtype=np.float32)).all()
+        t = tp.Tensor([[1, 2], [3, 4]])
+        a = tp.full_like(t, 2)
+        assert (a.numpy() == np.array([[2, 2], [2, 2]], dtype=np.float32)).all()
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([], Fill(0, shape, dtype))
+    return Tensor.build([input], Fill(fill_value, None, dtype))
