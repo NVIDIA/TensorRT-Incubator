@@ -10,6 +10,9 @@ class device:
     Describes a device.
     """
 
+    kind: str
+    index: int
+
     def __init__(self, device) -> None:
         """
         Args:
@@ -51,5 +54,5 @@ class device:
         self.kind = kind
         self.index = index
 
-    kind: str
-    index: int
+    def __str__(self) -> str:
+        return f"{self.kind}:{self.index}"

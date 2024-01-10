@@ -125,7 +125,7 @@ build_mlir_tensorrt:
     - changes:
       - mlir-tensorrt.txt
       - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: always
 
 

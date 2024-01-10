@@ -9,16 +9,15 @@ class ConstantOp(BaseFIROp):
     Operation to store a constant tensor
     """
 
-    def __init__(self, origin_layer, inputs, outputs, **kwargs):
+    def __init__(self, origin_layer, inputs, outputs, data):
         super().__init__(inputs, outputs, origin_layer)
-        assert "data" in kwargs
         assert len(self.outputs) == 1, "ConstantOp should have exactly 1 output"
-        self.data = kwargs.get("data")
+        self.data = data
         self.dtype = self.outputs[0].dtype
         self.device = self.outputs[0].device
 
-    def to_flat_ir_str(self, input_names, output_names) -> str:
-        return f"{output_names[0]} : {self.__class__.__name__} data={self.data}, shape={self.data.shape}, dtype={self.dtype.name}, loc=({self.device.kind}:{self.device.index})"
+    def to_flat_ir_str(self) -> str:
+        return f"{self.outputs[0].name} : {self.__class__.__name__}(data={self.data}, shape={self.data.shape}, dtype={self.dtype.name}, loc=({self.device}))"
 
     def to_mlir(self, operands):
         from tripy.backend.mlir import utils as mlir_utils
@@ -34,14 +33,13 @@ class ConstantScalarOp(BaseFIROp):
     Operation to store a constant scalar
     """
 
-    def __init__(self, origin_layer, inputs, outputs, **kwargs):
+    def __init__(self, origin_layer, inputs, outputs, value, dtype):
         super().__init__(inputs, outputs, origin_layer)
-        assert "value" in kwargs and "dtype" in kwargs
-        self.value = kwargs.get("value")
-        self.dtype = kwargs.get("dtype")
+        self.value = value
+        self.dtype = dtype
 
     def to_flat_ir_str(self, input_names, output_names) -> str:
-        return f"{output_names[0]} : {self.__class__.__name__} data={self.value}, shape={self.data.shape}, dtype={self.dtype.name}, loc={self.device}"
+        return f"{self.outputs[0].name} : {self.__class__.__name__}(data={self.value}, shape={()}, dtype={self.dtype.name}, loc={self.device})"
 
     def to_mlir(self, operands):
         from tripy.backend.mlir import utils as mlir_utils

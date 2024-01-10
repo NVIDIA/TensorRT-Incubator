@@ -94,7 +94,7 @@ class TestTrace:
                 t1 : data=([1]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs:
-                    t2 : shape=((1,)), dtype=(int32), loc=(gpu:0)
+                    t2: [shape=(1,), dtype=(int32), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -133,9 +133,8 @@ class TestTrace:
                 t2 = t0 + t1
                 t3 = t2 + t2
                 outputs:
-                    t2 : shape=((1,)), dtype=(float32), loc=(gpu:0)
-                    t3 : shape=((1,)), dtype=(float32), loc=(gpu:0)
-
+                    t2: [shape=(1,), dtype=(float32), loc=(gpu:0)]
+                    t3: [shape=(1,), dtype=(float32), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -168,11 +167,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=((1,)), dtype=(float32), loc=(gpu:0)
-                    t1 : shape=((1,)), dtype=(float32), loc=(gpu:0)
+                    t0: [shape=(1,), dtype=(float32), loc=(gpu:0)]
+                    t1: [shape=(1,), dtype=(float32), loc=(gpu:0)]
                 t2 = t0 + t1
                 outputs:
-                    t2 : shape=((1,)), dtype=(float32), loc=(gpu:0)
+                    t2: [shape=(1,), dtype=(float32), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -192,11 +191,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    t0 : shape=((1,)), dtype=(float32), loc=(gpu:0)
+                    t0: [shape=(1,), dtype=(float32), loc=(gpu:0)]
                 t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
                 t2 = t0 + t1
                 outputs:
-                    t2 : shape=((1,)), dtype=(float32), loc=(gpu:0)
+                    t2: [shape=(1,), dtype=(float32), loc=(gpu:0)]
                 """
             ).strip()
         )
