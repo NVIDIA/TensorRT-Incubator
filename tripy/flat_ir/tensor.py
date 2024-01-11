@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from mlir import ir
 
 from tripy.frontend.trace.tensor import TraceTensor
-from tripy.util import make_list
+from tripy.utils import make_list
 
 
 @dataclass

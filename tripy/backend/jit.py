@@ -1,10 +1,11 @@
 import atexit
 import functools
+import glob
 import os
 import tempfile
 from typing import Callable, Dict, Tuple
 
-from tripy import config
+from tripy import config, utils
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import G_LOGGER
@@ -170,12 +171,12 @@ class jit:
         for _, executable in self.cache.items():
             mlir_backend.exec_destroy(executable)
 
-    def save(self, folder_path=None):
+    def save(self, dir_path=None):
         """
         Saves all cached executables to a given folder
 
         Args:
-            folder_path: A string of folder name
+            dir_path: A string of folder name
 
         Example:
         ::
@@ -198,37 +199,36 @@ class jit:
         """
         from tripy.backend.mlir.mlir import mlir_wrapper
 
-        G_LOGGER.info(f"Saving cached engines to {folder_path}")
+        G_LOGGER.info(f"Saving engines to cache: {dir_path}")
         mlir_backend = mlir_wrapper()
-        folder_path = folder_path if folder_path is not None else self.cache_dir
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        name_cnt = 0
-        for cache_key, executable in self.cache.items():
-            filename = os.path.join(folder_path, f"engine_{name_cnt}.engine")
+        dir_path = utils.default(dir_path, self.cache_dir)
+        os.makedirs(dir_path, exist_ok=True)
+
+        for index, (cache_key, executable) in enumerate(self.cache.items()):
+            filename = os.path.join(dir_path, f"engine_{index}.engine")
             if os.path.exists(filename):
                 os.remove(filename)
             with open(filename, "wb") as f:
                 f.write(cache_key.encode())
             mlir_backend.save(executable, filename)
-            name_cnt += 1
 
-    def load(self, folder_path=None):
+    def load(self, dir_path=None):
         """
         Loads all compiled executables from a given directory
 
         Args:
-            folder_path: A string of folder name
+            dir_path: A string of folder name
         """
         from tripy.backend.mlir.mlir import mlir_wrapper
 
-        G_LOGGER.info(f"Loading cached engines from {folder_path}")
+        G_LOGGER.info(f"Loading engines from cache: {dir_path}")
         mlir_backend = mlir_wrapper()
-        folder_path = folder_path if folder_path is not None else self.cache_dir
-        if not os.path.exists(folder_path):
+        dir_path = utils.default(dir_path, self.cache_dir)
+        if not os.path.exists(dir_path):
             raise Exception("Folder does not exist!")
-        for engine_name in os.listdir(folder_path):
-            engine_name = os.path.join(folder_path, engine_name)
+
+        for engine_name in glob.iglob(os.path.join(dir_path, "*.engine")):
+            engine_name = os.path.join(dir_path, engine_name)
             with open(engine_name, "rb") as f:
                 cache_key = f.read(config.JIT_CACHE_HASH_LENGTH).decode()
                 executable = mlir_backend.load(data=f.read())

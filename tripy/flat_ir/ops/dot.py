@@ -4,7 +4,7 @@ from mlir import ir
 from mlir.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFIROp
-from tripy.util import default
+from tripy.utils import default
 
 
 class DotOp(BaseFIROp):

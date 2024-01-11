@@ -5,7 +5,7 @@ from collections import namedtuple
 
 import cupy as cp
 
-from tripy import config, util
+from tripy import config, utils
 from tripy.common.ctypes import POINTER, c_int, c_int64, char_ptr, void_ptr
 from tripy.common.logging import G_LOGGER
 from tripy.frontend.ops import Storage
@@ -31,9 +31,9 @@ class _MlirCompiler:
     Instead of a singleton class implementation, tripy assumes that `_MlirCompiler` will be imported from other modules.
     """
 
-    @util.log_time
+    @utils.log_time
     def __init__(self) -> None:
-        lib_path = util.find_file_in_dir(config.MLIR_LIB_NAME, mlir_lib_path())
+        lib_path = utils.find_file_in_dir(config.MLIR_LIB_NAME, mlir_lib_path())
         assert (
             len(lib_path) == 1
         ), f"Compiler expects exactly 1 tripy backend library to be available.  Found {len(lib_path)} libraries."
@@ -95,7 +95,7 @@ class _MlirCompiler:
         def make_storage(shape, dtype, device):
             storage = Storage(
                 [],
-                [TraceTensor([], util.get_stack_info(), shape, None, dtype, device)],
+                [TraceTensor([], utils.get_stack_info(), shape, None, dtype, device)],
                 True,
                 None,
                 shape=shape,

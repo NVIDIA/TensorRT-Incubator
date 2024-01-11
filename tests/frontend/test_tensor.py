@@ -9,7 +9,7 @@ import tripy
 import tripy.frontend.ops
 from tripy.common.datatype import DATA_TYPES, convert_tripy_to_numpy_dtype
 from tripy.frontend import Tensor
-from tripy.util.stack_info import SourceInfo
+from tripy.utils.stack_info import SourceInfo
 
 
 class TestTensor:

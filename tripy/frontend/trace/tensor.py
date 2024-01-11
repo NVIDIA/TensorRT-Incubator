@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import dataclasses
 from tripy.common.types import ShapeInfo
 from tripy.frontend import Dim
-from tripy.util import StackInfo, make_list
+from tripy.utils import StackInfo, make_list
 
 
 @dataclass

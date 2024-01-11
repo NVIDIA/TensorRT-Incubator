@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple, Union
 
-from tripy import util
+from tripy import utils
 from tripy.common.types import ShapeInfo
 from tripy.common import device as make_device
 from tripy.common.array import Array
@@ -40,11 +40,11 @@ class Storage(BaseOperator):
             # Ensure that dtype is not set.
             assert dtype is None
 
-        self.device = util.default(device, make_device("cpu"))
+        self.device = utils.default(device, make_device("cpu"))
         self.data = Array(data, dtype, shape, self.device)
         self.dtype = self.data.dtype
-        self.shape: Tuple[int] = util.make_tuple(to_dims(self.data.shape) if shape is None else shape)
-        self.shape_profile: List = util.make_list(shape)
+        self.shape: Tuple[int] = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
+        self.shape_profile: List = utils.make_list(shape)
 
     def __eq__(self, other) -> bool:
         return self.data == other.data

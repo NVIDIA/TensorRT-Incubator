@@ -4,7 +4,7 @@ from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor
 from tripy.frontend.ops import Storage
-from tripy.util import log_time
+from tripy.utils import log_time
 
 
 class FlatIRExecutor:

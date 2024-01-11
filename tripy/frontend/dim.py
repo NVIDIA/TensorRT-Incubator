@@ -1,6 +1,6 @@
 from typing import Callable, Optional
 
-from tripy.util import default
+from tripy.utils import default
 
 
 def validate_profile(method: Callable) -> Callable:
