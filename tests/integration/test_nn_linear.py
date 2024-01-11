@@ -14,10 +14,6 @@ class TestNNLinear:
         [False, True],
     )
     def test_linear_module(self, use_jit):
-        from tripy.common.logging import set_logger_mode, LoggerModes
-
-        set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
-
         class Network(tripy.nn.Module):
             def __init__(self):
                 super().__init__()
