@@ -1,9 +1,8 @@
 from collections import defaultdict, namedtuple
 from typing import Dict, List, Sequence, Set
 
-from tripy import frontend
-from tripy.common.types import ShapeInfo
-from tripy.frontend.trace.layer import TraceLayer
+from tripy.frontend.ops import BaseOperator
+from tripy.frontend.tensor import Tensor
 from tripy.frontend.trace.tensor import TraceTensor
 
 TraceTensorInfo = namedtuple("TraceTensorInfo", ["shape", "dtype", "device"])
@@ -14,13 +13,13 @@ class Trace:
     A flattened representation of a computation graph expressed by one or more Tensors.
     """
 
-    def __init__(self, tensors: Sequence[frontend.Tensor]) -> None:
+    def __init__(self, tensors: Sequence[Tensor]) -> None:
         """
         Args:
             tensors: The tensor(s) to evaluate. These are effectively
                 the desired outputs.
         """
-        self.layers: List[TraceLayer] = []
+        self.layers: List[BaseOperator] = []
         self.inputs: List[TraceTensor] = []
         self.outputs: List[TraceTensor] = []
         # Dict to map input name to argument index
@@ -30,68 +29,39 @@ class Trace:
 
         self._tensor_names: Dict[int, str] = defaultdict(lambda: None)
 
-        def get_tensor_name(tensor):
-            tid = id(tensor)
-            if tid not in self._tensor_names:
-                self._tensor_names[tid] = f"t{len(self._tensor_names)}"
-            return self._tensor_names[tid]
+        exprs = [tensor.op for tensor in tensors]
+        # Track outputs:
+        incoming_exprs = set(id(expr) for expr in exprs)
+        seen_op_ids: Set[int] = set()
 
-        # Track exprs that are being traced to pretty print later
-        incoming_exprs = set(id(t) for t in tensors)
+        # Reset names each time we create a trace. This is a hack since we depend on
+        # names being identical to identify structurally equivalent traces/flat_irs for JIT caching purposes.
+        # TODO (#70): Remove this and instead use the tensor names set by the frontend.
+        def get_name(tensor):
+            tensor_id = id(tensor)
+            if tensor_id not in self._tensor_names:
+                self._tensor_names[tensor_id] = f"t{len(self._tensor_names)}"
+            return self._tensor_names[tensor_id]
 
-        exprs = list(tensors)
-        seen_tensor_ids: Set[int] = set()
-        # Store the producer of a tensor
-        producer_dict: Dict[str, TraceLayer] = {}
         while exprs:
             head = exprs.pop(0)
 
-            if id(head) in seen_tensor_ids:
+            if id(head) in seen_op_ids:
                 continue
-            seen_tensor_ids.add(id(head))
+            seen_op_ids.add(id(head))
 
-            as_input = (len(head.inputs) == 0) and (head.const_fold is False)
-            if as_input:
-                input_fir_tensor = TraceTensor(
-                    get_tensor_name(head),
-                    head._stack_info,
-                    head.op.infer_shapes([])[0],
-                    None,
-                    head.op.infer_dtypes([])[0],
-                    head.op.infer_devices([])[0],
-                )
-                self.inputs.append(input_fir_tensor)
-                producer_dict[input_fir_tensor.name] = None
+            for io in head.inputs + head.outputs:
+                io.name = get_name(io)
+
+            if not head.inputs and not head.const_fold:
+                # We stop tracing at input tensors.
+                self.inputs.extend(head.outputs)
             else:
-                exprs.extend(head.inputs)
-                # Shapes/dtypes for intermediate tensors are inferred by infer_shapes_and_dtypes().
-                self.layers.append(
-                    TraceLayer(
-                        [
-                            TraceTensor(get_tensor_name(inp), inp._stack_info, [], None, None, None)
-                            for inp in head.inputs
-                        ],
-                        [TraceTensor(get_tensor_name(head), head._stack_info, [], None, None, None)],
-                        head.op,
-                    )
-                )
-
-                for output in self.layers[-1].outputs:
-                    producer_dict[output.name] = self.layers[-1]
+                self.layers.append(head)
+                exprs.extend([inp.producer for inp in head.inputs])
 
             if id(head) in incoming_exprs:
-                if as_input:
-                    self.outputs.append(self.inputs[-1])
-                else:
-                    self.outputs.append(*self.layers[-1].outputs)
-
-        for idx, inp in enumerate(self.inputs):
-            self.inputs_idx[inp.name] = idx
-
-        # Use the producer cache to fill the information for all tensors.
-        for l in self.layers:
-            for inp in l.inputs:
-                inp.producer = producer_dict[inp.name]
+                self.outputs.extend(head.outputs)
 
         # Reverse the order of the layers so they are topologically sorted
         self.layers = self.topological_sort()
@@ -99,21 +69,21 @@ class Trace:
         # Perform shape/dtype/device inference to fill shape information for all tensors.
         self.infer_tensor_info()
 
-    def topological_sort(self) -> List[TraceLayer]:
+    def topological_sort(self) -> List[BaseOperator]:
         stack = list()
-        visited_nodes = defaultdict(lambda: False)
+        visited_layer_ids = set()
 
-        def add_to_stack(v, visited, stack):
-            visited[id(v)] = True
-            for ip in v.inputs:
-                if ip.producer and id(ip.producer) not in visited:
-                    add_to_stack(ip.producer, visited, stack)
+        def add_to_stack(layer, stack):
+            visited_layer_ids.add(id(layer))
+            for ip in filter(lambda inp: inp not in self.inputs, layer.inputs):
+                if ip.producer is not None and id(ip.producer) not in visited_layer_ids:
+                    add_to_stack(ip.producer, stack)
 
-            stack.append(v)
+            stack.append(layer)
 
-        for l in self.layers:
-            if id(l) not in visited_nodes:
-                add_to_stack(l, visited_nodes, stack)
+        for layer in self.layers:
+            if id(layer) not in visited_layer_ids:
+                add_to_stack(layer, stack)
 
         assert len(self.layers) == len(stack)
         return stack
@@ -126,7 +96,7 @@ class Trace:
             layer_strs.append(f"    {str(inp)}")
         for layer in self.layers:
             layer_strs.append(
-                layer.op.to_trace_str([inp.name for inp in layer.inputs], [out.name for out in layer.outputs])
+                layer.to_trace_str([inp.name for inp in layer.inputs], [out.name for out in layer.outputs])
             )
         layer_strs.append("outputs:")
         for out in self.outputs:
@@ -140,14 +110,21 @@ class Trace:
         """
         Extremely naive shape inference routine.
         """
+
         # Compute and cache shape information for all tensors
-        for inp in self.inputs:
+        for idx, inp in enumerate(self.inputs):
+            self.inputs_idx[inp.name] = idx
+
+            inp.shape = inp.producer.infer_shapes([])[0]
+            inp.dtype = inp.producer.infer_dtypes([])[0]
+            inp.device = inp.producer.infer_devices([])[0]
+
             self._tensor_info_map[inp.name] = TraceTensorInfo(inp.shape, inp.dtype, inp.device)
 
         for layer in self.layers:
-            out_shapes = layer.op.infer_shapes([self._tensor_info_map[inp.name].shape for inp in layer.inputs])
-            out_dtypes = layer.op.infer_dtypes([self._tensor_info_map[inp.name].dtype for inp in layer.inputs])
-            out_devices = layer.op.infer_devices([self._tensor_info_map[inp.name].device for inp in layer.inputs])
+            out_shapes = layer.infer_shapes([self._tensor_info_map[inp.name].shape for inp in layer.inputs])
+            out_dtypes = layer.infer_dtypes([self._tensor_info_map[inp.name].dtype for inp in layer.inputs])
+            out_devices = layer.infer_devices([self._tensor_info_map[inp.name].device for inp in layer.inputs])
 
             for out, shape, dtype, device in zip(layer.outputs, out_shapes, out_dtypes, out_devices):
                 self._tensor_info_map[out.name] = TraceTensorInfo(shape, dtype, device)
@@ -174,6 +151,6 @@ class Trace:
             flat_ir.outputs.append(FIRTensor(out))
 
         for l in self.layers:
-            l.op.to_flat_ir(flat_ir, l.inputs, l.outputs)
+            l.to_flat_ir(flat_ir, l.inputs, l.outputs)
 
         return flat_ir

@@ -62,4 +62,4 @@ def to(self: "tripy.Tensor", device: "tripy.device"):
     if isinstance(self.op, Storage) and self.op.device == device:
         return self
 
-    return Tensor.build([self], Copy(device))
+    return Tensor.build([self], Copy, device)

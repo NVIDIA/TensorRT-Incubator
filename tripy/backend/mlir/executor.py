@@ -1,9 +1,8 @@
 from typing import List
 
-from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr, ExecInitializerResult
+from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor
-from tripy.common.datatype import convert_tripy_to_numpy_dtype
 from tripy.frontend.ops import Storage
 from tripy.util import log_time
 
@@ -62,7 +61,7 @@ class FlatIRExecutor:
         # Create execargs
         device_inputs = []
         for inp in inputs:
-            if inp.const_fold:
+            if inp.op.const_fold:
                 continue
             inp_storage = inp.op
             assert isinstance(inp_storage, Storage), "Input tensors must be evaluated!"

@@ -68,4 +68,4 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([condition, x, y], Select())
+    return Tensor.build([condition, x, y], Select)

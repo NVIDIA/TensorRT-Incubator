@@ -18,7 +18,7 @@ class TestTensor:
         a = Tensor(VALUES)
 
         assert isinstance(a, Tensor)
-        assert a.inputs == []
+        assert a.op.inputs == []
         assert isinstance(a.op, tripy.frontend.ops.Storage)
         assert a.numpy().tolist() == VALUES
 
@@ -44,9 +44,14 @@ class TestTensor:
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     def test_stack_info_is_populated(self):
+        class MockOp:
+            def __init__(self, inputs, outputs):
+                self.inputs = inputs
+                self.outputs = outputs
+
         # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
         expected_line_number = sys._getframe().f_lineno + 1
-        a = Tensor.build(inputs=[], op=None)
+        a = Tensor.build(inputs=[], OpType=lambda inputs, outputs, const_fold: MockOp(inputs, outputs))
 
         # We don't check line number within Tensor because it's diffficult to determine.
         assert a._stack_info[1] == SourceInfo(
@@ -78,5 +83,5 @@ class TestTensor:
 
         assert isinstance(c.op, tripy.frontend.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
-        assert c.inputs == []
+        assert c.op.inputs == []
         assert (c.op.data.view() == np.array([3], dtype=np.float32)).all()

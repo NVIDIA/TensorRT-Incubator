@@ -111,13 +111,14 @@ class jit:
 
             for i in range(len(eval_args)):
                 if i not in self._const_args:
-                    eval_args[i].const_fold = False
+                    eval_args[i].op.const_fold = False
             eval_args = tuple(eval_args)
 
             return_tensors = func(*eval_args, **kwargs)
             if isinstance(return_tensors, Tensor):
                 return_tensors = [return_tensors]
             trace = Trace(return_tensors)
+
             G_LOGGER.ir_printer(f"Trace :\n{trace}")
             flat_ir = trace.to_flat_ir()
             G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")

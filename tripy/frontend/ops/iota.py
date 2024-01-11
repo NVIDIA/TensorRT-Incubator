@@ -68,7 +68,7 @@ def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.floa
 
     if dim < 0 or dim >= len(shape):
         raise Exception("Invalid arange dim")
-    return Tensor.build([], Iota(dim, to_dims(shape), dtype))
+    return Tensor.build([], Iota, dim, to_dims(shape), dtype)
 
 
 def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None):
@@ -93,4 +93,4 @@ def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = Non
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([input], Iota(dim, None, dtype))
+    return Tensor.build([input], Iota, dim, None, dtype)

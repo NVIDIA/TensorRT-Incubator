@@ -92,5 +92,5 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
     return Tensor.build(
         [self, other],
-        MatrixMultiplication(),
+        MatrixMultiplication,
     )
