@@ -23,8 +23,8 @@ class Copy(BaseOperator):
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
 
-    def infer_devices(self, input_devices: List) -> List:
-        return [self.target]
+    def infer_devices(self):
+        self.outputs[0].device = self.target
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import CopyOp

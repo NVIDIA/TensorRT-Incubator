@@ -46,23 +46,14 @@ class BaseOperator(abc.ABC):
         ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different data types. Please override."
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def infer_devices(self, input_devices: List) -> List:
+    def infer_devices(self):
         """
-        Infers output devices for the operation.
-
-        Args:
-            input_devices: The devices of the input tensor(s).
-
-        Returns:
-            The devices of the output tensor(s).
+        Infers devices for the operation and updates output tensor devices accordingly.
         """
-
-        def _all_same(inputs: List):
-            return all(inp == inputs[0] for inp in inputs)
-
-        if len(input_devices) > 1:
-            assert _all_same(input_devices), "Inputs are on different devices!"
-        return [input_devices[0]]
+        assert (
+            self.inputs and len(self.outputs) == 1 and all(inp.device == self.inputs[0].device for inp in self.inputs)
+        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different devices. Please override."
+        self.outputs[0].device = self.inputs[0].device
 
     @abc.abstractmethod
     def to_flat_ir(self, flat_ir) -> None:

@@ -27,13 +27,6 @@ class Select(BaseOperator):
             raise TypeError(f"Select's input datatypes mismatch, got {self.inputs[1].dtype} and {self.inputs[2].dtype}")
         self.outputs[0].dtype = self.inputs[1].dtype
 
-    def infer_devices(self, input_devices):
-        assert len(input_devices) == 3, "Select operation should have exactly 3 inputs!"
-        assert (
-            input_devices[0] == input_devices[1] and input_devices[0] == input_devices[2]
-        ), f"Input devices for Select do not match: condition={input_devices[0]}, x={input_devices[1]}, y={input_devices[2]}"
-        return [input_devices[0]]
-
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import SelectOp
 

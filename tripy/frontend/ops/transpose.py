@@ -38,10 +38,6 @@ class Transpose(BaseOperator):
             )
         self.outputs[0].shape = tuple(origin_shape[idx] for idx in self.permutation)
 
-    def infer_devices(self, input_devices):
-        assert len(input_devices) == 1, "Transpose operation should have exactly one input!"
-        return [input_devices[0]]
-
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import TransposeOp
 

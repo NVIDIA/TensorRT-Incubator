@@ -58,18 +58,15 @@ class Storage(BaseOperator):
         return f"{output_names[0]} : data=({self.data.view()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
     def infer_shapes(self):
-        assert not self.inputs, "Storage should have no inputs!"
         self.outputs[0].shape = self.shape
 
     def infer_dtypes(self):
-        assert not self.inputs, "Storage should have no inputs!"
         self.outputs[0].dtype = self.dtype
 
-    def infer_devices(self, input_devices):
-        assert not input_devices, "Storage should have no inputs!"
+    def infer_devices(self):
         # This is different from self.device
         # Constants are always on device when executed by mlir
-        return [make_device("gpu")]
+        self.outputs[0].device = make_device("gpu")
 
     def to_flat_ir(self, flat_ir):
         import cupy as cp

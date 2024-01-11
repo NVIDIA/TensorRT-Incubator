@@ -35,10 +35,10 @@ class Iota(BaseOperator):
             self.dtype = self.inputs[0].dtype
         self.outputs[0].dtype = self.dtype
 
-    def infer_devices(self, input_devices):
+    def infer_devices(self):
         from tripy.common import device
 
-        return [device("gpu")]
+        self.outputs[0].device = device("gpu")
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import IotaOp
