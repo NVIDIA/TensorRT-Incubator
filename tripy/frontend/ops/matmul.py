@@ -14,43 +14,34 @@ class MatrixMultiplication(BaseOperator):
     Represents a matrix multiplication operation.
     """
 
-    def to_trace_str(self, input_names, output_names):
-        assert len(output_names) == 1, f"{self.__class__.__name__} should have exactly one output!"
-        return f"{output_names[0]} = {' @ '.join(input_names)}"
+    def to_trace_str(self):
+        return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
-    def infer_shapes(self, input_shapes):
+    def infer_shapes(self):
         # Fix when broadcasting support is added (#25).
         # Note that infer_shapes won't reason about equality of dimensions since shape analysis is done within
         # the mlir tensorrt compiler.
 
-        assert len(input_shapes) == 2, f"{self.__class__.__name__} expects shape for both operands to be present."
-        a_shape = input_shapes[0]
-        b_shape = input_shapes[1]
+        assert len(self.inputs) == 2, f"{self.__class__.__name__} expects shape for both operands to be present."
+        a_shape = self.inputs[0].shape
+        b_shape = self.inputs[1].shape
 
-        for i, operand in enumerate(input_shapes):
-            if len(operand) < 1:
+        for i, shape in enumerate([a_shape, b_shape]):
+            if len(shape) < 1:
                 raise TripyException(
-                    f"Operand {i} for {self.__class__.__name__} operation must have number of dims >= 1, got {len(operand)}"
+                    f"Operand {i} for {self.__class__.__name__} operation must have number of dims >= 1, got {len(shape)}"
                 )
 
-        # case 1: both operands are 1-D
         if len(a_shape) == 1 and len(b_shape) == 1:
+            # case 1: both operands are 1-D
             self.contracting_dim = {"lhs": [0], "rhs": [0]}
-            return [make_tuple([])]
-
-        # case 2: both operands are 2-D
-        if len(a_shape) == 2 and len(b_shape) == 2:
+            self.outputs[0].shape = tuple()
+        elif len(a_shape) == 2 and len(b_shape) == 2:
+            # case 2: both operands are 2-D
             self.contracting_dim = {"lhs": [1], "rhs": [0]}
-            return [make_tuple([a_shape[0], b_shape[1]])]
-
-        if len(a_shape) != len(b_shape):
+            self.outputs[0].shape = (a_shape[0], b_shape[1])
+        elif len(a_shape) != len(b_shape):
             raise TripyException("Batched matmul or broadcasting is not implemented, will be fixed by #65.")
-
-    def infer_dtypes(self, input_dtypes):
-        assert (
-            input_dtypes[0] == input_dtypes[1]
-        ), f"Input data types for BinaryElementwise must match. Got: {input_dtypes[0]} and {input_dtypes[1]}"
-        return [input_dtypes[0]]
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops.dot import DotOp

@@ -1,4 +1,3 @@
-from typing import Tuple
 from tripy.frontend.dim import Dim
 from tripy.util import make_list, make_tuple
 
