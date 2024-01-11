@@ -4,6 +4,7 @@ from tripy import util
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.utils import to_dims
 
 
 @dataclass
@@ -39,10 +40,10 @@ class Iota(BaseOperator):
 
         return [device("gpu")]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import IotaOp
 
-        flat_ir.ops.append(IotaOp(self, inputs, outputs, dim=self.dim))
+        flat_ir.add_op(self, IotaOp, self.inputs, self.outputs, dim=self.dim)
 
 
 def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32):
@@ -67,7 +68,7 @@ def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.floa
 
     if dim < 0 or dim >= len(shape):
         raise Exception("Invalid arange dim")
-    return Tensor.build([], Iota(dim, shape, dtype))
+    return Tensor.build([], Iota, dim, to_dims(shape), dtype)
 
 
 def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None):
@@ -92,4 +93,4 @@ def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = Non
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([input], Iota(dim, None, dtype))
+    return Tensor.build([input], Iota, dim, None, dtype)

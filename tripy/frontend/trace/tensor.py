@@ -1,12 +1,8 @@
-from typing import List
 from dataclasses import dataclass
 
-from mlir import ir
-
-from tripy.frontend import Dim
 from tripy.common.types import ShapeInfo
+from tripy.frontend import Dim
 from tripy.util import StackInfo, make_list
-from tripy.flat_ir.flat_ir import FlatIR
 
 
 @dataclass
@@ -24,7 +20,7 @@ class TraceTensor:
     shape: ShapeInfo
     """Information about the shape of this tensor"""
 
-    producer: "TraceLayer"
+    producer: "BaseOperator"
     """Producer of the tensor"""
 
     dtype: "tripy.common.dtype"
@@ -34,8 +30,8 @@ class TraceTensor:
     """Device location of the tensor"""
 
     def __str__(self) -> str:
-        def str_from_dim(dim):
-            return ("?" if isinstance(dim, Dim) else str(dim)) + ","
+        def str_from_dim(dim: Dim):
+            return ("?" if dim.is_dynamic_dim() else str(dim)) + ","
 
         shape = f"{' '.join(map(str_from_dim, self.shape))}"
         return f"{self.name}: [shape=({shape}), dtype=({self.dtype.name}), loc=({self.device})]"
@@ -45,9 +41,4 @@ class TraceTensor:
 
     # Returns a list filled with requested optimization profile information.
     def get_optimization_profile_list(self, attr):
-        return [
-            getattr(s, attr)
-            if (isinstance(s, Dim) and not s.is_static_shape())
-            else (s.min if (isinstance(s, Dim)) else s)
-            for s in make_list(self.shape)
-        ]
+        return [getattr(s, attr) if s.is_dynamic_dim() else s.min for s in make_list(self.shape)]

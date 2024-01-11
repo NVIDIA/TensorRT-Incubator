@@ -3,8 +3,9 @@ from typing import Any, Dict, List
 from mlir import ir
 from mlir.dialects import func as func_dialect
 
-from tripy.flat_ir.ops import BaseFIROp
 from tripy.backend.mlir.utils import make_ir_context
+from tripy.common.types import ShapeInfo
+from tripy.flat_ir.ops import BaseFIROp
 
 
 class FlatIR:
@@ -12,15 +13,12 @@ class FlatIR:
     A flattened low level representation of a computation graph which maps directly with StableHLO dialect.
     """
 
-    def __init__(
-        self,
-    ):
-        self.tensor_cnt = 0
+    def __init__(self):
         self.inputs: List["FIRTensor"] = []
         self.outputs: List["FIRTensor"] = []
         self.ops: List[BaseFIROp] = []
-        # Dict to map input name to argument index
-        self.inputs_idx: Dict[str, int] = {}
+
+        self._tensor_map: Dict[str] = {}
 
     def __str__(self):
         layer_strs: List[str] = []
@@ -36,6 +34,8 @@ class FlatIR:
         return "\n".join(layer_strs)
 
     def to_mlir(self):
+        inputs_idx = {inp.name: idx for idx, inp in enumerate(self.inputs)}
+
         with make_ir_context(), ir.Location.unknown():
             module = ir.Module.create()
             with ir.InsertionPoint(module.body) as ip:
@@ -51,7 +51,7 @@ class FlatIR:
                     hlo_tensors: Dict[str, Any] = {}
                     # Initialize tensor dict with inputs
                     for inp in self.inputs:
-                        hlo_tensors[inp.name] = entry_block.arguments[self.inputs_idx[inp.name]]
+                        hlo_tensors[inp.name] = entry_block.arguments[inputs_idx[inp.name]]
                     for l in self.ops:
                         operands = []
                         for inp in l.inputs:
@@ -76,8 +76,8 @@ class FlatIR:
                         )
                     }
 
-                    if inp.name in self.inputs_idx:
-                        arg_attrs[self.inputs_idx[inp.name]] = arg
+                    if inp.name in inputs_idx:
+                        arg_attrs[inputs_idx[inp.name]] = arg
 
                 func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
 
@@ -92,29 +92,49 @@ class FlatIR:
 
             return module
 
-    def add_tensor(self, instance, shape=None, dtype=None, device=None):
+    def add_tensor(
+        self,
+        trace_tensor: "TraceTensor" = None,
+        shape: ShapeInfo = None,
+        dtype: "tripy.common.datatype.DataType" = None,
+        device: "tripy.device" = None,
+    ):
         from tripy.flat_ir.tensor import FIRTensor
 
-        tensor = FIRTensor(instance)
-        tensor.name = f"t{self.tensor_cnt}"
-        self.tensor_cnt += 1
+        if trace_tensor is not None:
+            assert (
+                shape is None and dtype is None and device is None
+            ), "Will not override tensor info set in trace tensor!"
 
-        if shape is not None:
+            tensor = FIRTensor(trace_tensor)
+        else:
+            from tripy.frontend.trace.tensor import TraceTensor
+
+            tensor = FIRTensor(TraceTensor(f"t_inter{len(self._tensor_map)}", None, [], None, None, None))
             tensor.shape = shape
-        if dtype is not None:
             tensor.dtype = dtype
-        if device is not None:
             tensor.device = device
+
+        if tensor.name in self._tensor_map:
+            return self._tensor_map[tensor.name]
+        self._tensor_map[tensor.name] = tensor
         return tensor
+
+    def add_op(
+        self,
+        producer: "BaseOperator",
+        OpType: type,
+        inputs: List["TraceTensor"],
+        outputs: List["TraceTensor"],
+        *args,
+        **kwargs,
+    ):
+        op = OpType(producer, list(map(self.add_tensor, inputs)), list(map(self.add_tensor, outputs)), *args, **kwargs)
+        self.ops.append(op)
 
     def io_tensor_info(self):
         from tripy.common.types import TensorInfo
-        from tripy.frontend import Dim
 
-        i_tensor_info = [
-            TensorInfo([s.runtime_value if isinstance(s, Dim) else s for s in i.shape], i.dtype) for i in self.inputs
-        ]
-        o_tensor_info = [
-            TensorInfo([s.runtime_value if isinstance(s, Dim) else s for s in o.shape], o.dtype) for o in self.outputs
-        ]
+        i_tensor_info = [TensorInfo([s for s in i.shape], i.dtype) for i in self.inputs]
+        o_tensor_info = [TensorInfo([s for s in o.shape], o.dtype) for o in self.outputs]
         return i_tensor_info, o_tensor_info

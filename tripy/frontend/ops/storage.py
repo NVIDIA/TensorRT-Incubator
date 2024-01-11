@@ -1,9 +1,11 @@
 from typing import List, Optional, Tuple, Union
 
 from tripy import util
+from tripy.common.types import ShapeInfo
 from tripy.common import device as make_device
 from tripy.common.array import Array
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.utils import to_dims
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
@@ -14,8 +16,11 @@ class Storage(BaseOperator):
 
     def __init__(
         self,
+        inputs: List["Tensor"],
+        outputs: List["Tensor"],
+        const_fold: bool,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        shape: Optional[Tuple[int]] = None,
+        shape: Optional[Tuple["Dim"]] = None,
         dtype: "tripy.dtype" = None,
         device: "tripy.common.device" = None,
     ) -> None:
@@ -28,6 +33,8 @@ class Storage(BaseOperator):
             device: The device where the data is stored (default: CPU).
             shape: The shape of the data (default: None).
         """
+        super().__init__(inputs, outputs, const_fold)
+
         # Let's not allow user to request a different type unless data is a list.
         if hasattr(data, "to_dlpack"):
             # Ensure that dtype is not set.
@@ -36,7 +43,7 @@ class Storage(BaseOperator):
         self.device = util.default(device, make_device("cpu"))
         self.data = Array(data, dtype, shape, self.device)
         self.dtype = self.data.dtype
-        self.shape: Tuple[int] = util.make_tuple(self.data.shape if shape is None else shape)
+        self.shape: Tuple[int] = util.make_tuple(to_dims(self.data.shape) if shape is None else shape)
         self.shape_profile: List = util.make_list(shape)
 
     def __eq__(self, other) -> bool:
@@ -64,24 +71,23 @@ class Storage(BaseOperator):
         # Constants are always on device when executed by mlir
         return [make_device("gpu")]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         import cupy as cp
 
         from tripy.flat_ir.ops import ConstantOp
 
-        assert not inputs, "Storage should have no inputs!"
         data = self.data.view()
         if isinstance(data, cp.ndarray):
             # This is required because MLIR-TRT backend requires constants to be on host.
             data = data.get()
-        flat_ir.ops.append(ConstantOp(self, inputs, outputs, data=data))
+        flat_ir.add_op(self, ConstantOp, self.inputs, self.outputs, data=data)
 
 
 @TENSOR_METHOD_REGISTRY("__init__")
 def tensor_init(
     self: "tripy.Tensor",
     data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"] = None,
-    shape: Optional[Tuple[int]] = None,
+    shape: Optional[ShapeInfo] = None,
     dtype: "tripy.dtype" = None,
     device: "tripy.common.device" = None,
 ) -> None:
@@ -104,4 +110,4 @@ def tensor_init(
     if data is not None:
         from tripy.frontend.ops import Storage
 
-        self._finalize([], Storage(data, shape, dtype, device))
+        self._finalize([], Storage, data, to_dims(shape), dtype, device)

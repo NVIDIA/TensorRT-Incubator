@@ -1,10 +1,11 @@
+import copy
 import enum
 from dataclasses import dataclass
 
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.util import make_tuple
+from tripy.util import get_broadcast_dim, is_broadcast_compatible, make_tuple
 
 
 @dataclass
@@ -47,10 +48,13 @@ class BinaryElementwise(BaseOperator):
 
     def infer_shapes(self, input_shapes):
         # Fix when broadcasting support is added (#25).
-        assert (
-            input_shapes[0] == input_shapes[1]
-        ), f"Input shapes for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
-        return [make_tuple(input_shapes[0])]
+        assert len(input_shapes[0]) == len(
+            input_shapes[1]
+        ), f"Input rank for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
+
+        assert is_broadcast_compatible(*input_shapes)
+
+        return [make_tuple([get_broadcast_dim(*d) for d in zip(*input_shapes)])]
 
     def infer_dtypes(self, input_dtypes):
         assert (
@@ -60,8 +64,8 @@ class BinaryElementwise(BaseOperator):
             return [datatype.bool]
         return [input_dtypes[0]]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
-        from tripy.flat_ir.ops import AddOp, CompareOp
+    def to_flat_ir(self, flat_ir):
+        from tripy.flat_ir.ops import AddOp, BroadcastOp, CompareOp
 
         _MLIR_COMPARE_DIRECTIONS = {
             BinaryElementwise.Kind.LESS: "LT",
@@ -72,10 +76,30 @@ class BinaryElementwise(BaseOperator):
             BinaryElementwise.Kind.GREATER: "GT",
         }
 
+        dynamic_shape = False
+        requires_broadcast = False
+        for dim1, dim2 in zip(self.inputs[0].shape, self.inputs[1].shape):
+            requires_broadcast |= dim1 != dim2
+            if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
+                dynamic_shape = True
+
+        def add_broadcast(self, flat_ir, inp, out):
+            temp = flat_ir.add_tensor(shape=out.shape, dtype=out.dtype, device=out.device)
+            flat_ir.add_op(self, BroadcastOp, [inp], [temp], broadcast_dim=list(range(len(inp.shape))))
+            return temp
+
+        inputs = copy.copy(self.inputs)
+        if requires_broadcast:
+            if not dynamic_shape:
+                inputs[0] = add_broadcast(self, flat_ir, inputs[0], self.outputs[0])
+                inputs[1] = add_broadcast(self, flat_ir, inputs[1], self.outputs[0])
+            else:
+                assert False, "Broadcast support with dynamic shapes is not enabled."
+
         if self.kind in self._COMPARE_OPS:
-            flat_ir.ops.append(CompareOp(self, inputs, outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind]))
+            flat_ir.add_op(self, CompareOp, inputs, self.outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind])
         elif self.kind == BinaryElementwise.Kind.SUM:
-            flat_ir.ops.append(AddOp(self, inputs, outputs))
+            flat_ir.add_op(self, AddOp, inputs, self.outputs)
         else:
             raise NotImplementedError()
 
@@ -103,10 +127,7 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.SUM),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUM)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
@@ -133,10 +154,7 @@ def less_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.LESS),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.LESS)
 
 
 @TENSOR_METHOD_REGISTRY("__le__")
@@ -162,10 +180,7 @@ def less_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Te
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.LESS_EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.LESS_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__eq__")
@@ -191,10 +206,7 @@ def eq(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__ne__")
@@ -220,10 +232,7 @@ def not_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.NOT_EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.NOT_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__ge__")
@@ -249,10 +258,7 @@ def greater_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.GREATER_EQUAL),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.GREATER_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__gt__")
@@ -278,7 +284,4 @@ def greater_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build(
-        [self, other],
-        BinaryElementwise(BinaryElementwise.Kind.GREATER),
-    )
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.GREATER)

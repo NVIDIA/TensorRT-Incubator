@@ -52,10 +52,10 @@ class MatrixMultiplication(BaseOperator):
         ), f"Input data types for BinaryElementwise must match. Got: {input_dtypes[0]} and {input_dtypes[1]}"
         return [input_dtypes[0]]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops.dot import DotOp
 
-        flat_ir.ops.append(DotOp(self, inputs, outputs, contracting_dim=self.contracting_dim))
+        flat_ir.add_op(self, DotOp, self.inputs, self.outputs, contracting_dim=self.contracting_dim)
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")
@@ -92,5 +92,5 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
     return Tensor.build(
         [self, other],
-        MatrixMultiplication(),
+        MatrixMultiplication,
     )

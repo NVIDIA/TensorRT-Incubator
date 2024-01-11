@@ -4,6 +4,7 @@ from tripy import util
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.utils import to_dims
 
 
 @dataclass
@@ -39,15 +40,13 @@ class Fill(BaseOperator):
 
         return [device("gpu")]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         import numpy as np
         from tripy.flat_ir.ops import BroadcastOp, ConstantOp
 
-        const_val_tensor = flat_ir.add_tensor(outputs[0], shape=[])
-        const_val_op = ConstantOp(self, [], [const_val_tensor], data=np.array(self.value, dtype=self.dtype.name))
-
-        flat_ir.ops.append(const_val_op)
-        flat_ir.ops.append(BroadcastOp(self, [const_val_tensor], outputs, broadcast_dim=[]))
+        const_val_tensor = flat_ir.add_tensor(shape=[], dtype=self.outputs[0].dtype, device=self.outputs[0].device)
+        flat_ir.add_op(self, ConstantOp, [], [const_val_tensor], data=np.array(self.value, dtype=self.dtype.name))
+        flat_ir.add_op(self, BroadcastOp, [const_val_tensor], self.outputs, broadcast_dim=[])
 
 
 def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32):
@@ -72,7 +71,7 @@ def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32)
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([], Fill(fill_value, shape, dtype))
+    return Tensor.build([], Fill, fill_value, to_dims(shape), dtype)
 
 
 def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
@@ -98,4 +97,4 @@ def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([input], Fill(fill_value, None, dtype))
+    return Tensor.build([input], Fill, fill_value, None, dtype)

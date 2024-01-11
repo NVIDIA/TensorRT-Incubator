@@ -10,7 +10,7 @@ class ConstantOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, data):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         assert len(self.outputs) == 1, "ConstantOp should have exactly 1 output"
         self.data = data
         self.dtype = self.outputs[0].dtype
@@ -34,7 +34,7 @@ class ConstantScalarOp(BaseFIROp):
     """
 
     def __init__(self, origin_layer, inputs, outputs, value, dtype):
-        super().__init__(inputs, outputs, origin_layer)
+        super().__init__(origin_layer, inputs, outputs)
         self.value = value
         self.dtype = dtype
 

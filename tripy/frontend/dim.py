@@ -73,8 +73,11 @@ class Dim:
             and self._runtime_value <= self._max
         )
 
-    def is_static_shape(self):
+    def is_static_dim(self):
         return self._runtime_value == self._min == self._opt == self._max
+
+    def is_dynamic_dim(self):
+        return self._runtime_value == -1 or not self.is_static_dim()
 
     @property
     def min(self) -> int:
@@ -93,9 +96,13 @@ class Dim:
         return self._runtime_value
 
     def __eq__(self, other):
-        if isinstance(other, Dim):
-            return self.min == other.min and self.max == other.max and self.opt == other.opt
-        return False
+        if not isinstance(other, Dim):
+            return not self.is_dynamic_dim() and self.min == other
+        return self.min == other.min and self.max == other.max and self.opt == other.opt
+
+    def __gt__(self, other):
+        assert self.is_static_dim() and other.is_static_dim()
+        return self.min > other.min
 
     def __hash__(self):
         return hash((self.min, self.max, self.opt, self.runtime_value))
@@ -109,4 +116,7 @@ class Dim:
         self._runtime_value = shape
 
     def __repr__(self) -> str:
-        return f"Dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
+        if self.is_dynamic_dim():
+            return f"Dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
+        else:
+            return f"{self.runtime_value}"

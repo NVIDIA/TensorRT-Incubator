@@ -11,8 +11,20 @@ from tripy.frontend.ops.fill import full, full_like
 from tripy.frontend.ops.select import where
 from tripy.frontend.tensor_ops import *
 
+
 __all__ = (
-    ["jit", "Tensor", "Dim", "device", "nn", "arange", "arange_like", "full", "full_like", "where"]
+    [
+        "jit",
+        "Tensor",
+        "Dim",
+        "device",
+        "nn",
+        "arange",
+        "arange_like",
+        "full",
+        "full_like",
+        "where",
+    ]
     + tripy.common.datatype.__all__
     + tripy.frontend.tensor_ops.__all__
 )

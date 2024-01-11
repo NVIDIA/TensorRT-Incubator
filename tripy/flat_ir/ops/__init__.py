@@ -5,4 +5,5 @@ from tripy.flat_ir.ops.constant import ConstantOp, ConstantScalarOp
 from tripy.flat_ir.ops.copy import CopyOp
 from tripy.flat_ir.ops.broadcast import BroadcastOp
 from tripy.flat_ir.ops.iota import IotaOp
+from tripy.flat_ir.ops.transpose import TransposeOp
 from tripy.flat_ir.ops.select import SelectOp
