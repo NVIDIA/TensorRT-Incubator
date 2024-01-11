@@ -261,6 +261,10 @@ class TestCopyFunctional:
 class TestDynamic:
     @pytest.mark.parametrize("dim", [Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_jit(self, dim):
+        from tripy.common.logging import set_logger_mode, LoggerModes, get_log_str
+
+        set_logger_mode(LoggerModes.VERBOSE, True)
+
         a = Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=device("gpu"))
         b = Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=device("gpu"))
 
@@ -279,3 +283,5 @@ class TestDynamic:
 
         out = func(a, b)
         assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
+        # 1 compile call for stablehlo add and 2 compile calls for device copy.
+        assert get_log_str().count("compile(<tripy.backend.mlir.compiler.FlatIRCompile") == 3
