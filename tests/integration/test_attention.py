@@ -3,7 +3,6 @@ import numpy as np
 import pytest
 import math
 
-import tripy.common.datatype
 import tripy
 
 
@@ -23,22 +22,19 @@ def test_causal_self_attention(self, use_jit):
             self.bias = tripy.tril(tripy.ones(1, 1, self.block_size, self.block_size))
 
         def __call__(self, x: tripy.Tensor) -> Any:
-            from tripy.frontend.ops import transpose, softmax
-
             B, T, C = x.size()
             attn = self.c_attn(x)
             q, k, v = attn.split(self.n_embed, dim=2)
-            k = transpose(k.view(B, T, self.n_head, C // self.n_head), 1, 2)  # (B, nh, T, hs)
-            q = transpose(k.view(B, T, self.n_head, C // self.n_head), 1, 2)  # (B, nh, T, hs)
-            v = transpose(k.view(B, T, self.n_head, C // self.n_head), 1, 2)  # (B, nh, T, hs)
+            k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+            q = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+            v = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
 
-            k_t = transpose(k, -2, -1)
+            k_t = k.transpose(-2, -1)
             att = (q @ k) * (1.0 / math.sqrt(k.size(-1)))
             att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
-            att = softmax(att, dim=-1)
+            att = att.softmax(dim=-1)
             out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-            out = transpose(out, 1, 2).view(B, T, C)
-
+            out = out.transpose(1, 2).view(B, T, C)
             return out
 
     attn = CausalSelfAttention()
