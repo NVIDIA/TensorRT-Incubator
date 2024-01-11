@@ -57,14 +57,12 @@ class BaseOperator(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def to_flat_ir(self, flat_ir, inputs: List, outputs: List) -> None:
+    def to_flat_ir(self, flat_ir) -> None:
         """
         Generates FlatIR ops for the operation.
 
         Args:
             flat_ir: FlatIR parent graph where new ops are inserted.
-            inputs: List of input tensors
-            outputs: List of output tensors
         """
         ...
 

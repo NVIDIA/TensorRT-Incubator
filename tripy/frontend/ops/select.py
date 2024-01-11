@@ -34,10 +34,10 @@ class Select(BaseOperator):
         ), f"Input devices for Select do not match: condition={input_devices[0]}, x={input_devices[1]}, y={input_devices[2]}"
         return [input_devices[0]]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import SelectOp
 
-        flat_ir.ops.append(SelectOp(self, inputs, outputs))
+        flat_ir.add_op(self, SelectOp, self.inputs, self.outputs)
 
 
 def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):

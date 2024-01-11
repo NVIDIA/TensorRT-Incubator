@@ -40,10 +40,10 @@ class Iota(BaseOperator):
 
         return [device("gpu")]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import IotaOp
 
-        flat_ir.ops.append(IotaOp(self, inputs, outputs, dim=self.dim))
+        flat_ir.add_op(self, IotaOp, self.inputs, self.outputs, dim=self.dim)
 
 
 def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32):

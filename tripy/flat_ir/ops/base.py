@@ -18,11 +18,9 @@ class BaseFIROp(abc.ABC):
     outputs: List["FIRTensor"]
     """The outputs of this layer"""
 
-    def __init__(self, origin_layer: "BaseOperator", inputs: List["TraceTensor"], outputs: List["TraceTensor"]):
-        from tripy.flat_ir.tensor import FIRTensor
-
-        self.inputs = list(map(FIRTensor, inputs))
-        self.outputs = list(map(FIRTensor, outputs))
+    def __init__(self, origin_layer: "BaseOperator", inputs: List["FIRTensor"], outputs: List["FIRTensor"]):
+        self.inputs = inputs
+        self.outputs = outputs
         self.origin_layer = origin_layer
 
     @abc.abstractmethod

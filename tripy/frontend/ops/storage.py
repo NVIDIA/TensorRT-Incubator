@@ -71,17 +71,16 @@ class Storage(BaseOperator):
         # Constants are always on device when executed by mlir
         return [make_device("gpu")]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         import cupy as cp
 
         from tripy.flat_ir.ops import ConstantOp
 
-        assert not inputs, "Storage should have no inputs!"
         data = self.data.view()
         if isinstance(data, cp.ndarray):
             # This is required because MLIR-TRT backend requires constants to be on host.
             data = data.get()
-        flat_ir.ops.append(ConstantOp(self, inputs, outputs, data=data))
+        flat_ir.add_op(self, ConstantOp, self.inputs, self.outputs, data=data)
 
 
 @TENSOR_METHOD_REGISTRY("__init__")

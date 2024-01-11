@@ -29,10 +29,10 @@ class Copy(BaseOperator):
     def infer_devices(self, input_devices: List) -> List:
         return [self.target]
 
-    def to_flat_ir(self, flat_ir, inputs, outputs):
+    def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import CopyOp
 
-        flat_ir.ops.append(CopyOp(self, inputs, outputs, target=self.target))
+        flat_ir.add_op(self, CopyOp, self.inputs, self.outputs, target=self.target)
 
 
 @TENSOR_METHOD_REGISTRY("to")
