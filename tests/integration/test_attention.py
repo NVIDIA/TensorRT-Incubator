@@ -7,10 +7,6 @@ import tripy.common.datatype
 import tripy
 
 
-def create_random_matrix(shape):
-    return np.random.rand(*shape).astype(np.float32)
-
-
 @pytest.mark.skip(reason="Dynamic shape is not working with MLIR backend yet.")
 @pytest.mark.parametrize(
     "use_jit",
