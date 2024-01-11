@@ -42,9 +42,8 @@ class BinaryElementwise(BaseOperator):
         Kind.GREATER,
     }
 
-    def to_trace_str(self, input_names, output_names):
-        assert len(output_names) == 1, "BinaryElementwise should have exactly one output!"
-        return f"{output_names[0]} = {self.kind.join(input_names)}"
+    def to_trace_str(self):
+        return f"{self.outputs[0].name} = {self.kind.join([inp.name for inp in self.inputs])}"
 
     def infer_shapes(self):
         input_shapes = [inp.shape for inp in self.inputs]

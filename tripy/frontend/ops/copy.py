@@ -15,10 +15,8 @@ class Copy(BaseOperator):
 
     target: device
 
-    def to_trace_str(self, input_names, output_names):
-        assert len(input_names) == 1, "Copy should have exactly one input!"
-        assert len(output_names) == 1, "Copy should have exactly one output!"
-        return f"{output_names[0]} = copy({input_names[0]}, target = {self.target.kind}:{self.target.index})"
+    def to_trace_str(self):
+        return f"{self.outputs[0].name} = copy({self.inputs[0].name}, target = {self.target.kind}:{self.target.index})"
 
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape

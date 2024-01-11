@@ -91,9 +91,7 @@ class Trace:
         for inp in self.inputs:
             layer_strs.append(f"    {str(inp)}")
         for layer in self.layers:
-            layer_strs.append(
-                layer.to_trace_str([inp.name for inp in layer.inputs], [out.name for out in layer.outputs])
-            )
+            layer_strs.append(layer.to_trace_str())
         layer_strs.append("outputs:")
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")

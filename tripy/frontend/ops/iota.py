@@ -17,21 +17,19 @@ class Iota(BaseOperator):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def to_trace_str(self, input_names, output_names):
-        assert len(input_names) == 0 or len(input_names) == 1, "Iota operation should have 0 or 1 input!"
-        assert len(output_names) == 1, "Iota operation should have exactly one output!"
-        if len(input_names) == 1:
-            return f"{output_names[0]} = Tensor.iota(dim={self.dim}, like={input_names[0]})"
+    def to_trace_str(self):
+        if self.inputs:
+            return f"{self.outputs[0].name} = Tensor.iota(dim={self.dim}, like={self.inputs[0].name})"
         else:
-            return f"{output_names[0]} = Tensor.iota(dim={self.dim}, shape={self.shape}, dtype={self.dtype.name})"
+            return f"{self.outputs[0].name} = Tensor.iota(dim={self.dim}, shape={self.shape}, dtype={self.dtype.name})"
 
     def infer_shapes(self):
-        if len(self.inputs) == 1:
+        if self.inputs:
             self.shape = self.inputs[0].shape
         self.outputs[0].shape = self.shape
 
     def infer_dtypes(self):
-        if len(self.inputs) == 1 and self.dtype is None:
+        if self.inputs and self.dtype is None:
             self.dtype = self.inputs[0].dtype
         self.outputs[0].dtype = self.dtype
 

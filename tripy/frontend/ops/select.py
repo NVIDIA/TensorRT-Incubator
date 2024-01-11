@@ -7,10 +7,8 @@ class Select(BaseOperator):
     Represents a select operation.
     """
 
-    def to_trace_str(self, input_names, output_names):
-        assert len(input_names) == 3, "Select operation should have exactly 3 inputs!"
-        assert len(output_names) == 1, "Select operation should have exactly one output!"
-        return f"{output_names[0]} = Tensor.select(condition={input_names[0]}, x={input_names[1]}, y={input_names[2]})"
+    def to_trace_str(self):
+        return f"{self.outputs[0].name} = Tensor.select(condition={self.inputs[0].name}, x={self.inputs[1].name}, y={self.inputs[2].name})"
 
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"

@@ -14,9 +14,8 @@ class MatrixMultiplication(BaseOperator):
     Represents a matrix multiplication operation.
     """
 
-    def to_trace_str(self, input_names, output_names):
-        assert len(output_names) == 1, f"{self.__class__.__name__} should have exactly one output!"
-        return f"{output_names[0]} = {' @ '.join(input_names)}"
+    def to_trace_str(self):
+        return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
     def infer_shapes(self):
         # Fix when broadcasting support is added (#25).

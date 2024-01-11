@@ -17,13 +17,9 @@ class BaseOperator(abc.ABC):
     """Whether to treat the operation as a constant in JIT"""
 
     @abc.abstractmethod
-    def to_trace_str(self, input_names: List[str], output_names: List[str]) -> str:
+    def to_trace_str(self) -> str:
         """
         Returns a Trace string representation of the operation.
-
-        Args:
-            inputs_names: The names of the input tensor(s).
-            output_names: The names of the output tensor(s).
 
         Returns:
             The Trace string representation of the operation.
