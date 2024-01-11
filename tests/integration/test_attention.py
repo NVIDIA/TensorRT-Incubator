@@ -16,9 +16,11 @@ def test_causal_self_attention(self, use_jit):
     class CausalSelfAttention(tripy.nn.Module):
         def __init__(self):
             super().__init__()
+            self.block_size = 1024
             self.n_head = 16
             self.n_embed = 1024
             self.c_attn = tripy.nn.Linear(self.n_embed, 3 * self.n_embed, bias=True)
+            self.bias = tripy.tril(tripy.ones(1, 1, self.block_size, self.block_size))
 
         def __call__(self, x: tripy.Tensor) -> Any:
             from tripy.frontend.ops import transpose, softmax
@@ -32,6 +34,7 @@ def test_causal_self_attention(self, use_jit):
 
             k_t = transpose(k, -2, -1)
             att = (q @ k) * (1.0 / math.sqrt(k.size(-1)))
+            att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
             att = softmax(att, dim=-1)
             out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
             out = transpose(out, 1, 2).view(B, T, C)
