@@ -6,7 +6,7 @@ import math
 import tripy
 
 
-@pytest.mark.skip(reason="nn.Linear, softmax, view, size ops missing from tripy.")
+@pytest.mark.skip(reason="nn.Linear, softmax, reshape, size ops missing from tripy.")
 @pytest.mark.parametrize(
     "use_jit",
     [False, True],
@@ -25,16 +25,16 @@ def test_causal_self_attention(self, use_jit):
             B, T, C = x.size()
             attn = self.c_attn(x)
             q, k, v = attn.split(self.n_embed, dim=2)
-            k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
-            q = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
-            v = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+            k = k.reshape(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+            q = k.reshape(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
+            v = k.reshape(B, T, self.n_head, C // self.n_head).transpose(1, 2)  # (B, nh, T, hs)
 
             k_t = k.transpose(-2, -1)
             att = (q @ k) * (1.0 / math.sqrt(k.size(-1)))
             att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
             att = att.softmax(dim=-1)
             out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-            out = out.transpose(1, 2).view(B, T, C)
+            out = out.transpose(1, 2).reshape(B, T, C)
             return out
 
     attn = CausalSelfAttention()
