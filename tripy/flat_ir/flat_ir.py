@@ -106,11 +106,11 @@ class FlatIR:
                 shape is None and dtype is None and device is None
             ), "Will not override tensor info set in trace tensor!"
 
-            tensor = FIRTensor(trace_tensor)
+            tensor = trace_tensor.to_flat_ir()
         else:
             from tripy.frontend.trace.tensor import TraceTensor
 
-            tensor = FIRTensor(TraceTensor(f"t_inter{len(self._tensor_map)}", None, [], None, None, None))
+            tensor = FIRTensor(f"t_inter{len(self._tensor_map)}", None, [], None, None, None)
             tensor.shape = shape
             tensor.dtype = dtype
             tensor.device = device
