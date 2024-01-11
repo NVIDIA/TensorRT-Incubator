@@ -33,6 +33,7 @@ class Linear(Module):
         super().__init__()
         from tripy import ones, float32
 
+        # Replace with random weights when #74 is completed.
         self.weight = Parameter(ones((output_dims, input_dims), dtype=float32))
         if bias:
             self.bias = Parameter(ones((1, output_dims), dtype=float32))
