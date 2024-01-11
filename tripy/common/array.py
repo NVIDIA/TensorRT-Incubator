@@ -34,7 +34,6 @@ class Array:
             shape: Shape information for static allocation.
             device: Target device (tripy.Device("cpu") or tripy.Device("gpu")).
         """
-        from tripy.frontend.dim import Dim
         import tripy.common.datatype
 
         assert dtype is None or dtype.__name__ in tripy.common.datatype.DATA_TYPES, "Invalid data type"
@@ -55,7 +54,7 @@ class Array:
         static_shape = None
         if shape is not None:
             # Use runtime value here allocate only required output buffer.
-            static_shape = utils.make_tuple([s.runtime_value for s in util.make_list(shape)])
+            static_shape = utils.make_tuple([s.runtime_value for s in utils.make_list(shape)])
             assert all(s > 0 for s in static_shape)
 
         # Allocate dummy data

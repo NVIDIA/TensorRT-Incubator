@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import List
 
 from tripy.common.device import device
-from tripy.frontend.dim import Dim
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 

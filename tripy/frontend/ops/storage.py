@@ -21,7 +21,7 @@ class Storage(BaseOperator):
         outputs: List["Tensor"],
         const_fold: bool,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        shape: Optional[Tuple["Dim"]] = None,
+        shape: Optional[Tuple[Dim]] = None,
         dtype: "tripy.dtype" = None,
         device: "tripy.common.device" = None,
     ) -> None:
