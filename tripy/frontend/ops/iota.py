@@ -17,28 +17,26 @@ class Iota(BaseOperator):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def to_trace_str(self, input_names, output_names):
-        assert len(input_names) == 0 or len(input_names) == 1, "Iota operation should have 0 or 1 input!"
-        assert len(output_names) == 1, "Iota operation should have exactly one output!"
-        if len(input_names) == 1:
-            return f"{output_names[0]} = Tensor.iota(dim={self.dim}, like={input_names[0]})"
+    def to_trace_str(self):
+        if self.inputs:
+            return f"{self.outputs[0].name} = Tensor.iota(dim={self.dim}, like={self.inputs[0].name})"
         else:
-            return f"{output_names[0]} = Tensor.iota(dim={self.dim}, shape={self.shape}, dtype={self.dtype.name})"
+            return f"{self.outputs[0].name} = Tensor.iota(dim={self.dim}, shape={self.shape}, dtype={self.dtype.name})"
 
-    def infer_shapes(self, input_shapes):
-        if len(input_shapes) == 1:
-            self.shape = input_shapes[0]
-        return [util.make_tuple(self.shape)]
+    def infer_shapes(self):
+        if self.inputs:
+            self.shape = self.inputs[0].shape
+        self.outputs[0].shape = self.shape
 
-    def infer_dtypes(self, input_dtypes):
-        if len(input_dtypes) == 1 and self.dtype is None:
-            self.dtype = input_dtypes[0]
-        return [self.dtype]
+    def infer_dtypes(self):
+        if self.inputs and self.dtype is None:
+            self.dtype = self.inputs[0].dtype
+        self.outputs[0].dtype = self.dtype
 
-    def infer_devices(self, input_devices):
+    def infer_devices(self):
         from tripy.common import device
 
-        return [device("gpu")]
+        self.outputs[0].device = device("gpu")
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import IotaOp

@@ -52,24 +52,19 @@ class Storage(BaseOperator):
     def __str__(self) -> str:
         return f"data=({self.data.view()}) : shape=({self.shape}), dtype=({self.dtype.name}), loc=({self.device.kind}:{self.device.index})"
 
-    def to_trace_str(self, input_names, output_names):
-        assert not input_names, "Storage should have no inputs!"
-        assert len(output_names) == 1, "Storage should have exactly one output!"
-        return f"{output_names[0]} : data=({self.data.view()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
+    def to_trace_str(self):
+        return f"{self.outputs[0].name} : data=({self.data.view()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
-    def infer_shapes(self, input_shapes):
-        assert not input_shapes, "Storage should have no inputs!"
-        return [util.make_tuple(self.shape)]
+    def infer_shapes(self):
+        self.outputs[0].shape = self.shape
 
-    def infer_dtypes(self, input_dtypes):
-        assert not input_dtypes, "Storage should have no inputs!"
-        return [self.dtype]
+    def infer_dtypes(self):
+        self.outputs[0].dtype = self.dtype
 
-    def infer_devices(self, input_devices):
-        assert not input_devices, "Storage should have no inputs!"
+    def infer_devices(self):
         # This is different from self.device
         # Constants are always on device when executed by mlir
-        return [make_device("gpu")]
+        self.outputs[0].device = make_device("gpu")
 
     def to_flat_ir(self, flat_ir):
         import cupy as cp
