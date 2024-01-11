@@ -7,3 +7,4 @@ from tripy.frontend.ops.fill import Fill
 from tripy.frontend.ops.iota import Iota
 from tripy.frontend.ops.matmul import MatrixMultiplication
 from tripy.frontend.ops.transpose import Transpose
+from tripy.frontend.ops.select import Select
