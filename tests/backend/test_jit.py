@@ -15,6 +15,33 @@ def init_tensors():
 
 
 class TestJIT:
+    def test_type_decorator(self):
+        @tripy.jit
+        def func(a, b):
+            c = a + b
+            d = c + c
+            return c, d
+
+        assert isinstance(func, tripy.jit)
+
+    def test_type_decorator_kwargs(self):
+        @tripy.jit(dummy=1)
+        def func(a, b):
+            c = a + b
+            d = c + c
+            return c, d
+
+        assert isinstance(func, tripy.jit)
+
+    def test_type_function(self):
+        def func(a, b):
+            c = a + b
+            d = c + c
+            return c, d
+
+        jitted_func = tripy.jit(func)
+        assert isinstance(jitted_func, tripy.jit)
+
     def test_functional_decorator(self, init_tensors):
         @tripy.jit
         def func(a, b):
