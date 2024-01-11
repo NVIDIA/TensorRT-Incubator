@@ -7,7 +7,7 @@ import tripy.common.datatype
 import tripy
 
 
-@pytest.mark.skip(reason="Dynamic shape is not working with MLIR backend yet.")
+@pytest.mark.skip(reason="nn.Linear, softmax, view, size ops missing from tripy.")
 @pytest.mark.parametrize(
     "use_jit",
     [False, True],
