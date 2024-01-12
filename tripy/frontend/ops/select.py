@@ -50,7 +50,7 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
         import numpy as np
 
         condition = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
-        # print(condition.eval().view())
+        # print(condition)
         # [[True, False],
         #  [True, True]]
         x = tp.ones([2, 2])
@@ -81,7 +81,7 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tr
         import numpy as np
 
         mask = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
-        # print(mask.eval().view())
+        # print(mask)
         # [[True, False],
         #  [True, True]]
         a = tp.ones([2, 2])
