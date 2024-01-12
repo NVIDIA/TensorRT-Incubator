@@ -151,12 +151,7 @@ build_container:
       - Dockerfile
       - pyproject.toml
       - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: always
-    - changes:
-      - mlir-tensorrt.txt
-      - .gitlab-ci.yml
-      if: $CI_COMMIT_BRANCH == "main"
+      if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: always
 
 l0-if-new-container:
