@@ -1,6 +1,6 @@
 import pytest
 
-import tripy
+import tripy as tp
 from tripy.frontend.ops import BinaryElementwise
 
 
@@ -15,12 +15,40 @@ _BINARY_OPS = {
 }
 
 
-@pytest.mark.parametrize("func, kind", [(func, kind) for kind, func in _BINARY_OPS.items()])
-def test_binary_elementwise(func, kind):
-    a = tripy.Tensor([1])
-    b = tripy.Tensor([2])
+class TestBinaryElementwise:
+    @pytest.mark.parametrize("func, kind", [(func, kind) for kind, func in _BINARY_OPS.items()])
+    def test_op_funcs(self, func, kind):
+        a = tp.Tensor([1])
+        b = tp.Tensor([2])
 
-    out = func(a, b)
-    assert isinstance(out, tripy.Tensor)
-    assert isinstance(out.op, BinaryElementwise)
-    assert out.op.kind == kind
+        out = func(a, b)
+        assert isinstance(out, tp.Tensor)
+        assert isinstance(out.op, BinaryElementwise)
+        assert out.op.kind == kind
+
+    def test_mismatched_dtypes_fails(self):
+        a = tp.ones((2, 3), dtype=tp.float32)
+        b = tp.ones((2, 3), dtype=tp.float16)
+        c = a + b
+
+        with pytest.raises(tp.TripyException, match="Mismatched input data types.") as exc:
+            c.eval()
+        print(str(exc.value))
+
+    def test_mismatched_ranks_fails(self):
+        a = tp.ones((2,), dtype=tp.float32)
+        b = tp.ones((2, 3), dtype=tp.float16)
+        c = a + b
+
+        with pytest.raises(tp.TripyException, match="Mismatched input tensor ranks.") as exc:
+            c.eval()
+        print(str(exc.value))
+
+    def test_invalid_broadcast_fails(self):
+        a = tp.ones((2, 4), dtype=tp.float32)
+        b = tp.ones((2, 3), dtype=tp.float16)
+        c = a + b
+
+        with pytest.raises(tp.TripyException, match="Input tensors are not broadcast compatible.") as exc:
+            c.eval()
+        print(str(exc.value))

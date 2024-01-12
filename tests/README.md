@@ -9,7 +9,7 @@ The `tests/integration` directory captures the latter group of tests.
 
 You can run tests locally in the development container by running:
 ```bash
-pytest -v
+pytest tests/ -v
 ```
 
 ## Adding Tests

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.utils import get_broadcast_dim, is_broadcast_compatible
+import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass
@@ -48,19 +48,38 @@ class BinaryElementwise(BaseOperator):
     def infer_shapes(self):
         input_shapes = [inp.shape for inp in self.inputs]
         # Fix when broadcasting support is added (#25).
-        assert len(input_shapes[0]) == len(
-            input_shapes[1]
-        ), f"Input rank for BinaryElementwise operator do not match. Got {input_shapes[0]} and {input_shapes[1]}."
+        if len(input_shapes[0]) != len(input_shapes[1]):
+            op_utils.raise_error_io_info(
+                self,
+                "Mismatched input tensor ranks.",
+                details=[
+                    "Input tensors for binary operation: '",
+                    self.kind.value.strip(),
+                    "' must have the same rank, but got: ",
+                    len(input_shapes[0]),
+                    " and ",
+                    len(input_shapes[1]),
+                    ".",
+                ],
+            )
 
-        assert is_broadcast_compatible(*input_shapes)
+        bcast_check = op_utils.is_broadcast_compatible(*input_shapes)
+        if not bcast_check:
+            op_utils.raise_error_io_info(
+                self,
+                "Input tensors are not broadcast compatible.",
+                details=[
+                    "Input tensors for binary operation: '",
+                    self.kind.value.strip(),
+                    "' must be broadcast compatible but ",
+                ]
+                + bcast_check.details,
+            )
 
-        self.outputs[0].shape = tuple(get_broadcast_dim(*d) for d in zip(*input_shapes))
+        self.outputs[0].shape = tuple(op_utils.get_broadcast_dim(*d) for d in zip(*input_shapes))
 
     def infer_dtypes(self):
-        assert (
-            self.inputs[0].dtype == self.inputs[1].dtype
-        ), f"Input data types for BinaryElementwise must match. Got: {self.inputs[0].dtype} and {self.inputs[1].dtype}"
-
+        op_utils.check_input_dtypes_match(self, self.kind.value.strip())
         self.outputs[0].dtype = datatype.bool if self.kind in self._COMPARE_OPS else self.inputs[0].dtype
 
     def to_flat_ir(self, flat_ir):

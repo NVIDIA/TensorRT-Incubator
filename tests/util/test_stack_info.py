@@ -16,7 +16,13 @@ def test_get_stack_info():
     expected_outer_line_num = sys._getframe().f_lineno + 1
     stack_info, expected_inner_line_num = func()
 
-    assert stack_info[0] == SourceInfo(__name__, file=__file__, line=expected_inner_line_num, function=func.__name__)
+    assert stack_info[0] == SourceInfo(
+        __name__,
+        file=__file__,
+        line=expected_inner_line_num,
+        function=func.__name__,
+        code="        return tripy.utils.get_stack_info(), expected_line_num",
+    )
     assert stack_info[1] == SourceInfo(
-        __name__, file=__file__, line=expected_outer_line_num, function=test_get_stack_info.__name__
+        __name__, file=__file__, line=expected_outer_line_num, function=test_get_stack_info.__name__, code=""
     )

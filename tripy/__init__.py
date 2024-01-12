@@ -3,7 +3,7 @@ __version__ = "0.1.0"
 import tripy.common.datatype
 import tripy.frontend.tensor_ops
 from tripy.backend import jit
-from tripy.common import device
+from tripy.common import device, TripyException
 from tripy.common.datatype import *
 from tripy.frontend import Dim, Tensor, nn
 from tripy.frontend.ops.iota import arange, arange_like

@@ -35,6 +35,7 @@ class TraceTensor:
             return ("?" if dim.is_dynamic_dim() else str(dim)) + ","
 
         shape = f"{' '.join(map(str_from_dim, self.shape))}"
+        assert self.dtype is not None, "TraceTensor should not be printed before dtype inference!"
         return f"{self.name}: [shape=({shape}), dtype=({self.dtype.name}), loc=({self.device})]"
 
     def __eq__(self, other: "TraceTensor") -> bool:

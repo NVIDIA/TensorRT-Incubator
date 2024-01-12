@@ -1,3 +1,4 @@
+import tripy.frontend.ops.utils as op_utils
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
@@ -13,17 +14,23 @@ class Select(BaseOperator):
 
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
-        assert (
-            self.inputs[0].shape == self.inputs[1].shape and self.inputs[0].shape == self.inputs[2].shape
-        ), f"Input shapes for Select do not match: condition={self.inputs[0].shape}, x={self.inputs[1].shape}, y={self.inputs[2].shape}"
+        op_utils.check_input_shapes_match(self)
         self.outputs[0].shape = self.inputs[0].shape
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         if self.inputs[0].dtype != datatype.bool:
-            raise TypeError(f"Condition of Select must be bool type, got {self.inputs[0].dtype}")
-        if self.inputs[1].dtype != self.inputs[2].dtype:
-            raise TypeError(f"Select's input datatypes mismatch, got {self.inputs[1].dtype} and {self.inputs[2].dtype}")
+            op_utils.raise_error_io_info(
+                self,
+                "Condition input must have boolean type.",
+                details=[
+                    f"Condition input (input 0) must have boolean type, but got: ",
+                    self.inputs[0].dtype,
+                    ".",
+                ],
+            )
+
+        op_utils.check_input_dtypes_match(self, start_index=1)
         self.outputs[0].dtype = self.inputs[1].dtype
 
     def to_flat_ir(self, flat_ir):

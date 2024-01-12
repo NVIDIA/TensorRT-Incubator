@@ -1,8 +1,6 @@
 import abc
-from typing import List
-from tripy.common.types import ShapeInfo
-from tripy.common.datatype import dtype
 from dataclasses import dataclass
+from typing import List
 
 
 @dataclass

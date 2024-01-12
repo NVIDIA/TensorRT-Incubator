@@ -59,12 +59,14 @@ class TestTensor:
             file=inspect.getsourcefile(Tensor),
             line=a._stack_info[1].line,
             function=Tensor.build.__name__,
+            code="",
         )
         assert a._stack_info[2] == SourceInfo(
             __name__,
             file=__file__,
             line=expected_line_number,
             function=TestTensor.test_stack_info_is_populated.__name__,
+            code="        a = Tensor.build(inputs=[], OpType=lambda inputs, outputs, const_fold: MockOp(inputs, outputs))",
         )
 
     def test_eval_of_storage_tensor_is_nop(self):

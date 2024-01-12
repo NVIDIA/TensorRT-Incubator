@@ -1,11 +1,8 @@
-import enum
 from dataclasses import dataclass
 
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.utils import make_tuple
-
-from tripy.common.exception import TripyException
+import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass
@@ -22,14 +19,18 @@ class MatrixMultiplication(BaseOperator):
         # Note that infer_shapes won't reason about equality of dimensions since shape analysis is done within
         # the mlir tensorrt compiler.
 
-        assert len(self.inputs) == 2, f"{self.__class__.__name__} expects shape for both operands to be present."
+        assert len(self.inputs) == 2, f"MatrixMultiplication expects exactly two inputs."
         a_shape = self.inputs[0].shape
         b_shape = self.inputs[1].shape
 
-        for i, shape in enumerate([a_shape, b_shape]):
+        for index, shape in enumerate([a_shape, b_shape]):
             if len(shape) < 1:
-                raise TripyException(
-                    f"Operand {i} for {self.__class__.__name__} operation must have number of dims >= 1, got {len(shape)}"
+                op_utils.raise_error_io_info(
+                    self,
+                    "Input tensors must have at least 1 dimension.",
+                    details=[
+                        f"Inputs for operation: '@' must have at least one dimension, but input {index} has shape: {shape} which has fewer than 1 dimension."
+                    ],
                 )
 
         if len(a_shape) == 1 and len(b_shape) == 1:
@@ -41,7 +42,11 @@ class MatrixMultiplication(BaseOperator):
             self.contracting_dim = {"lhs": [1], "rhs": [0]}
             self.outputs[0].shape = (a_shape[0], b_shape[1])
         elif len(a_shape) != len(b_shape):
-            raise TripyException("Batched matmul or broadcasting is not implemented, will be fixed by #65.")
+            assert False, "Batched matmul or broadcasting is not implemented, will be fixed by #65."
+
+    def infer_dtypes(self):
+        op_utils.check_input_dtypes_match(self, "@")
+        self.outputs[0].dtype = self.inputs[0].dtype
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops.dot import DotOp
