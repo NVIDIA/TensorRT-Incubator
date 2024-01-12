@@ -11,12 +11,8 @@ class ShapeOfOp(BaseFIROp):
     Operation to transpose/permute a Tensor
     """
 
-    def __init__(self, origin_layer, inputs, outputs, dim):
+    def __init__(self, origin_layer, inputs, outputs):
         super().__init__(origin_layer, inputs, outputs)
-        self.dim = dim
-
-    def to_flat_ir_str(self) -> str:
-        return super().to_flat_ir_str() + f"dim={self.dim}"
 
     def to_mlir(self, operands):
         out_type = ir.RankedTensorType.get([self.outputs[0].shape[0].runtime_value], mlir_utils.get_mlir_dtype(int32))
