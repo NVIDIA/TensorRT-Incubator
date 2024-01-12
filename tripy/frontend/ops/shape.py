@@ -1,10 +1,7 @@
 from dataclasses import dataclass
-from typing import Sequence
 
-from tripy import utils
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.common.exception import TripyException
 
 
 @dataclass
