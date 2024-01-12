@@ -258,6 +258,16 @@ class TestCopyFunctional:
         assert out.device.kind == "cpu"
         assert out.view().tolist() == [3, 5]
 
+    def test_print_ds_tensor(self):
+        arr = np.ones(4, dtype=np.float32)
+        a = tripy.Tensor(arr, shape=(Dim(4, min=2, opt=4, max=6),), device=device("gpu"))
+        assert (a.numpy() == arr).all()
+
+    def test_print_static_tensor(self):
+        arr = np.ones(4, dtype=np.float32)
+        a = tripy.Tensor(arr, shape=(4,), device=device("gpu"))
+        assert (a.numpy() == arr).all()
+
 
 class TestDynamic:
     @pytest.mark.parametrize("dim", [Dim(4, min=2, opt=4, max=6)])
@@ -286,6 +296,20 @@ class TestDynamic:
         assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
         # 1 compile call for stablehlo add and 2 compile calls for device copy.
         assert get_log_str().count("compile(<tripy.backend.mlir.compiler.FlatIRCompile") == 3
+
+    @pytest.mark.parametrize("dim", [Dim(4, min=2, opt=4, max=6)])
+    def test_dynamic_lazy(self, dim):
+        from tripy.common.logging import set_logger_mode, LoggerModes, get_log_str
+
+        a = Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=device("gpu"))
+        b = Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=device("gpu"))
+
+        def func(a, b):
+            c = a + b
+            return c
+
+        out = func(a, b)
+        assert (out.numpy() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
 
 
 class TestReshape:

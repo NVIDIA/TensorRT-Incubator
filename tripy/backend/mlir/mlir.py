@@ -51,6 +51,7 @@ class _MlirCompiler:
                 void_ptr,
                 POINTER(c_int64),
                 void_ptr,
+                POINTER(c_int64),
                 POINTER(c_int),
             ],
             None,
@@ -170,6 +171,7 @@ class _MlirCompiler:
             get_mem_ptrs(exec_args.inputs),
             get_shape_values(exec_args.i_tensor_info),
             get_mem_ptrs(exec_args.outputs),
+            get_shape_values(exec_args.o_tensor_info),
             output_devices,
         )
 
