@@ -7,7 +7,7 @@ from tripy.frontend.tensor import Tensor
 
 class Linear(Module):
     """
-    Applies linear transformation expressed by the equation y = x W^\top + b.
+    Applies linear transformation expressed by the equation y = x @ W^t + b.
 
     Args:
         in_features: dimensionality of input features
@@ -31,7 +31,8 @@ class Linear(Module):
 
     def __init__(self, input_dims, output_dims, bias: bool = True):
         super().__init__()
-        from tripy import ones, float32
+        from tripy.common.datatype float32
+        from tripy.frontend.tensor_ops import ones
 
         # Replace with random weights when #74 is completed.
         self.weight = Parameter(ones((output_dims, input_dims), dtype=float32))
