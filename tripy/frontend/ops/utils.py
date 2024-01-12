@@ -1,5 +1,5 @@
 from tripy.frontend.dim import Dim
-from tripy.util import make_list, make_tuple
+from tripy.utils import make_list, make_tuple
 
 from tripy.common.types import ShapeInfo
 

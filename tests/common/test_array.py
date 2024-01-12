@@ -10,7 +10,7 @@ import torch
 
 import tripy as tp
 from tests.helper import NUMPY_TYPES, torch_type_supported
-from tripy import util
+from tripy import utils
 from tripy.common.array import Array
 from tripy.common.datatype import convert_numpy_to_tripy_dtype
 from tripy.frontend.ops.utils import to_dims
@@ -85,4 +85,4 @@ def test_array_creation(device_param, input_data):
         assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
         assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8
         assert arr.device.kind == device_type
-        assert arr.device.index == util.default(device_index, 0)
+        assert arr.device.index == utils.default(device_index, 0)

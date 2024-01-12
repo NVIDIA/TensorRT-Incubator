@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy import util
+from tripy import utils
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator

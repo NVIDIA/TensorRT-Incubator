@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.util import make_tuple
+from tripy.utils import make_tuple
 
 from tripy.common.exception import TripyException
 

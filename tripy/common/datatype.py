@@ -1,7 +1,8 @@
 import abc
+from typing import Any
+
 import numpy as np
 import torch
-from typing import Any
 
 # A dictionary to store data types
 DATA_TYPES = {}

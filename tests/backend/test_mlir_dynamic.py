@@ -5,8 +5,7 @@ import tripy
 from tripy import jit
 from tripy.frontend import Dim, Tensor
 from tripy.frontend.trace import Trace
-from tripy.backend.mlir.mlir_translator import lower_flat_ir_to_mlir
-from tripy.util.util import prefix_with_line_numbers
+from tripy.utils.utils import prefix_with_line_numbers
 
 
 @pytest.mark.skip(reason="Dynamic shape is not working with MLIR backend yet.")

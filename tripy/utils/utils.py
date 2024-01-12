@@ -1,7 +1,7 @@
 import glob
 import os
 import time
-from typing import List, Any
+from typing import List
 
 from tripy.common.logging import G_LOGGER
 

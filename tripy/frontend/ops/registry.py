@@ -1,3 +1,3 @@
-from tripy import util
+from tripy import utils
 
-TENSOR_METHOD_REGISTRY = util.FunctionRegistry()
+TENSOR_METHOD_REGISTRY = utils.FunctionRegistry()

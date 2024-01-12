@@ -1,16 +1,16 @@
 import sys
 
-import tripy.util
+import tripy.utils
 
 # Internal-only imports
-from tripy.util.stack_info import SourceInfo
+from tripy.utils.stack_info import SourceInfo
 
 
 def test_get_stack_info():
     def func():
         # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
         expected_line_num = sys._getframe().f_lineno + 1
-        return tripy.util.get_stack_info(), expected_line_num
+        return tripy.utils.get_stack_info(), expected_line_num
 
     # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
     expected_outer_line_num = sys._getframe().f_lineno + 1

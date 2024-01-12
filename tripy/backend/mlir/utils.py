@@ -3,7 +3,7 @@ import subprocess
 from mlir import dialects, ir
 
 from tripy.common.logging import G_LOGGER
-from tripy.util import log_time
+from tripy.utils import log_time
 
 
 def make_ir_context() -> ir.Context:

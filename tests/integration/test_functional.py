@@ -53,10 +53,6 @@ class TestFunctional:
         [False, True],
     )
     def test_static_broadcast_add_two_tensors(self, dim_a, dim_b, use_jit):
-        from tripy.common.logging import set_logger_mode, LoggerModes
-
-        set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
-
         np_a = np.random.rand(*dim_a).astype(np.float32)
         np_b = np.random.rand(*dim_b).astype(np.float32)
         a = Tensor(np_a, shape=dim_a, device=device("gpu"))

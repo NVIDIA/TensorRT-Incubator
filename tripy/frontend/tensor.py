@@ -1,6 +1,6 @@
 from typing import List
 
-from tripy import util
+from tripy import utils
 from tripy.common.array import Array
 from tripy.common.logging import G_LOGGER
 from tripy.frontend.ops import TENSOR_METHOD_REGISTRY, Storage
@@ -34,7 +34,7 @@ class Tensor(metaclass=TensorMeta):
             Tensor._COUNT += 1
             return name
 
-        self._stack_info = util.get_stack_info()
+        self._stack_info = utils.get_stack_info()
 
         inp_trace_tensors = []
         for inp in inputs:

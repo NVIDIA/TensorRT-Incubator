@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple, Union
 import cupy as cp
 import numpy as np
 
-from tripy import util
+from tripy import utils
 from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to_numpy_dtype, DATA_TYPES
 from tripy.common.device import device
 
@@ -41,7 +41,7 @@ class Array:
 
         self._module = np if device.kind == "cpu" else cp
 
-        data_dtype = util.default(dtype, tripy.common.datatype.float32)
+        data_dtype = utils.default(dtype, tripy.common.datatype.float32)
         if data is not None:
             foreign_dtype = type(data[0]) if isinstance(data, List) and len(data) > 0 else data.dtype
             data_dtype = convert_numpy_to_tripy_dtype(foreign_dtype)
@@ -55,7 +55,7 @@ class Array:
         static_shape = None
         if shape is not None:
             # Use runtime value here allocate only required output buffer.
-            static_shape = util.make_tuple([s.runtime_value for s in util.make_list(shape)])
+            static_shape = utils.make_tuple([s.runtime_value for s in utils.make_list(shape)])
 
         # Allocate dummy data
         if data is None:
@@ -68,7 +68,7 @@ class Array:
         self.shape = (
             static_shape
             if static_shape is not None
-            else util.make_tuple(len(data))
+            else utils.make_tuple(len(data))
             if isinstance(data, List)
             else data.shape
         )
