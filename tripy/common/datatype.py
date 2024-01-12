@@ -23,7 +23,7 @@ class dtype(metaclass=dtypeMeta):
     The base class for all data types supported by tripy.
     """
 
-    pass
+    name = ""
 
 
 # We use `__all__` to control what is exported from this file. `import *` will only pull in objects that are in `__all__`.

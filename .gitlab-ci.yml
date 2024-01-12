@@ -154,12 +154,14 @@ build_container:
       if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: always
 
+
 l0-if-new-container:
   stage: test
   image: $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID
   services:
     - docker:24.0.5-dind
   script:
+    - sphinx-build docs build/docs -j 6 -W
     - python3 -m pytest tests/ -v
   tags:
     - tripy-runner
@@ -180,6 +182,7 @@ l0-if-no-new-container:
   services:
     - docker:24.0.5-dind
   script:
+    - sphinx-build docs build/docs -j 6 -W
     - python3 -m pytest tests/ -v
   tags:
     - tripy-runner
