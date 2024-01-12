@@ -12,6 +12,7 @@ from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.device import device
 from tripy.frontend import Dim, Tensor
 from tripy.frontend.trace import Trace
+from tripy.frontend.tensor_ops import ones
 
 
 class TestFunctional:
@@ -285,3 +286,27 @@ class TestDynamic:
         assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
         # 1 compile call for stablehlo add and 2 compile calls for device copy.
         assert get_log_str().count("compile(<tripy.backend.mlir.compiler.FlatIRCompile") == 3
+
+
+class TestReshape:
+    @pytest.mark.parametrize(
+        "shape, new_shape",
+        [
+            ((2, 4), (1, 8)),
+            ((2, 4, 8, 9), (8, 8, 9)),
+            ((2, 4), (8,)),  # change rank of output
+        ],
+    )
+    def test_static_reshape(self, shape, new_shape):
+        np_a = np.random.rand(*shape).astype(np.float32)
+        a = Tensor(np_a, shape=shape, device=device("gpu"))
+        b = a.reshape(new_shape)
+        assert (b.shape.numpy() == np.array(new_shape)).all()
+        assert (b.numpy() == np.array(np_a.reshape(new_shape))).all()
+
+    def test_dynamic_reshape(self):
+        dim = Dim(runtime_value=4, min=3, opt=5, max=6)
+        a = ones((dim, 5, 6, 7))
+        with pytest.raises(NotImplementedError):
+            a = a.reshape((20, 3, 14))
+            print(a)

@@ -16,5 +16,5 @@ class ShapeOfOp(BaseFIROp):
 
     def to_mlir(self, operands):
         out_type = ir.RankedTensorType.get([self.outputs[0].shape[0].runtime_value], mlir_utils.get_mlir_dtype(int32))
-        out_shape = ir.Operation.create("tensorrt.shape", results=[out_type], operands=[operands[0]]).result
+        out_shape = ir.Operation.create("tensorrt.shape", results=[out_type], operands=[operands[0].result]).result
         return [out_shape]

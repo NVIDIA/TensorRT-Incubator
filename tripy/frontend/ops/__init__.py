@@ -9,3 +9,4 @@ from tripy.frontend.ops.matmul import MatrixMultiplication
 from tripy.frontend.ops.transpose import Transpose
 from tripy.frontend.ops.shape import ShapeOf
 from tripy.frontend.ops.select import Select
+from tripy.frontend.ops.reshape import Reshape
