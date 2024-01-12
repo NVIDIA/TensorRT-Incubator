@@ -34,7 +34,11 @@ class Tensor(metaclass=TensorMeta):
             Tensor._COUNT += 1
             return name
 
-        self._stack_info = utils.get_stack_info()
+        # We include stack information from everything above `build` up to user code.
+        # This lets us generate very nice error messages.
+        # NOTE: If the call stack depth for this function changes, update the index here!
+        STACK_DEPTH_IN_TENSOR = 3
+        self._stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_IN_TENSOR)
 
         inp_trace_tensors = []
         for inp in inputs:

@@ -17,7 +17,7 @@ class SourceInfo:
     function: str
     """The name of the function"""
     code: str
-    """Code corresponding to the file and line number. To save space, this is only available for the first user frame in the stack."""
+    """Code corresponding to the file and line number. To save space, this is not available for all frames."""
 
 
 def _is_user_frame(stack_info):
@@ -34,9 +34,14 @@ class StackInfo(list):
                 return stack_info
 
 
-def get_stack_info() -> StackInfo:
+def get_stack_info(include_code_index: int = None) -> StackInfo:
     """
     Returns stack information for the current call stack.
+
+    Args:
+        include_code_index: The index of a frame after which to include code.
+                Code is only included up to the first user frame.
+                If this index is past the first user frame, then code is only included for the user frame.
 
     Returns:
         Stack information for the current call stack.
@@ -45,7 +50,7 @@ def get_stack_info() -> StackInfo:
     # Exclude the current stack frame since we don't care about the get_stack_info() function itself.
     stack = inspect.stack()[1:]
     first_user_frame_found = False
-    for frame in stack:
+    for index, frame in enumerate(stack):
         module = inspect.getmodule(frame.frame)
 
         stack_info.append(
@@ -58,11 +63,17 @@ def get_stack_info() -> StackInfo:
             )
         )
 
-        if not first_user_frame_found and _is_user_frame(stack_info[-1]):
-            first_user_frame_found = True
-            # Only include code for the first user frame
+        def add_code():
             # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
             # In that case we just leave it empty.
             stack_info[-1].code = frame.code_context[0].rstrip() if frame.code_context else ""
+
+        if not first_user_frame_found:
+            # Only include code up to the first user frame.
+            if _is_user_frame(stack_info[-1]):
+                first_user_frame_found = True
+                add_code()
+            elif include_code_index is not None and index >= include_code_index:
+                add_code()
 
     return stack_info

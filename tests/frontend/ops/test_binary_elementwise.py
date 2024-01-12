@@ -31,7 +31,7 @@ class TestBinaryElementwise:
         b = tp.ones((2, 3), dtype=tp.float16)
         c = a + b
 
-        with pytest.raises(tp.TripyException, match="Mismatched input data types.") as exc:
+        with pytest.raises(tp.TripyException, match="Incompatible input data types.") as exc:
             c.eval()
         print(str(exc.value))
 
@@ -40,7 +40,7 @@ class TestBinaryElementwise:
         b = tp.ones((2, 3), dtype=tp.float16)
         c = a + b
 
-        with pytest.raises(tp.TripyException, match="Mismatched input tensor ranks.") as exc:
+        with pytest.raises(tp.TripyException, match="Incompatible input tensor ranks.") as exc:
             c.eval()
         print(str(exc.value))
 

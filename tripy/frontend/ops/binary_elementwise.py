@@ -51,7 +51,7 @@ class BinaryElementwise(BaseOperator):
         if len(input_shapes[0]) != len(input_shapes[1]):
             op_utils.raise_error_io_info(
                 self,
-                "Mismatched input tensor ranks.",
+                "Incompatible input tensor ranks.",
                 details=[
                     "Input tensors for binary operation: '",
                     self.kind.value.strip(),

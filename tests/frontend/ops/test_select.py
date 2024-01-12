@@ -19,7 +19,7 @@ class TestWhere:
         b = tp.ones((3,), dtype=tp.float32)
         c = tp.where(cond, a, b)
 
-        with pytest.raises(tp.TripyException, match="Mismatched input shapes.") as exc:
+        with pytest.raises(tp.TripyException, match="Incompatible input shapes.") as exc:
             c.eval()
         print(str(exc.value))
 
@@ -29,7 +29,7 @@ class TestWhere:
         b = tp.ones((2,), dtype=tp.float16)
         c = tp.where(cond, a, b)
 
-        with pytest.raises(tp.TripyException, match="Mismatched input data types.") as exc:
+        with pytest.raises(tp.TripyException, match="Incompatible input data types.") as exc:
             c.eval()
         print(str(exc.value))
 
@@ -55,7 +55,8 @@ class TestMaskedFill:
 
     def test_condition_is_not_bool(self):
         a = tp.Tensor([0, 1, 0, 1])
-        a = a.masked_fill(a, -1)
+        mask = tp.Tensor([1.0, 2.0, 3.0, 4.0])
+        a = a.masked_fill(mask, -1)
 
         with pytest.raises(tp.TripyException, match="Condition input must have boolean type.") as exc:
             a.eval()

@@ -14,7 +14,7 @@ class Select(BaseOperator):
 
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
-        op_utils.check_input_shapes_match(self)
+        op_utils.check_input_shapes_match(self, op_details="where")
         self.outputs[0].shape = self.inputs[0].shape
 
     def infer_dtypes(self):
@@ -24,13 +24,13 @@ class Select(BaseOperator):
                 self,
                 "Condition input must have boolean type.",
                 details=[
-                    f"Condition input (input 0) must have boolean type, but got: ",
+                    f"Condition input (input 0) for operation: 'where' must have boolean type, but got: ",
                     self.inputs[0].dtype,
                     ".",
                 ],
             )
 
-        op_utils.check_input_dtypes_match(self, start_index=1)
+        op_utils.check_input_dtypes_match(self, op_details="where", start_index=1)
         self.outputs[0].dtype = self.inputs[1].dtype
 
     def to_flat_ir(self, flat_ir):
@@ -97,4 +97,5 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tr
     """
     from tripy.frontend.ops.fill import full_like
 
-    return where(mask, full_like(self, value), self)
+    fill_tensor = full_like(self, value)
+    return where(mask, fill_tensor, self)

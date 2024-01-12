@@ -113,7 +113,7 @@ def _check_input_attr_matches(
 
         raise_error_io_info(
             op,
-            f"Mismatched input {attr_name}s.",
+            f"Incompatible input {attr_name}s.",
             details=[
                 f"For operation: '{op_details}', " if op_details else "For this operation, ",
                 f"{attr_name}s for {inp_range_str}" " must match, but got: [",

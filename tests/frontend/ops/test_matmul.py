@@ -28,6 +28,24 @@ class TestMatMul:
         b = tp.ones((3, 2), dtype=tp.float16)
         c = a @ b
 
-        with pytest.raises(tp.TripyException, match="Mismatched input data types.") as exc:
+        with pytest.raises(tp.TripyException, match="Incompatible input data types.") as exc:
+            c.eval()
+        print(str(exc.value))
+
+    def test_incompatible_1d_shapes_fails(self):
+        a = tp.ones((2,), dtype=tp.float32)
+        b = tp.ones((3,), dtype=tp.float32)
+        c = a @ b
+
+        with pytest.raises(tp.TripyException, match="Incompatible input shapes.") as exc:
+            c.eval()
+        print(str(exc.value))
+
+    def test_incompatible_2d_shapes_fails(self):
+        a = tp.ones((2, 4), dtype=tp.float32)
+        b = tp.ones((3, 6), dtype=tp.float32)
+        c = a @ b
+
+        with pytest.raises(tp.TripyException, match="Incompatible input shapes.") as exc:
             c.eval()
         print(str(exc.value))

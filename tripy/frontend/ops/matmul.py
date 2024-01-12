@@ -35,9 +35,21 @@ class MatrixMultiplication(BaseOperator):
 
         if len(a_shape) == 1 and len(b_shape) == 1:
             # case 1: both operands are 1-D
+            op_utils.check_input_shapes_match(self, "@")
+
             self.contracting_dim = {"lhs": [0], "rhs": [0]}
             self.outputs[0].shape = tuple()
+
         elif len(a_shape) == 2 and len(b_shape) == 2:
+            if a_shape[1] != b_shape[0]:
+                op_utils.raise_error_io_info(
+                    self,
+                    "Incompatible input shapes.",
+                    details=[
+                        f"For operation: '@', the second dimension of input 0 (shape: {a_shape}) must match the first "
+                        f"dimension of input 1 (shape: {b_shape}) but got: {a_shape[1]} and {b_shape[0]}"
+                    ],
+                )
             # case 2: both operands are 2-D
             self.contracting_dim = {"lhs": [1], "rhs": [0]}
             self.outputs[0].shape = (a_shape[0], b_shape[1])

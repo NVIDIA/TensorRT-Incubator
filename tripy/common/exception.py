@@ -27,10 +27,18 @@ def raise_error(summary: str, details: List[Any]):
     detail_msg = ""
     for detail in details:
         if hasattr(detail, "stack_info"):
-            user_frame = detail.stack_info.get_first_user_frame()
-            line_info = f"{user_frame.file}:{user_frame.line}"
-            separator = "-" * max(len(line_info), len(user_frame.code))
-            detail_msg += f"\n\n| {line_info}\n| {separator}\n| {user_frame.code}\n\n"
+            frame_strs = []
+
+            for frame in detail.stack_info:
+                if not frame.code:
+                    continue
+
+                line_info = f"{frame.file}:{frame.line}"
+                separator = "-" * max(len(line_info), len(frame.code))
+                frame_info = f"\n\n| {line_info}\n| {separator}\n| {frame.code}\n\n"
+                frame_strs.append(frame_info)
+
+            detail_msg += "Called from: ".join(frame_strs)
         elif inspect.isclass(detail) and issubclass(detail, dtype):
             detail_msg += f"'{detail.name}'"
         else:
