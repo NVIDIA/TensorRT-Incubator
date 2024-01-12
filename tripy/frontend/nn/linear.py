@@ -31,7 +31,7 @@ class Linear(Module):
 
     def __init__(self, input_dims, output_dims, bias: bool = True):
         super().__init__()
-        from tripy.common.datatype float32
+        from tripy.common.datatype import float32
         from tripy.frontend.tensor_ops import ones
 
         # Replace with random weights when #74 is completed.
