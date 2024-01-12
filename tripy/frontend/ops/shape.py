@@ -10,9 +10,6 @@ class ShapeOf(BaseOperator):
     Represents a shape operation.
     """
 
-    def to_trace_str(self):
-        return f"{self.outputs[0].name} = Tensor.shape({self.inputs[0].name})"
-
     def infer_shapes(self):
         assert len(self.inputs) == 1, "ShapeOf operation should have exactly one input!"
         from tripy.frontend import Dim

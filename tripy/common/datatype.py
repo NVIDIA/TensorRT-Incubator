@@ -8,7 +8,18 @@ import torch
 DATA_TYPES = {}
 
 
-class dtype(abc.ABC):
+# We include a metaclass here so we can control how the class type is printed.
+# The default would be something like: `<class 'abc.float32'>`. With the metaclass,
+# we can print it as `float32`
+class dtypeMeta(type):
+    def __str__(cls):
+        return cls.name
+
+    def __repr__(cls):
+        return cls.name
+
+
+class dtype(metaclass=dtypeMeta):
     """
     The base class for all data types supported by tripy.
     """

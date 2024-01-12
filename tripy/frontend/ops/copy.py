@@ -14,9 +14,6 @@ class Copy(BaseOperator):
 
     target: device
 
-    def to_trace_str(self):
-        return f"{self.outputs[0].name} = copy({self.inputs[0].name}, target = {self.target.kind}:{self.target.index})"
-
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
 

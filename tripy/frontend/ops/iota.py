@@ -17,11 +17,11 @@ class Iota(BaseOperator):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def to_trace_str(self):
+    def __str__(self):
         if self.inputs:
-            return f"{self.outputs[0].name} = Tensor.iota(dim={self.dim}, like={self.inputs[0].name})"
+            return f"{self.outputs[0].name} = iota(dim={self.dim}, like={self.inputs[0].name})"
         else:
-            return f"{self.outputs[0].name} = Tensor.iota(dim={self.dim}, shape={self.shape}, dtype={self.dtype.name})"
+            return f"{self.outputs[0].name} = iota(dim={self.dim}, shape={self.shape}, dtype={self.dtype.name})"
 
     def infer_shapes(self):
         if self.inputs:

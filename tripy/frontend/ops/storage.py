@@ -1,19 +1,26 @@
+from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
+import tripy.common
 from tripy import utils
-from tripy.common.types import ShapeInfo
-from tripy.common import device as make_device
 from tripy.common.array import Array
+from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import Dim
 from tripy.frontend.ops.base import BaseOperator
-from tripy.frontend.ops.utils import to_dims
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.utils import to_dims
 
 
+@dataclass
 class Storage(BaseOperator):
     """
     Represents data stored in host or device memory.
     """
+
+    data: Array
+    shape: ShapeInfo
+    dtype: type
+    device: tripy.common.device
 
     def __init__(
         self,
@@ -41,20 +48,14 @@ class Storage(BaseOperator):
             # Ensure that dtype is not set.
             assert dtype is None
 
-        self.device = utils.default(device, make_device("cpu"))
+        self.device = utils.default(device, tripy.common.device("cpu"))
         self.data = Array(data, dtype, shape, self.device)
         self.dtype = self.data.dtype
-        self.shape: Tuple[Dim] = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
+        self.shape: ShapeInfo = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
         self.shape_profile: List = utils.make_list(shape)
 
     def __eq__(self, other) -> bool:
         return self.data == other.data
-
-    def __str__(self) -> str:
-        return f"data=({self.data.view()}) : shape=({self.shape}), dtype=({self.dtype.name}), loc=({self.device.kind}:{self.device.index})"
-
-    def to_trace_str(self):
-        return f"{self.outputs[0].name} : data=({self.data.view()}), shape=({self.shape}), dtype=({self.dtype.name}), stride=(), loc=({self.device.kind}:{self.device.index})"
 
     def infer_shapes(self):
         self.outputs[0].shape = self.shape
@@ -65,7 +66,7 @@ class Storage(BaseOperator):
     def infer_devices(self):
         # This is different from self.device
         # Constants are always on device when executed by mlir
-        self.outputs[0].device = make_device("gpu")
+        self.outputs[0].device = tripy.common.device("gpu")
 
     def to_flat_ir(self, flat_ir):
         import cupy as cp

@@ -90,8 +90,8 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                t0 : data=([0]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
-                t1 : data=([1]), shape=((1,)), dtype=(int32), stride=(), loc=(cpu:0)
+                t0 = storage(data=[0], shape=(1,), dtype=int32, device=cpu:0)
+                t1 = storage(data=[1], shape=(1,), dtype=int32, device=cpu:0)
                 t2 = t0 + t1
                 outputs:
                     t2: [shape=(1,), dtype=(int32), loc=(gpu:0)]
@@ -128,8 +128,8 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                t0 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
-                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t0 = storage(data=[1.], shape=(1,), dtype=float32, device=cpu:0)
+                t1 = storage(data=[1.], shape=(1,), dtype=float32, device=cpu:0)
                 t2 = t0 + t1
                 t3 = t2 + t2
                 outputs:
@@ -192,7 +192,7 @@ class TestTrace:
                 """
                 inputs:
                     t0: [shape=(1,), dtype=(float32), loc=(gpu:0)]
-                t1 : data=([1.]), shape=((1,)), dtype=(float32), stride=(), loc=(cpu:0)
+                t1 = storage(data=[1.], shape=(1,), dtype=float32, device=cpu:0)
                 t2 = t0 + t1
                 outputs:
                     t2: [shape=(1,), dtype=(float32), loc=(gpu:0)]

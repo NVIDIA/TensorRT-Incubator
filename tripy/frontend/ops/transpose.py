@@ -17,9 +17,6 @@ class Transpose(BaseOperator):
     dim0: int
     dim1: int
 
-    def to_trace_str(self):
-        return f"{self.outputs[0].name} = Tensor.transpose({self.inputs[0].name}, perm={self.permutation})"
-
     def infer_shapes(self):
         assert len(self.inputs) == 1, "Transpose operation should have exactly one input!"
         origin_shape = self.inputs[0].shape

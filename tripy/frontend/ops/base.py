@@ -1,6 +1,7 @@
 import abc
 from dataclasses import dataclass
 from typing import List
+import dataclasses
 
 
 @dataclass
@@ -13,16 +14,6 @@ class BaseOperator(abc.ABC):
 
     const_fold: bool
     """Whether to treat the operation as a constant in JIT"""
-
-    @abc.abstractmethod
-    def to_trace_str(self) -> str:
-        """
-        Returns a Trace string representation of the operation.
-
-        Returns:
-            The Trace string representation of the operation.
-        """
-        ...
 
     @abc.abstractmethod
     def infer_shapes(self):
@@ -58,3 +49,19 @@ class BaseOperator(abc.ABC):
             flat_ir: FlatIR parent graph where new ops are inserted.
         """
         ...
+
+    def __str__(self) -> str:
+        """
+        Returns a Trace string representation of the operation.
+
+        Returns:
+            The Trace string representation of the operation.
+        """
+        assert len(self.outputs) == 1, "Base class implementation only works for single output operations!"
+
+        args = [
+            f"{field.name}={getattr(self, field.name)}"
+            for field in dataclasses.fields(self)
+            if field.name not in [base_field.name for base_field in dataclasses.fields(BaseOperator)]
+        ]
+        return f"{self.outputs[0].name} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"

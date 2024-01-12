@@ -9,9 +9,6 @@ class Select(BaseOperator):
     Represents a select operation.
     """
 
-    def to_trace_str(self):
-        return f"{self.outputs[0].name} = Tensor.select(condition={self.inputs[0].name}, x={self.inputs[1].name}, y={self.inputs[2].name})"
-
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         op_utils.check_input_shapes_match(self, op_details="where")

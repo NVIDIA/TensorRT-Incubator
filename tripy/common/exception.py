@@ -16,13 +16,11 @@ def raise_error(summary: str, details: List[Any]):
         details: Details on the error. This function handles objects in this list as follows:
             - If they include a `stack_info` member, then information on the first user frame is displayed,
                 including file/line information as well as the line of code.
-            - If they are Tripy datatypes, they are pretty-printed.
             - In all other cases, the object is just converted to a string.
 
     Raises:
         TripyException
     """
-    from tripy.common.datatype import dtype
 
     detail_msg = ""
     for detail in details:
@@ -39,8 +37,6 @@ def raise_error(summary: str, details: List[Any]):
                 frame_strs.append(frame_info)
 
             detail_msg += "Called from: ".join(frame_strs)
-        elif inspect.isclass(detail) and issubclass(detail, dtype):
-            detail_msg += f"'{detail.name}'"
         else:
             detail_msg += str(detail)
 

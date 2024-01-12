@@ -16,13 +16,11 @@ class Fill(BaseOperator):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def to_trace_str(self):
+    def __str__(self):
         if self.inputs:
-            return f"{self.outputs[0].name} = Tensor.fill_like(value={self.value}, like={self.inputs[0].name})"
+            return f"{self.outputs[0].name} = fill_like(value={self.value}, like={self.inputs[0].name})"
         else:
-            return (
-                f"{self.outputs[0].name} = Tensor.fill(value={self.value}, shape={self.shape}, dtype={self.dtype.name})"
-            )
+            return f"{self.outputs[0].name} = fill(value={self.value}, shape={self.shape}, dtype={self.dtype.name})"
 
     def infer_shapes(self):
         if self.inputs:

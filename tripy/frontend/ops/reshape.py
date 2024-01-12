@@ -17,9 +17,6 @@ class Reshape(BaseOperator):
 
     shape: Sequence[int]
 
-    def to_trace_str(self):
-        return f"{self.outputs[0].name} = Tensor.reshape({self.inputs[0].name}, shape={self.shape})"
-
     def infer_shapes(self):
         assert len(self.inputs) == 1, "Reshape operation should have exactly one input!"
         self.outputs[0].shape = to_dims(self.shape)

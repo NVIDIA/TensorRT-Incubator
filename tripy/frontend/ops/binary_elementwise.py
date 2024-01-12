@@ -46,7 +46,7 @@ class BinaryElementwise(BaseOperator):
         Kind.GREATER,
     }
 
-    def to_trace_str(self):
+    def __str__(self):
         return f"{self.outputs[0].name} = {self.kind.join([inp.name for inp in self.inputs])}"
 
     def infer_shapes(self):

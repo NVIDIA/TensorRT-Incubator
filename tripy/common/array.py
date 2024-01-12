@@ -85,6 +85,9 @@ class Array:
         dtype = convert_tripy_to_numpy_dtype(self.dtype)
         return self.byte_buffer.view(dtype)
 
+    def __str__(self):
+        return str(self.view())
+
     def __eq__(self, other) -> bool:
         """
         Check if two arrays are equal.
