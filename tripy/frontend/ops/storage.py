@@ -4,6 +4,7 @@ from tripy import utils
 from tripy.common.types import ShapeInfo
 from tripy.common import device as make_device
 from tripy.common.array import Array
+from tripy.frontend.dim import Dim
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.utils import to_dims
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
@@ -20,7 +21,7 @@ class Storage(BaseOperator):
         outputs: List["Tensor"],
         const_fold: bool,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        shape: Optional[Tuple["Dim"]] = None,
+        shape: Optional[Tuple[Dim]] = None,
         dtype: "tripy.dtype" = None,
         device: "tripy.common.device" = None,
     ) -> None:
@@ -43,7 +44,7 @@ class Storage(BaseOperator):
         self.device = utils.default(device, make_device("cpu"))
         self.data = Array(data, dtype, shape, self.device)
         self.dtype = self.data.dtype
-        self.shape: Tuple[int] = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
+        self.shape: Tuple[Dim] = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
         self.shape_profile: List = utils.make_list(shape)
 
     def __eq__(self, other) -> bool:

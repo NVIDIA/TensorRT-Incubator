@@ -1,5 +1,6 @@
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
 class Select(BaseOperator):
@@ -49,7 +50,7 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
         import numpy as np
 
         condition = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
-        # print(condition.eval().view())
+        # print(condition)
         # [[True, False],
         #  [True, True]]
         x = tp.ones([2, 2])
@@ -60,3 +61,33 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
     from tripy.frontend import Tensor
 
     return Tensor.build([condition, x, y], Select)
+
+
+@TENSOR_METHOD_REGISTRY("masked_fill")
+def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tripy.Tensor":
+    """
+    Fills elements of tensor with value where mask is True.
+
+    Args:
+        mask: Tensor of bool type
+        value: the value to fill in with, will be converted to match dtype of self Tensor
+
+    Returns:
+        the filled Tensor
+
+    Example:
+    ::
+
+        import numpy as np
+
+        mask = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
+        # print(mask)
+        # [[True, False],
+        #  [True, True]]
+        a = tp.ones([2, 2])
+        out = a.masked_fill(mask, -1.0)
+        assert (out.numpy() == np.array([[-1, 1], [-1, -1]], dtype=np.float32)).all()
+    """
+    from tripy.frontend.ops.fill import full_like
+
+    return where(mask, full_like(self, value), self)

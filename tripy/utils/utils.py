@@ -114,8 +114,6 @@ def get_broadcast_dim(dim1, dim2):
         assert dim1 == 1 or dim2 == 1 or dim1 == dim2
         return max(dim1, dim2)
     else:
-        from tripy.frontend.dim import Dim
-
         if dim1.is_dynamic_dim():
             return dim1
         else:

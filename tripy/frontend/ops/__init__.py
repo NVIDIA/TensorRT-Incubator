@@ -8,3 +8,4 @@ from tripy.frontend.ops.iota import Iota
 from tripy.frontend.ops.matmul import MatrixMultiplication
 from tripy.frontend.ops.transpose import Transpose
 from tripy.frontend.ops.shape import ShapeOf
+from tripy.frontend.ops.select import Select

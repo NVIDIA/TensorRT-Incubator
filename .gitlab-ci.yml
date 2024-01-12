@@ -151,9 +151,8 @@ build_container:
       - Dockerfile
       - pyproject.toml
       - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: always
-
 
 l0-if-new-container:
   stage: test

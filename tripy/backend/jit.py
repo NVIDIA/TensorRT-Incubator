@@ -3,6 +3,7 @@ import functools
 import glob
 import os
 import tempfile
+from collections import namedtuple
 from typing import Callable, Dict, Tuple
 
 from tripy import config, utils
@@ -11,6 +12,8 @@ from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor, nn
 from tripy.frontend.trace import Trace
+
+JITValue = namedtuple("JITValue", ["executable", "flat_ir_shape_info"])
 
 
 class jit:
@@ -64,7 +67,7 @@ class jit:
             assert (out.numpy() == np.array([2.0, 2.0])).all()
         """
         self.kwargs = kwargs
-        self.cache: Dict[str, "executable"] = {}
+        self.cache: Dict[str, JITValue] = {}
         self._const_args: Tuple[int] = ()
         self._func: Callable = None
         self._decorated: Callable = None
@@ -88,11 +91,38 @@ class jit:
         self._obj = obj
         return self
 
-    def _get_jit_hash(self, ir_str):
+    def _can_reuse_cached_executable(self, cache_key, flat_ir):
+        # Return true if cached inputs shapes are super set of current inputs shapes.
+        cached_inputs, _ = self.cache[cache_key].flat_ir_shape_info
+        curr_inputs, _ = flat_ir.io_shape_info()
+        return all(map(lambda shapes: shapes[0].is_a_subset_of(shapes[1]), zip(curr_inputs, cached_inputs)))
+
+    def _get_jit_hash(self, trace):
         from tripy import __version__ as tp_version
+        from tripy.frontend.dim import Dim
+
+        hashable_flat_ir = trace.to_flat_ir()
+        i_info, o_info = hashable_flat_ir.io_tensor_info()
+
+        def to_dynamic(shape):
+            return [Dim(-1) for _ in shape]
+
+        for i in range(len(i_info)):
+            hashable_flat_ir.inputs[i].shape = to_dynamic(i_info[i].shape)
+
+        for l in hashable_flat_ir.ops:
+            for i in range(len(l.inputs)):
+                l.inputs[i].shape = to_dynamic(l.inputs[i].shape)
+            for o in range(len(l.outputs)):
+                l.outputs[o].shape = to_dynamic(l.outputs[o].shape)
+
+        for o in range(len(o_info)):
+            hashable_flat_ir.outputs[o].shape = to_dynamic(o_info[o].shape)
+
+        G_LOGGER.debug(f"Hashable FlatIR :\n{hashable_flat_ir}")
 
         # TODO: improve the naive ir hash
-        hash_str = str(hash(tp_version + ir_str))
+        hash_str = str(hash(tp_version + str(hashable_flat_ir)))
         return hash_str.zfill(config.JIT_CACHE_HASH_LENGTH)
 
     def _helper(self, func: Callable):
@@ -133,14 +163,14 @@ class jit:
             flat_ir = trace.to_flat_ir()
             G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
             output_devices = [o.device for o in flat_ir.outputs]
-            cache_key = self._get_jit_hash(str(flat_ir))
+            cache_key = self._get_jit_hash(trace)
 
-            if cache_key in self.cache:
-                executable = self.cache[cache_key]
+            if cache_key in self.cache and self._can_reuse_cached_executable(cache_key, flat_ir):
+                executable = self.cache[cache_key].executable
             else:
                 compiler = FlatIRCompiler()
                 executable = compiler.compile(flat_ir)
-                self.cache[cache_key] = executable
+                self.cache[cache_key] = JITValue(executable, flat_ir.io_shape_info())
 
             i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
             executor = FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info)
@@ -168,8 +198,8 @@ class jit:
 
         self.save(self.cache_dir)
         mlir_backend = mlir_wrapper()
-        for _, executable in self.cache.items():
-            mlir_backend.exec_destroy(executable)
+        for _, value in self.cache.items():
+            mlir_backend.exec_destroy(value.executable)
 
     def save(self, dir_path=None):
         """
@@ -198,19 +228,21 @@ class jit:
                 add.load(tmp_dir)
         """
         from tripy.backend.mlir.mlir import mlir_wrapper
+        import pickle
 
         G_LOGGER.info(f"Saving engines to cache: {dir_path}")
         mlir_backend = mlir_wrapper()
         dir_path = utils.default(dir_path, self.cache_dir)
         os.makedirs(dir_path, exist_ok=True)
 
-        for index, (cache_key, executable) in enumerate(self.cache.items()):
+        for index, (cache_key, cache_value) in enumerate(self.cache.items()):
             filename = os.path.join(dir_path, f"engine_{index}.engine")
             if os.path.exists(filename):
                 os.remove(filename)
             with open(filename, "wb") as f:
                 f.write(cache_key.encode())
-            mlir_backend.save(executable, filename)
+                pickle.dump(cache_value.flat_ir_shape_info, f)
+            mlir_backend.save(cache_value.executable, filename)
 
     def load(self, dir_path=None):
         """
@@ -220,6 +252,7 @@ class jit:
             dir_path: A string of folder name
         """
         from tripy.backend.mlir.mlir import mlir_wrapper
+        import pickle
 
         G_LOGGER.info(f"Loading engines from cache: {dir_path}")
         mlir_backend = mlir_wrapper()
@@ -231,5 +264,6 @@ class jit:
             engine_name = os.path.join(dir_path, engine_name)
             with open(engine_name, "rb") as f:
                 cache_key = f.read(config.JIT_CACHE_HASH_LENGTH).decode()
+                flat_ir_shape_info = pickle.load(f)
                 executable = mlir_backend.load(data=f.read())
-                self.cache[cache_key] = executable
+                self.cache[cache_key] = JITValue(executable, flat_ir_shape_info)

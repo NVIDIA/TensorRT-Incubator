@@ -1,4 +1,6 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
+from collections import namedtuple
+import copy
 
 from mlir import ir
 from mlir.dialects import func as func_dialect
@@ -6,6 +8,21 @@ from mlir.dialects import func as func_dialect
 from tripy.backend.mlir.utils import make_ir_context
 from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops import BaseFIROp
+from tripy.frontend.dim import Dim
+
+
+class FlatIRTensorInfo:
+    def __init__(self, shape: Tuple[Dim], dtype):
+        self.shape = shape
+        self.dtype = dtype
+
+
+class FlatIRShapeInfo:
+    def __init__(self, shape: Tuple[Dim]):
+        self.shape = shape
+
+    def is_a_subset_of(self, cached: "FlatIRShapeInfo"):
+        return all(curr.is_a_subset_of(cached) for curr, cached in zip(self.shape, cached.shape))
 
 
 class FlatIR:
@@ -132,9 +149,12 @@ class FlatIR:
         op = OpType(producer, list(map(self.add_tensor, inputs)), list(map(self.add_tensor, outputs)), *args, **kwargs)
         self.ops.append(op)
 
-    def io_tensor_info(self):
-        from tripy.common.types import TensorInfo
+    def io_shape_info(self):
+        i_tensor_info = [FlatIRShapeInfo([s for s in i.shape]) for i in self.inputs]
+        o_tensor_info = [FlatIRShapeInfo([s for s in o.shape]) for o in self.outputs]
+        return (i_tensor_info, o_tensor_info)
 
-        i_tensor_info = [TensorInfo([s for s in i.shape], i.dtype) for i in self.inputs]
-        o_tensor_info = [TensorInfo([s for s in o.shape], o.dtype) for o in self.outputs]
-        return i_tensor_info, o_tensor_info
+    def io_tensor_info(self):
+        i_tensor_info = [FlatIRTensorInfo([s for s in i.shape], i.dtype) for i in self.inputs]
+        o_tensor_info = [FlatIRTensorInfo([s for s in o.shape], o.dtype) for o in self.outputs]
+        return (i_tensor_info, o_tensor_info)
