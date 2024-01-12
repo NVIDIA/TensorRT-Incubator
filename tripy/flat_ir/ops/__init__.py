@@ -3,7 +3,7 @@ from tripy.flat_ir.ops.add import AddOp
 from tripy.flat_ir.ops.pow import PowOp
 from tripy.flat_ir.ops.mul import MulOp
 from tripy.flat_ir.ops.compare import CompareOp
-from tripy.flat_ir.ops.constant import ConstantOp, ConstantScalarOp
+from tripy.flat_ir.ops.constant import ConstantOp
 from tripy.flat_ir.ops.copy import CopyOp
 from tripy.flat_ir.ops.broadcast import BroadcastOp
 from tripy.flat_ir.ops.iota import IotaOp

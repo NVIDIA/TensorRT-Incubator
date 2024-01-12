@@ -5,12 +5,17 @@ from mlir.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFIROp
 from tripy.utils import default
+from dataclasses import dataclass
 
 
+@dataclass
 class DotOp(BaseFIROp):
     """
     Operation to compute generic dot product of two tensors.
     """
+
+    contracting_dim: int
+    batching_dim: int
 
     def __init__(self, origin_layer, inputs, outputs, contracting_dim=None, batching_dim=None):
         super().__init__(origin_layer, inputs, outputs)

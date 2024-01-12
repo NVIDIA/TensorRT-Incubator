@@ -3,12 +3,17 @@ from typing import List
 from mlir import ir
 
 from tripy.flat_ir.ops.base import BaseFIROp
+import tripy.common
+from dataclasses import dataclass
 
 
+@dataclass
 class CopyOp(BaseFIROp):
     """
     Operation to copy a tensor to another device
     """
+
+    target: tripy.common.device
 
     def __init__(self, origin_layer, inputs, outputs, target):
         super().__init__(origin_layer, inputs, outputs)

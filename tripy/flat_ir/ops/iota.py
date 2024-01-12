@@ -1,13 +1,22 @@
+from dataclasses import dataclass
+
 from mlir import ir
 from mlir.dialects import stablehlo
 
+import tripy.common
+from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops.base import BaseFIROp
 
 
+@dataclass
 class IotaOp(BaseFIROp):
     """
     Operation to fill an output tensor with values in increasing order starting from zero along the given dimension
     """
+
+    dim: int
+    shape: ShapeInfo
+    dtype: tripy.common.dtype
 
     def __init__(self, origin_layer, inputs, outputs, dim):
         super().__init__(origin_layer, inputs, outputs)

@@ -1,4 +1,5 @@
 import abc
+import dataclasses
 from dataclasses import dataclass
 from typing import List
 
@@ -36,7 +37,7 @@ class BaseFIROp(abc.ABC):
         """
         ...
 
-    def to_flat_ir_str(self) -> str:
+    def __str__(self) -> str:
         """
         Returns a FlatIR string representation of the operation.
 
@@ -44,7 +45,12 @@ class BaseFIROp(abc.ABC):
             The FlatIR string representation of the operation.
         """
         outputs_str = f"{str(self.outputs[0])}" if len(self.outputs) == 1 else str([out for out in self.outputs])
-        return f"{outputs_str} = {self.name()}({', '.join(list(map(str, self.inputs)))})"
+        args = [
+            f"{field.name}={getattr(self, field.name)}"
+            for field in dataclasses.fields(self)
+            if field.name not in [base_field.name for base_field in dataclasses.fields(BaseFIROp)]
+        ]
+        return f"{outputs_str} = {self.name()}({', '.join([inp.name for inp in self.inputs] + args)})"
 
     def name(self) -> str:
         """

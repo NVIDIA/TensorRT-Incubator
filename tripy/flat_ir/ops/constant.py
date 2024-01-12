@@ -1,13 +1,22 @@
+from dataclasses import dataclass
+from typing import Any
+
 from mlir import ir
 from mlir.dialects import arith, stablehlo
 
+import tripy.common
 from tripy.flat_ir.ops.base import BaseFIROp
 
 
+@dataclass
 class ConstantOp(BaseFIROp):
     """
     Operation to store a constant tensor
     """
+
+    data: Any
+    dtype: tripy.common.dtype
+    device: tripy.common.device
 
     def __init__(self, origin_layer, inputs, outputs, data):
         super().__init__(origin_layer, inputs, outputs)
@@ -16,9 +25,6 @@ class ConstantOp(BaseFIROp):
         self.dtype = self.outputs[0].dtype
         self.device = self.outputs[0].device
 
-    def to_flat_ir_str(self) -> str:
-        return f"{self.outputs[0].name} : {self.__class__.__name__}(data={self.data}, shape={self.data.shape}, dtype={self.dtype.name}, loc=({self.device}))"
-
     def to_mlir(self, operands):
         from tripy.backend.mlir import utils as mlir_utils
 
@@ -26,33 +32,3 @@ class ConstantOp(BaseFIROp):
             array=self.data, type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape
         )
         return [stablehlo.ConstantOp(attr)]
-
-
-class ConstantScalarOp(BaseFIROp):
-    """
-    Operation to store a constant scalar
-    """
-
-    def __init__(self, origin_layer, inputs, outputs, value, dtype):
-        super().__init__(origin_layer, inputs, outputs)
-        self.value = value
-        self.dtype = dtype
-
-    def to_flat_ir_str(self, input_names, output_names) -> str:
-        return f"{self.outputs[0].name} : {self.__class__.__name__}(data={self.value}, shape={()}, dtype={self.dtype.name}, loc={self.device})"
-
-    def to_mlir(self, operands):
-        from tripy.backend.mlir import utils as mlir_utils
-
-        mlir_dtype = mlir_utils.get_mlir_dtype(self.dtype)
-        if isinstance(mlir_dtype, ir.IntegerType):
-            const_attr = ir.IntegerAttr.get(
-                type=mlir_dtype,
-                value=self.value,
-            )
-        else:
-            const_attr = ir.FloatAttr.get(
-                type=mlir_dtype,
-                value=self.value,
-            )
-        return [arith.constant(const_attr)]
