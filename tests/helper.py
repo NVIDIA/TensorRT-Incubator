@@ -1,5 +1,5 @@
 import os
-from textwrap import dedent
+from textwrap import dedent, indent
 from typing import List
 import tripy as tp
 import numpy as np
@@ -85,4 +85,6 @@ def consolidate_code_blocks(doc):
 
 
 def exec_doc_example(code):
-    return exec(code, {"tp": tp}, {})
+    # Don't inherit variables from the current environment so we can be sure the docstring examples
+    # work in total isolation.
+    return exec(code, {"tp": tp, "np": np}, {})

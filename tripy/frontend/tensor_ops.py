@@ -19,8 +19,6 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
     Example:
     ::
 
-        import numpy as np
-
         a = tp.ones([2, 3])
         print(a)
         assert (a.numpy() == np.ones([2, 3], dtype=np.float32)).all()
@@ -41,8 +39,6 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
 
     Example:
     ::
-
-        import numpy as np
 
         a = tp.zeros([2, 3])
         print(a)
@@ -65,9 +61,7 @@ def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None):
     Example:
     ::
 
-        import numpy as np
-
-        t = tp.Tensor(np.zeros([2, 3], dtype=np.float32))
+        t = tp.zeros([2, 3], dtype=tp.float32)
         a = tp.ones_like(t)
         print(a)
         assert (a.numpy() == np.ones([2, 3], dtype=np.float32)).all()
@@ -89,9 +83,7 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None):
     Example:
     ::
 
-        import numpy as np
-
-        t = tp.Tensor(np.ones([2, 3], dtype=np.float32))
+        t = tp.ones([2, 3], dtype=tp.float32)
         a = tp.zeros_like(t)
         print(a)
         assert (a.numpy() == np.zeros([2, 3], dtype=np.float32)).all()
@@ -113,12 +105,11 @@ def tril(input: "tripy.Tensor", diagonal: int = 0):
     Example:
     ::
 
-        import numpy as np
-
-        t = np.array([[1, 1, 1], [2, 2, 2]], dtype=np.float32)
-        a = tp.tril(tp.Tensor(t))
+        # TODO #78: Use nested list once supported
+        t = tp.Tensor([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=tp.float32).reshape((2, 3))
+        a = tp.tril(t)
         print(a)
-        assert (a.numpy() == np.tril(t)).all()
+        assert (a.numpy() == np.tril(np.array([[1, 1, 1], [2, 2, 2]], dtype=np.float32))).all()
     """
     tri_mask = (arange_like(input, 0, datatype.int32) + full_like(input, diagonal, datatype.int32)) >= arange_like(
         input, 1, datatype.int32

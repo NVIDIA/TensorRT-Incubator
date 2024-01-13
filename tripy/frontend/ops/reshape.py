@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from typing import Sequence, Tuple, Union
 
 from tripy import utils
+from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.common.types import ShapeInfo
-from tripy.frontend.ops.utils import to_dims, raise_error_io_info
+from tripy.frontend.ops.utils import raise_error_io_info, to_dims
 
 
 @dataclass
@@ -58,9 +58,9 @@ class Squeeze(Reshape):
                         [
                             "Input tensor has shape: ",
                             input_shape,
-                            " but trying to squeeze out dim ",
+                            " but trying to squeeze out dim: ",
                             idx,
-                            " with size ",
+                            " with size: ",
                             d.runtime_value,
                         ],
                     )
@@ -85,13 +85,10 @@ def reshape(self: "tripy.Tensor", shape: ShapeInfo):
     Example:
     ::
 
-        import numpy as np
-
-        t = np.random.rand(2, 3).astype(np.float32)
-        a = tp.Tensor(t)
-        out = a.reshape((1, 6))
+        t = tp.ones((2, 3), dtype=tp.float32)
+        out = t.reshape((1, 6))
         print(out)
-        assert (out.numpy() == np.reshape(t, (1, 6))).all()
+        assert (out.numpy() == np.reshape(np.ones((2, 3), dtype=np.float32), (1, 6))).all()
     """
     from tripy.frontend import Tensor
 
@@ -114,18 +111,18 @@ def squeeze(self: "tripy.Tensor", dims: Union[Tuple, int] = None):
     Example:
     ::
 
-        import numpy as np
-
-        t = np.random.rand(1, 2, 1).astype(np.float32)
-        a = tp.Tensor(t)
+        a = tp.ones((1, 2, 1), dtype=tp.float32)
         out = a.squeeze()
-        assert np.array_equal(out.numpy(), np.squeeze(t))
+        print(f"1. {out}")
+        assert np.array_equal(out.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32)))
 
         out = a.squeeze(0)
-        assert np.array_equal(out.numpy(), np.squeeze(t, 0))
+        print(f"2. {out}")
+        assert np.array_equal(out.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), 0))
 
         out = a.squeeze((0, 2))
-        assert np.array_equal(out.numpy(), np.squeeze(t, (0, 2)))
+        print(f"3. {out}")
+        assert np.array_equal(out.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), (0, 2)))
     """
     from tripy.frontend import Tensor
 

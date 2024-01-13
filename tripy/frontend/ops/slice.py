@@ -56,12 +56,9 @@ def get_item(self: "tripy.Tensor", index: "index_expr"):
     Example:
     ::
 
-        import numpy as np
-
-        t = np.random.rand(1, 2, 3, 1).astype(np.float32)
-        a = tp.Tensor(t)
+        a = tp.arange([6], dtype=tp.float32).reshape((1, 2, 3, 1))
         out = a[:, 1:2, :-1, 0]
-        assert np.array_equal(out.numpy(), t[:, 1:2, :-1, 0])
+        assert np.array_equal(out.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
     """
     from tripy.frontend import Tensor
 

@@ -35,8 +35,6 @@ class jit:
         Using JIT as a decorator:
         ::
 
-            import numpy as np
-
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
 
@@ -52,8 +50,6 @@ class jit:
 
         Using JIT as a function:
         ::
-
-            import numpy as np
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
@@ -214,7 +210,7 @@ class jit:
         ::
 
             import tempfile
-            import numpy as np
+
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))

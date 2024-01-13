@@ -86,16 +86,12 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import numpy as np
-
-        a_np = np.ones((2,3), dtype=np.float32)
-        b_np = np.ones((3,2), dtype=np.float32)
-        a = tp.Tensor(a_np)
-        b = tp.Tensor(b_np)
+        a = tp.ones((2, 3), dtype=tp.float32)
+        b = tp.ones((3, 2), dtype=tp.float32)
 
         out = a @ b
         print(out)
-        assert (out.numpy() == (a_np @ b_np)).all()
+        assert (out.numpy() == (np.ones((2,3), dtype=np.float32) @ np.ones((3,2), dtype=np.float32))).all()
     """
     from tripy.frontend import Tensor
 

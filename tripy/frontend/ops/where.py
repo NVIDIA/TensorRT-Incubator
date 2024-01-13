@@ -51,8 +51,6 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
     Example:
     ::
 
-        import numpy as np
-
         condition = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
         # TODO: Enable this once we can support boolean storage
         # print(f"condition: {condition}")
@@ -82,8 +80,6 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tr
 
     Example:
     ::
-
-        import numpy as np
 
         mask = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
         # TODO: Enable this once we can support boolean storage

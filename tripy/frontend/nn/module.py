@@ -20,8 +20,6 @@ class Module:
     Example:
     ::
 
-        import numpy as np
-
         class AddBias(tp.nn.Module):
             def __init__(self):
                 super().__init__()

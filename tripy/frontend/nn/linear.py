@@ -20,8 +20,6 @@ class Linear(Module):
     Example:
     ::
 
-        import numpy as np
-
         a = tp.ones((2, 3))
         linear = tp.nn.Linear(3, 128)
         out = linear(a)

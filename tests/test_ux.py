@@ -143,11 +143,11 @@ DOCSTRING_TEST_CASES, DOCSTRING_IDS = get_all_docstrings_with_examples()
 class TestDocstrings:
     @pytest.mark.parametrize("example_code", DOCSTRING_TEST_CASES, ids=DOCSTRING_IDS)
     def test_examples_in_docstrings(self, example_code):
-        # Don't inherit variables from the current environment so we can be sure the docstring examples
-        # work in total isolation.
-
         assert example_code, "Example code is empty! Is the formatting correct? Refer to `tests/README.md`."
-        assert "import tripy" not in example_code, "Avoid importing tripy in example docstrings"
-        assert "from tripy" not in example_code, "Avoid importing tripy in example docstrings"
+        for banned_module in ["numpy", "tripy"]:
+            assert (
+                f"import {banned_module}" not in example_code
+            ), f"Avoid importing {banned_module} in example docstrings"
+            assert f"from {banned_module}" not in example_code, f"Avoid importing {banned_module} in example docstrings"
 
         helper.exec_doc_example(example_code)

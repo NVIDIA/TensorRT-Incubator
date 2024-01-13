@@ -39,8 +39,6 @@ def shape(self: "tripy.Tensor"):
     Example:
     ::
 
-        import numpy as np
-
         input = tp.ones((128, 20))
         # TODO: Enable this once this error is fixed:
         # AttributeError: 'mlir._mlir_libs._mlir.ir.OpResult' object has no attribute 'result'

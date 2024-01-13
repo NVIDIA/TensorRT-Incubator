@@ -57,8 +57,6 @@ def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.floa
     Example:
     ::
 
-        import numpy as np
-
         a = tp.arange([3])
         print(a)
         assert (a.numpy() == np.arange(0, 3, dtype=np.float32)).all()
@@ -83,8 +81,6 @@ def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = Non
 
     Example:
     ::
-
-        import numpy as np
 
         t = tp.Tensor([1, 2, 3])
         a = tp.arange_like(t)

@@ -144,8 +144,6 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import numpy as np
-
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])
         out = a + b
@@ -171,11 +169,10 @@ def pow(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import numpy as np
-
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
         out = a ** b
+        print(out)
         assert (out.numpy() == np.array([1, 8])).all()
     """
     from tripy.frontend import Tensor
@@ -197,11 +194,10 @@ def mul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import numpy as np
-
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
         out = a * b
+        print(out)
         assert (out.numpy() == np.array([2.0, 6.0])).all()
     """
     from tripy.frontend import Tensor
@@ -222,8 +218,6 @@ def less_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
     Example:
     ::
-
-        import numpy as np
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
@@ -251,8 +245,6 @@ def less_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Te
     Example:
     ::
 
-        import numpy as np
-
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
         out = b <= a
@@ -277,8 +269,6 @@ def eq(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
     Example:
     ::
-
-        import numpy as np
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
@@ -305,8 +295,6 @@ def not_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
     ::
 
-        import numpy as np
-
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 3])
         out = b != a
@@ -332,8 +320,6 @@ def greater_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy
     Example:
     ::
 
-        import numpy as np
-
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 1])
         out = b >= a
@@ -358,8 +344,6 @@ def greater_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
     Example:
     ::
-
-        import numpy as np
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([3, 1])

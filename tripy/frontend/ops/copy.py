@@ -40,8 +40,6 @@ def to(self: "tripy.Tensor", device: "tripy.device"):
     Example:
     ::
 
-        import numpy as np
-
         a = tp.Tensor([1, 2], device=tp.device("gpu"))
         print(f"Before .to(): {a}")
         a = a.to(tp.device("cpu"))
