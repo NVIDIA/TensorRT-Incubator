@@ -18,3 +18,11 @@ To view the documentation, you can open `build/docs/index.html` in a browser.
 To add documentation for a new class or function, find the appropriate `.rst` file in
 `docs/` or add a new one if none of the existing files are appropriate.
 If you added a new file, update `docs/index.rst` to include it.
+
+### Docstrings
+
+The public facing docstrings are preprocessed before documentation is generated.
+Specifically, for any code examples in the docstrings, `assert`s are stripped out and
+the code is executed so that the output can be displayed as a code block immediately
+following the one containing the example. Thus, make sure to include `print`s in your
+example code so that the output is helpful to look at.

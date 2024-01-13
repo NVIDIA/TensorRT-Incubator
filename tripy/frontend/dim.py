@@ -45,9 +45,11 @@ class Dim:
         ::
 
             batch = tp.Dim(2)
+            print(batch)
             assert batch.min == batch.opt == batch.max == 2
 
             dim = tp.Dim(3, min=2, opt=4, max=9)
+            print(dim)
             assert dim.min == 2
             assert dim.opt == 4
             assert dim.max == 9

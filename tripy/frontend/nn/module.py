@@ -34,6 +34,7 @@ class Module:
         inp = tp.Tensor([1.0, 1.0], dtype=tp.float32)
         out = add_bias(inp)
 
+        print(out)
         assert (out.numpy() == np.array([2.0, 2.0])).all()
     """
 

@@ -15,9 +15,10 @@ import pytest
 import requests
 
 import tripy as tp
+from tests import helper
 from tests.helper import ROOT_DIR
-from tripy.frontend.trace import Trace
 from tripy.frontend import Tensor
+from tripy.frontend.trace import Trace
 
 
 class TestReadme:
@@ -87,49 +88,51 @@ def get_all_tripy_interfaces():
     all_objects = set()
     for obj in discover_tripy_objects():
         all_objects.add(obj)
-        all_objects.update({member for _, member in inspect.getmembers(obj, inspect.isfunction)})
+        all_objects.update(
+            {
+                member
+                for _, member in inspect.getmembers(
+                    obj,
+                    lambda member: inspect.isfunction(member)
+                    or isinstance(member, property)
+                    or inspect.isclass(member),
+                )
+            }
+        )
 
     # Some sanity checks to make sure we're actually getting all the objects we expect
     assert Tensor in all_objects
+    assert Tensor.shape in all_objects
     assert Trace in all_objects
 
     return all_objects
 
 
 def get_all_docstrings_with_examples():
+    def get_qualname(obj):
+        if isinstance(obj, property):
+            return obj.fget.__qualname__
+        return obj.__qualname__
+
     # NOTE: If you edit the parsing logic here, please also update `tests/README.md`.
     docstrings = []
     ids = []
     for obj in get_all_tripy_interfaces():
-        if not obj.__doc__ or "::" not in obj.__doc__:
-            print(f"Skipping {obj.__qualname__} because no example was present in the docstring")
+        if not obj.__doc__:
+            print(f"Skipping {get_qualname(obj)} because no docstring was present")
             continue
 
-        def get_indented_code_blocks():
-            doc = dedent(obj.__doc__)
+        blocks = [
+            dedent(block)
+            for block in helper.consolidate_code_blocks(obj.__doc__)
+            if isinstance(block, helper.CodeBlock)
+        ]
+        if blocks is None:
+            print(f"Skipping {get_qualname(obj)} because no example was present in the docstring")
+            continue
 
-            blocks = []
-            in_block = False
-            for line in doc.splitlines():
-                # Ignore blank lines
-                if not line:
-                    continue
-
-                if in_block:
-                    # Check if string starts with whitespace
-                    if line.lstrip() != line:
-                        blocks[-1] += line + "\n"
-                    else:
-                        in_block = False
-
-                if line.strip().startswith("::"):
-                    in_block = True
-                    blocks.append("")
-            return blocks
-
-        blocks = get_indented_code_blocks()
-        docstrings.extend([dedent(block) for block in blocks])
-        ids.extend([f"{obj.__qualname__}:{idx}" for idx in range(len(blocks))])
+        docstrings.extend(blocks)
+        ids.extend([f"{get_qualname(obj)}:{idx}" for idx in range(len(blocks))])
 
     return docstrings, ids
 
@@ -147,4 +150,4 @@ class TestDocstrings:
         assert "import tripy" not in example_code, "Avoid importing tripy in example docstrings"
         assert "from tripy" not in example_code, "Avoid importing tripy in example docstrings"
 
-        exec(example_code, {"tp": tp}, {})
+        helper.exec_doc_example(example_code)

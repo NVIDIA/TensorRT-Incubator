@@ -14,7 +14,7 @@ class device:
     index: int
 
     def __init__(self, device) -> None:
-        """
+        r"""
         Args:
             device: A string consisting of the device kind and an optional index.
                     The device kind may be one of: ["cpu", "gpu"].
@@ -24,13 +24,15 @@ class device:
         Example:
         ::
 
-            device = tp.device("cpu")
-            assert device.kind == "cpu"
-            assert device.index == 0
+            cpu = tp.device("cpu")
+            print(f"cpu: {cpu}")
+            assert cpu.kind == "cpu"
+            assert cpu.index == 0
 
-            device = tp.device("gpu:1")
-            assert device.kind == "gpu"
-            assert device.index == 1
+            gpu = tp.device("gpu:1")
+            print(f"gpu: {gpu}")
+            assert gpu.kind == "gpu"
+            assert gpu.index == 1
         """
 
         kind, _, index = device.partition(":")

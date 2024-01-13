@@ -94,6 +94,7 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         b = tp.Tensor(b_np)
 
         out = a @ b
+        print(out)
         assert (out.numpy() == (a_np @ b_np)).all()
     """
     from tripy.frontend import Tensor

@@ -28,7 +28,7 @@ class Copy(BaseOperator):
 
 @TENSOR_METHOD_REGISTRY("to")
 def to(self: "tripy.Tensor", device: "tripy.device"):
-    """
+    r"""
     Copies input Tensor to the target device.
 
     Args:
@@ -43,7 +43,9 @@ def to(self: "tripy.Tensor", device: "tripy.device"):
         import numpy as np
 
         a = tp.Tensor([1, 2], device=tp.device("gpu"))
+        print(f"Before .to(): {a}")
         a = a.to(tp.device("cpu"))
+        print(f"After .to(): {a}")
         assert (a.numpy() == np.array([1, 2], dtype=np.float32)).all()
         assert a.op.device.kind == "cpu"
     """

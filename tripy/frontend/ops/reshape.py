@@ -87,10 +87,11 @@ def reshape(self: "tripy.Tensor", shape: ShapeInfo):
 
         import numpy as np
 
-        t = np.random.rand(2, 4, 4, 6).astype(np.float32)
+        t = np.random.rand(2, 3).astype(np.float32)
         a = tp.Tensor(t)
-        out = a.reshape((2, 4, 2, 12))
-        assert (out.numpy() == np.reshape(t, (2, 4, 2, 12))).all()
+        out = a.reshape((1, 6))
+        print(out)
+        assert (out.numpy() == np.reshape(t, (1, 6))).all()
     """
     from tripy.frontend import Tensor
 

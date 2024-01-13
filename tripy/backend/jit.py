@@ -47,6 +47,7 @@ class jit:
 
             out = add(a, b)
 
+            print(out)
             assert (out.numpy() == np.array([2.0, 2.0])).all()
 
         Using JIT as a function:
@@ -64,6 +65,7 @@ class jit:
             jit_add = tp.jit(add)
             out = jit_add(a, b)
 
+            print(out)
             assert (out.numpy() == np.array([2.0, 2.0])).all()
         """
         self.kwargs = kwargs

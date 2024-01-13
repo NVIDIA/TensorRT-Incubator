@@ -1,9 +1,13 @@
-import sys
 import os
+import sys
 
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pardir)
 sys.path.insert(0, ROOT_DIR)
+import contextlib
+from textwrap import dedent, indent
+import io
 import tripy as tp
+from tests import helper
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -82,6 +86,51 @@ suppress_warnings = ["myst.xref_missing"]
 exclude_patterns = ["README.md"]
 
 
+def process_docstring(app, what, name, obj, options, lines):
+    doc = "\n".join(lines).strip()
+    blocks = helper.consolidate_code_blocks(doc)
+
+    lines.clear()
+    for block in blocks:
+        if isinstance(block, helper.CodeBlock):
+            # Add back the code block after removing assertions.
+            remove_tags = ["assert "]
+            lines.extend(
+                [
+                    block_line
+                    for block_line in block.splitlines()
+                    if not any(block_line.strip().startswith(tag) for tag in remove_tags)
+                ]
+            )
+
+            # Add output as a separate code block.
+            outfile = io.StringIO()
+
+            def get_stdout():
+                outfile.flush()
+                outfile.seek(0)
+                return outfile.read().strip()
+
+            try:
+                with contextlib.redirect_stdout(outfile):
+                    helper.exec_doc_example(dedent(block))
+            except:
+                print(f"Failed while processing docstring for: {what}: {name} ({obj})")
+                print(f"Note: Code example was:\n{block}")
+                print(get_stdout())
+                raise
+
+            stdout = get_stdout()
+            if stdout:
+                line = block.splitlines()[1]
+                indentation = len(line) - len(line.lstrip())
+
+                out = "\nOutput:\n:: \n\n" + indent(f"{stdout}", prefix=" " * indentation) + "\n\n"
+                lines.extend(out.splitlines())
+        else:
+            lines.append(block)
+
+
 def setup(app):
     # A note on aliases: if you rename a class via an import statement, e.g. `import X as Y`,
     # the documentation generated for `Y` will just be: "Alias of X"
@@ -93,3 +142,5 @@ def setup(app):
     LATEX_BUILDER = "sphinx.builders.latex"
     if LATEX_BUILDER in app.config.extensions:
         app.config.extensions.remove(LATEX_BUILDER)
+
+    app.connect("autodoc-process-docstring", process_docstring)

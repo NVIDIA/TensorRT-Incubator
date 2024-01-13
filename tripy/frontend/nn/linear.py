@@ -26,6 +26,7 @@ class Linear(Module):
         linear = tp.nn.Linear(3, 128)
         out = linear(a)
 
+        print(out)
         assert out.numpy().shape == (2, 128)
     """
 

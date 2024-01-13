@@ -18,6 +18,7 @@ class Parameter(Tensor, metaclass=ParamMeta):
     ::
 
         param = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
+        print(param)
         assert isinstance(param, tp.nn.Parameter)
         assert isinstance(param, tp.Tensor)
     """

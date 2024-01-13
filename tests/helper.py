@@ -1,6 +1,8 @@
 import os
-import numpy as np
+from textwrap import dedent
 from typing import List
+import tripy as tp
+import numpy as np
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 
@@ -46,3 +48,41 @@ def all_same(a: List[int] or List[float], b: List[int] or List[float]):
             return False
 
     return True
+
+
+class CodeBlock(str):
+    pass
+
+
+def consolidate_code_blocks(doc):
+    """
+    Returns a list containing each line of the docstring as a separate string entry with
+    code blocks consolidated into CodeBlock instances.
+
+    For example, you may end up with something like:
+    [line0, line1, CodeBlock0, line2, line3, CodeBlock1, ...]
+    """
+
+    doc = dedent(doc)
+
+    out = []
+    in_block = False
+    for line in doc.splitlines():
+        if not in_block:
+            out.append(line)
+
+        if in_block:
+            # If the line is empty or starts with whitespace, then we're still in the code block.
+            if not line or line.lstrip() != line:
+                out[-1] = CodeBlock(out[-1] + line + "\n")
+            else:
+                in_block = False
+        elif line.strip().startswith("::"):
+            in_block = True
+            out.append(CodeBlock())
+
+    return out
+
+
+def exec_doc_example(code):
+    return exec(code, {"tp": tp}, {})

@@ -60,6 +60,7 @@ def arange(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.floa
         import numpy as np
 
         a = tp.arange([3])
+        print(a)
         assert (a.numpy() == np.arange(0, 3, dtype=np.float32)).all()
     """
     from tripy.frontend import Tensor
@@ -87,6 +88,7 @@ def arange_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = Non
 
         t = tp.Tensor([1, 2, 3])
         a = tp.arange_like(t)
+        print(a)
         assert (a.numpy() == np.arange(0, 3, dtype=np.float32)).all()
     """
     from tripy.frontend import Tensor

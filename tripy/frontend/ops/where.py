@@ -37,7 +37,7 @@ class Where(BaseOperator):
 
 
 def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
-    """
+    r"""
     Returns a tensor of elements selected from either x or y, depending on condition.
 
     Args:
@@ -54,12 +54,13 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
         import numpy as np
 
         condition = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
-        # print(condition)
-        # [[True, False],
-        #  [True, True]]
-        x = tp.ones([2, 2])
-        y = tp.zeros([2, 2])
+        # TODO: Enable this once we can support boolean storage
+        # print(f"condition: {condition}")
+
+        x = tp.ones([2, 2], dtype=tp.float32)
+        y = tp.zeros([2, 2], dtype=tp.float32)
         a = tp.where(condition, x, y)
+        print(f"a: {a}")
         assert (a.numpy() == np.array([[1, 0], [1, 1]], dtype=np.float32)).all()
     """
     from tripy.frontend import Tensor
@@ -69,7 +70,7 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
 
 @TENSOR_METHOD_REGISTRY("masked_fill")
 def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tripy.Tensor":
-    """
+    r"""
     Fills elements of tensor with value where mask is True.
 
     Args:
@@ -85,11 +86,12 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tr
         import numpy as np
 
         mask = tp.arange([2, 2], 0) >= tp.arange([2, 2], 1)
-        # print(mask)
-        # [[True, False],
-        #  [True, True]]
+        # TODO: Enable this once we can support boolean storage
+        # print(f"mask: {mask}")
+
         a = tp.ones([2, 2])
         out = a.masked_fill(mask, -1.0)
+        print(out)
         assert (out.numpy() == np.array([[-1, 1], [-1, -1]], dtype=np.float32)).all()
     """
     from tripy.frontend.ops.fill import full_like
