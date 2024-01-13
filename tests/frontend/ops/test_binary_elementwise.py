@@ -6,6 +6,8 @@ from tripy.frontend.ops import BinaryElementwise
 
 _BINARY_OPS = {
     BinaryElementwise.Kind.SUM: lambda a, b: a + b,
+    BinaryElementwise.Kind.POW: lambda a, b: a**b,
+    BinaryElementwise.Kind.MUL: lambda a, b: a * b,
     BinaryElementwise.Kind.LESS: lambda a, b: a < b,
     BinaryElementwise.Kind.LESS_EQUAL: lambda a, b: a <= b,
     BinaryElementwise.Kind.EQUAL: lambda a, b: a == b,
@@ -18,8 +20,8 @@ _BINARY_OPS = {
 class TestBinaryElementwise:
     @pytest.mark.parametrize("func, kind", [(func, kind) for kind, func in _BINARY_OPS.items()])
     def test_op_funcs(self, func, kind):
-        a = tp.Tensor([1])
-        b = tp.Tensor([2])
+        a = tp.Tensor([1.0])
+        b = tp.Tensor([2.0])
 
         out = func(a, b)
         assert isinstance(out, tp.Tensor)

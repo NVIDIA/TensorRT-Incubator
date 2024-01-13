@@ -17,6 +17,10 @@ class BinaryElementwise(BaseOperator):
     class Kind(str, enum.Enum):
         SUM = " + "
         """Perform an elementwise sum"""
+        POW = " ** "
+        """Perform an elementwise power"""
+        MUL = " * "
+        """Perform an elementwise multiplication"""
         LESS = " < "
         """Perform a 'less than' comparison"""
         LESS_EQUAL = " <= "
@@ -83,7 +87,7 @@ class BinaryElementwise(BaseOperator):
         self.outputs[0].dtype = datatype.bool if self.kind in self._COMPARE_OPS else self.inputs[0].dtype
 
     def to_flat_ir(self, flat_ir):
-        from tripy.flat_ir.ops import AddOp, BroadcastOp, CompareOp
+        from tripy.flat_ir.ops import AddOp, PowOp, MulOp, BroadcastOp, CompareOp
 
         _MLIR_COMPARE_DIRECTIONS = {
             BinaryElementwise.Kind.LESS: "LT",
@@ -118,6 +122,10 @@ class BinaryElementwise(BaseOperator):
             flat_ir.add_op(self, CompareOp, inputs, self.outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind])
         elif self.kind == BinaryElementwise.Kind.SUM:
             flat_ir.add_op(self, AddOp, inputs, self.outputs)
+        elif self.kind == BinaryElementwise.Kind.POW:
+            flat_ir.add_op(self, PowOp, inputs, self.outputs)
+        elif self.kind == BinaryElementwise.Kind.MUL:
+            flat_ir.add_op(self, MulOp, inputs, self.outputs)
         else:
             raise NotImplementedError()
 
@@ -146,6 +154,58 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUM)
+
+
+@TENSOR_METHOD_REGISTRY("__pow__")
+def pow(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Performs an elementwise pow.
+
+    Args:
+        other: The tensor by which to exponentiate this one.
+
+    Returns:
+        Result of exponentiation.
+
+    Example:
+    ::
+
+        import numpy as np
+
+        a = tp.Tensor([1.0, 2.0])
+        b = tp.Tensor([2.0, 3.0])
+        out = a ** b
+        assert (out.numpy() == np.array([1, 8])).all()
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.POW)
+
+
+@TENSOR_METHOD_REGISTRY("__mul__")
+def mul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Performs an elementwise multiplication.
+
+    Args:
+        other: The tensor by which to multiply this one.
+
+    Returns:
+        Product of two tensors
+
+    Example:
+    ::
+
+        import numpy as np
+
+        a = tp.Tensor([1.0, 2.0])
+        b = tp.Tensor([2.0, 3.0])
+        out = a * b
+        assert (out.numpy() == np.array([2.0, 6.0])).all()
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.MUL)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
