@@ -1,7 +1,7 @@
 import pytest
 
 import tripy as tp
-from tripy.frontend.ops.select import Select
+from tripy.frontend.ops.where import Where
 
 
 class TestWhere:
@@ -11,7 +11,7 @@ class TestWhere:
         condition = a >= b
         a = tp.where(condition, a, b)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Select)
+        assert isinstance(a.op, Where)
 
     def test_mismatched_input_shapes(self):
         cond = tp.ones((2,), dtype=tp.float32) > tp.ones((2,), dtype=tp.float32)
@@ -51,7 +51,7 @@ class TestMaskedFill:
         mask = a == b
         a = a.masked_fill(mask, -1)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Select)
+        assert isinstance(a.op, Where)
 
     def test_condition_is_not_bool(self):
         a = tp.Tensor([0, 1, 0, 1])

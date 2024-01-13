@@ -4,7 +4,7 @@ from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
-class Select(BaseOperator):
+class Where(BaseOperator):
     """
     Represents a select operation.
     """
@@ -64,7 +64,7 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([condition, x, y], Select)
+    return Tensor.build([condition, x, y], Where)
 
 
 @TENSOR_METHOD_REGISTRY("masked_fill")

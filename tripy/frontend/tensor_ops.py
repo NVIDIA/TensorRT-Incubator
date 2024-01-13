@@ -1,11 +1,8 @@
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
-
 from tripy.frontend.ops.fill import full, full_like
 from tripy.frontend.ops.iota import arange_like
-from tripy.frontend.ops.select import where
-
-__all__ = ["ones", "zeros", "ones_like", "zeros_like", "tril"]
+from tripy.frontend.ops.where import where
 
 
 def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
