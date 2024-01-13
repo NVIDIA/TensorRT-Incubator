@@ -11,5 +11,4 @@ class MulOp(BaseFIROp):
     """
 
     def to_mlir(self, operands: List) -> List:
-        add_out = stablehlo.MulOp(*operands)
-        return [add_out]
+        return [stablehlo.MulOp(*operands)]

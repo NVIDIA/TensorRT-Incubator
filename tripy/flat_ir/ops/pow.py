@@ -11,5 +11,4 @@ class PowOp(BaseFIROp):
     """
 
     def to_mlir(self, operands: List) -> List:
-        add_out = stablehlo.PowOp(*operands)
-        return [add_out]
+        return [stablehlo.PowOp(*operands)]

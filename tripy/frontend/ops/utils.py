@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List
 
 from tripy import utils
-from tripy.common.exception import raise_error
+from tripy.common.exception import TripyException, raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import Dim
 from tripy.utils import make_list, make_tuple
@@ -47,6 +47,43 @@ def to_dims(shape: ShapeInfo):
         if not isinstance(shape[i], Dim):
             dims[i] = Dim(shape[i])
     return make_tuple(dims)
+
+
+def get_slice_indices(shape, index):
+    """
+    Converts index to slices required by Slice operation
+
+    Args:
+        shape: shape of input tensor
+        index: tuple of slices or int
+
+    Returns:
+        start_indices: list of start slice index
+        limit_indices: list of end slice index
+        strides: list of slice strides
+    """
+    # TODO: only works for static shape, figure out how to handle DS
+    runtime_shape = [dim.runtime_value for dim in shape]
+    dims = len(shape)
+    if len(index) > dims:
+        raise TripyException(
+            f"Too many indices for array: array has dim of {dims}" f" but was indexed with {len(index)} indices"
+        )
+    index += (dims - len(index)) * (slice(None),)
+    start_indices = []
+    limit_indices = []
+    strides = []
+    for idx, dim in zip(index, runtime_shape):
+        if isinstance(idx, int):
+            # slice the single element and squeeze later
+            start_indices.append(idx)
+            limit_indices.append(idx + 1)
+            strides.append(1)
+        else:
+            start_indices.append(idx.start if idx.start else 0)
+            limit_indices.append(idx.stop if idx.stop else dim)
+            strides.append(idx.step if idx.step else 1)
+    return start_indices, limit_indices, strides
 
 
 def is_broadcast_compatible(shape1, shape2) -> ConditionCheck:
