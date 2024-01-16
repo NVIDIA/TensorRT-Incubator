@@ -66,19 +66,20 @@ def consolidate_code_blocks(doc):
     doc = dedent(doc)
 
     out = []
-    in_block = False
+    in_code_block = False
     for line in doc.splitlines():
-        if not in_block:
+        if not in_code_block:
             out.append(line)
 
-        if in_block:
+        if in_code_block:
             # If the line is empty or starts with whitespace, then we're still in the code block.
             if not line or line.lstrip() != line:
                 out[-1] = CodeBlock(out[-1] + line + "\n")
             else:
-                in_block = False
+                out.append(line)
+                in_code_block = False
         elif line.strip().startswith("::"):
-            in_block = True
+            in_code_block = True
             out.append(CodeBlock())
 
     return out
