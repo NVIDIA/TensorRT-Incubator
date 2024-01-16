@@ -58,18 +58,23 @@ def get_item(self: "tripy.Tensor", index: "index_expr"):
 
         import numpy as np
 
-        t = np.random.rand(1, 2, 3).astype(np.float32)
+        t = np.random.rand(1, 2, 3, 1).astype(np.float32)
         a = tp.Tensor(t)
-        out = a[:, 1:2]
-        assert (out.numpy() == t[:, 1:2]).all()
+        out = a[:, 1:2, :-1, 0]
+        assert np.array_equal(out.numpy(), t[:, 1:2, :-1, 0])
     """
     from tripy.frontend import Tensor
 
     index = make_tuple(index)
-    if any(isinstance(idx, (tuple, list)) for idx in index):
-        raise NotImplementedError("Gather is not supported")
+    out = Tensor.build([self], Slice, index)
 
-    if any(isinstance(idx, int) for idx in index):
-        raise NotImplementedError("Squeeze is not supported")
+    squeeze_dims = []
+    for i, idx in enumerate(index):
+        if isinstance(idx, (tuple, list)):
+            raise NotImplementedError("Gather is not supported")
+        if isinstance(idx, int):
+            squeeze_dims.append(i)
+    if squeeze_dims:
+        out = out.squeeze(make_tuple(squeeze_dims))
 
-    return Tensor.build([self], Slice, index)
+    return out

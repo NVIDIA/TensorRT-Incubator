@@ -6,8 +6,8 @@ from tripy.frontend.ops.where import Where
 
 class TestWhere:
     def test_op_func(self):
-        a = tp.Tensor([[0, 1], [0, 1]])
-        b = tp.Tensor([[0, 0], [1, 1]])
+        a = tp.Tensor([[0, 1], [0, 1]], shape=(2, 2))
+        b = tp.Tensor([[0, 0], [1, 1]], shape=(2, 2))
         condition = a >= b
         a = tp.where(condition, a, b)
         assert isinstance(a, tp.Tensor)

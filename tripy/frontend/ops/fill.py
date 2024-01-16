@@ -88,7 +88,7 @@ def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
 
         import numpy as np
 
-        t = tp.Tensor([[1, 2], [3, 4]])
+        t = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
         a = tp.full_like(t, 2)
         assert (a.numpy() == np.array([[2, 2], [2, 2]], dtype=np.float32)).all()
     """

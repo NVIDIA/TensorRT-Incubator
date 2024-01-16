@@ -66,22 +66,31 @@ def get_slice_indices(shape, index):
     runtime_shape = [dim.runtime_value for dim in shape]
     dims = len(shape)
     if len(index) > dims:
-        raise TripyException(
-            f"Too many indices for array: array has dim of {dims}" f" but was indexed with {len(index)} indices"
+        raise_error(
+            "Too many indices for array.",
+            details=[
+                "Array has dim of ",
+                dims,
+                " but was indexed with ",
+                len(index),
+                " indices",
+            ],
         )
     index += (dims - len(index)) * (slice(None),)
     start_indices = []
     limit_indices = []
     strides = []
+    to_positive_idx = lambda idx, dim: idx + dim if idx < 0 else idx
     for idx, dim in zip(index, runtime_shape):
         if isinstance(idx, int):
             # slice the single element and squeeze later
+            idx = to_positive_idx(idx, dim)
             start_indices.append(idx)
             limit_indices.append(idx + 1)
             strides.append(1)
         else:
-            start_indices.append(idx.start if idx.start else 0)
-            limit_indices.append(idx.stop if idx.stop else dim)
+            start_indices.append(to_positive_idx(idx.start, dim) if idx.start else 0)
+            limit_indices.append(to_positive_idx(idx.stop, dim) if idx.stop else dim)
             strides.append(idx.step if idx.step else 1)
     return start_indices, limit_indices, strides
 
