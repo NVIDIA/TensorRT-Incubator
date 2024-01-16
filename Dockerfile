@@ -16,7 +16,7 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     echo 'trtuser:nvidia' | chpasswd && \
     mkdir -p /workspace && chown trtuser /workspace && \
     apt-get update && \
-    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb && \
+    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
 
