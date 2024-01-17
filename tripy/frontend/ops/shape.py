@@ -46,7 +46,7 @@ def shape(self: "tripy.Tensor"):
 
         input = tp.ones((8, 2))
         print(input.shape)
-        assert (input.shape.numpy() == np.array([8, 2])).all()
+        assert np.array_equal(input.shape.numpy(), np.array([8, 2]))
     """
     from tripy.frontend import Tensor
 

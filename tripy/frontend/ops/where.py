@@ -59,7 +59,7 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
         y = tp.zeros([2, 2], dtype=tp.float32)
         a = tp.where(condition, x, y)
         print(f"a: {a}")
-        assert (a.numpy() == np.array([[1, 0], [1, 1]], dtype=np.float32)).all()
+        assert np.array_equal(a.numpy(), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
@@ -88,7 +88,7 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tr
         a = tp.ones([2, 2])
         out = a.masked_fill(mask, -1.0)
         print(out)
-        assert (out.numpy() == np.array([[-1, 1], [-1, -1]], dtype=np.float32)).all()
+        assert np.array_equal(out.numpy(), np.array([[-1, 1], [-1, -1]], dtype=np.float32))
     """
     from tripy.frontend.ops.fill import full_like
 

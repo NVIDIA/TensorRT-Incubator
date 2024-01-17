@@ -44,7 +44,7 @@ def to(self: "tripy.Tensor", device: "tripy.device"):
         print(f"Before .to(): {a}")
         a = a.to(tp.device("cpu"))
         print(f"After .to(): {a}")
-        assert (a.numpy() == np.array([1, 2], dtype=np.float32)).all()
+        assert np.array_equal(a.numpy(), np.array([1, 2], dtype=np.float32))
         assert a.op.device.kind == "cpu"
     """
     from tripy.frontend import Tensor

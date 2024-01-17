@@ -46,7 +46,7 @@ class jit:
             out = add(a, b)
 
             print(out)
-            assert (out.numpy() == np.array([2.0, 2.0])).all()
+            assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
 
         Using JIT as a function:
         ::
@@ -62,7 +62,7 @@ class jit:
             out = jit_add(a, b)
 
             print(out)
-            assert (out.numpy() == np.array([2.0, 2.0])).all()
+            assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
         """
         self.kwargs = kwargs
         self.cache: Dict[str, JITValue] = {}

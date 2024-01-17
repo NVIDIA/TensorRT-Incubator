@@ -88,7 +88,7 @@ def reshape(self: "tripy.Tensor", shape: ShapeInfo):
         t = tp.ones((2, 3), dtype=tp.float32)
         out = t.reshape((1, 6))
         print(out)
-        assert (out.numpy() == np.reshape(np.ones((2, 3), dtype=np.float32), (1, 6))).all()
+        assert np.array_equal(out.numpy(), np.reshape(np.ones((2, 3), dtype=np.float32), (1, 6)))
     """
     from tripy.frontend import Tensor
 

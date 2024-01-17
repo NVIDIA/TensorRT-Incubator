@@ -33,7 +33,7 @@ class Module:
         out = add_bias(inp)
 
         print(out)
-        assert (out.numpy() == np.array([2.0, 2.0])).all()
+        assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
     """
 
     _params: Dict[str, Parameter]

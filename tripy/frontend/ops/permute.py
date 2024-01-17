@@ -76,7 +76,7 @@ def transpose(self: "tripy.Tensor", dim0: int, dim1: int):
         t = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = t.transpose(0, 1)
         print(out)
-        assert (out.numpy() == np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0))).all()
+        assert np.array_equal(out.numpy(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
     from tripy.frontend import Tensor
 
@@ -101,7 +101,7 @@ def permute(self: "tripy.Tensor", perm: Sequence[int]):
         t = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = t.permute((1, 0))
         print(out)
-        assert (out.numpy() == np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0))).all()
+        assert np.array_equal(out.numpy(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
     from tripy.frontend import Tensor
 

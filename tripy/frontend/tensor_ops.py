@@ -22,7 +22,7 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
 
         a = tp.ones([2, 3])
         print(a)
-        assert (a.numpy() == np.ones([2, 3], dtype=np.float32)).all()
+        assert np.array_equal(a.numpy(), np.ones([2, 3], dtype=np.float32))
     """
     return full(shape, 1, dtype)
 
@@ -43,7 +43,7 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
 
         a = tp.zeros([2, 3])
         print(a)
-        assert (a.numpy() == np.zeros([2, 3], dtype=np.float32)).all()
+        assert np.array_equal(a.numpy(), np.zeros([2, 3], dtype=np.float32))
     """
     return full(shape, 0, dtype)
 
@@ -65,7 +65,7 @@ def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None):
         t = tp.zeros([2, 3], dtype=tp.float32)
         a = tp.ones_like(t)
         print(a)
-        assert (a.numpy() == np.ones([2, 3], dtype=np.float32)).all()
+        assert np.array_equal(a.numpy(), np.ones([2, 3], dtype=np.float32))
     """
     return full_like(input, 1, dtype)
 
@@ -87,7 +87,7 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None):
         t = tp.ones([2, 3], dtype=tp.float32)
         a = tp.zeros_like(t)
         print(a)
-        assert (a.numpy() == np.zeros([2, 3], dtype=np.float32)).all()
+        assert np.array_equal(a.numpy(), np.zeros([2, 3], dtype=np.float32))
     """
     return full_like(input, 0, dtype)
 
@@ -106,11 +106,10 @@ def tril(input: "tripy.Tensor", diagonal: int = 0):
     Example:
     ::
 
-        # TODO #78: Use nested list once supported
-        t = tp.Tensor([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=tp.float32).reshape((2, 3))
-        a = tp.tril(t)
-        print(a)
-        assert (a.numpy() == np.tril(np.array([[1, 1, 1], [2, 2, 2]], dtype=np.float32))).all()
+        t = tp.Tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=tp.float32)
+        out = tp.tril(t)
+        print(out)
+        assert np.array_equal(out.numpy(), np.tril(np.array([[1, 1, 1], [2, 2, 2]], dtype=np.float32)))
     """
     tri_mask = (iota_like(input, 0, datatype.int32) + full_like(input, diagonal, datatype.int32)) >= iota_like(
         input, 1, datatype.int32

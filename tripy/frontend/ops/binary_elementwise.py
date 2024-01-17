@@ -148,7 +148,7 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         b = tp.Tensor([2, 3])
         out = a + b
         print(out)
-        assert (out.numpy() == np.array([3, 5])).all()
+        assert np.array_equal(out.numpy(), np.array([3, 5]))
     """
     from tripy.frontend import Tensor
 
@@ -173,7 +173,7 @@ def pow(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         out = a ** b
         print(out)
-        assert (out.numpy() == np.array([1, 8])).all()
+        assert np.array_equal(out.numpy(), np.array([1, 8]))
     """
     from tripy.frontend import Tensor
 
@@ -198,7 +198,7 @@ def mul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         out = a * b
         print(out)
-        assert (out.numpy() == np.array([2.0, 6.0])).all()
+        assert np.array_equal(out.numpy(), np.array([2.0, 6.0]))
     """
     from tripy.frontend import Tensor
 

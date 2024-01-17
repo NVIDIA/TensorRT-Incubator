@@ -21,11 +21,11 @@ class Linear(Module):
     ::
 
         a = tp.ones((2, 3))
-        linear = tp.nn.Linear(3, 128)
+        linear = tp.nn.Linear(3, 8)
         out = linear(a)
 
         print(out)
-        assert out.numpy().shape == (2, 128)
+        assert out.numpy().shape == (2, 8)
     """
 
     def __init__(self, input_dims, output_dims, bias: bool = True):
