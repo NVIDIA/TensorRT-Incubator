@@ -1,8 +1,9 @@
+import math
+
 from tripy.common import datatype
+from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
-from tripy.frontend.ops.fill import full, full_like
-from tripy.frontend.ops.iota import arange_like
-from tripy.frontend.ops.where import where
+from tripy.frontend.ops import full, full_like, iota, iota_like, where
 
 
 def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
@@ -111,8 +112,55 @@ def tril(input: "tripy.Tensor", diagonal: int = 0):
         print(a)
         assert (a.numpy() == np.tril(np.array([[1, 1, 1], [2, 2, 2]], dtype=np.float32))).all()
     """
-    tri_mask = (arange_like(input, 0, datatype.int32) + full_like(input, diagonal, datatype.int32)) >= arange_like(
+    tri_mask = (iota_like(input, 0, datatype.int32) + full_like(input, diagonal, datatype.int32)) >= iota_like(
         input, 1, datatype.int32
     )
     zeros_tensor = zeros_like(input)
     return where(tri_mask, input, zeros_tensor)
+
+
+def arange(start, stop=None, step=1, dtype: datatype.dtype = datatype.float32):
+    """
+    Creates a sequence of numbers that begins at `start` and extends by
+    increments of `step` up to but not including `stop`.
+
+    arange can be called with a varying number of positional arguments:
+    `arange(stop)`: Values are generated within the half-open interval [0, stop)
+    `arange(start, stop)`: Values are generated within the half-open interval [start, stop).
+    `arange(start, stop, step)`: Values are generated within [start, stop), with spacing between values given by step.
+
+    Args:
+        start: start of the sequence, default is 0
+        stop: end of the sequence, not included
+        step: space between the values, default is 1
+        dtype: dtype of the resulting Tensor
+
+    Example:
+    ::
+
+        a = tp.arange(5)
+        print(f"a: {a}")
+        assert (a.numpy() == np.arange(5, dtype=np.float32)).all()
+
+        b = tp.arange(0.5, 2.5)
+        print(f"b: {b}")
+        assert (b.numpy() == np.arange(0.5, 2.5, dtype=np.float32)).all()
+
+        c = tp.arange(2.3, 0.8, -0.2)
+        print(f"c: {c}")
+        assert np.allclose(c.numpy(), np.arange(2.3, 0.8, -0.2, dtype=np.float32))
+    """
+    if stop is None:
+        start, stop = 0, start
+    if step == 0:
+        raise_error("Step in arange cannot be 0.", [])
+    size = math.ceil((stop - start) / step)
+    if size <= 0:
+        raise_error(
+            "Arange tensor is empty.",
+            details=[
+                f"start={start}, stop={stop}, step={step}",
+            ],
+        )
+    output = iota((size,), 0, dtype) * full((size,), step, dtype) + full((size,), start, dtype)
+    return output

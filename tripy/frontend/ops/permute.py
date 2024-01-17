@@ -73,7 +73,7 @@ def transpose(self: "tripy.Tensor", dim0: int, dim1: int):
     Example:
     ::
 
-        t = tp.arange([6], dtype=tp.float32).reshape((2, 3))
+        t = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = t.transpose(0, 1)
         print(out)
         assert (out.numpy() == np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0))).all()
@@ -98,7 +98,7 @@ def permute(self: "tripy.Tensor", perm: Sequence[int]):
     Example:
     ::
 
-        t = tp.arange([6], dtype=tp.float32).reshape((2, 3))
+        t = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = t.permute((1, 0))
         print(out)
         assert (out.numpy() == np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0))).all()

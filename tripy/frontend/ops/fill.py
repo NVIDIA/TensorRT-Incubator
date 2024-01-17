@@ -16,20 +16,10 @@ class Fill(BaseOperator):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def __str__(self):
-        if self.inputs:
-            return f"{self.outputs[0].name} = fill_like(value={self.value}, like={self.inputs[0].name})"
-        else:
-            return f"{self.outputs[0].name} = fill(value={self.value}, shape={self.shape}, dtype={self.dtype.name})"
-
     def infer_shapes(self):
-        if self.inputs:
-            self.shape = self.inputs[0].shape
         self.outputs[0].shape = self.shape
 
     def infer_dtypes(self):
-        if self.inputs and self.dtype is None:
-            self.dtype = self.inputs[0].dtype
         self.outputs[0].dtype = self.dtype
 
     def infer_devices(self):
@@ -44,6 +34,22 @@ class Fill(BaseOperator):
         const_val_tensor = flat_ir.add_tensor(shape=[], dtype=self.outputs[0].dtype, device=self.outputs[0].device)
         flat_ir.add_op(self, ConstantOp, [], [const_val_tensor], data=np.array(self.value, dtype=self.dtype.name))
         flat_ir.add_op(self, BroadcastOp, [const_val_tensor], self.outputs, broadcast_dim=[])
+
+
+@dataclass
+class FillLike(Fill):
+    """
+    Represents a fill_like operation.
+    """
+
+    def infer_shapes(self):
+        self.shape = self.inputs[0].shape
+        super().infer_shapes()
+
+    def infer_dtypes(self):
+        if self.dtype is None:
+            self.dtype = self.inputs[0].dtype
+        super().infer_dtypes()
 
 
 def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32):
@@ -93,4 +99,4 @@ def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([input], Fill, fill_value, None, dtype)
+    return Tensor.build([input], FillLike, fill_value, None, dtype)

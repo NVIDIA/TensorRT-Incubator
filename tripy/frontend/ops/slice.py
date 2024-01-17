@@ -56,7 +56,7 @@ def get_item(self: "tripy.Tensor", index: "index_expr"):
     Example:
     ::
 
-        a = tp.arange([6], dtype=tp.float32).reshape((1, 2, 3, 1))
+        a = tp.arange(6, dtype=tp.float32).reshape((1, 2, 3, 1))
         out = a[:, 1:2, :-1, 0]
         assert np.array_equal(out.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
     """
