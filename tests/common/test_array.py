@@ -86,3 +86,47 @@ def test_array_creation(device_param, input_data):
         assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8
         assert arr.device.kind == device_type
         assert arr.device.index == utils.default(device_index, 0)
+
+
+@pytest.mark.parametrize("dtype", NUMPY_TYPES)
+def test_array_0d(dtype):
+    dtype = convert_numpy_to_tripy_dtype(dtype)
+    arr = Array(1, dtype, None, tp.device("cpu"))
+    assert isinstance(arr, Array)
+    assert arr.shape == tuple()
+    assert arr.dtype == dtype
+
+
+@pytest.mark.parametrize("dtype", NUMPY_TYPES)
+def test_array_nested_list(dtype):
+    dtype = convert_numpy_to_tripy_dtype(dtype)
+    arr = Array([[1, 2], [3, 4]], dtype, None, tp.device("cpu"))
+    assert isinstance(arr, Array)
+    assert arr.shape == (2, 2)
+    assert arr.dtype == dtype
+
+
+def test_array_missing_data_shape():
+    with pytest.raises(tp.TripyException, match="Shape must be provided when data is None.") as exc:
+        arr = Array(None, tp.float32, None, tp.device("cpu"))
+    print(str(exc.value))
+
+
+def test_array_incorrect_dtype():
+    with pytest.raises(tp.TripyException, match="Data has incorrect dtype.") as exc:
+        arr = Array(np.ones((2,), dtype=np.int32), tp.float32, None, tp.device("cpu"))
+    print(str(exc.value))
+
+
+def test_array_incorrect_shape():
+    with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
+        arr = Array(np.ones((2,), dtype=np.int32), None, to_dims((3,)), tp.device("cpu"))
+    print(str(exc.value))
+
+
+def test_array_unsupported_list_element():
+    from decimal import Decimal
+
+    with pytest.raises(tp.TripyException, match="List element type can only be int or float.") as exc:
+        arr = Array([Decimal(0)], None, None, tp.device("cpu"))
+    print(str(exc.value))
