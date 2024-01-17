@@ -16,6 +16,11 @@ class ShapeOf(BaseOperator):
 
         self.outputs[0].shape = (Dim(len(self.inputs[0].shape)),)
 
+    def infer_devices(self):
+        from tripy.common import device
+
+        self.outputs[0].device = device("cpu")
+
     def infer_dtypes(self):
         from tripy import int32
 
@@ -39,11 +44,9 @@ def shape(self: "tripy.Tensor"):
     Example:
     ::
 
-        input = tp.ones((128, 20))
-        # TODO: Enable this once this error is fixed:
-        # AttributeError: 'mlir._mlir_libs._mlir.ir.OpResult' object has no attribute 'result'
-        # print(input.shape)
-        # assert (input.shape.numpy() == np.array([128, 20])).all()
+        input = tp.ones((8, 2))
+        print(input.shape)
+        assert (input.shape.numpy() == np.array([8, 2])).all()
     """
     from tripy.frontend import Tensor
 
