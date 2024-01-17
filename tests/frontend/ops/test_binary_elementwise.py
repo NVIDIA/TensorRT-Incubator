@@ -39,7 +39,7 @@ class TestBinaryElementwise:
 
     def test_mismatched_ranks_fails(self):
         a = tp.ones((2,), dtype=tp.float32)
-        b = tp.ones((2, 3), dtype=tp.float16)
+        b = tp.ones((2, 3), dtype=tp.float32)
         c = a + b
 
         with pytest.raises(tp.TripyException, match="Incompatible input tensor ranks.") as exc:
@@ -48,7 +48,7 @@ class TestBinaryElementwise:
 
     def test_invalid_broadcast_fails(self):
         a = tp.ones((2, 4), dtype=tp.float32)
-        b = tp.ones((2, 3), dtype=tp.float16)
+        b = tp.ones((2, 3), dtype=tp.float32)
         c = a + b
 
         with pytest.raises(tp.TripyException, match="Input tensors are not broadcast compatible.") as exc:

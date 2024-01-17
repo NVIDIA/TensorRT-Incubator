@@ -16,14 +16,12 @@ variables:
   GIT_SUBMODULE_PATHS: ":(exclude)third_party/jax"
   GIT_DEPTH: 0
 
-# TODO: Update this to use the Tripy container so we don't incur the 6+ min overhead of installing pre-commit.
+
 pre-commit:
   stage: lint
-  image: python:3.9
+  image: $CI_REGISTRY_IMAGE
   tags:
     - tripy-runner
-  before_script:
-    - pip install pre-commit
   script:
     - pre-commit run --all-files
   only:
@@ -140,29 +138,8 @@ build_container:
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - python3 scripts/download_dependencies.py --ci
-    - docker build --tag $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID .
-    - docker push $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID
-  tags:
-    - tripy-runner
-  rules:
-    # NOTE: When changing these conditions, also update the other stages.
-    - changes:
-      - mlir-tensorrt.txt
-      - Dockerfile
-      - pyproject.toml
-      - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
-      when: always
-
-
-l0-if-new-container:
-  stage: test
-  image: $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID
-  services:
-    - docker:24.0.5-dind
-  script:
-    - sphinx-build docs build/docs -j 6 -W
-    - python3 -m pytest tests/ -v
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   tags:
     - tripy-runner
   rules:
@@ -176,9 +153,18 @@ l0-if-new-container:
       when: always
 
 
-l0-if-no-new-container:
+l0-if-new-container:
+  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  rules:
+  # NOTE: When changing these conditions, also update the other stages.
+  - changes:
+    - mlir-tensorrt.txt
+    - Dockerfile
+    - pyproject.toml
+    - .gitlab-ci.yml
+    if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    when: always
   stage: test
-  image: $CI_REGISTRY_IMAGE:latest
   services:
     - docker:24.0.5-dind
   script:
@@ -186,6 +172,10 @@ l0-if-no-new-container:
     - python3 -m pytest tests/ -v
   tags:
     - tripy-runner
+
+
+l0-if-no-new-container:
+  image: $CI_REGISTRY_IMAGE:latest
   rules:
     # NOTE: When changing these conditions, also update the other stages.
     - changes:
@@ -197,6 +187,14 @@ l0-if-no-new-container:
       if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - when: always
       if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  stage: test
+  services:
+    - docker:24.0.5-dind
+  script:
+    - sphinx-build docs build/docs -j 6 -W
+    - python3 -m pytest tests/ -v
+  tags:
+    - tripy-runner
 
 
 upload-dependencies:
@@ -222,7 +220,7 @@ upload-container:
   script:
    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   #  We may not have pushed a container, in which case we should do nothing.
-   - (docker pull $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID && docker tag $CI_REGISTRY_IMAGE:$CI_PIPELINE_ID $CI_REGISTRY_IMAGE:latest && docker push $CI_REGISTRY_IMAGE:latest) || true
+   - (docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA && docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest && docker push $CI_REGISTRY_IMAGE:latest) || true
   tags:
     - tripy-runner
   rules:
