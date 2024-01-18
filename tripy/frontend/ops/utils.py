@@ -43,9 +43,9 @@ def to_dims(shape: ShapeInfo):
         return None
 
     dims = make_list(shape)
-    for i in range(len(shape)):
-        if not isinstance(shape[i], Dim):
-            dims[i] = Dim(shape[i])
+    for i in range(len(dims)):
+        if not isinstance(dims[i], Dim):
+            dims[i] = Dim(dims[i])
     return make_tuple(dims)
 
 
