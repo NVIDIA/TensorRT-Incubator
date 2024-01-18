@@ -1,8 +1,5 @@
-import numpy as np
-
-from tripy.frontend.nn import Module
-from tripy.frontend.nn import Parameter
-from tripy.frontend.tensor import Tensor
+from tripy.frontend.nn.module import Module
+from tripy.frontend.nn.parameter import Parameter
 
 
 class Linear(Module):
