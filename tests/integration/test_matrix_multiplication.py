@@ -31,16 +31,20 @@ class TestMatrixMultiplication:
         "shape_a, shape_b",
         [
             ((3,), (3, 2)),  # 1D Tensor and 2D tensor
-            ((2, 3, 4), (3, 2)),  # 3D Tensor and 2D Tensor
-            ((2, 3), (4, 3, 2)),  # 2D Tensor and 3D Tensor
+            ((3, 2), (2,)),  # 2D Tensor and 1D tensor
+            ((2, 3, 4), (4, 2)),  # 3D tensor and 2D tensor
+            ((3, 2, 3, 4), (4, 2)),  # 4D tensor and 2D tensor
+            ((3, 2, 3), (1, 3, 2)),  # Broadcasting batch dimension
         ],
     )
-    def test_invalid_dimensions(self, shape_a, shape_b):
+    def test_broadcast_gemm(self, shape_a, shape_b):
+        from tripy.common.logging import set_logger_mode, LoggerModes
+
+        set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
         a_np = create_random_matrix(shape_a)
         b_np = create_random_matrix(shape_b)
         a = tripy.Tensor(a_np)
         b = tripy.Tensor(b_np)
 
-        with pytest.raises(Exception):
-            out = a @ b
-            out.numpy()
+        out = a @ b
+        assert np.allclose(out.numpy(), a_np @ b_np)

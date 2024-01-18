@@ -97,17 +97,10 @@ class BinaryElementwise(BaseOperator):
             if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
                 dynamic_shape = True
 
-        def add_broadcast(self, flat_ir, inp, out):
-            temp = flat_ir.add_tensor(shape=out.shape, dtype=out.dtype, device=out.device)
-            flat_ir.add_op(
-                self, BroadcastOp, [inp], [temp], broadcast_dim=op_utils.get_broadcast_in_dim(inp.shape, out.shape)
-            )
-            return temp
-
         if requires_broadcast:
             if not dynamic_shape:
-                inputs[0] = add_broadcast(self, flat_ir, inputs[0], self.outputs[0])
-                inputs[1] = add_broadcast(self, flat_ir, inputs[1], self.outputs[0])
+                inputs[0] = op_utils.insert_broadcast(self, flat_ir, inputs[0], self.outputs[0].shape)
+                inputs[1] = op_utils.insert_broadcast(self, flat_ir, inputs[1], self.outputs[0].shape)
             else:
                 assert False, "Broadcast support with dynamic shapes is not enabled."
 
