@@ -334,3 +334,44 @@ class TestReshape:
         with pytest.raises(NotImplementedError):
             a = a.reshape((20, 3, 14))
             print(a)
+
+
+class TestConversionToTripyType:
+    @pytest.mark.parametrize(
+        "reverse_direction",
+        [False],
+        # #84 will fix issues found with reverse direction implementation.
+    )
+    @pytest.mark.parametrize(
+        "input0",
+        [np.ones((2, 3), dtype=np.float32), np.ones((3,), dtype=np.float32)],
+    )
+    @pytest.mark.parametrize(
+        "input1",
+        [
+            [
+                4.0,
+            ],
+            (5.0,),
+            np.array([4.0], dtype=np.float32),
+            np.ones((1, 3), dtype=np.float32),
+            torch.Tensor([[4.0]]),
+        ],
+    )
+    def test_element_wise_prod(self, reverse_direction, input0, input1):
+        from tripy.common.logging import set_logger_mode, LoggerModes, get_log_str
+
+        set_logger_mode(LoggerModes.VERBOSE, True)
+
+        a = Tensor(input0)
+        if reverse_direction:
+            import copy
+
+            out = input1 * a
+            input0, input1 = input1, input0
+        else:
+            out = a * input1
+
+        if isinstance(input1, torch.Tensor):
+            input1 = input1.numpy()
+        assert np.array_equal(out.numpy(), np.array(input0 * input1))

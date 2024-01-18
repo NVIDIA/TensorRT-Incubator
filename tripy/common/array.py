@@ -56,7 +56,7 @@ class Array:
             # Allocate dummy data
             data = self._module.empty(dtype=convert_tripy_to_numpy_dtype(data_dtype), shape=self.shape)
         else:
-            if isinstance(data, (List, int, float)):
+            if isinstance(data, (List, int, float, tuple)):
                 data = self._module.array(data, dtype=self._get_element_type(data))
 
             data_dtype = convert_numpy_to_tripy_dtype(data.dtype)
@@ -130,7 +130,7 @@ class Array:
 
     def _get_element_type(self, elements):
         e = elements
-        while isinstance(e, List):
+        while isinstance(e, List) or isinstance(e, tuple):
             e = e[0]
         if isinstance(e, int):
             return self._module.int32

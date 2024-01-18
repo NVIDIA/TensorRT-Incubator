@@ -37,15 +37,6 @@ class TestBinaryElementwise:
             c.eval()
         print(str(exc.value))
 
-    def test_mismatched_ranks_fails(self):
-        a = tp.ones((2,), dtype=tp.float32)
-        b = tp.ones((2, 3), dtype=tp.float32)
-        c = a + b
-
-        with pytest.raises(tp.TripyException, match="Incompatible input tensor ranks.") as exc:
-            c.eval()
-        print(str(exc.value))
-
     def test_invalid_broadcast_fails(self):
         a = tp.ones((2, 4), dtype=tp.float32)
         b = tp.ones((2, 3), dtype=tp.float32)

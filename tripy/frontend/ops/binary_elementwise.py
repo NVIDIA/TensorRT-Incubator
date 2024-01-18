@@ -51,22 +51,7 @@ class BinaryElementwise(BaseOperator):
 
     def infer_shapes(self):
         input_shapes = [inp.shape for inp in self.inputs]
-        # Fix when broadcasting support is added (#25).
-        if len(input_shapes[0]) != len(input_shapes[1]):
-            op_utils.raise_error_io_info(
-                self,
-                "Incompatible input tensor ranks.",
-                details=[
-                    "Input tensors for binary operation: '",
-                    self.kind.value.strip(),
-                    "' must have the same rank, but got: ",
-                    len(input_shapes[0]),
-                    " and ",
-                    len(input_shapes[1]),
-                    ".",
-                ],
-            )
-
+        input_shapes = op_utils.get_broadcast_compatible_shapes(self.inputs[0].shape, self.inputs[1].shape)
         bcast_check = op_utils.is_broadcast_compatible(*input_shapes)
         if not bcast_check:
             op_utils.raise_error_io_info(
@@ -79,7 +64,6 @@ class BinaryElementwise(BaseOperator):
                 ]
                 + bcast_check.details,
             )
-
         self.outputs[0].shape = tuple(op_utils.get_broadcast_dim(*d) for d in zip(*input_shapes))
 
     def infer_dtypes(self):
@@ -100,17 +84,26 @@ class BinaryElementwise(BaseOperator):
 
         dynamic_shape = False
         requires_broadcast = False
-        for dim1, dim2 in zip(self.inputs[0].shape, self.inputs[1].shape):
+
+        # Insert broadcast to ensure operands are of the same rank.
+        inputs = copy.copy(self.inputs)
+        shape1, shape2 = op_utils.get_broadcast_compatible_shapes(inputs[0].shape, inputs[1].shape)
+
+        if shape1 != inputs[0].shape or shape2 != inputs[1].shape:
+            requires_broadcast = True
+
+        for dim1, dim2 in zip(shape1, shape2):
             requires_broadcast |= dim1 != dim2
             if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
                 dynamic_shape = True
 
         def add_broadcast(self, flat_ir, inp, out):
             temp = flat_ir.add_tensor(shape=out.shape, dtype=out.dtype, device=out.device)
-            flat_ir.add_op(self, BroadcastOp, [inp], [temp], broadcast_dim=list(range(len(inp.shape))))
+            flat_ir.add_op(
+                self, BroadcastOp, [inp], [temp], broadcast_dim=op_utils.get_broadcast_in_dim(inp.shape, out.shape)
+            )
             return temp
 
-        inputs = copy.copy(self.inputs)
         if requires_broadcast:
             if not dynamic_shape:
                 inputs[0] = add_broadcast(self, flat_ir, inputs[0], self.outputs[0])
@@ -180,7 +173,9 @@ def pow(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.POW)
 
 
+# #84 will add __rmul__: @TENSOR_METHOD_REGISTRY("__rmul__")
 @TENSOR_METHOD_REGISTRY("__mul__")
+@op_utils.allow_non_tensor
 def mul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.

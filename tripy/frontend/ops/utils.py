@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List
+import functools
 
 from tripy import utils
 from tripy.common.exception import TripyException, raise_error
@@ -95,11 +96,17 @@ def get_slice_indices(shape, index):
     return start_indices, limit_indices, strides
 
 
-def is_broadcast_compatible(shape1, shape2) -> ConditionCheck:
-    # TODO: ranks dont need to be same, implicit broadcast should be inserted to expand ranks.
-    # Rank check already happens in binary elementwise which is why this is just an assertion
-    assert len(shape1) == len(shape2)
+def get_broadcast_compatible_shapes(shape1, shape2):
+    # Make the shorter shape the same length as the longer shape by padding with ones
+    if len(shape1) > len(shape2):
+        shape2 = (1,) * (len(shape1) - len(shape2)) + shape2
+    elif len(shape2) > len(shape1):
+        shape1 = (1,) * (len(shape2) - len(shape1)) + shape1
 
+    return to_dims(shape1), to_dims(shape2)
+
+
+def is_broadcast_compatible(shape1, shape2) -> ConditionCheck:
     # Now check each dimension pair
     for index, (dim1, dim2) in enumerate(zip(shape1, shape2)):
         if dim1 != dim2 and dim1 != 1 and dim2 != 1:
@@ -176,3 +183,32 @@ def check_input_dtypes_match(op: "BaseOperator", op_details: str = "", start_ind
 
 def check_input_shapes_match(op: "BaseOperator", op_details: str = "", start_index: int = None, stop_index: int = None):
     return _check_input_attr_matches(op, op_details, "shape", "shape", start_index, stop_index)
+
+
+# Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
+def allow_non_tensor(func):
+    from numpy import ndarray
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        from tripy.frontend.tensor import Tensor
+
+        # Only convert args to tripy tensor. kwargs are allowed to be of non-tripy tensor type.
+        new_args = [Tensor(arg) if not isinstance(arg, Tensor) else arg for arg in args]
+        return func(*new_args, **kwargs)
+
+    return wrapper
+
+
+# To which dimension in the target shape each dimension of the operand shape corresponds to.
+def get_broadcast_in_dim(input_shape, output_shape):
+    broadcast_dimensions = []
+    rank_diff = len(output_shape) - len(input_shape)
+
+    for idx, dim in enumerate(input_shape):
+        corresponding_output_dim = idx + rank_diff
+
+        # We might need careful check in case of dynamic dims
+        broadcast_dimensions.append(corresponding_output_dim)
+
+    return broadcast_dimensions
