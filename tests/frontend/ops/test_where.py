@@ -19,7 +19,7 @@ class TestWhere:
         b = tp.ones((3,), dtype=tp.float32)
         c = tp.where(cond, a, b)
 
-        with pytest.raises(tp.TripyException, match="Incompatible input shapes.") as exc:
+        with pytest.raises(tp.TripyException, match="Input tensors are not broadcast compatible.") as exc:
             c.eval()
         print(str(exc.value))
 

@@ -1,3 +1,5 @@
+import copy
+
 import tripy.frontend.ops.utils as op_utils
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
@@ -9,10 +11,31 @@ class Where(BaseOperator):
     Represents a select operation.
     """
 
+    def get_operand_shape_after_broadcast(self, cond_shape, a_shape, b_shape):
+        def broadcast_equivalent_shape(a, b):
+            shapes = op_utils.get_broadcast_compatible_shapes(a, b)
+            bcast_check = op_utils.is_broadcast_compatible(*shapes)
+            if not bcast_check:
+                op_utils.raise_error_io_info(
+                    self,
+                    "Input tensors are not broadcast compatible.",
+                    details=[
+                        "Input tensors for where operation must be broadcast compatible but ",
+                    ]
+                    + bcast_check.details,
+                )
+            return tuple(op_utils.get_broadcast_dim(*d) for d in zip(*shapes))
+
+        cond_shape = broadcast_equivalent_shape(cond_shape, a_shape)
+        cond_shape = broadcast_equivalent_shape(cond_shape, b_shape)
+
+        return cond_shape
+
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
-        op_utils.check_input_shapes_match(self, op_details="where")
-        self.outputs[0].shape = self.inputs[0].shape
+        # Output shape is broadcast of all 3 input tensor shapes.
+        operand_shape = self.get_operand_shape_after_broadcast(*[inp.shape for inp in self.inputs])
+        self.outputs[0].shape = operand_shape
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
@@ -32,8 +55,16 @@ class Where(BaseOperator):
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import SelectOp
+        import tripy.flat_ir.utils as flat_ir_utils
 
-        flat_ir.add_op(self, SelectOp, self.inputs, self.outputs)
+        inputs = copy.copy(self.inputs)
+
+        # Unconditionally insert broadcast for all operands
+        inputs[0] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[0], self.outputs[0].shape)
+        inputs[1] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[1], self.outputs[0].shape)
+        inputs[2] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[2], self.outputs[0].shape)
+
+        flat_ir.add_op(self, SelectOp, inputs, self.outputs)
 
 
 def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):

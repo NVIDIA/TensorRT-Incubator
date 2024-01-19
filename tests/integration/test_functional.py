@@ -12,7 +12,7 @@ from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.device import device
 from tripy.frontend import Dim, Tensor
 from tripy.frontend.trace import Trace
-from tripy.frontend.tensor_ops import ones
+from tripy.frontend.tensor_ops import ones, where
 
 
 class TestFunctional:

@@ -72,6 +72,7 @@ class BinaryElementwise(BaseOperator):
 
     def to_flat_ir(self, flat_ir):
         from tripy.flat_ir.ops import AddOp, PowOp, MulOp, BroadcastOp, CompareOp
+        import tripy.flat_ir.utils as flat_ir_utils
 
         _MLIR_COMPARE_DIRECTIONS = {
             BinaryElementwise.Kind.LESS: "LT",
@@ -99,8 +100,8 @@ class BinaryElementwise(BaseOperator):
 
         if requires_broadcast:
             if not dynamic_shape:
-                inputs[0] = op_utils.insert_broadcast(self, flat_ir, inputs[0], self.outputs[0].shape)
-                inputs[1] = op_utils.insert_broadcast(self, flat_ir, inputs[1], self.outputs[0].shape)
+                inputs[0] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[0], self.outputs[0].shape)
+                inputs[1] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[1], self.outputs[0].shape)
             else:
                 assert False, "Broadcast support with dynamic shapes is not enabled."
 

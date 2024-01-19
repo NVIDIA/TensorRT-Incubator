@@ -120,19 +120,6 @@ def is_broadcast_compatible(shape1, shape2) -> ConditionCheck:
     return ConditionCheck(True, [])
 
 
-def get_broadcast_dim(dim1, dim2):
-    if dim1.is_static_dim() and dim2.is_static_dim():
-        assert dim1 == 1 or dim2 == 1 or dim1 == dim2
-        return max(dim1, dim2)
-    else:
-        from tripy.frontend.dim import Dim
-
-        if dim1.is_dynamic_dim():
-            return dim1
-        else:
-            return dim2
-
-
 # Like raise_error but adds information about the inputs and output.
 def raise_error_io_info(op, summary, details) -> None:
     assert len(op.outputs) == 1, "This helper should only be used for ops with a single output!"
@@ -185,6 +172,19 @@ def check_input_shapes_match(op: "BaseOperator", op_details: str = "", start_ind
     return _check_input_attr_matches(op, op_details, "shape", "shape", start_index, stop_index)
 
 
+def get_broadcast_dim(dim1, dim2):
+    if dim1.is_static_dim() and dim2.is_static_dim():
+        assert dim1 == 1 or dim2 == 1 or dim1 == dim2
+        return max(dim1, dim2)
+    else:
+        from tripy.frontend.dim import Dim
+
+        if dim1.is_dynamic_dim():
+            return dim1
+        else:
+            return dim2
+
+
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
 def allow_non_tensor(func):
     from numpy import ndarray
@@ -212,12 +212,3 @@ def get_broadcast_in_dim(input_shape, output_shape):
         broadcast_dimensions.append(corresponding_output_dim)
 
     return broadcast_dimensions
-
-
-# Insert a broadcast op into the flat_ir which broadcasts input tensor to output shape.
-def insert_broadcast(self, flat_ir, inp, out_shape):
-    from tripy.flat_ir.ops import BroadcastOp
-
-    output_tensor = flat_ir.add_tensor(shape=out_shape, dtype=inp.dtype, device=inp.device)
-    flat_ir.add_op(self, BroadcastOp, [inp], [output_tensor], broadcast_dim=get_broadcast_in_dim(inp.shape, out_shape))
-    return output_tensor
