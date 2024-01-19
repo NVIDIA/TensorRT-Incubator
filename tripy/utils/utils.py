@@ -1,7 +1,8 @@
 import glob
 import os
 import time
-from typing import List
+import typing
+from typing import List, Union, Any
 
 from tripy.common.logging import G_LOGGER
 
@@ -36,21 +37,6 @@ def log_time(func):
         return result
 
     return wrapper
-
-
-def find_file_in_dir(file_name: str, search_directory: str) -> List:
-    """
-    Search for file_name recursively in the root_directory.
-
-    Args:
-        file_name: The file name or pattern with wildcards.
-        search_directory: The root directory from where to search for file_name.
-    Returns:
-        List of absolute path for matching files.
-    """
-    search_pattern = os.path.join(search_directory, "**", file_name)
-    matching_files = glob.glob(search_pattern, recursive=True)
-    return matching_files
 
 
 def prefix_with_line_numbers(text: str) -> str:
@@ -94,3 +80,140 @@ def make_tuple(obj):
     if not isinstance(obj, tuple) and obj is not None:
         return (obj,)
     return obj
+
+
+##
+## Files
+##
+
+
+def find_file_in_dir(file_name: str, search_directory: str) -> List:
+    """
+    Search for file_name recursively in the root_directory.
+
+    Args:
+        file_name: The file name or pattern with wildcards.
+        search_directory: The root directory from where to search for file_name.
+    Returns:
+        List of absolute path for matching files.
+    """
+    search_pattern = os.path.join(search_directory, "**", file_name)
+    matching_files = glob.glob(search_pattern, recursive=True)
+    return matching_files
+
+
+def warn_if_wrong_mode(file_like: typing.IO, mode: str):
+    def binary(mode):
+        return "b" in mode
+
+    def readable(mode):
+        return "r" in mode or "+" in mode
+
+    def writable(mode):
+        return "w" in mode or "a" in mode or "+" in mode
+
+    fmode = file_like.mode
+    if (
+        binary(fmode) != binary(mode)
+        or (readable(mode) and not readable(fmode))
+        or (writable(mode) and not writable(fmode))
+    ):
+        G_LOGGER.warning(
+            f"File-like object has a different mode than requested!\n"
+            f"Note: Requested mode was: {mode} but file-like object has mode: {file_like.mode}"
+        )
+
+
+def is_file_like(obj: Any) -> bool:
+    try:
+        obj.read
+        obj.write
+    except AttributeError:
+        return False
+    else:
+        return True
+
+
+def makedirs(path: str):
+    dir_path = os.path.dirname(path)
+    if dir_path:
+        dir_path = os.path.realpath(dir_path)
+        if not os.path.exists(dir_path):
+            G_LOGGER.info(f"{dir_path} does not exist, creating now.")
+        os.makedirs(dir_path, exist_ok=True)
+
+
+def load_file(src: Union[str, typing.IO], mode: str = "rb", description: str = None) -> Union[str, bytes, None]:
+    """
+    Reads from the specified source path or file-like object.
+
+    Args:
+        src: The path or file-like object to read from.
+        mode: The mode to use when reading.
+        description: A description of what is being read.
+
+    Returns:
+        The contents read.
+
+    Raises:
+        Exception: If the file or file-like object could not be read.
+    """
+    if description is not None:
+        G_LOGGER.info(f"Loading {description} from {src}")
+
+    if is_file_like(src):
+        warn_if_wrong_mode(src, mode)
+        # Reset cursor position after reading from the beginning of the file.
+        prevpos = src.tell()
+        if src.seekable():
+            src.seek(0)
+        contents = src.read()
+        if src.seekable():
+            src.seek(prevpos)
+        return contents
+    else:
+        with open(src, mode) as f:
+            return f.read()
+
+
+def save_file(
+    contents: Union[str, bytes], dest: Union[str, typing.IO], mode: str = "wb", description: str = None
+) -> Union[str, typing.IO]:
+    """
+    Writes text or binary data to the specified destination path or file-like object.
+
+    Args:
+        contents: A string or bytes-like object that can be written to disk.
+        dest: The path or file-like object to write to.
+        mode: The mode to use when writing.
+        description: A description of what is being written.
+
+    Returns:
+        The complete file path or file-like object.
+
+    Raises:
+        Exception: If the path or file-like object could not be written to.
+    """
+    if description is not None:
+        G_LOGGER.info(f"Saving {description} to {dest}")
+
+    if is_file_like(dest):
+        warn_if_wrong_mode(dest, mode)
+        bytes_written = dest.write(contents)
+        dest.flush()
+        os.fsync(dest.fileno())
+        try:
+            content_bytes = len(contents.encode())
+        except:
+            pass
+        else:
+            if bytes_written != content_bytes:
+                G_LOGGER.warning(
+                    f"Could not write entire file. Note: file contains {content_bytes} bytes, "
+                    f"but only {bytes_written} bytes were written."
+                )
+    else:
+        makedirs(dest)
+        with open(dest, mode) as f:
+            f.write(contents)
+    return dest

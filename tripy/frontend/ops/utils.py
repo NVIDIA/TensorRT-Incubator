@@ -1,9 +1,9 @@
+import functools
 from dataclasses import dataclass
 from typing import List
-import functools
 
 from tripy import utils
-from tripy.common.exception import TripyException, raise_error
+from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import Dim
 from tripy.utils import make_list, make_tuple
@@ -177,8 +177,6 @@ def get_broadcast_dim(dim1, dim2):
         assert dim1 == 1 or dim2 == 1 or dim1 == dim2
         return max(dim1, dim2)
     else:
-        from tripy.frontend.dim import Dim
-
         if dim1.is_dynamic_dim():
             return dim1
         else:
@@ -187,8 +185,6 @@ def get_broadcast_dim(dim1, dim2):
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
 def allow_non_tensor(func):
-    from numpy import ndarray
-
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         from tripy.frontend.tensor import Tensor

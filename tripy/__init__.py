@@ -3,6 +3,7 @@ __version__ = "0.1.0"
 import tripy.common.datatype
 from tripy.backend import jit
 from tripy.common import TripyException, device
+from tripy.utils.json import save, load
 from tripy.common.datatype import *
 from tripy.frontend import (
     Dim,
@@ -24,22 +25,24 @@ from tripy.frontend import (
 )
 
 __all__ = [
-    "jit",
-    "Tensor",
-    "Dim",
-    "device",
-    "nn",
     "arange",
-    "full",
+    "device",
+    "Dim",
     "full_like",
-    "iota",
+    "full",
     "iota_like",
-    "where",
-    "tril",
-    "ones",
+    "iota",
+    "jit",
+    "load",
+    "nn",
     "ones_like",
-    "zeros",
-    "zeros_like",
-    "transpose",
+    "ones",
     "permute",
+    "save",
+    "Tensor",
+    "transpose",
+    "tril",
+    "where",
+    "zeros_like",
+    "zeros",
 ] + tripy.common.datatype.__all__

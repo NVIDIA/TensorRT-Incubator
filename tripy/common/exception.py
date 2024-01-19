@@ -1,4 +1,3 @@
-import inspect
 from textwrap import indent
 from typing import Any, List
 
@@ -7,7 +6,7 @@ class TripyException(Exception):
     pass
 
 
-def raise_error(summary: str, details: List[Any]):
+def raise_error(summary: str, details: List[Any] = []):
     """
     Raises a Tripy exception with a formatted message.
 

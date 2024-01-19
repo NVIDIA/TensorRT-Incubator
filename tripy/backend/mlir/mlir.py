@@ -7,6 +7,7 @@ import cupy as cp
 
 from tripy import config, utils
 from tripy.common.ctypes import POINTER, c_int, c_int64, char_ptr, void_ptr
+from tripy.common.exception import raise_error
 from tripy.common.logging import G_LOGGER
 from tripy.frontend.ops import Storage
 
@@ -67,7 +68,7 @@ class _MlirCompiler:
 
         self.compiler = self.mlir_initialize()
         if not self.compiler:
-            G_LOGGER.critical("Could not load the backend compiler.")
+            raise_error("Could not load the backend compiler.")
 
     def destroy(self):
         """
