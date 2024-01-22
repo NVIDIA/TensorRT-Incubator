@@ -18,7 +18,6 @@ class TestGatherOp:
 
         print(str(reshape))
         assert isinstance(gather, GatherOp)
-        assert isinstance(reshape, ReshapeOp)
         assert (
             str(gather)
             == "t2: [shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(t0, t1, offset_dims=(), axis=0, slice_sizes=[1], index_vector_dim=1)"

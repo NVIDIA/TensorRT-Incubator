@@ -4,17 +4,14 @@ README links work.
 """
 
 import glob
-import importlib
 import inspect
 import os
-import pkgutil
 import re
 from textwrap import dedent
 
 import pytest
 import requests
 
-import tripy as tp
 from tests import helper
 from tests.helper import ROOT_DIR
 from tripy.frontend import Tensor
@@ -56,37 +53,12 @@ class TestReadme:
 
 # In order to test docstrings, we need to recursively discover all submodules
 # and any classes/functions contained in those submodules.
-def discover_modules():
-    mods = [tp]
-    while mods:
-        mod = mods.pop(0)
-
-        yield mod
-
-        if hasattr(mod, "__path__"):
-            mods.extend(
-                [
-                    importlib.import_module(f"{mod.__name__}.{submod.name}")
-                    for submod in pkgutil.iter_modules(mod.__path__)
-                ]
-            )
-
-
-def discover_tripy_objects():
-    for mod in discover_modules():
-        yield from [
-            obj
-            for obj in mod.__dict__.values()
-            if hasattr(obj, "__module__")
-            and obj.__module__.startswith("tripy")
-            and (inspect.isclass(obj) or inspect.isfunction(obj))
-        ]
 
 
 # Returns a list of all classes, functions, and methods defined in Tripy.
 def get_all_tripy_interfaces():
     all_objects = set()
-    for obj in discover_tripy_objects():
+    for obj in helper.discover_tripy_objects():
         all_objects.add(obj)
         all_objects.update(
             {

@@ -1,7 +1,7 @@
 import abc
+import dataclasses
 from dataclasses import dataclass
 from typing import List
-import dataclasses
 
 
 @dataclass
@@ -41,12 +41,14 @@ class BaseOperator(abc.ABC):
         self.outputs[0].device = self.inputs[0].device
 
     @abc.abstractmethod
-    def to_flat_ir(self, flat_ir) -> None:
+    def to_flat_ir(self, inputs: List["FIRTensor"], outputs: List["FIRTensor"]):
         """
-        Generates FlatIR ops for the operation.
+        Generates a FlatIR subgraph for the operation and binds it to the specified
+        inputs and outputs.
 
         Args:
-            flat_ir: FlatIR parent graph where new ops are inserted.
+            inputs: The inputs to the subgraph.
+            outputs: The outputs of the subgraph.
         """
         ...
 

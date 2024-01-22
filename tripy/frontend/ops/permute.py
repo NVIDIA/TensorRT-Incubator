@@ -31,10 +31,10 @@ class Permute(BaseOperator):
 
         self.outputs[0].shape = tuple(input_shape[idx] for idx in self.permutation)
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import TransposeOp
 
-        flat_ir.add_op(self, TransposeOp, self.inputs, self.outputs, perm=self.permutation)
+        TransposeOp(self, inputs, outputs, perm=self.permutation)
 
 
 @dataclass

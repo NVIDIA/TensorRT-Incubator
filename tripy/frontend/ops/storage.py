@@ -68,7 +68,7 @@ class Storage(BaseOperator):
         # Constants are always on device when executed by mlir
         self.outputs[0].device = tripy.common.device("gpu")
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         import cupy as cp
 
         from tripy.flat_ir.ops import ConstantOp
@@ -77,7 +77,7 @@ class Storage(BaseOperator):
         if isinstance(data, cp.ndarray):
             # This is required because MLIR-TRT backend requires constants to be on host.
             data = data.get()
-        flat_ir.add_op(self, ConstantOp, self.inputs, self.outputs, data=data)
+        ConstantOp(self, inputs, outputs, data=data)
 
 
 @TENSOR_METHOD_REGISTRY("__init__")

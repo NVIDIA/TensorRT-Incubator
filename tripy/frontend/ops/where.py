@@ -1,5 +1,3 @@
-import copy
-
 import tripy.frontend.ops.utils as op_utils
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
@@ -53,18 +51,15 @@ class Where(BaseOperator):
         op_utils.check_input_dtypes_match(self, op_details="where", start_index=1)
         self.outputs[0].dtype = self.inputs[1].dtype
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import SelectOp
-        import tripy.flat_ir.utils as flat_ir_utils
-
-        inputs = copy.copy(self.inputs)
 
         # Unconditionally insert broadcast for all operands
-        inputs[0] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[0], self.outputs[0].shape)
-        inputs[1] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[1], self.outputs[0].shape)
-        inputs[2] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[2], self.outputs[0].shape)
+        inputs[0] = op_utils.insert_broadcast(self, inputs[0], outputs[0].shape)
+        inputs[1] = op_utils.insert_broadcast(self, inputs[1], outputs[0].shape)
+        inputs[2] = op_utils.insert_broadcast(self, inputs[2], outputs[0].shape)
 
-        flat_ir.add_op(self, SelectOp, inputs, self.outputs)
+        SelectOp(self, inputs, outputs)
 
 
 def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):

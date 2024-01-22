@@ -4,7 +4,7 @@ from typing import Tuple, Union
 
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops.utils import to_dims, get_slice_indices
+from tripy.frontend.ops.utils import get_slice_indices, to_dims
 from tripy.utils import make_tuple
 
 
@@ -25,17 +25,16 @@ class Slice(BaseOperator):
         ]
         self.outputs[0].shape = to_dims(out_shape)
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import SliceOp
 
-        if any(dim.is_dynamic_dim() for dim in self.inputs[0].shape):
+        if any(dim.is_dynamic_dim() for dim in inputs[0].shape):
             raise NotImplementedError("Dynamic slice is not supported")
 
-        flat_ir.add_op(
+        SliceOp(
             self,
-            SliceOp,
-            self.inputs,
-            self.outputs,
+            inputs,
+            outputs,
             start_indices=self.start_indices,
             limit_indices=self.limit_indices,
             strides=self.strides,

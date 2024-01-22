@@ -27,13 +27,15 @@ class Fill(BaseOperator):
 
         self.outputs[0].device = device("gpu")
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         import numpy as np
-        from tripy.flat_ir.ops import BroadcastOp, ConstantOp
 
-        const_val_tensor = flat_ir.add_tensor(shape=[], dtype=self.outputs[0].dtype, device=self.outputs[0].device)
-        flat_ir.add_op(self, ConstantOp, [], [const_val_tensor], data=np.array(self.value, dtype=self.dtype.name))
-        flat_ir.add_op(self, BroadcastOp, [const_val_tensor], self.outputs, broadcast_dim=[])
+        from tripy.flat_ir.ops import BroadcastOp, ConstantOp
+        from tripy.flat_ir.tensor import FIRTensor
+
+        const_val_tensor = FIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
+        ConstantOp(self, [], [const_val_tensor], data=np.array(self.value, dtype=self.dtype.name))
+        BroadcastOp(self, [const_val_tensor], outputs, broadcast_dim=[])
 
 
 @dataclass

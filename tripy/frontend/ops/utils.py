@@ -96,30 +96,6 @@ def get_slice_indices(shape, index):
     return start_indices, limit_indices, strides
 
 
-def get_broadcast_compatible_shapes(shape1, shape2):
-    # Make the shorter shape the same length as the longer shape by padding with ones
-    if len(shape1) > len(shape2):
-        shape2 = (1,) * (len(shape1) - len(shape2)) + shape2
-    elif len(shape2) > len(shape1):
-        shape1 = (1,) * (len(shape2) - len(shape1)) + shape1
-
-    return to_dims(shape1), to_dims(shape2)
-
-
-def is_broadcast_compatible(shape1, shape2) -> ConditionCheck:
-    # Now check each dimension pair
-    for index, (dim1, dim2) in enumerate(zip(shape1, shape2)):
-        if dim1 != dim2 and dim1 != 1 and dim2 != 1:
-            return ConditionCheck(
-                False,
-                [
-                    f"for tensor shapes: {shape1} and {shape2}, dimensions on axis: {index} ({dim1} and {dim2}) are not broadcast compatible."
-                ],
-            )
-
-    return ConditionCheck(True, [])
-
-
 # Like raise_error but adds information about the inputs and output.
 def raise_error_io_info(op, summary, details) -> None:
     assert len(op.outputs) == 1, "This helper should only be used for ops with a single output!"
@@ -196,15 +172,57 @@ def allow_non_tensor(func):
     return wrapper
 
 
+##
+## Broadcasting
+##
+
+
+def get_broadcast_compatible_shapes(shape1, shape2):
+    # Make the shorter shape the same length as the longer shape by padding with ones
+    if len(shape1) > len(shape2):
+        shape2 = (1,) * (len(shape1) - len(shape2)) + shape2
+    elif len(shape2) > len(shape1):
+        shape1 = (1,) * (len(shape2) - len(shape1)) + shape1
+
+    return to_dims(shape1), to_dims(shape2)
+
+
+def is_broadcast_compatible(shape1, shape2) -> ConditionCheck:
+    # Now check each dimension pair
+    for index, (dim1, dim2) in enumerate(zip(shape1, shape2)):
+        if dim1 != dim2 and dim1 != 1 and dim2 != 1:
+            return ConditionCheck(
+                False,
+                [
+                    f"for tensor shapes: {shape1} and {shape2}, dimensions on axis: {index} ({dim1} and {dim2}) are not broadcast compatible."
+                ],
+            )
+
+    return ConditionCheck(True, [])
+
+
 # To which dimension in the target shape each dimension of the operand shape corresponds to.
 def get_broadcast_in_dim(input_shape, output_shape):
     broadcast_dimensions = []
     rank_diff = len(output_shape) - len(input_shape)
 
-    for idx, dim in enumerate(input_shape):
+    for idx, _ in enumerate(input_shape):
         corresponding_output_dim = idx + rank_diff
 
         # We might need careful check in case of dynamic dims
         broadcast_dimensions.append(corresponding_output_dim)
 
     return broadcast_dimensions
+
+
+# Insert a broadcast op into the flat_ir which broadcasts input tensor to output shape.
+def insert_broadcast(origin_layer: "BaseOperator", input_tensor: "FIRTensor", out_shape: ShapeInfo):
+    from tripy.flat_ir.ops import BroadcastOp
+    from tripy.flat_ir.tensor import FIRTensor
+    from tripy.frontend.ops.utils import get_broadcast_in_dim
+
+    output_tensor = FIRTensor.build(shape=out_shape, dtype=input_tensor.dtype, device=input_tensor.device)
+    BroadcastOp(
+        origin_layer, [input_tensor], [output_tensor], broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape)
+    )
+    return output_tensor

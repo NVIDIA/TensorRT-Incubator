@@ -26,10 +26,10 @@ class ShapeOf(BaseOperator):
 
         self.outputs[0].dtype = int32
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ShapeOfOp
 
-        flat_ir.add_op(self, ShapeOfOp, self.inputs, self.outputs)
+        ShapeOfOp(self, inputs, outputs)
 
 
 @TENSOR_METHOD_REGISTRY("shape")

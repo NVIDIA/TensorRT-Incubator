@@ -22,15 +22,14 @@ class UnaryElementwise(BaseOperator):
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ExpOp, TanhOp
 
-        if self.kind == UnaryElementwise.Kind.EXP:
-            flat_ir.add_op(self, ExpOp, self.inputs, self.outputs)
-        elif self.kind == UnaryElementwise.Kind.TANH:
-            flat_ir.add_op(self, TanhOp, self.inputs, self.outputs)
-        else:
-            raise NotImplementedError()
+        OpType = {
+            UnaryElementwise.Kind.EXP: ExpOp,
+            UnaryElementwise.Kind.TANH: TanhOp,
+        }[self.kind]
+        OpType(self, inputs, outputs)
 
 
 def exp(input: "tripy.Tensor"):

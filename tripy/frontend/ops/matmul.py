@@ -1,9 +1,8 @@
 from dataclasses import dataclass
-import copy
 
+import tripy.frontend.ops.utils as op_utils
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass
@@ -98,22 +97,18 @@ class MatrixMultiplication(BaseOperator):
         op_utils.check_input_dtypes_match(self, "@")
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops.dot import DotOp
-        import tripy.flat_ir.utils as flat_ir_utils
 
-        a_shape = self.inputs[0].shape
-        b_shape = self.inputs[1].shape
-        inputs = copy.copy(self.inputs)
+        a_shape = inputs[0].shape
+        b_shape = inputs[1].shape
 
         # Insert broadcast ops unconditionally.
         a_shape, b_shape = self.get_operand_shape_after_broadcast(a_shape, b_shape)
-        inputs[0] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[0], a_shape)
-        inputs[1] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[1], b_shape)
+        inputs[0] = op_utils.insert_broadcast(self, inputs[0], a_shape)
+        inputs[1] = op_utils.insert_broadcast(self, inputs[1], b_shape)
 
-        flat_ir.add_op(
-            self, DotOp, inputs, self.outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim
-        )
+        DotOp(self, inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")

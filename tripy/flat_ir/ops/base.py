@@ -20,9 +20,16 @@ class BaseFIROp(abc.ABC):
     """The outputs of this layer"""
 
     def __init__(self, origin_layer: "BaseOperator", inputs: List["FIRTensor"], outputs: List["FIRTensor"]):
+        from tripy.flat_ir.tensor import FIRTensor
+
+        assert all(isinstance(tensor, FIRTensor) for tensor in inputs + outputs)
+
         self.inputs = inputs
         self.outputs = outputs
         self.origin_layer = origin_layer
+
+        for out in self.outputs:
+            out.producer = self
 
     @abc.abstractmethod
     def to_mlir(self, inputs: List) -> List:
@@ -44,7 +51,9 @@ class BaseFIROp(abc.ABC):
         Returns:
             The FlatIR string representation of the operation.
         """
-        outputs_str = f"{str(self.outputs[0])}" if len(self.outputs) == 1 else str([out for out in self.outputs])
+        outputs_str = (
+            f"{str(self.outputs[0])}" if len(self.outputs) == 1 else ", ".join([str(out) for out in self.outputs])
+        )
         args = [
             f"{field.name}={getattr(self, field.name)}"
             for field in dataclasses.fields(self)

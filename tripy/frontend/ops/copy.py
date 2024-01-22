@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 from tripy.common.device import device
 from tripy.frontend.ops.base import BaseOperator
@@ -20,10 +19,10 @@ class Copy(BaseOperator):
     def infer_devices(self):
         self.outputs[0].device = self.target
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import CopyOp
 
-        flat_ir.add_op(self, CopyOp, self.inputs, self.outputs, target=self.target)
+        CopyOp(self, inputs, outputs, target=self.target)
 
 
 @TENSOR_METHOD_REGISTRY("to")

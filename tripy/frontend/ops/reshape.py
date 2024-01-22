@@ -20,16 +20,15 @@ class Reshape(BaseOperator):
         assert len(self.inputs) == 1, "Reshape operation should have exactly one input!"
         self.outputs[0].shape = to_dims(self.shape)
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ReshapeOp
 
         if any(
-            (dim[0].is_dynamic_dim() or dim[1].is_dynamic_dim())
-            for dim in zip(self.inputs[0].shape, to_dims(self.shape))
+            (dim[0].is_dynamic_dim() or dim[1].is_dynamic_dim()) for dim in zip(inputs[0].shape, to_dims(self.shape))
         ):
             raise NotImplementedError("Dynamic reshape is not supported")
 
-        flat_ir.add_op(self, ReshapeOp, self.inputs, self.outputs)
+        ReshapeOp(self, inputs, outputs)
 
 
 @dataclass

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mlir import ir
-from mlir.dialects import arith, stablehlo
+from mlir.dialects import stablehlo
 
 import tripy.common
 from tripy.flat_ir.ops.base import BaseFIROp

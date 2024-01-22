@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass
-from typing import Sequence, List, Union
+from typing import List, Sequence, Union
 
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
@@ -38,16 +38,16 @@ class Reduce(BaseOperator):
                     out_shape.append(s)
         self.outputs[0].shape = to_dims(out_shape)
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         import numpy as np
+
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
+        from tripy.flat_ir.tensor import FIRTensor
 
         init_value = 0  # for sum and max
-        init_const = flat_ir.add_tensor(shape=[], dtype=self.outputs[0].dtype, device=self.outputs[0].device)
-        flat_ir.add_op(self, ConstantOp, [], [init_const], data=np.array(init_value, dtype=self.outputs[0].dtype.name))
-        flat_ir.add_op(
-            self, ReduceOp, [self.inputs[0], init_const], self.outputs, reduce_mode=self.kind, reduce_dims=self.dim
-        )
+        init_const = FIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
+        ConstantOp(self, [], [init_const], data=np.array(init_value, dtype=outputs[0].dtype.name))
+        ReduceOp(self, [inputs[0], init_const], outputs, reduce_mode=self.kind, reduce_dims=self.dim)
 
 
 def _reduce_impl(self: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):

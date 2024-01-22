@@ -57,6 +57,8 @@ class TestStorage:
         )
         with mlir_utils.make_ir_context(), ir.Location.unknown():
             flat_ir = FlatIR()
-            storage.to_flat_ir(flat_ir)
-            outputs = flat_ir.ops[0].to_mlir(operands=[])
-            assert outputs[0].value.type.element_type == mlir_utils.get_mlir_dtype(dtype)
+            fir_outputs = [out.to_flat_ir() for out in storage.outputs]
+            storage.to_flat_ir([], fir_outputs)
+            flat_ir.integrate_subgraph([], fir_outputs)
+            mlir_outputs = flat_ir.ops[0].to_mlir(operands=[])
+            assert mlir_outputs[0].value.type.element_type == mlir_utils.get_mlir_dtype(dtype)

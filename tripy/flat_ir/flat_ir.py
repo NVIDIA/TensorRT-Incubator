@@ -1,12 +1,11 @@
-from typing import Any, Dict, List, Tuple
-from collections import namedtuple
 import copy
+from typing import Any, Dict, List, Tuple
 
 from mlir import ir
 from mlir.dialects import func as func_dialect
 
+from tripy import utils
 from tripy.backend.mlir.utils import make_ir_context
-from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops import BaseFIROp
 from tripy.frontend.dim import Dim
 
@@ -109,45 +108,39 @@ class FlatIR:
 
             return module
 
-    def add_tensor(
-        self,
-        trace_tensor: "TraceTensor" = None,
-        shape: ShapeInfo = None,
-        dtype: "tripy.common.datatype.DataType" = None,
-        device: "tripy.device" = None,
-    ):
-        from tripy.flat_ir.tensor import FIRTensor
+    def register_tensor(self, tensor: "FIRTensor") -> "FIRTensor":
+        """
+        Registers a tensor with this FlatIR instance. If the tensor has no name, a name unique to this FlatIR will be assigned.
 
-        if trace_tensor is not None:
-            assert (
-                shape is None and dtype is None and device is None
-            ), "Will not override tensor info set in trace tensor!"
-
-            tensor = trace_tensor.to_flat_ir()
-        else:
-            from tripy.frontend.trace.tensor import TraceTensor
-
-            tensor = FIRTensor(f"t_inter{len(self._tensor_map)}", None, [], None, None, None)
-            tensor.shape = shape
-            tensor.dtype = dtype
-            tensor.device = device
-
+        Args:
+            tensor: The tensor to register.
+        """
+        tensor.name = utils.default(tensor.name, f"t_inter{len(self._tensor_map)}")
         if tensor.name in self._tensor_map:
             return self._tensor_map[tensor.name]
         self._tensor_map[tensor.name] = tensor
         return tensor
 
-    def add_op(
-        self,
-        producer: "BaseOperator",
-        OpType: type,
-        inputs: List["TraceTensor"],
-        outputs: List["TraceTensor"],
-        *args,
-        **kwargs,
-    ):
-        op = OpType(producer, list(map(self.add_tensor, inputs)), list(map(self.add_tensor, outputs)), *args, **kwargs)
-        self.ops.append(op)
+    def integrate_subgraph(self, inputs: List["FIRTensor"], outputs: List["FIRTensor"]):
+        """
+        Integrates a subgraph delineated by the given inputs and outputs into this FlatIR.
+        """
+        stack = copy.copy(outputs)
+
+        tensors = []
+        ops = []
+
+        while stack:
+            tensor = stack.pop()
+            op = tensor.producer
+            stack.extend(inp for inp in op.inputs if inp not in inputs)
+            tensors.append(tensor)
+            ops.append(op)
+
+        for tensor in tensors:
+            self.register_tensor(tensor)
+        # Need to append in reverse order to maintain topological sorting.
+        self.ops.extend(reversed(ops))
 
     def io_shape_info(self):
         i_tensor_info = [FlatIRShapeInfo([s for s in i.shape]) for i in self.inputs]

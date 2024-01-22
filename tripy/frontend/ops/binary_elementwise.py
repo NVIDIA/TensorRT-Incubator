@@ -1,11 +1,10 @@
-import copy
 import enum
 from dataclasses import dataclass
 
+import tripy.frontend.ops.utils as op_utils
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass
@@ -74,9 +73,8 @@ class BinaryElementwise(BaseOperator):
         op_utils.check_input_dtypes_match(self, self.kind.value.strip())
         self.outputs[0].dtype = datatype.bool if self.kind in self._COMPARE_OPS else self.inputs[0].dtype
 
-    def to_flat_ir(self, flat_ir):
-        from tripy.flat_ir.ops import AddOp, SubtractOp, PowOp, MulOp, DivideOp, BroadcastOp, CompareOp
-        import tripy.flat_ir.utils as flat_ir_utils
+    def to_flat_ir(self, inputs, outputs):
+        from tripy.flat_ir.ops import AddOp, CompareOp, DivideOp, MulOp, PowOp, SubtractOp
 
         _MLIR_COMPARE_DIRECTIONS = {
             BinaryElementwise.Kind.LESS: "LT",
@@ -91,7 +89,6 @@ class BinaryElementwise(BaseOperator):
         requires_broadcast = False
 
         # Insert broadcast to ensure operands are of the same rank.
-        inputs = copy.copy(self.inputs)
         shape1, shape2 = op_utils.get_broadcast_compatible_shapes(inputs[0].shape, inputs[1].shape)
 
         if shape1 != inputs[0].shape or shape2 != inputs[1].shape:
@@ -104,25 +101,22 @@ class BinaryElementwise(BaseOperator):
 
         if requires_broadcast:
             if not dynamic_shape:
-                inputs[0] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[0], self.outputs[0].shape)
-                inputs[1] = flat_ir_utils.insert_broadcast(self, flat_ir, inputs[1], self.outputs[0].shape)
+                inputs[0] = op_utils.insert_broadcast(self, inputs[0], outputs[0].shape)
+                inputs[1] = op_utils.insert_broadcast(self, inputs[1], outputs[0].shape)
             else:
                 assert False, "Broadcast support with dynamic shapes is not enabled."
 
         if self.kind in self._COMPARE_OPS:
-            flat_ir.add_op(self, CompareOp, inputs, self.outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind])
-        elif self.kind == BinaryElementwise.Kind.SUM:
-            flat_ir.add_op(self, AddOp, inputs, self.outputs)
-        elif self.kind == BinaryElementwise.Kind.POW:
-            flat_ir.add_op(self, PowOp, inputs, self.outputs)
-        elif self.kind == BinaryElementwise.Kind.MUL:
-            flat_ir.add_op(self, MulOp, inputs, self.outputs)
-        elif self.kind == BinaryElementwise.Kind.SUB:
-            flat_ir.add_op(self, SubtractOp, inputs, self.outputs)
-        elif self.kind == BinaryElementwise.Kind.DIV:
-            flat_ir.add_op(self, DivideOp, inputs, self.outputs)
+            CompareOp(self, inputs, outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind])
         else:
-            raise NotImplementedError()
+            OpType = {
+                BinaryElementwise.Kind.SUM: AddOp,
+                BinaryElementwise.Kind.POW: PowOp,
+                BinaryElementwise.Kind.MUL: MulOp,
+                BinaryElementwise.Kind.SUB: SubtractOp,
+                BinaryElementwise.Kind.DIV: DivideOp,
+            }[self.kind]
+            OpType(self, inputs, outputs)
 
 
 @TENSOR_METHOD_REGISTRY("__add__")

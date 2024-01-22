@@ -1,11 +1,9 @@
-from collections import namedtuple
-from typing import Dict, List, Sequence, Set
+import copy
+from typing import List, Sequence, Set
 
 from tripy.frontend.ops import BaseOperator
 from tripy.frontend.tensor import Tensor
 from tripy.frontend.trace.tensor import TraceTensor
-
-TraceTensorInfo = namedtuple("TraceTensorInfo", ["shape", "dtype", "device"])
 
 
 class Trace:
@@ -121,10 +119,14 @@ class Trace:
 
         flat_ir = FlatIR()
 
-        flat_ir.inputs = [flat_ir.add_tensor(inp) for inp in self.inputs]
-        flat_ir.outputs = [flat_ir.add_tensor(inp) for inp in self.outputs]
+        flat_ir.inputs = [flat_ir.register_tensor(inp.to_flat_ir()) for inp in self.inputs]
+        flat_ir.outputs = [flat_ir.register_tensor(out.to_flat_ir()) for out in self.outputs]
 
-        for l in self.layers:
-            l.to_flat_ir(flat_ir)
+        for layer in self.layers:
+            inputs = [inp.to_flat_ir() for inp in layer.inputs]
+            outputs = [out.to_flat_ir() for out in layer.outputs]
+            # Pass shallow copies of inputs/outputs so that the layer is free to modify them
+            layer.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
+            flat_ir.integrate_subgraph(inputs, outputs)
 
         return flat_ir

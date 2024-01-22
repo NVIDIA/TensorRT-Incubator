@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-from tripy import utils
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
@@ -29,10 +28,10 @@ class Iota(BaseOperator):
 
         self.outputs[0].device = device("gpu")
 
-    def to_flat_ir(self, flat_ir):
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import IotaOp
 
-        flat_ir.add_op(self, IotaOp, self.inputs, self.outputs, dim=self.dim)
+        IotaOp(self, inputs, outputs, dim=self.dim)
 
 
 @dataclass

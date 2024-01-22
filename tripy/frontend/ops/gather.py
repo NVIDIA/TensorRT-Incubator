@@ -1,9 +1,9 @@
 import copy
 from dataclasses import dataclass
 
+import tripy.frontend.ops.utils as op_utils
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.utils import to_dims
-import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass
@@ -40,25 +40,13 @@ class Gather(BaseOperator):
 
         self.outputs[0].device = device("gpu")
 
-    def to_flat_ir(self, flat_ir):
-        import tripy.flat_ir.utils as flat_ir_utils
+    def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import GatherOp
 
-        if any(dim.is_dynamic_dim() for dim in (self.inputs[0].shape + self.inputs[1].shape)):
+        if any(dim.is_dynamic_dim() for dim in (inputs[0].shape + inputs[1].shape)):
             raise NotImplementedError("Dynamic gather is not supported")
 
-        inputs = copy.copy(self.inputs)
-        # Reshape indices and add extra dimension at the end (required for stablehlo translation)
-        index_shape = to_dims(inputs[1].shape + (1,))
-        inputs[1] = flat_ir_utils.insert_reshape(self, flat_ir, inputs[1], index_shape)
-
-        flat_ir.add_op(
-            self,
-            GatherOp,
-            self.inputs,
-            self.outputs,
-            self.axis,
-        )
+        GatherOp(self, inputs, outputs, self.axis)
 
 
 def gather(tensor: "tripy.Tensor", index: "index_expr", axis):
