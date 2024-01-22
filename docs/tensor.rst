@@ -24,3 +24,4 @@ Tensor Operations
 .. autofunction:: tripy.where
 .. autofunction:: tripy.zeros
 .. autofunction:: tripy.zeros_like
+.. autofunction:: tripy.gather

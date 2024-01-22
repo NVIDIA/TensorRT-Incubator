@@ -7,3 +7,7 @@ NN
     :no-members:
 
 .. autoclass:: tripy.nn.Module
+
+.. autoclass:: tripy.nn.Linear
+
+.. autoclass:: tripy.nn.Embedding
