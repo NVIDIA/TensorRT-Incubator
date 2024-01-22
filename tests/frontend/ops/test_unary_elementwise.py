@@ -6,6 +6,7 @@ from tripy.frontend.ops import UnaryElementwise
 
 _UNARY_OPS = {
     UnaryElementwise.Kind.EXP: lambda a: tp.exp(a),
+    UnaryElementwise.Kind.TANH: lambda a: tp.tanh(a),
 }
 
 

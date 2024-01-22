@@ -16,3 +16,4 @@ from tripy.flat_ir.ops.sub import SubtractOp
 from tripy.flat_ir.ops.divide import DivideOp
 from tripy.flat_ir.ops.reduce import ReduceOp
 from tripy.flat_ir.ops.exponential import ExpOp
+from tripy.flat_ir.ops.tanh import TanhOp

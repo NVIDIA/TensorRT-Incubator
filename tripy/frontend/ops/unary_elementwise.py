@@ -14,6 +14,8 @@ class UnaryElementwise(BaseOperator):
     class Kind(enum.Enum):
         EXP = 0
         """Perform an elementwise exponential"""
+        TANH = 1
+        """Perform an elementwise tanh"""
 
     kind: Kind
 
@@ -21,10 +23,12 @@ class UnaryElementwise(BaseOperator):
         self.outputs[0].shape = self.inputs[0].shape
 
     def to_flat_ir(self, flat_ir):
-        from tripy.flat_ir.ops import ExpOp
+        from tripy.flat_ir.ops import ExpOp, TanhOp
 
         if self.kind == UnaryElementwise.Kind.EXP:
             flat_ir.add_op(self, ExpOp, self.inputs, self.outputs)
+        elif self.kind == UnaryElementwise.Kind.TANH:
+            flat_ir.add_op(self, TanhOp, self.inputs, self.outputs)
         else:
             raise NotImplementedError()
 
@@ -49,6 +53,26 @@ def exp(input: "tripy.Tensor"):
     return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.EXP)
 
 
+def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Compute hyperbolic tangent element-wise.
+
+    Returns:
+        Corresponding hyperbolic tangent values.
+
+    Example:
+    ::
+
+        a = tp.arange(3, dtype=tp.float32)
+        out = tp.tanh(a)
+        print(out)
+        assert np.allclose(out.numpy(), np.tanh(np.arange(3, dtype=np.float32)))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.TANH)
+
+
 @TENSOR_METHOD_REGISTRY("exp")
 def _exp(self: "tripy.Tensor"):
     """
@@ -64,3 +88,20 @@ def _exp(self: "tripy.Tensor"):
         assert np.allclose(out.numpy(), np.exp(np.arange(3, dtype=np.float32)))
     """
     return exp(self)
+
+
+@TENSOR_METHOD_REGISTRY("tanh")
+def _tanh(self: "tripy.Tensor"):
+    """
+    Equivalent to `tripy.tanh(self)`.
+    See 'tripy.tanh'.
+
+    Example:
+    ::
+
+        a = tp.arange(3, dtype=tp.float32)
+        out = a.tanh()
+        print(out)
+        assert np.allclose(out.numpy(), np.tanh(np.arange(3, dtype=np.float32)))
+    """
+    return tanh(self)
