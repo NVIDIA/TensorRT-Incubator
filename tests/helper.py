@@ -88,4 +88,31 @@ def consolidate_code_blocks(doc):
 def exec_doc_example(code):
     # Don't inherit variables from the current environment so we can be sure the docstring examples
     # work in total isolation.
-    return exec(repr(code), {"tp": tp, "np": np}, {})
+    return exec(code, {"tp": tp, "np": np}, {})
+
+
+def discover_modules():
+    mods = [tp]
+    while mods:
+        mod = mods.pop(0)
+
+        yield mod
+
+        if hasattr(mod, "__path__"):
+            mods.extend(
+                [
+                    importlib.import_module(f"{mod.__name__}.{submod.name}")
+                    for submod in pkgutil.iter_modules(mod.__path__)
+                ]
+            )
+
+
+def discover_tripy_objects():
+    for mod in discover_modules():
+        yield from [
+            obj
+            for obj in mod.__dict__.values()
+            if hasattr(obj, "__module__")
+            and obj.__module__.startswith("tripy")
+            and (inspect.isclass(obj) or inspect.isfunction(obj))
+        ]
