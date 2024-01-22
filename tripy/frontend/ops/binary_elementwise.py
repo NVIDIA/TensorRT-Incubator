@@ -17,10 +17,14 @@ class BinaryElementwise(BaseOperator):
     class Kind(str, enum.Enum):
         SUM = " + "
         """Perform an elementwise sum"""
+        SUB = " - "
+        """Perform an elementwise subtraction"""
         POW = " ** "
         """Perform an elementwise power"""
         MUL = " * "
         """Perform an elementwise multiplication"""
+        DIV = " / "
+        """Perform an elementwise divide"""
         LESS = " < "
         """Perform a 'less than' comparison"""
         LESS_EQUAL = " <= "
@@ -71,7 +75,7 @@ class BinaryElementwise(BaseOperator):
         self.outputs[0].dtype = datatype.bool if self.kind in self._COMPARE_OPS else self.inputs[0].dtype
 
     def to_flat_ir(self, flat_ir):
-        from tripy.flat_ir.ops import AddOp, PowOp, MulOp, BroadcastOp, CompareOp
+        from tripy.flat_ir.ops import AddOp, SubtractOp, PowOp, MulOp, DivideOp, BroadcastOp, CompareOp
         import tripy.flat_ir.utils as flat_ir_utils
 
         _MLIR_COMPARE_DIRECTIONS = {
@@ -113,6 +117,10 @@ class BinaryElementwise(BaseOperator):
             flat_ir.add_op(self, PowOp, inputs, self.outputs)
         elif self.kind == BinaryElementwise.Kind.MUL:
             flat_ir.add_op(self, MulOp, inputs, self.outputs)
+        elif self.kind == BinaryElementwise.Kind.SUB:
+            flat_ir.add_op(self, SubtractOp, inputs, self.outputs)
+        elif self.kind == BinaryElementwise.Kind.DIV:
+            flat_ir.add_op(self, DivideOp, inputs, self.outputs)
         else:
             raise NotImplementedError()
 
@@ -140,6 +148,31 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUM)
+
+
+@TENSOR_METHOD_REGISTRY("__sub__")
+def sub(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Performs an elementwise subtraction.
+
+    Args:
+        other: The tensor to subtract from this one.
+
+    Returns:
+        Result of subtraction
+
+    Example:
+    ::
+
+        a = tp.Tensor([2, 3])
+        b = tp.Tensor([1, 2])
+        out = a - b
+        print(out)
+        assert np.array_equal(out.numpy(), np.array([1, 1]))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUB)
 
 
 @TENSOR_METHOD_REGISTRY("__pow__")
@@ -192,6 +225,31 @@ def mul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.MUL)
+
+
+@TENSOR_METHOD_REGISTRY("__truediv__")
+def div(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Performs an elementwise divide.
+
+    Args:
+        other: The tensor by which to divide this one.
+
+    Returns:
+        Result of divide
+
+    Example:
+    ::
+
+        a = tp.Tensor([4.0, 6.0])
+        b = tp.Tensor([2.0, 3.0])
+        out = a / b
+        print(out)
+        assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.DIV)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")

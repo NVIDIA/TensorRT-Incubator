@@ -6,8 +6,10 @@ from tripy.frontend.ops import BinaryElementwise
 
 _BINARY_OPS = {
     BinaryElementwise.Kind.SUM: lambda a, b: a + b,
+    BinaryElementwise.Kind.SUB: lambda a, b: a - b,
     BinaryElementwise.Kind.POW: lambda a, b: a**b,
     BinaryElementwise.Kind.MUL: lambda a, b: a * b,
+    BinaryElementwise.Kind.DIV: lambda a, b: a / b,
     BinaryElementwise.Kind.LESS: lambda a, b: a < b,
     BinaryElementwise.Kind.LESS_EQUAL: lambda a, b: a <= b,
     BinaryElementwise.Kind.EQUAL: lambda a, b: a == b,

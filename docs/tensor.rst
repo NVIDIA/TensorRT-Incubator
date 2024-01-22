@@ -11,6 +11,7 @@ Tensor Operations
 ##################
 
 .. autofunction:: tripy.arange
+.. autofunction:: tripy.exp
 .. autofunction:: tripy.full
 .. autofunction:: tripy.full_like
 .. autofunction:: tripy.iota

@@ -11,3 +11,5 @@ from tripy.frontend.ops.shape import ShapeOf
 from tripy.frontend.ops.slice import Slice
 from tripy.frontend.ops.storage import Storage
 from tripy.frontend.ops.where import Where, where
+from tripy.frontend.ops.reduce import Reduce
+from tripy.frontend.ops.unary_elementwise import UnaryElementwise, exp

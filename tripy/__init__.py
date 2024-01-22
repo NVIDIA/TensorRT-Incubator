@@ -9,6 +9,7 @@ from tripy.frontend import (
     Dim,
     Tensor,
     arange,
+    exp,
     full,
     full_like,
     iota,
@@ -26,6 +27,7 @@ from tripy.frontend import (
 
 __all__ = [
     "arange",
+    "exp",
     "device",
     "Dim",
     "full_like",
