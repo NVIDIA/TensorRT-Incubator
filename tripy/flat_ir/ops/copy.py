@@ -19,7 +19,7 @@ class CopyOp(BaseFIROp):
         super().__init__(origin_layer, inputs, outputs)
         self.target = target
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         from mlir.dialects import bufferization, tensor
 
         assert len(operands) == 1 and len(self.inputs) == 1, "Copy should have exactly one input!"

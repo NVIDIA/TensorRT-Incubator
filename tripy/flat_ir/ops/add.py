@@ -10,6 +10,6 @@ class AddOp(BaseFIROp):
     Operation to add two tensors
     """
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         add_out = stablehlo.AddOp(*operands)
         return [add_out]

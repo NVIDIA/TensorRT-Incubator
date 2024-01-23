@@ -10,5 +10,5 @@ class PowOp(BaseFIROp):
     Operation to perform element-wise exponentiation
     """
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         return [stablehlo.PowOp(*operands)]

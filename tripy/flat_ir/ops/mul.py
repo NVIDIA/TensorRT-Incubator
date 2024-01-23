@@ -10,5 +10,5 @@ class MulOp(BaseFIROp):
     Operation to multiply two tensors
     """
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         return [stablehlo.MulOp(*operands)]

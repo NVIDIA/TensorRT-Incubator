@@ -16,10 +16,7 @@ class FIRTensor(TraceTensor):
     def to_mlir(self):
         from tripy.backend.mlir import utils as mlir_utils
 
-        return ir.RankedTensorType.get(
-            [ir.ShapedType.get_dynamic_size() if s.is_dynamic_dim() else s.min for s in utils.make_list(self.shape)],
-            mlir_utils.get_mlir_dtype(self.dtype),
-        )
+        return mlir_utils.make_mlir_tensor(self.shape, self.dtype)
 
     @staticmethod
     def build(shape: ShapeInfo, dtype: "tripy.common.dtype", device: "tripy.common.device") -> "FIRTensor":

@@ -10,5 +10,5 @@ class DivideOp(BaseFIROp):
     Operation to divide a tensor.
     """
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         return [stablehlo.divide(*operands)]

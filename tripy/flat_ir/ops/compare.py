@@ -14,7 +14,7 @@ class CompareOp(BaseFIROp):
         super().__init__(origin_layer, inputs, outputs)
         self.compare_direction = compare_direction
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         compare_out = stablehlo.CompareOp(*operands, stablehlo.ComparisonDirectionAttr.get(self.compare_direction))
         return [compare_out]
 

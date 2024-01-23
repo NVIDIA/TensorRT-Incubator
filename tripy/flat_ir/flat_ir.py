@@ -1,11 +1,7 @@
 import copy
-from typing import Any, Dict, List, Tuple
-
-from mlir import ir
-from mlir.dialects import func as func_dialect
+from typing import Dict, List, Tuple
 
 from tripy import utils
-from tripy.backend.mlir.utils import make_ir_context
 from tripy.flat_ir.ops import BaseFIROp
 from tripy.frontend.dim import Dim
 
@@ -50,7 +46,10 @@ class FlatIR:
         return "\n".join(layer_strs)
 
     def to_mlir(self):
-        inputs_idx = {inp.name: idx for idx, inp in enumerate(self.inputs)}
+        from mlir import ir
+        from mlir.dialects import func as func_dialect
+
+        from tripy.backend.mlir.utils import make_ir_context
 
         with make_ir_context(), ir.Location.unknown():
             module = ir.Module.create()
@@ -64,36 +63,36 @@ class FlatIR:
                 entry_block = func_op.add_entry_block()
                 with ir.InsertionPoint(entry_block):
                     ops = []
-                    hlo_tensors: Dict[str, Any] = {}
+                    hlo_ops: Dict[str, ir.Operation] = {}
                     # Initialize tensor dict with inputs
-                    for inp in self.inputs:
-                        hlo_tensors[inp.name] = entry_block.arguments[inputs_idx[inp.name]]
-                    for l in self.ops:
-                        operands = []
-                        for inp in l.inputs:
-                            operands.append(hlo_tensors[inp.name])
-                        out_ops = l.to_mlir(operands)
-                        ops.extend(out_ops)
-                        hlo_tensors.update(zip([out.name for out in l.outputs], out_ops))
+                    for index, inp in enumerate(self.inputs):
+                        hlo_ops[inp.name] = entry_block.arguments[index]
 
-                    func_dialect.ReturnOp([hlo_tensors[o.name] for o in self.outputs])
+                    for layer in self.ops:
+                        input_ops = [hlo_ops[inp.name] for inp in layer.inputs]
+
+                        layer_ops = layer.to_mlir(input_ops)
+
+                        ops.extend(layer_ops)
+                        hlo_ops.update(zip([out.name for out in layer.outputs], layer_ops))
+
+                    func_dialect.ReturnOp([hlo_ops[o.name] for o in self.outputs])
 
                 # Create tensorrt.shape_profile attribute for all function arguments
-                arg_attrs: List[Dict[str, ir.Attribute]] = [{} for _ in range(len(entry_block.arguments))]
+                arg_attrs: List[Dict[str, ir.Attribute]] = []
 
                 for inp in self.inputs:
                     min_profile_list = inp.get_optimization_profile_list("min")
                     max_profile_list = inp.get_optimization_profile_list("max")
                     opt_profile_list = inp.get_optimization_profile_list("opt")
 
-                    arg = {
-                        "tensorrt.shape_profile": ir.Attribute.parse(
-                            f"#tensorrt.shape_profile<min={min_profile_list}, opt={opt_profile_list}, max={max_profile_list}>"
-                        )
-                    }
-
-                    if inp.name in inputs_idx:
-                        arg_attrs[inputs_idx[inp.name]] = arg
+                    arg_attrs.append(
+                        {
+                            "tensorrt.shape_profile": ir.Attribute.parse(
+                                f"#tensorrt.shape_profile<min={min_profile_list}, opt={opt_profile_list}, max={max_profile_list}>"
+                            )
+                        }
+                    )
 
                 func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
 
@@ -137,9 +136,9 @@ class FlatIR:
             tensors.append(tensor)
             ops.append(op)
 
-        for tensor in tensors:
+        # Need to process tensors/ops in reverse order to maintain topological sorting.
+        for tensor in reversed(tensors):
             self.register_tensor(tensor)
-        # Need to append in reverse order to maintain topological sorting.
         self.ops.extend(reversed(ops))
 
     def io_shape_info(self):

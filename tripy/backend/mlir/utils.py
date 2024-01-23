@@ -2,8 +2,8 @@ import subprocess
 
 from mlir import dialects, ir
 
-from tripy.common.logging import G_LOGGER
-from tripy.utils import log_time
+from tripy import utils
+from tripy.common import G_LOGGER, ShapeInfo
 
 
 def make_ir_context() -> ir.Context:
@@ -16,7 +16,7 @@ def make_ir_context() -> ir.Context:
     return context
 
 
-@log_time
+@utils.log_time
 def execute_binary(bin_path):
     result = subprocess.Popen(
         bin_path, shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -43,3 +43,10 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
         "uint8": ir.IntegerType.get_unsigned(8),
         "bool": ir.IntegerType.get_signless(1),
     }[dtype.name]
+
+
+def make_mlir_tensor(shape: ShapeInfo, dtype: "tripy.common.dtype") -> ir.RankedTensorType:
+    return ir.RankedTensorType.get(
+        [ir.ShapedType.get_dynamic_size() if s.is_dynamic_dim() else s.min for s in utils.make_list(shape)],
+        get_mlir_dtype(dtype),
+    )

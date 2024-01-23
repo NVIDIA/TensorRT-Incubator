@@ -32,7 +32,7 @@ class GatherOp(BaseFIROp):
         )
         self.index_vector_dim = len(inputs[1].shape)
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         attr = stablehlo.GatherDimensionNumbers.get(
             # The set of dimensions in the output shape that offset into an array sliced from operand.
             offset_dims=self.offset_dims,

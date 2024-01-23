@@ -10,5 +10,5 @@ class SubtractOp(BaseFIROp):
     Operation to subtract one tensor from another.
     """
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         return [stablehlo.subtract(*operands)]

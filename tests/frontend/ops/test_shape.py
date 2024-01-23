@@ -1,8 +1,5 @@
-import pytest
-
 from tripy.frontend import Tensor
 from tripy.frontend.tensor_ops import ones
-from tripy.frontend.ops.shape import ShapeOf
 
 
 def test_shape():

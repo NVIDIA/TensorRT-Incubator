@@ -23,7 +23,7 @@ class DotOp(BaseFIROp):
         self.contracting_dim = default(contracting_dim, default_dict)
         self.batching_dim = default(batching_dim, default_dict)
 
-    def to_mlir(self, operands: List) -> List:
+    def to_mlir(self, operands):
         # dot_general spec: https://github.com/openxla/stablehlo/blob/main/docs/spec.md#dot_general
         out_type = self.outputs[0].to_mlir()
 
