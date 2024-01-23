@@ -19,6 +19,7 @@ Tensor Operations
 .. autofunction:: tripy.ones
 .. autofunction:: tripy.ones_like
 .. autofunction:: tripy.permute
+.. autofunction:: tripy.tanh 
 .. autofunction:: tripy.transpose
 .. autofunction:: tripy.tril
 .. autofunction:: tripy.where

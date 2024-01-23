@@ -1,5 +1,5 @@
-import tripy.frontend.nn as nn
 from tripy.frontend.dim import Dim
+from tripy.frontend.nn import softmax
 from tripy.frontend.ops import exp, full, full_like, gather, iota, iota_like, permute, tanh, transpose, where
 from tripy.frontend.tensor import Tensor
 from tripy.frontend.tensor_ops import arange, ones, ones_like, tril, zeros, zeros_like
@@ -24,4 +24,5 @@ __all__ = [
     "transpose",
     "permute",
     "gather",
+    "softmax",
 ]

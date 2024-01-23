@@ -11,3 +11,9 @@ NN
 .. autoclass:: tripy.nn.Linear
 
 .. autoclass:: tripy.nn.Embedding
+
+##############
+NN.functional
+##############
+
+.. autofunction:: tripy.nn.functional.softmax

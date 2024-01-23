@@ -7,8 +7,7 @@ import tripy
 
 
 @pytest.mark.parametrize("bse", [(1, 10, 256), (2, 5, 256)])
-@pytest.mark.parametrize("use_jit", [False, True])
-def test_causal_self_attention(bse, use_jit):
+def test_causal_self_attention(bse):
     B, S, E = bse
 
     class CausalSelfAttention(tripy.nn.Module):
@@ -36,19 +35,17 @@ def test_causal_self_attention(bse, use_jit):
             att = (q @ k_t) * (1.0 / math.sqrt(E // self.n_head))
             att = att.masked_fill(self.bias[:S, :S] == tripy.Tensor(np.zeros((S, S), dtype=np.float32)), float("0"))
 
-            # #82 will add softmax op.
-            # att = att.softmax(dim=-1)
+            att = tripy.nn.functional.softmax(att, dim=-1)
 
             out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
             out = out.transpose(1, 2).reshape((B, S, E))
             return out
 
     attn = CausalSelfAttention()
-    if use_jit:
-        attn = tripy.jit(attn)
+    jitted_attn = tripy.jit(attn)
 
     x = tripy.Tensor(np.random.rand(B, S, E).astype(np.float32), device=tripy.device("gpu"))
     attn(x).eval()
 
-    # Enable comparing jit vs non-jit when softmax is enabled and weights can be initialized randomly.
-    # np.testing.assert_array_equal(attn(x)[0].numpy(), jittd_attn(x)[0].numpy())
+    # TODO: enable random initialized weights
+    np.testing.assert_allclose(attn(x)[0].numpy(), jitted_attn(x)[0].numpy(), rtol=1e-5, atol=5e-3)

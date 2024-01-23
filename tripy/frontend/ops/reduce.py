@@ -4,8 +4,8 @@ from typing import List, Sequence, Union
 
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops.utils import to_dims
 from tripy.utils import make_list
+import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass
@@ -36,7 +36,7 @@ class Reduce(BaseOperator):
             for idx, s in enumerate(input_shape):
                 if idx not in self.dim:
                     out_shape.append(s)
-        self.outputs[0].shape = to_dims(out_shape)
+        self.outputs[0].shape = op_utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
         import numpy as np
@@ -55,7 +55,10 @@ def _reduce_impl(self: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequen
 
     out = Tensor.build([self], Reduce, dim, kind)
     if keepdim:
-        raise NotImplementedError("Unsqueeze is not supported yet.")
+        if dim is None:
+            op_utils.raise_error("Invalid combination of arguments.", ["dim must not be None when keepdim is True."])
+        for d in sorted(make_list(dim)):
+            out = out.unsqueeze(d)
 
     return out
 

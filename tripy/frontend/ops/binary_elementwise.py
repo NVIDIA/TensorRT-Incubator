@@ -85,26 +85,27 @@ class BinaryElementwise(BaseOperator):
             BinaryElementwise.Kind.GREATER: "GT",
         }
 
-        dynamic_shape = False
-        requires_broadcast = False
-
         # Insert broadcast to ensure operands are of the same rank.
         shape1, shape2 = op_utils.get_broadcast_compatible_shapes(inputs[0].shape, inputs[1].shape)
 
-        if shape1 != inputs[0].shape or shape2 != inputs[1].shape:
-            requires_broadcast = True
+        dynamic_shape = False
+        requires_broadcast_1 = shape1 != inputs[0].shape
+        requires_broadcast_2 = shape2 != inputs[1].shape
 
         for dim1, dim2 in zip(shape1, shape2):
-            requires_broadcast |= dim1 != dim2
+            if dim1 != dim2:
+                requires_broadcast_1 |= dim1 < dim2
+                requires_broadcast_2 |= dim1 > dim2
             if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
                 dynamic_shape = True
 
-        if requires_broadcast:
-            if not dynamic_shape:
-                inputs[0] = op_utils.insert_broadcast(self, inputs[0], outputs[0].shape)
-                inputs[1] = op_utils.insert_broadcast(self, inputs[1], outputs[0].shape)
-            else:
-                assert False, "Broadcast support with dynamic shapes is not enabled."
+        if dynamic_shape and (requires_broadcast_1 or requires_broadcast_2):
+            assert False, "Broadcast support with dynamic shapes is not enabled."
+
+        if requires_broadcast_1:
+            inputs[0] = op_utils.insert_broadcast(self, inputs[0], outputs[0].shape)
+        if requires_broadcast_2:
+            inputs[1] = op_utils.insert_broadcast(self, inputs[1], outputs[0].shape)
 
         if self.kind in self._COMPARE_OPS:
             CompareOp(self, inputs, outputs, compare_direction=_MLIR_COMPARE_DIRECTIONS[self.kind])
