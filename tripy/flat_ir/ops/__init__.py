@@ -10,7 +10,7 @@ from tripy.flat_ir.ops.iota import IotaOp
 from tripy.flat_ir.ops.transpose import TransposeOp
 from tripy.flat_ir.ops.select import SelectOp
 from tripy.flat_ir.ops.slice import SliceOp
-from tripy.flat_ir.ops.shape import ShapeOfOp
+from tripy.flat_ir.ops.shape import ShapeOp
 from tripy.flat_ir.ops.reshape import ReshapeOp
 from tripy.flat_ir.ops.sub import SubtractOp
 from tripy.flat_ir.ops.divide import DivideOp

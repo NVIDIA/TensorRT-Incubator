@@ -5,7 +5,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
 @dataclass
-class ShapeOf(BaseOperator):
+class Shape(BaseOperator):
     """
     Represents a shape operation.
     """
@@ -27,9 +27,9 @@ class ShapeOf(BaseOperator):
         self.outputs[0].dtype = int32
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ShapeOfOp
+        from tripy.flat_ir.ops import ShapeOp
 
-        ShapeOfOp(self, inputs, outputs)
+        ShapeOp(self, inputs, outputs)
 
 
 @TENSOR_METHOD_REGISTRY("shape")
@@ -50,4 +50,4 @@ def shape(self: "tripy.Tensor"):
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], ShapeOf)
+    return Tensor.build([self], Shape)

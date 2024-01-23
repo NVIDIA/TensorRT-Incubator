@@ -5,7 +5,7 @@ from tripy.backend.mlir import utils as mlir_utils
 from tripy import int32
 
 
-class ShapeOfOp(BaseFIROp):
+class ShapeOp(BaseFIROp):
     """
     Operation to transpose/permute a Tensor
     """
