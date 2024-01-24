@@ -35,7 +35,7 @@ def test_causal_self_attention(bse):
             att = (q @ k_t) * (1.0 / math.sqrt(E // self.n_head))
             att = att.masked_fill(self.bias[:S, :S] == tripy.Tensor(np.zeros((S, S), dtype=np.float32)), float("0"))
 
-            att = tripy.nn.functional.softmax(att, dim=-1)
+            att = tripy.nn.softmax(att, dim=-1)
 
             out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
             out = out.transpose(1, 2).reshape((B, S, E))

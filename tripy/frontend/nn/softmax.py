@@ -21,7 +21,7 @@ def softmax(input: "tripy.Tensor", dim: int = None):
 
         a = tp.iota([2, 2], dtype=tp.float32)
         print(f"a: {a}")
-        out = tp.nn.functional.softmax(a, dim=1)
+        out = tp.nn.softmax(a, dim=1)
         print(f"out: {out}")
         assert np.allclose(out.sum(1).numpy(), np.ones((2), dtype=np.float32))
     """

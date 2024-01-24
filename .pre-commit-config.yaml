@@ -14,5 +14,3 @@ repos:
     rev: stable
     hooks:
     - id: black
-
-

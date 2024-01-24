@@ -12,8 +12,6 @@ NN
 
 .. autoclass:: tripy.nn.Embedding
 
-##############
-NN.functional
-##############
+.. autofunction:: tripy.nn.softmax
 
-.. autofunction:: tripy.nn.functional.softmax
+.. autofunction:: tripy.nn.gelu

@@ -3,9 +3,10 @@ from tripy.frontend.nn.parameter import Parameter
 from tripy.frontend.nn.linear import Linear
 from tripy.frontend.nn.layernorm import LayerNorm
 from tripy.frontend.nn.embedding import Embedding
-from tripy.frontend.nn.functional import softmax
+from tripy.frontend.nn.softmax import softmax
+from tripy.frontend.nn.gelu import gelu
 
-__all__ = ["Parameter", "Module", "Linear", "LayerNorm", "Embedding", "softmax"]
+__all__ = ["Parameter", "Module", "Linear", "LayerNorm", "Embedding", "softmax", "gelu"]
 
 
 def __getattr__(name: str):
