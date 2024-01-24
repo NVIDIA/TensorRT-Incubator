@@ -95,13 +95,13 @@ def process_docstring(app, what, name, obj, options, lines):
         if isinstance(block, helper.CodeBlock):
             # Add back the code block after removing assertions.
             remove_tags = ["assert "]
-            lines.extend(
-                [
-                    block_line
-                    for block_line in block.splitlines()
-                    if not any(block_line.strip().startswith(tag) for tag in remove_tags)
-                ]
-            )
+            OMIT_COMMENT = "# doc: omit"
+
+            def should_omit(line):
+                line = line.strip()
+                return any(line.startswith(tag) for tag in remove_tags) or line.endswith(OMIT_COMMENT)
+
+            lines.extend([block_line for block_line in block.splitlines() if not should_omit(block_line)])
 
             # Add output as a separate code block.
             outfile = io.StringIO()
