@@ -17,6 +17,7 @@ def test_causal_self_attention(bse):
             self.n_head = 16
             self.n_embed = E
             self.c_attn = tripy.nn.Linear(self.n_embed, 3 * self.n_embed, bias=True)
+            self.c_proj = tripy.nn.Linear(self.n_embed, self.n_embed, bias=True)
             self.bias = tripy.tril(tripy.ones((self.block_size, self.block_size)))
 
         def __call__(self, x: tripy.Tensor) -> Any:
@@ -28,17 +29,16 @@ def test_causal_self_attention(bse):
             v = attn[:, :, self.n_embed * 2 :]
 
             k = k.reshape((B, S, self.n_head, E // self.n_head)).transpose(1, 2)  # (B, nh, T, hs)
-            q = k.reshape((B, S, self.n_head, E // self.n_head)).transpose(1, 2)  # (B, nh, T, hs)
-            v = k.reshape((B, S, self.n_head, E // self.n_head)).transpose(1, 2)  # (B, nh, T, hs)
+            q = q.reshape((B, S, self.n_head, E // self.n_head)).transpose(1, 2)  # (B, nh, T, hs)
+            v = v.reshape((B, S, self.n_head, E // self.n_head)).transpose(1, 2)  # (B, nh, T, hs)
 
             k_t = k.transpose(-2, -1)
             att = (q @ k_t) * (1.0 / math.sqrt(E // self.n_head))
-            att = att.masked_fill(self.bias[:S, :S] == tripy.Tensor(np.zeros((S, S), dtype=np.float32)), float("0"))
-
+            att = att.masked_fill(self.bias[:S, :S] == tripy.Tensor(np.zeros((S, S), dtype=np.float32)), float("-inf"))
             att = tripy.nn.softmax(att, dim=-1)
-
             out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
             out = out.transpose(1, 2).reshape((B, S, E))
+            out = self.c_proj(out)
             return out
 
     attn = CausalSelfAttention()
@@ -48,4 +48,4 @@ def test_causal_self_attention(bse):
     attn(x).eval()
 
     # TODO: enable random initialized weights
-    np.testing.assert_allclose(attn(x)[0].numpy(), jitted_attn(x)[0].numpy(), rtol=1e-5, atol=5e-3)
+    np.testing.assert_allclose(attn(x)[0].numpy(), jitted_attn(x)[0].numpy())

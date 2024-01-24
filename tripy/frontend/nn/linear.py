@@ -37,7 +37,7 @@ class Linear(Module):
 
     def __call__(self, x):
         out = x @ (self.weight.transpose(1, 0))
-        if self.__dict__["_params"]["bias"]:
+        if hasattr(self, "bias"):
             out = out + self.bias
 
         return out
