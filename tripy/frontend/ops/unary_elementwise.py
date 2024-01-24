@@ -16,6 +16,8 @@ class UnaryElementwise(BaseOperator):
         """Perform an elementwise exponential"""
         TANH = 1
         """Perform an elementwise tanh"""
+        RSQRT = 2
+        """Perform a reciprocal square root"""
 
     kind: Kind
 
@@ -23,11 +25,12 @@ class UnaryElementwise(BaseOperator):
         self.outputs[0].shape = self.inputs[0].shape
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ExpOp, TanhOp
+        from tripy.flat_ir.ops import ExpOp, TanhOp, RsqrtOp
 
         OpType = {
             UnaryElementwise.Kind.EXP: ExpOp,
             UnaryElementwise.Kind.TANH: TanhOp,
+            UnaryElementwise.Kind.RSQRT: RsqrtOp,
         }[self.kind]
         OpType(self, inputs, outputs)
 
@@ -74,3 +77,21 @@ def tanh(self: "tripy.Tensor") -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([self], UnaryElementwise, UnaryElementwise.Kind.TANH)
+
+
+@TENSOR_METHOD_REGISTRY("rsqrt")
+def rsqrt(self: "tripy.Tensor"):
+    """
+    Compute reciprocal square root operation on tensor.
+
+    Example:
+    ::
+
+        a = tp.arange(3, dtype=tp.float32)
+        out = a.rsqrt()
+        print(out)
+        assert np.allclose(out.numpy(), (1.0 / np.sqrt(np.arange(3, dtype=np.float32))))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self], UnaryElementwise, UnaryElementwise.Kind.RSQRT)

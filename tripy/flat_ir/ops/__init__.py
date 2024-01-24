@@ -19,3 +19,4 @@ from tripy.flat_ir.ops.exponential import ExpOp
 from tripy.flat_ir.ops.tanh import TanhOp
 from tripy.flat_ir.ops.gather import GatherOp
 from tripy.flat_ir.ops.convert import ConvertOp
+from tripy.flat_ir.ops.rsqrt import RsqrtOp
