@@ -16,3 +16,4 @@ from tripy.frontend.ops.unary_elementwise import UnaryElementwise, exp, tanh
 from tripy.frontend.ops.expand import Expand
 from tripy.frontend.ops.unsqueeze import Unsqueeze
 from tripy.frontend.ops.gather import Gather, gather
+from tripy.frontend.ops.cast import Cast

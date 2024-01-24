@@ -28,6 +28,8 @@ class ReduceOp(BaseFIROp):
             return stablehlo.AddOp
         elif self.reduce_mode == "max":
             return stablehlo.MaxOp
+        elif self.reduce_mode == "mul":
+            return stablehlo.MulOp
         else:
             raise NotImplementedError()
 

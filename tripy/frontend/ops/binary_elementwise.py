@@ -121,6 +121,7 @@ class BinaryElementwise(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("__add__")
+@op_utils.allow_non_tensor
 def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs an elementwise sum.
@@ -146,6 +147,7 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__sub__")
+@op_utils.allow_non_tensor
 def sub(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
@@ -171,6 +173,7 @@ def sub(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__pow__")
+@op_utils.allow_non_tensor
 def pow(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs an elementwise pow.

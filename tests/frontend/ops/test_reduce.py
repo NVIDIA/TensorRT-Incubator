@@ -1,7 +1,7 @@
 import pytest
 
 import tripy as tp
-from tripy.frontend.ops.reduce import Reduce
+from tripy.frontend.ops import Reduce, BinaryElementwise
 
 
 class TestReduce:
@@ -23,3 +23,17 @@ class TestReduce:
         with pytest.raises(tp.TripyException, match="Invalid combination of arguments.") as exc:
             a = a.max(keepdim=True)
         print(str(exc.value))
+
+    def test_mean(self):
+        a = tp.ones((2, 3))
+        a = a.mean(0)
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.op, BinaryElementwise)
+        assert a.op.kind == BinaryElementwise.Kind.DIV
+
+    def test_variance(self):
+        a = tp.ones((2, 3))
+        a = a.var(0)
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.op, BinaryElementwise)
+        assert a.op.kind == BinaryElementwise.Kind.DIV

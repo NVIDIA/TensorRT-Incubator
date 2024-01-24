@@ -19,6 +19,8 @@ class Reduce(BaseOperator):
         """Perform a reduce sum"""
         MAX = "max"
         """Perform a reduce max"""
+        MUL = "mul"
+        """Perform a reduce mul"""
 
     dim: Sequence[int]
     kind: Kind
@@ -61,6 +63,26 @@ def _reduce_impl(self: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequen
             out = out.unsqueeze(d)
 
     return out
+
+
+def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False, apply_to_divisor=None):
+    sum = tensor.sum(dim=dim, keepdim=keepdim)
+    # compute number of elements in the array and divide by number of elements in dims
+    input_shape = tensor.shape
+    nb_elements = input_shape.prod(dim=0, keepdim=True)
+    nb_elements_in_mean_dim = 1
+
+    if dim is not None:
+        for d in make_list(dim):
+            nb_elements_in_mean_dim = input_shape[d] * nb_elements_in_mean_dim
+        divisor = nb_elements_in_mean_dim
+    else:
+        divisor = nb_elements
+
+    if apply_to_divisor:
+        divisor = apply_to_divisor(divisor)
+
+    return sum / (divisor.float())
 
 
 @TENSOR_METHOD_REGISTRY("sum")
@@ -109,3 +131,82 @@ def max(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = 
         assert np.array_equal(out.numpy(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
     return _reduce_impl(self, Reduce.Kind.MAX, dim, keepdim)
+
+
+@TENSOR_METHOD_REGISTRY("prod")
+def prod(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False):
+    """
+    Returns the product of each row of the input tensor in the given dimension dim.
+    If dim is a list of dimensions, reduce over all of them.
+
+    Args:
+        dim: the dimension or dimensions to reduce. If None, all dimensions are reduced.
+        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        the reduced Tensor
+
+    Example:
+    ::
+
+        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        out = a.prod(0)
+        print(out)
+        assert np.array_equal(out.numpy(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+    """
+    return _reduce_impl(self, Reduce.Kind.MUL, dim, keepdim)
+
+
+@TENSOR_METHOD_REGISTRY("mean")
+def mean(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False):
+    """
+    Returns the mean value of the input tensor along the given dimension dim.
+    If dim is a list of dimensions, mean is computed over all of them.
+
+    Args:
+        dim: the dimension or dimensions to compute mean over. If None, all dimensions are reduced.
+        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        mean of the input tensor
+
+    Example:
+    ::
+
+        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        out = a.mean(dim=1, keepdim=True)
+        print(out)
+        assert np.array_equal(out.numpy(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
+    """
+    return mean_impl(self, dim, keepdim)
+
+
+@TENSOR_METHOD_REGISTRY("var")
+def var(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False, correction: int = 1):
+    """
+    Returns the variance of the input tensor along the given dimension dim.
+    If dim is a list of dimensions, mean is computed over all of them.
+
+    Args:
+        dim: the dimension or dimensions to compute variance over. If None, all dimensions are reduced.
+        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
+        correction : Defaults to Bessel’s correction, correction=1.
+
+    Returns:
+        variance of the input tensor
+
+    Example:
+    ::
+
+        import torch # doc: omit
+        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        out = a.var(dim=1, keepdim=True)
+        print(out)
+        torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
+        assert np.array_equal(out.numpy(), torch_input.var(dim=1, keepdim=True).numpy())
+    """
+
+    mean = self.mean(dim=dim, keepdim=keepdim)
+    sub = (self - mean) ** 2.0
+    # 93 will replace apply_to_divisor to use lambda x: max(0, x-1)
+    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: x - 1)

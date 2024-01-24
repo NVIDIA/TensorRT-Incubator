@@ -16,11 +16,6 @@ class Shape(BaseOperator):
 
         self.outputs[0].shape = (Dim(len(self.inputs[0].shape)),)
 
-    def infer_devices(self):
-        from tripy.common import device
-
-        self.outputs[0].device = device("cpu")
-
     def infer_dtypes(self):
         from tripy import int32
 
