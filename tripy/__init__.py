@@ -1,15 +1,12 @@
 __version__ = "0.1.0"
-
 import tripy.common.datatype
 from tripy.backend import jit
 from tripy.common import TripyException, device
-from tripy.utils.json import save, load
 from tripy.common.datatype import *
 from tripy.frontend import (
     Dim,
     Tensor,
     arange,
-    exp,
     full,
     full_like,
     iota,
@@ -17,20 +14,15 @@ from tripy.frontend import (
     nn,
     ones,
     ones_like,
-    permute,
-    softmax,
-    tanh,
-    transpose,
     tril,
     where,
-    gather,
     zeros,
     zeros_like,
 )
+from tripy.utils.json import load, save
 
 __all__ = [
     "arange",
-    "exp",
     "device",
     "Dim",
     "full_like",
@@ -41,16 +33,21 @@ __all__ = [
     "load",
     "nn",
     "where",
-    "gather",
     "tril",
     "ones",
     "ones_like",
-    "permute",
     "save",
-    "softmax",
-    "tanh",
     "Tensor",
-    "transpose",
     "zeros_like",
     "zeros",
 ] + tripy.common.datatype.__all__
+
+
+def __getattr__(name: str):
+    if name in __all__:
+        return locals()[name]
+
+    from tripy.common.exception import search_for_missing_attr
+
+    look_in = [(Tensor, "tripy.Tensor"), (nn, "tripy.nn")]
+    search_for_missing_attr("tripy", name, look_in)

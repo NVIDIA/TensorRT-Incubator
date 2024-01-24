@@ -1,8 +1,8 @@
-import copy
 from dataclasses import dataclass
 
 import tripy.frontend.ops.utils as op_utils
 from tripy.frontend.ops.base import BaseOperator
+from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.ops.utils import to_dims
 
 
@@ -49,34 +49,33 @@ class Gather(BaseOperator):
         GatherOp(self, inputs, outputs, self.axis)
 
 
-def gather(tensor: "tripy.Tensor", index: "index_expr", axis):
+@TENSOR_METHOD_REGISTRY("gather")
+def gather(self: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """
-    Gather values from data tensor using the indices provided along an axis.
+    Gather values from this tensor using the indices provided along an axis.
     Note that this op behaves similar to numpy take operation.
 
     Args:
-        tensor: data tensor to gather data from.
-        index: tensor
-        axis: axis along which data is gathered.
+        index: The indices of elements to gather.
+        dim: Axis along which data is gathered.
 
     Returns:
-        data gathered from input tensor.
+        Data gathered from input tensor.
 
     Example:
     ::
 
         data = tp.iota((3,2,2))
         indices = tp.arange(0, 3, dtype=tp.int32)
-        out = tp.gather(data, indices, axis=0)
+        out = data.gather(0, indices)
 
         print(f"data : {data}")
         print(f"index : {indices}")
-        print(f"axis : 0")
         print(f"output : {out}")
 
         assert np.array_equal(out.numpy(), np.take(data.numpy(), indices.numpy(), axis=0))
     """
     from tripy.frontend import Tensor
 
-    out = Tensor.build([tensor, index], Gather, axis)
+    out = Tensor.build([self, index], Gather, dim)
     return out

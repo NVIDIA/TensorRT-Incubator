@@ -32,51 +32,15 @@ class UnaryElementwise(BaseOperator):
         OpType(self, inputs, outputs)
 
 
-def exp(input: "tripy.Tensor"):
-    """
-    Returns a tensor with the exponential of the elements of the input tensor
-
-    Returns:
-        The output Tensor.
-
-    Example:
-    ::
-
-        a = tp.arange(3, dtype=tp.float32)
-        out = tp.exp(a)
-        print(out)
-        assert np.allclose(out.numpy(), np.exp(np.arange(3, dtype=np.float32)))
-    """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.EXP)
-
-
-def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
-    """
-    Compute hyperbolic tangent element-wise.
-
-    Returns:
-        Corresponding hyperbolic tangent values.
-
-    Example:
-    ::
-
-        a = tp.arange(3, dtype=tp.float32)
-        out = tp.tanh(a)
-        print(out)
-        assert np.allclose(out.numpy(), np.tanh(np.arange(3, dtype=np.float32)))
-    """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.TANH)
-
-
 @TENSOR_METHOD_REGISTRY("exp")
-def _exp(self: "tripy.Tensor"):
-    """
-    Equivalent to `tripy.exp(self)`.
-    See 'tripy.exp'.
+def exp(self: "tripy.Tensor") -> "tripy.Tensor":
+    r"""
+    Performs an exponential of the elements of the input tensor:
+
+    :math:`\text{exp}(x_{i}) = e^{x_{i}}`
+
+    Returns:
+        Exponential of the input.
 
     Example:
     ::
@@ -86,14 +50,18 @@ def _exp(self: "tripy.Tensor"):
         print(out)
         assert np.allclose(out.numpy(), np.exp(np.arange(3, dtype=np.float32)))
     """
-    return exp(self)
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self], UnaryElementwise, UnaryElementwise.Kind.EXP)
 
 
 @TENSOR_METHOD_REGISTRY("tanh")
-def _tanh(self: "tripy.Tensor"):
+def tanh(self: "tripy.Tensor") -> "tripy.Tensor":
     """
-    Equivalent to `tripy.tanh(self)`.
-    See 'tripy.tanh'.
+    Compute hyperbolic tangent element-wise.
+
+    Returns:
+        Hyperbolic tangent values.
 
     Example:
     ::
@@ -103,4 +71,6 @@ def _tanh(self: "tripy.Tensor"):
         print(out)
         assert np.allclose(out.numpy(), np.tanh(np.arange(3, dtype=np.float32)))
     """
-    return tanh(self)
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self], UnaryElementwise, UnaryElementwise.Kind.TANH)

@@ -4,18 +4,15 @@ README links work.
 """
 
 import glob
-import inspect
 import os
 import re
-from textwrap import dedent
 
 import pytest
 import requests
 
+import tripy as tp
 from tests import helper
 from tests.helper import ROOT_DIR
-from tripy.frontend import Tensor
-from tripy.frontend.trace import Trace
 
 
 class TestReadme:
@@ -51,65 +48,7 @@ class TestReadme:
                 ), f"In README: '{readme}', link: '{link}' does not exist. Note: Full path was: '{link_abs_path}'"
 
 
-# In order to test docstrings, we need to recursively discover all submodules
-# and any classes/functions contained in those submodules.
-
-
-# Returns a list of all classes, functions, and methods defined in Tripy.
-def get_all_tripy_interfaces():
-    all_objects = set()
-    for obj in helper.discover_tripy_objects():
-        all_objects.add(obj)
-        all_objects.update(
-            {
-                member
-                for _, member in inspect.getmembers(
-                    obj,
-                    lambda member: inspect.isfunction(member)
-                    or isinstance(member, property)
-                    or inspect.isclass(member),
-                )
-            }
-        )
-
-    # Some sanity checks to make sure we're actually getting all the objects we expect
-    assert Tensor in all_objects
-    assert Tensor.shape in all_objects
-    assert Trace in all_objects
-
-    return all_objects
-
-
-def get_all_docstrings_with_examples():
-    def get_qualname(obj):
-        if isinstance(obj, property):
-            return obj.fget.__qualname__
-        return obj.__qualname__
-
-    # NOTE: If you edit the parsing logic here, please also update `tests/README.md`.
-    docstrings = []
-    ids = []
-    for obj in get_all_tripy_interfaces():
-        if not obj.__doc__:
-            print(f"Skipping {get_qualname(obj)} because no docstring was present")
-            continue
-
-        blocks = [
-            dedent(block)
-            for block in helper.consolidate_code_blocks(obj.__doc__)
-            if isinstance(block, helper.CodeBlock)
-        ]
-        if blocks is None:
-            print(f"Skipping {get_qualname(obj)} because no example was present in the docstring")
-            continue
-
-        docstrings.extend(blocks)
-        ids.extend([f"{get_qualname(obj)}:{idx}" for idx in range(len(blocks))])
-
-    return docstrings, ids
-
-
-DOCSTRING_TEST_CASES, DOCSTRING_IDS = get_all_docstrings_with_examples()
+DOCSTRING_TEST_CASES, DOCSTRING_IDS = helper.get_all_docstrings_with_examples()
 
 
 class TestDocstrings:
@@ -123,3 +62,23 @@ class TestDocstrings:
             assert f"from {banned_module}" not in example_code, f"Avoid importing {banned_module} in example docstrings"
 
         helper.exec_doc_example(example_code)
+
+
+class TestMissingAttributes:
+    # When we try to access a missing attribute, tripy should issue a nice error
+    # if it exists under a different class/submodule.
+    @pytest.mark.parametrize(
+        "get_func, message",
+        [
+            (lambda: tp.exp, "tripy.Tensor.exp"),
+            (lambda: tp.softmax, "tripy.nn.softmax"),
+            (lambda: tp.nn.gather, "tripy.Tensor.gather"),
+        ],
+    )
+    def test_nice_error_for_similar_attributes(self, get_func, message):
+        with pytest.raises(AttributeError, match=f"Did you mean: '{message}'?"):
+            get_func()
+
+    def test_no_inifinite_looping_for_invalid_attributes(self):
+        with pytest.raises(AttributeError):
+            tp.no_way_this_will_ever_be_a_real_function_name

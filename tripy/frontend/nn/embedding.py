@@ -33,4 +33,4 @@ class Embedding(Module):
         self.weight = Parameter(ones((num_embeddings, embedding_dim), dtype=float32))
 
     def __call__(self, x):
-        return gather(self.weight, x, axis=0)
+        return self.weight.gather(0, x)
