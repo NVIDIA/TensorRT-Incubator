@@ -144,7 +144,7 @@ class TestTrace:
         # a is an input
         a.op.const_fold = False
 
-        trace = Trace([a])
+        trace = Trace([a], [a])
         assert len(trace.inputs) == 1
         assert len(trace.outputs) == 1
         assert len(trace.layers) == 0
@@ -160,7 +160,7 @@ class TestTrace:
         b.op.const_fold = False
 
         c = a + b
-        trace = Trace([c])
+        trace = Trace([c], [a, b])
         print(trace)
         assert (
             str(trace)
@@ -184,7 +184,7 @@ class TestTrace:
         a.op.const_fold = False
 
         c = a + b
-        trace = Trace([c])
+        trace = Trace([c], [a])
         print(trace)
         assert (
             str(trace)

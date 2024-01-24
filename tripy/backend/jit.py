@@ -144,9 +144,11 @@ class jit:
                 [index for index, arg in enumerate(args) if isinstance(arg, nn.Parameter)]
             )
 
+            input_tensors = []
             for i in range(len(eval_args)):
                 if i not in self._const_args:
                     eval_args[i].op.const_fold = False
+                    input_tensors.append(eval_args[i])
             eval_args = tuple(eval_args)
 
             if self._obj is not None:
@@ -155,7 +157,7 @@ class jit:
                 return_tensors = func(*eval_args, **kwargs)
             if isinstance(return_tensors, Tensor):
                 return_tensors = [return_tensors]
-            trace = Trace(return_tensors)
+            trace = Trace(return_tensors, input_tensors)
 
             G_LOGGER.ir_printer(f"Trace :\n{trace}")
             flat_ir = trace.to_flat_ir()

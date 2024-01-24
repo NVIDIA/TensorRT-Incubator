@@ -111,6 +111,15 @@ class TestJIT:
             d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
+    def test_functional_io_order(self, init_tensors):
+        @tripy.jit
+        def func(a, b):
+            return b, a
+
+        a, b = init_tensors
+        c, d = func(a, b)
+        assert (c.numpy() == b.numpy()).all() and (d.numpy() == a.numpy()).all()
+
     def test_cache_decorator(self, init_tensors):
         @tripy.jit
         def func(a, b, option=False):

@@ -11,14 +11,14 @@ class Trace:
     A flattened representation of a computation graph expressed by one or more Tensors.
     """
 
-    def __init__(self, tensors: Sequence[Tensor]) -> None:
+    def __init__(self, tensors: Sequence[Tensor], inputs: Sequence[Tensor] = []) -> None:
         """
         Args:
-            tensors: The tensor(s) to evaluate. These are effectively
-                the desired outputs.
+            tensors: The tensor(s) to evaluate. These are effectively the desired outputs.
+            inputs: Input tensors in a jit function.
         """
         self.layers: List[BaseOperator] = []
-        self.inputs: List[TraceTensor] = []
+        self.inputs: List[TraceTensor] = [inp.op.outputs[0] for inp in inputs]
         self.outputs: List[TraceTensor] = []
 
         exprs = [tensor.op for tensor in tensors]
@@ -47,10 +47,8 @@ class Trace:
             for io in head.inputs + head.outputs:
                 io.name = get_name(io)
 
-            if not head.inputs and not head.const_fold:
-                # We stop tracing at input tensors.
-                self.inputs.extend(head.outputs)
-            else:
+            if head.inputs or head.const_fold:
+                # not as an input
                 self.layers.append(head)
                 exprs.extend([inp.producer for inp in head.inputs])
 
