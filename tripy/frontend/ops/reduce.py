@@ -208,5 +208,5 @@ def var(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = 
 
     mean = self.mean(dim=dim, keepdim=keepdim)
     sub = (self - mean) ** 2.0
-    # 93 will replace apply_to_divisor to use lambda x: max(0, x-1)
-    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: x - 1)
+    # 93 will replace apply_to_divisor to use lambda x: max(0, x-correction)
+    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: x - correction)
