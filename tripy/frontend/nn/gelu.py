@@ -30,15 +30,12 @@ def gelu(input: "tripy.Tensor"):
         np_out = 0.5 * np_a * (1 + np.tanh(np.sqrt(2 / np.pi) * (np_a + 0.044715 * np.power(np_a, 3)))) # doc: omit
         assert np.allclose(out.numpy(), np_out)
     """
-
-    @op_utils.allow_non_tensor
-    def convert(var):
-        return var
+    from tripy.frontend.tensor import Tensor
 
     # Gelu constants.
     vars = [0.5, np.sqrt(2.0 / np.pi), 0.044715, 3.0, 1.0]
 
     # Cast to tensors.
-    t1, t2, t3, t4, t5 = [convert(var) for var in vars]
+    t1, t2, t3, t4, t5 = [Tensor(var) for var in vars]
 
     return t1 * input * (tanh(t2 * (input + t3 * pow(input, t4))) + t5)

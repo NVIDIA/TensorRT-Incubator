@@ -6,6 +6,7 @@ import tripy.frontend.ops.utils as op_utils
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+import tripy.frontend.utils as frontend_utils
 
 
 @dataclass
@@ -122,7 +123,7 @@ class BinaryElementwise(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("__add__")
-@op_utils.allow_non_tensor
+@frontend_utils.convert_inputs_to_tensors()
 def add(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
@@ -150,7 +151,7 @@ def add(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
 
 @TENSOR_METHOD_REGISTRY("__sub__")
-@op_utils.allow_non_tensor
+@frontend_utils.convert_inputs_to_tensors()
 def sub(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
@@ -178,7 +179,7 @@ def sub(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
 
 @TENSOR_METHOD_REGISTRY("__pow__")
-@op_utils.allow_non_tensor
+@frontend_utils.convert_inputs_to_tensors()
 def pow(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise pow.
@@ -207,7 +208,7 @@ def pow(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
 # #84 will add __rmul__: @TENSOR_METHOD_REGISTRY("__rmul__")
 @TENSOR_METHOD_REGISTRY("__mul__")
-@op_utils.allow_non_tensor
+@frontend_utils.convert_inputs_to_tensors()
 def mul(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.

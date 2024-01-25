@@ -136,19 +136,6 @@ def get_broadcast_dim(dim1, dim2):
             return dim2
 
 
-# Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
-def allow_non_tensor(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        from tripy.frontend.tensor import Tensor
-
-        # Only convert args to tripy tensor. kwargs are allowed to be of non-tripy tensor type.
-        new_args = [Tensor(arg) if not isinstance(arg, Tensor) else arg for arg in args]
-        return func(*new_args, **kwargs)
-
-    return wrapper
-
-
 ##
 ## Broadcasting
 ##

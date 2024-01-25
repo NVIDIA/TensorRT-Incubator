@@ -1,15 +1,8 @@
-from tripy.frontend.tensor import Tensor, TensorMeta
+from tripy.frontend.tensor import Tensor
+import tripy.frontend.utils as frontend_utils
 
 
-class ParamMeta(TensorMeta):
-    def __instancecheck__(self, instance):
-        # Return True if the instance is an instance of the parent Tensor class
-        return super().__instancecheck__(instance) or (
-            isinstance(instance, Tensor) and getattr(instance, "_is_param", False)
-        )
-
-
-class Parameter(Tensor, metaclass=ParamMeta):
+class Parameter(Tensor):
     """
     A Parameter is a special kind of :class:`tripy.Tensor` that treated by the compiler as a
     constant, allowing for additional optimization opportunities.
@@ -25,15 +18,6 @@ class Parameter(Tensor, metaclass=ParamMeta):
         assert isinstance(param, tp.Tensor)
     """
 
-    def __new__(cls, data=None):
-        if data is None:
-            # Create an empty tensor
-            assert False, "tripy does not support creating an empty tensor as of 12/12/2023"
-        data._is_param = True
-        return data
-
-    def __repr__(self) -> str:
-        return repr(self.val)
-
-    def __str__(self) -> str:
-        return str(self.val)
+    @frontend_utils.convert_inputs_to_tensors()
+    def __init__(self, tensor):
+        self.__dict__ = tensor.__dict__

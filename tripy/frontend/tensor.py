@@ -10,9 +10,13 @@ class TensorMeta(type):
     def __new__(cls, name, bases, dct):
         new = type.__new__(cls, name, bases, dct)
 
-        # Add methods specified by individual ops to this class.
-        for name in TENSOR_METHOD_REGISTRY:
-            setattr(new, name, TENSOR_METHOD_REGISTRY[name])
+        # We only register methods with the Tensor class. Derived classes
+        # will inherit these methods normally. If we register for derived classes too
+        # we run the risk of overwriting overridden methods.
+        if name == "Tensor":
+            # Add methods specified by individual ops to this class.
+            for method_name in TENSOR_METHOD_REGISTRY:
+                setattr(new, method_name, TENSOR_METHOD_REGISTRY[method_name])
 
         return new
 
