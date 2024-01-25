@@ -6,22 +6,26 @@ from tripy.frontend.nn.parameter import Parameter
 
 class Module:
     """
-    Base class used to create all neural network modules.
-    Module class allows accessing all the parameters associated within nested Modules.
+    Base class used to create neural network modules.
+    This allows you to recursively access nested submodules and their parameters.
 
     The implementation currently assumes that Parameters are associated with the Module
     as an attribute and are not part of nested List or Dict.
 
     Specifically, this is allowed:
+    ::
 
-    ``self.param = Parameter(Tensor([1,2,3]))``
+        self.param = Parameter(Tensor([1,2,3]))
 
     Whereas this is not currently supported:
+    ::
 
-    ``self.param = {"param1": Parameter(Tensor([1,2,3]))}``
+        self.param = {"param1": Parameter(Tensor([1,2,3]))}
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         class AddBias(tp.nn.Module):
             def __init__(self):
@@ -74,7 +78,9 @@ class Module:
             A dictionary mapping names to parameters.
 
         Example:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             class MyModule(tp.nn.Module):
                 def __init__(self):
@@ -109,7 +115,9 @@ class Module:
             A tuple containing the name of the child module and the child module
 
         Example:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             class StackedLinear(tp.nn.Module):
                 def __init__(self):

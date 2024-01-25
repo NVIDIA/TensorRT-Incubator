@@ -37,7 +37,9 @@ def shape(self: "tripy.Tensor"):
         1d tensor filled with shape of the tensor.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         input = tp.ones((8, 2))
         print(input.shape)

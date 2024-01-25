@@ -44,7 +44,9 @@ def unsqueeze(self: "tripy.Tensor", dim: int):
         the unsqueezed Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.ones((2, 2), dtype=tp.float32)
         out = a.unsqueeze(1)

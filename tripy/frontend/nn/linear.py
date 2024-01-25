@@ -15,7 +15,9 @@ class Linear(Module):
         Output tensor with all dimensions except the last are of the same shape as the input and last dimension is equal to out_features.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.ones((2, 3))
         linear = tp.nn.Linear(3, 8)

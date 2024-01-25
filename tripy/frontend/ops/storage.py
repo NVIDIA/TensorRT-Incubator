@@ -98,7 +98,9 @@ def tensor_init(
         device: The device on which to allocate the tensor.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
         print(tensor)

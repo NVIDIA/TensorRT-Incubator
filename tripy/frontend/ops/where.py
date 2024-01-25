@@ -77,7 +77,9 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
         Output Tensor with selected values.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         condition = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
         # TODO: Enable this once we can support boolean storage
@@ -107,7 +109,9 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numbe
         the filled Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
         # TODO: Enable this once we can support boolean storage

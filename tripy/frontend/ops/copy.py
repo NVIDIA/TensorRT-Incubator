@@ -37,7 +37,9 @@ def to(self: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
         Copy of this tensor on target device
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.Tensor([1, 2], device=tp.device("gpu"))
         print(f"Before .to(): {a}")

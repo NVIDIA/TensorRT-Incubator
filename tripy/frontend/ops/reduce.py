@@ -100,7 +100,9 @@ def sum(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
         the reduced Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = a.sum(0)
@@ -124,7 +126,9 @@ def max(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
         the reduced Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = a.max(0)
@@ -148,7 +152,9 @@ def prod(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
         the reduced Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = a.prod(0)
@@ -172,7 +178,9 @@ def mean(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
         mean of the input tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = a.mean(dim=1, keepdim=True)
@@ -199,7 +207,9 @@ def var(
         variance of the input tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         import torch # doc: omit
         a = tp.arange(6, dtype=tp.float32).reshape((2, 3))

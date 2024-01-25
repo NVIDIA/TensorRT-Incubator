@@ -42,7 +42,9 @@ class Dim:
         If only min and max are provided, the opt value will be inferred as the mid point between min and max.
 
         Example:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             batch = tp.Dim(2)
             print(batch)

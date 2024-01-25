@@ -46,7 +46,9 @@ def exp(self: "tripy.Tensor") -> "tripy.Tensor":
         Exponential of the input.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(3, dtype=tp.float32)
         out = a.exp()
@@ -67,7 +69,9 @@ def tanh(self: "tripy.Tensor") -> "tripy.Tensor":
         Hyperbolic tangent values.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(3, dtype=tp.float32)
         out = a.tanh()
@@ -85,7 +89,9 @@ def rsqrt(self: "tripy.Tensor"):
     Compute reciprocal square root operation on tensor.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(3, dtype=tp.float32)
         out = a.rsqrt()

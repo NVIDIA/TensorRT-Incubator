@@ -19,7 +19,9 @@ def gelu(input: "tripy.Tensor"):
         input: input Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.iota([3, 3], dtype=tp.float32)
         out = tp.nn.gelu(a)

@@ -67,7 +67,9 @@ def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32)
         A Tensor with all elements set to fill_value.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.full([2, 3], 2)
         print(a)
@@ -91,7 +93,9 @@ def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
         A Tensor with all elements set to fill_value.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         t = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
         a = tp.full_like(t, 2)

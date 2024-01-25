@@ -10,7 +10,9 @@ class LayerNorm(Module):
         normalized_shape (int): The feature dimension of the input over which normalization is performed.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         import torch # doc: omit
         a = tp.ones((2, 3))

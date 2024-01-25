@@ -22,7 +22,9 @@ class device:
                     by a colon (':'). If the index is not provided, it defaults to 0.
 
         Example:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             cpu = tp.device("cpu")
             print(f"cpu: {cpu}")

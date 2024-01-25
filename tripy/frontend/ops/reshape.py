@@ -82,7 +82,9 @@ def reshape(self: "tripy.Tensor", shape: ShapeInfo):
         the reshaped Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         t = tp.ones((2, 3), dtype=tp.float32)
         out = t.reshape((1, 6))
@@ -108,7 +110,9 @@ def squeeze(self: "tripy.Tensor", dims: Union[Tuple, int] = None):
         the squeezed Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.ones((1, 2, 1), dtype=tp.float32)
         out = a.squeeze()

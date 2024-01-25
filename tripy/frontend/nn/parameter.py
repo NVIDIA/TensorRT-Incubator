@@ -15,7 +15,9 @@ class Parameter(Tensor, metaclass=ParamMeta):
     constant, allowing for additional optimization opportunities.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         param = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
         print(param)

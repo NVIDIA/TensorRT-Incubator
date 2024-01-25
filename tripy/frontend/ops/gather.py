@@ -63,7 +63,9 @@ def gather(self: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tens
         Data gathered from input tensor.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         data = tp.iota((3,2,2))
         indices = tp.arange(0, 3, dtype=tp.int32)

@@ -71,7 +71,9 @@ def transpose(self: "tripy.Tensor", dim0: int, dim1: int):
         the transposed Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         t = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = t.transpose(0, 1)
@@ -96,7 +98,9 @@ def permute(self: "tripy.Tensor", perm: Sequence[int]):
         the output Tensor with its dimensions permuted
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         t = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = t.permute((1, 0))

@@ -65,7 +65,9 @@ def expand(self: "tripy.Tensor", sizes: Sequence[int]):
         the expanded Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.ones((2, 1), dtype=tp.float32)
         out = a.expand((2, -1, 4))

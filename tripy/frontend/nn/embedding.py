@@ -9,7 +9,9 @@ class Embedding(Module):
     Embedding is a look up table of a fixed size and is used to retrieve the stored vector at a particular index at runtime.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         embedding = tp.nn.Embedding(4, 6) # 4 elements, each of dimension 6
         input = tp.arange(0, 3, dtype=tp.int32)

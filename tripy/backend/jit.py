@@ -33,7 +33,9 @@ class jit:
             All Tensors are provided as args, not kwargs
 
         Using JIT as a decorator:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
@@ -49,7 +51,9 @@ class jit:
             assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
 
         Using JIT as a function:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
@@ -209,7 +213,9 @@ class jit:
             dir_path: A string of folder name
 
         Example:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             import tempfile
 

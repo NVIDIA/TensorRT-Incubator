@@ -36,7 +36,9 @@ def to(self: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
         The casted tensor.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         inp = tp.Tensor([1, 2], dtype=tp.int32)
         print(f"inp: {inp}")

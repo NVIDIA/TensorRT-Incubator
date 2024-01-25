@@ -18,7 +18,9 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
         A Tensor with all elements set to 1.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.ones([2, 3])
         print(a)
@@ -39,7 +41,9 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
         A Tensor with all elements set to 0.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.zeros([2, 3])
         print(a)
@@ -60,7 +64,9 @@ def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None):
         A Tensor with all elements set to 1.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         t = tp.zeros([2, 3], dtype=tp.float32)
         a = tp.ones_like(t)
@@ -82,7 +88,9 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None):
         A Tensor with all elements set to 0.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         t = tp.ones([2, 3], dtype=tp.float32)
         a = tp.zeros_like(t)
@@ -104,7 +112,9 @@ def tril(input: "tripy.Tensor", diagonal: int = 0):
         Lower triangle of input of same shape and dtype (..., M, N)
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         t = tp.Tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=tp.float32)
         out = tp.tril(t)
@@ -135,7 +145,9 @@ def arange(start, stop=None, step=1, dtype: datatype.dtype = datatype.float32):
         dtype: dtype of the resulting Tensor
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.arange(5)
         print(f"a: {a}")

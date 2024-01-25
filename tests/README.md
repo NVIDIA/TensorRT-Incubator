@@ -24,13 +24,13 @@ For public-facing interfaces, you should add examples in the docstrings.
 Avoid doing this for internal interfaces since we do not build documentation for
 those anyway.
 
-Any code blocks (i.e. `::` followed by a newline and then an indented block)
+Any code blocks (i.e. `.. code:: python` followed by a newline and then an indented block)
 in docstrings are automatically tested by `tests/test_ux.py`.
 
 For example:
 ```py
 """
-::
+.. code:: python
 
     <example code>
 """

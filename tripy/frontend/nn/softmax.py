@@ -17,7 +17,9 @@ def softmax(input: "tripy.Tensor", dim: int = None):
         dim: A dimension along which softmax will be computed.
 
     Example:
-    ::
+
+    .. code:: python
+        :number-lines:
 
         a = tp.iota([2, 2], dtype=tp.float32)
         print(f"a: {a}")
