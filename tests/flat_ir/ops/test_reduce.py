@@ -33,7 +33,7 @@ class TestReduceOp:
         )
 
     def test_mean_str(self):
-        out = tp.Tensor([[1, 2], [3, 4]]).float()
+        out = tp.Tensor([[1, 2], [3, 4]]).to(tp.float32)
         out = out.mean(0)
 
         trace = Trace([out])

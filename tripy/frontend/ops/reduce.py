@@ -1,11 +1,12 @@
 import enum
 from dataclasses import dataclass
-from typing import List, Sequence, Union
+from typing import Optional, Sequence, Union
 
+import tripy.frontend.ops.utils as op_utils
+from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.utils import make_list
-import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass
@@ -82,11 +83,11 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     if apply_to_divisor:
         divisor = apply_to_divisor(divisor)
 
-    return sum / (divisor.float())
+    return sum / (divisor.to(datatype.float32))
 
 
 @TENSOR_METHOD_REGISTRY("sum")
-def sum(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False):
+def sum(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
     """
     Returns the sum of each row of the input tensor in the given dimension dim.
     If dim is a list of dimensions, reduce over all of them.
@@ -110,7 +111,7 @@ def sum(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = 
 
 
 @TENSOR_METHOD_REGISTRY("max")
-def max(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False):
+def max(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
     """
     Returns the maximum value of each row of the input tensor in the given dimension dim.
     If dim is a list of dimensions, reduce over all of them.
@@ -134,7 +135,7 @@ def max(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = 
 
 
 @TENSOR_METHOD_REGISTRY("prod")
-def prod(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False):
+def prod(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
     """
     Returns the product of each row of the input tensor in the given dimension dim.
     If dim is a list of dimensions, reduce over all of them.
@@ -158,7 +159,7 @@ def prod(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool =
 
 
 @TENSOR_METHOD_REGISTRY("mean")
-def mean(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False):
+def mean(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
     """
     Returns the mean value of the input tensor along the given dimension dim.
     If dim is a list of dimensions, mean is computed over all of them.
@@ -182,7 +183,9 @@ def mean(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool =
 
 
 @TENSOR_METHOD_REGISTRY("var")
-def var(self: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False, correction: int = 1):
+def var(
+    self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
+):
     """
     Returns the variance of the input tensor along the given dimension dim.
     If dim is a list of dimensions, mean is computed over all of them.

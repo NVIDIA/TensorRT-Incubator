@@ -16,7 +16,7 @@ class IotaOp(BaseFIROp):
 
     dim: int
     shape: ShapeInfo
-    dtype: tripy.common.dtype
+    dtype: "tripy.dtype"
 
     def __init__(self, origin_layer, inputs, outputs, dim):
         super().__init__(origin_layer, inputs, outputs)

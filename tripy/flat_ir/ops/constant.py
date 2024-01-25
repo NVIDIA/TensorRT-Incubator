@@ -15,7 +15,7 @@ class ConstantOp(BaseFIROp):
     """
 
     data: Any
-    dtype: tripy.common.dtype
+    dtype: "tripy.dtype"
     device: tripy.common.device
 
     def __init__(self, origin_layer, inputs, outputs, data):

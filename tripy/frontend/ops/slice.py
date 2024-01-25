@@ -42,7 +42,7 @@ class Slice(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("__getitem__")
-def get_item(self: "tripy.Tensor", index: "index_expr"):
+def get_item(self: "tripy.Tensor", index: Union[slice, int, Tuple[int]]):
     """
     Returns a tensor that is sliced from the input Tensor.
 

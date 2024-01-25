@@ -1,5 +1,6 @@
 import enum
 from dataclasses import dataclass
+from typing import Any, Union
 
 import tripy.frontend.ops.utils as op_utils
 from tripy.common import datatype
@@ -122,7 +123,7 @@ class BinaryElementwise(BaseOperator):
 
 @TENSOR_METHOD_REGISTRY("__add__")
 @op_utils.allow_non_tensor
-def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def add(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
 
@@ -148,7 +149,7 @@ def add(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__sub__")
 @op_utils.allow_non_tensor
-def sub(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def sub(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -174,7 +175,7 @@ def sub(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__pow__")
 @op_utils.allow_non_tensor
-def pow(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def pow(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise pow.
 
@@ -201,7 +202,7 @@ def pow(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 # #84 will add __rmul__: @TENSOR_METHOD_REGISTRY("__rmul__")
 @TENSOR_METHOD_REGISTRY("__mul__")
 @op_utils.allow_non_tensor
-def mul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def mul(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
 
@@ -226,7 +227,7 @@ def mul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__truediv__")
-def div(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def div(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise divide.
 
@@ -251,7 +252,7 @@ def div(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
-def less_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def less_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
 
@@ -277,7 +278,7 @@ def less_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__le__")
-def less_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def less_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
 
@@ -302,7 +303,7 @@ def less_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Te
 
 
 @TENSOR_METHOD_REGISTRY("__eq__")
-def eq(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def eq(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
 
@@ -327,7 +328,7 @@ def eq(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__ne__")
-def not_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def not_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
 
@@ -352,7 +353,7 @@ def not_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__ge__")
-def greater_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def greater_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
 
@@ -377,7 +378,7 @@ def greater_than_or_equal(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy
 
 
 @TENSOR_METHOD_REGISTRY("__gt__")
-def greater_than(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def greater_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.
 

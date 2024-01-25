@@ -24,9 +24,27 @@ class Cast(BaseOperator):
         ConvertOp(self, inputs, outputs)
 
 
-@TENSOR_METHOD_REGISTRY("float")
-def _float(self: "tripy.Tensor"):
-    from tripy.frontend import Tensor
-    from tripy import float32
+@TENSOR_METHOD_REGISTRY("to")
+def to(self: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
+    r"""
+    Returns a tensor with the specified data type.
 
-    return Tensor.build([self], Cast, float32)
+    Args:
+        dtype: The target data type.
+
+    Returns:
+        The casted tensor.
+
+    Example:
+    ::
+
+        inp = tp.Tensor([1, 2], dtype=tp.int32)
+        print(f"inp: {inp}")
+        out = inp.to(tp.float32)
+        print(f"out: {out}")
+
+        assert np.array_equal(out.numpy(), np.array([1, 2], dtype=np.float32))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self], Cast, dtype)

@@ -1,33 +1,10 @@
 import functools
-from dataclasses import dataclass
-from typing import List
 
 from tripy import utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import Dim
 from tripy.utils import make_list, make_tuple
-
-
-# TODO: Move this class elsewhere since we'll probably want to use it all over the place.
-@dataclass
-class ConditionCheck:
-    """
-    Bundles a boolean with error message details.
-
-    This can be used in cases where we would like to perform a check in some helper, e.g.
-    `is_broadcast_compatible` but still display a nice error message with low level feedback
-    from said helper (in this example, that could be details on which dimensions are not compatible).
-
-    The caller can access the `details` field for more information on the error message and
-    provide it to `raise_error`.
-    """
-
-    value: bool
-    details: List[str]
-
-    def __bool__(self) -> bool:
-        return self.value
 
 
 def to_dims(shape: ShapeInfo):
@@ -187,18 +164,18 @@ def get_broadcast_compatible_shapes(shape1, shape2):
     return to_dims(shape1), to_dims(shape2)
 
 
-def is_broadcast_compatible(shape1, shape2) -> ConditionCheck:
+def is_broadcast_compatible(shape1, shape2) -> utils.ConditionCheck:
     # Now check each dimension pair
     for index, (dim1, dim2) in enumerate(zip(shape1, shape2)):
         if dim1 != dim2 and dim1 != 1 and dim2 != 1:
-            return ConditionCheck(
+            return utils.ConditionCheck(
                 False,
                 [
                     f"for tensor shapes: {shape1} and {shape2}, dimensions on axis: {index} ({dim1} and {dim2}) are not broadcast compatible."
                 ],
             )
 
-    return ConditionCheck(True, [])
+    return utils.ConditionCheck(True, [])
 
 
 # To which dimension in the target shape each dimension of the operand shape corresponds to.

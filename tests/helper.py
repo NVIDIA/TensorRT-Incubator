@@ -70,6 +70,7 @@ def consolidate_code_blocks(doc):
     For example, you may end up with something like:
     [line0, line1, CodeBlock0, line2, line3, CodeBlock1, ...]
     """
+    # NOTE: If you edit the parsing logic here, please also update `tests/README.md`.
 
     doc = dedent(doc)
 
@@ -161,13 +162,23 @@ def get_all_docstrings_with_examples():
             return obj.fget.__qualname__
         return obj.__qualname__
 
-    # NOTE: If you edit the parsing logic here, please also update `tests/README.md`.
+    # Because of our complicated method registration logic, the free function and method
+    # might both be recognized as separate objects by `get_all_tripy_interfaces()`.
+    # In order to avoid redundant testing, we compare the docstrings directly instead.
+    seen_docstring_hashes = set()
     docstrings = []
     ids = []
-    for obj in get_all_tripy_interfaces():
+    tripy_interfaces = get_all_tripy_interfaces()
+    for obj in tripy_interfaces:
         if not obj.__doc__:
             print(f"Skipping {get_qualname(obj)} because no docstring was present")
             continue
+
+        doc_hash = hash(obj.__doc__)
+        if doc_hash in seen_docstring_hashes:
+            print(f"Skipping {get_qualname(obj)} because it duplicates the docstring of another interface")
+            continue
+        seen_docstring_hashes.add(doc_hash)
 
         blocks = [dedent(block) for block in consolidate_code_blocks(obj.__doc__) if isinstance(block, CodeBlock)]
         if blocks is None:

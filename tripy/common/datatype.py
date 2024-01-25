@@ -10,7 +10,7 @@ DATA_TYPES = {}
 # We include a metaclass here so we can control how the class type is printed.
 # The default would be something like: `<class 'abc.float32'>`. With the metaclass,
 # we can print it as `float32`
-class dtypeMeta(type):
+class dtype(type):
     def __str__(cls):
         return cls.name
 
@@ -18,7 +18,7 @@ class dtypeMeta(type):
         return cls.name
 
 
-class dtype(metaclass=dtypeMeta):
+class BaseDtype(metaclass=dtype):
     """
     The base class for all data types supported by tripy.
     """
@@ -31,7 +31,7 @@ __all__ = ["dtype"]
 
 
 def _make_datatype(name, itemsize, docstring):
-    DATA_TYPES[name] = type(name, (dtype,), {"name": name, "itemsize": itemsize, "__doc__": docstring})
+    DATA_TYPES[name] = type(name, (BaseDtype,), {"name": name, "itemsize": itemsize, "__doc__": docstring})
     __all__.append(name)
     return DATA_TYPES[name]
 

@@ -1,3 +1,5 @@
+import numbers
+
 import tripy.frontend.ops.utils as op_utils
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
@@ -93,7 +95,7 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
 
 
 @TENSOR_METHOD_REGISTRY("masked_fill")
-def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: float) -> "tripy.Tensor":
+def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
     Fills elements of tensor with value where mask is True.
 

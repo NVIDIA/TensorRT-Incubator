@@ -1,14 +1,14 @@
 import pytest
 
-import tripy
-from tripy.common.datatype import DATA_TYPES, dtype
+import tripy as tp
+from tripy.common.datatype import DATA_TYPES
 
 
 class TestDataType:
     @pytest.mark.parametrize("name", DATA_TYPES.keys())
     def test_api(self, name):
         # Make sure we can access data types at the top-level, e.g. `tripy.float32`
-        assert issubclass(getattr(tripy, name), dtype)
+        assert isinstance(getattr(tp, name), tp.dtype)
 
     @pytest.mark.parametrize("name, dtype", DATA_TYPES.items())
     def test_name(self, name, dtype):

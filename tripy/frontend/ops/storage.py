@@ -86,7 +86,7 @@ def tensor_init(
     data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"] = None,
     shape: Optional[ShapeInfo] = None,
     dtype: "tripy.dtype" = None,
-    device: "tripy.common.device" = None,
+    device: "tripy.device" = None,
 ) -> None:
     """
     Creates a tensor.

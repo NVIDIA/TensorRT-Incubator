@@ -125,7 +125,10 @@ def process_docstring(app, what, name, obj, options, lines):
                 line = block.splitlines()[1]
                 indentation = len(line) - len(line.lstrip())
 
-                out = "\nOutput:\n:: \n\n" + indent(f"{stdout}", prefix=" " * indentation) + "\n\n"
+                out = (
+                    indent("\nOutput:\n:: \n\n" + indent(f"{stdout}", prefix=" " * 4), prefix=" " * (indentation - 4))
+                    + "\n\n"
+                )
                 lines.extend(out.splitlines())
         else:
             lines.append(block)
