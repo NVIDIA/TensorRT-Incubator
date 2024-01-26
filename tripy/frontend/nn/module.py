@@ -1,5 +1,6 @@
 import copy
 from typing import Any, Dict, Iterator, Tuple
+import operator
 
 from tripy.frontend.nn.parameter import Parameter
 
@@ -105,6 +106,38 @@ class Module:
                 state_dict[f"{child_name}.{name}"] = param
 
         return state_dict
+
+    def load_from_state_dict(self, dict: Dict[str, Parameter]):
+        r"""
+        Loads a state_dict in the module.
+        This will recurse over any nested child modules.
+
+        Args:
+            A dictionary mapping names to parameters.
+
+        Example:
+        ::
+
+            class MyModule(tp.nn.Module):
+                def __init__(self):
+                    super().__init__()
+                    self.param = tp.nn.Parameter(tp.ones(2, dtype=tp.float32))
+                    self.linear1 = tp.nn.Linear(2, 2)
+                    self.linear2 = tp.nn.Linear(2, 2)
+
+            module = MyModule()
+
+            state_dict = module.state_dict()
+            state_dict["param"] = tp.nn.Parameter(tp.Tensor(np.zeros(2, dtype=np.float32)))
+            print(f"Before: {module.param}")
+            module.load_from_state_dict(state_dict)
+            print(f"After: {module.param}")
+            assert np.array_equal(module.state_dict()["param"].numpy(), np.array(np.zeros(2, dtype=np.float32)))
+        """
+        for nested_attr_name, param in dict.items():
+            submodule_name, _, param_name = nested_attr_name.rpartition(".")
+            submodule = operator.attrgetter(submodule_name)(self)
+            setattr(submodule, param_name, param)
 
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
         r"""
