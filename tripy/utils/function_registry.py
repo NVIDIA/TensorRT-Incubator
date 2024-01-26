@@ -243,10 +243,9 @@ class FunctionRegistry(dict):
                     # The first time we add an overload, we need to retroactively process the existing docstring
                     # to add signature information.
                     if len(self.overloads[key]) == 2:
-                        self[
-                            key
-                        ].__doc__ = "*Note: This function has multiple overloads*\n\n" + prepend_signature_to_docstring(
-                            self.overloads[key][0].func
+                        self[key].__doc__ = (
+                            "*Note: This function has multiple overloads*\n\n"
+                            + prepend_signature_to_docstring(self.overloads[key][0].func)
                         )
 
                     self[key].__doc__ += "\n\n" + prepend_signature_to_docstring(func)

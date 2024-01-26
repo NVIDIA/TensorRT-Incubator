@@ -103,4 +103,4 @@ class Tensor(metaclass=TensorMeta):
         return data
 
     def __repr__(self) -> str:
-        return f"tensor({self.eval().view()}, dtype={self.op.dtype}, loc={self.op.device})"
+        return f"tensor({self.eval().view()}, dtype={self.op.dtype}, loc={self.op.device}, shape={self.op.shape})"

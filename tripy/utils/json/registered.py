@@ -2,6 +2,7 @@
 This file registers JSON serialization methods for foreign types.
 For Tripy types, serialization methods are defined alongside the type definition.
 """
+
 import base64
 import io
 
