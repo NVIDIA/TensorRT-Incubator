@@ -55,7 +55,7 @@ class TestDocstrings:
     @pytest.mark.parametrize("example_code", DOCSTRING_TEST_CASES, ids=DOCSTRING_IDS)
     def test_examples_in_docstrings(self, example_code):
         assert example_code, "Example code is empty! Is the formatting correct? Refer to `tests/README.md`."
-        for banned_module in ["numpy", "tripy"]:
+        for banned_module in ["numpy", "tripy", "torch"]:
             assert (
                 f"import {banned_module}" not in example_code
             ), f"Avoid importing {banned_module} in example docstrings"

@@ -15,13 +15,14 @@ class Reduce(BaseOperator):
     Represents a slice operation.
     """
 
-    class Kind(str, enum.Enum):
-        SUM = "sum"
-        """Perform a reduce sum"""
-        MAX = "max"
-        """Perform a reduce max"""
-        MUL = "mul"
-        """Perform a reduce mul"""
+    class Kind(enum.Enum):
+        def __init__(self, op, init_value):
+            self.op = op
+            self.init_value = init_value
+
+        SUM = "sum", 0
+        MAX = "max", 0
+        MUL = "mul", 1
 
     dim: Sequence[int]
     kind: Kind
@@ -47,10 +48,10 @@ class Reduce(BaseOperator):
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FIRTensor
 
-        init_value = 0  # for sum and max
+        init_value = self.kind.init_value
         init_const = FIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
         ConstantOp(self, [], [init_const], data=np.array(init_value, dtype=outputs[0].dtype.name))
-        ReduceOp(self, [inputs[0], init_const], outputs, reduce_mode=self.kind, reduce_dims=self.dim)
+        ReduceOp(self, [inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
 
 
 def _reduce_impl(self: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
@@ -59,7 +60,8 @@ def _reduce_impl(self: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequen
     out = Tensor.build([self], Reduce, dim, kind)
     if keepdim:
         if dim is None:
-            op_utils.raise_error("Invalid combination of arguments.", ["dim must not be None when keepdim is True."])
+            # TODO(#96): Support dim=None, keepdim=True
+            raise NotImplementedError("dim=None, keepdim=True is not supported yet.")
         for d in sorted(make_list(dim)):
             out = out.unsqueeze(d)
 
@@ -211,7 +213,6 @@ def var(
     .. code:: python
         :number-lines:
 
-        import torch # doc: omit
         a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         out = a.var(dim=1, keepdim=True)
         print(out)

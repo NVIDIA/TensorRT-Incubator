@@ -14,7 +14,6 @@ class LayerNorm(Module):
     .. code:: python
         :number-lines:
 
-        import torch # doc: omit
         a = tp.ones((2, 3))
         ln = tp.nn.LayerNorm(3)
         out = ln(a)
@@ -22,7 +21,6 @@ class LayerNorm(Module):
         torch_tensor = torch.ones((2,3), dtype=torch.float32) # doc: omit
         layer_norm = torch.nn.LayerNorm(3) # doc: omit
 
-        # Set weights and biases to 1
         layer_norm.weight.data.fill_(1) # doc: omit
         layer_norm.bias.data.fill_(1) # doc: omit
 

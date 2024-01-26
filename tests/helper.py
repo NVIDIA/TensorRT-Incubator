@@ -5,6 +5,7 @@ import pkgutil
 from textwrap import dedent
 from typing import List
 
+import torch
 import numpy as np
 
 import tripy as tp
@@ -102,7 +103,7 @@ def consolidate_code_blocks(doc):
 def exec_doc_example(code):
     # Don't inherit variables from the current environment so we can be sure the docstring examples
     # work in total isolation.
-    return exec(code, {"tp": tp, "np": np}, {})
+    return exec(code, {"tp": tp, "np": np, "torch": torch}, {})
 
 
 def discover_modules():

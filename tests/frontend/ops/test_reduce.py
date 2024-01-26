@@ -17,13 +17,6 @@ class TestReduce:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Reduce)
 
-    def test_invalid_argument(self):
-        a = a = tp.ones((2, 3))
-
-        with pytest.raises(tp.TripyException, match="Invalid combination of arguments.") as exc:
-            a = a.max(keepdim=True)
-        print(str(exc.value))
-
     def test_mean(self):
         a = tp.ones((2, 3))
         a = a.mean(0)

@@ -19,12 +19,11 @@ def gelu(input: "tripy.Tensor"):
     .. code:: python
         :number-lines:
 
-        a = tp.iota([3, 3], dtype=tp.float32)
+        a = tp.iota([2, 2], dtype=tp.float32)
         out = tp.nn.gelu(a)
         print(f"out: {out}")
-        np_a = a.numpy() # doc: omit
-        np_out = 0.5 * np_a * (1 + np.tanh(np.sqrt(2 / np.pi) * (np_a + 0.044715 * np.power(np_a, 3)))) # doc: omit
-        assert np.allclose(out.numpy(), np_out)
+        t = torch.Tensor([[0., 0.], [1., 1.]]) # doc: omit
+        assert np.allclose(out.numpy(), torch.nn.functional.gelu(t, approximate='tanh').numpy())
     """
     from tripy.frontend.tensor import Tensor
 
