@@ -28,6 +28,11 @@ class Tensor(metaclass=TensorMeta):
 
     _COUNT = 0
 
+    # This field communicates to NumPy that it should allow our right-side operator overloads (e.g. __radd__) to take
+    # precedence over its own left-side overloads (e.g. __add__). This will ensure that an expression of the form
+    # `<np_array> <binary_op> Tensor` will return a Tensor and not a NumPy array.
+    __array_priority__ = 10000
+
     def _finalize(self, inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
         # It is very important that this is called from all entrypoints to creating a tensor.
         # We include logic here that needs to be applied to all tensors.

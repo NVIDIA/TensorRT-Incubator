@@ -13,11 +13,8 @@ class UnaryElementwise(BaseOperator):
 
     class Kind(enum.Enum):
         EXP = 0
-        """Perform an elementwise exponential"""
         TANH = 1
-        """Perform an elementwise tanh"""
         RSQRT = 2
-        """Perform a reciprocal square root"""
 
     kind: Kind
 

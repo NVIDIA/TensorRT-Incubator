@@ -1,33 +1,62 @@
+import numpy as np
 import pytest
 
 import tripy as tp
-from tripy.frontend.ops import BinaryElementwise
+from tripy.frontend.ops import BinaryElementwise, Comparison
 
+_BINARY_OPS = [
+    (BinaryElementwise.Kind.SUM, lambda a, b: a + b),
+    (BinaryElementwise.Kind.SUB, lambda a, b: a - b),
+    (BinaryElementwise.Kind.POW, lambda a, b: a**b),
+    (BinaryElementwise.Kind.MUL, lambda a, b: a * b),
+    (BinaryElementwise.Kind.DIV, lambda a, b: a / b),
+]
 
-_BINARY_OPS = {
-    BinaryElementwise.Kind.SUM: lambda a, b: a + b,
-    BinaryElementwise.Kind.SUB: lambda a, b: a - b,
-    BinaryElementwise.Kind.POW: lambda a, b: a**b,
-    BinaryElementwise.Kind.MUL: lambda a, b: a * b,
-    BinaryElementwise.Kind.DIV: lambda a, b: a / b,
-    BinaryElementwise.Kind.LESS: lambda a, b: a < b,
-    BinaryElementwise.Kind.LESS_EQUAL: lambda a, b: a <= b,
-    BinaryElementwise.Kind.EQUAL: lambda a, b: a == b,
-    BinaryElementwise.Kind.NOT_EQUAL: lambda a, b: a != b,
-    BinaryElementwise.Kind.GREATER_EQUAL: lambda a, b: a >= b,
-    BinaryElementwise.Kind.GREATER: lambda a, b: a > b,
-}
+_COMPARISON_OPS = [
+    (Comparison.Kind.LESS, lambda a, b: a < b),
+    (Comparison.Kind.LESS_EQUAL, lambda a, b: a <= b),
+    (Comparison.Kind.EQUAL, lambda a, b: a == b),
+    (Comparison.Kind.NOT_EQUAL, lambda a, b: a != b),
+    (Comparison.Kind.GREATER_EQUAL, lambda a, b: a >= b),
+    (Comparison.Kind.GREATER, lambda a, b: a > b),
+]
+
+# Ops that are flipped instead of calling a right-side version.
+_FLIP_OPS = {}
+for key, val in {
+    Comparison.Kind.LESS: Comparison.Kind.GREATER,
+    Comparison.Kind.LESS_EQUAL: Comparison.Kind.GREATER_EQUAL,
+}.items():
+    _FLIP_OPS[key] = val
+    _FLIP_OPS[val] = key
 
 
 class TestBinaryElementwise:
-    @pytest.mark.parametrize("func, kind", [(func, kind) for kind, func in _BINARY_OPS.items()])
-    def test_op_funcs(self, func, kind):
-        a = tp.Tensor([1.0])
-        b = tp.Tensor([2.0])
-
-        out = func(a, b)
+    # Make sure that we can support non-tensor arguments as either lhs or rhs.
+    # Comparison operators have no right-side overload - instead, they will simply
+    # call their opposite.
+    @pytest.mark.parametrize(
+        "lhs, rhs, left_side_is_non_tensor",
+        [
+            (tp.Tensor([1.0]), tp.Tensor([2.0]), False),
+            (tp.Tensor([1.0]), np.array([2.0], dtype=np.float32), False),
+            (np.array([1.0], dtype=np.float32), tp.Tensor([2.0]), True),
+            (tp.Tensor([1.0]), 2.0, False),
+            (1.0, tp.Tensor([2.0]), True),
+        ],
+        ids=lambda obj: type(obj).__qualname__,
+    )
+    @pytest.mark.parametrize("kind, func", _BINARY_OPS + _COMPARISON_OPS)
+    def test_op_funcs(self, kind, func, lhs, rhs, left_side_is_non_tensor):
+        out = func(lhs, rhs)
         assert isinstance(out, tp.Tensor)
         assert isinstance(out.op, BinaryElementwise)
+        if kind in [k for k, _ in _COMPARISON_OPS]:
+            assert isinstance(out.op, Comparison)
+
+        if left_side_is_non_tensor and kind in _FLIP_OPS:
+            kind = _FLIP_OPS[kind]
+
         assert out.op.kind == kind
 
     def test_mismatched_dtypes_fails(self):

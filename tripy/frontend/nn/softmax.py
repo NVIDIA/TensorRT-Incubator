@@ -1,6 +1,3 @@
-from tripy.frontend.ops import exp
-
-
 def softmax(input: "tripy.Tensor", dim: int = None):
     r"""
     Applies a softmax function.
@@ -27,5 +24,5 @@ def softmax(input: "tripy.Tensor", dim: int = None):
         print(f"out: {out}")
         assert np.allclose(out.sum(1).numpy(), np.ones((2), dtype=np.float32))
     """
-    exp_inp = exp(input - input.max(dim, keepdim=True))
+    exp_inp = (input - input.max(dim, keepdim=True)).exp()
     return exp_inp / exp_inp.sum(dim, keepdim=True)

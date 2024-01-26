@@ -1,8 +1,4 @@
-import numpy as np
-
-import tripy.frontend.ops.utils as op_utils
-from tripy.frontend.ops import tanh
-from tripy.frontend.ops.binary_elementwise import pow
+import math
 
 
 def gelu(input: "tripy.Tensor"):
@@ -33,9 +29,9 @@ def gelu(input: "tripy.Tensor"):
     from tripy.frontend.tensor import Tensor
 
     # Gelu constants.
-    vars = [0.5, np.sqrt(2.0 / np.pi), 0.044715, 3.0, 1.0]
+    vars = [0.5, math.sqrt(2.0 / math.pi), 0.044715, 3.0, 1.0]
 
     # Cast to tensors.
     t1, t2, t3, t4, t5 = [Tensor(var) for var in vars]
 
-    return t1 * input * (tanh(t2 * (input + t3 * pow(input, t4))) + t5)
+    return t1 * input * ((t2 * (input + t3 * (input**t4))).tanh() + t5)
