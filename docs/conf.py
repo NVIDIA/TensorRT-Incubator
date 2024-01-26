@@ -4,8 +4,9 @@ import sys
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pardir)
 sys.path.insert(0, ROOT_DIR)
 import contextlib
-from textwrap import dedent, indent
 import io
+from textwrap import dedent, indent
+
 import tripy as tp
 from tests import helper
 
@@ -44,7 +45,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "Tripy"
-copyright = "2023, NVIDIA"
+copyright = "2024, NVIDIA"
 author = "NVIDIA"
 
 version = tp.__version__
@@ -53,13 +54,20 @@ release = version
 
 # Style
 pygments_style = "colorful"
+pygments_dark_style = "one-dark"
 
-html_theme = "sphinx_rtd_theme"
-
-# Use the TRT theme and NVIDIA logo
 html_static_path = ["_static"]
 
-html_logo = "_static/img/nvlogo_white.png"
+html_theme = "sphinx_nefertiti"
+
+html_theme_options = {
+    "style": "green",
+    "show_powered_by": False,
+    "documentation_font_size": "16px",
+    "monospace_font_size": "14px",
+}
+
+html_sidebars = {"**": ["globaltoc.html"]}
 
 # Hide source link
 html_show_sourcelink = True
@@ -73,11 +81,6 @@ templates_path = ["_templates"]
 
 # For constructor arguments to show up in Sphinx generated doc
 autoclass_content = "both"
-
-# Unlimited depth sidebar.
-html_theme_options = {"navigation_depth": -1}
-
-html_sidebars = {"**": ["globaltoc.html", "relations.html", "sourcelink.html", "searchbox.html"]}
 
 # Myst will complain about relative links in our top-level README
 suppress_warnings = ["myst.xref_missing"]

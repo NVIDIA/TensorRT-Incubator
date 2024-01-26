@@ -116,7 +116,9 @@ class Module:
             A dictionary mapping names to parameters.
 
         Example:
-        ::
+
+        .. code:: python
+            :number-lines:
 
             class MyModule(tp.nn.Module):
                 def __init__(self):
@@ -130,14 +132,19 @@ class Module:
             state_dict = module.state_dict()
             state_dict["param"] = tp.nn.Parameter(tp.Tensor(np.zeros(2, dtype=np.float32)))
             print(f"Before: {module.param}")
+
             module.load_from_state_dict(state_dict)
             print(f"After: {module.param}")
+
             assert np.array_equal(module.state_dict()["param"].numpy(), np.array(np.zeros(2, dtype=np.float32)))
         """
         for nested_attr_name, param in dict.items():
             submodule_name, _, param_name = nested_attr_name.rpartition(".")
-            submodule = operator.attrgetter(submodule_name)(self)
-            setattr(submodule, param_name, param)
+            # If there is no submodule, it means we are accessing a parameter of self
+            module = self
+            if submodule_name:
+                module = operator.attrgetter(submodule_name)(self)
+            setattr(module, param_name, param)
 
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
         r"""

@@ -1,5 +1,7 @@
 import numpy as np
 
+import tripy as tp
+
 
 class TestModule:
     def test_basic(self, all_network_modes):
@@ -22,3 +24,19 @@ class TestModule:
             "dummy1.nested.param": network.dummy1.nested.param,
             "dummy2.nested.param": network.dummy2.nested.param,
         }
+
+    def test_load_from_state_dict_top_level_param(
+        self,
+        network,
+    ):
+        state_dict = {"param": tp.nn.Parameter(tp.zeros(2, dtype=tp.float32))}
+        network.load_from_state_dict(state_dict)
+        assert network.param is state_dict["param"]
+
+    def test_load_from_state_dict_nested_param(
+        self,
+        network,
+    ):
+        state_dict = {"dummy1.nested.param": tp.nn.Parameter(tp.arange(2, dtype=tp.float32))}
+        network.load_from_state_dict(state_dict)
+        assert network.dummy1.nested.param is state_dict["dummy1.nested.param"]
