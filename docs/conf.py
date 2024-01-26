@@ -28,6 +28,7 @@ autodoc_default_options = {
     "members": True,
     "no-undoc-members": True,
     "show-inheritance": True,
+    "special-members": "True",
 }
 
 autodoc_member_order = "bysource"

@@ -18,19 +18,20 @@ JITValue = namedtuple("JITValue", ["executable", "flat_ir_shape_info"])
 
 class jit:
     """
-    Allows a function to be just-in-time compiled, which will replace the implementation of any pure
-    function with a more efficient one.
-    The implementation is cached such that all invocations after the first use the cached implementation
-    instead of recompiling.
+    Indicates that a function should be just-in-time compiled to an executable the first time it is used.
+    The function must be pure and will be replaced by a more efficient implementation.
+
+    Executables are cached such that subsequent invocations do not need to recompile
+    unless the arguments provided are incompatible with the previously compiled executable(s).
     """
 
     def __init__(self, func: Callable = None, **kwargs):
         """
         Args:
-            func: Function to jit.
+            func: A pure function.
 
         Constraints:
-            All Tensors are provided as args, not kwargs
+            All Tensors arguments must be provided as positional arguments and not keyword arguments.
 
         Using JIT as a decorator:
 
@@ -205,12 +206,12 @@ class jit:
         for _, value in self.cache.items():
             mlir_backend.exec_destroy(value.executable)
 
-    def save(self, dir_path=None):
+    def save(self, dir_path: str = None):
         """
-        Saves all cached executables to a given folder
+        Saves all cached executables to the given directory.
 
         Args:
-            dir_path: A string of folder name
+            dir_path: The path to the directory.
 
         Example:
 
@@ -218,7 +219,9 @@ class jit:
             :number-lines:
 
             import tempfile
+            import os
 
+            out_dir = tempfile.TemporaryDirectory()
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
@@ -228,10 +231,11 @@ class jit:
                 c = a + b
                 return c
 
+            # We invoke the function once to trigger JITing.
             out = add(a, b)
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                add.save(tmp_dir)
-                add.load(tmp_dir)
+
+            add.save(out_dir.name)
+            print(os.listdir(out_dir.name))
         """
         from tripy.backend.mlir.mlir import mlir_wrapper
         import pickle
@@ -250,12 +254,38 @@ class jit:
                 pickle.dump(cache_value.flat_ir_shape_info, f)
             mlir_backend.save(cache_value.executable, filename)
 
-    def load(self, dir_path=None):
+    def load(self, dir_path: str = None):
         """
-        Loads all compiled executables from a given directory
+        Loads compiled executables from a given directory.
+
+        This is an in-place operation and will
 
         Args:
-            dir_path: A string of folder name
+            dir_path: The path to the directory.
+
+        Example:
+
+        .. code:: python
+            :number-lines:
+
+            import tempfile # doc: omit
+            import os # doc: omit
+
+            out_dir = tempfile.TemporaryDirectory() # doc: omit
+
+            a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu")) # doc: omit
+            b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu")) # doc: omit
+            @tp.jit # doc: omit
+            def add(a, b): # doc: omit
+                c = a + b # doc: omit
+                return c # doc: omit
+
+            out = add(a, b) # doc: omit
+            add.save(out_dir.name) # doc: omit
+
+            # Using the `out_dir` from the `save()` example:
+            print(os.listdir(out_dir.name))
+            add.load(out_dir.name)
         """
         from tripy.backend.mlir.mlir import mlir_wrapper
         import pickle

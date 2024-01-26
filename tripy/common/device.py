@@ -7,7 +7,7 @@ from tripy.common.exception import TripyException
 class device:
     # TODO: Improve docstrings here. Unclear what other information we'd want to include.
     """
-    Describes a device.
+    Represents the device where a tensor will be allocated.
     """
 
     kind: str
@@ -17,24 +17,29 @@ class device:
         r"""
         Args:
             device: A string consisting of the device kind and an optional index.
-                    The device kind may be one of: ["cpu", "gpu"].
+                    The device kind may be one of: ``["cpu", "gpu"]``.
                     If the index is provided, it should be separated from the device kind
-                    by a colon (':'). If the index is not provided, it defaults to 0.
+                    by a colon (``:``). If the index is not provided, it defaults to 0.
 
-        Example:
+        For example, you can create a device that represents the default CPU like so:
 
         .. code:: python
             :number-lines:
 
             cpu = tp.device("cpu")
-            print(f"cpu: {cpu}")
+            print(cpu)
             assert cpu.kind == "cpu"
             assert cpu.index == 0
 
-            gpu = tp.device("gpu:1")
-            print(f"gpu: {gpu}")
-            assert gpu.kind == "gpu"
-            assert gpu.index == 1
+        Or to create a device representing the second GPU, you can do:
+
+        .. code:: python
+            :number-lines:
+
+            gpu_1 = tp.device("gpu:1")
+            print(gpu_1)
+            assert gpu_1.kind == "gpu"
+            assert gpu_1.index == 1
         """
 
         kind, _, index = device.partition(":")

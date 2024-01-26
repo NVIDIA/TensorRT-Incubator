@@ -3,16 +3,16 @@ from tripy.frontend.nn.parameter import Parameter
 
 
 class Linear(Module):
-    """
-    Applies linear transformation expressed by the equation y = x @ W^t + b.
+    r"""
+    Applies a linear transformation to the input:
+
+    :math:`Linear(x) = xW^T + b`
 
     Args:
-        in_features: dimensionality of input features
-        out_features: dimensionality of output features
-        bias: If set ``False``, then no bias will be used in linear tranformation. Default: ``True``.
+        in_features: Size of input features.
+        out_features: Size of output features.
+        bias: Whether to include the bias term.
 
-    Returns:
-        Output tensor with all dimensions except the last are of the same shape as the input and last dimension is equal to out_features.
 
     Example:
 
@@ -27,17 +27,27 @@ class Linear(Module):
         assert out.numpy().shape == (2, 8)
     """
 
-    def __init__(self, input_dims, output_dims, bias: bool = True):
+    def __init__(self, in_features: int, out_features: int, bias: bool = True):
         super().__init__()
         from tripy.common.datatype import float32
-        from tripy.frontend.tensor_ops import ones
+        from tripy.frontend.tensor_initializers import ones
 
         # Replace with random weights when #74 is completed.
-        self.weight = Parameter(ones((output_dims, input_dims), dtype=float32))
-        if bias:
-            self.bias = Parameter(ones((1, output_dims), dtype=float32))
+        self.weight: "tripy.nn.Parameter" = Parameter(ones((out_features, in_features), dtype=float32))
+        """The :math:`W` matrix of shape :math:`(out_features, in_features)`"""
 
-    def __call__(self, x):
+        if bias:
+            self.bias = Parameter(ones((1, out_features), dtype=float32))
+            """The :math:`b` matrix of shape :math:`(1, out_features)`"""
+
+    def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
+        """
+        Args:
+            x: The input tensor, of shape ``(*, in_features)``.
+
+        Returns:
+            Output tensor of shape ``(*, out_features)``.
+        """
         out = x @ (self.weight.transpose(1, 0))
         if hasattr(self, "bias"):
             out = out + self.bias

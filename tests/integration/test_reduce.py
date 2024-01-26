@@ -4,7 +4,7 @@ import pytest
 
 import tripy as tp
 from tripy.frontend import Tensor
-from tripy.frontend.tensor_ops import ones, where
+from tripy.frontend.tensor_initializers import ones, where
 
 
 class TestReduceOp:

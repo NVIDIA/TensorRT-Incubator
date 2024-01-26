@@ -8,10 +8,10 @@ from tripy.frontend.ops import full, full_like, iota, iota_like, where
 
 def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
     """
-    Creates a Tensor with all elements set to 1.
+    Creates a Tensor of the specified shape and dtype with all elements set to 1.
 
     Args:
-        shape: A list or tuple of integers
+        shape: The desired shape of the tensor.
         dtype: Optional datatype of an element in the resulting Tensor.
 
     Returns:
@@ -31,10 +31,10 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
 
 def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32):
     """
-    Creates a Tensor with all elements set to 0.
+    Creates a Tensor of the specified shape and dtype with all elements set to 0.
 
     Args:
-        shape: A list or tuple of integers
+        shape: The desired shape of the tensor.
         dtype: Optional datatype of an element in the resulting Tensor.
 
     Returns:

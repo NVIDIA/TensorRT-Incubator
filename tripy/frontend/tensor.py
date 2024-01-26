@@ -23,7 +23,7 @@ class TensorMeta(type):
 
 class Tensor(metaclass=TensorMeta):
     """
-    Represents a lazily evaluated tensor.
+    A tensor is a multi-dimensional array that contains elements of a uniform data type.
     """
 
     _COUNT = 0
@@ -67,7 +67,7 @@ class Tensor(metaclass=TensorMeta):
     # with inputs, outputs, and the extra arguments
     @staticmethod
     def build(inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
-        tensor = Tensor()
+        tensor = Tensor(None)
         tensor._finalize(inputs, OpType, *args, **kwargs)
         return tensor
 

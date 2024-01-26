@@ -1,6 +1,7 @@
 :root {
     --nftt-primary-rgb: 118, 185, 0 !important;
-    --nftt-gutter-x: 0,
+    --nftt-gutter-x: 0;
+    --nftt-body-line-height: 1.15;
 }
 
 .wy-nav-content {

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from tripy.frontend import Tensor
-from tripy.frontend.tensor_ops import ones, where
+from tripy.frontend.tensor_initializers import ones, where
 
 
 class TestWhereOp:

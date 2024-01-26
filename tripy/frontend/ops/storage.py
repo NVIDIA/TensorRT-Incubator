@@ -83,10 +83,10 @@ class Storage(BaseOperator):
 @TENSOR_METHOD_REGISTRY("__init__")
 def tensor_init(
     self: "tripy.Tensor",
-    data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"] = None,
+    data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
     shape: Optional[ShapeInfo] = None,
-    dtype: "tripy.dtype" = None,
-    device: "tripy.device" = None,
+    dtype: Optional["tripy.dtype"] = None,
+    device: Optional["tripy.device"] = None,
 ) -> None:
     """
     Creates a tensor.

@@ -6,9 +6,11 @@
    :maxdepth: 1
 
    tensor
+   tensor_initialization
+   tensor_ops
    datatype
    dim
    device
-   nn
+   nn/index
    jit
    file_io

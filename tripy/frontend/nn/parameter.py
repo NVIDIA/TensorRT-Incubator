@@ -1,11 +1,11 @@
-from tripy.frontend.tensor import Tensor
 import tripy.frontend.utils as frontend_utils
+from tripy.frontend.tensor import Tensor
 
 
 class Parameter(Tensor):
     """
-    A Parameter is a special kind of :class:`tripy.Tensor` that treated by the compiler as a
-    constant, allowing for additional optimization opportunities.
+    A Parameter is a special kind of :class:`tripy.Tensor` that is treated by the compiler as a
+    constant, enabling additional optimization opportunities.
 
     Example:
 
