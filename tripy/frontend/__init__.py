@@ -1,7 +1,6 @@
 from tripy.frontend.dim import Dim
-from tripy.frontend.ops import full, full_like, iota, iota_like, where
+from tripy.frontend.ops import arange, full, full_like, iota, iota_like, ones, ones_like, where, zeros, zeros_like
 from tripy.frontend.tensor import Tensor
-from tripy.frontend.tensor_initializers import arange, ones, ones_like, tril, zeros, zeros_like
 
 __all__ = [
     "Tensor",
@@ -13,7 +12,6 @@ __all__ = [
     "iota",
     "iota_like",
     "where",
-    "tril",
     "ones",
     "ones_like",
     "zeros",

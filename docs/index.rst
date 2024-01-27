@@ -5,12 +5,9 @@
    :caption: API Reference
    :maxdepth: 1
 
-   tensor
-   tensor_initialization
-   tensor_ops
+   tensor/index
    datatype
    dim
    device
    nn/index
    jit
-   file_io

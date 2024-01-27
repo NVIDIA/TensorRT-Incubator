@@ -25,7 +25,7 @@ class CausalSelfAttention(tp.nn.Module):
         self.n_embd = config.n_embd
         self.c_attn = tp.nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
         self.c_proj = tp.nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
-        self.bias = tp.tril(tp.ones((config.block_size, config.block_size)))
+        self.bias = tp.ones((config.block_size, config.block_size)).tril()
 
     def __call__(self, x: tp.Tensor):
         E = self.n_embd

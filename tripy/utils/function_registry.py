@@ -2,10 +2,11 @@ import functools
 import inspect
 from collections import OrderedDict, defaultdict
 from textwrap import dedent
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
 from tripy.common.exception import raise_error
 from tripy.utils.utils import ConditionCheck
+import copy
 
 
 class FuncOverload:
@@ -29,11 +30,12 @@ class FuncOverload:
 
     def _get_annotations(self):
         if self.annotations is None:
-            self.annotations: Dict[str, type] = OrderedDict()
+            # Maps parameter names to their type annotations and a boolean indicating whether they are optional.
+            self.annotations: Dict[str, Tuple[type, bool]] = OrderedDict()
             signature = inspect.signature(self.func)
             for name, param in signature.parameters.items():
                 assert (
-                    param.annotation is not None
+                    param.annotation and param.annotation is not signature.empty
                 ), f"Function parameters must have type annotations, but parameter: '{name}' of function: '{self.func.__name__}' has no type annotation!"
                 annotation = param.annotation
                 # In cases where a type is not available at the time of function definition, the type
@@ -51,17 +53,11 @@ class FuncOverload:
                             f"\nNote: Error was: {e}"
                         )
 
-                self.annotations[name] = annotation
+                self.annotations[name] = (annotation, param.default is not signature.empty)
 
         return self.annotations
 
     def matches_arg_types(self, args, kwargs) -> ConditionCheck:
-        annotations = self._get_annotations()
-        if len(args) > len(annotations):
-            return ConditionCheck(
-                False, [f"Number of arguments provided ({len(args)}) exceeds the number of parameters ({len(args)})"]
-            )
-
         def matches_type(name: str, annotation: type, arg: Any):
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
@@ -83,13 +79,21 @@ class FuncOverload:
                 # but for now, we don't support overloading on generic types.
                 return True
 
-        for (name, annotation), arg in zip(annotations.items(), args):
-            if not matches_type(name, annotation, arg):
+        annotations = self._get_annotations()
+
+        # Check if we have too many arguments
+        if len(args) > len(annotations):
+            return ConditionCheck(
+                False, [f"Number of arguments provided ({len(args)}) exceeds the number of parameters ({len(args)})"]
+            )
+
+        for (name, (typ, _)), arg in zip(annotations.items(), args):
+            if not matches_type(name, typ, arg):
                 return ConditionCheck(
                     False,
                     [
                         f"For parameter: '{name}', expected an instance of type: "
-                        f"'{annotation.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
+                        f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
                     ],
                 )
 
@@ -103,14 +107,30 @@ class FuncOverload:
                     ],
                 )
 
-            if not matches_type(name, annotations[name], arg):
+            typ, _ = annotations[name]
+            if not matches_type(name, typ, arg):
                 return ConditionCheck(
                     False,
                     [
                         f"For parameter: '{name}', expected an instance of type: "
-                        f"'{annotations[name].__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
+                        f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
                     ],
                 )
+
+        # Check if all required arguments are given. We do so by stripping out arguments
+        # and then checking if any of the remaining ones are required.
+        # We do this only after we know that all provided args/kwargs are valid.
+        missing_arg_dict = copy.copy(annotations)
+
+        arg_names = list(missing_arg_dict.keys())[: len(args)]
+        kwarg_names = list(kwargs.keys())
+
+        for name in arg_names + kwarg_names:
+            del missing_arg_dict[name]
+
+        missing_required_args = [name for name, (_, optional) in missing_arg_dict.items() if not optional]
+        if missing_required_args:
+            return ConditionCheck(False, [f"Some required arguments were not provided: {missing_required_args}"])
 
         return True
 
@@ -201,10 +221,10 @@ class FunctionRegistry(dict):
                 if key not in self:
 
                     @functools.wraps(func)
-                    def dispatch(*args, **kwargs):
+                    def wrapper(*args, **kwargs):
                         return self.find_overload(key, args, kwargs)(*args, **kwargs)
 
-                    self[key] = dispatch
+                    self[key] = wrapper
                 else:
                     # By deleting __wrapped__, we undo parts of what `functools.wraps` does.
                     # This allows us to omit signature information in the docs and prepend our
@@ -244,7 +264,7 @@ class FunctionRegistry(dict):
                     # to add signature information.
                     if len(self.overloads[key]) == 2:
                         self[key].__doc__ = (
-                            "*Note: This function has multiple overloads*\n\n"
+                            "*This function has multiple overloads:*\n\n"
                             + prepend_signature_to_docstring(self.overloads[key][0].func)
                         )
 

@@ -1,6 +1,6 @@
-#####################
-Tensor Initialization
-#####################
+##########################
+Initialization Operations
+##########################
 
 .. autofunction:: tripy.arange
 .. autofunction:: tripy.full
@@ -9,6 +9,5 @@ Tensor Initialization
 .. autofunction:: tripy.iota_like
 .. autofunction:: tripy.ones
 .. autofunction:: tripy.ones_like
-.. autofunction:: tripy.tril
 .. autofunction:: tripy.zeros
 .. autofunction:: tripy.zeros_like

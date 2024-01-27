@@ -12,7 +12,7 @@ def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        An output tensor of the same size as the input.
+        A tensor of the same shape as the input.
 
     Example:
 

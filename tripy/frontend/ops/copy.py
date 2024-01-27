@@ -41,12 +41,14 @@ def to(self: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     .. code:: python
         :number-lines:
 
-        a = tp.Tensor([1, 2], device=tp.device("gpu"))
-        print(f"Before .to(): {a}")
-        a = a.to(tp.device("cpu"))
-        print(f"After .to(): {a}")
-        assert np.array_equal(a.numpy(), np.array([1, 2], dtype=np.float32))
-        assert a.op.device.kind == "cpu"
+        inp = tp.Tensor([1, 2], device=tp.device("gpu"))
+        print(f"inp: {inp}\n")
+
+        out = inp.to(tp.device("cpu"))
+        print(f"out: {out}")
+
+        assert np.array_equal(out.numpy(), np.array([1, 2], dtype=np.float32))
+        assert out.op.device.kind == "cpu"
     """
     from tripy.frontend import Tensor
     from tripy.frontend.ops import Storage

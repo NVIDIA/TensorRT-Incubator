@@ -1,10 +1,8 @@
 import numpy as np
-import torch
 import pytest
+import torch
 
-import tripy as tp
 from tripy.frontend import Tensor
-from tripy.frontend.tensor_initializers import ones, where
 
 
 class TestReduceOp:

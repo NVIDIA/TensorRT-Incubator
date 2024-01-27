@@ -8,8 +8,9 @@ NN
     :no-special-members:
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 3
 
-    interface/index
+    parameter
+    module
     modules/index
     functions/index

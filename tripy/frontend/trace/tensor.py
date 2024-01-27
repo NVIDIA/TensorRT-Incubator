@@ -35,8 +35,15 @@ class TraceTensor:
             return ("?" if dim.is_dynamic_dim() else str(dim)) + ","
 
         shape = f"{' '.join(map(str_from_dim, self.shape))}"
-        assert self.dtype is not None, "TraceTensor should not be printed before dtype inference!"
-        return f"{self.name}: [shape=({shape}), dtype=({self.dtype.name}), loc=({self.device})]"
+        return (
+            f"{self.name}: [shape=({shape}), "
+            + (f"dtype=({self.dtype.name}), " if self.dtype is not None else "")
+            + f"loc=({self.device})]"
+        )
+
+    def __repr__(self) -> str:
+        # This is a hack to prevent printing the entire stack info when we print trace tensors.
+        return str(self)
 
     def __eq__(self, other: "TraceTensor") -> bool:
         return self.name == other.name and self.stack_info == other.stack_info and self.shape == other.shape

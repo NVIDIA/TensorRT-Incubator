@@ -1,5 +1,6 @@
 from textwrap import indent
 from typing import Any, List, Tuple
+import inspect
 
 
 class TripyException(Exception):
@@ -15,11 +16,33 @@ def raise_error(summary: str, details: List[Any] = []):
         details: Details on the error. This function handles objects in this list as follows:
             - If they include a `stack_info` member, then information on the first user frame is displayed,
                 including file/line information as well as the line of code.
+
+                IMPORTANT: Any stack frames from the function registry are not displayed since
+                the function registry is an implementation detail used to dispatch to the real functions
+                we care about. Additionally, any code defined in the functions listed in ``EXCLUDE_FUNCTIONS``
+                is omitted.
+
             - In all other cases, the object is just converted to a string.
 
     Raises:
         TripyException
     """
+    import tripy.utils.function_registry
+    from tripy.frontend.utils import convert_inputs_to_tensors
+
+    EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors]
+
+    def should_exclude(frame):
+        for func in EXCLUDE_FUNCTIONS:
+            filename = inspect.getsourcefile(func)
+            lines, start_line = inspect.getsourcelines(func)
+
+            if frame.file != filename:
+                return False
+
+            if frame.line < start_line or frame.line > (start_line + len(lines)):
+                return False
+            return True
 
     detail_msg = ""
     for detail in details:
@@ -30,12 +53,21 @@ def raise_error(summary: str, details: List[Any] = []):
                 if not frame.code:
                     continue
 
+                if frame.module == tripy.utils.function_registry.__name__:
+                    continue
+
+                if should_exclude(frame):
+                    continue
+
                 line_info = f"{frame.file}:{frame.line}"
                 separator = "-" * max(len(line_info), len(frame.code))
                 frame_info = f"\n\n| {line_info}\n| {separator}\n| {frame.code}\n\n"
                 frame_strs.append(frame_info)
 
-            detail_msg += "Called from: ".join(frame_strs)
+            if frame_strs:
+                detail_msg += "Called from: ".join(frame_strs)
+            else:
+                detail_msg += "\n\n<No stack information available>\n\n"
         else:
             detail_msg += str(detail)
 

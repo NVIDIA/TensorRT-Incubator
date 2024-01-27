@@ -30,23 +30,23 @@ class Linear(Module):
     def __init__(self, in_features: int, out_features: int, bias: bool = True):
         super().__init__()
         from tripy.common.datatype import float32
-        from tripy.frontend.tensor_initializers import ones
+        from tripy.frontend.ops import ones
 
         # Replace with random weights when #74 is completed.
         self.weight: "tripy.nn.Parameter" = Parameter(ones((out_features, in_features), dtype=float32))
-        """The :math:`W` matrix of shape :math:`(out_features, in_features)`"""
+        r"""The :math:`W` matrix of shape :math:`[\text{out_features}, \text{in_features}]`"""
 
         if bias:
             self.bias = Parameter(ones((1, out_features), dtype=float32))
-            """The :math:`b` matrix of shape :math:`(1, out_features)`"""
+            r"""The :math:`b` matrix of shape :math:`[1, \text{out_features}]`"""
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
-        """
+        r"""
         Args:
-            x: The input tensor, of shape ``(*, in_features)``.
+            x: The input tensor, of shape :math:`[*, \text{in_features}]`.
 
         Returns:
-            Output tensor of shape ``(*, out_features)``.
+            A tensor of shape :math:`[*, \text{out_features}]`.
         """
         out = x @ (self.weight.transpose(1, 0))
         if hasattr(self, "bias"):

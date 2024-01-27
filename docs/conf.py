@@ -28,7 +28,7 @@ autodoc_default_options = {
     "members": True,
     "no-undoc-members": True,
     "show-inheritance": True,
-    "special-members": "True",
+    "special-members": "__call__",
 }
 
 autodoc_member_order = "bysource"
@@ -64,21 +64,17 @@ html_theme = "sphinx_nefertiti"
 html_theme_options = {
     "style": "green",
     "show_powered_by": False,
-    "documentation_font_size": "16px",
-    "monospace_font_size": "14px",
+    "documentation_font_size": "1.0rem",
+    "monospace_font_size": "0.8rem",
 }
 
 html_sidebars = {"**": ["globaltoc.html"]}
 
-# Hide source link
+# Show source link
 html_show_sourcelink = True
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = "TripyDoc"
-
-# Template files to extend default Sphinx templates.
-# See https://www.sphinx-doc.org/en/master/templating.html for details.
-templates_path = ["_templates"]
 
 # For constructor arguments to show up in Sphinx generated doc
 autoclass_content = "both"

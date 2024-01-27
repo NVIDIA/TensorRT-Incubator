@@ -1,3 +1,4 @@
+from textwrap import indent
 from typing import List
 
 from tripy import utils
@@ -103,4 +104,15 @@ class Tensor(metaclass=TensorMeta):
         return data
 
     def __repr__(self) -> str:
-        return f"tensor({self.eval().view()}, dtype={self.op.dtype}, loc={self.op.device}, shape={self.op.shape})"
+        np_arr = self.eval().view()
+        indentation = ""
+        sep = ""
+        if len(np_arr.shape) > 1 and np_arr.shape[-1] > 1:
+            indentation = " " * 4
+            sep = "\n"
+        return (
+            f"tensor({sep}"
+            f"{indent(str(np_arr), prefix=indentation)}, {sep}"
+            f"{indent(f'dtype={self.op.dtype}, loc={self.op.device}, shape={self.op.shape}', prefix=indentation)}"
+            f"{sep})"
+        )

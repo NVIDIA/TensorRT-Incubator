@@ -1,5 +1,5 @@
 #####################
-Tensor Operations
+Other Operations
 #####################
 
 .. autofunction:: tripy.where

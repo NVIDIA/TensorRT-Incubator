@@ -18,7 +18,7 @@ def test_causal_self_attention(bse):
             self.n_embed = E
             self.c_attn = tripy.nn.Linear(self.n_embed, 3 * self.n_embed, bias=True)
             self.c_proj = tripy.nn.Linear(self.n_embed, self.n_embed, bias=True)
-            self.bias = tripy.tril(tripy.ones((self.block_size, self.block_size)))
+            self.bias = tripy.ones((self.block_size, self.block_size)).tril()
 
         def __call__(self, x: tripy.Tensor) -> Any:
             attn = self.c_attn(x)

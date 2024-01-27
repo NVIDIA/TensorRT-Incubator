@@ -1,5 +1,5 @@
 from tripy.frontend import Tensor
-from tripy.frontend.tensor_initializers import ones
+from tripy.frontend.ops import ones
 
 
 def test_shape():

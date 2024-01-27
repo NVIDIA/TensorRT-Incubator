@@ -117,6 +117,18 @@ class TestFunctionRegistry:
         assert registry["test"](a=0) == 1
         assert registry["test"](b=0) == -1
 
+    def test_overload_different_number_of_args(self, registry):
+        @registry("test")
+        def func(a: int):
+            return a + 1
+
+        @registry("test")
+        def func(b: int, c: int):
+            return b - 1
+
+        assert registry["test"](0) == 1
+        assert registry["test"](0, 0) == -1
+
     def test_ambiguous_overload_raises_error(self, registry):
         @registry("test")
         def func(a: int):
@@ -154,7 +166,7 @@ class TestFunctionRegistry:
         def func(a: int, b: int):
             return a + b
 
-        with pytest.raises(TypeError, match="missing 1 required positional argument: 'a'"):
+        with pytest.raises(TripyException, match="Some required arguments were not provided: \['a'\]"):
             registry["test"](b=0)
 
     def test_func_overload_caches_signature(self, registry):
@@ -167,7 +179,7 @@ class TestFunctionRegistry:
         assert not func_overload.annotations
         assert registry["test"](0) == 1
         assert func_overload.annotations
-        assert func_overload.annotations["a"] is int
+        assert func_overload.annotations["a"] == (int, False)
 
     def test_doc_of_non_overloaded_func(self, registry):
         # When there is no overload, the registry function should
@@ -201,7 +213,7 @@ class TestFunctionRegistry:
             registry["test"].__doc__
             == dedent(
                 """
-                *Note: This function has multiple overloads*
+                *This function has multiple overloads:*
 
                 ----------
 

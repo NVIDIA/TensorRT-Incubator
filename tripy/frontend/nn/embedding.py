@@ -29,11 +29,18 @@ class Embedding(Module):
         """
         super().__init__()
         from tripy.common.datatype import float32
-        from tripy.frontend.tensor_initializers import ones
+        from tripy.frontend.ops import ones
 
         # Replace with random weights when #74 is completed.
         self.weight: "tp.nn.Parameter" = Parameter(ones((num_embeddings, embedding_dim), dtype=float32))
-        """The tensor that stores the embedding lookup table"""
+        r"""The embedding lookup table of shape :math:`[\text{num_embeddings}, \text{embedding_dim}]`."""
 
     def __call__(self, x):
+        r"""
+        Args:
+            x: A tensor of shape :math:`[N]` containing the indices of the desired embedding vectors.
+
+        Returns:
+            A tensor of shape :math:`[N, \text{embedding_dim}]` containing the embedding vectors.
+        """
         return self.weight.gather(0, x)

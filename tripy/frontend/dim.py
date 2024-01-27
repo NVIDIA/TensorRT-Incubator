@@ -1,14 +1,23 @@
+import functools
 from typing import Callable, Optional
+
 from tripy.common.exception import raise_error
 from tripy.utils import default
 
 
 def validate_profile(method: Callable) -> Callable:
+    @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         result = method(self, *args, **kwargs)
-        assert (
-            self.is_valid()
-        ), f"Dim should have min<=opt<=max but got min={self.min}, opt={self.opt} and max={self.max} with runtime shape={self._runtime_value}"
+
+        if not self.is_valid():
+            raise_error(
+                "Invalid arguments to `Dim()`.",
+                details=[
+                    f"Dim should have `min`<={{`opt`,`runtime_value`}}<=`max` but got min={self.min}, opt={self.opt}, max={self.max} "
+                    f"with runtime_value={self._runtime_value}."
+                ],
+            )
         return result
 
     return wrapper
@@ -22,6 +31,7 @@ class Dim:
     that is is valid for any dimension size within that range.
     """
 
+    @validate_profile
     def __init__(
         self,
         runtime_value: int,
@@ -69,15 +79,6 @@ class Dim:
         self._max = default(max, self._runtime_value)
 
         self._opt = default(opt, int((self._max + self._min) / 2.0))
-
-        if not self.is_valid():
-            raise_error(
-                "Invalid arguments to `Dim()`.",
-                details=[
-                    f"Dim should have min<=opt<=max but got min={self.min}, opt={self.opt} and max={self.max} "
-                    f"with runtime shape={self._runtime_value}"
-                ],
-            )
 
     def is_valid(self):
         return (
@@ -132,11 +133,9 @@ class Dim:
     def __repr__(self) -> str:
         if self.is_dynamic_dim():
             return f"Dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
-        else:
-            return f"{self.runtime_value}"
+        return f"{self.runtime_value}"
 
     def is_a_subset_of(self, cached) -> bool:
         if self.is_dynamic_dim():
             return self.min > cached.min and self.max < cached.max
-        else:
-            return self.runtime_value > cached.min and self.runtime_value < cached.max
+        return self.runtime_value > cached.min and self.runtime_value < cached.max
