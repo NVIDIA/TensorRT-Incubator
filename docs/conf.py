@@ -13,6 +13,7 @@ import inspect
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autodoc.typehints",
     "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
@@ -21,9 +22,10 @@ extensions = [
     "myst_parser",
 ]
 
-# Want to be able to generate docs with no dependencies installed
-autodoc_mock_imports = []
-
+# Move type annotations to the description and don't use fully qualified names.
+autodoc_typehints = "both"
+autodoc_typehints_format = "short"
+python_use_unqualified_type_names = True
 
 autodoc_default_options = {
     "members": True,

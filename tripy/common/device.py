@@ -13,7 +13,7 @@ class device:
     kind: str
     index: int
 
-    def __init__(self, device) -> None:
+    def __init__(self, device: str) -> None:
         r"""
         Args:
             device: A string consisting of the device kind and an optional index.

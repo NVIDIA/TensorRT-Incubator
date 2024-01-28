@@ -6,17 +6,21 @@ class Parameter(Tensor):
     """
     A Parameter is a special kind of :class:`tripy.Tensor` that is treated by the compiler as a
     constant, enabling additional optimization opportunities.
-
-    Example:
-
-    .. code:: python
-
-        parameter = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
-
-        assert isinstance(parameter, tp.nn.Parameter)
-        assert isinstance(parameter, tp.Tensor)
     """
 
     @frontend_utils.convert_inputs_to_tensors()
-    def __init__(self, tensor):
+    def __init__(self, tensor: "tripy.Tensor"):
+        """
+        Args:
+            tensor: The tensor value for this parameter.
+
+        Example:
+
+        .. code:: python
+
+            parameter = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
+
+            assert isinstance(parameter, tp.nn.Parameter)
+            assert isinstance(parameter, tp.Tensor)
+        """
         self.__dict__ = tensor.__dict__

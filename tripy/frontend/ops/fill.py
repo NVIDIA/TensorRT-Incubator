@@ -1,3 +1,4 @@
+import numbers
 from dataclasses import dataclass
 
 from tripy.common import datatype
@@ -54,7 +55,7 @@ class FillLike(Fill):
         super().infer_dtypes()
 
 
-def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32):
+def full(shape: ShapeInfo, fill_value: numbers.Number, dtype: datatype.dtype = datatype.float32):
     """
     Creates a Tensor of `shape` filled with `fill_value`.
 
@@ -79,7 +80,7 @@ def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32)
     return Tensor.build([], Fill, fill_value, to_dims(shape), dtype)
 
 
-def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
+def full_like(input: "tripy.Tensor", fill_value: numbers.Number, dtype: datatype.dtype = None):
     """
     Creates a Tensor filled with `fill_value`, its shape (and dtype if not given) are determined by the `input` Tensor.
 
