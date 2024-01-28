@@ -27,7 +27,7 @@ class device:
             :number-lines:
 
             cpu = tp.device("cpu")
-            print(cpu)
+
             assert cpu.kind == "cpu"
             assert cpu.index == 0
 
@@ -37,7 +37,7 @@ class device:
             :number-lines:
 
             gpu_1 = tp.device("gpu:1")
-            print(gpu_1)
+
             assert gpu_1.kind == "gpu"
             assert gpu_1.index == 1
         """

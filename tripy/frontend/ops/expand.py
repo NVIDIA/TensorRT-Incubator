@@ -69,10 +69,10 @@ def expand(self: "tripy.Tensor", sizes: Sequence[int]):
     .. code:: python
         :number-lines:
 
-        a = tp.ones((2, 1), dtype=tp.float32)
-        out = a.expand((2, -1, 4))
-        print(out)
-        assert np.array_equal(out.numpy(), np.broadcast_to(np.ones((2, 1), dtype=np.float32), (2, 2, 4)))
+        input = tp.ones((2, 1), dtype=tp.float32)
+        output = input.expand((2, -1, 4))
+
+        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((2, 1), dtype=np.float32), (2, 2, 4)))
     """
     from tripy.frontend import Tensor
 

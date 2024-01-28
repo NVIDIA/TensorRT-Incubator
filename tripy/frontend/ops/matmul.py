@@ -136,9 +136,9 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float32)
 
-        out = a @ b
-        print(out)
-        assert np.array_equal(out.numpy(), (np.ones((2,3), dtype=np.float32) @ np.ones((3,2), dtype=np.float32)))
+        output = a @ b
+
+        assert np.array_equal(output.numpy(), (np.ones((2,3), dtype=np.float32) @ np.ones((3,2), dtype=np.float32)))
     """
     from tripy.frontend import Tensor
 

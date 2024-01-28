@@ -71,9 +71,9 @@ def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32)
     .. code:: python
         :number-lines:
 
-        a = tp.full([2, 3], 2)
-        print(a)
-        assert np.array_equal(a.numpy(), np.full([2, 3], 2, dtype=np.float32))
+        output = tp.full([2, 3], 2)
+
+        assert np.array_equal(output.numpy(), np.full([2, 3], 2, dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
@@ -97,10 +97,10 @@ def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
     .. code:: python
         :number-lines:
 
-        t = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
-        a = tp.full_like(t, 2)
-        print(a)
-        assert np.array_equal(a.numpy(), np.array([[2, 2], [2, 2]], dtype=np.float32))
+        input = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
+        output = tp.full_like(input, 2)
+
+        assert np.array_equal(output.numpy(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
     from tripy.frontend import Tensor
 

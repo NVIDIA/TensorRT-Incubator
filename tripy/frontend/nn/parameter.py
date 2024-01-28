@@ -12,10 +12,10 @@ class Parameter(Tensor):
     .. code:: python
         :number-lines:
 
-        param = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
-        print(param)
-        assert isinstance(param, tp.nn.Parameter)
-        assert isinstance(param, tp.Tensor)
+        parameter = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
+
+        assert isinstance(parameter, tp.nn.Parameter)
+        assert isinstance(parameter, tp.Tensor)
     """
 
     @frontend_utils.convert_inputs_to_tensors()

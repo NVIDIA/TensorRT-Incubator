@@ -40,12 +40,10 @@ def to(self: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     .. code:: python
         :number-lines:
 
-        inp = tp.Tensor([1, 2], dtype=tp.int32)
-        print(f"inp: {inp}")
-        out = inp.to(tp.float32)
-        print(f"out: {out}")
+        input = tp.Tensor([1, 2], dtype=tp.int32)
+        output = input.to(tp.float32)
 
-        assert np.array_equal(out.numpy(), np.array([1, 2], dtype=np.float32))
+        assert np.array_equal(output.numpy(), np.array([1, 2], dtype=np.float32))
     """
     from tripy.frontend import Tensor
 

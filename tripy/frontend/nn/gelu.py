@@ -19,12 +19,11 @@ def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
     .. code:: python
         :number-lines:
 
-        a = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
-        out = tp.nn.gelu(a)
-        print(f"out: {out}")
+        input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
+        output = tp.nn.gelu(input)
 
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
-        assert np.allclose(out.numpy(), torch.nn.functional.gelu(t, approximate='tanh').numpy())
+        assert np.allclose(output.numpy(), torch.nn.functional.gelu(t, approximate='tanh').numpy())
     """
     t1, t2, t3, t4, t5 = 0.5, math.sqrt(2.0 / math.pi), 0.044715, 3.0, 1.0
     return t1 * input * ((t2 * (input + t3 * (input**t4))).tanh() + t5)

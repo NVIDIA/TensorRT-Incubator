@@ -47,10 +47,10 @@ def exp(self: "tripy.Tensor") -> "tripy.Tensor":
     .. code:: python
         :number-lines:
 
-        a = tp.arange(3, dtype=tp.float32)
-        out = a.exp()
-        print(out)
-        assert np.allclose(out.numpy(), np.exp(np.arange(3, dtype=np.float32)))
+        input = tp.arange(3, dtype=tp.float32)
+        output = input.exp()
+
+        assert np.allclose(output.numpy(), np.exp(input.numpy()))
     """
     from tripy.frontend import Tensor
 
@@ -70,10 +70,10 @@ def tanh(self: "tripy.Tensor") -> "tripy.Tensor":
     .. code:: python
         :number-lines:
 
-        a = tp.arange(3, dtype=tp.float32)
-        out = a.tanh()
-        print(out)
-        assert np.allclose(out.numpy(), np.tanh(np.arange(3, dtype=np.float32)))
+        input = tp.arange(3, dtype=tp.float32)
+        output = input.tanh()
+
+        assert np.allclose(output.numpy(), np.tanh(input.numpy()))
     """
     from tripy.frontend import Tensor
 
@@ -90,10 +90,10 @@ def rsqrt(self: "tripy.Tensor"):
     .. code:: python
         :number-lines:
 
-        a = tp.arange(3, dtype=tp.float32)
-        out = a.rsqrt()
-        print(out)
-        assert np.allclose(out.numpy(), (1.0 / np.sqrt(np.arange(3, dtype=np.float32))))
+        input = tp.arange(3, dtype=tp.float32)
+        output = input.rsqrt()
+
+        assert np.allclose(output.numpy(), (1.0 / np.sqrt(input.numpy())))
     """
     from tripy.frontend import Tensor
 

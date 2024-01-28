@@ -48,10 +48,10 @@ def unsqueeze(self: "tripy.Tensor", dim: int):
     .. code:: python
         :number-lines:
 
-        a = tp.ones((2, 2), dtype=tp.float32)
-        out = a.unsqueeze(1)
-        print(out)
-        assert np.array_equal(out.numpy(), np.expand_dims(np.ones((2, 2), dtype=np.float32), 1))
+        input = tp.ones((2, 2), dtype=tp.float32)
+        output = input.unsqueeze(1)
+
+        assert np.array_equal(output.numpy(), np.expand_dims(input.numpy(), 1))
     """
     from tripy.frontend import Tensor
 

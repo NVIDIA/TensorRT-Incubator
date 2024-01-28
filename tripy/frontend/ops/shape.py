@@ -42,8 +42,9 @@ def shape(self: "tripy.Tensor"):
         :number-lines:
 
         input = tp.ones((8, 2))
-        print(input.shape)
-        assert np.array_equal(input.shape.numpy(), np.array([8, 2]))
+        shape = input.shape
+
+        assert np.array_equal(shape.numpy(), np.array([8, 2]))
     """
     from tripy.frontend import Tensor
 

@@ -107,7 +107,7 @@ class Tensor(metaclass=TensorMeta):
         np_arr = self.eval().view()
         indentation = ""
         sep = ""
-        if len(np_arr.shape) > 1 and np_arr.shape[-1] > 1:
+        if len(np_arr.shape) > 1 and any(dim > 1 for dim in np_arr.shape):
             indentation = " " * 4
             sep = "\n"
         return (

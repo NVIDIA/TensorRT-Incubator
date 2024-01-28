@@ -21,8 +21,23 @@ If you added a new file, update `docs/index.rst` to include it.
 
 ### Docstrings
 
-The public facing docstrings are preprocessed before documentation is generated.
-Specifically, for any code examples in the docstrings, `assert`s are stripped out and
-the code is executed so that the output can be displayed as a code block immediately
-following the one containing the example. Thus, make sure to include `print`s in your
-example code so that the output is helpful to look at.
+Code examples in public facing docstrings are preprocessed before
+documentation is generated. Specifically:
+
+1. Any code examples in the docstrings are executed so that their output can be
+    displayed after the code block. Several modules, including `tripy` (as `tp`),
+    `numpy` (as `np`) and `torch` are automatically imported and can be used in
+    code examples.
+
+2. The values of any `tripy` type local variables are appended to the output.
+    You can customize this behavior:
+
+    - To disable it completely, add `# doc: no-print-locals` as a separate line
+        at the top of the code block.
+
+    - To only display certain variables, add `# doc: print-locals` followed by a space
+        separate list of variable names. For example: `# doc: print-locals inp out`.
+
+3. Any `assert` statements are stripped out.
+
+4. Any lines that end with `# doc: omit` are stripped out.

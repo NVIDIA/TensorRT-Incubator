@@ -86,10 +86,10 @@ def reshape(self: "tripy.Tensor", shape: ShapeInfo):
     .. code:: python
         :number-lines:
 
-        t = tp.ones((2, 3), dtype=tp.float32)
-        out = t.reshape((1, 6))
-        print(out)
-        assert np.array_equal(out.numpy(), np.reshape(np.ones((2, 3), dtype=np.float32), (1, 6)))
+        input = tp.ones((2, 3), dtype=tp.float32)
+        output = input.reshape((1, 6))
+
+        assert np.array_equal(output.numpy(), np.reshape(np.ones((2, 3), dtype=np.float32), (1, 6)))
     """
     from tripy.frontend import Tensor
 
@@ -114,18 +114,17 @@ def squeeze(self: "tripy.Tensor", dims: Union[Tuple, int] = None):
     .. code:: python
         :number-lines:
 
-        a = tp.ones((1, 2, 1), dtype=tp.float32)
-        out = a.squeeze()
-        print(f"1. {out}")
-        assert np.array_equal(out.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32)))
+        input = tp.ones((1, 2, 1), dtype=tp.float32)
+        # Squeeze all dimensions:
+        squeeze_all = input.squeeze()
+        # Squeeze only the first dimension:
+        squeeze_0 = input.squeeze(0)
+        # Squeeze the first and third dimensions:
+        squeeze_0_2 = input.squeeze((0, 2))
 
-        out = a.squeeze(0)
-        print(f"2. {out}")
-        assert np.array_equal(out.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), 0))
-
-        out = a.squeeze((0, 2))
-        print(f"3. {out}")
-        assert np.array_equal(out.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), (0, 2)))
+        assert np.array_equal(squeeze_all.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32)))
+        assert np.array_equal(squeeze_0.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), 0))
+        assert np.array_equal(squeeze_0_2.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), (0, 2)))
     """
     from tripy.frontend import Tensor
 

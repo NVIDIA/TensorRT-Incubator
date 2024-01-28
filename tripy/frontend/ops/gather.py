@@ -69,15 +69,10 @@ def gather(self: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tens
 
         data = tp.iota((3,2,2))
         indices = tp.arange(0, 3, dtype=tp.int32)
-        out = data.gather(0, indices)
+        output = data.gather(0, indices)
 
-        print(f"data : {data}")
-        print(f"index : {indices}")
-        print(f"output : {out}")
-
-        assert np.array_equal(out.numpy(), np.take(data.numpy(), indices.numpy(), axis=0))
+        assert np.array_equal(output.numpy(), np.take(data.numpy(), indices.numpy(), axis=0))
     """
     from tripy.frontend import Tensor
 
-    out = Tensor.build([self, index], Gather, dim)
-    return out
+    return Tensor.build([self, index], Gather, dim)

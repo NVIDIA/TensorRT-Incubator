@@ -3,13 +3,12 @@ import inspect
 import os
 import pkgutil
 from textwrap import dedent
-from typing import List
+from typing import Any, Dict, List
 
-import torch
 import numpy as np
+import torch
 
 import tripy as tp
-from tests import helper
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
 
@@ -100,10 +99,12 @@ def consolidate_code_blocks(doc):
     return out
 
 
-def exec_doc_example(code):
-    # Don't inherit variables from the current environment so we can be sure the docstring examples
+def exec_doc_example(code) -> Dict[str, Any]:
+    # Don't inherit most variables from the current environment so we can be sure the docstring examples
     # work in total isolation.
-    return exec(code, {"tp": tp, "np": np, "torch": torch}, {})
+    new_locals = {}
+    exec(code, {"tp": tp, "np": np, "torch": torch}, new_locals)
+    return new_locals
 
 
 def discover_modules():

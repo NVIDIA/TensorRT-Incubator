@@ -9,20 +9,19 @@ class LayerNorm(Module):
     :math:`\text{LayerNorm}(x) = \Large \frac{x - \mathrm{E}[x]}{ \sqrt{\mathrm{Var}[x] + \epsilon}} \normalsize * \gamma + \beta`
 
     Args:
-        normalized_shape: The feature dimension of the input over which normalization is performed.
+        normalized_shape: The size of the feature dimension of the input over which normalization is performed.
 
     Example:
 
     .. code:: python
         :number-lines:
 
-        a = tp.ones((2, 3))
-        ln = tp.nn.LayerNorm(3)
-        out = ln(a)
+        layer_norm = tp.nn.LayerNorm(3)
 
-        print(out)
+        input = tp.ones((2, 3))
+        output = layer_norm(input)
 
-        np_out = out.numpy() # doc: omit
+        np_out = output.numpy() # doc: omit
         assert np_out.shape == (2, 3)
 
         torch_tensor = torch.ones((2,3), dtype=torch.float32) # doc: omit
@@ -38,10 +37,10 @@ class LayerNorm(Module):
         from tripy.frontend.ops import ones
 
         # Replace with random weights when #74 is completed.
-        self.weight: "tp.nn.Parameter" = Parameter(ones((normalized_shape,), dtype=float32))
+        self.weight: Parameter = Parameter(ones((normalized_shape,), dtype=float32))
         r"""The :math:`\gamma` parameter of shape :math:`[\text{normalized_shape}]`."""
 
-        self.bias: "tp.nn.Parameter" = Parameter(ones((normalized_shape,), dtype=float32))
+        self.bias: Parameter = Parameter(ones((normalized_shape,), dtype=float32))
         r"""The :math:`\beta` parameter of shape :math:`[\text{normalized_shape}]`."""
 
         self.eps: float = 1e-5

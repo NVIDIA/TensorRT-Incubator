@@ -136,9 +136,9 @@ def add(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])
-        out = a + b
-        print(out)
-        assert np.array_equal(out.numpy(), np.array([3, 5]))
+        output = a + b
+
+        assert np.array_equal(output.numpy(), np.array([3, 5]))
     """
     from tripy.frontend import Tensor
 
@@ -165,9 +165,9 @@ def sub(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 2])
-        out = a - b
-        print(out)
-        assert np.array_equal(out.numpy(), np.array([1, 1]))
+        output = a - b
+
+        assert np.array_equal(output.numpy(), np.array([1, 1]))
     """
     from tripy.frontend import Tensor
 
@@ -194,9 +194,9 @@ def pow(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
-        out = a ** b
-        print(out)
-        assert np.array_equal(out.numpy(), np.array([1, 8]))
+        output = a ** b
+
+        assert np.array_equal(output.numpy(), np.array([1, 8]))
     """
     from tripy.frontend import Tensor
 
@@ -223,9 +223,9 @@ def mul(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
-        out = a * b
-        print(out)
-        assert np.array_equal(out.numpy(), np.array([2.0, 6.0]))
+        output = a * b
+
+        assert np.array_equal(output.numpy(), np.array([2.0, 6.0]))
     """
     from tripy.frontend import Tensor
 
@@ -252,9 +252,9 @@ def div(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
         a = tp.Tensor([4.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
-        out = a / b
-        print(out)
-        assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
+        output = a / b
+
+        assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
     """
     from tripy.frontend import Tensor
 
@@ -280,10 +280,10 @@ def less_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
-        out = b < a
-        # TODO(#26): replace with out.numpy() after MLIR-TRT can handle i1 dtype's allocation
-        print(out)
-        assert out.eval().view().tolist() == [True, False]
+        output = b < a
+        # TODO(#26): replace with output.numpy() after MLIR-TRT can handle i1 dtype's allocation
+
+        assert output.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -309,9 +309,9 @@ def less_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) 
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
-        out = b <= a
-        print(out)
-        assert out.eval().view().tolist() == [True, False]
+        output = b <= a
+
+        assert output.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -337,9 +337,9 @@ def eq(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
-        out = b == a
-        print(out)
-        assert out.eval().view().tolist() == [True, False]
+        output = b == a
+
+        assert output.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -365,9 +365,9 @@ def not_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 3])
-        out = b != a
-        print(out)
-        assert out.eval().view().tolist() == [True, False]
+        output = b != a
+
+        assert output.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -393,9 +393,9 @@ def greater_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 1])
-        out = b >= a
-        print(out)
-        assert out.eval().view().tolist() == [True, False]
+        output = b >= a
+
+        assert output.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 
@@ -421,9 +421,9 @@ def greater_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tr
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([3, 1])
-        out = b > a
-        print(out)
-        assert out.eval().view().tolist() == [True, False]
+        output = b > a
+
+        assert output.eval().view().tolist() == [True, False]
     """
     from tripy.frontend import Tensor
 

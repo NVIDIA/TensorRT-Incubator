@@ -59,7 +59,7 @@ class Dim:
             :number-lines:
 
             batch = tp.Dim(2)
-            print(batch)
+
             assert batch.min == batch.opt == batch.max == 2
 
         Creating a dynamic dimension:
@@ -68,7 +68,7 @@ class Dim:
             :number-lines:
 
             dyn_batch = tp.Dim(3, min=2, opt=4, max=9)
-            print(dyn_batch)
+
             assert dyn_batch.min == 2
             assert dyn_batch.opt == 4
             assert dyn_batch.max == 9

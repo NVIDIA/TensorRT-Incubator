@@ -65,9 +65,9 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
     .. code:: python
         :number-lines:
 
-        a = tp.iota([3])
-        print(a)
-        assert np.array_equal(a.numpy(), np.arange(0, 3, dtype=np.float32))
+        output = tp.iota([3])
+
+        assert np.array_equal(output.numpy(), np.arange(0, 3, dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
@@ -100,10 +100,10 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None)
     .. code:: python
         :number-lines:
 
-        t = tp.Tensor([1, 2, 3])
-        a = tp.iota_like(t)
-        print(a)
-        assert np.array_equal(a.numpy(), np.arange(0, 3, dtype=np.float32))
+        input = tp.Tensor([1, 2, 3])
+        output = tp.iota_like(input)
+
+        assert np.array_equal(output.numpy(), np.arange(0, 3, dtype=np.float32))
     """
     from tripy.frontend import Tensor
 

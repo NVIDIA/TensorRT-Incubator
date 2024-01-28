@@ -57,10 +57,10 @@ def get_item(self: "tripy.Tensor", index: Union[slice, int, Tuple[int]]):
     .. code:: python
         :number-lines:
 
-        a = tp.arange(6, dtype=tp.float32).reshape((1, 2, 3, 1))
-        out = a[:, 1:2, :-1, 0]
-        print(out)
-        assert np.array_equal(out.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
+        input = tp.arange(6, dtype=tp.float32).reshape((1, 2, 3, 1))
+        output = input[:, 1:2, :-1, 0]
+
+        assert np.array_equal(output.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
     """
     from tripy.frontend import Tensor
 

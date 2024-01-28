@@ -7,11 +7,11 @@ from tripy.frontend.nn.parameter import Parameter
 
 class Module:
     """
-    Base class used to create neural network modules.
-    This allows you to recursively access nested submodules and their parameters.
+    Base class used to define neural network modules.
+    You can nest modules by assigning them as attributes of other modules.
 
-    The implementation currently assumes that Parameters are associated with the Module
-    as an attribute and are not part of nested List or Dict.
+    The implementation currently assumes that :class:`tripy.nn.Parameter` s are associated
+    with the Module as direct attributes and not contained in other data structures.
 
     Specifically, this is allowed:
     ::
@@ -38,21 +38,15 @@ class Module:
 
         add_bias = AddBias()
 
-        print(f"bias: {add_bias.bias}")
+        input = tp.Tensor([1.0, 1.0], dtype=tp.float32)
+        output = add_bias(input)
 
-        inp = tp.Tensor([1.0, 1.0], dtype=tp.float32)
-        out = add_bias(inp)
-
-        print(f"out: {out}")
-        assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
+        assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
     """
 
     def __init__(self):
         self._params: Dict[str, Parameter] = {}
         self._modules: Dict[str, "Module"] = {}
-
-    def __repr__(self) -> str:
-        pass
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Parameter):
@@ -83,6 +77,8 @@ class Module:
         .. code:: python
             :number-lines:
 
+            # doc: print-locals state_dict
+
             class MyModule(tp.nn.Module):
                 def __init__(self):
                     super().__init__()
@@ -93,7 +89,7 @@ class Module:
             module = MyModule()
 
             state_dict = module.state_dict()
-            print(state_dict.keys())
+
             assert set(state_dict.keys()) == {"param", "linear1.weight", "linear1.bias", "linear2.weight", "linear2.bias"}
         """
         state_dict = copy.copy(self._params)
@@ -107,38 +103,40 @@ class Module:
 
         return state_dict
 
-    def load_from_state_dict(self, dict: Dict[str, Parameter]):
+    def load_from_state_dict(self, state_dict: Dict[str, Parameter]):
         r"""
-        Loads a state_dict in the module.
+        Loads parameters from the provided ``state_dict`` into the current module.
         This will recurse over any nested child modules.
 
         Args:
-            A dictionary mapping names to parameters.
+            state_dict: A dictionary mapping names to parameters.
 
-        Example:
+        For example, using the module defined in the example in :func:`state_dict` :
 
         .. code:: python
             :number-lines:
 
-            class MyModule(tp.nn.Module):
-                def __init__(self):
-                    super().__init__()
-                    self.param = tp.nn.Parameter(tp.ones(2, dtype=tp.float32))
-                    self.linear1 = tp.nn.Linear(2, 2)
-                    self.linear2 = tp.nn.Linear(2, 2)
+            # doc: no-print-locals
 
-            module = MyModule()
+            class MyModule(tp.nn.Module): # doc: omit
+                def __init__(self): # doc: omit
+                    super().__init__() # doc: omit
+                    self.param = tp.nn.Parameter(tp.ones(2, dtype=tp.float32)) # doc: omit
+                    self.linear1 = tp.nn.Linear(2, 2) # doc: omit
+                    self.linear2 = tp.nn.Linear(2, 2) # doc: omit
+            module = MyModule() # doc: omit
+            state_dict = module.state_dict() # doc: omit
 
-            state_dict = module.state_dict()
-            state_dict["param"] = tp.nn.Parameter(tp.Tensor(np.zeros(2, dtype=np.float32)))
             print(f"Before: {module.param}")
 
+            state_dict["param"] = tp.nn.Parameter(tp.Tensor(np.zeros(2, dtype=np.float32)))
             module.load_from_state_dict(state_dict)
+
             print(f"After: {module.param}")
 
             assert np.array_equal(module.state_dict()["param"].numpy(), np.array(np.zeros(2, dtype=np.float32)))
         """
-        for nested_attr_name, param in dict.items():
+        for nested_attr_name, param in state_dict.items():
             submodule_name, _, param_name = nested_attr_name.rpartition(".")
             # If there is no submodule, it means we are accessing a parameter of self
             module = self
@@ -159,6 +157,8 @@ class Module:
         .. code:: python
             :number-lines:
 
+            # doc: no-print-locals
+
             class StackedLinear(tp.nn.Module):
                 def __init__(self):
                     super().__init__()
@@ -168,7 +168,7 @@ class Module:
             stacked_linear = StackedLinear()
 
             for name, module in stacked_linear.named_children():
-                print(f"{name}: {type(module)}")
+                print(f"{name}: {module}")
 
             assert [name for name, _ in stacked_linear.named_children()] == ["linear1", "linear2"]
         """

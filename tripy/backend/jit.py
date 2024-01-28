@@ -31,7 +31,7 @@ class jit:
             func: A pure function.
 
         Constraints:
-            All Tensors arguments must be provided as positional arguments and not keyword arguments.
+            All :class:`tripy.Tensor` arguments must be provided as positional arguments and not keyword arguments.
 
         Using JIT as a decorator:
 
@@ -46,10 +46,9 @@ class jit:
                 c = a + b
                 return c
 
-            out = add(a, b)
+            output = add(a, b)
 
-            print(out)
-            assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
+            assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
 
         Using JIT as a function:
 
@@ -64,10 +63,9 @@ class jit:
                 return c
 
             jit_add = tp.jit(add)
-            out = jit_add(a, b)
+            output = jit_add(a, b)
 
-            print(out)
-            assert np.array_equal(out.numpy(), np.array([2.0, 2.0]))
+            assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
         """
         self.kwargs = kwargs
         self.cache: Dict[str, JITValue] = {}
@@ -218,6 +216,7 @@ class jit:
         .. code:: python
             :number-lines:
 
+            # doc: no-print-locals
             import tempfile
             import os
 
@@ -232,7 +231,7 @@ class jit:
                 return c
 
             # We invoke the function once to trigger JITing.
-            out = add(a, b)
+            output = add(a, b)
 
             add.save(out_dir.name)
             print(os.listdir(out_dir.name))
@@ -268,6 +267,7 @@ class jit:
         .. code:: python
             :number-lines:
 
+            # doc: no-print-locals
             import tempfile # doc: omit
             import os # doc: omit
 
@@ -283,7 +283,7 @@ class jit:
             out = add(a, b) # doc: omit
             add.save(out_dir.name) # doc: omit
 
-            # Using the `out_dir` from the `save()` example:
+            # Using `add` and `out_dir` from the `save()` example:
             print(os.listdir(out_dir.name))
             add.load(out_dir.name)
         """

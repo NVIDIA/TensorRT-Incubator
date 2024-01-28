@@ -81,15 +81,14 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
     .. code:: python
         :number-lines:
 
+        # TODO: Initialize directly from booleans
         condition = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
-        # TODO: Enable this once we can support boolean storage
-        # print(f"condition: {condition}")
 
         x = tp.ones([2, 2], dtype=tp.float32)
         y = tp.zeros([2, 2], dtype=tp.float32)
-        a = tp.where(condition, x, y)
-        print(f"a: {a}")
-        assert np.array_equal(a.numpy(), np.array([[1, 0], [1, 1]], dtype=np.float32))
+        output = tp.where(condition, x, y)
+
+        assert np.array_equal(output.numpy(), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
@@ -113,14 +112,13 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numbe
     .. code:: python
         :number-lines:
 
+        # TODO: Initialize directly from booleans
         mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
-        # TODO: Enable this once we can support boolean storage
-        # print(f"mask: {mask}")
 
-        a = tp.ones([2, 2])
-        out = a.masked_fill(mask, -1.0)
-        print(out)
-        assert np.array_equal(out.numpy(), np.array([[-1, 1], [-1, -1]], dtype=np.float32))
+        input = tp.zeros([2, 2])
+        output = input.masked_fill(mask, -1.0)
+
+        assert np.array_equal(output.numpy(), np.array([[-1, 0], [-1, -1]], dtype=np.float32))
     """
     from tripy.frontend.ops.fill import full_like
 

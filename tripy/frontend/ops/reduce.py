@@ -106,10 +106,10 @@ def sum(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
     .. code:: python
         :number-lines:
 
-        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        out = a.sum(0)
-        print(out)
-        assert np.array_equal(out.numpy(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        output = input.sum(0)
+
+        assert np.array_equal(output.numpy(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
     return _reduce_impl(self, Reduce.Kind.SUM, dim, keepdim)
 
@@ -132,10 +132,10 @@ def max(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
     .. code:: python
         :number-lines:
 
-        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        out = a.max(0)
-        print(out)
-        assert np.array_equal(out.numpy(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        output = input.max(0)
+
+        assert np.array_equal(output.numpy(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
     return _reduce_impl(self, Reduce.Kind.MAX, dim, keepdim)
 
@@ -158,10 +158,10 @@ def prod(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
     .. code:: python
         :number-lines:
 
-        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        out = a.prod(0)
-        print(out)
-        assert np.array_equal(out.numpy(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        output = input.prod(0)
+
+        assert np.array_equal(output.numpy(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
     return _reduce_impl(self, Reduce.Kind.MUL, dim, keepdim)
 
@@ -184,10 +184,10 @@ def mean(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
     .. code:: python
         :number-lines:
 
-        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        out = a.mean(dim=1, keepdim=True)
-        print(out)
-        assert np.array_equal(out.numpy(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
+        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        output = input.mean(dim=1, keepdim=True)
+
+        assert np.array_equal(output.numpy(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
     """
     return mean_impl(self, dim, keepdim)
 
@@ -213,11 +213,11 @@ def var(
     .. code:: python
         :number-lines:
 
-        a = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        out = a.var(dim=1, keepdim=True)
-        print(out)
+        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        output = input.var(dim=1, keepdim=True)
+
         torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
-        assert np.array_equal(out.numpy(), torch_input.var(dim=1, keepdim=True).numpy())
+        assert np.array_equal(output.numpy(), torch_input.var(dim=1, keepdim=True).numpy())
     """
 
     mean = self.mean(dim=dim, keepdim=keepdim)

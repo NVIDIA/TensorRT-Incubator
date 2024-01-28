@@ -159,7 +159,7 @@ class FunctionRegistry(dict):
         # NOTE: We could introduce a fast path when len(overloads) == 1, but it seems worth the overhead
         # to have the type checks and nice error messages. Note that this overhead will not be a factor when we JIT.
 
-        def raise_overload_error(msg, candidate_overloads, mismatch_reasons=None):
+        def raise_overload_error(msg, candidate_overloads, mismatch_reasons=None, extra_info=""):
             arg_type_strs = []
             arg_type_strs.extend(type(arg).__qualname__ for arg in args)
             arg_type_strs.extend(f"{name}={type(value).__qualname__}" for name, value in kwargs.items())
@@ -179,6 +179,7 @@ class FunctionRegistry(dict):
                 details=[
                     f"Note: Argument types were: [{', '.join(arg_type_strs)}]. Candidate overloads were:\n\n",
                     *overloads_error,
+                    extra_info,
                 ],
             )
 
@@ -192,7 +193,11 @@ class FunctionRegistry(dict):
                 mismatch_reasons.append(matched.details)
 
         if len(matched_overloads) > 1:
-            raise_overload_error("Ambiguous overload", matched_overloads)
+            raise_overload_error(
+                "Ambiguous overload",
+                matched_overloads,
+                extra_info="Hint: Try using keyword arguments to help disambiguate between overloads.",
+            )
         elif matched_overloads:
             return matched_overloads[0]
 

@@ -9,6 +9,7 @@ from textwrap import dedent, indent
 
 import tripy as tp
 from tests import helper
+import inspect
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -90,48 +91,115 @@ def process_docstring(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
 
+    TRIPY_CLASSES = [obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj)]
+
     lines.clear()
     for block in blocks:
-        if isinstance(block, helper.CodeBlock):
-            # Add back the code block after removing assertions.
-            remove_tags = ["assert "]
-            OMIT_COMMENT = "# doc: omit"
-
-            def should_omit(line):
-                line = line.strip()
-                return any(line.startswith(tag) for tag in remove_tags) or line.endswith(OMIT_COMMENT)
-
-            lines.extend([block_line for block_line in block.splitlines() if not should_omit(block_line)])
-
-            # Add output as a separate code block.
-            outfile = io.StringIO()
-
-            def get_stdout():
-                outfile.flush()
-                outfile.seek(0)
-                return outfile.read().strip()
-
-            try:
-                with contextlib.redirect_stdout(outfile):
-                    helper.exec_doc_example(dedent(block))
-            except:
-                print(f"Failed while processing docstring for: {what}: {name} ({obj})")
-                print(f"Note: Code example was:\n{block}")
-                print(get_stdout())
-                raise
-
-            stdout = get_stdout()
-            if stdout:
-                line = block.splitlines()[1]
-                indentation = len(line) - len(line.lstrip())
-
-                out = (
-                    indent("\nOutput:\n:: \n\n" + indent(f"{stdout}", prefix=" " * 4), prefix=" " * (indentation - 4))
-                    + "\n\n"
-                )
-                lines.extend(out.splitlines())
-        else:
+        if not isinstance(block, helper.CodeBlock):
             lines.append(block)
+            continue
+
+        # Add back the code block after removing assertions.
+        NO_PRINT_LOCALS = "# doc: no-print-locals"
+        PRINT_LOCALS = "# doc: print-locals"
+        REMOVE_TAGS = ["assert ", NO_PRINT_LOCALS, PRINT_LOCALS]
+        OMIT_COMMENT = "# doc: omit"
+
+        should_append_locals = True
+        # By default, we print all local variables. If `print_vars` it not empty,
+        # then we'll only print those that appear in it.
+        print_vars = set()
+
+        for block_line in block.splitlines():
+            if block_line.strip() == NO_PRINT_LOCALS:
+                should_append_locals = False
+
+            if block_line.strip().startswith(PRINT_LOCALS):
+                _, _, names = block_line.strip().partition(PRINT_LOCALS)
+                print_vars.update(names.strip().split(" "))
+
+            if any(block_line.strip().startswith(tag) for tag in REMOVE_TAGS) or block_line.endswith(OMIT_COMMENT):
+                continue
+
+            lines.append(block_line)
+
+        # Add output as a separate code block.
+        outfile = io.StringIO()
+
+        def get_stdout():
+            outfile.flush()
+            outfile.seek(0)
+            return outfile.read().strip()
+
+        try:
+            with contextlib.redirect_stdout(outfile), contextlib.redirect_stderr(outfile):
+                code_locals = helper.exec_doc_example(dedent(block))
+        except:
+            print(f"Failed while processing docstring for: {what}: {name} ({obj})")
+            print(f"Note: Code example was:\n{block}")
+            print(get_stdout())
+            raise
+
+        stdout = get_stdout() or ""
+
+        locals_str = ""
+        if should_append_locals:
+            for name, obj in code_locals.items():
+
+                def should_print():
+                    if name in print_vars:
+                        return True
+
+                    if print_vars and name not in print_vars:
+                        return False
+
+                    # Skip over any non-tripy types.
+                    if not any(isinstance(obj, tripy_obj) for tripy_obj in TRIPY_CLASSES):
+                        return False
+
+                    EXCLUDE_OBJECTS = [tp.jit]
+
+                    if any(isinstance(obj, exclude_obj) for exclude_obj in EXCLUDE_OBJECTS):
+                        return False
+
+                    return True
+
+                if not should_print():
+                    continue
+
+                def pretty_str_from_dict(dct):
+                    if not dct:
+                        return r"{}"
+                    ret = "{\n"
+                    for key, value in dct.items():
+                        ret += indent(f"{key}: {value},\n", prefix=" " * 4)
+                    ret += "}"
+                    return ret
+
+                if isinstance(obj, tp.nn.Module):
+                    locals_str += f"\n{name}.state_dict(): {pretty_str_from_dict(obj.state_dict())}\n"
+                elif isinstance(obj, dict):
+                    locals_str += f"\n{name}: {pretty_str_from_dict(obj)}\n"
+                else:
+                    locals_str += f"\n{name}: {obj}\n"
+
+        def add_block(title, contents):
+            line = block.splitlines()[1]
+            indentation = len(line) - len(line.lstrip())
+
+            out = (
+                indent(
+                    f"\n{title}:\n:: \n\n{indent(contents, prefix=' ' * 4)}",
+                    prefix=" " * (indentation - 4),
+                )
+                + "\n\n"
+            )
+            lines.extend(out.splitlines())
+
+        if stdout:
+            add_block("Output", stdout)
+        if locals_str:
+            add_block("Variable Values", locals_str)
 
 
 def setup(app):

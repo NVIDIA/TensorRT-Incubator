@@ -13,18 +13,17 @@ class Linear(Module):
         out_features: Size of output features.
         bias: Whether to include the bias term.
 
-
     Example:
 
     .. code:: python
         :number-lines:
 
-        a = tp.ones((2, 3))
         linear = tp.nn.Linear(3, 8)
-        out = linear(a)
 
-        print(out)
-        assert out.numpy().shape == (2, 8)
+        input = tp.ones((2, 3))
+        output = linear(input)
+
+        assert output.numpy().shape == (2, 8)
     """
 
     def __init__(self, in_features: int, out_features: int, bias: bool = True):
@@ -33,11 +32,11 @@ class Linear(Module):
         from tripy.frontend.ops import ones
 
         # Replace with random weights when #74 is completed.
-        self.weight: "tripy.nn.Parameter" = Parameter(ones((out_features, in_features), dtype=float32))
+        self.weight: Parameter = Parameter(ones((out_features, in_features), dtype=float32))
         r"""The :math:`W` matrix of shape :math:`[\text{out_features}, \text{in_features}]`"""
 
         if bias:
-            self.bias = Parameter(ones((1, out_features), dtype=float32))
+            self.bias: Parameter = Parameter(ones((1, out_features), dtype=float32))
             r"""The :math:`b` matrix of shape :math:`[1, \text{out_features}]`"""
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":

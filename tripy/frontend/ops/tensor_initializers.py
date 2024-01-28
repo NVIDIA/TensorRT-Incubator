@@ -27,9 +27,9 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.T
     .. code:: python
         :number-lines:
 
-        a = tp.ones([2, 3])
-        print(a)
-        assert np.array_equal(a.numpy(), np.ones([2, 3], dtype=np.float32))
+        output = tp.ones([2, 3])
+
+        assert np.array_equal(output.numpy(), np.ones([2, 3], dtype=np.float32))
     """
     return full(shape, 1, dtype)
 
@@ -50,9 +50,9 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.
     .. code:: python
         :number-lines:
 
-        a = tp.zeros([2, 3])
-        print(a)
-        assert np.array_equal(a.numpy(), np.zeros([2, 3], dtype=np.float32))
+        output = tp.zeros([2, 3])
+
+        assert np.array_equal(output.numpy(), np.zeros([2, 3], dtype=np.float32))
     """
     return full(shape, 0, dtype)
 
@@ -73,10 +73,10 @@ def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Ten
     .. code:: python
         :number-lines:
 
-        t = tp.zeros([2, 3], dtype=tp.float32)
-        a = tp.ones_like(t)
-        print(a)
-        assert np.array_equal(a.numpy(), np.ones([2, 3], dtype=np.float32))
+        input = tp.zeros([2, 3], dtype=tp.float32)
+        output = tp.ones_like(input)
+
+        assert np.array_equal(output.numpy(), np.ones([2, 3], dtype=np.float32))
     """
     return full_like(input, 1, dtype)
 
@@ -97,10 +97,10 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Te
     .. code:: python
         :number-lines:
 
-        t = tp.ones([2, 3], dtype=tp.float32)
-        a = tp.zeros_like(t)
-        print(a)
-        assert np.array_equal(a.numpy(), np.zeros([2, 3], dtype=np.float32))
+        input = tp.ones([2, 3], dtype=tp.float32)
+        output = tp.zeros_like(input)
+
+        assert np.array_equal(output.numpy(), np.zeros([2, 3], dtype=np.float32))
     """
     return full_like(input, 0, dtype)
 
@@ -127,35 +127,30 @@ def tril(self: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     .. code:: python
         :number-lines:
 
-        inp = tp.iota((5, 5)) + 1.
-        print(f"inp: {inp}\n")
+        input = tp.iota((5, 5)) + 1.
+        output = input.tril()
 
-        out = inp.tril()
-        print(f"out: {out}")
-
-        assert np.array_equal(out.numpy(), np.tril(inp.numpy()))
+        assert np.array_equal(output.numpy(), np.tril(input.numpy()))
 
     Along the diagonal that is two diagonals above the main:
 
     .. code:: python
         :number-lines:
 
-        inp = tp.iota((5, 5)) + 1. # doc: omit
-        out = inp.tril(diagonal=2)
-        print(f"out: {out}")
+        input = tp.iota((5, 5)) + 1. # doc: omit
+        output = input.tril(diagonal=2)
 
-        assert np.array_equal(out.numpy(), np.tril(inp.numpy(), 2))
+        assert np.array_equal(output.numpy(), np.tril(input.numpy(), 2))
 
     Along the diagonal that is one diagonal below the main:
 
     .. code:: python
         :number-lines:
 
-        inp = tp.iota((5, 5)) + 1. # doc: omit
-        out = inp.tril(diagonal=-1)
-        print(f"out: {out}")
+        input = tp.iota((5, 5)) + 1. # doc: omit
+        output = input.tril(diagonal=-1)
 
-        assert np.array_equal(out.numpy(), np.tril(inp.numpy(), -1))
+        assert np.array_equal(output.numpy(), np.tril(input.numpy(), -1))
     """
     tri_mask = (iota_like(self, 0, datatype.int32) + full_like(self, diagonal, datatype.int32)) >= iota_like(
         self, 1, datatype.int32
@@ -169,7 +164,7 @@ ARANGE_REGISTRY = utils.FunctionRegistry()
 
 
 @ARANGE_REGISTRY("arange")
-def start_stop_step(
+def arange(
     start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
 ) -> "tripy.Tensor":
     r"""
@@ -190,19 +185,18 @@ def start_stop_step(
     .. code:: python
         :number-lines:
 
-        out = tp.arange(0.5, 2.5)
-        print(f"out: {out}")
-        assert (out.numpy() == np.arange(0.5, 2.5, dtype=np.float32)).all()
+        output = tp.arange(0.5, 2.5)
+
+        assert (output.numpy() == np.arange(0.5, 2.5, dtype=np.float32)).all()
 
     Using a different ``step`` value:
 
     .. code:: python
         :number-lines:
 
+        output = tp.arange(2.3, 0.8, -0.2)
 
-        out = tp.arange(2.3, 0.8, -0.2)
-        print(f"out: {out}")
-        assert np.allclose(out.numpy(), np.arange(2.3, 0.8, -0.2, dtype=np.float32))
+        assert np.allclose(output.numpy(), np.arange(2.3, 0.8, -0.2, dtype=np.float32))
     """
     if step == 0:
         raise_error("Step in arange cannot be 0.", [])
@@ -220,7 +214,7 @@ def start_stop_step(
 
 
 @ARANGE_REGISTRY("arange")
-def stop_only(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
+def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
     :math:`[0, \text{stop})` incrementing by 1.
@@ -238,9 +232,9 @@ def stop_only(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> 
     .. code:: python
         :number-lines:
 
-        out = tp.arange(5)
-        print(f"out: {out}")
-        assert (out.numpy() == np.arange(5, dtype=np.float32)).all()
+        output = tp.arange(5)
+
+        assert (output.numpy() == np.arange(5, dtype=np.float32)).all()
     """
     return arange(0, stop, dtype=dtype)
 

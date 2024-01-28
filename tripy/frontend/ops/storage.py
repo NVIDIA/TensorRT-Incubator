@@ -103,7 +103,6 @@ def tensor_init(
         :number-lines:
 
         tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
-        print(tensor)
     """
     # Note: It is important that we are able to call the Tensor constructor with no arguments
     # since this is used internally by Tensor.build()
