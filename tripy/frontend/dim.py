@@ -56,7 +56,6 @@ class Dim:
         Creating a static dimension:
 
         .. code:: python
-            :number-lines:
 
             batch = tp.Dim(2)
 
@@ -65,7 +64,6 @@ class Dim:
         Creating a dynamic dimension:
 
         .. code:: python
-            :number-lines:
 
             dyn_batch = tp.Dim(3, min=2, opt=4, max=9)
 

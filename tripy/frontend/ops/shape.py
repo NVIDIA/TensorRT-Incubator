@@ -39,7 +39,6 @@ def shape(self: "tripy.Tensor"):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.ones((8, 2))
         shape = input.shape

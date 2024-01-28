@@ -84,7 +84,6 @@ def reshape(self: "tripy.Tensor", shape: ShapeInfo):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.ones((2, 3), dtype=tp.float32)
         output = input.reshape((1, 6))
@@ -112,7 +111,6 @@ def squeeze(self: "tripy.Tensor", dims: Union[Tuple, int] = None):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.ones((1, 2, 1), dtype=tp.float32)
         # Squeeze all dimensions:

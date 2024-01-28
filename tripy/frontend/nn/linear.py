@@ -16,14 +16,13 @@ class Linear(Module):
     Example:
 
     .. code:: python
-        :number-lines:
 
-        linear = tp.nn.Linear(3, 8)
+        linear = tp.nn.Linear(3, 4)
 
         input = tp.ones((2, 3))
         output = linear(input)
 
-        assert output.numpy().shape == (2, 8)
+        assert output.numpy().shape == (2, 4)
     """
 
     def __init__(self, in_features: int, out_features: int, bias: bool = True):

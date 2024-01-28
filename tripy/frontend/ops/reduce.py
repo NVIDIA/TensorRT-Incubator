@@ -104,7 +104,6 @@ def sum(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.sum(0)
@@ -130,7 +129,6 @@ def max(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.max(0)
@@ -156,7 +154,6 @@ def prod(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.prod(0)
@@ -182,7 +179,6 @@ def mean(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.mean(dim=1, keepdim=True)
@@ -211,7 +207,6 @@ def var(
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.var(dim=1, keepdim=True)

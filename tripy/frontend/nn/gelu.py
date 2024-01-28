@@ -17,7 +17,6 @@ def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
         output = tp.nn.gelu(input)

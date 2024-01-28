@@ -73,7 +73,6 @@ def transpose(self: "tripy.Tensor", dim0: int, dim1: int):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.transpose(0, 1)
@@ -100,7 +99,6 @@ def permute(self: "tripy.Tensor", perm: Sequence[int]):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.permute((1, 0))

@@ -36,7 +36,6 @@ class jit:
         Using JIT as a decorator:
 
         .. code:: python
-            :number-lines:
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
@@ -53,7 +52,6 @@ class jit:
         Using JIT as a function:
 
         .. code:: python
-            :number-lines:
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
@@ -214,7 +212,6 @@ class jit:
         Example:
 
         .. code:: python
-            :number-lines:
 
             # doc: no-print-locals
             import tempfile
@@ -265,7 +262,6 @@ class jit:
         Example:
 
         .. code:: python
-            :number-lines:
 
             # doc: no-print-locals
             import tempfile # doc: omit

@@ -132,7 +132,6 @@ def add(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])
@@ -161,7 +160,6 @@ def sub(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 2])
@@ -190,7 +188,6 @@ def pow(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
@@ -219,7 +216,6 @@ def mul(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
@@ -248,7 +244,6 @@ def div(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([4.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
@@ -276,7 +271,6 @@ def less_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
@@ -305,7 +299,6 @@ def less_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) 
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
@@ -333,7 +326,6 @@ def eq(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
@@ -361,7 +353,6 @@ def not_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 3])
@@ -389,7 +380,6 @@ def greater_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 1])
@@ -417,7 +407,6 @@ def greater_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tr
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([3, 1])

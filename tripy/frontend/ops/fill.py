@@ -69,7 +69,6 @@ def full(shape: ShapeInfo, fill_value, dtype: datatype.dtype = datatype.float32)
     Example:
 
     .. code:: python
-        :number-lines:
 
         output = tp.full([2, 3], 2)
 
@@ -95,7 +94,6 @@ def full_like(input: "tripy.Tensor", fill_value, dtype: datatype.dtype = None):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
         output = tp.full_like(input, 2)

@@ -63,7 +63,6 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
     Example:
 
     .. code:: python
-        :number-lines:
 
         output = tp.iota([3])
 
@@ -98,7 +97,6 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None)
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.Tensor([1, 2, 3])
         output = tp.iota_like(input)

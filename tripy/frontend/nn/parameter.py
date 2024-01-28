@@ -10,7 +10,6 @@ class Parameter(Tensor):
     Example:
 
     .. code:: python
-        :number-lines:
 
         parameter = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
 

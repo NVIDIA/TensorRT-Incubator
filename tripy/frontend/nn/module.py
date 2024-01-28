@@ -26,7 +26,6 @@ class Module:
     Example:
 
     .. code:: python
-        :number-lines:
 
         class AddBias(tp.nn.Module):
             def __init__(self):
@@ -75,7 +74,6 @@ class Module:
         Example:
 
         .. code:: python
-            :number-lines:
 
             # doc: print-locals state_dict
 
@@ -114,7 +112,6 @@ class Module:
         For example, using the module defined in the example in :func:`state_dict` :
 
         .. code:: python
-            :number-lines:
 
             # doc: no-print-locals
 
@@ -155,7 +152,6 @@ class Module:
         Example:
 
         .. code:: python
-            :number-lines:
 
             # doc: no-print-locals
 

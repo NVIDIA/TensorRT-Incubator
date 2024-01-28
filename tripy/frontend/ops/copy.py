@@ -39,7 +39,6 @@ def to(self: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.Tensor([1, 2], device=tp.device("gpu"))
         output = input.to(tp.device("cpu"))

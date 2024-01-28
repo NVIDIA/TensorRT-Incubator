@@ -46,7 +46,6 @@ def unsqueeze(self: "tripy.Tensor", dim: int):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.ones((2, 2), dtype=tp.float32)
         output = input.unsqueeze(1)

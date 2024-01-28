@@ -17,7 +17,6 @@ class Embedding(Module):
         Example:
 
         .. code:: python
-            :number-lines:
 
             embedding = tp.nn.Embedding(num_embeddings=4, embedding_dim=6)
 

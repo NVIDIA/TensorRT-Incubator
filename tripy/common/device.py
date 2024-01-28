@@ -24,7 +24,6 @@ class device:
         For example, you can create a device that represents the default CPU like so:
 
         .. code:: python
-            :number-lines:
 
             cpu = tp.device("cpu")
 
@@ -34,7 +33,6 @@ class device:
         Or to create a device representing the second GPU, you can do:
 
         .. code:: python
-            :number-lines:
 
             gpu_1 = tp.device("gpu:1")
 

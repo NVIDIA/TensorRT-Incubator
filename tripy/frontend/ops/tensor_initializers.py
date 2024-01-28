@@ -25,7 +25,6 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.T
     Example:
 
     .. code:: python
-        :number-lines:
 
         output = tp.ones([2, 3])
 
@@ -48,7 +47,6 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.
     Example:
 
     .. code:: python
-        :number-lines:
 
         output = tp.zeros([2, 3])
 
@@ -71,7 +69,6 @@ def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Ten
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.zeros([2, 3], dtype=tp.float32)
         output = tp.ones_like(input)
@@ -95,7 +92,6 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Te
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.ones([2, 3], dtype=tp.float32)
         output = tp.zeros_like(input)
@@ -125,7 +121,6 @@ def tril(self: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     For example, the lower triangular along the main diagonal:
 
     .. code:: python
-        :number-lines:
 
         input = tp.iota((5, 5)) + 1.
         output = input.tril()
@@ -135,7 +130,6 @@ def tril(self: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     Along the diagonal that is two diagonals above the main:
 
     .. code:: python
-        :number-lines:
 
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = input.tril(diagonal=2)
@@ -145,7 +139,6 @@ def tril(self: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     Along the diagonal that is one diagonal below the main:
 
     .. code:: python
-        :number-lines:
 
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = input.tril(diagonal=-1)
@@ -183,7 +176,6 @@ def arange(
     For example:
 
     .. code:: python
-        :number-lines:
 
         output = tp.arange(0.5, 2.5)
 
@@ -192,7 +184,6 @@ def arange(
     Using a different ``step`` value:
 
     .. code:: python
-        :number-lines:
 
         output = tp.arange(2.3, 0.8, -0.2)
 
@@ -230,7 +221,6 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
     For example:
 
     .. code:: python
-        :number-lines:
 
         output = tp.arange(5)
 

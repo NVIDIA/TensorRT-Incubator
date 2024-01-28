@@ -14,7 +14,6 @@ class LayerNorm(Module):
     Example:
 
     .. code:: python
-        :number-lines:
 
         layer_norm = tp.nn.LayerNorm(3)
 

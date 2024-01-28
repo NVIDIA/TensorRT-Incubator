@@ -67,7 +67,6 @@ def expand(self: "tripy.Tensor", sizes: Sequence[int]):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.ones((2, 1), dtype=tp.float32)
         output = input.expand((2, -1, 4))

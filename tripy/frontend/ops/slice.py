@@ -55,7 +55,6 @@ def get_item(self: "tripy.Tensor", index: Union[slice, int, Tuple[int]]):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(6, dtype=tp.float32).reshape((1, 2, 3, 1))
         output = input[:, 1:2, :-1, 0]

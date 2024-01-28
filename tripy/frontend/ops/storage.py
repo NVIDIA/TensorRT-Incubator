@@ -100,7 +100,6 @@ def tensor_init(
     Example:
 
     .. code:: python
-        :number-lines:
 
         tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
     """

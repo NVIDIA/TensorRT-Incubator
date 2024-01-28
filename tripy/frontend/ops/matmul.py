@@ -131,7 +131,6 @@ def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     Example:
 
     .. code:: python
-        :number-lines:
 
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float32)

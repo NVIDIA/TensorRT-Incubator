@@ -38,7 +38,6 @@ def to(self: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.Tensor([1, 2], dtype=tp.int32)
         output = input.to(tp.float32)

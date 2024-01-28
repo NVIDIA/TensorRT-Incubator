@@ -79,7 +79,6 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
     Example:
 
     .. code:: python
-        :number-lines:
 
         # TODO: Initialize directly from booleans
         condition = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
@@ -110,7 +109,6 @@ def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numbe
     Example:
 
     .. code:: python
-        :number-lines:
 
         # TODO: Initialize directly from booleans
         mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)

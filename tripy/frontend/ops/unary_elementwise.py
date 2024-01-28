@@ -45,7 +45,6 @@ def exp(self: "tripy.Tensor") -> "tripy.Tensor":
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(3, dtype=tp.float32)
         output = input.exp()
@@ -68,7 +67,6 @@ def tanh(self: "tripy.Tensor") -> "tripy.Tensor":
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(3, dtype=tp.float32)
         output = input.tanh()
@@ -88,7 +86,6 @@ def rsqrt(self: "tripy.Tensor"):
     Example:
 
     .. code:: python
-        :number-lines:
 
         input = tp.arange(3, dtype=tp.float32)
         output = input.rsqrt()
