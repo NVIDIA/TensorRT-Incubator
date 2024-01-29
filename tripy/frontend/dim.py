@@ -136,4 +136,4 @@ class Dim:
     def is_a_subset_of(self, cached) -> bool:
         if self.is_dynamic_dim():
             return self.min > cached.min and self.max < cached.max
-        return self.runtime_value > cached.min and self.runtime_value < cached.max
+        return self.runtime_value >= cached.min and self.runtime_value <= cached.max

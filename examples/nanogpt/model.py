@@ -27,7 +27,7 @@ class CausalSelfAttention(tp.nn.Module):
         self.c_proj = tp.nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
         self.bias = tp.ones((config.block_size, config.block_size)).tril()
 
-    def __call__(self, x: tp.Tensor):
+    def __call__(self, x: tp.Tensor, attention_mask=None):
         E = self.n_embd
         attn = self.c_attn(x)  # (B, T, 3 * E)
 
@@ -41,10 +41,15 @@ class CausalSelfAttention(tp.nn.Module):
         q, k, v = extract(0), extract(1), extract(2)
         k_t = k.transpose(-2, -1)
         att = (q @ k_t) * (1.0 / math.sqrt(E // self.n_head))
+
         att = att.masked_fill(
             self.bias[: self.config.T, : self.config.T] == tp.zeros((self.config.T, self.config.T), dtype=tp.float32),
             float("-inf"),
         )
+
+        if attention_mask is not None:
+            att = att.masked_fill(attention_mask == 0.0, float("-inf"))
+
         att = tp.nn.softmax(att, dim=-1)
         out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         out = out.transpose(1, 2).reshape((self.config.B, self.config.T, E))
@@ -74,8 +79,8 @@ class Block(tp.nn.Module):
         self.ln_2 = tp.nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
 
-    def __call__(self, x):
-        x = x + self.attn(self.ln_1(x))
+    def __call__(self, x, attention_mask):
+        x = x + self.attn(self.ln_1(x), attention_mask)
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -102,7 +107,8 @@ class GPT(tp.nn.Module):
         self.lm_head = tp.nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.transformer.wte.weight = self.lm_head.weight
 
-    def __call__(self, idx):
+    @tp.jit
+    def __call__(self, idx, attention_mask=None):
         assert (
             self.config.T <= self.config.block_size
         ), f"Cannot forward sequence of length {self.config.T}, block size is only {self.config.block_size}"
@@ -113,10 +119,10 @@ class GPT(tp.nn.Module):
         pos_emb = self.transformer.wpe(pos)  # position embeddings of shape (t, n_embd)
         x = tok_emb + pos_emb  # (B, T, E)
         for i in range(self.config.n_layer):
-            x = getattr(self.transformer, f"h_{i}")(x)
+            x = getattr(self.transformer, f"h_{i}")(x, attention_mask)
 
         x = self.transformer.ln_f(x)
 
         # inference-time mini-optimization: only forward the lm_head on the very last position
-        logits = self.lm_head(x[:, -1:, :])  # (B, 1, E) -> (B, 1, vocab_size)
+        logits = self.lm_head(x)  # (B, T, E) -> (B, T, vocab_size)
         return logits

@@ -8,7 +8,7 @@ from weight_loader import load_weights_from_hf
 import tripy as tp
 
 
-def initialize_gpt_model(model_type, token_idx):
+def initialize_gpt_model(model_type, padded_seq_len):
 
     # n_layer, n_head and n_embd are determined from model_type
     config_args = {
@@ -21,7 +21,7 @@ def initialize_gpt_model(model_type, token_idx):
     config_args["vocab_size"] = 50257  # always 50257 for GPT model checkpoints
     config_args["block_size"] = 1024  # always 1024 for GPT model checkpoints
     config_args["bias"] = True  # always True for GPT model checkpoints
-    config_args["T"] = token_idx
+    config_args["T"] = padded_seq_len
     config_args["B"] = 1
 
     config = GPTConfig(**config_args)
@@ -51,29 +51,44 @@ if __name__ == "__main__":
     temperature = 0.8
     top_k = 200
 
-    idx = tp.Tensor(start_ids, dtype=tp.int32).reshape((1, len(start_ids)))
+    padded_seq_len = len(start_ids) + args.max_new_tokens
+
+    # Load the model weights.
+    model = initialize_gpt_model(args.model_type, padded_seq_len)
+    load_weights_from_hf(model, args.model_type)
+
+    idx = torch.Tensor(start_ids).reshape((1, len(start_ids)))
+    zeros = torch.zeros((1, args.max_new_tokens), dtype=torch.float32)
+    idx = tp.Tensor(torch.cat((idx, zeros), dim=1).to(torch.int32)).to(tp.device("gpu"))
+
+    def generate_attention_mask(input_tokens):
+        # Check where input_tokens !=0 and fill with ones.
+        zeros = tp.zeros_like(input_tokens)
+        ones = tp.ones_like(input_tokens)
+        return tp.where(input_tokens == tp.Tensor([0]), zeros, ones).to(tp.float32).reshape((1, 1, 1, padded_seq_len))
 
     for token_idx in range(len(start_ids), len(start_ids) + args.max_new_tokens):
-        model = initialize_gpt_model(args.model_type, token_idx)
-        load_weights_from_hf(model, args.model_type)
 
-        # if the sequence context is growing too long we must crop it at block_size
-        # forward the model to get the logits for the index in the sequence
-        logits = model(idx)
+        mask = generate_attention_mask(idx)
+        logits = model(idx, mask)
+
         # pluck the logits at the final step and scale by desired temperature
-        logits = logits[:, -1, :] / temperature
+        logits = logits[:, token_idx - 1, :] / temperature
+
         # optionally crop the logits to only the top k options
-        logits = torch.Tensor(logits.numpy())
+        logits = torch.Tensor(logits.numpy()).to("cuda")
         if top_k is not None:
             v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
             logits[logits < v[:, [-1]]] = -float("Inf")
+
         # apply softmax to convert logits to (normalized) probabilities
         probs = F.softmax(logits, dim=-1)
         # sample from the distribution
-        idx_next = torch.multinomial(probs, num_samples=1)
+        idx_next = torch.multinomial(probs, num_samples=1).cpu()
+
         # append sampled index to the running sequence and continue
-        idx = torch.cat((torch.Tensor(idx.numpy()), idx_next), dim=1).to(torch.int32)
+        idx = torch.Tensor(idx.numpy()).to(torch.int32)
+        idx[0, token_idx] = idx_next[0]
         idx = tp.Tensor(idx, device=tp.device("gpu"))
-        T = T + 1
 
     print(decode(idx[0].numpy().tolist()))
