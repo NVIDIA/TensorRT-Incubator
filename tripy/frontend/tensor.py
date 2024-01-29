@@ -1,5 +1,5 @@
 from textwrap import indent
-from typing import List
+from typing import Any, List
 
 from tripy import utils
 from tripy.common.array import Array
@@ -116,3 +116,16 @@ class Tensor(metaclass=TensorMeta):
             f"{indent(f'dtype={self.op.dtype}, loc={self.op.device}, shape={self.op.shape}', prefix=indentation)}"
             f"{sep})"
         )
+
+    def __dlpack__(self, stream: Any = None):
+        """
+        Converts Tensor to a DLManagedTensor.
+        """
+        # since the underlying data is numpy/cupy
+        # we are reusing their __dlpack__() method
+        array = self.eval().view()
+        return array.__dlpack__(stream=stream)
+
+    def __dlpack_device__(self):
+        array = self.eval().view()
+        return array.__dlpack_device__()

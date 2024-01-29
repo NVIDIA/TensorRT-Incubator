@@ -9,7 +9,6 @@ import tripy as tp
 
 
 def initialize_gpt_model(model_type, padded_seq_len):
-
     # n_layer, n_head and n_embd are determined from model_type
     config_args = {
         "gpt2": dict(n_layer=12, n_head=12, n_embd=768),  # 124M params
@@ -68,7 +67,6 @@ if __name__ == "__main__":
         return tp.where(input_tokens == tp.Tensor([0]), zeros, ones).to(tp.float32).reshape((1, 1, 1, padded_seq_len))
 
     for token_idx in range(len(start_ids), len(start_ids) + args.max_new_tokens):
-
         mask = generate_attention_mask(idx)
         logits = model(idx, mask)
 
@@ -76,7 +74,7 @@ if __name__ == "__main__":
         logits = logits[:, token_idx - 1, :] / temperature
 
         # optionally crop the logits to only the top k options
-        logits = torch.Tensor(logits.numpy()).to("cuda")
+        logits = torch.from_dlpack(logits)
         if top_k is not None:
             v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
             logits[logits < v[:, [-1]]] = -float("Inf")
@@ -87,7 +85,7 @@ if __name__ == "__main__":
         idx_next = torch.multinomial(probs, num_samples=1).cpu()
 
         # append sampled index to the running sequence and continue
-        idx = torch.Tensor(idx.numpy()).to(torch.int32)
+        idx = torch.from_dlpack(idx).to(torch.int32)
         idx[0, token_idx] = idx_next[0]
         idx = tp.Tensor(idx, device=tp.device("gpu"))
 
