@@ -25,15 +25,15 @@ class Cast(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("to")
-def to(self: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
+def to(self, dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""
-    Returns a tensor with the specified data type.
+    Returns a tensor with the contents of this tensor casted to the specified data type.
 
     Args:
-        dtype: The target data type.
+        dtype: The desired data type.
 
     Returns:
-        The casted tensor.
+        A tensor containing the casted values.
 
     Example:
 

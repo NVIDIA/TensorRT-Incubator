@@ -102,7 +102,7 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Te
 
 
 @TENSOR_METHOD_REGISTRY("tril")
-def tril(self: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
+def tril(self, diagonal: int = 0) -> "tripy.Tensor":
     r"""
     Returns the lower triangular part of each :math:`[M, N]` matrix in the tensor, with all other elements set to 0.
     If the tensor has more than two dimensions, it is treated as a batch of matrices.

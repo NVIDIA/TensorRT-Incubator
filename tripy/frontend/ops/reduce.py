@@ -54,7 +54,7 @@ class Reduce(BaseOperator):
         ReduceOp(self, [inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
 
 
-def _reduce_impl(self: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
+def _reduce_impl(self, kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
     from tripy.frontend import Tensor
 
     out = Tensor.build([self], Reduce, dim, kind)
@@ -89,17 +89,18 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
 
 
 @TENSOR_METHOD_REGISTRY("sum")
-def sum(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
+def sum(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
-    Returns the sum of each row of the input tensor in the given dimension dim.
-    If dim is a list of dimensions, reduce over all of them.
+    Returns a new tensor containing the sum of the elements of this tensor along the specified dimension.
 
     Args:
-        dim: the dimension or dimensions to reduce. If None, all dimensions are reduced.
-        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        the reduced Tensor
+        A new tensor of the same data type as this tensor.
 
     Example:
 
@@ -114,17 +115,17 @@ def sum(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
 
 
 @TENSOR_METHOD_REGISTRY("max")
-def max(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
+def max(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
-    Returns the maximum value of each row of the input tensor in the given dimension dim.
-    If dim is a list of dimensions, reduce over all of them.
+    Returns a new tensor containing the maximum of the elements of this tensor along the specified dimension.
 
     Args:
         dim: the dimension or dimensions to reduce. If None, all dimensions are reduced.
-        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        the reduced Tensor
+        A new tensor of the same data type as this tensor.
 
     Example:
 
@@ -139,17 +140,18 @@ def max(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, k
 
 
 @TENSOR_METHOD_REGISTRY("prod")
-def prod(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
+def prod(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
-    Returns the product of each row of the input tensor in the given dimension dim.
-    If dim is a list of dimensions, reduce over all of them.
+    Returns a new tensor containing the product of the elements of this tensor along the specified dimension.
 
     Args:
-        dim: the dimension or dimensions to reduce. If None, all dimensions are reduced.
-        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        the reduced Tensor
+        A new tensor of the same data type as this tensor.
 
     Example:
 
@@ -164,14 +166,15 @@ def prod(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
 
 
 @TENSOR_METHOD_REGISTRY("mean")
-def mean(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False):
+def mean(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
-    Returns the mean value of the input tensor along the given dimension dim.
-    If dim is a list of dimensions, mean is computed over all of them.
+    Returns a new tensor containing the mean of the elements of this tensor along the specified dimension.
 
     Args:
-        dim: the dimension or dimensions to compute mean over. If None, all dimensions are reduced.
-        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
 
     Returns:
         mean of the input tensor
@@ -190,16 +193,24 @@ def mean(self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, 
 
 @TENSOR_METHOD_REGISTRY("var")
 def var(
-    self: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
-):
-    """
-    Returns the variance of the input tensor along the given dimension dim.
-    If dim is a list of dimensions, mean is computed over all of them.
+    self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
+) -> "tripy.Tensor":
+    r"""
+    Returns a new tensor containing the variance of the elements of this tensor along the specified dimension.
+
+    The variance along a dimension is defined as:
+
+    :math:`\sigma^2 = \Large \frac{1}{max(0, N - \text{correction})} \large \sum_{i=1}^N (x_i - \bar{x})^2`
+
+    where :math:`N` is the length of the dimension, :math:`x_i` is the :math:`i^{th}` element along the dimension,
+    and :math:`\bar{x}` is the mean.
 
     Args:
-        dim: the dimension or dimensions to compute variance over. If None, all dimensions are reduced.
-        keepdim: whether to retain reduced dimensions in the output. If this is False, reduced dimensions will be squeezed.
-        correction : Defaults to Bessel’s correction, correction=1.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+        correction: Defaults to Bessel's correction.
 
     Returns:
         variance of the input tensor

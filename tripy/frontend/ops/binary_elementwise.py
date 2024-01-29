@@ -119,15 +119,17 @@ class Comparison(BinaryElementwise):
 @TENSOR_METHOD_REGISTRY("__add__")
 @TENSOR_METHOD_REGISTRY("__radd__")
 @frontend_utils.convert_inputs_to_tensors()
-def add(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def add(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
 
     Args:
         other: The tensor to add to this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        The sum of the inputs.
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
 
     Example:
 
@@ -147,15 +149,17 @@ def add(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 @TENSOR_METHOD_REGISTRY("__sub__")
 @TENSOR_METHOD_REGISTRY("__rsub__")
 @frontend_utils.convert_inputs_to_tensors()
-def sub(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def sub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
     Args:
         other: The tensor to subtract from this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        Result of subtraction
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
 
     Example:
 
@@ -175,15 +179,17 @@ def sub(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 @TENSOR_METHOD_REGISTRY("__pow__")
 @TENSOR_METHOD_REGISTRY("__rpow__")
 @frontend_utils.convert_inputs_to_tensors()
-def pow(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
-    Performs an elementwise pow.
+    Performs an elementwise exponentiation.
 
     Args:
         other: The tensor by which to exponentiate this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        Result of exponentiation.
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
 
     Example:
 
@@ -203,15 +209,17 @@ def pow(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 @TENSOR_METHOD_REGISTRY("__mul__")
 @TENSOR_METHOD_REGISTRY("__rmul__")
 @frontend_utils.convert_inputs_to_tensors()
-def mul(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def mul(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
 
     Args:
         other: The tensor by which to multiply this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        Product of two tensors
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
 
     Example:
 
@@ -231,15 +239,17 @@ def mul(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 @TENSOR_METHOD_REGISTRY("__truediv__")
 @TENSOR_METHOD_REGISTRY("__rtruediv__")
 @frontend_utils.convert_inputs_to_tensors()
-def div(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
-    Performs an elementwise divide.
+    Performs an elementwise division.
 
     Args:
         other: The tensor by which to divide this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        Result of divide
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
 
     Example:
 
@@ -258,15 +268,17 @@ def div(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tenso
 
 @TENSOR_METHOD_REGISTRY("__lt__")
 @frontend_utils.convert_inputs_to_tensors()
-def less_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def less_than(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
 
     Args:
-        other: The tensor to be compared to this one
+        other: The tensor to be compared to this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        The comparison result of the inputs
+        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
     Example:
 
@@ -286,15 +298,17 @@ def less_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy
 
 @TENSOR_METHOD_REGISTRY("__le__")
 @frontend_utils.convert_inputs_to_tensors()
-def less_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def less_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
 
     Args:
-        other: The tensor to be compared to this one
+        other: The tensor to be compared to this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        The comparison result of the inputs
+        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
     Example:
 
@@ -313,15 +327,17 @@ def less_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) 
 
 @TENSOR_METHOD_REGISTRY("__eq__")
 @frontend_utils.convert_inputs_to_tensors()
-def eq(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def eq(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
 
     Args:
-        other: The tensor to be compared to this one
+        other: The tensor to be compared to this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        The comparison result of the inputs
+        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
     Example:
 
@@ -340,15 +356,17 @@ def eq(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor
 
 @TENSOR_METHOD_REGISTRY("__ne__")
 @frontend_utils.convert_inputs_to_tensors()
-def not_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def not_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
 
     Args:
-        other: The tensor to be compared to this one
+        other: The tensor to be compared to this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        The comparison result of the inputs
+        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
     Example:
 
@@ -367,15 +385,17 @@ def not_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy
 
 @TENSOR_METHOD_REGISTRY("__ge__")
 @frontend_utils.convert_inputs_to_tensors()
-def greater_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def greater_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
 
     Args:
-        other: The tensor to be compared to this one
+        other: The tensor to be compared to this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        The comparison result of the inputs
+        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
     Example:
 
@@ -394,15 +414,17 @@ def greater_than_or_equal(self: "tripy.Tensor", other: Union["tripy.Tensor", Any
 
 @TENSOR_METHOD_REGISTRY("__gt__")
 @frontend_utils.convert_inputs_to_tensors()
-def greater_than(self: "tripy.Tensor", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def greater_than(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.
 
     Args:
-        other: The tensor to be compared to this one
+        other: The tensor to be compared to this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
 
     Returns:
-        The comparison result of the inputs
+        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
     Example:
 

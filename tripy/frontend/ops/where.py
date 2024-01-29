@@ -64,17 +64,23 @@ class Where(BaseOperator):
         SelectOp(self, inputs, outputs)
 
 
-def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
+def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
-    Returns a tensor of elements selected from either x or y, depending on condition.
+    Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
 
     Args:
-        condition: Tensor of bool type, when True, yield x, otherwise yield y
-        x: Tensor of values selected at indices where condition is True
-        y: Tensor values selected at indices where condition is False
+        condition: The condition tensor. This must have data type :class:`tripy.bool`.
+            Where this is ``True``, elements are selected from ``input``.
+            Otherwise, elements are selected from ``other``.
+        input: Tensor of values selected at indices where condition is ``True``.
+        other: Tensor values selected at indices where condition is ``False``.
+            This must have the same datatype as ``input``.
 
     Returns:
-        Output Tensor with selected values.
+        A new tensor with the broadcasted shape and the same data type as ``input`` and ``other``.
+
+    Constraints:
+        All three parameters must be broadcast-compatible with each other.
 
     Example:
 
@@ -83,28 +89,29 @@ def where(condition: "tripy.Tensor", x: "tripy.Tensor", y: "tripy.Tensor"):
         # TODO: Initialize directly from booleans
         condition = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
 
-        x = tp.ones([2, 2], dtype=tp.float32)
-        y = tp.zeros([2, 2], dtype=tp.float32)
-        output = tp.where(condition, x, y)
+        input = tp.ones([2, 2], dtype=tp.float32)
+        other = tp.zeros([2, 2], dtype=tp.float32)
+        output = tp.where(condition, input, other)
 
         assert np.array_equal(output.numpy(), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([condition, x, y], Where)
+    return Tensor.build([condition, input, other], Where)
 
 
 @TENSOR_METHOD_REGISTRY("masked_fill")
-def masked_fill(self: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
+def masked_fill(self, mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
-    Fills elements of tensor with value where mask is True.
+    Returns a new tensor filled with ``value`` where ``mask`` is ``True`` and elements from
+    this tensor otherwise.
 
     Args:
-        mask: Tensor of bool type
-        value: the value to fill in with, will be converted to match dtype of self Tensor
+        mask: The mask tensor. This should have data type :class:`tripy.bool`.
+        value: the value to fill with. This will be casted to match the data type of this tensor.
 
     Returns:
-        the filled Tensor
+        A new tensor of the same shape and data type as this one.
 
     Example:
 

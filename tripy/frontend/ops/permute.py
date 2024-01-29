@@ -58,17 +58,17 @@ class Transpose(Permute):
 
 
 @TENSOR_METHOD_REGISTRY("transpose")
-def transpose(self: "tripy.Tensor", dim0: int, dim1: int):
+def transpose(self, dim0: int, dim1: int) -> "tripy.Tensor":
     """
-    Returns a tensor that is a transposed version of input.
-    The given dimensions dim0 and dim1 are swapped.
+    Returns a new tensor that is a transposed version of this one where
+    ``dim0`` and ``dim1`` are swapped.
 
     Args:
-        dim0: the first dimension to be transposed
-        dim1: the second dimension to be transposed
+        dim0: The first dimension to be transposed.
+        dim1: The second dimension to be transposed.
 
     Returns:
-        the transposed Tensor
+        A new tensor of the same data type as this tensor.
 
     Example:
 
@@ -85,16 +85,17 @@ def transpose(self: "tripy.Tensor", dim0: int, dim1: int):
 
 
 @TENSOR_METHOD_REGISTRY("permute")
-def permute(self: "tripy.Tensor", perm: Sequence[int]):
+def permute(self, perm: Sequence[int]) -> "tripy.Tensor":
     """
     Returns a tensor with its dimensions permuted.
 
     Args:
-        perm: the desired ordering of dimensions. it must be a tuple or list
-              that contains a permutation of `[0, 1, ..., N-1]`, where N is the number of dimensions of input
+        perm: The desired ordering of dimensions.
+              It must contain all integers in :math:`[0..N-1]` exactly once,
+              where :math:`N` is the rank of this tensor.
 
     Returns:
-        the output Tensor with its dimensions permuted
+        A new tensor of the same data type as this tensor.
 
     Example:
 

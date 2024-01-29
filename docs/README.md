@@ -36,7 +36,7 @@ documentation is generated. Specifically:
         at the top of the code block.
 
     - To only display certain variables, add `# doc: print-locals` followed by a space
-        separate list of variable names. For example: `# doc: print-locals inp out`.
+        separated list of variable names. For example: `# doc: print-locals inp out`.
 
 3. Any `assert` statements are stripped out.
 

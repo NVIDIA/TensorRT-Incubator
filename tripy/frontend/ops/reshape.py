@@ -71,15 +71,15 @@ class Squeeze(Reshape):
 
 
 @TENSOR_METHOD_REGISTRY("reshape")
-def reshape(self: "tripy.Tensor", shape: ShapeInfo):
+def reshape(self, shape: ShapeInfo) -> "tripy.Tensor":
     """
-    Reshapes the input tensor into the the given shape.
+    Returns a new tensor with the contents of this one in the specified shape.
 
     Args:
-        shape: the new requested shape of tensor
+        shape: The desired shape.
 
     Returns:
-        the reshaped Tensor
+        A new tensor of the same data type as this one and the specified shape.
 
     Example:
 
@@ -96,17 +96,19 @@ def reshape(self: "tripy.Tensor", shape: ShapeInfo):
 
 
 @TENSOR_METHOD_REGISTRY("squeeze")
-def squeeze(self: "tripy.Tensor", dims: Union[Tuple, int] = None):
+def squeeze(self, dims: Union[Tuple, int] = None) -> "tripy.Tensor":
     """
-    Returns a tensor with all specified dimensions of input of size 1 removed.
+    Returns a new tensor with all specified singleton dimensions of this tensor removed.
 
     Args:
-        dims: optional dims of size 1 to be removed
-              if dims is not provided, all axes with size 1 are removed
-              if the select dim has size greater than 1, an error is raised
+        dims: The singleton dimensions to be removed.
+              If this is not provided, all dimensions of size 1 are removed.
+
+    Raises:
+        TripyException: If any of the specified dimensions have a size that is not equal to 1.
 
     Returns:
-        the squeezed Tensor
+        A new tensor of the same data type as this one.
 
     Example:
 

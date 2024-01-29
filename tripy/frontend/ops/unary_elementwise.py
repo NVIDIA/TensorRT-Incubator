@@ -33,14 +33,14 @@ class UnaryElementwise(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("exp")
-def exp(self: "tripy.Tensor") -> "tripy.Tensor":
+def exp(self) -> "tripy.Tensor":
     r"""
-    Performs an exponential of the elements of the input tensor:
+    Computes the elementwise exponential of the elements of this tensor:
 
     :math:`\text{exp}(x_{i}) = e^{x_{i}}`
 
     Returns:
-        Exponential of the input.
+        A new tensor of the same shape and data type as this tensor.
 
     Example:
 
@@ -57,12 +57,12 @@ def exp(self: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("tanh")
-def tanh(self: "tripy.Tensor") -> "tripy.Tensor":
+def tanh(self) -> "tripy.Tensor":
     """
-    Compute hyperbolic tangent element-wise.
+    Computes the elementwise hyperbolic tangent of the elements of this tensor.
 
     Returns:
-        Hyperbolic tangent values.
+        A new tensor of the same shape and data type as this tensor.
 
     Example:
 
@@ -79,9 +79,12 @@ def tanh(self: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("rsqrt")
-def rsqrt(self: "tripy.Tensor"):
+def rsqrt(self) -> "tripy.Tensor":
     """
-    Compute reciprocal square root operation on tensor.
+    Computes the elementwise reciprocal square root of the elements of this tensor.
+
+    Returns:
+        A new tensor of the same shape and data type as this tensor.
 
     Example:
 

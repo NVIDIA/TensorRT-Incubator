@@ -34,24 +34,29 @@ class FuncOverload:
             self.annotations: Dict[str, Tuple[type, bool]] = OrderedDict()
             signature = inspect.signature(self.func)
             for name, param in signature.parameters.items():
-                assert (
-                    param.annotation and param.annotation is not signature.empty
-                ), f"Function parameters must have type annotations, but parameter: '{name}' of function: '{self.func.__name__}' has no type annotation!"
-                annotation = param.annotation
-                # In cases where a type is not available at the time of function definition, the type
-                # annotation may be provided as a string. Since we need the actual type, we just
-                # eval it here.
-                if isinstance(annotation, str):
-                    try:
-                        # Import tripy so we can evaluate types from within tripy.
-                        import tripy
+                if name == "self":
+                    # Not likely to pass in the wrong `self` parameter, so we
+                    # don't require an annotation for it.
+                    annotation = Any
+                else:
+                    assert (
+                        param.annotation and param.annotation is not signature.empty
+                    ), f"Function parameters must have type annotations, but parameter: '{name}' of function: '{self.func.__name__}' has no type annotation!"
+                    annotation = param.annotation
+                    # In cases where a type is not available at the time of function definition, the type
+                    # annotation may be provided as a string. Since we need the actual type, we just
+                    # eval it here.
+                    if isinstance(annotation, str):
+                        try:
+                            # Import tripy so we can evaluate types from within tripy.
+                            import tripy
 
-                        annotation = eval(annotation)
-                    except Exception as e:
-                        raise NameError(
-                            f"Error while evaluating type annotation: '{annotation}' for parameter: '{name}' of function: '{self.func.__name__}'."
-                            f"\nNote: Error was: {e}"
-                        )
+                            annotation = eval(annotation)
+                        except Exception as e:
+                            raise NameError(
+                                f"Error while evaluating type annotation: '{annotation}' for parameter: '{name}' of function: '{self.func.__name__}'."
+                                f"\nNote: Error was: {e}"
+                            )
 
                 self.annotations[name] = (annotation, param.default is not signature.empty)
 
@@ -235,6 +240,9 @@ class FunctionRegistry(dict):
                     # This allows us to omit signature information in the docs and prepend our
                     # own to the docstrings.
                     del self[key].__wrapped__
+
+                    # Add a special attribute to the function so we know it's an overload dispatcher
+                    self[key].is_overload_dispatcher = True
 
                     def prepend_signature_to_docstring(f):
                         if not f.__doc__:

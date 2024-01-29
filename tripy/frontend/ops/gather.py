@@ -50,24 +50,25 @@ class Gather(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("gather")
-def gather(self: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
+def gather(self, dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """
-    Gather values from this tensor using the indices provided along an axis.
-    Note that this op behaves similar to numpy take operation.
+    Gather values from this tensor along the specified axis based on the specified indices.
+    This behaves similarly to ``numpy.take()``.
 
     Args:
-        index: The indices of elements to gather.
         dim: Axis along which data is gathered.
+        index: The indices of elements to gather.
 
     Returns:
-        Data gathered from input tensor.
+        A new tensor of the same data type as this tensor and same shape along every
+        dimension except ``dim``, which will have a size equal to ``len(index)``.
 
     Example:
 
     .. code:: python
 
-        data = tp.iota((3,2,2))
-        indices = tp.arange(0, 3, dtype=tp.int32)
+        data = tp.iota((3, 2, 2))
+        indices = tp.Tensor([0, 2], dtype=tp.int32)
         output = data.gather(0, indices)
 
         assert np.array_equal(output.numpy(), np.take(data.numpy(), indices.numpy(), axis=0))

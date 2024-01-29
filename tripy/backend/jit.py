@@ -202,7 +202,7 @@ class jit:
         for _, value in self.cache.items():
             mlir_backend.exec_destroy(value.executable)
 
-    def save(self, dir_path: str = None):
+    def save(self, dir_path: str = None) -> None:
         """
         Saves all cached executables to the given directory.
 
@@ -250,7 +250,7 @@ class jit:
                 pickle.dump(cache_value.flat_ir_shape_info, f)
             mlir_backend.save(cache_value.executable, filename)
 
-    def load(self, dir_path: str = None):
+    def load(self, dir_path: str = None) -> None:
         """
         Loads compiled executables from a given directory.
 

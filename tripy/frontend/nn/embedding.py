@@ -33,7 +33,7 @@ class Embedding(Module):
         self.weight: Parameter = Parameter(ones((num_embeddings, embedding_dim), dtype=float32))
         r"""The embedding lookup table of shape :math:`[\text{num_embeddings}, \text{embedding_dim}]`."""
 
-    def __call__(self, x):
+    def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
         Args:
             x: A tensor of shape :math:`[N]` containing the indices of the desired embedding vectors.

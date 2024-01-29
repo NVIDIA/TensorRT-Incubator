@@ -55,52 +55,53 @@ class FillLike(Fill):
         super().infer_dtypes()
 
 
-def full(shape: ShapeInfo, fill_value: numbers.Number, dtype: datatype.dtype = datatype.float32):
+def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     """
-    Creates a Tensor of `shape` filled with `fill_value`.
+    Returns a tensor of the desired shape with all values set to the specified value.
 
     Args:
-        shape: A list or tuple of integers
-        fill_value: A numeric scalar value to fill the resulting Tensor.
-        dtype: Optional datatype of an element in the resulting Tensor.
+        shape: The desired shape.
+        value: A scalar value to fill the resulting tensor.
+        dtype: The desired data type.
 
     Returns:
-        A Tensor with all elements set to fill_value.
+        A tensor of shape ``shape`` and data type ``dtype``.
 
     Example:
 
     .. code:: python
 
-        output = tp.full([2, 3], 2)
+        output = tp.full(shape=[2, 3], value=2)
 
         assert np.array_equal(output.numpy(), np.full([2, 3], 2, dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([], Fill, fill_value, to_dims(shape), dtype)
+    return Tensor.build([], Fill, value, to_dims(shape), dtype)
 
 
-def full_like(input: "tripy.Tensor", fill_value: numbers.Number, dtype: datatype.dtype = None):
+def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: "tripy.dtype" = None) -> "tripy.Tensor":
     """
-    Creates a Tensor filled with `fill_value`, its shape (and dtype if not given) are determined by the `input` Tensor.
+    Returns a tensor of the same shape and data type as the input tensor, with all values
+    set to the specified value.
 
     Args:
-        input: Input Tensor to determine the resulting Tensor's shape (and dtype if not given).
-        fill_value: A numeric scalar value to fill the resulting Tensor.
-        dtype: Optional datatype of an element in the resulting Tensor.
+        input: Input tensor.
+        value: A scalar value to fill the resulting tensor.
+        dtype: The desired data type. This will override the data type inferred from the input tensor.
 
     Returns:
-        A Tensor with all elements set to fill_value.
+        A tensor of the same shape and data type (unless ``dtype`` is provided) as the input.
 
     Example:
 
     .. code:: python
 
         input = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
-        output = tp.full_like(input, 2)
+        output = tp.full_like(input, value=2)
 
         assert np.array_equal(output.numpy(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([input], FillLike, fill_value, None, dtype)
+    return Tensor.build([input], FillLike, value, None, dtype)

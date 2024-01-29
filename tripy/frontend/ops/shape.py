@@ -29,12 +29,12 @@ class Shape(BaseOperator):
 
 @TENSOR_METHOD_REGISTRY("shape")
 @property
-def shape(self: "tripy.Tensor"):
+def shape(self) -> "tripy.Tensor":
     """
-    Returns the shape of the tensor.
+    Represents the shape of the tensor.
 
     Returns:
-        1d tensor filled with shape of the tensor.
+        A 1D tensor containing the shape of this tensor.
 
     Example:
 

@@ -26,15 +26,15 @@ class Copy(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("to")
-def to(self: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
+def to(self, device: "tripy.device") -> "tripy.Tensor":
     r"""
     Returns a copy of this tensor on the target device.
 
     Args:
-        device: target device
+        device: The target device.
 
     Returns:
-        Copy of this tensor on target device
+        A copy of this tensor on target device.
 
     Example:
 

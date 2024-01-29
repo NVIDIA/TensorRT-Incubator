@@ -42,15 +42,15 @@ class Slice(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("__getitem__")
-def get_item(self: "tripy.Tensor", index: Union[slice, int, Tuple[int]]):
+def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
     """
-    Returns a tensor that is sliced from the input Tensor.
+    Returns a tensor containing a slice of this tensor.
 
     Args:
-        index: index expression to slice the tensor
+        index: The index or slice.
 
     Returns:
-        the sliced Tensor
+        A tensor cotnaining the slice of ths tensor.
 
     Example:
 

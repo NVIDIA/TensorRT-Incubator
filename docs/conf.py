@@ -10,6 +10,9 @@ from textwrap import dedent, indent
 import tripy as tp
 from tests import helper
 import inspect
+import re
+
+PARAM_PAT = re.compile(":param .*?:")
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -94,6 +97,35 @@ def process_docstring(app, what, name, obj, options, lines):
     blocks = helper.consolidate_code_blocks(doc)
 
     TRIPY_CLASSES = [obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj)]
+
+    if inspect.isfunction(obj):
+        signature = inspect.signature(obj)
+
+        # We don't currently check overload dispatchers since this would require manual parsing of the docstring.
+        if not hasattr(obj, "is_overload_dispatcher"):
+            # The docstring has been processed at this point such that parameters appear as `:param <name>:`
+            documented_args = {match.replace(":param ", "").rstrip(":") for match in PARAM_PAT.findall(doc)}
+
+            for name, param in signature.parameters.items():
+                if name == "self":
+                    # Don't want a type annotation for the self parameter.
+                    assert (
+                        param.annotation == signature.empty
+                    ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation!"
+                else:
+                    assert name in documented_args, f"Missing documentation for parameter: '{name}' in: '{obj}'"
+
+                    assert (
+                        param.annotation != signature.empty
+                    ), f"Missing type annotation for parameter: '{name}' in: '{obj}'"
+
+            assert signature.return_annotation != signature.empty, (
+                f"Missing return type annotation for: '{obj}'. "
+                f"Hint: If this interface does not return anything, use a type annotation of `-> None`."
+            )
+
+            if signature.return_annotation != None:
+                assert ":returns:" in doc, f"For: {obj}, return value is not documented."
 
     lines.clear()
     for block in blocks:

@@ -50,15 +50,18 @@ class IotaLike(Iota):
         super().infer_dtypes()
 
 
-def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32):
+def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
-    Fills an output tensor with values in increasing order starting from zero along the given dimension
+    Fills an output tensor with consecutive values starting from zero along the given dimension.
 
     Args:
-        shape: Shape of the resulting Tensor
-        dim: Dimension of the iota operation
-             constraint: 0 <= dim < rank(shape)
-        dtype: Optional dtype of the resulting Tensor
+        shape: The desired shape.
+        dim: Dimension along which to perform the iota operation.
+            This cannot exceed the rank of the specified shape.
+        dtype: The desired data type.
+
+    Returns:
+        A tensor of shape ``shape`` and data type ``dtype``.
 
     Example:
 
@@ -83,16 +86,19 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
     return Tensor.build([], Iota, dim, to_dims(shape), dtype)
 
 
-def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None):
+def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None) -> "tripy.Tensor":
     """
-    Fills an output tensor with values in increasing order starting from zero along the given dimension.
-    The output tensor's shape (and dtype if not given) are determined by the input.
+    Returns a tensor of the same shape and data type as the input tensor, with consecutive values
+    starting from zero along the given dimension.
 
     Args:
-        input: Input tensor to determine shape (and dtype if not given) of the resulting Tensor
-        dim: Dimension of the iota operation
-             constraint: 0 <= dim < rank(input_shape)
-        dtype: Optional dtype of the resulting Tensor
+        input: Input tensor.
+        dim: Dimension along which to perform the iota operation.
+            This cannot exceed the rank of the specified shape.
+        dtype: The desired data type. This will override the data type inferred from the input tensor.
+
+    Returns:
+        A tensor of the same shape and data type (unless ``dtype`` is provided) as the input.
 
     Example:
 

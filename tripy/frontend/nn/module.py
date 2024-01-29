@@ -101,7 +101,7 @@ class Module:
 
         return state_dict
 
-    def load_from_state_dict(self, state_dict: Dict[str, Parameter]):
+    def load_from_state_dict(self, state_dict: Dict[str, Parameter]) -> None:
         r"""
         Loads parameters from the provided ``state_dict`` into the current module.
         This will recurse over any nested child modules.
@@ -144,10 +144,10 @@ class Module:
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
         r"""
         Returns an iterator over immediate children of this module, yielding tuples
-        containing the name of the child module and the child module.
+        containing the name of the child module and the child module itself.
 
-        Yields:
-            A tuple containing the name of the child module and the child module
+        Returns:
+            An iterator over tuples containing the name of the child module and the child module itself.
 
         Example:
 

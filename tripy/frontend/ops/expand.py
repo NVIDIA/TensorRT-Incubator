@@ -50,28 +50,36 @@ class Expand(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("expand")
-def expand(self: "tripy.Tensor", sizes: Sequence[int]):
+def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
     """
-    Returns a new view of the self tensor with singleton dimensions expanded to a larger size.
-
-    Passing -1 as the size for a dimension means not changing the size of that dimension.
-
-    Tensor can be also expanded to a larger number of dimensions, and the new ones will be appended at the front.
+    Returns a new tensor based on this tensor with singleton dimensions expanded to a larger size.
 
     Args:
-        sizes: the desired expanded size
+        sizes: The desired expanded size.
+            A value of :math:`-1` indicates that the dimension should not be modified.
+            If the length of this parameter exceeds the rank of the tensor, new dimensions
+            are prepended.
 
     Returns:
-        the expanded Tensor
+        The new tensor of the same data type as this tensor.
 
     Example:
 
     .. code:: python
 
         input = tp.ones((2, 1), dtype=tp.float32)
-        output = input.expand((2, -1, 4))
+        output = input.expand((-1, 4))
 
-        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((2, 1), dtype=np.float32), (2, 2, 4)))
+        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((2, 1), dtype=np.float32), (2, 4)))
+
+    Increasing the rank of the tensor:
+
+    .. code:: python
+
+        input = tp.ones((1, 1), dtype=tp.float32)
+        output = input.expand((3, -1, -1))
+
+        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((1, 1), dtype=np.float32), (3, 1, 1)))
     """
     from tripy.frontend import Tensor
 

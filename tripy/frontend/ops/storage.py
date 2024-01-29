@@ -82,7 +82,7 @@ class Storage(BaseOperator):
 
 @TENSOR_METHOD_REGISTRY("__init__")
 def tensor_init(
-    self: "tripy.Tensor",
+    self,
     data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
     shape: Optional[ShapeInfo] = None,
     dtype: Optional["tripy.dtype"] = None,

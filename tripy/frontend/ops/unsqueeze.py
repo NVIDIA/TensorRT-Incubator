@@ -33,15 +33,16 @@ class Unsqueeze(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("unsqueeze")
-def unsqueeze(self: "tripy.Tensor", dim: int):
+def unsqueeze(self, dim: int) -> "tripy.Tensor":
     """
-    Returns a new tensor with a dimension of size one inserted at the specified position.
+    Returns a new tensor with the contents of this tensor with a
+    singleton dimension inserted at the specified position.
 
     Args:
-        dim: the index at which to insert the singleton dimension
+        dim: The index before which to insert the singleton dimension.
 
     Returns:
-        the unsqueezed Tensor
+        A new tensor of the same data type as this tensor.
 
     Example:
 

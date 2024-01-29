@@ -112,21 +112,20 @@ class MatrixMultiplication(BaseOperator):
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")
-def matmul(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
+def matmul(self, other: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs matrix multiplication between two tensors.
 
-    This operation follows numpy like behavior for arguments.
-    If both tensors are 1-D, scalar product is returned.
-    If both tensors are 2-D, regular matrix-matrix multiplication is returned.
-    If either argument is 1-D, 1 dimension is inserted and matrix
-    multiplication is performed with relevant broadcast of dimension.
+    - If both tensors are 1D, a dot product is performed.
+    - If both tensors are 2D, matrix multiplication is performed.
+    - If either argument, but not both, is 1D, a dimension is inserted
+      and matrix multiplication is performed with relevant broadcast of dimension.
 
     Args:
-        other: The tensor to multiply to this one.
+        other: The tensor by which to multiply. Must have the same data type as this tensor.
 
     Returns:
-        Result of matrix multiplication between two tensors.
+        A new tensor of the same data type as this one.
 
     Example:
 
