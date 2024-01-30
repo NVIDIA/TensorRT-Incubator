@@ -4,8 +4,10 @@ from typing import Tuple, Union
 
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops.utils import get_slice_indices, to_dims
+from tripy.frontend.ops import utils as op_utils
 from tripy.utils import make_tuple
+
+import copy
 
 
 @dataclass
@@ -16,14 +18,62 @@ class Slice(BaseOperator):
 
     index: Tuple[Union[slice, int]]
 
+    def get_slice_indices(self, shape):
+        """
+        Converts index to slices required by Slice operation
+
+        Args:
+            shape: shape of input tensor
+
+        Returns:
+            start_indices: list of start slice index
+            limit_indices: list of end slice index
+            strides: list of slice strides
+        """
+        # TODO: only works for static shape, figure out how to handle DS
+        runtime_shape = [dim.runtime_value for dim in shape]
+
+        index = copy.copy(self.index)
+
+        dims = len(shape)
+        if len(index) > dims:
+            op_utils.raise_error_io_info(
+                self,
+                "Too many indices for input tensor.",
+                details=[
+                    "Input tensor has a rank of ",
+                    dims,
+                    " but was attempted to be sliced with ",
+                    len(index),
+                    " indices.",
+                ],
+            )
+        index += (dims - len(index)) * (slice(None),)
+        start_indices = []
+        limit_indices = []
+        strides = []
+        to_positive_idx = lambda idx, dim: idx + dim if idx < 0 else idx
+        for idx, dim in zip(index, runtime_shape):
+            if isinstance(idx, int):
+                # slice the single element and squeeze later
+                idx = to_positive_idx(idx, dim)
+                start_indices.append(idx)
+                limit_indices.append(idx + 1)
+                strides.append(1)
+            else:
+                start_indices.append(to_positive_idx(idx.start, dim) if idx.start else 0)
+                limit_indices.append(to_positive_idx(idx.stop, dim) if idx.stop else dim)
+                strides.append(idx.step if idx.step else 1)
+        return start_indices, limit_indices, strides
+
     def infer_shapes(self):
         input_shape = self.inputs[0].shape
-        self.start_indices, self.limit_indices, self.strides = get_slice_indices(input_shape, self.index)
+        self.start_indices, self.limit_indices, self.strides = self.get_slice_indices(input_shape)
         out_shape = [
             math.ceil((stop - start) / stride)
             for start, stop, stride in zip(self.start_indices, self.limit_indices, self.strides)
         ]
-        self.outputs[0].shape = to_dims(out_shape)
+        self.outputs[0].shape = op_utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import SliceOp
