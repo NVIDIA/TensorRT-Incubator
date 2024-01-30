@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,6 +25,22 @@ class ConstantOp(BaseFIROp):
         self.data = data
         self.dtype = self.outputs[0].dtype
         self.device = self.outputs[0].device
+
+    def __str__(self) -> str:
+        from tripy import utils
+
+        data_volume = utils.volume(self.data.shape)
+
+        skip_fields = [base_field.name for base_field in dataclasses.fields(BaseFIROp)]
+        if utils.skip_constant_from_logging(data_volume):
+            skip_fields = ["data"] + skip_fields
+
+        args = [
+            f"{field.name}={getattr(self, field.name)}"
+            for field in dataclasses.fields(self)
+            if field.name not in skip_fields
+        ]
+        return f"{self.outputs[0]} = {self.name()}({', '.join([inp.name for inp in self.inputs] + args)})"
 
     def to_mlir(self, operands):
         from tripy.backend.mlir import utils as mlir_utils

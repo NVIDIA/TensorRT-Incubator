@@ -103,6 +103,29 @@ def make_tuple(obj):
     return obj
 
 
+def volume(shape):
+    """
+    Computes volume of a tensor shape.
+
+    Args:
+        shape: The shape of a tensor
+
+    Returns:
+        Volume of tensor (float)
+    """
+    from tripy.frontend.ops.utils import to_dims
+
+    volume = 1.0
+    for s in to_dims(shape):
+        volume *= s.max
+    return volume
+
+
+def skip_constant_from_logging(vol):
+    CONSTANT_VOLUME = 5.0
+    return vol >= CONSTANT_VOLUME
+
+
 ##
 ## Files
 ##

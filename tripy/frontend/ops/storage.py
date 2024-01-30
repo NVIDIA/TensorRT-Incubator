@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
@@ -51,8 +52,23 @@ class Storage(BaseOperator):
         self.device = utils.default(device, tripy.common.device("cpu"))
         self.data = Array(data, dtype, shape, self.device)
         self.dtype = self.data.dtype
-        self.shape: ShapeInfo = utils.make_tuple(to_dims(self.data.shape) if shape is None else shape)
+        self.shape: ShapeInfo = utils.make_tuple(to_dims(self.data.shape) if shape is None else to_dims(shape))
         self.shape_profile: List = utils.make_list(shape)
+
+    def __str__(self) -> str:
+
+        data_volume = utils.volume(self.shape)
+
+        skip_fields = [base_field.name for base_field in dataclasses.fields(BaseOperator)]
+        if utils.skip_constant_from_logging(data_volume):
+            skip_fields = ["data"] + skip_fields
+
+        args = [
+            f"{field.name}={getattr(self, field.name)}"
+            for field in dataclasses.fields(self)
+            if field.name not in skip_fields
+        ]
+        return f"{self.outputs[0].name} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"
 
     def __eq__(self, other) -> bool:
         return self.data == other.data
