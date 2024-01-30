@@ -147,7 +147,6 @@ def add(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__sub__")
-@TENSOR_METHOD_REGISTRY("__rsub__")
 @frontend_utils.convert_inputs_to_tensors()
 def sub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
@@ -176,8 +175,36 @@ def sub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUB)
 
 
+@TENSOR_METHOD_REGISTRY("__rsub__")
+@frontend_utils.convert_inputs_to_tensors()
+def rsub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise subtraction.
+
+    Args:
+        other: The tensor to be subtracted from this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
+
+    Example:
+
+    .. code:: python
+
+        a = 1
+        b = tp.Tensor([1, 2])
+        output = a - b
+
+        assert np.array_equal(output.numpy(), np.array([0, -1]))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.SUB)
+
+
 @TENSOR_METHOD_REGISTRY("__pow__")
-@TENSOR_METHOD_REGISTRY("__rpow__")
 @frontend_utils.convert_inputs_to_tensors()
 def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
@@ -204,6 +231,35 @@ def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.POW)
+
+
+@TENSOR_METHOD_REGISTRY("__rpow__")
+@frontend_utils.convert_inputs_to_tensors()
+def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise exponentiation.
+
+    Args:
+        other: The tensor to be exponentiated by this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
+
+    Example:
+
+    .. code:: python
+
+        a = 2.0
+        b = tp.Tensor([2.0, 3.0])
+        output = a ** b
+
+        assert np.array_equal(output.numpy(), np.array([4.0, 8.0]))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.POW)
 
 
 @TENSOR_METHOD_REGISTRY("__mul__")
@@ -237,7 +293,6 @@ def mul(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__truediv__")
-@TENSOR_METHOD_REGISTRY("__rtruediv__")
 @frontend_utils.convert_inputs_to_tensors()
 def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
@@ -264,6 +319,35 @@ def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.DIV)
+
+
+@TENSOR_METHOD_REGISTRY("__rtruediv__")
+@frontend_utils.convert_inputs_to_tensors()
+def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise division.
+
+    Args:
+        other: The tensor to be divided by this one.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
+
+    Example:
+
+    .. code:: python
+
+        a = 6.0
+        b = tp.Tensor([2.0, 3.0])
+        output = a / b
+
+        assert np.array_equal(output.numpy(), np.array([3.0, 2.0]))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.DIV)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
