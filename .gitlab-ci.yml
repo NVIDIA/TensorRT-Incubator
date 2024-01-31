@@ -215,8 +215,9 @@ upload-container:
     - docker:24.0.5-dind
   script:
    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  #  We may not have pushed a container, in which case we should do nothing.
-   - (docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA && docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest && docker push $CI_REGISTRY_IMAGE:latest) || true
+   - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+   - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $CI_REGISTRY_IMAGE:latest
+   - docker push $CI_REGISTRY_IMAGE:latest
   tags:
     - tripy-runner
   rules:

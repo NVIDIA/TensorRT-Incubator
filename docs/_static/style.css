@@ -14,6 +14,11 @@
 
 .sig {
     font-weight: 400;
+    font-size: 1.0rem;
+}
+
+.reference {
+    text-decoration-thickness: 1px;
 }
 
 dt[class^="field"] {

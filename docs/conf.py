@@ -75,7 +75,7 @@ html_theme_options = {
     "style": "green",
     "show_powered_by": False,
     "documentation_font_size": "1.0rem",
-    "monospace_font_size": "0.8rem",
+    "monospace_font_size": "0.85rem",
 }
 
 html_sidebars = {"**": ["globaltoc.html"]}
