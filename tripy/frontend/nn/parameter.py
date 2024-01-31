@@ -14,9 +14,9 @@ class Parameter(Tensor):
         Args:
             tensor: The tensor value for this parameter.
 
-        Example:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Example
 
             parameter = tp.nn.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
 

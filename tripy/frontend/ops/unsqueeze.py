@@ -44,9 +44,9 @@ def unsqueeze(self, dim: int) -> "tripy.Tensor":
     Returns:
         A new tensor of the same data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.ones((2, 2), dtype=tp.float32)
         output = input.unsqueeze(1)

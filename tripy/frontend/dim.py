@@ -54,17 +54,17 @@ class Dim:
         If only ``min`` and ``max`` are provided, the ``opt`` value will be inferred as
         the midpoint between the two.
 
-        Creating a static dimension:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Static Dimension
 
             batch = tp.Dim(2)
 
             assert batch.min == batch.opt == batch.max == 2
 
-        Creating a dynamic dimension:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Dynamic Dimension
 
             dyn_batch = tp.Dim(3, min=2, opt=4, max=9)
 

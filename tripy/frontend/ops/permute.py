@@ -70,9 +70,9 @@ def transpose(self, dim0: int, dim1: int) -> "tripy.Tensor":
     Returns:
         A new tensor of the same data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.transpose(0, 1)
@@ -97,9 +97,9 @@ def permute(self, perm: Sequence[int]) -> "tripy.Tensor":
     Returns:
         A new tensor of the same data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.permute((1, 0))

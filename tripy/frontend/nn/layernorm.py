@@ -11,9 +11,9 @@ class LayerNorm(Module):
     Args:
         normalized_shape: The size of the feature dimension of the input over which normalization is performed.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         layer_norm = tp.nn.LayerNorm(3)
 

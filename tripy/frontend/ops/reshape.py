@@ -81,9 +81,9 @@ def reshape(self, shape: ShapeInfo) -> "tripy.Tensor":
     Returns:
         A new tensor of the same data type as this one and the specified shape.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.ones((2, 3), dtype=tp.float32)
         output = input.reshape((1, 6))
@@ -110,9 +110,9 @@ def squeeze(self, dims: Union[Tuple, int] = None) -> "tripy.Tensor":
     Returns:
         A new tensor of the same data type as this one.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.ones((1, 2, 1), dtype=tp.float32)
         # Squeeze all dimensions:

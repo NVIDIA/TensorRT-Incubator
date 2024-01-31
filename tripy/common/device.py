@@ -23,18 +23,18 @@ class device:
                     If the index is provided, it should be separated from the device kind
                     by a colon (``:``). If the index is not provided, it defaults to 0.
 
-        For example, you can create a device that represents the default CPU like so:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Default CPU
 
             cpu = tp.device("cpu")
 
             assert cpu.kind == "cpu"
             assert cpu.index == 0
 
-        Or to create a device representing the second GPU, you can do:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Second GPU
 
             gpu_1 = tp.device("gpu:1")
 

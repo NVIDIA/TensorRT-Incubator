@@ -30,9 +30,9 @@ class jit:
         Constraints:
             All :class:`tripy.Tensor` arguments must be provided as positional arguments and not keyword arguments.
 
-        Using JIT as a decorator:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: JIT As A Decorator
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
@@ -46,9 +46,9 @@ class jit:
 
             assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
 
-        Using JIT as a function:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: JIT As A Function
 
             a = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))
             b = tp.Tensor([1.0, 1.0], dtype=tp.float32, device=tp.device("gpu"))

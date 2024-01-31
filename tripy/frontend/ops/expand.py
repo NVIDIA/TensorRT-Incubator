@@ -63,18 +63,18 @@ def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
     Returns:
         The new tensor of the same data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.ones((2, 1), dtype=tp.float32)
         output = input.expand((-1, 4))
 
         assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((2, 1), dtype=np.float32), (2, 4)))
 
-    Increasing the rank of the tensor:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Increasing Tensor Rank
 
         input = tp.ones((1, 1), dtype=tp.float32)
         output = input.expand((3, -1, -1))

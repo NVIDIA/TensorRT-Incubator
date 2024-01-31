@@ -42,9 +42,9 @@ def exp(self) -> "tripy.Tensor":
     Returns:
         A new tensor of the same shape and data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32)
         output = input.exp()
@@ -64,9 +64,9 @@ def tanh(self) -> "tripy.Tensor":
     Returns:
         A new tensor of the same shape and data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32)
         output = input.tanh()
@@ -86,9 +86,9 @@ def rsqrt(self) -> "tripy.Tensor":
     Returns:
         A new tensor of the same shape and data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32)
         output = input.rsqrt()

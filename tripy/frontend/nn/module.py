@@ -23,9 +23,9 @@ class Module:
 
         self.param = {"param1": Parameter(Tensor([1,2,3]))}
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         class AddBias(tp.nn.Module):
             def __init__(self):
@@ -71,9 +71,9 @@ class Module:
         Returns:
             A dictionary mapping names to parameters.
 
-        Example:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Example
 
             # doc: print-locals state_dict
 
@@ -109,9 +109,9 @@ class Module:
         Args:
             state_dict: A dictionary mapping names to parameters.
 
-        For example, using the module defined in the example in :func:`state_dict` :
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Example
 
             # doc: no-print-locals
 
@@ -124,6 +124,7 @@ class Module:
             module = MyModule() # doc: omit
             state_dict = module.state_dict() # doc: omit
 
+            # Using the `module` and `state_dict` from the `state_dict()` example:
             print(f"Before: {module.param}")
 
             state_dict["param"] = tp.nn.Parameter(tp.Tensor(np.zeros(2, dtype=np.float32)))
@@ -132,6 +133,8 @@ class Module:
             print(f"After: {module.param}")
 
             assert np.array_equal(module.state_dict()["param"].numpy(), np.array(np.zeros(2, dtype=np.float32)))
+
+        .. seealso:: :func:`state_dict`
         """
         for nested_attr_name, param in state_dict.items():
             submodule_name, _, param_name = nested_attr_name.rpartition(".")
@@ -149,9 +152,9 @@ class Module:
         Returns:
             An iterator over tuples containing the name of the child module and the child module itself.
 
-        Example:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Example
 
             # doc: no-print-locals
 

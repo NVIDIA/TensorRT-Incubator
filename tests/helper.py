@@ -109,8 +109,16 @@ def consolidate_code_blocks(doc):
         if in_code_block:
             # Special directives can be used in the code blocks, but should not be
             # made part of our CodeBlock objects. Instead, we append them just before
-            # the actual code, which will be right after the `.. code:: python` line.
-            if line.strip().startswith(":") and line.strip().endswith(":"):
+            # the actual code, which will be right after the `.. code-block:: python` line.
+            def is_directive(line):
+                if not line.strip().startswith(":"):
+                    return False
+                tokens = line.strip().split(" ")
+                if not tokens:
+                    return False
+                return tokens[0].endswith(":")
+
+            if is_directive(line):
                 out.insert(-1, line)
             # If the line is empty or starts with whitespace, then we're still in the code block.
             elif not line or line.lstrip() != line:
@@ -118,7 +126,9 @@ def consolidate_code_blocks(doc):
             else:
                 out.append(line)
                 in_code_block = False
-        elif line.strip().startswith(".. code:: python"):
+
+        # This cannot be an `else` statement or we'd discard a line.
+        if not in_code_block and line.strip().startswith(".. code-block:: python"):
             in_code_block = True
             out.append(CodeBlock())
 

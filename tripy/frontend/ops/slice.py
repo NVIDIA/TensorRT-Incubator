@@ -102,9 +102,9 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
     Returns:
         A tensor cotnaining the slice of ths tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((1, 2, 3, 1))
         output = input[:, 1:2, :-1, 0]

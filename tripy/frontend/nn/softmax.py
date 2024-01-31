@@ -15,9 +15,9 @@ def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
     Returns:
         A tensor of the same shape as the input.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.iota([2, 2], dtype=tp.float32)
         output = tp.nn.softmax(input, dim=0)

@@ -131,9 +131,9 @@ def add(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])
@@ -160,9 +160,9 @@ def sub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 2])
@@ -189,9 +189,9 @@ def rsub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = 1
         b = tp.Tensor([1, 2])
@@ -218,9 +218,9 @@ def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
@@ -247,9 +247,9 @@ def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = 2.0
         b = tp.Tensor([2.0, 3.0])
@@ -277,9 +277,9 @@ def mul(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
@@ -306,9 +306,9 @@ def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([4.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
@@ -335,9 +335,9 @@ def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and of the same data type as the inputs.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = 6.0
         b = tp.Tensor([2.0, 3.0])
@@ -364,9 +364,9 @@ def less_than(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
@@ -394,9 +394,9 @@ def less_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor
     Returns:
         A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
@@ -423,9 +423,9 @@ def eq(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
@@ -452,9 +452,9 @@ def not_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 3])
@@ -481,9 +481,9 @@ def greater_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Ten
     Returns:
         A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 1])
@@ -510,9 +510,9 @@ def greater_than(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     Returns:
         A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([3, 1])

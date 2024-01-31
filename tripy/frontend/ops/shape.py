@@ -36,9 +36,9 @@ def shape(self) -> "tripy.Tensor":
     Returns:
         A 1D tensor containing the shape of this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.ones((8, 2))
         shape = input.shape

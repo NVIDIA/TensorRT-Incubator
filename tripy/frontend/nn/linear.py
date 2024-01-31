@@ -13,9 +13,9 @@ class Linear(Module):
         out_features: Size of output features.
         bias: Whether to include the bias term.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         linear = tp.nn.Linear(3, 4)
 

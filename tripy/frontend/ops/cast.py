@@ -35,9 +35,9 @@ def to(self, dtype: "tripy.dtype") -> "tripy.Tensor":
     Returns:
         A tensor containing the casted values.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.Tensor([1, 2], dtype=tp.int32)
         output = input.to(tp.float32)

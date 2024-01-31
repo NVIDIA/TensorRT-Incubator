@@ -63,9 +63,9 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
     Returns:
         A tensor of shape ``shape`` and data type ``dtype``.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         output = tp.iota([3])
 
@@ -100,9 +100,9 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None)
     Returns:
         A tensor of the same shape and data type (unless ``dtype`` is provided) as the input.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.Tensor([1, 2, 3])
         output = tp.iota_like(input)

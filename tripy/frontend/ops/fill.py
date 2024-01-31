@@ -67,9 +67,9 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
     Returns:
         A tensor of shape ``shape`` and data type ``dtype``.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         output = tp.full(shape=[2, 3], value=2)
 
@@ -93,9 +93,9 @@ def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: "tripy.dtype"
     Returns:
         A tensor of the same shape and data type (unless ``dtype`` is provided) as the input.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
         output = tp.full_like(input, value=2)

@@ -102,9 +102,9 @@ def sum(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = F
     Returns:
         A new tensor of the same data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.sum(0)
@@ -127,9 +127,9 @@ def max(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = F
     Returns:
         A new tensor of the same data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.max(0)
@@ -153,9 +153,9 @@ def prod(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = 
     Returns:
         A new tensor of the same data type as this tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.prod(0)
@@ -179,9 +179,9 @@ def mean(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = 
     Returns:
         mean of the input tensor
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.mean(dim=1, keepdim=True)
@@ -215,9 +215,9 @@ def var(
     Returns:
         variance of the input tensor
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
         output = input.var(dim=1, keepdim=True)

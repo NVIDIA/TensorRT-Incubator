@@ -127,9 +127,9 @@ def matmul(self, other: "tripy.Tensor") -> "tripy.Tensor":
     Returns:
         A new tensor of the same data type as this one.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float32)

@@ -14,9 +14,9 @@ def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
     Returns:
         A tensor of the same shape and data type as the input.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
         output = tp.nn.gelu(input)

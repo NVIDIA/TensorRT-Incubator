@@ -22,9 +22,9 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.T
     Returns:
         A tensor of shape ``shape`` with all elements set to 1.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         output = tp.ones([2, 3])
 
@@ -44,9 +44,9 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.
     Returns:
         A tensor of shape ``shape`` with all elements set to 0.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         output = tp.zeros([2, 3])
 
@@ -66,9 +66,9 @@ def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Ten
     Returns:
         A tensor of the same shape as the input with all elements set to 1.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.zeros([2, 3], dtype=tp.float32)
         output = tp.ones_like(input)
@@ -89,9 +89,9 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Te
     Returns:
         A tensor of the same shape as the input with all elements set to 0.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.ones([2, 3], dtype=tp.float32)
         output = tp.zeros_like(input)
@@ -118,27 +118,27 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
     Returns:
         A tensor of the same shape and datatype as this tensor.
 
-    For example, the lower triangular along the main diagonal:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Main Diagonal
 
         input = tp.iota((5, 5)) + 1.
         output = input.tril()
 
         assert np.array_equal(output.numpy(), np.tril(input.numpy()))
 
-    Along the diagonal that is two diagonals above the main:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Two Diagonals Above Main
 
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = input.tril(diagonal=2)
 
         assert np.array_equal(output.numpy(), np.tril(input.numpy(), 2))
 
-    Along the diagonal that is one diagonal below the main:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: One Diagonal Below Main
 
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = input.tril(diagonal=-1)
@@ -173,17 +173,17 @@ def arange(
     Returns:
         A tensor of shape :math:`[\frac{\text{stop}-\text{start}}{\text{step}}]`.
 
-    For example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         output = tp.arange(0.5, 2.5)
 
         assert (output.numpy() == np.arange(0.5, 2.5, dtype=np.float32)).all()
 
-    Using a different ``step`` value:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Custom ``step`` Value
 
         output = tp.arange(2.3, 0.8, -0.2)
 
@@ -218,9 +218,9 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
     Returns:
         A tensor of shape :math:`[\text{stop}]`.
 
-    For example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         output = tp.arange(5)
 

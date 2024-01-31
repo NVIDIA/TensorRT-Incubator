@@ -102,9 +102,9 @@ def tensor_init(
         dtype: The data type of the tensor.
         device: The device on which to allocate the tensor.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
     """

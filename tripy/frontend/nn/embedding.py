@@ -14,9 +14,9 @@ class Embedding(Module):
             num_embeddings: Number of embedding vectors in the lookup table.
             embedding_dim: Size of each embedding vector in the lookup table.
 
-        Example:
-
-        .. code:: python
+        .. code-block:: python
+            :linenos:
+            :caption: Example
 
             embedding = tp.nn.Embedding(num_embeddings=4, embedding_dim=6)
 

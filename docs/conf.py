@@ -22,6 +22,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
+    "sphinx_copybutton",
     "myst_parser",
 ]
 
@@ -45,6 +46,9 @@ add_module_names = True
 
 autosummary_generate = True
 
+# For constructor arguments to show up in Sphinx generated doc
+autoclass_content = "both"
+
 source_suffix = [".rst"]
 
 # The master toctree document.
@@ -60,7 +64,7 @@ version = tp.__version__
 release = version
 
 # Style
-pygments_style = "colorful"
+pygments_style = "xcode"
 pygments_dark_style = "one-dark"
 
 html_static_path = ["_static"]
@@ -82,8 +86,7 @@ html_show_sourcelink = True
 # Output file base name for HTML help builder.
 htmlhelp_basename = "TripyDoc"
 
-# For constructor arguments to show up in Sphinx generated doc
-autoclass_content = "both"
+html_css_files = ["style.css"]
 
 # Myst will complain about relative links in our top-level README
 suppress_warnings = ["myst.xref_missing"]
@@ -106,18 +109,18 @@ def process_docstring(app, what, name, obj, options, lines):
             # The docstring has been processed at this point such that parameters appear as `:param <name>:`
             documented_args = {match.replace(":param ", "").rstrip(":") for match in PARAM_PAT.findall(doc)}
 
-            for name, param in signature.parameters.items():
-                if name == "self":
+            for pname, param in signature.parameters.items():
+                if pname == "self":
                     # Don't want a type annotation for the self parameter.
                     assert (
                         param.annotation == signature.empty
                     ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation!"
                 else:
-                    assert name in documented_args, f"Missing documentation for parameter: '{name}' in: '{obj}'"
+                    assert pname in documented_args, f"Missing documentation for parameter: '{pname}' in: '{obj}'"
 
                     assert (
                         param.annotation != signature.empty
-                    ), f"Missing type annotation for parameter: '{name}' in: '{obj}'"
+                    ), f"Missing type annotation for parameter: '{pname}' in: '{obj}'"
 
             assert signature.return_annotation != signature.empty, (
                 f"Missing return type annotation for: '{obj}'. "
@@ -126,6 +129,18 @@ def process_docstring(app, what, name, obj, options, lines):
 
             if signature.return_annotation != None:
                 assert ":returns:" in doc, f"For: {obj}, return value is not documented."
+
+    def allow_no_example():
+        return (
+            what in {"attribute", "module", "class"}
+            or
+            # nn.Modules include examples in their constructors
+            (what == "method" and name.startswith("tripy.nn") and obj.__name__ == "__call__")
+        )
+
+    if not allow_no_example():
+        assert ".. code-block:: python" in doc, f"For: {obj} no example was provided. Please add an example!"
+        assert ":caption:" in doc, f"For: {obj} example does not have a caption. Please add a caption to each example!"
 
     lines.clear()
     for block in blocks:
@@ -157,6 +172,20 @@ def process_docstring(app, what, name, obj, options, lines):
 
             lines.append(block_line)
 
+        def add_block(title, contents):
+            line = block.splitlines()[1]
+            indentation = len(line) - len(line.lstrip())
+
+            out = (
+                indent(
+                    f"\n\n.. code-block:: python\n"
+                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * 4),
+                    prefix=" " * (indentation - 4),
+                )
+                + "\n\n"
+            )
+            lines.extend(out.splitlines())
+
         # Add output as a separate code block.
         outfile = io.StringIO()
 
@@ -176,6 +205,10 @@ def process_docstring(app, what, name, obj, options, lines):
 
         stdout = get_stdout() or ""
 
+        if stdout:
+            add_block("Output:", stdout)
+
+        # Add local variables as a separate code block
         locals_str = ""
         if should_append_locals:
             for name, obj in code_locals.items():
@@ -210,30 +243,16 @@ def process_docstring(app, what, name, obj, options, lines):
                     ret += "}"
                     return ret
 
+                locals_str += f"\n>>> {name}"
                 if isinstance(obj, tp.nn.Module):
-                    locals_str += f"\n{name}.state_dict(): {pretty_str_from_dict(obj.state_dict())}\n"
+                    locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
                 elif isinstance(obj, dict):
-                    locals_str += f"\n{name}: {pretty_str_from_dict(obj)}\n"
+                    locals_str += f"\n{pretty_str_from_dict(obj)}"
                 else:
-                    locals_str += f"\n{name}: {obj}\n"
+                    locals_str += f"\n{obj}"
 
-        def add_block(title, contents):
-            line = block.splitlines()[1]
-            indentation = len(line) - len(line.lstrip())
-
-            out = (
-                indent(
-                    f"\n{title}:\n:: \n\n{indent(contents, prefix=' ' * 4)}",
-                    prefix=" " * (indentation - 4),
-                )
-                + "\n\n"
-            )
-            lines.extend(out.splitlines())
-
-        if stdout:
-            add_block("Output", stdout)
         if locals_str:
-            add_block("Variable Values", locals_str)
+            add_block("", locals_str)
 
 
 def setup(app):
@@ -242,10 +261,5 @@ def setup(app):
     # To get the real documentation, you can make Sphinx think that `Y` is not an alias but instead a real
     # class/function. To do so, you just need to define the __name__ attribute in this function (*not* in tripy code!):
     #   Y.__name__ = "Y"
-
-    app.add_css_file("style.css")
-    LATEX_BUILDER = "sphinx.builders.latex"
-    if LATEX_BUILDER in app.config.extensions:
-        app.config.extensions.remove(LATEX_BUILDER)
 
     app.connect("autodoc-process-docstring", process_docstring)

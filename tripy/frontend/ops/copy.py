@@ -36,9 +36,9 @@ def to(self, device: "tripy.device") -> "tripy.Tensor":
     Returns:
         A copy of this tensor on target device.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         input = tp.Tensor([1, 2], device=tp.device("gpu"))
         output = input.to(tp.device("cpu"))

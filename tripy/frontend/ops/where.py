@@ -82,9 +82,9 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
     Constraints:
         All three parameters must be broadcast-compatible with each other.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         # TODO: Initialize directly from booleans
         condition = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
@@ -113,9 +113,9 @@ def masked_fill(self, mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Ten
     Returns:
         A new tensor of the same shape and data type as this one.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         # TODO: Initialize directly from booleans
         mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)

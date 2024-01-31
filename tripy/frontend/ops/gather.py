@@ -63,9 +63,9 @@ def gather(self, dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
         A new tensor of the same data type as this tensor and same shape along every
         dimension except ``dim``, which will have a size equal to ``len(index)``.
 
-    Example:
-
-    .. code:: python
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
         data = tp.iota((3, 2, 2))
         indices = tp.Tensor([0, 2], dtype=tp.int32)
