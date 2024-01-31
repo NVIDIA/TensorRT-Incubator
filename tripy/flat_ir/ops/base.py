@@ -1,7 +1,8 @@
 import abc
-import dataclasses
 from dataclasses import dataclass
-from typing import List
+from typing import List, Set
+
+from tripy import utils
 
 
 @dataclass
@@ -44,6 +45,12 @@ class BaseFIROp(abc.ABC):
         """
         ...
 
+    def str_skip_fields(self) -> Set[str]:
+        """
+        Returns names of dataclass fields to skip when generating a string representation of the op.
+        """
+        return set()
+
     def __str__(self) -> str:
         """
         Returns a FlatIR string representation of the operation.
@@ -54,10 +61,11 @@ class BaseFIROp(abc.ABC):
         outputs_str = (
             f"{str(self.outputs[0])}" if len(self.outputs) == 1 else ", ".join([str(out) for out in self.outputs])
         )
+        skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
-            for field in dataclasses.fields(self)
-            if field.name not in [base_field.name for base_field in dataclasses.fields(BaseFIROp)]
+            for field in utils.get_dataclass_fields(self, BaseFIROp)
+            if field.name not in skip_fields
         ]
         return f"{outputs_str} = {self.name()}({', '.join([inp.name for inp in self.inputs] + args)})"
 

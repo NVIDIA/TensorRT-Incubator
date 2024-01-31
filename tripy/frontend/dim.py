@@ -1,8 +1,9 @@
 import functools
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
+from tripy import utils
 from tripy.common.exception import raise_error
-from tripy.utils import default
+from tripy.utils.json import Decoder, Encoder
 
 
 def validate_profile(method: Callable) -> Callable:
@@ -73,10 +74,10 @@ class Dim:
         """
         self._runtime_value = runtime_value
 
-        self._min = default(min, self._runtime_value)
-        self._max = default(max, self._runtime_value)
+        self._min = utils.default(min, self._runtime_value)
+        self._max = utils.default(max, self._runtime_value)
 
-        self._opt = default(opt, int((self._max + self._min) / 2.0))
+        self._opt = utils.default(opt, int((self._max + self._min) / 2.0))
 
     def is_valid(self):
         return (
@@ -117,9 +118,6 @@ class Dim:
         assert self.is_static_dim() and other.is_static_dim()
         return self.min > other.min
 
-    def __hash__(self):
-        return hash((self.min, self.max, self.opt, self.runtime_value))
-
     @runtime_value.setter
     @validate_profile
     def runtime_value(self, shape) -> None:
@@ -133,7 +131,12 @@ class Dim:
             return f"Dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
         return f"{self.runtime_value}"
 
-    def is_a_subset_of(self, cached) -> bool:
-        if self.is_dynamic_dim():
-            return self.min > cached.min and self.max < cached.max
-        return self.runtime_value >= cached.min and self.runtime_value <= cached.max
+
+@Encoder.register(Dim)
+def encode(dim: Dim) -> Dict[str, Any]:
+    return {"runtime_value": dim.runtime_value, "min": dim.min, "opt": dim.opt, "max": dim.max}
+
+
+@Decoder.register(Dim)
+def decode(dct: Dict[str, Any]) -> Dim:
+    return Dim(dct["runtime_value"], min=dct["min"], opt=dct["opt"], max=dct["max"])

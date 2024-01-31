@@ -61,7 +61,7 @@ class Module:
         elif name in self._modules:
             return self._modules[name]
 
-        raise AttributeError(f"No attribute {name} found in {self.__class__.__name__} module")
+        raise AttributeError(f"No attribute '{name}' found in '{self.__class__.__name__}' module")
 
     def state_dict(self) -> Dict[str, Parameter]:
         r"""

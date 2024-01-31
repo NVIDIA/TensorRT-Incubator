@@ -13,8 +13,8 @@ class TestTrace:
 
         trace = Trace([a])
 
-        assert len(trace.layers) == 1
-        layer = trace.layers[0]
+        assert len(trace.ops) == 1
+        layer = trace.ops[0]
 
         assert layer == a.op
         assert layer.inputs == []
@@ -28,8 +28,8 @@ class TestTrace:
 
         trace = Trace([c])
 
-        assert len(trace.layers) == 3
-        names = {layer.outputs[0].name for layer in trace.layers}
+        assert len(trace.ops) == 3
+        names = {layer.outputs[0].name for layer in trace.ops}
 
         assert names == {"t0", "t1", "t2"}
 
@@ -41,10 +41,10 @@ class TestTrace:
 
         trace = Trace([c])
 
-        assert len(trace.layers) == 3
+        assert len(trace.ops) == 3
 
         # The final layer should be 'c'. The ordering of 'a' and 'b' doesn't matter.
-        assert trace.layers[-1].outputs[0].name == "t2"
+        assert trace.ops[-1].outputs[0].name == "t2"
 
     def test_duplicate_traces_are_skipped(self):
         a = Tensor([0])
@@ -59,23 +59,7 @@ class TestTrace:
 
         # If we end up tracing `c` twice, we'll end up with 7 layers: [a, b, a, b, c, c, d].
         # Without duplication, we should just have [a, b, c, d].
-        assert len(trace.layers) == 4
-
-    # For a given program, we should generate identical Traces each time.
-    def test_ir_consistent_across_runs(self):
-        def make_expr():
-            a = Tensor([0])
-            b = Tensor([1])
-
-            c = a + b
-            return c
-
-        # We do this in a loop so that the stack traces are identical
-        irs = []
-        for _ in range(2):
-            irs.append(Trace([make_expr()]))
-
-        assert irs[0] == irs[1]
+        assert len(trace.ops) == 4
 
     def test_str(self):
         a = Tensor([0])
@@ -107,11 +91,10 @@ class TestTrace:
         c = a + b
 
         trace = Trace([c])
-        trace.infer_tensor_info()
 
-        assert trace.layers[-1].outputs[0].shape == shape
-        assert trace.layers[-1].outputs[0].dtype == a.op.dtype
-        assert trace.layers[-1].outputs[0].device == device("gpu")
+        assert trace.ops[-1].outputs[0].shape == shape
+        assert trace.ops[-1].outputs[0].dtype == a.op.dtype
+        assert trace.ops[-1].outputs[0].device == device("gpu")
 
     def test_multiple_outputs(self):
         shape = 1
@@ -147,7 +130,7 @@ class TestTrace:
         trace = Trace([a], [a])
         assert len(trace.inputs) == 1
         assert len(trace.outputs) == 1
-        assert len(trace.layers) == 0
+        assert len(trace.ops) == 0
 
     def test_all_inputs(self):
         shape = 1

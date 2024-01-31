@@ -6,10 +6,11 @@ import pytest
 import torch
 
 import tripy as tp
+from tests import helper
+from tripy.backend.jit.utils import get_tensor_info
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
-from tripy.common import LoggerModes, set_logger_mode
-from tripy.common.logging import get_log_str
+from tripy.common import LoggerModes
 from tripy.frontend.trace import Trace
 
 
@@ -75,11 +76,11 @@ class TestFunctional:
         d = c + c
         trace = Trace([c, d])
         flat_ir = trace.to_flat_ir()
-        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
-        output_devices = [o.device for o in trace.outputs]
 
         compiler = FlatIRCompiler()
-        with FlatIRExecutor(compiler.compile(flat_ir), output_devices, i_tensor_info, o_tensor_info) as executor:
+        with FlatIRExecutor(
+            compiler.compile(flat_ir), get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)
+        ) as executor:
             out = executor.execute()
             assert (
                 len(out) == 2
@@ -279,28 +280,28 @@ class TestCopyFunctional:
 class TestDynamic:
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_jit(self, dim):
-        set_logger_mode(LoggerModes.VERBOSE, True)
+        with helper.CaptureLogging(LoggerModes.VERBOSE) as output:
+            a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+            b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
 
-        a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
-        b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+            @tp.jit
+            def func(a, b):
+                c = a + b
+                return c
 
-        @tp.jit
-        def func(a, b):
-            c = a + b
-            return c
+            out = func(a, b)
+            assert (out.numpy() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
 
-        out = func(a, b)
-        assert (out.numpy() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
+            print("Re-run dynamic shape test with a different input shape.")
 
-        print("Re-run dynamic shape test with a different input shape.")
+            a = tp.Tensor(np.ones(3, dtype=np.float32), device=tp.device("gpu"))
+            b = tp.Tensor(np.ones(3, dtype=np.float32), device=tp.device("gpu"))
 
-        a = tp.Tensor(np.ones(3, dtype=np.float32), device=tp.device("gpu"))
-        b = tp.Tensor(np.ones(3, dtype=np.float32), device=tp.device("gpu"))
+            out = func(a, b)
+            assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
+            # 1 compile call for stablehlo add and 2 compile calls for device copy.
 
-        out = func(a, b)
-        assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
-        # 1 compile call for stablehlo add and 2 compile calls for device copy.
-        assert get_log_str().count("compile(<tripy.backend.mlir.compiler.FlatIRCompile") == 3
+        assert str(output).count("compile(<tripy.backend.mlir.compiler.FlatIRCompiler") == 3
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
@@ -362,8 +363,6 @@ class TestConversionToTripyType:
         ],
     )
     def test_element_wise_prod(self, reverse_direction, input0, input1):
-        set_logger_mode(LoggerModes.VERBOSE, True)
-
         a = tp.Tensor(input0)
         if reverse_direction:
             out = input1 * a

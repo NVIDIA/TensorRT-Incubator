@@ -1,9 +1,9 @@
+import dataclasses
 from dataclasses import dataclass
 
-import dataclasses
 from tripy.common.types import ShapeInfo
 from tripy.frontend import Dim
-from tripy.utils import StackInfo, make_list
+from tripy import utils
 
 
 @dataclass
@@ -15,7 +15,7 @@ class TraceTensor:
     name: str
     """A unique name for the tensor"""
 
-    stack_info: StackInfo
+    stack_info: utils.StackInfo
     """Information about the stack where the tensor was created"""
 
     shape: ShapeInfo
@@ -50,7 +50,7 @@ class TraceTensor:
 
     # Returns a list filled with requested optimization profile information.
     def get_optimization_profile_list(self, attr):
-        return [getattr(s, attr) if s.is_dynamic_dim() else s.min for s in make_list(self.shape)]
+        return [getattr(s, attr) if s.is_dynamic_dim() else s.min for s in utils.make_list(self.shape)]
 
     def to_flat_ir(self) -> "FIRTensor":
         from tripy.flat_ir.tensor import FIRTensor

@@ -56,10 +56,14 @@ class TestDecoder:
             from_json(d_json)
 
     def test_names_correct(self):
-        # Trigger `try_register_common_json` before we check REGISTERED:
-        d = Dummy(x=-1)
-        to_json(d)
-
         # If the name of a class changes, then we need to specify an `alias` when registering
         # to retain backwards compatibility.
-        assert set(Decoder.REGISTERED.keys()) == {"Dummy", "ndarray"}
+        assert set(Decoder.REGISTERED.keys()) == {
+            "CachedExecutable",
+            "device",
+            "Dim",
+            "dtype",
+            "Dummy",
+            "ndarray",
+            "TensorInfo",
+        }

@@ -2,6 +2,7 @@ import pytest
 
 import tripy as tp
 from tripy.frontend.ops import Reduce, BinaryElementwise
+from tripy.frontend.trace import Trace
 
 
 class TestReduce:

@@ -125,10 +125,6 @@ class Decoder(BaseCustomImpl):
         if type_name is None:
             return dct
 
-        # Some type names are different than what they are registered under.
         if type_name not in self.REGISTERED:
-            user_type_name = {
-                "ndarray": "np.ndarray",
-            }.get(type_name, type_name)
-            raise_error(f"Could not decode serialized type: {user_type_name}.")
+            raise_error(f"Could not decode serialized type: {type_name}.")
         return self.REGISTERED[type_name](dct)

@@ -1,6 +1,5 @@
-import dataclasses
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Set, Tuple, Union
 
 import tripy.common
 from tripy import utils
@@ -55,20 +54,10 @@ class Storage(BaseOperator):
         self.shape: ShapeInfo = utils.make_tuple(to_dims(self.data.shape) if shape is None else to_dims(shape))
         self.shape_profile: List = utils.make_list(shape)
 
-    def __str__(self) -> str:
-
-        data_volume = utils.volume(self.shape)
-
-        skip_fields = [base_field.name for base_field in dataclasses.fields(BaseOperator)]
-        if utils.skip_constant_from_logging(data_volume):
-            skip_fields = ["data"] + skip_fields
-
-        args = [
-            f"{field.name}={getattr(self, field.name)}"
-            for field in dataclasses.fields(self)
-            if field.name not in skip_fields
-        ]
-        return f"{self.outputs[0].name} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"
+    def str_skip_fields(self) -> Set[str]:
+        if utils.should_omit_constant_in_str(self.shape):
+            return {"data"}
+        return set()
 
     def __eq__(self, other) -> bool:
         return self.data == other.data

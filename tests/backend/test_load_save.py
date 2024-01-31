@@ -1,10 +1,11 @@
 import os
 import tempfile
-import pytest
 
 import numpy as np
-import tripy as tp
+import pytest
 
+import tripy as tp
+from tripy.backend.jit.utils import get_tensor_info
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.frontend.trace import Trace
@@ -24,8 +25,6 @@ def test_save_load_from_file(init_flat_ir):
     with tempfile.NamedTemporaryFile() as temp_file:
         filename = temp_file.name
         flat_ir = init_flat_ir
-        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
-        output_devices = [o.device for o in flat_ir.outputs]
 
         compiler = FlatIRCompiler()
         executable = compiler.compile(flat_ir)
@@ -33,7 +32,7 @@ def test_save_load_from_file(init_flat_ir):
         assert os.path.exists(filename)
 
         executable = compiler.compiler.load(filename)
-        with FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info) as executor:
+        with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
             out = executor.execute()
             assert len(out) == 1
             assert (out[0].data.view().get() == np.array([3, 5])).all()
@@ -43,9 +42,6 @@ def test_save_load_from_string(init_flat_ir):
     with tempfile.NamedTemporaryFile() as temp_file:
         filename = temp_file.name
         flat_ir = init_flat_ir
-        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
-        output_devices = [o.device for o in flat_ir.outputs]
-
         compiler = FlatIRCompiler()
         executable = compiler.compile(flat_ir)
         compiler.compiler.save(executable, filename)
@@ -53,7 +49,7 @@ def test_save_load_from_string(init_flat_ir):
 
         exec_str = temp_file.read()
         executable = compiler.compiler.load(data=exec_str)
-        with FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info) as executor:
+        with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
             out = executor.execute()
             assert len(out) == 1
             assert (out[0].data.view().get() == np.array([3, 5])).all()

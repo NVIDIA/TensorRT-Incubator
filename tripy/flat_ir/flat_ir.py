@@ -6,20 +6,6 @@ from tripy.flat_ir.ops import BaseFIROp
 from tripy.frontend.dim import Dim
 
 
-class FlatIRTensorInfo:
-    def __init__(self, shape: Tuple[Dim], dtype):
-        self.shape = shape
-        self.dtype = dtype
-
-
-class FlatIRShapeInfo:
-    def __init__(self, shape: Tuple[Dim]):
-        self.shape = shape
-
-    def is_a_subset_of(self, cached: "FlatIRShapeInfo"):
-        return all(curr.is_a_subset_of(cached) for curr, cached in zip(self.shape, cached.shape))
-
-
 class FlatIR:
     """
     A flattened low level representation of a computation graph which maps directly with StableHLO dialect.
@@ -140,13 +126,3 @@ class FlatIR:
         for tensor in reversed(tensors):
             self.register_tensor(tensor)
         self.ops.extend(reversed(ops))
-
-    def io_shape_info(self):
-        i_tensor_info = [FlatIRShapeInfo([s for s in i.shape]) for i in self.inputs]
-        o_tensor_info = [FlatIRShapeInfo([s for s in o.shape]) for o in self.outputs]
-        return (i_tensor_info, o_tensor_info)
-
-    def io_tensor_info(self):
-        i_tensor_info = [FlatIRTensorInfo([s for s in i.shape], i.dtype) for i in self.inputs]
-        o_tensor_info = [FlatIRTensorInfo([s for s in o.shape], o.dtype) for o in self.outputs]
-        return (i_tensor_info, o_tensor_info)

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from typing import Any, Dict
 
 from tripy.common.exception import TripyException
+from tripy.utils.json import Decoder, Encoder
 
 
 @dataclass
@@ -63,3 +65,13 @@ class device:
 
     def __str__(self) -> str:
         return f"{self.kind}:{self.index}"
+
+
+@Encoder.register(device)
+def encode(dev: device) -> Dict[str, Any]:
+    return {"kind": dev.kind, "index": dev.index}
+
+
+@Decoder.register(device)
+def decode(dct: Dict[str, Any]) -> device:
+    return device(f"{dct['kind']}:{dct['index']}")

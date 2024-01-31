@@ -1,5 +1,5 @@
-import io
 import logging
+import sys
 
 from colored import Fore, attr
 
@@ -47,13 +47,12 @@ logging.addLevelName(LoggerModes.IR, "IR_printer")
 logging.addLevelName(LoggerModes.TIMING, "Timing")
 logging.addLevelName(LoggerModes.VERBOSE, "Verbose")
 G_LOGGER = logging.getLogger(__name__)
-log_str = io.StringIO()
 
 for level in [LoggerModes.IR, LoggerModes.TIMING, LoggerModes.VERBOSE]:
     setattr(logging.Logger, logging.getLevelName(level).lower(), create_level_log_method(level))
 
 
-def set_logger_mode(loggerModes: LoggerModes, log_str_stream: bool = False):
+def set_logger_mode(loggerModes: LoggerModes):
     global G_LOGGER
     if loggerModes & LoggerModes.VERBOSE:
         G_LOGGER.setLevel(LoggerModes.VERBOSE)
@@ -64,15 +63,8 @@ def set_logger_mode(loggerModes: LoggerModes, log_str_stream: bool = False):
     if loggerModes & LoggerModes.IR:
         G_LOGGER.setLevel(LoggerModes.IR)
 
-    if log_str_stream:
-        ch = logging.StreamHandler(log_str)
-    else:
-        ch = logging.StreamHandler()
-    ch.addFilter(LogFilter(loggerModes))
+    handler = logging.StreamHandler()
+    handler.addFilter(LogFilter(loggerModes))
     formatter = ColoredFormatter("\n====%(levelname)s==== \n%(message)s")
-    ch.setFormatter(formatter)
-    G_LOGGER.addHandler(ch)
-
-
-def get_log_str():
-    return log_str.getvalue()
+    handler.setFormatter(formatter)
+    G_LOGGER.addHandler(handler)

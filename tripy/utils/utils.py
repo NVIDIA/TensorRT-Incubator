@@ -1,10 +1,13 @@
+import dataclasses
 import glob
+import hashlib
 import os
 import time
 import typing
 from dataclasses import dataclass
 from typing import Any, List, Union
 
+from tripy import config
 from tripy.common.logging import G_LOGGER
 
 
@@ -121,9 +124,16 @@ def volume(shape):
     return volume
 
 
-def skip_constant_from_logging(vol):
-    CONSTANT_VOLUME = 5.0
-    return vol >= CONSTANT_VOLUME
+def should_omit_constant_in_str(shape):
+    return volume(shape) >= config.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
+
+
+def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
+    """
+    Returns all dataclass fields of the specified object, excluding fields inherited from BaseClass.
+    """
+    base_fields = {base_field.name for base_field in dataclasses.fields(BaseClass)}
+    return [field for field in dataclasses.fields(obj) if field.name not in base_fields]
 
 
 ##
@@ -261,3 +271,14 @@ def save_file(
         with open(dest, mode) as f:
             f.write(contents)
     return dest
+
+
+##
+## Hashing
+##
+def md5(*args) -> int:
+    """
+    Returns the md5sum of an object. This function relies on `repr`
+    to generate a byte buffer for the object.
+    """
+    return int(hashlib.md5(repr(args).encode()).hexdigest(), base=16)

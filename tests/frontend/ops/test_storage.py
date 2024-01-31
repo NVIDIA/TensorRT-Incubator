@@ -3,23 +3,24 @@ import numpy as np
 import pytest
 from mlir import ir
 
-import tripy
+import tripy as tp
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.datatype import DATA_TYPES
 from tripy.flat_ir.flat_ir import FlatIR
 from tripy.frontend.dim import Dim
 from tripy.frontend.ops import Storage
+from tripy.frontend.trace import Trace
 from tripy.frontend.trace.tensor import TraceTensor
 
 
 class TestStorage:
     def test_cpu_storage(self):
-        storage = Storage([], [], False, [1, 2, 3], shape=(Dim(3),), device=tripy.device("cpu"))
+        storage = Storage([], [], False, [1, 2, 3], shape=(Dim(3),), device=tp.device("cpu"))
         assert isinstance(storage.data.byte_buffer, np.ndarray)
         assert storage.device.kind == "cpu"
 
     def test_gpu_storage(self):
-        storage = Storage([], [], False, [1, 2, 3], shape=(Dim(3),), device=tripy.device("gpu"))
+        storage = Storage([], [], False, [1, 2, 3], shape=(Dim(3),), device=tp.device("gpu"))
         assert isinstance(storage.data.byte_buffer, cp.ndarray)
         assert storage.device.kind == "gpu"
 
@@ -28,13 +29,13 @@ class TestStorage:
         # (32): Allow setting all tripy supported types here.
         # Given a int/float data list, store data with requested data type.
 
-        if dtype in {tripy.int4, tripy.bfloat16, tripy.float8e4m3fn}:
+        if dtype in {tp.int4, tp.bfloat16, tp.float8e4m3fn}:
             pytest.skip("Type is not supported by numpy/cupy")
 
-        if dtype in {tripy.int8, tripy.int64, tripy.float16, tripy.uint8, tripy.bool}:
+        if dtype in {tp.int8, tp.int64, tp.float16, tp.uint8, tp.bool}:
             pytest.skip("Skip test until cast operation implemented.")
 
-        data = [1, 2, 3] if dtype == tripy.int32 else [1.0, 2.0, 3.0]
+        data = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
         storage = Storage([], [], False, data, shape=(Dim(3),), dtype=dtype)
         assert storage.dtype == dtype
         assert storage.dtype.name == dtype.name
@@ -45,13 +46,13 @@ class TestStorage:
         # (32): Allow setting all tripy supported types here.
         # Given a int/float data list, store data with requested data type.
 
-        if dtype in {tripy.int4, tripy.bfloat16, tripy.float8e4m3fn}:
+        if dtype in {tp.int4, tp.bfloat16, tp.float8e4m3fn}:
             pytest.skip("Type is not supported by numpy/cupy")
 
-        if dtype in {tripy.int8, tripy.int64, tripy.float16, tripy.uint8, tripy.bool}:
+        if dtype in {tp.int8, tp.int64, tp.float16, tp.uint8, tp.bool}:
             pytest.skip("Skip test until cast operation implemented.")
 
-        data = [1, 2, 3] if dtype == tripy.int32 else [1.0, 2.0, 3.0]
+        data = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
         storage = Storage(
             [], [TraceTensor("t0", None, [3], None, dtype, None)], False, data, shape=(Dim(3),), dtype=dtype
         )

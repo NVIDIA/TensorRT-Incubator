@@ -73,6 +73,7 @@ class Tensor(metaclass=TensorMeta):
         return tensor
 
     def eval(self) -> Array:
+        from tripy.backend.jit.utils import get_tensor_info
         from tripy.backend.mlir.compiler import FlatIRCompiler
         from tripy.backend.mlir.executor import FlatIRExecutor
         from tripy.frontend.trace import Trace
@@ -84,11 +85,9 @@ class Tensor(metaclass=TensorMeta):
         G_LOGGER.ir_printer(f"Trace :\n{trace}")
         flat_ir = trace.to_flat_ir()
         G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
-        output_devices = [o.device for o in trace.outputs]
-        i_tensor_info, o_tensor_info = flat_ir.io_tensor_info()
         compiler = FlatIRCompiler()
         executable = compiler.compile(flat_ir)
-        with FlatIRExecutor(executable, output_devices, i_tensor_info, o_tensor_info) as executor:
+        with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
             storage_arr = executor.execute()

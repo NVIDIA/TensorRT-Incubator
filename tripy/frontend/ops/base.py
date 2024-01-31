@@ -1,7 +1,8 @@
 import abc
-import dataclasses
 from dataclasses import dataclass
-from typing import List
+from typing import List, Set
+
+from tripy import utils
 
 
 @dataclass
@@ -52,6 +53,12 @@ class BaseOperator(abc.ABC):
         """
         ...
 
+    def str_skip_fields(self) -> Set[str]:
+        """
+        Returns names of dataclass fields to skip when generating a string representation of the op.
+        """
+        return set()
+
     def __str__(self) -> str:
         """
         Returns a Trace string representation of the operation.
@@ -61,9 +68,10 @@ class BaseOperator(abc.ABC):
         """
         assert len(self.outputs) == 1, "Base class implementation only works for single output operations!"
 
+        skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
-            for field in dataclasses.fields(self)
-            if field.name not in [base_field.name for base_field in dataclasses.fields(BaseOperator)]
+            for field in utils.get_dataclass_fields(self, BaseOperator)
+            if field.name not in skip_fields
         ]
         return f"{self.outputs[0].name} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"

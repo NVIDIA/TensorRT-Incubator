@@ -38,9 +38,6 @@ class TestMatrixMultiplication:
         ],
     )
     def test_broadcast_gemm(self, shape_a, shape_b):
-        from tripy.common.logging import set_logger_mode, LoggerModes
-
-        set_logger_mode(LoggerModes.IR | LoggerModes.TIMING | LoggerModes.VERBOSE)
         a_np = create_random_matrix(shape_a)
         b_np = create_random_matrix(shape_b)
         a = tripy.Tensor(a_np)

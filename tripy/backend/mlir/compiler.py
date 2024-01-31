@@ -1,7 +1,6 @@
+from tripy import utils
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
 from tripy.common.logging import G_LOGGER
-from tripy.utils import log_time, skip_constant_from_logging, volume
-from tripy.utils.utils import prefix_with_line_numbers
 
 
 class FlatIRCompiler:
@@ -26,14 +25,14 @@ class FlatIRCompiler:
             dims = substr.split("x")
             dims = [int(dim) for dim in dims if dim.isdigit()]
 
-            if skip_constant_from_logging(volume(dims)):
+            if utils.should_omit_constant_in_str(dims):
                 return text[:const_start_index] + "..." + text[const_end_index + 1 :]
             return text
 
         replaced = [replace_dense_data(line) if "stablehlo.constant dense" in line else line for line in lines]
         return "\n".join(replaced)
 
-    @log_time
+    @utils.log_time
     def compile(self, flat_ir: "FlatIR") -> void_ptr:
         """
         Given a flat_ir, compile function traces the computation graph and generates a mlir-tensorrt executable.
@@ -45,6 +44,6 @@ class FlatIRCompiler:
         mlir_module = flat_ir.to_mlir()
         mlir_textual = str(mlir_module)
         G_LOGGER.ir_printer(
-            f"StableHLO IR:\n{prefix_with_line_numbers(FlatIRCompiler.remove_stablehlo_constants(mlir_textual))}"
+            f"StableHLO IR:\n{utils.prefix_with_line_numbers(FlatIRCompiler.remove_stablehlo_constants(mlir_textual))}"
         )
         return self.compiler.compile(mlir_textual)

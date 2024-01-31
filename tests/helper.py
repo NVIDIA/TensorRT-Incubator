@@ -11,8 +11,34 @@ import torch
 import tripy as tp
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
+from tripy.common.logging import G_LOGGER, set_logger_mode
+import io
+import logging
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+
+
+class CaptureLogging:
+    def __init__(self, logger_modes):
+        self.contents = io.StringIO()
+        self.handler = logging.StreamHandler(self.contents)
+        self.logger_modes = logger_modes
+        self.previous_logger_level = None
+
+    def __enter__(self):
+        G_LOGGER.addHandler(self.handler)
+        self.previous_logger_level = G_LOGGER.getEffectiveLevel()
+        set_logger_mode(self.logger_modes)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        G_LOGGER.removeHandler(self.handler)
+        G_LOGGER.setLevel(self.previous_logger_level)
+
+    def __str__(self):
+        self.contents.seek(0)
+        return self.contents.read()
+
 
 # Supported NumPy data types
 NUMPY_TYPES = [

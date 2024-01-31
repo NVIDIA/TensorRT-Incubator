@@ -1,6 +1,8 @@
 import numpy as np
 
 import tripy as tp
+from tripy.common.logging import LoggerModes
+from tests import helper
 
 
 class TestParameter:
@@ -11,11 +13,11 @@ class TestParameter:
         def func(param):
             return param + param
 
-        # Trigger compilation:
-        func(param)
+        with helper.CaptureLogging(LoggerModes.IR) as output:
+            # Trigger compilation:
+            func(param)
 
-        # Check that param is const folded into jitted function.
-        assert func._const_args == (0,)
+        assert "ConstantOp(data=[1 2 3], dtype=int32, device=gpu:0)" in str(output)
 
     def test_is_instance_of_tensor(self):
         param = tp.nn.Parameter(tp.Tensor([1, 2, 3]))

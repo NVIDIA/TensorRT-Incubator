@@ -1,7 +1,9 @@
-from typing import Any
+from typing import Any, Dict
 
 import numpy as np
 import torch
+
+from tripy.utils.json import Decoder, Encoder
 
 # A dictionary to store data types
 DATA_TYPES = {}
@@ -91,3 +93,13 @@ def convert_numpy_to_tripy_dtype(dtype: Any) -> Any:
     else:
         dtype_name = dtype.name
     return _NUMPY_TO_TRIPY.get(dtype_name, None)
+
+
+@Encoder.register(dtype)
+def encode(obj: dtype) -> Dict[str, Any]:
+    return {"name": obj.name}
+
+
+@Decoder.register(dtype)
+def decode(dct: Dict[str, Any]) -> dtype:
+    return DATA_TYPES[dct["name"]]
