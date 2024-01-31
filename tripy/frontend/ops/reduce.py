@@ -120,7 +120,8 @@ def max(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = F
     Returns a new tensor containing the maximum of the elements of this tensor along the specified dimension.
 
     Args:
-        dim: the dimension or dimensions to reduce. If None, all dimensions are reduced.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
         keepdim: Whether to retain reduced dimensions in the output.
             If this is False, reduced dimensions will be squeezed.
 
