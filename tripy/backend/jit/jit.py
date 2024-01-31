@@ -147,6 +147,7 @@ class jit:
             trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids + tuple(dim_list))
 
             trace = None
+            input_tensor_info = None
             output_tensor_info = None
 
             if trace_signature_key not in self._trace_signatures:
@@ -159,6 +160,7 @@ class jit:
 
                 trace = make_trace()
                 self._trace_signatures[trace_signature_key] = compute_trace_signature(trace)
+                input_tensor_info = get_tensor_info(trace.inputs)
                 output_tensor_info = get_tensor_info(trace.outputs)
 
             trace_signature = self._trace_signatures[trace_signature_key]
@@ -175,15 +177,15 @@ class jit:
                 compiler = FlatIRCompiler()
                 executable = CachedExecutable(
                     compiler.compile(flat_ir),
-                    input_tensor_info,
+                    get_tensor_info(trace.inputs),
                     get_tensor_info(trace.outputs),
                 )
                 self.cache[trace_signature].append(executable)
 
             executor = FlatIRExecutor(
                 executable.executable,
-                executable.input_info,
-                # HACK (#109): We only use the executables output tensor information if we didn't recompute the trace.
+                # HACK (#109): We only use the executables I/O tensor information if we didn't recompute the trace.
+                utils.default(input_tensor_info, executable.input_info),
                 utils.default(output_tensor_info, executable.output_info),
             )
             outputs = executor.execute(inputs)

@@ -167,7 +167,7 @@ class Module:
             stacked_linear = StackedLinear()
 
             for name, module in stacked_linear.named_children():
-                print(f"{name}: {module}")
+                print(f"{name}: {type(module).__name__}")
 
             assert [name for name, _ in stacked_linear.named_children()] == ["linear1", "linear2"]
         """
