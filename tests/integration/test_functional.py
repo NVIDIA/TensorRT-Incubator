@@ -278,11 +278,14 @@ class TestCopyFunctional:
 
 
 class TestDynamic:
-    @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
-    def test_dynamic_jit(self, dim):
+    @pytest.mark.parametrize("dims", [(tp.Dim(4, min=2, opt=4, max=6), 2)])
+    def test_dynamic_jit(self, dims):
         with helper.CaptureLogging(LoggerModes.VERBOSE) as output:
-            a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
-            b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+            a_np = np.random.rand(dims[0].runtime_value, dims[1]).astype(np.float32)
+            b_np = np.random.rand(dims[0].runtime_value, dims[1]).astype(np.float32)
+
+            a = tp.Tensor(a_np, shape=dims, device=tp.device("gpu"))
+            b = tp.Tensor(b_np, shape=dims, device=tp.device("gpu"))
 
             @tp.jit
             def func(a, b):
@@ -290,18 +293,21 @@ class TestDynamic:
                 return c
 
             out = func(a, b)
-            assert (out.numpy() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
-
+            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
             print("Re-run dynamic shape test with a different input shape.")
 
-            a = tp.Tensor(np.ones(3, dtype=np.float32), device=tp.device("gpu"))
-            b = tp.Tensor(np.ones(3, dtype=np.float32), device=tp.device("gpu"))
+            a_np = np.random.rand(dims[0].max, dims[1]).astype(np.float32)
+            b_np = np.random.rand(dims[0].max, dims[1]).astype(np.float32)
+            a = tp.Tensor(a_np, device=tp.device("gpu"))
+            b = tp.Tensor(b_np, device=tp.device("gpu"))
 
             out = func(a, b)
-            assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
-            # 1 compile call for stablehlo add and 2 compile calls for device copy.
+            print("out:", out)
+            print("npout:", a_np + b_np)
 
-        assert str(output).count("compile(<tripy.backend.mlir.compiler.FlatIRCompiler") == 3
+            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
+            # 1 compile call for stablehlo add.
+        assert str(output).count("%0 = stablehlo.add") == 1
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
