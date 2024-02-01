@@ -13,9 +13,6 @@ class BaseOperator(abc.ABC):
     outputs: List["TraceTensor"]
     """The outputs of this layer"""
 
-    const_fold: bool
-    """Whether to treat the operation as a constant in JIT"""
-
     @abc.abstractmethod
     def infer_shapes(self):
         """

@@ -125,8 +125,6 @@ class TestTrace:
     def test_input_output(self):
         a = Tensor([1, 1])
         # a is an input
-        a.op.const_fold = False
-
         trace = Trace([a], [a])
         assert len(trace.inputs) == 1
         assert len(trace.outputs) == 1
@@ -138,11 +136,8 @@ class TestTrace:
         # (38): Add cast operation to support unsupported backend types.
         a = Tensor(np.ones(shape, dtype=np.float32))
         b = Tensor(np.ones(shape, dtype=np.float32))
-        # a and b are inputs
-        a.op.const_fold = False
-        b.op.const_fold = False
-
         c = a + b
+        # a and b are inputs
         trace = Trace([c], [a, b])
         print(trace)
         assert (
@@ -163,10 +158,8 @@ class TestTrace:
         shape = 1
         a = Tensor(np.ones(shape, dtype=np.float32))
         b = Tensor(np.ones(shape, dtype=np.float32))
-        # a is an input
-        a.op.const_fold = False
-
         c = a + b
+        # a is an input
         trace = Trace([c], [a])
         print(trace)
         assert (

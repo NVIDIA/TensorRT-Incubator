@@ -40,6 +40,7 @@ class Trace:
         exprs = [tensor.op for tensor in tensors]
         # Track outputs:
         output_ids = set(id(expr) for expr in exprs)
+        input_op_ids = set(id(inp.op) for inp in inputs)
         seen_op_ids: Set[int] = set()
 
         # Reset names each time we create a trace. This is a hack since we depend on
@@ -63,7 +64,7 @@ class Trace:
             for io in head.inputs + head.outputs:
                 io.name = get_name(io)
 
-            if head.inputs or head.const_fold:
+            if id(head) not in input_op_ids:
                 # not as an input
                 self.ops.append(head)
                 exprs.extend([inp.producer for inp in head.inputs])

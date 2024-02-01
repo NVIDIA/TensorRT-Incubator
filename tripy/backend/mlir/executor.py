@@ -56,7 +56,6 @@ class FlatIRExecutor:
         # Create execargs
         device_inputs = []
         for inp in inputs:
-            assert not inp.op.const_fold
             inp_storage = inp.op
             if inp_storage.device.kind != "gpu":
                 raise Exception("Input tensors must be on device!")

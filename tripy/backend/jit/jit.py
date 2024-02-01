@@ -109,10 +109,10 @@ class jit:
             trace_inputs = []
 
             for index, arg in enumerate(args):
+                # Creating a new tensor to make sure each arg has a unique name
                 tensor = Tensor(arg.eval())
                 tensor._stack_info = arg._stack_info
                 if index not in const_argnums:
-                    tensor.op.const_fold = False
                     trace_inputs.append(tensor)
                 inputs.append(tensor)
                 input_tensor_info.append(TensorInfo(tensor.op.shape, tensor.op.dtype, tensor.op.device))
@@ -152,6 +152,7 @@ class jit:
                     return str(utils.md5(__version__, get_trace_signature(trace), const_tensor_ids))
 
                 trace = make_trace()
+                G_LOGGER.ir_printer(f"Trace :\n{trace}")
                 self._trace_signatures[trace_signature_key] = compute_trace_signature(trace)
                 input_tensor_info = get_tensor_info(trace.inputs)
                 output_tensor_info = get_tensor_info(trace.outputs)
@@ -182,7 +183,7 @@ class jit:
                 utils.default(output_tensor_info, executable.output_info),
             )
             # filter out const-folded inputs
-            outputs = executor.execute([inp for inp in inputs if not inp.op.const_fold])
+            outputs = executor.execute(trace_inputs)
 
             tensor_outputs = [Tensor(output) for output in outputs]
             if len(tensor_outputs) == 1:

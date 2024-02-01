@@ -17,13 +17,13 @@ from tripy.frontend.trace.tensor import TraceTensor
 class TestStorage:
     def test_cpu_storage(self):
         data = Array([1, 2, 3], dtype=None, shape=(Dim(3),), device=tp.device("cpu"))
-        storage = Storage([], [], False, data)
+        storage = Storage([], [], data)
         assert isinstance(storage.data.byte_buffer, np.ndarray)
         assert storage.device.kind == "cpu"
 
     def test_gpu_storage(self):
         data = Array([1, 2, 3], dtype=None, shape=(Dim(3),), device=tp.device("gpu"))
-        storage = Storage([], [], False, data)
+        storage = Storage([], [], data)
         assert isinstance(storage.data.byte_buffer, cp.ndarray)
         assert storage.device.kind == "gpu"
 
@@ -40,7 +40,7 @@ class TestStorage:
 
         arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
         data = Array(arr, shape=(Dim(3),), dtype=dtype, device=None)
-        storage = Storage([], [], False, data)
+        storage = Storage([], [], data)
         assert storage.dtype == dtype
         assert storage.dtype.name == dtype.name
         assert storage.dtype.itemsize == dtype.itemsize
@@ -58,7 +58,7 @@ class TestStorage:
 
         arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
         data = Array(arr, shape=(Dim(3),), dtype=dtype, device=None)
-        storage = Storage([], [TraceTensor("t0", None, [3], None, dtype, None)], False, data)
+        storage = Storage([], [TraceTensor("t0", None, [3], None, dtype, None)], data)
         with mlir_utils.make_ir_context(), ir.Location.unknown():
             flat_ir = FlatIR()
             fir_outputs = [out.to_flat_ir() for out in storage.outputs]

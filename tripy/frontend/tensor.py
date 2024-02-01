@@ -59,7 +59,7 @@ class Tensor(metaclass=TensorMeta):
 
         out_trace_tensors = [TraceTensor(get_name(), self._stack_info, [], None, None, None)]
 
-        self.op = OpType(inp_trace_tensors, out_trace_tensors, True, *args, **kwargs)
+        self.op = OpType(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
 
         # Update producer:
         self.op.outputs[0].producer = self.op

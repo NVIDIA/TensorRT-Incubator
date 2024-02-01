@@ -50,7 +50,7 @@ class TestTensor:
 
         # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
         expected_line_number = sys._getframe().f_lineno + 1
-        a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs, const_fold: MockOp(inputs, outputs))
+        a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs: MockOp(inputs, outputs))
 
         # We don't check line number within tp.Tensor because it's diffficult to determine.
         assert a._stack_info[1] == SourceInfo(
@@ -65,7 +65,7 @@ class TestTensor:
             file=__file__,
             line=expected_line_number,
             function=TestTensor.test_stack_info_is_populated.__name__,
-            code="        a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs, const_fold: MockOp(inputs, outputs))",
+            code="        a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs: MockOp(inputs, outputs))",
         )
 
     def test_eval_of_storage_tensor_is_nop(self):

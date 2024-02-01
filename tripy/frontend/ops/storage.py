@@ -25,7 +25,6 @@ class Storage(BaseOperator):
         self,
         inputs: List["Tensor"],
         outputs: List["Tensor"],
-        const_fold: bool,
         data: Array,
     ) -> None:
         """
@@ -37,7 +36,7 @@ class Storage(BaseOperator):
             device: The device where the data is stored (default: CPU).
             shape: The shape of the data (default: None).
         """
-        super().__init__(inputs, outputs, const_fold)
+        super().__init__(inputs, outputs)
 
         self.data = data
         self.shape = to_dims(data.shape)
