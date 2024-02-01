@@ -35,7 +35,7 @@ def test_save_load_from_file(init_flat_ir):
         with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
             out = executor.execute()
             assert len(out) == 1
-            assert (out[0].data.view().get() == np.array([3, 5])).all()
+            assert (out[0].view().get() == np.array([3, 5])).all()
 
 
 def test_save_load_from_string(init_flat_ir):
@@ -52,4 +52,4 @@ def test_save_load_from_string(init_flat_ir):
         with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
             out = executor.execute()
             assert len(out) == 1
-            assert (out[0].data.view().get() == np.array([3, 5])).all()
+            assert (out[0].view().get() == np.array([3, 5])).all()

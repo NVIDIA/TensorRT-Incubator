@@ -5,6 +5,7 @@ from tripy import utils
 from tripy.common.array import Array
 from tripy.common.logging import G_LOGGER
 from tripy.frontend.ops import TENSOR_METHOD_REGISTRY, Storage
+import tripy.frontend.ops.utils as op_utils
 
 
 class TensorMeta(type):
@@ -90,17 +91,18 @@ class Tensor(metaclass=TensorMeta):
         with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
-            storage_arr = executor.execute()
-            assert len(storage_arr) == 1, "Expects only one output from MLIR executor"
-            self.op = storage_arr[0]
-            return self.op.data
+            data = executor.execute()
+            assert len(data) == 1, "Expects only one output from MLIR executor"
+            data = data[0]
+            self._finalize([], Storage, data)
+            return data
 
     def numpy(self):
         from tripy.common.device import device
 
-        data = self.to(device("cpu")).eval().view()
+        data = self.to(device("cpu")).eval()
         self._finalize([], Storage, data)
-        return data
+        return data.view()
 
     def __repr__(self) -> str:
         np_arr = self.eval().view()

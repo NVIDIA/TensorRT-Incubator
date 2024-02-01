@@ -1,9 +1,8 @@
 from typing import List
 
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
-from tripy.common.logging import G_LOGGER
+from tripy.common import Array, G_LOGGER
 from tripy.frontend import Tensor
-from tripy.frontend.ops import Storage
 from tripy.utils import log_time
 
 
@@ -43,9 +42,8 @@ class FlatIRExecutor:
 
         return False
 
-    # TODO: This function should not use the frontend Storage op as its return type.
     @log_time
-    def execute(self, inputs: List[Tensor] = []) -> List[Storage]:
+    def execute(self, inputs: List[Tensor] = []) -> List[Array]:
         """
         Executes the compiled MLIR program and returns the output of the computation as a list of numpy arrays.
 
@@ -53,18 +51,16 @@ class FlatIRExecutor:
             inputs: a list of tripy Tensor for input tensors
 
         Returns:
-            A list of Storage instances with data on output devices specified by self.o_tensor_info
+            A list of Array instances with data on output devices specified by self.o_tensor_info
         """
         # Create execargs
         device_inputs = []
         for inp in inputs:
-            if inp.op.const_fold:
-                continue
+            assert not inp.op.const_fold
             inp_storage = inp.op
-            assert isinstance(inp_storage, Storage), "Input tensors must be evaluated!"
             if inp_storage.device.kind != "gpu":
                 raise Exception("Input tensors must be on device!")
-            device_inputs.append(inp_storage)
+            device_inputs.append(inp_storage.data)
 
         exec_args = self.compiler.exec_initializer(
             self.executable,
@@ -77,7 +73,7 @@ class FlatIRExecutor:
         # Execute and populate device pointers.
         self.compiler.execute(self.executable, exec_args)
         # Create a list to store the output arrays
-        outputs: List[Storage] = []
+        outputs: List[Array] = []
 
         num_outputs: int = len(self.o_tensor_info)
         num_devices: int = 1  # Assuming 1 device, adjust as needed
@@ -86,7 +82,6 @@ class FlatIRExecutor:
             for j in range(num_outputs):
                 index = i * num_outputs + j
                 s = exec_args.outputs[index]
-                # Let's return Storage and let user interpret it.
                 outputs.append(s)
 
         return outputs

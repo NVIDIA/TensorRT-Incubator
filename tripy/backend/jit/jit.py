@@ -109,14 +109,8 @@ class jit:
             trace_inputs = []
 
             for index, arg in enumerate(args):
-                tensor = Tensor(
-                    # After arg.eval(), arg will have a Storage op type which is why we can then access
-                    # type/shape/device fields. Don't change the order of arguments here or it will break things.
-                    arg.eval().view(),
-                    dtype=arg.op.dtype,
-                    device=arg.op.device,
-                    shape=arg.op.shape,
-                )
+                tensor = Tensor(arg.eval())
+                tensor._stack_info = arg._stack_info
                 if index not in const_argnums:
                     tensor.op.const_fold = False
                     trace_inputs.append(tensor)
@@ -188,10 +182,10 @@ class jit:
                 utils.default(input_tensor_info, executable.input_info),
                 utils.default(output_tensor_info, executable.output_info),
             )
-            outputs = executor.execute(inputs)
+            # filter out const-folded inputs
+            outputs = executor.execute([inp for inp in inputs if not inp.op.const_fold])
 
-            # TODO: Why are we converting to a Numpy array only to then convert back to a Tensor?
-            tensor_outputs = [Tensor(output.data.view(), device=output.device) for output in outputs]
+            tensor_outputs = [Tensor(output) for output in outputs]
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]
             return tensor_outputs

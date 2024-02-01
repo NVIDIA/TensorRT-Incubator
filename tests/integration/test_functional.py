@@ -84,8 +84,8 @@ class TestFunctional:
             out = executor.execute()
             assert (
                 len(out) == 2
-                and (out[0].data.view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
-                and (out[1].data.view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
+                and (out[0].view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
+                and (out[1].view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
             )
 
     def _test_framework_interoperability(self, data, device):
@@ -302,9 +302,6 @@ class TestDynamic:
             b = tp.Tensor(b_np, device=tp.device("gpu"))
 
             out = func(a, b)
-            print("out:", out)
-            print("npout:", a_np + b_np)
-
             assert np.array_equal(out.numpy(), np.array(a_np + b_np))
             # 1 compile call for stablehlo add.
         assert str(output).count("%0 = stablehlo.add") == 1

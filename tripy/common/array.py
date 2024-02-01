@@ -6,7 +6,7 @@ import numpy as np
 from tripy import utils
 from tripy.common.datatype import convert_numpy_to_tripy_dtype, convert_tripy_to_numpy_dtype, DATA_TYPES
 from tripy.common.exception import raise_error
-from tripy.common.device import device
+from tripy.common.device import device as tp_device
 
 
 # The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
@@ -24,7 +24,7 @@ class Array:
         data: Union[List, np.ndarray, cp.ndarray, "torch.Tensor", "jnp.ndarray"],
         dtype: "tripy.dtype",
         shape: Optional[Tuple["Dim"]],
-        device: device,
+        device: tp_device,
     ) -> None:
         """
         Initialize an Array object.
@@ -39,22 +39,24 @@ class Array:
 
         assert dtype is None or dtype.__name__ in tripy.common.datatype.DATA_TYPES, "Invalid data type"
 
-        self._module = np if device.kind == "cpu" else cp
-        self.device = device
+        self.device = utils.default(device, tp_device("cpu"))
+        self._module = np if self.device.kind == "cpu" else cp
 
         data_dtype = utils.default(dtype, tripy.common.datatype.float32)
         static_shape = (
-            utils.make_tuple([s.runtime_value for s in utils.make_list(shape)]) if shape is not None else None
+            utils.make_tuple([s if isinstance(s, int) else s.runtime_value for s in shape])
+            if shape is not None
+            else None
         )
         assert shape is None or all(s > 0 for s in static_shape)
 
         if data is None:
             if shape is None:
                 raise_error("Shape must be provided when data is None.", [])
-            self.shape = static_shape
+            self.shape = shape
             self.dtype = data_dtype
             # Allocate dummy data
-            data = self._module.empty(dtype=convert_tripy_to_numpy_dtype(data_dtype), shape=self.shape)
+            data = self._module.empty(dtype=convert_tripy_to_numpy_dtype(data_dtype), shape=static_shape)
         else:
             if isinstance(data, (List, int, float, tuple)):
                 data = self._module.array(data, dtype=self._get_element_type(data))
@@ -71,14 +73,21 @@ class Array:
                 )
             self.dtype = data_dtype
 
-            if shape is not None and static_shape != data.shape:
+            if shape is None:
+                self.shape = data.shape
+            elif static_shape != data.shape:
                 # Check consistency between data.shape and shape
                 # No reshape is supported during initialization
                 raise_error(
                     "Data has incorrect shape.",
-                    details=[f"input data had shape: {data.shape}, ", f"but provided shape was: {static_shape}"],
+                    details=[
+                        f"input data had shape: {data.shape}, ",
+                        f"but provided runtime shape was: {static_shape}",
+                    ],
                 )
-            self.shape = data.shape
+            else:
+                self.shape = shape
+
         # Convert data with correct dtype and shape to a byte buffer.
         self.byte_buffer: Union[np.ndarray, cp.ndarray] = self._convert_to_byte_buffer(data)
 
