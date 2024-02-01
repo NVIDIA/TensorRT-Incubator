@@ -5,7 +5,6 @@ import tripy.common
 from tripy import utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
-from tripy.frontend.dim import Dim
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.ops.utils import to_dims
@@ -27,10 +26,7 @@ class Storage(BaseOperator):
         inputs: List["Tensor"],
         outputs: List["Tensor"],
         const_fold: bool,
-        data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        shape: Optional[Tuple[Dim]] = None,
-        dtype: "tripy.dtype" = None,
-        device: "tripy.common.device" = None,
+        data: Array,
     ) -> None:
         """
         Initialize Storage instance.
@@ -43,16 +39,10 @@ class Storage(BaseOperator):
         """
         super().__init__(inputs, outputs, const_fold)
 
-        # Let's not allow user to request a different type unless data is a list.
-        if hasattr(data, "to_dlpack"):
-            # Ensure that dtype is not set.
-            assert dtype is None
-
-        self.device = utils.default(device, tripy.common.device("cpu"))
-        self.data = Array(data, dtype, shape, self.device)
-        self.dtype = self.data.dtype
-        self.shape: ShapeInfo = utils.make_tuple(to_dims(self.data.shape) if shape is None else to_dims(shape))
-        self.shape_profile: List = utils.make_list(shape)
+        self.data = data
+        self.shape = to_dims(data.shape)
+        self.dtype = data.dtype
+        self.device = data.device
 
     def str_skip_fields(self) -> Set[str]:
         if utils.should_omit_constant_in_str(self.shape):
@@ -113,4 +103,10 @@ def tensor_init(
     if data is not None:
         from tripy.frontend.ops import Storage
 
-        self._finalize([], Storage, data, to_dims(shape), dtype, device)
+        if not isinstance(data, Array):
+            data = Array(data, dtype, shape, device)
+        else:
+            # Internal usage only
+            # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
+            assert not any([shape, dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+        self._finalize([], Storage, data)

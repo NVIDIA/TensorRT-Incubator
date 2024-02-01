@@ -6,10 +6,9 @@ from collections import namedtuple
 import cupy as cp
 
 from tripy import config, utils
+from tripy.common import Array, G_LOGGER
 from tripy.common.ctypes import POINTER, c_int, c_int64, char_ptr, void_ptr
 from tripy.common.exception import raise_error
-from tripy.common.logging import G_LOGGER
-from tripy.frontend.ops import Storage
 
 # Define a namedtuple to hold the result of the execution initializer
 ExecInitializerResult = namedtuple("ExecInitializerResult", ["inputs", "i_tensor_info", "outputs", "o_tensor_info"])
@@ -85,30 +84,15 @@ class _MlirCompiler:
 
         Args:
             executable (void_ptr): Pointer to the MLIR executable.
-            inputs: A list of input Storage objects
+            inputs: A list of input Array objects
             output_devices: A list of output devices
 
         Returns:
             ExecInitializerResult: A named tuple containing input buffer, output buffer, and output shapes.
         """
-        from tripy.frontend.trace.tensor import TraceTensor
-
         # Allocate output memory and store buffer pointers.
-        def make_storage(shape, dtype, device):
-            storage = Storage(
-                [],
-                [TraceTensor([], utils.get_stack_info(), shape, None, dtype, device)],
-                True,
-                None,
-                shape=shape,
-                dtype=dtype,
-                device=device,
-            )
-            storage.outputs[0].producer = storage
-            return storage
-
         outputs = [
-            make_storage(types.shape, types.dtype, out_device)
+            Array(None, shape=types.shape, dtype=types.dtype, device=out_device)
             for types, out_device in zip(o_tensor_info, output_devices)
         ]
 
@@ -137,9 +121,9 @@ class _MlirCompiler:
             executable (void_ptr): A pointer to the MLIR executable that will be executed.
             exec_args (ExecInitializerResult): A named tuple containing the result of the execution
                 initializer, including buffers, sizes, the number of devices, and the number of outputs.
-                - exec_args.inputs: A list of Storage objects representing input buffers.
+                - exec_args.inputs: A list of Array objects representing input buffers.
                 - exec_args.i_tensor_info: An array of input types i.e. (shape, elemType).
-                - exec_args.outputs: A list of Storage objects representing output buffers.
+                - exec_args.outputs: A list of Array objects representing output buffers.
                 - exec_args.o_tensor_info: An array of output types i.e. (shape, elemType).
         """
 
@@ -149,9 +133,9 @@ class _MlirCompiler:
                 (ctypes.c_void_p * len(data))(
                     *map(
                         lambda r: (
-                            r.data.byte_buffer.data.ptr
-                            if isinstance(r.data.byte_buffer.data, cp.cuda.memory.MemoryPointer)
-                            else r.data.byte_buffer.ctypes.data
+                            r.byte_buffer.data.ptr
+                            if isinstance(r.byte_buffer.data, cp.cuda.memory.MemoryPointer)
+                            else r.byte_buffer.ctypes.data
                         ),
                         data,
                     )

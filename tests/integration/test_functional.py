@@ -84,8 +84,8 @@ class TestFunctional:
             out = executor.execute()
             assert (
                 len(out) == 2
-                and (out[0].data.view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
-                and (out[1].data.view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
+                and (out[0].view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
+                and (out[1].view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
             )
 
     def _test_framework_interoperability(self, data, device):
@@ -290,7 +290,7 @@ class TestDynamic:
                 return c
 
             out = func(a, b)
-            assert (out.numpy() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
+            assert (out.eval().view().get() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
 
             print("Re-run dynamic shape test with a different input shape.")
 
@@ -298,10 +298,10 @@ class TestDynamic:
             b = tp.Tensor(np.ones(3, dtype=np.float32), device=tp.device("gpu"))
 
             out = func(a, b)
-            assert (out.numpy() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
-            # 1 compile call for stablehlo add and 2 compile calls for device copy.
+            assert (out.eval().view().get() == np.array([2.0, 2.0, 2.0], dtype=np.float32)).all()
+            # only 1 compile call for jit func
 
-        assert str(output).count("compile(<tripy.backend.mlir.compiler.FlatIRCompiler") == 3
+        assert str(output).count("compile(<tripy.backend.mlir.compiler.FlatIRCompiler") == 1
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
