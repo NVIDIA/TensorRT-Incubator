@@ -141,7 +141,6 @@ class jit:
             trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids + tuple(dim_list))
 
             trace = None
-            input_tensor_info = None
             output_tensor_info = None
 
             if trace_signature_key not in self._trace_signatures:
