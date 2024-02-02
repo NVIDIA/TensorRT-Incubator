@@ -5,7 +5,7 @@ from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
-@dataclass
+@dataclass(repr=False)
 class Copy(BaseOperator):
     """
     Represents a copy operation.

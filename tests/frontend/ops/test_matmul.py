@@ -1,7 +1,7 @@
 import numpy as np
-import pytest
 
 import tripy as tp
+from tests import helper
 from tripy.frontend.ops import MatrixMultiplication
 
 
@@ -19,33 +19,31 @@ class TestMatMul:
         b = tp.ones((2,), dtype=tp.float32)
         c = a @ b
 
-        with pytest.raises(tp.TripyException, match="Input tensors must have at least 1 dimension.") as exc:
+        with helper.raises(
+            tp.TripyException, match="Input tensors must have at least 1 dimension.", has_stack_info_for=[a, b, c]
+        ):
             c.eval()
-        print(str(exc.value))
 
     def test_mismatched_dtypes_fails(self):
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float16)
         c = a @ b
 
-        with pytest.raises(tp.TripyException, match="Incompatible input data types.") as exc:
+        with helper.raises(tp.TripyException, match="Incompatible input data types.", has_stack_info_for=[a, b, c]):
             c.eval()
-        print(str(exc.value))
 
     def test_incompatible_1d_shapes_fails(self):
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((3,), dtype=tp.float32)
         c = a @ b
 
-        with pytest.raises(tp.TripyException, match="Incompatible input shapes.") as exc:
+        with helper.raises(tp.TripyException, match="Incompatible input shapes.", has_stack_info_for=[a, b, c]):
             c.eval()
-        print(str(exc.value))
 
     def test_incompatible_2d_shapes_fails(self):
         a = tp.ones((2, 4), dtype=tp.float32)
         b = tp.ones((3, 6), dtype=tp.float32)
         c = a @ b
 
-        with pytest.raises(tp.TripyException, match="Incompatible input shapes.") as exc:
+        with helper.raises(tp.TripyException, match="Incompatible input shapes.", has_stack_info_for=[a, b, c]):
             c.eval()
-        print(str(exc.value))

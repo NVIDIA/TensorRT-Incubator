@@ -6,7 +6,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.ops.utils import to_dims
 
 
-@dataclass
+@dataclass(repr=False)
 class Gather(BaseOperator):
     """
     Represents a gather operation.

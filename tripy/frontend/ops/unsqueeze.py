@@ -5,7 +5,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 import tripy.frontend.ops.utils as op_utils
 
 
-@dataclass
+@dataclass(repr=False)
 class Unsqueeze(BaseOperator):
     """
     Represents an unsqueeze operation.

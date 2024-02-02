@@ -1,5 +1,5 @@
-import pytest
 import tripy as tp
+from tests import helper
 
 
 class TestLinear:
@@ -14,6 +14,5 @@ class TestLinear:
         linear = tp.nn.Linear(2, 128)
         out = linear(a)
 
-        with pytest.raises(tp.TripyException, match="Incompatible input shapes.") as exc:
+        with helper.raises(tp.TripyException, match="Incompatible input shapes.", has_stack_info_for=[a]):
             out.eval()
-        print(str(exc.value))

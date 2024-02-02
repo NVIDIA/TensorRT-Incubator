@@ -10,7 +10,7 @@ from tripy.utils import make_tuple
 import copy
 
 
-@dataclass
+@dataclass(repr=False)
 class Slice(BaseOperator):
     """
     Represents a slice operation.

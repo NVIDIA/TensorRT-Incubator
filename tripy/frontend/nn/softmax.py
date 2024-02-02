@@ -13,7 +13,7 @@ def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
             If this is ``None``, softmax is applied over the whole input array.
 
     Returns:
-        A tensor of the same shape as the input.
+        A tensor of the same shape and data type as the input.
 
     .. code-block:: python
         :linenos:

@@ -10,7 +10,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.ops.utils import to_dims
 
 
-@dataclass
+@dataclass(repr=False)
 class Storage(BaseOperator):
     """
     Represents data stored in host or device memory.
@@ -81,6 +81,7 @@ def tensor_init(
     shape: Optional[ShapeInfo] = None,
     dtype: Optional["tripy.dtype"] = None,
     device: Optional["tripy.device"] = None,
+    name: Optional[str] = None,
 ) -> None:
     """
     Creates a tensor.
@@ -90,6 +91,7 @@ def tensor_init(
         shape: The shape of the tensor.
         dtype: The data type of the tensor.
         device: The device on which to allocate the tensor.
+        name: The name of the tensor. If provided, this must be a unique string.
 
     .. code-block:: python
         :linenos:
@@ -108,4 +110,4 @@ def tensor_init(
             # Internal usage only
             # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
             assert not any([shape, dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
-        self._finalize([], Storage, data)
+        self._finalize(name, [], Storage, data)

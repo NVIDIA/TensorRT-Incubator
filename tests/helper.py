@@ -1,21 +1,40 @@
+import contextlib
 import importlib
 import inspect
+import io
+import logging
 import os
 import pkgutil
-from textwrap import dedent
-from typing import Any, Dict, List
+from textwrap import dedent, indent
+from typing import Any, Dict, List, Sequence
 
 import numpy as np
+import pytest
 import torch
 
 import tripy as tp
+from tripy.common.exception import _make_stack_info_message
+from tripy.common.logging import G_LOGGER, set_logger_mode
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
-from tripy.common.logging import G_LOGGER, set_logger_mode
-import io
-import logging
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+
+
+@contextlib.contextmanager
+def raises(ExcType: type, match: str, has_stack_info_for: Sequence[tp.Tensor] = None):
+    with pytest.raises(ExcType, match=match) as exc_info:
+        yield exc_info
+
+    error_msg = str(exc_info.value)
+    print(error_msg)
+
+    error_msg = dedent(error_msg).strip()
+    has_stack_info_for = has_stack_info_for or []
+    for tensor in has_stack_info_for:
+        # Stack info is indented since it's part of the `details` block in `raise_error`
+        expected_stack_info = indent(_make_stack_info_message(tensor._stack_info).strip(), " " * 4)
+        assert expected_stack_info in error_msg, f"Missing stack information for tensor:\n{expected_stack_info}"
 
 
 class CaptureLogging:

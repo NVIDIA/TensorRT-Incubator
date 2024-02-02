@@ -8,7 +8,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.ops.utils import raise_error_io_info, to_dims
 
 
-@dataclass
+@dataclass(repr=False)
 class Reshape(BaseOperator):
     """
     Represents a reshape operation.
@@ -31,7 +31,7 @@ class Reshape(BaseOperator):
         ReshapeOp(self, inputs, outputs)
 
 
-@dataclass
+@dataclass(repr=False)
 class Squeeze(Reshape):
     """
     Represents a squeeze operation.

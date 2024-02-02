@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
-from textwrap import dedent
+
 import tripy as tp
+from tests import helper
 from tripy.frontend.ops import BinaryElementwise, Comparison
 
 _BINARY_OPS = [
@@ -64,55 +65,20 @@ class TestBinaryElementwise:
         b = tp.ones((2, 3), dtype=tp.float16)
         c = a + b
 
-        with pytest.raises(
+        with helper.raises(
             tp.TripyException,
             # Keep the entire error message here so we'll know if the display becomes horribly corrupted.
-            match=dedent(
-                rf"""
-                Incompatible input data types.
-                    For expression:
-
-                    | {__file__}:[0-9]+
-                    | -------------------------------------------------------
-                    |         c = a \+ b
-
-                    For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].
-
-                    Input 0 was:
-
-                    | /tripy/tripy/[a-z/_\.]+:[0-9]+
-                    | ---------------------------------------------------
-                    |     return full\(shape, 1, dtype\)
-
-                    Called from:
-
-                    | /tripy/tests/frontend/ops/test_binary_elementwise.py:64
-                    | -------------------------------------------------------
-                    |         a = tp.ones\(\(2, 3\), dtype=tp.float32\)
-
-                    Input 1 was:
-
-                    | /tripy/tripy/[a-z/_\.]+:32
-                    | ---------------------------------------------------
-                    |     return full\(shape, 1, dtype\)
-
-                    Called from:
-
-                    | {__file__}:[0-9]+
-                    | -------------------------------------------------------
-                    |         b = tp.ones\(\(2, 3\), dtype=tp.float16\)
-                """
-                # """,
-            ).strip(),
-        ) as exc:
+            match=r"Incompatible input data types[\.a-zA-Z:|/_0-9-=+,\[\]\s]*? For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].",
+            has_stack_info_for=[a, b, c],
+        ):
             c.eval()
-        print(str(exc.value))
 
     def test_invalid_broadcast_fails(self):
         a = tp.ones((2, 4), dtype=tp.float32)
         b = tp.ones((2, 3), dtype=tp.float32)
         c = a + b
 
-        with pytest.raises(tp.TripyException, match="Input tensors are not broadcast compatible.") as exc:
+        with helper.raises(
+            tp.TripyException, match="Input tensors are not broadcast compatible.", has_stack_info_for=[a, b, c]
+        ):
             c.eval()
-        print(str(exc.value))

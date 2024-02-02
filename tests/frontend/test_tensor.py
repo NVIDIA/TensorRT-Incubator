@@ -80,12 +80,13 @@ class TestTensor:
 
         c = a + b
         assert isinstance(c.op, tp.frontend.ops.BinaryElementwise)
-        assert (c.numpy() == np.array([3], dtype=np.float32)).all()
+
+        c.eval()
 
         assert isinstance(c.op, tp.frontend.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.op.inputs == []
-        assert (c.op.data.view() == np.array([3], dtype=np.float32)).all()
+        assert (c.op.data.view().get() == np.array([3], dtype=np.float32)).all()
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_torch(self, kind):

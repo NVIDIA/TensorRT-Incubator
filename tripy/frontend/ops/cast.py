@@ -4,7 +4,7 @@ from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
-@dataclass
+@dataclass(repr=False)
 class Cast(BaseOperator):
     """
     Represents a cast operation.

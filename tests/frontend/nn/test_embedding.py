@@ -1,5 +1,6 @@
 import pytest
 import tripy as tp
+from tests import helper
 
 
 class TestEmbedding:
@@ -13,8 +14,9 @@ class TestEmbedding:
         linear = tp.nn.Embedding(4, 16)
         out = linear(a)
 
-        with pytest.raises(
-            tp.TripyException, match="Index tensor for gather operation should be of int32 type."
-        ) as exc:
+        with helper.raises(
+            tp.TripyException,
+            match="Index tensor for gather operation should be of int32 type.",
+            has_stack_info_for=[a, out],
+        ):
             out.eval()
-        print(str(exc.value))

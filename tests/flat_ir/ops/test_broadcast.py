@@ -6,6 +6,7 @@ from tripy.flat_ir.ops import BroadcastOp
 class TestBroadcastOp:
     def test_str(self):
         out = tp.ones([2, 3], dtype=tp.float32)
+        out.name = "out"
 
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
@@ -14,5 +15,5 @@ class TestBroadcastOp:
         assert isinstance(broadcast, BroadcastOp)
         assert (
             str(broadcast)
-            == "t0: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = BroadcastOp(t_inter1, broadcast_dim=[])"
+            == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = BroadcastOp(t_inter1, broadcast_dim=[])"
         )

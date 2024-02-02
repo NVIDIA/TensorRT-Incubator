@@ -7,7 +7,7 @@ from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.utils import to_dims
 
 
-@dataclass
+@dataclass(repr=False)
 class Iota(BaseOperator):
     """
     Represents an iota operation.
@@ -34,7 +34,7 @@ class Iota(BaseOperator):
         IotaOp(self, inputs, outputs, dim=self.dim)
 
 
-@dataclass
+@dataclass(repr=False)
 class IotaLike(Iota):
     """
     Represents an iota_like operation.

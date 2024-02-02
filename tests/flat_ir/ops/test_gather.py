@@ -6,9 +6,10 @@ from tripy import int32
 
 class TestGatherOp:
     def test_gather_str(self):
-        data = tp.Tensor([3.0, 4.0])
-        index = tp.Tensor([0], dtype=int32)
+        data = tp.Tensor([3.0, 4.0], name="data")
+        index = tp.Tensor([0], dtype=int32, name="indices")
         out = data.gather(0, index)
+        out.name = "out"
 
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
@@ -20,5 +21,5 @@ class TestGatherOp:
         assert isinstance(gather, GatherOp)
         assert (
             str(gather)
-            == "t2: [shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(t0, t1, offset_dims=(), axis=0, slice_sizes=[1], index_vector_dim=1)"
+            == "out: [shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(data, indices, offset_dims=(), axis=0, slice_sizes=[1], index_vector_dim=1)"
         )

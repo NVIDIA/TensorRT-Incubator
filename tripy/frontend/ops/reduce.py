@@ -9,7 +9,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.utils import make_list
 
 
-@dataclass
+@dataclass(repr=False)
 class Reduce(BaseOperator):
     """
     Represents a slice operation.

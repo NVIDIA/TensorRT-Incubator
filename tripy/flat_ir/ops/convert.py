@@ -5,7 +5,7 @@ from mlir.dialects import stablehlo
 from tripy.flat_ir.ops.base import BaseFIROp
 
 
-@dataclass
+@dataclass(repr=False)
 class ConvertOp(BaseFIROp):
     """
     Operation to cast a Tensor to output type

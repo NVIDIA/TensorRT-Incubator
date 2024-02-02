@@ -7,7 +7,7 @@ import tripy.common
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(repr=False)
 class CopyOp(BaseFIROp):
     """
     Operation to copy a tensor to another device

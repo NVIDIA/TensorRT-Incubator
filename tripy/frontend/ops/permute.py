@@ -6,7 +6,7 @@ from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
-@dataclass
+@dataclass(repr=False)
 class Permute(BaseOperator):
     """
     Represents a permute operation.
@@ -37,7 +37,7 @@ class Permute(BaseOperator):
         TransposeOp(self, inputs, outputs, perm=self.permutation)
 
 
-@dataclass
+@dataclass(repr=False)
 class Transpose(Permute):
     """
     Represents a transpose operation.

@@ -308,6 +308,10 @@ class TestDynamic:
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
+        from tripy.common.logging import set_logger_mode, LoggerModes
+
+        set_logger_mode(LoggerModes.IR)
+
         a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
         b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
 

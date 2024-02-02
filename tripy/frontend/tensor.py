@@ -1,11 +1,10 @@
 from textwrap import indent
-from typing import Any, List
+from typing import Any, List, Optional
 
 from tripy import utils
 from tripy.common.array import Array
 from tripy.common.logging import G_LOGGER
 from tripy.frontend.ops import TENSOR_METHOD_REGISTRY, Storage
-import tripy.frontend.ops.utils as op_utils
 
 
 class TensorMeta(type):
@@ -30,20 +29,21 @@ class Tensor(metaclass=TensorMeta):
 
     _COUNT = 0
 
+    @classmethod
+    def get_unique_name(cls):
+        name = f"t{cls._COUNT}"
+        cls._COUNT += 1
+        return name
+
     # This field communicates to NumPy that it should allow our right-side operator overloads (e.g. __radd__) to take
     # precedence over its own left-side overloads (e.g. __add__). This will ensure that an expression of the form
     # `<np_array> <binary_op> Tensor` will return a Tensor and not a NumPy array.
     __array_priority__ = 10000
 
-    def _finalize(self, inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
+    def _finalize(self, name: Optional[str], inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
         # It is very important that this is called from all entrypoints to creating a tensor.
         # We include logic here that needs to be applied to all tensors.
         from tripy.frontend.trace.tensor import TraceTensor
-
-        def get_name():
-            name = f"t{Tensor._COUNT}"
-            Tensor._COUNT += 1
-            return name
 
         # We include stack information from everything above `build` up to user code.
         # This lets us generate very nice error messages.
@@ -57,7 +57,8 @@ class Tensor(metaclass=TensorMeta):
             out = inp.op.outputs[0]
             inp_trace_tensors.append(out)
 
-        out_trace_tensors = [TraceTensor(get_name(), self._stack_info, [], None, None, None)]
+        name = utils.default(name, Tensor.get_unique_name())
+        out_trace_tensors = [TraceTensor(name, self._stack_info, [], None, None, None)]
 
         self.op = OpType(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
 
@@ -70,8 +71,16 @@ class Tensor(metaclass=TensorMeta):
     @staticmethod
     def build(inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
         tensor = Tensor(None)
-        tensor._finalize(inputs, OpType, *args, **kwargs)
+        tensor._finalize(None, inputs, OpType, *args, **kwargs)
         return tensor
+
+    @property
+    def name(self):
+        return self.op.outputs[0].name
+
+    @name.setter
+    def name(self, new_name):
+        self.op.outputs[0].name = new_name
 
     def eval(self) -> Array:
         from tripy.backend.jit.utils import get_tensor_info
@@ -83,9 +92,7 @@ class Tensor(metaclass=TensorMeta):
             return self.op.data
 
         trace = Trace([self])
-        G_LOGGER.ir_printer(f"Trace :\n{trace}")
         flat_ir = trace.to_flat_ir()
-        G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
         compiler = FlatIRCompiler()
         executable = compiler.compile(flat_ir)
         with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
@@ -94,14 +101,14 @@ class Tensor(metaclass=TensorMeta):
             data = executor.execute()
             assert len(data) == 1, "Expects only one output from MLIR executor"
             data = data[0]
-            self._finalize([], Storage, data)
+            self._finalize(self.name, [], Storage, data)
             return data
 
     def numpy(self):
         from tripy.common.device import device
 
         data = self.to(device("cpu")).eval()
-        self._finalize([], Storage, data)
+        self._finalize(self.name, [], Storage, data)
         return data.view()
 
     def __repr__(self) -> str:

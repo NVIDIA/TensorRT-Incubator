@@ -8,7 +8,7 @@ from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops.base import BaseFIROp
 
 
-@dataclass
+@dataclass(repr=False)
 class IotaOp(BaseFIROp):
     """
     Operation to fill an output tensor with values in increasing order starting from zero along the given dimension

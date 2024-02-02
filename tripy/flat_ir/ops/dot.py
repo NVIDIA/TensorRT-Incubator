@@ -8,7 +8,7 @@ from tripy.utils import default
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(repr=False)
 class DotOp(BaseFIROp):
     """
     Operation to compute generic dot product of two tensors.

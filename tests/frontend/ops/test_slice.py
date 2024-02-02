@@ -1,6 +1,4 @@
-from textwrap import dedent
-
-import pytest
+from tests import helper
 
 import tripy as tp
 from tripy.frontend.ops.slice import Slice
@@ -15,28 +13,11 @@ class TestSlice:
 
     def test_incorrect_index_size(self):
         a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
-        a = a[:, :, 0:1]
+        b = a[:, :, 0:1]
 
-        with pytest.raises(
+        with helper.raises(
             tp.TripyException,
-            match=dedent(
-                rf"""
-                Too many indices for input tensor.
-                    For expression:
-
-                    | {__file__}:[0-9]+
-                    | ------------------------------------------
-                    |         a = a[:, :, 0:1]
-
-                    Input tensor has a rank of 2 but was attempted to be sliced with 3 indices.
-
-                    Input 0 was:
-
-                    | {__file__}:[0-9]+
-                    | -----------------------------------------------------
-                    |         a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
-            """
-            ).strip(),
+            match=r"Too many indices for input tensor[\.a-zA-Z:|/_0-9-=+,\[\]\s]*?Input tensor has a rank of 2 but was attempted to be sliced with 3 indices.",
+            has_stack_info_for=[a, b],
         ) as exc:
-            a.eval()
-        print(str(exc.value))
+            b.eval()

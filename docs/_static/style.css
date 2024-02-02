@@ -9,7 +9,15 @@
 }
 
 .container-xxl {
-    min-width: 70%;
+    min-width: 75%;
+}
+
+.nftt-sidebar {
+    width: fit-content;
+}
+
+.nftt-layout {
+    grid-template-columns: auto;
 }
 
 .sig {

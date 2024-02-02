@@ -5,7 +5,7 @@ from typing import List, Set
 from tripy import utils
 
 
-@dataclass
+@dataclass(repr=False)
 class BaseOperator(abc.ABC):
     inputs: List["TraceTensor"]
     """The inputs of this layer"""
@@ -72,3 +72,7 @@ class BaseOperator(abc.ABC):
             if field.name not in skip_fields
         ]
         return f"{self.outputs[0].name} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"
+
+    def __repr__(self) -> str:
+        # This is a hack to prevent printing the entire stack info when we print this.
+        return str(self)

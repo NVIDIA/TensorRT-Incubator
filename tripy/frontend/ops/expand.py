@@ -6,7 +6,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 import tripy.frontend.ops.utils as op_utils
 
 
-@dataclass
+@dataclass(repr=False)
 class Expand(BaseOperator):
     """
     Represents an expand operation.

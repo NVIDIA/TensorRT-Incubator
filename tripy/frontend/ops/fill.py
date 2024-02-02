@@ -7,7 +7,7 @@ from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.utils import to_dims
 
 
-@dataclass
+@dataclass(repr=False)
 class Fill(BaseOperator):
     """
     Represents a fill operation.
@@ -39,7 +39,7 @@ class Fill(BaseOperator):
         BroadcastOp(self, [const_val_tensor], outputs, broadcast_dim=[])
 
 
-@dataclass
+@dataclass(repr=False)
 class FillLike(Fill):
     """
     Represents a fill_like operation.

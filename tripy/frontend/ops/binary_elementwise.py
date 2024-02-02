@@ -9,7 +9,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 import tripy.frontend.utils as frontend_utils
 
 
-@dataclass
+@dataclass(repr=False)
 class BinaryElementwise(BaseOperator):
     """
     Represents a binary elementwise operation.
@@ -87,7 +87,7 @@ class BinaryElementwise(BaseOperator):
         OpType(self, inputs, outputs)
 
 
-@dataclass
+@dataclass(repr=False)
 class Comparison(BinaryElementwise):
     class Kind:
         class KindElem(str):

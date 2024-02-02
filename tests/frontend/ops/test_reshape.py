@@ -1,7 +1,7 @@
-import pytest
-
 import numpy as np
+
 import tripy as tp
+from tests import helper
 from tripy.frontend.ops.reshape import Reshape, Squeeze
 
 
@@ -22,10 +22,11 @@ class TestSqueeze:
 
     def test_incorrect_dims(self):
         a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
-        a = a.squeeze(2)
+        b = a.squeeze(2)
 
-        with pytest.raises(
-            tp.TripyException, match="Cannot select an axis to squeeze out which has size not equal to one"
-        ) as exc:
-            a.eval()
-        print(str(exc.value))
+        with helper.raises(
+            tp.TripyException,
+            match="Cannot select an axis to squeeze out which has size not equal to one",
+            has_stack_info_for=[a, b],
+        ):
+            b.eval()

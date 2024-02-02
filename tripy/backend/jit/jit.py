@@ -164,9 +164,7 @@ class jit:
             else:
                 if trace is None:
                     trace = make_trace()
-                G_LOGGER.ir_printer(f"Trace :\n{trace}")
                 flat_ir = trace.to_flat_ir()
-                G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
 
                 compiler = FlatIRCompiler()
                 executable = CachedExecutable(

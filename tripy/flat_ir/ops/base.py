@@ -5,7 +5,7 @@ from typing import List, Set
 from tripy import utils
 
 
-@dataclass
+@dataclass(repr=False)
 class BaseFIROp(abc.ABC):
     """
     Represents a single layer in the FlatIR.
@@ -68,6 +68,10 @@ class BaseFIROp(abc.ABC):
             if field.name not in skip_fields
         ]
         return f"{outputs_str} = {self.name()}({', '.join([inp.name for inp in self.inputs] + args)})"
+
+    def __repr__(self) -> str:
+        # This is a hack to prevent printing the entire stack info when we print this.
+        return str(self)
 
     def name(self) -> str:
         """

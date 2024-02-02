@@ -9,7 +9,7 @@ from tripy import utils
 from tripy.flat_ir.ops.base import BaseFIROp
 
 
-@dataclass
+@dataclass(repr=False)
 class ConstantOp(BaseFIROp):
     """
     Operation to store a constant tensor

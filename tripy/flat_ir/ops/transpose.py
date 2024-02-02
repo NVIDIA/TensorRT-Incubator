@@ -6,7 +6,7 @@ from mlir.dialects import stablehlo
 from tripy.flat_ir.ops.base import BaseFIROp
 
 
-@dataclass
+@dataclass(repr=False)
 class TransposeOp(BaseFIROp):
     """
     Operation to transpose/permute a Tensor

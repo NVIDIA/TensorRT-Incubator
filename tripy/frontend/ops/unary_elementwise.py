@@ -5,7 +5,7 @@ from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
-@dataclass
+@dataclass(repr=False)
 class UnaryElementwise(BaseOperator):
     """
     Represents a unary elementwise operation.

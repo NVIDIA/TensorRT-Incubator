@@ -7,6 +7,46 @@ class TripyException(Exception):
     pass
 
 
+def _make_stack_info_message(stack_info: "utils.StackInfo") -> str:
+    import tripy.utils.function_registry
+    from tripy.frontend.utils import convert_inputs_to_tensors
+
+    EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors]
+
+    def should_exclude(frame):
+        for func in EXCLUDE_FUNCTIONS:
+            filename = inspect.getsourcefile(func)
+            lines, start_line = inspect.getsourcelines(func)
+
+            if frame.file != filename:
+                return False
+
+            if frame.line < start_line or frame.line > (start_line + len(lines)):
+                return False
+            return True
+
+    frame_strs = []
+
+    for frame in stack_info:
+        if not frame.code:
+            continue
+
+        if frame.module == tripy.utils.function_registry.__name__:
+            continue
+
+        if should_exclude(frame):
+            continue
+
+        line_info = f"{frame.file}:{frame.line}"
+        separator = "-" * max(len(line_info), len(frame.code))
+        frame_info = f"\n\n| {line_info}\n| {separator}\n| {frame.code}\n\n"
+        frame_strs.append(frame_info)
+
+    if frame_strs:
+        return "Called from: ".join(frame_strs)
+    return "\n\n<No stack information available>\n\n"
+
+
 def raise_error(summary: str, details: List[Any] = []):
     """
     Raises a Tripy exception with a formatted message.
@@ -27,47 +67,10 @@ def raise_error(summary: str, details: List[Any] = []):
     Raises:
         TripyException
     """
-    import tripy.utils.function_registry
-    from tripy.frontend.utils import convert_inputs_to_tensors
-
-    EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors]
-
-    def should_exclude(frame):
-        for func in EXCLUDE_FUNCTIONS:
-            filename = inspect.getsourcefile(func)
-            lines, start_line = inspect.getsourcelines(func)
-
-            if frame.file != filename:
-                return False
-
-            if frame.line < start_line or frame.line > (start_line + len(lines)):
-                return False
-            return True
-
     detail_msg = ""
     for detail in details:
         if hasattr(detail, "stack_info"):
-            frame_strs = []
-
-            for frame in detail.stack_info:
-                if not frame.code:
-                    continue
-
-                if frame.module == tripy.utils.function_registry.__name__:
-                    continue
-
-                if should_exclude(frame):
-                    continue
-
-                line_info = f"{frame.file}:{frame.line}"
-                separator = "-" * max(len(line_info), len(frame.code))
-                frame_info = f"\n\n| {line_info}\n| {separator}\n| {frame.code}\n\n"
-                frame_strs.append(frame_info)
-
-            if frame_strs:
-                detail_msg += "Called from: ".join(frame_strs)
-            else:
-                detail_msg += "\n\n<No stack information available>\n\n"
+            detail_msg += _make_stack_info_message(detail.stack_info)
         else:
             detail_msg += str(detail)
 

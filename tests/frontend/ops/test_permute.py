@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import tripy as tp
+from tests import helper
 from tripy.frontend.ops import Permute, Transpose
 
 
@@ -15,11 +16,12 @@ class TestPermute:
     @pytest.mark.parametrize("perm", [(0,), (0, 1, 2)])
     def test_mistmatched_permutation_fails(self, perm):
         a = tp.ones((2, 3), dtype=tp.float32)
-        a = a.permute(perm)
+        b = a.permute(perm)
 
-        with pytest.raises(tp.TripyException, match="Incorrect number of elements in permutation.") as exc:
-            a.eval()
-        print(str(exc.value))
+        with helper.raises(
+            tp.TripyException, match="Incorrect number of elements in permutation.", has_stack_info_for=[a, b]
+        ):
+            b.eval()
 
 
 class TestTranspose:

@@ -9,7 +9,7 @@ from tripy.flat_ir.ops.base import BaseFIROp
 from tripy import int32
 
 
-@dataclass
+@dataclass(repr=False)
 class GatherOp(BaseFIROp):
     """
     Operation to compute gather operation.

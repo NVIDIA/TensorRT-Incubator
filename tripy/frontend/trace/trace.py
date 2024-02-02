@@ -4,6 +4,8 @@ from typing import List, Sequence, Set
 from tripy.frontend.ops import BaseOperator
 from tripy.frontend.tensor import Tensor
 from tripy.frontend.trace.tensor import TraceTensor
+from tripy.common.exception import raise_error
+from tripy.common import G_LOGGER
 
 
 class Trace:
@@ -43,16 +45,19 @@ class Trace:
         input_op_ids = set(id(inp.op) for inp in inputs)
         seen_op_ids: Set[int] = set()
 
-        # Reset names each time we create a trace. This is a hack since we depend on
-        # names being identical to identify structurally equivalent traces/flat_irs for JIT caching purposes.
-        # TODO (#70): Remove this and instead use the tensor names set by the frontend.
-        _tensor_names = {}
+        # Check all tensors for duplicate names. We currently rely on tensor names being
+        # unique in the trace/flatIR. We could potentially change this in the future to
+        # automatically make names unique instead of complaining to the user, but it's better
+        # for traceability if we use the names set by the user/frontend.
+        _tensor_map = {}
 
-        def get_name(tensor):
-            tensor_id = id(tensor)
-            if tensor_id not in _tensor_names:
-                _tensor_names[tensor_id] = f"t{len(_tensor_names)}"
-            return _tensor_names[tensor_id]
+        def check_name(tensor):
+            if tensor.name in _tensor_map and (_tensor_map[tensor.name] is not tensor):
+                raise_error(
+                    f"Found distinct tensors with the same name: '{tensor.name}'.",
+                    details=["Tensor: ", tensor, "has the same name as another tensor: ", _tensor_map[tensor.name]],
+                )
+            _tensor_map[tensor.name] = tensor
 
         while exprs:
             head = exprs.pop(0)
@@ -62,7 +67,7 @@ class Trace:
             seen_op_ids.add(id(head))
 
             for io in head.inputs + head.outputs:
-                io.name = get_name(io)
+                check_name(io)
 
             if id(head) not in input_op_ids:
                 # not as an input
@@ -77,6 +82,8 @@ class Trace:
 
         # Perform shape/dtype/device inference to fill shape information for all tensors.
         self._infer_tensor_info()
+
+        G_LOGGER.ir_printer(f"Trace :\n{self}")
 
     def topological_sort(self) -> List[BaseOperator]:
         stack = list()
@@ -128,4 +135,5 @@ class Trace:
             op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
             flat_ir.integrate_subgraph(inputs, outputs)
 
+        G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
         return flat_ir

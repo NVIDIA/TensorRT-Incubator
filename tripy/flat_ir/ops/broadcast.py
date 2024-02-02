@@ -5,7 +5,7 @@ from tripy.flat_ir.ops.base import BaseFIROp
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(repr=False)
 class BroadcastOp(BaseFIROp):
     """
     Operation to expand the dimensions and/or rank of an input tensor by duplicating its data.

@@ -8,7 +8,7 @@ from tripy.flat_ir.ops.base import BaseFIROp
 from tripy.backend.mlir.utils import get_mlir_dtype
 
 
-@dataclass
+@dataclass(repr=False)
 class ReduceOp(BaseFIROp):
     """
     Operation to reduce a Tensor

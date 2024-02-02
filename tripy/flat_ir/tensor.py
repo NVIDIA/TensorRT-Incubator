@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 
-from mlir import ir
-
-from tripy.frontend.trace.tensor import TraceTensor
 from tripy import utils
 from tripy.common.types import ShapeInfo
+from tripy.frontend.trace.tensor import TraceTensor
 
 
 @dataclass

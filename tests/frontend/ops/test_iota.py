@@ -1,6 +1,5 @@
-import pytest
-
 import tripy as tp
+from tests import helper
 from tripy.frontend.ops.iota import Iota
 
 
@@ -17,6 +16,5 @@ class TestIota:
         assert isinstance(a.op, Iota)
 
     def test_invalid_dim(self):
-        with pytest.raises(tp.TripyException, match="Invalid iota dim.") as exc:
-            a = tp.iota([2, 3], dim=3)
-        print(str(exc.value))
+        with helper.raises(tp.TripyException, match="Invalid iota dim."):
+            tp.iota([2, 3], dim=3)

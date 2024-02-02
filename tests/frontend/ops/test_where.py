@@ -1,6 +1,5 @@
-import pytest
-
 import tripy as tp
+from tests import helper
 from tripy.frontend.ops.where import Where
 
 
@@ -19,9 +18,10 @@ class TestWhere:
         b = tp.ones((3,), dtype=tp.float32)
         c = tp.where(cond, a, b)
 
-        with pytest.raises(tp.TripyException, match="Input tensors are not broadcast compatible.") as exc:
+        with helper.raises(
+            tp.TripyException, match="Input tensors are not broadcast compatible.", has_stack_info_for=[a, b, c, cond]
+        ):
             c.eval()
-        print(str(exc.value))
 
     def test_mismatched_input_dtypes(self):
         cond = tp.ones((2,), dtype=tp.float32) > tp.ones((2,), dtype=tp.float32)
@@ -29,9 +29,10 @@ class TestWhere:
         b = tp.ones((2,), dtype=tp.float16)
         c = tp.where(cond, a, b)
 
-        with pytest.raises(tp.TripyException, match="Incompatible input data types.") as exc:
+        with helper.raises(
+            tp.TripyException, match="Incompatible input data types.", has_stack_info_for=[a, b, c, cond]
+        ):
             c.eval()
-        print(str(exc.value))
 
     def test_condition_is_not_bool(self):
         cond = tp.ones((2,), dtype=tp.float32)
@@ -39,9 +40,10 @@ class TestWhere:
         b = tp.ones((2,), dtype=tp.float32)
         c = tp.where(cond, a, b)
 
-        with pytest.raises(tp.TripyException, match="Condition input must have boolean type.") as exc:
+        with helper.raises(
+            tp.TripyException, match="Condition input must have boolean type.", has_stack_info_for=[a, b, c, cond]
+        ):
             c.eval()
-        print(str(exc.value))
 
 
 class TestMaskedFill:
@@ -56,8 +58,9 @@ class TestMaskedFill:
     def test_condition_is_not_bool(self):
         a = tp.Tensor([0, 1, 0, 1])
         mask = tp.Tensor([1.0, 2.0, 3.0, 4.0])
-        a = a.masked_fill(mask, -1)
+        b = a.masked_fill(mask, -1)
 
-        with pytest.raises(tp.TripyException, match="Condition input must have boolean type.") as exc:
-            a.eval()
-        print(str(exc.value))
+        with helper.raises(
+            tp.TripyException, match="Condition input must have boolean type.", has_stack_info_for=[a, mask, b]
+        ):
+            b.eval()
