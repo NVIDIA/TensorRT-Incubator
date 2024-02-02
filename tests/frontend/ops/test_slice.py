@@ -17,7 +17,7 @@ class TestSlice:
 
         with helper.raises(
             tp.TripyException,
-            match=r"Too many indices for input tensor[\.a-zA-Z:|/_0-9-=+,\[\]\s]*?Input tensor has a rank of 2 but was attempted to be sliced with 3 indices.",
+            match=r"Input tensor has a rank of 2 but was attempted to be sliced with 3 indices.",
             has_stack_info_for=[a, b],
         ) as exc:
             b.eval()

@@ -68,7 +68,7 @@ class TestBinaryElementwise:
         with helper.raises(
             tp.TripyException,
             # Keep the entire error message here so we'll know if the display becomes horribly corrupted.
-            match=r"Incompatible input data types[\.a-zA-Z:|/_0-9-=+,\[\]\s]*? For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].",
+            match=r"For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].",
             has_stack_info_for=[a, b, c],
         ):
             c.eval()

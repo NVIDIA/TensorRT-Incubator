@@ -3,7 +3,7 @@ import subprocess
 from mlir import dialects, ir
 
 from tripy import utils
-from tripy.common import G_LOGGER, ShapeInfo
+from tripy.common import ShapeInfo
 
 
 def make_ir_context() -> ir.Context:
@@ -14,17 +14,6 @@ def make_ir_context() -> ir.Context:
     context.allow_unregistered_dialects = True
     dialects.stablehlo.register_dialect(context)
     return context
-
-
-@utils.log_time
-def execute_binary(bin_path):
-    result = subprocess.Popen(
-        bin_path, shell=True, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    output, _ = result.communicate()
-    if result.returncode != 0:
-        G_LOGGER.error(f"Command failed with return code {result.returncode}")
-    print(output)
 
 
 def get_mlir_dtype(dtype: "tripy.dtype"):

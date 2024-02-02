@@ -90,7 +90,7 @@ def rsqrt(self) -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        input = tp.arange(3, dtype=tp.float32)
+        input = tp.arange(3, dtype=tp.float32) + 1.0
         output = input.rsqrt()
 
         assert np.allclose(output.numpy(), (1.0 / np.sqrt(input.numpy())))

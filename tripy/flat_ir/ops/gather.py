@@ -1,12 +1,9 @@
-from typing import List
 from dataclasses import dataclass
 
 from mlir import ir
 from mlir.dialects import stablehlo
 
-from tripy.backend.mlir import utils as mlir_utils
 from tripy.flat_ir.ops.base import BaseFIROp
-from tripy import int32
 
 
 @dataclass(repr=False)

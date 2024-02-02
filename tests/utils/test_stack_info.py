@@ -23,9 +23,15 @@ class TestGetStackInfo:
             line=expected_inner_line_num,
             function=func.__name__,
             code="            return tripy.utils.get_stack_info(), expected_line_num",
+            _dispatch_target="",
         )
         assert stack_info[1] == SourceInfo(
-            __name__, file=__file__, line=expected_outer_line_num, function=self.test_get_stack_info.__name__, code=""
+            __name__,
+            file=__file__,
+            line=expected_outer_line_num,
+            function=self.test_get_stack_info.__name__,
+            code="",
+            _dispatch_target="",
         )
 
     @pytest.mark.parametrize("include_code_index", [None, 0, 1, 2])

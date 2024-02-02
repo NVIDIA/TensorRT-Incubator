@@ -18,6 +18,8 @@ class SourceInfo:
     """The name of the function"""
     code: str
     """Code corresponding to the file and line number. To save space, this is not available for all frames."""
+    _dispatch_target: str
+    """If this stack frame is from a dispatch function in the function registry, this field indicates which function it's dispatching to"""
 
 
 def _is_user_frame(stack_info):
@@ -46,6 +48,8 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
     Returns:
         Stack information for the current call stack.
     """
+    from tripy.utils import function_registry
+
     stack_info = StackInfo([])
     # Exclude the current stack frame since we don't care about the get_stack_info() function itself.
     stack = inspect.stack()[1:]
@@ -53,27 +57,30 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
     for index, frame in enumerate(stack):
         module = inspect.getmodule(frame.frame)
 
-        stack_info.append(
-            SourceInfo(
-                module=module.__name__ if module else None,
-                file=frame.filename,
-                line=frame.lineno,
-                function=frame.function,
-                code="",
-            )
+        source_info = SourceInfo(
+            module=module.__name__ if module else None,
+            file=frame.filename,
+            line=frame.lineno,
+            function=frame.function,
+            code="",
+            _dispatch_target="",
         )
+        if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
+            source_info._dispatch_target = frame.frame.f_locals.get("key", "")
 
         def add_code():
             # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
             # In that case we just leave it empty.
-            stack_info[-1].code = frame.code_context[0].rstrip() if frame.code_context else ""
+            source_info.code = frame.code_context[0].rstrip() if frame.code_context else ""
 
         if not first_user_frame_found:
             # Only include code up to the first user frame.
-            if _is_user_frame(stack_info[-1]):
+            if _is_user_frame(source_info):
                 first_user_frame_found = True
                 add_code()
             elif include_code_index is not None and index >= include_code_index:
                 add_code()
+
+        stack_info.append(source_info)
 
     return stack_info

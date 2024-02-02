@@ -203,11 +203,6 @@ def process_docstring(app, what, name, obj, options, lines):
             print(get_stdout())
             raise
 
-        stdout = get_stdout() or ""
-
-        if stdout:
-            add_block("Output:", stdout)
-
         # Add local variables as a separate code block
         locals_str = ""
         if should_append_locals:
@@ -253,6 +248,11 @@ def process_docstring(app, what, name, obj, options, lines):
 
         if locals_str:
             add_block("", locals_str)
+
+        stdout = get_stdout() or ""
+
+        if stdout:
+            add_block("Output:", stdout)
 
 
 def setup(app):

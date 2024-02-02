@@ -160,6 +160,7 @@ class FunctionRegistry(dict):
         super().__init__(*args, **kwargs)
         self.overloads: Dict[str, List[Callable]] = defaultdict(list)
 
+    # NOTE: If you change this signature, also update `stack_info.py` - it currently relies on getting `key` to determine function names.
     def find_overload(self, key: str, args: List, kwargs: Dict) -> Callable:
         # NOTE: We could introduce a fast path when len(overloads) == 1, but it seems worth the overhead
         # to have the type checks and nice error messages. Note that this overhead will not be a factor when we JIT.
@@ -230,6 +231,7 @@ class FunctionRegistry(dict):
                 # for the dispatch function.
                 if key not in self:
 
+                    # NOTE: If you change this signature, also update `stack_info.py` - it currently relies on the `wrapper` name.
                     @functools.wraps(func)
                     def wrapper(*args, **kwargs):
                         return self.find_overload(key, args, kwargs)(*args, **kwargs)
