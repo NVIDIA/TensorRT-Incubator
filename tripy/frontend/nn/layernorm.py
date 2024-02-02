@@ -24,10 +24,10 @@ class LayerNorm(Module):
         assert np_out.shape == (2, 3)
 
         torch_tensor = torch.ones((2,3), dtype=torch.float32) # doc: omit
-        layer_norm = torch.nn.LayerNorm(3) # doc: omit
-        layer_norm.weight.data.fill_(1) # doc: omit
-        layer_norm.bias.data.fill_(1) # doc: omit
-        assert np.array_equal(np_out, layer_norm(torch_tensor).detach().numpy())
+        torch_ln = torch.nn.LayerNorm(3) # doc: omit
+        torch_ln.weight.data.fill_(1) # doc: omit
+        torch_ln.bias.data.fill_(1) # doc: omit
+        assert np.array_equal(np_out, torch_ln(torch_tensor).detach().numpy())
     """
 
     def __init__(self, normalized_shape: int):
