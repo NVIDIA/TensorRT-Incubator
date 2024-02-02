@@ -17,7 +17,7 @@
 }
 
 .nftt-layout {
-    grid-template-columns: auto;
+    grid-template-columns: 1fr 5fr;
 }
 
 .sig {
