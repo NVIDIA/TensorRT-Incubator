@@ -63,13 +63,14 @@ class BinaryElementwise(BaseOperator):
             if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
                 dynamic_shape = True
 
-        if dynamic_shape and (requires_broadcast_1 or requires_broadcast_2):
-            assert False, "Broadcast support with dynamic shapes is not enabled."
-
         if requires_broadcast_1:
-            inputs[0] = op_utils.insert_broadcast(self, inputs[0], outputs[0].shape)
+            inputs[0] = op_utils.insert_broadcast(
+                self, inputs[0], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[1]
+            )
         if requires_broadcast_2:
-            inputs[1] = op_utils.insert_broadcast(self, inputs[1], outputs[0].shape)
+            inputs[1] = op_utils.insert_broadcast(
+                self, inputs[1], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[0]
+            )
 
         return inputs
 

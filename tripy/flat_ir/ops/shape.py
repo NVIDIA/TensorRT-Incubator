@@ -13,7 +13,7 @@ class ShapeOp(BaseFIROp):
     def to_mlir(self, operands):
         out_type = ir.RankedTensorType.get([self.outputs[0].shape[0].runtime_value], mlir_utils.get_mlir_dtype(int32))
         inp = operands[0]
-        if not isinstance(operands[0], ir.OpResult):
+        if not (isinstance(operands[0], ir.OpResult) or isinstance(operands[0], ir.BlockArgument)):
             inp = inp.result
 
         # Remove use of tensorrt dialect and use shape dialect. #80 will fix this.

@@ -1,4 +1,5 @@
 import functools
+from typing import List, Union
 
 from tripy import utils
 from tripy.common.exception import raise_error
@@ -134,13 +135,44 @@ def get_broadcast_in_dim(input_shape, output_shape):
 
 
 # Insert a broadcast op into the flat_ir which broadcasts input tensor to output shape.
-def insert_broadcast(origin_layer: "BaseOperator", input_tensor: "FIRTensor", out_shape: ShapeInfo):
-    from tripy.flat_ir.ops import BroadcastOp
+# If the output shape is dynamic, shape of the target_tensor is used to describe the output shape.
+def insert_broadcast(
+    origin_layer: "BaseOperator",
+    input_tensor: "FIRTensor",
+    out_shape: ShapeInfo,
+    use_dynamic_variant: bool = False,
+    target_tensor: "FIRTensor" = None,
+):
+    from tripy.flat_ir.ops import BroadcastOp, DynamicBroadcastOp, ShapeOp
     from tripy.flat_ir.tensor import FIRTensor
     from tripy.frontend.ops.utils import get_broadcast_in_dim
 
     output_tensor = FIRTensor.build(shape=out_shape, dtype=input_tensor.dtype, device=input_tensor.device)
-    BroadcastOp(
-        origin_layer, [input_tensor], [output_tensor], broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape)
-    )
+
+    if use_dynamic_variant:
+        from tripy import int32
+
+        assert target_tensor, "target_tensor is required for dynamic variant of the broadcast op."
+
+        # insert a shape tensor
+        shape_output_tensor = FIRTensor.build(
+            shape=(Dim(len(target_tensor.shape)),), dtype=int32, device=input_tensor.device
+        )
+
+        ShapeOp(origin_layer, [target_tensor], [shape_output_tensor])
+
+        DynamicBroadcastOp(
+            origin_layer,
+            [input_tensor, shape_output_tensor],
+            [output_tensor],
+            broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),
+        )
+
+    else:
+        BroadcastOp(
+            origin_layer,
+            [input_tensor],
+            [output_tensor],
+            broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),
+        )
     return output_tensor

@@ -278,14 +278,30 @@ class TestCopyFunctional:
 
 
 class TestDynamic:
-    @pytest.mark.parametrize("dims", [(tp.Dim(4, min=2, opt=4, max=6), 2)])
-    def test_dynamic_jit(self, dims):
+    @pytest.mark.parametrize(
+        "dims_a, dims_b",
+        [
+            ((tp.Dim(4, min=2, opt=4, max=6), 2), (tp.Dim(4, min=2, opt=4, max=6), 2)),
+            (
+                (tp.Dim(4, min=2, opt=4, max=6), 2),
+                (tp.Dim(4, min=2, opt=4, max=6), 1),
+            ),  # use DynamicBroadcast static dim
+            ((tp.Dim(4, min=2, opt=4, max=6), 2), (1, 2)),  # use DynamicBroadcast dynamic dim
+            # Below test is blocked on mlir-tensorrt bug: https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/640
+            # ((1, 2), (tp.Dim(4, min=2, opt=4, max=6), 2)), # use DynamicBroadcast dynamic dim
+        ],
+    )
+    def test_dynamic_jit(self, dims_a, dims_b):
         with helper.CaptureLogging(LoggerModes.VERBOSE) as output:
-            a_np = np.random.rand(dims[0].runtime_value, dims[1]).astype(np.float32)
-            b_np = np.random.rand(dims[0].runtime_value, dims[1]).astype(np.float32)
 
-            a = tp.Tensor(a_np, shape=dims, device=tp.device("gpu"))
-            b = tp.Tensor(b_np, shape=dims, device=tp.device("gpu"))
+            def get_np_dims(dims, dim_func):
+                return [dim_func(d) if isinstance(d, tp.Dim) else d for d in dims]
+
+            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
+            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
+
+            a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
+            b = tp.Tensor(b_np, shape=dims_b, device=tp.device("gpu"))
 
             @tp.jit
             def func(a, b):
@@ -296,15 +312,16 @@ class TestDynamic:
             assert np.array_equal(out.numpy(), np.array(a_np + b_np))
             print("Re-run dynamic shape test with a different input shape.")
 
-            a_np = np.random.rand(dims[0].max, dims[1]).astype(np.float32)
-            b_np = np.random.rand(dims[0].max, dims[1]).astype(np.float32)
+            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
+            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
+
             a = tp.Tensor(a_np, device=tp.device("gpu"))
             b = tp.Tensor(b_np, device=tp.device("gpu"))
 
             out = func(a, b)
             assert np.array_equal(out.numpy(), np.array(a_np + b_np))
             # 1 compile call for stablehlo add.
-        assert str(output).count("%0 = stablehlo.add") == 1
+        assert str(output).count("stablehlo.add") == 1
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):

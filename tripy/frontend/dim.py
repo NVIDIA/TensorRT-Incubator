@@ -115,8 +115,10 @@ class Dim:
         return self.min == other.min and self.max == other.max and self.opt == other.opt
 
     def __gt__(self, other):
-        assert self.is_static_dim() and other.is_static_dim()
-        return self.min > other.min
+        if not isinstance(other, Dim):
+            return self.min > other
+        else:
+            return self.min > other.max
 
     @runtime_value.setter
     @validate_profile
