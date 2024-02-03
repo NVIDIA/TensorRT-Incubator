@@ -17,4 +17,5 @@ from tripy.frontend.ops.storage import Storage
 from tripy.frontend.ops.tensor_initializers import arange, ones, ones_like, zeros, zeros_like
 from tripy.frontend.ops.unary_elementwise import UnaryElementwise
 from tripy.frontend.ops.unsqueeze import Unsqueeze
+from tripy.frontend.ops.random import RandomNormal, RandomUniform, rand, randn
 from tripy.frontend.ops.where import Where, where

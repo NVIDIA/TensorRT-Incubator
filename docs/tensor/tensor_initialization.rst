@@ -9,5 +9,7 @@ Initialization Operations
 .. autofunction:: tripy.iota_like
 .. autofunction:: tripy.ones
 .. autofunction:: tripy.ones_like
+.. autofunction:: tripy.rand
+.. autofunction:: tripy.randn
 .. autofunction:: tripy.zeros
 .. autofunction:: tripy.zeros_like

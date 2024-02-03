@@ -20,3 +20,5 @@ from tripy.flat_ir.ops.tanh import TanhOp
 from tripy.flat_ir.ops.gather import GatherOp
 from tripy.flat_ir.ops.convert import ConvertOp
 from tripy.flat_ir.ops.rsqrt import RsqrtOp
+from tripy.flat_ir.ops.random_normal import RandomNormalOp
+from tripy.flat_ir.ops.random_uniform import RandomUniformOp
