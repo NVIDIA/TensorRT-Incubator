@@ -37,28 +37,6 @@ def raises(ExcType: type, match: str, has_stack_info_for: Sequence[tp.Tensor] = 
         assert expected_stack_info in error_msg, f"Missing stack information for tensor:\n{expected_stack_info}"
 
 
-class CaptureLogging:
-    def __init__(self, logger_modes):
-        self.contents = io.StringIO()
-        self.handler = logging.StreamHandler(self.contents)
-        self.logger_modes = logger_modes
-        self.previous_logger_level = None
-
-    def __enter__(self):
-        G_LOGGER.addHandler(self.handler)
-        self.previous_logger_level = G_LOGGER.getEffectiveLevel()
-        set_logger_mode(self.logger_modes)
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
-        G_LOGGER.removeHandler(self.handler)
-        G_LOGGER.setLevel(self.previous_logger_level)
-
-    def __str__(self):
-        self.contents.seek(0)
-        return self.contents.read()
-
-
 # Supported NumPy data types
 NUMPY_TYPES = [
     np.int8,

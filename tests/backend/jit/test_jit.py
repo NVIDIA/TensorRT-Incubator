@@ -4,6 +4,8 @@ import tempfile
 import numpy as np
 import pytest
 
+from tests import helper
+from tripy.common import LoggerModes
 import tripy as tp
 
 
@@ -186,3 +188,63 @@ class TestJIT:
         a = tp.ones((6,))
         assert np.array_equal(add(a, a).numpy(), np.ones((6,), dtype=np.float32) + np.ones((6,), dtype=np.float32))
         assert len(add.cache) == 1
+
+    def test_print_warnings(self, capsys):
+        from tripy.common.logging import set_logger_mode, LoggerModes
+
+        set_logger_mode(LoggerModes.VERBOSE)
+        random_data = np.random.rand(3).astype(np.float32)
+        a = tp.Tensor(random_data, device=tp.device("gpu"))
+
+        @tp.jit
+        def add(a):
+            print("Print in function jit mode.")
+            return a
+
+        out = add(a).eval()
+        out = add(a).eval()
+
+        captured = capsys.readouterr()
+        assert captured.out.strip() == "Print in function jit mode."
+        assert captured.err.count("Print in function jit mode.") == 1
+
+    def test_print_warnings_nested_class(self, capsys):
+        from tripy.common.logging import set_logger_mode, LoggerModes
+
+        set_logger_mode(LoggerModes.VERBOSE)
+
+        random_data = np.random.rand(3, 4).astype(np.float32)
+        a = tp.Tensor(random_data, device=tp.device("gpu"))
+
+        class Dummy(tp.nn.Module):
+            def __init__(self):
+                super().__init__()
+
+            def __call__(self, x):
+                print("Dummy call")
+                return x
+
+        class Network(tp.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = tp.frontend.nn.Linear(4, 2)
+                self.dummy = Dummy()
+
+            def __call__(self, x):
+                print("Print in jit mode.")
+
+                return self.linear(self.dummy(x))
+
+        net = Network()
+        net = tp.jit(net)
+
+        # Call eval twice to show print only gets triggered once during tracing.
+        out = net(a).eval()
+        out = net(a).eval()
+
+        captured = capsys.readouterr()
+        # Verify that print gets triggered once during tracing.
+        assert captured.out.strip() == "Print in jit mode.\nDummy call"
+        # Verify that warning logs show the two print statments.
+        assert "'Network' uses 'print' statements: print(\"Print in jit mode.\")" in captured.err
+        assert "'Dummy' uses 'print' statements: print(\"Dummy call\")" in captured.err

@@ -291,37 +291,40 @@ class TestDynamic:
             # ((1, 2), (tp.Dim(4, min=2, opt=4, max=6), 2)), # use DynamicBroadcast dynamic dim
         ],
     )
-    def test_dynamic_jit(self, dims_a, dims_b):
-        with helper.CaptureLogging(LoggerModes.VERBOSE) as output:
+    def test_dynamic_jit(self, dims_a, dims_b, capsys):
+        from tripy.common.logging import set_logger_mode, LoggerModes
 
-            def get_np_dims(dims, dim_func):
-                return [dim_func(d) if isinstance(d, tp.Dim) else d for d in dims]
+        set_logger_mode(LoggerModes.VERBOSE)
 
-            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
-            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
+        def get_np_dims(dims, dim_func):
+            return [dim_func(d) if isinstance(d, tp.Dim) else d for d in dims]
 
-            a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
-            b = tp.Tensor(b_np, shape=dims_b, device=tp.device("gpu"))
+        a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
+        b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
 
-            @tp.jit
-            def func(a, b):
-                c = a + b
-                return c
+        a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
+        b = tp.Tensor(b_np, shape=dims_b, device=tp.device("gpu"))
 
-            out = func(a, b)
-            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
-            print("Re-run dynamic shape test with a different input shape.")
+        @tp.jit
+        def func(a, b):
+            c = a + b
+            return c
 
-            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
-            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
+        out = func(a, b)
+        assert np.array_equal(out.numpy(), np.array(a_np + b_np))
+        print("Re-run dynamic shape test with a different input shape.")
 
-            a = tp.Tensor(a_np, device=tp.device("gpu"))
-            b = tp.Tensor(b_np, device=tp.device("gpu"))
+        a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
+        b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
 
-            out = func(a, b)
-            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
-            # 1 compile call for stablehlo add.
-        assert str(output).count("stablehlo.add") == 1
+        a = tp.Tensor(a_np, device=tp.device("gpu"))
+        b = tp.Tensor(b_np, device=tp.device("gpu"))
+
+        out = func(a, b)
+        assert np.array_equal(out.numpy(), np.array(a_np + b_np))
+        # 1 compile call for stablehlo add.
+        captured = capsys.readouterr()
+        assert "stablehlo.add" in captured.err.strip()
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):

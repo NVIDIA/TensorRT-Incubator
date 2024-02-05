@@ -6,18 +6,19 @@ from tests import helper
 
 
 class TestParameter:
-    def test_is_marked_const(self):
+    def test_is_marked_const(self, capsys):
+        from tripy.common.logging import set_logger_mode, LoggerModes
+
+        set_logger_mode(LoggerModes.IR)
         param = tp.nn.Parameter(tp.Tensor([1, 2, 3]))
 
         @tp.jit
         def func(param):
             return param + param
 
-        with helper.CaptureLogging(LoggerModes.IR) as output:
-            # Trigger compilation:
-            func(param)
-
-        assert "ConstantOp(data=[1 2 3], dtype=int32, device=gpu:0)" in str(output)
+        func(param)
+        captured = capsys.readouterr()
+        assert "ConstantOp(data=[1 2 3], dtype=int32, device=gpu:0)" in captured.err.strip()
 
     def test_is_instance_of_tensor(self):
         param = tp.nn.Parameter(tp.Tensor([1, 2, 3]))

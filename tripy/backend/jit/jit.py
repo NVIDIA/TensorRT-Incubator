@@ -1,5 +1,8 @@
 import atexit
+import ast
 import functools
+import inspect
+import textwrap
 from collections import defaultdict
 from typing import Callable, Dict, List
 
@@ -11,6 +14,7 @@ from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import G_LOGGER
 from tripy.frontend import Tensor, nn
 from tripy.frontend.trace import Trace
+from tripy.frontend.nn.module import Module
 
 
 class jit:
@@ -117,9 +121,49 @@ class jit:
                 inputs.append(tensor)
                 input_tensor_info.append(TensorInfo(tensor.op.shape, tensor.op.dtype, tensor.op.device))
 
+            def warn_if_user_code_has_print():
+                # Map from method name to print statement.
+                print_statements: Dict[str, List[str]] = defaultdict(list)
+
+                # Raise warning if using print in jit
+                if inspect.isfunction(func):
+                    print_statements[func.__class__.__name__].extend(utils.find_node_in_method(func, "print"))
+                else:
+
+                    def walk_through_class(user_class):
+                        if isinstance(user_class, Module):
+                            print_statements[user_class.__class__.__name__].extend(
+                                utils.find_node_in_method(user_class.__call__, "print")
+                            )
+
+                            for child_name, child in user_class.named_children():
+                                walk_through_class(child)
+
+                    walk_through_class(func)
+
+                # Create warning message for the user.
+                warning_messages = []
+                for func_name, statements in print_statements.items():
+                    if statements:
+                        formatted_statements = ", ".join(statements)
+                        warning_messages.append(f"'{func_name}' uses 'print' statements: {formatted_statements}")
+
+                combined_warning_message = "\n".join(warning_messages)
+                if combined_warning_message:
+                    # TODO (#107): Revisit the warning when tripy.print is implemented for suggested usage.
+                    G_LOGGER.warning(
+                        f"Usage of print statement in jitted functions is not recommended, instead use tripy.print to print in all invocations of the function.\n"
+                        + combined_warning_message
+                    )
+
             # The first time we run the function, we compute the cache key by looking at the signature of the
             # trace. On subsequent invocations, we skip this step.
             def make_trace():
+                try:
+                    warn_if_user_code_has_print()
+                except:
+                    pass
+
                 if self._obj is not None:
                     outputs = func(self._obj, *inputs, **kwargs)
                 else:
