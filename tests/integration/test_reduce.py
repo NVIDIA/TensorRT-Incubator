@@ -33,9 +33,8 @@ class TestReduceOp:
             ((2, 3), 1, True),
             ((2, 3, 4), (1, 2), True),
             ((2, 3, 4), None, False),
-            # #90 will fix this test.
-            # ((2,3), 1, False),
-            # ((2,3,4), (1,2), False),
+            ((2, 3), 1, False),
+            ((2, 3, 4), (1, 2), False),
         ],
     )
     def test_var(self, x_shape, axis, keepdim: bool):

@@ -227,7 +227,6 @@ def var(
         assert np.array_equal(output.numpy(), torch_input.var(dim=1, keepdim=True).numpy())
     """
 
-    mean = self.mean(dim=dim, keepdim=keepdim)
+    mean = self.mean(dim=dim, keepdim=dim is not None)
     sub = (self - mean) ** 2.0
-    # 93 will replace apply_to_divisor to use lambda x: max(0, x-correction)
-    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: x - correction)
+    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: (x - correction).maximum(0))

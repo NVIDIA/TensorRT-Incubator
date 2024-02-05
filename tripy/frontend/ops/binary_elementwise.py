@@ -21,11 +21,17 @@ class BinaryElementwise(BaseOperator):
         POW = " ** "
         MUL = " * "
         DIV = " / "
+        MAXIMUM = "maximum"
+        MINIMUM = "minimum"
 
     kind: str
 
     def __str__(self):
-        return f"{self.outputs[0].name} = {self.kind.join([inp.name for inp in self.inputs])}"
+        if self.kind.startswith(" "):
+            op_str = self.kind.join([inp.name for inp in self.inputs])
+        else:
+            op_str = f"{self.kind}({self.inputs[0].name}, {self.inputs[1].name})"
+        return f"{self.outputs[0].name} = {op_str}"
 
     def infer_shapes(self):
         input_shapes = [inp.shape for inp in self.inputs]
@@ -75,7 +81,7 @@ class BinaryElementwise(BaseOperator):
         return inputs
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import AddOp, DivideOp, MulOp, PowOp, SubtractOp
+        from tripy.flat_ir.ops import AddOp, DivideOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
 
         inputs = self.broadcast_inputs(inputs, outputs)
         OpType = {
@@ -84,6 +90,8 @@ class BinaryElementwise(BaseOperator):
             BinaryElementwise.Kind.MUL: MulOp,
             BinaryElementwise.Kind.SUB: SubtractOp,
             BinaryElementwise.Kind.DIV: DivideOp,
+            BinaryElementwise.Kind.MAXIMUM: MaxOp,
+            BinaryElementwise.Kind.MINIMUM: MinOp,
         }[self.kind]
         OpType(self, inputs, outputs)
 
@@ -349,6 +357,64 @@ def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.DIV)
+
+
+@TENSOR_METHOD_REGISTRY("maximum")
+@frontend_utils.convert_inputs_to_tensors()
+def maximum(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise maximum.
+
+    Args:
+        other: The tensor to compute the maximum operation with.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([1.0, 6.0])
+        b = tp.Tensor([2.0, 3.0])
+        output = a.maximum(b)
+
+        assert np.array_equal(output.numpy(), np.array([2.0, 6.0]))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.MAXIMUM)
+
+
+@TENSOR_METHOD_REGISTRY("minimum")
+@frontend_utils.convert_inputs_to_tensors()
+def minimum(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise minimum.
+
+    Args:
+        other: The tensor to compute the minimum operation with.
+            It must have the same data type as this tensor
+            and should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape and of the same data type as the inputs.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([1.0, 6.0])
+        b = tp.Tensor([2.0, 3.0])
+        output = a.minimum(b)
+
+        assert np.array_equal(output.numpy(), np.array([1.0, 3.0]))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.MINIMUM)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
