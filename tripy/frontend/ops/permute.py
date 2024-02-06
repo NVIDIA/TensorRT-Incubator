@@ -25,7 +25,7 @@ class Permute(BaseOperator):
                 details=[
                     f"In operation: 'permute', permutation was: {self.permutation}, containing "
                     f"{len(self.permutation)} element(s), but it must have the same number of "
-                    f"elements as the rank of the input tensor (shape: {input_shape}, rank: {len(input_shape)})."
+                    f"elements as the rank of the input tensor (shape: {input_shape}, rank: {len(input_shape)})"
                 ],
             )
 

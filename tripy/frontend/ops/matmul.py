@@ -41,7 +41,7 @@ class MatrixMultiplication(BaseOperator):
                     self,
                     "Input tensors must have at least 1 dimension.",
                     details=[
-                        f"Inputs for operation: '@' must have at least one dimension, but input {index} has shape: {shape} which has fewer than 1 dimension."
+                        f"Inputs for operation: '@' must have at least one dimension, but input {index} has shape: {shape} which has fewer than 1 dimension"
                     ],
                 )
 

@@ -5,7 +5,7 @@ from tripy import utils
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops.utils import raise_error_io_info, to_dims
+import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -18,13 +18,14 @@ class Reshape(BaseOperator):
 
     def infer_shapes(self):
         assert len(self.inputs) == 1, "Reshape operation should have exactly one input!"
-        self.outputs[0].shape = to_dims(self.shape)
+        self.outputs[0].shape = op_utils.to_dims(self.shape)
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ReshapeOp
 
         if any(
-            (dim[0].is_dynamic_dim() or dim[1].is_dynamic_dim()) for dim in zip(inputs[0].shape, to_dims(self.shape))
+            (dim[0].is_dynamic_dim() or dim[1].is_dynamic_dim())
+            for dim in zip(inputs[0].shape, op_utils.to_dims(self.shape))
         ):
             raise NotImplementedError("Dynamic reshape is not supported")
 
@@ -51,7 +52,7 @@ class Squeeze(Reshape):
                 out_shape.append(d.runtime_value)
             elif idx in self.dims:
                 if d.runtime_value != 1:
-                    raise_error_io_info(
+                    op_utils.raise_error_io_info(
                         self,
                         "Cannot select an axis to squeeze out which has size not equal to one",
                         [

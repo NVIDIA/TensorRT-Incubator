@@ -1,11 +1,9 @@
-import functools
-from typing import List, Union
-
 from tripy import utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import Dim
 from tripy.utils import make_list, make_tuple
+from colored import Fore, attr
 
 
 def to_dims(shape: ShapeInfo):
@@ -31,9 +29,9 @@ def to_dims(shape: ShapeInfo):
 # Like raise_error but adds information about the inputs and output.
 def raise_error_io_info(op, summary, details) -> None:
     assert len(op.outputs) == 1, "This helper should only be used for ops with a single output!"
-    details = ["For expression:", op.outputs[0]] + details + ["\n\n"]
+    details += [":"] + [op.outputs[0]]
     for index, inp in enumerate(op.inputs):
-        details.extend([f"Input {index} was:", inp])
+        details.extend([f"{Fore.magenta}Input {index} was:{attr('reset')}", inp])
 
     raise_error(summary, details)
 
@@ -66,7 +64,7 @@ def _check_input_attr_matches(
                 f"For operation: '{op_details}', " if op_details else "For this operation, ",
                 f"{attr_name}s for {inp_range_str}" " must match, but got: [",
                 *dtypes,
-                "].",
+                "]",
             ],
         )
 
@@ -113,7 +111,7 @@ def is_broadcast_compatible(shape1, shape2) -> utils.ConditionCheck:
             return utils.ConditionCheck(
                 False,
                 [
-                    f"for tensor shapes: {shape1} and {shape2}, dimensions on axis: {index} ({dim1} and {dim2}) are not broadcast compatible."
+                    f"for tensor shapes: {shape1} and {shape2}, dimensions on axis {index}: '{dim1}' and '{dim2}' are not broadcast compatible"
                 ],
             )
 

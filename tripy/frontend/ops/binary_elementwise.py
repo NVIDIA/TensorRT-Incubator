@@ -1,4 +1,3 @@
-import enum
 from dataclasses import dataclass
 from typing import Any, Union
 
@@ -42,7 +41,7 @@ class BinaryElementwise(BaseOperator):
                 self,
                 "Input tensors are not broadcast compatible.",
                 details=[
-                    "Input tensors for binary operation: '",
+                    "Input tensors for operation: '",
                     self.kind.strip(),
                     "' must be broadcast compatible but ",
                 ]

@@ -55,6 +55,9 @@ build_stablehlo:
   tags:
     - tripy-runner
   rules:
+    # Disable this job in nightlies.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "web"
       when: always
     - when: never
@@ -119,6 +122,9 @@ build_mlir_tensorrt:
   tags:
     - tripy-runner
   rules:
+    # Disable this job in nightlies.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - changes:
       - mlir-tensorrt.txt
       - .gitlab-ci.yml
@@ -143,6 +149,9 @@ build_container:
   tags:
     - tripy-runner
   rules:
+    # Disable this job in nightlies.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     # NOTE: When changing these conditions, also update the other stages.
     - changes:
       - mlir-tensorrt.txt
@@ -156,14 +165,17 @@ build_container:
 l0-if-new-container:
   image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   rules:
-  # NOTE: When changing these conditions, also update the other stages.
-  - changes:
-    - mlir-tensorrt.txt
-    - Dockerfile
-    - pyproject.toml
-    - .gitlab-ci.yml
-    if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    when: always
+    # Disable this job in nightlies.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    # NOTE: When changing these conditions, also update the other stages.
+    - changes:
+      - mlir-tensorrt.txt
+      - Dockerfile
+      - pyproject.toml
+      - .gitlab-ci.yml
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
@@ -175,16 +187,19 @@ l0-if-new-container:
 l0-if-no-new-container:
   image: $CI_REGISTRY_IMAGE:latest
   rules:
+    # Disable this job in nightlies.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     # NOTE: When changing these conditions, also update the other stages.
     - changes:
       - mlir-tensorrt.txt
       - Dockerfile
       - pyproject.toml
       - .gitlab-ci.yml
+      if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: never
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - when: always
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
@@ -199,6 +214,7 @@ l1:
   # If we add more pipeline schedules we'll need to update this logic.
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
   stage: test
   script:
     - python3 -m pytest tests/ -v -m "l1"
@@ -214,6 +230,9 @@ upload-dependencies:
   tags:
     - tripy-runner
   rules:
+    # Disable this job in nightlies.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     - changes:
       - mlir-tensorrt.txt
       - .gitlab-ci.yml
@@ -234,6 +253,9 @@ upload-container:
   tags:
     - tripy-runner
   rules:
+    # Disable this job in nightlies.
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
     # NOTE: changes is probably pointless here since there's no reference point, so GitLab must assume that the files have changed.
     # If we can figure out the original TOT of main prior to the change merging, we could use that as the reference.
     - changes:

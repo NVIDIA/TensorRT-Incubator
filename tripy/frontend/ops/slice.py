@@ -45,7 +45,7 @@ class Slice(BaseOperator):
                     dims,
                     " but was attempted to be sliced with ",
                     len(index),
-                    " indices.",
+                    " indices",
                 ],
             )
         index += (dims - len(index)) * (slice(None),)

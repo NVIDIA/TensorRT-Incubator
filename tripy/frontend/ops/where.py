@@ -46,7 +46,6 @@ class Where(BaseOperator):
                 details=[
                     f"Condition input (input 0) for operation: 'where' must have boolean type, but got: ",
                     self.inputs[0].dtype,
-                    ".",
                 ],
             )
 

@@ -29,7 +29,7 @@ class Gather(BaseOperator):
                 self,
                 "Index tensor for gather operation should be of int32 type.",
                 details=[
-                    f"Input tensor 'index' for operation: 'gather' must be of int32 type, but 'index' has type: {self.inputs[1].dtype}."
+                    f"Input tensor 'index' for operation: 'gather' must be of int32 type, but 'index' has type: {self.inputs[1].dtype}"
                 ],
             )
 
