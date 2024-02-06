@@ -7,9 +7,17 @@ The `tests/integration` directory captures the latter group of tests.
 
 ## Running Tests
 
-You can run tests locally in the development container by running:
+You can run all tests locally in the development container by running:
 ```bash
 pytest tests/ -v
+```
+
+You can also provide marker arguments to only run specific test cadences
+(see [the test cadence section](#test-cadence) below). For example, to run only
+L0 tests, use:
+
+```bash
+pytest tests/ -v -m "l0 or not l1"
 ```
 
 ## Adding Tests
@@ -18,23 +26,42 @@ When modifying or adding new files in `tripy`, make sure that you also modify or
 unit test files under `tests`. For integration tests, you can find an appropriate file in
 `tests/integration` or create a new one if none of the existing files fit your needs.
 
+### Test Cadence
+
+We don't necessarily want to run every test in every single pipeline. You can use special
+pytest markers to indicate the cadence for a test. For example:
+
+```py
+@pytest.mark.l1
+def test_really_slow_things():
+    ...
+```
+
+The markers we currently support are:
+
+- `l0`: Indicates that the test should be run in each merge request.
+        This marker is applied by default if no other markers are present.
+
+- `l1`: Indicates that the test should be run at a nightly cadence.
+
+
 ### Docstring Tests
 
 For public-facing interfaces, you should add examples in the docstrings.
 Avoid doing this for internal interfaces since we do not build documentation for
 those anyway.
 
-Any code blocks (i.e. `.. code-block:: python` followed by a newline and then an indented block)
-in docstrings are automatically tested by `tests/test_ux.py`.
-
-For example:
+Any code blocks in docstrings are automatically tested by `tests/test_ux.py`.
+The code block format is:
 ```py
 """
 .. code-block:: python
+    :linenos:
+    :caption: Descriptive Title For This Example
 
     <example code>
 """
 ```
 
-**NOTE: The docstrings must *not* import `tripy` or `numpy`. They will be imported **
-    **automatically as `tp` and `np` respectively. Any other modules will need to be imported*.**
+**NOTE: The docstrings must *not* import `tripy`, `numpy`, or `torch`. They will be imported**
+    **automatically as `tp`, `np`, and `torch` respectively. Any other modules will need to be imported.**

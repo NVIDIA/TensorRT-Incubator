@@ -13,8 +13,6 @@ dev = [
   "jinja2==3.1.2",
   "numpy==1.26.1",
   "cupy-cuda12x",
-  "jax[cuda12_local]",
-  "jaxlib==0.4.23+cuda12.cudnn89",
   "pre-commit==3.6.0",
 ]
 docs = [
@@ -22,10 +20,13 @@ docs = [
   "sphinx-nefertiti==0.2.1",
   "sphinx-copybutton==0.5.2",
   "docutils==0.20.1",
-  "myst-parser==2.0.0"
+  "myst-parser==2.0.0",
 ]
 test = [
-  "pytest==7.1.3"
+  "pytest==7.1.3",
+  "pytest-virtualenv==1.7.0",
+  "jax[cuda12_local]",
+  "jaxlib==0.4.23+cuda12.cudnn89",
 ]
 
 [tool.black]
@@ -42,4 +43,8 @@ exclude = '''
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
+]
+markers = [
+    "l0: Marks tests to run on each merge request.",
+    "l1: Marks tests to run at a nightly cadence.",
 ]

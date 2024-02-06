@@ -167,7 +167,7 @@ l0-if-new-container:
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
-    - python3 -m pytest tests/ -v
+    - python3 -m pytest tests/ -v -m "l0 or not l1"
   tags:
     - tripy-runner
 
@@ -188,7 +188,20 @@ l0-if-no-new-container:
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
-    - python3 -m pytest tests/ -v
+    - python3 -m pytest tests/ -v -m "l0 or not l1"
+  tags:
+    - tripy-runner
+
+
+l1:
+  image: $CI_REGISTRY_IMAGE:latest
+  # Only run in the automatically scheduled nightlies.
+  # If we add more pipeline schedules we'll need to update this logic.
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  stage: test
+  script:
+    - python3 -m pytest tests/ -v -m "l1"
   tags:
     - tripy-runner
 
