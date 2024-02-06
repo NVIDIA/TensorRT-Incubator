@@ -82,7 +82,19 @@ def all_same(a: List[int] or List[float], b: List[int] or List[float]):
 
 
 class CodeBlock(str):
-    pass
+    def code(self) -> str:
+        # Special directives can be used in the code blocks and they should be
+        # excluded from the actual code.
+        def is_directive(line):
+            if not line.strip().startswith(":"):
+                return False
+            tokens = line.strip().split(" ")
+            if not tokens:
+                return False
+            return tokens[0].endswith(":")
+
+        text = self.replace(".. code-block:: python", "", 1)
+        return "\n".join([line for line in text.splitlines() if not is_directive(line)])
 
 
 def consolidate_code_blocks(doc):
@@ -100,34 +112,20 @@ def consolidate_code_blocks(doc):
     out = []
     in_code_block = False
     for line in doc.splitlines():
-        if not in_code_block:
-            out.append(line)
-
         if in_code_block:
-            # Special directives can be used in the code blocks, but should not be
-            # made part of our CodeBlock objects. Instead, we append them just before
-            # the actual code, which will be right after the `.. code-block:: python` line.
-            def is_directive(line):
-                if not line.strip().startswith(":"):
-                    return False
-                tokens = line.strip().split(" ")
-                if not tokens:
-                    return False
-                return tokens[0].endswith(":")
-
-            if is_directive(line):
-                out.insert(-1, line)
             # If the line is empty or starts with whitespace, then we're still in the code block.
-            elif not line or line.lstrip() != line:
+            if not line or line.lstrip() != line:
                 out[-1] = CodeBlock(out[-1] + line + "\n")
             else:
-                out.append(line)
                 in_code_block = False
 
-        # This cannot be an `else` statement or we'd discard a line.
-        if not in_code_block and line.strip().startswith(".. code-block:: python"):
-            in_code_block = True
-            out.append(CodeBlock())
+        # Cannot be an `else` or we'd drop a line.
+        if not in_code_block:
+            if line.strip().startswith(".. code-block:: python"):
+                in_code_block = True
+                out.append(CodeBlock(line + "\n"))
+            else:
+                out.append(line)
 
     return out
 
@@ -220,7 +218,9 @@ def get_all_docstrings_with_examples():
             continue
         seen_docstring_hashes.add(doc_hash)
 
-        blocks = [dedent(block) for block in consolidate_code_blocks(obj.__doc__) if isinstance(block, CodeBlock)]
+        blocks = [
+            dedent(block.code()) for block in consolidate_code_blocks(obj.__doc__) if isinstance(block, CodeBlock)
+        ]
         if blocks is None:
             print(f"Skipping {get_qualname(obj)} because no example was present in the docstring")
             continue

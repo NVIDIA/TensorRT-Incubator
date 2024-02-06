@@ -22,6 +22,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
+    "sphinx_toolbox.collapse",
     "sphinx_copybutton",
     "myst_parser",
 ]
@@ -140,7 +141,6 @@ def process_docstring(app, what, name, obj, options, lines):
 
     if not allow_no_example():
         assert ".. code-block:: python" in doc, f"For: {obj} no example was provided. Please add an example!"
-        assert ":caption:" in doc, f"For: {obj} example does not have a caption. Please add a caption to each example!"
 
     lines.clear()
     for block in blocks:
@@ -159,6 +159,7 @@ def process_docstring(app, what, name, obj, options, lines):
         # then we'll only print those that appear in it.
         print_vars = set()
 
+        code_block_lines = []
         for block_line in block.splitlines():
             if block_line.strip() == NO_PRINT_LOCALS:
                 should_append_locals = False
@@ -170,7 +171,7 @@ def process_docstring(app, what, name, obj, options, lines):
             if any(block_line.strip().startswith(tag) for tag in REMOVE_TAGS) or block_line.endswith(OMIT_COMMENT):
                 continue
 
-            lines.append(block_line)
+            code_block_lines.append(block_line)
 
         def add_block(title, contents):
             line = block.splitlines()[1]
@@ -184,7 +185,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 )
                 + "\n\n"
             )
-            lines.extend(out.splitlines())
+            code_block_lines.extend(out.splitlines())
 
         # Add output as a separate code block.
         outfile = io.StringIO()
@@ -194,12 +195,13 @@ def process_docstring(app, what, name, obj, options, lines):
             outfile.seek(0)
             return outfile.read().strip()
 
+        code = dedent(block.code())
         try:
             with contextlib.redirect_stdout(outfile), contextlib.redirect_stderr(outfile):
-                code_locals = helper.exec_doc_example(dedent(block))
+                code_locals = helper.exec_doc_example(code)
         except:
             print(f"Failed while processing docstring for: {what}: {name} ({obj})")
-            print(f"Note: Code example was:\n{block}")
+            print(f"Note: Code example was:\n{code}")
             print(get_stdout())
             raise
 
@@ -253,6 +255,25 @@ def process_docstring(app, what, name, obj, options, lines):
 
         if stdout:
             add_block("Output:", stdout)
+
+        # Grab the caption from the example code block.
+        for line in code_block_lines:
+            caption_marker = ":caption:"
+            if caption_marker in line:
+                _, _, caption = line.partition(caption_marker)
+                caption = caption.strip()
+                if caption != "Example":
+                    caption = f"Example: {caption}"
+                break
+        else:
+            assert False, f"For: {obj}, example does not have a caption. Please add a caption to each example!"
+
+        # Put the entire code block + output under a collapsible section to save space.
+        line = code_block_lines[0]
+        indentation = len(line) - len(line.lstrip())
+        lines.extend(indent(f"\n.. collapse:: {caption}\n\n", prefix=" " * indentation).splitlines())
+        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * 4).splitlines()
+        lines.extend(code_block_lines)
 
 
 def setup(app):

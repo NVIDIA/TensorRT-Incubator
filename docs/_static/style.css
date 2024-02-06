@@ -20,6 +20,18 @@
     grid-template-columns: 1fr 5fr;
 }
 
+details[class^="summary"]>summary {
+    font-size: 1.15rem;
+    font-weight: 600;
+    padding-top: 5px;
+    padding-bottom: 25px;
+}
+
+/* Method examples already include a bottom margin, so reduce the padding amount. */
+.py.method details[class^="summary"]>summary {
+    padding-bottom: 8px;
+}
+
 .sig {
     font-weight: 400;
     font-size: 1.0rem !important;
