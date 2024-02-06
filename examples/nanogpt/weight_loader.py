@@ -1,40 +1,40 @@
-import torch
 import re
+
+import torch
 from transformers import GPT2LMHeadModel
+
 import tripy as tp
 
 
 def load_weights_from_hf(model, model_type):
-    assert model_type in {"gpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"}
-    print(f"Loading weights from pretrained gpt: {model_type}")
+    print(f"Loading weights from pretrained model: '{model_type}'")
 
-    sd = model.state_dict()
-    sd_keys = sd.keys()
-    sd_keys = [
-        k for k in sd_keys if not k.endswith(".attn.bias")
-    ]  # Bias are initialized in model init using block size.
+    tripy_state_dict = model.state_dict()
+    # Biases are initialized in the model based on block size.
+    tripy_keys = [key for key in tripy_state_dict.keys() if not key.endswith(".attn.bias")]
 
     # Load huggingface/transformers model
     model_hf = GPT2LMHeadModel.from_pretrained(model_type)
-    sd_hf = model_hf.state_dict()
-    sd_keys_hf = sd_hf.keys()
-    sd_keys_hf = [k for k in sd_keys_hf if not k.endswith(".attn.masked_bias")]  # ignore these, just a buffer
-    sd_keys_hf = [k for k in sd_keys_hf if not k.endswith(".attn.bias")]  # same, just the mask (buffer)
-    transposed = ["attn.c_attn.weight", "attn.c_proj.weight", "mlp.c_fc.weight", "mlp.c_proj.weight"]
-    assert len(sd_keys_hf) == len(sd_keys), f"mismatched keys: {len(sd_keys_hf)} != {len(sd_keys)}"
+    hf_state_dict = model_hf.state_dict()
+    # We ignore some of the keys in the HF checkpoint:
+    hf_keys = [
+        key for key in hf_state_dict.keys() if not key.endswith(".attn.masked_bias") and not key.endswith(".attn.bias")
+    ]
+    assert len(hf_keys) == len(tripy_keys), f"Mismatched keys: {hf_keys} != {tripy_keys}"
 
-    sd_hf["transformer.wte.weight"] = sd_hf["lm_head.weight"]  # https://paperswithcode.com/method/weight-tying
+    # See https://paperswithcode.com/method/weight-tying for details on why we do this:
+    hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
 
     # transformer.h.i weights are stored as transformer.h_i
-    converted_list = [re.sub(r"h\.\d+", lambda x: x.group().replace(".", "_"), s) for s in sd_keys_hf]
+    converted_list = [re.sub(r"h\.\d+", lambda x: x.group().replace(".", "_"), s) for s in hf_keys]
 
-    for idx, k in enumerate(sd_keys_hf):
-        if any(k.endswith(w) for w in transposed):
+    transposed = ["attn.c_attn.weight", "attn.c_proj.weight", "mlp.c_fc.weight", "mlp.c_proj.weight"]
+    for idx, key in enumerate(hf_keys):
+        weight = hf_state_dict[key]
+        if any(key.endswith(w) for w in transposed):
             # special treatment for the Conv1D weights we need to transpose
             with torch.no_grad():
-                sd[converted_list[idx]] = tp.nn.Parameter(tp.Tensor(sd_hf[k].t().contiguous()))
-        else:
-            with torch.no_grad():
-                sd[converted_list[idx]] = tp.nn.Parameter(tp.Tensor(sd_hf[k]))
+                weight = hf_state_dict[key].t().contiguous()
+        tripy_state_dict[converted_list[idx]] = tp.nn.Parameter(tp.Tensor(weight))
 
-    model.load_from_state_dict(sd)
+    model.load_from_state_dict(tripy_state_dict)
