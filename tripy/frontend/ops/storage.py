@@ -1,13 +1,11 @@
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Set
 
 import tripy.common
 from tripy import utils
 from tripy.common.array import Array
-from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy import utils
+from tripy.common.types import ShapeInfo
 
 
 @dataclass(repr=False)
@@ -17,31 +15,15 @@ class Storage(BaseOperator):
     """
 
     data: Array
-    shape: ShapeInfo
+    shape: ShapeInfo  # This is a ShapeInfo but will always be a static shape
     dtype: type
     device: tripy.common.device
 
-    def __init__(
-        self,
-        inputs: List["Tensor"],
-        outputs: List["Tensor"],
-        data: Array,
-        shape: ShapeInfo,
-    ) -> None:
-        """
-        Initialize Storage instance.
-
-        Args:
-            data: The data to be stored.
-            dtype: Data type (default: float32).
-            device: The device where the data is stored (default: CPU).
-            shape: The shape of the data (default: None).
-        """
+    def __init__(self, inputs: List["Tensor"], outputs: List["Tensor"], data: Array) -> None:
         super().__init__(inputs, outputs)
 
         self.data = data
-        # TODO (#114): Make Storage always use fixed shapes.
-        self.shape = utils.to_dims(shape)
+        self.shape = utils.to_dims(data.shape)
         self.dtype = data.dtype
         self.device = data.device
 
@@ -74,43 +56,3 @@ class Storage(BaseOperator):
             # This is required because MLIR-TRT backend requires constants to be on host.
             data = data.get()
         ConstantOp(self, inputs, outputs, data=data)
-
-
-@TENSOR_METHOD_REGISTRY("__init__")
-def tensor_init(
-    self,
-    data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-    shape: Optional[ShapeInfo] = None,
-    dtype: Optional["tripy.dtype"] = None,
-    device: Optional["tripy.device"] = None,
-    name: Optional[str] = None,
-) -> None:
-    """
-    Creates a tensor.
-
-    Args:
-        data: The data with which to initialize the tensor.
-        shape: The shape of the tensor.
-        dtype: The data type of the tensor.
-        device: The device on which to allocate the tensor.
-        name: The name of the tensor. If provided, this must be a unique string.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
-    """
-    # Note: It is important that we are able to call the Tensor constructor with no arguments
-    # since this is used internally by Tensor.build()
-    if data is not None:
-        from tripy.frontend.ops import Storage
-
-        if not isinstance(data, Array):
-            data = Array(data, dtype, utils.from_dims(shape), device)
-        else:
-            # Internal usage only
-            # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
-            assert not any([shape, dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
-        # TODO (#114): Remove shape argument
-        self._finalize(name, [], Storage, data, utils.default(shape, data.shape))

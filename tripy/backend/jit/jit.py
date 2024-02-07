@@ -1,20 +1,20 @@
 import atexit
-import ast
 import functools
 import inspect
-import textwrap
 from collections import defaultdict
 from typing import Callable, Dict, List
 
 from tripy import utils
 from tripy.backend.jit.cached_executable import CachedExecutable
-from tripy.backend.jit.utils import TensorInfo, get_trace_signature, get_tensor_info
+from tripy.backend.jit.dynamic_storage import DynamicStorage
+from tripy.backend.jit.utils import TensorInfo, get_tensor_info, get_trace_signature
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
 from tripy.common.logging import logger
 from tripy.frontend import Tensor, nn
+from tripy.frontend.nn import Module
 from tripy.frontend.trace import Trace
-from tripy.frontend.nn.module import Module
+from tripy.frontend.ops import Storage
 
 
 class jit:
@@ -113,12 +113,16 @@ class jit:
             trace_inputs = []
 
             for index, arg in enumerate(args):
-                # TODO (#114): Convert Storage to some special op which can propagate dynamic shapes -
-                # maybe DynamicStorage?
-
                 # Creating a new tensor to make sure each arg has a unique name
+                dynamic_shape = arg._dynamic_shape
                 tensor = Tensor(arg.eval())
+                # Copy stack information from the original tensor so error messages are better.
                 tensor._stack_info = arg._stack_info
+                # Replace the tensor op with one that can supply dynamic shapes.
+                storage = tensor.op
+                assert isinstance(storage, Storage), f"{tensor} should have had a storage op after `eval()`"
+                tensor._finalize(tensor.name + "_dyn", [], DynamicStorage, storage.data, dynamic_shape)
+
                 if index not in const_argnums:
                     trace_inputs.append(tensor)
                 inputs.append(tensor)
@@ -204,6 +208,7 @@ class jit:
                 output_tensor_info = get_tensor_info(trace.outputs)
 
             trace_signature = self._trace_signatures[trace_signature_key]
+
             for executable in self.cache.get(trace_signature, []):
                 if executable.is_compatible(input_tensor_info):
                     break

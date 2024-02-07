@@ -1,9 +1,9 @@
 from textwrap import indent
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from tripy import utils
 from tripy.common.array import Array
-from tripy.common.logging import logger
+from tripy.common.types import ShapeInfo
 from tripy.frontend.ops import TENSOR_METHOD_REGISTRY, Storage
 
 
@@ -29,16 +29,58 @@ class Tensor(metaclass=TensorMeta):
 
     _COUNT = 0
 
+    # This field communicates to NumPy that it should allow our right-side operator overloads (e.g. __radd__) to take
+    # precedence over its own left-side overloads (e.g. __add__). This will ensure that an expression of the form
+    # `<np_array> <binary_op> Tensor` will return a Tensor and not a NumPy array.
+    __array_priority__ = 10000
+
     @classmethod
     def get_unique_name(cls):
         name = f"t{cls._COUNT}"
         cls._COUNT += 1
         return name
 
-    # This field communicates to NumPy that it should allow our right-side operator overloads (e.g. __radd__) to take
-    # precedence over its own left-side overloads (e.g. __add__). This will ensure that an expression of the form
-    # `<np_array> <binary_op> Tensor` will return a Tensor and not a NumPy array.
-    __array_priority__ = 10000
+    def __init__(
+        self,
+        data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        shape: Optional[ShapeInfo] = None,
+        dtype: Optional["tripy.dtype"] = None,
+        device: Optional["tripy.device"] = None,
+        name: Optional[str] = None,
+    ) -> None:
+        """
+        Creates a tensor.
+
+        Args:
+            data: The data with which to initialize the tensor.
+            shape: The shape of the tensor.
+            dtype: The data type of the tensor.
+            device: The device on which to allocate the tensor.
+            name: The name of the tensor. If provided, this must be a unique string.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
+        """
+        # Note: It is important that we are able to call the Tensor constructor with no arguments
+        # since this is used internally by Tensor.build()
+
+        # Note that most tensors won't have this field - generally only model input tensors.
+        self._dynamic_shape = utils.to_dims(shape)
+        if data is not None:
+            from tripy.frontend.ops import Storage
+
+            if not isinstance(data, Array):
+                data = Array(data, dtype, utils.from_dims(shape), device)
+            else:
+                # Internal usage only
+                # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
+                assert not any(
+                    [shape, dtype, device]
+                ), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+            self._finalize(name, [], Storage, data)
 
     def _finalize(self, name: Optional[str], inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
         # It is very important that this is called from all entrypoints to creating a tensor.
@@ -101,19 +143,14 @@ class Tensor(metaclass=TensorMeta):
             data = executor.execute()
             assert len(data) == 1, "Expects only one output from MLIR executor"
             data = data[0]
-            # TODO (#114): Remove shape argument
-            self._finalize(self.name, [], Storage, data, data.shape)
+            self._finalize(self.name, [], Storage, data)
             return data
 
     def numpy(self) -> "numpy.ndarray":
         from tripy.common.device import device
 
-        # TODO (#114): Insert a self.eval() here so we don't need to recompute everything
-        # again after calling `numpy()`
-        # self.eval()
+        self.eval()  # Avoid recomputing everything after we've called `numpy()`
         data = self.to(device("cpu")).eval()
-        # TODO (#114): Remove this line after adding self.eval()
-        self._finalize(self.name, [], Storage, data, data.shape)
         return data.view()
 
     def __repr__(self) -> str:

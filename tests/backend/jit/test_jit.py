@@ -183,6 +183,8 @@ class TestJIT:
         a = tp.ones((6,))
         assert np.array_equal(add(a, a).numpy(), np.ones((6,), dtype=np.float32) + np.ones((6,), dtype=np.float32))
         assert len(add.cache) == 1
+        # Make sure that there is only one cached executable for the cache key.
+        assert len(list(add.cache.values())[0]) == 1
 
     def test_print_warnings(self, capsys):
         random_data = np.random.rand(3).astype(np.float32)
