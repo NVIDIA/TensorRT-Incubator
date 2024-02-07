@@ -6,7 +6,7 @@ from collections import namedtuple
 import cupy as cp
 
 from tripy import config, utils
-from tripy.common import Array, G_LOGGER
+from tripy.common import Array, logger
 from tripy.common.ctypes import POINTER, c_int, c_int64, char_ptr, void_ptr
 from tripy.common.exception import raise_error
 
@@ -212,7 +212,7 @@ def mlir_close():
 def mlir_lib_path():
     custom_integ_path = os.getenv("MLIR_TRT_INTEGRATION_PATH")
     if custom_integ_path:
-        G_LOGGER.info(f"Trying to build with custom mlir backend at {custom_integ_path}")
+        logger.info(f"Trying to build with custom mlir backend at {custom_integ_path}")
 
     path = custom_integ_path or config.MLIR_LIB_PATH
     return path

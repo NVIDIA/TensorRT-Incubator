@@ -5,7 +5,7 @@ from tripy.frontend.ops import BaseOperator
 from tripy.frontend.tensor import Tensor
 from tripy.frontend.trace.tensor import TraceTensor
 from tripy.common.exception import raise_error
-from tripy.common import G_LOGGER
+from tripy.common import logger
 
 
 class Trace:
@@ -83,7 +83,7 @@ class Trace:
         # Perform shape/dtype/device inference to fill shape information for all tensors.
         self._infer_tensor_info()
 
-        G_LOGGER.ir_printer(f"Trace :\n{self}")
+        logger.trace(lambda: f"{self}")
 
     def topological_sort(self) -> List[BaseOperator]:
         stack = list()
@@ -135,5 +135,5 @@ class Trace:
             op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
             flat_ir.integrate_subgraph(inputs, outputs)
 
-        G_LOGGER.ir_printer(f"FlatIR :\n{flat_ir}")
+        logger.flat_ir(lambda: f"{flat_ir}")
         return flat_ir

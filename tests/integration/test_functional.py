@@ -6,12 +6,11 @@ import pytest
 import torch
 
 import tripy as tp
-from tests import helper
 from tripy.backend.jit.utils import get_tensor_info
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
-from tripy.common import LoggerModes
 from tripy.frontend.trace import Trace
+from tripy.common import logger
 
 
 class TestFunctional:
@@ -292,46 +291,40 @@ class TestDynamic:
         ],
     )
     def test_dynamic_jit(self, dims_a, dims_b, capsys):
-        from tripy.common.logging import set_logger_mode, LoggerModes
+        with logger.use_verbosity("stablehlo"):
 
-        set_logger_mode(LoggerModes.VERBOSE)
+            def get_np_dims(dims, dim_func):
+                return [dim_func(d) if isinstance(d, tp.Dim) else d for d in dims]
 
-        def get_np_dims(dims, dim_func):
-            return [dim_func(d) if isinstance(d, tp.Dim) else d for d in dims]
+            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
+            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
 
-        a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
-        b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
+            a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
+            b = tp.Tensor(b_np, shape=dims_b, device=tp.device("gpu"))
 
-        a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
-        b = tp.Tensor(b_np, shape=dims_b, device=tp.device("gpu"))
+            @tp.jit
+            def func(a, b):
+                c = a + b
+                return c
 
-        @tp.jit
-        def func(a, b):
-            c = a + b
-            return c
+            out = func(a, b)
+            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
+            print("Re-run dynamic shape test with a different input shape.")
 
-        out = func(a, b)
-        assert np.array_equal(out.numpy(), np.array(a_np + b_np))
-        print("Re-run dynamic shape test with a different input shape.")
+            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
+            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
 
-        a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
-        b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
+            a = tp.Tensor(a_np, device=tp.device("gpu"))
+            b = tp.Tensor(b_np, device=tp.device("gpu"))
 
-        a = tp.Tensor(a_np, device=tp.device("gpu"))
-        b = tp.Tensor(b_np, device=tp.device("gpu"))
-
-        out = func(a, b)
-        assert np.array_equal(out.numpy(), np.array(a_np + b_np))
-        # 1 compile call for stablehlo add.
-        captured = capsys.readouterr()
-        assert "stablehlo.add" in captured.err.strip()
+            out = func(a, b)
+            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
+            # 1 compile call for stablehlo add.
+            captured = capsys.readouterr()
+            assert "stablehlo.add" in captured.out.strip()
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
-        from tripy.common.logging import set_logger_mode, LoggerModes
-
-        set_logger_mode(LoggerModes.IR)
-
         a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
         b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
 

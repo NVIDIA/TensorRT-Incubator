@@ -1,8 +1,6 @@
 import contextlib
 import importlib
 import inspect
-import io
-import logging
 import os
 import pkgutil
 from textwrap import dedent, indent
@@ -14,7 +12,6 @@ import torch
 
 import tripy as tp
 from tripy.common.exception import _make_stack_info_message
-from tripy.common.logging import G_LOGGER, set_logger_mode
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
 

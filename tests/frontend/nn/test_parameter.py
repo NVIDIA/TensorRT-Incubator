@@ -1,24 +1,22 @@
 import numpy as np
 
 import tripy as tp
-from tripy.common.logging import LoggerModes
-from tests import helper
+from tripy.common import logger
 
 
 class TestParameter:
     def test_is_marked_const(self, capsys):
-        from tripy.common.logging import set_logger_mode, LoggerModes
+        with logger.use_verbosity("flat_ir"):
+            param = tp.nn.Parameter(tp.Tensor([1, 2, 3]))
 
-        set_logger_mode(LoggerModes.IR)
-        param = tp.nn.Parameter(tp.Tensor([1, 2, 3]))
+            @tp.jit
+            def func(param):
+                return param + param
 
-        @tp.jit
-        def func(param):
-            return param + param
-
-        func(param)
-        captured = capsys.readouterr()
-        assert "ConstantOp(data=[1 2 3], dtype=int32, device=gpu:0)" in captured.err.strip()
+            func(param)
+            captured = capsys.readouterr()
+            print(captured.out)
+            assert "ConstantOp(data=[1 2 3], dtype=int32, device=gpu:0)" in captured.out.strip()
 
     def test_is_instance_of_tensor(self):
         param = tp.nn.Parameter(tp.Tensor([1, 2, 3]))

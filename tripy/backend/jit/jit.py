@@ -11,7 +11,7 @@ from tripy.backend.jit.cached_executable import CachedExecutable
 from tripy.backend.jit.utils import TensorInfo, get_trace_signature, get_tensor_info
 from tripy.backend.mlir.compiler import FlatIRCompiler
 from tripy.backend.mlir.executor import FlatIRExecutor
-from tripy.common.logging import G_LOGGER
+from tripy.common.logging import logger
 from tripy.frontend import Tensor, nn
 from tripy.frontend.trace import Trace
 from tripy.frontend.nn.module import Module
@@ -151,7 +151,7 @@ class jit:
                 combined_warning_message = "\n".join(warning_messages)
                 if combined_warning_message:
                     # TODO (#107): Revisit the warning when tripy.print is implemented for suggested usage.
-                    G_LOGGER.warning(
+                    logger.warning(
                         f"Usage of print statement in jitted functions is not recommended, instead use tripy.print to print in all invocations of the function.\n"
                         + combined_warning_message
                     )
@@ -196,7 +196,6 @@ class jit:
                     return str(utils.md5(__version__, get_trace_signature(trace), const_tensor_ids))
 
                 trace = make_trace()
-                G_LOGGER.ir_printer(f"Trace :\n{trace}")
                 self._trace_signatures[trace_signature_key] = compute_trace_signature(trace)
                 input_tensor_info = get_tensor_info(trace.inputs)
                 output_tensor_info = get_tensor_info(trace.outputs)

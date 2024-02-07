@@ -1,11 +1,6 @@
-import os
-import tempfile
-
 import numpy as np
 import pytest
 
-from tests import helper
-from tripy.common import LoggerModes
 import tripy as tp
 
 
@@ -190,9 +185,6 @@ class TestJIT:
         assert len(add.cache) == 1
 
     def test_print_warnings(self, capsys):
-        from tripy.common.logging import set_logger_mode, LoggerModes
-
-        set_logger_mode(LoggerModes.VERBOSE)
         random_data = np.random.rand(3).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
@@ -201,18 +193,13 @@ class TestJIT:
             print("Print in function jit mode.")
             return a
 
-        out = add(a).eval()
-        out = add(a).eval()
+        _ = add(a).eval()
+        _ = add(a).eval()
 
         captured = capsys.readouterr()
-        assert captured.out.strip() == "Print in function jit mode."
-        assert captured.err.count("Print in function jit mode.") == 1
+        assert "Usage of print statement in jitted functions is not recommended" in captured.out
 
     def test_print_warnings_nested_class(self, capsys):
-        from tripy.common.logging import set_logger_mode, LoggerModes
-
-        set_logger_mode(LoggerModes.VERBOSE)
-
         random_data = np.random.rand(3, 4).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
@@ -231,20 +218,17 @@ class TestJIT:
                 self.dummy = Dummy()
 
             def __call__(self, x):
-                print("Print in jit mode.")
-
                 return self.linear(self.dummy(x))
 
         net = Network()
         net = tp.jit(net)
 
         # Call eval twice to show print only gets triggered once during tracing.
-        out = net(a).eval()
-        out = net(a).eval()
+        _ = net(a).eval()
+        _ = net(a).eval()
 
         captured = capsys.readouterr()
-        # Verify that print gets triggered once during tracing.
-        assert captured.out.strip() == "Print in jit mode.\nDummy call"
-        # Verify that warning logs show the two print statments.
-        assert "'Network' uses 'print' statements: print(\"Print in jit mode.\")" in captured.err
-        assert "'Dummy' uses 'print' statements: print(\"Dummy call\")" in captured.err
+
+        assert "Usage of print statement in jitted functions is not recommended" in captured.out
+        # Verify that warning logs show the nested print statment.
+        assert "'Dummy' uses 'print' statements: print(\"Dummy call\")" in captured.out

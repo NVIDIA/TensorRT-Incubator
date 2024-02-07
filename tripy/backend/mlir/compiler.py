@@ -1,6 +1,6 @@
 from tripy import utils
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
-from tripy.common.logging import G_LOGGER
+from tripy.common.logging import logger
 
 
 class FlatIRCompiler:
@@ -43,7 +43,7 @@ class FlatIRCompiler:
         # Lower Trace to corresponding StableHLO IR.
         mlir_module = flat_ir.to_mlir()
         mlir_textual = str(mlir_module)
-        G_LOGGER.ir_printer(
-            f"StableHLO IR:\n{utils.prefix_with_line_numbers(FlatIRCompiler.remove_stablehlo_constants(mlir_textual))}"
+        logger.stablehlo(
+            lambda: f"{utils.prefix_with_line_numbers(FlatIRCompiler.remove_stablehlo_constants(mlir_textual))}"
         )
         return self.compiler.compile(mlir_textual)

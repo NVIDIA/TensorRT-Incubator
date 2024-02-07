@@ -3,7 +3,7 @@ from typing import Any, List, Optional
 
 from tripy import utils
 from tripy.common.array import Array
-from tripy.common.logging import G_LOGGER
+from tripy.common.logging import logger
 from tripy.frontend.ops import TENSOR_METHOD_REGISTRY, Storage
 
 

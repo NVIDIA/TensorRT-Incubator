@@ -1,7 +1,7 @@
 from typing import List
 
 from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
-from tripy.common import Array, G_LOGGER
+from tripy.common import Array, logger
 from tripy.frontend import Tensor
 from tripy.utils import log_time
 
@@ -35,7 +35,7 @@ class FlatIRExecutor:
     def __exit__(self, exc_type, exc_value, traceback) -> bool:
         if exc_type is not None:
             info = (exc_type, exc_value, traceback)
-            G_LOGGER.exception("Exception occurred in FlatIRExecutor", exc_info=info)
+            logger.error("Exception occurred in FlatIRExecutor", exc_info=info)
 
         # Destroy the allocations and the loadable executor.
         self.destroy()

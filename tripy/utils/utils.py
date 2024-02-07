@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any, List, Union
 
 from tripy import config
-from tripy.common.logging import G_LOGGER
+from tripy.common.logging import logger
 
 
 @dataclass
@@ -60,7 +60,7 @@ def log_time(func):
         signature = ", ".join(args_repr + kwargs_repr)
         start_time = time.time()
         result = func(*args, **kwargs)
-        G_LOGGER.timing(f"{func.__name__}({signature}) executed in {time.time() - start_time:.4f} seconds")
+        logger.timing(f"{func.__name__}({signature}) executed in {time.time() - start_time:.4f} seconds")
         return result
 
     return wrapper
@@ -188,7 +188,7 @@ def warn_if_wrong_mode(file_like: typing.IO, mode: str):
         or (readable(mode) and not readable(fmode))
         or (writable(mode) and not writable(fmode))
     ):
-        G_LOGGER.warning(
+        logger.warning(
             f"File-like object has a different mode than requested!\n"
             f"Note: Requested mode was: {mode} but file-like object has mode: {file_like.mode}"
         )
@@ -209,7 +209,7 @@ def makedirs(path: str):
     if dir_path:
         dir_path = os.path.realpath(dir_path)
         if not os.path.exists(dir_path):
-            G_LOGGER.info(f"{dir_path} does not exist, creating now.")
+            logger.info(f"{dir_path} does not exist, creating now.")
         os.makedirs(dir_path, exist_ok=True)
 
 
@@ -229,7 +229,7 @@ def load_file(src: Union[str, typing.IO], mode: str = "rb", description: str = N
         Exception: If the file or file-like object could not be read.
     """
     if description is not None:
-        G_LOGGER.info(f"Loading {description} from {src}")
+        logger.info(f"Loading {description} from {src}")
 
     if is_file_like(src):
         warn_if_wrong_mode(src, mode)
@@ -265,7 +265,7 @@ def save_file(
         Exception: If the path or file-like object could not be written to.
     """
     if description is not None:
-        G_LOGGER.info(f"Saving {description} to {dest}")
+        logger.info(f"Saving {description} to {dest}")
 
     if is_file_like(dest):
         warn_if_wrong_mode(dest, mode)
@@ -278,7 +278,7 @@ def save_file(
             pass
         else:
             if bytes_written != content_bytes:
-                G_LOGGER.warning(
+                logger.warning(
                     f"Could not write entire file. Note: file contains {content_bytes} bytes, "
                     f"but only {bytes_written} bytes were written."
                 )
