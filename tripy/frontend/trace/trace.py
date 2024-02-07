@@ -83,7 +83,7 @@ class Trace:
         # Perform shape/dtype/device inference to fill shape information for all tensors.
         self._infer_tensor_info()
 
-        logger.trace(lambda: f"{self}")
+        logger.trace(lambda: f"{self}\n")
 
     def topological_sort(self) -> List[BaseOperator]:
         stack = list()
@@ -135,5 +135,5 @@ class Trace:
             op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
             flat_ir.integrate_subgraph(inputs, outputs)
 
-        logger.flat_ir(lambda: f"{flat_ir}")
+        logger.flat_ir(lambda: f"{flat_ir}\n")
         return flat_ir

@@ -4,14 +4,15 @@ import glob
 import hashlib
 import inspect
 import os
+import textwrap
 import time
 import typing
-import textwrap
 from dataclasses import dataclass
-from typing import Any, List, Union
+from typing import Any, List, Union, Tuple
 
 from tripy import config
 from tripy.common.logging import logger
+from tripy.common.types import ShapeInfo
 
 
 @dataclass
@@ -109,6 +110,35 @@ def make_tuple(obj):
     return obj
 
 
+##
+## Dims
+##
+
+
+def to_dims(shape: ShapeInfo) -> Tuple["Dim"]:
+    """
+    Convert the given shape tuple to a tuple of Dim objects.
+    """
+    from tripy.frontend.dim import Dim
+
+    if shape is None:
+        return None
+
+    return tuple(Dim(dim) if not isinstance(dim, Dim) else dim for dim in make_list(shape))
+
+
+def from_dims(shape: ShapeInfo) -> Tuple[int]:
+    """
+    Convert the given shape, which may contain Dim instances, into a concrete shape
+    based on the runtime values of those Dims.
+    """
+    from tripy.frontend.dim import Dim
+
+    if shape is None:
+        return None
+    return tuple(dim if not isinstance(dim, Dim) else dim.runtime_value for dim in make_list(shape))
+
+
 def volume(shape):
     """
     Computes volume of a tensor shape.
@@ -119,7 +149,6 @@ def volume(shape):
     Returns:
         Volume of tensor (float)
     """
-    from tripy.frontend.ops.utils import to_dims
 
     volume = 1.0
     for s in to_dims(shape):

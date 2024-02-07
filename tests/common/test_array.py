@@ -3,7 +3,6 @@ from typing import Any, List
 import cupy as cp
 import jax
 import jax.numpy as jnp
-import jaxlib
 import numpy as np
 import pytest
 import torch
@@ -12,14 +11,12 @@ import tripy as tp
 from tests.helper import NUMPY_TYPES, torch_type_supported
 from tripy import utils
 from tripy.common.array import Array
-from tripy.common.datatype import convert_numpy_to_tripy_dtype
-from tripy.frontend.ops.utils import to_dims
+from tripy.common.datatype import convert_to_tripy_dtype
 
-# Create NumPy input data list.
-np_data = [np.ones(1, dtype=dtype) for dtype in NUMPY_TYPES]
 data_list = []
 
 # Create a data list for NumPy arrays
+np_data = [np.ones(1, dtype=dtype) for dtype in NUMPY_TYPES]
 data_list.extend(np_data)
 
 # Extend the data list for Cupy arrays
@@ -77,10 +74,10 @@ def test_array_creation(device_param, input_data):
     device_type = device_param["device_type"]
     device_index = device_param["device_index"]
     device = tp.device(f"{device_type}:{device_index}" if device_index is not None else device_type)
-    dtype = convert_numpy_to_tripy_dtype(input_data.dtype)
-    shape = (len(List),) if isinstance(input_data, List) else input_data.shape
+    dtype = convert_to_tripy_dtype(input_data.dtype)
+    shape = input_data.shape
     if dtype is not None:
-        arr = Array(_move_to_device(input_data, device_type), dtype, to_dims(shape), device)
+        arr = Array(_move_to_device(input_data, device_type), dtype, shape, device)
         assert isinstance(arr, Array)
         assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
         assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8
@@ -90,7 +87,7 @@ def test_array_creation(device_param, input_data):
 
 @pytest.mark.parametrize("dtype", NUMPY_TYPES)
 def test_array_0d(dtype):
-    dtype = convert_numpy_to_tripy_dtype(dtype)
+    dtype = convert_to_tripy_dtype(dtype)
     arr = Array(1, dtype, None, tp.device("cpu"))
     assert isinstance(arr, Array)
     assert arr.shape == tuple()
@@ -99,7 +96,7 @@ def test_array_0d(dtype):
 
 @pytest.mark.parametrize("dtype", NUMPY_TYPES)
 def test_array_nested_list(dtype):
-    dtype = convert_numpy_to_tripy_dtype(dtype)
+    dtype = convert_to_tripy_dtype(dtype)
     arr = Array([[1, 2], [3, 4]], dtype, None, tp.device("cpu"))
     assert isinstance(arr, Array)
     assert arr.shape == (2, 2)
@@ -108,19 +105,19 @@ def test_array_nested_list(dtype):
 
 def test_array_missing_data_shape():
     with pytest.raises(tp.TripyException, match="Shape must be provided when data is None.") as exc:
-        arr = Array(None, tp.float32, None, tp.device("cpu"))
+        _ = Array(None, tp.float32, None, tp.device("cpu"))
     print(str(exc.value))
 
 
 def test_array_incorrect_dtype():
     with pytest.raises(tp.TripyException, match="Data has incorrect dtype.") as exc:
-        arr = Array(np.ones((2,), dtype=np.int32), tp.float32, None, tp.device("cpu"))
+        _ = Array(np.ones((2,), dtype=np.int32), tp.float32, None, tp.device("cpu"))
     print(str(exc.value))
 
 
 def test_array_incorrect_shape():
     with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
-        arr = Array(np.ones((2,), dtype=np.int32), None, to_dims((3,)), tp.device("cpu"))
+        _ = Array(np.ones((2,), dtype=np.int32), None, (3,), tp.device("cpu"))
     print(str(exc.value))
 
 
@@ -128,5 +125,5 @@ def test_array_unsupported_list_element():
     from decimal import Decimal
 
     with pytest.raises(tp.TripyException, match="List element type can only be int or float.") as exc:
-        arr = Array([Decimal(0)], None, None, tp.device("cpu"))
+        _ = Array([Decimal(0)], None, None, tp.device("cpu"))
     print(str(exc.value))

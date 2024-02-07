@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
-from tripy.frontend.ops.utils import to_dims
+from tripy import utils
 
 
 @dataclass(repr=False)
@@ -77,7 +77,7 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([], Fill, value, to_dims(shape), dtype)
+    return Tensor.build([], Fill, value, utils.to_dims(shape), dtype)
 
 
 def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: "tripy.dtype" = None) -> "tripy.Tensor":

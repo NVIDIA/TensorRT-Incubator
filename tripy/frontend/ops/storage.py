@@ -7,7 +7,7 @@ from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops.utils import to_dims
+from tripy import utils
 
 
 @dataclass(repr=False)
@@ -26,6 +26,7 @@ class Storage(BaseOperator):
         inputs: List["Tensor"],
         outputs: List["Tensor"],
         data: Array,
+        shape: ShapeInfo,
     ) -> None:
         """
         Initialize Storage instance.
@@ -39,7 +40,8 @@ class Storage(BaseOperator):
         super().__init__(inputs, outputs)
 
         self.data = data
-        self.shape = to_dims(data.shape)
+        # TODO (#114): Make Storage always use fixed shapes.
+        self.shape = utils.to_dims(shape)
         self.dtype = data.dtype
         self.device = data.device
 
@@ -105,9 +107,10 @@ def tensor_init(
         from tripy.frontend.ops import Storage
 
         if not isinstance(data, Array):
-            data = Array(data, dtype, shape, device)
+            data = Array(data, dtype, utils.from_dims(shape), device)
         else:
             # Internal usage only
             # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
             assert not any([shape, dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
-        self._finalize(name, [], Storage, data)
+        # TODO (#114): Remove shape argument
+        self._finalize(name, [], Storage, data, utils.default(shape, data.shape))

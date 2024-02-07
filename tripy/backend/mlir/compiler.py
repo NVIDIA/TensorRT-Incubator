@@ -44,6 +44,6 @@ class FlatIRCompiler:
         mlir_module = flat_ir.to_mlir()
         mlir_textual = str(mlir_module)
         logger.stablehlo(
-            lambda: f"{utils.prefix_with_line_numbers(FlatIRCompiler.remove_stablehlo_constants(mlir_textual))}"
+            lambda: f"{utils.prefix_with_line_numbers(FlatIRCompiler.remove_stablehlo_constants(mlir_textual))}\n"
         )
         return self.compiler.compile(mlir_textual)

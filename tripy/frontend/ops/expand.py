@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from typing import Sequence
 
+import tripy.frontend.ops.utils as op_utils
+from tripy import utils
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -40,7 +41,7 @@ class Expand(BaseOperator):
                     [f"Expanded size at index {idx}: {s}", f" existing non-singleton size: {input_shape[idx]}"],
                 )
 
-        self.outputs[0].shape = op_utils.to_dims(out_shape)
+        self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import BroadcastOp

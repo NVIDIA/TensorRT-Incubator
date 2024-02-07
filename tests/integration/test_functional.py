@@ -268,12 +268,12 @@ class TestCopyFunctional:
     def test_print_ds_tensor(self):
         arr = np.ones(4, dtype=np.float32)
         a = tp.Tensor(arr, shape=(tp.Dim(4, min=2, opt=4, max=6),), device=tp.device("gpu"))
-        assert (a.numpy() == arr).all()
+        assert np.array_equal(a.numpy(), arr)
 
     def test_print_static_tensor(self):
         arr = np.ones(4, dtype=np.float32)
         a = tp.Tensor(arr, shape=(4,), device=tp.device("gpu"))
-        assert (a.numpy() == arr).all()
+        assert np.array_equal(a.numpy(), arr)
 
 
 class TestDynamic:
@@ -325,15 +325,16 @@ class TestDynamic:
 
     @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
-        a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
-        b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+        with logger.use_verbosity({"ir", "verbose"}):
+            a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+            b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
 
-        def func(a, b):
-            c = a + b
-            return c
+            def func(a, b):
+                c = a + b
+                return c
 
-        out = func(a, b)
-        assert (out.numpy() == np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32)).all()
+            out = func(a, b)
+            assert np.array_equal(out.numpy(), np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32))
 
 
 class TestReshape:
@@ -349,8 +350,8 @@ class TestReshape:
         np_a = np.random.rand(*shape).astype(np.float32)
         a = tp.Tensor(np_a, shape=shape, device=tp.device("gpu"))
         b = a.reshape(new_shape)
-        assert (b.shape.numpy() == np.array(new_shape)).all()
-        assert (b.numpy() == np.array(np_a.reshape(new_shape))).all()
+        assert np.array_equal(b.shape.numpy(), np.array(new_shape))
+        assert np.array_equal(b.numpy(), np_a.reshape(new_shape))
 
     def test_dynamic_reshape(self):
         dim = tp.Dim(runtime_value=4, min=3, opt=5, max=6)

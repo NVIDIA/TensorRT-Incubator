@@ -113,6 +113,9 @@ class jit:
             trace_inputs = []
 
             for index, arg in enumerate(args):
+                # TODO (#114): Convert Storage to some special op which can propagate dynamic shapes -
+                # maybe DynamicStorage?
+
                 # Creating a new tensor to make sure each arg has a unique name
                 tensor = Tensor(arg.eval())
                 tensor._stack_info = arg._stack_info

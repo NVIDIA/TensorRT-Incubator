@@ -5,7 +5,7 @@ from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.tensor import TraceTensor
 
 
-@dataclass
+@dataclass(repr=False)
 class FIRTensor(TraceTensor):
     """
     Represents a single tensor in the FlatIR

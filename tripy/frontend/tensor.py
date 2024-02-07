@@ -101,14 +101,19 @@ class Tensor(metaclass=TensorMeta):
             data = executor.execute()
             assert len(data) == 1, "Expects only one output from MLIR executor"
             data = data[0]
-            self._finalize(self.name, [], Storage, data)
+            # TODO (#114): Remove shape argument
+            self._finalize(self.name, [], Storage, data, data.shape)
             return data
 
-    def numpy(self):
+    def numpy(self) -> "numpy.ndarray":
         from tripy.common.device import device
 
+        # TODO (#114): Insert a self.eval() here so we don't need to recompute everything
+        # again after calling `numpy()`
+        # self.eval()
         data = self.to(device("cpu")).eval()
-        self._finalize(self.name, [], Storage, data)
+        # TODO (#114): Remove this line after adding self.eval()
+        self._finalize(self.name, [], Storage, data, data.shape)
         return data.view()
 
     def __repr__(self) -> str:
@@ -125,12 +130,8 @@ class Tensor(metaclass=TensorMeta):
             f"{sep})"
         )
 
+    # Since the underlying data is numpy/cupy we reuse their __dlpack__() methods
     def __dlpack__(self, stream: Any = None):
-        """
-        Converts Tensor to a DLManagedTensor.
-        """
-        # since the underlying data is numpy/cupy
-        # we are reusing their __dlpack__() method
         array = self.eval().view()
         return array.__dlpack__(stream=stream)
 

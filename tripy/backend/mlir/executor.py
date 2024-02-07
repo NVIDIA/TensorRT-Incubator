@@ -35,7 +35,7 @@ class FlatIRExecutor:
     def __exit__(self, exc_type, exc_value, traceback) -> bool:
         if exc_type is not None:
             info = (exc_type, exc_value, traceback)
-            logger.error("Exception occurred in FlatIRExecutor", exc_info=info)
+            logger.error(f"Exception occurred in FlatIRExecutor: {info}")
 
         # Destroy the allocations and the loadable executor.
         self.destroy()

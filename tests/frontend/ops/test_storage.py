@@ -8,7 +8,6 @@ from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import Array
 from tripy.common.datatype import DATA_TYPES
 from tripy.flat_ir.flat_ir import FlatIR
-from tripy.frontend.dim import Dim
 from tripy.frontend.ops import Storage
 from tripy.frontend.trace import Trace
 from tripy.frontend.trace.tensor import TraceTensor
@@ -16,14 +15,16 @@ from tripy.frontend.trace.tensor import TraceTensor
 
 class TestStorage:
     def test_cpu_storage(self):
-        data = Array([1, 2, 3], dtype=None, shape=(Dim(3),), device=tp.device("cpu"))
-        storage = Storage([], [], data)
+        data = Array([1, 2, 3], dtype=None, shape=(3,), device=tp.device("cpu"))
+        # TODO (#114): Remove shape argument
+        storage = Storage([], [], data, data.shape)
         assert isinstance(storage.data.byte_buffer, np.ndarray)
         assert storage.device.kind == "cpu"
 
     def test_gpu_storage(self):
-        data = Array([1, 2, 3], dtype=None, shape=(Dim(3),), device=tp.device("gpu"))
-        storage = Storage([], [], data)
+        data = Array([1, 2, 3], dtype=None, shape=(3,), device=tp.device("gpu"))
+        # TODO (#114): Remove shape argument
+        storage = Storage([], [], data, data.shape)
         assert isinstance(storage.data.byte_buffer, cp.ndarray)
         assert storage.device.kind == "gpu"
 
@@ -39,8 +40,9 @@ class TestStorage:
             pytest.skip("Skip test until cast operation implemented.")
 
         arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
-        data = Array(arr, shape=(Dim(3),), dtype=dtype, device=None)
-        storage = Storage([], [], data)
+        data = Array(arr, shape=(3,), dtype=dtype, device=None)
+        # TODO (#114): Remove shape argument
+        storage = Storage([], [], data, data.shape)
         assert storage.dtype == dtype
         assert storage.dtype.name == dtype.name
         assert storage.dtype.itemsize == dtype.itemsize
@@ -57,8 +59,9 @@ class TestStorage:
             pytest.skip("Skip test until cast operation implemented.")
 
         arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
-        data = Array(arr, shape=(Dim(3),), dtype=dtype, device=None)
-        storage = Storage([], [TraceTensor("t0", None, [3], None, dtype, None)], data)
+        data = Array(arr, shape=(3,), dtype=dtype, device=None)
+        # TODO (#114): Remove shape argument
+        storage = Storage([], [TraceTensor("t0", None, [3], None, dtype, None)], data, data.shape)
         with mlir_utils.make_ir_context(), ir.Location.unknown():
             flat_ir = FlatIR()
             fir_outputs = [out.to_flat_ir() for out in storage.outputs]

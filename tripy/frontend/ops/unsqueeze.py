@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
+from tripy import utils
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-import tripy.frontend.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -20,7 +20,7 @@ class Unsqueeze(BaseOperator):
 
         out_shape = list(self.inputs[0].shape)
         out_shape.insert(self.dim, 1)
-        self.outputs[0].shape = op_utils.to_dims(out_shape)
+        self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import BroadcastOp

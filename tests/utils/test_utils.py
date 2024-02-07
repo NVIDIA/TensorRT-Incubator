@@ -1,6 +1,8 @@
-from tripy import utils
-import tripy as tp
 import pytest
+
+import tripy as tp
+from tripy import utils
+from tripy.frontend.dim import Dim
 
 
 class TestMd5:
@@ -23,3 +25,16 @@ class TestMd5:
         obj0 = func()
         obj1 = func()
         assert utils.md5(obj0) == utils.md5(obj1)
+
+
+@pytest.mark.parametrize(
+    "inp, expected",
+    [
+        ((2, 3, 4), (Dim(2), Dim(3), Dim(4))),
+        (((2, Dim(3), 4)), (Dim(2), Dim(3), Dim(4))),
+        (None, None),
+        ((), ()),
+    ],
+)
+def test_to_dims(inp, expected):
+    assert utils.to_dims(inp) == expected

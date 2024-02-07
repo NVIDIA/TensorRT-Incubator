@@ -198,7 +198,6 @@ EXAMPLES = [Example(["nanogpt"])]
 
 @pytest.mark.l1
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
-@pytest.mark.script_launch_mode("subprocess")
 def test_examples(example, sandboxed_install_run):
     statuses = []
     with example as command_blocks:

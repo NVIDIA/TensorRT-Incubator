@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import tripy.frontend.ops.utils as op_utils
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops.utils import to_dims
+from tripy import utils
 
 
 @dataclass(repr=False)
@@ -19,7 +19,7 @@ class Gather(BaseOperator):
         indices_shape = self.inputs[1].shape
 
         out_shape = data_shape[: self.axis] + indices_shape + data_shape[self.axis + 1 :]
-        self.outputs[0].shape = to_dims(out_shape)
+        self.outputs[0].shape = utils.to_dims(out_shape)
 
     def infer_dtypes(self):
         from tripy import int32

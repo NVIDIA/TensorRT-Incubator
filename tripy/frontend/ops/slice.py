@@ -1,13 +1,13 @@
+import copy
 import math
 from dataclasses import dataclass
 from typing import Tuple, Union
 
+from tripy import utils
+from tripy.frontend.ops import utils as op_utils
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops import utils as op_utils
 from tripy.utils import make_tuple
-
-import copy
 
 
 @dataclass(repr=False)
@@ -73,7 +73,7 @@ class Slice(BaseOperator):
             math.ceil((stop - start) / stride)
             for start, stop, stride in zip(self.start_indices, self.limit_indices, self.strides)
         ]
-        self.outputs[0].shape = op_utils.to_dims(out_shape)
+        self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import SliceOp

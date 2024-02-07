@@ -4,7 +4,7 @@ from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.base import BaseOperator
-from tripy.frontend.ops.utils import to_dims
+from tripy import utils
 
 
 @dataclass(repr=False)
@@ -83,7 +83,7 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
                 len(shape),
             ],
         )
-    return Tensor.build([], Iota, dim, to_dims(shape), dtype)
+    return Tensor.build([], Iota, dim, utils.to_dims(shape), dtype)
 
 
 def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None) -> "tripy.Tensor":

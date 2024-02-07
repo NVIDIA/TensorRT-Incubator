@@ -82,7 +82,7 @@ def convert_tripy_to_numpy_dtype(dtype: Any) -> np.dtype:
     return _TRIPY_TO_NUMPY[dtype]
 
 
-def convert_numpy_to_tripy_dtype(dtype: Any) -> Any:
+def convert_to_tripy_dtype(dtype: Any) -> Any:
     """
     Get the tripy.common.datatype equivalent of the data type.
     """

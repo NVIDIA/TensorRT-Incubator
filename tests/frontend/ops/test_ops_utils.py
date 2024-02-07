@@ -1,8 +1,6 @@
 import pytest
 
 from tripy.frontend.ops.utils import get_broadcast_in_dim
-from tripy.frontend.ops.utils import to_dims
-from tripy.frontend.dim import Dim
 
 
 class TestGetBroadcastInDim:
@@ -17,10 +15,3 @@ class TestGetBroadcastInDim:
     )
     def test_static_broadcast_in_dim(self, input_shape, output_shape, expected_dim):
         assert get_broadcast_in_dim(input_shape, output_shape) == expected_dim
-
-
-def test_to_dims():
-    assert to_dims((2, 3, 4)) == (Dim(2), Dim(3), Dim(4))
-    assert to_dims((2, Dim(3), 4)) == (Dim(2), Dim(3), Dim(4))
-    assert to_dims(None) == None
-    assert to_dims(()) == ()

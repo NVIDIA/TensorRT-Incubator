@@ -92,7 +92,7 @@ class _MlirCompiler:
         """
         # Allocate output memory and store buffer pointers.
         outputs = [
-            Array(None, shape=types.shape, dtype=types.dtype, device=out_device)
+            Array(None, shape=utils.from_dims(types.shape), dtype=types.dtype, device=out_device)
             for types, out_device in zip(o_tensor_info, output_devices)
         ]
 

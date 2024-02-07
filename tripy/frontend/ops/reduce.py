@@ -2,7 +2,7 @@ import enum
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-import tripy.frontend.ops.utils as op_utils
+from tripy import utils
 from tripy.common import datatype
 from tripy.frontend.ops.base import BaseOperator
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
@@ -40,7 +40,7 @@ class Reduce(BaseOperator):
             for idx, s in enumerate(input_shape):
                 if idx not in self.dim:
                     out_shape.append(s)
-        self.outputs[0].shape = op_utils.to_dims(out_shape)
+        self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
         import numpy as np
