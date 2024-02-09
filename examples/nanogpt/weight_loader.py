@@ -25,9 +25,6 @@ def load_weights_from_hf(model, model_type):
     # See https://paperswithcode.com/method/weight-tying for details on why we do this:
     hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
 
-    # transformer.h.i weights are stored as transformer.h_i
-    converted_list = [re.sub(r"h\.\d+", lambda x: x.group().replace(".", "_"), s) for s in hf_keys]
-
     transposed = ["attn.c_attn.weight", "attn.c_proj.weight", "mlp.c_fc.weight", "mlp.c_proj.weight"]
     for idx, key in enumerate(hf_keys):
         weight = hf_state_dict[key]
@@ -35,6 +32,6 @@ def load_weights_from_hf(model, model_type):
             # special treatment for the Conv1D weights we need to transpose
             with torch.no_grad():
                 weight = hf_state_dict[key].t().contiguous()
-        tripy_state_dict[converted_list[idx]] = tp.nn.Parameter(tp.Tensor(weight))
+        tripy_state_dict[key] = tp.nn.Parameter(tp.Tensor(weight))
 
     model.load_from_state_dict(tripy_state_dict)

@@ -1,27 +1,36 @@
 import copy
-from typing import Any, Dict, Iterator, Tuple
+from typing import Any, Dict, List, Iterator, Tuple, Union
 import operator
 
+from tripy.common import logger
 from tripy.frontend.nn.parameter import Parameter
 
 
 class Module:
-    """
+    r"""
     Base class used to define neural network modules.
     You can nest modules by assigning them as attributes of other modules.
 
-    The implementation currently assumes that :class:`tripy.nn.Parameter` s are associated
-    with the Module as direct attributes and not contained in other data structures.
-
-    Specifically, this is allowed:
+    Child modules or :class:`tripy.nn.Parameter` s may be contained in Python ``list``\s or ``dict``\s.
+    If using ``dict``\s, the keys must be strings.
+    Nested data structures (for example, ``list``\s of ``list``\s) are not supported.
+    Taking child modules as an example, this is allowed:
     ::
 
-        self.param = Parameter(Tensor([1,2,3]))
+        self.linear = tp.nn.Linear(2, 2)
+        self.list_modules = [tp.nn.Linear(2, 2), tp.nn.Linear(2, 2)]
+        self.dict_modules = {
+            "linear": tp.nn.Linear(2, 2),
+            "layernorm": tp.nn.LayerNorm(2),
+        }
 
-    Whereas this is not currently supported:
+    Whereas this is not supported:
     ::
 
-        self.param = {"param1": Parameter(Tensor([1,2,3]))}
+        self.list_modules = [[tp.nn.Linear(2, 2)], [tp.nn.Linear(2, 2)]]
+        self.dict_modules = {
+            (1, "linear"): tp.nn.Linear(2, 2),
+        }
 
     .. code-block:: python
         :linenos:
@@ -54,6 +63,36 @@ class Module:
             self._modules[name] = value
         else:
             super().__setattr__(name, value)
+            if not value:
+                return
+
+            def _check_types(objs: Union[List, Dict], typ: Any):
+                if isinstance(objs, List):
+                    return all(isinstance(obj, typ) for obj in objs)
+                else:
+                    return all(isinstance(obj, typ) for _, obj in objs.items())
+
+            # register modules/params from container if all elements are Modules/Parameters
+            if isinstance(value, List):
+                if _check_types(value, Module):
+                    for idx, v in enumerate(value):
+                        self._modules[f"{name}.{idx}"] = v
+                elif _check_types(value, Parameter):
+                    for idx, v in enumerate(value):
+                        self._params[f"{name}.{idx}"] = v
+                else:
+                    logger.warning("A list of mixed types will not get registered to module's state_dict().")
+            elif isinstance(value, Dict):
+                if not all(isinstance(k, str) for k in value):
+                    logger.warning("A dict with non-string keys will not get registered to module's state_dict().")
+                elif _check_types(value, Module):
+                    for k, v in value.items():
+                        self._modules[f"{name}.{k}"] = v
+                elif _check_types(value, Parameter):
+                    for k, v in value.items():
+                        self._params[f"{name}.{k}"] = v
+                else:
+                    logger.warning("A dict of mixed types will not get registered to module's state_dict().")
 
     def __getattr__(self, name: str) -> Any:
         if name in self._params:
@@ -136,13 +175,36 @@ class Module:
 
         .. seealso:: :func:`state_dict`
         """
+
+        def _find_module(module: Union[Module, List, Dict], sub_strs: List[str]):
+            while sub_strs:
+                child_name = sub_strs.pop(0)
+                if isinstance(module, list):
+                    module = module[int(child_name)]
+                elif isinstance(module, dict):
+                    module = module[child_name]
+                elif isinstance(module, Module):
+                    module = operator.attrgetter(child_name)(module)
+            return module
+
         for nested_attr_name, param in state_dict.items():
             submodule_name, _, param_name = nested_attr_name.rpartition(".")
             # If there is no submodule, it means we are accessing a parameter of self
             module = self
             if submodule_name:
-                module = operator.attrgetter(submodule_name)(self)
-            setattr(module, param_name, param)
+                try:
+                    # try to access module.submodule_name as it's the most common case
+                    module = operator.attrgetter(submodule_name)(self)
+                except AttributeError:
+                    logger.verbose(f"Cannot access {submodule_name} directly, trying to find the correct module.")
+                    # find module starting from the beginning
+                    module = _find_module(module, submodule_name.split("."))
+            if isinstance(module, Module):
+                setattr(module, param_name, param)
+            elif isinstance(module, list):
+                module[int(param_name)] = param
+            elif isinstance(module, dict):
+                module[param_name] = param
 
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
         r"""

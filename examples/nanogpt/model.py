@@ -91,10 +91,7 @@ class Transformer(tp.nn.Module):
         super().__init__()
         self.wte = tp.nn.Embedding(config.vocab_size, config.embedding_size)
         self.wpe = tp.nn.Embedding(config.block_size, config.embedding_size)
-        # (#99): Below 2 lines will become self.h = [Block(config) for _ in range(config.num_layers)]
-        self.num_layers = config.num_layers
-        for i in range(self.num_layers):
-            setattr(self, f"h_{i}", Block(config))
+        self.h = [Block(config) for _ in range(config.num_layers)]
         self.ln_f = tp.nn.LayerNorm(config.embedding_size)
         self.pos = tp.arange(0, config.T, dtype=tp.int32)  # shape (t)
 
@@ -102,8 +99,8 @@ class Transformer(tp.nn.Module):
         tok_emb = self.wte(idx)  # token embeddings of shape (b, t, embedding_size)
         pos_emb = self.wpe(self.pos)  # position embeddings of shape (t, embedding_size)
         x = tok_emb + pos_emb  # (B, T, E)
-        for i in range(self.num_layers):
-            x = getattr(self, f"h_{i}")(x, attention_mask)
+        for block in self.h:
+            x = block(x, attention_mask)
         return self.ln_f(x)
 
 
@@ -127,6 +124,5 @@ class GPT(tp.nn.Module):
         # forward the GPT model itself
         x = self.transformer(idx, attention_mask)
 
-        # inference-time mini-optimization: only forward the lm_head on the very last position
         logits = self.lm_head(x)  # (B, T, E) -> (B, T, vocab_size)
         return logits

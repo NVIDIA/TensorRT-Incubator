@@ -33,6 +33,49 @@ class Network(tp.nn.Module):
         return self.param + self.dummy1() + self.dummy2()
 
 
+class ListNetwork(tp.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.params = [tp.nn.Parameter(tp.ones(2, dtype=tp.float32))]
+        self.dummy_list = [DummyOp(tp.zeros(2, dtype=tp.float32)), DummyOp(tp.arange(2, dtype=tp.float32))]
+
+    def __call__(self):
+        out = self.param
+        for op in self.dummy_list:
+            out = out + op()
+        return out
+
+
+class DictNetwork(tp.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.params = {"param": tp.nn.Parameter(tp.ones(2, dtype=tp.float32))}
+        self.dummy_dict = {
+            "op0": DummyOp(tp.zeros(2, dtype=tp.float32)),
+            "op1": DummyOp(tp.arange(2, dtype=tp.float32)),
+        }
+
+    def __call__(self):
+        out = self.param
+        for op_name in self.dummy_dict:
+            out = out + self.dummy_dict[op_name]
+        return out
+
+
+class ComplexNetwork(tp.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.nets = {
+            "dict_net": DictNetwork(),
+            "list_net": ListNetwork(),
+        }
+
+    def __call__(self):
+        out1 = self.nets["dict_net"]()
+        out2 = self.nets["list_net"]()
+        return out1 + out2
+
+
 class JitNetwork(tp.nn.Module):
     def __init__(self):
         super().__init__()
@@ -67,3 +110,18 @@ def all_network_modes(request):
 @pytest.fixture
 def network():
     yield Network()
+
+
+@pytest.fixture
+def list_network():
+    yield ListNetwork()
+
+
+@pytest.fixture
+def dict_network():
+    yield DictNetwork()
+
+
+@pytest.fixture
+def complex_network():
+    yield ComplexNetwork()
