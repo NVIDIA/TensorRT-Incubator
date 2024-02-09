@@ -5,10 +5,10 @@ from tripy import utils
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
-from tripy.frontend.ops.fill import full, full_like
-from tripy.frontend.ops.iota import iota, iota_like
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-from tripy.frontend.ops.where import where
+from tripy.frontend.trace.ops.fill import full, full_like
+from tripy.frontend.trace.ops.iota import iota, iota_like
+from tripy.frontend.trace.ops.where import where
 
 
 def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":

@@ -1,10 +1,14 @@
 from textwrap import indent
 from typing import Any, List, Optional, Union
 
+# Import ops to populate the registry before we define our Tensor class
+import tripy.frontend.ops
+import tripy.frontend.trace.ops
 from tripy import utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
-from tripy.frontend.ops import TENSOR_METHOD_REGISTRY, Storage
+from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.trace.ops import Storage
 
 
 class TensorMeta(type):
@@ -70,8 +74,6 @@ class Tensor(metaclass=TensorMeta):
         # Note that most tensors won't have this field - generally only model input tensors.
         self._dynamic_shape = utils.to_dims(shape)
         if data is not None:
-            from tripy.frontend.ops import Storage
-
             if not isinstance(data, Array):
                 data = Array(data, dtype, utils.from_dims(shape), device)
             else:
@@ -107,7 +109,7 @@ class Tensor(metaclass=TensorMeta):
         # Update producer:
         self.op.outputs[0].producer = self.op
 
-    # This function expects to receive a BaseOperator type (not instance!) along
+    # This function expects to receive a BaseTraceOp type (not instance!) along
     # with any extra arguments that it might need. It will then construct an instance
     # with inputs, outputs, and the extra arguments
     @staticmethod

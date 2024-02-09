@@ -14,7 +14,7 @@ from tripy.common.logging import logger
 from tripy.frontend import Tensor, nn
 from tripy.frontend.nn import Module
 from tripy.frontend.trace import Trace
-from tripy.frontend.ops import Storage
+from tripy.frontend.trace.ops import Storage
 
 
 class jit:

@@ -1,13 +1,13 @@
+from dataclasses import dataclass
 from typing import Any, Dict, List, Sequence
 
 from tripy import utils
 from tripy.common.logging import logger
 from tripy.common.types import ShapeInfo
 from tripy.frontend import Tensor
-from tripy.frontend.ops import Storage
 from tripy.frontend.trace import Trace
+from tripy.frontend.trace.ops import Storage
 from tripy.utils.json import Decoder, Encoder
-from dataclasses import dataclass
 
 
 # HACK (#109): This is a temporary class which we need in order to convey output information
@@ -41,9 +41,9 @@ def get_trace_signature(trace: Trace) -> int:
     NOTE: This is an overly strict check, so traces that are isomorphic yet have small differences
         (e.g. swapped order of outputs) may have different signatures, triggerring a recompilation.
     """
-    from tripy.frontend.ops import BaseOperator
+    from tripy.frontend.trace.ops import BaseTraceOp
 
-    def get_op_signature(op: BaseOperator) -> int:
+    def get_op_signature(op: BaseTraceOp) -> int:
         # For ops, we don't actually care about the I/O tensors except in how they're connected
         # (i.e. graph structure). Only the trace-level I/O tensors matter, and those are checked separately.
 
@@ -52,7 +52,7 @@ def get_trace_signature(trace: Trace) -> int:
             return utils.md5(op.dtype, op.device)
 
         return utils.md5(
-            [getattr(op, field.name) for field in utils.get_dataclass_fields(op, BaseOperator)],
+            [getattr(op, field.name) for field in utils.get_dataclass_fields(op, BaseTraceOp)],
         )
 
     # In addition to the tensors/ops in this trace, we also need to consider the structure.

@@ -4,12 +4,12 @@ from typing import List
 from mlir import ir
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir.utils import get_mlir_dtype
 
 
 @dataclass(repr=False)
-class ReduceOp(BaseFIROp):
+class ReduceOp(BaseFlatIROp):
     """
     Operation to reduce a Tensor
     """

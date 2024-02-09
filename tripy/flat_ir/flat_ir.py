@@ -1,9 +1,8 @@
 import copy
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set
 
 from tripy import utils
-from tripy.flat_ir.ops import BaseFIROp
-from tripy.frontend.dim import Dim
+from tripy.flat_ir.ops import BaseFlatIROp
 
 
 class FlatIR:
@@ -12,9 +11,9 @@ class FlatIR:
     """
 
     def __init__(self):
-        self.inputs: List["FIRTensor"] = []
-        self.outputs: List["FIRTensor"] = []
-        self.ops: List[BaseFIROp] = []
+        self.inputs: List["FlatIRTensor"] = []
+        self.outputs: List["FlatIRTensor"] = []
+        self.ops: List[BaseFlatIROp] = []
 
         self._tensor_map: Dict[str] = {}
 
@@ -93,7 +92,7 @@ class FlatIR:
 
             return module
 
-    def register_tensor(self, tensor: "FIRTensor") -> "FIRTensor":
+    def register_tensor(self, tensor: "FlatIRTensor") -> "FlatIRTensor":
         """
         Registers a tensor with this FlatIR instance. If the tensor has no name, a name unique to this FlatIR will be assigned.
 
@@ -106,11 +105,12 @@ class FlatIR:
         self._tensor_map[tensor.name] = tensor
         return tensor
 
-    def integrate_subgraph(self, inputs: List["FIRTensor"], outputs: List["FIRTensor"]):
+    def integrate_subgraph(self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
         """
         Integrates a subgraph delineated by the given inputs and outputs into this FlatIR.
         """
-        seen_tensors = set()
+        seen_tensors: Set[int] = set()
+        ops = []
 
         # Implements dfs search
         def register_tensor_and_collect_ops(tensor, seen_tensors):
@@ -124,8 +124,14 @@ class FlatIR:
                     if inp not in inputs:
                         register_tensor_and_collect_ops(inp, seen_tensors)
 
-                if op not in self.ops:
-                    self.ops.append(op)
+                ops.append(op)
 
         for start_tensor in outputs:
             register_tensor_and_collect_ops(start_tensor, seen_tensors)
+
+        # Rebind the ops to tensors from this FlatIR
+        for op in ops:
+            op.inputs = [self.register_tensor(inp) for inp in op.inputs]
+            op.outputs = [self.register_tensor(out) for out in op.outputs]
+
+        self.ops.extend(ops)

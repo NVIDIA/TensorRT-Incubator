@@ -1,9 +1,9 @@
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-class SelectOp(BaseFIROp):
+class SelectOp(BaseFlatIROp):
     """
     Operation to select values from either x or y, depending on condition.
     """

@@ -3,11 +3,11 @@ from dataclasses import dataclass
 
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class SliceOp(BaseFIROp):
+class SliceOp(BaseFlatIROp):
     """
     Operation to slice a tensor.
     """

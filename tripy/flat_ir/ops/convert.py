@@ -2,11 +2,11 @@ from dataclasses import dataclass
 
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class ConvertOp(BaseFIROp):
+class ConvertOp(BaseFlatIROp):
     """
     Operation to cast a Tensor to output type
     """

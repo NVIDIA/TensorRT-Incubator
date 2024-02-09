@@ -1,10 +1,12 @@
 import contextlib
+import copy
+import glob
 import importlib
 import inspect
 import os
 import pkgutil
 from textwrap import dedent, indent
-from typing import Any, Dict, List, Sequence
+from typing import Any, Callable, Dict, List, Sequence, Set
 
 import numpy as np
 import pytest
@@ -16,6 +18,18 @@ from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+
+MARKDOWN_FILES = [
+    path
+    for path in glob.glob(os.path.join(ROOT_DIR, "**", "*.md"), recursive=True)
+    if not path.startswith(
+        (
+            os.path.join(ROOT_DIR, "build"),
+            os.path.join(ROOT_DIR, "mlir-tensorrt"),
+            os.path.join(ROOT_DIR, "stablehlo"),
+        )
+    )
+]
 
 
 @contextlib.contextmanager
@@ -32,6 +46,15 @@ def raises(ExcType: type, match: str, has_stack_info_for: Sequence[tp.Tensor] = 
         # Stack info is indented since it's part of the `details` block in `raise_error`
         expected_stack_info = indent(_make_stack_info_message(tensor._stack_info).strip(), " " * 4)
         assert expected_stack_info in error_msg, f"Missing stack information for tensor:\n{expected_stack_info}"
+
+
+def check_mlir(mlir, expected):
+    # Checks a given MLIR module against a string of the expected program.
+    # MLIR indents with 2 spaces; we'll replace it with 4 spaces so that it's
+    # easier to write the expected string.
+    mlir_str = str(mlir).replace(" " * 2, " " * 4).strip()
+    print(f"MLIR:\n{mlir_str}")
+    assert mlir_str == dedent(expected).strip()
 
 
 # Supported NumPy data types
@@ -78,7 +101,7 @@ def all_same(a: List[int] or List[float], b: List[int] or List[float]):
     return True
 
 
-class CodeBlock(str):
+class DocstringCodeBlock(str):
     def code(self) -> str:
         # Special directives can be used in the code blocks and they should be
         # excluded from the actual code.
@@ -112,7 +135,7 @@ def consolidate_code_blocks(doc):
         if in_code_block:
             # If the line is empty or starts with whitespace, then we're still in the code block.
             if not line or line.lstrip() != line:
-                out[-1] = CodeBlock(out[-1] + line + "\n")
+                out[-1] = DocstringCodeBlock(out[-1] + line + "\n")
             else:
                 in_code_block = False
 
@@ -120,14 +143,14 @@ def consolidate_code_blocks(doc):
         if not in_code_block:
             if line.strip().startswith(".. code-block:: python"):
                 in_code_block = True
-                out.append(CodeBlock(line + "\n"))
+                out.append(DocstringCodeBlock(line + "\n"))
             else:
                 out.append(line)
 
     return out
 
 
-def exec_doc_example(code) -> Dict[str, Any]:
+def exec_code(code) -> Dict[str, Any]:
     # Don't inherit most variables from the current environment so we can be sure the docstring examples
     # work in total isolation.
     new_locals = {}
@@ -216,7 +239,9 @@ def get_all_docstrings_with_examples():
         seen_docstring_hashes.add(doc_hash)
 
         blocks = [
-            dedent(block.code()) for block in consolidate_code_blocks(obj.__doc__) if isinstance(block, CodeBlock)
+            dedent(block.code())
+            for block in consolidate_code_blocks(obj.__doc__)
+            if isinstance(block, DocstringCodeBlock)
         ]
         if blocks is None:
             print(f"Skipping {get_qualname(obj)} because no example was present in the docstring")
@@ -226,3 +251,140 @@ def get_all_docstrings_with_examples():
         ids.extend([f"{get_qualname(obj)}:{idx}" for idx in range(len(blocks))])
 
     return docstrings, ids
+
+
+##
+## Working with READMEs
+##
+
+
+class Marker:
+    """
+    Represents special markers in example READMEs used to convey information to
+    the testing infrastructure.
+
+    Special markers follow the format:
+
+    <!-- Tripy Test: <NAME> Start -->
+
+    and:
+
+    <!-- Tripy Test: <NAME> End -->
+
+    marking the start and end of the block respectively.
+    """
+
+    def __init__(
+        self, matches_start_func: Callable[[str], bool] = None, matches_end_func: Callable[[str], bool] = None
+    ):
+        self.matches_start = matches_start_func
+
+        self.matches_end = matches_end_func
+
+    @staticmethod
+    def from_name(name: str) -> "Marker":
+        return Marker(
+            matches_start_func=lambda line: line == f"<!-- Tripy Test: {name} Start -->",
+            matches_end_func=lambda line: line == f"<!-- Tripy Test: {name} End -->",
+        )
+
+
+AVAILABLE_MARKERS = {
+    # For command markers, the start marker may be annotated with a language tag, e.g. ```py, so an exact match is too strict.
+    "command": Marker(
+        matches_start_func=lambda line: line.startswith("```"),
+        matches_end_func=lambda line: line == "```",
+    ),
+    # Marks an entire block to be ignored by the tests.
+    "ignore": Marker.from_name("IGNORE"),
+    # Marks an entire block as being expected to fail.
+    "xfail": Marker.from_name("XFAIL"),
+    # Marks that a block contains the expected output from the immediate previous block.
+    "expected_stdout": Marker.from_name("EXPECTED_STDOUT"),
+    # Marks that a block should be run under pytest.
+    "pytest": Marker.from_name("PYTEST"),
+}
+
+
+class MarkerTracker:
+    """
+    Keeps track of active markers in the current README on a line-by-line basis.
+    """
+
+    def __init__(self, readme_path: str):
+        self.readme_path: str = readme_path
+        self.active_markers: Set[Marker] = set()
+        self.entering_markers: Set[Marker] = set()  # The markers that we are currently entering
+        self.exiting_markers: Set[Marker] = set()  # The markers that we are currently exiting
+
+    def __enter__(self) -> "MarkerTracker":
+        self.file = open(self.readme_path, "r")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.file.close()
+
+    def __iter__(self) -> str:
+        for line in self.file.readlines():
+            stripped_line = line.strip()
+            self.entering_markers.clear()
+            self.exiting_markers.clear()
+
+            for marker in AVAILABLE_MARKERS.values():
+                if not self.is_in(marker) and marker.matches_start(stripped_line):
+                    self.active_markers.add(marker)
+                    self.entering_markers.add(marker)
+                elif marker.matches_end(stripped_line):
+                    self.active_markers.remove(marker)
+                    self.exiting_markers.add(marker)
+
+            yield line.rstrip()
+
+    def is_in(self, marker: Marker) -> bool:
+        """
+        Whether we are currently on a line between the specified start and end marker.
+        This will always return False for a line containing the marker itself.
+        """
+        return marker in self.active_markers and not (self.entering(marker) or self.exiting(marker))
+
+    def entering(self, marker):
+        return marker in self.entering_markers
+
+    def exiting(self, marker):
+        return marker in self.exiting_markers
+
+
+class ReadmeCodeBlock:
+    def __init__(self, markers: Set[Marker], lang: str):
+        self.content: str = None
+        self.markers = markers
+        self.lang = lang
+
+    def add(self, line: str):
+        if self.content is None:
+            self.content = line
+        else:
+            self.content += f"\n{line}"
+
+    def has_marker(self, name: str):
+        return AVAILABLE_MARKERS[name] in self.markers
+
+    def __str__(self):
+        return dedent(self.content)
+
+
+# Extract any ``` blocks from the README
+def load_command_blocks_from_readme(readme) -> List[ReadmeCodeBlock]:
+    cmd_blocks = []
+    with MarkerTracker(readme) as tracker:
+        for line in tracker:
+            # We use copy here so we don't accidentally alias.
+            if tracker.entering(AVAILABLE_MARKERS["command"]):
+                lang = line.strip().partition("```")[-1]
+                current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang=lang)
+            elif tracker.exiting(AVAILABLE_MARKERS["command"]):
+                cmd_blocks.append(copy.copy(current_block))
+            elif tracker.is_in(AVAILABLE_MARKERS["command"]):
+                current_block.add(line)
+
+    return cmd_blocks

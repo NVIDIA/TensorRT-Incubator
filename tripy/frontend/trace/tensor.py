@@ -21,7 +21,7 @@ class TraceTensor:
     shape: ShapeInfo
     """Information about the shape of this tensor"""
 
-    producer: "BaseOperator"
+    producer: "BaseTraceOp"
     """Producer of the tensor"""
 
     dtype: "tripy.common.dtype"
@@ -52,7 +52,7 @@ class TraceTensor:
     def get_optimization_profile_list(self, attr):
         return [getattr(s, attr) if s.is_dynamic_dim() else s.min for s in utils.make_list(self.shape)]
 
-    def to_flat_ir(self) -> "FIRTensor":
-        from tripy.flat_ir.tensor import FIRTensor
+    def to_flat_ir(self) -> "FlatIRTensor":
+        from tripy.flat_ir.tensor import FlatIRTensor
 
-        return FIRTensor(**{field.name: getattr(self, field.name) for field in dataclasses.fields(self)})
+        return FlatIRTensor(**{field.name: getattr(self, field.name) for field in dataclasses.fields(self)})

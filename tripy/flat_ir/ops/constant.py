@@ -6,11 +6,11 @@ from mlir.dialects import stablehlo
 
 import tripy.common
 from tripy import utils
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class ConstantOp(BaseFIROp):
+class ConstantOp(BaseFlatIROp):
     """
     Operation to store a constant tensor
     """

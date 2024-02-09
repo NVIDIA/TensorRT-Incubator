@@ -18,14 +18,14 @@ class TestTensor:
 
         assert isinstance(a, tp.Tensor)
         assert a.op.inputs == []
-        assert isinstance(a.op, tp.frontend.ops.Storage)
+        assert isinstance(a.op, tp.frontend.trace.ops.Storage)
         assert a.numpy().tolist() == VALUES
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
 
-        assert isinstance(a.op, tp.frontend.ops.Storage)
+        assert isinstance(a.op, tp.frontend.trace.ops.Storage)
         assert a.op.device.kind == kind
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
@@ -81,11 +81,11 @@ class TestTensor:
         b = tp.Tensor(np.array([2], dtype=np.float32))
 
         c = a + b
-        assert isinstance(c.op, tp.frontend.ops.BinaryElementwise)
+        assert isinstance(c.op, tp.frontend.trace.ops.BinaryElementwise)
 
         c.eval()
 
-        assert isinstance(c.op, tp.frontend.ops.Storage)
+        assert isinstance(c.op, tp.frontend.trace.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.op.inputs == []
         assert (c.op.data.view().get() == np.array([3], dtype=np.float32)).all()

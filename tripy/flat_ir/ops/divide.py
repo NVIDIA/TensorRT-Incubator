@@ -2,10 +2,10 @@ from typing import List
 
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-class DivideOp(BaseFIROp):
+class DivideOp(BaseFlatIROp):
     """
     Operation to divide a tensor.
     """

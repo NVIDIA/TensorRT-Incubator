@@ -2,13 +2,13 @@ from typing import List
 
 from mlir import ir
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 import tripy.common
 from dataclasses import dataclass
 
 
 @dataclass(repr=False)
-class CopyOp(BaseFIROp):
+class CopyOp(BaseFlatIROp):
     """
     Operation to copy a tensor to another device
     """

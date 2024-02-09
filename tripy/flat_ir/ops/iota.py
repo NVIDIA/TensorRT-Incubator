@@ -3,13 +3,12 @@ from dataclasses import dataclass
 from mlir import ir
 from mlir.dialects import stablehlo
 
-import tripy.common
 from tripy.common.types import ShapeInfo
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class IotaOp(BaseFIROp):
+class IotaOp(BaseFlatIROp):
     """
     Operation to fill an output tensor with values in increasing order starting from zero along the given dimension
     """
@@ -27,9 +26,6 @@ class IotaOp(BaseFIROp):
 
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
-        iota_dim = ir.IntegerAttr.get(
-            type=ir.IntegerType.get_signless(64),
-            value=self.dim,
-        )
+        iota_dim = ir.IntegerAttr.get(type=ir.IntegerType.get_signless(64), value=self.dim)
         output = stablehlo.IotaOp(out_type, iota_dim)
         return [output]

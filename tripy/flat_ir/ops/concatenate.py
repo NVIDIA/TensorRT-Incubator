@@ -1,14 +1,13 @@
 from dataclasses import dataclass
-from typing import List
 
 from mlir import ir
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class ConcatenateOp(BaseFIROp):
+class ConcatenateOp(BaseFlatIROp):
     """
     Operation to concatenate tensors along a dimension.
     """

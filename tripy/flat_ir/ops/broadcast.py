@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from mlir import ir
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class BroadcastOp(BaseFIROp):
+class BroadcastOp(BaseFlatIROp):
     """
     Operation to expand the dimensions and/or rank of an input tensor by duplicating its data.
     """
@@ -31,7 +31,7 @@ class BroadcastOp(BaseFIROp):
 
 
 @dataclass(repr=False)
-class DynamicBroadcastOp(BaseFIROp):
+class DynamicBroadcastOp(BaseFlatIROp):
     """
     Dynamic shape variant of the BroadcastOp.
     """

@@ -6,7 +6,7 @@ from tripy.frontend.trace.tensor import TraceTensor
 
 
 @dataclass(repr=False)
-class FIRTensor(TraceTensor):
+class FlatIRTensor(TraceTensor):
     """
     Represents a single tensor in the FlatIR
     """
@@ -17,7 +17,7 @@ class FIRTensor(TraceTensor):
         return mlir_utils.make_mlir_tensor(self.shape, self.dtype)
 
     @staticmethod
-    def build(shape: ShapeInfo, dtype: "tripy.common.dtype", device: "tripy.common.device") -> "FIRTensor":
-        return FIRTensor(
+    def build(shape: ShapeInfo, dtype: "tripy.common.dtype", device: "tripy.common.device") -> "FlatIRTensor":
+        return FlatIRTensor(
             name=None, stack_info=utils.get_stack_info(), producer=None, shape=shape, dtype=dtype, device=device
         )

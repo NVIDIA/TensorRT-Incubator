@@ -1,8 +1,7 @@
 import copy
 from typing import List, Sequence, Set
 
-from tripy.frontend.ops import BaseOperator
-from tripy.frontend.tensor import Tensor
+from tripy.frontend.trace.ops import BaseTraceOp
 from tripy.frontend.trace.tensor import TraceTensor
 from tripy.common.exception import raise_error
 from tripy.common import logger
@@ -29,13 +28,13 @@ class Trace:
             op.infer_dtypes()
             op.infer_devices()
 
-    def __init__(self, tensors: Sequence[Tensor], inputs: Sequence[Tensor] = []) -> None:
+    def __init__(self, tensors: Sequence["tripy.Tensor"], inputs: Sequence["tripy.Tensor"] = []) -> None:
         """
         Args:
             tensors: The tensor(s) to evaluate. These are effectively the desired outputs.
             inputs: Input tensors in a jit function.
         """
-        self.ops: List[BaseOperator] = []
+        self.ops: List[BaseTraceOp] = []
         self.inputs: List[TraceTensor] = [inp.op.outputs[0] for inp in inputs]
         self.outputs: List[TraceTensor] = []
 
@@ -85,7 +84,7 @@ class Trace:
 
         logger.trace(lambda: f"{self}\n")
 
-    def topological_sort(self) -> List[BaseOperator]:
+    def topological_sort(self) -> List[BaseTraceOp]:
         stack = list()
         visited_layer_ids = set()
 

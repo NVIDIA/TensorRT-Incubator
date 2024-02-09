@@ -1,15 +1,4 @@
 # Tripy (Tri-Py): TensorRT meets Python
 
-## What is Tripy
-
-## Overview
-
-## Installation
-
-## Quick start
-
-## Examples
-
-## Contributing
-
-For details on how to contribute to tripy, see [CONTRIBUTING.md](./CONTRIBUTING.md).
+**This README is still under construction. If you want to try Tripy, see**
+    **[CONTRIBUTING.md](./CONTRIBUTING.md) for how you can download the development container.**

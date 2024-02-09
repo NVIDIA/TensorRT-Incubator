@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from tripy.frontend import Tensor
-from tripy.frontend.ops import ones, where
+import tripy as tp
 
 
 class TestWhereOp:
@@ -26,6 +26,6 @@ class TestWhereOp:
 
         a = Tensor(rand_x)
         b = Tensor(rand_y)
-        condition = ones(cond) >= Tensor(rand_cond)
-        out = where(condition, a, b)
+        condition = tp.ones(cond) >= Tensor(rand_cond)
+        out = tp.where(condition, a, b)
         assert np.array_equal(out.numpy(), np.array(np.where((np.ones(cond) >= rand_cond), rand_x, rand_y)))

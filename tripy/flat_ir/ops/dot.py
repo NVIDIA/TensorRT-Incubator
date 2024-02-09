@@ -3,13 +3,13 @@ from typing import List
 from mlir import ir
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.utils import default
 from dataclasses import dataclass
 
 
 @dataclass(repr=False)
-class DotOp(BaseFIROp):
+class DotOp(BaseFlatIROp):
     """
     Operation to compute generic dot product of two tensors.
     """

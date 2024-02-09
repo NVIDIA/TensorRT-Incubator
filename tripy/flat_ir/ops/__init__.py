@@ -1,4 +1,4 @@
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.flat_ir.ops.add import AddOp
 from tripy.flat_ir.ops.pow import PowOp
 from tripy.flat_ir.ops.mul import MulOp

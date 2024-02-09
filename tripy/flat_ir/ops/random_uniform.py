@@ -3,11 +3,11 @@ from dataclasses import dataclass
 
 from mlir import ir
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class RandomUniformOp(BaseFIROp):
+class RandomUniformOp(BaseFlatIROp):
     """
     Operation to generate a random tensor with uniform distribution.
     """

@@ -21,6 +21,21 @@ If you added a new file, update `docs/index.rst` to include it.
 
 ### Docstrings
 
+For all public facing docstrings, we have several requirements:
+
+- The function signature must have type annotations for all parameters and return type.
+
+- The docstring must explain what the operation is doing.
+
+- The parameters must be documented in the `Args:` section of the docstring.
+
+- The return value must be documented in the `Returns:` section of the docstring.
+
+- The docstring must include a code example (denoted by `.. code-block:: python`).
+
+
+#### Docstring Code Examples
+
 Code examples in public facing docstrings are preprocessed before
 documentation is generated. Specifically:
 

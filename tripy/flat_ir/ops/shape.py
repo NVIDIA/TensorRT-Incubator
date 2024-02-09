@@ -1,11 +1,11 @@
 from mlir import ir
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir import utils as mlir_utils
 from tripy import int32
 
 
-class ShapeOp(BaseFIROp):
+class ShapeOp(BaseFlatIROp):
     """
     Operation to transpose/permute a Tensor
     """

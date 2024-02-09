@@ -3,7 +3,6 @@ Tests that ensure the user experience is nice. For example, making sure that
 README links work.
 """
 
-import glob
 import os
 import re
 
@@ -12,23 +11,11 @@ import requests
 
 import tripy as tp
 from tests import helper
-from tests.helper import ROOT_DIR
 
 
 class TestReadme:
-    README_TEST_CASES = [
-        path
-        for path in glob.glob(os.path.join(ROOT_DIR, "**", "*.md"), recursive=True)
-        if not path.startswith(
-            (
-                os.path.join(ROOT_DIR, "build"),
-                os.path.join(ROOT_DIR, "mlir-tensorrt"),
-                os.path.join(ROOT_DIR, "stablehlo"),
-            )
-        )
-    ]
 
-    @pytest.mark.parametrize("readme", README_TEST_CASES)
+    @pytest.mark.parametrize("readme", helper.MARKDOWN_FILES)
     def test_links_valid(self, readme):
         MD_LINK_PAT = re.compile(r"\[.*?\]\((.*?)\)")
 
@@ -61,7 +48,7 @@ class TestDocstrings:
             ), f"Avoid importing {banned_module} in example docstrings"
             assert f"from {banned_module}" not in example_code, f"Avoid importing {banned_module} in example docstrings"
 
-        helper.exec_doc_example(example_code)
+        helper.exec_code(example_code)
 
 
 class TestMissingAttributes:

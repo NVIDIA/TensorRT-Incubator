@@ -92,8 +92,8 @@ html_css_files = ["style.css"]
 # Myst will complain about relative links in our top-level README
 suppress_warnings = ["myst.xref_missing"]
 
-# Ignore docs/README.md as that's for developers and not supposed to be included in the public docs.
-exclude_patterns = ["README.md"]
+# Ignore most markdown files as they are not part of the API reference documentation.
+exclude_patterns = ["README.md", "development/*"]
 
 
 def process_docstring(app, what, name, obj, options, lines):
@@ -117,11 +117,13 @@ def process_docstring(app, what, name, obj, options, lines):
                         param.annotation == signature.empty
                     ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation!"
                 else:
-                    assert pname in documented_args, f"Missing documentation for parameter: '{pname}' in: '{obj}'"
+                    assert (
+                        pname in documented_args
+                    ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section"
 
                     assert (
                         param.annotation != signature.empty
-                    ), f"Missing type annotation for parameter: '{pname}' in: '{obj}'"
+                    ), f"Missing type annotation for parameter: '{pname}' in: '{obj}'. Please update the signature with type annotations"
 
             assert signature.return_annotation != signature.empty, (
                 f"Missing return type annotation for: '{obj}'. "
@@ -129,7 +131,9 @@ def process_docstring(app, what, name, obj, options, lines):
             )
 
             if signature.return_annotation != None:
-                assert ":returns:" in doc, f"For: {obj}, return value is not documented."
+                assert (
+                    ":returns:" in doc
+                ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
 
     def allow_no_example():
         return (
@@ -144,7 +148,7 @@ def process_docstring(app, what, name, obj, options, lines):
 
     lines.clear()
     for block in blocks:
-        if not isinstance(block, helper.CodeBlock):
+        if not isinstance(block, helper.DocstringCodeBlock):
             lines.append(block)
             continue
 
@@ -198,7 +202,7 @@ def process_docstring(app, what, name, obj, options, lines):
         code = dedent(block.code())
         try:
             with contextlib.redirect_stdout(outfile), contextlib.redirect_stderr(outfile):
-                code_locals = helper.exec_doc_example(code)
+                code_locals = helper.exec_code(code)
         except:
             print(f"Failed while processing docstring for: {what}: {name} ({obj})")
             print(f"Note: Code example was:\n{code}")

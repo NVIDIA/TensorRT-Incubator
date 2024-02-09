@@ -6,24 +6,24 @@ from tripy import utils
 
 
 @dataclass(repr=False)
-class BaseFIROp(abc.ABC):
+class BaseFlatIROp(abc.ABC):
     """
     Represents a single layer in the FlatIR.
     """
 
-    origin_layer: "BaseOperator"
+    origin_layer: "BaseTraceOp"
     """The frontend operator that generated this op"""
 
-    inputs: List["FIRTensor"]
+    inputs: List["FlatIRTensor"]
     """The inputs of this layer"""
 
-    outputs: List["FIRTensor"]
+    outputs: List["FlatIRTensor"]
     """The outputs of this layer"""
 
-    def __init__(self, origin_layer: "BaseOperator", inputs: List["FIRTensor"], outputs: List["FIRTensor"]):
-        from tripy.flat_ir.tensor import FIRTensor
+    def __init__(self, origin_layer: "BaseTraceOp", inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+        from tripy.flat_ir.tensor import FlatIRTensor
 
-        assert all(isinstance(tensor, FIRTensor) for tensor in inputs + outputs)
+        assert all(isinstance(tensor, FlatIRTensor) for tensor in inputs + outputs)
 
         self.inputs = inputs
         self.outputs = outputs
@@ -64,7 +64,7 @@ class BaseFIROp(abc.ABC):
         skip_fields = self.str_skip_fields()
         args = [
             f"{field.name}={getattr(self, field.name)}"
-            for field in utils.get_dataclass_fields(self, BaseFIROp)
+            for field in utils.get_dataclass_fields(self, BaseFlatIROp)
             if field.name not in skip_fields
         ]
         return f"{outputs_str} = {self.name()}({', '.join([inp.name for inp in self.inputs] + args)})"

@@ -1,9 +1,9 @@
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-class MinOp(BaseFIROp):
+class MinOp(BaseFlatIROp):
     """
     Operation to perform element-wise minimum.
     """

@@ -3,11 +3,11 @@ from typing import List
 
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class TransposeOp(BaseFIROp):
+class TransposeOp(BaseFlatIROp):
     """
     Operation to transpose/permute a Tensor
     """

@@ -4,7 +4,7 @@ from typing import List, Optional
 from tripy import utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
-from tripy.frontend.ops import Storage
+from tripy.frontend.trace.ops import Storage
 
 
 @dataclass(repr=False)

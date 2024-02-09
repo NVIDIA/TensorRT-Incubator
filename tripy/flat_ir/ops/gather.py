@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from mlir import ir
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class GatherOp(BaseFIROp):
+class GatherOp(BaseFlatIROp):
     """
     Operation to compute gather operation.
     """

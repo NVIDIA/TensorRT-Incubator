@@ -1,38 +1,78 @@
 # Contributing To Tripy
 
-## Install pre-commit
+## Setting Up
 
-Before committing any changes, make sure you install the pre-commit hook.
+1. Clone the Tripy repository:
+
+	```bash
+	git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/poc/tripy.git
+	```
+
+2. Pull the prebuilt development container:
+
+	```bash
+	docker login gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
+	docker pull gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
+	```
+
+3. Launch the container; from the [`tripy` root directory](.), run:
+
+	```bash
+	docker run --gpus all -it -v $(pwd):/tripy/ --rm gitlab-master.nvidia.com:5005/tensorrt/poc/tripy:latest
+	```
+
+4. You should now be able to use `tripy` in the container. To test it out, you can run a quick sanity check:
+
+	```bash
+	python3 -c "import tripy as tp; print(tp.ones((2, 3)))"
+	```
+
+	This should give you some output like:
+	```
+	tensor(
+		[[1. 1. 1.]
+		[1. 1. 1.]],
+		dtype=float32, loc=gpu:0, shape=(2, 3)
+	)
+	```
+
+## Making Changes
+
+### Before You Start: Install pre-commit
+
+Before committing changes, make sure you install the pre-commit hook.
+You only need to do this once.
+
+We suggest you do this *outside* the container and also use `git` from
+outside the container.
+
 From the [`tripy` root directory](.), run:
 ```bash
 python3 -m pip install pre-commit
 pre-commit install
 ```
 
-## Using A Prebuilt Container For Development
+### Tests
 
-The easiest way to get started with contributing is by using a prebuilt container.
-The container includes all the dependencies you need for local development.
-From the [`tripy` root directory](.), run:
-```bash
-docker login gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
-docker pull gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
-docker run --gpus all -it -v $(pwd):/tripy/ --rm gitlab-master.nvidia.com:5005/tensorrt/poc/tripy:latest
-```
-All dependencies have been configured, you can directly run tests in the prebuilt container.
+Almost any change you make will require you to add tests or modify existing ones.
+For details on tests, see [the tests README](./tests/README.md).
 
 
-## Tests
+### Documentation
 
-For details on how to run and add tests, see [the tests README](./tests/README.md).
+If you add or modify any public-facing interfaces, you should also update the documentation accordingly.
+For details on the public documentation, see [the documentation README](./docs/README.md).
 
 
-## Building Documentation
+### Adding New Operators
 
-For details on how to build and add documentation, see [the documentation README](./docs/README.md).
+If you want to add a new operator to Tripy, see the [guide](./docs/development/how-to-add-new-ops.md)
+on how to do so.
 
 
 ## Advanced: Building A Container Locally
+
+Generally, you should not need to build a container locally. If you do, you can follow these steps:
 
 1. (Optional) Manually build `mlir-tensorrt` integration library.
 
@@ -124,16 +164,3 @@ For details on how to build and add documentation, see [the documentation README
 	docker build -t tripy .
 	docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
 	```
-
-## Advanced: CI/CD GitLab Runner
-```
-ssh gitlab-runner@trt-dev-lab04.client.nvidia.com
-passwd: Contact @jhalakp
-bash install_gitlab_runner.sh
-```
-
-### How to add a GitLab runner
-![Alt text](artifacts/gitlab-runner-setup.png)
-
-### Gitlab runner GPU stats
-![Alt text](artifacts/gitlab-runner-nvidia-smi.png)

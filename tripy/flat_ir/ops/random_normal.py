@@ -3,11 +3,11 @@ from dataclasses import dataclass
 
 from mlir import ir
 
-from tripy.flat_ir.ops.base import BaseFIROp
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
-class RandomNormalOp(BaseFIROp):
+class RandomNormalOp(BaseFlatIROp):
     """
     Operation to generate a random tensor with normal distribution.
     """

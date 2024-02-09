@@ -42,7 +42,7 @@ class TestRaiseError:
                     _dispatch_target="",
                 ),
                 SourceInfo(
-                    module="tripy.frontend.ops.binary_elementwise",
+                    module="tripy.frontend.trace.ops.binary_elementwise",
                     file="/tripy/tripy/frontend/ops/binary_elementwise.py",
                     line=175,
                     function="sub",
