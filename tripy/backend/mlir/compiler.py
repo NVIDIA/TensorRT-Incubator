@@ -32,6 +32,9 @@ class FlatIRCompiler:
         replaced = [replace_dense_data(line) if "stablehlo.constant dense" in line else line for line in lines]
         return "\n".join(replaced)
 
+    def compile_stabehlo_program(self, stablehlo_program: str) -> void_ptr:
+        return self.compiler.compile(stablehlo_program)
+
     @utils.log_time
     def compile(self, flat_ir: "FlatIR") -> void_ptr:
         """
@@ -46,4 +49,4 @@ class FlatIRCompiler:
         logger.stablehlo(
             lambda: f"{utils.prefix_with_line_numbers(FlatIRCompiler.remove_stablehlo_constants(mlir_textual))}\n"
         )
-        return self.compiler.compile(mlir_textual)
+        return self.compile_stabehlo_program(mlir_textual)
