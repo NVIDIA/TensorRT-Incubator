@@ -110,19 +110,22 @@ class FlatIR:
         """
         Integrates a subgraph delineated by the given inputs and outputs into this FlatIR.
         """
-        stack = copy.copy(outputs)
+        seen_tensors = set()
 
-        tensors = []
-        ops = []
+        # Implements dfs search
+        def register_tensor_and_collect_ops(tensor, seen_tensors):
+            if id(tensor) not in seen_tensors:
+                seen_tensors.add(id(tensor))
+                self.register_tensor(tensor)
 
-        while stack:
-            tensor = stack.pop()
-            op = tensor.producer
-            stack.extend(inp for inp in op.inputs if inp not in inputs)
-            tensors.append(tensor)
-            ops.append(op)
+                op = tensor.producer
 
-        # Need to process tensors/ops in reverse order to maintain topological sorting.
-        for tensor in reversed(tensors):
-            self.register_tensor(tensor)
-        self.ops.extend(reversed(ops))
+                for inp in op.inputs:
+                    if inp not in inputs:
+                        register_tensor_and_collect_ops(inp, seen_tensors)
+
+                if op not in self.ops:
+                    self.ops.append(op)
+
+        for start_tensor in outputs:
+            register_tensor_and_collect_ops(start_tensor, seen_tensors)

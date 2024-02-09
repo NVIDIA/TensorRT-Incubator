@@ -33,7 +33,7 @@ class Storage(BaseOperator):
         return set()
 
     def __eq__(self, other) -> bool:
-        return self.data == other.data
+        return self.data == other.data if isinstance(other, Storage) else False
 
     def infer_shapes(self):
         self.outputs[0].shape = self.shape

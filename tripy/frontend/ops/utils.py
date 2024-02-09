@@ -1,8 +1,9 @@
+from colored import Fore, attr
+
 from tripy import utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import Dim
-from colored import Fore, attr
 
 
 # Like raise_error but adds information about the inputs and output.
@@ -108,6 +109,7 @@ def get_broadcast_in_dim(input_shape, output_shape):
         # We might need careful check in case of dynamic dims
         broadcast_dimensions.append(corresponding_output_dim)
 
+    assert len(broadcast_dimensions) == len(input_shape)
     return broadcast_dimensions
 
 
@@ -153,3 +155,82 @@ def insert_broadcast(
             broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),
         )
     return output_tensor
+
+
+##
+## Slice
+##
+
+
+def get_slice_indices(op, shape, index):
+    """
+    Converts index to slices required by Slice operation
+
+    Args:
+        shape: shape of input tensor
+
+    Returns:
+        start_indices: list of start slice index
+        limit_indices: list of end slice index
+        strides: list of slice strides
+    """
+    # TODO: only works for static shape, figure out how to handle DS
+    runtime_shape = [dim.runtime_value for dim in shape]
+
+    dims = len(shape)
+    if len(index) > dims:
+        raise_error_io_info(
+            op,
+            "Too many indices for input tensor.",
+            details=[
+                "Input tensor has a rank of ",
+                dims,
+                " but was attempted to be sliced with ",
+                len(index),
+                " indices",
+            ],
+        )
+    index += (dims - len(index)) * (slice(None),)
+    start_indices = []
+    limit_indices = []
+    strides = []
+    to_positive_idx = lambda idx, dim: idx + dim if idx < 0 else idx
+    for idx, dim in zip(index, runtime_shape):
+        if isinstance(idx, int):
+            # slice the single element and squeeze later
+            idx = to_positive_idx(idx, dim)
+            start_indices.append(idx)
+            limit_indices.append(idx + 1)
+            strides.append(1)
+        else:
+            start_indices.append(to_positive_idx(idx.start, dim) if idx.start else 0)
+            limit_indices.append(to_positive_idx(idx.stop, dim) if idx.stop else dim)
+            strides.append(idx.step if idx.step else 1)
+    return start_indices, limit_indices, strides
+
+
+##
+## Helpers
+##
+
+
+def get_shape_of_tensor(op, tensor):
+    from tripy.flat_ir.tensor import FIRTensor
+    from tripy.flat_ir.ops import ShapeOp
+    from tripy.common.datatype import int32
+
+    shape_output_tensor = FIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
+    ShapeOp(op, [tensor], [shape_output_tensor])
+
+    return shape_output_tensor
+
+
+def add_constant_tensor_from_list(op, data: list, device: "tripy.device"):
+    from tripy.flat_ir.tensor import FIRTensor
+    from tripy.flat_ir.ops import ConstantOp
+    from tripy.common.datatype import int32
+    import numpy as np
+
+    const_output_tensor = FIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
+    ConstantOp(op, [], [const_output_tensor], data=np.array(data).astype(np.int32))
+    return const_output_tensor
