@@ -1,5 +1,11 @@
 # Contributing To Tripy
 
+
+## Table Of Contents
+
+[[_TOC_]]
+
+
 ## Setting Up
 
 1. Clone the Tripy repository:
@@ -52,6 +58,15 @@ python3 -m pip install pre-commit
 pre-commit install
 ```
 
+### Getting Up To Speed
+
+We've added several guides [here](./docs/development/) that can help you better understand
+the codebase. We recommend starting with the [architecture](./docs/development/architecture.md)
+documentation.
+
+If you're intersted in adding a new operator to Tripy, refer to [this guide](./docs/development/how-to-add-new-ops.md).
+
+
 ### Tests
 
 Almost any change you make will require you to add tests or modify existing ones.
@@ -62,12 +77,6 @@ For details on tests, see [the tests README](./tests/README.md).
 
 If you add or modify any public-facing interfaces, you should also update the documentation accordingly.
 For details on the public documentation, see [the documentation README](./docs/README.md).
-
-
-### Adding New Operators
-
-If you want to add a new operator to Tripy, see the [guide](./docs/development/how-to-add-new-ops.md)
-on how to do so.
 
 
 ## Advanced: Building A Container Locally

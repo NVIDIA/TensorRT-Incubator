@@ -17,8 +17,8 @@ class ReduceOp(BaseFlatIROp):
     reduce_mode: str
     reduce_dims: List[int]
 
-    def __init__(self, origin_layer, inputs, outputs, reduce_dims, reduce_mode):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, reduce_dims, reduce_mode):
+        super().__init__(source_op, inputs, outputs)
         self.reduce_dims = list(reduce_dims)
         self.reduce_mode = reduce_mode
 

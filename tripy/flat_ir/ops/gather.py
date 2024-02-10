@@ -17,8 +17,8 @@ class GatherOp(BaseFlatIROp):
     slice_sizes: list
     index_vector_dim: int
 
-    def __init__(self, origin_layer, inputs, outputs, axis):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, axis):
+        super().__init__(source_op, inputs, outputs)
         index_dims = len(inputs[1].shape)
         self.axis = axis
         self.slice_sizes = [s.runtime_value for s in inputs[0].shape]

@@ -15,8 +15,8 @@ class CopyOp(BaseFlatIROp):
 
     target: tripy.common.device
 
-    def __init__(self, origin_layer, inputs, outputs, target):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, target):
+        super().__init__(source_op, inputs, outputs)
         self.target = target
 
     def to_mlir(self, operands):

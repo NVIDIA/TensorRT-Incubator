@@ -19,8 +19,8 @@ class ConstantOp(BaseFlatIROp):
     dtype: "tripy.dtype"
     device: tripy.common.device
 
-    def __init__(self, origin_layer, inputs, outputs, data):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, data):
+        super().__init__(source_op, inputs, outputs)
         assert len(self.outputs) == 1, "ConstantOp should have exactly 1 output"
         self.data = data
         self.dtype = self.outputs[0].dtype

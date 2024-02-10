@@ -11,7 +11,7 @@ class BaseFlatIROp(abc.ABC):
     Represents a single layer in the FlatIR.
     """
 
-    origin_layer: "BaseTraceOp"
+    source_op: "BaseTraceOp"
     """The frontend operator that generated this op"""
 
     inputs: List["FlatIRTensor"]
@@ -20,14 +20,14 @@ class BaseFlatIROp(abc.ABC):
     outputs: List["FlatIRTensor"]
     """The outputs of this layer"""
 
-    def __init__(self, origin_layer: "BaseTraceOp", inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+    def __init__(self, source_op: "BaseTraceOp", inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
         from tripy.flat_ir.tensor import FlatIRTensor
 
         assert all(isinstance(tensor, FlatIRTensor) for tensor in inputs + outputs)
 
         self.inputs = inputs
         self.outputs = outputs
-        self.origin_layer = origin_layer
+        self.source_op = source_op
 
         for out in self.outputs:
             out.producer = self

@@ -116,7 +116,7 @@ def get_broadcast_in_dim(input_shape, output_shape):
 # Insert a broadcast op into the flat_ir which broadcasts input tensor to output shape.
 # If the output shape is dynamic, shape of the target_tensor is used to describe the output shape.
 def insert_broadcast(
-    origin_layer: "BaseTraceOp",
+    source_op: "BaseTraceOp",
     input_tensor: "FlatIRTensor",
     out_shape: ShapeInfo,
     use_dynamic_variant: bool = False,
@@ -138,10 +138,10 @@ def insert_broadcast(
             shape=(Dim(len(target_tensor.shape)),), dtype=int32, device=input_tensor.device
         )
 
-        ShapeOp(origin_layer, [target_tensor], [shape_output_tensor])
+        ShapeOp(source_op, [target_tensor], [shape_output_tensor])
 
         DynamicBroadcastOp(
-            origin_layer,
+            source_op,
             [input_tensor, shape_output_tensor],
             [output_tensor],
             broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),
@@ -149,7 +149,7 @@ def insert_broadcast(
 
     else:
         BroadcastOp(
-            origin_layer,
+            source_op,
             [input_tensor],
             [output_tensor],
             broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),

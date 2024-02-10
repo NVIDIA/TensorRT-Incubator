@@ -1,6 +1,15 @@
 # Tripy Architecture
 
 This document explains the overall architecture of Tripy.
+
+
+## Table Of Contents
+
+[[_TOC_]]
+
+
+## Architecture Diagram
+
 As you read the rest of the document, you may find this diagram helpful to visualize where each
 component fits in:
 
@@ -185,11 +194,11 @@ outputs:
     t1: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)]
 ```
 
-#### Lowering To StableHLO
+#### Lowering To MLIR
 
-Our final translation step is to go from `FlatIR` into the `MLIR StableHLO` dialect.
+Our final translation step is to go from `FlatIR` into MLIR.
 
-Similar to `Trace` operations, `FlatIR` operations implement `to_mlir()` which generates StableHLO operations.
+Similar to `Trace` operations, `FlatIR` operations implement `to_mlir()` which generates MLIR operations.
 Unlike `Trace` operations, this is always a 1:1 mapping.
 
 Here's a snippet for how [`tanh()` is implemented](../../tripy/flat_ir/ops/tanh.py):

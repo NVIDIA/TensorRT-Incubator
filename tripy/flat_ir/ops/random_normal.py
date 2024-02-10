@@ -15,8 +15,8 @@ class RandomNormalOp(BaseFlatIROp):
     static_mean: numbers.Number
     static_std: numbers.Number
 
-    def __init__(self, origin_layer, inputs, outputs, static_mean, static_std):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, static_mean, static_std):
+        super().__init__(source_op, inputs, outputs)
         self.static_mean = static_mean
         self.static_std = static_std
 

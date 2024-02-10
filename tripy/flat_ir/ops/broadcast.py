@@ -14,8 +14,8 @@ class BroadcastOp(BaseFlatIROp):
 
     broadcast_dim: int
 
-    def __init__(self, origin_layer, inputs, outputs, broadcast_dim):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, broadcast_dim):
+        super().__init__(source_op, inputs, outputs)
         self.broadcast_dim = broadcast_dim
 
     def to_mlir(self, operands):
@@ -38,8 +38,8 @@ class DynamicBroadcastOp(BaseFlatIROp):
 
     broadcast_dim: int
 
-    def __init__(self, origin_layer, inputs, outputs, broadcast_dim):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, broadcast_dim):
+        super().__init__(source_op, inputs, outputs)
         self.broadcast_dim = broadcast_dim
 
     def to_mlir(self, operands):

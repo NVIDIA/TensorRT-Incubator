@@ -3,6 +3,12 @@
 This document outlines some of the design decisions we've made and explains why they
 were chosen over alternatives.
 
+
+## Table Of Contents
+
+[[_TOC_]]
+
+
 ## Why `FlatIR`?
 
 In a previous version of Tripy, we used to map `Trace` operators directly to MLIR
@@ -85,3 +91,15 @@ def to_flat_ir(self):
 
 This is clearly a nicer interface, but would require us to maintain another set of APIs.
 We concluded that this would require too much effort and maintenance overhead.
+
+
+## Why Is `to_mlir()` Asymmetric With `to_flat_ir()`?
+
+In `to_flat_ir()`, the input and output `FlatIRTensor`s are created by the caller and
+the operator that implements `to_flat_ir()` is responsible for creating a `FlatIR` subgraph
+that binds to these input and output tensors.
+
+However, in `to_mlir()`, we only pass in the input tensors. The reason for the asymmetry is
+that some MLIR operators create their own output tensors whereas others need to bind to
+existing ones. Due to this, we leave it to the `FlatIR` operator to convert its own outputs
+to MLIR if needed or return the newly created ones.

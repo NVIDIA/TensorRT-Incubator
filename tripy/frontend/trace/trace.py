@@ -128,8 +128,8 @@ class Trace:
         flat_ir.outputs = [flat_ir.register_tensor(out.to_flat_ir()) for out in self.outputs]
 
         for op in self.ops:
-            inputs = [inp.to_flat_ir() for inp in op.inputs]
-            outputs = [out.to_flat_ir() for out in op.outputs]
+            inputs = [flat_ir.register_tensor(inp.to_flat_ir()) for inp in op.inputs]
+            outputs = [flat_ir.register_tensor(out.to_flat_ir()) for out in op.outputs]
             # Pass shallow copies of inputs/outputs so that the op is free to modify them
             op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
             flat_ir.integrate_subgraph(inputs, outputs)

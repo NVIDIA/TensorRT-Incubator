@@ -14,8 +14,8 @@ class TransposeOp(BaseFlatIROp):
 
     perm: List[int]
 
-    def __init__(self, origin_layer, inputs, outputs, perm):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, perm):
+        super().__init__(source_op, inputs, outputs)
         self.perm = perm
 
     def to_mlir(self, operands):

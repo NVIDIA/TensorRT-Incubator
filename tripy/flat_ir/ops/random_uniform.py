@@ -15,8 +15,8 @@ class RandomUniformOp(BaseFlatIROp):
     static_low: numbers.Number
     static_high: numbers.Number
 
-    def __init__(self, origin_layer, inputs, outputs, static_low, static_high):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, static_low, static_high):
+        super().__init__(source_op, inputs, outputs)
         self.static_low = static_low
         self.static_high = static_high
 

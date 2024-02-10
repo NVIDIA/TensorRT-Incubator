@@ -17,8 +17,8 @@ class IotaOp(BaseFlatIROp):
     shape: ShapeInfo
     dtype: "tripy.dtype"
 
-    def __init__(self, origin_layer, inputs, outputs, dim):
-        super().__init__(origin_layer, inputs, outputs)
+    def __init__(self, source_op, inputs, outputs, dim):
+        super().__init__(source_op, inputs, outputs)
         assert len(self.outputs) == 1, "IotaOp should have exactly 1 output"
         self.dim = dim
         self.shape = self.outputs[0].shape
