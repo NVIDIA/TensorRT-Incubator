@@ -32,6 +32,7 @@ class TestRaiseError:
                     function="_finalize",
                     code="",
                     _dispatch_target="",
+                    column_range=None,
                 ),
                 SourceInfo(
                     module="tripy.frontend.tensor",
@@ -40,6 +41,7 @@ class TestRaiseError:
                     function="build",
                     code="",
                     _dispatch_target="",
+                    column_range=None,
                 ),
                 SourceInfo(
                     module="tripy.frontend.trace.ops.binary_elementwise",
@@ -48,6 +50,7 @@ class TestRaiseError:
                     function="sub",
                     code="",
                     _dispatch_target="",
+                    column_range=None,
                 ),
                 SourceInfo(
                     module="tripy.frontend.utils",
@@ -56,6 +59,7 @@ class TestRaiseError:
                     function="wrapper",
                     code="            return func(*new_args, **new_kwargs)",
                     _dispatch_target="",
+                    column_range=None,
                 ),
                 SourceInfo(
                     module="tripy.utils.function_registry",
@@ -64,6 +68,7 @@ class TestRaiseError:
                     function="__call__",
                     code="        return self.func(*args, **kwargs)",
                     _dispatch_target="",
+                    column_range=None,
                 ),
                 SourceInfo(
                     module="tripy.utils.function_registry",
@@ -72,6 +77,7 @@ class TestRaiseError:
                     function="wrapper",
                     code="                        return self.find_overload(key, args, kwargs)(*args, **kwargs)",
                     _dispatch_target="__sub__",
+                    column_range=None,
                 ),
                 SourceInfo(
                     module="__main__",
@@ -80,6 +86,7 @@ class TestRaiseError:
                     function="<module>",
                     code="a = tp.zeros((2, 3)) - tp.ones((2, 4))",
                     _dispatch_target="",
+                    column_range=None,
                 ),
             ]
         )

@@ -1,91 +1,14 @@
-import ast
 import inspect
 from textwrap import indent
 from typing import Any, List, Tuple
 
 from colored import Fore, attr
 
+from tripy import utils
+
 
 class TripyException(Exception):
     pass
-
-
-# Grab column offsets for a given frame based on information from its callee.
-def _get_candidate_column_offsets(cur_frame, callee):
-    def get_callee_func_name():
-        callee_name = callee.function
-        # Some functions (e.g. tensor methods) are routed through a function registry.
-        # We don't actually care about the dispatch function, so we look at the `key`
-        # to determine which underlying method we're actually calling.
-        if callee._dispatch_target:
-            callee_name = callee._dispatch_target
-        return callee_name
-
-    callee_name = get_callee_func_name()
-
-    candidate_column_offsets = []
-
-    # Need to dedent before parsing, so save indent.
-    raw_code = cur_frame.code
-    code = raw_code.lstrip()
-    indentation = len(raw_code) - len(code)
-
-    parsed_ast = ast.parse(code)
-    for node in ast.walk(parsed_ast):
-
-        def get_ast_node_func_name(node):
-            if isinstance(node, ast.BinOp):
-                MAPPING = {
-                    ast.Add: "__add__",
-                    ast.Sub: "__sub__",
-                    ast.Mult: "__mul__",
-                    ast.Div: "__truediv__",
-                    ast.FloorDiv: "__floordiv__",
-                    ast.Mod: "__mod__",
-                    ast.Pow: "__pow__",
-                    ast.BitAnd: "__and__",
-                    ast.BitOr: "__or__",
-                    ast.BitXor: "__xor__",
-                    ast.LShift: "__lshift__",
-                    ast.RShift: "__rshift__",
-                }
-                return MAPPING.get(type(node.op))
-
-            if isinstance(node, ast.Call):
-                func = node.func
-                if isinstance(func, ast.Call):
-                    return get_ast_node_func_name(func)
-
-                if isinstance(func, ast.Attribute):
-                    return func.attr
-
-                return func.id
-            return None
-
-        try:
-            ast_node_name = get_ast_node_func_name(node)
-        except:
-            continue
-
-        if ast_node_name is None:
-            continue
-
-        def check_name_matches():
-            # We need special checking for __init__ methods since the AST node will just be the class name, e.g. `Tensor`.
-            if callee_name != "__init__":
-                return ast_node_name == callee_name
-
-            # We hardcode names of some common classes here to avoid creating an import dependency:
-            if ast_node_name in {"Tensor"}:
-                return True
-            return False
-
-        # Since there could be multiple different function calls on the same line, we use the callee name
-        # to determine which one(s) to look at.
-        if check_name_matches():
-            candidate_column_offsets.append((indentation + node.col_offset, indentation + node.end_col_offset))
-
-    return candidate_column_offsets
 
 
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> str:
@@ -113,34 +36,34 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
 
     frame_strs = []
     num_frames_printed = 0
-    for index, frame in enumerate(stack_info):
-        if not frame.code:
+    for index, source_info in enumerate(stack_info):
+        if not source_info.code:
             continue
 
-        if frame.module == tripy.utils.function_registry.__name__:
+        if source_info.module == tripy.utils.function_registry.__name__:
             continue
 
-        if should_exclude(frame):
+        if should_exclude(source_info):
             continue
 
-        line_info = f"{apply_color(frame.file, Fore.yellow)}:{frame.line}"
+        line_info = f"{apply_color(source_info.file, Fore.yellow)}:{source_info.line}"
 
-        line_no = f"{frame.line:>4} "
+        line_no = f"{source_info.line:>4} "
         indent = " " * len(line_no)
 
         frame_info = ""
         if num_frames_printed == 0:
             frame_info += "\n\n"
 
-        frame_info += f"--> {line_info}\n{indent}|\n{line_no}| {frame.code}"
+        frame_info += f"--> {line_info}\n{indent}|\n{line_no}| {source_info.code}"
 
-        column_range = None
-        if index > 0:
+        column_range = source_info.column_range
+        if column_range is None and index > 0:
             # With multiple calls to the same function name on the same line,
             # it is not possible for us to determine which column offset is correct, so we
             # won't include it in that case.
             try:
-                candidate_column_offsets = _get_candidate_column_offsets(frame, stack_info[index - 1])
+                candidate_column_offsets = utils.get_candidate_column_offsets(source_info, stack_info[index - 1])
             except:
                 pass
             else:

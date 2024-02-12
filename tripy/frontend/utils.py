@@ -1,4 +1,5 @@
 import functools
+from tripy import utils
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
@@ -17,9 +18,32 @@ def convert_inputs_to_tensors():
         def wrapper(*args, **kwargs):
             from tripy.frontend.tensor import Tensor
 
-            # Only convert args to tripy tensor. kwargs are allowed to be of non-tripy tensor type.
-            new_args = [Tensor(arg) if not isinstance(arg, Tensor) else arg for arg in args]
-            new_kwargs = {name: Tensor(arg) if not isinstance(arg, Tensor) else arg for name, arg in kwargs.items()}
+            def update_arg(arg, index, is_kwarg):
+                if not isinstance(arg, Tensor):
+                    arg = Tensor(arg)
+
+                    # Try to include correct column offsets for non-tensor arguments.
+                    try:
+                        user_frame_index = arg._stack_info.get_first_user_frame_index()
+                        callee_info = arg._stack_info[user_frame_index - 1]
+                        source_info = arg._stack_info[user_frame_index]
+
+                        source_info.column_range = utils.get_arg_column_offset(
+                            source_info.code,
+                            index,
+                            len(args),
+                            callee_info._dispatch_target if callee_info._dispatch_target else func.__name__,
+                            is_kwarg,
+                        )
+                    except:
+                        pass
+
+                return arg
+
+            new_args = [update_arg(arg, index, is_kwarg=False) for index, arg in enumerate(args)]
+            new_kwargs = {
+                name: update_arg(arg, index, is_kwarg=True) for index, (name, arg) in enumerate(kwargs.items())
+            }
             return func(*new_args, **new_kwargs)
 
         return wrapper

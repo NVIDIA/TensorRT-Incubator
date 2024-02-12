@@ -60,6 +60,7 @@ class TestTensor:
             function=tp.Tensor.build.__name__,
             code="",
             _dispatch_target="",
+            column_range=None,
         )
         assert a._stack_info[2] == SourceInfo(
             __name__,
@@ -68,6 +69,7 @@ class TestTensor:
             function=TestTensor.test_stack_info_is_populated.__name__,
             code="        a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs: MockOp(inputs, outputs))",
             _dispatch_target="",
+            column_range=None,
         )
 
     def test_eval_of_storage_tensor_is_nop(self):

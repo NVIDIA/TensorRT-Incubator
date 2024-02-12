@@ -1,5 +1,6 @@
 import inspect
 from dataclasses import dataclass
+from typing import Tuple, Optional
 
 
 @dataclass
@@ -20,20 +21,21 @@ class SourceInfo:
     """Code corresponding to the file and line number. To save space, this is not available for all frames."""
     _dispatch_target: str
     """If this stack frame is from a dispatch function in the function registry, this field indicates which function it's dispatching to"""
+    column_range: Optional[Tuple[int, int]]
+    """Column range for the line. This is only available in Python 3.11+"""
 
-
-def _is_user_frame(stack_info):
-    # In some cases, there may not be a module, e.g. if using the interactive shell.
-    # In that case, we should treat it as an external frame.
-    module = stack_info.module or ""
-    return "tripy" not in module.split(".")
+    def is_user_frame(self):
+        # In some cases, there may not be a module, e.g. if using the interactive shell.
+        # In that case, we should treat it as an external frame.
+        module = self.module or ""
+        return "tripy" not in module.split(".")
 
 
 class StackInfo(list):
-    def get_first_user_frame(self):
-        for stack_info in self:
-            if _is_user_frame(stack_info):
-                return stack_info
+    def get_first_user_frame_index(self) -> int:
+        for index, source_info in enumerate(self):
+            if source_info.is_user_frame():
+                return index
 
 
 def get_stack_info(include_code_index: int = None) -> StackInfo:
@@ -53,7 +55,9 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
     stack_info = StackInfo([])
     # Exclude the current stack frame since we don't care about the get_stack_info() function itself.
     stack = inspect.stack()[1:]
+
     first_user_frame_found = False
+
     for index, frame in enumerate(stack):
         module = inspect.getmodule(frame.frame)
 
@@ -64,6 +68,7 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             function=frame.function,
             code="",
             _dispatch_target="",
+            column_range=None,
         )
         if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
             source_info._dispatch_target = frame.frame.f_locals.get("key", "")
@@ -73,11 +78,18 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             # In that case we just leave it empty.
             source_info.code = frame.code_context[0].rstrip() if frame.code_context else ""
 
+            try:
+                # In Python 3.11, frames contain column offset information.
+                frame.positions
+            except AttributeError:
+                pass
+            else:
+                source_info.column_range = (frame.positions.col_offset, frame.positions.end_col_offset)
+
         if not first_user_frame_found:
-            # Only include code up to the first user frame.
-            if _is_user_frame(source_info):
-                first_user_frame_found = True
+            if source_info.is_user_frame():
                 add_code()
+                first_user_frame_found = True
             elif include_code_index is not None and index >= include_code_index:
                 add_code()
 
