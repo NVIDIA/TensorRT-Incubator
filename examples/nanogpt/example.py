@@ -3,7 +3,6 @@ import argparse
 import tiktoken
 import torch
 from model import GPT, GPTConfig
-from torch.nn import functional as F
 from weight_loader import load_weights_from_hf
 
 import tripy as tp
@@ -26,20 +25,19 @@ def initialize_gpt_model(model_type, padded_seq_len):
         vocab_size=50257,
         block_size=1024,
         bias=True,
-        T=padded_seq_len,
-        B=1,
+        seq_len=padded_seq_len,
+        batch_size=1,
     )
     model = GPT(config)
     return model
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(
         description="Runs NanoGPT inference with the given input text",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    # Adding the arguments
     parser.add_argument("--input-text", type=str, help="The input text", required=True)
     parser.add_argument(
         "--model-type",
@@ -51,21 +49,17 @@ if __name__ == "__main__":
     parser.add_argument("--max-new-tokens", type=int, help="The maximum number of new tokens to generate", default=10)
     parser.add_argument("--seed", type=int, help="The seed to use for psuedo-random number generation.", default=None)
 
-    # Parse the arguments
     args = parser.parse_args()
 
     encoder = tiktoken.get_encoding("gpt2")
 
     input_ids = encoder.encode(args.input_text, allowed_special={"<|endoftext|>"})
 
-    B = 1
-    T = len(input_ids)
     TEMPERATURE = 0.8
     TOP_K = 200
 
     padded_seq_len = len(input_ids) + args.max_new_tokens
 
-    # Load the model weights.
     model = initialize_gpt_model(args.model_type, padded_seq_len)
     load_weights_from_hf(model, args.model_type)
 
@@ -77,7 +71,7 @@ if __name__ == "__main__":
         # Check where input_tokens !=0 and fill with ones.
         zeros = tp.zeros_like(input_tokens)
         ones = tp.ones_like(input_tokens)
-        return tp.where(input_tokens == tp.Tensor([0]), zeros, ones).to(tp.float32).reshape((1, 1, 1, padded_seq_len))
+        return tp.where(input_tokens == 0, zeros, ones).to(tp.float32).reshape((1, 1, 1, padded_seq_len))
 
     generator = None
     if args.seed is not None:
@@ -97,7 +91,7 @@ if __name__ == "__main__":
         logits[logits < v[:, [-1]]] = -float("Inf")
 
         # Convert logits to normalized probabilities
-        probs = F.softmax(logits, dim=-1)
+        probs = torch.softmax(logits, dim=-1)
         # Sample from the distribution
         idx_next = torch.multinomial(probs, num_samples=1, generator=generator).cpu()
 
@@ -108,3 +102,7 @@ if __name__ == "__main__":
 
     response = encoder.decode(idx[0].numpy().tolist())
     print(response)
+
+
+if __name__ == "__main__":
+    main()

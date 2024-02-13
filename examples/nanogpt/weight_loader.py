@@ -1,5 +1,3 @@
-import re
-
 import torch
 from transformers import GPT2LMHeadModel
 
@@ -26,12 +24,11 @@ def load_weights_from_hf(model, model_type):
     hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
 
     transposed = ["attn.c_attn.weight", "attn.c_proj.weight", "mlp.c_fc.weight", "mlp.c_proj.weight"]
-    for idx, key in enumerate(hf_keys):
+    for key in hf_keys:
         weight = hf_state_dict[key]
         if any(key.endswith(w) for w in transposed):
-            # special treatment for the Conv1D weights we need to transpose
             with torch.no_grad():
                 weight = hf_state_dict[key].t().contiguous()
-        tripy_state_dict[key] = tp.nn.Parameter(tp.Tensor(weight))
+        tripy_state_dict[key] = tp.nn.Parameter(weight)
 
     model.load_from_state_dict(tripy_state_dict)

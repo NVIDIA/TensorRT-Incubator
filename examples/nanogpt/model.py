@@ -13,16 +13,16 @@ class GPTConfig:
     num_heads: int = 12
     embedding_size: int = 768
     bias: bool = True
-    T: int = 1
-    B: int = 1
+    seq_len: int = 1
+    batch_size: int = 1
 
 
 class CausalSelfAttention(tp.nn.Module):
     def __init__(self, config):
         super().__init__()
         assert config.embedding_size % config.num_heads == 0
-        self.T = config.T
-        self.B = config.B
+        self.seq_len = config.seq_len
+        self.batch_size = config.batch_size
         self.num_heads = config.num_heads
         self.embedding_size = config.embedding_size
         self.c_attn = tp.nn.Linear(config.embedding_size, 3 * config.embedding_size, bias=config.bias)
@@ -30,22 +30,23 @@ class CausalSelfAttention(tp.nn.Module):
         self.bias = tp.ones((config.block_size, config.block_size)).tril()
 
     def __call__(self, x: tp.Tensor, attention_mask: Optional[tp.Tensor] = None):
-        E = self.embedding_size
-        attn = self.c_attn(x)  # (B, T, 3 * E)
+        attn = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
 
         # q, k, v = attn.split(self.embedding_size, dim=2)
         def extract(index):
-            weight = attn[:, :, index * E : (index + 1) * E]
-            return weight.reshape((self.B, self.T, self.num_heads, E // self.num_heads)).transpose(
+            weight = attn[:, :, index * self.embedding_size : (index + 1) * self.embedding_size]
+            return weight.reshape(
+                (self.batch_size, self.seq_len, self.num_heads, self.embedding_size // self.num_heads)
+            ).transpose(
                 1, 2
-            )  # (B, nh, T, hs)
+            )  # (batch_size, num_heads, seq_len, head_size)
 
         q, k, v = extract(0), extract(1), extract(2)
         k_t = k.transpose(-2, -1)
-        att = (q @ k_t) * (1.0 / math.sqrt(E // self.num_heads))
+        att = (q @ k_t) * (1.0 / math.sqrt(self.embedding_size // self.num_heads))
 
         att = att.masked_fill(
-            self.bias[: self.T, : self.T] == tp.zeros((self.T, self.T), dtype=tp.float32),
+            self.bias[: self.seq_len, : self.seq_len] == tp.zeros((self.seq_len, self.seq_len), dtype=tp.float32),
             float("-inf"),
         )
 
@@ -53,9 +54,10 @@ class CausalSelfAttention(tp.nn.Module):
             att = att.masked_fill(attention_mask == 0.0, float("-inf"))
 
         att = tp.nn.softmax(att, dim=-1)
-        out = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-        out = out.transpose(1, 2).reshape((self.B, self.T, E))
-        out = self.c_proj(out)  # (B, T, E)
+        # (batch_size, num_heads, seq_len, seq_len) @ (batch_size, num_heads, seq_len, head_size) -> (batch_size, num_heads, seq_len, head_size)
+        out = att @ v
+        out = out.transpose(1, 2).reshape((self.batch_size, self.seq_len, self.embedding_size))
+        out = self.c_proj(out)  # (batch_size, seq_len, embedding_size)
         return out
 
 
@@ -93,12 +95,12 @@ class Transformer(tp.nn.Module):
         self.wpe = tp.nn.Embedding(config.block_size, config.embedding_size)
         self.h = [Block(config) for _ in range(config.num_layers)]
         self.ln_f = tp.nn.LayerNorm(config.embedding_size)
-        self.pos = tp.arange(0, config.T, dtype=tp.int32)  # shape (t)
+        self.pos = tp.arange(0, config.seq_len, dtype=tp.int32)
 
     def __call__(self, idx, attention_mask: Optional[tp.Tensor] = None):
-        tok_emb = self.wte(idx)  # token embeddings of shape (b, t, embedding_size)
-        pos_emb = self.wpe(self.pos)  # position embeddings of shape (t, embedding_size)
-        x = tok_emb + pos_emb  # (B, T, E)
+        tok_emb = self.wte(idx)  # token embeddings of shape (batch_size, seq_len, embedding_size)
+        pos_emb = self.wpe(self.pos)  # position embeddings of shape (seq_len, embedding_size)
+        x = tok_emb + pos_emb  # (batch_size, seq_len, embedding_size)
         for block in self.h:
             x = block(x, attention_mask)
         return self.ln_f(x)
@@ -110,8 +112,8 @@ class GPT(tp.nn.Module):
         assert config.vocab_size is not None
         assert config.block_size is not None
         assert (
-            config.T <= config.block_size
-        ), f"Cannot forward sequence of length {config.T}, block size is only {config.block_size}"
+            config.seq_len <= config.block_size
+        ), f"Cannot forward sequence of length {config.seq_len}, block size is only {config.block_size}"
 
         self.transformer = Transformer(config)
         self.lm_head = tp.nn.Linear(config.embedding_size, config.vocab_size, bias=False)
@@ -121,8 +123,7 @@ class GPT(tp.nn.Module):
     # use the faster implementation instead.
     @tp.jit
     def __call__(self, idx, attention_mask: Optional[tp.Tensor] = None):
-        # forward the GPT model itself
         x = self.transformer(idx, attention_mask)
 
-        logits = self.lm_head(x)  # (B, T, E) -> (B, T, vocab_size)
+        logits = self.lm_head(x)  # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, vocab_size)
         return logits
