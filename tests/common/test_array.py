@@ -10,8 +10,7 @@ import torch
 import tripy as tp
 from tests.helper import NUMPY_TYPES, torch_type_supported
 from tripy import utils
-from tripy.common.array import Array
-from tripy.common.datatype import convert_to_tripy_dtype
+from tripy.common.array import Array, convert_to_tripy_dtype
 
 data_list = []
 
@@ -63,67 +62,62 @@ def _move_to_device(data: Any, device: str) -> Any:
     return data
 
 
-@pytest.mark.parametrize(
-    "device_param", device_params, ids=lambda param: f"{param['device_type']}:{param['device_index']}"
-)
-@pytest.mark.parametrize("input_data", data_list, ids=lambda data: f"{type(data).__qualname__}")
-def test_array_creation(device_param, input_data):
-    """
-    Test the creation of Array objects with different devices and data types.
-    """
-    device_type = device_param["device_type"]
-    device_index = device_param["device_index"]
-    device = tp.device(f"{device_type}:{device_index}" if device_index is not None else device_type)
-    dtype = convert_to_tripy_dtype(input_data.dtype)
-    shape = input_data.shape
-    if dtype is not None:
-        arr = Array(_move_to_device(input_data, device_type), dtype, shape, device)
+class TestArray:
+
+    @pytest.mark.parametrize(
+        "device_param", device_params, ids=lambda param: f"{param['device_type']}:{param['device_index']}"
+    )
+    @pytest.mark.parametrize("input_data", data_list, ids=lambda data: f"{type(data).__qualname__}")
+    def test_creation(self, device_param, input_data):
+        """
+        Test the creation of Array objects with different devices and data types.
+        """
+        device_type = device_param["device_type"]
+        device_index = device_param["device_index"]
+        device = tp.device(f"{device_type}:{device_index}" if device_index is not None else device_type)
+        dtype = convert_to_tripy_dtype(input_data.dtype)
+        shape = input_data.shape
+        if dtype is not None:
+            arr = Array(_move_to_device(input_data, device_type), dtype, shape, device)
+            assert isinstance(arr, Array)
+            assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
+            assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8
+            assert arr.device.kind == device_type
+            assert arr.device.index == utils.default(device_index, 0)
+
+    @pytest.mark.parametrize("np_dtype", NUMPY_TYPES)
+    def test_0d(self, np_dtype):
+        dtype = convert_to_tripy_dtype(np_dtype)
+        arr = Array(np.array(1, dtype=np_dtype), dtype, None, tp.device("cpu"))
         assert isinstance(arr, Array)
-        assert isinstance(arr.byte_buffer, (np.ndarray, cp.ndarray))
-        assert arr.byte_buffer.dtype == np.uint8 or arr.byte_buffer.dtype == cp.uint8
-        assert arr.device.kind == device_type
-        assert arr.device.index == utils.default(device_index, 0)
+        assert arr.shape == tuple()
+        assert arr.dtype == dtype
 
+    def test_nested_list(self):
+        dtype = tp.int32
+        arr = Array([[1, 2], [3, 4]], dtype, None, tp.device("cpu"))
+        assert isinstance(arr, Array)
+        assert arr.shape == (2, 2)
+        assert arr.dtype == dtype
 
-@pytest.mark.parametrize("dtype", NUMPY_TYPES)
-def test_array_0d(dtype):
-    dtype = convert_to_tripy_dtype(dtype)
-    arr = Array(1, dtype, None, tp.device("cpu"))
-    assert isinstance(arr, Array)
-    assert arr.shape == tuple()
-    assert arr.dtype == dtype
+    def test_missing_data_shape(self):
+        with pytest.raises(tp.TripyException, match="Shape must be provided when data is None.") as exc:
+            _ = Array(None, tp.float32, None, tp.device("cpu"))
+        print(str(exc.value))
 
+    def test_incorrect_dtype(self):
+        with pytest.raises(tp.TripyException, match="Data has incorrect dtype.") as exc:
+            _ = Array(np.ones((2,), dtype=np.int32), tp.float32, None, tp.device("cpu"))
+        print(str(exc.value))
 
-@pytest.mark.parametrize("dtype", NUMPY_TYPES)
-def test_array_nested_list(dtype):
-    dtype = convert_to_tripy_dtype(dtype)
-    arr = Array([[1, 2], [3, 4]], dtype, None, tp.device("cpu"))
-    assert isinstance(arr, Array)
-    assert arr.shape == (2, 2)
-    assert arr.dtype == dtype
+    def test_incorrect_shape(self):
+        with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
+            _ = Array(np.ones((2,), dtype=np.int32), None, (3,), tp.device("cpu"))
+        print(str(exc.value))
 
+    def test_unsupported_list_element(self):
+        from decimal import Decimal
 
-def test_array_missing_data_shape():
-    with pytest.raises(tp.TripyException, match="Shape must be provided when data is None.") as exc:
-        _ = Array(None, tp.float32, None, tp.device("cpu"))
-    print(str(exc.value))
-
-
-def test_array_incorrect_dtype():
-    with pytest.raises(tp.TripyException, match="Data has incorrect dtype.") as exc:
-        _ = Array(np.ones((2,), dtype=np.int32), tp.float32, None, tp.device("cpu"))
-    print(str(exc.value))
-
-
-def test_array_incorrect_shape():
-    with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
-        _ = Array(np.ones((2,), dtype=np.int32), None, (3,), tp.device("cpu"))
-    print(str(exc.value))
-
-
-def test_array_unsupported_list_element():
-    from decimal import Decimal
-
-    with pytest.raises(tp.TripyException, match="List element type can only be int or float.") as exc:
-        _ = Array([Decimal(0)], None, None, tp.device("cpu"))
-    print(str(exc.value))
+        with pytest.raises(tp.TripyException, match="List element type can only be int or float.") as exc:
+            _ = Array([Decimal(0)], None, None, tp.device("cpu"))
+        print(str(exc.value))

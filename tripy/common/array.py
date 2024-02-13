@@ -1,12 +1,59 @@
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import cupy as cp
 import numpy as np
 
+import tripy.common.datatype
 from tripy import utils
-from tripy.common.datatype import convert_to_tripy_dtype, convert_tripy_to_numpy_dtype, DATA_TYPES
-from tripy.common.exception import raise_error
+from tripy.common.datatype import DATA_TYPES
 from tripy.common.device import device as tp_device
+from tripy.common.exception import raise_error
+
+
+def convert_tripy_to_module_dtype(dtype: "tripy.common.datatype.dtype", module) -> Any:
+    """
+    Get the numpy equivalent of tripy.common.datatype.
+    """
+
+    TRIPY_TO_NUMPY = dict(
+        {
+            tripy.common.datatype.float32: module.float32,
+            tripy.common.datatype.int32: module.int32,
+            tripy.common.datatype.int8: module.int8,
+            tripy.common.datatype.int64: module.int64,
+            tripy.common.datatype.uint8: module.uint8,
+            tripy.common.datatype.float16: module.float16,
+            tripy.common.datatype.bool: module.bool_,
+        }
+    )
+
+    return TRIPY_TO_NUMPY[dtype]
+
+
+def convert_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.datatype.dtype"]:
+    """
+    Get the tripy.common.datatype equivalent of the data type.
+    """
+    PYTHON_NATIVE_MAPPING = {int: tripy.common.datatype.int32, float: tripy.common.datatype.float32}
+    if dtype in PYTHON_NATIVE_MAPPING:
+        return PYTHON_NATIVE_MAPPING[dtype]
+
+    try:
+        dtype_name = dtype.name
+    except AttributeError:
+        dtype_name = str(dtype).split(".", 1)[-1].strip("'>")
+
+    NUMPY_TO_TRIPY = {
+        "int8": tripy.common.datatype.int8,
+        "int32": tripy.common.datatype.int32,
+        "int64": tripy.common.datatype.int64,
+        "uint8": tripy.common.datatype.uint8,
+        "float16": tripy.common.datatype.float16,
+        "float32": tripy.common.datatype.float32,
+        "bool": tripy.common.datatype.bool,
+    }
+
+    return NUMPY_TO_TRIPY.get(dtype_name, None)
 
 
 # The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
@@ -35,9 +82,8 @@ class Array:
             shape: Shape information for static allocation.
             device: Target device (tripy.Device("cpu") or tripy.Device("gpu")).
         """
-        import tripy.common.datatype
 
-        assert dtype is None or dtype.__name__ in tripy.common.datatype.DATA_TYPES, "Invalid data type"
+        assert dtype is None or isinstance(dtype, tripy.common.datatype.dtype), "Invalid data type"
         assert shape is None or all(s > 0 for s in shape)
 
         self.device = utils.default(device, tp_device("cpu"))
@@ -48,7 +94,10 @@ class Array:
                 raise_error("Shape must be provided when data is None.", [])
             # Allocate dummy data
             data = self._module.empty(
-                dtype=convert_tripy_to_numpy_dtype(utils.default(dtype, tripy.common.datatype.float32)), shape=shape
+                dtype=convert_tripy_to_module_dtype(
+                    utils.default(dtype, tripy.common.datatype.float32), module=self._module
+                ),
+                shape=shape,
             )
         else:
             if isinstance(data, (List, int, float, tuple)):
@@ -111,7 +160,7 @@ class Array:
         """
         assert self.dtype is not None
         assert self.dtype.name in DATA_TYPES
-        dtype = convert_tripy_to_numpy_dtype(self.dtype)
+        dtype = convert_tripy_to_module_dtype(self.dtype, module=self._module)
         out = self.byte_buffer.view(dtype)
         if not self.shape:
             # Reshape back to 0-D
