@@ -101,7 +101,6 @@ class TestTensor:
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_jax(self, kind):
-        pytest.skip("Fix jax tests")
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
         b = jax.dlpack.from_dlpack(a)
         assert np.array_equal(a.numpy(), np.asarray(b))

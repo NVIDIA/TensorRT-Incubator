@@ -16,13 +16,12 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     echo 'trtuser:nvidia' | chpasswd && \
     mkdir -p /workspace && chown trtuser /workspace && \
     apt-get update && \
-    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget && \
+    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget libcudnn8 && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
 
 
 # Install the recommended version of TensorRT for development.
-ARG CUDNN_VERSION=8.9.2.26-1+cuda12.1
 RUN cd /usr/lib/ && \
     wget http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.1-a3728acd/12.2-r535/Linux-x64-agnostic/tar/TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz && \
     tar -xvzf TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz && \
@@ -45,5 +44,4 @@ ENV PYTHONPATH=/usr/lib/stablehlo/python-build/tools/stablehlo/python_packages/s
 ########################################
 RUN mkdir -p /usr/lib/mlir-tensorrt/
 COPY mlir-tensorrt/build/lib/Integrations /usr/lib/mlir-tensorrt/
-ENV LD_LIBRARY_PATH=/usr/lib/mlir-tensorrt//PJRT/:/usr/local/cuda/lib64/:/usr/local/cuda/targets/x86_64-linux/lib/:/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH
-ENV CUDA_PATH=/usr/local/cuda
+ENV LD_LIBRARY_PATH=/usr/lib/mlir-tensorrt/PJRT/:/usr/local/cuda/lib64/:/usr/local/cuda/targets/x86_64-linux/lib/:/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH
