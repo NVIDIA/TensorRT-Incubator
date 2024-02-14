@@ -1,6 +1,6 @@
 import tripy as tp
 from tripy.frontend.trace import Trace
-from tripy.flat_ir.ops import ReduceOp, DivideOp, BroadcastOp, ConvertOp, MulOp
+from tripy.flat_ir.ops import ArgMinMaxOp, ReduceOp, DivideOp, BroadcastOp, ConvertOp, MulOp
 import re
 
 
@@ -66,5 +66,35 @@ class TestReduceOp:
         assert isinstance(reduce, ReduceOp)
         assert re.match(
             r"t[0-9]+: \[shape=\(2,\), dtype=\(float32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode=sum, reduce_dims=\[0\]\)",
+            str(reduce),
+        )
+
+    def test_argmax_str(self):
+        inp = tp.Tensor([[1, 2], [3, 4]], name="inp")
+        out = inp.argmax(0)
+        out.name = "out"
+
+        trace = Trace([out])
+        flat_ir = trace.to_flat_ir()
+
+        reduce = flat_ir.ops[-1]
+        assert isinstance(reduce, ArgMinMaxOp)
+        assert re.match(
+            r"out: \[shape=\(2,\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode=argmax, reduce_dims=\[0\]\)",
+            str(reduce),
+        )
+
+    def test_argmin_str(self):
+        inp = tp.Tensor([[1, 2], [3, 4]], name="inp")
+        out = inp.argmin(0)
+        out.name = "out"
+
+        trace = Trace([out])
+        flat_ir = trace.to_flat_ir()
+
+        reduce = flat_ir.ops[-1]
+        assert isinstance(reduce, ArgMinMaxOp)
+        assert re.match(
+            r"out: \[shape=\(2,\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode=argmin, reduce_dims=\[0\]\)",
             str(reduce),
         )

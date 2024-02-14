@@ -16,5 +16,6 @@ class TestIota:
         assert isinstance(a.op, Iota)
 
     def test_invalid_dim(self):
+        a = tp.iota([2, 3], dim=3)
         with helper.raises(tp.TripyException, match="Invalid iota dim."):
-            tp.iota([2, 3], dim=3)
+            a.eval()

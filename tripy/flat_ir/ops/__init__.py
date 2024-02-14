@@ -14,7 +14,7 @@ from tripy.flat_ir.ops.shape import ShapeOp
 from tripy.flat_ir.ops.reshape import ReshapeOp
 from tripy.flat_ir.ops.sub import SubtractOp
 from tripy.flat_ir.ops.divide import DivideOp
-from tripy.flat_ir.ops.reduce import ReduceOp
+from tripy.flat_ir.ops.reduce import ReduceOp, ArgMinMaxOp
 from tripy.flat_ir.ops.exponential import ExpOp
 from tripy.flat_ir.ops.tanh import TanhOp
 from tripy.flat_ir.ops.gather import GatherOp

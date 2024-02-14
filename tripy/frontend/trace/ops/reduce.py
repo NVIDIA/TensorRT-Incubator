@@ -12,7 +12,7 @@ from tripy.utils import make_list
 @dataclass(repr=False)
 class Reduce(BaseTraceOp):
     """
-    Represents a slice operation.
+    Represents a reduce operation.
     """
 
     class Kind(enum.Enum):
@@ -52,6 +52,43 @@ class Reduce(BaseTraceOp):
         init_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
         ConstantOp(self, [], [init_const], data=np.array(init_value, dtype=outputs[0].dtype.name))
         ReduceOp(self, [inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
+
+
+@dataclass(repr=False)
+class ArgMinMax(Reduce):
+    """
+    Represents a argmin or argmax operation.
+    """
+
+    class Kind:
+        ARG_MAX = "argmax"
+        ARG_MIN = "argmin"
+
+    dim: Sequence[int]
+    kind: Kind
+
+    def infer_dtypes(self):
+        self.outputs[0].dtype = datatype.int32
+
+    def to_flat_ir(self, inputs, outputs):
+        import numpy as np
+
+        from tripy.flat_ir.ops import ConstantOp, ArgMinMaxOp
+        from tripy.flat_ir.tensor import FlatIRTensor
+
+        init_val_const = FlatIRTensor.build(shape=[], dtype=inputs[0].dtype, device=outputs[0].device)
+        init_idx_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
+
+        ConstantOp(self, [], [init_val_const], data=np.array(0, dtype=inputs[0].dtype.name))
+        ConstantOp(self, [], [init_idx_const], data=np.array(0, dtype=outputs[0].dtype.name))
+
+        ArgMinMaxOp(
+            self,
+            [inputs[0], inputs[1], init_val_const, init_idx_const],
+            outputs,
+            reduce_mode=self.kind,
+            reduce_dims=self.dim,
+        )
 
 
 def _reduce_impl(self, kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
@@ -230,3 +267,73 @@ def var(
     mean = self.mean(dim=dim, keepdim=dim is not None)
     sub = (self - mean) ** 2.0
     return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: (x - correction).maximum(0))
+
+
+def _arg_min_max_impl(self: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, keepdim: bool):
+    from tripy.frontend import Tensor, iota_like
+
+    # TODO(128): Use self.reshape((-1,)) to flatten input when dim=None
+    if dim is None:
+        raise NotImplementedError("dim=None is not supported yet.")
+    indices = iota_like(self, dim if dim else 0, datatype.int32)
+    out = Tensor.build([self, indices], ArgMinMax, dim, kind)
+    if keepdim:
+        if dim is None:
+            # TODO(#96): Support dim=None, keepdim=True
+            raise NotImplementedError("dim=None, keepdim=True is not supported yet.")
+        out = out.unsqueeze(dim)
+    return out
+
+
+@TENSOR_METHOD_REGISTRY("argmax")
+def argmax(self, dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
+    """
+    Returns a new tensor containing the indices of maximum values of this tensor along the specified dimension.
+    If there are multiple maximum values, then the indices of the first maximum value are returned.
+
+    Args:
+        dim: The dimension along which to reduce.
+            If this is not provided, the argmax indice of the flattened input is returned.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        A new tensor of datatype of ``tp.int32``.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        output = input.argmax(0)
+
+        assert np.array_equal(output.numpy(), np.argmax(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+    """
+    return _arg_min_max_impl(self, ArgMinMax.Kind.ARG_MAX, dim, keepdim)
+
+
+@TENSOR_METHOD_REGISTRY("argmin")
+def argmin(self, dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
+    """
+    Returns a new tensor containing the indices of minimum values of this tensor along the specified dimension.
+    If there are multiple minimum values, then the indices of the first minimum value are returned.
+
+    Args:
+        dim: The dimension along which to reduce.
+            If this is not provided, the argmin indice of the flattened input is returned.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        A new tensor of datatype ``tp.int32``.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
+        output = input.argmin(0)
+
+        assert np.array_equal(output.numpy(), np.argmin(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+    """
+    return _arg_min_max_impl(self, ArgMinMax.Kind.ARG_MIN, dim, keepdim)

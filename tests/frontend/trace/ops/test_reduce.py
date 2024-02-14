@@ -1,8 +1,7 @@
 import pytest
 
 import tripy as tp
-from tripy.frontend.trace.ops import Reduce, BinaryElementwise
-from tripy.frontend.trace import Trace
+from tripy.frontend.trace.ops import Reduce, BinaryElementwise, ArgMinMax
 
 
 class TestReduce:
@@ -31,3 +30,15 @@ class TestReduce:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, BinaryElementwise)
         assert a.op.kind == BinaryElementwise.Kind.DIV
+
+    def test_argmax(self):
+        a = tp.ones((2, 3))
+        a = a.argmax(0)
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.op, ArgMinMax)
+
+    def test_argmin(self):
+        a = tp.ones((2, 3))
+        a = a.argmin(0)
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.op, ArgMinMax)

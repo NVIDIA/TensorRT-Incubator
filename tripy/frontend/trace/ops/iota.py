@@ -19,6 +19,19 @@ class Iota(BaseTraceOp):
 
     def infer_shapes(self):
         self.outputs[0].shape = self.shape
+        if self.dim < 0:
+            self.dim += len(self.shape)
+
+        if self.dim < 0 or self.dim >= len(self.shape):
+            raise_error(
+                "Invalid iota dim.",
+                details=[
+                    "iota dim must be satisfy 0 <= dim < rank(shape), got dim=",
+                    self.dim,
+                    ", while rank of shape is ",
+                    len(self.shape),
+                ],
+            )
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
@@ -67,22 +80,12 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
         :linenos:
         :caption: Example
 
-        output = tp.iota([3])
+        output = tp.iota((3,), dim=-1)
 
         assert np.array_equal(output.numpy(), np.arange(0, 3, dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
-    if dim < 0 or dim >= len(shape):
-        raise_error(
-            "Invalid iota dim.",
-            details=[
-                "iota dim must be satisfy 0 <= dim < rank(shape), got dim=",
-                dim,
-                ", while rank of shape is ",
-                len(shape),
-            ],
-        )
     return Tensor.build([], Iota, dim, utils.to_dims(shape), dtype)
 
 
