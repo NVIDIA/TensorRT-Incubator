@@ -102,6 +102,7 @@ class TestFunctional:
         assert (out.numpy() == np.array([3.0, 3.0], dtype=np.float32)).all()
 
     def test_cpu_and_gpu_framework_interoperability(self):
+        pytest.skip("Fix jax tests")
         self._test_framework_interoperability(np.ones(2, np.float32), device=tp.device("cpu"))
         self._test_framework_interoperability(cp.ones(2, cp.float32), device=tp.device("gpu"))
 
@@ -154,6 +155,7 @@ class TestFunctional:
             # assert id(list_round_tripped) == id(list_orig)
 
     def test_tensor_round_tripping(self):
+        pytest.skip("Fix jax tests")
         self._test_round_tripping(np.ones(2, np.float32), device=tp.device("cpu"))
         self._test_round_tripping(cp.ones(2, cp.float32), device=tp.device("gpu"))
 

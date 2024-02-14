@@ -70,6 +70,7 @@ build_mlir_tensorrt:
     - docker:24.0.5-dind
   before_script:
     - export GROUP_CICD_TOKEN=$GROUP_CICD_TOKEN
+    - pip install --force-reinstall 'jax[cuda12_local]==0.4.24' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
   timeout: 3 hours
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -102,6 +103,7 @@ build_mlir_tensorrt:
       -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
       -DLLVM_USE_LINKER=lld
       -DMLIR_TRT_PACKAGE_CACHE_DIR="$CI_PROJECT_DIR/.cache.cpm"
+      -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.0.0.1
     - ninja -C build all
   after_script:
     - export CCACHE_DIR="$CI_PROJECT_DIR/ccache"

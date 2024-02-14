@@ -16,20 +16,18 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     echo 'trtuser:nvidia' | chpasswd && \
     mkdir -p /workspace && chown trtuser /workspace && \
     apt-get update && \
-    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git && \
+    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
 
 
 # Install the recommended version of TensorRT for development.
 ARG CUDNN_VERSION=8.9.2.26-1+cuda12.1
-ARG TRT_VERSION=8.6.1.6-1+cuda12.0
-RUN apt-get update && \
-    apt-get install -y \
-    tensorrt-libs=${TRT_VERSION} \
-    tensorrt-dev=${TRT_VERSION} && \
-    apt-get clean -y && \
-    rm -rf /var/lib/apt/lists/*
+RUN cd /usr/lib/ && \
+    wget http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.1-a3728acd/12.2-r535/Linux-x64-agnostic/tar/TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz && \
+    tar -xvzf TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz && \
+    rm TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz
+ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.0.0.1/lib/:$LD_LIBRARY_PATH
 
 
 COPY pyproject.toml /tripy/pyproject.toml
