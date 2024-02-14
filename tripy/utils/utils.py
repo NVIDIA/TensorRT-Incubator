@@ -1,10 +1,7 @@
-import ast
 import dataclasses
 import glob
 import hashlib
-import inspect
 import os
-import textwrap
 import time
 import typing
 from dataclasses import dataclass
@@ -166,19 +163,6 @@ def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
     """
     base_fields = {base_field.name for base_field in dataclasses.fields(BaseClass)}
     return [field for field in dataclasses.fields(obj) if field.name not in base_fields]
-
-
-# Returns a list of source line of code where node is found.
-def find_node_in_method(method, node_to_find: "str") -> List[str]:
-    source = textwrap.dedent(inspect.getsource(method))
-    tree = ast.parse(source)
-    source = source.splitlines()
-    nodes_found = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and getattr(node.func, "id", "") == node_to_find:
-            nodes_found.append(source[node.lineno - 1].strip())
-
-    return nodes_found
 
 
 ##

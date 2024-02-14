@@ -1,5 +1,7 @@
 import ast
-from typing import List, Optional, Tuple
+import textwrap
+import inspect
+from typing import List, Optional, Tuple, Callable
 
 from tripy.utils.stack_info import SourceInfo
 
@@ -120,3 +122,25 @@ def get_candidate_column_offsets(cur_frame: SourceInfo, callee: SourceInfo) -> L
             candidate_column_offsets.append((indentation + node.col_offset, indentation + node.end_col_offset))
 
     return candidate_column_offsets
+
+
+def find_node_in_method(method, node_finder: Callable) -> List[str]:
+    """
+    Returns a list of source line of code where node is found.
+
+    Args:
+        method: Source function where node is searched.
+        node_finder (Callable): User function that takes (node, source) and returns a bool whether node is found in ast or not.
+
+    Returns:
+        List[str]: List of source line of code
+    """
+    source = textwrap.dedent(inspect.getsource(method))
+    tree = ast.parse(source)
+    source = source.splitlines()
+    nodes_found = []
+    for node in ast.walk(tree):
+        if node_finder(node, source):
+            nodes_found.append(source[node.lineno - 1].strip())
+
+    return nodes_found

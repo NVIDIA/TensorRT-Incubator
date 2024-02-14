@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from unittest.mock import patch
 
 import tripy as tp
 
@@ -233,4 +234,26 @@ class TestJIT:
 
         assert "Usage of print statement in jitted functions is not recommended" in captured.out
         # Verify that warning logs show the nested print statment.
-        assert "'Dummy' uses 'print' statements: print(\"Dummy call\")" in captured.out
+        assert "'Dummy' : print(\"Dummy call\")" in captured.out
+
+    def test_jit_warn_illegal_behavior(self, capsys):
+
+        random_data = np.random.rand(3).astype(np.float32)
+        a = tp.Tensor(random_data, device=tp.device("gpu"))
+
+        with patch("pdb.set_trace") as mock_set_trace:
+
+            @tp.jit
+            def add(a):
+                t = tp.Tensor([1.0, 2.0, 3.0], shape=(tp.Dim(3, 2, 3, 4),))
+                out = a + t
+                import pdb
+
+                pdb.set_trace()
+                return out
+
+            _ = add(a).eval()
+
+        captured = capsys.readouterr()
+        assert "Initializing dynamic shape tensor in jitted functions is not recommended" in captured.out
+        assert "Using pdb inside jitted function is not recommended" in captured.out
