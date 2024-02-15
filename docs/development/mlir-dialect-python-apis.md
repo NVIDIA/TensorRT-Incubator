@@ -4,17 +4,17 @@
 
 The first step is to choose the correct MLIR ops from one or more dialects:
 
-1. [stablehlo](https://github.com/openxla/stablehlo/blob/main/docs/spec.md) dialect is
+- [stablehlo](https://github.com/openxla/stablehlo/blob/main/docs/spec.md) dialect is
     usually the first choice as it covers most of the computing ops.
 
-   **Always check [jax's implementation](https://github.com/google/jax/blob/059fdaf1554ff508db5e267b884d7d47f583fe8a/jax/_src/lax/lax.py)**
-    **before looking for other dialects!**
+    **You can refer to [jax's implementations](https://github.com/google/jax/blob/059fdaf1554ff508db5e267b884d7d47f583fe8a/jax/_src/lax/)**
+    **before looking for other dialects.**
 
-2. For some ops like tensor allocation, initialization, copy or custom ops, we need ops from other
+- For some ops like tensor allocation, initialization, copy or custom ops, we need ops from other
     [MLIR dialects](https://mlir.llvm.org/docs/Dialects/), the most helpful ones includes:
     `arith`, `tensor`, `bufferization`, and `linalg`.
 
-3. Sometimes we need to mix ops from different dialects to implement one operation, for example we need
+- Sometimes we need to mix ops from different dialects to implement one operation, for example we need
     `arith.constant` to declare a single constant value, and then `tensor.empty` or `bufferization.alloc_tensor`
     to allocate an output tensor, and finally `linalg.fill` or other ops to achieve the purpose.
 

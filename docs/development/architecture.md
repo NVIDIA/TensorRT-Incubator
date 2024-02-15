@@ -8,11 +8,15 @@ This document explains the overall architecture of Tripy.
 [[_TOC_]]
 
 
-## Architecture Diagram
+## Overview
 
-As you read the rest of the document, you may find this diagram helpful to visualize where each
-component fits in:
+The main technical requirement of Tripy is twofold:
 
+1. We must be able to provide a Pythonic, functional style interface to the user.
+2. We must be able to provide a computation graph to the compiler.
+
+Tripy uses a series of intermediate representations to solve this problem.
+Below is a diagram of how these IRs are connected to each other:
 
 ```mermaid
 graph TD
@@ -34,6 +38,25 @@ graph TD
         D --> E[MLIR-TRT];
     end
 ```
+
+### Trace
+
+The `Trace` is meant to provide a 1:1 graph representation of the user's Python code.
+It is a bipartite graph consisting of Trace `Operation`s and `TraceTensor`s - each Trace `Operation`
+is connected to input/output `TraceTensor`s and each `TraceTensor` has knowledge of its
+producer Trace `Operation`.
+
+
+### FlatIR
+
+The `FlatIR` is a lower level representation that provides a 1:1 mapping to MLIR operations.
+Like the `Trace`, it is a bipartite graph consisting of FlatIR `Operation`s and `FlatIRTensor`s.
+
+
+### MLIR
+
+The final representation before we hand off to the compiler is the MLIR itself, which, in our case,
+consists primarily of StableHLO operations but can also include other dialects for certain operations.
 
 
 ## A Day In The Life Of A Tripy Tensor
