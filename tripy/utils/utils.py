@@ -69,7 +69,7 @@ def prefix_with_line_numbers(text: str) -> str:
     Adds prefix line number to text.
     """
     lines = text.split("\n")
-    numbered_lines = [f"{i+1}: {line}" for i, line in enumerate(lines)]
+    numbered_lines = [f"{i+1:>3}: {line}" for i, line in enumerate(lines)]
     return "\n".join(numbered_lines)
 
 

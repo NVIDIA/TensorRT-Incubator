@@ -128,8 +128,8 @@ class Tensor(metaclass=TensorMeta):
 
     def eval(self) -> Array:
         from tripy.backend.jit.utils import get_tensor_info
-        from tripy.backend.mlir.compiler import FlatIRCompiler
-        from tripy.backend.mlir.executor import FlatIRExecutor
+        from tripy.backend.mlir.compiler import Compiler
+        from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
 
         if isinstance(self.op, Storage):
@@ -137,9 +137,10 @@ class Tensor(metaclass=TensorMeta):
 
         trace = Trace([self])
         flat_ir = trace.to_flat_ir()
-        compiler = FlatIRCompiler()
-        executable = compiler.compile(flat_ir)
-        with FlatIRExecutor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
+        mlir = flat_ir.to_mlir()
+        compiler = Compiler()
+        executable = compiler.compile(mlir)
+        with Executor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
             # Upon computing the value of this tensor, we switch it to have a `Storage`
             # parameter so that it does not need to be computed again.
             data = executor.execute()

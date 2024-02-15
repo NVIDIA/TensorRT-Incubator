@@ -7,8 +7,8 @@ import torch
 
 import tripy as tp
 from tripy.backend.jit.utils import get_tensor_info
-from tripy.backend.mlir.compiler import FlatIRCompiler
-from tripy.backend.mlir.executor import FlatIRExecutor
+from tripy.backend.mlir.compiler import Compiler
+from tripy.backend.mlir.executor import Executor
 from tripy.frontend.trace import Trace
 from tripy.common import logger
 
@@ -76,9 +76,9 @@ class TestFunctional:
         trace = Trace([c, d])
         flat_ir = trace.to_flat_ir()
 
-        compiler = FlatIRCompiler()
-        with FlatIRExecutor(
-            compiler.compile(flat_ir), get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)
+        compiler = Compiler()
+        with Executor(
+            compiler.compile(flat_ir.to_mlir()), get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)
         ) as executor:
             out = executor.execute()
             assert (

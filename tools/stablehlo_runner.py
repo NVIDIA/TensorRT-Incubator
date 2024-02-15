@@ -2,7 +2,7 @@ import argparse
 import random
 import re
 import numpy as np
-from tripy.backend.mlir.compiler import FlatIRCompiler
+from tripy.backend.mlir.compiler import Compiler
 
 
 def preprocess_program(program):
@@ -95,7 +95,7 @@ def read_program_from_file(file_path):
 
 
 def compile_code(code):
-    compiler = FlatIRCompiler()
+    compiler = Compiler()
     compiler.compile_stabehlo_program(code)
 
 

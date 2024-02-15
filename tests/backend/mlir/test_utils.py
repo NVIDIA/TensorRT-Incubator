@@ -4,6 +4,7 @@ from mlir import ir
 import tripy
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.datatype import DATA_TYPES
+import os
 
 
 class TestUtils:
@@ -28,3 +29,13 @@ class TestUtils:
                     # TODO (pranavm): Figure out how to make boolean types work.
                 }[dtype.name]
             )
+
+    def test_env(self):
+        ENV_VAR = "test_env_test_env_var"
+        assert ENV_VAR not in os.environ
+
+        with mlir_utils.env({ENV_VAR: "1"}):
+            assert ENV_VAR in os.environ
+            assert os.environ[ENV_VAR] == "1"
+
+        assert ENV_VAR not in os.environ

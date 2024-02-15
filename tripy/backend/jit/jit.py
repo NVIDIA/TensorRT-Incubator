@@ -9,8 +9,8 @@ from tripy import utils
 from tripy.backend.jit.cached_executable import CachedExecutable
 from tripy.backend.jit.dynamic_storage import DynamicStorage
 from tripy.backend.jit.utils import TensorInfo, get_tensor_info, get_trace_signature
-from tripy.backend.mlir.compiler import FlatIRCompiler
-from tripy.backend.mlir.executor import FlatIRExecutor
+from tripy.backend.mlir.compiler import Compiler
+from tripy.backend.mlir.executor import Executor
 from tripy.common.logging import logger
 from tripy.frontend import Tensor, nn
 from tripy.frontend.nn import Module
@@ -237,16 +237,17 @@ class jit:
                 if trace is None:
                     trace = make_trace()
                 flat_ir = trace.to_flat_ir()
+                mlir = flat_ir.to_mlir()
 
-                compiler = FlatIRCompiler()
+                compiler = Compiler()
                 executable = CachedExecutable(
-                    compiler.compile(flat_ir),
+                    compiler.compile(mlir),
                     get_tensor_info(trace.inputs),
                     get_tensor_info(trace.outputs),
                 )
                 self.cache[trace_signature].append(executable)
 
-            executor = FlatIRExecutor(
+            executor = Executor(
                 executable.executable,
                 # HACK (#109): We only use the executables I/O tensor information if we didn't recompute the trace.
                 utils.default(input_tensor_info, executable.input_info),
