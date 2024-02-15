@@ -105,12 +105,6 @@ class TestFunctional:
         self._test_framework_interoperability(np.ones(2, np.float32), device=tp.device("cpu"))
         self._test_framework_interoperability(cp.ones(2, cp.float32), device=tp.device("gpu"))
 
-    def _assert_round_tripping(self, original_data, tensor, round_trip, compare, data_type=tp.float32):
-        """Assert round-tripping for different frameworks."""
-        round_tripped_data = tensor.numpy()
-        assert (round_tripped_data == original_data).all()
-        assert round_tripped_data.data == original_data.data
-
     def _test_round_tripping(self, data, device):
         assert isinstance(data, np.ndarray) or isinstance(data, cp.ndarray)
 

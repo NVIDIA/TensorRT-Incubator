@@ -1,0 +1,5 @@
+[run]
+omit = tests/*,/usr/lib/*
+
+[report]
+ignore_errors = True

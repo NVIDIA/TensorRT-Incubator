@@ -80,27 +80,6 @@ def torch_type_supported(data: np.ndarray):
     return data.dtype not in unsupported_dtypes
 
 
-def all_same(a: List[int] or List[float], b: List[int] or List[float]):
-    """
-    Compare two lists element-wise for equality.
-
-    Args:
-        a (list): The first list.
-        b (list): The second list.
-
-    Returns:
-        bool: True if the lists have the same elements in the same order, False otherwise.
-    """
-    if len(a) != len(b):
-        return False
-
-    for a, b in zip(a, b):
-        if a != b:
-            return False
-
-    return True
-
-
 class DocstringCodeBlock(str):
     def code(self) -> str:
         # Special directives can be used in the code blocks and they should be

@@ -181,7 +181,7 @@ l0-if-new-container:
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
-    - python3 -m pytest tests/ -v -m "l0 or not l1"
+    - pytest tests/ -v -m "l0 or not l1" --durations=15
   tags:
     - tripy-runner
 
@@ -205,7 +205,7 @@ l0-if-no-new-container:
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
-    - python3 -m pytest tests/ -v -m "l0 or not l1"
+    - pytest tests/ -v -m "l0 or not l1" --durations=15
   tags:
     - tripy-runner
 
@@ -219,7 +219,29 @@ l1:
       when: always
   stage: test
   script:
-    - python3 -m pytest tests/ -v -m "l1"
+    - pytest tests/ -v -m "l1" --durations=15
+  tags:
+    - tripy-runner
+
+
+# TODO: Between L0 and L1 (and any future cadence) we already run the full set of tests.
+# It should be possible to push the coverage data from L0 and L1 and then just pull it down
+# here, use `coverage combine` and finally generate the report without running tests.
+coverage:
+  image: $CI_REGISTRY_IMAGE:latest
+  # Only run in the automatically scheduled nightlies.
+  # If we add more pipeline schedules we'll need to update this logic.
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+  stage: test
+  script:
+    - pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v --durations=15
+    - coverage html -i --omit=tests/*,/usr/lib/*
+    - mv htmlcov/ public/
+  artifacts:
+    paths:
+      - public
   tags:
     - tripy-runner
 

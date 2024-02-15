@@ -20,6 +20,35 @@ L0 tests, use:
 pytest tests/ -v -m "l0 or not l1"
 ```
 
+## Coverage Reports
+
+You can generate code coverage reports locally by running:
+
+```bash
+pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
+```
+
+To view the report, open the `htmlcov/index.html` file from the root directory in a browser.
+
+
+## Dead Code Detection
+
+Our development container includes a static analysis tool called `vulture` that can
+detect dead code. *This **will** include false positives for our code, so be careful!*
+
+You can run it with:
+
+```bash
+vulture tripy tests --sort-by-size
+```
+
+To exclude false positives, use:
+
+```bash
+vulture tripy tests --sort-by-size --min-confidence=100
+```
+
+
 ## Adding Tests
 
 When modifying or adding new files in `tripy`, make sure that you also modify or add the corresponding

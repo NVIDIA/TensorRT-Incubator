@@ -241,7 +241,7 @@ class TestJIT:
         random_data = np.random.rand(3).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
-        with patch("pdb.set_trace") as mock_set_trace:
+        with patch("pdb.set_trace"):
 
             @tp.jit
             def add(a):
