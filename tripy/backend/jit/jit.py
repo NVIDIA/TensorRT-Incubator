@@ -118,7 +118,7 @@ class jit:
                 dynamic_shape = arg._dynamic_shape
                 tensor = Tensor(arg.eval())
                 # Copy stack information from the original tensor so error messages are better.
-                tensor._stack_info = arg._stack_info
+                tensor.stack_info = arg.stack_info
                 # Replace the tensor op with one that can supply dynamic shapes.
                 storage = tensor.op
                 assert isinstance(storage, Storage), f"{tensor} should have had a storage op after `eval()`"

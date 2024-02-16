@@ -1,12 +1,12 @@
+import copy
 import functools
 import inspect
 from collections import OrderedDict, defaultdict
 from textwrap import dedent
 from typing import Any, Callable, Dict, List, Tuple
 
+from tripy.utils.utils import code_pretty_str, ConditionCheck
 from tripy.common.exception import raise_error
-from tripy.utils.utils import ConditionCheck
-import copy
 
 
 class FuncOverload:
@@ -24,9 +24,10 @@ class FuncOverload:
         source_lines = inspect.getsource(self.func).splitlines()
         CONTEXT_LEN = 3
         if len(source_lines) > CONTEXT_LEN + 1:  # + 1 for the '...' line we add
-            source_lines = source_lines[:CONTEXT_LEN] + ["..."]
+            source_lines = source_lines[:CONTEXT_LEN] + ["    ..."]
         source_code = "\n".join(source_lines)
-        return f"'{self.func.__name__}' defined in '{inspect.getsourcefile(self.func)}:{lineno}':\n\n{source_code}\n"
+        pretty_code = code_pretty_str(source_code, inspect.getsourcefile(self.func), lineno)
+        return pretty_code + "\n"
 
     def _get_annotations(self):
         if self.annotations is None:
@@ -89,7 +90,8 @@ class FuncOverload:
         # Check if we have too many arguments
         if len(args) > len(annotations):
             return ConditionCheck(
-                False, [f"Number of arguments provided ({len(args)}) exceeds the number of parameters ({len(args)})"]
+                False,
+                [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
         for (name, (typ, _)), arg in zip(annotations.items(), args):
@@ -183,7 +185,7 @@ class FunctionRegistry(dict):
             raise_error(
                 f"{msg} for function: '{key}'.",
                 details=[
-                    f"Note: Argument types were: [{', '.join(arg_type_strs)}]. Candidate overloads were:\n\n",
+                    f"Note: Argument types were: [{', '.join(arg_type_strs)}].\nCandidate overloads were:\n\n",
                     *overloads_error,
                     extra_info,
                 ],

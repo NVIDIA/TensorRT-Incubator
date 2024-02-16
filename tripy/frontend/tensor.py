@@ -93,7 +93,7 @@ class Tensor(metaclass=TensorMeta):
         # This lets us generate very nice error messages.
         # NOTE: If the call stack depth for this function changes, update the index here!
         STACK_DEPTH_IN_TENSOR = 3
-        self._stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_IN_TENSOR)
+        self.stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_IN_TENSOR)
 
         inp_trace_tensors = []
         for inp in inputs:
@@ -102,7 +102,7 @@ class Tensor(metaclass=TensorMeta):
             inp_trace_tensors.append(out)
 
         name = utils.default(name, Tensor.get_unique_name())
-        out_trace_tensors = [TraceTensor(name, self._stack_info, [], None, None, None)]
+        out_trace_tensors = [TraceTensor(name, self.stack_info, [], None, None, None)]
 
         self.op = OpType(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
 

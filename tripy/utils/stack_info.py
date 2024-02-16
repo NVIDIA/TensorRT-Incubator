@@ -37,6 +37,9 @@ class StackInfo(list):
             if source_info.is_user_frame():
                 return index
 
+    def __repr__(self):
+        return "\n".join(map(str, self))
+
 
 def get_stack_info(include_code_index: int = None) -> StackInfo:
     """

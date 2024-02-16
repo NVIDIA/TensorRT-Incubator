@@ -54,16 +54,16 @@ class TestTensor:
         a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs: MockOp(inputs, outputs))
 
         # We don't check line number within tp.Tensor because it's diffficult to determine.
-        assert a._stack_info[1] == SourceInfo(
+        assert a.stack_info[1] == SourceInfo(
             inspect.getmodule(tp.Tensor).__name__,
             file=inspect.getsourcefile(tp.Tensor),
-            line=a._stack_info[1].line,
+            line=a.stack_info[1].line,
             function=tp.Tensor.build.__name__,
             code="",
             _dispatch_target="",
             column_range=None,
         )
-        assert a._stack_info[2] == SourceInfo(
+        assert a.stack_info[2] == SourceInfo(
             __name__,
             file=__file__,
             line=expected_line_number,

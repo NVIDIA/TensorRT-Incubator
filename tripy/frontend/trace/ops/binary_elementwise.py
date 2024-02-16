@@ -127,7 +127,7 @@ class Comparison(BinaryElementwise):
 @TENSOR_METHOD_REGISTRY("__add__")
 @TENSOR_METHOD_REGISTRY("__radd__")
 @frontend_utils.convert_inputs_to_tensors()
-def add(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __add__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
 
@@ -156,7 +156,7 @@ def add(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__sub__")
 @frontend_utils.convert_inputs_to_tensors()
-def sub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __sub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -185,7 +185,7 @@ def sub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__rsub__")
 @frontend_utils.convert_inputs_to_tensors()
-def rsub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rsub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -214,7 +214,7 @@ def rsub(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__pow__")
 @frontend_utils.convert_inputs_to_tensors()
-def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __pow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
@@ -243,7 +243,7 @@ def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__rpow__")
 @frontend_utils.convert_inputs_to_tensors()
-def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rpow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
@@ -273,7 +273,7 @@ def pow(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 @TENSOR_METHOD_REGISTRY("__mul__")
 @TENSOR_METHOD_REGISTRY("__rmul__")
 @frontend_utils.convert_inputs_to_tensors()
-def mul(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __mul__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
 
@@ -302,7 +302,7 @@ def mul(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__truediv__")
 @frontend_utils.convert_inputs_to_tensors()
-def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __truediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
@@ -331,7 +331,7 @@ def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__rtruediv__")
 @frontend_utils.convert_inputs_to_tensors()
-def div(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
@@ -418,7 +418,7 @@ def minimum(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__lt__")
 @frontend_utils.convert_inputs_to_tensors()
-def less_than(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
 
@@ -448,7 +448,7 @@ def less_than(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__le__")
 @frontend_utils.convert_inputs_to_tensors()
-def less_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __le__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
 
@@ -477,7 +477,7 @@ def less_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor
 
 @TENSOR_METHOD_REGISTRY("__eq__")
 @frontend_utils.convert_inputs_to_tensors()
-def eq(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __eq__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
 
@@ -506,7 +506,7 @@ def eq(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__ne__")
 @frontend_utils.convert_inputs_to_tensors()
-def not_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __ne__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
 
@@ -535,7 +535,7 @@ def not_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__ge__")
 @frontend_utils.convert_inputs_to_tensors()
-def greater_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __ge__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
 
@@ -564,7 +564,7 @@ def greater_than_or_equal(self, other: Union["tripy.Tensor", Any]) -> "tripy.Ten
 
 @TENSOR_METHOD_REGISTRY("__gt__")
 @frontend_utils.convert_inputs_to_tensors()
-def greater_than(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __gt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.
 

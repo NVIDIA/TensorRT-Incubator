@@ -46,9 +46,6 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    if name in __all__:
-        return locals()[name]
-
     from tripy.common.exception import search_for_missing_attr
 
     look_in = [(Tensor, "tripy.Tensor"), (nn, "tripy.nn")]

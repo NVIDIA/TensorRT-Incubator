@@ -11,6 +11,45 @@ class TripyException(Exception):
     pass
 
 
+def str_from_source_info(source_info, enable_color=True, is_first_frame=True, callee_info=None):
+    def apply_color(inp, color):
+        if not enable_color:
+            return inp
+        return f"{color}{inp}{attr('reset')}"
+
+    frame_info = ""
+    if is_first_frame:
+        frame_info += "\n\n"
+    pretty_code = utils.code_pretty_str(source_info.code, source_info.file, source_info.line, enable_color=enable_color)
+
+    frame_info += pretty_code
+
+    column_range = source_info.column_range
+    if column_range is None and callee_info is not None:
+        # With multiple calls to the same function name on the same line,
+        # it is not possible for us to determine which column offset is correct, so we
+        # won't include it in that case.
+        try:
+            candidate_column_offsets = utils.get_candidate_column_offsets(source_info, callee_info)
+        except:
+            pass
+        else:
+            if len(candidate_column_offsets) == 1:
+                column_range = candidate_column_offsets[0]
+
+    if column_range:
+        start, end = column_range
+        size = end - start
+        frame_info += " " * start + apply_color("^" * (size), Fore.red)
+        if not is_first_frame:
+            frame_info += " --- required from here"
+    else:
+        if not is_first_frame:
+            frame_info = "Required from:\n" + frame_info
+    frame_info += "\n\n"
+    return frame_info
+
+
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> str:
     import tripy.utils.function_registry
     from tripy.frontend.utils import convert_inputs_to_tensors
@@ -29,11 +68,6 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
                 return False
             return True
 
-    def apply_color(inp, color):
-        if not enable_color:
-            return inp
-        return f"{color}{inp}{attr('reset')}"
-
     frame_strs = []
     num_frames_printed = 0
     for index, source_info in enumerate(stack_info):
@@ -46,40 +80,13 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
         if should_exclude(source_info):
             continue
 
-        line_info = f"{apply_color(source_info.file, Fore.yellow)}:{source_info.line}"
+        frame_info = str_from_source_info(
+            source_info,
+            enable_color,
+            num_frames_printed == 0,
+            callee_info=stack_info[index - 1] if index >= 1 else None,
+        )
 
-        line_no = f"{source_info.line:>4} "
-        indent = " " * len(line_no)
-
-        frame_info = ""
-        if num_frames_printed == 0:
-            frame_info += "\n\n"
-
-        frame_info += f"--> {line_info}\n{indent}|\n{line_no}| {source_info.code}"
-
-        column_range = source_info.column_range
-        if column_range is None and index > 0:
-            # With multiple calls to the same function name on the same line,
-            # it is not possible for us to determine which column offset is correct, so we
-            # won't include it in that case.
-            try:
-                candidate_column_offsets = utils.get_candidate_column_offsets(source_info, stack_info[index - 1])
-            except:
-                pass
-            else:
-                if len(candidate_column_offsets) == 1:
-                    column_range = candidate_column_offsets[0]
-
-        if column_range:
-            start, end = column_range
-            size = end - start
-            frame_info += f"\n{indent}| " + " " * start + apply_color("^" * (size), Fore.red)
-            if num_frames_printed > 0:
-                frame_info += " --- required from here"
-        else:
-            if num_frames_printed > 0:
-                frame_info = "Required from:\n" + frame_info
-        frame_info += "\n\n"
         frame_strs.append(frame_info)
         num_frames_printed += 1
 
@@ -108,6 +115,13 @@ def raise_error(summary: str, details: List[Any] = []):
     Raises:
         TripyException
     """
+
+    pre_summary = ""
+    stack_info = utils.get_stack_info()
+    user_frame_index = stack_info.get_first_user_frame_index()
+    if user_frame_index is not None:
+        pre_summary = str_from_source_info(stack_info[user_frame_index])
+
     detail_msg = ""
     for detail in details:
         if hasattr(detail, "stack_info"):
@@ -115,7 +129,7 @@ def raise_error(summary: str, details: List[Any] = []):
         else:
             detail_msg += str(detail)
 
-    msg = f"{summary}\n" + indent(detail_msg, " " * 4)
+    msg = f"{pre_summary}{summary}\n" + indent(detail_msg, " " * 4)
     raise TripyException(msg)
 
 

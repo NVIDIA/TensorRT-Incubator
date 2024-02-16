@@ -59,9 +59,11 @@ def get_ast_node_func_name(node) -> Optional[str]:
     return None
 
 
-def get_arg_column_offset(
+def get_arg_candidate_column_offsets(
     code: str, index: int, num_total_positional_args: int, func_name: str, is_kwarg: bool
 ) -> Tuple[int, int]:
+    candidates = []
+
     # Gets the column offset of the argument at `index` to function called `func_name` in the provided `code` snippet.
     parsed_ast, indentation = get_parsed_ast(code)
     for node in ast.walk(parsed_ast):
@@ -84,7 +86,9 @@ def get_arg_column_offset(
                     arg_node = node.args[index - 1]
 
         if arg_node is not None:
-            return (indentation + arg_node.col_offset, indentation + arg_node.end_col_offset)
+            candidates.append((indentation + arg_node.col_offset, indentation + arg_node.end_col_offset))
+
+    return candidates
 
 
 # Grab column offsets for a given frame based on information from its callee.

@@ -30,3 +30,9 @@ class TestTranspose:
         a = a.transpose(0, 1)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Transpose)
+
+    def test_incorrect_number_of_arguments(self):
+        a = tp.ones((2, 3))
+
+        with helper.raises(tp.TripyException, match="Function expects 3 parameters, but 4 arguments were provided."):
+            b = a.transpose(1, 2, 3)

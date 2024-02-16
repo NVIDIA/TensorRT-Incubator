@@ -47,21 +47,24 @@ class TestFunctionRegistry:
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'transform'.
-                Note: Argument types were: \[str\]. Candidate overloads were:
+                Note: Argument types were: \[str\].
+                Candidate overloads were:
 
-                'transform_int' defined in '{__file__}:[0-9]+':
-
-                    \@registry\("transform"\)
-                    def transform_int\(a: "int"\):
-                        return a \+ 1
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |     \@registry\("transform"\)
+                 [0-9]+ |     def transform_int\(a: "int"\):
+                 [0-9]+ |         return a \+ 1
+                    |
 
                 Not a valid overload because: For parameter: 'a', expected an instance of type: 'int' but got argument of type: 'str'.
 
-                'transform_float' defined in '{__file__}:[0-9]+':
-
-                    \@registry\("transform"\)
-                    def transform_float\(a: "float"\):
-                        return a \- 1
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |     \@registry\("transform"\)
+                 [0-9]+ |     def transform_float\(a: "float"\):
+                 [0-9]+ |         return a \- 1
+                    |
 
                 Not a valid overload because: For parameter: 'a', expected an instance of type: 'float' but got argument of type: 'str'.
             """
@@ -79,13 +82,15 @@ class TestFunctionRegistry:
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[int, b=int, c=float\]. Candidate overloads were:
+                Note: Argument types were: \[int, b=int, c=float\].
+                Candidate overloads were:
 
-                'func' defined in '{__file__}:[0-9]+':
-
-                        \@registry\("test"\)
-                        def func\(a: int, b: int, c: int\):
-                            return a \+ b \+ c
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         \@registry\("test"\)
+                 [0-9]+ |         def func\(a: int, b: int, c: int\):
+                 [0-9]+ |             return a \+ b \+ c
+                    | 
 
                 Not a valid overload because: For parameter: 'c', expected an instance of type: 'int' but got argument of type: 'float'.
                 """
@@ -143,19 +148,22 @@ class TestFunctionRegistry:
             match=dedent(
                 rf"""
                 Ambiguous overload for function: 'test'.
-                    Note: Argument types were: \[int\]. Candidate overloads were:
+                    Note: Argument types were: \[int\].
+                    Candidate overloads were:
 
-                    'func' defined in '{__file__}:[0-9]+':
+                    --> {__file__}:[0-9]+
+                        |
+                    [0-9]+ |         \@registry\("test"\)
+                    [0-9]+ |         def func\(a: int\):
+                    [0-9]+ |             return a \+ 1
+                        |
 
-                            \@registry\("test"\)
-                            def func\(a: int\):
-                                return a \+ 1
-
-                    'func' defined in '{__file__}:[0-9]+':
-
-                            \@registry\("test"\)
-                            def func\(b: int\):
-                                return b \- 1
+                    --> {__file__}:[0-9]+
+                        |
+                    [0-9]+ |         \@registry\("test"\)
+                    [0-9]+ |         def func\(b: int\):
+                    [0-9]+ |             return b \- 1
+                        |
                 """
             ).strip(),
         ):
