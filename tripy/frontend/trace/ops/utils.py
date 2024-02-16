@@ -206,7 +206,7 @@ def insert_broadcast(
         reason_details=[
             f"broadcast the {tensor_details}, which was: ",
             input_tensor,
-            f"to a shape of: {out_shape} in order to be compatible with the other input(s)",
+            f" to a shape of: {out_shape} in order to be compatible with the other input(s)",
         ],
     )
 

@@ -88,7 +88,7 @@ This is clearly a nicer interface, but would require us to maintain another set 
 We concluded that this would require too much effort and maintenance overhead.
 
 
-## Why Is `to_mlir()` Asymmetric With `to_flat_ir()`?
+## Why Is `BaseFlatIROp.to_mlir()` Asymmetric With `BaseTraceOp.to_flat_ir()`?
 
 In `to_flat_ir()`, the input and output `FlatIRTensor`s are created by the caller and
 the operator that implements `to_flat_ir()` is responsible for creating a `FlatIR` subgraph
@@ -98,3 +98,75 @@ However, in `to_mlir()`, we only pass in the input tensors. The reason for the a
 that some MLIR operators create their own output tensors whereas others need to bind to
 existing ones. Due to this, we leave it to the `FlatIR` operator to convert its own outputs
 to MLIR if needed or return the newly created ones.
+
+
+## Why Not Build On [JAX](https://github.com/google/jax)?
+
+Tripy’s architecture looks very similar to JAX's, where python code is staged out and
+lowered into a custom IR and eventually to MLIR.
+
+Then why not build on top of JAX? There are a couple reasons:
+
+1. JAX (Just Another XLA) is tightly coupled with XLA, which has a different set of limitations
+    and constraints than TensorRT. We do not want to inherit those limitations unnecessarily.
+
+2. Using any components from JAX (e.g. the frontend, `LAX`, etc.) would create logistical
+    challenges and introduce latency in building/shipping Tripy.
+    By building our own stack, we control our destiny and can ship on our own schedule
+    without any dependency on external ecosystems.
+
+Building our own stack has a few other advantages:
+
+1. We can provide first-class APIs for concepts specific to TensorRT, like optimization profiles.
+
+2. Since we control the IR lowering logic, we can apply annotations that, for example, make it
+    easier to understand why certain transformations were performed or why new operations were
+    inserted.
+
+3. We can augment error messages generated from anywhere in the stack with information
+    from the entire stack - all the way from the Python frontend down to the compiler.
+
+    Here's an example of an error emitted from MLIR-TRT due to an operation inserted
+    by Tripy during one of the lowering passes. Notice that we are able to explain
+    exactly why the operation was inserted and which part of the user's Python code
+    it originated from:
+
+    ```bash
+    --> example.py:11 in main()
+        |
+    11  |     print(add(a, b))
+        |
+
+    InternalError: failed to run compilation pipeline.
+        (t2)error: size of operand dimension 1 (3) is not compatible with size of result dimension 1 (4)
+
+        This error occured while trying to compile the following FlatIR expression:
+            |
+            | t_inter11: [shape=(3, 4,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(t1, t_inter8, broadcast_dim=[0, 1])
+            |
+
+        Note: Tripy introduced new operation(s) in order to broadcast the inputs of '+' to compatible shapes.
+        This operation was introduced to broadcast the right operand, which was:
+        t1: [shape=(3, 3,), dtype=(float32), loc=(gpu:0)] to a shape of: (3, 4) in order to be compatible with the other input(s).
+
+        Note: This originated from the following expression:
+
+        --> example.py:5 in add()
+            |
+        5   |     return a + b
+            |            ^^^^^
+
+        Input 0:
+
+        --> example.py:9 in main()
+            |
+        9   |     a = tp.ones((3, 4))
+            |         ^^^^^^^^^^^^^^^
+
+        Input 1:
+
+        --> example.py:10 in main()
+            |
+        10  |     b = tp.ones((3, 3))
+            |         ^^^^^^^^^^^^^^^
+    ```

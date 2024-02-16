@@ -84,7 +84,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
         )
 
     raise_error(
-        str(exc),
+        str(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
         + get_flat_ir_operation(output_names)
         + ["Note: This originated from the following expression:"]
