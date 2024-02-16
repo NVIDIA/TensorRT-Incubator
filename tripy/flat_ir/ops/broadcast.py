@@ -48,12 +48,7 @@ class DynamicBroadcastOp(BaseFlatIROp):
         broadcast_dim_attr = ir.DenseI64ArrayAttr.get(
             np.array(self.broadcast_dim, dtype=np.int64),
         )
+        out_type = self.outputs[0].to_mlir()
 
-        # Use tensorrt dialect until https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/635 is resolved.
-        out_shape = ir.Operation.create(
-            "tensorrt.broadcast",
-            results=[self.outputs[0].to_mlir()],
-            operands=operands,
-            attributes={"broadcast_dims": broadcast_dim_attr},
-        ).result
-        return [out_shape]
+        output = stablehlo.dynamic_broadcast_in_dim(out_type, operands[0], operands[1], broadcast_dim_attr)
+        return [output]

@@ -203,8 +203,8 @@ def get_slice_indices(op, shape, index):
             limit_indices.append(idx + 1)
             strides.append(1)
         else:
-            start_indices.append(to_positive_idx(idx.start, dim) if idx.start else 0)
-            limit_indices.append(to_positive_idx(idx.stop, dim) if idx.stop else dim)
+            start_indices.append(to_positive_idx(idx.start, dim) if (idx.start is not None) else 0)
+            limit_indices.append(to_positive_idx(idx.stop, dim) if (idx.stop is not None) else dim)
             strides.append(idx.step if idx.step else 1)
     return start_indices, limit_indices, strides
 
@@ -215,22 +215,22 @@ def get_slice_indices(op, shape, index):
 
 
 def get_shape_of_tensor(op, tensor):
-    from tripy.flat_ir.tensor import FIRTensor
+    from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ShapeOp
     from tripy.common.datatype import int32
 
-    shape_output_tensor = FIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
+    shape_output_tensor = FlatIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
     ShapeOp(op, [tensor], [shape_output_tensor])
 
     return shape_output_tensor
 
 
 def add_constant_tensor_from_list(op, data: list, device: "tripy.device"):
-    from tripy.flat_ir.tensor import FIRTensor
+    from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConstantOp
     from tripy.common.datatype import int32
     import numpy as np
 
-    const_output_tensor = FIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
+    const_output_tensor = FlatIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
     ConstantOp(op, [], [const_output_tensor], data=np.array(data).astype(np.int32))
     return const_output_tensor

@@ -1,4 +1,5 @@
 from mlir import ir
+from mlir.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir import utils as mlir_utils
@@ -11,11 +12,29 @@ class ShapeOp(BaseFlatIROp):
     """
 
     def to_mlir(self, operands):
+
         out_type = ir.RankedTensorType.get([self.outputs[0].shape[0].runtime_value], mlir_utils.get_mlir_dtype(int32))
         inp = operands[0]
         if not (isinstance(operands[0], ir.OpResult) or isinstance(operands[0], ir.BlockArgument)):
             inp = inp.result
 
+        sliced_dims = [None] * inp.type.rank
+        # Loop and slice all indicies, concat to yield shape tensor.
         # Remove use of tensorrt dialect and use shape dialect. #80 will fix this.
-        out_shape = ir.Operation.create("tensorrt.shape", results=[out_type], operands=[inp]).result
-        return [out_shape]
+        for i in range(inp.type.rank):
+            broadcast_dim_attr = ir.IntegerAttr.get(
+                type=ir.IntegerType.get_signless(64),
+                value=i,
+            )
+
+            dim_size = stablehlo.get_dimension_size(inp, dimension=broadcast_dim_attr)
+            out_type = ir.RankedTensorType.get([1], mlir_utils.get_mlir_dtype(int32))
+            sliced_dims[i] = stablehlo.ReshapeOp(result=out_type, operand=dim_size)
+
+        concatenate_dim = ir.IntegerAttr.get(
+            type=ir.IntegerType.get_signless(64),
+            value=0,
+        )
+
+        output = stablehlo.concatenate(sliced_dims, dimension=concatenate_dim)
+        return [output]
