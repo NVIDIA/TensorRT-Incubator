@@ -181,7 +181,7 @@ l0-if-new-container:
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
-    - pytest tests/ -v -m "l0 or not l1" --durations=15
+    - pytest tests/ -v -m "l0 or not l1" --durations=20
   tags:
     - tripy-runner
 
@@ -205,7 +205,7 @@ l0-if-no-new-container:
   stage: test
   script:
     - sphinx-build docs build/docs -j 6 -W
-    - pytest tests/ -v -m "l0 or not l1" --durations=15
+    - pytest tests/ -v -m "l0 or not l1" --durations=20
   tags:
     - tripy-runner
 
@@ -219,7 +219,7 @@ l1:
       when: always
   stage: test
   script:
-    - pytest tests/ -v -m "l1" --durations=15
+    - pytest tests/ -v -m "l1" --durations=20
   tags:
     - tripy-runner
 
@@ -236,7 +236,7 @@ coverage:
       when: always
   stage: test
   script:
-    - pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v --durations=15
+    - pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v --durations=20
     - coverage html -i --omit=tests/*,/usr/lib/*
     - mv htmlcov/ public/
   artifacts:

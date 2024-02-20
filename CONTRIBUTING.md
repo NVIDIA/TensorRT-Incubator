@@ -141,7 +141,8 @@ Generally, you should not need to build a container locally. If you do, you can 
 			-DCMAKE_C_COMPILER_LAUNCHER=ccache \
 			-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
 			-DLLVM_USE_LINKER=lld \
-			-DMLIR_TRT_ENABLE_TRIPY=ON
+			-DMLIR_TRT_ENABLE_TRIPY=ON \
+			-DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.0.0.1
 
 		ninja -C build all
 		```
