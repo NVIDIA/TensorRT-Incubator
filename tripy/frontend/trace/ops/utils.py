@@ -74,7 +74,7 @@ def get_broadcast_dim(dim1, dim2):
 ##
 
 
-def get_shape_of_tensor(op, tensor):
+def get_shape_of_tensor(op: "BaseTraceOp", tensor: "FlatIRTensor"):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ShapeOp, ConstantOp
     from tripy.common.datatype import int32
@@ -89,7 +89,7 @@ def get_shape_of_tensor(op, tensor):
     return shape_output_tensor
 
 
-def add_constant_tensor_from_list(op, data: list, device: "tripy.device"):
+def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.device"):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConstantOp
     from tripy.common.datatype import int32
