@@ -29,72 +29,66 @@ class Unsqueeze(BaseTraceOp):
         from tripy.common.datatype import int32
         from tripy.frontend.dim import Dim
 
-        dynamic_shape = any([d.is_dynamic_dim() for d in inputs[0].shape])
         broadcast_dim = list(range(len(inputs[0].shape)))
         for idx in range(len(broadcast_dim)):
             if idx >= self.dim:
                 broadcast_dim[idx] += 1
 
-        if dynamic_shape:
-            # Get the shape of input, insert 1 at the required index via slicing and concatenating.
-            # Use dynamic shape broadcast op and provide the new shape tensor as the output shape
+        # Get the shape of input, insert 1 at the required index via slicing and concatenating.
+        # Use dynamic shape broadcast op and provide the new shape tensor as the output shape
 
-            # Get the input shape
-            shape_output_tensor = op_utils.get_shape_of_tensor(self, inputs[0])
+        # Get the input shape
+        shape_output_tensor = op_utils.get_shape_of_tensor(self, inputs[0])
 
-            # # Create a constant of Dim[1] filled with 1
-            const_output_tensor = op_utils.add_constant_tensor_from_list(self, [1], inputs[0].device)
+        # # Create a constant of Dim[1] filled with 1
+        const_output_tensor = op_utils.add_constant_tensor_from_list(self, [1], inputs[0].device)
 
-            concat_output_tensor = FlatIRTensor.build(
-                shape=(Dim(1 + len(inputs[0].shape)),), dtype=int32, device=inputs[0].device
-            )
+        concat_output_tensor = FlatIRTensor.build(
+            shape=(Dim(1 + len(inputs[0].shape)),), dtype=int32, device=inputs[0].device
+        )
 
-            # Slice the first half of shape : shape[:dim]
-            slice_first_half = FlatIRTensor.build(shape=(Dim(self.dim),), dtype=int32, device=inputs[0].device)
-            start_indices, limit_indices, strides = op_utils.get_slice_indices(
-                self, shape_output_tensor.shape, (slice(0, self.dim, None),)
-            )
+        # Slice the first half of shape : shape[:dim]
+        slice_first_half = FlatIRTensor.build(shape=(Dim(self.dim),), dtype=int32, device=inputs[0].device)
+        start_indices, limit_indices, strides = op_utils.get_slice_indices(
+            self, shape_output_tensor.shape, (slice(0, self.dim, None),)
+        )
 
-            SliceOp(
-                self,
-                [shape_output_tensor],
-                [slice_first_half],
-                start_indices=start_indices,
-                limit_indices=limit_indices,
-                strides=strides,
-            )
+        SliceOp(
+            self,
+            [shape_output_tensor],
+            [slice_first_half],
+            start_indices=start_indices,
+            limit_indices=limit_indices,
+            strides=strides,
+        )
 
-            # Slice the second half of shape : shape[dim:]
-            slice_second_half = FlatIRTensor.build(
-                shape=(Dim(len(inputs[0].shape) - self.dim),), dtype=int32, device=inputs[0].device
-            )
+        # Slice the second half of shape : shape[dim:]
+        slice_second_half = FlatIRTensor.build(
+            shape=(Dim(len(inputs[0].shape) - self.dim),), dtype=int32, device=inputs[0].device
+        )
 
-            start_indices, limit_indices, strides = op_utils.get_slice_indices(
-                self, shape_output_tensor.shape, (slice(self.dim, None, None),)
-            )
+        start_indices, limit_indices, strides = op_utils.get_slice_indices(
+            self, shape_output_tensor.shape, (slice(self.dim, None, None),)
+        )
 
-            SliceOp(
-                self,
-                [shape_output_tensor],
-                [slice_second_half],
-                start_indices=start_indices,
-                limit_indices=limit_indices,
-                strides=strides,
-            )
+        SliceOp(
+            self,
+            [shape_output_tensor],
+            [slice_second_half],
+            start_indices=start_indices,
+            limit_indices=limit_indices,
+            strides=strides,
+        )
 
-            # concatenate [slice_first_half, 1, slice_second_half]
-            ConcatenateOp(
-                self, [slice_first_half, const_output_tensor, slice_second_half], [concat_output_tensor], dim=0
-            )
+        # concatenate [slice_first_half, 1, slice_second_half]
+        ConcatenateOp(self, [slice_first_half, const_output_tensor, slice_second_half], [concat_output_tensor], dim=0)
 
-            DynamicBroadcastOp(
-                self,
-                [inputs[0], concat_output_tensor],
-                [outputs[0]],
-                broadcast_dim=broadcast_dim,
-            )
-        else:
-            BroadcastOp(self, inputs, outputs, broadcast_dim=broadcast_dim)
+        DynamicBroadcastOp(
+            self,
+            [inputs[0], concat_output_tensor],
+            [outputs[0]],
+            broadcast_dim=broadcast_dim,
+        )
 
 
 @TENSOR_METHOD_REGISTRY("unsqueeze")

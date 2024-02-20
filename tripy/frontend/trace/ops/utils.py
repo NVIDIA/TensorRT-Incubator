@@ -70,6 +70,37 @@ def get_broadcast_dim(dim1, dim2):
 
 
 ##
+## Helpers
+##
+
+
+def get_shape_of_tensor(op, tensor):
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.flat_ir.ops import ShapeOp, ConstantOp
+    from tripy.common.datatype import int32
+
+    shape_output_tensor = FlatIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
+    if len(tensor.shape) > 0:
+        ShapeOp(op, [tensor], [shape_output_tensor])
+    else:
+        # TODO #80: Remove this codepath when shape dialect is used (shape.shape_of).
+        ConstantOp(op, [], [shape_output_tensor], data=b"")
+
+    return shape_output_tensor
+
+
+def add_constant_tensor_from_list(op, data: list, device: "tripy.device"):
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.flat_ir.ops import ConstantOp
+    from tripy.common.datatype import int32
+    import numpy as np
+
+    const_output_tensor = FlatIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
+    ConstantOp(op, [], [const_output_tensor], data=np.array(data).astype(np.int32))
+    return const_output_tensor
+
+
+##
 ## Broadcasting
 ##
 
@@ -133,12 +164,7 @@ def insert_broadcast(
 
         assert target_tensor, "target_tensor is required for dynamic variant of the broadcast op."
 
-        # insert a shape tensor
-        shape_output_tensor = FlatIRTensor.build(
-            shape=(Dim(len(target_tensor.shape)),), dtype=int32, device=input_tensor.device
-        )
-
-        ShapeOp(source_op, [target_tensor], [shape_output_tensor])
+        shape_output_tensor = get_shape_of_tensor(source_op, target_tensor)
 
         DynamicBroadcastOp(
             source_op,
@@ -207,30 +233,3 @@ def get_slice_indices(op, shape, index):
             limit_indices.append(to_positive_idx(idx.stop, dim) if (idx.stop is not None) else dim)
             strides.append(idx.step if idx.step else 1)
     return start_indices, limit_indices, strides
-
-
-##
-## Helpers
-##
-
-
-def get_shape_of_tensor(op, tensor):
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ShapeOp
-    from tripy.common.datatype import int32
-
-    shape_output_tensor = FlatIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
-    ShapeOp(op, [tensor], [shape_output_tensor])
-
-    return shape_output_tensor
-
-
-def add_constant_tensor_from_list(op, data: list, device: "tripy.device"):
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ConstantOp
-    from tripy.common.datatype import int32
-    import numpy as np
-
-    const_output_tensor = FlatIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
-    ConstantOp(op, [], [const_output_tensor], data=np.array(data).astype(np.int32))
-    return const_output_tensor

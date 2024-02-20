@@ -13,10 +13,12 @@ class ShapeOp(BaseFlatIROp):
 
     def to_mlir(self, operands):
 
-        out_type = ir.RankedTensorType.get([self.outputs[0].shape[0].runtime_value], mlir_utils.get_mlir_dtype(int32))
         inp = operands[0]
+
         if not (isinstance(operands[0], ir.OpResult) or isinstance(operands[0], ir.BlockArgument)):
             inp = inp.result
+
+        assert inp.type.rank > 0, "ShapeOp should only be used when input tensor has rank > 0."
 
         sliced_dims = [None] * inp.type.rank
         # Loop and slice all indicies, concat to yield shape tensor.
@@ -35,6 +37,5 @@ class ShapeOp(BaseFlatIROp):
             type=ir.IntegerType.get_signless(64),
             value=0,
         )
-
         output = stablehlo.concatenate(sliced_dims, dimension=concatenate_dim)
         return [output]

@@ -23,18 +23,17 @@ class ConstantOp(BaseFlatIROp):
         super().__init__(source_op, inputs, outputs)
         assert len(self.outputs) == 1, "ConstantOp should have exactly 1 output"
         self.data = data
+        self.shape = getattr(self.data, "shape", [0])
         self.dtype = self.outputs[0].dtype
         self.device = self.outputs[0].device
 
     def str_skip_fields(self) -> Set[str]:
-        if utils.should_omit_constant_in_str(self.data.shape):
+        if utils.should_omit_constant_in_str(self.shape):
             return {"data"}
         return set()
 
     def to_mlir(self, operands):
         from tripy.backend.mlir import utils as mlir_utils
 
-        attr = ir.DenseElementsAttr.get(
-            array=self.data, type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.data.shape
-        )
+        attr = ir.DenseElementsAttr.get(array=self.data, type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.shape)
         return [stablehlo.ConstantOp(attr)]
