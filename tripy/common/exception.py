@@ -177,7 +177,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     stack_modules = list(filter(lambda mod: mod is not None, [inspect.getmodule(frame.frame) for frame in stack]))
     stack_classes = list([])
 
-    msg = f"Module: {module_name} does not have attribute: {name}. "
+    msg = f"Module: '{module_name}' does not have attribute: '{name}'"
     # If a symbol isn't found in the top-level, we'll look at specific classes/modules
     # in case there's a similar symbol there.
     # We provide the names as well since the object name will be the fully qualified name,
@@ -189,7 +189,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
             continue
 
         if hasattr(obj, name):
-            msg += f"Did you mean: '{obj_name}.{name}'?"
+            msg += f". Did you mean: '{obj_name}.{name}'?"
             break
 
     raise AttributeError(msg.strip())

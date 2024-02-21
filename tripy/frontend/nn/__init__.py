@@ -14,11 +14,8 @@ __all__ = ["Parameter", "Module", "Linear", "LayerNorm", "Embedding", "softmax",
 
 
 def __getattr__(name: str):
-    if name in __all__:
-        return locals()[name]
-
     import tripy as tp
     from tripy.common.exception import search_for_missing_attr
 
     look_in = [(tp.Tensor, "tripy.Tensor"), (tp, "tripy")]
-    search_for_missing_attr("tripy", name, look_in)
+    search_for_missing_attr("tripy.nn", name, look_in)
