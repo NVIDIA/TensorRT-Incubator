@@ -33,9 +33,16 @@ class Fill(BaseTraceOp):
 
         from tripy.flat_ir.ops import BroadcastOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.array import Array
+        from tripy.common.device import device
 
         const_val_tensor = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
-        ConstantOp(self, [], [const_val_tensor], data=np.array(self.value, dtype=self.dtype.name))
+        ConstantOp(
+            self,
+            [],
+            [const_val_tensor],
+            data=Array(np.array(self.value, dtype=self.dtype.name), self.dtype, shape=(), device=device("cpu")),
+        )
         BroadcastOp(self, [const_val_tensor], outputs, broadcast_dim=[])
 
 

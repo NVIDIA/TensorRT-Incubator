@@ -47,12 +47,6 @@ class Storage(BaseTraceOp):
         self.outputs[0].device = tripy.common.device("gpu")
 
     def to_flat_ir(self, inputs, outputs):
-        import cupy as cp
-
         from tripy.flat_ir.ops import ConstantOp
 
-        data = self.data.view()
-        if isinstance(data, cp.ndarray):
-            # This is required because MLIR-TRT backend requires constants to be on host.
-            data = data.get()
-        ConstantOp(self, inputs, outputs, data=data)
+        ConstantOp(self, inputs, outputs, data=self.data)

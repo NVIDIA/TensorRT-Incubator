@@ -78,14 +78,20 @@ def get_shape_of_tensor(op: "BaseTraceOp", tensor: "FlatIRTensor"):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ShapeOp, ConstantOp
     from tripy.common.datatype import int32
+    from tripy.common.array import Array
+    import numpy as np
 
     shape_output_tensor = FlatIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
     if len(tensor.shape) > 0:
         ShapeOp(op, [tensor], [shape_output_tensor])
     else:
         # TODO #80: Remove this codepath when shape dialect is used (shape.shape_of).
-        ConstantOp(op, [], [shape_output_tensor], data=b"")
-
+        ConstantOp(
+            op,
+            [],
+            [shape_output_tensor],
+            data=Array(None, int32, shape=(0,), device=tensor.device),
+        )
     return shape_output_tensor
 
 
@@ -93,10 +99,17 @@ def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConstantOp
     from tripy.common.datatype import int32
+    from tripy.common.array import Array
+    from tripy.common.device import device
     import numpy as np
 
     const_output_tensor = FlatIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
-    ConstantOp(op, [], [const_output_tensor], data=np.array(data).astype(np.int32))
+    ConstantOp(
+        op,
+        [],
+        [const_output_tensor],
+        data=Array(np.array(data).astype(np.int32), int32, shape=(len(data),), device=device("cpu")),
+    )
     return const_output_tensor
 
 

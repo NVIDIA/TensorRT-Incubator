@@ -84,7 +84,7 @@ class Array:
         """
 
         assert dtype is None or isinstance(dtype, tripy.common.datatype.dtype), "Invalid data type"
-        assert shape is None or all(s > 0 for s in shape)
+        assert shape is None or all(s >= 0 for s in shape)
 
         self.device = utils.default(device, tp_device("cpu"))
         self._module = np if self.device.kind == "cpu" else cp

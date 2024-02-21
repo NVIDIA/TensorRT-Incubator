@@ -47,10 +47,19 @@ class Reduce(BaseTraceOp):
 
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.array import Array
+        from tripy.common.device import device
 
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
-        ConstantOp(self, [], [init_const], data=np.array(init_value, dtype=outputs[0].dtype.name))
+        ConstantOp(
+            self,
+            [],
+            [init_const],
+            data=Array(
+                np.array(init_value, dtype=outputs[0].dtype.name), outputs[0].dtype, shape=(), device=device("cpu")
+            ),
+        )
         ReduceOp(self, [inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
 
 
@@ -75,12 +84,24 @@ class ArgMinMax(Reduce):
 
         from tripy.flat_ir.ops import ConstantOp, ArgMinMaxOp
         from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.array import Array
+        from tripy.common.device import device
 
         init_val_const = FlatIRTensor.build(shape=[], dtype=inputs[0].dtype, device=outputs[0].device)
         init_idx_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
 
-        ConstantOp(self, [], [init_val_const], data=np.array(0, dtype=inputs[0].dtype.name))
-        ConstantOp(self, [], [init_idx_const], data=np.array(0, dtype=outputs[0].dtype.name))
+        ConstantOp(
+            self,
+            [],
+            [init_val_const],
+            data=Array(np.array(0, dtype=inputs[0].dtype.name), inputs[0].dtype, shape=(), device=device("cpu")),
+        )
+        ConstantOp(
+            self,
+            [],
+            [init_idx_const],
+            data=Array(np.array(0, dtype=outputs[0].dtype.name), outputs[0].dtype, shape=(), device=device("cpu")),
+        )
 
         ArgMinMaxOp(
             self,
