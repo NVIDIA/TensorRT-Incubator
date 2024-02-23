@@ -12,6 +12,12 @@ class TestReshape:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Reshape)
 
+    def test_neg_dim_func(self):
+        a = tp.Tensor([1, 2, 3, 4])
+        a = a.reshape((1, 1, -1))
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.op, Reshape)
+
 
 class TestSqueeze:
     def test_op_func(self):

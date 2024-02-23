@@ -165,7 +165,7 @@ def volume(shape):
         Volume of tensor (float)
     """
 
-    volume = 1.0
+    volume = 1
     for s in to_dims(shape):
         volume *= s.max
     return volume

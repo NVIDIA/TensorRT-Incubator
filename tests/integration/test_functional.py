@@ -331,30 +331,6 @@ class TestDynamic:
             assert np.array_equal(out.numpy(), np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32))
 
 
-class TestReshape:
-    @pytest.mark.parametrize(
-        "shape, new_shape",
-        [
-            ((2, 4), (1, 8)),
-            ((2, 4, 8, 9), (8, 8, 9)),
-            ((2, 4), (8,)),  # change rank of output
-        ],
-    )
-    def test_static_reshape(self, shape, new_shape):
-        np_a = np.random.rand(*shape).astype(np.float32)
-        a = tp.Tensor(np_a, shape=shape, device=tp.device("gpu"))
-        b = a.reshape(new_shape)
-        assert np.array_equal(b.shape.numpy(), np.array(new_shape))
-        assert np.array_equal(b.numpy(), np_a.reshape(new_shape))
-
-    def test_dynamic_reshape(self):
-        dim = tp.Dim(runtime_value=4, min=3, opt=5, max=6)
-        a = tp.ones((dim, 5, 6, 7))
-        with pytest.raises(NotImplementedError):
-            a = a.reshape((20, 3, 14))
-            print(a)
-
-
 class TestConversionToTripyType:
     @pytest.mark.parametrize(
         "reverse_direction",

@@ -3,6 +3,7 @@ from typing import Sequence, Tuple, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils
+from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -18,6 +19,15 @@ class Reshape(BaseTraceOp):
 
     def infer_shapes(self):
         assert len(self.inputs) == 1, "Reshape operation should have exactly one input!"
+        shape = self.inputs[0].shape
+        input_volume = utils.volume(shape)
+        reshape_volume = utils.volume(self.shape)
+        if -1 in self.shape:
+            neg_count = self.shape.count(-1)
+            if neg_count != 1:
+                raise_error("Only one dimension can be -1.", details=[f"Shape was: {self.shape}"])
+            missing_dim = input_volume // -reshape_volume
+            self.shape = tuple(missing_dim if dim == -1 else dim for dim in self.shape)
         self.outputs[0].shape = utils.to_dims(self.shape)
 
     def to_flat_ir(self, inputs, outputs):
@@ -27,7 +37,7 @@ class Reshape(BaseTraceOp):
             (dim[0].is_dynamic_dim() or dim[1].is_dynamic_dim())
             for dim in zip(inputs[0].shape, utils.to_dims(self.shape))
         ):
-            raise NotImplementedError("Dynamic reshape is not supported")
+            raise NotImplementedError("Dynamic reshape is not supported.")
 
         ReshapeOp(self, inputs, outputs)
 
@@ -77,7 +87,9 @@ def reshape(self, shape: ShapeInfo) -> "tripy.Tensor":
     Returns a new tensor with the contents of this one in the specified shape.
 
     Args:
-        shape: The desired shape.
+        shape: The desired compatible shape. If a shape dimension is -1, its value
+        is inferred based on the other dimensions and the number of elements in the input.
+        Atmost one dimension can be -1.
 
     Returns:
         A new tensor of the same data type as this one and the specified shape.

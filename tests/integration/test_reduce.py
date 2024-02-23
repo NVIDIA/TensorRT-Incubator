@@ -56,8 +56,7 @@ class TestReduceOp:
             ((2, 3, 4), 2, True),
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
-            # TODO: support dim=None
-            # ((2, 3, 4), None, False),
+            ((2, 3, 4), None, False),
         ],
     )
     def test_argmax(self, x_shape, axis, keepdim: bool):
@@ -78,8 +77,7 @@ class TestReduceOp:
             ((2, 3, 4), 2, True),
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
-            # TODO: support dim=None
-            # ((2, 3, 4), None, False),
+            ((2, 3, 4), None, False),
         ],
     )
     def test_argmin(self, x_shape, axis, keepdim: bool):

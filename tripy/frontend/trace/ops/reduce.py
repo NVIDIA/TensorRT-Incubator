@@ -290,14 +290,13 @@ def var(
     return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: (x - correction).maximum(0))
 
 
-def _arg_min_max_impl(self: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, keepdim: bool):
+def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, keepdim: bool):
     from tripy.frontend import Tensor, iota_like
 
-    # TODO(128): Use self.reshape((-1,)) to flatten input when dim=None
     if dim is None:
-        raise NotImplementedError("dim=None is not supported yet.")
-    indices = iota_like(self, dim if dim else 0, datatype.int32)
-    out = Tensor.build([self, indices], ArgMinMax, dim, kind)
+        tensor = tensor.reshape((-1,))
+    indices = iota_like(tensor, dim if dim else 0, datatype.int32)
+    out = Tensor.build([tensor, indices], ArgMinMax, dim, kind)
     if keepdim:
         if dim is None:
             # TODO(#96): Support dim=None, keepdim=True
