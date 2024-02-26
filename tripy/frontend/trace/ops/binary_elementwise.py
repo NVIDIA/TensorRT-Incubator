@@ -54,28 +54,19 @@ class BinaryElementwise(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def broadcast_inputs(self, inputs, outputs):
-        # Insert broadcast to ensure operands are of the same rank.
-        shape1, shape2 = op_utils.get_broadcast_compatible_shapes(inputs[0].shape, inputs[1].shape)
+        shape_diff = len(inputs[1].shape) - len(inputs[0].shape)
+        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], max(shape_diff, 0))
+        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], max(-shape_diff, 0))
 
-        dynamic_shape = False
-        requires_broadcast_1 = shape1 != inputs[0].shape
-        requires_broadcast_2 = shape2 != inputs[1].shape
+        max_output_shape_tensor = op_utils.get_max_of_shapes(self, inputs[0], inputs[1])
 
-        for dim1, dim2 in zip(shape1, shape2):
-            if dim1 != dim2:
-                requires_broadcast_1 |= dim1 < dim2
-                requires_broadcast_2 |= dim1 > dim2
-            if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
-                dynamic_shape = True
+        inputs[0] = op_utils.insert_broadcast(
+            self, inputs[0], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_output_shape_tensor
+        )
 
-        if requires_broadcast_1:
-            inputs[0] = op_utils.insert_broadcast(
-                self, inputs[0], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[1]
-            )
-        if requires_broadcast_2:
-            inputs[1] = op_utils.insert_broadcast(
-                self, inputs[1], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[0]
-            )
+        inputs[1] = op_utils.insert_broadcast(
+            self, inputs[1], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_output_shape_tensor
+        )
 
         return inputs
 

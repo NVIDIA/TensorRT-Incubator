@@ -281,7 +281,7 @@ class TestDynamic:
             ),  # use DynamicBroadcast static dim
             ((tp.Dim(4, min=2, opt=4, max=6), 2), (1, 2)),  # use DynamicBroadcast dynamic dim
             # Below test is blocked on mlir-tensorrt bug: https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/640
-            # ((1, 2), (tp.Dim(4, min=2, opt=4, max=6), 2)), # use DynamicBroadcast dynamic dim
+            ((1, 2), (tp.Dim(4, min=2, opt=4, max=6), 2)),  # use DynamicBroadcast dynamic dim
         ],
     )
     def test_dynamic_jit(self, dims_a, dims_b, capsys):
