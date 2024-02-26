@@ -8,9 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class RandomNormalOp(BaseFlatIROp):
-    """
-    Operation to generate a random tensor with normal distribution.
-    """
 
     static_mean: numbers.Number
     static_std: numbers.Number

@@ -9,9 +9,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class IotaOp(BaseFlatIROp):
-    """
-    Operation to fill an output tensor with values in increasing order starting from zero along the given dimension
-    """
 
     dim: int
     shape: ShapeInfo

@@ -6,9 +6,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 class RsqrtOp(BaseFlatIROp):
-    """
-    Operation to perform rsqrt on a tensor.
-    """
 
     def to_mlir(self, operands):
         return [stablehlo.RsqrtOp(*operands)]

@@ -8,9 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class GatherOp(BaseFlatIROp):
-    """
-    Operation to compute gather operation.
-    """
 
     offset_dims: tuple
     axis: int

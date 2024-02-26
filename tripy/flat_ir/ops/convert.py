@@ -7,9 +7,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class ConvertOp(BaseFlatIROp):
-    """
-    Operation to cast a Tensor to output type
-    """
 
     def __init__(self, source_op, inputs, outputs):
         super().__init__(source_op, inputs, outputs)

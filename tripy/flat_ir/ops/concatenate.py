@@ -8,10 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class ConcatenateOp(BaseFlatIROp):
-    """
-    Operation to concatenate tensors along a dimension.
-    """
-
     dim: int
 
     def __init__(self, origin_layer, inputs, outputs, dim):

@@ -8,9 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class SliceOp(BaseFlatIROp):
-    """
-    Operation to slice a tensor.
-    """
 
     start_indices: List[int]
     limit_indices: List[int]

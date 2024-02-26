@@ -8,9 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class RandomUniformOp(BaseFlatIROp):
-    """
-    Operation to generate a random tensor with uniform distribution.
-    """
 
     static_low: numbers.Number
     static_high: numbers.Number

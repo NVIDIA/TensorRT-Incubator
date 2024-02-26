@@ -10,9 +10,6 @@ from dataclasses import dataclass
 
 @dataclass(repr=False)
 class DotOp(BaseFlatIROp):
-    """
-    Operation to compute generic dot product of two tensors.
-    """
 
     contracting_dim: int
     batching_dim: int

@@ -12,9 +12,6 @@ from tripy.common.array import Array
 
 @dataclass(repr=False)
 class ConstantOp(BaseFlatIROp):
-    """
-    Operation to store a constant tensor
-    """
 
     data: Array
     dtype: "tripy.dtype"

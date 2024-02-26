@@ -7,10 +7,6 @@ from tripy import int32
 
 
 class ShapeOp(BaseFlatIROp):
-    """
-    Operation to transpose/permute a Tensor
-    """
-
     def to_mlir(self, operands):
 
         inp = operands[0]

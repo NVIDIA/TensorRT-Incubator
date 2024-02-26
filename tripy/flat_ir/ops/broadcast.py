@@ -8,10 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class BroadcastOp(BaseFlatIROp):
-    """
-    Operation to expand the dimensions and/or rank of an input tensor by duplicating its data.
-    """
-
     broadcast_dim: int
 
     def __init__(self, source_op, inputs, outputs, broadcast_dim):
@@ -32,9 +28,6 @@ class BroadcastOp(BaseFlatIROp):
 
 @dataclass(repr=False)
 class DynamicBroadcastOp(BaseFlatIROp):
-    """
-    Dynamic shape variant of the BroadcastOp.
-    """
 
     broadcast_dim: int
 

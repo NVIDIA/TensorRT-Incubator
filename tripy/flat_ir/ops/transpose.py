@@ -8,10 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class TransposeOp(BaseFlatIROp):
-    """
-    Operation to transpose/permute a Tensor
-    """
-
     perm: List[int]
 
     def __init__(self, source_op, inputs, outputs, perm):

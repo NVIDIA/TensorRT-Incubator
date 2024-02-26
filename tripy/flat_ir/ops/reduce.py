@@ -10,9 +10,6 @@ from tripy.backend.mlir.utils import get_mlir_dtype
 
 @dataclass(repr=False)
 class ReduceOp(BaseFlatIROp):
-    """
-    Operation to reduce a Tensor
-    """
 
     reduce_mode: str
     reduce_dims: List[int]

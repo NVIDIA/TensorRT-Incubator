@@ -9,9 +9,6 @@ from dataclasses import dataclass
 
 @dataclass(repr=False)
 class CopyOp(BaseFlatIROp):
-    """
-    Operation to copy a tensor to another device
-    """
 
     target: tripy.common.device
 

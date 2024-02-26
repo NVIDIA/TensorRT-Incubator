@@ -6,10 +6,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 class CompareOp(BaseFlatIROp):
-    """
-    Operation to compare two tensors
-    """
-
     def __init__(self, source_op, inputs, outputs, compare_direction):
         super().__init__(source_op, inputs, outputs)
         self.compare_direction = compare_direction
