@@ -175,8 +175,6 @@ def insert_broadcast(
 
         assert shape_of_target_tensor, "target_tensor is required for dynamic variant of the broadcast op."
 
-        # get_shape_of_tensor(source_op, target_tensor)
-
         DynamicBroadcastOp(
             source_op,
             [input_tensor, shape_of_target_tensor],
