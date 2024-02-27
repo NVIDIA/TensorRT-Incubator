@@ -1,5 +1,6 @@
 import numbers
 
+from tripy import utils
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -11,31 +12,10 @@ class Where(BaseTraceOp):
     Represents a select operation.
     """
 
-    def get_operand_shape_after_broadcast(self, cond_shape, a_shape, b_shape):
-        def broadcast_equivalent_shape(a, b):
-            shapes = op_utils.get_broadcast_compatible_shapes(a, b)
-            bcast_check = op_utils.is_broadcast_compatible(*shapes)
-            if not bcast_check:
-                op_utils.raise_error_io_info(
-                    self,
-                    "Input tensors are not broadcast compatible.",
-                    details=[
-                        "Input tensors for where operation must be broadcast compatible but ",
-                    ]
-                    + bcast_check.details,
-                )
-            return tuple(op_utils.get_broadcast_dim(*d) for d in zip(*shapes))
-
-        cond_shape = broadcast_equivalent_shape(cond_shape, a_shape)
-        cond_shape = broadcast_equivalent_shape(cond_shape, b_shape)
-
-        return cond_shape
-
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
-        # Output shape is broadcast of all 3 input tensor shapes.
-        operand_shape = self.get_operand_shape_after_broadcast(*[inp.shape for inp in self.inputs])
-        self.outputs[0].shape = operand_shape
+        out_rank = max(len(self.inputs[0].shape), len(self.inputs[1].shape), len(self.inputs[2].shape))
+        self.outputs[0].shape = utils.to_dims([-1] * out_rank)
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
@@ -53,12 +33,44 @@ class Where(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[1].dtype
 
     def to_flat_ir(self, inputs, outputs):
+        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import SelectOp
+        from tripy.flat_ir.ops import MaxOp
 
         # Unconditionally insert broadcast for all operands
-        inputs[0] = op_utils.insert_broadcast(self, inputs[0], outputs[0].shape)
-        inputs[1] = op_utils.insert_broadcast(self, inputs[1], outputs[0].shape)
-        inputs[2] = op_utils.insert_broadcast(self, inputs[2], outputs[0].shape)
+        cond_rank, a_rank, b_rank = (len(input.shape) for input in inputs)
+
+        # Make rank of cond, a and b the same.
+        output_rank = max(a_rank, b_rank, cond_rank)
+        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], output_rank - len(inputs[0].shape))
+        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], output_rank - len(inputs[1].shape))
+        inputs[2] = op_utils.expand_rank_of_tensor(self, inputs[2], output_rank - len(inputs[2].shape))
+
+        # Compute element-wise max of input shapes to get the desired output shape.
+        max_of_cond_and_a_shape = FlatIRTensor.build(shape=inputs[0].shape, dtype=int32, device=inputs[0].device)
+        max_of_a_and_b_shape = FlatIRTensor.build(shape=inputs[0].shape, dtype=int32, device=inputs[0].device)
+        MaxOp(
+            self,
+            [op_utils.get_shape_of_tensor(self, inputs[0]), op_utils.get_shape_of_tensor(self, inputs[1])],
+            [max_of_cond_and_a_shape],
+        )
+
+        MaxOp(
+            self,
+            [op_utils.get_shape_of_tensor(self, inputs[1]), op_utils.get_shape_of_tensor(self, inputs[2])],
+            [max_of_a_and_b_shape],
+        )
+
+        inputs[0] = op_utils.insert_broadcast(
+            self, inputs[0], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_of_a_and_b_shape
+        )
+        inputs[1] = op_utils.insert_broadcast(
+            self, inputs[1], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_of_a_and_b_shape
+        )
+        inputs[2] = op_utils.insert_broadcast(
+            self, inputs[2], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_of_a_and_b_shape
+        )
 
         SelectOp(self, inputs, outputs)
 
