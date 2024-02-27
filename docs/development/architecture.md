@@ -2,11 +2,9 @@
 
 This document explains the overall architecture of Tripy.
 
-
-## Table Of Contents
-
-[[_TOC_]]
-
+```{contents} Table of Contents
+:depth: 3
+```
 
 ## Overview
 
@@ -82,11 +80,11 @@ inp = tp.full((2, 3), value=0.5)
 The `tp.full()` API is part of the frontend and like other frontend functions, maps to one or more
 (just one in this case) `Trace` operations. For frontend functions that map to exactly one `Trace` operation,
 we define the function directly alongside the corresponding `Trace` operation.
-In this case, the [`Fill` operation](../../tripy/frontend/trace/ops/fill.py) provides `tp.full()`.
+In this case, the [`Fill` operation](source:/tripy/frontend/trace/ops/fill.py) provides `tp.full()`.
 
 *We organize it this way to reduce the number of files that need to be touched when adding new ops.*
     *If an operation is composed of multiple `Trace` operations, the frontend function can be*
-    *defined under the [`frontend/ops`](../../tripy/frontend/ops) submodule instead.*
+    *defined under the [`frontend/ops`](source:/tripy/frontend/ops) submodule instead.*
 
 #### What Does It Do?
 
@@ -103,10 +101,10 @@ The next line looks fairly innocuous:
 ```py
 out = inp.tanh()
 ```
-However, if you look at the [source code](../../tripy/frontend/tensor.py) for the frontend `Tensor`, you'll
+However, if you look at the [source code](source:/tripy/frontend/tensor.py) for the frontend `Tensor`, you'll
 notice that there is no `tanh()` method defined there! How does that work?
 
-We implement a [`TENSOR_METHOD_REGISTRY`](../../tripy/frontend/ops/registry.py) mechanism that allows us
+We implement a [`TENSOR_METHOD_REGISTRY`](source:/tripy/frontend/ops/registry.py) mechanism that allows us
 to define `Tensor` methods out-of-line by decorating our functions with this registry:
 
 <!-- Tripy Test: IGNORE Start -->
@@ -198,9 +196,9 @@ Wait a second - what's happening here? The function doesn't return anything; in 
 anything at all!
 
 The way this works is as follows: when we call `to_flat_ir()` we provide input and output
-[`FlatIRTensor`](../../tripy/flat_ir/tensor.py)s. `to_flat_ir()` is responsible for generating a
+[`FlatIRTensor`](source:/tripy/flat_ir/tensor.py)s. `to_flat_ir()` is responsible for generating a
 subgraph of `FlatIR` operations that bind to these inputs and outputs. The
-[`BaseFlatIROp` constructor](../../tripy/flat_ir/ops/base.py) updates the producer of its output tensors,
+[`BaseFlatIROp` constructor](source:/tripy/flat_ir/ops/base.py) updates the producer of its output tensors,
 meaning that *just constructing a `FlatIR` operation is enough to add it to the subgraph*. Once this binding
 is done, we take the resulting subgraph and inline it into the `FlatIR`, remapping the I/O tensors to those
 that already exist in the `FlatIR`.
@@ -224,7 +222,7 @@ Our final translation step is to go from `FlatIR` into MLIR.
 Similar to `Trace` operations, `FlatIR` operations implement `to_mlir()` which generates MLIR operations.
 Unlike `Trace` operations, this is always a 1:1 mapping.
 
-Here's a snippet for how [`tanh()` is implemented](../../tripy/flat_ir/ops/tanh.py):
+Here's a snippet for how [`tanh()` is implemented](source:/tripy/flat_ir/ops/tanh.py):
 ```py
 def to_mlir(self, operands):
     return [stablehlo.TanhOp(*operands)]

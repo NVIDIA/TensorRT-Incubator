@@ -19,20 +19,42 @@ class TestReadme:
     def test_links_valid(self, readme):
         MD_LINK_PAT = re.compile(r"\[.*?\]\((.*?)\)")
 
-        readme_dir = os.path.dirname(readme)
         with open(readme, "r") as f:
             links = MD_LINK_PAT.findall(f.read())
 
+        readme_dir = os.path.dirname(readme)
         for link in links:
             link, _, _ = link.partition("#")  # Ignore section links for now
+
+            if not link:
+                continue
+
             if link.startswith("https://"):
                 assert requests.get(link).status_code == 200
             else:
-                assert os.path.pathsep * 2 not in link, "Duplicate slashes break links in GitHub"
-                link_abs_path = os.path.abspath(os.path.join(readme_dir, link))
+                assert os.path.sep * 2 not in link, f"Duplicate slashes break links in GitHub. Link was: {link}"
+                SOURCE_TAG = "source:"
+                if link.startswith(SOURCE_TAG):
+                    _, _, link = link.partition(SOURCE_TAG)
+
+                    assert (
+                        link.startswith(os.path.sep) and os.path.pardir not in link
+                    ), f"All links to paths that are not markdown files must be absolute, but got: {link}"
+
+                else:
+                    # Omit `docs/README.md` since it's not part of the rendered documentation (but rather describes the documentation).
+                    assert ("docs/" not in readme or "docs/README.md" in readme) or link.endswith(
+                        ".md"
+                    ), f"For markdown files in the `docs/` directory, only links to markdown files can omit the leading {SOURCE_TAG}."
+
+                if link.startswith(os.path.sep):
+                    link_full_path = os.path.join(helper.ROOT_DIR, link.lstrip(os.path.sep))
+                else:
+                    link_full_path = os.path.abspath(os.path.join(readme_dir, link))
+
                 assert os.path.exists(
-                    link_abs_path
-                ), f"In README: '{readme}', link: '{link}' does not exist. Note: Full path was: '{link_abs_path}'"
+                    link_full_path
+                ), f"In README: '{readme}', link: '{link}' does not exist. Note: Full path was: {link_full_path}"
 
 
 DOCSTRING_TEST_CASES, DOCSTRING_IDS = helper.get_all_docstrings_with_examples()

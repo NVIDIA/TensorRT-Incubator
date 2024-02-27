@@ -24,6 +24,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx_toolbox.collapse",
     "sphinx_copybutton",
+    "sphinxcontrib.mermaid",
     "myst_parser",
 ]
 
@@ -92,8 +93,13 @@ html_css_files = ["style.css"]
 # Myst will complain about relative links in our top-level README
 suppress_warnings = ["myst.xref_missing"]
 
+myst_fence_as_directive = ["mermaid"]
+
+myst_url_schemes = {"source": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/blob/main/{{path}}"}
+myst_number_code_blocks = ["py", "rst"]
+
 # Ignore most markdown files as they are not part of the API reference documentation.
-exclude_patterns = ["README.md", "development/*"]
+exclude_patterns = ["README.md", "development/*.md"]
 
 
 def process_docstring(app, what, name, obj, options, lines):

@@ -3,7 +3,6 @@
 This directory includes all the source files for the public API documentation.
 The structure is such that similar or related concepts are grouped under the same
 file. For example, `Module` and `Parameter` are both documented under `nn.rst`.
-Note that each file renders as a separate page.
 
 ## Building Documentation Locally
 
@@ -18,6 +17,8 @@ To view the documentation, you can open `build/docs/index.html` in a browser.
 To add documentation for a new class or function, find the appropriate `.rst` file in
 `docs/` or add a new one if none of the existing files are appropriate.
 If you added a new file, update `docs/index.rst` to include it.
+
+Each `.rst` file will render as a separate page.
 
 ### Docstrings
 
@@ -56,3 +57,24 @@ documentation is generated. Specifically:
 3. Any `assert` statements are stripped out.
 
 4. Any lines that end with `# doc: omit` are stripped out.
+
+
+### Developer Documentation
+
+In addition to the API reference, we also include documentation for developers of Tripy
+in [docs/development](/docs/development/). The markdown files there are included in `.rst`
+files and parsed by the Myst parser. This means we need to make some special considerations:
+
+1. We cannot use the `[[TOC]]` directive to automatically generate tables of contents.
+    Instead, use:
+
+        ```{contents} Table of Contents
+        :depth: 3
+        ```
+
+2. All links to files in the repository must be absolute and start with `source:` so that
+    Myst can replace them with URLs to our remote repository. Otherwise, the links will
+    cause the relevant file to be downloaded.
+
+    Links to markdown files are an exception; if a markdown file is linked without `source:`,
+    it will point to the corresponding page in the rendered documentation (if present).

@@ -3,11 +3,9 @@
 This document outlines some of the design decisions we've made and explains why they
 were chosen over alternatives.
 
-
-## Table Of Contents
-
-[[_TOC_]]
-
+```{contents} Table of Contents
+:depth: 3
+```
 
 ## Why `FlatIR`?
 

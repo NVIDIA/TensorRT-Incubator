@@ -21,10 +21,14 @@
 }
 
 details[class^="summary"]>summary {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 600;
     padding-top: 5px;
     padding-bottom: 25px;
+}
+
+.toc .caption-text {
+    color: rgb(127, 127, 127);
 }
 
 /* Method examples already include a bottom margin, so reduce the padding amount. */

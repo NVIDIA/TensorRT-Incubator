@@ -11,9 +11,9 @@ Let's take a look at an example of how you might add an `Iota` operator to Tripy
 So that it doesn't clash with Tripy's actual `Iota` implementation, we'll call it
 `Theta` instead.
 
-## Table Of Contents
-
-[[_TOC_]]
+```{contents} Table of Contents
+:depth: 3
+```
 
 <!-- Use the PYTEST marker since we'll be defining unit tests as part of the guide.
     With this marker, those tests can actually be run under pytest. -->
@@ -27,7 +27,7 @@ The `FlatIR` operator is usually the most challenging aspect of implementing ope
 in Tripy. The good news is that you might not even need to do this if the low-level operators
 you need already exist in the `FlatIR`. And if you do, then it'll only get easier after this!
 
-We'll start by adding a new file under [`tripy/flat_ir/ops`](../../tripy/flat_ir/ops/) called
+We'll start by adding a new file under [`tripy/flat_ir/ops`](source:/tripy/flat_ir/ops/) called
 `theta.py`; see the inline comments for explanations of what's happening:
 
 ```py
@@ -90,7 +90,7 @@ from the submodule.
 
 To make this possible, we need to import the `ThetaOp` into the `flat_ir.ops` submodule.
 We can do so by adding the following line into
-[`tripy/flat_ir/ops/__init__.py`](../../tripy/flat_ir/ops/__init__.py):
+[`tripy/flat_ir/ops/__init__.py`](source:/tripy/flat_ir/ops/__init__.py):
 
 <!-- Tripy Test: IGNORE Start -->
 
@@ -112,7 +112,7 @@ tripy.flat_ir.ops.ThetaOp = ThetaOp
 
 Now that we have a `FlatIR` operator, we can implement a `Trace` operator that will use it
 along with a public API function. Let's create a new file under
-[`tripy/frontend/trace/ops`](../../tripy/frontend/trace/ops/) called `theta.py`.
+[`tripy/frontend/trace/ops`](source:/tripy/frontend/trace/ops/) called `theta.py`.
 
 ### `Trace` Operator
 
@@ -236,14 +236,14 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
 ```
 
 Links:
-- [Docs README](../../docs/README.md#docstrings)
+- [Docs README](source:/docs/README.md#docstrings)
 
 
 ### Exposing The Operator
 
 Similarly to the `FlatIR` operator, we need to import `Theta` and `theta()` into the
 `frontend.trace.ops` submodule. We can do so by adding the following line into
-[`tripy/frontend/trace/ops/__init__.py`](../../tripy/frontend/trace/ops/__init__.py):
+[`tripy/frontend/trace/ops/__init__.py`](source:/tripy/frontend/trace/ops/__init__.py):
 
 <!-- Tripy Test: IGNORE Start -->
 
@@ -265,7 +265,7 @@ tripy.frontend.trace.ops.theta = theta
 We want to expose the public interface into the top-level module so we can call it with
 `tp.theta`, so let's bubble it up through the submodules.
 
-In [`tripy/frontend/__init__.py`](../../tripy/frontend/__init__.py), add:
+In [`tripy/frontend/__init__.py`](source:/tripy/frontend/__init__.py), add:
 
 <!-- Tripy Test: IGNORE Start -->
 
@@ -286,7 +286,7 @@ tripy.frontend.theta = theta
 **Make sure to update the `__all__` variable so that the documentation displays**
 **the correct module names.**
 
-Then in [`tripy/__init__.py`](../../tripy/__init__.py), add:
+Then in [`tripy/__init__.py`](source:/tripy/__init__.py), add:
 
 <!-- Tripy Test: IGNORE Start -->
 
@@ -310,20 +310,20 @@ tripy.theta = theta
 
 Now that we've added the public API, let's make sure it appears in the documentation.
 In our example, the best place to document the API is in the
-[`tensor_initialization.rst` file](../tensor/tensor_initialization.rst).
+[`tensor_initialization.rst` file](source:/docs/tensor/tensor_initialization.rst).
 
 All we need to do is add another entry there:
 ```rst
 .. autofunction:: tripy.theta
 ```
 
-See the [documentation README](../README.md) for more details on the public documentation.
+See the [documentation README](source:/docs/README.md) for more details on the public documentation.
 
 ## Testing
 
 Now that we've implemented our operator, let's write tests for it. The structure of the
-[`tests/`](../../tests/) directory mirrors that of the [`tripy/`](../../tripy/) directory
-(you can read more about that [here](../../tests/README.md)). We need to test both the `FlatIR`
+[`tests/`](source:/tests/) directory mirrors that of the [`tripy/`](source:/tripy/) directory
+(you can read more about that [here](source:/tests/README.md)). We need to test both the `FlatIR`
 and `Trace` operators.
 
 ### Testing The `FlatIR` Operator
@@ -335,8 +335,8 @@ When testing our `FlatIR` operator, we essentially need to test two things:
 
 2. Is the translation to MLIR correct?
 
-Since we implemented the `FlatIR` operator in [`tripy/flat_ir/ops`](../../tripy/flat_ir/ops/), we'll
-add the corresponding test under [`tests/flat_ir/ops`](../../tests/flat_ir/ops/). Create a new file
+Since we implemented the `FlatIR` operator in [`tripy/flat_ir/ops`](source:/tripy/flat_ir/ops/), we'll
+add the corresponding test under [`tests/flat_ir/ops`](source:/tests/flat_ir/ops/). Create a new file
 there called `test_theta.py`.
 
 We'll start by defining a pytest fixture that will generate a `FlatIR` containing a `ThetaOp` for us.
@@ -397,8 +397,8 @@ class TestThetaOp:
 ### Testing The Trace Operator And Public API
 
 Since we implemented our `Trace` operator and public API in
-[`tripy/frontend/trace/ops`](../../tripy/frontend/trace/ops/), we'll add the test under
-[`tests/frontend/trace/ops`](../../tests/frontend/trace/ops/).
+[`tripy/frontend/trace/ops`](source:/tripy/frontend/trace/ops/), we'll add the test under
+[`tests/frontend/trace/ops`](source:/tests/frontend/trace/ops/).
 Create a new file there called `test_theta.py`:
 
 
@@ -432,7 +432,7 @@ The code examples in the docstring of the public API serve as good sanity integr
 However, you should still add separate integration tests to get better coverage.
 
 Our docstring covers the 1D case, so let's add an integration test to cover the multidimensional case.
-Create a new file called `test_theta.py` under [`tests/integration`](../../tests/integration/):
+Create a new file called `test_theta.py` under [`tests/integration`](source:/tests/integration/):
 
 ```py
 import numpy as np
