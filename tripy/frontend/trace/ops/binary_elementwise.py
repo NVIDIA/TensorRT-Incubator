@@ -54,11 +54,21 @@ class BinaryElementwise(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def broadcast_inputs(self, inputs, outputs):
-        shape_diff = len(inputs[1].shape) - len(inputs[0].shape)
-        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], max(shape_diff, 0))
-        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], max(-shape_diff, 0))
+        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.datatype import int32
+        from tripy.flat_ir.ops import MaxOp
 
-        max_output_shape_tensor = op_utils.get_max_of_shapes(self, inputs[0], inputs[1])
+        rank = max(len(inputs[0].shape), len(inputs[1].shape))
+        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], rank - len(inputs[0].shape))
+        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], rank - len(inputs[1].shape))
+
+        # Compute element-wise max of input shapes to get the desired output shape.
+        max_output_shape_tensor = FlatIRTensor.build(shape=inputs[0].shape, dtype=int32, device=inputs[0].device)
+        MaxOp(
+            self,
+            [op_utils.get_shape_of_tensor(self, inputs[0]), op_utils.get_shape_of_tensor(self, inputs[1])],
+            [max_output_shape_tensor],
+        )
 
         inputs[0] = op_utils.insert_broadcast(
             self, inputs[0], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_output_shape_tensor

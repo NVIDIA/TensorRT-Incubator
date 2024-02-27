@@ -100,17 +100,6 @@ def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.
     return const_output_tensor
 
 
-# Returns the element wise maximum of shape of two tensors. This routine is used to get output shapes when dealing with broadcast.
-def get_max_of_shapes(op: "BaseTraceOp", input1: "FlatIRTensor", input2: "FlatIRTensor") -> "FlatIRTensor":
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import MaxOp
-
-    max_output_shape_tensor = FlatIRTensor.build(shape=input1.shape, dtype=int32, device=input1.device)
-    MaxOp(op, [get_shape_of_tensor(op, input1), get_shape_of_tensor(op, input2)], [max_output_shape_tensor])
-    return max_output_shape_tensor
-
-
 ##
 ## Broadcasting
 ##
@@ -173,7 +162,7 @@ def insert_broadcast(
     if use_dynamic_variant:
         from tripy import int32
 
-        assert shape_of_target_tensor, "target_tensor is required for dynamic variant of the broadcast op."
+        assert shape_of_target_tensor, "shape_of_target_tensor is required for dynamic variant of the broadcast op."
 
         DynamicBroadcastOp(
             source_op,
