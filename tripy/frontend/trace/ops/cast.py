@@ -21,7 +21,7 @@ class Cast(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConvertOp
 
-        ConvertOp(self, inputs, outputs)
+        ConvertOp.build(inputs, outputs)
 
 
 @TENSOR_METHOD_REGISTRY("to")

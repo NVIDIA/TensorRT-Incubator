@@ -24,7 +24,7 @@ class Shape(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ShapeOp
 
-        ShapeOp(self, inputs, outputs)
+        ShapeOp.build(inputs, outputs)
 
 
 @TENSOR_METHOD_REGISTRY("shape")

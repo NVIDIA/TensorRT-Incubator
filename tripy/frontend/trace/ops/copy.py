@@ -22,7 +22,7 @@ class Copy(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import CopyOp
 
-        CopyOp(self, inputs, outputs, target=self.target)
+        CopyOp.build(inputs, outputs, target=self.target)
 
 
 @TENSOR_METHOD_REGISTRY("to")

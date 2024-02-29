@@ -120,6 +120,10 @@ class FlatIR:
 
                 op = tensor.producer
 
+                assert (
+                    op is not None
+                ), f"Tensor: {tensor} has no producer set. Did you use the constructor instead of the `build()` function?"
+
                 for inp in op.inputs:
                     if inp not in inputs:
                         register_tensor_and_collect_ops(inp, seen_tensors)

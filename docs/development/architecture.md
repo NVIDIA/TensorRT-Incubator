@@ -189,7 +189,7 @@ but this is good enough for a conceptual understanding):
 def to_flat_ir(self, inputs, outputs):
     from tripy.flat_ir.ops import TanhOp
 
-    TanhOp(self, inputs, outputs)
+    TanhOp.build(inputs, outputs)
 ```
 
 Wait a second - what's happening here? The function doesn't return anything; in fact, it doesn't appear to be doing
@@ -198,8 +198,8 @@ anything at all!
 The way this works is as follows: when we call `to_flat_ir()` we provide input and output
 [`FlatIRTensor`](source:/tripy/flat_ir/tensor.py)s. `to_flat_ir()` is responsible for generating a
 subgraph of `FlatIR` operations that bind to these inputs and outputs. The
-[`BaseFlatIROp` constructor](source:/tripy/flat_ir/ops/base.py) updates the producer of its output tensors,
-meaning that *just constructing a `FlatIR` operation is enough to add it to the subgraph*. Once this binding
+[`BaseFlatIROp` build function](source:/tripy/flat_ir/ops/base.py) updates the producer of the output tensors,
+meaning that *just building a `FlatIR` operation is enough to add it to the subgraph*. Once this binding
 is done, we take the resulting subgraph and inline it into the `FlatIR`, remapping the I/O tensors to those
 that already exist in the `FlatIR`.
 

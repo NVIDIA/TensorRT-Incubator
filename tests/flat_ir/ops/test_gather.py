@@ -1,6 +1,6 @@
 import tripy as tp
 from tripy.frontend.trace import Trace
-from tripy.flat_ir.ops import GatherOp, ReshapeOp
+from tripy.flat_ir.ops import GatherOp
 from tripy import int32
 
 
@@ -19,7 +19,4 @@ class TestGatherOp:
 
         print(str(reshape))
         assert isinstance(gather, GatherOp)
-        assert (
-            str(gather)
-            == "out: [shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(data, indices, offset_dims=(), axis=0, slice_sizes=[1], index_vector_dim=1)"
-        )
+        assert str(gather) == "out: [shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(data, indices, axis=0)"

@@ -34,7 +34,7 @@ class Permute(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import TransposeOp
 
-        TransposeOp(self, inputs, outputs, perm=self.permutation)
+        TransposeOp.build(inputs, outputs, perm=self.permutation)
 
 
 @dataclass(repr=False)

@@ -6,14 +6,10 @@ import tripy.common
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(init=False, repr=False)
+@dataclass(repr=False)
 class CopyOp(BaseFlatIROp):
 
     target: tripy.common.device
-
-    def __init__(self, source_op, inputs, outputs, target):
-        super().__init__(source_op, inputs, outputs)
-        self.target = target
 
     def to_mlir(self, operands):
         from mlir.dialects import bufferization, tensor

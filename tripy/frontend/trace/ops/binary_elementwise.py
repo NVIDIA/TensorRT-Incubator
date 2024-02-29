@@ -70,11 +70,11 @@ class BinaryElementwise(BaseTraceOp):
 
         if requires_broadcast_1:
             inputs[0] = op_utils.insert_broadcast(
-                self, inputs[0], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[1]
+                inputs[0], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[1]
             )
         if requires_broadcast_2:
             inputs[1] = op_utils.insert_broadcast(
-                self, inputs[1], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[0]
+                inputs[1], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[0]
             )
 
         return inputs
@@ -92,7 +92,7 @@ class BinaryElementwise(BaseTraceOp):
             BinaryElementwise.Kind.MAXIMUM: MaxOp,
             BinaryElementwise.Kind.MINIMUM: MinOp,
         }[self.kind]
-        OpType(self, inputs, outputs)
+        OpType.build(inputs, outputs)
 
 
 @dataclass(repr=False)
@@ -121,7 +121,7 @@ class Comparison(BinaryElementwise):
         from tripy.flat_ir.ops import CompareOp
 
         inputs = self.broadcast_inputs(inputs, outputs)
-        CompareOp(self, inputs, outputs, compare_direction=self.kind.compare_direction)
+        CompareOp.build(inputs, outputs, compare_direction=self.kind.compare_direction)
 
 
 @TENSOR_METHOD_REGISTRY("__add__")

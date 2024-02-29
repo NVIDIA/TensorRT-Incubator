@@ -1,8 +1,6 @@
 import numpy as np
 import pytest
-import torch
 
-from tripy.frontend import Tensor
 import tripy as tp
 
 

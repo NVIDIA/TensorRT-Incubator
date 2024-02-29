@@ -16,7 +16,7 @@ class TestParameter:
             func(param)
             captured = capsys.readouterr()
             print(captured.out)
-            assert "ConstantOp(data=[1 2 3], dtype=int32, device=gpu:0)" in captured.out.strip()
+            assert "ConstantOp(data=[1 2 3])" in captured.out.strip()
 
     def test_is_instance_of_tensor(self):
         param = tp.nn.Parameter(tp.Tensor([1, 2, 3]))

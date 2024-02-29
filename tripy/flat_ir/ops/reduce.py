@@ -8,16 +8,11 @@ from tripy.backend.mlir.utils import get_mlir_dtype
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(init=False, repr=False)
+@dataclass(repr=False)
 class ReduceOp(BaseFlatIROp):
 
     reduce_mode: str
     reduce_dims: List[int]
-
-    def __init__(self, source_op, inputs, outputs, reduce_dims, reduce_mode):
-        super().__init__(source_op, inputs, outputs)
-        self.reduce_dims = list(reduce_dims)
-        self.reduce_mode = reduce_mode
 
     # TODO(#87): Reuse flat ir ops
     def _get_reduce_func(self):
@@ -53,7 +48,7 @@ class ReduceOp(BaseFlatIROp):
         return [reduce]
 
 
-@dataclass(init=False, repr=False)
+@dataclass(repr=False)
 class ArgMinMaxOp(ReduceOp):
     """
     Operation for argmin and argmax.

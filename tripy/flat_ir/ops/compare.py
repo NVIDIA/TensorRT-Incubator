@@ -5,11 +5,9 @@ from mlir.dialects import stablehlo
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(init=False, repr=False)
+@dataclass(repr=False)
 class CompareOp(BaseFlatIROp):
-    def __init__(self, source_op, inputs, outputs, compare_direction):
-        super().__init__(source_op, inputs, outputs)
-        self.compare_direction = compare_direction
+    compare_direction: str
 
     def to_mlir(self, operands):
         compare_out = stablehlo.CompareOp(*operands, stablehlo.ComparisonDirectionAttr.get(self.compare_direction))

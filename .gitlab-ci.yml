@@ -182,6 +182,9 @@ l0-if-new-container:
   script:
     - sphinx-build docs build/docs -j 6 -W
     - pytest tests/ -v -m "l0 or not l1" --durations=15
+  artifacts:
+    paths:
+      - build/docs
   tags:
     - tripy-runner
 
@@ -206,6 +209,9 @@ l0-if-no-new-container:
   script:
     - sphinx-build docs build/docs -j 6 -W
     - pytest tests/ -v -m "l0 or not l1" --durations=15
+  artifacts:
+    paths:
+      - build/docs
   tags:
     - tripy-runner
 

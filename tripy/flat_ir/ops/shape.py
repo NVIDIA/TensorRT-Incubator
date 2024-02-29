@@ -8,7 +8,7 @@ from tripy.backend.mlir import utils as mlir_utils
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(init=False, repr=False)
+@dataclass(repr=False)
 class ShapeOp(BaseFlatIROp):
     def to_mlir(self, operands):
 

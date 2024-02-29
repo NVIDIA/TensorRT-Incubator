@@ -47,7 +47,7 @@ class Expand(BaseTraceOp):
         from tripy.flat_ir.ops import BroadcastOp
 
         broadcast_dim = op_utils.get_broadcast_in_dim(inputs[0].shape, outputs[0].shape)
-        BroadcastOp(self, inputs, outputs, broadcast_dim=broadcast_dim)
+        BroadcastOp.build(inputs, outputs, broadcast_dim=broadcast_dim)
 
 
 @TENSOR_METHOD_REGISTRY("expand")

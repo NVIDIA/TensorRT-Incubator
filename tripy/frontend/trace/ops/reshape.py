@@ -39,7 +39,7 @@ class Reshape(BaseTraceOp):
         ):
             raise NotImplementedError("Dynamic reshape is not supported.")
 
-        ReshapeOp(self, inputs, outputs)
+        ReshapeOp.build(inputs, outputs)
 
 
 @dataclass(repr=False)

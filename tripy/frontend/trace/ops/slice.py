@@ -33,8 +33,7 @@ class Slice(BaseTraceOp):
         if any(dim.is_dynamic_dim() for dim in inputs[0].shape):
             raise NotImplementedError("Dynamic slice is not supported")
 
-        SliceOp(
-            self,
+        SliceOp.build(
             inputs,
             outputs,
             start_indices=self.start_indices,

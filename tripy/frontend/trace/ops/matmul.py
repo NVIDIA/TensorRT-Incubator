@@ -105,10 +105,10 @@ class MatrixMultiplication(BaseTraceOp):
 
         # Insert broadcast ops unconditionally.
         a_shape, b_shape = self.get_operand_shape_after_broadcast(a_shape, b_shape)
-        inputs[0] = op_utils.insert_broadcast(self, inputs[0], a_shape)
-        inputs[1] = op_utils.insert_broadcast(self, inputs[1], b_shape)
+        inputs[0] = op_utils.insert_broadcast(inputs[0], a_shape)
+        inputs[1] = op_utils.insert_broadcast(inputs[1], b_shape)
 
-        DotOp(self, inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
+        DotOp.build(inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")

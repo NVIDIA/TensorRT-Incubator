@@ -29,7 +29,7 @@ class Random(BaseTraceOp):
         self.outputs[0].device = device("gpu")
 
     def to_flat_ir(self, inputs, outputs, RngOp, param_a, param_b):
-        RngOp(self, inputs, outputs, param_a, param_b)
+        RngOp.build(inputs, outputs, param_a, param_b)
 
 
 @dataclass(repr=False)

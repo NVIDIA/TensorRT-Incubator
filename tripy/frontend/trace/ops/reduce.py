@@ -52,15 +52,14 @@ class Reduce(BaseTraceOp):
 
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
-        ConstantOp(
-            self,
+        ConstantOp.build(
             [],
             [init_const],
             data=Array(
                 np.array(init_value, dtype=outputs[0].dtype.name), outputs[0].dtype, shape=(), device=device("cpu")
             ),
         )
-        ReduceOp(self, [inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
+        ReduceOp.build([inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
 
 
 @dataclass(repr=False)
@@ -90,21 +89,18 @@ class ArgMinMax(Reduce):
         init_val_const = FlatIRTensor.build(shape=[], dtype=inputs[0].dtype, device=outputs[0].device)
         init_idx_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
 
-        ConstantOp(
-            self,
+        ConstantOp.build(
             [],
             [init_val_const],
             data=Array(np.array(0, dtype=inputs[0].dtype.name), inputs[0].dtype, shape=(), device=device("cpu")),
         )
-        ConstantOp(
-            self,
+        ConstantOp.build(
             [],
             [init_idx_const],
             data=Array(np.array(0, dtype=outputs[0].dtype.name), outputs[0].dtype, shape=(), device=device("cpu")),
         )
 
-        ArgMinMaxOp(
-            self,
+        ArgMinMaxOp.build(
             [inputs[0], inputs[1], init_val_const, init_idx_const],
             outputs,
             reduce_mode=self.kind,

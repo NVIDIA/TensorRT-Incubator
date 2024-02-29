@@ -49,4 +49,4 @@ class Storage(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp
 
-        ConstantOp(self, inputs, outputs, data=self.data)
+        ConstantOp.build(inputs, outputs, data=self.data)

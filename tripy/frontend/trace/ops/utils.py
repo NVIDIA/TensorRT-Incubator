@@ -74,20 +74,18 @@ def get_broadcast_dim(dim1, dim2):
 ##
 
 
-def get_shape_of_tensor(op: "BaseTraceOp", tensor: "FlatIRTensor"):
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ShapeOp, ConstantOp
-    from tripy.common.datatype import int32
+def get_shape_of_tensor(tensor: "FlatIRTensor"):
     from tripy.common.array import Array
-    import numpy as np
+    from tripy.common.datatype import int32
+    from tripy.flat_ir.ops import ConstantOp, ShapeOp
+    from tripy.flat_ir.tensor import FlatIRTensor
 
     shape_output_tensor = FlatIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
     if len(tensor.shape) > 0:
-        ShapeOp(op, [tensor], [shape_output_tensor])
+        ShapeOp.build([tensor], [shape_output_tensor])
     else:
         # TODO #80: Remove this codepath when shape dialect is used (shape.shape_of).
-        ConstantOp(
-            op,
+        ConstantOp.build(
             [],
             [shape_output_tensor],
             data=Array(None, int32, shape=(0,), device=tensor.device),
@@ -95,17 +93,17 @@ def get_shape_of_tensor(op: "BaseTraceOp", tensor: "FlatIRTensor"):
     return shape_output_tensor
 
 
-def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.device"):
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ConstantOp
-    from tripy.common.datatype import int32
-    from tripy.common.array import Array
-    from tripy.common.device import device
+def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     import numpy as np
 
+    from tripy.common.array import Array
+    from tripy.common.datatype import int32
+    from tripy.common.device import device
+    from tripy.flat_ir.ops import ConstantOp
+    from tripy.flat_ir.tensor import FlatIRTensor
+
     const_output_tensor = FlatIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
-    ConstantOp(
-        op,
+    ConstantOp.build(
         [],
         [const_output_tensor],
         data=Array(np.array(data).astype(np.int32), int32, shape=(len(data),), device=device("cpu")),
@@ -160,7 +158,6 @@ def get_broadcast_in_dim(input_shape, output_shape):
 # Insert a broadcast op into the flat_ir which broadcasts input tensor to output shape.
 # If the output shape is dynamic, shape of the target_tensor is used to describe the output shape.
 def insert_broadcast(
-    source_op: "BaseTraceOp",
     input_tensor: "FlatIRTensor",
     out_shape: ShapeInfo,
     use_dynamic_variant: bool = False,
@@ -177,18 +174,16 @@ def insert_broadcast(
 
         assert target_tensor, "target_tensor is required for dynamic variant of the broadcast op."
 
-        shape_output_tensor = get_shape_of_tensor(source_op, target_tensor)
+        shape_output_tensor = get_shape_of_tensor(target_tensor)
 
-        DynamicBroadcastOp(
-            source_op,
+        DynamicBroadcastOp.build(
             [input_tensor, shape_output_tensor],
             [output_tensor],
             broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),
         )
 
     else:
-        BroadcastOp(
-            source_op,
+        BroadcastOp.build(
             [input_tensor],
             [output_tensor],
             broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),

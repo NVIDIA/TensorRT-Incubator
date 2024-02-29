@@ -38,10 +38,10 @@ class Unsqueeze(BaseTraceOp):
         # Use dynamic shape broadcast op and provide the new shape tensor as the output shape
 
         # Get the input shape
-        shape_output_tensor = op_utils.get_shape_of_tensor(self, inputs[0])
+        shape_output_tensor = op_utils.get_shape_of_tensor(inputs[0])
 
         # # Create a constant of Dim[1] filled with 1
-        const_output_tensor = op_utils.add_constant_tensor_from_list(self, [1], inputs[0].device)
+        const_output_tensor = op_utils.add_constant_tensor_from_list([1], inputs[0].device)
 
         concat_output_tensor = FlatIRTensor.build(
             shape=(Dim(1 + len(inputs[0].shape)),), dtype=int32, device=inputs[0].device
@@ -53,8 +53,7 @@ class Unsqueeze(BaseTraceOp):
             self, shape_output_tensor.shape, (slice(0, self.dim, None),)
         )
 
-        SliceOp(
-            self,
+        SliceOp.build(
             [shape_output_tensor],
             [slice_first_half],
             start_indices=start_indices,
@@ -71,8 +70,7 @@ class Unsqueeze(BaseTraceOp):
             self, shape_output_tensor.shape, (slice(self.dim, None, None),)
         )
 
-        SliceOp(
-            self,
+        SliceOp.build(
             [shape_output_tensor],
             [slice_second_half],
             start_indices=start_indices,
@@ -81,10 +79,9 @@ class Unsqueeze(BaseTraceOp):
         )
 
         # concatenate [slice_first_half, 1, slice_second_half]
-        ConcatenateOp(self, [slice_first_half, const_output_tensor, slice_second_half], [concat_output_tensor], dim=0)
+        ConcatenateOp.build([slice_first_half, const_output_tensor, slice_second_half], [concat_output_tensor], dim=0)
 
-        DynamicBroadcastOp(
-            self,
+        DynamicBroadcastOp.build(
             [inputs[0], concat_output_tensor],
             [outputs[0]],
             broadcast_dim=broadcast_dim,

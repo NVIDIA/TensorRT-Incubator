@@ -46,7 +46,7 @@ class Gather(BaseTraceOp):
         if any(dim.is_dynamic_dim() for dim in (inputs[0].shape + inputs[1].shape)):
             raise NotImplementedError("Dynamic gather is not supported")
 
-        GatherOp(self, inputs, outputs, self.axis)
+        GatherOp.build(inputs, outputs, self.axis)
 
 
 @TENSOR_METHOD_REGISTRY("gather")

@@ -37,16 +37,16 @@ on top of MLIR but has the added benefit that we can inspect and modify the IR w
 resorting to the poorly documented (as of this writing), MLIR Python APIs.
 
 
-## Why Does `to_flat_ir()` Rely On Constructor Side-effects?
+## Why Does `to_flat_ir()` Rely On Side-effects?
 
 The `to_flat_ir()` method of `Trace` operators currently relies on the side effects of
-the `BaseFlatIROp` constructor to build a subgraph. For example:
+the `BaseFlatIROp.build` function to build a subgraph. For example:
 
 ```py
 def to_flat_ir(self, inputs, outputs):
     from tripy.flat_ir.ops import TanhOp
 
-    TanhOp(self, inputs, outputs)
+    TanhOp.build(inputs, outputs)
 ```
 
 Here, `TanhOp` will bind itself to the inputs and outputs on construction.
@@ -61,7 +61,7 @@ Our example code becomes:
 def to_flat_ir(self, inputs, outputs):
     from tripy.flat_ir.ops import TanhOp
 
-    tanh = TanhOp(self, inputs, outputs)
+    tanh = TanhOp.build(inputs, outputs)
 
     for out in outputs:
         out.producer = tanh
@@ -80,7 +80,7 @@ In a previous version of Tripy, we would return a list of operators that we want
 def to_flat_ir(self, inputs, outputs):
     from tripy.flat_ir.ops import TanhOp
 
-    tanh = TanhOp(self, inputs, outputs)
+    tanh = TanhOp.build(inputs, outputs)
     return [tanh]
 ```
 

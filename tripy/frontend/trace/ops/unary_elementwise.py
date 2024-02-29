@@ -29,7 +29,7 @@ class UnaryElementwise(BaseTraceOp):
             UnaryElementwise.Kind.TANH: TanhOp,
             UnaryElementwise.Kind.RSQRT: RsqrtOp,
         }[self.kind]
-        OpType(self, inputs, outputs)
+        OpType.build(inputs, outputs)
 
 
 @TENSOR_METHOD_REGISTRY("exp")

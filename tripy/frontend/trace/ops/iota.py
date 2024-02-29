@@ -44,7 +44,7 @@ class Iota(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import IotaOp
 
-        IotaOp(self, inputs, outputs, dim=self.dim)
+        IotaOp.build(inputs, outputs, dim=self.dim)
 
 
 @dataclass(repr=False)
