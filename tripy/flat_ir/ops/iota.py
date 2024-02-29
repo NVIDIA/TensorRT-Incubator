@@ -7,7 +7,7 @@ from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class IotaOp(BaseFlatIROp):
 
     dim: int

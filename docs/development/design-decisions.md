@@ -7,6 +7,21 @@ were chosen over alternatives.
 :depth: 3
 ```
 
+## No API Redundancy
+
+One way we deviate from frameworks like PyTorch is that our API only provides one way to do things.
+For example, in PyTorch, `softmax` is exposed as `torch.softmax`, `torch.nn.functional.softmax`,
+`torch.Tensor.softmax`, `torch.nn.Softmax`, etc. All of these are functionally identical and unnecessarily
+increase the API surface. In Tripy, we only expose `tripy.nn.softmax`. Trying to use anything else will
+result in a (helpful) error message:
+
+```
+>>> tp.softmax
+...
+AttributeError: Module: 'tripy' does not have attribute: 'softmax'. Did you mean: 'tripy.nn.softmax'?
+```
+
+
 ## Why `FlatIR`?
 
 In a previous version of Tripy, we used to map `Trace` operators directly to MLIR

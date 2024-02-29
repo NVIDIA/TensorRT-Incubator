@@ -6,7 +6,7 @@ from mlir.dialects import stablehlo
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class BroadcastOp(BaseFlatIROp):
     broadcast_dim: int
 
@@ -26,7 +26,7 @@ class BroadcastOp(BaseFlatIROp):
         return [output]
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class DynamicBroadcastOp(BaseFlatIROp):
 
     broadcast_dim: int

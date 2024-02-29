@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 
-from mlir import ir
 from mlir.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class GatherOp(BaseFlatIROp):
 
     offset_dims: tuple

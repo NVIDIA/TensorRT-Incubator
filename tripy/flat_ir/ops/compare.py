@@ -1,10 +1,11 @@
-from typing import List
+from dataclasses import dataclass
 
 from mlir.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
+@dataclass(init=False, repr=False)
 class CompareOp(BaseFlatIROp):
     def __init__(self, source_op, inputs, outputs, compare_direction):
         super().__init__(source_op, inputs, outputs)

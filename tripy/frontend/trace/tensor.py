@@ -55,4 +55,7 @@ class TraceTensor:
     def to_flat_ir(self) -> "FlatIRTensor":
         from tripy.flat_ir.tensor import FlatIRTensor
 
-        return FlatIRTensor(**{field.name: getattr(self, field.name) for field in dataclasses.fields(self)})
+        tensor = FlatIRTensor(**{field.name: getattr(self, field.name) for field in dataclasses.fields(self)})
+        # Unset producer to prevent confusing bugs. Otherwise we can end up with FlatIR tensors that point to trace ops.
+        tensor.producer = None
+        return tensor

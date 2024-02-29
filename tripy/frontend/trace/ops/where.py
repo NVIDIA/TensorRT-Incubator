@@ -1,11 +1,13 @@
 import numbers
+from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy.common import datatype
-from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
+@dataclass(repr=False)
 class Where(BaseTraceOp):
     """
     Represents a select operation.

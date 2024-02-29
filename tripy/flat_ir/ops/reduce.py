@@ -4,11 +4,11 @@ from typing import List
 from mlir import ir
 from mlir.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir.utils import get_mlir_dtype
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class ReduceOp(BaseFlatIROp):
 
     reduce_mode: str
@@ -53,14 +53,11 @@ class ReduceOp(BaseFlatIROp):
         return [reduce]
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class ArgMinMaxOp(ReduceOp):
     """
     Operation for argmin and argmax.
     """
-
-    def __init__(self, source_op, inputs, outputs, reduce_dims, reduce_mode):
-        super().__init__(source_op, inputs, outputs, reduce_dims, reduce_mode)
 
     # TODO: wrap the reducer in a func.call
     def _reducer(self, args):

@@ -6,7 +6,7 @@ from mlir.dialects import stablehlo
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class TransposeOp(BaseFlatIROp):
     perm: List[int]
 

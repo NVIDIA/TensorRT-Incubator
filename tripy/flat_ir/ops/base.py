@@ -5,7 +5,7 @@ from typing import List, Set
 from tripy import utils
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class BaseFlatIROp(abc.ABC):
     """
     Represents a single layer in the FlatIR.

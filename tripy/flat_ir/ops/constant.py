@@ -1,16 +1,16 @@
 from dataclasses import dataclass
-from typing import Any, Set
+from typing import Set
 
 from mlir import ir
 from mlir.dialects import stablehlo
 
 import tripy.common
 from tripy import utils
-from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.common.array import Array
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-@dataclass(repr=False)
+@dataclass(init=False, repr=False)
 class ConstantOp(BaseFlatIROp):
 
     data: Array
@@ -32,8 +32,9 @@ class ConstantOp(BaseFlatIROp):
         return set()
 
     def to_mlir(self, operands):
-        from tripy.backend.mlir import utils as mlir_utils
         import cupy as cp
+
+        from tripy.backend.mlir import utils as mlir_utils
 
         data = self.data.view()
         if isinstance(data, cp.ndarray):
