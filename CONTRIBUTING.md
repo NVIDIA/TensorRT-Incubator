@@ -174,3 +174,11 @@ Generally, you should not need to build a container locally. If you do, you can 
 	docker build -t tripy .
 	docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
 	```
+
+## Advanced: Debugging
+
+In order to enable lldb in tripy container, launch tripy container with extra security options. See https://forums.swift.org/t/debugging-using-lldb/18046 for more details.
+
+```
+	docker run --gpus all --cap-add=SYS_PTRACE --security-opt seccomp=unconfined --security-opt apparmor=unconfined -v $(pwd):/tripy/  -it --rm tripy:latest
+```

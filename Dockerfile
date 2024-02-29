@@ -17,9 +17,16 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     mkdir -p /workspace && chown trtuser /workspace && \
     apt-get update && \
     apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget libcudnn8 && \
+    apt-get install -y lldb-15 && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
 
+# Create symbolic link for LLDB Python packages (adjust Python version if necessary)
+RUN ln -s /usr/bin/lldb-15 /usr/bin/lldb
+RUN ln -s /usr/lib/llvm-15/lib/python3.10/dist-packages/lldb/* /usr/lib/python3/dist-packages/lldb/
+
+# Copy your .lldbinit file into the home directory of the root user
+COPY .lldbinit /root/
 
 # Install the recommended version of TensorRT for development.
 RUN cd /usr/lib/ && \
