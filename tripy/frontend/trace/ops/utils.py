@@ -1,4 +1,5 @@
 from colored import Fore, attr
+from typing import List
 
 from tripy import utils
 from tripy.common.exception import raise_error
@@ -100,6 +101,22 @@ def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.
     return const_output_tensor
 
 
+def concatenate_tensors(op: "BaseTraceOp", inputs: List["FlatIRTensor"], dim: int):
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.flat_ir.ops import ConcatenateOp
+    from tripy.common.datatype import int32
+
+    out = FlatIRTensor.build(
+        shape=utils.to_dims(
+            -1,
+        ),
+        dtype=int32,
+        device=inputs[0].device,
+    )
+    ConcatenateOp(op, inputs, [out], dim=0)
+    return out
+
+
 ##
 ## Broadcasting
 ##
@@ -193,6 +210,7 @@ def expand_rank_of_tensor(op: "BaseTraceOp", input: "FlatIRTensor", nb_extra_dim
         return input
 
     # Create array filled with 1s and concat with shape array
+    assert nb_extra_dims > 0
     const_val_tensor = FlatIRTensor.build(shape=[], dtype=int32, device=input.device)
     ones_shape_tensor = FlatIRTensor.build(
         shape=utils.to_dims(
