@@ -17,3 +17,5 @@ from tripy.frontend.trace.ops.storage import Storage
 from tripy.frontend.trace.ops.unary_elementwise import UnaryElementwise
 from tripy.frontend.trace.ops.unsqueeze import Unsqueeze
 from tripy.frontend.trace.ops.where import Where, where
+from tripy.frontend.trace.ops.quantize import Quantize, quantize
+from tripy.frontend.trace.ops.dequantize import Dequantize, dequantize

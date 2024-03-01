@@ -2,7 +2,8 @@ import contextlib
 import os
 from typing import Dict
 
-from mlir import dialects, ir
+from mlir import ir
+from mlir.dialects import stablehlo, quant
 
 from tripy import utils
 from tripy.common import ShapeInfo
@@ -14,7 +15,7 @@ def make_ir_context() -> ir.Context:
     context.enable_multithreading(False)
     # Allow unregistered dialects to assign trt shape_profile attribute to stablehlo program.
     context.allow_unregistered_dialects = True
-    dialects.stablehlo.register_dialect(context)
+    stablehlo.register_dialect(context)
     return context
 
 
@@ -34,6 +35,39 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
         "uint8": ir.IntegerType.get_unsigned(8),
         "bool": ir.IntegerType.get_signless(1),
     }[dtype.name]
+
+
+def get_mlir_quant_dtype(
+    origin_dtype: "tripy.dtype",
+    quant_dtype: "tripy.dtype",
+    scale: float,
+    zero_point: int,
+    storage_type_min: int,
+    storage_type_max: int,
+):
+    """
+    Converts a tripy data type to an MLIR quantized data type.
+
+    Args:
+        origin_dtype: original data type to be quantized
+        quant_dtype: target data type to quantize
+        dtype: One of int4, int8, float8e4m3fn
+        scale: scale value of quantized tensor
+        zero_point: zero point of quantized tensor
+        storage_type_min: min value of quantized dtype
+        storage_type_max: max value of quantized dtype
+    """
+    storage_type = get_mlir_dtype(quant_dtype)
+    expressed_type = get_mlir_dtype(origin_dtype)
+    return quant.UniformQuantizedType.get(
+        quant.UniformQuantizedType.FLAG_SIGNED,
+        storage_type,
+        expressed_type,
+        scale,
+        zero_point,
+        storage_type_min,
+        storage_type_max,
+    )
 
 
 def make_mlir_tensor(shape: ShapeInfo, dtype: "tripy.common.dtype") -> ir.RankedTensorType:

@@ -364,3 +364,13 @@ class TestConversionToTripyType:
         if isinstance(input1, torch.Tensor):
             input1 = input1.numpy()
         assert np.array_equal(out.numpy(), np.array(input0 * input1))
+
+
+from tripy.common import logger
+
+logger.verbosity = "ir"
+
+a = tp.Tensor([1.0, 2.0])
+b = tp.quantize(a, tp.int8, 0.99872, 127, -8, 7)
+c = tp.dequantize(b, tp.float32)
+print(c)

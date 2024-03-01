@@ -26,3 +26,5 @@ from tripy.flat_ir.ops.maximum import MaxOp
 from tripy.flat_ir.ops.minimum import MinOp
 from tripy.flat_ir.ops.concatenate import ConcatenateOp
 from tripy.flat_ir.ops.log import LogOp
+from tripy.flat_ir.ops.quantize import QuantizeOp
+from tripy.flat_ir.ops.dequantize import DequantizeOp
