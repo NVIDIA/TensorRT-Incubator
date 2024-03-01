@@ -49,6 +49,7 @@ exclude = '''
 testpaths = [
     "tests",
 ]
+addopts = "--strict-markers"
 markers = [
     "l0: Marks tests to run on each merge request.",
     "l1: Marks tests to run at a nightly cadence.",

@@ -259,7 +259,7 @@ class TestCopyFunctional:
         assert out.device.kind == "cpu"
         assert out.view().tolist() == [3, 5]
 
-    def test_print_ds_tensor(self):
+    def test_print_dynamic_tensor(self):
         arr = np.ones(4, dtype=np.float32)
         a = tp.Tensor(arr, shape=(tp.Dim(4, min=2, opt=4, max=6),), device=tp.device("gpu"))
         assert np.array_equal(a.numpy(), arr)
