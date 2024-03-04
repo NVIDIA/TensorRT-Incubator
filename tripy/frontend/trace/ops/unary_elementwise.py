@@ -15,6 +15,7 @@ class UnaryElementwise(BaseTraceOp):
         EXP = 0
         TANH = 1
         RSQRT = 2
+        LOG = 3
 
     kind: Kind
 
@@ -22,12 +23,13 @@ class UnaryElementwise(BaseTraceOp):
         self.outputs[0].shape = self.inputs[0].shape
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ExpOp, TanhOp, RsqrtOp
+        from tripy.flat_ir.ops import ExpOp, TanhOp, RsqrtOp, LogOp
 
         OpType = {
             UnaryElementwise.Kind.EXP: ExpOp,
             UnaryElementwise.Kind.TANH: TanhOp,
             UnaryElementwise.Kind.RSQRT: RsqrtOp,
+            UnaryElementwise.Kind.LOG: LogOp,
         }[self.kind]
         OpType.build(inputs, outputs)
 
@@ -98,3 +100,25 @@ def rsqrt(self) -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([self], UnaryElementwise, UnaryElementwise.Kind.RSQRT)
+
+
+@TENSOR_METHOD_REGISTRY("log")
+def log(self) -> "tripy.Tensor":
+    """
+    Computes the elementwise natural logarithm (base e) of the elements of this tensor.
+
+    Returns:
+        A new tensor of the same shape and data type as this tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(1, 3, dtype=tp.float32)
+        output = input.log()
+
+        assert np.allclose(output.numpy(), (np.log(input.numpy())))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([self], UnaryElementwise, UnaryElementwise.Kind.LOG)

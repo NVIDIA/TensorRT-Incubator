@@ -8,6 +8,7 @@ _UNARY_OPS = {
     UnaryElementwise.Kind.EXP: lambda a: a.exp(),
     UnaryElementwise.Kind.TANH: lambda a: a.tanh(),
     UnaryElementwise.Kind.RSQRT: lambda a: a.rsqrt(),
+    UnaryElementwise.Kind.LOG: lambda a: a.log(),
 }
 
 
