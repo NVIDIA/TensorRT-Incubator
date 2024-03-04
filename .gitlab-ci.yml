@@ -129,7 +129,6 @@ build_mlir_tensorrt:
       when: never
     - changes:
       - mlir-tensorrt.txt
-      - .gitlab-ci.yml
       if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
       when: always
 
@@ -146,7 +145,7 @@ build_container:
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - python3 scripts/download_dependencies.py --ci
-    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --build-arg gitlab_user=gitlab-ci-token --build-arg gitlab_token=$CI_JOB_TOKEN --cache-from $CI_REGISTRY_IMAGE:latest .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   tags:
     - tripy-runner

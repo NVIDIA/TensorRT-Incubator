@@ -16,8 +16,7 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     echo 'trtuser:nvidia' | chpasswd && \
     mkdir -p /workspace && chown trtuser /workspace && \
     apt-get update && \
-    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget libcudnn8 && \
-    apt-get install -y lldb-15 && \
+    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget libcudnn8 lldb-15 && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
 
@@ -35,9 +34,13 @@ RUN cd /usr/lib/ && \
     rm TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz
 ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.0.0.1/lib/:$LD_LIBRARY_PATH
 
-
+ARG gitlab_user
+ARG gitlab_token
 COPY pyproject.toml /tripy/pyproject.toml
-RUN pip install .[docs,dev,test] -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html --extra-index-url https://download.pytorch.org/whl/cu118
+RUN pip install .[docs,dev,test] \
+    -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    --extra-index-url https://download.pytorch.org/whl/cu118 \
+    --extra-index-url https://${gitlab_user}:${gitlab_token}@gitlab-master.nvidia.com/api/v4/projects/73221/packages/pypi/simple --trusted-host gitlab-master.nvidia.com
 
 ########################################
 # Configure StableHLO python packages
