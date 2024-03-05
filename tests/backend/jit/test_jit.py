@@ -257,3 +257,76 @@ class TestJIT:
         captured = capsys.readouterr()
         assert "Initializing dynamic shape tensor in jitted functions is not recommended" in captured.out
         assert "Using pdb inside jitted function is not recommended" in captured.out
+
+    def test_jit_in_jit(self):
+        # Verify that jit function called in another jit function does not cause inner jit function args to be evaluated.
+
+        @tp.jit
+        def inner(a, b):
+            return a * b
+
+        @tp.jit
+        def outer(a, b):
+            a = a - 2.0
+            b = b + 2.0
+            out = inner(a, b)
+            out = out / 3.0
+            return out
+
+        a = tp.ones((2, 3))
+        a.name = "c"
+        b = tp.ones((2, 3))
+        b.name = "b"
+
+        c = outer(a, b).eval()
+
+        # mul cache keys will be empty since jit wasn't used and the function body was traced by the parent jit function.
+        assert len(inner.cache.keys()) == 0
+        assert len(outer.cache.keys()) == 1
+
+    @pytest.mark.parametrize(
+        "use_jit_args",
+        [True, False],
+    )
+    def test_jit_in_jit_class(self, use_jit_args):
+        # Verify that jit class called in another jit class does not cause inner jit function args to be evaluated.
+
+        # A wrapper function for the __call__ method without jit args
+        @tp.jit
+        def call_without_jit(self, a, b):
+            return a * b
+
+        class Inner(tp.nn.Module):
+            def __init__(self):
+                super().__init__()
+
+            @tp.jit(dummy=1)
+            def __call__(self, a, b):
+                return a * b
+
+        if not use_jit_args:
+            # Directly replace the __call__ method for this test case
+            Inner.__call__ = call_without_jit
+
+        class Outer(tp.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.mul = Inner()
+
+            def __call__(self, a, b):
+                a = a - 2.0
+                b = b + 2.0
+                out = self.mul(a, b)
+                out = out / 3.0
+                return out
+
+        net = Outer()
+        net = tp.jit(net)
+
+        a = tp.ones((2, 3))
+        a.name = "c"
+        b = tp.ones((2, 3))
+        b.name = "b"
+
+        c = net(a, b).eval()
+        assert len(Inner.__call__.cache.keys()) == 0

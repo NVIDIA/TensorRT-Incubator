@@ -264,7 +264,32 @@ class jit:
         return decorated
 
     def __call__(self, *args, **kwargs):
+        def check_if_args_part_of_jit_func(args):
+            # This function checks if any inputs traced back from args lead to DynamicStorage op.
+            # Note that this a proxy for verifying if args are in jit function or not.
+            # It not possible to verify from just the frontend tensor since the frontend tensor can be
+            # part of multiple scopes.
+            found_dynamic_storage = False
+            exprs = [tensor.op for tensor in args]
+            seen_op_ids = set()
+            while exprs:
+                head = exprs.pop(0)
+                if isinstance(head, DynamicStorage):
+                    found_dynamic_storage = True
+
+                if id(head) in seen_op_ids:
+                    continue
+
+                exprs.extend([inp.producer for inp in head.inputs])
+
+            return found_dynamic_storage
+
         if callable(self._func):
+            if check_if_args_part_of_jit_func(args):
+                if self._obj is not None:
+                    return self._func(self._obj, *args, **kwargs)
+                else:
+                    return self._func(*args, **kwargs)
             return self._decorated(*args, **kwargs)
         else:
             # jit decorator with kwargs: @jit(...) triggers both __init__ and __call__
