@@ -91,3 +91,20 @@ class TestMissingAttributes:
     def test_no_inifinite_looping_for_invalid_attributes(self):
         with pytest.raises(AttributeError):
             tp.no_way_this_will_ever_be_a_real_function_name
+
+    @pytest.mark.parametrize(
+        "get_func, message",
+        [
+            (lambda x: x.ones_like, "tripy.ones_like"),
+            (lambda x: x.softmax, "tripy.nn.softmax"),
+        ],
+    )
+    def test_nice_error_for_tensor_attr(self, get_func, message):
+        a = tp.Tensor([1, 2])
+        with pytest.raises(AttributeError, match=f"Did you mean: '{message}'?"):
+            get_func(a)
+
+    def test_no_inifinite_looping_for_invalid_tensor_attributes(self):
+        a = tp.Tensor([1, 2])
+        with pytest.raises(AttributeError):
+            a.no_way_this_will_ever_be_a_real_tensor_attr_name

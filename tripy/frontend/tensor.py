@@ -118,6 +118,13 @@ class Tensor(metaclass=TensorMeta):
         tensor._finalize(None, inputs, OpType, *args, **kwargs)
         return tensor
 
+    def __getattr__(self, name: str):
+        import tripy as tp
+        from tripy.common.exception import search_for_missing_attr
+
+        look_in = [(tp, "tripy"), (tp.nn, "tripy.nn")]
+        search_for_missing_attr("tripy.Tensor", name, look_in)
+
     @property
     def name(self):
         return self.op.outputs[0].name
