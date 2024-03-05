@@ -43,17 +43,21 @@ def make_mlir_tensor(shape: ShapeInfo, dtype: "tripy.common.dtype") -> ir.Ranked
     )
 
 
-@contextlib.contextmanager
-def env(new_env: Dict[str, str]):
-    """
-    Context manager that temporarily updates environment variables according to the provided dictionary.
+def remove_constants(mlir_text) -> str:
+    lines = mlir_text.split("\n")
 
-    Args:
-        new_env: The new environment variable names and values.
-    """
-    old_env = os.environ.copy()
+    def replace_dense_data(text):
+        const_start_index = text.find("<") + 1
+        const_end_index = text.find(">") - 1
+        start_index = text.find(": tensor<") + 9
 
-    os.environ.update(new_env)
-    yield
+        substr = text[start_index:]
+        dims = substr.split("x")
+        dims = [int(dim) for dim in dims if dim.isdigit()]
 
-    os.environ = old_env
+        if utils.should_omit_constant_in_str(dims):
+            return text[:const_start_index] + "..." + text[const_end_index + 1 :]
+        return text
+
+    replaced = [replace_dense_data(line) if "stablehlo.constant dense" in line else line for line in lines]
+    return "\n".join(replaced)

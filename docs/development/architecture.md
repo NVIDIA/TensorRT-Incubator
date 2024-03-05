@@ -90,7 +90,8 @@ In this case, the [`Fill` operation](source:/tripy/frontend/trace/ops/fill.py) p
 
 Tripy uses a lazy evaluation model; that means that computation doesn't happen immediately when you call a function
 like `tp.full()`. Instead, all we do is create a frontend `Tensor` object which contains a `Trace` operation.
-The `Trace` operation includes inputs and outputs in the form of `TraceTensor`s.
+The `Trace` operation includes inputs and outputs in the form of `TraceTensor`s and is essentially just a symbolic
+representation of the computation that needs to be done.
 
 As we call other functions that use this frontend `Tensor`, we connect new `Trace` operations to its output
 `TraceTensor`s. You can think of this as iteratively building up an implicit graph.
@@ -177,7 +178,7 @@ output tensor in the trace has its `shape`, `dtype`, and `loc` fields populated.
 #### Lowering To FlatIR
 
 Once we have the `Trace`, we lower it into `FlatIR`. `FlatIR` is a very thin layer which provides a 1:1
-mapping with StableHLO.
+mapping with the MLIR dialects we use.
 
 To perform the lowering, each `Trace` operation implements `to_flat_ir()`, which generates a subgraph with
 one or more `FlatIR` operations.
@@ -231,7 +232,7 @@ def to_mlir(self, operands):
 There's not much more to explain here, so let's go right to the textual representation:
 
 ```
-==== StableHLO IR ====
+==== MLIR ====
 1: module {
 2:   func.func @main() -> tensor<2x3xf32> {
 3:     %0 = stablehlo.constant dense<5.000000e-01> : tensor<f32>
@@ -242,6 +243,13 @@ There's not much more to explain here, so let's go right to the textual represen
 8: }
 9:
 ```
+
+
+#### Compilation
+
+Once we have the complete MLIR representation, our next step is to compile it to an executable.
+
+TODO: Fill out this section
 
 
 #### Execution

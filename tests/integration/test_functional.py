@@ -285,7 +285,7 @@ class TestDynamic:
         ],
     )
     def test_dynamic_jit(self, dims_a, dims_b, capsys):
-        with logger.use_verbosity("stablehlo"):
+        with logger.use_verbosity("mlir"):
 
             def get_np_dims(dims, dim_func):
                 return [dim_func(d) if isinstance(d, tp.Dim) else d for d in dims]

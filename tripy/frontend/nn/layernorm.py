@@ -6,7 +6,9 @@ class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:
 
-    :math:`\text{LayerNorm}(x) = \Large \frac{x - \mathrm{E}[x]}{ \sqrt{\mathrm{Var}[x] + \epsilon}} \normalsize * \gamma + \beta`
+    :math:`\text{LayerNorm}(x) = \Large \frac{x - \bar{x}}{ \sqrt{\sigma^2 + \epsilon}} \normalsize * \gamma + \beta`
+
+    where :math:`\bar{x}` is the mean and :math:`\sigma^2` is the variance.
 
     Args:
         normalized_shape: The size of the feature dimension of the input over which normalization is performed.

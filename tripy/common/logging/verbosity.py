@@ -23,10 +23,10 @@ def make_verbosity_map() -> Dict[str, VerbosityConfig]:
         "error": VerbosityConfig("[E] ", Fore.light_red),
         "trace": VerbosityConfig("==== Trace IR ====\n", Fore.magenta),
         "flat_ir": VerbosityConfig("==== Flat IR ====\n", Fore.magenta),
-        "stablehlo": VerbosityConfig("==== StableHLO IR ====\n", Fore.magenta),
+        "mlir": VerbosityConfig("==== MLIR ====\n", Fore.magenta),
         # Shorthand for enabling all IR dumps,
         # `logger.ir` probably shouldn't be called but `"ir"` may be used as a verbosity option.
-        "ir": VerbosityConfig("", "", enables=["trace", "flat_ir", "stablehlo"]),
+        "ir": VerbosityConfig("", "", enables=["trace", "flat_ir", "mlir"]),
         "timing": VerbosityConfig("==== Timing ====\n", Fore.cyan),
     }
 

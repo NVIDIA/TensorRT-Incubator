@@ -2,7 +2,10 @@ def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
     r"""
     Applies the softmax function to the input tensor:
 
-    :math:`\text{Softmax}(x_{i}) = \Large \frac{\exp(x_i)}{\sum_j \exp(x_j)}`
+    :math:`\text{softmax}(x_{i}) = \Large \frac{e^{x_{i}}}{\sum_{j=1}^N e^{x_{j}}} \normalsize for\ i=1,2,\dots,N`
+
+    where :math:`x_{i}` is the :math:`i^{th}` element along dimension ``dim``
+    and :math:`N` is the size of the dimension.
 
     Effectively, for each slice along ``dim``, elements are scaled such that they
     lie in the range :math:`[0, 1]` and sum to 1.

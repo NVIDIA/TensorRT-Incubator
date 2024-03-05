@@ -5,9 +5,9 @@ import numpy as np
 import pytest
 
 import tripy as tp
+from tools.stablehlo_runner import compile_code, preprocess_program, read_program_from_file
+from tripy.backend.mlir.utils import remove_constants
 from tripy.frontend.trace import Trace
-from tripy.backend.mlir.compiler import Compiler
-from tools.stablehlo_runner import compile_code, read_program_from_file, preprocess_program
 
 
 @pytest.fixture
@@ -22,7 +22,7 @@ def init_mlir_textual():
 
     out = a + b
     trace = Trace([out])
-    mlir_textual = Compiler.remove_stablehlo_constants(str(trace.to_flat_ir().to_mlir()))
+    mlir_textual = remove_constants(str(trace.to_flat_ir().to_mlir()))
     return mlir_textual
 
 

@@ -6,7 +6,7 @@ def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
     Applies an approximated Gaussian Error Linear Units (GELU) function
     to each element of the input tensor:
 
-    :math:`\text{GELU}(x) = 0.5 * x * (1 + \text{Tanh}(\sqrt{2 / \pi} * (x + 0.044715 * x^3)))`
+    :math:`\text{gelu}(x) = 0.5 * x * (1 + \tanh(\sqrt{2 / \pi} * (x + 0.044715 * x^3)))`
 
     Args:
         input: The input tensor.
