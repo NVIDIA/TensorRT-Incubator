@@ -6,10 +6,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Shape(BaseTraceOp):
-    """
-    Represents a shape operation.
-    """
-
     def infer_shapes(self):
         assert len(self.inputs) == 1, "ShapeOf operation should have exactly one input!"
         from tripy.frontend import Dim

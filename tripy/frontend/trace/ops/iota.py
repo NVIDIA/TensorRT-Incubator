@@ -9,10 +9,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Iota(BaseTraceOp):
-    """
-    Represents an iota operation.
-    """
-
     dim: int
     shape: ShapeInfo
     dtype: datatype.dtype

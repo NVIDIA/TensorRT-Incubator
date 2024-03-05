@@ -9,10 +9,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Expand(BaseTraceOp):
-    """
-    Represents an expand operation.
-    """
-
     shape: Sequence[int]
 
     def infer_shapes(self):

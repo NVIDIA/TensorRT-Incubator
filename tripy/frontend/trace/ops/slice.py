@@ -12,9 +12,6 @@ from tripy.utils import make_tuple
 
 @dataclass(repr=False)
 class Slice(BaseTraceOp):
-    """
-    Represents a slice operation.
-    """
 
     index: Tuple[Union[slice, int]]
 

@@ -7,10 +7,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Copy(BaseTraceOp):
-    """
-    Represents a copy operation.
-    """
-
     target: device
 
     def infer_shapes(self):

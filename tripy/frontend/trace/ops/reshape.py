@@ -11,9 +11,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Reshape(BaseTraceOp):
-    """
-    Represents a reshape operation.
-    """
 
     shape: Sequence[int]
 
@@ -44,9 +41,6 @@ class Reshape(BaseTraceOp):
 
 @dataclass(repr=False)
 class Squeeze(Reshape):
-    """
-    Represents a squeeze operation.
-    """
 
     dims: Tuple[int]
 

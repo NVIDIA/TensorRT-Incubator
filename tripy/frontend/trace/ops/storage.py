@@ -10,9 +10,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Storage(BaseTraceOp):
-    """
-    Represents data stored in host or device memory.
-    """
 
     data: Array
     shape: ShapeInfo  # This is a ShapeInfo but will always be a static shape

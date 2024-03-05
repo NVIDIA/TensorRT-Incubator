@@ -8,10 +8,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Permute(BaseTraceOp):
-    """
-    Represents a permute operation.
-    """
-
     permutation: Sequence[int]
 
     def infer_shapes(self):

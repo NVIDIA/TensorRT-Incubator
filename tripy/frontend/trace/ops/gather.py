@@ -8,10 +8,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Gather(BaseTraceOp):
-    """
-    Represents a gather operation.
-    """
-
     axis: int
 
     def infer_shapes(self):

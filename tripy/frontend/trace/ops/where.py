@@ -9,9 +9,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Where(BaseTraceOp):
-    """
-    Represents a select operation.
-    """
 
     def get_operand_shape_after_broadcast(self, cond_shape, a_shape, b_shape):
         def broadcast_equivalent_shape(a, b):

@@ -11,10 +11,6 @@ from tripy.utils import make_list
 
 @dataclass(repr=False)
 class Reduce(BaseTraceOp):
-    """
-    Represents a reduce operation.
-    """
-
     class Kind(enum.Enum):
         def __init__(self, op, init_value):
             self.op = op
@@ -64,9 +60,6 @@ class Reduce(BaseTraceOp):
 
 @dataclass(repr=False)
 class ArgMinMax(Reduce):
-    """
-    Represents a argmin or argmax operation.
-    """
 
     class Kind:
         ARG_MAX = "argmax"

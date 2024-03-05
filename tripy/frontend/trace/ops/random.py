@@ -10,9 +10,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Random(BaseTraceOp):
-    """
-    Represents a random operation.
-    """
 
     shape: ShapeInfo
     dtype: datatype
@@ -34,9 +31,6 @@ class Random(BaseTraceOp):
 
 @dataclass(repr=False)
 class RandomUniform(Random):
-    """
-    Represents a random uniform operation.
-    """
 
     low: numbers.Number
     high: numbers.Number
@@ -49,9 +43,6 @@ class RandomUniform(Random):
 
 @dataclass(repr=False)
 class RandomNormal(Random):
-    """
-    Represents a random normal operation.
-    """
 
     mean: numbers.Number
     std: numbers.Number

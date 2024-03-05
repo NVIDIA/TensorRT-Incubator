@@ -10,10 +10,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class BinaryElementwise(BaseTraceOp):
-    """
-    Represents a binary elementwise operation.
-    """
-
     class Kind:
         SUM = " + "
         SUB = " - "

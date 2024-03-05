@@ -8,9 +8,6 @@ import tripy.frontend.trace.ops.utils as op_utils
 
 @dataclass(repr=False)
 class Unsqueeze(BaseTraceOp):
-    """
-    Represents an unsqueeze operation.
-    """
 
     dim: int
 

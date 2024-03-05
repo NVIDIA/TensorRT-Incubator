@@ -9,10 +9,6 @@ from tripy import utils
 
 @dataclass(repr=False)
 class Fill(BaseTraceOp):
-    """
-    Represents a fill operation.
-    """
-
     value: float
     shape: ShapeInfo
     dtype: datatype.dtype
@@ -47,10 +43,6 @@ class Fill(BaseTraceOp):
 
 @dataclass(repr=False)
 class FillLike(Fill):
-    """
-    Represents a fill_like operation.
-    """
-
     def infer_shapes(self):
         self.shape = self.inputs[0].shape
         super().infer_shapes()

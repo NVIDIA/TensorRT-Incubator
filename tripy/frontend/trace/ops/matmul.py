@@ -7,10 +7,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class MatrixMultiplication(BaseTraceOp):
-    """
-    Represents a matrix multiplication operation.
-    """
-
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 

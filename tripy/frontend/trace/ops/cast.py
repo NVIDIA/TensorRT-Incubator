@@ -6,10 +6,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Cast(BaseTraceOp):
-    """
-    Represents a cast operation.
-    """
-
     to_type: "tripy.common.dtype"
 
     def infer_shapes(self):

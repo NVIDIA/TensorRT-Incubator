@@ -7,10 +7,6 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 @dataclass(repr=False)
 class UnaryElementwise(BaseTraceOp):
-    """
-    Represents a unary elementwise operation.
-    """
-
     class Kind(enum.Enum):
         EXP = 0
         TANH = 1
