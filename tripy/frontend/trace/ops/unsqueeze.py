@@ -101,7 +101,7 @@ def unsqueeze(self, dim: int) -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        input = tp.ones((2, 2), dtype=tp.float32)
+        input = tp.iota((2, 2), dtype=tp.float32)
         output = input.unsqueeze(1)
 
         assert np.array_equal(output.numpy(), np.expand_dims(input.numpy(), 1))

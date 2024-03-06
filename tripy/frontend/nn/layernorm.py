@@ -19,13 +19,13 @@ class LayerNorm(Module):
 
         layer_norm = tp.nn.LayerNorm(3)
 
-        input = tp.ones((2, 3))
+        input = tp.iota((2, 3))
         output = layer_norm(input)
 
         np_out = output.numpy() # doc: omit
         assert np_out.shape == (2, 3)
 
-        torch_tensor = torch.ones((2,3), dtype=torch.float32) # doc: omit
+        torch_tensor = torch.from_dlpack(input.numpy()) # doc: omit
         torch_ln = torch.nn.LayerNorm(3) # doc: omit
         torch_ln.weight.data.fill_(1) # doc: omit
         torch_ln.bias.data.fill_(1) # doc: omit

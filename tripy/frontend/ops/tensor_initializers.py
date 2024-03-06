@@ -93,7 +93,7 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Te
         :linenos:
         :caption: Example
 
-        input = tp.ones([2, 3], dtype=tp.float32)
+        input = tp.iota([2, 3], dtype=tp.float32)
         output = tp.zeros_like(input)
 
         assert np.array_equal(output.numpy(), np.zeros([2, 3], dtype=np.float32))

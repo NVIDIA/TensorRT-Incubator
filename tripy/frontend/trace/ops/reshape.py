@@ -92,10 +92,10 @@ def reshape(self, shape: ShapeInfo) -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        input = tp.ones((2, 3), dtype=tp.float32)
+        input = tp.iota((2, 3), dtype=tp.float32)
         output = input.reshape((1, 6))
 
-        assert np.array_equal(output.numpy(), np.reshape(np.ones((2, 3), dtype=np.float32), (1, 6)))
+        assert np.array_equal(output.numpy(), np.reshape(input.numpy(), (1, 6)))
     """
     from tripy.frontend import Tensor
 
@@ -121,7 +121,7 @@ def squeeze(self, dims: Union[Tuple, int] = None) -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        input = tp.ones((1, 2, 1), dtype=tp.float32)
+        input = tp.iota((1, 2, 1), dtype=tp.float32)
         # Squeeze all dimensions:
         squeeze_all = input.squeeze()
         # Squeeze only the first dimension:
@@ -129,9 +129,9 @@ def squeeze(self, dims: Union[Tuple, int] = None) -> "tripy.Tensor":
         # Squeeze the first and third dimensions:
         squeeze_0_2 = input.squeeze((0, 2))
 
-        assert np.array_equal(squeeze_all.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32)))
-        assert np.array_equal(squeeze_0.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), 0))
-        assert np.array_equal(squeeze_0_2.numpy(), np.squeeze(np.ones((1, 2, 1), dtype=np.float32), (0, 2)))
+        assert np.array_equal(squeeze_all.numpy(), np.squeeze(input.numpy()))
+        assert np.array_equal(squeeze_0.numpy(), np.squeeze(input.numpy(), 0))
+        assert np.array_equal(squeeze_0_2.numpy(), np.squeeze(input.numpy(), (0, 2)))
     """
     from tripy.frontend import Tensor
 

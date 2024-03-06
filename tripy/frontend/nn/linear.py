@@ -19,7 +19,7 @@ class Linear(Module):
 
         linear = tp.nn.Linear(3, 4)
 
-        input = tp.ones((2, 3))
+        input = tp.iota((2, 3))
         output = linear(input)
 
         assert output.numpy().shape == (2, 4)
