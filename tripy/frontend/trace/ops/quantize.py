@@ -10,9 +10,6 @@ class Quantize(BaseTraceOp):
 
     dtype: datatype
     scale: float
-    zero_point: int
-    storage_min: int
-    storage_max: int
 
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
@@ -23,13 +20,26 @@ class Quantize(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import QuantizeOp
 
+        def _get_storage_range(dtype):
+            # get default range for dtype
+            return {
+                datatype.int8: (-128, 127),
+            }[dtype]
+
+        # 1. tensorrt infers the default storage range
+        #    storage_min, storage_max are set to be consistent
+        #    with tensorrt, but not really used.
+        # 2. tensorrt does not support zero_point, and
+        #    mlir-trt requires zero_point == 0
+        storage_min, storage_max = _get_storage_range(self.dtype)
+        zero_point = 0
         QuantizeOp.build(
             inputs,
             outputs,
             self.scale,
-            self.zero_point,
-            self.storage_min,
-            self.storage_max,
+            zero_point,
+            storage_min,
+            storage_max,
         )
 
 
@@ -37,27 +47,32 @@ def quantize(
     input: "tripy.Tensor",
     dtype: datatype,
     scale: float,
-    zero_point: int,
-    storage_min: int,
-    storage_max: int,
 ) -> "tripy.Tensor":
     """
     Quantizes the input Tensor.
 
     Args:
         input: input Tensor to quantize
-        dtype: dtype to quantize
+        dtype: quantization dtype
         scale: quantization scale value
-        zero_point:
-        storage_min:
-        storage_max:
 
     Returns:
         Quantized Tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(6, tp.float32).reshape((2, 3))
+        quantized = tp.quantize(input, tp.int8, 0.99872)
+        output = tp.dequantize(quantized, tp.float32)
+
+        assert np.allclose(output.numpy(), input.numpy(), atol=1e-2)
     """
     from tripy.frontend import Tensor
 
-    if dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
-        raise_error("quantization only supports int4, int8 and float8e4m3fn", [f"Got dtype={dtype}"])
+    # TODO: support other quantization dtypes (int4, fp8 etc)
+    if dtype != datatype.int8:
+        raise_error("Unsupported quantization dtype.", [f"Supported dtypes: int8, Got dtype={dtype}"])
 
-    return Tensor.build([input], Quantize, dtype, scale, zero_point, storage_min, storage_max)
+    return Tensor.build([input], Quantize, dtype, scale)

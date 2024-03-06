@@ -370,7 +370,7 @@ from tripy.common import logger
 
 logger.verbosity = "ir"
 
-a = tp.Tensor([1.0, 2.0])
-b = tp.quantize(a, tp.int8, 0.99872, 127, -8, 7)
-c = tp.dequantize(b, tp.float32)
-print(c)
+input = tp.Tensor([1.0, 2.0])
+quantized = tp.quantize(input, tp.int8, 0.99872)
+output = tp.dequantize(quantized, tp.float32)
+print(output)

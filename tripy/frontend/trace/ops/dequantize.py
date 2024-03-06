@@ -34,9 +34,20 @@ def dequantize(
 
     Returns:
         Dequantized Tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(6, tp.float32).reshape((2, 3))
+        quantized = tp.quantize(input, tp.int8, 0.99872)
+        output = tp.dequantize(quantized, tp.float32)
+
+        assert np.allclose(output.numpy(), input.numpy(), atol=1e-2)
     """
     from tripy.frontend import Tensor
 
+    # TODO: enable after !215 is merged
     # check if input has a dequantizable dtype
     # if input.dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
     #     raise_error("input does not have a valid dtype to dequantize", [f"Got dtype={dtype}"])

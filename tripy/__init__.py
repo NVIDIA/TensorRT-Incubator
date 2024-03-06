@@ -27,6 +27,7 @@ from tripy.utils.json import load, save
 __all__ = [
     "arange",
     "device",
+    "dequantize",
     "Dim",
     "full_like",
     "full",
@@ -35,6 +36,7 @@ __all__ = [
     "jit",
     "load",
     "nn",
+    "quantize",
     "where",
     "ones",
     "ones_like",
