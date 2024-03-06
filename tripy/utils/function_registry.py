@@ -5,8 +5,9 @@ from collections import OrderedDict, defaultdict
 from textwrap import dedent
 from typing import Any, Callable, Dict, List, Tuple
 
-from tripy.utils.utils import code_pretty_str, ConditionCheck
 from tripy.common.exception import raise_error
+from tripy.utils.result import Result
+from tripy.utils.utils import code_pretty_str
 
 
 class FuncOverload:
@@ -63,7 +64,7 @@ class FuncOverload:
 
         return self.annotations
 
-    def matches_arg_types(self, args, kwargs) -> ConditionCheck:
+    def matches_arg_types(self, args, kwargs) -> Result:
         def matches_type(name: str, annotation: type, arg: Any):
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
@@ -89,15 +90,13 @@ class FuncOverload:
 
         # Check if we have too many arguments
         if len(args) > len(annotations):
-            return ConditionCheck(
-                False,
+            return Result.err(
                 [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
         for (name, (typ, _)), arg in zip(annotations.items(), args):
             if not matches_type(name, typ, arg):
-                return ConditionCheck(
-                    False,
+                return Result.err(
                     [
                         f"For parameter: '{name}', expected an instance of type: "
                         f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
@@ -106,8 +105,7 @@ class FuncOverload:
 
         for name, arg in kwargs.items():
             if name not in annotations:
-                return ConditionCheck(
-                    False,
+                return Result.err(
                     [
                         f"Parameter: '{name}' is not valid for this function. "
                         f"Note: This function takes the following parameters: {list(annotations.keys())}"
@@ -116,8 +114,7 @@ class FuncOverload:
 
             typ, _ = annotations[name]
             if not matches_type(name, typ, arg):
-                return ConditionCheck(
-                    False,
+                return Result.err(
                     [
                         f"For parameter: '{name}', expected an instance of type: "
                         f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
@@ -137,9 +134,9 @@ class FuncOverload:
 
         missing_required_args = [name for name, (_, optional) in missing_arg_dict.items() if not optional]
         if missing_required_args:
-            return ConditionCheck(False, [f"Some required arguments were not provided: {missing_required_args}"])
+            return Result.err([f"Some required arguments were not provided: {missing_required_args}"])
 
-        return True
+        return Result.ok()
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
@@ -198,7 +195,7 @@ class FunctionRegistry(dict):
             if matched:
                 matched_overloads.append(overload)
             else:
-                mismatch_reasons.append(matched.details)
+                mismatch_reasons.append(matched.error_details)
 
         if len(matched_overloads) > 1:
             raise_overload_error(

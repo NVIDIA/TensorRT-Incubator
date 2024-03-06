@@ -1,7 +1,7 @@
 import cupy as cp
 import numpy as np
 import pytest
-from mlir import ir
+from mlir_tensorrt.compiler import ir
 
 import tripy as tp
 from tripy.backend.mlir import utils as mlir_utils

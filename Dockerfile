@@ -10,6 +10,8 @@ ARG uid=1000
 ARG gid=1000
 ENV DEBIAN_FRONTEND=noninteractive
 
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/:/usr/local/cuda/targets/x86_64-linux/lib/:/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH
+
 RUN groupadd -r -f -g ${gid} trtuser && \
     useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash trtuser && \
     usermod -aG sudo trtuser && \
@@ -43,15 +45,10 @@ RUN pip install .[docs,dev,test] \
     --extra-index-url https://${gitlab_user}:${gitlab_token}@gitlab-master.nvidia.com/api/v4/projects/73221/packages/pypi/simple --trusted-host gitlab-master.nvidia.com
 
 ########################################
-# Configure StableHLO python packages
-########################################
-RUN mkdir -p /usr/lib/stablehlo
-COPY stablehlo /usr/lib/stablehlo
-ENV PYTHONPATH=/usr/lib/stablehlo/python-build/tools/stablehlo/python_packages/stablehlo:$PYTHONPATH
-
-########################################
 # Configure mlir-tensorrt packages
 ########################################
-RUN mkdir -p /usr/lib/mlir-tensorrt/
-COPY mlir-tensorrt/build/lib/Integrations /usr/lib/mlir-tensorrt/
-ENV LD_LIBRARY_PATH=/usr/lib/mlir-tensorrt/PJRT/:/usr/local/cuda/lib64/:/usr/local/cuda/targets/x86_64-linux/lib/:/usr/lib/x86_64-linux-gnu/:$LD_LIBRARY_PATH
+# WAR's for small bugs in the MLIR-TRT wheels
+# Protobuf isn't actually used for how Tripy uses MLIR-TRT, so we just install any version to make the loader happy.
+RUN apt-get install -y libopenmpi3 libopenmpi-dev libprotobuf-dev && \
+    ln -snf /usr/lib/x86_64-linux-gnu/libprotobuf.so /usr/lib/x86_64-linux-gnu/libprotobuf.so.29
+ENV LD_LIBRARY_PATH=/usr/local/lib/python3.10/dist-packages/mlir_tensorrt/compiler/_mlir_libs/:$LD_LIBRARY_PATH

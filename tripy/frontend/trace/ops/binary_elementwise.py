@@ -41,7 +41,7 @@ class BinaryElementwise(BaseTraceOp):
                     self.kind.strip(),
                     "' must be broadcast compatible but ",
                 ]
-                + bcast_check.details,
+                + bcast_check.error_details,
             )
         self.outputs[0].shape = tuple(op_utils.get_broadcast_dim(*d) for d in zip(*input_shapes))
 

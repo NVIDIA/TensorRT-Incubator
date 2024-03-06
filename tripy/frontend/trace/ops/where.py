@@ -21,7 +21,7 @@ class Where(BaseTraceOp):
                     details=[
                         "Input tensors for where operation must be broadcast compatible but ",
                     ]
-                    + bcast_check.details,
+                    + bcast_check.error_details,
                 )
             return tuple(op_utils.get_broadcast_dim(*d) for d in zip(*shapes))
 

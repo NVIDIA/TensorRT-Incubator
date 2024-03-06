@@ -33,8 +33,8 @@ We'll start by adding a new file under [`tripy/flat_ir/ops`](source:/tripy/flat_
 ```py
 from dataclasses import dataclass
 
-from mlir import ir
-from mlir.dialects import stablehlo
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops.base import BaseFlatIROp

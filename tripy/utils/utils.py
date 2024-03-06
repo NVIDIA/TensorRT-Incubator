@@ -13,26 +13,6 @@ from tripy.common.types import ShapeInfo
 from colored import Fore, attr
 
 
-@dataclass
-class ConditionCheck:
-    """
-    Bundles a boolean with error message details.
-
-    This can be used in cases where we would like to perform a check in some helper, e.g.
-    `is_broadcast_compatible` but still display a nice error message with low level feedback
-    from said helper (in this example, that could be details on which dimensions are not compatible).
-
-    The caller can access the `details` field for more information on the error message and
-    provide it to `raise_error`.
-    """
-
-    value: bool
-    details: List[str]
-
-    def __bool__(self) -> bool:
-        return self.value
-
-
 def default(value, default):
     """
     Returns a specified default value if the provided value is None.

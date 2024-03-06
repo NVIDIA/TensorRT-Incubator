@@ -1,5 +1,4 @@
 import ast
-import atexit
 import functools
 import inspect
 from collections import defaultdict
@@ -8,9 +7,10 @@ from typing import Callable, Dict, List
 from tripy import utils
 from tripy.backend.jit.cached_executable import CachedExecutable
 from tripy.backend.jit.dynamic_storage import DynamicStorage
-from tripy.backend.jit.utils import TensorInfo, get_tensor_info, get_trace_signature
+from tripy.backend.jit.utils import get_trace_signature
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
+from tripy.backend.utils import TensorInfo, get_tensor_info
 from tripy.common.logging import logger
 from tripy.frontend import Tensor, nn
 from tripy.frontend.nn import Module
@@ -86,7 +86,6 @@ class jit:
         if func is not None:
             self._func = func
             self._decorated = self._helper(func)
-        atexit.register(self.destroy)
 
     def __get__(self, obj, type=None):
         # This function is required to make the decorator work correctly with methods.
@@ -250,7 +249,6 @@ class jit:
             executor = Executor(
                 executable.executable,
                 # HACK (#109): We only use the executables I/O tensor information if we didn't recompute the trace.
-                utils.default(input_tensor_info, executable.input_info),
                 utils.default(output_tensor_info, executable.output_info),
             )
             # filter out const-folded inputs
@@ -296,11 +294,3 @@ class jit:
             self._func = args[0]
             self._decorated = self._helper(self._func)
             return self
-
-    def destroy(self):
-        from tripy.backend.mlir.mlir import mlir_wrapper
-
-        mlir_backend = mlir_wrapper()
-        for _, cached_executables in self.cache.items():
-            for cached_executable in cached_executables:
-                mlir_backend.exec_destroy(cached_executable.executable)
