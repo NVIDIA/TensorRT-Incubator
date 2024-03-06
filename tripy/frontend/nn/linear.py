@@ -35,7 +35,7 @@ class Linear(Module):
         r"""The :math:`W` matrix of shape :math:`[\text{out_features}, \text{in_features}]`"""
 
         if bias:
-            self.bias: Parameter = Parameter(ones((1, out_features), dtype=float32))
+            self.bias: Parameter = Parameter(ones((out_features), dtype=float32))
             r"""The :math:`b` matrix of shape :math:`[1, \text{out_features}]`"""
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
@@ -48,6 +48,6 @@ class Linear(Module):
         """
         out = x @ (self.weight.transpose(1, 0))
         if hasattr(self, "bias"):
-            out = out + self.bias
+            out = out + self.bias.unsqueeze(0)
 
         return out

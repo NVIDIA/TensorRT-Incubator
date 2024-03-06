@@ -4,6 +4,7 @@ import operator
 
 from tripy.common import logger
 from tripy.frontend.nn.parameter import Parameter
+from tripy.common.exception import raise_error
 
 
 class Module:
@@ -187,6 +188,18 @@ class Module:
                     module = operator.attrgetter(child_name)(module)
             return module
 
+        def _check_param_type(cls, original_param, new_param, param_name):
+            # TODO: add check for dtype when https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/merge_requests/215 is merged.
+            original_param_shape = original_param.shape.eval()
+            new_param_shape = new_param.shape.eval()
+            if original_param_shape != new_param_shape:
+                raise_error(
+                    "Shape of new parameter does not match shape of existing parameter.",
+                    details=[
+                        f"For parameter '{param_name}', currently assigned parameter has shape: '{original_param_shape}' while new parameter has shape: '{new_param_shape}'"
+                    ],
+                )
+
         for nested_attr_name, param in state_dict.items():
             submodule_name, _, param_name = nested_attr_name.rpartition(".")
             # If there is no submodule, it means we are accessing a parameter of self
@@ -199,11 +212,15 @@ class Module:
                     logger.verbose(f"Cannot access {submodule_name} directly, trying to find the correct module.")
                     # find module starting from the beginning
                     module = _find_module(module, submodule_name.split("."))
+
             if isinstance(module, Module):
+                _check_param_type(self, getattr(module, param_name), param, nested_attr_name)
                 setattr(module, param_name, param)
             elif isinstance(module, list):
+                _check_param_type(self, module[int(param_name)], param, nested_attr_name)
                 module[int(param_name)] = param
             elif isinstance(module, dict):
+                _check_param_type(self, module[param_name], param, nested_attr_name)
                 module[param_name] = param
 
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
