@@ -27,22 +27,12 @@ def sandboxed_install_run(virtualenv):
     def run_impl(command: str, cwd: Optional[str] = None):
         env = copy.copy(os.environ)
         # Always prioritize our own copy of Tripy over anything in the venv.
-        env["PYTHONPATH"] = (
-            ROOT_DIR
-            + os.pathsep
-            # TODO (#112): Don't add stableHLO path here:
-            + "/usr/lib/stablehlo/python-build/tools/stablehlo/python_packages/stablehlo"
-            + os.pathsep
-            + VENV_PYTHONPATH
-        )
+        env["PYTHONPATH"] = ROOT_DIR + os.pathsep + VENV_PYTHONPATH
 
         print(f"Running command: {command}")
 
         status = StatusWrapper()
         if "pip" in command:
-            # # Remove whitespace args and escaped newlines
-            # command = [arg for arg in str(block).strip().split(" ") if arg.strip() and arg != "\\\n"]
-
             virtualenv.run(command, cwd=cwd)
             status.success = True
         else:
