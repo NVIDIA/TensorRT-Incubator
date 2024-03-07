@@ -1,7 +1,7 @@
 import numbers
 from dataclasses import dataclass
 
-from mlir import ir
+from mlir_tensorrt.compiler import ir
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 

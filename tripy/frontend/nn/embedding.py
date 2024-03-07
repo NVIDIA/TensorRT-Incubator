@@ -20,17 +20,16 @@ class Embedding(Module):
 
             embedding = tp.nn.Embedding(num_embeddings=4, embedding_dim=6)
 
-            input = tp.Tensor([0, 1, 2], dtype=tp.int32)
+            input = tp.Tensor([0, 2], dtype=tp.int32)
             output = embedding(input)
 
-            assert np.array_equal(output.numpy(), np.ones((3, 6), dtype=np.float32))
+            assert np.array_equal(output.numpy(), embedding.weight.numpy()[[0,2], :])
         """
         super().__init__()
         from tripy.common.datatype import float32
-        from tripy.frontend.ops import ones
+        from tripy.frontend.trace.ops.iota import iota
 
-        # Replace with random weights when #74 is completed.
-        self.weight: Parameter = Parameter(ones((num_embeddings, embedding_dim), dtype=float32))
+        self.weight: Parameter = Parameter(iota((num_embeddings, embedding_dim), dtype=float32))
         r"""The embedding lookup table of shape :math:`[\text{num_embeddings}, \text{embedding_dim}]`."""
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":

@@ -6,7 +6,7 @@ import inspect
 import os
 import pkgutil
 from textwrap import dedent, indent
-from typing import Any, Callable, Dict, List, Sequence, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
 import numpy as np
 import pytest
@@ -33,7 +33,7 @@ MARKDOWN_FILES = [
 
 
 @contextlib.contextmanager
-def raises(ExcType: type, match: str, has_stack_info_for: Sequence[tp.Tensor] = None):
+def raises(ExcType: type, match: Optional[str] = None, has_stack_info_for: Sequence[tp.Tensor] = None):
     with pytest.raises(ExcType, match=match) as exc_info:
         yield exc_info
 

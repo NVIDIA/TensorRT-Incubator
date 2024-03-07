@@ -127,12 +127,11 @@ def matmul(self, other: "tripy.Tensor") -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        a = tp.ones((2, 3), dtype=tp.float32)
-        b = tp.ones((3, 2), dtype=tp.float32)
+        a = tp.iota((2, 3), dtype=tp.float32)
+        b = tp.iota((3, 2), dtype=tp.float32)
 
         output = a @ b
-
-        assert np.array_equal(output.numpy(), (np.ones((2,3), dtype=np.float32) @ np.ones((3,2), dtype=np.float32)))
+        assert np.array_equal(output.numpy(), a.numpy() @ b.numpy())
     """
     from tripy.frontend import Tensor
 

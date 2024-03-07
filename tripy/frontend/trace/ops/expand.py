@@ -64,19 +64,19 @@ def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        input = tp.ones((2, 1), dtype=tp.float32)
+        input = tp.iota((2, 1), dtype=tp.float32)
         output = input.expand((-1, 4))
 
-        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((2, 1), dtype=np.float32), (2, 4)))
+        assert np.array_equal(output.numpy(), np.broadcast_to(input.numpy(), (2, 4)))
 
     .. code-block:: python
         :linenos:
         :caption: Increasing Tensor Rank
 
-        input = tp.ones((1, 1), dtype=tp.float32)
+        input = tp.iota((1, 1), dtype=tp.float32)
         output = input.expand((3, -1, -1))
 
-        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((1, 1), dtype=np.float32), (3, 1, 1)))
+        assert np.array_equal(output.numpy(), np.broadcast_to(input.numpy(), (3, 1, 1)))
     """
     from tripy.frontend import Tensor
 

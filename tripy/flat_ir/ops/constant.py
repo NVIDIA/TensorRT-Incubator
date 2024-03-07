@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Set
 
-from mlir import ir
-from mlir.dialects import stablehlo
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy import utils
 from tripy.common.array import Array

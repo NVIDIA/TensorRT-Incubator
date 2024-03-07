@@ -7,7 +7,7 @@ class TestLinear:
         linear = tp.nn.Linear(20, 30)
         assert isinstance(linear, tp.nn.Linear)
         assert linear.weight.numpy().shape == (30, 20)
-        assert linear.bias.numpy().shape == (1, 30)
+        assert linear.bias.numpy().shape == (30,)
 
     def test_mismatched_input_shapes(self):
         a = tp.ones((2, 3))

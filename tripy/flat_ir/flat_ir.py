@@ -31,8 +31,8 @@ class FlatIR:
         return "\n".join(layer_strs)
 
     def to_mlir(self):
-        from mlir import ir
-        from mlir.dialects import func as func_dialect
+        from mlir_tensorrt.compiler import ir
+        from mlir_tensorrt.compiler.dialects import func as func_dialect
 
         from tripy.backend.mlir.utils import make_ir_context
 

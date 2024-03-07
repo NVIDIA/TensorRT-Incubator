@@ -1,5 +1,5 @@
 import pytest
-from mlir import ir
+from mlir_tensorrt.compiler import ir
 
 import tripy
 from tripy.backend.mlir import utils as mlir_utils

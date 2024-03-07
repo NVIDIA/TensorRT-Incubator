@@ -6,7 +6,7 @@ import pytest
 import torch
 
 import tripy as tp
-from tripy.backend.jit.utils import get_tensor_info
+from tripy.backend.utils import get_tensor_info
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
 from tripy.frontend.trace import Trace
@@ -77,15 +77,13 @@ class TestFunctional:
         flat_ir = trace.to_flat_ir()
 
         compiler = Compiler()
-        with Executor(
-            compiler.compile(flat_ir.to_mlir()), get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)
-        ) as executor:
-            out = executor.execute()
-            assert (
-                len(out) == 2
-                and (out[0].view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
-                and (out[1].view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
-            )
+        executor = Executor(compiler.compile(flat_ir.to_mlir()), get_tensor_info(flat_ir.outputs))
+        out = executor.execute()
+        assert (
+            len(out) == 2
+            and (out[0].view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
+            and (out[1].view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
+        )
 
     def _test_framework_interoperability(self, data, device):
         a = tp.Tensor(data, device=device)

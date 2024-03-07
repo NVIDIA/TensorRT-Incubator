@@ -1,5 +1,6 @@
 import numpy as np
 
+from tests import helper
 import tripy as tp
 
 
@@ -40,6 +41,17 @@ class TestModule:
         state_dict = {"dummy1.nested.param": tp.nn.Parameter(tp.arange(2, dtype=tp.float32))}
         network.load_from_state_dict(state_dict)
         assert network.dummy1.nested.param is state_dict["dummy1.nested.param"]
+
+    def test_load_from_state_dict_with_different_shapes_fails(
+        self,
+        network,
+    ):
+        state_dict = {"param": tp.nn.Parameter(tp.zeros(3, dtype=tp.float32))}
+
+        with helper.raises(
+            tp.TripyException, match="Shape of new parameter does not match shape of existing parameter."
+        ):
+            network.load_from_state_dict(state_dict)
 
 
 class TestModuleWithList:

@@ -134,7 +134,7 @@ class Tensor(metaclass=TensorMeta):
         self.op.outputs[0].name = new_name
 
     def eval(self) -> Array:
-        from tripy.backend.jit.utils import get_tensor_info
+        from tripy.backend.utils import get_tensor_info
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
@@ -147,14 +147,14 @@ class Tensor(metaclass=TensorMeta):
         mlir = flat_ir.to_mlir()
         compiler = Compiler()
         executable = compiler.compile(mlir)
-        with Executor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
-            # Upon computing the value of this tensor, we switch it to have a `Storage`
-            # parameter so that it does not need to be computed again.
-            data = executor.execute()
-            assert len(data) == 1, "Expects only one output from MLIR executor"
-            data = data[0]
-            self._finalize(self.name, [], Storage, data)
-            return data
+        executor = Executor(executable, get_tensor_info(flat_ir.outputs))
+        # Upon computing the value of this tensor, we switch it to have a `Storage`
+        # parameter so that it does not need to be computed again.
+        data = executor.execute()
+        assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
+        data = data[0]
+        self._finalize(self.name, [], Storage, data)
+        return data
 
     def numpy(self) -> "numpy.ndarray":
         from tripy.common.device import device

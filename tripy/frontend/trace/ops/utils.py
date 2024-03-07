@@ -4,6 +4,7 @@ from tripy import utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import Dim
+from tripy.utils import Result
 
 
 # Like raise_error but adds information about the inputs and output.
@@ -126,18 +127,17 @@ def get_broadcast_compatible_shapes(shape1, shape2):
     return utils.to_dims(shape1), utils.to_dims(shape2)
 
 
-def is_broadcast_compatible(shape1, shape2) -> utils.ConditionCheck:
+def is_broadcast_compatible(shape1, shape2) -> Result:
     # Now check each dimension pair
     for index, (dim1, dim2) in enumerate(zip(shape1, shape2)):
         if dim1 != dim2 and dim1 != 1 and dim2 != 1:
-            return utils.ConditionCheck(
-                False,
+            return Result.err(
                 [
                     f"for tensor shapes: {shape1} and {shape2}, dimensions on axis {index}: '{dim1}' and '{dim2}' are not broadcast compatible"
                 ],
             )
 
-    return utils.ConditionCheck(True, [])
+    return Result.ok()
 
 
 # To which dimension in the target shape each dimension of the operand shape corresponds to.

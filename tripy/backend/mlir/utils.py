@@ -1,9 +1,5 @@
-import contextlib
-import os
-from typing import Dict
-
-from mlir import ir
-from mlir.dialects import stablehlo, quant
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import quant
 
 from tripy import utils
 from tripy.common import ShapeInfo
@@ -15,7 +11,6 @@ def make_ir_context() -> ir.Context:
     context.enable_multithreading(False)
     # Allow unregistered dialects to assign trt shape_profile attribute to stablehlo program.
     context.allow_unregistered_dialects = True
-    stablehlo.register_dialect(context)
     return context
 
 

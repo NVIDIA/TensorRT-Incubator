@@ -2,13 +2,14 @@ import base64
 import tempfile
 from typing import Any, Dict, List
 
-from tripy.backend.mlir.mlir import mlir_wrapper, void_ptr
+import mlir_tensorrt.compiler.api as compiler
+
+from tripy.backend.utils import TensorInfo
 from tripy.utils.json import Decoder, Encoder
-from tripy.backend.jit.utils import TensorInfo
 
 
 class CachedExecutable:
-    def __init__(self, executable: void_ptr, input_info: List[TensorInfo], output_info: List[TensorInfo]):
+    def __init__(self, executable: compiler.Executable, input_info: List[TensorInfo], output_info: List[TensorInfo]):
         self.executable = executable
         self.input_info = input_info
         # HACK (#109): Store output information so we don't need to go all the way to the FlatIR each time.
@@ -37,7 +38,7 @@ def encode(cached_executable: CachedExecutable) -> Dict[str, Any]:
     # TODO: Add an MLIR-TRT API to save an executable directly to a string. For now, we WAR
     # this with a temporary intermediate file.
     with tempfile.NamedTemporaryFile("wb+") as f:
-        mlir_backend = mlir_wrapper()
+        raise NotImplementedError(f"Not yet implemented. Need to figure out how to serialize MLIR-TRT executables")
         mlir_backend.save(cached_executable.executable, f.name)
 
         f.flush()
@@ -55,7 +56,7 @@ def encode(cached_executable: CachedExecutable) -> Dict[str, Any]:
 
 @Decoder.register(CachedExecutable)
 def decode(dct: Dict[str, str]) -> CachedExecutable:
-    mlir_backend = mlir_wrapper()
+    raise NotImplementedError(f"Not yet implemented. Need to figure out how to serialize MLIR-TRT executables")
     data = base64.b64decode(dct["data"].encode(), validate=True)
     executable = mlir_backend.load(data=data)
 
