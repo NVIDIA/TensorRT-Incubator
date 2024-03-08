@@ -4,7 +4,7 @@ from typing import List, Sequence, Set
 from tripy.frontend.trace.ops import BaseTraceOp
 from tripy.frontend.trace.tensor import TraceTensor
 from tripy.common.exception import raise_error
-from tripy.common import logger
+from tripy.logging import logger
 
 
 class Trace:

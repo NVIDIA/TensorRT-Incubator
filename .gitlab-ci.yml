@@ -70,7 +70,8 @@ l0-if-new-container:
       when: always
   stage: test
   script:
-    - sphinx-build docs build/docs -j 6 -W
+    - python3 docs/generate_rsts.py
+    - sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
     - pytest tests/ -v -m "l0 or not l1" --durations=15
   artifacts:
     paths:
@@ -97,7 +98,8 @@ l0-if-no-new-container:
       when: always
   stage: test
   script:
-    - sphinx-build docs build/docs -j 6 -W
+    - python3 docs/generate_rsts.py
+    - sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
     - pytest tests/ -v -m "l0 or not l1" --durations=15
   artifacts:
     paths:

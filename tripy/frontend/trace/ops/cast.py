@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.utils import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -20,12 +20,13 @@ class Cast(BaseTraceOp):
         ConvertOp.build(inputs, outputs)
 
 
-@TENSOR_METHOD_REGISTRY("to")
-def to(self, dtype: "tripy.dtype") -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""
-    Returns a tensor with the contents of this tensor casted to the specified data type.
+    Returns a tensor with the contents of the input tensor casted to the specified data type.
 
     Args:
+        input: The input tensor.
         dtype: The desired data type.
 
     Returns:
@@ -36,10 +37,10 @@ def to(self, dtype: "tripy.dtype") -> "tripy.Tensor":
         :caption: Example
 
         input = tp.Tensor([1, 2], dtype=tp.int32)
-        output = input.to(tp.float32)
+        output = tp.cast(input, tp.float32)
 
         assert np.array_equal(output.numpy(), np.array([1, 2], dtype=np.float32))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Cast, dtype)
+    return Tensor.build([input], Cast, dtype)

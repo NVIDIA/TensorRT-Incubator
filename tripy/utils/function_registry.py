@@ -5,9 +5,7 @@ from collections import OrderedDict, defaultdict
 from textwrap import dedent
 from typing import Any, Callable, Dict, List, Tuple
 
-from tripy.common.exception import raise_error
 from tripy.utils.result import Result
-from tripy.utils.utils import code_pretty_str
 
 
 class FuncOverload:
@@ -20,6 +18,8 @@ class FuncOverload:
         self.annotations = None
 
     def __str__(self) -> str:
+        from tripy.utils.utils import code_pretty_str
+
         _, lineno = inspect.getsourcelines(self.func)
         # For long source code, just keep the first few lines.
         source_lines = inspect.getsource(self.func).splitlines()
@@ -178,6 +178,8 @@ class FunctionRegistry(dict):
                     overloads_error.append("Not a valid overload because: ")
                     overloads_error.extend(mismatch_reasons[index])
                     overloads_error.append("\n\n")
+
+            from tripy.common.exception import raise_error
 
             raise_error(
                 f"{msg} for function: '{key}'.",

@@ -3,8 +3,8 @@ from typing import Sequence
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -46,12 +46,13 @@ class Expand(BaseTraceOp):
         BroadcastOp.build(inputs, outputs, broadcast_dim=broadcast_dim)
 
 
-@TENSOR_METHOD_REGISTRY("expand")
-def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def expand(input: "tripy.Tensor", sizes: Sequence[int]) -> "tripy.Tensor":
     """
-    Returns a new tensor based on this tensor with singleton dimensions expanded to a larger size.
+    Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.
 
     Args:
+        input: The input tensor.
         sizes: The desired expanded size.
             A value of :math:`-1` indicates that the dimension should not be modified.
             If the length of this parameter exceeds the rank of the tensor, new dimensions
@@ -65,7 +66,7 @@ def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
         :caption: Example
 
         input = tp.iota((2, 1), dtype=tp.float32)
-        output = input.expand((-1, 4))
+        output = tp.expand(input, (-1, 4))
 
         assert np.array_equal(output.numpy(), np.broadcast_to(input.numpy(), (2, 4)))
 
@@ -74,10 +75,10 @@ def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
         :caption: Increasing Tensor Rank
 
         input = tp.iota((1, 1), dtype=tp.float32)
-        output = input.expand((3, -1, -1))
+        output = tp.expand(input, (3, -1, -1))
 
         assert np.array_equal(output.numpy(), np.broadcast_to(input.numpy(), (3, 1, 1)))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Expand, sizes)
+    return Tensor.build([input], Expand, sizes)

@@ -4,13 +4,12 @@ import hashlib
 import os
 import time
 import typing
-from dataclasses import dataclass
-from typing import Any, List, Union, Tuple
+from typing import Any, List, Tuple, Union
+
+from colored import Fore, attr
 
 from tripy import config
-from tripy.common.logging import logger
-from tripy.common.types import ShapeInfo
-from colored import Fore, attr
+from tripy.logging import logger
 
 
 def default(value, default):
@@ -110,7 +109,7 @@ def make_tuple(obj):
 ##
 
 
-def to_dims(shape: ShapeInfo) -> Tuple["Dim"]:
+def to_dims(shape: "ShapeInfo") -> Tuple["Dim"]:
     """
     Convert the given shape tuple to a tuple of Dim objects.
     """
@@ -122,7 +121,7 @@ def to_dims(shape: ShapeInfo) -> Tuple["Dim"]:
     return tuple(Dim(dim) if not isinstance(dim, Dim) else dim for dim in make_list(shape))
 
 
-def from_dims(shape: ShapeInfo) -> Tuple[int]:
+def from_dims(shape: "ShapeInfo") -> Tuple[int]:
     """
     Convert the given shape, which may contain Dim instances, into a concrete shape
     based on the runtime values of those Dims.

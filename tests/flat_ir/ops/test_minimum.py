@@ -7,7 +7,7 @@ class TestMinOp:
     def test_str(self):
         a = tp.Tensor([3.0, 4.0], name="a")
         b = tp.Tensor([5.0, 2.0], name="b")
-        out = a.minimum(b)
+        out = tp.minimum(a, b)
         out.name = "out"
 
         trace = Trace([out])

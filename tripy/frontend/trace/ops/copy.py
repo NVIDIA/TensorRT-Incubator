@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
+from tripy.utils import export
 from tripy.common.device import device
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -21,12 +21,13 @@ class Copy(BaseTraceOp):
         CopyOp.build(inputs, outputs, target=self.target)
 
 
-@TENSOR_METHOD_REGISTRY("to")
-def to(self, device: "tripy.device") -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     r"""
-    Returns a copy of this tensor on the target device.
+    Returns a copy of the input tensor on the target device.
 
     Args:
+        input:
         device: The target device.
 
     Returns:
@@ -37,7 +38,7 @@ def to(self, device: "tripy.device") -> "tripy.Tensor":
         :caption: Example
 
         input = tp.Tensor([1, 2], device=tp.device("gpu"))
-        output = input.to(tp.device("cpu"))
+        output = tp.copy(input, tp.device("cpu"))
 
         assert np.array_equal(output.numpy(), np.array([1, 2], dtype=np.float32))
         assert output.op.device.kind == "cpu"
@@ -45,7 +46,7 @@ def to(self, device: "tripy.device") -> "tripy.Tensor":
     from tripy.frontend import Tensor
     from tripy.frontend.trace.ops import Storage
 
-    if isinstance(self.op, Storage) and self.op.device == device:
-        return self
+    if isinstance(input.op, Storage) and input.op.device == device:
+        return input
 
-    return Tensor.build([self], Copy, device)
+    return Tensor.build([input], Copy, device)

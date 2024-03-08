@@ -90,7 +90,7 @@ class TestFunctionRegistry:
                  [0-9]+ |         \@registry\("test"\)
                  [0-9]+ |         def func\(a: int, b: int, c: int\):
                  [0-9]+ |             return a \+ b \+ c
-                    | 
+                    |
 
                 Not a valid overload because: For parameter: 'c', expected an instance of type: 'int' but got argument of type: 'float'.
                 """

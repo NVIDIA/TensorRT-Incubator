@@ -1,5 +1,0 @@
-##############
-Device
-##############
-
-.. autoclass:: tripy.device

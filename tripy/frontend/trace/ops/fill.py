@@ -1,10 +1,12 @@
 import numbers
 from dataclasses import dataclass
+from typing import Optional
 
+from tripy import utils
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy import utils
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -27,10 +29,10 @@ class Fill(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         import numpy as np
 
-        from tripy.flat_ir.ops import BroadcastOp, ConstantOp
-        from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.array import Array
         from tripy.common.device import device
+        from tripy.flat_ir.ops import BroadcastOp, ConstantOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         const_val_tensor = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
         ConstantOp.build(
@@ -53,6 +55,7 @@ class FillLike(Fill):
         super().infer_dtypes()
 
 
+@export.public_api(document_under="tensor/initialization")
 def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     """
     Returns a tensor of the desired shape with all values set to the specified value.
@@ -78,7 +81,8 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
     return Tensor.build([], Fill, value, utils.to_dims(shape), dtype)
 
 
-def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: "tripy.dtype" = None) -> "tripy.Tensor":
+@export.public_api(document_under="tensor/initialization")
+def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tripy.dtype"] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with all values
     set to the specified value.

@@ -5,9 +5,15 @@ from typing import Any, List, Tuple
 from colored import Fore, attr
 
 from tripy import utils
+from tripy.utils import export
 
 
+@export.public_api()
 class TripyException(Exception):
+    """
+    Base class for exceptions thrown by Tripy.
+    """
+
     pass
 
 
@@ -152,7 +158,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     import inspect
 
     # We look at the call stack to prevent infinite recursion.
-    # Consider the case where `tripy` searches under `tripy.nn` and vice-versa.
+    # Consider the case where `tripy` searches under `tripy.XYZ` and vice-versa.
     # If the attribute is not present in either, they will keep ping-ponging back
     # and forth since `hasattr` in this function will call `__getattr__` which will
     # then call `search_for_missing_attr` ad infinitum.
@@ -181,7 +187,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     # If a symbol isn't found in the top-level, we'll look at specific classes/modules
     # in case there's a similar symbol there.
     # We provide the names as well since the object name will be the fully qualified name,
-    # which is not necessarily what the user uses (e.g. tripy.nn vs. tripy.frontend.nn).
+    # which is not necessarily what the user uses.
 
     for obj, obj_name in look_in:
         # Avoid infinite recursion - see comment above.

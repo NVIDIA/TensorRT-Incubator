@@ -9,6 +9,7 @@ from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
+from tripy.utils import export
 
 
 class TensorMeta(type):
@@ -26,6 +27,13 @@ class TensorMeta(type):
         return new
 
 
+@export.public_api(
+    document_under="tensor/index.rst",
+    autodoc_options=[
+        ":special-members:",
+        ":exclude-members: __init__, __repr__, __weakref__, __dlpack__, __dlpack_device__",
+    ],
+)
 class Tensor(metaclass=TensorMeta):
     """
     A tensor is a multi-dimensional array that contains elements of a uniform data type.
@@ -122,7 +130,7 @@ class Tensor(metaclass=TensorMeta):
         import tripy as tp
         from tripy.common.exception import search_for_missing_attr
 
-        look_in = [(tp, "tripy"), (tp.nn, "tripy.nn")]
+        look_in = [(tp, "tripy")]
         search_for_missing_attr("tripy.Tensor", name, look_in)
 
     @property
@@ -134,9 +142,9 @@ class Tensor(metaclass=TensorMeta):
         self.op.outputs[0].name = new_name
 
     def eval(self) -> Array:
-        from tripy.backend.utils import get_tensor_info
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
+        from tripy.backend.utils import get_tensor_info
         from tripy.frontend.trace import Trace
 
         if isinstance(self.op, Storage):
@@ -158,9 +166,10 @@ class Tensor(metaclass=TensorMeta):
 
     def numpy(self) -> "numpy.ndarray":
         from tripy.common.device import device
+        from tripy.frontend.trace.ops.copy import copy
 
         self.eval()  # Avoid recomputing everything after we've called `numpy()`
-        data = self.to(device("cpu")).eval()
+        data = copy(self, device("cpu")).eval()
         return data.view()
 
     def __repr__(self) -> str:

@@ -108,7 +108,7 @@ class MatrixMultiplication(BaseTraceOp):
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")
-def matmul(self, other: "tripy.Tensor") -> "tripy.Tensor":
+def __matmul__(self, other: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs matrix multiplication between two tensors.
 

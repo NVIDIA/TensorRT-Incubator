@@ -18,7 +18,7 @@ class TestReshape:
     def test_static_reshape(self, shape, new_shape):
         np_a = np.random.rand(*shape).astype(np.float32)
         a = tp.Tensor(np_a, shape=shape, device=tp.device("gpu"))
-        b = a.reshape(new_shape)
+        b = tp.reshape(a, new_shape)
         if -1 in new_shape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
         assert np.array_equal(b.numpy(), np_a.reshape(new_shape))
@@ -27,12 +27,12 @@ class TestReshape:
         dim = tp.Dim(runtime_value=4, min=3, opt=5, max=6)
         a = tp.ones((dim, 5, 6, 7))
         with helper.raises(NotImplementedError, match="Dynamic reshape is not supported"):
-            a = a.reshape((20, 3, 14))
+            a = tp.reshape(a, (20, 3, 14))
             print(a)
 
     def test_invalid_neg_dim_reshape(self):
         shape = (1, 30)
-        reshape = (-1, -1)
+        new_shape = (-1, -1)
         with helper.raises(tp.TripyException, match="Only one dimension can be -1."):
-            a = tp.ones(shape).reshape(reshape)
+            a = tp.reshape(tp.ones(shape), new_shape)
             print(a)

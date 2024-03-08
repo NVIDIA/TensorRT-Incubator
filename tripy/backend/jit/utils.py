@@ -1,7 +1,7 @@
 from typing import Dict, List, Sequence
 
 from tripy import utils
-from tripy.common.logging import logger
+from tripy.logging import logger
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
 from tripy.frontend.trace.ops import Storage

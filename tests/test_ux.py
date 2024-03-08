@@ -11,10 +11,10 @@ import requests
 
 import tripy as tp
 from tests import helper
+from tripy.utils.export import PUBLIC_APIS
 
 
 class TestReadme:
-
     @pytest.mark.parametrize("readme", helper.MARKDOWN_FILES)
     def test_links_valid(self, readme):
         MD_LINK_PAT = re.compile(r"\[.*?\]\((.*?)\)")
@@ -34,18 +34,28 @@ class TestReadme:
             else:
                 assert os.path.sep * 2 not in link, f"Duplicate slashes break links in GitHub. Link was: {link}"
                 SOURCE_TAG = "source:"
-                if link.startswith(SOURCE_TAG):
-                    _, _, link = link.partition(SOURCE_TAG)
+                PROJECT_REF_TAG = "project:"
+                if link.startswith(SOURCE_TAG) or link.startswith(PROJECT_REF_TAG):
+                    if link.startswith(SOURCE_TAG):
+                        _, _, link = link.partition(SOURCE_TAG)
 
-                    assert (
-                        link.startswith(os.path.sep) and os.path.pardir not in link
-                    ), f"All links to paths that are not markdown files must be absolute, but got: {link}"
+                        assert (
+                            link.startswith(os.path.sep) and os.path.pardir not in link
+                        ), f"All links to paths that are not markdown files must be absolute, but got: {link}"
+                    else:
+                        _, _, link = link.partition(PROJECT_REF_TAG)
+
+                        assert not link.startswith(
+                            os.path.sep
+                        ), f"All links to rendered markdown files must be relative, but got: {link}"
 
                 else:
                     # Omit `docs/README.md` since it's not part of the rendered documentation (but rather describes the documentation).
-                    assert ("docs/" not in readme or "docs/README.md" in readme) or link.endswith(
-                        ".md"
-                    ), f"For markdown files in the `docs/` directory, only links to markdown files can omit the leading {SOURCE_TAG}."
+                    assert "docs/" not in readme or "docs/README.md" in readme, (
+                        f"All links must include a leading '{SOURCE_TAG}' or {PROJECT_REF_TAG}."
+                        "Use the former to link to source files and the latter to link to other markdown files "
+                        "that are part of the *rendered* docs (for markdown files in the source code, use the former tag.)."
+                    )
 
                 if link.startswith(os.path.sep):
                     link_full_path = os.path.join(helper.ROOT_DIR, link.lstrip(os.path.sep))
@@ -72,22 +82,12 @@ class TestDocstrings:
 
         helper.exec_code(example_code)
 
+    @pytest.mark.parametrize("api", PUBLIC_APIS)
+    def test_all_public_apis_have_docstrings(self, api):
+        assert api.obj.__doc__, f"All public APIs must include docstrings but: {api.obj} has no docstring!"
+
 
 class TestMissingAttributes:
-    # When we try to access a missing attribute, tripy should issue a nice error
-    # if it exists under a different class/submodule.
-    @pytest.mark.parametrize(
-        "get_func, message",
-        [
-            (lambda: tp.exp, "tripy.Tensor.exp"),
-            (lambda: tp.softmax, "tripy.nn.softmax"),
-            (lambda: tp.nn.gather, "tripy.Tensor.gather"),
-        ],
-    )
-    def test_nice_error_for_similar_attributes(self, get_func, message):
-        with pytest.raises(AttributeError, match=f"Did you mean: '{message}'?"):
-            get_func()
-
     def test_no_inifinite_looping_for_invalid_attributes(self):
         with pytest.raises(AttributeError):
             tp.no_way_this_will_ever_be_a_real_function_name
@@ -96,7 +96,6 @@ class TestMissingAttributes:
         "get_func, message",
         [
             (lambda x: x.ones_like, "tripy.ones_like"),
-            (lambda x: x.softmax, "tripy.nn.softmax"),
         ],
     )
     def test_nice_error_for_tensor_attr(self, get_func, message):

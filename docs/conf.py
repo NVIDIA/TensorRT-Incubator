@@ -4,13 +4,13 @@ import sys
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pardir)
 sys.path.insert(0, ROOT_DIR)
 import contextlib
+import inspect
 import io
+import re
 from textwrap import dedent, indent
 
 import tripy as tp
 from tests import helper
-import inspect
-import re
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -145,8 +145,8 @@ def process_docstring(app, what, name, obj, options, lines):
         return (
             what in {"attribute", "module", "class"}
             or
-            # nn.Modules include examples in their constructors
-            (what == "method" and name.startswith("tripy.nn") and obj.__name__ == "__call__")
+            # Modules include examples in their constructors
+            (what == "method" and obj.__name__ == "__call__")
         )
 
     if not allow_no_example():
@@ -251,7 +251,7 @@ def process_docstring(app, what, name, obj, options, lines):
                     return ret
 
                 locals_str += f"\n>>> {name}"
-                if isinstance(obj, tp.nn.Module):
+                if isinstance(obj, tp.Module):
                     locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
                 elif isinstance(obj, dict):
                     locals_str += f"\n{pretty_str_from_dict(obj)}"

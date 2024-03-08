@@ -1,6 +1,6 @@
 import functools
 from tripy import utils
-from tripy.common.logging import logger
+from tripy.logging import logger
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.

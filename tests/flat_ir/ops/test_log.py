@@ -9,7 +9,7 @@ from tripy.flat_ir.ops import LogOp
 @pytest.fixture
 def flat_ir():
     tensor = tp.Tensor([1.0, 2.0], name="tensor")
-    out = tensor.log()
+    out = tp.log(tensor)
     out.name = "out"
 
     trace = Trace([out])
