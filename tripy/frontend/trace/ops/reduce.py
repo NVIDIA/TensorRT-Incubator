@@ -4,9 +4,8 @@ from typing import Optional, Sequence, Union
 
 from tripy import utils
 from tripy.common import datatype
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import make_list
+from tripy.utils import export, make_list
 
 
 @dataclass(repr=False)
@@ -41,10 +40,10 @@ class Reduce(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         import numpy as np
 
-        from tripy.flat_ir.ops import ConstantOp, ReduceOp
-        from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.array import Array
         from tripy.common.device import device
+        from tripy.flat_ir.ops import ConstantOp, ReduceOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
@@ -74,10 +73,10 @@ class ArgMinMax(Reduce):
     def to_flat_ir(self, inputs, outputs):
         import numpy as np
 
-        from tripy.flat_ir.ops import ConstantOp, ArgMinMaxOp
-        from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.array import Array
         from tripy.common.device import device
+        from tripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         init_val_const = FlatIRTensor.build(shape=[], dtype=inputs[0].dtype, device=outputs[0].device)
         init_idx_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
@@ -102,7 +101,8 @@ class ArgMinMax(Reduce):
 
 
 def _reduce_impl(self, kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
-    from tripy.frontend import Tensor
+    from tripy.frontend.tensor import Tensor
+    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
     out = Tensor.build([self], Reduce, dim, kind)
     if keepdim:
@@ -110,16 +110,105 @@ def _reduce_impl(self, kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bo
             # TODO(#96): Support dim=None, keepdim=True
             raise NotImplementedError("dim=None, keepdim=True is not supported yet.")
         for d in sorted(make_list(dim)):
-            out = out.unsqueeze(d)
+            out = unsqueeze(out, d)
 
     return out
 
 
+@export.public_api(document_under="tensor/reduction_operations")
+def sum(
+    input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
+) -> "tripy.Tensor":
+    """
+    Returns a new tensor containing the sum of the elements of the input tensor along the specified dimension.
+
+    Args:
+        input: The input tensor.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        A new tensor of the same data type as the input tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.sum(input, 0)
+
+        assert np.array_equal(output.numpy(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+    """
+    return _reduce_impl(input, Reduce.Kind.SUM, dim, keepdim)
+
+
+@export.public_api(document_under="tensor/reduction_operations")
+def max(
+    input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
+) -> "tripy.Tensor":
+    """
+    Returns a new tensor containing the maximum of the elements of the input tensor along the specified dimension.
+
+    Args:
+        input: The input tensor.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        A new tensor of the same data type as the input tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.max(input, 0)
+
+        assert np.array_equal(output.numpy(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+    """
+    return _reduce_impl(input, Reduce.Kind.MAX, dim, keepdim)
+
+
+@export.public_api(document_under="tensor/reduction_operations")
+def prod(
+    input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
+) -> "tripy.Tensor":
+    """
+    Returns a new tensor containing the product of the elements of the input tensor along the specified dimension.
+
+    Args:
+        input: The input tensor.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        A new tensor of the same data type as the input tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.prod(input, 0)
+
+        assert np.array_equal(output.numpy(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+    """
+    return _reduce_impl(input, Reduce.Kind.MUL, dim, keepdim)
+
+
 def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False, apply_to_divisor=None):
-    sum = tensor.sum(dim=dim, keepdim=keepdim)
+    from tripy.frontend.trace.ops.cast import cast
+
+    sum_val = sum(tensor, dim=dim, keepdim=keepdim)
     # compute number of elements in the array and divide by number of elements in dims
     input_shape = tensor.shape
-    nb_elements = input_shape.prod(dim=0, keepdim=True)
+    nb_elements = prod(input_shape, dim=0, keepdim=True)
     nb_elements_in_mean_dim = 1
 
     if dim is not None:
@@ -132,93 +221,18 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     if apply_to_divisor:
         divisor = apply_to_divisor(divisor)
 
-    return sum / (divisor.to(datatype.float32))
+    return sum_val / (cast(divisor, datatype.float32))
 
 
-@TENSOR_METHOD_REGISTRY("sum")
-def sum(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
+@export.public_api(document_under="tensor/reduction_operations")
+def mean(
+    input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
+) -> "tripy.Tensor":
     """
-    Returns a new tensor containing the sum of the elements of this tensor along the specified dimension.
+    Returns a new tensor containing the mean of the elements of the input tensor along the specified dimension.
 
     Args:
-        dim: The dimension or dimensions along which to reduce.
-            If this is not provided, all dimensions are reduced.
-        keepdim: Whether to retain reduced dimensions in the output.
-            If this is False, reduced dimensions will be squeezed.
-
-    Returns:
-        A new tensor of the same data type as this tensor.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.sum(0)
-
-        assert np.array_equal(output.numpy(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
-    """
-    return _reduce_impl(self, Reduce.Kind.SUM, dim, keepdim)
-
-
-@TENSOR_METHOD_REGISTRY("max")
-def max(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
-    """
-    Returns a new tensor containing the maximum of the elements of this tensor along the specified dimension.
-
-    Args:
-        dim: The dimension or dimensions along which to reduce.
-            If this is not provided, all dimensions are reduced.
-        keepdim: Whether to retain reduced dimensions in the output.
-            If this is False, reduced dimensions will be squeezed.
-
-    Returns:
-        A new tensor of the same data type as this tensor.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.max(0)
-
-        assert np.array_equal(output.numpy(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
-    """
-    return _reduce_impl(self, Reduce.Kind.MAX, dim, keepdim)
-
-
-@TENSOR_METHOD_REGISTRY("prod")
-def prod(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
-    """
-    Returns a new tensor containing the product of the elements of this tensor along the specified dimension.
-
-    Args:
-        dim: The dimension or dimensions along which to reduce.
-            If this is not provided, all dimensions are reduced.
-        keepdim: Whether to retain reduced dimensions in the output.
-            If this is False, reduced dimensions will be squeezed.
-
-    Returns:
-        A new tensor of the same data type as this tensor.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.prod(0)
-
-        assert np.array_equal(output.numpy(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
-    """
-    return _reduce_impl(self, Reduce.Kind.MUL, dim, keepdim)
-
-
-@TENSOR_METHOD_REGISTRY("mean")
-def mean(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False) -> "tripy.Tensor":
-    """
-    Returns a new tensor containing the mean of the elements of this tensor along the specified dimension.
-
-    Args:
+        input: The input tensor.
         dim: The dimension or dimensions along which to reduce.
             If this is not provided, all dimensions are reduced.
         keepdim: Whether to retain reduced dimensions in the output.
@@ -231,20 +245,20 @@ def mean(self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = 
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.mean(dim=1, keepdim=True)
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.mean(input, dim=1, keepdim=True)
 
         assert np.array_equal(output.numpy(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
     """
-    return mean_impl(self, dim, keepdim)
+    return mean_impl(input, dim, keepdim)
 
 
-@TENSOR_METHOD_REGISTRY("var")
+@export.public_api(document_under="tensor/reduction_operations")
 def var(
-    self, dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
+    input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
 ) -> "tripy.Tensor":
     r"""
-    Returns a new tensor containing the variance of the elements of this tensor along the specified dimension.
+    Returns a new tensor containing the variance of the elements of the input tensor along the specified dimension.
 
     The variance along a dimension is defined as:
 
@@ -254,6 +268,7 @@ def var(
     and :math:`\bar{x}` is the mean.
 
     Args:
+        input: The input tensor.
         dim: The dimension or dimensions along which to reduce.
             If this is not provided, all dimensions are reduced.
         keepdim: Whether to retain reduced dimensions in the output.
@@ -267,40 +282,45 @@ def var(
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.var(dim=1, keepdim=True)
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.var(input, dim=1, keepdim=True)
 
         torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
         assert np.array_equal(output.numpy(), torch_input.var(dim=1, keepdim=True).numpy())
     """
+    from tripy.frontend.trace.ops.binary_elementwise import maximum
 
-    mean = self.mean(dim=dim, keepdim=dim is not None)
-    sub = (self - mean) ** 2.0
-    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: (x - correction).maximum(0))
+    mean_val = mean(input, dim=dim, keepdim=dim is not None)
+    sub = (input - mean_val) ** 2.0
+    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: maximum(x - correction, 0))
 
 
 def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, keepdim: bool):
-    from tripy.frontend import Tensor, iota_like
+    from tripy.frontend.tensor import Tensor
+    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.frontend.trace.ops.iota import iota_like
+    from tripy.frontend.trace.ops.reshape import reshape
 
     if dim is None:
-        tensor = tensor.reshape((-1,))
+        tensor = reshape(tensor, (-1,))
     indices = iota_like(tensor, dim if dim else 0, datatype.int32)
     out = Tensor.build([tensor, indices], ArgMinMax, dim, kind)
     if keepdim:
         if dim is None:
             # TODO(#96): Support dim=None, keepdim=True
             raise NotImplementedError("dim=None, keepdim=True is not supported yet.")
-        out = out.unsqueeze(dim)
+        out = unsqueeze(out, dim)
     return out
 
 
-@TENSOR_METHOD_REGISTRY("argmax")
-def argmax(self, dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
+@export.public_api(document_under="tensor/reduction_operations")
+def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
-    Returns a new tensor containing the indices of maximum values of this tensor along the specified dimension.
+    Returns a new tensor containing the indices of maximum values of the input tensor along the specified dimension.
     If there are multiple maximum values, then the indices of the first maximum value are returned.
 
     Args:
+        input: The input tensor.
         dim: The dimension along which to reduce.
             If this is not provided, the argmax indice of the flattened input is returned.
         keepdim: Whether to retain reduced dimensions in the output.
@@ -313,21 +333,22 @@ def argmax(self, dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Ten
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.argmax(0)
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.argmax(input, 0)
 
         assert np.array_equal(output.numpy(), np.argmax(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
-    return _arg_min_max_impl(self, ArgMinMax.Kind.ARG_MAX, dim, keepdim)
+    return _arg_min_max_impl(input, ArgMinMax.Kind.ARG_MAX, dim, keepdim)
 
 
-@TENSOR_METHOD_REGISTRY("argmin")
-def argmin(self, dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
+@export.public_api(document_under="tensor/reduction_operations")
+def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
-    Returns a new tensor containing the indices of minimum values of this tensor along the specified dimension.
+    Returns a new tensor containing the indices of minimum values of the input tensor along the specified dimension.
     If there are multiple minimum values, then the indices of the first minimum value are returned.
 
     Args:
+        input: The input tensor.
         dim: The dimension along which to reduce.
             If this is not provided, the argmin indice of the flattened input is returned.
         keepdim: Whether to retain reduced dimensions in the output.
@@ -340,9 +361,9 @@ def argmin(self, dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Ten
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.argmin(0)
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.argmin(input, 0)
 
         assert np.array_equal(output.numpy(), np.argmin(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
-    return _arg_min_max_impl(self, ArgMinMax.Kind.ARG_MIN, dim, keepdim)
+    return _arg_min_max_impl(input, ArgMinMax.Kind.ARG_MIN, dim, keepdim)

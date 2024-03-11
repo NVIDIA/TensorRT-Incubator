@@ -1,6 +1,6 @@
 import tripy as tp
 from tests import helper
-from tripy.frontend.trace.ops.slice import Slice
+from tripy.frontend.trace.ops import Slice
 
 
 class TestSlice:

@@ -2,8 +2,8 @@ import numbers
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
+from tripy.utils import export
 from tripy.common import datatype
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -62,6 +62,7 @@ class Where(BaseTraceOp):
         SelectOp.build(inputs, outputs)
 
 
+@export.public_api(document_under="tensor")
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
@@ -98,18 +99,19 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
     return Tensor.build([condition, input, other], Where)
 
 
-@TENSOR_METHOD_REGISTRY("masked_fill")
-def masked_fill(self, mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
     Returns a new tensor filled with ``value`` where ``mask`` is ``True`` and elements from
-    this tensor otherwise.
+    the input tensor otherwise.
 
     Args:
+        input: The input tensor.
         mask: The mask tensor. This should have data type :class:`tripy.bool`.
-        value: the value to fill with. This will be casted to match the data type of this tensor.
+        value: the value to fill with. This will be casted to match the data type of the input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as this one.
+        A new tensor of the same shape and data type as the input tensor.
 
     .. code-block:: python
         :linenos:
@@ -119,11 +121,11 @@ def masked_fill(self, mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Ten
         mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
 
         input = tp.zeros([2, 2])
-        output = input.masked_fill(mask, -1.0)
+        output = tp.masked_fill(input, mask, -1.0)
 
         assert np.array_equal(output.numpy(), np.array([[-1, 0], [-1, -1]], dtype=np.float32))
     """
     from tripy.frontend.trace.ops.fill import full_like
 
-    fill_tensor = full_like(self, value)
-    return where(mask, fill_tensor, self)
+    fill_tensor = full_like(input, value)
+    return where(mask, fill_tensor, input)

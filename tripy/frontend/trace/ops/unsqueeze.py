@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
+import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
-import tripy.frontend.trace.ops.utils as op_utils
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -21,9 +21,9 @@ class Unsqueeze(BaseTraceOp):
         self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, DynamicBroadcastOp, SliceOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import int32
         from tripy.frontend.dim import Dim
 
         broadcast_dim = list(range(len(inputs[0].shape)))
@@ -85,27 +85,28 @@ class Unsqueeze(BaseTraceOp):
         )
 
 
-@TENSOR_METHOD_REGISTRY("unsqueeze")
-def unsqueeze(self, dim: int) -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
-    Returns a new tensor with the contents of this tensor with a
+    Returns a new tensor with the contents of the input tensor with a
     singleton dimension inserted at the specified position.
 
     Args:
+        input: The input tensor.
         dim: The index before which to insert the singleton dimension.
 
     Returns:
-        A new tensor of the same data type as this tensor.
+        A new tensor of the same data type as the input tensor.
 
     .. code-block:: python
         :linenos:
         :caption: Example
 
         input = tp.iota((2, 2), dtype=tp.float32)
-        output = input.unsqueeze(1)
+        output = tp.unsqueeze(input, 1)
 
         assert np.array_equal(output.numpy(), np.expand_dims(input.numpy(), 1))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Unsqueeze, dim)
+    return Tensor.build([input], Unsqueeze, dim)

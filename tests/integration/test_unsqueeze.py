@@ -30,7 +30,7 @@ class TestUnsqueezeOp:
         a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
 
         def func(a):
-            return a.unsqueeze(dim=axis)
+            return tp.unsqueeze(a, dim=axis)
 
         if use_jit:
             func = tp.jit(func)

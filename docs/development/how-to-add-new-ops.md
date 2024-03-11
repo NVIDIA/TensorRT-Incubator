@@ -1,6 +1,6 @@
 # Adding New Operators
 
-*You may find it helpful to read the [architecture](./architecture.md) documentation*
+*You may find it helpful to read the [architecture](project:./architecture.md) documentation*
     *before you start reading this guide.*
 
 Adding new operators to Tripy typically involves making changes in the frontend as well
@@ -60,7 +60,7 @@ class ThetaOp(BaseFlatIROp):
 ```
 
 Links:
-- [MLIR Python API Guide](./mlir-dialect-python-apis.md)
+- [MLIR Python API Guide](project:./mlir-dialect-python-apis.md)
 
 
 ### Exposing The Operator
@@ -157,7 +157,7 @@ class Theta(BaseTraceOp):
     **can update the documentation.**
 
 Links:
-- [FlatIR section in the architecture document](./architecture.md#lowering-to-flatir)
+- [FlatIR section in the architecture document](project:./architecture.md#lowering-to-flatir)
 
 
 ### Public API
@@ -166,6 +166,17 @@ Next, we can define the public interface. Since our public interface maps 1:1 wi
 operator we just implemented, we'll add it in the same file:
 
 ```py
+from tripy.utils import export
+
+# We can use the `export.public_api()` decorator to automatically export this function into the
+# top-level module. This means it will be accessible as `tripy.theta`.
+#
+# This decorator also controls how the API is exposed in the documentation - the `document_under`
+# option determines where in the documentation hierarchy this API will show up. In this case, since
+# it's an initialization op, we want to document it with the other initialization ops in `tensor/initialization`.
+#
+# If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
+@export.public_api(document_under="tensor/initialization")
 def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here
@@ -222,13 +233,22 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
     return Tensor.build([], Theta, dim, utils.to_dims(shape), dtype)
 ```
 
+<!--
+Need to simulate the `public_api()` call to make the tests work:
+```py
+import tripy
+tripy.theta = theta
+```
+ -->
+
+
 Links:
 - [Docs README](source:/docs/README.md#docstrings)
 
 
 ### Exposing The Operator
 
-Similarly to the `FlatIR` operator, we need to import `Theta` and `theta()` into the
+Similarly to the `FlatIR` operator, we need to import `Theta` into the
 `frontend.trace.ops` submodule. We can do so by adding the following line into
 [`tripy/frontend/trace/ops/__init__.py`](source:/tripy/frontend/trace/ops/__init__.py):
 
@@ -247,65 +267,6 @@ tripy.frontend.trace.ops.Theta = Theta
 tripy.frontend.trace.ops.theta = theta
 ```
  -->
-
-
-Since we want to expose the public interface into the top-level module so we can call it with
-`tp.theta`, we have to bubble it up through the submodules. Note that if we were instead exposing
-this as a method of `Tensor`, we would *not* need to do these steps.
-
-In [`tripy/frontend/__init__.py`](source:/tripy/frontend/__init__.py), add:
-
-<!-- Tripy Test: IGNORE Start -->
-
-```py
-from tripy.frontend.trace.ops import theta
-```
-<!-- Tripy Test: IGNORE End -->
-
-<!--
-Need to simulate the __init__.py changes to make the tests work:
-```py
-import tripy.frontend
-tripy.frontend.theta = theta
-```
- -->
-
-
-**Make sure to update the `__all__` variable so that the documentation displays**
-**the correct module names.**
-
-Then in [`tripy/__init__.py`](source:/tripy/__init__.py), add:
-
-<!-- Tripy Test: IGNORE Start -->
-
-```py
-from tripy.frontend import theta
-```
-<!-- Tripy Test: IGNORE End -->
-
-<!--
-Need to simulate the __init__.py changes to make the tests work:
-```py
-import tripy
-tripy.theta = theta
-```
- -->
-
-**Once again, make sure to update the `__all__` variable.**
-
-
-## Documentation
-
-Now that we've added the public API, let's make sure it appears in the documentation.
-In our example, the best place to document the API is in the
-[`tensor_initialization.rst` file](source:/docs/tensor/tensor_initialization.rst).
-
-All we need to do is add another entry there:
-```rst
-.. autofunction:: tripy.theta
-```
-
-See the [documentation README](source:/docs/README.md) for more details on the public documentation.
 
 ## Testing
 

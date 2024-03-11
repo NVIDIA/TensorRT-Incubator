@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -43,6 +44,7 @@ class Quantize(BaseTraceOp):
         )
 
 
+@export.public_api(document_under="tensor")
 def quantize(
     input: "tripy.Tensor",
     dtype: datatype,

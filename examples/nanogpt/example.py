@@ -65,13 +65,13 @@ def main():
 
     idx = torch.Tensor(input_ids).reshape((1, len(input_ids)))
     zeros = torch.zeros((1, args.max_new_tokens), dtype=torch.float32)
-    idx = tp.Tensor(torch.cat((idx, zeros), dim=1).to(torch.int32)).to(tp.device("gpu"))
+    idx = tp.copy(tp.Tensor(torch.cat((idx, zeros), dim=1).to(torch.int32)), tp.device("gpu"))
 
     def generate_attention_mask(input_tokens):
         # Check where input_tokens !=0 and fill with ones.
         zeros = tp.zeros_like(input_tokens)
         ones = tp.ones_like(input_tokens)
-        return tp.where(input_tokens == 0, zeros, ones).to(tp.float32).reshape((1, 1, 1, padded_seq_len))
+        return tp.reshape(tp.cast(tp.where(input_tokens == 0, zeros, ones), tp.float32), (1, 1, 1, padded_seq_len))
 
     generator = None
     if args.seed is not None:

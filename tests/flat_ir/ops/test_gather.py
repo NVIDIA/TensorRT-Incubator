@@ -8,7 +8,7 @@ class TestGatherOp:
     def test_gather_str(self):
         data = tp.Tensor([3.0, 4.0], name="data")
         index = tp.Tensor([0], dtype=int32, name="indices")
-        out = data.gather(0, index)
+        out = tp.gather(data, 0, index)
         out.name = "out"
 
         trace = Trace([out])

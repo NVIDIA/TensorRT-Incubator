@@ -29,6 +29,6 @@ def load_weights_from_hf(model, model_type):
         if any(key.endswith(w) for w in transposed):
             with torch.no_grad():
                 weight = hf_state_dict[key].t().contiguous()
-        tripy_state_dict[key] = tp.nn.Parameter(weight)
+        tripy_state_dict[key] = tp.Parameter(weight)
 
     model.load_from_state_dict(tripy_state_dict)

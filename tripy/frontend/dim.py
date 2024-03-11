@@ -3,6 +3,7 @@ from typing import Any, Callable, Dict, Optional
 
 from tripy import utils
 from tripy.common.exception import raise_error
+from tripy.utils import export
 from tripy.utils.json import Decoder, Encoder
 
 
@@ -24,6 +25,7 @@ def validate_profile(method: Callable) -> Callable:
     return wrapper
 
 
+@export.public_api()
 class Dim:
     """
     Represents the size of a dimension along with the range of values it can take.

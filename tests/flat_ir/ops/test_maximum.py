@@ -7,7 +7,7 @@ class TestMaxOp:
     def test_str(self):
         a = tp.Tensor([3.0, 4.0], name="a")
         b = tp.Tensor([5.0, 2.0], name="b")
-        out = a.maximum(b)
+        out = tp.maximum(a, b)
         out.name = "out"
 
         trace = Trace([out])

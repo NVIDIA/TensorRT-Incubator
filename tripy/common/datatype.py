@@ -1,5 +1,6 @@
 from typing import Any, Dict
 
+from tripy.utils import export
 from tripy.utils.json import Decoder, Encoder
 
 # A dictionary to store data types
@@ -9,7 +10,12 @@ DATA_TYPES = {}
 # We include a metaclass here so we can control how the class type is printed.
 # The default would be something like: `<class 'abc.float32'>`. With the metaclass,
 # we can print it as `float32`
+@export.public_api(document_under="datatype.rst")
 class dtype(type):
+    """
+    The base type for all data types supported by tripy.
+    """
+
     def __str__(cls):
         return cls.name
 
@@ -30,7 +36,9 @@ __all__ = ["dtype"]
 
 
 def _make_datatype(name, itemsize, docstring):
-    DATA_TYPES[name] = type(name, (BaseDtype,), {"name": name, "itemsize": itemsize, "__doc__": docstring})
+    DATA_TYPES[name] = export.public_api(
+        document_under="datatype.rst", autodoc_options=[":no-show-inheritance:"], include_heading=False
+    )(type(name, (BaseDtype,), {"name": name, "itemsize": itemsize, "__doc__": docstring}))
     __all__.append(name)
     return DATA_TYPES[name]
 

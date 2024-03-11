@@ -8,17 +8,22 @@ file. For example, `Module` and `Parameter` are both documented under `nn.rst`.
 
 You can build the documentation locally in the development container by running:
 ```bash
-sphinx-build docs build/docs -j 6 -W
+python3 docs/generate_rsts.py
+sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
 ```
 To view the documentation, you can open `build/docs/index.html` in a browser.
 
 ## Adding Documentation
 
-To add documentation for a new class or function, find the appropriate `.rst` file in
-`docs/` or add a new one if none of the existing files are appropriate.
-If you added a new file, update `docs/index.rst` to include it.
+### How It Works
 
-Each `.rst` file will render as a separate page.
+The `export.public_api()` decorator allows you to specify metadata for documentation
+generation, such as where in the documentation hierarchy the API should be documented.
+
+The `generate_rsts.py` script uses this information to automatically generate a directory
+structure and populate it with `.rst` files.
+
+For more information, see the docstring for [`export.public_api()`](../tripy/utils/export.py).
 
 ### Docstrings
 
@@ -76,5 +81,5 @@ files and parsed by the Myst parser. This means we need to make some special con
     Myst can replace them with URLs to our remote repository. Otherwise, the links will
     cause the relevant file to be downloaded.
 
-    Links to markdown files are an exception; if a markdown file is linked without `source:`,
-    it will point to the corresponding page in the rendered documentation (if present).
+    Links to markdown files are an exception; if a markdown file is part of the *rendered*
+    documentation, it should be linked to using the `project:` tag instead.

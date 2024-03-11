@@ -11,8 +11,8 @@ _BINARY_OPS = [
     (BinaryElementwise.Kind.POW, lambda a, b: a**b),
     (BinaryElementwise.Kind.MUL, lambda a, b: a * b),
     (BinaryElementwise.Kind.DIV, lambda a, b: a / b),
-    (BinaryElementwise.Kind.MAXIMUM, lambda a, b: a.maximum(b) if isinstance(a, tp.Tensor) else b.maximum(a)),
-    (BinaryElementwise.Kind.MINIMUM, lambda a, b: a.minimum(b) if isinstance(a, tp.Tensor) else b.minimum(a)),
+    (BinaryElementwise.Kind.MAXIMUM, lambda a, b: tp.maximum(a, b)),
+    (BinaryElementwise.Kind.MINIMUM, lambda a, b: tp.minimum(a, b)),
 ]
 
 _COMPARISON_OPS = [

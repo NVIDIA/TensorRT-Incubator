@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -21,6 +22,7 @@ class Dequantize(BaseTraceOp):
         DequantizeOp.build(inputs, outputs)
 
 
+@export.public_api(document_under="tensor")
 def dequantize(
     input: "tripy.Tensor",
     dtype: datatype,

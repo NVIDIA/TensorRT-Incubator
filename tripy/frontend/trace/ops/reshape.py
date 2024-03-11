@@ -5,8 +5,8 @@ import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -75,39 +75,41 @@ class Squeeze(Reshape):
         super().infer_shapes()
 
 
-@TENSOR_METHOD_REGISTRY("reshape")
-def reshape(self, shape: ShapeInfo) -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
     """
-    Returns a new tensor with the contents of this one in the specified shape.
+    Returns a new tensor with the contents of the input tensor in the specified shape.
 
     Args:
+        input: The input tensor.
         shape: The desired compatible shape. If a shape dimension is -1, its value
         is inferred based on the other dimensions and the number of elements in the input.
         Atmost one dimension can be -1.
 
     Returns:
-        A new tensor of the same data type as this one and the specified shape.
+        A new tensor of the same data type as the input tensor and the specified shape.
 
     .. code-block:: python
         :linenos:
         :caption: Example
 
         input = tp.iota((2, 3), dtype=tp.float32)
-        output = input.reshape((1, 6))
+        output = tp.reshape(input, (1, 6))
 
         assert np.array_equal(output.numpy(), np.reshape(input.numpy(), (1, 6)))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Reshape, shape)
+    return Tensor.build([input], Reshape, shape)
 
 
-@TENSOR_METHOD_REGISTRY("squeeze")
-def squeeze(self, dims: Union[Tuple, int] = None) -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Tensor":
     """
-    Returns a new tensor with all specified singleton dimensions of this tensor removed.
+    Returns a new tensor with all specified singleton dimensions of the input tensor removed.
 
     Args:
+        input: The input tensor.
         dims: The singleton dimensions to be removed.
               If this is not provided, all dimensions of size 1 are removed.
 
@@ -115,27 +117,37 @@ def squeeze(self, dims: Union[Tuple, int] = None) -> "tripy.Tensor":
         TripyException: If any of the specified dimensions have a size that is not equal to 1.
 
     Returns:
-        A new tensor of the same data type as this one.
+        A new tensor of the same data type as the input tensor.
 
     .. code-block:: python
         :linenos:
-        :caption: Example
+        :caption: Squeeze All Dimensions
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
-        # Squeeze all dimensions:
-        squeeze_all = input.squeeze()
-        # Squeeze only the first dimension:
-        squeeze_0 = input.squeeze(0)
-        # Squeeze the first and third dimensions:
-        squeeze_0_2 = input.squeeze((0, 2))
+        output = tp.squeeze(input)
+        assert np.array_equal(output.numpy(), np.squeeze(input.numpy()))
 
-        assert np.array_equal(squeeze_all.numpy(), np.squeeze(input.numpy()))
-        assert np.array_equal(squeeze_0.numpy(), np.squeeze(input.numpy(), 0))
-        assert np.array_equal(squeeze_0_2.numpy(), np.squeeze(input.numpy(), (0, 2)))
+
+    .. code-block:: python
+        :linenos:
+        :caption: Squeeze First Dimension
+
+        input = tp.iota((1, 2, 1), dtype=tp.float32)
+        output = tp.squeeze(input, 0)
+        assert np.array_equal(output.numpy(), np.squeeze(input.numpy(), 0))
+
+    .. code-block:: python
+        :linenos:
+        :caption: Squeeze First And Third Dimension
+
+        input = tp.iota((1, 2, 1), dtype=tp.float32)
+        output = tp.squeeze(input, (0, 2))
+
+        assert np.array_equal(output.numpy(), np.squeeze(input.numpy(), (0, 2)))
     """
     from tripy.frontend import Tensor
 
     if isinstance(dims, int):
         dims = utils.make_tuple(dims)
 
-    return Tensor.build([self], Squeeze, None, dims)
+    return Tensor.build([input], Squeeze, None, dims)

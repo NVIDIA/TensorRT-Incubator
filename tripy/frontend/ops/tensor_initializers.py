@@ -1,16 +1,17 @@
 import math
 import numbers
+from typing import Optional
 
-from tripy import utils
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.fill import full, full_like
 from tripy.frontend.trace.ops.iota import iota, iota_like
 from tripy.frontend.trace.ops.where import where
+from tripy.utils import export
 
 
+@export.public_api(document_under="tensor/initialization")
 def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 1.
@@ -29,10 +30,13 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.T
         output = tp.ones([2, 3])
 
         assert np.array_equal(output.numpy(), np.ones([2, 3], dtype=np.float32))
+
+    .. seealso:: :func:`ones_like`, :func:`full`
     """
     return full(shape, 1, dtype)
 
 
+@export.public_api(document_under="tensor/initialization")
 def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 0.
@@ -51,11 +55,14 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.
         output = tp.zeros([2, 3])
 
         assert np.array_equal(output.numpy(), np.zeros([2, 3], dtype=np.float32))
+
+    .. seealso:: :func:`zeros_like`, :func:`full`
     """
     return full(shape, 0, dtype)
 
 
-def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Tensor":
+@export.public_api(document_under="tensor/initialization")
+def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Creates a tensor with all elements set to 1 of the same shape as the input tensor.
 
@@ -74,11 +81,14 @@ def ones_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Ten
         output = tp.ones_like(input)
 
         assert np.array_equal(output.numpy(), np.ones([2, 3], dtype=np.float32))
+
+    .. seealso:: :func:`ones`, :func:`full_like`
     """
     return full_like(input, 1, dtype)
 
 
-def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Tensor":
+@export.public_api(document_under="tensor/initialization")
+def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Creates a Tensor with all elements set to 0 of the same shape as the input tensor.
 
@@ -97,11 +107,13 @@ def zeros_like(input: "tripy.Tensor", dtype: datatype.dtype = None) -> "tripy.Te
         output = tp.zeros_like(input)
 
         assert np.array_equal(output.numpy(), np.zeros([2, 3], dtype=np.float32))
+
+    .. seealso:: :func:`zeros`, :func:`full_like`
     """
     return full_like(input, 0, dtype)
 
 
-@TENSOR_METHOD_REGISTRY("tril")
+@export.public_api(document_under="tensor/initialization")
 def tril(self, diagonal: int = 0) -> "tripy.Tensor":
     r"""
     Returns the lower triangular part of each :math:`[M, N]` matrix in the tensor, with all other elements set to 0.
@@ -123,7 +135,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
         :caption: Main Diagonal
 
         input = tp.iota((5, 5)) + 1.
-        output = input.tril()
+        output = tp.tril(input)
 
         assert np.array_equal(output.numpy(), np.tril(input.numpy()))
 
@@ -132,7 +144,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
         :caption: Two Diagonals Above Main
 
         input = tp.iota((5, 5)) + 1. # doc: omit
-        output = input.tril(diagonal=2)
+        output = tp.tril(input, diagonal=2)
 
         assert np.array_equal(output.numpy(), np.tril(input.numpy(), 2))
 
@@ -141,7 +153,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
         :caption: One Diagonal Below Main
 
         input = tp.iota((5, 5)) + 1. # doc: omit
-        output = input.tril(diagonal=-1)
+        output = tp.tril(input, diagonal=-1)
 
         assert np.array_equal(output.numpy(), np.tril(input.numpy(), -1))
     """
@@ -152,11 +164,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
     return where(tri_mask, self, zeros_tensor)
 
 
-# Used for overloading
-ARANGE_REGISTRY = utils.FunctionRegistry()
-
-
-@ARANGE_REGISTRY("arange")
+@export.public_api(document_under="tensor/initialization")
 def arange(
     start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
 ) -> "tripy.Tensor":
@@ -204,7 +212,7 @@ def arange(
     return output
 
 
-@ARANGE_REGISTRY("arange")
+@export.public_api(document_under="tensor/initialization")
 def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
@@ -227,6 +235,3 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
         assert (output.numpy() == np.arange(5, dtype=np.float32)).all()
     """
     return arange(0, stop, dtype=dtype)
-
-
-arange = ARANGE_REGISTRY["arange"]

@@ -7,7 +7,7 @@ import re
 class TestReduceOp:
     def test_sum_str(self):
         inp = tp.Tensor([[1, 2], [3, 4]], name="inp")
-        out = inp.sum(0)
+        out = tp.sum(inp, 0)
         out.name = "out"
 
         trace = Trace([out])
@@ -22,7 +22,7 @@ class TestReduceOp:
 
     def test_max_str(self):
         inp = tp.Tensor([[1, 2], [3, 4]], name="inp")
-        out = inp.max(0)
+        out = tp.max(inp, 0)
         out.name = "out"
 
         trace = Trace([out])
@@ -37,7 +37,7 @@ class TestReduceOp:
 
     def test_mean_str(self):
         inp = tp.Tensor([[1.0, 2.0], [3.0, 4.0]], dtype=tp.float32, name="inp")
-        out = inp.mean(0)
+        out = tp.mean(inp, 0)
         out.name = "out"
 
         trace = Trace([out])
@@ -71,7 +71,7 @@ class TestReduceOp:
 
     def test_argmax_str(self):
         inp = tp.Tensor([[1, 2], [3, 4]], name="inp")
-        out = inp.argmax(0)
+        out = tp.argmax(inp, 0)
         out.name = "out"
 
         trace = Trace([out])
@@ -86,7 +86,7 @@ class TestReduceOp:
 
     def test_argmin_str(self):
         inp = tp.Tensor([[1, 2], [3, 4]], name="inp")
-        out = inp.argmin(0)
+        out = tp.argmin(inp, 0)
         out.name = "out"
 
         trace = Trace([out])

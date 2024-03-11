@@ -1,6 +1,6 @@
 import tripy as tp
 from tests import helper
-from tripy.frontend.trace.ops.where import Where
+from tripy.frontend.trace.ops import Where
 
 
 class TestWhere:
@@ -51,14 +51,14 @@ class TestMaskedFill:
         a = tp.Tensor([0, 1, 0, 1])
         b = tp.Tensor([0, 0, 1, 0])
         mask = a == b
-        a = a.masked_fill(mask, -1)
+        a = tp.masked_fill(a, mask, -1)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Where)
 
     def test_condition_is_not_bool(self):
         a = tp.Tensor([0, 1, 0, 1])
         mask = tp.Tensor([1.0, 2.0, 3.0, 4.0])
-        b = a.masked_fill(mask, -1)
+        b = tp.masked_fill(a, mask, -1)
 
         with helper.raises(
             tp.TripyException, match="Condition input must have boolean type.", has_stack_info_for=[a, mask, b]

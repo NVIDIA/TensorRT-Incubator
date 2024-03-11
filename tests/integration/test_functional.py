@@ -10,7 +10,7 @@ from tripy.backend.utils import get_tensor_info
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
 from tripy.frontend.trace import Trace
-from tripy.common import logger
+from tripy.logging import logger
 
 
 class TestFunctional:
@@ -156,9 +156,9 @@ class TestFunctional:
             torch_linear = torch.nn.Linear(2, 3)
             torch_out = torch_linear(inp)
 
-            tripy_linear = tp.nn.Linear(2, 3)
-            tripy_linear.weight = tp.nn.Parameter(tp.Tensor(torch_linear.weight))
-            tripy_linear.bias = tp.nn.Parameter(tp.Tensor(torch_linear.bias))
+            tripy_linear = tp.Linear(2, 3)
+            tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight))
+            tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias))
 
             tripy_out = tripy_linear(tp.Tensor(inp))
 
@@ -170,23 +170,23 @@ class TestCopyFunctional:
     @pytest.mark.parametrize("dst", ["cpu", "gpu"])
     def test_single_copy(self, src, dst):
         a = tp.Tensor([1, 2], device=tp.device(src))
-        out = a.to(tp.device(dst))
+        out = tp.copy(a, tp.device(dst))
         out = out.eval()
         assert out.device.kind == dst
         assert out.view().tolist() == [1, 2]
 
     def test_multiple_copy_1(self):
         a = tp.Tensor([1, 2])
-        a = a.to(tp.device("gpu"))
-        a = a.to(tp.device("cpu"))
+        a = tp.copy(a, tp.device("gpu"))
+        a = tp.copy(a, tp.device("cpu"))
         out = a.eval()
         assert out.device.kind == "cpu"
         assert out.view().tolist() == [1, 2]
 
     def test_multiple_copy_2(self):
         a = tp.Tensor([1, 2])
-        a = a.to(tp.device("cpu"))
-        a = a.to(tp.device("gpu"))
+        a = tp.copy(a, tp.device("cpu"))
+        a = tp.copy(a, tp.device("gpu"))
         out = a.eval()
         assert out.device.kind == "gpu"
         assert out.view().tolist() == [1, 2]
@@ -197,7 +197,7 @@ class TestCopyFunctional:
 
         @tp.jit
         def func(x):
-            x = x.to(tp.device(dst))
+            x = tp.copy(x, tp.device(dst))
             return x
 
         out = func(a)
@@ -210,8 +210,8 @@ class TestCopyFunctional:
 
         @tp.jit
         def func(x):
-            x = x.to(tp.device("cpu"))
-            x = x.to(tp.device("gpu"))
+            x = tp.copy(x, tp.device("cpu"))
+            x = tp.copy(x, tp.device("gpu"))
             return x
 
         out = func(a)
@@ -224,8 +224,8 @@ class TestCopyFunctional:
 
         @tp.jit
         def func(x):
-            x = x.to(tp.device("gpu"))
-            x = x.to(tp.device("cpu"))
+            x = tp.copy(x, tp.device("gpu"))
+            x = tp.copy(x, tp.device("cpu"))
             return x
 
         out = func(a)
@@ -237,7 +237,7 @@ class TestCopyFunctional:
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])
         out = a + b
-        out = out.to(tp.device("cpu"))
+        out = tp.copy(out, tp.device("cpu"))
         out = out.eval()
         assert out.device.kind == "cpu"
         assert out.view().tolist() == [3, 5]
@@ -249,7 +249,7 @@ class TestCopyFunctional:
         @tp.jit
         def func(x, y):
             out = x + y
-            out = out.to(tp.device("cpu"))
+            out = tp.copy(out, tp.device("cpu"))
             return out
 
         out = func(a, b)

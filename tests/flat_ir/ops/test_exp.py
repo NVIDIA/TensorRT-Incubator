@@ -5,7 +5,7 @@ from tripy.flat_ir.ops import ExpOp
 
 class TestExpOp:
     def test_str(self):
-        out = tp.Tensor([1.0, 1.0], name="inp").exp()
+        out = tp.exp(tp.Tensor([1.0, 1.0], name="inp"))
         out.name = "out"
 
         trace = Trace([out])

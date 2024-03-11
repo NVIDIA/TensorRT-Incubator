@@ -206,7 +206,7 @@ class TestJIT:
         random_data = np.random.rand(3, 4).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
-        class Dummy(tp.nn.Module):
+        class Dummy(tp.Module):
             def __init__(self):
                 super().__init__()
 
@@ -214,10 +214,10 @@ class TestJIT:
                 print("Dummy call")
                 return x
 
-        class Network(tp.nn.Module):
+        class Network(tp.Module):
             def __init__(self):
                 super().__init__()
-                self.linear = tp.frontend.nn.Linear(4, 2)
+                self.linear = tp.Linear(4, 2)
                 self.dummy = Dummy()
 
             def __call__(self, x):
@@ -296,7 +296,7 @@ class TestJIT:
         def call_without_jit(self, a, b):
             return a * b
 
-        class Inner(tp.nn.Module):
+        class Inner(tp.Module):
             def __init__(self):
                 super().__init__()
 
@@ -308,7 +308,7 @@ class TestJIT:
             # Directly replace the __call__ method for this test case
             Inner.__call__ = call_without_jit
 
-        class Outer(tp.nn.Module):
+        class Outer(tp.Module):
             def __init__(self):
                 super().__init__()
                 self.mul = Inner()

@@ -2,8 +2,8 @@ from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -45,18 +45,19 @@ class Gather(BaseTraceOp):
         GatherOp.build(inputs, outputs, self.axis)
 
 
-@TENSOR_METHOD_REGISTRY("gather")
-def gather(self, dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """
-    Gather values from this tensor along the specified axis based on the specified indices.
+    Gather values from the input tensor along the specified axis based on the specified indices.
     This behaves similarly to ``numpy.take()``.
 
     Args:
+        input: The input tensor
         dim: Axis along which data is gathered.
         index: The indices of elements to gather.
 
     Returns:
-        A new tensor of the same data type as this tensor and same shape along every
+        A new tensor of the same data type as the input tensor and same shape along every
         dimension except ``dim``, which will have a size equal to ``len(index)``.
 
     .. code-block:: python
@@ -65,10 +66,10 @@ def gather(self, dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
 
         data = tp.iota((3, 2, 2))
         indices = tp.Tensor([0, 2], dtype=tp.int32)
-        output = data.gather(0, indices)
+        output = tp.gather(data, 0, indices)
 
         assert np.array_equal(output.numpy(), np.take(data.numpy(), indices.numpy(), axis=0))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self, index], Gather, dim)
+    return Tensor.build([input, index], Gather, dim)

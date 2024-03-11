@@ -2,19 +2,19 @@ import numpy as np
 
 import tripy as tp
 from tests import helper
-from tripy.frontend.trace.ops.reshape import Reshape, Squeeze
+from tripy.frontend.trace.ops import Reshape, Squeeze
 
 
 class TestReshape:
     def test_op_func(self):
         a = tp.Tensor([1, 2, 3, 4])
-        a = a.reshape((1, 1, 4))
+        a = tp.reshape(a, (1, 1, 4))
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Reshape)
 
     def test_neg_dim_func(self):
         a = tp.Tensor([1, 2, 3, 4])
-        a = a.reshape((1, 1, -1))
+        a = tp.reshape(a, (1, 1, -1))
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Reshape)
 
@@ -22,13 +22,13 @@ class TestReshape:
 class TestSqueeze:
     def test_op_func(self):
         a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
-        a = a.squeeze()
+        a = tp.squeeze(a)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Squeeze)
 
     def test_incorrect_dims(self):
         a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
-        b = a.squeeze(2)
+        b = tp.squeeze(a, 2)
 
         with helper.raises(
             tp.TripyException,

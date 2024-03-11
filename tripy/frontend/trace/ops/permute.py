@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.utils import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -53,55 +53,57 @@ class Transpose(Permute):
         return super().infer_shapes()
 
 
-@TENSOR_METHOD_REGISTRY("transpose")
-def transpose(self, dim0: int, dim1: int) -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     """
-    Returns a new tensor that is a transposed version of this one where
+    Returns a new tensor that is a transposed version of the input tensor where
     ``dim0`` and ``dim1`` are swapped.
 
     Args:
+        input: The input tensor.
         dim0: The first dimension to be transposed.
         dim1: The second dimension to be transposed.
 
     Returns:
-        A new tensor of the same data type as this tensor.
+        A new tensor of the same data type as the input tensor.
 
     .. code-block:: python
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.transpose(0, 1)
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.transpose(input, 0, 1)
 
         assert np.array_equal(output.numpy(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Transpose, None, dim0, dim1)
+    return Tensor.build([input], Transpose, None, dim0, dim1)
 
 
-@TENSOR_METHOD_REGISTRY("permute")
-def permute(self, perm: Sequence[int]) -> "tripy.Tensor":
+@export.public_api(document_under="tensor")
+def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
     """
     Returns a tensor with its dimensions permuted.
 
     Args:
+        input: The input tensor.
         perm: The desired ordering of dimensions.
               It must contain all integers in :math:`[0..N-1]` exactly once,
-              where :math:`N` is the rank of this tensor.
+              where :math:`N` is the rank of the input tensor.
 
     Returns:
-        A new tensor of the same data type as this tensor.
+        A new tensor of the same data type as the input tensor.
 
     .. code-block:: python
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, dtype=tp.float32).reshape((2, 3))
-        output = input.permute((1, 0))
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
+        output = tp.permute(input, (1, 0))
 
         assert np.array_equal(output.numpy(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Permute, perm)
+    return Tensor.build([input], Permute, perm)

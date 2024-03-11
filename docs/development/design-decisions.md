@@ -16,9 +16,9 @@ increase the API surface. In Tripy, we only expose `tripy.nn.softmax`. Trying to
 result in a (helpful) error message:
 
 ```
->>> tp.softmax
+>>> tp.Tensor([1, 2, 3]).gather
 ...
-AttributeError: Module: 'tripy' does not have attribute: 'softmax'. Did you mean: 'tripy.nn.softmax'?
+AttributeError: Module: 'tripy.Tensor' does not have attribute: 'gather'. Did you mean: 'tripy.gather'?
 ```
 
 

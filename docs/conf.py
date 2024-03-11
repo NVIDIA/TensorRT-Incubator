@@ -4,13 +4,15 @@ import sys
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pardir)
 sys.path.insert(0, ROOT_DIR)
 import contextlib
+import inspect
 import io
+import re
 from textwrap import dedent, indent
 
 import tripy as tp
 from tests import helper
-import inspect
-import re
+
+TAB_SIZE = 4
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -145,8 +147,8 @@ def process_docstring(app, what, name, obj, options, lines):
         return (
             what in {"attribute", "module", "class"}
             or
-            # nn.Modules include examples in their constructors
-            (what == "method" and name.startswith("tripy.nn") and obj.__name__ == "__call__")
+            # Modules include examples in their constructors
+            (what == "method" and obj.__name__ == "__call__")
         )
 
     if not allow_no_example():
@@ -190,7 +192,7 @@ def process_docstring(app, what, name, obj, options, lines):
             out = (
                 indent(
                     f"\n\n.. code-block:: python\n"
-                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * 4),
+                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * TAB_SIZE),
                     prefix=" " * (indentation - 4),
                 )
                 + "\n\n"
@@ -246,12 +248,12 @@ def process_docstring(app, what, name, obj, options, lines):
                         return r"{}"
                     ret = "{\n"
                     for key, value in dct.items():
-                        ret += indent(f"{key}: {value},\n", prefix=" " * 4)
+                        ret += indent(f"{key}: {value},\n", prefix=" " * TAB_SIZE)
                     ret += "}"
                     return ret
 
                 locals_str += f"\n>>> {name}"
-                if isinstance(obj, tp.nn.Module):
+                if isinstance(obj, tp.Module):
                     locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
                 elif isinstance(obj, dict):
                     locals_str += f"\n{pretty_str_from_dict(obj)}"
@@ -281,8 +283,14 @@ def process_docstring(app, what, name, obj, options, lines):
         # Put the entire code block + output under a collapsible section to save space.
         line = code_block_lines[0]
         indentation = len(line) - len(line.lstrip())
-        lines.extend(indent(f"\n.. collapse:: {caption}\n\n", prefix=" " * indentation).splitlines())
-        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * 4).splitlines()
+        default_open = what != "method" and what != "property"
+        lines.extend(
+            indent(
+                f"\n.. collapse:: {caption}" + (("\n" + (" " * TAB_SIZE) + ":open:") if default_open else "") + "\n\n",
+                prefix=" " * indentation,
+            ).splitlines()
+        )
+        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * TAB_SIZE).splitlines()
         lines.extend(code_block_lines)
 
 

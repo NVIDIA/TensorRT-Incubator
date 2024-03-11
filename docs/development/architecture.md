@@ -63,7 +63,7 @@ To understand these components better, let's take a look at what happens when we
 program like:
 ```py
 inp = tp.full((2, 3), value=0.5)
-out = inp.tanh()
+out = tp.tanh(inp)
 out.eval()
 ```
 
@@ -75,12 +75,13 @@ We'll start with the first line:
 inp = tp.full((2, 3), value=0.5)
 ```
 
-#### Where Does `tp.full()` Come From?
+#### Where Do `tp.full()` and `tp.tanh()` Come From?
 
-The `tp.full()` API is part of the frontend and like other frontend functions, maps to one or more
+The `tp.full()` and `tp.tanh()` APIs are part of the frontend and like other frontend functions, map to one or more
 (just one in this case) `Trace` operations. For frontend functions that map to exactly one `Trace` operation,
 we define the function directly alongside the corresponding `Trace` operation.
-In this case, the [`Fill` operation](source:/tripy/frontend/trace/ops/fill.py) provides `tp.full()`.
+In this case, the [`Fill` operation](source:/tripy/frontend/trace/ops/fill.py) provides `tp.full()` and
+the [`UnaryElementwise` operation](source:/tripy/frontend/trace/ops/unary_elementwise.py) provides `tp.tanh()`.
 
 *We organize it this way to reduce the number of files that need to be touched when adding new ops.*
     *If an operation is composed of multiple `Trace` operations, the frontend function can be*
@@ -89,34 +90,13 @@ In this case, the [`Fill` operation](source:/tripy/frontend/trace/ops/fill.py) p
 #### What Does It Do?
 
 Tripy uses a lazy evaluation model; that means that computation doesn't happen immediately when you call a function
-like `tp.full()`. Instead, all we do is create a frontend `Tensor` object which contains a `Trace` operation.
+like `tp.full()` or `tp.tanh()`. Instead, all we do is create a frontend `Tensor` object which contains a `Trace` operation.
 The `Trace` operation includes inputs and outputs in the form of `TraceTensor`s and is essentially just a symbolic
 representation of the computation that needs to be done.
 
 As we call other functions that use this frontend `Tensor`, we connect new `Trace` operations to its output
 `TraceTensor`s. You can think of this as iteratively building up an implicit graph.
 
-#### Calling `tanh()`
-
-The next line looks fairly innocuous:
-```py
-out = inp.tanh()
-```
-However, if you look at the [source code](source:/tripy/frontend/tensor.py) for the frontend `Tensor`, you'll
-notice that there is no `tanh()` method defined there! How does that work?
-
-We implement a [`TENSOR_METHOD_REGISTRY`](source:/tripy/frontend/ops/registry.py) mechanism that allows us
-to define `Tensor` methods out-of-line by decorating our functions with this registry:
-
-<!-- Tripy Test: IGNORE Start -->
-```py
-@TENSOR_METHOD_REGISTRY("tanh")
-def tanh(self) -> "tripy.Tensor":
-    ...
-```
-<!-- Tripy Test: IGNORE End -->
-
-In `Tensor`'s metaclass, we read the registry and dynamically add methods to the `Tensor` class accordingly.
 
 #### The Implicit Frontend Graph
 

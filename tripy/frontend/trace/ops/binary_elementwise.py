@@ -6,6 +6,7 @@ import tripy.frontend.utils as frontend_utils
 from tripy.common import datatype
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -354,15 +355,16 @@ def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.DIV)
 
 
-@TENSOR_METHOD_REGISTRY("maximum")
+@export.public_api(document_under="tensor")
 @frontend_utils.convert_inputs_to_tensors()
-def maximum(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise maximum.
 
     Args:
-        other: The tensor to compute the maximum operation with.
-            It must have the same data type as this tensor
+        lhs: The first input tensor.
+        rhs: The second input tensor.
+            It must have the same data type as the first input
             and should be broadcast-compatible.
 
     Returns:
@@ -374,24 +376,25 @@ def maximum(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         a = tp.Tensor([1.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
-        output = a.maximum(b)
+        output = tp.maximum(a, b)
 
         assert np.array_equal(output.numpy(), np.array([2.0, 6.0]))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.MAXIMUM)
+    return Tensor.build([lhs, rhs], BinaryElementwise, BinaryElementwise.Kind.MAXIMUM)
 
 
-@TENSOR_METHOD_REGISTRY("minimum")
+@export.public_api(document_under="tensor")
 @frontend_utils.convert_inputs_to_tensors()
-def minimum(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise minimum.
 
     Args:
-        other: The tensor to compute the minimum operation with.
-            It must have the same data type as this tensor
+        lhs: The first input tensor.
+        rhs: The second input tensor.
+            It must have the same data type as the first input
             and should be broadcast-compatible.
 
     Returns:
@@ -403,13 +406,13 @@ def minimum(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         a = tp.Tensor([1.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
-        output = a.minimum(b)
+        output = tp.minimum(a, b)
 
         assert np.array_equal(output.numpy(), np.array([1.0, 3.0]))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.MINIMUM)
+    return Tensor.build([lhs, rhs], BinaryElementwise, BinaryElementwise.Kind.MINIMUM)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")

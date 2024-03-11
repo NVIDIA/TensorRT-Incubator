@@ -4,7 +4,7 @@ import mlir_tensorrt.compiler.api as compiler
 from mlir_tensorrt.compiler import ir
 
 from tripy import utils
-from tripy.common.logging import logger
+from tripy.logging import logger
 from tripy.backend.mlir.utils import remove_constants
 
 G_MLIR_CONTEXT = None

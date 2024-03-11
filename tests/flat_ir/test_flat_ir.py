@@ -9,8 +9,8 @@ class TestFlatIR:
         # should let you walk through the entire FlatIR.
         inp = tp.Tensor([0])
 
-        b = inp.tanh()
-        out = b.tanh()
+        b = tp.tanh(inp)
+        out = tp.tanh(b)
 
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()

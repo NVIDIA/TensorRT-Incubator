@@ -11,13 +11,15 @@ from tripy.backend.jit.utils import get_trace_signature
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
 from tripy.backend.utils import TensorInfo, get_tensor_info
-from tripy.common.logging import logger
-from tripy.frontend import Tensor, nn
-from tripy.frontend.nn import Module
+from tripy.frontend import Tensor
+from tripy.frontend.module import Module, Parameter
 from tripy.frontend.trace import Trace
 from tripy.frontend.trace.ops import Storage
+from tripy.logging import logger
+from tripy.utils import export
 
 
+@export.public_api(autodoc_options=[":no-special-members:"])
 class jit:
     """
     Indicates that a function should be just-in-time compiled to an executable the first time it is used.
@@ -100,7 +102,7 @@ class jit:
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
             const_argnums = self.kwargs.get("const_argnums", tuple()) + tuple(
-                index for index, arg in enumerate(args) if isinstance(arg, nn.Parameter)
+                index for index, arg in enumerate(args) if isinstance(arg, Parameter)
             )
 
             # HACK (#109): If the constant input tensors change, we need to recompile - that means we need
