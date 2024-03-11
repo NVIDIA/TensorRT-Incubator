@@ -4,10 +4,15 @@ from tripy.logging import logger
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
-def convert_inputs_to_tensors():
+# TODO(#135): Improve the type casting for python numbers
+def convert_inputs_to_tensors(allow_type_casting=False):
     """
     Decorator that converts all arguments to Tensors before passing them along
     to the decorated function.
+
+    Args:
+        allow_type_casting: If true, cast python numbers arguments (if any) to
+            the first Tensor argument's dtype.
     """
 
     # NOTE: At some point we will need to make it so we can exclude arguments to convert.
@@ -19,11 +24,11 @@ def convert_inputs_to_tensors():
         def wrapper(*args, **kwargs):
             from tripy.frontend.tensor import Tensor
 
-            def add_column_info_for_non_tensor(arg, index, is_kwarg):
+            def add_column_info_for_non_tensor(arg, index, is_kwarg, dtype):
                 if isinstance(arg, Tensor):
                     return arg
 
-                arg = Tensor(arg)
+                arg = Tensor(arg, dtype=dtype)
 
                 # Try to include correct column offsets for non-tensor arguments.
                 try:
@@ -80,9 +85,15 @@ def convert_inputs_to_tensors():
 
                 return arg
 
-            new_args = [add_column_info_for_non_tensor(arg, index, is_kwarg=False) for index, arg in enumerate(args)]
+            cast_dtype = args[0].dtype if allow_type_casting and isinstance(args[0], Tensor) else None
+
+            new_args = [
+                add_column_info_for_non_tensor(arg, index, is_kwarg=False, dtype=cast_dtype)
+                for index, arg in enumerate(args)
+            ]
+
             new_kwargs = {
-                name: add_column_info_for_non_tensor(arg, index, is_kwarg=True)
+                name: add_column_info_for_non_tensor(arg, index, is_kwarg=True, dtype=cast_dtype)
                 for index, (name, arg) in enumerate(kwargs.items())
             }
             return func(*new_args, **new_kwargs)

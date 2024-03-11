@@ -49,6 +49,9 @@ class TestTensor:
                 self.inputs = inputs
                 self.outputs = outputs
 
+            def infer_dtypes(self):
+                pass
+
         # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
         expected_line_number = sys._getframe().f_lineno + 1
         a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs: MockOp(inputs, outputs))

@@ -4,7 +4,7 @@ from transformers import GPT2LMHeadModel
 import tripy as tp
 
 
-def load_weights_from_hf(model, model_type):
+def load_weights_from_hf(model, model_type, dtype):
     print(f"Loading weights from pretrained model: '{model_type}'")
 
     tripy_state_dict = model.state_dict()
@@ -29,6 +29,9 @@ def load_weights_from_hf(model, model_type):
         if any(key.endswith(w) for w in transposed):
             with torch.no_grad():
                 weight = hf_state_dict[key].t().contiguous()
-        tripy_state_dict[key] = tp.Parameter(weight)
+        param = tp.Parameter(weight)
+        if "ln" not in key:
+            param = tp.cast(param, dtype)
+        tripy_state_dict[key] = param
 
     model.load_from_state_dict(tripy_state_dict)

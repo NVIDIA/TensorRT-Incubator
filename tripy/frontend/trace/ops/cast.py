@@ -43,4 +43,7 @@ def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     """
     from tripy.frontend import Tensor
 
+    if input.dtype == dtype:
+        return input
+
     return Tensor.build([input], Cast, dtype)

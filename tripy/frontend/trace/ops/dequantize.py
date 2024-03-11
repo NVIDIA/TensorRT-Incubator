@@ -49,9 +49,8 @@ def dequantize(
     """
     from tripy.frontend import Tensor
 
-    # TODO: enable after !215 is merged
     # check if input has a dequantizable dtype
-    # if input.dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
-    #     raise_error("input does not have a valid dtype to dequantize", [f"Got dtype={dtype}"])
+    if input.dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
+        raise_error("input does not have a valid dtype to dequantize", [f"Got dtype={dtype}"])
 
     return Tensor.build([input], Dequantize, dtype)

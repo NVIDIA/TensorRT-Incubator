@@ -53,6 +53,17 @@ class TestModule:
         ):
             network.load_from_state_dict(state_dict)
 
+    def test_load_from_state_dict_with_different_dtype_fails(
+        self,
+        network,
+    ):
+        state_dict = {"param": tp.Parameter(tp.ones(2, dtype=tp.float16))}
+
+        with helper.raises(
+            tp.TripyException, match="dtype of new parameter does not match dtype of existing parameter."
+        ):
+            network.load_from_state_dict(state_dict)
+
 
 class TestModuleWithList:
     def test_named_children(self, list_network):

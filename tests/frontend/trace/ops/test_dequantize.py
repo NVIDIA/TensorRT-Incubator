@@ -12,7 +12,7 @@ def init_quant_tensor():
     return quant_a
 
 
-class TestQuantize:
+class TestDequantize:
     def test_op(self, init_quant_tensor):
         a = init_quant_tensor
         a = tp.dequantize(a, tp.float32)
@@ -20,7 +20,6 @@ class TestQuantize:
         assert isinstance(a.op, Dequantize)
 
     def test_unsupported_dtype(self):
-        pytest.skip("To be enabled after !215 is merged.")
         a = tp.Tensor([1.0, 2.0])
         with helper.raises(
             tp.TripyException,

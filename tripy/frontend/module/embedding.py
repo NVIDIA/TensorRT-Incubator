@@ -1,3 +1,4 @@
+from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
 from tripy.utils import export
@@ -10,7 +11,7 @@ class Embedding(Module):
     Embedding vectors can be retrieved by their indices.
     """
 
-    def __init__(self, num_embeddings, embedding_dim):
+    def __init__(self, num_embeddings: int, embedding_dim: int, dtype: datatype = datatype.float32):
         r"""
         Args:
             num_embeddings: Number of embedding vectors in the lookup table.
@@ -28,10 +29,9 @@ class Embedding(Module):
             assert np.array_equal(output.numpy(), embedding.weight.numpy()[[0,2], :])
         """
         super().__init__()
-        from tripy.common.datatype import float32
         from tripy.frontend.trace.ops.iota import iota
 
-        self.weight: Parameter = Parameter(iota((num_embeddings, embedding_dim), dtype=float32))
+        self.weight: Parameter = Parameter(iota((num_embeddings, embedding_dim), dtype=dtype))
         r"""The embedding lookup table of shape :math:`[\text{num_embeddings}, \text{embedding_dim}]`."""
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":

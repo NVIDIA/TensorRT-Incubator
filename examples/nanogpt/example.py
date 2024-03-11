@@ -8,7 +8,7 @@ from weight_loader import load_weights_from_hf
 import tripy as tp
 
 
-def initialize_gpt_model(model_type, padded_seq_len):
+def initialize_gpt_model(model_type, padded_seq_len, dtype):
     # num_layers, num_heads and embedding_size are determined from model_type while other
     # parameters are always the same.
     num_layers, num_heads, embedding_size = {
@@ -27,6 +27,7 @@ def initialize_gpt_model(model_type, padded_seq_len):
         bias=True,
         seq_len=padded_seq_len,
         batch_size=1,
+        dtype=dtype,
     )
     model = GPT(config)
     return model
@@ -60,8 +61,10 @@ def main():
 
     padded_seq_len = len(input_ids) + args.max_new_tokens
 
-    model = initialize_gpt_model(args.model_type, padded_seq_len)
-    load_weights_from_hf(model, args.model_type)
+    model_dtype = tp.float16
+
+    model = initialize_gpt_model(args.model_type, padded_seq_len, model_dtype)
+    load_weights_from_hf(model, args.model_type, model_dtype)
 
     idx = torch.Tensor(input_ids).reshape((1, len(input_ids)))
     zeros = torch.zeros((1, args.max_new_tokens), dtype=torch.float32)
@@ -71,7 +74,7 @@ def main():
         # Check where input_tokens !=0 and fill with ones.
         zeros = tp.zeros_like(input_tokens)
         ones = tp.ones_like(input_tokens)
-        return tp.reshape(tp.cast(tp.where(input_tokens == 0, zeros, ones), tp.float32), (1, 1, 1, padded_seq_len))
+        return tp.reshape(tp.cast(tp.where(input_tokens == 0, zeros, ones), model_dtype), (1, 1, 1, padded_seq_len))
 
     generator = None
     if args.seed is not None:

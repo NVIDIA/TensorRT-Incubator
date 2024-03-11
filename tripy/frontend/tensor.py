@@ -117,6 +117,11 @@ class Tensor(metaclass=TensorMeta):
         # Update producer:
         self.op.outputs[0].producer = self.op
 
+        # Update dtype
+        self.op.infer_dtypes()
+        self.dtype = self.op.outputs[0].dtype
+        """Data type of this tensor"""
+
     # This function expects to receive a BaseTraceOp type (not instance!) along
     # with any extra arguments that it might need. It will then construct an instance
     # with inputs, outputs, and the extra arguments

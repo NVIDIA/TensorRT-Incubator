@@ -221,7 +221,7 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     if apply_to_divisor:
         divisor = apply_to_divisor(divisor)
 
-    return sum_val / (cast(divisor, datatype.float32))
+    return sum_val / (cast(divisor, sum_val.dtype))
 
 
 @export.public_api(document_under="tensor/reduction_operations")
