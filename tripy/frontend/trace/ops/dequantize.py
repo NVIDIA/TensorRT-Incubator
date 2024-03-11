@@ -28,14 +28,14 @@ def dequantize(
     dtype: datatype,
 ) -> "tripy.Tensor":
     """
-    Quantizes the input Tensor.
+    Dequantizes the input tensor.
 
     Args:
-        input: input quantized Tensor
-        dtype: dtype to dequantize
+        input: The input tensor
+        dtype: Desired data type of the output tensor
 
     Returns:
-        Dequantized Tensor.
+        The dequantized tensor.
 
     .. code-block:: python
         :linenos:
