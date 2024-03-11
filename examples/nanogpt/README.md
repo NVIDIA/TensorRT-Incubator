@@ -11,6 +11,8 @@ It's broken up into three components:
 3. `example.py` runs the end-to-end example, taking input text as a command-line argument,
         running inference, and then displaying the generated output.
 
+The model is implemented in `float16`, except `LayerNorm` modules in `float32`
+for expected accuracy.
 
 ## Running The Example
 

@@ -121,7 +121,12 @@ class Array:
                             ],
                         )
 
-                data = self._module.array(data, dtype=get_element_type(data))
+                element_type = get_element_type(data)
+                # allow casting for python types
+                data = self._module.array(
+                    data,
+                    dtype=convert_tripy_to_module_dtype(dtype, self._module) if dtype is not None else element_type,
+                )
 
             data_dtype = convert_to_tripy_dtype(data.dtype)
             if not data_dtype:

@@ -1,3 +1,4 @@
+from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
 from tripy.utils import export
@@ -27,17 +28,19 @@ class Linear(Module):
         assert output.numpy().shape == (2, 4)
     """
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True):
+    def __init__(self, in_features: int, out_features: int, bias: bool = True, dtype: datatype = datatype.float32):
         super().__init__()
-        from tripy.common.datatype import float32
         from tripy.frontend.ops import ones
 
+        self.dtype = dtype
+        r"""The dtype to perform the Linear operation"""
+
         # Replace with random weights when #74 is completed.
-        self.weight: Parameter = Parameter(ones((out_features, in_features), dtype=float32))
+        self.weight: Parameter = Parameter(ones((out_features, in_features), dtype=dtype))
         r"""The :math:`W` matrix of shape :math:`[\text{out_features}, \text{in_features}]`"""
 
         if bias:
-            self.bias: Parameter = Parameter(ones((out_features), dtype=float32))
+            self.bias: Parameter = Parameter(ones((out_features), dtype=dtype))
             r"""The :math:`b` matrix of shape :math:`[1, \text{out_features}]`"""
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":

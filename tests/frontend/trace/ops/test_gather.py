@@ -16,10 +16,9 @@ class TestGather:
     def test_incorrect_dtype(self):
         a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
         index = tp.Tensor(np.zeros(1, dtype=np.float32))
-        b = tp.gather(a, 0, index)
         with helper.raises(
             tp.TripyException,
             match="Index tensor for gather operation should be of int32 type.",
-            has_stack_info_for=[a, index, b],
+            has_stack_info_for=[a, index],
         ):
-            b.eval()
+            b = tp.gather(a, 0, index)

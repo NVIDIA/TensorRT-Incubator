@@ -15,6 +15,7 @@ class GPTConfig:
     bias: bool = True
     seq_len: int = 1
     batch_size: int = 1
+    dtype: "tripy.datatype" = tp.float32
 
 
 class CausalSelfAttention(tp.Module):
@@ -25,9 +26,9 @@ class CausalSelfAttention(tp.Module):
         self.batch_size = config.batch_size
         self.num_heads = config.num_heads
         self.embedding_size = config.embedding_size
-        self.c_attn = tp.Linear(config.embedding_size, 3 * config.embedding_size, bias=config.bias)
-        self.c_proj = tp.Linear(config.embedding_size, config.embedding_size, bias=config.bias)
-        self.bias = tp.tril(tp.ones((config.block_size, config.block_size)))
+        self.c_attn = tp.Linear(config.embedding_size, 3 * config.embedding_size, bias=config.bias, dtype=config.dtype)
+        self.c_proj = tp.Linear(config.embedding_size, config.embedding_size, bias=config.bias, dtype=config.dtype)
+        self.bias = tp.tril(tp.ones((config.block_size, config.block_size), dtype=config.dtype))
 
     def __call__(self, x: tp.Tensor, attention_mask: Optional[tp.Tensor] = None):
         attn = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
@@ -49,7 +50,7 @@ class CausalSelfAttention(tp.Module):
 
         att = tp.masked_fill(
             att,
-            self.bias[: self.seq_len, : self.seq_len] == tp.zeros((self.seq_len, self.seq_len), dtype=tp.float32),
+            self.bias[: self.seq_len, : self.seq_len] == tp.zeros((self.seq_len, self.seq_len), dtype=self.bias.dtype),
             float("-inf"),
         )
 
@@ -67,8 +68,8 @@ class CausalSelfAttention(tp.Module):
 class MLP(tp.Module):
     def __init__(self, config):
         super().__init__()
-        self.c_fc = tp.Linear(config.embedding_size, 4 * config.embedding_size, bias=config.bias)
-        self.c_proj = tp.Linear(4 * config.embedding_size, config.embedding_size, bias=config.bias)
+        self.c_fc = tp.Linear(config.embedding_size, 4 * config.embedding_size, bias=config.bias, dtype=config.dtype)
+        self.c_proj = tp.Linear(4 * config.embedding_size, config.embedding_size, bias=config.bias, dtype=config.dtype)
 
     def __call__(self, x):
         x = self.c_fc(x)
@@ -86,16 +87,18 @@ class Block(tp.Module):
         self.mlp = MLP(config)
 
     def __call__(self, x, attention_mask: Optional[tp.Tensor] = None):
-        x = x + self.attn(self.ln_1(x), attention_mask)
-        x = x + self.mlp(self.ln_2(x))
+        x_ln1 = tp.cast(self.ln_1(tp.cast(x, self.ln_1.dtype)), x.dtype)
+        x = x + self.attn(x_ln1, attention_mask)
+        x_ln2 = tp.cast(self.ln_2(tp.cast(x, self.ln_2.dtype)), x.dtype)
+        x = x + self.mlp(x_ln2)
         return x
 
 
 class Transformer(tp.Module):
     def __init__(self, config):
         super().__init__()
-        self.wte = tp.Embedding(config.vocab_size, config.embedding_size)
-        self.wpe = tp.Embedding(config.block_size, config.embedding_size)
+        self.wte = tp.Embedding(config.vocab_size, config.embedding_size, dtype=config.dtype)
+        self.wpe = tp.Embedding(config.block_size, config.embedding_size, dtype=config.dtype)
         self.h = [Block(config) for _ in range(config.num_layers)]
         self.ln_f = tp.LayerNorm(config.embedding_size)
         self.pos = tp.arange(0, config.seq_len, dtype=tp.int32)
@@ -106,7 +109,8 @@ class Transformer(tp.Module):
         x = tok_emb + pos_emb  # (batch_size, seq_len, embedding_size)
         for block in self.h:
             x = block(x, attention_mask)
-        return self.ln_f(x)
+        x = tp.cast(self.ln_f(tp.cast(x, self.ln_f.dtype)), x.dtype)
+        return x
 
 
 class GPT(tp.Module):
@@ -119,7 +123,7 @@ class GPT(tp.Module):
         ), f"Cannot forward sequence of length {config.seq_len}, block size is only {config.block_size}"
 
         self.transformer = Transformer(config)
-        self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False)
+        self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False, dtype=config.dtype)
 
     # Decorating a function with tp.jit indicates to Tripy that it should compile an optimized
     # version of the implementation the first time the function is called. Subsequent calls will

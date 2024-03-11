@@ -191,7 +191,6 @@ class Module:
             return module
 
         def _check_param_type(cls, original_param, new_param, param_name):
-            # TODO: add check for dtype when https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/merge_requests/215 is merged.
             original_param_shape = original_param.shape.eval()
             new_param_shape = new_param.shape.eval()
             if original_param_shape != new_param_shape:
@@ -199,6 +198,13 @@ class Module:
                     "Shape of new parameter does not match shape of existing parameter.",
                     details=[
                         f"For parameter '{param_name}', currently assigned parameter has shape: '{original_param_shape}' while new parameter has shape: '{new_param_shape}'"
+                    ],
+                )
+            if original_param.dtype != new_param.dtype:
+                raise_error(
+                    "dtype of new parameter does not match dtype of existing parameter.",
+                    details=[
+                        f"For parameter '{param_name}', currently assigned parameter has dtype: '{original_param.dtype}' while new parameter has dtype: '{new_param.dtype}'"
                     ],
                 )
 

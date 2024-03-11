@@ -93,9 +93,9 @@ class TestArray:
         assert arr.shape == tuple()
         assert arr.dtype == dtype
 
-    def test_nested_list(self):
-        dtype = tp.int32
-        arr = Array([[1, 2], [3, 4]], dtype, None, tp.device("cpu"))
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.int32])
+    def test_nested_list(self, dtype):
+        arr = Array([[1.0, 2.0], [3.0, 4.0]], dtype, None, tp.device("cpu"))
         assert isinstance(arr, Array)
         assert arr.shape == (2, 2)
         assert arr.dtype == dtype

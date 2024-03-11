@@ -20,12 +20,10 @@ class Trace:
         # Compute and cache shape information for all tensors
         for inp in self.inputs:
             inp.producer.infer_shapes()
-            inp.producer.infer_dtypes()
             inp.producer.infer_devices()
 
         for op in self.ops:
             op.infer_shapes()
-            op.infer_dtypes()
             op.infer_devices()
 
     def __init__(self, tensors: Sequence["tripy.Tensor"], inputs: Sequence["tripy.Tensor"] = []) -> None:

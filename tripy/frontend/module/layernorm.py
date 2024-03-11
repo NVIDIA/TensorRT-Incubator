@@ -1,3 +1,4 @@
+from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
 from tripy.utils import export
@@ -14,6 +15,7 @@ class LayerNorm(Module):
 
     Args:
         normalized_shape: The size of the feature dimension of the input over which normalization is performed.
+        dtype: The dtype to perform the layernorm operation.
 
     .. code-block:: python
         :linenos:
@@ -34,16 +36,18 @@ class LayerNorm(Module):
         assert np.array_equal(np_out, torch_ln(torch_tensor).detach().numpy())
     """
 
-    def __init__(self, normalized_shape: int):
+    def __init__(self, normalized_shape: int, dtype: datatype = datatype.float32):
         super().__init__()
-        from tripy.common.datatype import float32
         from tripy.frontend.ops import ones
 
+        self.dtype = dtype
+        r"""The dtype to perform the layernorm operation."""
+
         # Replace with random weights when #74 is completed.
-        self.weight: Parameter = Parameter(ones((normalized_shape,), dtype=float32))
+        self.weight: Parameter = Parameter(ones((normalized_shape,), dtype=dtype))
         r"""The :math:`\gamma` parameter of shape :math:`[\text{normalized_shape}]`."""
 
-        self.bias: Parameter = Parameter(ones((normalized_shape,), dtype=float32))
+        self.bias: Parameter = Parameter(ones((normalized_shape,), dtype=dtype))
         r"""The :math:`\beta` parameter of shape :math:`[\text{normalized_shape}]`."""
 
         self.eps: float = 1e-5
@@ -57,6 +61,7 @@ class LayerNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
+        from tripy.frontend.trace.ops.cast import cast
         from tripy.frontend.trace.ops.reduce import mean, var
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
 
