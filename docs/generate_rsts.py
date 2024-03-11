@@ -105,7 +105,10 @@ def build_index_file(name, constituents, include_heading=True, caption=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generates .rst files that sphinx can consume")
+    parser = argparse.ArgumentParser(
+        description="Uses the metadata populated by the `export.public_api()` decorator "
+        "to automatically generate .rst files that can be used with Sphinx to generate documentation."
+    )
     parser.add_argument(
         "-o",
         "--output",

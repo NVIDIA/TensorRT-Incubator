@@ -12,6 +12,8 @@ from textwrap import dedent, indent
 import tripy as tp
 from tests import helper
 
+TAB_SIZE = 4
+
 PARAM_PAT = re.compile(":param .*?:")
 
 extensions = [
@@ -190,7 +192,7 @@ def process_docstring(app, what, name, obj, options, lines):
             out = (
                 indent(
                     f"\n\n.. code-block:: python\n"
-                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * 4),
+                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * TAB_SIZE),
                     prefix=" " * (indentation - 4),
                 )
                 + "\n\n"
@@ -246,7 +248,7 @@ def process_docstring(app, what, name, obj, options, lines):
                         return r"{}"
                     ret = "{\n"
                     for key, value in dct.items():
-                        ret += indent(f"{key}: {value},\n", prefix=" " * 4)
+                        ret += indent(f"{key}: {value},\n", prefix=" " * TAB_SIZE)
                     ret += "}"
                     return ret
 
@@ -281,8 +283,14 @@ def process_docstring(app, what, name, obj, options, lines):
         # Put the entire code block + output under a collapsible section to save space.
         line = code_block_lines[0]
         indentation = len(line) - len(line.lstrip())
-        lines.extend(indent(f"\n.. collapse:: {caption}\n\n", prefix=" " * indentation).splitlines())
-        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * 4).splitlines()
+        default_open = what != "method" and what != "property"
+        lines.extend(
+            indent(
+                f"\n.. collapse:: {caption}" + (("\n" + (" " * TAB_SIZE) + ":open:") if default_open else "") + "\n\n",
+                prefix=" " * indentation,
+            ).splitlines()
+        )
+        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * TAB_SIZE).splitlines()
         lines.extend(code_block_lines)
 
 
