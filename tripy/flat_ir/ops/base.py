@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Optional
 
 from tripy import utils
 
@@ -12,10 +12,17 @@ class BaseFlatIROp(abc.ABC):
     """
 
     inputs: List["FlatIRTensor"]
-    """The inputs of this layer"""
+    """The inputs of this operation"""
 
     outputs: List["FlatIRTensor"]
-    """The outputs of this layer"""
+    """The outputs of this operation"""
+
+    # Trace input/output names are populated by FlatIR.integrate_subgraph().
+    trace_input_names: List[str]
+    """The names of the input trace tensors of the FlatIR subgraph this operation is part of"""
+
+    trace_output_names: List[str]
+    """The names of the output trace tensors of the FlatIR subgraph this operation is part of"""
 
     @classmethod
     def build(cls, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], *args, **kwargs):
@@ -23,7 +30,7 @@ class BaseFlatIROp(abc.ABC):
 
         assert all(isinstance(tensor, FlatIRTensor) for tensor in inputs + outputs)
 
-        op = cls(inputs, outputs, *args, **kwargs)
+        op = cls(inputs, outputs, [], [], *args, **kwargs)
         for out in op.outputs:
             out.producer = op
 

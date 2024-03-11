@@ -26,7 +26,9 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     frame_info = ""
     if is_first_frame:
         frame_info += "\n\n"
-    pretty_code = utils.code_pretty_str(source_info.code, source_info.file, source_info.line, enable_color=enable_color)
+    pretty_code = utils.code_pretty_str(
+        source_info.code, source_info.file, source_info.line, source_info.function, enable_color=enable_color
+    )
 
     frame_info += pretty_code
 
@@ -132,11 +134,14 @@ def raise_error(summary: str, details: List[Any] = []):
     for detail in details:
         if hasattr(detail, "stack_info"):
             detail_msg += _make_stack_info_message(detail.stack_info)
+        elif isinstance(detail, utils.StackInfo):
+            detail_msg += _make_stack_info_message(detail)
         else:
             detail_msg += str(detail)
 
     msg = f"{pre_summary}{summary}\n" + indent(detail_msg, " " * 4)
-    raise TripyException(msg)
+    # We use `from None` to suppress output from previous exceptions, since we want to handle them internally.
+    raise TripyException(msg) from None
 
 
 def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any, str]]):

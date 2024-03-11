@@ -55,9 +55,15 @@ class Where(BaseTraceOp):
         from tripy.flat_ir.ops import SelectOp
 
         # Unconditionally insert broadcast for all operands
-        inputs[0] = op_utils.insert_broadcast(inputs[0], outputs[0].shape)
-        inputs[1] = op_utils.insert_broadcast(inputs[1], outputs[0].shape)
-        inputs[2] = op_utils.insert_broadcast(inputs[2], outputs[0].shape)
+        inputs[0] = op_utils.insert_broadcast(
+            inputs[0], outputs[0].shape, tensor_details="first input of 'where' ('condition')"
+        )
+        inputs[1] = op_utils.insert_broadcast(
+            inputs[1], outputs[0].shape, tensor_details="second input of 'where' ('input')"
+        )
+        inputs[2] = op_utils.insert_broadcast(
+            inputs[2], outputs[0].shape, tensor_details="third input of 'where' ('other')"
+        )
 
         SelectOp.build(inputs, outputs)
 

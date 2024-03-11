@@ -242,7 +242,7 @@ class jit:
 
                 compiler = Compiler()
                 executable = CachedExecutable(
-                    compiler.compile(mlir),
+                    compiler.compile(mlir, flat_ir=flat_ir),
                     get_tensor_info(trace.inputs),
                     get_tensor_info(trace.outputs),
                 )

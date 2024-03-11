@@ -1,6 +1,9 @@
 import contextlib
 import os
-from typing import Dict
+import re
+import sys
+import tempfile
+from typing import BinaryIO, List, Tuple
 
 from mlir_tensorrt.compiler import ir
 
@@ -42,6 +45,11 @@ def make_mlir_tensor(shape: ShapeInfo, dtype: "tripy.common.dtype") -> ir.Ranked
     )
 
 
+OUTPUT_SEPARATOR = ";;<out>;;"
+TRACE_INPUTS_SEPARATOR = ";;<trace_in>;;"
+TRACE_OUTPUTS_SEPARATOR = ";;<trace_out>;;"
+
+
 def remove_constants(mlir_text) -> str:
     lines = mlir_text.split("\n")
 
@@ -60,3 +68,65 @@ def remove_constants(mlir_text) -> str:
 
     replaced = [replace_dense_data(line) if "stablehlo.constant dense" in line else line for line in lines]
     return "\n".join(replaced)
+
+
+def make_tensor_location(
+    input_names: List[str], output_names: List[str], trace_input_names: List[str], trace_output_names: List[str]
+) -> ir.Location:
+    return ir.Location.name(
+        f"{','.join(input_names)}"
+        f"{OUTPUT_SEPARATOR}{','.join(output_names)}"
+        f"{TRACE_INPUTS_SEPARATOR}{','.join(trace_input_names)}"
+        f"{TRACE_OUTPUTS_SEPARATOR}{','.join(trace_output_names)}"
+    )
+
+
+TENSOR_NAME_PATTERN = re.compile(r'loc\("(.*?)"\): ')
+
+
+def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], str]:
+    """
+    Returns:
+        The input names, output names, trace input names, trace output names, and new error message with location information stripped respectively.
+    """
+    locs = TENSOR_NAME_PATTERN.findall(msg)
+    assert (
+        len(locs) <= 1
+    ), f"Only implemented for error messages containing a single location - please update this if you see this message!"
+    if not locs:
+        return [], []
+
+    loc = locs[0]
+    input_names, _, loc = loc.partition(OUTPUT_SEPARATOR)
+    output_names, _, loc = loc.partition(TRACE_INPUTS_SEPARATOR)
+    trace_inputs, _, trace_outputs = loc.partition(TRACE_OUTPUTS_SEPARATOR)
+
+    return (
+        input_names.split(","),
+        output_names.split(","),
+        trace_inputs.split(","),
+        trace_outputs.split(","),
+        TENSOR_NAME_PATTERN.split(msg)[-1],
+    )
+
+
+# For output originating outside Python, we need special logic to temporarily redirect the stderr
+# file descriptor to something we can intercept. `contextlib.redirect_stderr` does not do this.
+@contextlib.contextmanager
+def redirect_stderr() -> BinaryIO:
+    try:
+        f = tempfile.NamedTemporaryFile()
+        sys.stderr.flush()
+
+        original_stderr = os.dup(2)
+        new_stderr = os.dup(2)
+
+        os.dup2(os.open(f.name, os.O_WRONLY | os.O_TRUNC | os.O_CREAT), 2)
+        sys.stderr = os.fdopen(new_stderr, "w")
+
+        yield f
+    finally:
+        sys.stderr.flush()
+
+        os.dup2(original_stderr, 2)
+        os.close(original_stderr)

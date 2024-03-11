@@ -67,11 +67,19 @@ class BinaryElementwise(BaseTraceOp):
 
         if requires_broadcast_1:
             inputs[0] = op_utils.insert_broadcast(
-                inputs[0], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[1]
+                inputs[0],
+                outputs[0].shape,
+                tensor_details=f"left operand of '{self.kind.strip()}'",
+                use_dynamic_variant=dynamic_shape,
+                target_tensor=inputs[1],
             )
         if requires_broadcast_2:
             inputs[1] = op_utils.insert_broadcast(
-                inputs[1], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[0]
+                inputs[1],
+                outputs[0].shape,
+                tensor_details=f"right operand of '{self.kind.strip()}'",
+                use_dynamic_variant=dynamic_shape,
+                target_tensor=inputs[0],
             )
 
         return inputs
