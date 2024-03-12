@@ -13,7 +13,7 @@ from tripy.utils import export
 class Random(BaseTraceOp):
 
     shape: ShapeInfo
-    dtype: datatype
+    dtype: datatype.dtype
 
     def infer_shapes(self):
         self.outputs[0].shape = self.shape

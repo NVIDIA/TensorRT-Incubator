@@ -1,8 +1,6 @@
 # Documentation
 
 This directory includes all the source files for the public API documentation.
-The structure is such that similar or related concepts are grouped under the same
-file. For example, `Module` and `Parameter` are both documented under `nn.rst`.
 
 ## Building Documentation Locally
 
@@ -79,7 +77,10 @@ files and parsed by the Myst parser. This means we need to make some special con
 
 2. All links to files in the repository must be absolute and start with `source:` so that
     Myst can replace them with URLs to our remote repository. Otherwise, the links will
-    cause the relevant file to be downloaded.
+    cause the relevant file to be downloaded. For example:
+    ```
+    [Fill operation](source:/tripy/frontend/trace/ops/fill.py)
+    ```
 
     Links to markdown files are an exception; if a markdown file is part of the *rendered*
     documentation, it should be linked to using the `project:` tag instead.

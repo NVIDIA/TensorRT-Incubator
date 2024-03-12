@@ -1,18 +1,18 @@
-## Debugging MLIR-TensorRT backend
+# Debugging MLIR-TensorRT backend
 
-* Install new python bindings for mlir-tensorrt-compiler. Assuming `tripy/mlir-tensorrt` directory exists.
+1. Install new python bindings for mlir-tensorrt-compiler. Assuming `tripy/mlir-tensorrt` directory exists.
 ```bash
 python3 -m pip install mlir-tensorrt/build/wheels/trt100/mlir-tensorrt-compiler-wheel/mlir_tensorrt_compiler-0.1.6+cuda12.trt100-cp310
 -cp310-linux_x86_64.whl
 ```
 
-* Update LD_LIBRARY_PATH.
+2. Update LD_LIBRARY_PATH.
 ```bash
 export LD_LIBRARY_PATH=/tripy/mlir-tensorrt/build/lib/Integrations/PJRT:/tripy/mlir-tensorrt/build/python_packages/mlir_tensorrt_runtime/mlir_tensorrt/runtime/_mlir_libs:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/tripy/mlir-tensorrt/build/python_packages/mlir_tensorrt_compiler/mlir_tensorrt/compiler/_mlir_libs/:$LD_LIBRARY_PATH
 ```
 
-* Update MLIR Debug options in [tripy/config.py](https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/blob/bbf0d4762bbd00cfa88306d405df1ccc3c1206d0/tripy/config.py).
+3. Update MLIR Debug options in [tripy/config.py](source:/tripy/config.py).
  	`export TRIPY_MLIR_DEBUG_ENABLED=1` to dump IR with below default settings.
 ```py
 import os
@@ -22,7 +22,7 @@ MLIR_DEBUG_TYPES = ["-mlir-print-ir-after-all"]
 MLIR_DEBUG_TREE_PATH = os.path.join("/", "tripy", "mlir-dumps")
 ```
 
-* Use LLDB for debugging MLIR-TensorRT backend.
+4. Use LLDB for debugging MLIR-TensorRT backend.
 In order to use `lldb` in tripy container, launch the container with extra security options:
 
 ```bash
