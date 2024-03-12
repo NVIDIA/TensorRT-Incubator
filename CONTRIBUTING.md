@@ -99,14 +99,3 @@ For details on the public documentation, see [the documentation README](./docs/R
 	```bash
 	docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
 	```
-
-## Advanced: Debugging
-
-In order to use `lldb` in tripy container, launch the container with extra security options:
-
-```bash
-docker run --gpus all --cap-add=SYS_PTRACE \
-	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-	-v $(pwd):/tripy/ -it --rm tripy:latest
-```
-See https://forums.swift.org/t/debugging-using-lldb/18046 for more details.

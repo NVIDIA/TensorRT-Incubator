@@ -3,6 +3,7 @@ from typing import Tuple
 import mlir_tensorrt.compiler.api as compiler
 from mlir_tensorrt.compiler import ir
 
+from tripy import config
 from tripy import utils
 from tripy.logging import logger
 from tripy.backend.mlir.utils import remove_constants
@@ -24,14 +25,19 @@ class Compiler:
     def __init__(self) -> None:
         self.mlir_context, self.compiler_client = _get_compiler_objects()
 
+    def _set_mlir_debug_options(self, opts):
+        opts.set_debug_options(config.MLIR_DEBUG_ENABLED, config.MLIR_DEBUG_TYPES, config.MLIR_DEBUG_TREE_PATH)
+
     def compile_stabehlo_program(self, code: str) -> compiler.Executable:
         with self.mlir_context:
             module = ir.Module.parse(code)
             opts = compiler.StableHLOToExecutableOptions(tensorrt_builder_opt_level=0, tensorrt_strongly_typed=True)
+            self._set_mlir_debug_options(opts)
             return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
 
     @utils.log_time
     def compile(self, mlir_module: ir.Module) -> compiler.Executable:
         logger.mlir(lambda: f"{utils.prefix_with_line_numbers(remove_constants(str(mlir_module)))}\n")
         opts = compiler.StableHLOToExecutableOptions(tensorrt_builder_opt_level=0, tensorrt_strongly_typed=True)
+        self._set_mlir_debug_options(opts)
         return compiler.compiler_stablehlo_to_executable(self.compiler_client, mlir_module.operation, opts)
