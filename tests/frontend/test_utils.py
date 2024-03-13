@@ -1,5 +1,6 @@
 import tripy as tp
 from tripy.frontend.utils import convert_inputs_to_tensors
+from tests import helper
 
 
 @convert_inputs_to_tensors()
@@ -9,6 +10,11 @@ def func(a):
 
 @convert_inputs_to_tensors()
 def multi_input(a, b, c):
+    return a, b, c
+
+
+@convert_inputs_to_tensors(sync_arg_types=[("a", "b", "c")])
+def sync_arg_types(a, b, c):
     return a, b, c
 
 
@@ -58,3 +64,37 @@ class TestConverInputsToTensors:
 
         # Column offset of the `3` above.
         assert stack_info[stack_info.get_first_user_frame_index()].column_range == (36, 43)
+
+    def test_sync_arg_type_includes_non_tensor_column_range(self):
+        x, y, z = sync_arg_types(tp.Tensor(3.0, dtype=tp.float16), 3, 4.0)
+
+        assert y.dtype == tp.float16
+        assert z.dtype == tp.float16
+        assert y.stack_info[y.stack_info.get_first_user_frame_index()].column_range == (67, 68)
+        assert z.stack_info[z.stack_info.get_first_user_frame_index()].column_range == (70, 73)
+
+    def test_sync_arg_type_includes_non_tensor_column_range_with_kwargs(self):
+        x, y, z = sync_arg_types(tp.Tensor(3.0, dtype=tp.float16), b=3, c=4.0)
+
+        assert y.dtype == tp.float16
+        assert z.dtype == tp.float16
+        assert y.stack_info[y.stack_info.get_first_user_frame_index()].column_range == (67, 70)
+        assert z.stack_info[z.stack_info.get_first_user_frame_index()].column_range == (72, 77)
+
+    def test_sync_arg_type_not_applied_to_tensors(self):
+        x, y, z = sync_arg_types(
+            tp.Tensor(3.0),
+            tp.Tensor(3, dtype=tp.int32),
+            tp.Tensor(4, dtype=tp.float16),
+        )
+
+        assert x.dtype == tp.float32
+        assert y.dtype == tp.int32
+        assert z.dtype == tp.float16
+
+    def test_sync_arg_type_invalid(self):
+        with helper.raises(
+            tp.TripyException,
+            match=r"At least one of the arguments: \('a', 'b', 'c'\) must be a \`tripy.Tensor\`.",
+        ):
+            x, y, z = sync_arg_types(3.0, 3, 4)
