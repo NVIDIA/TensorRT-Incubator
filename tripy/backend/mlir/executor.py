@@ -54,8 +54,6 @@ def _convert_to_memref(
 
     device_index: int = inp.device.index
     if device_index >= len(devices):
-        # TODO: Return a "Result" type so we can include more information about the tensor.
-        # We can replace the existing `ConditionCheck` with a more generic result type.
         Result.err([f"Requested CUDA device: {device_index} but the only {len(devices)} devices are present"])
 
     device = devices[device_index]
