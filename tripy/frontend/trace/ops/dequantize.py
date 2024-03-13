@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from typing import Union, Any
 
 from tripy.common import datatype
+from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import export
 
@@ -25,6 +27,7 @@ class Dequantize(BaseTraceOp):
 @export.public_api(document_under="tensor")
 def dequantize(
     input: "tripy.Tensor",
+    scale: Union["tripy.Tensor", Any],
     dtype: datatype,
 ) -> "tripy.Tensor":
     """
@@ -53,4 +56,4 @@ def dequantize(
     if input.dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
         raise_error("input does not have a valid dtype to dequantize", [f"Got dtype={dtype}"])
 
-    return Tensor.build([input], Dequantize, dtype)
+    return Tensor.build([input, scale], Dequantize, dtype)

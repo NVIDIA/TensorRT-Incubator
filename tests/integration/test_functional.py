@@ -368,7 +368,20 @@ from tripy.common import logger
 
 logger.verbosity = "ir"
 
-input = tp.Tensor([1.0, 2.0])
-quantized = tp.quantize(input, tp.int8, 0.99872)
-output = tp.dequantize(quantized, tp.float32)
+# input = tp.Tensor([1.0, 2.0])
+# scale = tp.Tensor([0.8])
+# quantized = tp.quantize(input, scale, tp.int8)
+# # print(quantized)
+# output = tp.dequantize(quantized, scale, tp.float32)
+# print(output)
+
+
+@tp.jit
+def dequant(a):
+    scale = tp.Tensor([0.8])
+    return tp.dequantize(a, scale, tp.float32)
+
+
+input = tp.Tensor([1, 2], dtype=tp.int8)
+output = dequant(input)
 print(output)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from mlir_tensorrt.compiler.dialects import stablehlo
+from mlir_tensorrt.compiler.dialects import tensorrt
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
@@ -8,4 +8,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 @dataclass(repr=False)
 class DequantizeOp(BaseFlatIROp):
     def to_mlir(self, operands):
-        return [stablehlo.uniform_dequantize(operands[0])]
+        # return [stablehlo.uniform_dequantize(operands[0])]
+        out_type = self.outputs[0].to_mlir()
+        return [tensorrt.dequantize(out_type, *operands)]

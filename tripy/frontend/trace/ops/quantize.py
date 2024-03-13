@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Union, Any
 
 from tripy.common import datatype
 from tripy.common.exception import raise_error
@@ -10,7 +11,6 @@ from tripy.utils import export
 class Quantize(BaseTraceOp):
 
     dtype: datatype
-    scale: float
 
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
@@ -32,23 +32,16 @@ class Quantize(BaseTraceOp):
         #    with tensorrt, but not really used.
         # 2. tensorrt does not support zero_point, and
         #    mlir-trt requires zero_point == 0
-        storage_min, storage_max = _get_storage_range(self.dtype)
-        zero_point = 0
-        QuantizeOp.build(
-            inputs,
-            outputs,
-            self.scale,
-            zero_point,
-            storage_min,
-            storage_max,
-        )
+        # storage_min, storage_max = _get_storage_range(self.dtype)
+        # zero_point = 0
+        QuantizeOp.build(inputs, outputs)
 
 
 @export.public_api(document_under="tensor")
 def quantize(
     input: "tripy.Tensor",
+    scale: Union["tripy.Tensor", Any],
     dtype: datatype,
-    scale: float,
 ) -> "tripy.Tensor":
     """
     Quantizes the input Tensor.
@@ -77,4 +70,4 @@ def quantize(
     if dtype != datatype.int8:
         raise_error("Unsupported quantization dtype.", [f"Supported dtypes: int8, Got dtype={dtype}"])
 
-    return Tensor.build([input], Quantize, dtype, scale)
+    return Tensor.build([input, scale], Quantize, dtype)

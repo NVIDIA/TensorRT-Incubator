@@ -1,5 +1,4 @@
 from mlir_tensorrt.compiler import ir
-from mlir_tensorrt.compiler.dialects import quant
 
 from tripy import utils
 from tripy.common import ShapeInfo
@@ -52,6 +51,8 @@ def get_mlir_quant_dtype(
         storage_type_min: min value of quantized dtype
         storage_type_max: max value of quantized dtype
     """
+    from mlir_tensorrt.compiler.dialects import quant
+
     storage_type = get_mlir_dtype(quant_dtype)
     expressed_type = get_mlir_dtype(origin_dtype)
     return quant.UniformQuantizedType.get(
