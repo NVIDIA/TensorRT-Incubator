@@ -38,7 +38,6 @@ class Reduce(BaseTraceOp):
         self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
-        import numpy as np
 
         from tripy.common.array import Array
         from tripy.common.device import device
@@ -57,9 +56,7 @@ class Reduce(BaseTraceOp):
         ConstantOp.build(
             [],
             [init_const],
-            data=Array(
-                np.array(init_value, dtype=outputs[0].dtype.name), outputs[0].dtype, shape=(), device=device("cpu")
-            ),
+            data=Array(init_value, outputs[0].dtype, shape=(), device=device("cpu")),
         )
         ReduceOp.build([inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
 
@@ -78,7 +75,6 @@ class ArgMinMax(Reduce):
         self.outputs[0].dtype = datatype.int32
 
     def to_flat_ir(self, inputs, outputs):
-        import numpy as np
 
         from tripy.common.array import Array
         from tripy.common.device import device
@@ -103,12 +99,12 @@ class ArgMinMax(Reduce):
         ConstantOp.build(
             [],
             [init_val_const],
-            data=Array(np.array(0, dtype=inputs[0].dtype.name), inputs[0].dtype, shape=(), device=device("cpu")),
+            data=Array(0, inputs[0].dtype, shape=(), device=device("cpu")),
         )
         ConstantOp.build(
             [],
             [init_idx_const],
-            data=Array(np.array(0, dtype=outputs[0].dtype.name), outputs[0].dtype, shape=(), device=device("cpu")),
+            data=Array(0, outputs[0].dtype, shape=(), device=device("cpu")),
         )
 
         ArgMinMaxOp.build(

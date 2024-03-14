@@ -27,8 +27,6 @@ class Fill(BaseTraceOp):
         self.outputs[0].device = device("gpu")
 
     def to_flat_ir(self, inputs, outputs):
-        import numpy as np
-
         from tripy.common.array import Array
         from tripy.common.device import device
         from tripy.flat_ir.ops import BroadcastOp, ConstantOp
@@ -43,7 +41,7 @@ class Fill(BaseTraceOp):
         ConstantOp.build(
             [],
             [const_val_tensor],
-            data=Array(np.array(self.value, dtype=self.dtype.name), self.dtype, shape=(), device=device("cpu")),
+            data=Array(self.value, self.dtype, shape=(), device=device("cpu")),
         )
         BroadcastOp.build([const_val_tensor], outputs, broadcast_dim=[])
 

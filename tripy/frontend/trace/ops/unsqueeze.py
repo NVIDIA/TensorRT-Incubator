@@ -21,7 +21,6 @@ class Unsqueeze(BaseTraceOp):
         self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
-        import numpy as np
 
         from tripy.common.array import Array
         from tripy.common.datatype import int32
@@ -54,7 +53,7 @@ class Unsqueeze(BaseTraceOp):
         ConstantOp.build(
             [],
             [const_output_tensor],
-            data=Array(np.array([1]).astype(np.int32), int32, shape=(1,), device=device("cpu")),
+            data=Array([1], int32, shape=(1,), device=device("cpu")),
         )
 
         # Slice the first half of shape : shape[:dim]

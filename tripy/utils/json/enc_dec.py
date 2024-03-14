@@ -2,7 +2,6 @@ import json
 from collections import OrderedDict
 
 from tripy.common.exception import raise_error
-from tripy.logging import logger
 
 TYPE_MARKER = "tripy_class"
 

@@ -64,6 +64,5 @@ class TestDecoder:
             "Dim",
             "dtype",
             "Dummy",
-            "ndarray",
             "TensorInfo",
         }
