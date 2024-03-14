@@ -28,13 +28,14 @@ class Dequantize(BaseTraceOp):
 def dequantize(
     input: "tripy.Tensor",
     scale: Union["tripy.Tensor", Any],
-    dtype: datatype,
+    dtype: datatype.dtype,
 ) -> "tripy.Tensor":
     """
     Dequantizes the input tensor.
 
     Args:
         input: The input tensor
+        scale: The scale tensor
         dtype: Desired data type of the output tensor
 
     Returns:
@@ -44,16 +45,32 @@ def dequantize(
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, tp.float32).reshape((2, 3))
-        quantized = tp.quantize(input, tp.int8, 0.99872)
-        output = tp.dequantize(quantized, tp.float32)
-
-        assert np.allclose(output.numpy(), input.numpy(), atol=1e-2)
+        input = tp.arange(6, tp.int8).reshape((2, 3))
+        output = tp.dequantize(quantized, 0.99872, tp.float32)
     """
     from tripy.frontend import Tensor
 
     # check if input has a dequantizable dtype
     if input.dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
-        raise_error("input does not have a valid dtype to dequantize", [f"Got dtype={dtype}"])
+        raise_error(
+            "input does not have a valid dtype to dequantize",
+            [
+                f"input.dtype must be one of `tp.int8, tp.int4, tp.float8e4m3fn`, ",
+                f"Got dtype={input.dtype}",
+            ],
+        )
+
+    if dtype not in (datatype.float32, datatype.float16):
+        raise_error(
+            "Invalid dequantization dtype.",
+            [
+                f"dtype must be one of `tp.float32, tp.float16`, ",
+                f"Got dtype={dtype}",
+            ],
+        )
+
+    # TODO: remove this after switching to stablehlo
+    if not isinstance(scale, Tensor):
+        scale = Tensor([scale], dtype=dtype)
 
     return Tensor.build([input, scale], Dequantize, dtype)

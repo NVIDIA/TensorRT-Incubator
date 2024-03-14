@@ -21,19 +21,6 @@ class Quantize(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import QuantizeOp
 
-        def _get_storage_range(dtype):
-            # get default range for dtype
-            return {
-                datatype.int8: (-128, 127),
-            }[dtype]
-
-        # 1. tensorrt infers the default storage range
-        #    storage_min, storage_max are set to be consistent
-        #    with tensorrt, but not really used.
-        # 2. tensorrt does not support zero_point, and
-        #    mlir-trt requires zero_point == 0
-        # storage_min, storage_max = _get_storage_range(self.dtype)
-        # zero_point = 0
         QuantizeOp.build(inputs, outputs)
 
 
@@ -41,15 +28,15 @@ class Quantize(BaseTraceOp):
 def quantize(
     input: "tripy.Tensor",
     scale: Union["tripy.Tensor", Any],
-    dtype: datatype,
+    dtype: datatype.dtype,
 ) -> "tripy.Tensor":
     """
     Quantizes the input Tensor.
 
     Args:
         input: input Tensor to quantize
+        scale: Tensor that contains the scale value
         dtype: quantization dtype
-        scale: quantization scale value
 
     Returns:
         Quantized Tensor.
@@ -60,14 +47,24 @@ def quantize(
 
         input = tp.arange(6, tp.float32).reshape((2, 3))
         quantized = tp.quantize(input, tp.int8, 0.99872)
-        output = tp.dequantize(quantized, tp.float32)
-
-        assert np.allclose(output.numpy(), input.numpy(), atol=1e-2)
     """
     from tripy.frontend import Tensor
 
+    if input.dtype not in (datatype.float32, datatype.float16):
+        raise_error(
+            "Input does not have a valid dtype to quantize.",
+            [
+                f"input.dtype must be one of `tp.float32, tp.float16`, ",
+                f"Got dtype={input.dtype}",
+            ],
+        )
+
     # TODO: support other quantization dtypes (int4, fp8 etc)
     if dtype != datatype.int8:
-        raise_error("Unsupported quantization dtype.", [f"Supported dtypes: int8, Got dtype={dtype}"])
+        raise_error("Unsupported quantization dtype.", [f"Supported dtypes: `tp.int8`, Got dtype={dtype}"])
+
+    # TODO: remove this after switching to stablehlo
+    if not isinstance(scale, Tensor):
+        scale = Tensor([scale], dtype=input.dtype)
 
     return Tensor.build([input, scale], Quantize, dtype)
