@@ -101,8 +101,8 @@ class MatrixMultiplication(BaseTraceOp):
 
         # Insert broadcast ops unconditionally.
         a_shape, b_shape = self.get_operand_shape_after_broadcast(a_shape, b_shape)
-        inputs[0] = op_utils.insert_broadcast(inputs[0], a_shape)
-        inputs[1] = op_utils.insert_broadcast(inputs[1], b_shape)
+        inputs[0] = op_utils.insert_broadcast(inputs[0], a_shape, tensor_details="left operand of '@'")
+        inputs[1] = op_utils.insert_broadcast(inputs[1], b_shape, tensor_details="right operand of '@'")
 
         DotOp.build(inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
 

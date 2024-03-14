@@ -5,10 +5,10 @@ import numpy as np
 import tripy as tp
 
 _UNARY_OPS = {
-    lambda a: tp.exp(a): np.exp,
-    lambda a: tp.tanh(a): np.tanh,
-    lambda a: tp.rsqrt(a): lambda a: 1.0 / np.sqrt(a),
-    lambda a: tp.log(a): np.log,
+    tp.exp: np.exp,
+    tp.tanh: np.tanh,
+    tp.rsqrt: lambda a: 1.0 / np.sqrt(a),
+    tp.log: np.log,
 }
 
 

@@ -21,8 +21,12 @@ class Unsqueeze(BaseTraceOp):
         self.outputs[0].shape = utils.to_dims(out_shape)
 
     def to_flat_ir(self, inputs, outputs):
+        import numpy as np
+
+        from tripy.common.array import Array
         from tripy.common.datatype import int32
-        from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, DynamicBroadcastOp, SliceOp
+        from tripy.common.device import device
+        from tripy.flat_ir.ops import ConcatenateOp, ConstantOp, DynamicBroadcastOp, SliceOp
         from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.frontend.dim import Dim
 
@@ -37,15 +41,32 @@ class Unsqueeze(BaseTraceOp):
         # Get the input shape
         shape_output_tensor = op_utils.get_shape_of_tensor(inputs[0])
 
-        # # Create a constant of Dim[1] filled with 1
-        const_output_tensor = op_utils.add_constant_tensor_from_list([1], inputs[0].device)
-
-        concat_output_tensor = FlatIRTensor.build(
-            shape=(Dim(1 + len(inputs[0].shape)),), dtype=int32, device=inputs[0].device
+        # Create a constant of Dim[1] filled with 1
+        const_output_tensor = FlatIRTensor.build(
+            shape=(Dim(1),),
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "create a constant value tensor containing a '1' to concatenate with "
+                "the shape of the input tensor to create the 'unsqueeze' output shape"
+            ],
+        )
+        ConstantOp.build(
+            [],
+            [const_output_tensor],
+            data=Array(np.array([1]).astype(np.int32), int32, shape=(1,), device=device("cpu")),
         )
 
         # Slice the first half of shape : shape[:dim]
-        slice_first_half = FlatIRTensor.build(shape=(Dim(self.dim),), dtype=int32, device=inputs[0].device)
+        slice_first_half = FlatIRTensor.build(
+            shape=(Dim(self.dim),),
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                f"slice the shape of the input tensor of 'unsqueeze' up to dimension {self.dim}. Note: The input tensor was: ",
+                inputs[0],
+            ],
+        )
         start_indices, limit_indices, strides = op_utils.get_slice_indices(
             self, shape_output_tensor.shape, (slice(0, self.dim, None),)
         )
@@ -60,7 +81,13 @@ class Unsqueeze(BaseTraceOp):
 
         # Slice the second half of shape : shape[dim:]
         slice_second_half = FlatIRTensor.build(
-            shape=(Dim(len(inputs[0].shape) - self.dim),), dtype=int32, device=inputs[0].device
+            shape=(Dim(len(inputs[0].shape) - self.dim),),
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                f"slice the shape of the input tensor of 'unsqueeze' after dimension {self.dim}. Note: The input tensor was: ",
+                inputs[0],
+            ],
         )
 
         start_indices, limit_indices, strides = op_utils.get_slice_indices(
@@ -76,6 +103,15 @@ class Unsqueeze(BaseTraceOp):
         )
 
         # concatenate [slice_first_half, 1, slice_second_half]
+        concat_output_tensor = FlatIRTensor.build(
+            shape=(Dim(1 + len(inputs[0].shape)),),
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "concatenate the input shape with 1s to create the output shape of the 'unsqueeze' operation"
+            ],
+        )
+
         ConcatenateOp.build([slice_first_half, const_output_tensor, slice_second_half], [concat_output_tensor], dim=0)
 
         DynamicBroadcastOp.build(

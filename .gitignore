@@ -10,6 +10,7 @@ __pycache__/
 
 # mlir-tensorrt repo & build
 mlir-tensorrt/
+mlir-dumps/
 
 # stablehlo repo
 stablehlo/
@@ -77,7 +78,7 @@ env.bak/
 venv.bak/
 
 # Crash dumps
-core
+core*
 
 # IDEs
 .vscode

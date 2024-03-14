@@ -74,3 +74,27 @@ pre[id^="codecell"] {
 .literal-block-wrapper {
     padding: 0;
 }
+
+/* Hide Table Of Contents title */
+.nftt-sidebar .title {
+    display: none !important;
+}
+
+.pt-3 {
+    padding-top: 0rem !important;
+}
+
+/* Make footer smaller */
+.py-5 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+
+.py-4 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+
+.nftt-footer .list-unstyled {
+    margin-bottom: 0;
+}

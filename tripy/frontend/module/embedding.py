@@ -2,20 +2,29 @@ from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
 from tripy.utils import export
+from dataclasses import dataclass
 
 
 @export.public_api(document_under="modules")
+@dataclass
 class Embedding(Module):
     """
     A lookup table for embedding vectors of a fixed size.
     Embedding vectors can be retrieved by their indices.
     """
 
-    def __init__(self, num_embeddings: int, embedding_dim: int, dtype: datatype = datatype.float32):
+    dtype: datatype.dtype
+    r"""The data type used to perform the operation"""
+
+    weight: Parameter
+    r"""The embedding lookup table of shape :math:`[\text{num_embeddings}, \text{embedding_dim}]`."""
+
+    def __init__(self, num_embeddings: int, embedding_dim: int, dtype: datatype.dtype = datatype.float32) -> None:
         r"""
         Args:
             num_embeddings: Number of embedding vectors in the lookup table.
             embedding_dim: Size of each embedding vector in the lookup table.
+            dtype: The data type to use for the weight parameter.
 
         .. code-block:: python
             :linenos:
@@ -31,8 +40,9 @@ class Embedding(Module):
         super().__init__()
         from tripy.frontend.trace.ops.iota import iota
 
-        self.weight: Parameter = Parameter(iota((num_embeddings, embedding_dim), dtype=dtype))
-        r"""The embedding lookup table of shape :math:`[\text{num_embeddings}, \text{embedding_dim}]`."""
+        self.dtype = dtype
+
+        self.weight = Parameter(iota((num_embeddings, embedding_dim), dtype=dtype))
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""

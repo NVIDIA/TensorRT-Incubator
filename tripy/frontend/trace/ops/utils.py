@@ -1,3 +1,5 @@
+from typing import Any, List
+
 from colored import Fore, attr
 
 from tripy import utils
@@ -81,7 +83,12 @@ def get_shape_of_tensor(tensor: "FlatIRTensor"):
     from tripy.flat_ir.ops import ConstantOp, ShapeOp
     from tripy.flat_ir.tensor import FlatIRTensor
 
-    shape_output_tensor = FlatIRTensor.build(shape=(Dim(len(tensor.shape)),), dtype=int32, device=tensor.device)
+    shape_output_tensor = FlatIRTensor.build(
+        shape=(Dim(len(tensor.shape)),),
+        dtype=int32,
+        device=tensor.device,
+        reason_details=["retrieve the shape of: ", tensor],
+    )
     if len(tensor.shape) > 0:
         ShapeOp.build([tensor], [shape_output_tensor])
     else:
@@ -92,24 +99,6 @@ def get_shape_of_tensor(tensor: "FlatIRTensor"):
             data=Array(None, int32, shape=(0,), device=tensor.device),
         )
     return shape_output_tensor
-
-
-def add_constant_tensor_from_list(data: list, device: "tripy.device"):
-    import numpy as np
-
-    from tripy.common.array import Array
-    from tripy.common.datatype import int32
-    from tripy.common.device import device
-    from tripy.flat_ir.ops import ConstantOp
-    from tripy.flat_ir.tensor import FlatIRTensor
-
-    const_output_tensor = FlatIRTensor.build(shape=(Dim(1),), dtype=int32, device=device)
-    ConstantOp.build(
-        [],
-        [const_output_tensor],
-        data=Array(np.array(data).astype(np.int32), int32, shape=(len(data),), device=device("cpu")),
-    )
-    return const_output_tensor
 
 
 ##
@@ -157,21 +146,31 @@ def get_broadcast_in_dim(input_shape, output_shape):
 
 # Insert a broadcast op into the flat_ir which broadcasts input tensor to output shape.
 # If the output shape is dynamic, shape of the target_tensor is used to describe the output shape.
+#
+# tensor_details should describe what this tensor is (e.g. left operand of '+')
 def insert_broadcast(
     input_tensor: "FlatIRTensor",
     out_shape: ShapeInfo,
+    tensor_details: str,
     use_dynamic_variant: bool = False,
     target_tensor: "FlatIRTensor" = None,
 ):
-    from tripy.flat_ir.ops import BroadcastOp, DynamicBroadcastOp, ShapeOp
+    from tripy.flat_ir.ops import BroadcastOp, DynamicBroadcastOp
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.frontend.trace.ops.utils import get_broadcast_in_dim
 
-    output_tensor = FlatIRTensor.build(shape=out_shape, dtype=input_tensor.dtype, device=input_tensor.device)
+    output_tensor = FlatIRTensor.build(
+        shape=out_shape,
+        dtype=input_tensor.dtype,
+        device=input_tensor.device,
+        reason_details=[
+            f"broadcast the {tensor_details}, which was: ",
+            input_tensor,
+            f"to a shape of: {out_shape} in order to be compatible with the other input(s)",
+        ],
+    )
 
     if use_dynamic_variant:
-        from tripy import int32
-
         assert target_tensor, "target_tensor is required for dynamic variant of the broadcast op."
 
         shape_output_tensor = get_shape_of_tensor(target_tensor)

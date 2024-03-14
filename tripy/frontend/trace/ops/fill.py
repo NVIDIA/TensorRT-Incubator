@@ -34,7 +34,12 @@ class Fill(BaseTraceOp):
         from tripy.flat_ir.ops import BroadcastOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
-        const_val_tensor = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
+        const_val_tensor = FlatIRTensor.build(
+            shape=[],
+            dtype=outputs[0].dtype,
+            device=outputs[0].device,
+            reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
+        )
         ConstantOp.build(
             [],
             [const_val_tensor],

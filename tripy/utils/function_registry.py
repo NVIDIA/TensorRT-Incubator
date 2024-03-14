@@ -27,7 +27,7 @@ class FuncOverload:
         if len(source_lines) > CONTEXT_LEN + 1:  # + 1 for the '...' line we add
             source_lines = source_lines[:CONTEXT_LEN] + ["    ..."]
         source_code = "\n".join(source_lines)
-        pretty_code = code_pretty_str(source_code, inspect.getsourcefile(self.func), lineno)
+        pretty_code = code_pretty_str(source_code, inspect.getsourcefile(self.func), lineno, self.func.__name__)
         return pretty_code + "\n"
 
     def _get_annotations(self):

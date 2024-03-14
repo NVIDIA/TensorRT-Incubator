@@ -2,7 +2,7 @@ import ast
 import functools
 import inspect
 from collections import defaultdict
-from typing import Callable, Dict, List
+from typing import Any, Callable, Dict, List
 
 from tripy import utils
 from tripy.backend.jit.cached_executable import CachedExecutable
@@ -29,10 +29,11 @@ class jit:
     unless the arguments provided are incompatible with the previously compiled executable(s).
     """
 
-    def __init__(self, func: Callable = None, **kwargs):
+    def __init__(self, func: Callable = None, **kwargs: Dict[str, Any]) -> None:
         """
         Args:
             func: A pure function.
+            kwargs: Other arguments.
 
         Constraints:
             All :class:`tripy.Tensor` arguments must be provided as positional arguments and not keyword arguments.
@@ -242,7 +243,7 @@ class jit:
 
                 compiler = Compiler()
                 executable = CachedExecutable(
-                    compiler.compile(mlir),
+                    compiler.compile(mlir, flat_ir=flat_ir),
                     get_tensor_info(trace.inputs),
                     get_tensor_info(trace.outputs),
                 )

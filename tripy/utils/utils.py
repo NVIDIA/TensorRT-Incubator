@@ -48,26 +48,37 @@ def prefix_with_line_numbers(text: str) -> str:
     """
     Adds prefix line number to text.
     """
-    lines = text.split("\n")
-    numbered_lines = [f"{i+1:>3}: {line}" for i, line in enumerate(lines)]
+    lines = text.strip().split("\n")
+    numbered_lines = [f"{i+1:>3} | {line}" for i, line in enumerate(lines)]
     return "\n".join(numbered_lines)
 
 
-def code_pretty_str(code, filename, line_no, enable_color=True):
+def code_pretty_str(code, filename=None, line_no=None, func=None, enable_color=True):
     def apply_color(inp, color):
         if not enable_color:
             return inp
         return f"{color}{inp}{attr('reset')}"
 
-    line_info = f"{apply_color(filename, Fore.yellow)}:{line_no}"
+    line_info = ""
+    if filename is not None:
+        assert (
+            line_no is not None and func is not None
+        ), f"If file information is provided, line number and function must also be set."
+        line_info = f"--> {apply_color(filename, Fore.yellow)}:{line_no} in {apply_color(func + '()', Fore.cyan)}"
 
     INDENTATION = 4
+
+    def make_line_no_str(index):
+        if line_no is None:
+            return " " * INDENTATION
+        return f"{index + line_no:>{INDENTATION - 1}} "
+
     line_numbered_code = "\n".join(
-        f"{index + line_no:>{INDENTATION - 1}} | {code_line}" for index, code_line in enumerate(code.splitlines())
+        f"{make_line_no_str(index)}| {code_line}" for index, code_line in enumerate(code.splitlines())
     )
     indent = " " * INDENTATION
 
-    return f"--> {line_info}\n{indent}|\n{line_numbered_code}\n{indent}| "
+    return f"{line_info}\n{indent}|\n{line_numbered_code}\n{indent}| "
 
 
 def make_list(obj):

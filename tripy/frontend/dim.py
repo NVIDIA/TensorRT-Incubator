@@ -41,7 +41,7 @@ class Dim:
         min: Optional[int] = None,
         opt: Optional[int] = None,
         max: Optional[int] = None,
-    ):
+    ) -> None:
         """
         Args:
             runtime_value : Runtime value of the dimension.

@@ -5,10 +5,10 @@ from tripy.frontend.trace.ops import UnaryElementwise
 
 
 _UNARY_OPS = {
-    UnaryElementwise.Kind.EXP: lambda a: tp.exp(a),
-    UnaryElementwise.Kind.TANH: lambda a: tp.tanh(a),
-    UnaryElementwise.Kind.RSQRT: lambda a: tp.rsqrt(a),
-    UnaryElementwise.Kind.LOG: lambda a: tp.log(a),
+    UnaryElementwise.Kind.EXP: tp.exp,
+    UnaryElementwise.Kind.TANH: tp.tanh,
+    UnaryElementwise.Kind.RSQRT: tp.rsqrt,
+    UnaryElementwise.Kind.LOG: tp.log,
 }
 
 

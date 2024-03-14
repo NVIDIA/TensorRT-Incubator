@@ -46,7 +46,14 @@ class Reduce(BaseTraceOp):
         from tripy.flat_ir.tensor import FlatIRTensor
 
         init_value = self.kind.init_value
-        init_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
+        init_const = FlatIRTensor.build(
+            shape=[],
+            dtype=outputs[0].dtype,
+            device=outputs[0].device,
+            reason_details=[
+                f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation"
+            ],
+        )
         ConstantOp.build(
             [],
             [init_const],
@@ -78,8 +85,20 @@ class ArgMinMax(Reduce):
         from tripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
-        init_val_const = FlatIRTensor.build(shape=[], dtype=inputs[0].dtype, device=outputs[0].device)
-        init_idx_const = FlatIRTensor.build(shape=[], dtype=outputs[0].dtype, device=outputs[0].device)
+        init_val_const = FlatIRTensor.build(
+            shape=[],
+            dtype=inputs[0].dtype,
+            device=outputs[0].device,
+            reason_details=[f"create the constant value tensor for the initial value of a '{self.kind}' operation"],
+        )
+        init_idx_const = FlatIRTensor.build(
+            shape=[],
+            dtype=outputs[0].dtype,
+            device=outputs[0].device,
+            reason_details=[
+                f"create the constant value tensor for the initial index value of a '{self.kind}' operation"
+            ],
+        )
 
         ConstantOp.build(
             [],

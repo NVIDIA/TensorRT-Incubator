@@ -67,11 +67,19 @@ class BinaryElementwise(BaseTraceOp):
 
         if requires_broadcast_1:
             inputs[0] = op_utils.insert_broadcast(
-                inputs[0], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[1]
+                inputs[0],
+                outputs[0].shape,
+                tensor_details=f"left operand of '{self.kind.strip()}'",
+                use_dynamic_variant=dynamic_shape,
+                target_tensor=inputs[1],
             )
         if requires_broadcast_2:
             inputs[1] = op_utils.insert_broadcast(
-                inputs[1], outputs[0].shape, use_dynamic_variant=dynamic_shape, target_tensor=inputs[0]
+                inputs[1],
+                outputs[0].shape,
+                tensor_details=f"right operand of '{self.kind.strip()}'",
+                use_dynamic_variant=dynamic_shape,
+                target_tensor=inputs[0],
             )
 
         return inputs
@@ -123,7 +131,7 @@ class Comparison(BinaryElementwise):
 
 @TENSOR_METHOD_REGISTRY("__add__")
 @TENSOR_METHOD_REGISTRY("__radd__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __add__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
@@ -152,7 +160,7 @@ def __add__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__sub__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __sub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
@@ -181,7 +189,7 @@ def __sub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__rsub__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __rsub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
@@ -210,7 +218,7 @@ def __rsub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__pow__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __pow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
@@ -239,7 +247,7 @@ def __pow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__rpow__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __rpow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
@@ -269,7 +277,7 @@ def __rpow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__mul__")
 @TENSOR_METHOD_REGISTRY("__rmul__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __mul__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
@@ -298,7 +306,7 @@ def __mul__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__truediv__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __truediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise division.
@@ -327,7 +335,7 @@ def __truediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__rtruediv__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise division.
@@ -356,7 +364,7 @@ def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise maximum.
@@ -386,7 +394,7 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
 
 
 @export.public_api(document_under="tensor")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise minimum.
@@ -416,7 +424,7 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
@@ -446,7 +454,7 @@ def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__le__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __le__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
@@ -475,7 +483,7 @@ def __le__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__eq__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __eq__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
@@ -504,7 +512,7 @@ def __eq__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__ne__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __ne__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
@@ -533,7 +541,7 @@ def __ne__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__ge__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __ge__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
@@ -562,7 +570,7 @@ def __ge__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__gt__")
-@frontend_utils.convert_inputs_to_tensors(allow_type_casting=True)
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 def __gt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.

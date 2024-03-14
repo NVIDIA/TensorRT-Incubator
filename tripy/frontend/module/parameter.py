@@ -11,7 +11,7 @@ class Parameter(Tensor):
     """
 
     @frontend_utils.convert_inputs_to_tensors()
-    def __init__(self, tensor: "tripy.Tensor"):
+    def __init__(self, tensor: "tripy.Tensor") -> None:
         """
         Args:
             tensor: The tensor value for this parameter.

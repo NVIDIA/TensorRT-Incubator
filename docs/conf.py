@@ -80,6 +80,8 @@ html_theme_options = {
     "show_powered_by": False,
     "documentation_font_size": "1.0rem",
     "monospace_font_size": "0.85rem",
+    "repository_url": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy",
+    "repository_name": "Tripy",
 }
 
 html_sidebars = {"**": ["globaltoc.html"]}
@@ -103,14 +105,20 @@ myst_number_code_blocks = ["py", "rst"]
 # Ignore most markdown files as they are not part of the API reference documentation.
 exclude_patterns = ["README.md", "development/*.md"]
 
+# When class documentation is generated, 'process_docstring' is called twice - once for
+# the class docstring and again for the '__init__' docstring. We only want to check the
+# function signature for the latter.
+seen_classes = set()
+
 
 def process_docstring(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
 
-    TRIPY_CLASSES = [obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj)]
+    TRIPY_CLASSES = [tripy_obj for tripy_obj in helper.discover_tripy_objects() if inspect.isclass(tripy_obj)]
 
-    if inspect.isfunction(obj):
+    # Check signature for functions/methods and class constructors.
+    if what in {"function", "method"} or (what == "class" and name in seen_classes):
         signature = inspect.signature(obj)
 
         # We don't currently check overload dispatchers since this would require manual parsing of the docstring.
@@ -133,6 +141,10 @@ def process_docstring(app, what, name, obj, options, lines):
                         param.annotation != signature.empty
                     ), f"Missing type annotation for parameter: '{pname}' in: '{obj}'. Please update the signature with type annotations"
 
+                    assert not inspect.ismodule(
+                        param.annotation
+                    ), f"Type annotation cannot be a module, but got: '{param.annotation}' for parameter: '{pname}' in: '{obj}'. Please specify a type!"
+
             assert signature.return_annotation != signature.empty, (
                 f"Missing return type annotation for: '{obj}'. "
                 f"Hint: If this interface does not return anything, use a type annotation of `-> None`."
@@ -142,6 +154,8 @@ def process_docstring(app, what, name, obj, options, lines):
                 assert (
                     ":returns:" in doc
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
+
+    seen_classes.add(name)
 
     def allow_no_example():
         return (
