@@ -132,16 +132,19 @@ def to_dims(shape: "ShapeInfo") -> Tuple["Dim"]:
     return tuple(Dim(dim) if not isinstance(dim, Dim) else dim for dim in make_list(shape))
 
 
-def from_dims(shape: "ShapeInfo") -> Tuple[int]:
+def from_dims(shape: "ShapeInfo", use_max_value=False) -> Tuple[int]:
     """
     Convert the given shape, which may contain Dim instances, into a concrete shape
-    based on the runtime values of those Dims.
+    based on the runtime values (or max values if use_max_value is enabled) of those Dims.
     """
     from tripy.frontend.dim import Dim
 
     if shape is None:
         return None
-    return tuple(dim if not isinstance(dim, Dim) else dim.runtime_value for dim in make_list(shape))
+    return tuple(
+        dim if not isinstance(dim, Dim) else (dim.max if use_max_value else dim.runtime_value)
+        for dim in make_list(shape)
+    )
 
 
 def volume(shape):
