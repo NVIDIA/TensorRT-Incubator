@@ -48,7 +48,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
         index: The index or slice.
 
     Returns:
-        A tensor cotnaining the slice of ths tensor.
+        A tensor containing the slice of this tensor.
 
     .. code-block:: python
         :linenos:
