@@ -95,7 +95,7 @@ class JitArgsNetwork(tp.Module):
         self.dummy1 = DummyOp(tp.zeros(2, dtype=tp.float32))
         self.dummy2 = DummyOp(tp.arange(2, dtype=tp.float32))
 
-    @tp.jit(dummy_arg=1)
+    @tp.jit()
     def __call__(self, tensor1, tensor2):
         return self.param + self.dummy1() + self.dummy2() + tensor1 + tensor2
 

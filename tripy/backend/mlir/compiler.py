@@ -79,11 +79,14 @@ def _get_compiler_objects() -> Tuple[ir.Context, compiler.CompilerClient]:
 
 
 class Compiler:
-    def __init__(self) -> None:
+    def __init__(self, trt_builder_opt_level=0) -> None:
         self.mlir_context, self.compiler_client = _get_compiler_objects()
+        self.trt_builder_opt_level = trt_builder_opt_level
 
-    def _make_mlir_opts(self):
-        opts = compiler.StableHLOToExecutableOptions(tensorrt_builder_opt_level=0, tensorrt_strongly_typed=True)
+    def _make_mlir_opts(self, trt_builder_opt_level):
+        opts = compiler.StableHLOToExecutableOptions(
+            tensorrt_builder_opt_level=trt_builder_opt_level, tensorrt_strongly_typed=True
+        )
         if config.MLIR_DEBUG_ENABLED:
             opts.set_debug_options(config.MLIR_DEBUG_ENABLED, config.MLIR_DEBUG_TYPES, config.MLIR_DEBUG_TREE_PATH)
         return opts
@@ -91,14 +94,14 @@ class Compiler:
     def compile_stabehlo_program(self, code: str) -> compiler.Executable:
         with self.mlir_context:
             module = ir.Module.parse(code)
-            opts = self._make_mlir_opts()
+            opts = self._make_mlir_opts(self.trt_builder_opt_level)
             return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
 
     # The optional flat_ir parameter is used to generate nicer error messages.
     @utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
         logger.mlir(lambda: f"{utils.prefix_with_line_numbers(remove_constants(str(mlir_module)))}\n")
-        opts = self._make_mlir_opts()
+        opts = self._make_mlir_opts(self.trt_builder_opt_level)
 
         try:
             with redirect_stderr() as outfile:
