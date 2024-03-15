@@ -6,7 +6,7 @@ from tripy.backend.utils import TensorInfo
 from tripy.common import Array, datatype
 from tripy.common.exception import raise_error
 from tripy.frontend import Tensor
-from tripy.utils import Result, from_dims, log_time
+from tripy.utils import default, Result, from_dims, log_time
 
 G_RUNTIME_CLIENT = None
 
@@ -76,6 +76,24 @@ class Executor:
 
         self.out_tensor_info = out_tensor_info
 
+    # Slice the output buffer (allocated with max shapes) to get the data with runtime shapes.
+    def slice_outputs(self, outputs):
+        def slice_to_match(output_shape, runtime_shape):
+            slice_spec = [slice(None)] * len(runtime_shape)  # Default slice is to include everything
+            for index, (dim1, dim2) in enumerate(zip(output_shape, runtime_shape)):
+                if dim1 > dim2:
+                    slice_spec[index] = slice(0, dim2)
+            return slice_spec
+
+        for out_index, (output, out_info) in enumerate(zip(outputs, self.out_tensor_info)):
+            runtime_shape = tuple([s.runtime_value for s in out_info.shape])
+            output_shape = output.shape
+            if output_shape != runtime_shape:
+                t = Tensor(output)
+                slice_index = tuple(slice_to_match(output_shape, runtime_shape))
+                sliced_t = t[slice_index].eval()
+                outputs[out_index] = sliced_t
+
     @log_time
     def execute(self, inputs: List[Tensor] = []) -> List[Array]:
         from tripy.frontend.trace.ops import Storage
@@ -92,8 +110,9 @@ class Executor:
             in_args.append(memref.value)
 
         # Allocate output memory and store buffer pointers.
+        # mlir-tensorrt requires the output buffer to be of the shape with max bounds.
         outputs = [
-            Array(None, shape=from_dims(info.shape), dtype=info.dtype, device=info.device)
+            Array(None, shape=from_dims(info.shape, use_max_value=True), dtype=info.dtype, device=info.device)
             for info in self.out_tensor_info
         ]
 
@@ -121,5 +140,7 @@ class Executor:
                     ),
                     stream=None,
                 )
+
+        self.slice_outputs(outputs)
 
         return outputs
