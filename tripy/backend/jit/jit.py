@@ -29,7 +29,7 @@ class jit:
     unless the arguments provided are incompatible with the previously compiled executable(s).
     """
 
-    def __init__(self, func: Callable = None, const_argnums: Tuple = (), optimization_level: int = 3):
+    def __init__(self, func: Callable = None, const_argnums: Tuple = (), optimization_level: int = 3) -> None:
         """
         Args:
             func: A pure function.
