@@ -5,8 +5,8 @@ description = ""
 authors = [{name = "Parth Chadha", email="pchadha@nvidia.com"}]
 readme = "README.md"
 dependencies = [
-  "mlir-tensorrt-compiler==0.1.7+cuda12.trt100",
-  "mlir-tensorrt-runtime==0.1.7+cuda12.trt100",
+  "mlir-tensorrt-compiler==0.1.8+cuda12.trt100",
+  "mlir-tensorrt-runtime==0.1.8+cuda12.trt100",
 ]
 
 [project.optional-dependencies]

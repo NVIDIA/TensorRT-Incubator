@@ -45,8 +45,12 @@ def dequantize(
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, tp.int8).reshape((2, 3))
-        output = tp.dequantize(input, 0.99872, tp.float32)
+        input = tp.Tensor([1, 2, 3], dtype=tp.int8)
+        scale = 0.99872
+        output = tp.dequantize(input, scale, tp.float32)
+
+        expected = (np.array([1, 2, 3], dtype=np.int8) * scale).astype(np.float32) # doc: omit
+        assert np.array_equal(output.numpy(), expected)
     """
     from tripy.frontend import Tensor
 

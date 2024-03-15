@@ -45,8 +45,12 @@ def quantize(
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, tp.float32).reshape((2, 3))
-        output = tp.quantize(input, 0.99872, tp.int8)
+        input = tp.reshape(tp.arange(6, tp.float32), (2, 3))
+        scale = 0.99872
+        output = tp.quantize(input, scale, tp.int8)
+
+        expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / scale).astype(np.int8) # doc: omit
+        assert np.array_equal(output.numpy(), expected)
     """
     from tripy.frontend import Tensor
 
