@@ -3,11 +3,11 @@ from tripy.frontend.trace import Trace
 from tripy.flat_ir.ops import DequantizeOp
 
 
-class TestQuantizeOp:
+class TestDequantizeOp:
     def test_str(self):
-        a = tp.quantize(tp.Tensor([1.0, 2.0]), tp.int8, 1.0)
-        a.name = "a"
-        out = tp.dequantize(a, tp.float32)
+        a = tp.Tensor([2, 4], dtype=tp.int8, name="a")
+        scale = tp.Tensor([0.9], name="scale")
+        out = tp.dequantize(a, scale, tp.float32)
         out.name = "out"
 
         trace = Trace([out])
@@ -15,4 +15,4 @@ class TestQuantizeOp:
 
         dequant_op = flat_ir.ops[-1]
         assert isinstance(dequant_op, DequantizeOp)
-        assert str(dequant_op) == "out: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DequantizeOp(a)"
+        assert str(dequant_op) == "out: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DequantizeOp(a, scale)"

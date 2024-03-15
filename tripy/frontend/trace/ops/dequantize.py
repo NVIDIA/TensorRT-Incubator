@@ -10,7 +10,7 @@ from tripy.utils import export
 @dataclass(repr=False)
 class Dequantize(BaseTraceOp):
 
-    dtype: datatype
+    dtype: datatype.dtype
 
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
@@ -46,14 +46,14 @@ def dequantize(
         :caption: Example
 
         input = tp.arange(6, tp.int8).reshape((2, 3))
-        output = tp.dequantize(quantized, 0.99872, tp.float32)
+        output = tp.dequantize(input, 0.99872, tp.float32)
     """
     from tripy.frontend import Tensor
 
     # check if input has a dequantizable dtype
     if input.dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
         raise_error(
-            "input does not have a valid dtype to dequantize",
+            "Input does not have a valid dtype to dequantize",
             [
                 f"input.dtype must be one of `tp.int8, tp.int4, tp.float8e4m3fn`, ",
                 f"Got dtype={input.dtype}",
@@ -69,7 +69,7 @@ def dequantize(
             ],
         )
 
-    # TODO: remove this after switching to stablehlo
+    # TODO(#111): remove this after switching to stablehlo
     if not isinstance(scale, Tensor):
         scale = Tensor([scale], dtype=dtype)
 

@@ -10,7 +10,7 @@ from tripy.utils import export
 @dataclass(repr=False)
 class Quantize(BaseTraceOp):
 
-    dtype: datatype
+    dtype: datatype.dtype
 
     def infer_shapes(self):
         self.outputs[0].shape = self.inputs[0].shape
@@ -46,7 +46,7 @@ def quantize(
         :caption: Example
 
         input = tp.arange(6, tp.float32).reshape((2, 3))
-        quantized = tp.quantize(input, tp.int8, 0.99872)
+        output = tp.quantize(input, 0.99872, tp.int8)
     """
     from tripy.frontend import Tensor
 
@@ -63,7 +63,7 @@ def quantize(
     if dtype != datatype.int8:
         raise_error("Unsupported quantization dtype.", [f"Supported dtypes: `tp.int8`, Got dtype={dtype}"])
 
-    # TODO: remove this after switching to stablehlo
+    # TODO(#111): remove this after switching to stablehlo
     if not isinstance(scale, Tensor):
         scale = Tensor([scale], dtype=input.dtype)
 

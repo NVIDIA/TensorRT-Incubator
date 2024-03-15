@@ -1,7 +1,5 @@
 from dataclasses import dataclass
-
 from mlir_tensorrt.compiler.dialects import tensorrt
-
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 

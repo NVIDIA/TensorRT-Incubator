@@ -5,24 +5,26 @@ from tests import helper
 from tripy.frontend.trace.ops import Dequantize
 
 
-@pytest.fixture
-def init_quant_tensor():
-    a = tp.Tensor([1.0, 2.0])
-    quant_a = tp.quantize(a, tp.int8, 1.0)
-    return quant_a
-
-
 class TestDequantize:
-    def test_op(self, init_quant_tensor):
-        a = init_quant_tensor
-        a = tp.dequantize(a, tp.float32)
+
+    def test_op(self):
+        a = tp.Tensor([2, 4], dtype=tp.int8)
+        a = tp.dequantize(a, 0.9, tp.float32)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.op, Dequantize)
 
-    def test_unsupported_dtype(self):
+    def test_invalid_input_dtype(self):
         a = tp.Tensor([1.0, 2.0])
         with helper.raises(
             tp.TripyException,
-            match="input does not have a valid dtype to dequantize",
+            match="Input does not have a valid dtype to dequantize",
         ):
-            a = tp.dequantize(a, tp.float32)
+            a = tp.dequantize(a, 0.9, tp.float32)
+
+    def test_invalid_dequant_dtype(self):
+        a = tp.Tensor([2, 4], dtype=tp.int8)
+        with helper.raises(
+            tp.TripyException,
+            match="Invalid dequantization dtype.",
+        ):
+            a = tp.dequantize(a, 0.9, tp.int32)
