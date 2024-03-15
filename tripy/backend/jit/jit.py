@@ -76,8 +76,10 @@ class jit:
         self.cache: Dict[str, List[CachedExecutable]] = defaultdict(list)
         self.const_argnums = const_argnums
         self.optimization_level = optimization_level
-        if self.optimization_level < 0 or self.optimization_level > 5:
-            raise ValueError("Optimization level must be within the range [0, 5]")
+        if not isinstance(self.optimization_level, int) or self.optimization_level < 0 or self.optimization_level > 5:
+            raise ValueError(
+                f"Optimization level must be an integer within the range [0, 5], got {self.optimization_level}"
+            )
         # Caching is currently a bit complicated - the key of `self.cache` relies
         # on determining the signature of the trace. However, within an instance of
         # a JIT object, the trace signature can only change if the **kwargs

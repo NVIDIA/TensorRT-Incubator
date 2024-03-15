@@ -141,7 +141,7 @@ class TestJIT:
         jitted_func = tp.jit(
             func,
             const_argnums=(1,),
-            optimization_level=(2,),
+            optimization_level=2,
         )
         a, b = init_tensors
         c, d = jitted_func(a, b)
