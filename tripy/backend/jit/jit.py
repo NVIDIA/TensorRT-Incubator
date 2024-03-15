@@ -2,7 +2,7 @@ import ast
 import functools
 import inspect
 from collections import defaultdict
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
 from tripy import utils
 from tripy.backend.jit.cached_executable import CachedExecutable
@@ -29,11 +29,14 @@ class jit:
     unless the arguments provided are incompatible with the previously compiled executable(s).
     """
 
-    def __init__(self, func: Callable = None, **kwargs: Dict[str, Any]) -> None:
+    def __init__(self, func: Callable = None, const_argnums: Tuple = (), optimization_level: int = 3):
         """
         Args:
             func: A pure function.
-            kwargs: Other arguments.
+            const_argnums: Argument indices of func that should be treated as compile-time constants.
+            optimization_level: An integer argument that specifies optimization level allowed for the underlying compiler.
+                                Level 0 enables the fastest compilation and level 5 enables the slowest compilation.
+                                Valid range: [0, 5]. Defaults to 3.
 
         Constraints:
             All :class:`tripy.Tensor` arguments must be provided as positional arguments and not keyword arguments.
@@ -70,9 +73,11 @@ class jit:
 
             assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
         """
-        self.kwargs = kwargs
         self.cache: Dict[str, List[CachedExecutable]] = defaultdict(list)
-
+        self.const_argnums = const_argnums
+        self.optimization_level = optimization_level
+        if self.optimization_level < 0 or self.optimization_level > 5:
+            raise ValueError("Optimization level must be within the range [0, 5]")
         # Caching is currently a bit complicated - the key of `self.cache` relies
         # on determining the signature of the trace. However, within an instance of
         # a JIT object, the trace signature can only change if the **kwargs
@@ -102,7 +107,7 @@ class jit:
         def decorated(*args, **kwargs):
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            const_argnums = self.kwargs.get("const_argnums", tuple()) + tuple(
+            const_argnums = self.const_argnums + tuple(
                 index for index, arg in enumerate(args) if isinstance(arg, Parameter)
             )
 
@@ -241,7 +246,7 @@ class jit:
                 flat_ir = trace.to_flat_ir()
                 mlir = flat_ir.to_mlir()
 
-                compiler = Compiler()
+                compiler = Compiler(trt_builder_opt_level=self.optimization_level)
                 executable = CachedExecutable(
                     compiler.compile(mlir, flat_ir=flat_ir),
                     get_tensor_info(trace.inputs),

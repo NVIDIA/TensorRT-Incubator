@@ -79,8 +79,9 @@ def _get_compiler_objects() -> Tuple[ir.Context, compiler.CompilerClient]:
 
 
 class Compiler:
-    def __init__(self) -> None:
+    def __init__(self, trt_builder_opt_level=0) -> None:
         self.mlir_context, self.compiler_client = _get_compiler_objects()
+        self.trt_builder_opt_level = trt_builder_opt_level
 
     def _make_mlir_opts(self):
         opts = compiler.StableHLOToExecutableOptions(tensorrt_builder_opt_level=0, tensorrt_strongly_typed=True)
@@ -92,6 +93,9 @@ class Compiler:
         with self.mlir_context:
             module = ir.Module.parse(code)
             opts = self._make_mlir_opts()
+            opts = compiler.StableHLOToExecutableOptions(
+                tensorrt_builder_opt_level=self.trt_builder_opt_level, tensorrt_strongly_typed=True
+            )
             return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
 
     # The optional flat_ir parameter is used to generate nicer error messages.

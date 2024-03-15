@@ -22,15 +22,6 @@ class TestJIT:
 
         assert isinstance(func, tp.jit)
 
-    def test_type_decorator_kwargs(self):
-        @tp.jit(dummy=1)
-        def func(a, b):
-            c = a + b
-            d = c + c
-            return c, d
-
-        assert isinstance(func, tp.jit)
-
     def test_type_function(self):
         def func(a, b):
             c = a + b
@@ -66,9 +57,9 @@ class TestJIT:
             d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
-    def test_functional_decorator_kwargs(self, init_tensors):
+    def test_functional_decorator_optimization_level(self, init_tensors):
         # kwargs are not used by jit implementation as of 11/14/2023.
-        @tp.jit(autotune=2)
+        @tp.jit(optimization_level=4)
         def func(a, b):
             c = a + b
             d = c + c
@@ -150,6 +141,7 @@ class TestJIT:
         jitted_func = tp.jit(
             func,
             const_argnums=(1,),
+            optimization_level=(2,),
         )
         a, b = init_tensors
         c, d = jitted_func(a, b)
@@ -284,29 +276,16 @@ class TestJIT:
         assert len(inner.cache.keys()) == 0
         assert len(outer.cache.keys()) == 1
 
-    @pytest.mark.parametrize(
-        "use_jit_args",
-        [True, False],
-    )
-    def test_jit_in_jit_class(self, use_jit_args):
+    def test_jit_in_jit_class(self):
         # Verify that jit class called in another jit class does not cause inner jit function args to be evaluated.
-
-        # A wrapper function for the __call__ method without jit args
-        @tp.jit
-        def call_without_jit(self, a, b):
-            return a * b
 
         class Inner(tp.Module):
             def __init__(self):
                 super().__init__()
 
-            @tp.jit(dummy=1)
+            @tp.jit
             def __call__(self, a, b):
                 return a * b
-
-        if not use_jit_args:
-            # Directly replace the __call__ method for this test case
-            Inner.__call__ = call_without_jit
 
         class Outer(tp.Module):
             def __init__(self):

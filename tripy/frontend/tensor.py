@@ -158,7 +158,7 @@ class Tensor(metaclass=TensorMeta):
         trace = Trace([self])
         flat_ir = trace.to_flat_ir()
         mlir = flat_ir.to_mlir()
-        compiler = Compiler()
+        compiler = Compiler(trt_builder_opt_level=0)
         executable = compiler.compile(mlir, flat_ir=flat_ir)
         executor = Executor(executable, get_tensor_info(flat_ir.outputs))
         # Upon computing the value of this tensor, we switch it to have a `Storage`
