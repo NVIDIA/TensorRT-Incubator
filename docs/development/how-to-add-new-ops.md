@@ -163,7 +163,13 @@ Links:
 ### Public API
 
 Next, we can define the public interface. Since our public interface maps 1:1 with the `Trace`
-operator we just implemented, we'll add it in the same file:
+operator we just implemented and does not require weights, we'll add it in the same file.
+
+If our API required a composition of multiple `Trace` operators, then we would instead implement
+it under [`frontend/ops/`](source:/tripy/frontend/ops).
+
+If it required weights (i.e. inputs that are expected to always be constant), then we would implement
+it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 
 ```py
 from tripy.utils import export
