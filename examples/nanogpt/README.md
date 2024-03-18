@@ -40,7 +40,7 @@ for expected accuracy.
     Loading weights from pretrained model: 'gpt2'
     Do people really like using ONNX?
 
-    This is something that I felt I could
+    This is something that I'm very excited
     ```
      -->
     <!-- Tripy Test: EXPECTED_STDOUT End -->
