@@ -12,13 +12,13 @@ were chosen over alternatives.
 One way we deviate from frameworks like PyTorch is that our API only provides one way to do things.
 For example, in PyTorch, `softmax` is exposed as `torch.softmax`, `torch.nn.functional.softmax`,
 `torch.Tensor.softmax`, `torch.nn.Softmax`, etc. All of these are functionally identical and unnecessarily
-increase the API surface. In Tripy, we only expose `tripy.nn.softmax`. Trying to use anything else will
+increase the API surface. In Tripy, we only expose `tripy.softmax`. Trying to use anything else will
 result in a (helpful) error message:
 
 ```
->>> tp.Tensor([1, 2, 3]).gather
+>>> tp.Tensor([1, 2, 3]).softmax
 ...
-AttributeError: Module: 'tripy.Tensor' does not have attribute: 'gather'. Did you mean: 'tripy.gather'?
+AttributeError: Module: 'tripy.Tensor' does not have attribute: 'softmax'. Did you mean: 'tripy.softmax'?
 ```
 
 
@@ -37,10 +37,11 @@ on top of MLIR but has the added benefit that we can inspect and modify the IR w
 resorting to the poorly documented (as of this writing), MLIR Python APIs.
 
 
-## Why Does `to_flat_ir()` Rely On Side-effects?
+## Why Does `to_flat_ir()` Rely On Binding To Input/Output Tensors?
 
-The `to_flat_ir()` method of `Trace` operators currently relies on the side effects of
-the `BaseFlatIROp.build` function to build a subgraph. For example:
+The `to_flat_ir()` method of `Trace` operators generates a subgraph and binds it
+to the `inputs` and `outputs` parameters.
+For example:
 
 ```py
 def to_flat_ir(self, inputs, outputs):
@@ -49,29 +50,7 @@ def to_flat_ir(self, inputs, outputs):
     TanhOp.build(inputs, outputs)
 ```
 
-Here, `TanhOp` will bind itself to the inputs and outputs on construction.
-Below we explain some of the alternatives that were considered and why they were rejected.
-
-### Alternative 1: Manual Everything
-
-The most obvious alternative is to manually set up everything in the subgraph.
-Our example code becomes:
-
-```py
-def to_flat_ir(self, inputs, outputs):
-    from tripy.flat_ir.ops import TanhOp
-
-    tanh = TanhOp.build(inputs, outputs)
-
-    for out in outputs:
-        out.producer = tanh
-```
-
-Clearly this would create way too much repeated code everywhere; one way to fix that
-would be to set the producer(s) of the output(s) in the constructor of the `FlatIR` operator,
-which is exactly what we do.
-
-### Alternative 2: Returning Operators
+### Alternative 1: Returning Operators
 
 In a previous version of Tripy, we would return a list of operators that we wanted in the
 `FlatIR` subgraph. Our example code would have looked something like this:
@@ -88,11 +67,11 @@ This seems perfectly fine for small cases like this and indeed is the reason tha
 did it this way. However, for large subgraphs, it quickly becomes error-prone. It is too easy
 to forget to include some `FlatIR` operations and that can lead to confusing bugs.
 
-Since you never construct a `FlatIR` operation in `to_flat_ir()` that you *don't* want to be
-part of the subgraph, we decided to make the constructor effectively behave like the single
-source of truth for defined operations in the subgraph.
+Since you never create a `FlatIR` operation in `to_flat_ir()` that you *don't* want to be
+part of the subgraph, we decided to make the `build()` function the single
+source of truth for which operations are defined in the subgraph.
 
-#### Alternative 3: Functional APIs
+### Alternative 2: Functional APIs
 
 Another possibility would have been to provide functional APIs which would let us more easily
 build up the FlatIR subgraph. Then our example code could have been implemented like so:

@@ -39,25 +39,29 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             return []
 
         output_name = output_names[0]
-        if output_name in trace_output_names:
-            # For tensors that are user visible, we don't need to provide details about
-            # the FlatIR op.
-            return []
+
+        if output_name not in trace_output_names:
+            assert (
+                out_tensor.reason_details
+            ), f"All intermediate tensors should have reason_details set, but {out_tensor} does not!"
 
         out_tensor = flat_ir.tensor_map[output_name]
         op = out_tensor.producer
 
-        assert (
-            out_tensor.reason_details
-        ), f"All intermediate tensors should have reason_details set, but {out_tensor} does not!"
-
-        return [
-            "This error occured while trying to compile the following FlatIR expression:",
-            utils.code_pretty_str(str(op)),
-            f"\nThis operation was introduced by Tripy in order to ",
-            *out_tensor.reason_details,
-            ".\n\n",
-        ]
+        return (
+            [
+                "This error occured while trying to compile the following FlatIR expression:",
+                utils.code_pretty_str(str(op)),
+            ]
+            + (
+                [f"\nThis operation was introduced by Tripy in order to ", *out_tensor.reason_details, "."]
+                if out_tensor.reason_details
+                else []
+            )
+            + [
+                "\n\n",
+            ]
+        )
 
     raise_error(
         str(exc),

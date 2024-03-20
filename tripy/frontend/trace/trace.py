@@ -114,9 +114,6 @@ class Trace:
             layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
 
-    def __eq__(self, other: "Trace") -> bool:
-        return self.ops == other.ops and self.inputs == other.inputs
-
     def to_flat_ir(self):
         from tripy.flat_ir.flat_ir import FlatIR
 

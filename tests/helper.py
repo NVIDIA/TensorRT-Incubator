@@ -16,6 +16,7 @@ import tripy as tp
 from tripy.common.exception import _make_stack_info_message
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
+from tripy.backend.mlir.utils import remove_constants
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 
@@ -52,7 +53,7 @@ def check_mlir(mlir, expected):
     # Checks a given MLIR module against a string of the expected program.
     # MLIR indents with 2 spaces; we'll replace it with 4 spaces so that it's
     # easier to write the expected string.
-    mlir_str = str(mlir).replace(" " * 2, " " * 4).strip()
+    mlir_str = remove_constants(str(mlir)).replace(" " * 2, " " * 4).strip()
     print(f"MLIR:\n{mlir_str}")
     assert mlir_str == dedent(expected).strip()
 

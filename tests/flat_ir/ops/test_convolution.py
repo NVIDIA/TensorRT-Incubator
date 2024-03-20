@@ -36,9 +36,16 @@ class TestConvolutionOp:
                 func.func @main() -> tensor<4x16x4x4xf32> {
                     %0 = stablehlo.constant dense<1.000000e+00> : tensor<f32>
                     %1 = stablehlo.broadcast_in_dim %0, dims = [] : (tensor<f32>) -> tensor<4x3x8x8xf32>
-                    %2 = stablehlo.iota dim = 0 : tensor<16x3x5x5xf32>
-                    %3 = stablehlo.convolution(%1, %2) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<4x3x8x8xf32>, tensor<16x3x5x5xf32>) -> tensor<4x16x4x4xf32>
-                    return %3 : tensor<4x16x4x4xf32>
+                    %2 = stablehlo.iota dim = 0 : tensor<1200xf32>
+                    %3 = stablehlo.constant dense<1.000000e+00> : tensor<f32>
+                    %4 = stablehlo.broadcast_in_dim %3, dims = [] : (tensor<f32>) -> tensor<1200xf32>
+                    %5 = stablehlo.multiply %2, %4 : tensor<1200xf32>
+                    %6 = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+                    %7 = stablehlo.broadcast_in_dim %6, dims = [] : (tensor<f32>) -> tensor<1200xf32>
+                    %8 = stablehlo.add %5, %7 : tensor<1200xf32>
+                    %9 = stablehlo.reshape %8 : (tensor<1200xf32>) -> tensor<16x3x5x5xf32>
+                    %10 = stablehlo.convolution(%1, %9) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {} {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<4x3x8x8xf32>, tensor<16x3x5x5xf32>) -> tensor<4x16x4x4xf32>
+                    return %10 : tensor<4x16x4x4xf32>
                 }
             }
             """,

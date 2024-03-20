@@ -117,6 +117,7 @@ def make_tensor_location(
 
 
 TENSOR_NAME_PATTERN = re.compile(r'loc\("(.*?)"\): ')
+TENSOR_NAME_PATTERN_NO_CAPTURE = re.compile(r'loc\(".*?"\): ')
 
 
 def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], str]:
@@ -125,12 +126,10 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
         The input names, output names, trace input names, trace output names, and new error message with location information stripped respectively.
     """
     locs = TENSOR_NAME_PATTERN.findall(msg)
-    assert (
-        len(locs) <= 1
-    ), f"Only implemented for error messages containing a single location - please update this if you see this message!"
     if not locs:
         return [], []
 
+    # TODO (#150): Update this logic to not only look at the first location attribute.
     loc = locs[0]
     input_names, _, loc = loc.partition(OUTPUT_SEPARATOR)
     output_names, _, loc = loc.partition(TRACE_INPUTS_SEPARATOR)
@@ -141,7 +140,7 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
         output_names.split(","),
         trace_inputs.split(","),
         trace_outputs.split(","),
-        TENSOR_NAME_PATTERN.split(msg)[-1],
+        "".join(TENSOR_NAME_PATTERN_NO_CAPTURE.split(msg)),
     )
 
 
