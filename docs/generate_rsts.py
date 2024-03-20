@@ -8,7 +8,7 @@ from collections import defaultdict
 from textwrap import dedent, indent
 from typing import Dict, Set
 
-from tripy.utils.export import PUBLIC_APIS
+from tripy.export import PUBLIC_APIS
 
 
 def to_snake_case(string):
@@ -23,7 +23,11 @@ def make_heading(title):
 
 def build_api_doc(api, include_heading=True):
 
-    automod = "autofunction" if inspect.isfunction(api.obj) else "autoclass"
+    automod = "autodata"
+    if inspect.isfunction(api.obj):
+        automod = "autofunction"
+    elif inspect.isclass(api.obj):
+        automod = "autoclass"
 
     return (
         "\n"

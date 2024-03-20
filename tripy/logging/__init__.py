@@ -1,1 +1,1 @@
-from tripy.logging.logging import logger
+from tripy.logging.logger import logger

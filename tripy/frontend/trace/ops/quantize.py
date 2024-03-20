@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from typing import Union, Any
+from typing import Any, Union
 
+from tripy import export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -24,7 +24,7 @@ class Quantize(BaseTraceOp):
         QuantizeOp.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def quantize(
     input: "tripy.Tensor",
     scale: Union["tripy.Tensor", Any],

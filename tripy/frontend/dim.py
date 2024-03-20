@@ -1,9 +1,8 @@
 import functools
 from typing import Any, Callable, Dict, Optional
 
-from tripy import utils
+from tripy import export, utils
 from tripy.common.exception import raise_error
-from tripy.utils import export
 from tripy.utils.json import Decoder, Encoder
 
 

@@ -5,8 +5,6 @@ from collections import OrderedDict, defaultdict
 from textwrap import dedent
 from typing import Any, Callable, Dict, List, Tuple
 
-from tripy.utils.result import Result
-
 
 class FuncOverload:
     def __init__(self, func):
@@ -64,7 +62,9 @@ class FuncOverload:
 
         return self.annotations
 
-    def matches_arg_types(self, args, kwargs) -> Result:
+    def matches_arg_types(self, args, kwargs) -> "Result":
+        from tripy.utils.result import Result
+
         def matches_type(name: str, annotation: type, arg: Any):
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just

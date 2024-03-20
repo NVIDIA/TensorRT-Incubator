@@ -4,8 +4,7 @@ from typing import Any, List, Tuple
 
 from colored import Fore, attr
 
-from tripy import utils
-from tripy.utils import export
+from tripy import export, utils
 
 
 @export.public_api()
@@ -59,7 +58,7 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
 
 
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> str:
-    import tripy.utils.function_registry
+    import tripy.function_registry
     from tripy.frontend.utils import convert_inputs_to_tensors
 
     EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors]
@@ -82,7 +81,7 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
         if not source_info.code:
             continue
 
-        if source_info.module == tripy.utils.function_registry.__name__:
+        if source_info.module == tripy.function_registry.__name__:
             continue
 
         if should_exclude(source_info):

@@ -1,7 +1,7 @@
-from tripy.utils import export
+from tripy import export
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
     r"""
     Applies the softmax function to the input tensor:
@@ -31,7 +31,7 @@ def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
 
         assert np.allclose(output.numpy(), torch.Tensor([[0., 0.], [1., 1.]]).softmax(0).numpy())
     """
-    from tripy.frontend.trace.ops.reduce import sum, max
+    from tripy.frontend.trace.ops.reduce import max, sum
     from tripy.frontend.trace.ops.unary_elementwise import exp
 
     # TODO(#96): make keepdim always True to match the mlir pattern

@@ -199,13 +199,13 @@ def process_docstring(app, what, name, obj, options, lines):
 
             code_block_lines.append(block_line)
 
-        def add_block(title, contents):
+        def add_block(title, contents, lang="python"):
             line = block.splitlines()[1]
             indentation = len(line) - len(line.lstrip())
 
             out = (
                 indent(
-                    f"\n\n.. code-block:: python\n"
+                    f"\n\n.. code-block:: {lang}\n"
                     + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * TAB_SIZE),
                     prefix=" " * (indentation - 4),
                 )
@@ -280,7 +280,7 @@ def process_docstring(app, what, name, obj, options, lines):
         stdout = get_stdout() or ""
 
         if stdout:
-            add_block("Output:", stdout)
+            add_block("Output:", stdout, lang="")
 
         # Grab the caption from the example code block.
         for line in code_block_lines:

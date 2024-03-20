@@ -4,42 +4,26 @@ import os
 import sys
 from functools import partial
 from textwrap import indent
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Union, Set
 
 from colored import Style
 
 from tripy.logging.verbosity import VerbosityConfig, make_verbosity_map
 from tripy.logging.verbosity_trie import VerbosityTrie
+from tripy import export
 
 
 class _Logger:
+
+    # This is used to export the instance under `tripy.logger`
+    __name__ = "logger"
+
     VERBOSITY_CONFIGS: Dict[str, VerbosityConfig] = make_verbosity_map()
 
     def __init__(self) -> None:
         self._indentation = 0
-        self.verbosity = "info"
-        """
-        Verbosity to use for the logger. The verbosity may be either a single string
-        or set of strings and can be provided in a per-path dictionary to set per-module/submodule
-        verbosities.
-
-        Possible values for this come from the keys of VERBOSITY_CONFIGS.
-
-        For example:
-        ::
-
-            # Enable `info` logging in all modules
-            logger.verbosity = "info"
-
-            # Enable `info` and `trace` logging in all modules
-            logger.verbosity = {"info", "trace"}
-
-            # Enable `verbose` logging for just the frontend module:
-            logger.verbosity = {"frontend": "verbose"}
-
-            # Enable `verbose` and `timing` logging for just the frontend module:
-            logger.verbosity = {"frontend": {"verbose", "timing"}}
-        """
+        self.verbosity: Union[str, Set[str], Dict[str, str], Dict[str, Set[str]]] = "info"
+        self.enable_color = True
 
     @property
     def verbosity(self):
@@ -152,13 +136,85 @@ class _Logger:
         message = indent(message, prefix=" " * self._indentation)
 
         config = self.VERBOSITY_CONFIGS[verbosity]
-        print(f"{config.color}{config.prefix}{message}{Style.reset}")
+        message = f"{config.prefix}{message}"
+        if self.enable_color:
+            message = f"{config.color}{message}{Style.reset}"
+
+        print(message)
 
     def __getattr__(self, name) -> Any:
         if name in self.VERBOSITY_CONFIGS:
             return partial(self.log, verbosity=name, stack_depth=3)
 
-        return super().__getattr__(name)
+        raise AttributeError(f"Logger has no attribute: '{name}'.")
 
 
 logger = _Logger()
+logger.__doc__ = """
+The global logger used across Tripy.
+
+The verbosity can be controlled using the ``verbosity`` property and may be either a single string
+or set of strings:
+
+.. code-block:: python
+    :linenos:
+    :caption: Setting Logging Verbosity
+
+    # Need to reset verbosity when we finish the example to not affect other tests # doc: omit
+    # doc: no-print-locals
+    old_verbosity = tp.logger.verbosity # doc: omit
+    old_color = tp.logger.enable_color # doc: omit
+    tp.logger.enable_color = False # doc: omit
+
+    tp.logger.verbose("This will NOT be logged")
+    tp.logger.verbosity = "verbose"
+    tp.logger.verbose("This will be logged")
+
+    tp.logger.verbosity = old_verbosity # doc: omit
+    tp.logger.enable_color = old_color # doc: omit
+
+Possible values for this come from the keys of ``logger.VERBOSITY_CONFIGS``.
+
+It may alternatively be provided in a per-path dictionary to set per-module/submodule
+verbosities:
+
+.. code-block:: python
+    :linenos:
+    :caption: Per-Submodule Logging Verbosities
+
+    # doc: no-print-locals
+    old_verbosity = tp.logger.verbosity # doc: omit
+    old_color = tp.logger.enable_color # doc: omit
+    tp.logger.enable_color = False # doc: omit
+
+
+    # Enable `verbose` logging for just the frontend module:
+    tp.logger.verbosity = {"frontend": "verbose"}
+
+    # Enable `verbose` and `timing` logging for just the frontend module:
+    tp.logger.verbosity = {"frontend": {"verbose", "timing"}}
+
+    tp.logger.verbosity = old_verbosity # doc: omit
+    tp.logger.enable_color = old_color # doc: omit
+
+
+Verbosity can also be changed temporarily by using the ``use_verbosity`` context manager:
+
+.. code-block:: python
+    :linenos:
+    :caption: Setting Logging Verbosity Temporarily
+
+    old_color = tp.logger.enable_color # doc: omit
+    tp.logger.enable_color = False # doc: omit
+
+
+    tp.logger.verbose("This will NOT be logged")
+
+    with tp.logger.use_verbosity("verbose"):
+        tp.logger.verbose("This will be logged")
+
+    tp.logger.verbose("This will NOT be logged")
+
+    tp.logger.enable_color = old_color # doc: omit
+"""
+export.public_api(autodoc_options=[":annotation:"])(logger)

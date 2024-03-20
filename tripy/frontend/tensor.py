@@ -4,12 +4,11 @@ from typing import Any, List, Optional, Union
 # Import ops to populate the registry before we define our Tensor class
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
-from tripy import utils
+from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
-from tripy.utils import export
 
 
 class TensorMeta(type):

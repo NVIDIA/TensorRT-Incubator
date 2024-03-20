@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import Any, Dict
 
+from tripy import export
 from tripy.common.exception import TripyException
 from tripy.utils.json import Decoder, Encoder
-from tripy.utils import export
 
 
 @export.public_api()

@@ -172,7 +172,7 @@ If it required weights (i.e. inputs that are expected to always be constant), th
 it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 
 ```py
-from tripy.utils import export
+from tripy import export
 
 # We can use the `export.public_api()` decorator to automatically export this function into the
 # top-level module. This means it will be accessible as `tripy.theta`.

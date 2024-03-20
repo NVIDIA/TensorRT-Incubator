@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy.utils import export
+from tripy import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -20,7 +20,7 @@ class Cast(BaseTraceOp):
         ConvertOp.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""
     Returns a tensor with the contents of the input tensor casted to the specified data type.

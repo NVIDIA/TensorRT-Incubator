@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils
+from tripy import export, utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -45,7 +44,7 @@ class Gather(BaseTraceOp):
         GatherOp.build(inputs, outputs, self.axis)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """
     Gather values from the input tensor along the specified axis based on the specified indices.

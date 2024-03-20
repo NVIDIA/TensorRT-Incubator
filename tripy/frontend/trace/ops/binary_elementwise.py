@@ -3,10 +3,10 @@ from typing import Any, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
+from tripy import export
 from tripy.common import datatype
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -363,7 +363,7 @@ def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.DIV)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
@@ -393,7 +393,7 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     return Tensor.build([lhs, rhs], BinaryElementwise, BinaryElementwise.Kind.MAXIMUM)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """

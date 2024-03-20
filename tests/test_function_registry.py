@@ -1,14 +1,14 @@
-import re
 from textwrap import dedent
 
 import pytest
 
-from tripy import TripyException, utils
+from tripy import TripyException
+from tripy.function_registry import FunctionRegistry
 
 
 @pytest.fixture()
 def registry():
-    yield utils.FunctionRegistry()
+    yield FunctionRegistry()
 
 
 @pytest.fixture

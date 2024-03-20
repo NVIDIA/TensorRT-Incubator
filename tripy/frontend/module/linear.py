@@ -1,9 +1,10 @@
+from dataclasses import dataclass
+from typing import Optional
+
+from tripy import export
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
-from tripy.utils import export
-from dataclasses import dataclass
-from typing import Optional
 
 
 @export.public_api(document_under="modules")

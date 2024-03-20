@@ -11,7 +11,7 @@ import requests
 
 import tripy as tp
 from tests import helper
-from tripy.utils.export import PUBLIC_APIS
+from tripy.export import PUBLIC_APIS
 
 
 class TestReadme:

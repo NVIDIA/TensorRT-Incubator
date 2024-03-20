@@ -41,8 +41,10 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = []):
                     # Also save the last dispatch target we see.
                     dispatch_target = None
                     for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH:]):
+                        import tripy.function_registry
+
                         dispatch_target = source_info._dispatch_target or dispatch_target
-                        if source_info.module != "tripy.utils.function_registry":
+                        if source_info.module != tripy.function_registry.__name__:
                             frame_index = idx + WRAPPER_STACK_DEPTH
                             break
                     else:

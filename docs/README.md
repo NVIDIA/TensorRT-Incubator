@@ -21,7 +21,7 @@ generation, such as where in the documentation hierarchy the API should be docum
 The `generate_rsts.py` script uses this information to automatically generate a directory
 structure and populate it with `.rst` files.
 
-For more information, see the docstring for [`export.public_api()`](../tripy/utils/export.py).
+For more information, see the docstring for [`export.public_api()`](../tripy/export.py).
 
 ### Docstrings
 

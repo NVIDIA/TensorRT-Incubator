@@ -1,6 +1,6 @@
 import tripy.frontend.utils as frontend_utils
+from tripy import export
 from tripy.frontend.tensor import Tensor
-from tripy.utils import export
 
 
 @export.public_api(document_under="modules", autodoc_options=[":no-members:", ":no-special-members:"])

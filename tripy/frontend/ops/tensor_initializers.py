@@ -2,16 +2,16 @@ import math
 import numbers
 from typing import Optional
 
+from tripy import export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.fill import full, full_like
 from tripy.frontend.trace.ops.iota import iota, iota_like
 from tripy.frontend.trace.ops.where import where
-from tripy.utils import export
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 1.
@@ -36,7 +36,7 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.T
     return full(shape, 1, dtype)
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 0.
@@ -61,7 +61,7 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.
     return full(shape, 0, dtype)
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Creates a tensor with all elements set to 1 of the same shape as the input tensor.
@@ -87,7 +87,7 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
     return full_like(input, 1, dtype)
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Creates a Tensor with all elements set to 0 of the same shape as the input tensor.
@@ -113,7 +113,7 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
     return full_like(input, 0, dtype)
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def tril(self, diagonal: int = 0) -> "tripy.Tensor":
     r"""
     Returns the lower triangular part of each :math:`[M, N]` matrix in the tensor, with all other elements set to 0.
@@ -164,7 +164,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
     return where(tri_mask, self, zeros_tensor)
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def arange(
     start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
 ) -> "tripy.Tensor":
@@ -212,7 +212,7 @@ def arange(
     return output
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval

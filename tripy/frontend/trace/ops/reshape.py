@@ -2,11 +2,10 @@ from dataclasses import dataclass
 from typing import Sequence, Tuple, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils
+from tripy import export, utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -75,7 +74,7 @@ class Squeeze(Reshape):
         super().infer_shapes()
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
@@ -103,7 +102,7 @@ def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
     return Tensor.build([input], Reshape, shape)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Tensor":
     """
     Returns a new tensor with all specified singleton dimensions of the input tensor removed.

@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils
+from tripy import export, utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -120,7 +119,7 @@ class Unsqueeze(BaseTraceOp):
         )
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor with a

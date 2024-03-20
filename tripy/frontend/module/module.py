@@ -2,10 +2,10 @@ import copy
 import operator
 from typing import Any, Dict, Iterator, List, Tuple, Union
 
+from tripy import export
 from tripy.common.exception import raise_error
 from tripy.frontend.module.parameter import Parameter
 from tripy.logging import logger
-from tripy.utils import export
 
 
 @export.public_api(document_under="modules/index.rst")

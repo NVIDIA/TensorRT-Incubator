@@ -4,13 +4,12 @@ import os
 import pytest
 
 import tripy as tp
-from tripy.logging import logger
 
 
 class TestLogging:
     def test_basic(self, capsys):
         message = "Test Message"
-        logger.info(message)
+        tp.logger.info(message)
 
         captured = capsys.readouterr()
 
@@ -47,24 +46,24 @@ class TestLogging:
         ],
     )
     def test_verbosity_trie(self, verbosity, expected):
-        old_verbosity = copy.copy(logger.verbosity)
+        old_verbosity = copy.copy(tp.logger.verbosity)
         try:
-            logger.verbosity = verbosity
-            assert logger.verbosity == expected
+            tp.logger.verbosity = verbosity
+            assert tp.logger.verbosity == expected
         finally:
             # Reset verbosity so we don't corrupt other tests
-            logger.verbosity = old_verbosity
+            tp.logger.verbosity = old_verbosity
 
     def test_use_verbosity(self):
         default_verbosity = {"": {"info", "warning", "error"}}
-        assert logger.verbosity == default_verbosity
-        with logger.use_verbosity("error"):
-            assert logger.verbosity == {"": {"error"}}
-        assert logger.verbosity == default_verbosity
+        assert tp.logger.verbosity == default_verbosity
+        with tp.logger.use_verbosity("error"):
+            assert tp.logger.verbosity == {"": {"error"}}
+        assert tp.logger.verbosity == default_verbosity
 
     def test_disabled_verbosity_does_not_log(self, capsys):
-        with logger.use_verbosity("warning"):
-            logger.info("This message should not be logged!")
+        with tp.logger.use_verbosity("warning"):
+            tp.logger.info("This message should not be logged!")
 
         assert not capsys.readouterr().out
 
@@ -72,15 +71,15 @@ class TestLogging:
         # Paths are expected to be part of the tripy module, so we do something slightly
         # hacky to express this file relative to the tripy module (even though it's not part of it).
         path = os.path.realpath(os.path.relpath(__file__, tp.__path__[0]))
-        with logger.use_verbosity({path: "warning"}):
-            logger.info("This message should not be logged!")
+        with tp.logger.use_verbosity({path: "warning"}):
+            tp.logger.info("This message should not be logged!")
 
         assert not capsys.readouterr().out
 
     def test_indent(self, capsys):
         message = "This message should be indented"
-        with logger.indent():
-            logger.info(message)
+        with tp.logger.indent():
+            tp.logger.info(message)
 
         out = capsys.readouterr().out
         print(out)
@@ -88,7 +87,7 @@ class TestLogging:
 
         # After we exit the context manager, messages should no longer be indented.
         message = "This message should NOT be indented"
-        logger.info(message)
+        tp.logger.info(message)
 
         out = capsys.readouterr().out
         print(out)
@@ -97,7 +96,7 @@ class TestLogging:
 
     def test_log_callable(self, capsys):
         message = "Message to log"
-        logger.info(lambda: message)
+        tp.logger.info(lambda: message)
 
         out = capsys.readouterr().out
         print(out)

@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from tripy import utils
+from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
-from tripy.utils import export
 
 
 @export.public_api(document_under="modules")

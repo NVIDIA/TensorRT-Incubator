@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from tripy.utils import export
+from tripy import export
 from tripy.utils.json import Decoder, Encoder
 
 # A dictionary to store data types

@@ -7,11 +7,12 @@ import tripy as tp
 class TestDim:
     @pytest.mark.parametrize("range", [2, 3])
     def test_repr(self, range):
-        from tripy import Dim  # To make eval work
 
         dim = tp.Dim(2, max=range)
         if dim.is_dynamic_dim():
             assert repr(dim) == f"Dim(runtime_value=2, min=2, opt=2, max={range})"
+            from tripy import Dim  # Required to make eval() work
+
             eval_dim = eval(repr(dim))
             assert eval_dim.min == 2 and eval_dim.opt == 2 and eval_dim.max == range and eval_dim.runtime_value == 2
         else:

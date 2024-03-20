@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy.utils import export
+from tripy import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -53,7 +53,7 @@ class Transpose(Permute):
         return super().infer_shapes()
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     """
     Returns a new tensor that is a transposed version of the input tensor where
@@ -81,7 +81,7 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     return Tensor.build([input], Transpose, None, dim0, dim1)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
     """
     Returns a tensor with its dimensions permuted.

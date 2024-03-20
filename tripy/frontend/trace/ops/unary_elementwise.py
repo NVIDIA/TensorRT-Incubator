@@ -1,7 +1,7 @@
 import enum
 from dataclasses import dataclass
 
-from tripy.utils import export
+from tripy import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -30,7 +30,7 @@ class UnaryElementwise(BaseTraceOp):
         OpType.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the elementwise exponential of the elements of the input tensor:
@@ -57,7 +57,7 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.EXP)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise hyperbolic tangent of the elements of the input tensor.
@@ -82,7 +82,7 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.TANH)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise reciprocal square root of the elements of the input tensor.
@@ -107,7 +107,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.RSQRT)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def log(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise natural logarithm (base e) of the elements of the input tensor.

@@ -2,7 +2,7 @@ import inspect
 from dataclasses import dataclass
 from typing import List, Optional, Any
 
-from tripy.utils.function_registry import FunctionRegistry
+from tripy.function_registry import FunctionRegistry
 
 
 @dataclass

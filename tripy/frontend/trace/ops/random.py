@@ -1,12 +1,11 @@
 import numbers
 from dataclasses import dataclass
 
-from tripy import utils
+from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -54,7 +53,7 @@ class RandomNormal(Random):
         super().to_flat_ir(inputs, outputs, RandomNormalOp, self.mean, self.std)
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def rand(
     shape: ShapeInfo, low: numbers.Number = 0.0, high: numbers.Number = 1.0, dtype: datatype.dtype = datatype.float32
 ) -> "tripy.Tensor":
@@ -86,7 +85,7 @@ def rand(
     return Tensor.build([], RandomUniform, utils.to_dims(shape), dtype, low, high)
 
 
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def randn(
     shape: ShapeInfo, mean: numbers.Number = 0.0, std: numbers.Number = 1.0, dtype: datatype.dtype = datatype.float32
 ) -> "tripy.Tensor":

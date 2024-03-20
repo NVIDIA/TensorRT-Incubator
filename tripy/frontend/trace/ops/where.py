@@ -2,7 +2,7 @@ import numbers
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy.utils import export
+from tripy import export
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -68,7 +68,7 @@ class Where(BaseTraceOp):
         SelectOp.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
@@ -105,7 +105,7 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
     return Tensor.build([condition, input, other], Where)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
     Returns a new tensor filled with ``value`` where ``mask`` is ``True`` and elements from

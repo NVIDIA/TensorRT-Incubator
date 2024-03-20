@@ -4,7 +4,7 @@ import inspect
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Tuple
 
-from tripy import utils
+from tripy import export, utils
 from tripy.backend.jit.cached_executable import CachedExecutable
 from tripy.backend.jit.dynamic_storage import DynamicStorage
 from tripy.backend.jit.utils import get_trace_signature
@@ -16,7 +16,6 @@ from tripy.frontend.module import Module, Parameter
 from tripy.frontend.trace import Trace
 from tripy.frontend.trace.ops import Storage
 from tripy.logging import logger
-from tripy.utils import export
 
 
 @export.public_api(autodoc_options=[":no-special-members:"])

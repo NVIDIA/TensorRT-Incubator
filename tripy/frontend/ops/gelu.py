@@ -1,9 +1,9 @@
 import math
 
-from tripy.utils import export
+from tripy import export
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies an approximated Gaussian Error Linear Units (GELU) function

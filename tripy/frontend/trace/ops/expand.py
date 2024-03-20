@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from typing import Sequence
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils
+from tripy import export, utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export
 
 
 @dataclass(repr=False)
@@ -46,7 +45,7 @@ class Expand(BaseTraceOp):
         BroadcastOp.build(inputs, outputs, broadcast_dim=broadcast_dim)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def expand(input: "tripy.Tensor", sizes: Sequence[int]) -> "tripy.Tensor":
     """
     Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.

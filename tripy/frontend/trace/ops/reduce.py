@@ -2,10 +2,10 @@ import enum
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from tripy import utils
+from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import export, make_list
+from tripy.utils import make_list
 
 
 @dataclass(repr=False)
@@ -130,7 +130,7 @@ def _reduce_impl(self, kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bo
     return out
 
 
-@export.public_api(document_under="tensor/reduction_operations")
+@export.public_api(document_under="tensor_operations")
 def sum(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -159,7 +159,7 @@ def sum(
     return _reduce_impl(input, Reduce.Kind.SUM, dim, keepdim)
 
 
-@export.public_api(document_under="tensor/reduction_operations")
+@export.public_api(document_under="tensor_operations")
 def max(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -188,7 +188,7 @@ def max(
     return _reduce_impl(input, Reduce.Kind.MAX, dim, keepdim)
 
 
-@export.public_api(document_under="tensor/reduction_operations")
+@export.public_api(document_under="tensor_operations")
 def prod(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -239,7 +239,7 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     return sum_val / (cast(divisor, sum_val.dtype))
 
 
-@export.public_api(document_under="tensor/reduction_operations")
+@export.public_api(document_under="tensor_operations")
 def mean(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -268,7 +268,7 @@ def mean(
     return mean_impl(input, dim, keepdim)
 
 
-@export.public_api(document_under="tensor/reduction_operations")
+@export.public_api(document_under="tensor_operations")
 def var(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
 ) -> "tripy.Tensor":
@@ -312,9 +312,9 @@ def var(
 
 def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, keepdim: bool):
     from tripy.frontend.tensor import Tensor
-    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
     from tripy.frontend.trace.ops.iota import iota_like
     from tripy.frontend.trace.ops.reshape import reshape
+    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
     if dim is None:
         tensor = reshape(tensor, (-1,))
@@ -328,7 +328,7 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, ke
     return out
 
 
-@export.public_api(document_under="tensor/reduction_operations")
+@export.public_api(document_under="tensor_operations")
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
     Returns a new tensor containing the indices of maximum values of the input tensor along the specified dimension.
@@ -356,7 +356,7 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
     return _arg_min_max_impl(input, ArgMinMax.Kind.ARG_MAX, dim, keepdim)
 
 
-@export.public_api(document_under="tensor/reduction_operations")
+@export.public_api(document_under="tensor_operations")
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
     Returns a new tensor containing the indices of minimum values of the input tensor along the specified dimension.

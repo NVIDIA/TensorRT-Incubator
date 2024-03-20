@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy.utils import export
+from tripy import export
 from tripy.common.device import device
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -21,7 +21,7 @@ class Copy(BaseTraceOp):
         CopyOp.build(inputs, outputs, target=self.target)
 
 
-@export.public_api(document_under="tensor")
+@export.public_api(document_under="tensor_operations")
 def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.
