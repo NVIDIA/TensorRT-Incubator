@@ -217,4 +217,4 @@ class _Logger:
 
 
 logger = _Logger()
-export.public_api(autodoc_options=[":annotation:"])(logger)
+export.public_api()(logger)

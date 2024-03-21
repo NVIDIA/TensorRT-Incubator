@@ -98,3 +98,8 @@ pre[id^="codecell"] {
 .nftt-footer .list-unstyled {
     margin-bottom: 0;
 }
+
+/* Omit values of variables */
+.data .sig:not(.sig-inline) em.property {
+    display: none;
+}

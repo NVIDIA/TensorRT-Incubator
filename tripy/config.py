@@ -1,5 +1,5 @@
 """
-Controls global configuration options for Tripy.
+Global configuration options for Tripy.
 """
 
 import os
@@ -20,3 +20,4 @@ temp_dir_path = tempfile.gettempdir()
 
 # Variables that are exposed to the user are kept lowercase.
 timing_cache_file_path = os.path.join(temp_dir_path, "tripy-cache")
+"""Path to a timing cache file that can be used to speed up compilation time"""
