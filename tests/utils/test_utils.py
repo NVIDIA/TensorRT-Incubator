@@ -2,7 +2,7 @@ import pytest
 
 import tripy as tp
 from tripy import utils
-from tripy.frontend.dim import Dim
+from tripy.frontend.dim import dynamic_dim
 
 
 class TestMd5:
@@ -30,8 +30,8 @@ class TestMd5:
 @pytest.mark.parametrize(
     "inp, expected",
     [
-        ((2, 3, 4), (Dim(2), Dim(3), Dim(4))),
-        (((2, Dim(3), 4)), (Dim(2), Dim(3), Dim(4))),
+        ((2, 3, 4), (dynamic_dim(2), dynamic_dim(3), dynamic_dim(4))),
+        (((2, dynamic_dim(3), 4)), (dynamic_dim(2), dynamic_dim(3), dynamic_dim(4))),
         (None, None),
         ((), ()),
     ],

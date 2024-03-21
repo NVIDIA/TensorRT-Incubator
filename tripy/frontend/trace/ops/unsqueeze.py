@@ -26,7 +26,7 @@ class Unsqueeze(BaseTraceOp):
         from tripy.common.device import device
         from tripy.flat_ir.ops import ConcatenateOp, ConstantOp, DynamicBroadcastOp, SliceOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.frontend.dim import Dim
+        from tripy.frontend.dim import dynamic_dim
 
         broadcast_dim = list(range(len(inputs[0].shape)))
         for idx in range(len(broadcast_dim)):
@@ -39,9 +39,9 @@ class Unsqueeze(BaseTraceOp):
         # Get the input shape
         shape_output_tensor = op_utils.get_shape_of_tensor(inputs[0])
 
-        # Create a constant of Dim[1] filled with 1
+        # Create a constant of dynamic[1] filled with 1
         const_output_tensor = FlatIRTensor.build(
-            shape=(Dim(1),),
+            shape=(dynamic_dim(1),),
             dtype=int32,
             device=inputs[0].device,
             reason_details=[
@@ -57,7 +57,7 @@ class Unsqueeze(BaseTraceOp):
 
         # Slice the first half of shape : shape[:dim]
         slice_first_half = FlatIRTensor.build(
-            shape=(Dim(self.dim),),
+            shape=(dynamic_dim(self.dim),),
             dtype=int32,
             device=inputs[0].device,
             reason_details=[
@@ -79,7 +79,7 @@ class Unsqueeze(BaseTraceOp):
 
         # Slice the second half of shape : shape[dim:]
         slice_second_half = FlatIRTensor.build(
-            shape=(Dim(len(inputs[0].shape) - self.dim),),
+            shape=(dynamic_dim(len(inputs[0].shape) - self.dim),),
             dtype=int32,
             device=inputs[0].device,
             reason_details=[
@@ -102,7 +102,7 @@ class Unsqueeze(BaseTraceOp):
 
         # concatenate [slice_first_half, 1, slice_second_half]
         concat_output_tensor = FlatIRTensor.build(
-            shape=(Dim(1 + len(inputs[0].shape)),),
+            shape=(dynamic_dim(1 + len(inputs[0].shape)),),
             dtype=int32,
             device=inputs[0].device,
             reason_details=[

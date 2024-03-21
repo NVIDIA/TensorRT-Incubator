@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy.frontend.dim import Dim
+from tripy.frontend.dim import dynamic_dim
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 import tripy.frontend.trace.ops.utils as op_utils
@@ -34,7 +34,7 @@ class Convolution(BaseTraceOp):
         spatial_shape = ()
         for spatial_dim_tensor, spatial_dim_kernel in zip(tensor_shape[2:], kernel_shape[2:]):
             dim_val = spatial_dim_tensor.runtime_value - spatial_dim_kernel.runtime_value + 1
-            dim = Dim(dim_val)
+            dim = dynamic_dim(dim_val)
             spatial_shape += (dim,)
 
         output_shape = (tensor_shape[0],) + (kernel_shape[0],) + spatial_shape

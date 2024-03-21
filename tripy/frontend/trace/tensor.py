@@ -2,7 +2,7 @@ import dataclasses
 from dataclasses import dataclass
 
 from tripy.common.types import ShapeInfo
-from tripy.frontend import Dim
+from tripy.frontend import dynamic_dim
 from tripy import utils
 
 
@@ -31,7 +31,7 @@ class TraceTensor:
     """Device location of the tensor"""
 
     def __str__(self) -> str:
-        def str_from_dim(dim: Dim):
+        def str_from_dim(dim: dynamic_dim):
             return ("?" if dim.is_dynamic_dim() else str(dim)) + ","
 
         shape = f"{' '.join(map(str_from_dim, self.shape))}"

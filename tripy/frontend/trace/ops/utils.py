@@ -5,7 +5,7 @@ from colored import Fore, attr
 from tripy import utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
-from tripy.frontend.dim import Dim
+from tripy.frontend.dim import dynamic_dim
 from tripy.utils import Result
 
 
@@ -62,14 +62,13 @@ def check_input_shapes_match(op: "BaseTraceOp", op_details: str = "", start_inde
 
 
 def get_broadcast_dim(dim1, dim2):
-    if dim1.is_static_dim() and dim2.is_static_dim():
+    if dim1.is_dynamic_dim():
+        return dim1
+    elif dim2.is_dynamic_dim():
+        return dim2
+    else:
         assert dim1 == 1 or dim2 == 1 or dim1 == dim2
         return max(dim1, dim2)
-    else:
-        if dim1.is_dynamic_dim():
-            return dim1
-        else:
-            return dim2
 
 
 ##
@@ -84,7 +83,7 @@ def get_shape_of_tensor(tensor: "FlatIRTensor"):
     from tripy.flat_ir.tensor import FlatIRTensor
 
     shape_output_tensor = FlatIRTensor.build(
-        shape=(Dim(len(tensor.shape)),),
+        shape=(dynamic_dim(len(tensor.shape)),),
         dtype=int32,
         device=tensor.device,
         reason_details=["retrieve the shape of: ", tensor],

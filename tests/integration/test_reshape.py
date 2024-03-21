@@ -24,7 +24,7 @@ class TestReshape:
         assert np.array_equal(b.numpy(), np_a.reshape(new_shape))
 
     def test_dynamic_reshape(self):
-        dim = tp.Dim(runtime_value=4, min=3, opt=5, max=6)
+        dim = tp.dynamic_dim(runtime_value=4, min=3, opt=5, max=6)
         a = tp.ones((dim, 5, 6, 7))
         with helper.raises(NotImplementedError, match="Dynamic reshape is not supported"):
             a = tp.reshape(a, (20, 3, 14))

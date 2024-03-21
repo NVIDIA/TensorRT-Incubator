@@ -24,7 +24,7 @@ class TestFunctional:
         out = c + c
         assert (out.numpy() == np.array([6.0, 8.0], dtype=np.float32)).all()
 
-    @pytest.mark.parametrize("dim", [tp.Dim(2, min=2, opt=3, max=4)])
+    @pytest.mark.parametrize("dim", [tp.dynamic_dim(2, min=2, opt=3, max=4)])
     def test_add_two_tensors_dynamic(self, dim):
         arr = np.ones(2, dtype=np.float32)
         a = tp.Tensor(arr, shape=(dim,), device=tp.device("gpu"))
@@ -259,7 +259,7 @@ class TestCopyFunctional:
 
     def test_print_dynamic_tensor(self):
         arr = np.ones(4, dtype=np.float32)
-        a = tp.Tensor(arr, shape=(tp.Dim(4, min=2, opt=4, max=6),), device=tp.device("gpu"))
+        a = tp.Tensor(arr, shape=(tp.dynamic_dim(4, min=2, opt=4, max=6),), device=tp.device("gpu"))
         assert np.array_equal(a.numpy(), arr)
 
     def test_print_static_tensor(self):
@@ -272,21 +272,21 @@ class TestDynamic:
     @pytest.mark.parametrize(
         "dims_a, dims_b",
         [
-            ((tp.Dim(4, min=2, opt=4, max=6), 2), (tp.Dim(4, min=2, opt=4, max=6), 2)),
+            ((tp.dynamic_dim(4, min=2, opt=4, max=6), 2), (tp.dynamic_dim(4, min=2, opt=4, max=6), 2)),
             (
-                (tp.Dim(4, min=2, opt=4, max=6), 2),
-                (tp.Dim(4, min=2, opt=4, max=6), 1),
+                (tp.dynamic_dim(4, min=2, opt=4, max=6), 2),
+                (tp.dynamic_dim(4, min=2, opt=4, max=6), 1),
             ),  # use DynamicBroadcast static dim
-            ((tp.Dim(4, min=2, opt=4, max=6), 2), (1, 2)),  # use DynamicBroadcast dynamic dim
+            ((tp.dynamic_dim(4, min=2, opt=4, max=6), 2), (1, 2)),  # use DynamicBroadcast dynamic dim
             # Below test is blocked on mlir-tensorrt bug: https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/640
-            # ((1, 2), (tp.Dim(4, min=2, opt=4, max=6), 2)), # use DynamicBroadcast dynamic dim
+            # ((1, 2), (tp.dynamic_dim(4, min=2, opt=4, max=6), 2)), # use DynamicBroadcast dynamic dim
         ],
     )
     def test_dynamic_jit(self, dims_a, dims_b, capsys):
         with logger.use_verbosity("mlir"):
 
             def get_np_dims(dims, dim_func):
-                return [dim_func(d) if isinstance(d, tp.Dim) else d for d in dims]
+                return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
             a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
             b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
@@ -315,7 +315,7 @@ class TestDynamic:
             captured = capsys.readouterr()
             assert "stablehlo.add" in captured.out.strip()
 
-    @pytest.mark.parametrize("dim", [tp.Dim(4, min=2, opt=4, max=6)])
+    @pytest.mark.parametrize("dim", [tp.dynamic_dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
         with logger.use_verbosity({"ir", "verbose"}):
             a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))

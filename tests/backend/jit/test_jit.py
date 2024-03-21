@@ -159,7 +159,7 @@ class TestJIT:
 
     def test_dynamic_shapes(self):
         random_data = np.random.rand(3).astype(np.float32)
-        dynamic_dim = tp.Dim(3, min=2, opt=3, max=10)
+        dynamic_dim = tp.dynamic_dim(3, min=2, opt=3, max=10)
 
         a = tp.Tensor(random_data, shape=(dynamic_dim,), device=tp.device("gpu"))
         b = tp.Tensor(random_data, shape=(dynamic_dim,), device=tp.device("gpu"))
@@ -237,7 +237,7 @@ class TestJIT:
 
             @tp.jit
             def add(a):
-                t = tp.Tensor([1.0, 2.0, 3.0], shape=(tp.Dim(3, 2, 3, 4),))
+                t = tp.Tensor([1.0, 2.0, 3.0], shape=(tp.dynamic_dim(3, 2, 3, 4),))
                 out = a + t
                 import pdb
 

@@ -61,7 +61,7 @@ class TestDecoder:
         assert set(Decoder.REGISTERED.keys()) == {
             "CachedExecutable",
             "device",
-            "Dim",
+            "dynamic_dim",
             "dtype",
             "Dummy",
             "TensorInfo",
