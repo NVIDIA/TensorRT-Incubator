@@ -6,10 +6,12 @@ from mlir_tensorrt.compiler import ir
 from tripy import config, utils
 from tripy.backend.mlir.utils import parse_tensor_names_from_location, redirect_stderr, remove_constants
 from tripy.common.exception import raise_error
+import tripy.config as cfg
 from tripy.logging import logger
 
 G_MLIR_CONTEXT = None
 G_COMPILER_CLIENT = None
+G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
 
 
 def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
@@ -75,10 +77,16 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
 
 # Avoid instantiating the compiler more than once.
 def _get_compiler_objects() -> Tuple[ir.Context, compiler.CompilerClient]:
-    global G_MLIR_CONTEXT, G_COMPILER_CLIENT
+    global G_MLIR_CONTEXT, G_COMPILER_CLIENT, G_TIMING_CACHE_FILE
+    if G_TIMING_CACHE_FILE != cfg.timing_cache_file_path:
+        # Reinitialize the compiler if the timing cache file path has changed.
+        global G_COMPILER_CLIENT
+        G_COMPILER_CLIENT = None
+        G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
+
     if G_MLIR_CONTEXT is None or G_COMPILER_CLIENT is None:
         G_MLIR_CONTEXT = ir.Context()
-        G_COMPILER_CLIENT = compiler.CompilerClient(G_MLIR_CONTEXT, compiler.CompilerClientOptions())
+        G_COMPILER_CLIENT = compiler.CompilerClient(G_MLIR_CONTEXT, compiler.CompilerClientOptions(G_TIMING_CACHE_FILE))
     return G_MLIR_CONTEXT, G_COMPILER_CLIENT
 
 
