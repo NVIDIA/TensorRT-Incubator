@@ -1,10 +1,14 @@
-import tempfile
-import os
-from tripy.utils import export
+"""
+Controls global configuration options for Tripy.
+"""
 
-# IR printing
-CONSTANT_IR_PRINT_VOLUME_THRESHOLD = 5
-"""The volume threshold above which constants should not be printed in the IR"""
+import os
+import sys
+import tempfile
+
+from tripy import export
+
+export.public_api(autodoc_options=[":members:"])(sys.modules[__name__])
 
 # MLIR Debug options
 MLIR_DEBUG_ENABLED = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"

@@ -9,10 +9,17 @@ from textwrap import dedent, indent
 from typing import Dict, Set
 
 from tripy.export import PUBLIC_APIS
+import tripy as tp
 
 
 def to_snake_case(string):
     return re.sub("([A-Z]+)", r"_\1", string).lower().lstrip("_")
+
+
+def get_name(api):
+    if inspect.ismodule(api.obj):
+        return api.obj.__name__.partition(f"{tp.__name__}.")[-1]
+    return api.obj.__name__
 
 
 def make_heading(title):
@@ -22,19 +29,21 @@ def make_heading(title):
 
 
 def build_api_doc(api, include_heading=True):
-
     automod = "autodata"
+    name = get_name(api)
     if inspect.isfunction(api.obj):
         automod = "autofunction"
     elif inspect.isclass(api.obj):
         automod = "autoclass"
+    elif inspect.ismodule(api.obj):
+        automod = "automodule"
 
     return (
         "\n"
-        + (make_heading(api.obj.__name__) if include_heading else "")
+        + (make_heading(name) if include_heading else "")
         + dedent(
             f"""
-        .. {automod}:: tripy.{api.obj.__name__}
+        .. {automod}:: tripy.{name}
         """
         ).strip()
         + indent(("\n" + "\n".join(api.autodoc_options)) if api.autodoc_options else "", prefix=" " * 4)
@@ -134,17 +143,18 @@ def main():
 
     seen_apis = set()
     for api in PUBLIC_APIS:
+        name = get_name(api)
         # Overloads will show up as multiple separate objects in PUBLIC_APIS, but
         # we only need to document them once.
-        if api.obj.__name__ in seen_apis:
+        if name in seen_apis:
             continue
-        seen_apis.add(api.obj.__name__)
+        seen_apis.add(name)
 
         if is_file(api.document_under):
             rst_path = make_output_path(*api.document_under.split("/"))
             rst_filename = os.path.basename(rst_path)
         else:
-            rst_filename = f"{to_snake_case(api.obj.__name__)}.rst"
+            rst_filename = f"{to_snake_case(name)}.rst"
             rst_path = make_output_path(*api.document_under.split("/"), rst_filename)
 
         path = ""

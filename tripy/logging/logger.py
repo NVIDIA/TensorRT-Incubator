@@ -14,6 +14,73 @@ from tripy import export
 
 
 class _Logger:
+    """
+    The global logger used across Tripy.
+
+    The verbosity can be controlled using the ``verbosity`` property and may be either a single string
+    or set of strings:
+
+    .. code-block:: python
+        :linenos:
+        :caption: Setting Logging Verbosity
+
+        # Need to reset verbosity when we finish the example to not affect other tests # doc: omit
+        # doc: no-print-locals
+        old_verbosity = tp.logger.verbosity # doc: omit
+        old_color = tp.logger.enable_color # doc: omit
+        tp.logger.enable_color = False # doc: omit
+
+        tp.logger.verbose("This will NOT be logged")
+        tp.logger.verbosity = "verbose"
+        tp.logger.verbose("This will be logged")
+
+        tp.logger.verbosity = old_verbosity # doc: omit
+        tp.logger.enable_color = old_color # doc: omit
+
+    Possible values for this come from the keys of ``logger.VERBOSITY_CONFIGS``.
+
+    It may alternatively be provided in a per-path dictionary to set per-module/submodule
+    verbosities:
+
+    .. code-block:: python
+        :linenos:
+        :caption: Per-Submodule Logging Verbosities
+
+        # doc: no-print-locals
+        old_verbosity = tp.logger.verbosity # doc: omit
+        old_color = tp.logger.enable_color # doc: omit
+        tp.logger.enable_color = False # doc: omit
+
+
+        # Enable `verbose` logging for just the frontend module:
+        tp.logger.verbosity = {"frontend": "verbose"}
+
+        # Enable `verbose` and `timing` logging for just the frontend module:
+        tp.logger.verbosity = {"frontend": {"verbose", "timing"}}
+
+        tp.logger.verbosity = old_verbosity # doc: omit
+        tp.logger.enable_color = old_color # doc: omit
+
+
+    Verbosity can also be changed temporarily by using the ``use_verbosity`` context manager:
+
+    .. code-block:: python
+        :linenos:
+        :caption: Setting Logging Verbosity Temporarily
+
+        old_color = tp.logger.enable_color # doc: omit
+        tp.logger.enable_color = False # doc: omit
+
+
+        tp.logger.verbose("This will NOT be logged")
+
+        with tp.logger.use_verbosity("verbose"):
+            tp.logger.verbose("This will be logged")
+
+        tp.logger.verbose("This will NOT be logged")
+
+        tp.logger.enable_color = old_color # doc: omit
+    """
 
     # This is used to export the instance under `tripy.logger`
     __name__ = "logger"
@@ -150,71 +217,4 @@ class _Logger:
 
 
 logger = _Logger()
-logger.__doc__ = """
-The global logger used across Tripy.
-
-The verbosity can be controlled using the ``verbosity`` property and may be either a single string
-or set of strings:
-
-.. code-block:: python
-    :linenos:
-    :caption: Setting Logging Verbosity
-
-    # Need to reset verbosity when we finish the example to not affect other tests # doc: omit
-    # doc: no-print-locals
-    old_verbosity = tp.logger.verbosity # doc: omit
-    old_color = tp.logger.enable_color # doc: omit
-    tp.logger.enable_color = False # doc: omit
-
-    tp.logger.verbose("This will NOT be logged")
-    tp.logger.verbosity = "verbose"
-    tp.logger.verbose("This will be logged")
-
-    tp.logger.verbosity = old_verbosity # doc: omit
-    tp.logger.enable_color = old_color # doc: omit
-
-Possible values for this come from the keys of ``logger.VERBOSITY_CONFIGS``.
-
-It may alternatively be provided in a per-path dictionary to set per-module/submodule
-verbosities:
-
-.. code-block:: python
-    :linenos:
-    :caption: Per-Submodule Logging Verbosities
-
-    # doc: no-print-locals
-    old_verbosity = tp.logger.verbosity # doc: omit
-    old_color = tp.logger.enable_color # doc: omit
-    tp.logger.enable_color = False # doc: omit
-
-
-    # Enable `verbose` logging for just the frontend module:
-    tp.logger.verbosity = {"frontend": "verbose"}
-
-    # Enable `verbose` and `timing` logging for just the frontend module:
-    tp.logger.verbosity = {"frontend": {"verbose", "timing"}}
-
-    tp.logger.verbosity = old_verbosity # doc: omit
-    tp.logger.enable_color = old_color # doc: omit
-
-
-Verbosity can also be changed temporarily by using the ``use_verbosity`` context manager:
-
-.. code-block:: python
-    :linenos:
-    :caption: Setting Logging Verbosity Temporarily
-
-    old_color = tp.logger.enable_color # doc: omit
-    tp.logger.enable_color = False # doc: omit
-
-
-    tp.logger.verbose("This will NOT be logged")
-
-    with tp.logger.use_verbosity("verbose"):
-        tp.logger.verbose("This will be logged")
-
-    tp.logger.verbose("This will NOT be logged")
-
-    tp.logger.enable_color = old_color # doc: omit
-"""
 export.public_api(autodoc_options=[":annotation:"])(logger)

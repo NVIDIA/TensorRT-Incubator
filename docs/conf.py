@@ -159,14 +159,16 @@ def process_docstring(app, what, name, obj, options, lines):
 
     def allow_no_example():
         return (
-            what in {"attribute", "module", "class"}
+            what in {"attribute", "module", "class", "data"}
             or
             # Modules include examples in their constructors
             (what == "method" and obj.__name__ == "__call__")
         )
 
     if not allow_no_example():
-        assert ".. code-block:: python" in doc, f"For: {obj} no example was provided. Please add an example!"
+        assert (
+            ".. code-block:: python" in doc
+        ), f"For: {obj} (which is a: '{what}'), no example was provided. Please add an example!"
 
     lines.clear()
     for block in blocks:

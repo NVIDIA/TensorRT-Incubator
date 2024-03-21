@@ -8,7 +8,7 @@ from typing import Any, List, Tuple, Union
 
 from colored import Fore, attr
 
-from tripy import config
+from tripy import constants
 from tripy.logging import logger
 
 
@@ -165,7 +165,7 @@ def volume(shape):
 
 
 def should_omit_constant_in_str(shape):
-    return volume(shape) >= config.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
+    return volume(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
 
 
 def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
