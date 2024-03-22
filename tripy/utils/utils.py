@@ -188,18 +188,27 @@ def constant_fields(field_names: Sequence[str]):
     """
 
     def constant_fields_impl(cls: type):
+        default_init = cls.__init__
+
+        def custom_init(self, *args, **kwargs):
+            self.__initialized_fields = set()
+            return default_init(self, *args, **kwargs)
+
         default_setattr = cls.__setattr__
 
-        initialized_fields = defaultdict(set)
+        def custom_setattr(self, name, value):
+            if name == "__initialized_fields":
+                return object.__setattr__(self, name, value)
 
-        def setattr_const(self, name, value):
-            if name in field_names and name in initialized_fields[id(self)]:
-                raise_error(f"Field: '{name}' of class: '{cls.__qualname__}' is immutable!")
+            if name in field_names:
+                if name in self.__initialized_fields:
+                    raise_error(f"Field: '{name}' of class: '{cls.__qualname__}' is immutable!")
+                self.__initialized_fields.add(name)
 
-            initialized_fields[id(self)].add(name)
             return default_setattr(self, name, value)
 
-        cls.__setattr__ = setattr_const
+        cls.__init__ = custom_init
+        cls.__setattr__ = custom_setattr
         return cls
 
     return constant_fields_impl
