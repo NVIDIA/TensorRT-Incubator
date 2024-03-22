@@ -11,6 +11,8 @@ from tripy.backend.jit.utils import get_trace_signature
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
 from tripy.backend.utils import TensorInfo, get_tensor_info
+from tripy.common.device import device
+from tripy.common.exception import raise_error
 from tripy.frontend import Tensor
 from tripy.frontend.module import Module, Parameter
 from tripy.frontend.trace import Trace
@@ -236,8 +238,14 @@ class jit:
                 input_tensor_info = get_tensor_info(trace.inputs)
                 output_tensor_info = get_tensor_info(trace.outputs)
 
-            trace_signature = self._trace_signatures[trace_signature_key]
+            tensors_on_host = [x for x in args if x.op.device.kind != "gpu"]
+            if len(tensors_on_host) > 0:
+                raise_error(
+                    f"JIT requires all the inputs to be on GPU.",
+                    details=["The following input tensors are not on the GPU:"] + tensors_on_host,
+                )
 
+            trace_signature = self._trace_signatures[trace_signature_key]
             for executable in self.cache.get(trace_signature, []):
                 if executable.is_compatible(input_tensor_info):
                     break

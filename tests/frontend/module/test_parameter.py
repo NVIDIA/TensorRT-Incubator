@@ -2,12 +2,13 @@ import numpy as np
 
 import tripy as tp
 from tripy.logging import logger
+from tripy.common.device import device
 
 
 class TestParameter:
     def test_is_marked_const(self, capsys):
         with logger.use_verbosity("flat_ir"):
-            param = tp.Parameter(tp.Tensor([1, 2, 3]))
+            param = tp.Parameter(tp.Tensor([1, 2, 3], device=device("gpu")))
 
             @tp.jit
             def func(param):
