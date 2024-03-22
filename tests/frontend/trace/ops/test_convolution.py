@@ -1,3 +1,5 @@
+import pytest
+
 import tripy as tp
 from tests import helper
 from tripy.frontend.trace.ops import Convolution
@@ -42,3 +44,43 @@ class TestConvolution:
             has_stack_info_for=[input],
         ):
             output.eval()
+
+    @pytest.mark.parametrize(
+        "padding, err, expect_input_stack_info",
+        [
+            (((2, 2),), r"Number of padding values does not match number of spatial dimensions in the input.", True),
+            ((2, 2), r"Expected a sequence of 2-tuples of ints for padding attribute.", False),
+            (((2, 2, 2), (2, 2, 2)), r"Inner dimension of padding attribute must be 2.", False),
+        ],
+    )
+    def test_invalid_padding(self, padding, err, expect_input_stack_info):
+        input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
+        stack_info = [input] if expect_input_stack_info else None
+
+        with helper.raises(tp.TripyException, match=err, has_stack_info_for=stack_info):
+            conv_layer = tp.Conv(3, 16, (5, 5), padding=padding, dtype=tp.float32)
+            if expect_input_stack_info:
+                output = conv_layer(input)
+                output.eval()
+
+    @pytest.mark.parametrize(
+        "stride, err, expect_input_stack_info",
+        [
+            ((-1, 0), r"Non-positive stride is not supported.", False),
+            (((1, 1), (1, 1)), r"Expected stride attribute to be a tuple of integers.", False),
+            ((2, 2, 2), r"Number of stride values does not match number of spatial dimensions in the input.", True),
+        ],
+    )
+    def test_invalid_stride(self, stride, err, expect_input_stack_info):
+        input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
+        stack_info = [input] if expect_input_stack_info else None
+
+        with helper.raises(
+            tp.TripyException,
+            match=err,
+            has_stack_info_for=stack_info,
+        ):
+            conv_layer = tp.Conv(3, 16, (5, 5), stride=stride, dtype=tp.float32)
+            if expect_input_stack_info:
+                output = conv_layer(input)
+                output.eval()

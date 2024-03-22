@@ -8,6 +8,9 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 
 @dataclass(repr=False)
 class ConvolutionOp(BaseFlatIROp):
+    padding: Tuple[Tuple[int]]
+    stride: Tuple[int]
+
     def to_mlir(self, operands):
         # convolution spec: https://github.com/openxla/stablehlo/blob/main/docs/spec.md#convolution
 
@@ -43,8 +46,8 @@ class ConvolutionOp(BaseFlatIROp):
             dimension_numbers=dnums,
             feature_group_count=1,
             batch_group_count=1,
-            window_strides=None,
-            padding=None,
+            window_strides=self.stride,
+            padding=self.padding,
             lhs_dilation=None,
             rhs_dilation=None,
             window_reversal=None,
