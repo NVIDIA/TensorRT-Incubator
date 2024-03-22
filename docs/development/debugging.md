@@ -11,9 +11,9 @@ python3 -m pip install ./mlir-tensorrt/build/wheels/trt100/mlir-tensorrt-runtime
 ```py
 import os
 # MLIR Debug options
-MLIR_DEBUG_ENABLED = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
-MLIR_DEBUG_TYPES = ["-mlir-print-ir-after-all"]
-MLIR_DEBUG_TREE_PATH = os.path.join("/", "tripy", "mlir-dumps")
+enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
+mlir_debug_types = ["-mlir-print-ir-after-all"]
+mlir_debug_tree_path = os.path.join("/", "tripy", "mlir-dumps")
 ```
 
 3. Use LLDB for debugging MLIR-TensorRT backend.

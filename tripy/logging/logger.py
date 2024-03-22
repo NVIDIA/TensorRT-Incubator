@@ -82,9 +82,6 @@ class _Logger:
         tp.logger.enable_color = old_color # doc: omit
     """
 
-    # This is used to export the instance under `tripy.logger`
-    __name__ = "logger"
-
     VERBOSITY_CONFIGS: Dict[str, VerbosityConfig] = make_verbosity_map()
 
     def __init__(self) -> None:
@@ -216,5 +213,4 @@ class _Logger:
         raise AttributeError(f"Logger has no attribute: '{name}'.")
 
 
-logger = _Logger()
-export.public_api()(logger)
+logger = export.public_api(autodoc_options=[":annotation:"], symbol="logger")(_Logger())

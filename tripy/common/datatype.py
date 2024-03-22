@@ -36,9 +36,9 @@ __all__ = ["dtype"]
 
 
 def _make_datatype(name, itemsize, docstring):
-    DATA_TYPES[name] = export.public_api(
-        document_under="datatype.rst", autodoc_options=[":no-show-inheritance:"], include_heading=False
-    )(type(name, (BaseDtype,), {"name": name, "itemsize": itemsize, "__doc__": docstring}))
+    DATA_TYPES[name] = export.public_api(document_under="datatype.rst", autodoc_options=[":no-show-inheritance:"])(
+        type(name, (BaseDtype,), {"name": name, "itemsize": itemsize, "__doc__": docstring})
+    )
     __all__.append(name)
     return DATA_TYPES[name]
 

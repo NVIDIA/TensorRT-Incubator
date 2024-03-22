@@ -1,6 +1,7 @@
 import inspect
 from dataclasses import dataclass
 from typing import List, Optional, Any
+from types import ModuleType
 
 from tripy.function_registry import FunctionRegistry
 
@@ -8,9 +9,10 @@ from tripy.function_registry import FunctionRegistry
 @dataclass
 class PublicAPI:
     obj: Any
+    qualname: str
+    """The fully qualified name of the API"""
     document_under: str = ""
     autodoc_options: Optional[List[str]] = None
-    include_heading: bool = True
 
 
 # This is used for testing/documentation purposes.
@@ -20,7 +22,9 @@ PUBLIC_APIS: List[PublicAPI] = []
 PUBLIC_API_FUNCTION_REGISTRY = FunctionRegistry()
 
 
-def public_api(document_under: str = "", autodoc_options: Optional[List[str]] = None, include_heading: bool = True):
+def public_api(
+    document_under: str = "", autodoc_options: Optional[List[str]] = None, module: ModuleType = None, symbol: str = None
+):
     """
     Decorator that exports a function/class to the public API under the top-level module and
     controls how it is documented.
@@ -47,21 +51,36 @@ def public_api(document_under: str = "", autodoc_options: Optional[List[str]] = 
         autodoc_options: Autodoc options to apply to the documented API.
             For example: ``[":special-members:"]``.
 
-        include_heading: Whether to include the section heading for the API.
+        module: The module under which to export this public API. Defaults to the top-level Tripy module.
+
+        symbol: The name of the symbol, if different from ``__name__``.
     """
+    assert not autodoc_options or (
+        ":no-members:" not in autodoc_options or ":no-special-members:" in autodoc_options
+    ), "Because of how our conf.py file is set up, you must include :no-special-members: when using the :no-members: option!"
 
     def export_impl(obj):
+        nonlocal module, symbol
         import tripy
 
+        module = module or tripy
+
+        symbol = symbol or obj.__name__
         # Leverage the function registry to provide type checking and function overloading capabilities.
         if inspect.isfunction(obj):
-            obj = PUBLIC_API_FUNCTION_REGISTRY(obj.__name__)(obj)
+            obj = PUBLIC_API_FUNCTION_REGISTRY(symbol)(obj)
 
-        PUBLIC_APIS.append(PublicAPI(obj, document_under, autodoc_options, include_heading))
+        qualname = f"{module.__name__}.{symbol}"
+        if inspect.ismodule(obj):
+            qualname = symbol
 
-        symbol = obj.__name__
-        tripy.__all__.append(symbol)
-        setattr(tripy, symbol, obj)
+        PUBLIC_APIS.append(PublicAPI(obj, qualname, document_under, autodoc_options))
+
+        if not hasattr(module, "__all__"):
+            module.__all__ = []
+
+        module.__all__.append(symbol)
+        setattr(module, symbol, obj)
 
         return obj
 

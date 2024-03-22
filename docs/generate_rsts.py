@@ -17,9 +17,7 @@ def to_snake_case(string):
 
 
 def get_name(api):
-    if inspect.ismodule(api.obj):
-        return api.obj.__name__.partition(f"{tp.__name__}.")[-1]
-    return api.obj.__name__
+    return api.qualname.partition(f"{tp.__name__}.")[-1]
 
 
 def make_heading(title):
@@ -43,7 +41,7 @@ def build_api_doc(api, include_heading=True):
         + (make_heading(name) if include_heading else "")
         + dedent(
             f"""
-        .. {automod}:: tripy.{name}
+        .. {automod}:: {api.qualname}
         """
         ).strip()
         + indent(("\n" + "\n".join(api.autodoc_options)) if api.autodoc_options else "", prefix=" " * 4)
@@ -172,8 +170,10 @@ def main():
             doc_hierarcy[path.rstrip("/")].add(rst_filename)
 
         os.makedirs(os.path.dirname(rst_path), exist_ok=True)
+
+        pre_existing_file = os.path.exists(rst_path)
         with open(rst_path, "a") as f:
-            f.write(build_api_doc(api, include_heading=api.include_heading))
+            f.write(build_api_doc(api, include_heading=not pre_existing_file))
 
     def str_from_hierarchy(obj):
         if isinstance(obj, dict):

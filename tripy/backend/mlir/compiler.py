@@ -99,8 +99,8 @@ class Compiler:
         opts = compiler.StableHLOToExecutableOptions(
             tensorrt_builder_opt_level=trt_builder_opt_level, tensorrt_strongly_typed=True
         )
-        if config.MLIR_DEBUG_ENABLED:
-            opts.set_debug_options(config.MLIR_DEBUG_ENABLED, config.MLIR_DEBUG_TYPES, config.MLIR_DEBUG_TREE_PATH)
+        if config.enable_mlir_debug:
+            opts.set_debug_options(config.enable_mlir_debug, config.mlir_debug_types, config.mlir_debug_tree_path)
         return opts
 
     def compile_stabehlo_program(self, code: str) -> compiler.Executable:
