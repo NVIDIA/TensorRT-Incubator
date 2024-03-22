@@ -9,6 +9,7 @@ from tripy.frontend.module.parameter import Parameter
 
 @export.public_api(document_under="modules")
 @dataclass
+@utils.constant_fields(["dtype"])
 class Conv(Module):
     r"""
     Applies a convolution on the input tensor.

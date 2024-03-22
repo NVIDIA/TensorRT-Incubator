@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy import export
+from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
@@ -8,6 +8,7 @@ from tripy.frontend.module.parameter import Parameter
 
 @export.public_api(document_under="modules")
 @dataclass
+@utils.constant_fields(["dtype"])
 class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:
@@ -73,7 +74,6 @@ class LayerNorm(Module):
         Returns:
             A tensor of the same shape as the input.
         """
-        from tripy.frontend.trace.ops.cast import cast
         from tripy.frontend.trace.ops.reduce import mean, var
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
 

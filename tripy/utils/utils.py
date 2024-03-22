@@ -4,12 +4,14 @@ import hashlib
 import os
 import time
 import typing
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, Sequence
 
 from colored import Fore, attr
 
 from tripy import constants
 from tripy.logging import logger
+from tripy.common.exception import raise_error
+from collections import defaultdict
 
 
 def default(value, default):
@@ -174,6 +176,33 @@ def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
     """
     base_fields = {base_field.name for base_field in dataclasses.fields(BaseClass)}
     return [field for field in dataclasses.fields(obj) if field.name not in base_fields]
+
+
+def constant_fields(field_names: Sequence[str]):
+    """
+    Marks fields as immutable and disallows them from being changed
+    once they have been set the first time.
+
+    Args:
+        field_names: The names of fields that should be made immutable.
+    """
+
+    def constant_fields_impl(cls: type):
+        default_setattr = cls.__setattr__
+
+        initialized_fields = defaultdict(set)
+
+        def setattr_const(self, name, value):
+            if name in field_names and name in initialized_fields[id(self)]:
+                raise_error(f"Field: '{name}' of class: '{cls.__qualname__}' is immutable!")
+
+            initialized_fields[id(self)].add(name)
+            return default_setattr(self, name, value)
+
+        cls.__setattr__ = setattr_const
+        return cls
+
+    return constant_fields_impl
 
 
 ##

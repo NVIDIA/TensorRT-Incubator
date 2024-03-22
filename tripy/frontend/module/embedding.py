@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from tripy import export
+from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter
@@ -8,6 +8,7 @@ from tripy.frontend.module.parameter import Parameter
 
 @export.public_api(document_under="modules")
 @dataclass
+@utils.constant_fields(["dtype"])
 class Embedding(Module):
     """
     A lookup table for embedding vectors of a fixed size.
