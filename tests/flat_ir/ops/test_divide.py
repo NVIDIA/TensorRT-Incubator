@@ -14,5 +14,15 @@ class TestDivideOp:
         flat_ir = trace.to_flat_ir()
 
         div = flat_ir.ops[-1]
+        broadcast_a = flat_ir.ops[-3]
+        broadcast_b = flat_ir.ops[-2]
         assert isinstance(div, DivideOp)
-        assert str(div) == "out: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DivideOp(a, b)"
+        assert (
+            str(broadcast_a)
+            == "t_inter3: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(a, t_inter4, broadcast_dim=[0])"
+        )
+        assert (
+            str(broadcast_b)
+            == "t_inter7: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(b, t_inter4, broadcast_dim=[0])"
+        )
+        assert str(div) == "out: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DivideOp(t_inter3, t_inter7)"

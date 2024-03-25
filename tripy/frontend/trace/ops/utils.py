@@ -144,15 +144,14 @@ def get_broadcast_in_dim(input_shape, output_shape):
 
 
 # Insert a broadcast op into the flat_ir which broadcasts input tensor to output shape.
-# If the output shape is dynamic, shape of the target_tensor is used to describe the output shape.
-#
+# If the output shape is dynamic, shape_of_target_tensr is used to describe the output shape.
 # tensor_details should describe what this tensor is (e.g. left operand of '+')
 def insert_broadcast(
     input_tensor: "FlatIRTensor",
     out_shape: ShapeInfo,
     tensor_details: str,
     use_dynamic_variant: bool = False,
-    target_tensor: "FlatIRTensor" = None,
+    shape_of_target_tensor: "FlatIRTensor" = None,
 ):
     from tripy.flat_ir.ops import BroadcastOp, DynamicBroadcastOp
     from tripy.flat_ir.tensor import FlatIRTensor
@@ -170,12 +169,12 @@ def insert_broadcast(
     )
 
     if use_dynamic_variant:
-        assert target_tensor, "target_tensor is required for dynamic variant of the broadcast op."
+        from tripy import int32
 
-        shape_output_tensor = get_shape_of_tensor(target_tensor)
+        assert shape_of_target_tensor, "shape_of_target_tensor is required for dynamic variant of the broadcast op."
 
         DynamicBroadcastOp.build(
-            [input_tensor, shape_output_tensor],
+            [input_tensor, shape_of_target_tensor],
             [output_tensor],
             broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),
         )
@@ -187,6 +186,54 @@ def insert_broadcast(
             broadcast_dim=get_broadcast_in_dim(input_tensor.shape, out_shape),
         )
     return output_tensor
+
+
+# Expands rank of a tensor via prepending extra dims provided by nb_extra_dims.
+def expand_rank_of_tensor(op: "BaseTraceOp", input: "FlatIRTensor", nb_extra_dims: int):
+    import numpy as np
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, ConstantOp
+    from tripy.common.datatype import int32
+    from tripy import utils
+
+    if nb_extra_dims == 0:
+        return input
+
+    # Create array filled with 1s and concat with shape array
+    const_val_tensor = FlatIRTensor.build(
+        shape=[], dtype=int32, device=input.device, reason_details=f"create a rank 0 constant tensor filled with 1."
+    )
+    ones_shape_tensor = FlatIRTensor.build(
+        shape=utils.to_dims(
+            nb_extra_dims,
+        ),
+        dtype=int32,
+        device=input.device,
+        reason_details=[f"create a rank 1 shape tensor filled {nb_extra_dims} ones."],
+    )
+
+    ConstantOp.build([], [const_val_tensor], data=np.array(1, dtype=np.int32))
+    BroadcastOp.build([const_val_tensor], [ones_shape_tensor], broadcast_dim=[])
+
+    shape_of_input = get_shape_of_tensor(input)
+    concat_output_tensor = FlatIRTensor.build(
+        shape=utils.to_dims(
+            nb_extra_dims + len(input.shape),
+        ),
+        dtype=int32,
+        device=input.device,
+        reason_details=[
+            f"append {nb_extra_dims} ones to the input shape {shape_of_input} to expand the rank of tensor."
+        ],
+    )
+    ConcatenateOp.build([ones_shape_tensor, shape_of_input], [concat_output_tensor], dim=0)
+
+    # output shape usage just relies on rank.
+    output_shape = utils.to_dims((1,) * nb_extra_dims + input.shape)
+
+    return insert_broadcast(
+        input, output_shape, use_dynamic_variant=True, shape_of_target_tensor=concat_output_tensor, tensor_details=""
+    )
 
 
 ##

@@ -51,36 +51,46 @@ class BinaryElementwise(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def broadcast_inputs(self, inputs, outputs):
-        # Insert broadcast to ensure operands are of the same rank.
-        shape1, shape2 = op_utils.get_broadcast_compatible_shapes(inputs[0].shape, inputs[1].shape)
+        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.datatype import int32
+        from tripy.flat_ir.ops import MaxOp
 
-        dynamic_shape = False
-        requires_broadcast_1 = shape1 != inputs[0].shape
-        requires_broadcast_2 = shape2 != inputs[1].shape
+        rank = max(len(inputs[0].shape), len(inputs[1].shape))
+        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], rank - len(inputs[0].shape))
+        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], rank - len(inputs[1].shape))
 
-        for dim1, dim2 in zip(shape1, shape2):
-            if dim1 != dim2:
-                requires_broadcast_1 |= dim1 < dim2
-                requires_broadcast_2 |= dim1 > dim2
-            if dim1.is_dynamic_dim() or dim2.is_dynamic_dim():
-                dynamic_shape = True
+        shape_of_input0 = op_utils.get_shape_of_tensor(inputs[0])
+        shape_of_input1 = op_utils.get_shape_of_tensor(inputs[1])
 
-        if requires_broadcast_1:
-            inputs[0] = op_utils.insert_broadcast(
-                inputs[0],
-                outputs[0].shape,
-                tensor_details=f"left operand of '{self.kind.strip()}'",
-                use_dynamic_variant=dynamic_shape,
-                target_tensor=inputs[1],
-            )
-        if requires_broadcast_2:
-            inputs[1] = op_utils.insert_broadcast(
-                inputs[1],
-                outputs[0].shape,
-                tensor_details=f"right operand of '{self.kind.strip()}'",
-                use_dynamic_variant=dynamic_shape,
-                target_tensor=inputs[0],
-            )
+        # Compute element-wise max of input shapes to get the desired output shape.
+        max_output_shape_tensor = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                f"compute the output shape using element-wise max of input shapes {shape_of_input0}, {shape_of_input1} to account for broadcasting."
+            ],
+        )
+        MaxOp.build(
+            [shape_of_input0, shape_of_input1],
+            [max_output_shape_tensor],
+        )
+
+        inputs[0] = op_utils.insert_broadcast(
+            inputs[0],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=max_output_shape_tensor,
+            tensor_details=f"left operand of '{self.kind.strip()}'",
+        )
+
+        inputs[1] = op_utils.insert_broadcast(
+            inputs[1],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=max_output_shape_tensor,
+            tensor_details=f"right operand of '{self.kind.strip()}'",
+        )
 
         return inputs
 
