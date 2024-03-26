@@ -11,7 +11,7 @@ from colored import Fore, attr
 from tripy import constants
 from tripy.logging import logger
 from tripy.common.exception import raise_error
-from collections import defaultdict
+import functools
 
 
 def default(value, default):
@@ -190,12 +190,14 @@ def constant_fields(field_names: Sequence[str]):
     def constant_fields_impl(cls: type):
         default_init = cls.__init__
 
+        @functools.wraps(default_init)
         def custom_init(self, *args, **kwargs):
             self.__initialized_fields = set()
             return default_init(self, *args, **kwargs)
 
         default_setattr = cls.__setattr__
 
+        @functools.wraps(default_setattr)
         def custom_setattr(self, name, value):
             if name == "__initialized_fields":
                 return object.__setattr__(self, name, value)

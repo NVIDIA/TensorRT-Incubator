@@ -42,7 +42,8 @@ COPY pyproject.toml /tripy/pyproject.toml
 RUN pip install .[docs,dev,test] \
     -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
     --extra-index-url https://download.pytorch.org/whl/cu118 \
-    --extra-index-url https://${gitlab_user}:${gitlab_token}@gitlab-master.nvidia.com/api/v4/projects/73221/packages/pypi/simple --trusted-host gitlab-master.nvidia.com
+    --extra-index-url https://${gitlab_user}:${gitlab_token}@gitlab-master.nvidia.com/api/v4/projects/73221/packages/pypi/simple \
+    --trusted-host gitlab-master.nvidia.com
 
 ########################################
 # Configure mlir-tensorrt packages

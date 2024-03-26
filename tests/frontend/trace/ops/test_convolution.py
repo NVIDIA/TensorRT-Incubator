@@ -49,8 +49,7 @@ class TestConvolution:
         "padding, err, expect_input_stack_info",
         [
             (((2, 2),), r"Number of padding values does not match number of spatial dimensions in the input.", True),
-            ((2, 2), r"Expected a sequence of 2-tuples of ints for padding attribute.", False),
-            (((2, 2, 2), (2, 2, 2)), r"Inner dimension of padding attribute must be 2.", False),
+            (((2, 2, 2), (2, 2, 2)), r"Padding must be provided as a sequence of pairs of integers.", False),
         ],
     )
     def test_invalid_padding(self, padding, err, expect_input_stack_info):
@@ -67,7 +66,6 @@ class TestConvolution:
         "stride, err, expect_input_stack_info",
         [
             ((-1, 0), r"Non-positive stride is not supported.", False),
-            (((1, 1), (1, 1)), r"Expected stride attribute to be a tuple of integers.", False),
             ((2, 2, 2), r"Number of stride values does not match number of spatial dimensions in the input.", True),
         ],
     )

@@ -9,7 +9,7 @@ import tripy.frontend.trace.ops.utils as op_utils
 
 @dataclass(repr=False)
 class Convolution(BaseTraceOp):
-    # TODO (#146): Add additional params like paddding, strides, grouping, dilation
+    # TODO (#146): Add additional params like grouping, dilation
     padding: Tuple[Tuple[int]]
     stride: Tuple[int]
 

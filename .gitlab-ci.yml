@@ -50,8 +50,7 @@ build_container:
     - changes:
       - Dockerfile
       - pyproject.toml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: always
+
 
 
 l0-if-new-container:
