@@ -49,6 +49,7 @@ RUN pip install .[docs,dev,test] \
 ########################################
 # WAR's for small bugs in the MLIR-TRT wheels
 # Protobuf isn't actually used for how Tripy uses MLIR-TRT, so we just install any version to make the loader happy.
+
 RUN apt-get install -y libopenmpi3 libopenmpi-dev libprotobuf-dev && \
     ln -snf /usr/lib/x86_64-linux-gnu/libprotobuf.so /usr/lib/x86_64-linux-gnu/libprotobuf.so.29
 ENV LD_LIBRARY_PATH=/usr/local/lib/python3.10/dist-packages/mlir_tensorrt/compiler/_mlir_libs/:$LD_LIBRARY_PATH
