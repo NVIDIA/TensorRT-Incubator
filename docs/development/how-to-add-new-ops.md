@@ -1,6 +1,6 @@
 # Adding New Operators
 
-*You may find it helpful to read the [architecture](./architecture.md) documentation*
+*You may find it helpful to read the [architecture](project:./architecture.md) documentation*
     *before you start reading this guide.*
 
 Adding new operators to Tripy typically involves making changes in the frontend as well
@@ -11,9 +11,9 @@ Let's take a look at an example of how you might add an `Iota` operator to Tripy
 So that it doesn't clash with Tripy's actual `Iota` implementation, we'll call it
 `Theta` instead.
 
-## Table Of Contents
-
-[[_TOC_]]
+```{contents} Table of Contents
+:depth: 3
+```
 
 <!-- Use the PYTEST marker since we'll be defining unit tests as part of the guide.
     With this marker, those tests can actually be run under pytest. -->
@@ -27,14 +27,14 @@ The `FlatIR` operator is usually the most challenging aspect of implementing ope
 in Tripy. The good news is that you might not even need to do this if the low-level operators
 you need already exist in the `FlatIR`. And if you do, then it'll only get easier after this!
 
-We'll start by adding a new file under [`tripy/flat_ir/ops`](../../tripy/flat_ir/ops/) called
+We'll start by adding a new file under [`tripy/flat_ir/ops`](source:/tripy/flat_ir/ops/) called
 `theta.py`; see the inline comments for explanations of what's happening:
 
 ```py
 from dataclasses import dataclass
 
-from mlir import ir
-from mlir.dialects import stablehlo
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops.base import BaseFlatIROp
@@ -48,22 +48,6 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 @dataclass(repr=False)
 class ThetaOp(BaseFlatIROp):
     dim: int
-    shape: ShapeInfo
-    dtype: "tripy.dtype"
-
-    # The first three arguments to the constructor are for the base class:
-    #     - `source_op` is the `Trace` operator that generated this `FlatIR` operator.
-    #     - `inputs` and `outputs` are the `FlatIRTensor`s to this operator.
-    #
-    # The subsequent arguments are for the `ThetaOp` class itself. In this case, there's
-    # only one:
-    #     - `dim` is the axis along which we'll by applying the operation (which, remember, is just `Iota`!).
-    #
-    def __init__(self, source_op, inputs, outputs, dim):
-        super().__init__(source_op, inputs, outputs)
-        self.dim = dim
-        self.shape = self.outputs[0].shape
-        self.dtype = self.outputs[0].dtype
 
     # `to_mlir()` is the trickiest bit. As the name implies, the method is meant to lower the
     # `FlatIR` operator into MLIR. To figure out which MLIR operators to use, refer to
@@ -76,7 +60,7 @@ class ThetaOp(BaseFlatIROp):
 ```
 
 Links:
-- [MLIR Python API Guide](./mlir-dialect-python-apis.md)
+- [MLIR Python API Guide](project:./mlir-dialect-python-apis.md)
 
 
 ### Exposing The Operator
@@ -90,7 +74,7 @@ from the submodule.
 
 To make this possible, we need to import the `ThetaOp` into the `flat_ir.ops` submodule.
 We can do so by adding the following line into
-[`tripy/flat_ir/ops/__init__.py`](../../tripy/flat_ir/ops/__init__.py):
+[`tripy/flat_ir/ops/__init__.py`](source:/tripy/flat_ir/ops/__init__.py):
 
 <!-- Tripy Test: IGNORE Start -->
 
@@ -112,7 +96,7 @@ tripy.flat_ir.ops.ThetaOp = ThetaOp
 
 Now that we have a `FlatIR` operator, we can implement a `Trace` operator that will use it
 along with a public API function. Let's create a new file under
-[`tripy/frontend/trace/ops`](../../tripy/frontend/trace/ops/) called `theta.py`.
+[`tripy/frontend/trace/ops`](source:/tripy/frontend/trace/ops/) called `theta.py`.
 
 ### `Trace` Operator
 
@@ -137,32 +121,35 @@ class Theta(BaseTraceOp):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    # `infer_shapes()` populates the shapes of the output `TraceTensor`s. For most operators, the output
-    # shapes will depend on the shapes of `self.inputs`. In our cases, since `Theta` generates a tensor,
-    # there is no input tensor.
+    # `infer_shapes()` populates the shapes of the output `TraceTensor`s.
+    # For most operators, the output shapes will depend on the shapes of `self.inputs`.
+    # In our cases, since `Theta` generates a tensor, there is no input tensor.
     def infer_shapes(self):
         self.outputs[0].shape = self.shape
 
-    # *Optional* `infer_dtypes()` populates the data types of the output `TraceTensor`s. The default implementation
-    # copies the input data types if they are all the same, so you may not need to implement this.
+    # *Optional* `infer_dtypes()` populates the data types of the
+    # output `TraceTensor`s. The default implementation copies the input
+    # data types if they are all the same, so you may not need to implement this.
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
-    # *Optional* `infer_devices()` populates the devices of the output `TraceTensor`s. The default implementation
-    # copies the input devices if they are all the same, so you may not need to implement this either.
+    # *Optional* `infer_devices()` populates the devices of the
+    # output `TraceTensor`s. The default implementation copies the input
+    # devices if they are all the same, so you may not need to implement this either.
     def infer_devices(self):
         self.outputs[0].device = device("gpu")
 
-    # `to_flat_ir()` translates the `Trace` operator to a subgraph of one or more `FlatIR` operators.
-    # In our case, it's just a 1:1 mapping to the `ThetaOp` we created earlier.
+    # `to_flat_ir()` translates the `Trace` operator to a subgraph of
+    # one or more `FlatIR` operators. In our case, it's just a 1:1
+    # mapping to the `ThetaOp` we created earlier.
     def to_flat_ir(self, inputs, outputs):
-        # Note that we import the `FlatIR` operator within the function call - this is to avoid circular
-        # dependencies.
+        # Note that we import the `FlatIR` operator within the function
+        # call - this is to avoid circular dependencies.
         from tripy.flat_ir.ops import ThetaOp
 
-        # This code may look a bit confusing; for more details, look at the 'FlatIR section in the architecture document'
-        # (linked below).
-        ThetaOp(self, inputs, outputs, dim=self.dim)
+        # This code may look a bit confusing; for more details, look at the
+        # 'FlatIR section in the architecture document' (linked below).
+        ThetaOp.build(inputs, outputs, dim=self.dim)
 ```
 
 <!-- TODO: Update this documentation once dynamic shapes are implemented -->
@@ -170,15 +157,32 @@ class Theta(BaseTraceOp):
     **can update the documentation.**
 
 Links:
-- [FlatIR section in the architecture document](./architecture.md#lowering-to-flatir)
+- [FlatIR section in the architecture document](project:./architecture.md#lowering-to-flatir)
 
 
 ### Public API
 
 Next, we can define the public interface. Since our public interface maps 1:1 with the `Trace`
-operator we just implemented, we'll add it in the same file:
+operator we just implemented and does not require weights, we'll add it in the same file.
+
+If our API required a composition of multiple `Trace` operators, then we would instead implement
+it under [`frontend/ops/`](source:/tripy/frontend/ops).
+
+If it required weights (i.e. inputs that are expected to always be constant), then we would implement
+it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 
 ```py
+from tripy import export
+
+# We can use the `export.public_api()` decorator to automatically export this function into the
+# top-level module. This means it will be accessible as `tripy.theta`.
+#
+# This decorator also controls how the API is exposed in the documentation - the `document_under`
+# option determines where in the documentation hierarchy this API will show up. In this case, since
+# it's an initialization op, we want to document it with the other initialization ops in `tensor/initialization`.
+#
+# If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
+@export.public_api(document_under="tensor/initialization")
 def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here
@@ -235,15 +239,24 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
     return Tensor.build([], Theta, dim, utils.to_dims(shape), dtype)
 ```
 
+<!--
+Need to simulate the `public_api()` call to make the tests work:
+```py
+import tripy
+tripy.theta = theta
+```
+ -->
+
+
 Links:
-- [Docs README](../../docs/README.md#docstrings)
+- [Docs README](source:/docs/README.md#docstrings)
 
 
 ### Exposing The Operator
 
-Similarly to the `FlatIR` operator, we need to import `Theta` and `theta()` into the
+Similarly to the `FlatIR` operator, we need to import `Theta` into the
 `frontend.trace.ops` submodule. We can do so by adding the following line into
-[`tripy/frontend/trace/ops/__init__.py`](../../tripy/frontend/trace/ops/__init__.py):
+[`tripy/frontend/trace/ops/__init__.py`](source:/tripy/frontend/trace/ops/__init__.py):
 
 <!-- Tripy Test: IGNORE Start -->
 
@@ -261,69 +274,11 @@ tripy.frontend.trace.ops.theta = theta
 ```
  -->
 
-
-We want to expose the public interface into the top-level module so we can call it with
-`tp.theta`, so let's bubble it up through the submodules.
-
-In [`tripy/frontend/__init__.py`](../../tripy/frontend/__init__.py), add:
-
-<!-- Tripy Test: IGNORE Start -->
-
-```py
-from tripy.frontend.trace.ops import theta
-```
-<!-- Tripy Test: IGNORE End -->
-
-<!--
-Need to simulate the __init__.py changes to make the tests work:
-```py
-import tripy.frontend
-tripy.frontend.theta = theta
-```
- -->
-
-
-**Make sure to update the `__all__` variable so that the documentation displays**
-**the correct module names.**
-
-Then in [`tripy/__init__.py`](../../tripy/__init__.py), add:
-
-<!-- Tripy Test: IGNORE Start -->
-
-```py
-from tripy.frontend import theta
-```
-<!-- Tripy Test: IGNORE End -->
-
-<!--
-Need to simulate the __init__.py changes to make the tests work:
-```py
-import tripy
-tripy.theta = theta
-```
- -->
-
-**Once again, make sure to update the `__all__` variable.**
-
-
-## Documentation
-
-Now that we've added the public API, let's make sure it appears in the documentation.
-In our example, the best place to document the API is in the
-[`tensor_initialization.rst` file](../tensor/tensor_initialization.rst).
-
-All we need to do is add another entry there:
-```rst
-.. autofunction:: tripy.theta
-```
-
-See the [documentation README](../README.md) for more details on the public documentation.
-
 ## Testing
 
 Now that we've implemented our operator, let's write tests for it. The structure of the
-[`tests/`](../../tests/) directory mirrors that of the [`tripy/`](../../tripy/) directory
-(you can read more about that [here](../../tests/README.md)). We need to test both the `FlatIR`
+[`tests/`](source:/tests/) directory mirrors that of the [`tripy/`](source:/tripy/) directory
+(you can read more about that [here](source:/tests/README.md)). We need to test both the `FlatIR`
 and `Trace` operators.
 
 ### Testing The `FlatIR` Operator
@@ -335,8 +290,8 @@ When testing our `FlatIR` operator, we essentially need to test two things:
 
 2. Is the translation to MLIR correct?
 
-Since we implemented the `FlatIR` operator in [`tripy/flat_ir/ops`](../../tripy/flat_ir/ops/), we'll
-add the corresponding test under [`tests/flat_ir/ops`](../../tests/flat_ir/ops/). Create a new file
+Since we implemented the `FlatIR` operator in [`tripy/flat_ir/ops`](source:/tripy/flat_ir/ops/), we'll
+add the corresponding test under [`tests/flat_ir/ops`](source:/tests/flat_ir/ops/). Create a new file
 there called `test_theta.py`.
 
 We'll start by defining a pytest fixture that will generate a `FlatIR` containing a `ThetaOp` for us.
@@ -364,21 +319,21 @@ Now we can create a test class with our two tests:
 
 ```py
 class TestThetaOp:
-    # This tests the string representation of our `FlatIR` operator. This may be hard to predict, so we
-    # suggest that you first `print(str(Theta))`, check if it looks correct, and then add the corresponding
-    # string to the test.
+    # This tests the string representation of our `FlatIR` operator.
+    # This may be hard to predict, so we suggest that you first `print(str(Theta))`,
+    # check if it looks correct, and then add the corresponding string to the test.
     def test_str(self, flat_ir):
         Theta = flat_ir.ops[-1]
         assert isinstance(Theta, ThetaOp)
         assert (
             str(Theta)
-            == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = ThetaOp(dim=0, shape=(2, 3), dtype=float32)"
+            == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = ThetaOp(dim=0)"
         )
 
 
-    # This tests conversion to MLIR by checking the generated MLIR module code. Once again, this is
-    # difficult to predict ahead of time, so you should print the MLIR module once, check if it looks correct,
-    # and then update the test accordingly.
+    # This tests conversion to MLIR by checking the generated MLIR module code. Once again,
+    # this is difficult to predict ahead of time, so you should print the MLIR module once,
+    # check if it looks correct, and then update the test accordingly.
     def test_mlir(self, flat_ir):
         helper.check_mlir(
             flat_ir.to_mlir(),
@@ -397,8 +352,8 @@ class TestThetaOp:
 ### Testing The Trace Operator And Public API
 
 Since we implemented our `Trace` operator and public API in
-[`tripy/frontend/trace/ops`](../../tripy/frontend/trace/ops/), we'll add the test under
-[`tests/frontend/trace/ops`](../../tests/frontend/trace/ops/).
+[`tripy/frontend/trace/ops`](source:/tripy/frontend/trace/ops/), we'll add the test under
+[`tests/frontend/trace/ops`](source:/tests/frontend/trace/ops/).
 Create a new file there called `test_theta.py`:
 
 
@@ -417,9 +372,10 @@ class TestTheta:
         assert isinstance(a.op, Theta)
 
 
-    # You should also include negative tests for anything that is expected to fail in the frontend.
-    # In our case, we just have `test_invalid_dim`, which ensures that we emit an error if the `dim`
-    # parameter is outside the allowed range.
+    # You should also include negative tests for anything that is expected to
+    # fail in the frontend. In our case, we just have `test_invalid_dim`,
+    # which ensures that we emit an error if the `dim` parameter is outside
+    # the allowed range.
     def test_invalid_dim(self):
         with helper.raises(tp.TripyException, match="Invalid theta dim."):
             tp.theta([2, 3], dim=3)
@@ -432,7 +388,7 @@ The code examples in the docstring of the public API serve as good sanity integr
 However, you should still add separate integration tests to get better coverage.
 
 Our docstring covers the 1D case, so let's add an integration test to cover the multidimensional case.
-Create a new file called `test_theta.py` under [`tests/integration`](../../tests/integration/):
+Create a new file called `test_theta.py` under [`tests/integration`](source:/tests/integration/):
 
 ```py
 import numpy as np

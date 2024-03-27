@@ -2,11 +2,9 @@
 
 This document explains the overall architecture of Tripy.
 
-
-## Table Of Contents
-
-[[_TOC_]]
-
+```{contents} Table of Contents
+:depth: 3
+```
 
 ## Overview
 
@@ -65,7 +63,7 @@ To understand these components better, let's take a look at what happens when we
 program like:
 ```py
 inp = tp.full((2, 3), value=0.5)
-out = inp.tanh()
+out = tp.tanh(inp)
 out.eval()
 ```
 
@@ -77,47 +75,28 @@ We'll start with the first line:
 inp = tp.full((2, 3), value=0.5)
 ```
 
-#### Where Does `tp.full()` Come From?
+#### Where Do `tp.full()` and `tp.tanh()` Come From?
 
-The `tp.full()` API is part of the frontend and like other frontend functions, maps to one or more
+The `tp.full()` and `tp.tanh()` APIs are part of the frontend and like other frontend functions, map to one or more
 (just one in this case) `Trace` operations. For frontend functions that map to exactly one `Trace` operation,
 we define the function directly alongside the corresponding `Trace` operation.
-In this case, the [`Fill` operation](../../tripy/frontend/trace/ops/fill.py) provides `tp.full()`.
+In this case, the [`Fill` operation](source:/tripy/frontend/trace/ops/fill.py) provides `tp.full()` and
+the [`UnaryElementwise` operation](source:/tripy/frontend/trace/ops/unary_elementwise.py) provides `tp.tanh()`.
 
 *We organize it this way to reduce the number of files that need to be touched when adding new ops.*
     *If an operation is composed of multiple `Trace` operations, the frontend function can be*
-    *defined under the [`frontend/ops`](../../tripy/frontend/ops) submodule instead.*
+    *defined under the [`frontend/ops`](source:/tripy/frontend/ops) submodule instead.*
 
 #### What Does It Do?
 
 Tripy uses a lazy evaluation model; that means that computation doesn't happen immediately when you call a function
-like `tp.full()`. Instead, all we do is create a frontend `Tensor` object which contains a `Trace` operation.
-The `Trace` operation includes inputs and outputs in the form of `TraceTensor`s.
+like `tp.full()` or `tp.tanh()`. Instead, all we do is create a frontend `Tensor` object which contains a `Trace` operation.
+The `Trace` operation includes inputs and outputs in the form of `TraceTensor`s and is essentially just a symbolic
+representation of the computation that needs to be done.
 
 As we call other functions that use this frontend `Tensor`, we connect new `Trace` operations to its output
 `TraceTensor`s. You can think of this as iteratively building up an implicit graph.
 
-#### Calling `tanh()`
-
-The next line looks fairly innocuous:
-```py
-out = inp.tanh()
-```
-However, if you look at the [source code](../../tripy/frontend/tensor.py) for the frontend `Tensor`, you'll
-notice that there is no `tanh()` method defined there! How does that work?
-
-We implement a [`TENSOR_METHOD_REGISTRY`](../../tripy/frontend/ops/registry.py) mechanism that allows us
-to define `Tensor` methods out-of-line by decorating our functions with this registry:
-
-<!-- Tripy Test: IGNORE Start -->
-```py
-@TENSOR_METHOD_REGISTRY("tanh")
-def tanh(self) -> "tripy.Tensor":
-    ...
-```
-<!-- Tripy Test: IGNORE End -->
-
-In `Tensor`'s metaclass, we read the registry and dynamically add methods to the `Tensor` class accordingly.
 
 #### The Implicit Frontend Graph
 
@@ -179,7 +158,7 @@ output tensor in the trace has its `shape`, `dtype`, and `loc` fields populated.
 #### Lowering To FlatIR
 
 Once we have the `Trace`, we lower it into `FlatIR`. `FlatIR` is a very thin layer which provides a 1:1
-mapping with StableHLO.
+mapping with the MLIR dialects we use.
 
 To perform the lowering, each `Trace` operation implements `to_flat_ir()`, which generates a subgraph with
 one or more `FlatIR` operations.
@@ -191,17 +170,17 @@ but this is good enough for a conceptual understanding):
 def to_flat_ir(self, inputs, outputs):
     from tripy.flat_ir.ops import TanhOp
 
-    TanhOp(self, inputs, outputs)
+    TanhOp.build(inputs, outputs)
 ```
 
 Wait a second - what's happening here? The function doesn't return anything; in fact, it doesn't appear to be doing
 anything at all!
 
 The way this works is as follows: when we call `to_flat_ir()` we provide input and output
-[`FlatIRTensor`](../../tripy/flat_ir/tensor.py)s. `to_flat_ir()` is responsible for generating a
+[`FlatIRTensor`](source:/tripy/flat_ir/tensor.py)s. `to_flat_ir()` is responsible for generating a
 subgraph of `FlatIR` operations that bind to these inputs and outputs. The
-[`BaseFlatIROp` constructor](../../tripy/flat_ir/ops/base.py) updates the producer of its output tensors,
-meaning that *just constructing a `FlatIR` operation is enough to add it to the subgraph*. Once this binding
+[`BaseFlatIROp` build function](source:/tripy/flat_ir/ops/base.py) updates the producer of the output tensors,
+meaning that *just building a `FlatIR` operation is enough to add it to the subgraph*. Once this binding
 is done, we take the resulting subgraph and inline it into the `FlatIR`, remapping the I/O tensors to those
 that already exist in the `FlatIR`.
 
@@ -224,7 +203,7 @@ Our final translation step is to go from `FlatIR` into MLIR.
 Similar to `Trace` operations, `FlatIR` operations implement `to_mlir()` which generates MLIR operations.
 Unlike `Trace` operations, this is always a 1:1 mapping.
 
-Here's a snippet for how [`tanh()` is implemented](../../tripy/flat_ir/ops/tanh.py):
+Here's a snippet for how [`tanh()` is implemented](source:/tripy/flat_ir/ops/tanh.py):
 ```py
 def to_mlir(self, operands):
     return [stablehlo.TanhOp(*operands)]
@@ -233,7 +212,7 @@ def to_mlir(self, operands):
 There's not much more to explain here, so let's go right to the textual representation:
 
 ```
-==== StableHLO IR ====
+==== MLIR ====
 1: module {
 2:   func.func @main() -> tensor<2x3xf32> {
 3:     %0 = stablehlo.constant dense<5.000000e-01> : tensor<f32>
@@ -244,6 +223,13 @@ There's not much more to explain here, so let's go right to the textual represen
 8: }
 9:
 ```
+
+
+#### Compilation
+
+Once we have the complete MLIR representation, our next step is to compile it to an executable.
+
+TODO: Fill out this section
 
 
 #### Execution

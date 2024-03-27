@@ -4,13 +4,15 @@ import sys
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pardir)
 sys.path.insert(0, ROOT_DIR)
 import contextlib
+import inspect
 import io
+import re
 from textwrap import dedent, indent
 
 import tripy as tp
 from tests import helper
-import inspect
-import re
+
+TAB_SIZE = 4
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -24,6 +26,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx_toolbox.collapse",
     "sphinx_copybutton",
+    "sphinxcontrib.mermaid",
     "myst_parser",
 ]
 
@@ -77,6 +80,8 @@ html_theme_options = {
     "show_powered_by": False,
     "documentation_font_size": "1.0rem",
     "monospace_font_size": "0.85rem",
+    "repository_url": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy",
+    "repository_name": "Tripy",
 }
 
 html_sidebars = {"**": ["globaltoc.html"]}
@@ -92,17 +97,28 @@ html_css_files = ["style.css"]
 # Myst will complain about relative links in our top-level README
 suppress_warnings = ["myst.xref_missing"]
 
+myst_fence_as_directive = ["mermaid"]
+
+myst_url_schemes = {"source": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/blob/main/{{path}}"}
+myst_number_code_blocks = ["py", "rst"]
+
 # Ignore most markdown files as they are not part of the API reference documentation.
-exclude_patterns = ["README.md", "development/*"]
+exclude_patterns = ["README.md", "development/*.md"]
+
+# When class documentation is generated, 'process_docstring' is called twice - once for
+# the class docstring and again for the '__init__' docstring. We only want to check the
+# function signature for the latter.
+seen_classes = set()
 
 
 def process_docstring(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
 
-    TRIPY_CLASSES = [obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj)]
+    TRIPY_CLASSES = [tripy_obj for tripy_obj in helper.discover_tripy_objects() if inspect.isclass(tripy_obj)]
 
-    if inspect.isfunction(obj):
+    # Check signature for functions/methods and class constructors.
+    if what in {"function", "method"} or (what == "class" and name in seen_classes):
         signature = inspect.signature(obj)
 
         # We don't currently check overload dispatchers since this would require manual parsing of the docstring.
@@ -125,6 +141,10 @@ def process_docstring(app, what, name, obj, options, lines):
                         param.annotation != signature.empty
                     ), f"Missing type annotation for parameter: '{pname}' in: '{obj}'. Please update the signature with type annotations"
 
+                    assert not inspect.ismodule(
+                        param.annotation
+                    ), f"Type annotation cannot be a module, but got: '{param.annotation}' for parameter: '{pname}' in: '{obj}'. Please specify a type!"
+
             assert signature.return_annotation != signature.empty, (
                 f"Missing return type annotation for: '{obj}'. "
                 f"Hint: If this interface does not return anything, use a type annotation of `-> None`."
@@ -135,16 +155,20 @@ def process_docstring(app, what, name, obj, options, lines):
                     ":returns:" in doc
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
 
+    seen_classes.add(name)
+
     def allow_no_example():
         return (
-            what in {"attribute", "module", "class"}
+            what in {"attribute", "module", "class", "data"}
             or
-            # nn.Modules include examples in their constructors
-            (what == "method" and name.startswith("tripy.nn") and obj.__name__ == "__call__")
+            # Modules include examples in their constructors
+            (what == "method" and obj.__name__ == "__call__")
         )
 
     if not allow_no_example():
-        assert ".. code-block:: python" in doc, f"For: {obj} no example was provided. Please add an example!"
+        assert (
+            ".. code-block:: python" in doc
+        ), f"For: {obj} (which is a: '{what}'), no example was provided. Please add an example!"
 
     lines.clear()
     for block in blocks:
@@ -177,14 +201,14 @@ def process_docstring(app, what, name, obj, options, lines):
 
             code_block_lines.append(block_line)
 
-        def add_block(title, contents):
+        def add_block(title, contents, lang="python"):
             line = block.splitlines()[1]
             indentation = len(line) - len(line.lstrip())
 
             out = (
                 indent(
-                    f"\n\n.. code-block:: python\n"
-                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * 4),
+                    f"\n\n.. code-block:: {lang}\n"
+                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * TAB_SIZE),
                     prefix=" " * (indentation - 4),
                 )
                 + "\n\n"
@@ -240,12 +264,12 @@ def process_docstring(app, what, name, obj, options, lines):
                         return r"{}"
                     ret = "{\n"
                     for key, value in dct.items():
-                        ret += indent(f"{key}: {value},\n", prefix=" " * 4)
+                        ret += indent(f"{key}: {value},\n", prefix=" " * TAB_SIZE)
                     ret += "}"
                     return ret
 
                 locals_str += f"\n>>> {name}"
-                if isinstance(obj, tp.nn.Module):
+                if isinstance(obj, tp.Module):
                     locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
                 elif isinstance(obj, dict):
                     locals_str += f"\n{pretty_str_from_dict(obj)}"
@@ -258,7 +282,7 @@ def process_docstring(app, what, name, obj, options, lines):
         stdout = get_stdout() or ""
 
         if stdout:
-            add_block("Output:", stdout)
+            add_block("Output:", stdout, lang="")
 
         # Grab the caption from the example code block.
         for line in code_block_lines:
@@ -275,8 +299,14 @@ def process_docstring(app, what, name, obj, options, lines):
         # Put the entire code block + output under a collapsible section to save space.
         line = code_block_lines[0]
         indentation = len(line) - len(line.lstrip())
-        lines.extend(indent(f"\n.. collapse:: {caption}\n\n", prefix=" " * indentation).splitlines())
-        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * 4).splitlines()
+        default_open = what != "method" and what != "property"
+        lines.extend(
+            indent(
+                f"\n.. collapse:: {caption}" + (("\n" + (" " * TAB_SIZE) + ":open:") if default_open else "") + "\n\n",
+                prefix=" " * indentation,
+            ).splitlines()
+        )
+        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * TAB_SIZE).splitlines()
         lines.extend(code_block_lines)
 
 

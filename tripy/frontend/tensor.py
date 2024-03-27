@@ -4,7 +4,7 @@ from typing import Any, List, Optional, Union
 # Import ops to populate the registry before we define our Tensor class
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
-from tripy import utils
+from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
@@ -26,6 +26,13 @@ class TensorMeta(type):
         return new
 
 
+@export.public_api(
+    document_under="tensor/index.rst",
+    autodoc_options=[
+        ":special-members:",
+        ":exclude-members: __init__, __repr__, __weakref__, __dlpack__, __dlpack_device__",
+    ],
+)
 class Tensor(metaclass=TensorMeta):
     """
     A tensor is a multi-dimensional array that contains elements of a uniform data type.
@@ -109,6 +116,11 @@ class Tensor(metaclass=TensorMeta):
         # Update producer:
         self.op.outputs[0].producer = self.op
 
+        # Update dtype
+        self.op.infer_dtypes()
+        self.dtype = self.op.outputs[0].dtype
+        """Data type of this tensor"""
+
     # This function expects to receive a BaseTraceOp type (not instance!) along
     # with any extra arguments that it might need. It will then construct an instance
     # with inputs, outputs, and the extra arguments
@@ -117,6 +129,13 @@ class Tensor(metaclass=TensorMeta):
         tensor = Tensor(None)
         tensor._finalize(None, inputs, OpType, *args, **kwargs)
         return tensor
+
+    def __getattr__(self, name: str):
+        import tripy as tp
+        from tripy.common.exception import search_for_missing_attr
+
+        look_in = [(tp, "tripy")]
+        search_for_missing_attr("tripy.Tensor", name, look_in)
 
     @property
     def name(self):
@@ -127,9 +146,9 @@ class Tensor(metaclass=TensorMeta):
         self.op.outputs[0].name = new_name
 
     def eval(self) -> Array:
-        from tripy.backend.jit.utils import get_tensor_info
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
+        from tripy.backend.utils import get_tensor_info
         from tripy.frontend.trace import Trace
 
         if isinstance(self.op, Storage):
@@ -138,22 +157,23 @@ class Tensor(metaclass=TensorMeta):
         trace = Trace([self])
         flat_ir = trace.to_flat_ir()
         mlir = flat_ir.to_mlir()
-        compiler = Compiler()
-        executable = compiler.compile(mlir)
-        with Executor(executable, get_tensor_info(flat_ir.inputs), get_tensor_info(flat_ir.outputs)) as executor:
-            # Upon computing the value of this tensor, we switch it to have a `Storage`
-            # parameter so that it does not need to be computed again.
-            data = executor.execute()
-            assert len(data) == 1, "Expects only one output from MLIR executor"
-            data = data[0]
-            self._finalize(self.name, [], Storage, data)
-            return data
+        compiler = Compiler(trt_builder_opt_level=0)
+        executable = compiler.compile(mlir, flat_ir=flat_ir)
+        executor = Executor(executable, get_tensor_info(flat_ir.outputs))
+        # Upon computing the value of this tensor, we switch it to have a `Storage`
+        # parameter so that it does not need to be computed again.
+        data = executor.execute()
+        assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
+        data = data[0]
+        self._finalize(self.name, [], Storage, data)
+        return data
 
     def numpy(self) -> "numpy.ndarray":
         from tripy.common.device import device
+        from tripy.frontend.trace.ops.copy import copy
 
         self.eval()  # Avoid recomputing everything after we've called `numpy()`
-        data = self.to(device("cpu")).eval()
+        data = copy(self, device("cpu")).eval()
         return data.view()
 
     def __repr__(self) -> str:

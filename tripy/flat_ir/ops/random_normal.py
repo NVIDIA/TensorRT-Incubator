@@ -1,24 +1,16 @@
 import numbers
 from dataclasses import dataclass
 
-from mlir import ir
+from mlir_tensorrt.compiler import ir
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
 class RandomNormalOp(BaseFlatIROp):
-    """
-    Operation to generate a random tensor with normal distribution.
-    """
 
     static_mean: numbers.Number
     static_std: numbers.Number
-
-    def __init__(self, source_op, inputs, outputs, static_mean, static_std):
-        super().__init__(source_op, inputs, outputs)
-        self.static_mean = static_mean
-        self.static_std = static_std
 
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()

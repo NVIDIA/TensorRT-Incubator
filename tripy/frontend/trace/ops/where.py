@@ -1,21 +1,46 @@
 import numbers
+from dataclasses import dataclass
 
 from tripy import utils
 import tripy.frontend.trace.ops.utils as op_utils
+from tripy import export
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 
 
+@dataclass(repr=False)
 class Where(BaseTraceOp):
-    """
-    Represents a select operation.
-    """
+
+    def get_operand_shape_after_broadcast(self, cond_shape, a_shape, b_shape):
+        def broadcast_equivalent_shape(a, b):
+            shapes = op_utils.get_broadcast_compatible_shapes(a, b)
+            bcast_check = op_utils.is_broadcast_compatible(*shapes)
+            if not bcast_check:
+                op_utils.raise_error_io_info(
+                    self,
+                    "Input tensors are not broadcast compatible.",
+                    details=[
+                        "Input tensors for where operation must be broadcast compatible but ",
+                    ]
+                    + bcast_check.error_details,
+                )
+            return tuple(op_utils.get_broadcast_dim(*d) for d in zip(*shapes))
+
+        cond_shape = broadcast_equivalent_shape(cond_shape, a_shape)
+        cond_shape = broadcast_equivalent_shape(cond_shape, b_shape)
+
+        return cond_shape
 
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
-        out_rank = max(len(self.inputs[0].shape), len(self.inputs[1].shape), len(self.inputs[2].shape))
-        self.outputs[0].shape = utils.to_dims([-1] * out_rank)
+
+        # Output shape is broadcast of all 3 input tensor shapes.
+        operand_shape = self.get_operand_shape_after_broadcast(*[inp.shape for inp in self.inputs])
+        self.outputs[0].shape = operand_shape
+
+        # TODO: https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/152 will remove get_operand_shape_after_broadcast and line 38-39 and replace with line 42-43.
+        # out_rank = max(len(self.inputs[0].shape), len(self.inputs[1].shape), len(self.inputs[2].shape))
+        # self.outputs[0].shape = utils.to_dims([-1] * out_rank)
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
@@ -39,6 +64,7 @@ class Where(BaseTraceOp):
         from tripy.flat_ir.ops import MaxOp
 
         # Unconditionally insert broadcast for all operands
+        assert len(inputs) == 3, f"Where op expects 3 inputs but got {len(inputs)}."
         cond_rank, a_rank, b_rank = (len(input.shape) for input in inputs)
 
         # Make rank of cond, a and b the same.
@@ -48,33 +74,81 @@ class Where(BaseTraceOp):
         inputs[2] = op_utils.expand_rank_of_tensor(self, inputs[2], output_rank - len(inputs[2].shape))
 
         # Compute element-wise max of input shapes to get the desired output shape.
-        max_of_cond_and_a_shape = FlatIRTensor.build(shape=inputs[0].shape, dtype=int32, device=inputs[0].device)
-        max_of_a_and_b_shape = FlatIRTensor.build(shape=inputs[0].shape, dtype=int32, device=inputs[0].device)
-        MaxOp(
-            self,
-            [op_utils.get_shape_of_tensor(self, inputs[0]), op_utils.get_shape_of_tensor(self, inputs[1])],
+        max_of_cond_and_a_shape = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "compute the elementwise maximum of the shapes of condition tensor ",
+                op_utils.get_shape_of_tensor(inputs[0]),
+                " and 'input' tensor ",
+                op_utils.get_shape_of_tensor(inputs[1]),
+            ],
+        )
+
+        MaxOp.build(
+            [op_utils.get_shape_of_tensor(inputs[0]), op_utils.get_shape_of_tensor(inputs[1])],
             [max_of_cond_and_a_shape],
         )
 
-        MaxOp(
-            self,
-            [op_utils.get_shape_of_tensor(self, inputs[1]), op_utils.get_shape_of_tensor(self, inputs[2])],
+        max_of_a_and_b_shape = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "compute the elementwise maximum of the shapes of 'input'",
+                op_utils.get_shape_of_tensor(inputs[1]),
+                " and 'other' tensor",
+                op_utils.get_shape_of_tensor(inputs[2]),
+            ],
+        )
+        MaxOp.build(
+            [op_utils.get_shape_of_tensor(inputs[1]), op_utils.get_shape_of_tensor(inputs[2])],
             [max_of_a_and_b_shape],
         )
 
+        computed_output_shape = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "compute the elementwise maximum of previously computed partial elementwise maximum of 'condition' and 'input' tensor",
+                max_of_cond_and_a_shape,
+                "and elementwise maximum of the shapes of `input` and `other` tensor.",
+                max_of_a_and_b_shape,
+            ],
+        )
+        MaxOp.build(
+            [max_of_cond_and_a_shape, max_of_a_and_b_shape],
+            [computed_output_shape],
+        )
+
         inputs[0] = op_utils.insert_broadcast(
-            self, inputs[0], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_of_a_and_b_shape
+            inputs[0],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=computed_output_shape,
+            tensor_details=f"first input of 'where' ('condition')",
         )
         inputs[1] = op_utils.insert_broadcast(
-            self, inputs[1], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_of_a_and_b_shape
+            inputs[1],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=computed_output_shape,
+            tensor_details="second input of 'where' ('input')",
         )
         inputs[2] = op_utils.insert_broadcast(
-            self, inputs[2], outputs[0].shape, use_dynamic_variant=True, shape_of_target_tensor=max_of_a_and_b_shape
+            inputs[2],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=computed_output_shape,
+            tensor_details="third input of 'where' ('other')",
         )
 
-        SelectOp(self, inputs, outputs)
+        SelectOp.build(inputs, outputs)
 
 
+@export.public_api(document_under="tensor_operations")
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
@@ -111,18 +185,19 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
     return Tensor.build([condition, input, other], Where)
 
 
-@TENSOR_METHOD_REGISTRY("masked_fill")
-def masked_fill(self, mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
+@export.public_api(document_under="tensor_operations")
+def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
     Returns a new tensor filled with ``value`` where ``mask`` is ``True`` and elements from
-    this tensor otherwise.
+    the input tensor otherwise.
 
     Args:
+        input: The input tensor.
         mask: The mask tensor. This should have data type :class:`tripy.bool`.
-        value: the value to fill with. This will be casted to match the data type of this tensor.
+        value: the value to fill with. This will be casted to match the data type of the input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as this one.
+        A new tensor of the same shape and data type as the input tensor.
 
     .. code-block:: python
         :linenos:
@@ -132,11 +207,11 @@ def masked_fill(self, mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Ten
         mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
 
         input = tp.zeros([2, 2])
-        output = input.masked_fill(mask, -1.0)
+        output = tp.masked_fill(input, mask, -1.0)
 
         assert np.array_equal(output.numpy(), np.array([[-1, 0], [-1, -1]], dtype=np.float32))
     """
     from tripy.frontend.trace.ops.fill import full_like
 
-    fill_tensor = full_like(self, value)
-    return where(mask, fill_tensor, self)
+    fill_tensor = full_like(input, value)
+    return where(mask, fill_tensor, input)

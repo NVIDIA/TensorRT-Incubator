@@ -1,12 +1,11 @@
-from mlir.dialects import stablehlo
+from dataclasses import dataclass
+
+from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
+@dataclass(repr=False)
 class SelectOp(BaseFlatIROp):
-    """
-    Operation to select values from either x or y, depending on condition.
-    """
-
     def to_mlir(self, operands):
         return [stablehlo.select(*operands)]

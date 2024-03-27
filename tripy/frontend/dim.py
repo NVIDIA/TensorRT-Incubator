@@ -1,7 +1,7 @@
 import functools
 from typing import Any, Callable, Dict, Optional
 
-from tripy import utils
+from tripy import export, utils
 from tripy.common.exception import raise_error
 from tripy.utils.json import Decoder, Encoder
 
@@ -13,9 +13,9 @@ def validate_profile(method: Callable) -> Callable:
 
         if not self.is_valid():
             raise_error(
-                "Invalid arguments to `Dim()`.",
+                "Invalid arguments to `dynamic_dim()`.",
                 details=[
-                    f"Dim should have `min`<={{`opt`,`runtime_value`}}<=`max` but got min={self.min}, opt={self.opt}, max={self.max} "
+                    f"dynamic_dim should have `min`<={{`opt`,`runtime_value`}}<=`max` but got min={self.min}, opt={self.opt}, max={self.max} "
                     f"with runtime_value={self._runtime_value}."
                 ],
             )
@@ -24,9 +24,10 @@ def validate_profile(method: Callable) -> Callable:
     return wrapper
 
 
-class Dim:
+@export.public_api()
+class dynamic_dim:
     """
-    Represents the size of a dimension along with the range of values it can take.
+    Represents the size of a dynamic dimension along with the range of values it can take.
 
     Specifying a range of values allows the compiler to optimize the program such
     that is is valid for any dimension size within that range.
@@ -39,7 +40,7 @@ class Dim:
         min: Optional[int] = None,
         opt: Optional[int] = None,
         max: Optional[int] = None,
-    ):
+    ) -> None:
         """
         Args:
             runtime_value : Runtime value of the dimension.
@@ -48,25 +49,15 @@ class Dim:
                     This should generally be the value you expect will be the most frequently occurring.
             max: Maximum value of the dimension.
 
-        ``min``/``opt``/``max`` indicate the dynamic range of the dimension and are used by the compiler
-        when optimizing the program.
-
         If only ``min`` and ``max`` are provided, the ``opt`` value will be inferred as
-        the midpoint between the two.
+        the midpoint between the two. If only the ``runtime_value`` is provided, ``min``,
+        ``opt``, and ``max`` will all be set to ``runtime_value``.
 
         .. code-block:: python
             :linenos:
-            :caption: Static Dimension
+            :caption: Example
 
-            batch = tp.Dim(2)
-
-            assert batch.min == batch.opt == batch.max == 2
-
-        .. code-block:: python
-            :linenos:
-            :caption: Dynamic Dimension
-
-            dyn_batch = tp.Dim(3, min=2, opt=4, max=9)
+            dyn_batch = tp.dynamic_dim(3, min=2, opt=4, max=9)
 
             assert dyn_batch.min == 2
             assert dyn_batch.opt == 4
@@ -76,7 +67,6 @@ class Dim:
 
         self._min = utils.default(min, self._runtime_value)
         self._max = utils.default(max, self._runtime_value)
-
         self._opt = utils.default(opt, int((self._max + self._min) / 2.0))
 
     def is_valid(self):
@@ -87,11 +77,9 @@ class Dim:
             and self._runtime_value <= self._max
         )
 
-    def is_static_dim(self):
-        return self._runtime_value == self._min == self._opt == self._max
-
     def is_dynamic_dim(self):
-        return self._runtime_value == -1 or not self.is_static_dim()
+        all_values_same = self._runtime_value == self._min == self._opt == self._max
+        return self._runtime_value == -1 or not all_values_same
 
     @property
     def min(self) -> int:
@@ -110,12 +98,12 @@ class Dim:
         return self._runtime_value
 
     def __eq__(self, other):
-        if not isinstance(other, Dim):
+        if not isinstance(other, dynamic_dim):
             return not self.is_dynamic_dim() and self.min == other
         return self.min == other.min and self.max == other.max and self.opt == other.opt
 
     def __gt__(self, other):
-        if not isinstance(other, Dim):
+        if not isinstance(other, dynamic_dim):
             return self.min > other
         else:
             return self.min > other.max
@@ -124,21 +112,23 @@ class Dim:
     @validate_profile
     def runtime_value(self, shape) -> None:
         """
-        Set runtime shape for a Dim
+        Set runtime shape for a dynamic_dim
         """
         self._runtime_value = shape
 
     def __repr__(self) -> str:
         if self.is_dynamic_dim():
-            return f"Dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
+            return (
+                f"dynamic_dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
+            )
         return f"{self.runtime_value}"
 
 
-@Encoder.register(Dim)
-def encode(dim: Dim) -> Dict[str, Any]:
+@Encoder.register(dynamic_dim)
+def encode(dim: dynamic_dim) -> Dict[str, Any]:
     return {"runtime_value": dim.runtime_value, "min": dim.min, "opt": dim.opt, "max": dim.max}
 
 
-@Decoder.register(Dim)
-def decode(dct: Dict[str, Any]) -> Dim:
-    return Dim(dct["runtime_value"], min=dct["min"], opt=dct["opt"], max=dct["max"])
+@Decoder.register(dynamic_dim)
+def decode(dct: Dict[str, Any]) -> dynamic_dim:
+    return dynamic_dim(dct["runtime_value"], min=dct["min"], opt=dct["opt"], max=dct["max"])

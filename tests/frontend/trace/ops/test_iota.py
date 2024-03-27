@@ -1,6 +1,6 @@
 import tripy as tp
 from tests import helper
-from tripy.frontend.trace.ops.iota import Iota
+from tripy.frontend.trace.ops import Iota
 
 
 class TestIota:

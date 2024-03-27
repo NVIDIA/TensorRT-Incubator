@@ -4,7 +4,7 @@ from typing import List, Sequence, Set
 from tripy.frontend.trace.ops import BaseTraceOp
 from tripy.frontend.trace.tensor import TraceTensor
 from tripy.common.exception import raise_error
-from tripy.common import logger
+from tripy.logging import logger
 
 
 class Trace:
@@ -20,12 +20,10 @@ class Trace:
         # Compute and cache shape information for all tensors
         for inp in self.inputs:
             inp.producer.infer_shapes()
-            inp.producer.infer_dtypes()
             inp.producer.infer_devices()
 
         for op in self.ops:
             op.infer_shapes()
-            op.infer_dtypes()
             op.infer_devices()
 
     def __init__(self, tensors: Sequence["tripy.Tensor"], inputs: Sequence["tripy.Tensor"] = []) -> None:
@@ -115,9 +113,6 @@ class Trace:
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
-
-    def __eq__(self, other: "Trace") -> bool:
-        return self.ops == other.ops and self.inputs == other.inputs
 
     def to_flat_ir(self):
         from tripy.flat_ir.flat_ir import FlatIR

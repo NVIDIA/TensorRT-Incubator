@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 
-from tripy.frontend import Tensor
+import tripy as tp
 
 
 class TestReduceOp:
@@ -23,8 +23,8 @@ class TestReduceOp:
             size=x_shape,
         ).astype(np.float32)
 
-        a = Tensor(rand_x)
-        out = a.mean(dim=axis, keepdim=keepdim)
+        a = tp.Tensor(rand_x)
+        out = tp.mean(a, dim=axis, keepdim=keepdim)
         assert np.allclose(out.numpy(), np.array(rand_x.mean(axis=axis, keepdims=keepdim)))
 
     @pytest.mark.parametrize(
@@ -44,8 +44,8 @@ class TestReduceOp:
             size=x_shape,
         ).astype(np.float32)
 
-        a = Tensor(rand_x)
-        out = a.var(dim=axis, keepdim=keepdim)
+        a = tp.Tensor(rand_x)
+        out = tp.var(a, dim=axis, keepdim=keepdim)
         torch_tensor = torch.Tensor(rand_x)
         assert np.allclose(out.numpy(), torch_tensor.var(dim=axis, keepdim=keepdim))
 
@@ -56,8 +56,7 @@ class TestReduceOp:
             ((2, 3, 4), 2, True),
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
-            # TODO: support dim=None
-            # ((2, 3, 4), None, False),
+            ((2, 3, 4), None, False),
         ],
     )
     def test_argmax(self, x_shape, axis, keepdim: bool):
@@ -67,8 +66,8 @@ class TestReduceOp:
             size=x_shape,
         ).astype(np.float32)
 
-        a = Tensor(rand_x)
-        out = a.argmax(dim=axis, keepdim=keepdim)
+        a = tp.Tensor(rand_x)
+        out = tp.argmax(a, dim=axis, keepdim=keepdim)
         assert np.array_equal(out.numpy(), np.array(rand_x.argmax(axis=axis, keepdims=keepdim)))
 
     @pytest.mark.parametrize(
@@ -78,8 +77,7 @@ class TestReduceOp:
             ((2, 3, 4), 2, True),
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
-            # TODO: support dim=None
-            # ((2, 3, 4), None, False),
+            ((2, 3, 4), None, False),
         ],
     )
     def test_argmin(self, x_shape, axis, keepdim: bool):
@@ -89,6 +87,6 @@ class TestReduceOp:
             size=x_shape,
         ).astype(np.float32)
 
-        a = Tensor(rand_x)
-        out = a.argmin(dim=axis, keepdim=keepdim)
+        a = tp.Tensor(rand_x)
+        out = tp.argmin(a, dim=axis, keepdim=keepdim)
         assert np.array_equal(out.numpy(), np.array(rand_x.argmin(axis=axis, keepdims=keepdim)))

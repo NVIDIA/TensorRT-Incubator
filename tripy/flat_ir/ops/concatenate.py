@@ -1,23 +1,14 @@
 from dataclasses import dataclass
 
-from mlir import ir
-from mlir.dialects import stablehlo
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
 class ConcatenateOp(BaseFlatIROp):
-    """
-    Operation to concatenate tensors along a dimension.
-    """
-
     dim: int
-
-    def __init__(self, origin_layer, inputs, outputs, dim):
-        super().__init__(origin_layer, inputs, outputs)
-        assert len(self.outputs) == 1, "ConcatenateOp should have exactly 1 output"
-        self.dim = dim
 
     def to_mlir(self, operands):
         concatenate_dim = ir.IntegerAttr.get(

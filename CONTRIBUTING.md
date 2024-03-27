@@ -81,96 +81,21 @@ For details on the public documentation, see [the documentation README](./docs/R
 
 ## Advanced: Building A Container Locally
 
-Generally, you should not need to build a container locally. If you do, you can follow these steps:
-
-1. (Optional) Manually build `mlir-tensorrt` integration library.
-
-	If you did not modify `mlir-tensorrt.txt`, you can skip this step.
-	A script will automatically download the latest `mlir-tensorrt` package in Step 2.
-
-	Building `mlir-tensorrt` is done in a separate container than `tripy` as eventually `mlir-tensorrt`
-	will not be shipped externally and saves adding additional complexity to `tripy` containers.
-
-	1. Get `mlir-tensorrt` repository:
-
-		```bash
-		git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/poc/mlir/mlir-tensorrt.git
-		cd mlir-tensorrt && git checkout $(cat ../mlir-tensorrt.txt)
-		git submodule update --init --depth 1
-		```
-
-	2. Install docker-compose:
-
-		```bash
-		sudo apt-get install docker-compose
-		```
-
-	3. Build the `mlir-tensorrt` container locally:
-
-		```bash
-		cd build_tools/docker
-		docker compose up -d
-		```
-
-	4. Copy your SSH key to the container. You can use `docker container ls` or `docker ps` to find the `<container-id>`
-
-		Launch the container and create .ssh folder in /root.
-		```bash
-		docker compose exec mlir-tensorrt-poc-dev bash
-		mkdir -p /root/.ssh
-		```
-
-		Now, copy SSH keys to the container.
-		```bash
-		docker cp ~/.ssh/id_rsa <container-id>:/root/.ssh
-		```
-
-	5. Launch the container:
-
-		```bash
-		docker compose exec mlir-tensorrt-poc-dev bash
-		```
-
-	6. Build `mlir-tensorrt`:
-
-		```bash
-		cd /workspaces/mlir-tensorrt/
-		cmake -B build -S . -G Ninja \
-			-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-			-DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-			-DCMAKE_C_COMPILER_LAUNCHER=ccache \
-			-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-			-DLLVM_USE_LINKER=lld \
-			-DMLIR_TRT_ENABLE_TRIPY=ON \
-			-DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.0.0.1
-
-		ninja -C build all
-		```
-
-	7. (Optional) To verify the build, the below command should dump out an .mlir file with tensorrt operations:
-
-		```bash
-		./build/tools/mlir-tensorrt-opt examples/matmul_mhlo.mlir \
-			-pass-pipeline="builtin.module(func.func(convert-hlo-to-tensorrt{allow-i64-to-i32-conversion},tensorrt-expand-ops,translate-tensorrt-to-engine))" \
-			-mlir-elide-elementsattrs-if-larger=128
-		```
-
-	After building `mlir-tensorrt` project, the build will be available in the `tripy` container.
-	The integrated tripy library file is `libtripy_backend_lib.so`.
-
-2. Download dependencies from CI.
-
-	Download `stablehlo` and `mlir-tensorrt` (if you do not have to manully build it), the script will skip downloading if the packages already exist. If you want to download the latest build, make sure to remove the existing packages from the tripy directory.
+1. First [set up your personal access token in GitLab](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html)
+	and export it:
 
 	```bash
-	export TRIPY_GITLAB_API_TOKEN=<your-access-token>
-	python3 scripts/download_dependencies.py
+	export GITLAB_API_TOKEN=<your token here>
 	```
 
-3. Build the tripy container.
+2.  From the [`tripy` root directory](.), run:
 
-	From the [`tripy` root directory](.), run:
 	```bash
-	docker build -t tripy .
+	docker build -t tripy --build-arg gitlab_user=__token__ --build-arg gitlab_token=$GITLAB_API_TOKEN  .
+	```
+
+3. You can launch the container with:
+
+	```bash
 	docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
 	```

@@ -1,26 +1,25 @@
 from dataclasses import dataclass
 from typing import List
 
-from mlir import ir
-from mlir.dialects import stablehlo
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir.utils import get_mlir_dtype
+from tripy.flat_ir.ops.base import BaseFlatIROp
+
+
+# TODO (#137): This WAR is needed due to changes in StableHLO.
+# When we next upgrade MLIR-TRT, we can remove it.
+@ir.register_attribute_builder("I64DenseArrayOrElements1DAttr")
+def _denseI64ArrayAttr(x, context):
+    return ir.DenseI64ArrayAttr.get(x, context=context)
 
 
 @dataclass(repr=False)
 class ReduceOp(BaseFlatIROp):
-    """
-    Operation to reduce a Tensor
-    """
 
     reduce_mode: str
     reduce_dims: List[int]
-
-    def __init__(self, source_op, inputs, outputs, reduce_dims, reduce_mode):
-        super().__init__(source_op, inputs, outputs)
-        self.reduce_dims = list(reduce_dims)
-        self.reduce_mode = reduce_mode
 
     # TODO(#87): Reuse flat ir ops
     def _get_reduce_func(self):
@@ -61,9 +60,6 @@ class ArgMinMaxOp(ReduceOp):
     """
     Operation for argmin and argmax.
     """
-
-    def __init__(self, source_op, inputs, outputs, reduce_dims, reduce_mode):
-        super().__init__(source_op, inputs, outputs, reduce_dims, reduce_mode)
 
     # TODO: wrap the reducer in a func.call
     def _reducer(self, args):

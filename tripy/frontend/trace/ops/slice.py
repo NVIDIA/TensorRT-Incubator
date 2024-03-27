@@ -12,9 +12,6 @@ from tripy.utils import make_tuple
 
 @dataclass(repr=False)
 class Slice(BaseTraceOp):
-    """
-    Represents a slice operation.
-    """
 
     index: Tuple[Union[slice, int]]
 
@@ -33,8 +30,7 @@ class Slice(BaseTraceOp):
         if any(dim.is_dynamic_dim() for dim in inputs[0].shape):
             raise NotImplementedError("Dynamic slice is not supported")
 
-        SliceOp(
-            self,
+        SliceOp.build(
             inputs,
             outputs,
             start_indices=self.start_indices,
@@ -52,18 +48,19 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
         index: The index or slice.
 
     Returns:
-        A tensor cotnaining the slice of ths tensor.
+        A tensor containing the slice of this tensor.
 
     .. code-block:: python
         :linenos:
         :caption: Example
 
-        input = tp.arange(6, dtype=tp.float32).reshape((1, 2, 3, 1))
+        input = tp.reshape(tp.arange(6, dtype=tp.float32), (1, 2, 3, 1))
         output = input[:, 1:2, :-1, 0]
 
         assert np.array_equal(output.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
     """
-    from tripy.frontend import Tensor
+    from tripy.frontend.tensor import Tensor
+    from tripy.frontend.trace.ops.reshape import squeeze
 
     index = make_tuple(index)
     out = Tensor.build([self], Slice, index)
@@ -75,6 +72,6 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
         if isinstance(idx, int):
             squeeze_dims.append(i)
     if squeeze_dims:
-        out = out.squeeze(make_tuple(squeeze_dims))
+        out = squeeze(out, make_tuple(squeeze_dims))
 
     return out

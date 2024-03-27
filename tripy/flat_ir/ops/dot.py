@@ -1,27 +1,16 @@
-from typing import List
+from dataclasses import dataclass
+from typing import Dict, List
 
-from mlir import ir
-from mlir.dialects import stablehlo
+from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
-from tripy.utils import default
-from dataclasses import dataclass
 
 
 @dataclass(repr=False)
 class DotOp(BaseFlatIROp):
-    """
-    Operation to compute generic dot product of two tensors.
-    """
 
-    contracting_dim: int
-    batching_dim: int
-
-    def __init__(self, source_op, inputs, outputs, contracting_dim=None, batching_dim=None):
-        super().__init__(source_op, inputs, outputs)
-        default_dict = {"lhs": [], "rhs": []}
-        self.contracting_dim = default(contracting_dim, default_dict)
-        self.batching_dim = default(batching_dim, default_dict)
+    contracting_dim: Dict[str, List[int]]
+    batching_dim: Dict[str, List[int]]
 
     def to_mlir(self, operands):
         # dot_general spec: https://github.com/openxla/stablehlo/blob/main/docs/spec.md#dot_general

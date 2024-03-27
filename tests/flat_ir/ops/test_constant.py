@@ -12,7 +12,4 @@ class TestConstantOp:
 
         const = flat_ir.ops[-1]
         assert isinstance(const, ConstantOp)
-        assert (
-            str(const)
-            == "out: [shape=(2,), dtype=(float32), loc=(gpu:0)] = ConstantOp(data=[2. 3.], dtype=float32, device=gpu:0)"
-        )
+        assert str(const) == "out: [shape=(2,), dtype=(float32), loc=(gpu:0)] = ConstantOp(data=[2. 3.])"

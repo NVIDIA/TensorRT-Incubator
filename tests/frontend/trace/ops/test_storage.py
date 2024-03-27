@@ -1,7 +1,7 @@
 import cupy as cp
 import numpy as np
 import pytest
-from mlir import ir
+from mlir_tensorrt.compiler import ir
 
 import tripy as tp
 from tripy.backend.mlir import utils as mlir_utils
@@ -9,7 +9,6 @@ from tripy.common import Array
 from tripy.common.datatype import DATA_TYPES
 from tripy.flat_ir.flat_ir import FlatIR
 from tripy.frontend.trace.ops import Storage
-from tripy.frontend.trace import Trace
 from tripy.frontend.trace.tensor import TraceTensor
 
 

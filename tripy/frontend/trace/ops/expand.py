@@ -2,17 +2,12 @@ from dataclasses import dataclass
 from typing import Sequence
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy import export, utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
 class Expand(BaseTraceOp):
-    """
-    Represents an expand operation.
-    """
-
     shape: Sequence[int]
 
     def infer_shapes(self):
@@ -47,15 +42,16 @@ class Expand(BaseTraceOp):
         from tripy.flat_ir.ops import BroadcastOp
 
         broadcast_dim = op_utils.get_broadcast_in_dim(inputs[0].shape, outputs[0].shape)
-        BroadcastOp(self, inputs, outputs, broadcast_dim=broadcast_dim)
+        BroadcastOp.build(inputs, outputs, broadcast_dim=broadcast_dim)
 
 
-@TENSOR_METHOD_REGISTRY("expand")
-def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
+@export.public_api(document_under="tensor_operations")
+def expand(input: "tripy.Tensor", sizes: Sequence[int]) -> "tripy.Tensor":
     """
-    Returns a new tensor based on this tensor with singleton dimensions expanded to a larger size.
+    Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.
 
     Args:
+        input: The input tensor.
         sizes: The desired expanded size.
             A value of :math:`-1` indicates that the dimension should not be modified.
             If the length of this parameter exceeds the rank of the tensor, new dimensions
@@ -68,20 +64,20 @@ def expand(self, sizes: Sequence[int]) -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        input = tp.ones((2, 1), dtype=tp.float32)
-        output = input.expand((-1, 4))
+        input = tp.iota((2, 1), dtype=tp.float32)
+        output = tp.expand(input, (-1, 4))
 
-        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((2, 1), dtype=np.float32), (2, 4)))
+        assert np.array_equal(output.numpy(), np.broadcast_to(input.numpy(), (2, 4)))
 
     .. code-block:: python
         :linenos:
         :caption: Increasing Tensor Rank
 
-        input = tp.ones((1, 1), dtype=tp.float32)
-        output = input.expand((3, -1, -1))
+        input = tp.iota((1, 1), dtype=tp.float32)
+        output = tp.expand(input, (3, -1, -1))
 
-        assert np.array_equal(output.numpy(), np.broadcast_to(np.ones((1, 1), dtype=np.float32), (3, 1, 1)))
+        assert np.array_equal(output.numpy(), np.broadcast_to(input.numpy(), (3, 1, 1)))
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([self], Expand, sizes)
+    return Tensor.build([input], Expand, sizes)

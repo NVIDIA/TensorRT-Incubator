@@ -1,11 +1,25 @@
+"""
+Global configuration options for Tripy.
+"""
+
 import os
+import sys
 import tempfile
 
-# backend/mlir configs
-MLIR_LIB_PATH = os.path.join("/", "usr", "lib", "mlir-tensorrt")
-MLIR_LIB_NAME = "libtripy_backend*.so"
+from tripy import export
 
+export.public_api(autodoc_options=[":no-members:", ":no-special-members:"])(sys.modules[__name__])
 
-# IR printing
-CONSTANT_IR_PRINT_VOLUME_THRESHOLD = 5
-"""The volume threshold above which constants should not be printed in the IR"""
+# MLIR Debug options
+enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
+mlir_debug_types = ["-mlir-print-ir-after-all"]
+mlir_debug_tree_path = os.path.join("/", "tripy", "mlir-dumps")
+
+# Variables that are exposed to the user are kept lowercase.
+timing_cache_file_path: str = export.public_api(
+    document_under="config.rst",
+    autodoc_options=[":no-value:"],
+    module=sys.modules[__name__],
+    symbol="timing_cache_file_path",
+)(os.path.join(tempfile.gettempdir(), "tripy-cache"))
+"""Path to a timing cache file that can be used to speed up compilation time"""

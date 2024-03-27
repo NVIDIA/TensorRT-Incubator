@@ -22,15 +22,6 @@ class TestJIT:
 
         assert isinstance(func, tp.jit)
 
-    def test_type_decorator_kwargs(self):
-        @tp.jit(dummy=1)
-        def func(a, b):
-            c = a + b
-            d = c + c
-            return c, d
-
-        assert isinstance(func, tp.jit)
-
     def test_type_function(self):
         def func(a, b):
             c = a + b
@@ -66,9 +57,9 @@ class TestJIT:
             d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
         ).all()
 
-    def test_functional_decorator_kwargs(self, init_tensors):
+    def test_functional_decorator_optimization_level(self, init_tensors):
         # kwargs are not used by jit implementation as of 11/14/2023.
-        @tp.jit(autotune=2)
+        @tp.jit(optimization_level=4)
         def func(a, b):
             c = a + b
             d = c + c
@@ -150,6 +141,7 @@ class TestJIT:
         jitted_func = tp.jit(
             func,
             const_argnums=(1,),
+            optimization_level=2,
         )
         a, b = init_tensors
         c, d = jitted_func(a, b)
@@ -167,7 +159,7 @@ class TestJIT:
 
     def test_dynamic_shapes(self):
         random_data = np.random.rand(3).astype(np.float32)
-        dynamic_dim = tp.Dim(3, min=2, opt=3, max=10)
+        dynamic_dim = tp.dynamic_dim(3, min=2, opt=3, max=10)
 
         a = tp.Tensor(random_data, shape=(dynamic_dim,), device=tp.device("gpu"))
         b = tp.Tensor(random_data, shape=(dynamic_dim,), device=tp.device("gpu"))
@@ -206,7 +198,7 @@ class TestJIT:
         random_data = np.random.rand(3, 4).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
-        class Dummy(tp.nn.Module):
+        class Dummy(tp.Module):
             def __init__(self):
                 super().__init__()
 
@@ -214,10 +206,10 @@ class TestJIT:
                 print("Dummy call")
                 return x
 
-        class Network(tp.nn.Module):
+        class Network(tp.Module):
             def __init__(self):
                 super().__init__()
-                self.linear = tp.frontend.nn.Linear(4, 2)
+                self.linear = tp.Linear(4, 2)
                 self.dummy = Dummy()
 
             def __call__(self, x):
@@ -245,7 +237,7 @@ class TestJIT:
 
             @tp.jit
             def add(a):
-                t = tp.Tensor([1.0, 2.0, 3.0], shape=(tp.Dim(3, 2, 3, 4),))
+                t = tp.Tensor([1.0, 2.0, 3.0], shape=(tp.dynamic_dim(3, 2, 3, 4),))
                 out = a + t
                 import pdb
 
@@ -257,3 +249,63 @@ class TestJIT:
         captured = capsys.readouterr()
         assert "Initializing dynamic shape tensor in jitted functions is not recommended" in captured.out
         assert "Using pdb inside jitted function is not recommended" in captured.out
+
+    def test_jit_in_jit(self):
+        # Verify that jit function called in another jit function does not cause inner jit function args to be evaluated.
+
+        @tp.jit
+        def inner(a, b):
+            return a * b
+
+        @tp.jit
+        def outer(a, b):
+            a = a - 2.0
+            b = b + 2.0
+            out = inner(a, b)
+            out = out / 3.0
+            return out
+
+        a = tp.ones((2, 3))
+        a.name = "c"
+        b = tp.ones((2, 3))
+        b.name = "b"
+
+        c = outer(a, b).eval()
+
+        # mul cache keys will be empty since jit wasn't used and the function body was traced by the parent jit function.
+        assert len(inner.cache.keys()) == 0
+        assert len(outer.cache.keys()) == 1
+
+    def test_jit_in_jit_class(self):
+        # Verify that jit class called in another jit class does not cause inner jit function args to be evaluated.
+
+        class Inner(tp.Module):
+            def __init__(self):
+                super().__init__()
+
+            @tp.jit
+            def __call__(self, a, b):
+                return a * b
+
+        class Outer(tp.Module):
+            def __init__(self):
+                super().__init__()
+                self.mul = Inner()
+
+            def __call__(self, a, b):
+                a = a - 2.0
+                b = b + 2.0
+                out = self.mul(a, b)
+                out = out / 3.0
+                return out
+
+        net = Outer()
+        net = tp.jit(net)
+
+        a = tp.ones((2, 3))
+        a.name = "c"
+        b = tp.ones((2, 3))
+        b.name = "b"
+
+        c = net(a, b).eval()
+        assert len(Inner.__call__.cache.keys()) == 0

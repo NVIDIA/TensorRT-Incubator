@@ -8,10 +8,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class MatrixMultiplication(BaseTraceOp):
-    """
-    Represents a matrix multiplication operation.
-    """
-
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
@@ -77,30 +73,33 @@ class MatrixMultiplication(BaseTraceOp):
         # 6. Invocate DotOp.
 
         def split_shape_in_batch_and_mat_dims(input: "FlatIRTensor", nb_batch_dims: int):
-            input_shape = op_utils.get_shape_of_tensor(self, input)
+            input_shape = op_utils.get_shape_of_tensor(input)
 
             zero_1d = op_utils.add_constant_tensor_from_list(self, [0], input.device)
             one_1d = op_utils.add_constant_tensor_from_list(self, [1], input.device)
 
             slice_len = op_utils.add_constant_tensor_from_list(self, [nb_batch_dims], input.device)
-            batch_slice = FlatIRTensor.build(shape=utils.to_dims([nb_batch_dims]), dtype=int32, device=input.device)
-            DynamicSliceOp(self, [input_shape, zero_1d, slice_len, one_1d], [batch_slice])
+            batch_slice = FlatIRTensor.build(
+                shape=utils.to_dims([nb_batch_dims]), dtype=int32, device=input.device, reason_details=""
+            )
+            DynamicSliceOp.build([input_shape, zero_1d, slice_len, one_1d], [batch_slice])
 
             end_len = op_utils.add_constant_tensor_from_list(self, [len(input.shape)], input.device)
             mat_slice = FlatIRTensor.build(
-                shape=utils.to_dims([len(input.shape) - nb_batch_dims]), dtype=int32, device=input.device
+                shape=utils.to_dims([len(input.shape) - nb_batch_dims]),
+                dtype=int32,
+                device=input.device,
+                reason_details="",
             )
-            DynamicSliceOp(self, [input_shape, slice_len, end_len, one_1d], [mat_slice])
+            DynamicSliceOp.build([input_shape, slice_len, end_len, one_1d], [mat_slice])
             return batch_slice, mat_slice
 
         def append_ones_data_tensor(input, nb_ones):
             extra_a_ones = op_utils.add_constant_tensor_from_list(self, [1] * nb_ones, input.device)
             input_expanded = FlatIRTensor.build(
-                shape=utils.to_dims(-1),
-                dtype=int32,
-                device=input.device,
+                shape=utils.to_dims(-1), dtype=int32, device=input.device, reason_details=""
             )
-            ConcatenateOp(self, [extra_a_ones, input], [input_expanded], dim=0)
+            ConcatenateOp.build([extra_a_ones, input], [input_expanded], dim=0)
             return input_expanded
 
         a_rank, b_rank = (len(input.shape) for input in inputs)
@@ -117,10 +116,9 @@ class MatrixMultiplication(BaseTraceOp):
 
         # Use Max of batch dims to get the output batch dims.
         max_of_batch_shapes = FlatIRTensor.build(
-            shape=utils.to_dims([nb_result_batch_dims]), dtype=int32, device=inputs[0].device
+            shape=utils.to_dims([nb_result_batch_dims]), dtype=int32, device=inputs[0].device, reason_details=""
         )
-        MaxOp(
-            self,
+        MaxOp.build(
             [a_batch_shapes_with_ones, b_batch_shapes_with_ones],
             [max_of_batch_shapes],
         )
@@ -131,25 +129,25 @@ class MatrixMultiplication(BaseTraceOp):
 
         # Use the computed output dims from #4 to broadcast both the inputs.
         inputs[0] = op_utils.insert_broadcast(
-            self,
             inputs[0],
             utils.to_dims([-1] * (nb_result_batch_dims + a_rank - nb_a_batch_dims)),
             use_dynamic_variant=True,
             shape_of_target_tensor=a_dims,
+            tensor_details="",
         )
         inputs[1] = op_utils.insert_broadcast(
-            self,
             inputs[1],
             utils.to_dims([-1] * (nb_result_batch_dims + b_rank - nb_b_batch_dims)),
             use_dynamic_variant=True,
             shape_of_target_tensor=b_dims,
+            tensor_details="",
         )
 
-        DotOp(self, inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
+        DotOp.build(inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")
-def matmul(self, other: "tripy.Tensor") -> "tripy.Tensor":
+def __matmul__(self, other: "tripy.Tensor") -> "tripy.Tensor":
     """
         Performs matrix multiplication between two tensors.
 
@@ -168,12 +166,11 @@ def matmul(self, other: "tripy.Tensor") -> "tripy.Tensor":
             :linenos:
             :caption: Example
 
-            a = tp.ones((2, 3), dtype=tp.float32)
-            b = tp.ones((3, 2), dtype=tp.float32)
+            a = tp.iota((2, 3), dtype=tp.float32)
+            b = tp.iota((3, 2), dtype=tp.float32)
 
             output = a @ b
-
-            assert np.array_equal(output.numpy(), (np.ones((2,3), dtype=np.float32) @ np.ones((3,2), dtype=np.float32)))
+            assert np.array_equal(output.numpy(), a.numpy() @ b.numpy())
     """
     from tripy.frontend import Tensor
 

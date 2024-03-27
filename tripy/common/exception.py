@@ -4,10 +4,15 @@ from typing import Any, List, Tuple
 
 from colored import Fore, attr
 
-from tripy import utils
+from tripy import export, utils
 
 
+@export.public_api()
 class TripyException(Exception):
+    """
+    Base class for exceptions thrown by Tripy.
+    """
+
     pass
 
 
@@ -20,7 +25,9 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     frame_info = ""
     if is_first_frame:
         frame_info += "\n\n"
-    pretty_code = utils.code_pretty_str(source_info.code, source_info.file, source_info.line, enable_color=enable_color)
+    pretty_code = utils.code_pretty_str(
+        source_info.code, source_info.file, source_info.line, source_info.function, enable_color=enable_color
+    )
 
     frame_info += pretty_code
 
@@ -51,7 +58,7 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
 
 
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> str:
-    import tripy.utils.function_registry
+    import tripy.function_registry
     from tripy.frontend.utils import convert_inputs_to_tensors
 
     EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors]
@@ -74,7 +81,7 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
         if not source_info.code:
             continue
 
-        if source_info.module == tripy.utils.function_registry.__name__:
+        if source_info.module == tripy.function_registry.__name__:
             continue
 
         if should_exclude(source_info):
@@ -126,11 +133,14 @@ def raise_error(summary: str, details: List[Any] = []):
     for detail in details:
         if hasattr(detail, "stack_info"):
             detail_msg += _make_stack_info_message(detail.stack_info)
+        elif isinstance(detail, utils.StackInfo):
+            detail_msg += _make_stack_info_message(detail)
         else:
             detail_msg += str(detail)
 
     msg = f"{pre_summary}{summary}\n" + indent(detail_msg, " " * 4)
-    raise TripyException(msg)
+    # We use `from None` to suppress output from previous exceptions, since we want to handle them internally.
+    raise TripyException(msg) from None
 
 
 def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any, str]]):
@@ -152,7 +162,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     import inspect
 
     # We look at the call stack to prevent infinite recursion.
-    # Consider the case where `tripy` searches under `tripy.nn` and vice-versa.
+    # Consider the case where `tripy` searches under `tripy.XYZ` and vice-versa.
     # If the attribute is not present in either, they will keep ping-ponging back
     # and forth since `hasattr` in this function will call `__getattr__` which will
     # then call `search_for_missing_attr` ad infinitum.
@@ -181,7 +191,7 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     # If a symbol isn't found in the top-level, we'll look at specific classes/modules
     # in case there's a similar symbol there.
     # We provide the names as well since the object name will be the fully qualified name,
-    # which is not necessarily what the user uses (e.g. tripy.nn vs. tripy.frontend.nn).
+    # which is not necessarily what the user uses.
 
     for obj, obj_name in look_in:
         # Avoid infinite recursion - see comment above.

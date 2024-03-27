@@ -1,26 +1,18 @@
-from typing import List
-
-from mlir import ir
-
-from tripy.flat_ir.ops.base import BaseFlatIROp
-import tripy.common
 from dataclasses import dataclass
+
+from mlir_tensorrt.compiler import ir
+
+import tripy.common
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
 class CopyOp(BaseFlatIROp):
-    """
-    Operation to copy a tensor to another device
-    """
 
     target: tripy.common.device
 
-    def __init__(self, source_op, inputs, outputs, target):
-        super().__init__(source_op, inputs, outputs)
-        self.target = target
-
     def to_mlir(self, operands):
-        from mlir.dialects import bufferization, tensor
+        from mlir_tensorrt.compiler.dialects import bufferization, tensor
 
         assert len(operands) == 1 and len(self.inputs) == 1, "Copy should have exactly one input!"
         mem_space_str = "device" if self.target.kind == "gpu" else "host_pinned"

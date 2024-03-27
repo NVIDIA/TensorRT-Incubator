@@ -21,10 +21,14 @@
 }
 
 details[class^="summary"]>summary {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 600;
     padding-top: 5px;
     padding-bottom: 25px;
+}
+
+.toc .caption-text {
+    color: rgb(127, 127, 127);
 }
 
 /* Method examples already include a bottom margin, so reduce the padding amount. */
@@ -69,4 +73,28 @@ pre[id^="codecell"] {
 
 .literal-block-wrapper {
     padding: 0;
+}
+
+/* Hide Table Of Contents title */
+.nftt-sidebar .title {
+    display: none !important;
+}
+
+.pt-3 {
+    padding-top: 0rem !important;
+}
+
+/* Make footer smaller */
+.py-5 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+
+.py-4 {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+
+.nftt-footer .list-unstyled {
+    margin-bottom: 0;
 }

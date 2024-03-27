@@ -3,9 +3,7 @@ from typing import Any, List, Optional, Tuple, Union
 import cupy as cp
 import numpy as np
 
-import tripy.common.datatype
 from tripy import utils
-from tripy.common.datatype import DATA_TYPES
 from tripy.common.device import device as tp_device
 from tripy.common.exception import raise_error
 
@@ -14,6 +12,7 @@ def convert_tripy_to_module_dtype(dtype: "tripy.common.datatype.dtype", module) 
     """
     Get the numpy equivalent of tripy.common.datatype.
     """
+    import tripy.common.datatype
 
     TRIPY_TO_NUMPY = dict(
         {
@@ -34,6 +33,8 @@ def convert_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.datatype.dtype"
     """
     Get the tripy.common.datatype equivalent of the data type.
     """
+    import tripy.common.datatype
+
     PYTHON_NATIVE_MAPPING = {int: tripy.common.datatype.int32, float: tripy.common.datatype.float32}
     if dtype in PYTHON_NATIVE_MAPPING:
         return PYTHON_NATIVE_MAPPING[dtype]
@@ -82,9 +83,10 @@ class Array:
             shape: Shape information for static allocation.
             device: Target device (tripy.Device("cpu") or tripy.Device("gpu")).
         """
+        import tripy.common.datatype
 
         assert dtype is None or isinstance(dtype, tripy.common.datatype.dtype), "Invalid data type"
-        assert shape is None or all(s > 0 for s in shape)
+        assert shape is None or all(s >= 0 for s in shape)
 
         self.device = utils.default(device, tp_device("cpu"))
         self._module = np if self.device.kind == "cpu" else cp
@@ -119,7 +121,12 @@ class Array:
                             ],
                         )
 
-                data = self._module.array(data, dtype=get_element_type(data))
+                element_type = get_element_type(data)
+                # allow casting for python types
+                data = self._module.array(
+                    data,
+                    dtype=convert_tripy_to_module_dtype(dtype, self._module) if dtype is not None else element_type,
+                )
 
             data_dtype = convert_to_tripy_dtype(data.dtype)
             if not data_dtype:
@@ -159,6 +166,8 @@ class Array:
         Create a NumPy Or CuPy array of underlying datatype.
         """
         assert self.dtype is not None
+        from tripy.common.datatype import DATA_TYPES
+
         assert self.dtype.name in DATA_TYPES
         dtype = convert_tripy_to_module_dtype(self.dtype, module=self._module)
         out = self.byte_buffer.view(dtype)

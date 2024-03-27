@@ -6,7 +6,7 @@ import inspect
 import os
 import pkgutil
 from textwrap import dedent, indent
-from typing import Any, Callable, Dict, List, Sequence, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
 import numpy as np
 import pytest
@@ -16,6 +16,7 @@ import tripy as tp
 from tripy.common.exception import _make_stack_info_message
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
+from tripy.backend.mlir.utils import remove_constants
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 
@@ -33,7 +34,7 @@ MARKDOWN_FILES = [
 
 
 @contextlib.contextmanager
-def raises(ExcType: type, match: str, has_stack_info_for: Sequence[tp.Tensor] = None):
+def raises(ExcType: type, match: Optional[str] = None, has_stack_info_for: Sequence[tp.Tensor] = None):
     with pytest.raises(ExcType, match=match) as exc_info:
         yield exc_info
 
@@ -52,7 +53,7 @@ def check_mlir(mlir, expected):
     # Checks a given MLIR module against a string of the expected program.
     # MLIR indents with 2 spaces; we'll replace it with 4 spaces so that it's
     # easier to write the expected string.
-    mlir_str = str(mlir).replace(" " * 2, " " * 4).strip()
+    mlir_str = remove_constants(str(mlir)).replace(" " * 2, " " * 4).strip()
     print(f"MLIR:\n{mlir_str}")
     assert mlir_str == dedent(expected).strip()
 

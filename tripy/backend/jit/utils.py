@@ -1,36 +1,10 @@
-from dataclasses import dataclass
-from typing import Any, Dict, List, Sequence
+from typing import Dict, List, Sequence
 
 from tripy import utils
-from tripy.common.logging import logger
-from tripy.common.types import ShapeInfo
+from tripy.logging import logger
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
 from tripy.frontend.trace.ops import Storage
-from tripy.utils.json import Decoder, Encoder
-
-
-# HACK (#109): This is a temporary class which we need in order to convey output information
-# to MLIR-TRT. Eventually, it should just call back into Tripy when it needs memory allocated.
-@dataclass
-class TensorInfo:
-    shape: ShapeInfo
-    dtype: "tripy.dtype"
-    device: "tripy.device"
-
-
-@Encoder.register(TensorInfo)
-def encode(tensor_info: TensorInfo) -> Dict[str, Any]:
-    return {"shape": tensor_info.shape, "dtype": tensor_info.dtype, "device": tensor_info.device}
-
-
-@Decoder.register(TensorInfo)
-def decode(dct: Dict[str, Any]) -> TensorInfo:
-    return TensorInfo(dct["shape"], dct["dtype"], dct["device"])
-
-
-def get_tensor_info(tensors):
-    return [TensorInfo(tensor.shape, tensor.dtype, tensor.device) for tensor in tensors]
 
 
 def get_trace_signature(trace: Trace) -> int:

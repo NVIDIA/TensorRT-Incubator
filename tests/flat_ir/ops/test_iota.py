@@ -19,10 +19,7 @@ class TestIotaOp:
     def test_str(self, flat_ir):
         iota = flat_ir.ops[-1]
         assert isinstance(iota, IotaOp)
-        assert (
-            str(iota)
-            == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = IotaOp(dim=0, shape=(2, 3), dtype=float32)"
-        )
+        assert str(iota) == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = IotaOp(dim=0)"
 
     def test_mlir(self, flat_ir):
         helper.check_mlir(

@@ -1,23 +1,26 @@
 import ast
-import atexit
 import functools
 import inspect
 from collections import defaultdict
-from typing import Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
-from tripy import utils
+from tripy import export, utils
 from tripy.backend.jit.cached_executable import CachedExecutable
 from tripy.backend.jit.dynamic_storage import DynamicStorage
-from tripy.backend.jit.utils import TensorInfo, get_tensor_info, get_trace_signature
+from tripy.backend.jit.utils import get_trace_signature
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
-from tripy.common.logging import logger
-from tripy.frontend import Tensor, nn
-from tripy.frontend.nn import Module
+from tripy.backend.utils import TensorInfo, get_tensor_info
+from tripy.common.device import device
+from tripy.common.exception import raise_error
+from tripy.frontend import Tensor
+from tripy.frontend.module import Module, Parameter
 from tripy.frontend.trace import Trace
 from tripy.frontend.trace.ops import Storage
+from tripy.logging import logger
 
 
+@export.public_api(autodoc_options=[":no-special-members:"])
 class jit:
     """
     Indicates that a function should be just-in-time compiled to an executable the first time it is used.
@@ -27,10 +30,14 @@ class jit:
     unless the arguments provided are incompatible with the previously compiled executable(s).
     """
 
-    def __init__(self, func: Callable = None, **kwargs):
+    def __init__(self, func: Callable = None, const_argnums: Tuple = (), optimization_level: int = 3) -> None:
         """
         Args:
             func: A pure function.
+            const_argnums: Argument indices of func that should be treated as compile-time constants.
+            optimization_level: An integer argument that specifies optimization level allowed for the underlying compiler.
+                                Level 0 enables the fastest compilation and level 5 enables the slowest compilation.
+                                Valid range: [0, 5]. Defaults to 3.
 
         Constraints:
             All :class:`tripy.Tensor` arguments must be provided as positional arguments and not keyword arguments.
@@ -67,9 +74,13 @@ class jit:
 
             assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
         """
-        self.kwargs = kwargs
         self.cache: Dict[str, List[CachedExecutable]] = defaultdict(list)
-
+        self.const_argnums = const_argnums
+        self.optimization_level = optimization_level
+        if not isinstance(self.optimization_level, int) or self.optimization_level < 0 or self.optimization_level > 5:
+            raise ValueError(
+                f"Optimization level must be an integer within the range [0, 5], got {self.optimization_level}"
+            )
         # Caching is currently a bit complicated - the key of `self.cache` relies
         # on determining the signature of the trace. However, within an instance of
         # a JIT object, the trace signature can only change if the **kwargs
@@ -86,7 +97,6 @@ class jit:
         if func is not None:
             self._func = func
             self._decorated = self._helper(func)
-        atexit.register(self.destroy)
 
     def __get__(self, obj, type=None):
         # This function is required to make the decorator work correctly with methods.
@@ -100,8 +110,8 @@ class jit:
         def decorated(*args, **kwargs):
             # Eval triggers computation of input arguments which ensures that shape of inputs is known before
             # compiling and caching a function's implementation.
-            const_argnums = self.kwargs.get("const_argnums", tuple()) + tuple(
-                index for index, arg in enumerate(args) if isinstance(arg, nn.Parameter)
+            const_argnums = self.const_argnums + tuple(
+                index for index, arg in enumerate(args) if isinstance(arg, Parameter)
             )
 
             # HACK (#109): If the constant input tensors change, we need to recompile - that means we need
@@ -228,8 +238,14 @@ class jit:
                 input_tensor_info = get_tensor_info(trace.inputs)
                 output_tensor_info = get_tensor_info(trace.outputs)
 
-            trace_signature = self._trace_signatures[trace_signature_key]
+            tensors_on_host = [x for x in args if x.op.device.kind != "gpu"]
+            if len(tensors_on_host) > 0:
+                raise_error(
+                    f"JIT requires all the inputs to be on GPU.",
+                    details=["The following input tensors are not on the GPU:"] + tensors_on_host,
+                )
 
+            trace_signature = self._trace_signatures[trace_signature_key]
             for executable in self.cache.get(trace_signature, []):
                 if executable.is_compatible(input_tensor_info):
                     break
@@ -239,9 +255,9 @@ class jit:
                 flat_ir = trace.to_flat_ir()
                 mlir = flat_ir.to_mlir()
 
-                compiler = Compiler()
+                compiler = Compiler(trt_builder_opt_level=self.optimization_level)
                 executable = CachedExecutable(
-                    compiler.compile(mlir),
+                    compiler.compile(mlir, flat_ir=flat_ir),
                     get_tensor_info(trace.inputs),
                     get_tensor_info(trace.outputs),
                 )
@@ -250,7 +266,6 @@ class jit:
             executor = Executor(
                 executable.executable,
                 # HACK (#109): We only use the executables I/O tensor information if we didn't recompute the trace.
-                utils.default(input_tensor_info, executable.input_info),
                 utils.default(output_tensor_info, executable.output_info),
             )
             # filter out const-folded inputs
@@ -264,18 +279,35 @@ class jit:
         return decorated
 
     def __call__(self, *args, **kwargs):
+        def check_if_args_part_of_jit_func(args):
+            # This function checks if any inputs traced back from args lead to DynamicStorage op.
+            # Note that this a proxy for verifying if args are in jit function or not.
+            # It not possible to verify from just the frontend tensor since the frontend tensor can be
+            # part of multiple scopes.
+            found_dynamic_storage = False
+            exprs = [tensor.op for tensor in args]
+            seen_op_ids = set()
+            while exprs:
+                head = exprs.pop(0)
+                if isinstance(head, DynamicStorage):
+                    found_dynamic_storage = True
+
+                if id(head) in seen_op_ids:
+                    continue
+
+                exprs.extend([inp.producer for inp in head.inputs])
+
+            return found_dynamic_storage
+
         if callable(self._func):
+            if check_if_args_part_of_jit_func(args):
+                if self._obj is not None:
+                    return self._func(self._obj, *args, **kwargs)
+                else:
+                    return self._func(*args, **kwargs)
             return self._decorated(*args, **kwargs)
         else:
             # jit decorator with kwargs: @jit(...) triggers both __init__ and __call__
             self._func = args[0]
             self._decorated = self._helper(self._func)
             return self
-
-    def destroy(self):
-        from tripy.backend.mlir.mlir import mlir_wrapper
-
-        mlir_backend = mlir_wrapper()
-        for _, cached_executables in self.cache.items():
-            for cached_executable in cached_executables:
-                mlir_backend.exec_destroy(cached_executable.executable)

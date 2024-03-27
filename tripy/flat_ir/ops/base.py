@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Optional
 
 from tripy import utils
 
@@ -11,26 +11,28 @@ class BaseFlatIROp(abc.ABC):
     Represents a single layer in the FlatIR.
     """
 
-    source_op: "BaseTraceOp"
-    """The frontend operator that generated this op"""
-
     inputs: List["FlatIRTensor"]
-    """The inputs of this layer"""
+    """The inputs of this operation"""
 
     outputs: List["FlatIRTensor"]
-    """The outputs of this layer"""
+    """The outputs of this operation"""
 
-    def __init__(self, source_op: "BaseTraceOp", inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+    # Trace input/output names are populated by FlatIR.integrate_subgraph().
+    trace_input_names: List[str]
+    """The names of the input trace tensors of the FlatIR subgraph this operation is part of"""
+
+    trace_output_names: List[str]
+    """The names of the output trace tensors of the FlatIR subgraph this operation is part of"""
+
+    @classmethod
+    def build(cls, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], *args, **kwargs):
         from tripy.flat_ir.tensor import FlatIRTensor
 
         assert all(isinstance(tensor, FlatIRTensor) for tensor in inputs + outputs)
 
-        self.inputs = inputs
-        self.outputs = outputs
-        self.source_op = source_op
-
-        for out in self.outputs:
-            out.producer = self
+        op = cls(inputs, outputs, [], [], *args, **kwargs)
+        for out in op.outputs:
+            out.producer = op
 
     @abc.abstractmethod
     def to_mlir(self, operands: List["ir.Operation"]) -> List["ir.Operation"]:

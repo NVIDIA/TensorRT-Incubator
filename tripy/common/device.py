@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 from typing import Any, Dict
 
+from tripy import export
 from tripy.common.exception import TripyException
 from tripy.utils.json import Decoder, Encoder
 
 
+@export.public_api()
 @dataclass
 class device:
     # TODO: Improve docstrings here. Unclear what other information we'd want to include.

@@ -6,15 +6,11 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Shape(BaseTraceOp):
-    """
-    Represents a shape operation.
-    """
-
     def infer_shapes(self):
         assert len(self.inputs) == 1, "ShapeOf operation should have exactly one input!"
-        from tripy.frontend import Dim
+        from tripy.frontend import dynamic_dim
 
-        self.outputs[0].shape = (Dim(len(self.inputs[0].shape)),)
+        self.outputs[0].shape = (dynamic_dim(len(self.inputs[0].shape)),)
 
     def infer_dtypes(self):
         from tripy import int32
@@ -24,7 +20,7 @@ class Shape(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ShapeOp
 
-        ShapeOp(self, inputs, outputs)
+        ShapeOp.build(inputs, outputs)
 
 
 @TENSOR_METHOD_REGISTRY("shape")

@@ -53,7 +53,7 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
     Returns:
         Stack information for the current call stack.
     """
-    from tripy.utils import function_registry
+    import tripy.function_registry
 
     stack_info = StackInfo([])
     # Exclude the current stack frame since we don't care about the get_stack_info() function itself.
@@ -73,7 +73,7 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             _dispatch_target="",
             column_range=None,
         )
-        if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
+        if source_info.module == tripy.function_registry.__name__ and source_info.function == "wrapper":
             source_info._dispatch_target = frame.frame.f_locals.get("key", "")
 
         def add_code():

@@ -1,39 +1,36 @@
 from dataclasses import dataclass
-from typing import Any, Set
+from typing import Set
 
-from mlir import ir
-from mlir.dialects import stablehlo
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo
 
-import tripy.common
 from tripy import utils
+from tripy.common.array import Array
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
 class ConstantOp(BaseFlatIROp):
-    """
-    Operation to store a constant tensor
-    """
 
-    data: Any
-    dtype: "tripy.dtype"
-    device: tripy.common.device
-
-    def __init__(self, source_op, inputs, outputs, data):
-        super().__init__(source_op, inputs, outputs)
-        assert len(self.outputs) == 1, "ConstantOp should have exactly 1 output"
-        self.data = data
-        self.shape = getattr(self.data, "shape", [0])
-        self.dtype = self.outputs[0].dtype
-        self.device = self.outputs[0].device
+    data: Array
 
     def str_skip_fields(self) -> Set[str]:
-        if utils.should_omit_constant_in_str(self.shape):
+        if utils.should_omit_constant_in_str(self.data.shape):
             return {"data"}
         return set()
 
     def to_mlir(self, operands):
+        import cupy as cp
+
         from tripy.backend.mlir import utils as mlir_utils
 
-        attr = ir.DenseElementsAttr.get(array=self.data, type=mlir_utils.get_mlir_dtype(self.dtype), shape=self.shape)
+        data = self.data.view()
+        if isinstance(data, cp.ndarray):
+            # This is required because MLIR-TRT backend requires constants to be on host.
+            data = data.get()
+
+        attr = ir.DenseElementsAttr.get(
+            array=data, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=self.data.shape
+        )
+
         return [stablehlo.ConstantOp(attr)]

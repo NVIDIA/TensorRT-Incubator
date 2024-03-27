@@ -1,6 +1,5 @@
-from mlir import ir
-from mlir import dialects
-from mlir.dialects import func as func_dialect
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo, func as func_dialect
 import pytest
 
 # Assembly StableHLO code for element wise add
@@ -19,7 +18,6 @@ class TestMLIRBindings:
         """Creates an MLIR context."""
         context = ir.Context()
         context.enable_multithreading(False)
-        dialects.stablehlo.register_dialect(context)
         return context
 
     # Check if Python module for MLIR works correctly.

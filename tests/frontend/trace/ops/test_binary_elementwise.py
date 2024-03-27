@@ -11,8 +11,8 @@ _BINARY_OPS = [
     (BinaryElementwise.Kind.POW, lambda a, b: a**b),
     (BinaryElementwise.Kind.MUL, lambda a, b: a * b),
     (BinaryElementwise.Kind.DIV, lambda a, b: a / b),
-    (BinaryElementwise.Kind.MAXIMUM, lambda a, b: a.maximum(b) if isinstance(a, tp.Tensor) else b.maximum(a)),
-    (BinaryElementwise.Kind.MINIMUM, lambda a, b: a.minimum(b) if isinstance(a, tp.Tensor) else b.minimum(a)),
+    (BinaryElementwise.Kind.MAXIMUM, lambda a, b: tp.maximum(a, b)),
+    (BinaryElementwise.Kind.MINIMUM, lambda a, b: tp.minimum(a, b)),
 ]
 
 _COMPARISON_OPS = [
@@ -65,15 +65,14 @@ class TestBinaryElementwise:
     def test_mismatched_dtypes_fails(self):
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((2, 3), dtype=tp.float16)
-        c = a + b
 
         with helper.raises(
             tp.TripyException,
             # Keep the entire error message here so we'll know if the display becomes horribly corrupted.
             match=r"For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].",
-            has_stack_info_for=[a, b, c],
+            has_stack_info_for=[a, b],
         ):
-            c.eval()
+            c = a + b
 
     def test_invalid_broadcast_fails(self):
         a = tp.ones((2, 4), dtype=tp.float32)

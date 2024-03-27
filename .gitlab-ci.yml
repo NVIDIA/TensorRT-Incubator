@@ -1,6 +1,5 @@
 stages:
   - lint
-  - build-dependencies
   - build-tripy-container
   - test
   - upload
@@ -28,112 +27,6 @@ pre-commit:
     - merge_requests
 
 
-build_stablehlo:
-  stage: build-dependencies
-  image: $CI_REGISTRY_IMAGE
-  timeout: 3 hours
-  script:
-    # install build tools
-    - python3 -m pip install pybind11
-    - apt-get update && apt-get install -y clang ccache git-all lld ninja-build
-    # get stablehlo repo
-    - cd /usr/lib
-    - rm -rf stablehlo || true
-    - git clone --depth=1 https://github.com/openxla/stablehlo
-    - cd stablehlo && git clone https://github.com/llvm/llvm-project.git
-    - cd llvm-project && git fetch && git checkout $(cat ../build_tools/llvm_version.txt)
-    - cd .. && mkdir -p python-build
-    - build_tools/github_actions/ci_build_cmake_python_api.sh llvm-project python-build $PWD
-    # copy stablehlo lib to tripy directory
-    - cp -R /usr/lib/stablehlo $CI_PROJECT_DIR
-  artifacts:
-    name: "stablehlo-python-integration-lib"
-    paths:
-      - stablehlo
-    expire_in: 1 week
-    untracked: true
-  tags:
-    - tripy-runner
-  rules:
-    # Disable this job in nightlies.
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "web"
-      when: always
-    - when: never
-
-
-build_mlir_tensorrt:
-  stage: build-dependencies
-  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
-  services:
-    - docker:24.0.5-dind
-  before_script:
-    - export GROUP_CICD_TOKEN=$GROUP_CICD_TOKEN
-    - pip install --force-reinstall 'jax[cuda12_local]==0.4.24' -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
-  timeout: 3 hours
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # Set up mlir-tensorrt repo
-    - git clone https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/TensorRT/poc/mlir/mlir-tensorrt.git
-    - cd mlir-tensorrt
-    - git fetch
-    - git checkout $(cat ../mlir-tensorrt.txt)
-    - git submodule init
-    # Replace ssh urls with https + CI tokens
-    - git submodule set-url third_party/llvm-project https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/initialdl/llvm-project-mirror.git
-    - git submodule set-url third_party/triton https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gitlab-master.nvidia.com/initialdl/triton.git
-    - git submodule update --depth 1
-    # Setup bazel disk cache folder
-    - mkdir -p ../.bazel-disk-cache || true
-    - echo "build --disk_cache=$CI_PROJECT_DIR/.bazel-disk-cache" >> build_tools/bazel/.bazelrc
-    - cat build_tools/bazel/.bazelrc
-    - du -hd 0 ../.bazel-disk-cache || true
-    # Setup CCACHE
-    - export CCACHE_BASEDIR="$CI_PROJECT_DIR"
-    - export CCACHE_DIR="$CI_PROJECT_DIR/ccache"
-    - export CCACHE_COMPILERCHECK=content
-    - ccache --zero-stats || true
-    - ccache --show-stats || true
-    # build
-    - cmake -B build -S . -G Ninja
-      -DMLIR_TRT_ENABLE_TRIPY=ON
-      -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache	-DCMAKE_C_COMPILER_LAUNCHER=ccache
-      -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-      -DLLVM_USE_LINKER=lld
-      -DMLIR_TRT_PACKAGE_CACHE_DIR="$CI_PROJECT_DIR/.cache.cpm"
-      -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.0.0.1
-    - ninja -C build all
-  after_script:
-    - export CCACHE_DIR="$CI_PROJECT_DIR/ccache"
-    - ccache --show-stats || true
-    - du -hd 0 .bazel-disk-cache || true
-  cache:
-    key: ${CI_JOB_NAME}
-    paths:
-      - .cache.cpm
-      - ccache
-      - .bazel-disk-cache
-  artifacts:
-    name: "mlir-tensorrt-integration-lib"
-    paths:
-      - mlir-tensorrt/build/lib/Integrations
-    expire_in: 1 week
-    untracked: true
-  tags:
-    - tripy-runner
-  rules:
-    # Disable this job in nightlies.
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - changes:
-      - mlir-tensorrt.txt
-      - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == "main"
-      when: always
-
-
 build_container:
   stage: build-tripy-container
   image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
@@ -145,8 +38,7 @@ build_container:
   timeout: 2 hours
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - python3 scripts/download_dependencies.py --ci
-    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --build-arg gitlab_user=gitlab-ci-token --build-arg gitlab_token=$CI_JOB_TOKEN --cache-from $CI_REGISTRY_IMAGE:latest .
     - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
   tags:
     - tripy-runner
@@ -156,12 +48,9 @@ build_container:
       when: never
     # NOTE: When changing these conditions, also update the other stages.
     - changes:
-      - mlir-tensorrt.txt
       - Dockerfile
       - pyproject.toml
-      - .gitlab-ci.yml
-      if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: always
+
 
 
 l0-if-new-container:
@@ -180,8 +69,12 @@ l0-if-new-container:
       when: always
   stage: test
   script:
-    - sphinx-build docs build/docs -j 6 -W
+    - python3 docs/generate_rsts.py
+    - sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
     - pytest tests/ -v -m "l0 or not l1" --durations=15
+  artifacts:
+    paths:
+      - build/docs
   tags:
     - tripy-runner
 
@@ -204,8 +97,12 @@ l0-if-no-new-container:
       when: always
   stage: test
   script:
-    - sphinx-build docs build/docs -j 6 -W
+    - python3 docs/generate_rsts.py
+    - sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
     - pytest tests/ -v -m "l0 or not l1" --durations=15
+  artifacts:
+    paths:
+      - build/docs
   tags:
     - tripy-runner
 
@@ -244,24 +141,6 @@ coverage:
       - public
   tags:
     - tripy-runner
-
-
-upload-dependencies:
-  stage: upload
-  image: gitlab-master.nvidia.com:5005/tensorrt/poc/mlir/mlir-tensorrt:tripy
-  script:
-   - python3 scripts/CI/upload_dependencies.py
-  tags:
-    - tripy-runner
-  rules:
-    # Disable this job in nightlies.
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - changes:
-      - mlir-tensorrt.txt
-      - .gitlab-ci.yml
-      if: $CI_COMMIT_BRANCH == "main"
-      when: always
 
 
 upload-container:

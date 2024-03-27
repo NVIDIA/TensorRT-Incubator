@@ -4,33 +4,14 @@ import hashlib
 import os
 import time
 import typing
-from dataclasses import dataclass
-from typing import Any, List, Union, Tuple
+from typing import Any, List, Tuple, Union, Sequence
 
-from tripy import config
-from tripy.common.logging import logger
-from tripy.common.types import ShapeInfo
 from colored import Fore, attr
 
-
-@dataclass
-class ConditionCheck:
-    """
-    Bundles a boolean with error message details.
-
-    This can be used in cases where we would like to perform a check in some helper, e.g.
-    `is_broadcast_compatible` but still display a nice error message with low level feedback
-    from said helper (in this example, that could be details on which dimensions are not compatible).
-
-    The caller can access the `details` field for more information on the error message and
-    provide it to `raise_error`.
-    """
-
-    value: bool
-    details: List[str]
-
-    def __bool__(self) -> bool:
-        return self.value
+from tripy import constants
+from tripy.logging import logger
+from tripy.common.exception import raise_error
+import functools
 
 
 def default(value, default):
@@ -69,26 +50,37 @@ def prefix_with_line_numbers(text: str) -> str:
     """
     Adds prefix line number to text.
     """
-    lines = text.split("\n")
-    numbered_lines = [f"{i+1:>3}: {line}" for i, line in enumerate(lines)]
+    lines = text.strip().split("\n")
+    numbered_lines = [f"{i+1:>3} | {line}" for i, line in enumerate(lines)]
     return "\n".join(numbered_lines)
 
 
-def code_pretty_str(code, filename, line_no, enable_color=True):
+def code_pretty_str(code, filename=None, line_no=None, func=None, enable_color=True):
     def apply_color(inp, color):
         if not enable_color:
             return inp
         return f"{color}{inp}{attr('reset')}"
 
-    line_info = f"{apply_color(filename, Fore.yellow)}:{line_no}"
+    line_info = ""
+    if filename is not None:
+        assert (
+            line_no is not None and func is not None
+        ), f"If file information is provided, line number and function must also be set."
+        line_info = f"--> {apply_color(filename, Fore.yellow)}:{line_no} in {apply_color(func + '()', Fore.cyan)}"
 
     INDENTATION = 4
+
+    def make_line_no_str(index):
+        if line_no is None:
+            return " " * INDENTATION
+        return f"{index + line_no:>{INDENTATION - 1}} "
+
     line_numbered_code = "\n".join(
-        f"{index + line_no:>{INDENTATION - 1}} | {code_line}" for index, code_line in enumerate(code.splitlines())
+        f"{make_line_no_str(index)}| {code_line}" for index, code_line in enumerate(code.splitlines())
     )
     indent = " " * INDENTATION
 
-    return f"--> {line_info}\n{indent}|\n{line_numbered_code}\n{indent}| "
+    return f"{line_info}\n{indent}|\n{line_numbered_code}\n{indent}| "
 
 
 def make_list(obj):
@@ -130,28 +122,31 @@ def make_tuple(obj):
 ##
 
 
-def to_dims(shape: ShapeInfo) -> Tuple["Dim"]:
+def to_dims(shape: "ShapeInfo") -> Tuple["dynamic_dim"]:
     """
-    Convert the given shape tuple to a tuple of Dim objects.
+    Convert the given shape tuple to a tuple of dynamic_dim objects.
     """
-    from tripy.frontend.dim import Dim
+    from tripy.frontend.dim import dynamic_dim
 
     if shape is None:
         return None
 
-    return tuple(Dim(dim) if not isinstance(dim, Dim) else dim for dim in make_list(shape))
+    return tuple(dynamic_dim(dim) if not isinstance(dim, dynamic_dim) else dim for dim in make_list(shape))
 
 
-def from_dims(shape: ShapeInfo) -> Tuple[int]:
+def from_dims(shape: "ShapeInfo", use_max_value=False) -> Tuple[int]:
     """
-    Convert the given shape, which may contain Dim instances, into a concrete shape
-    based on the runtime values of those Dims.
+    Convert the given shape, which may contain dynamic_dim instances, into a concrete shape
+    based on the runtime values (or max values if use_max_value is enabled) of those Dims.
     """
-    from tripy.frontend.dim import Dim
+    from tripy.frontend.dim import dynamic_dim
 
     if shape is None:
         return None
-    return tuple(dim if not isinstance(dim, Dim) else dim.runtime_value for dim in make_list(shape))
+    return tuple(
+        dim if not isinstance(dim, dynamic_dim) else (dim.max if use_max_value else dim.runtime_value)
+        for dim in make_list(shape)
+    )
 
 
 def volume(shape):
@@ -165,14 +160,14 @@ def volume(shape):
         Volume of tensor (float)
     """
 
-    volume = 1.0
+    volume = 1
     for s in to_dims(shape):
         volume *= s.max
     return volume
 
 
 def should_omit_constant_in_str(shape):
-    return volume(shape) >= config.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
+    return volume(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
 
 
 def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
@@ -181,6 +176,44 @@ def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
     """
     base_fields = {base_field.name for base_field in dataclasses.fields(BaseClass)}
     return [field for field in dataclasses.fields(obj) if field.name not in base_fields]
+
+
+def constant_fields(field_names: Sequence[str]):
+    """
+    Marks fields as immutable and disallows them from being changed
+    once they have been set the first time.
+
+    Args:
+        field_names: The names of fields that should be made immutable.
+    """
+
+    def constant_fields_impl(cls: type):
+        default_init = cls.__init__
+
+        @functools.wraps(default_init)
+        def custom_init(self, *args, **kwargs):
+            self.__initialized_fields = set()
+            return default_init(self, *args, **kwargs)
+
+        default_setattr = cls.__setattr__
+
+        @functools.wraps(default_setattr)
+        def custom_setattr(self, name, value):
+            if name == "__initialized_fields":
+                return object.__setattr__(self, name, value)
+
+            if name in field_names:
+                if name in self.__initialized_fields:
+                    raise_error(f"Field: '{name}' of class: '{cls.__qualname__}' is immutable!")
+                self.__initialized_fields.add(name)
+
+            return default_setattr(self, name, value)
+
+        cls.__init__ = custom_init
+        cls.__setattr__ = custom_setattr
+        return cls
+
+    return constant_fields_impl
 
 
 ##

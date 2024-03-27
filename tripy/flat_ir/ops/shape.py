@@ -1,17 +1,16 @@
-from mlir import ir
-from mlir.dialects import stablehlo
+from dataclasses import dataclass
 
-from tripy.flat_ir.ops.base import BaseFlatIROp
+from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects import stablehlo
+
 from tripy.backend.mlir import utils as mlir_utils
-from tripy import int32
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
+@dataclass(repr=False)
 class ShapeOp(BaseFlatIROp):
-    """
-    Operation to transpose/permute a Tensor
-    """
-
     def to_mlir(self, operands):
+        from tripy.common.datatype import int32
 
         inp = operands[0]
 

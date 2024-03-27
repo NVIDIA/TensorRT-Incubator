@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from typing import Optional
 
-from tripy import utils
+from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
@@ -9,10 +10,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Iota(BaseTraceOp):
-    """
-    Represents an iota operation.
-    """
-
     dim: int
     shape: ShapeInfo
     dtype: datatype.dtype
@@ -44,7 +41,7 @@ class Iota(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import IotaOp
 
-        IotaOp(self, inputs, outputs, dim=self.dim)
+        IotaOp.build(inputs, outputs, dim=self.dim)
 
 
 @dataclass(repr=False)
@@ -63,6 +60,7 @@ class IotaLike(Iota):
         super().infer_dtypes()
 
 
+@export.public_api(document_under="tensor_operations")
 def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Fills an output tensor with consecutive values starting from zero along the given dimension.
@@ -89,7 +87,8 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
     return Tensor.build([], Iota, dim, utils.to_dims(shape), dtype)
 
 
-def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: datatype.dtype = None) -> "tripy.Tensor":
+@export.public_api(document_under="tensor_operations")
+def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with consecutive values
     starting from zero along the given dimension.
