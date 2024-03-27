@@ -1,6 +1,7 @@
 import numbers
 from dataclasses import dataclass
 
+from tripy import utils
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import export
 from tripy.common import datatype
@@ -32,9 +33,14 @@ class Where(BaseTraceOp):
 
     def infer_shapes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
+
         # Output shape is broadcast of all 3 input tensor shapes.
         operand_shape = self.get_operand_shape_after_broadcast(*[inp.shape for inp in self.inputs])
         self.outputs[0].shape = operand_shape
+
+        # TODO: https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/152 will remove get_operand_shape_after_broadcast and line 38-39 and replace with line 42-43.
+        # out_rank = max(len(self.inputs[0].shape), len(self.inputs[1].shape), len(self.inputs[2].shape))
+        # self.outputs[0].shape = utils.to_dims([-1] * out_rank)
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
@@ -52,17 +58,91 @@ class Where(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[1].dtype
 
     def to_flat_ir(self, inputs, outputs):
+        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import SelectOp
+        from tripy.flat_ir.ops import MaxOp
 
         # Unconditionally insert broadcast for all operands
+        assert len(inputs) == 3, f"Where op expects 3 inputs but got {len(inputs)}."
+        cond_rank, a_rank, b_rank = (len(input.shape) for input in inputs)
+
+        # Make rank of cond, a and b the same.
+        output_rank = max(a_rank, b_rank, cond_rank)
+        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], output_rank - len(inputs[0].shape))
+        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], output_rank - len(inputs[1].shape))
+        inputs[2] = op_utils.expand_rank_of_tensor(self, inputs[2], output_rank - len(inputs[2].shape))
+
+        # Compute element-wise max of input shapes to get the desired output shape.
+        max_of_cond_and_a_shape = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "compute the elementwise maximum of the shapes of condition tensor ",
+                op_utils.get_shape_of_tensor(inputs[0]),
+                " and 'input' tensor ",
+                op_utils.get_shape_of_tensor(inputs[1]),
+            ],
+        )
+
+        MaxOp.build(
+            [op_utils.get_shape_of_tensor(inputs[0]), op_utils.get_shape_of_tensor(inputs[1])],
+            [max_of_cond_and_a_shape],
+        )
+
+        max_of_a_and_b_shape = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "compute the elementwise maximum of the shapes of 'input'",
+                op_utils.get_shape_of_tensor(inputs[1]),
+                " and 'other' tensor",
+                op_utils.get_shape_of_tensor(inputs[2]),
+            ],
+        )
+        MaxOp.build(
+            [op_utils.get_shape_of_tensor(inputs[1]), op_utils.get_shape_of_tensor(inputs[2])],
+            [max_of_a_and_b_shape],
+        )
+
+        computed_output_shape = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "compute the elementwise maximum of previously computed partial elementwise maximum of 'condition' and 'input' tensor",
+                max_of_cond_and_a_shape,
+                "and elementwise maximum of the shapes of `input` and `other` tensor.",
+                max_of_a_and_b_shape,
+            ],
+        )
+        MaxOp.build(
+            [max_of_cond_and_a_shape, max_of_a_and_b_shape],
+            [computed_output_shape],
+        )
+
         inputs[0] = op_utils.insert_broadcast(
-            inputs[0], outputs[0].shape, tensor_details="first input of 'where' ('condition')"
+            inputs[0],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=computed_output_shape,
+            tensor_details=f"first input of 'where' ('condition')",
         )
         inputs[1] = op_utils.insert_broadcast(
-            inputs[1], outputs[0].shape, tensor_details="second input of 'where' ('input')"
+            inputs[1],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=computed_output_shape,
+            tensor_details="second input of 'where' ('input')",
         )
         inputs[2] = op_utils.insert_broadcast(
-            inputs[2], outputs[0].shape, tensor_details="third input of 'where' ('other')"
+            inputs[2],
+            outputs[0].shape,
+            use_dynamic_variant=True,
+            shape_of_target_tensor=computed_output_shape,
+            tensor_details="third input of 'where' ('other')",
         )
 
         SelectOp.build(inputs, outputs)
