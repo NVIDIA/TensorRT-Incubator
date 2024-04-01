@@ -50,7 +50,8 @@ build_container:
     - changes:
       - Dockerfile
       - pyproject.toml
-
+      if: $CI_COMMIT_BRANCH == "main" || $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
 
 
 l0-if-new-container:
@@ -61,10 +62,8 @@ l0-if-new-container:
       when: never
     # NOTE: When changing these conditions, also update the other stages.
     - changes:
-      - mlir-tensorrt.txt
       - Dockerfile
       - pyproject.toml
-      - .gitlab-ci.yml
       if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: always
   stage: test
@@ -87,10 +86,8 @@ l0-if-no-new-container:
       when: never
     # NOTE: When changing these conditions, also update the other stages.
     - changes:
-      - mlir-tensorrt.txt
       - Dockerfile
       - pyproject.toml
-      - .gitlab-ci.yml
       if: $CI_PIPELINE_SOURCE == "merge_request_event"
       when: never
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -162,9 +159,7 @@ upload-container:
     # NOTE: changes is probably pointless here since there's no reference point, so GitLab must assume that the files have changed.
     # If we can figure out the original TOT of main prior to the change merging, we could use that as the reference.
     - changes:
-      - mlir-tensorrt.txt
       - Dockerfile
       - pyproject.toml
-      - .gitlab-ci.yml
       if: $CI_COMMIT_BRANCH == "main"
       when: always
