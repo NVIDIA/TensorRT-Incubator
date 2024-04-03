@@ -82,3 +82,24 @@ class TestConvolution:
             if expect_input_stack_info:
                 output = conv_layer(input)
                 output.eval()
+
+    @pytest.mark.parametrize(
+        "groups, err, expect_input_stack_info",
+        [
+            (-1, r"Feature group count must be a positive integer.", False),
+            (3, r"Feature group count must divide both input and output channel counts evenly.", False),
+        ],
+    )
+    def test_invalid_feature_groups(self, groups, err, expect_input_stack_info):
+        input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
+        stack_info = [input] if expect_input_stack_info else None
+
+        with helper.raises(
+            tp.TripyException,
+            match=err,
+            has_stack_info_for=stack_info,
+        ):
+            conv_layer = tp.Conv(3, 16, (5, 5), groups=groups, dtype=tp.float32)
+            if expect_input_stack_info:
+                output = conv_layer(input)
+                output.eval()
