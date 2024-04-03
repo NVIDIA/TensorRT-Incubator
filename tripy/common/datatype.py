@@ -16,6 +16,12 @@ class dtype(type):
     The base type for all data types supported by tripy.
     """
 
+    name: str
+    """The human-readable name of the data type"""
+
+    itemsize: float
+    """The size of an element of this data type, in bytes"""
+
     def __str__(cls):
         return cls.name
 
@@ -28,7 +34,7 @@ class BaseDtype(metaclass=dtype):
     The base class for all data types supported by tripy.
     """
 
-    name = ""
+    pass
 
 
 # We use `__all__` to control what is exported from this file. `import *` will only pull in objects that are in `__all__`.
