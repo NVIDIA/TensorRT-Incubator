@@ -12,6 +12,8 @@ class UnaryElementwise(BaseTraceOp):
         TANH = 1
         RSQRT = 2
         LOG = 3
+        SINE = 4
+        COSINE = 5
 
     kind: Kind
 
@@ -19,13 +21,15 @@ class UnaryElementwise(BaseTraceOp):
         self.outputs[0].shape = self.inputs[0].shape
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp
+        from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp, SineOp, CosineOp
 
         OpType = {
             UnaryElementwise.Kind.EXP: ExpOp,
             UnaryElementwise.Kind.TANH: TanhOp,
             UnaryElementwise.Kind.RSQRT: RsqrtOp,
             UnaryElementwise.Kind.LOG: LogOp,
+            UnaryElementwise.Kind.SINE: SineOp,
+            UnaryElementwise.Kind.COSINE: CosineOp,
         }[self.kind]
         OpType.build(inputs, outputs)
 
@@ -80,6 +84,56 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     from tripy.frontend import Tensor
 
     return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.TANH)
+
+
+@export.public_api(document_under="tensor_operations")
+def sin(input: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Computes the elementwise sine of the elements of the input tensor.
+
+    Args:
+        input: The input tensor.
+
+    Returns:
+        A new tensor of the same shape and data type as the input tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(3, dtype=tp.float32)
+        output = tp.sin(input)
+
+        assert np.allclose(output.numpy(), np.sin(input.numpy()))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.SINE)
+
+
+@export.public_api(document_under="tensor_operations")
+def cos(input: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Computes the elementwise cosine of the elements of the input tensor.
+
+    Args:
+        input: The input tensor.
+
+    Returns:
+        A new tensor of the same shape and data type as the input tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(3, dtype=tp.float32)
+        output = tp.cos(input)
+
+        assert np.allclose(output.numpy(), np.cos(input.numpy()))
+    """
+    from tripy.frontend import Tensor
+
+    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.COSINE)
 
 
 @export.public_api(document_under="tensor_operations")

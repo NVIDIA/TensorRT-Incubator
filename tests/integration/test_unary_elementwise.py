@@ -9,6 +9,8 @@ _UNARY_OPS = {
     tp.tanh: np.tanh,
     tp.rsqrt: lambda a: 1.0 / np.sqrt(a),
     tp.log: np.log,
+    tp.sin: np.sin,
+    tp.cos: np.cos,
 }
 
 

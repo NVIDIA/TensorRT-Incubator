@@ -29,3 +29,5 @@ from tripy.flat_ir.ops.log import LogOp
 from tripy.flat_ir.ops.quantize import QuantizeOp
 from tripy.flat_ir.ops.dequantize import DequantizeOp
 from tripy.flat_ir.ops.convolution import ConvolutionOp
+from tripy.flat_ir.ops.sin import SineOp
+from tripy.flat_ir.ops.cos import CosineOp
