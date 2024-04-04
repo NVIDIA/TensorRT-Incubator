@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from typing import Tuple
+from collections.abc import Sequence
 from tripy.frontend.dim import dynamic_dim
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -9,9 +9,10 @@ import tripy.frontend.trace.ops.utils as op_utils
 
 @dataclass(repr=False)
 class Convolution(BaseTraceOp):
-    # TODO (#146): Add additional params like grouping, dilation
-    padding: Tuple[Tuple[int]]
-    stride: Tuple[int]
+    # TODO (#146): Add additional params like dilation
+    padding: Sequence[Sequence[int]]
+    stride: Sequence[int]
+    groups: int
 
     def infer_shapes(self):
         tensor_shape = self.inputs[0].shape
@@ -68,4 +69,4 @@ class Convolution(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConvolutionOp
 
-        ConvolutionOp.build(inputs, outputs, padding=self.padding, stride=self.stride)
+        ConvolutionOp.build(inputs, outputs, padding=self.padding, stride=self.stride, feature_group_count=self.groups)

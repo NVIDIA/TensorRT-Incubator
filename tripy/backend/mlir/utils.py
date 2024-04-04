@@ -116,8 +116,9 @@ def make_tensor_location(
     )
 
 
-TENSOR_NAME_PATTERN = re.compile(r'loc\("(.*?)"\): ')
-TENSOR_NAME_PATTERN_NO_CAPTURE = re.compile(r'loc\(".*?"\): ')
+# The way locations are printed by MLIR-TRT differs from how they are printed by TRT, hence all the `?`s.
+TENSOR_NAME_PATTERN = re.compile(r'loc\("?(.*?)"?\):? ?')
+TENSOR_NAME_PATTERN_NO_CAPTURE = re.compile(r'loc\("?.*?"?\):? ?')
 
 
 def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], str]:
@@ -135,12 +136,14 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
     output_names, _, loc = loc.partition(TRACE_INPUTS_SEPARATOR)
     trace_inputs, _, trace_outputs = loc.partition(TRACE_OUTPUTS_SEPARATOR)
 
+    out_str = f"({trace_outputs})"
+
     return (
         input_names.split(","),
         output_names.split(","),
         trace_inputs.split(","),
         trace_outputs.split(","),
-        "".join(TENSOR_NAME_PATTERN_NO_CAPTURE.split(msg)),
+        out_str.join(TENSOR_NAME_PATTERN_NO_CAPTURE.split(msg)),
     )
 
 

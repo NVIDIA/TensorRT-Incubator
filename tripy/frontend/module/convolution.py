@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Tuple, Optional
 from collections.abc import Sequence
 
 from tripy import export, utils
@@ -12,7 +11,7 @@ from tripy.common.exception import raise_error
 
 @export.public_api(document_under="modules")
 @dataclass
-@utils.constant_fields(["dtype", "padding", "stride"])
+@utils.constant_fields(["dtype", "padding", "stride", "groups"])
 class Conv(Module):
     r"""
     Applies a convolution on the input tensor.
@@ -36,7 +35,7 @@ class Conv(Module):
     r"""The data type to use for the convolution weights."""
 
     weight: Parameter
-    r"""The kernel of shape :math:`[\text{out_channels}, \text{in_channels}, *\text{kernel_dims}]`."""
+    r"""The kernel of shape :math:`[\text{out_channels}, \frac{\text{in_channels}}{\text{groups}}, *\text{kernel_dims}]`."""
 
     padding: Sequence[Sequence[int]]
     r"""
@@ -51,6 +50,16 @@ class Conv(Module):
     where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
     """
 
+    groups: int
+    r"""
+    The number of groups in a grouped convolution where the input and output channels are divided into ``groups`` groups. 
+    Each output group is connected only to its corresponding input group through the convolution kernel weights, 
+    and the outputs for each group are concatenated to produce the final result. This is in contrast to a standard convolution
+    which has full connectivity between all input and output channels. Grouped convolutions reduce computational cost by 
+    a factor of ``groups`` and can benefit model parallelism and memory usage.
+    Note that `in_channels` and `out_channels` must both be divisible by ``groups``.
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -58,6 +67,7 @@ class Conv(Module):
         kernel_dims: Sequence[int],
         padding: Sequence[Sequence[int]] = None,
         stride: Sequence[int] = None,
+        groups: int = None,
         dtype: datatype.dtype = datatype.float32,
     ) -> None:
         r"""
@@ -72,6 +82,12 @@ class Conv(Module):
             stride: A sequence of length :math:`M` indicating the stride of convolution across each spatial dimension,
                 where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
                 Defaults to all 1.
+            groups: The number of groups in a grouped convolution where the input and output channels are divided into ``groups`` groups.
+                Each output group is connected only to its corresponding input group through the convolution kernel weights,
+                and the outputs for each group are concatenated to produce the final result. This is in contrast to a standard convolution
+                which has full connectivity between all input and output channels. Grouped convolutions reduce computational cost by
+                a factor of ``groups`` and can benefit model parallelism and memory usage.
+                Note that `in_channels` and `out_channels` must both be divisible by ``groups``. Defaults to 1 (standard convolution).
             dtype: The data type to use for the convolution weights.
 
         .. code-block:: python
@@ -101,6 +117,20 @@ class Conv(Module):
             expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
 
             assert torch.allclose(torch.from_numpy(output.numpy()), expected)
+
+        .. code-block:: python
+            :linenos:
+            :caption: Depthwise Convolution
+
+            input = tp.reshape(tp.arange(18, dtype=tp.float32), (1, 2, 3, 3))
+            conv = tp.Conv(2, 2, (3, 3), groups=2, dtype=tp.float32)
+            output = conv(input)
+
+            conv_layer_torch = torch.nn.Conv2d(2, 2, 3, groups=2, bias=False) # doc: omit
+            conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
+            expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
+
+            assert torch.allclose(torch.from_numpy(output.numpy()), expected)
         """
         # TODO (146): Add bias support in module
 
@@ -108,7 +138,22 @@ class Conv(Module):
         from tripy.frontend.ops.tensor_initializers import arange
         from tripy.frontend.trace.ops.reshape import reshape
 
-        kernel_shape = (out_channels, in_channels, *kernel_dims)
+        self.groups = utils.default(groups, 1)
+        if self.groups <= 0:
+            raise_error(
+                "Feature group count must be a positive integer.",
+                details=[f"Got feature group count: {self.groups}."],
+            )
+
+        if in_channels % self.groups or out_channels % self.groups:
+            raise_error(
+                "Feature group count must divide both input and output channel counts evenly.",
+                details=[
+                    f"Got feature group count: {self.groups} which is incompatible with input and output channel counts: {in_channels} and {out_channels}."
+                ],
+            )
+
+        kernel_shape = (out_channels, in_channels // self.groups, *kernel_dims)
         self.weight = Parameter(reshape(arange(utils.volume(kernel_shape), dtype=dtype), kernel_shape))
 
         rank = len(kernel_shape)
@@ -143,9 +188,4 @@ class Conv(Module):
         from tripy.frontend import Tensor
         from tripy.frontend.trace.ops.convolution import Convolution
 
-        return Tensor.build(
-            [input, self.weight],
-            Convolution,
-            self.padding,
-            self.stride,
-        )
+        return Tensor.build([input, self.weight], Convolution, self.padding, self.stride, self.groups)

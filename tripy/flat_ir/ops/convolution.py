@@ -2,14 +2,15 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler.dialects import stablehlo
 
-from typing import Tuple
+from collections.abc import Sequence
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)
 class ConvolutionOp(BaseFlatIROp):
-    padding: Tuple[Tuple[int]]
-    stride: Tuple[int]
+    padding: Sequence[Sequence[int]]
+    stride: Sequence[int]
+    feature_group_count: int
 
     def to_mlir(self, operands):
         # convolution spec: https://github.com/openxla/stablehlo/blob/main/docs/spec.md#convolution
@@ -44,7 +45,7 @@ class ConvolutionOp(BaseFlatIROp):
             lhs=operands[0],
             rhs=operands[1],
             dimension_numbers=dnums,
-            feature_group_count=1,
+            feature_group_count=self.feature_group_count,
             batch_group_count=1,
             window_strides=self.stride,
             padding=self.padding,
