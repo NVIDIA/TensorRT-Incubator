@@ -5,15 +5,32 @@ import os
 import re
 import shutil
 from collections import defaultdict
+from dataclasses import dataclass
 from textwrap import dedent, indent
-from typing import Dict, Set
+from typing import Dict, List, Set
 
-from tripy.export import PUBLIC_APIS
 import tripy as tp
+from tests import helper
+from tripy.export import PUBLIC_APIS
+import copy
+
+
+@dataclass
+class GuideSet:
+    """
+    Represents a set of markdown guides in the `docs/` directory
+    """
+
+    title: str
+    guides: List[str]
 
 
 def to_snake_case(string):
     return re.sub("([A-Z]+)", r"_\1", string).lower().lstrip("_")
+
+
+def to_title(string):
+    return string.replace("_", " ").title()
 
 
 def get_name(api):
@@ -69,8 +86,8 @@ def process_index_constituents(constituents):
     )
 
 
-def build_root_index_file(constituents, developer_guides):
-    return (
+def build_root_index_file(constituents, guide_sets):
+    contents = (
         (
             # We want to include the top-level README in our main index file.
             dedent(
@@ -86,18 +103,20 @@ def build_root_index_file(constituents, developer_guides):
         ).strip()
         + process_index_constituents(constituents)
         + "\n\n"
-        + (
+    )
+    for guide_set in guide_sets:
+        contents += (
             # We want to include the top-level README in our main index file.
             dedent(
                 f"""
                 .. toctree::
-                    :caption: Developer Guides
+                    :caption: {guide_set.title}
                     :maxdepth: 1
                 """
             )
+            + indent("\n" + "\n".join(guide_set.guides), prefix=" " * 4)
         )
-        + indent("\n" + "\n".join(developer_guides), prefix=" " * 4)
-    )
+    return contents
 
 
 def build_index_file(name, constituents, include_heading=True, caption=None):
@@ -113,6 +132,43 @@ def build_index_file(name, constituents, include_heading=True, caption=None):
         ).strip()
         + process_index_constituents(constituents)
     )
+
+
+def process_guide(guide_path: str, processed_guide_path: str):
+    os.makedirs(os.path.dirname(processed_guide_path), exist_ok=True)
+
+    new_blocks = []
+    blocks = helper.consolidate_code_blocks_from_readme(guide_path)
+
+    # We need to maintain all the code we've seen so far since future
+    # code might rely on things that were already defined in previous code blocks.
+    code_locals = {}
+    for block in blocks:
+        if not block.lang.startswith("py"):
+            new_blocks.append(block.raw_str())
+            continue
+
+        def add_block(title, contents, lang):
+            print(f"Appending output block for code in: {guide_path}")
+            # Only include the "Output:" heading when the code block is actually rendered in the documentation.
+            return (
+                "\n"
+                + (title if not block.has_marker("comment") else "")
+                + f"\n```{lang}\n{dedent(contents).strip()}\n```"
+            )
+
+        code_block_lines, code_locals = helper.update_code_block_with_outputs_and_locals(
+            block.raw_str(),
+            str(block),
+            err_msg=f"Error while executing code block from {guide_path}.",
+            format_contents=add_block,
+            local_vars=code_locals,
+        )
+
+        new_blocks.extend(code_block_lines)
+
+    with open(processed_guide_path, "w") as fout:
+        fout.write("\n".join(new_blocks))
 
 
 def main():
@@ -185,22 +241,35 @@ def main():
 
     print(f"Generating documentation hierarchy:\n{str_from_hierarchy(doc_hierarcy)}")
 
-    developer_guides = []
-    # This is hard-coded to support only the development docs for now, but can be generalized
-    # to support arbitrary markdown files in the docs directory.
-    for guide in glob.iglob(os.path.join("docs", "development", "*.md")):
-        guide_file = os.path.basename(guide)
-        guide_out_path = make_output_path("development", os.path.basename(guide).replace(".md", ".rst"))
-        os.makedirs(os.path.dirname(guide_out_path), exist_ok=True)
-        with open(guide_out_path, "w") as f:
-            f.write(
-                build_markdown_doc(
-                    source_path=os.path.join(
-                        os.path.pardir, os.path.pardir, os.path.pardir, "docs", "development", guide_file
+    guide_sets: List[GuideSet] = []
+    guide_dirs = list(
+        filter(
+            lambda path: not path.startswith("_"),
+            [os.path.basename(path) for path in glob.iglob(os.path.join("docs", "*")) if os.path.isdir(path)],
+        )
+    )
+
+    processed_markdown_dirname = "processed_mds"
+    processed_markdown_dir = make_output_path(processed_markdown_dirname)
+    for dir_path in guide_dirs:
+        title = to_title(dir_path)
+        guides = []
+        for guide in glob.iglob(os.path.join("docs", dir_path, "*.md")):
+            # Copy guide to build directory
+            guide_filename = os.path.basename(guide)
+            processed_guide = os.path.join(processed_markdown_dir, dir_path, guide_filename)
+            process_guide(guide, processed_guide)
+            guide_out_path = make_output_path(dir_path, os.path.basename(processed_guide).replace(".md", ".rst"))
+            os.makedirs(os.path.dirname(guide_out_path), exist_ok=True)
+            with open(guide_out_path, "w") as f:
+                f.write(
+                    build_markdown_doc(
+                        source_path=os.path.join(os.path.pardir, processed_markdown_dirname, dir_path, guide_filename)
                     )
                 )
-            )
-        developer_guides.append(f"development/{os.path.splitext(guide_file)[0]}")
+            guides.append(f"{dir_path}/{os.path.splitext(guide_filename)[0]}")
+
+        guide_sets.append(GuideSet(title, guides))
 
     for path, constituents in doc_hierarcy.items():
         is_root = path == ""
@@ -215,10 +284,10 @@ def main():
 
         with open(index_path, "a") as f:
             f.write(
-                build_root_index_file(constituents, developer_guides)
+                build_root_index_file(constituents, guide_sets)
                 if is_root
                 else build_index_file(
-                    name=os.path.basename(os.path.dirname(index_path)).replace("_", " ").title(),
+                    name=to_title(os.path.basename(os.path.dirname(index_path))),
                     constituents=constituents,
                     include_heading=not pre_existing_file,
                     caption="See also:" if pre_existing_file else None,

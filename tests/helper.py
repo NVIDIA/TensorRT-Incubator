@@ -3,6 +3,7 @@ import copy
 import glob
 import importlib
 import inspect
+import io
 import os
 import pkgutil
 from textwrap import dedent, indent
@@ -13,10 +14,13 @@ import pytest
 import torch
 
 import tripy as tp
+from tripy import utils
+from tripy.backend.mlir.utils import remove_constants
 from tripy.common.exception import _make_stack_info_message
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
-from tripy.backend.mlir.utils import remove_constants
+
+TAB_SIZE = 4
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 
@@ -130,12 +134,23 @@ def consolidate_code_blocks(doc):
     return out
 
 
-def exec_code(code) -> Dict[str, Any]:
-    # Don't inherit most variables from the current environment so we can be sure the docstring examples
-    # work in total isolation.
-    new_locals = {}
-    exec(code, {"tp": tp, "np": np, "torch": torch}, new_locals)
-    return new_locals
+def exec_code(code, code_locals=None) -> Dict[str, Any]:
+    # By default, don't inherit most variables from the current environment
+    # so we can be sure the docstring examples work in total isolation.
+    code_locals = copy.copy(utils.default(code_locals, {}))
+    exec(code, {"tp": tp, "np": np, "torch": torch}, code_locals)
+    return code_locals
+
+
+@contextlib.contextmanager
+def capture_output():
+    try:
+        outfile = io.StringIO()
+        with contextlib.redirect_stdout(outfile), contextlib.redirect_stderr(outfile):
+            yield outfile
+    finally:
+        outfile.flush()
+        outfile.seek(0)
 
 
 def discover_modules():
@@ -241,15 +256,15 @@ def get_all_docstrings_with_examples():
 class Marker:
     """
     Represents special markers in example READMEs used to convey information to
-    the testing infrastructure.
+    the infrastructure.
 
     Special markers follow the format:
 
-    <!-- Tripy Test: <NAME> Start -->
+    <!-- Tripy: <NAME> Start -->
 
     and:
 
-    <!-- Tripy Test: <NAME> End -->
+    <!-- Tripy: <NAME> End -->
 
     marking the start and end of the block respectively.
     """
@@ -264,16 +279,21 @@ class Marker:
     @staticmethod
     def from_name(name: str) -> "Marker":
         return Marker(
-            matches_start_func=lambda line: line == f"<!-- Tripy Test: {name} Start -->",
-            matches_end_func=lambda line: line == f"<!-- Tripy Test: {name} End -->",
+            matches_start_func=lambda line: line == f"<!-- Tripy: {name} Start -->",
+            matches_end_func=lambda line: line == f"<!-- Tripy: {name} End -->",
         )
 
 
 AVAILABLE_MARKERS = {
     # For command markers, the start marker may be annotated with a language tag, e.g. ```py, so an exact match is too strict.
     "command": Marker(
-        matches_start_func=lambda line: line.startswith("```"),
-        matches_end_func=lambda line: line == "```",
+        matches_start_func=lambda line: "```" in line,
+        matches_end_func=lambda line: "```" in line,
+    ),
+    # Indicates that a block is inside a markdown comment.
+    "comment": Marker(
+        matches_start_func=lambda line: line.startswith("<!--") and not "-->" in line,
+        matches_end_func=lambda line: "-->" in line,
     ),
     # Marks an entire block to be ignored by the tests.
     "ignore": Marker.from_name("IGNORE"),
@@ -311,21 +331,14 @@ class MarkerTracker:
             self.exiting_markers.clear()
 
             for marker in AVAILABLE_MARKERS.values():
-                if not self.is_in(marker) and marker.matches_start(stripped_line):
+                if marker not in self.active_markers and marker.matches_start(stripped_line):
                     self.active_markers.add(marker)
                     self.entering_markers.add(marker)
-                elif marker.matches_end(stripped_line):
+                elif marker in self.active_markers and marker.matches_end(stripped_line):
                     self.active_markers.remove(marker)
                     self.exiting_markers.add(marker)
 
             yield line.rstrip()
-
-    def is_in(self, marker: Marker) -> bool:
-        """
-        Whether we are currently on a line between the specified start and end marker.
-        This will always return False for a line containing the marker itself.
-        """
-        return marker in self.active_markers and not (self.entering(marker) or self.exiting(marker))
 
     def entering(self, marker):
         return marker in self.entering_markers
@@ -339,6 +352,8 @@ class ReadmeCodeBlock:
         self.content: str = None
         self.markers = markers
         self.lang = lang
+        self.start_line = ""
+        self.end_line = ""
 
     def add(self, line: str):
         if self.content is None:
@@ -352,19 +367,170 @@ class ReadmeCodeBlock:
     def __str__(self):
         return dedent(self.content)
 
+    def __bool__(self):
+        return bool(self.content)
 
-# Extract any ``` blocks from the README
-def load_command_blocks_from_readme(readme) -> List[ReadmeCodeBlock]:
+    # Returns the original raw contents of the block.
+    # This will include the backticks that were stripped out by the consolidation function.
+    def raw_str(self) -> str:
+        contents = str(self)
+        if self.lang == "text":
+            return contents
+        return f"{self.start_line}\n{contents}\n{self.end_line}"
+
+
+# Extract any ``` blocks from the README at the specified path
+def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBlock]:
     cmd_blocks = []
-    with MarkerTracker(readme) as tracker:
+    current_block = ReadmeCodeBlock(markers=set(), lang="text")
+    with MarkerTracker(readme_path) as tracker:
         for line in tracker:
             # We use copy here so we don't accidentally alias.
             if tracker.entering(AVAILABLE_MARKERS["command"]):
+                # Append previous text block before creating a new block for the command.
+                cmd_blocks.append(copy.copy(current_block))
                 lang = line.strip().partition("```")[-1]
                 current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang=lang)
+                current_block.start_line = line
             elif tracker.exiting(AVAILABLE_MARKERS["command"]):
+                current_block.end_line = line
                 cmd_blocks.append(copy.copy(current_block))
-            elif tracker.is_in(AVAILABLE_MARKERS["command"]):
+                # Create new text block for contents between command blocks
+                current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang="text")
+            else:
                 current_block.add(line)
 
+    if current_block:
+        cmd_blocks.append(current_block)
+
     return cmd_blocks
+
+
+##
+## Evaluating code to show local and output variables
+##
+
+
+def update_code_block_with_outputs_and_locals(
+    block: str,
+    code: str,
+    err_msg: str,
+    format_contents: Callable[[str, str, str], str],
+    local_vars=None,
+):
+    local_vars = utils.default(local_vars, {})
+
+    TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
+    # Add back the code block after removing assertions.
+    NO_EVAL = "# doc: no-eval"
+    NO_PRINT_LOCALS = "# doc: no-print-locals"
+    PRINT_LOCALS = "# doc: print-locals"
+    REMOVE_TAGS = ["assert ", NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL]
+    OMIT_COMMENT = "# doc: omit"
+
+    should_append_locals = True
+    should_eval = True
+    # By default, we print all local variables. If `print_vars` it not empty,
+    # then we'll only print those that appear in it.
+    print_vars = set()
+
+    code_block_lines = []
+    for block_line in block.splitlines():
+        if block_line.strip() == NO_PRINT_LOCALS:
+            should_append_locals = False
+
+        if block_line.strip() == NO_EVAL:
+            should_eval = False
+
+        if block_line.strip().startswith(PRINT_LOCALS):
+            _, _, names = block_line.strip().partition(PRINT_LOCALS)
+            print_vars.update(names.strip().split(" "))
+
+        if any(block_line.strip().startswith(tag) for tag in REMOVE_TAGS) or block_line.endswith(OMIT_COMMENT):
+            continue
+
+        code_block_lines.append(block_line)
+
+    if not should_eval:
+        return code_block_lines, local_vars
+
+    def add_block(title, contents, lang="python"):
+        line = block.splitlines()[1]
+        indentation = len(line) - len(line.lstrip())
+
+        out = (
+            indent(
+                format_contents(title, contents, lang),
+                prefix=" " * (indentation - 4),
+            )
+            + "\n\n"
+        )
+        code_block_lines.extend(out.splitlines())
+
+    code = dedent(code)
+    try:
+        with capture_output() as outfile:
+            code_locals = exec_code(code, local_vars)
+    except:
+        print(err_msg)
+        print(f"Note: Code example was:\n{code}")
+        print(outfile.read())
+        raise
+
+    new_locals = {
+        key: value for key, value in code_locals.items() if key not in local_vars or value is not local_vars[key]
+    }
+
+    # Add local variables as a separate code block
+    locals_str = ""
+    if should_append_locals:
+        for name, obj in new_locals.items():
+
+            def should_print():
+                if name in print_vars:
+                    return True
+
+                if print_vars and name not in print_vars:
+                    return False
+
+                # Skip over any non-tripy types.
+                if not any(isinstance(obj, tripy_obj) for tripy_obj in TRIPY_CLASSES):
+                    return False
+
+                EXCLUDE_OBJECTS = [tp.jit]
+
+                if any(isinstance(obj, exclude_obj) for exclude_obj in EXCLUDE_OBJECTS):
+                    return False
+
+                return True
+
+            if not should_print():
+                continue
+
+            def pretty_str_from_dict(dct):
+                if not dct:
+                    return r"{}"
+                ret = "{\n"
+                for key, value in dct.items():
+                    ret += indent(f"{key}: {value},\n", prefix=" " * TAB_SIZE)
+                ret += "}"
+                return ret
+
+            locals_str += f"\n>>> {name}"
+            if isinstance(obj, tp.Module):
+                locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
+            elif isinstance(obj, dict):
+                locals_str += f"\n{pretty_str_from_dict(obj)}"
+            else:
+                locals_str += f"\n{obj}"
+
+    if locals_str:
+        add_block("", locals_str)
+
+    # Add output as a separate code block.
+    stdout = outfile.read() or ""
+
+    if stdout:
+        add_block("Output:", stdout, lang="")
+
+    return code_block_lines, code_locals

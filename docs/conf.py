@@ -3,16 +3,13 @@ import sys
 
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pardir)
 sys.path.insert(0, ROOT_DIR)
-import contextlib
 import inspect
-import io
 import re
 from textwrap import dedent, indent
 
 import tripy as tp
 from tests import helper
 
-TAB_SIZE = 4
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -102,8 +99,7 @@ myst_fence_as_directive = ["mermaid"]
 myst_url_schemes = {"source": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/blob/main/{{path}}"}
 myst_number_code_blocks = ["py", "rst"]
 
-# Ignore most markdown files as they are not part of the API reference documentation.
-exclude_patterns = ["README.md", "development/*.md"]
+exclude_patterns = ["*.md"]
 
 # When class documentation is generated, 'process_docstring' is called twice - once for
 # the class docstring and again for the '__init__' docstring. We only want to check the
@@ -114,8 +110,6 @@ seen_classes = set()
 def process_docstring(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
-
-    TRIPY_CLASSES = [tripy_obj for tripy_obj in helper.discover_tripy_objects() if inspect.isclass(tripy_obj)]
 
     # Check signature for functions/methods and class constructors.
     if what in {"function", "method"} or (what == "class" and name in seen_classes):
@@ -176,113 +170,13 @@ def process_docstring(app, what, name, obj, options, lines):
             lines.append(block)
             continue
 
-        # Add back the code block after removing assertions.
-        NO_PRINT_LOCALS = "# doc: no-print-locals"
-        PRINT_LOCALS = "# doc: print-locals"
-        REMOVE_TAGS = ["assert ", NO_PRINT_LOCALS, PRINT_LOCALS]
-        OMIT_COMMENT = "# doc: omit"
-
-        should_append_locals = True
-        # By default, we print all local variables. If `print_vars` it not empty,
-        # then we'll only print those that appear in it.
-        print_vars = set()
-
-        code_block_lines = []
-        for block_line in block.splitlines():
-            if block_line.strip() == NO_PRINT_LOCALS:
-                should_append_locals = False
-
-            if block_line.strip().startswith(PRINT_LOCALS):
-                _, _, names = block_line.strip().partition(PRINT_LOCALS)
-                print_vars.update(names.strip().split(" "))
-
-            if any(block_line.strip().startswith(tag) for tag in REMOVE_TAGS) or block_line.endswith(OMIT_COMMENT):
-                continue
-
-            code_block_lines.append(block_line)
-
-        def add_block(title, contents, lang="python"):
-            line = block.splitlines()[1]
-            indentation = len(line) - len(line.lstrip())
-
-            out = (
-                indent(
-                    f"\n\n.. code-block:: {lang}\n"
-                    + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * TAB_SIZE),
-                    prefix=" " * (indentation - 4),
-                )
-                + "\n\n"
-            )
-            code_block_lines.extend(out.splitlines())
-
-        # Add output as a separate code block.
-        outfile = io.StringIO()
-
-        def get_stdout():
-            outfile.flush()
-            outfile.seek(0)
-            return outfile.read().strip()
-
-        code = dedent(block.code())
-        try:
-            with contextlib.redirect_stdout(outfile), contextlib.redirect_stderr(outfile):
-                code_locals = helper.exec_code(code)
-        except:
-            print(f"Failed while processing docstring for: {what}: {name} ({obj})")
-            print(f"Note: Code example was:\n{code}")
-            print(get_stdout())
-            raise
-
-        # Add local variables as a separate code block
-        locals_str = ""
-        if should_append_locals:
-            for name, obj in code_locals.items():
-
-                def should_print():
-                    if name in print_vars:
-                        return True
-
-                    if print_vars and name not in print_vars:
-                        return False
-
-                    # Skip over any non-tripy types.
-                    if not any(isinstance(obj, tripy_obj) for tripy_obj in TRIPY_CLASSES):
-                        return False
-
-                    EXCLUDE_OBJECTS = [tp.jit]
-
-                    if any(isinstance(obj, exclude_obj) for exclude_obj in EXCLUDE_OBJECTS):
-                        return False
-
-                    return True
-
-                if not should_print():
-                    continue
-
-                def pretty_str_from_dict(dct):
-                    if not dct:
-                        return r"{}"
-                    ret = "{\n"
-                    for key, value in dct.items():
-                        ret += indent(f"{key}: {value},\n", prefix=" " * TAB_SIZE)
-                    ret += "}"
-                    return ret
-
-                locals_str += f"\n>>> {name}"
-                if isinstance(obj, tp.Module):
-                    locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
-                elif isinstance(obj, dict):
-                    locals_str += f"\n{pretty_str_from_dict(obj)}"
-                else:
-                    locals_str += f"\n{obj}"
-
-        if locals_str:
-            add_block("", locals_str)
-
-        stdout = get_stdout() or ""
-
-        if stdout:
-            add_block("Output:", stdout, lang="")
+        code_block_lines, _ = helper.update_code_block_with_outputs_and_locals(
+            block,
+            block.code(),
+            err_msg=f"Failed while processing docstring for: {what}: {name} ({obj})",
+            format_contents=lambda title, contents, lang: f"\n\n.. code-block:: {lang}\n"
+            + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * helper.TAB_SIZE),
+        )
 
         # Grab the caption from the example code block.
         for line in code_block_lines:
@@ -302,11 +196,13 @@ def process_docstring(app, what, name, obj, options, lines):
         default_open = what != "method" and what != "property"
         lines.extend(
             indent(
-                f"\n.. collapse:: {caption}" + (("\n" + (" " * TAB_SIZE) + ":open:") if default_open else "") + "\n\n",
+                f"\n.. collapse:: {caption}"
+                + (("\n" + (" " * helper.TAB_SIZE) + ":open:") if default_open else "")
+                + "\n\n",
                 prefix=" " * indentation,
             ).splitlines()
         )
-        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * TAB_SIZE).splitlines()
+        code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * helper.TAB_SIZE).splitlines()
         lines.extend(code_block_lines)
 
 

@@ -18,9 +18,12 @@ class TestReadme:
     @pytest.mark.parametrize("readme", helper.MARKDOWN_FILES)
     def test_links_valid(self, readme):
         MD_LINK_PAT = re.compile(r"\[.*?\]\((.*?)\)")
+        DOC_REFERENCE_PAT = re.compile(r"\{[a-z]+\}`(.*?)`")
 
         with open(readme, "r") as f:
-            links = MD_LINK_PAT.findall(f.read())
+            contents = f.read()
+            links = MD_LINK_PAT.findall(contents)
+            doc_references = DOC_REFERENCE_PAT.findall(contents)
 
         readme_dir = os.path.dirname(readme)
         for link in links:
@@ -65,6 +68,14 @@ class TestReadme:
                 assert os.path.exists(
                     link_full_path
                 ), f"In README: '{readme}', link: '{link}' does not exist. Note: Full path was: {link_full_path}"
+
+        for doc_reference in doc_references:
+            # Each doc reference should point to a fully qualified name using the name "tripy"
+            try:
+                exec(doc_reference, {"tripy": tp}, {})
+            except:
+                print(f"Error while processing document reference: {doc_reference}")
+                raise
 
 
 DOCSTRING_TEST_CASES, DOCSTRING_IDS = helper.get_all_docstrings_with_examples()

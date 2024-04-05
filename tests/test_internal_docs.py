@@ -16,7 +16,7 @@ DOC_CODE_SNIPPETS: Dict[str, List[helper.ReadmeCodeBlock]] = []
 DOC_CODE_SNIPPETS = {
     readme: [
         code_block
-        for code_block in helper.load_command_blocks_from_readme(readme)
+        for code_block in helper.consolidate_code_blocks_from_readme(readme)
         if "py" in code_block.lang and not code_block.has_marker("ignore")
     ]
     for readme in helper.MARKDOWN_FILES
@@ -38,6 +38,7 @@ def test_python_code_snippets(code_blocks):
 
     # We concatenate all the code together because most documentation includes code
     # that is continued from previous code blocks.
+    # TODO: We can instead run the blocks individually and propagate the evaluated local variables like `generate_rsts.py` does.
     code = "\n\n".join(map(str, code_blocks))
     print(f"Checking code:\n{code}")
 

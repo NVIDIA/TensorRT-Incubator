@@ -38,34 +38,10 @@ For all public facing docstrings, we have several requirements:
 - The docstring must include a code example (denoted by `.. code-block:: python`).
 
 
-#### Docstring Code Examples
+### Guides
 
-Code examples in public facing docstrings are preprocessed before
-documentation is generated. Specifically:
-
-1. Any code examples in the docstrings are executed so that their output can be
-    displayed after the code block. Several modules, including `tripy` (as `tp`),
-    `numpy` (as `np`) and `torch` are automatically imported and can be used in
-    code examples.
-
-2. The values of any `tripy` type local variables are appended to the output.
-    You can customize this behavior:
-
-    - To disable it completely, add `# doc: no-print-locals` as a separate line
-        at the top of the code block.
-
-    - To only display certain variables, add `# doc: print-locals` followed by a space
-        separated list of variable names. For example: `# doc: print-locals inp out`.
-
-3. Any `assert` statements are stripped out.
-
-4. Any lines that end with `# doc: omit` are stripped out.
-
-
-### Developer Documentation
-
-In addition to the API reference, we also include documentation for developers of Tripy
-in [docs/development](/docs/development/). The markdown files there are included in `.rst`
+In addition to the API reference, we also include various guides
+in subdirectories of [docs](/docs). The markdown files there are included in `.rst`
 files and parsed by the Myst parser. This means we need to make some special considerations:
 
 1. We cannot use the `[[TOC]]` directive to automatically generate tables of contents.
@@ -84,3 +60,51 @@ files and parsed by the Myst parser. This means we need to make some special con
 
     Links to markdown files are an exception; if a markdown file is part of the *rendered*
     documentation, it should be linked to using the `project:` tag instead.
+
+Guides may use the markers specified in [tests/helper.py](/tests/helper.py) to customize
+how the documentation is interpreted (see `AVAILABLE_MARKERS` in that file).
+
+
+### Code Examples
+
+Code examples in public facing docstrings and guides are preprocessed before
+documentation is generated. Specifically:
+
+- Any code examples are executed so that their output can be
+    displayed after the code block. Several modules, including `tripy` (as `tp`),
+    `numpy` (as `np`) and `torch` are automatically imported and can be used in
+    code examples.
+
+- The values of any `tripy` type local variables are appended to the output.
+    You can customize this behavior:
+
+    - To disable it completely, add `# doc: no-print-locals`.
+
+    - To only display certain variables, add `# doc: print-locals` followed by a space
+        separated list of variable names. For example: `# doc: print-locals inp out`.
+
+- Any `assert` statements are stripped out.
+
+- Any lines that end with `# doc: omit` are stripped out.
+
+To avoid running code entirely, you can add `# doc: no-eval` in the docstring.
+
+
+### Dynamically Generating Content In Guides
+
+In some cases, it's useful to run Python code and include the output in a guide *without* including
+the Python code itself. To do so, you can use a trick like this:
+
+```md
+<!--```py
+# doc: no-print-locals
+print("This line should be rendered into the docs")
+```-->
+```
+
+Note that the markdown comment markers are *on the same line* as the backticks demarcating the Python
+code block. This is required because our parser will otherwise insert the output immediately after the
+code block, but *inside* the comment.
+
+We include special logic when generating output that will omit the `Output:` heading when the output
+is generated in this way.

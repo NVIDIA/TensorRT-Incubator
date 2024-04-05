@@ -17,7 +17,7 @@ So that it doesn't clash with Tripy's actual `Iota` implementation, we'll call i
 
 <!-- Use the PYTEST marker since we'll be defining unit tests as part of the guide.
     With this marker, those tests can actually be run under pytest. -->
-<!-- Tripy Test: PYTEST Start -->
+<!-- Tripy: PYTEST Start -->
 
 ## Implementation
 
@@ -31,6 +31,7 @@ We'll start by adding a new file under [`tripy/flat_ir/ops`](source:/tripy/flat_
 `theta.py`; see the inline comments for explanations of what's happening:
 
 ```py
+# doc: no-eval
 from dataclasses import dataclass
 
 from mlir_tensorrt.compiler import ir
@@ -76,16 +77,18 @@ To make this possible, we need to import the `ThetaOp` into the `flat_ir.ops` su
 We can do so by adding the following line into
 [`tripy/flat_ir/ops/__init__.py`](source:/tripy/flat_ir/ops/__init__.py):
 
-<!-- Tripy Test: IGNORE Start -->
+<!-- Tripy: IGNORE Start -->
 
 ```py
+# doc: no-eval
 from tripy.flat_ir.ops.theta import ThetaOp
 ```
-<!-- Tripy Test: IGNORE End -->
+<!-- Tripy: IGNORE End -->
 
 <!--
 Need to simulate the __init__.py changes to make the tests work:
 ```py
+# doc: no-eval
 import tripy.flat_ir.ops
 tripy.flat_ir.ops.ThetaOp = ThetaOp
 ```
@@ -103,6 +106,7 @@ along with a public API function. Let's create a new file under
 First, we'll implement the `Trace` operator itself:
 
 ```py
+# doc: no-eval
 from dataclasses import dataclass
 
 from tripy import utils
@@ -172,17 +176,17 @@ If it required weights (i.e. inputs that are expected to always be constant), th
 it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 
 ```py
+# doc: no-eval
 from tripy import export
 
 # We can use the `export.public_api()` decorator to automatically export this function into the
 # top-level module. This means it will be accessible as `tripy.theta`.
 #
 # This decorator also controls how the API is exposed in the documentation - the `document_under`
-# option determines where in the documentation hierarchy this API will show up. In this case, since
-# it's an initialization op, we want to document it with the other initialization ops in `tensor/initialization`.
+# option determines where in the documentation hierarchy this API will show up.
 #
 # If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
-@export.public_api(document_under="tensor/initialization")
+@export.public_api(document_under="tensor_operations")
 def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here
@@ -242,6 +246,7 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
 <!--
 Need to simulate the `public_api()` call to make the tests work:
 ```py
+# doc: no-eval
 import tripy
 tripy.theta = theta
 ```
@@ -258,16 +263,18 @@ Similarly to the `FlatIR` operator, we need to import `Theta` into the
 `frontend.trace.ops` submodule. We can do so by adding the following line into
 [`tripy/frontend/trace/ops/__init__.py`](source:/tripy/frontend/trace/ops/__init__.py):
 
-<!-- Tripy Test: IGNORE Start -->
+<!-- Tripy: IGNORE Start -->
 
 ```py
+# doc: no-eval
 from tripy.frontend.trace.ops.theta import Theta, theta
 ```
-<!-- Tripy Test: IGNORE End -->
+<!-- Tripy: IGNORE End -->
 
 <!--
 Need to simulate the __init__.py changes to make the tests work:
 ```py
+# doc: no-eval
 import tripy.frontend.trace.ops
 tripy.frontend.trace.ops.Theta = Theta
 tripy.frontend.trace.ops.theta = theta
@@ -298,6 +305,7 @@ We'll start by defining a pytest fixture that will generate a `FlatIR` containin
 To do so, we can simply use the public API, generate a `Trace`, and convert to `FlatIR`:
 
 ```py
+# doc: no-eval
 import pytest
 
 import tripy as tp
@@ -318,6 +326,7 @@ def flat_ir():
 Now we can create a test class with our two tests:
 
 ```py
+# doc: no-eval
 class TestThetaOp:
     # This tests the string representation of our `FlatIR` operator.
     # This may be hard to predict, so we suggest that you first `print(str(Theta))`,
@@ -358,6 +367,7 @@ Create a new file there called `test_theta.py`:
 
 
 ```py
+# doc: no-eval
 import tripy as tp
 from tests import helper
 from tripy.frontend.trace.ops import Theta
@@ -391,6 +401,7 @@ Our docstring covers the 1D case, so let's add an integration test to cover the 
 Create a new file called `test_theta.py` under [`tests/integration`](source:/tests/integration/):
 
 ```py
+# doc: no-eval
 import numpy as np
 
 import tripy as tp
@@ -408,4 +419,4 @@ def test_multi_dimensional():
 If you've reached this point, you have successfully added a new operation to
 Tripy. Congratulations!
 
-<!-- Tripy Test: PYTEST End -->
+<!-- Tripy: PYTEST End -->
