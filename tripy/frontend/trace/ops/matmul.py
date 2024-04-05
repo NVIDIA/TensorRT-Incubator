@@ -164,7 +164,10 @@ class MatrixMultiplication(BaseTraceOp):
 
             slice_len = op_utils.add_constant_tensor_from_list(self, [nb_batch_dims], input.device)
             batch_slice = FlatIRTensor.build(
-                shape=utils.to_dims([nb_batch_dims]), dtype=int32, device=input.device, reason_details=""
+                shape=utils.to_dims([nb_batch_dims]),
+                dtype=int32,
+                device=input.device,
+                reason_details=["Slice the input shape ", input_shape, " to get batch dims."],
             )
             DynamicSliceOp.build([input_shape, zero_1d, slice_len, one_1d], [batch_slice])
 
@@ -173,7 +176,7 @@ class MatrixMultiplication(BaseTraceOp):
                 shape=utils.to_dims([len(input.shape) - nb_batch_dims]),
                 dtype=int32,
                 device=input.device,
-                reason_details="",
+                reason_details=["Slice the input shape ", input_shape, " into mat dims."],
             )
             DynamicSliceOp.build([input_shape, slice_len, end_len, one_1d], [mat_slice])
             return batch_slice, mat_slice
@@ -181,7 +184,10 @@ class MatrixMultiplication(BaseTraceOp):
         def append_ones_data_tensor(input, nb_ones):
             extra_a_ones = op_utils.add_constant_tensor_from_list(self, [1] * nb_ones, input.device)
             input_expanded = FlatIRTensor.build(
-                shape=utils.to_dims(-1), dtype=int32, device=input.device, reason_details=""
+                shape=utils.to_dims(-1),
+                dtype=int32,
+                device=input.device,
+                reason_details=[f"Append {nb_ones} ones to the shape tensor ", input],
             )
             ConcatenateOp.build([extra_a_ones, input], [input_expanded], dim=0)
             return input_expanded
@@ -200,7 +206,15 @@ class MatrixMultiplication(BaseTraceOp):
 
         # Use Max of batch dims to get the output batch dims.
         max_of_batch_shapes = FlatIRTensor.build(
-            shape=utils.to_dims([nb_result_batch_dims]), dtype=int32, device=inputs[0].device, reason_details=""
+            shape=utils.to_dims([nb_result_batch_dims]),
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "compute the output shape using element-wise max of input shapes ",
+                a_batch_shapes_with_ones,
+                b_batch_shapes_with_ones,
+                " to account for broadcasting.",
+            ],
         )
         MaxOp.build(
             [a_batch_shapes_with_ones, b_batch_shapes_with_ones],
@@ -217,14 +231,14 @@ class MatrixMultiplication(BaseTraceOp):
             utils.to_dims([-1] * (nb_result_batch_dims + a_rank - nb_a_batch_dims)),
             use_dynamic_variant=True,
             shape_of_target_tensor=a_dims,
-            tensor_details="",
+            tensor_details=["left operand of DotOp"],
         )
         inputs[1] = op_utils.insert_broadcast(
             inputs[1],
             utils.to_dims([-1] * (nb_result_batch_dims + b_rank - nb_b_batch_dims)),
             use_dynamic_variant=True,
             shape_of_target_tensor=b_dims,
-            tensor_details="",
+            tensor_details=["right operand of DotOp"],
         )
 
         DotOp.build(inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)

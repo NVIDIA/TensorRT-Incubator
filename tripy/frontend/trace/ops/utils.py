@@ -107,7 +107,12 @@ def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.
     from tripy.common.datatype import int32
     import numpy as np
 
-    const_output_tensor = FlatIRTensor.build(shape=(dynamic_dim(1),), dtype=int32, device=device, reason_details="")
+    const_output_tensor = FlatIRTensor.build(
+        shape=(dynamic_dim(1),),
+        dtype=int32,
+        device=device,
+        reason_details=[f"create constant rank 1 int32 tensor filled with {data}."],
+    )
     ConstantOp.build([], [const_output_tensor], data=np.array(data).astype(np.int32))
     return const_output_tensor
 
@@ -123,9 +128,13 @@ def concatenate_tensors(op: "BaseTraceOp", inputs: List["FlatIRTensor"], dim: in
         ),
         dtype=int32,
         device=inputs[0].device,
-        reason_details="",
+        reason_details=[
+            "output of concatenation of the following tensors: ",
+            *[inp for inp in inputs],
+            f" along dim {dim}.",
+        ],
     )
-    ConcatenateOp.build(inputs, [out], dim=0)
+    ConcatenateOp.build(inputs, [out], dim=dim)
     return out
 
 
