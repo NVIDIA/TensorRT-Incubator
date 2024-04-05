@@ -233,28 +233,28 @@ class MatrixMultiplication(BaseTraceOp):
 @TENSOR_METHOD_REGISTRY("__matmul__")
 def __matmul__(self, other: "tripy.Tensor") -> "tripy.Tensor":
     """
-        Performs matrix multiplication between two tensors.
+    Performs matrix multiplication between two tensors.
 
     - If both tensors are 1D, a dot product is performed.
-        - If both tensors are 2D, matrix multiplication is performed.
-        - If either argument, but not both, is 1D, a dimension is inserted
-          and matrix multiplication is performed with relevant broadcast of dimension.
+    - If both tensors are 2D, matrix multiplication is performed.
+    - If either argument, but not both, is 1D, a dimension is inserted
+        and matrix multiplication is performed with relevant broadcast of dimension.
 
-        Args:
-            other: The tensor by which to multiply. Must have the same data type as this tensor.
+    Args:
+        other: The tensor by which to multiply. Must have the same data type as this tensor.
 
-        Returns:
-            A new tensor of the same data type as this one.
+    Returns:
+        A new tensor of the same data type as this one.
 
-        .. code-block:: python
-            :linenos:
-            :caption: Example
+    .. code-block:: python
+        :linenos:
+        :caption: Example
 
-            a = tp.iota((2, 3), dtype=tp.float32)
-            b = tp.iota((3, 2), dtype=tp.float32)
+        a = tp.iota((2, 3), dtype=tp.float32)
+        b = tp.iota((3, 2), dtype=tp.float32)
 
-            output = a @ b
-            assert np.array_equal(output.numpy(), a.numpy() @ b.numpy())
+        output = a @ b
+        assert np.array_equal(output.numpy(), a.numpy() @ b.numpy())
     """
     from tripy.frontend import Tensor
 
