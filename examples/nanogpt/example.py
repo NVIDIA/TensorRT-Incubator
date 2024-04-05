@@ -3,12 +3,12 @@ import argparse
 import tiktoken
 import torch
 from model import GPT, GPTConfig
-from weight_loader import load_weights_from_hf
+from weight_loader import load_weights_from_hf, load_quant_weights_from_hf
 
 import tripy as tp
 
 
-def initialize_gpt_model(model_type, padded_seq_len, dtype):
+def initialize_gpt_model(model_type, padded_seq_len, dtype, quant_mode):
     # num_layers, num_heads and embedding_size are determined from model_type while other
     # parameters are always the same.
     num_layers, num_heads, embedding_size = {
@@ -28,6 +28,7 @@ def initialize_gpt_model(model_type, padded_seq_len, dtype):
         seq_len=padded_seq_len,
         batch_size=1,
         dtype=dtype,
+        quant_mode=quant_mode,
     )
     model = GPT(config)
     return model
@@ -49,6 +50,12 @@ def main():
     )
     parser.add_argument("--max-new-tokens", type=int, help="The maximum number of new tokens to generate", default=10)
     parser.add_argument("--seed", type=int, help="The seed to use for psuedo-random number generation.", default=None)
+    parser.add_argument(
+        "--quant-mode",
+        type=str,
+        help="Quantization mode.",
+        choices=["int8-weight-only"],
+    )
 
     args = parser.parse_args()
 
@@ -63,8 +70,11 @@ def main():
 
     model_dtype = tp.float16
 
-    model = initialize_gpt_model(args.model_type, padded_seq_len, model_dtype)
-    load_weights_from_hf(model, args.model_type, model_dtype)
+    model = initialize_gpt_model(args.model_type, padded_seq_len, model_dtype, args.quant_mode)
+    if not args.quant_mode:
+        load_weights_from_hf(model, args.model_type, model_dtype)
+    else:
+        load_quant_weights_from_hf(model, args.model_type, model_dtype, args.quant_mode)
 
     idx = torch.Tensor(input_ids).reshape((1, len(input_ids)))
     zeros = torch.zeros((1, args.max_new_tokens), dtype=torch.float32)

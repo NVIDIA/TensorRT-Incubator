@@ -13,6 +13,18 @@ class TestModule:
         result = np.array([1.0, 2.0]) + np.full(2, sum(call_args), dtype=np.float32)
         assert np.array_equal(test_net(*inputs).numpy(), result)
 
+    def test_get_set_attr(self, network):
+        network.new_attr = True
+        assert hasattr(network, "new_attr")
+
+        network.new_param = tp.Parameter(0.0)
+        assert "new_param" in network._params
+
+        network.param = 0
+        network.dummy1 = None
+        assert network._params["param"] == 0
+        assert network._modules["dummy1"] is None
+
     def test_named_children(self, network):
         # Children should only return immediate children
         assert list(network.named_children()) == [("dummy1", network.dummy1), ("dummy2", network.dummy2)]

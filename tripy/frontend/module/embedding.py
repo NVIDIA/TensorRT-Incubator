@@ -41,10 +41,11 @@ class Embedding(Module):
         """
         super().__init__()
         from tripy.frontend.trace.ops.iota import iota
+        from tripy.frontend.trace.ops.cast import cast
 
         self.dtype = dtype
 
-        self.weight = Parameter(iota((num_embeddings, embedding_dim), dtype=dtype))
+        self.weight = Parameter(cast(iota((num_embeddings, embedding_dim)), dtype))
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""

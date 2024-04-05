@@ -60,12 +60,13 @@ class Module:
         self._modules: Dict[str, "Module"] = {}
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if isinstance(value, Parameter):
+        if isinstance(value, Parameter) or ("_params" in self.__dict__ and name in self._params):
             self._params[name] = value
-        elif isinstance(value, Module):
+        elif isinstance(value, Module) or ("_modules" in self.__dict__ and name in self._modules):
             self._modules[name] = value
         else:
             super().__setattr__(name, value)
+            # avoid infinite recursion during initialization
             if not value:
                 return
 
@@ -191,6 +192,9 @@ class Module:
             return module
 
         def _check_param_type(cls, original_param, new_param, param_name):
+            if not isinstance(original_param, Parameter):
+                return
+
             original_param_shape = original_param.shape.eval()
             new_param_shape = new_param.shape.eval()
             if original_param_shape != new_param_shape:

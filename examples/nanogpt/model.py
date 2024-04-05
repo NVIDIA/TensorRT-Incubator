@@ -16,6 +16,22 @@ class GPTConfig:
     seq_len: int = 1
     batch_size: int = 1
     dtype: "tripy.datatype" = tp.float32
+    quant_mode: str = None
+
+
+def linear_layer(config: GPTConfig, in_feat, out_feat, bias):
+    quant_kwargs = {}
+    if config.quant_mode == "int8-weight-only":
+        quant_kwargs["quant_dtype"] = tp.int8
+        quant_kwargs["weight_quant_dim"] = 0
+
+    return tp.Linear(
+        in_feat,
+        out_feat,
+        bias=bias,
+        dtype=config.dtype,
+        **quant_kwargs,
+    )
 
 
 class CausalSelfAttention(tp.Module):
@@ -26,8 +42,8 @@ class CausalSelfAttention(tp.Module):
         self.batch_size = config.batch_size
         self.num_heads = config.num_heads
         self.embedding_size = config.embedding_size
-        self.c_attn = tp.Linear(config.embedding_size, 3 * config.embedding_size, bias=config.bias, dtype=config.dtype)
-        self.c_proj = tp.Linear(config.embedding_size, config.embedding_size, bias=config.bias, dtype=config.dtype)
+        self.c_attn = linear_layer(config, config.embedding_size, 3 * config.embedding_size, config.bias)
+        self.c_proj = linear_layer(config, config.embedding_size, config.embedding_size, config.bias)
         self.bias = tp.tril(tp.ones((config.block_size, config.block_size), dtype=config.dtype))
 
     def __call__(self, x: tp.Tensor, attention_mask: Optional[tp.Tensor] = None):
@@ -68,8 +84,8 @@ class CausalSelfAttention(tp.Module):
 class MLP(tp.Module):
     def __init__(self, config):
         super().__init__()
-        self.c_fc = tp.Linear(config.embedding_size, 4 * config.embedding_size, bias=config.bias, dtype=config.dtype)
-        self.c_proj = tp.Linear(4 * config.embedding_size, config.embedding_size, bias=config.bias, dtype=config.dtype)
+        self.c_fc = linear_layer(config, config.embedding_size, 4 * config.embedding_size, config.bias)
+        self.c_proj = linear_layer(config, 4 * config.embedding_size, config.embedding_size, config.bias)
 
     def __call__(self, x):
         x = self.c_fc(x)
@@ -123,6 +139,7 @@ class GPT(tp.Module):
         ), f"Cannot forward sequence of length {config.seq_len}, block size is only {config.block_size}"
 
         self.transformer = Transformer(config)
+        # lm_head is disabled for quantization by ammo
         self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False, dtype=config.dtype)
 
     # Decorating a function with tp.jit indicates to Tripy that it should compile an optimized

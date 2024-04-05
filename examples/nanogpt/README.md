@@ -44,3 +44,18 @@ for expected accuracy.
     ```
      -->
     <!-- Tripy: EXPECTED_STDOUT End -->
+
+### Running with Quantization
+
+This section shows how to run this example with different quantization modes.
+
+In `quantization.py`, we use `ammo` to quantize the pytorch GPT model, and then calibrate the quantization parameters. Then the quantization parameters are converted to scales and loaded into tripy model in function
+`load_quant_weights_from_hf` of `weight_loader.py`.
+
+To run with a quantization mode, pass `--quant-mode` to `example.py`. The supported modes are:
+
+1. weight only int8 quantization:
+
+    ```bash
+    python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int8-weight-only
+    ```
