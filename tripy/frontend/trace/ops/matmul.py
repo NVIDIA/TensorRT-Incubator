@@ -39,7 +39,7 @@ class MatrixMultiplication(BaseTraceOp):
                     self,
                     "Input tensors must have at least 1 dimension.",
                     details=[
-                        f"Inputs for operation: '@' must have at least one dimension, but input {index} has shape: {shape} which has fewer than 1 dimension"
+                        f"inputs for operation: '@' must have at least one dimension, but input {index} has shape: {shape} which has fewer than 1 dimension"
                     ],
                 )
 
@@ -80,7 +80,7 @@ class MatrixMultiplication(BaseTraceOp):
                     self,
                     "Incompatible input shapes.",
                     details=[
-                        f"For operation: '@', the second dimension of input 0 (shape: {a_shape}) must match the first "
+                        f"for operation: '@', the second dimension of input 0 (shape: {a_shape}) must match the first "
                         f"dimension of input 1 (shape: {b_shape}) but got: {a_shape[get_contracting_dim(a_shape)[0]]} and {b_shape[get_contracting_dim(b_shape, lhs=False)[0]]}"
                     ],
                 )
@@ -119,7 +119,7 @@ class MatrixMultiplication(BaseTraceOp):
                 shape=utils.to_dims([nb_batch_dims]),
                 dtype=int32,
                 device=input.device,
-                reason_details=["Slice the input shape ", input_shape, " to get batch dims."],
+                reason_details=["slice the input shape ", input_shape, " to get batch dims."],
             )
             DynamicSliceOp.build([input_shape, zero_1d, slice_len, one_1d], [batch_slice])
 
@@ -128,7 +128,7 @@ class MatrixMultiplication(BaseTraceOp):
                 shape=utils.to_dims([len(input.shape) - nb_batch_dims]),
                 dtype=int32,
                 device=input.device,
-                reason_details=["Slice the input shape ", input_shape, " into mat dims."],
+                reason_details=["slice the input shape ", input_shape, " into mat dims."],
             )
             DynamicSliceOp.build([input_shape, slice_len, end_len, one_1d], [mat_slice])
             return batch_slice, mat_slice
@@ -139,7 +139,7 @@ class MatrixMultiplication(BaseTraceOp):
                 shape=utils.to_dims(-1),
                 dtype=int32,
                 device=input.device,
-                reason_details=[f"Append {nb_ones} ones to the shape tensor ", input],
+                reason_details=[f"append {nb_ones} ones to the shape tensor ", input],
             )
             ConcatenateOp.build([extra_a_ones, input], [input_expanded], dim=0)
             return input_expanded

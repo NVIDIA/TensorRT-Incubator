@@ -1,7 +1,6 @@
-from typing import Any, List
+from typing import List
 
 from colored import Fore, attr
-from typing import List
 
 from tripy import utils
 from tripy.common.exception import raise_error
