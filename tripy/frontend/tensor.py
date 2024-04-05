@@ -10,6 +10,8 @@ from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
+from tripy.backend.mlir.utils import parse_tensor_names_from_location, redirect_stderr, remove_constants
+
 
 class TensorMeta(type):
     def __new__(cls, name, bases, dct):
@@ -156,7 +158,18 @@ class Tensor(metaclass=TensorMeta):
 
         trace = Trace([self])
         flat_ir = trace.to_flat_ir()
-        mlir = flat_ir.to_mlir()
+        try:
+            with redirect_stderr() as outfile:
+                mlir = flat_ir.to_mlir()
+        except Exception as exc:
+            from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
+
+            outfile.flush()
+            outfile.seek(0)
+            stderr = outfile.read()
+
+            map_error_to_user_code_and_raise(flat_ir, exc, stderr.decode())
+
         compiler = Compiler(trt_builder_opt_level=0)
         executable = compiler.compile(mlir, flat_ir=flat_ir)
         executor = Executor(executable, get_tensor_info(flat_ir.outputs))
