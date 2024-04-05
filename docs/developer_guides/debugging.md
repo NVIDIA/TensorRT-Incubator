@@ -9,6 +9,7 @@ python3 -m pip install ./mlir-tensorrt/build/wheels/trt100/mlir-tensorrt-runtime
 2. Update MLIR Debug options in [tripy/config.py](source:/tripy/config.py).
  	`export TRIPY_MLIR_DEBUG_ENABLED=1` to dump IR with below default settings.
 ```py
+# doc: no-eval
 import os
 # MLIR Debug options
 enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"

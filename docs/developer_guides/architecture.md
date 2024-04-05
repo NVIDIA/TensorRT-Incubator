@@ -1,4 +1,4 @@
-# Tripy Architecture
+# Architecture
 
 This document explains the overall architecture of Tripy.
 
@@ -62,16 +62,19 @@ consists primarily of StableHLO operations but can also include other dialects f
 To understand these components better, let's take a look at what happens when we write a simple
 program like:
 ```py
+# doc: no-print-locals
 inp = tp.full((2, 3), value=0.5)
 out = tp.tanh(inp)
 out.eval()
 ```
+
 
 ### Tracing
 
 We'll start with the first line:
 
 ```py
+# doc: no-eval
 inp = tp.full((2, 3), value=0.5)
 ```
 
@@ -121,6 +124,7 @@ graph TD
 
 The bulk of the real work happens once we reach the final line:
 ```py
+# doc: no-eval
 out.eval()
 ```
 
@@ -140,13 +144,15 @@ connected with the `Trace` operations in other tensors, we just need to walk bac
 collecting trace operations as we go.
 
 Here's the textual representation for the `Trace` from our example:
-```
-==== Trace IR ====
-t0 = fill(value=0.5, shape=(2, 3), dtype=float32)
-t1 = unaryelementwise(t0, kind=Kind.TANH)
-outputs:
-    t1: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)]
-```
+
+<!--```py
+from tripy.frontend.trace import Trace
+# doc: no-print-locals
+# Output has been eval'd already, so we'll construct a new one
+new_out = tp.tanh(inp)
+trace = Trace([new_out])
+print(trace)
+```-->
 
 <!-- TODO: Fix this if we change anything about shape/type inference -->
 *NOTE: This information might become stale after we implement dynamic shapes. If you're seeing this note*
@@ -187,14 +193,11 @@ that already exist in the `FlatIR`.
 Here's the textual representation for the `FlatIR` from our example; you'll notice that we have more operations
 now than we did in the trace:
 
-```
-==== Flat IR ====
-t_inter1: [shape=(), dtype=(float32), loc=(gpu:0)] = ConstantOp(data=0.5, dtype=float32, device=gpu:0)
-t0: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = BroadcastOp(t_inter1, broadcast_dim=[])
-t1: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = TanhOp(t0)
-outputs:
-    t1: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)]
-```
+<!--```py
+# doc: no-print-locals
+flat_ir = trace.to_flat_ir()
+print(flat_ir)
+```-->
 
 #### Lowering To MLIR
 
@@ -211,18 +214,10 @@ def to_mlir(self, operands):
 
 There's not much more to explain here, so let's go right to the textual representation:
 
-```
-==== MLIR ====
-1: module {
-2:   func.func @main() -> tensor<2x3xf32> {
-3:     %0 = stablehlo.constant dense<5.000000e-01> : tensor<f32>
-4:     %1 = stablehlo.broadcast_in_dim %0, dims = [] : (tensor<f32>) -> tensor<2x3xf32>
-5:     %2 = stablehlo.tanh %1 : tensor<2x3xf32>
-6:     return %2 : tensor<2x3xf32>
-7:   }
-8: }
-9:
-```
+<!--```py
+# doc: no-print-locals
+print(flat_ir.to_mlir())
+```-->
 
 
 #### Compilation

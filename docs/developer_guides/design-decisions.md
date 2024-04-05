@@ -44,6 +44,7 @@ to the `inputs` and `outputs` parameters.
 For example:
 
 ```py
+# doc: no-eval
 def to_flat_ir(self, inputs, outputs):
     from tripy.flat_ir.ops import TanhOp
 
@@ -56,6 +57,7 @@ In a previous version of Tripy, we would return a list of operators that we want
 `FlatIR` subgraph. Our example code would have looked something like this:
 
 ```py
+# doc: no-eval
 def to_flat_ir(self, inputs, outputs):
     from tripy.flat_ir.ops import TanhOp
 
@@ -77,6 +79,7 @@ Another possibility would have been to provide functional APIs which would let u
 build up the FlatIR subgraph. Then our example code could have been implemented like so:
 
 ```py
+# doc: no-eval
 def to_flat_ir(self):
     return tanh(self.inputs[0])
 ```

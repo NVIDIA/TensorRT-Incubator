@@ -43,7 +43,7 @@ class Example:
         self._remove_artifacts(must_exist=False)
 
         self.original_files = self._get_file_list()
-        return helper.load_command_blocks_from_readme(self.readme)
+        return helper.consolidate_code_blocks_from_readme(self.readme)
 
     def run(self, block, sandboxed_install_run):
         return sandboxed_install_run(block, cwd=self.path)
@@ -77,7 +77,7 @@ def test_examples(example, sandboxed_install_run):
     with example as command_blocks:
         # NOTE: This logic is not smart enough to handle multiple separate commands in a single block.
         for block in command_blocks:
-            if block.has_marker("ignore"):
+            if block.has_marker("ignore") or not block.has_marker("command"):
                 continue
 
             block_text = str(block)

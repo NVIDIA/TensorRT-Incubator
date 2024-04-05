@@ -34,7 +34,7 @@ for expected accuracy.
     python3 example.py --input-text "Do people really like using ONNX?" --seed=1
     ```
 
-    <!-- Tripy Test: EXPECTED_STDOUT Start -->
+    <!-- Tripy: EXPECTED_STDOUT Start -->
     <!--
     ```
     Loading weights from pretrained model: 'gpt2'
@@ -43,4 +43,4 @@ for expected accuracy.
     This is something that I'm very excited
     ```
      -->
-    <!-- Tripy Test: EXPECTED_STDOUT End -->
+    <!-- Tripy: EXPECTED_STDOUT End -->

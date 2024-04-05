@@ -128,7 +128,7 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
     """
     locs = TENSOR_NAME_PATTERN.findall(msg)
     if not locs:
-        return [], []
+        return [], [], [], [], []
 
     # TODO (#150): Update this logic to not only look at the first location attribute.
     loc = locs[0]
