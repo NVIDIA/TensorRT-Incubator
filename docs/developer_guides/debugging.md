@@ -2,8 +2,7 @@
 
 1. Install new python bindings for compiler and runtime. Assuming `tripy/mlir-tensorrt` directory exists. No need to update `LD_LIBRARY_PATH`.
 ```bash
-python3 -m pip install ./mlir-tensorrt/build/wheels/trt100/mlir-tensorrt-compiler-wheel/mlir_tensorrt_compiler-0.1.7+cuda12.trt100-cp310-cp310-linux_x86_64.whl
-python3 -m pip install ./mlir-tensorrt/build/wheels/trt100/mlir-tensorrt-runtime-wheel/mlir_tensorrt_runtime-0.1.7+cuda12.trt100-cp310-cp310-linux_x86_64.whl
+python3 -m pip install --force-reinstall mlir-tensorrt/build/wheels/trt100/**/*.whl
 ```
 
 2. Update MLIR Debug options in [tripy/config.py](source:/tripy/config.py).
@@ -13,7 +12,7 @@ python3 -m pip install ./mlir-tensorrt/build/wheels/trt100/mlir-tensorrt-runtime
 import os
 # MLIR Debug options
 enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
-mlir_debug_types = ["-mlir-print-ir-after-all"]
+mlir_debug_types = ["-translate-to-tensorrt"]
 mlir_debug_tree_path = os.path.join("/", "tripy", "mlir-dumps")
 ```
 

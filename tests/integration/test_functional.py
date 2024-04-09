@@ -6,7 +6,7 @@ import pytest
 import torch
 
 import tripy as tp
-from tripy.backend.utils import get_tensor_info
+from tripy.backend.utils import get_tensor_info, get_runtime_shapes, get_devices
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
 from tripy.frontend.trace import Trace
@@ -77,8 +77,9 @@ class TestFunctional:
         flat_ir = trace.to_flat_ir()
 
         compiler = Compiler()
-        executor = Executor(compiler.compile(flat_ir.to_mlir()), get_tensor_info(flat_ir.outputs))
-        out = executor.execute()
+        output_tensor_info = get_tensor_info(flat_ir.outputs)
+        executor = Executor(compiler.compile(flat_ir.to_mlir()))
+        out = executor.execute(get_runtime_shapes(output_tensor_info), get_devices(output_tensor_info))
         assert (
             len(out) == 2
             and (out[0].view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()

@@ -7,14 +7,24 @@ import mlir_tensorrt.compiler.api as compiler
 from tripy.backend.utils import TensorInfo
 from tripy.utils.json import Decoder, Encoder
 
+from tripy.common.device import device
+
 
 class CachedExecutable:
-    def __init__(self, executable: compiler.Executable, input_info: List[TensorInfo], output_info: List[TensorInfo]):
+    def __init__(
+        self,
+        executable: compiler.Executable,
+        input_info: List[TensorInfo],
+        runtime_shapes: List[int],
+        output_devices: List[device],
+    ):
         self.executable = executable
         self.input_info = input_info
-        # HACK (#109): Store output information so we don't need to go all the way to the FlatIR each time.
+        # HACK (#109): Store output runtime shapes so we don't need to go all the way to the FlatIR each time.
         # This is needed only because the MLIR executor currently needs the output buffers ahead of time.
-        self.output_info = output_info
+        self.output_runtime_shapes = runtime_shapes
+        # HACK (#155): Store output devices as executable device does not match Trace IR device.
+        self.output_devices = output_devices
 
     def is_compatible(self, new_input_info: List[TensorInfo]) -> bool:
         for inp, new_inp in zip(self.input_info, new_input_info):
@@ -50,7 +60,8 @@ def encode(cached_executable: CachedExecutable) -> Dict[str, Any]:
         return {
             "data": executable,
             "input_info": cached_executable.input_info,
-            "output_info": cached_executable.output_info,
+            "output_runtime_shapes": cached_executable.output_runtime_shapes,
+            "output_devices": cached_executable.output_devices,
         }
 
 
@@ -60,4 +71,4 @@ def decode(dct: Dict[str, str]) -> CachedExecutable:
     data = base64.b64decode(dct["data"].encode(), validate=True)
     executable = mlir_backend.load(data=data)
 
-    return CachedExecutable(executable, dct["input_info"], dct["output_info"])
+    return CachedExecutable(executable, dct["input_info"], dct["output_runtime_shapes"], dct["output_devices"])

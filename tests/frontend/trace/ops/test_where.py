@@ -1,3 +1,4 @@
+import re
 import tripy as tp
 from tests import helper
 from tripy.frontend.trace.ops import Where
@@ -19,7 +20,9 @@ class TestWhere:
         c = tp.where(cond, a, b)
 
         with helper.raises(
-            tp.TripyException, match="Input tensors are not broadcast compatible.", has_stack_info_for=[a, b, c, cond]
+            tp.TripyException,
+            match=re.escape("size of operand dimension 0 (2) is not compatible with size of result dimension 0 (3)"),
+            has_stack_info_for=[a, b, c, cond],
         ):
             c.eval()
 

@@ -1,12 +1,13 @@
 from typing import List, Optional
 
 import mlir_tensorrt.runtime.api as runtime
+import mlir_tensorrt.compiler.api as compiler
 
 from tripy.backend.utils import TensorInfo
-from tripy.common import Array, datatype
+from tripy.common import Array, datatype, device
 from tripy.common.exception import raise_error
-from tripy.frontend import Tensor
-from tripy.utils import default, Result, from_dims, log_time
+from tripy.frontend import Tensor, dynamic_dim
+from tripy.utils import Result, from_dims, log_time
 
 G_RUNTIME_CLIENT = None
 
@@ -19,25 +20,34 @@ def _get_runtime_client() -> runtime.RuntimeClient:
     return G_RUNTIME_CLIENT
 
 
-def _convert_to_runtime_dtype(dtype: datatype.dtype) -> runtime.ScalarTypeCode:
-    NUMPY_TO_MLIR_TRT = {
-        datatype.int8: runtime.ScalarTypeCode.i8,
-        datatype.int32: runtime.ScalarTypeCode.i32,
-        datatype.int64: runtime.ScalarTypeCode.i64,
-        datatype.uint8: runtime.ScalarTypeCode.i8,
-        datatype.float16: runtime.ScalarTypeCode.f16,
-        datatype.float32: runtime.ScalarTypeCode.f32,
-        datatype.bool: runtime.ScalarTypeCode.i8,
-    }
+NUMPY_TO_MLIR_TRT = {
+    datatype.int8: runtime.ScalarTypeCode.i8,
+    datatype.int32: runtime.ScalarTypeCode.i32,
+    datatype.int64: runtime.ScalarTypeCode.i64,
+    datatype.uint8: runtime.ScalarTypeCode.ui8,
+    datatype.float16: runtime.ScalarTypeCode.f16,
+    datatype.float32: runtime.ScalarTypeCode.f32,
+    datatype.bool: runtime.ScalarTypeCode.i1,
+}
 
+MLIR_TRT_TO_NUMPY = {v: k for k, v in NUMPY_TO_MLIR_TRT.items()}
+
+
+def _convert_to_runtime_dtype(dtype: datatype.dtype) -> runtime.ScalarTypeCode:
     if dtype not in NUMPY_TO_MLIR_TRT:
         raise_error(f"Data type: '{dtype}' does not have a corresponding runtime data type")
     return NUMPY_TO_MLIR_TRT.get(dtype)
 
 
+def _convert_to_tripy_dtype(dtype: runtime.ScalarTypeCode) -> datatype.dtype:
+    if dtype not in MLIR_TRT_TO_NUMPY:
+        raise_error(f"Data type: '{dtype}' does not have a corresponding numpy data type")
+    return MLIR_TRT_TO_NUMPY.get(dtype)
+
+
 def _convert_to_memref(
     inp: Array, runtime_client: runtime.RuntimeClient, stream: Optional[runtime.Stream] = None
-) -> Result[runtime.MemRef]:
+) -> Result[runtime.MemRefValue]:
     devices = runtime_client.get_devices()
 
     if inp.device.kind != "gpu":
@@ -67,17 +77,61 @@ def _convert_to_memref(
     )
 
 
+def _get_output_tensor_info(
+    executable: runtime.Executable, output_runtime_shapes: List[int], output_devices=List[device]
+):
+    signature = executable.get_signature("main")
+    offset = signature.get_num_input_args()
+    output_info = []
+
+    for output_index in range(signature.get_num_output_args()):
+        arg_index = output_index + offset
+        arg = signature.get_arg(arg_index)
+        assert compiler.MemRefType.isinstance(arg) or compiler.ScalarType.isinstance(
+            arg
+        ), "Argument must be either MemRefType or ScalarType"
+        assert compiler.MemRefType.isinstance(
+            arg
+        ), "ScalarType argument are not yet supported"  # 158: Add scalar type output argument support.
+        memref = compiler.MemRefType(arg)
+        dtype = _convert_to_tripy_dtype(memref.dtype)
+        device_type = "gpu" if memref.address_space == runtime.PointerType.device else "cpu"
+        if output_devices[output_index]:
+            device_type = output_devices[output_index].kind
+        is_static_shape = all(dim >= 0 for dim in memref.shape)
+        if is_static_shape:
+            output_info.append(TensorInfo(tuple([dynamic_dim(s) for s in memref.shape]), dtype, device(device_type)))
+        else:
+            upper_bounds = signature.get_arg_bound(arg_index).max()
+            assert len(upper_bounds) == len(memref.shape), "Upper bounds and shape length must match"
+
+            max_shape = [upper if dim < 0 else dim for dim, upper in zip(memref.shape, upper_bounds)]
+            output_info.append(
+                TensorInfo(
+                    tuple(
+                        [
+                            dynamic_dim(runtime, min=None, opt=None, max=max)
+                            for max, runtime in zip(max_shape, output_runtime_shapes[output_index])
+                        ]
+                    ),
+                    dtype,
+                    device(device_type),
+                )
+            )
+
+    return output_info
+
+
 class Executor:
-    def __init__(self, executable: runtime.Executable, out_tensor_info: List[TensorInfo] = None) -> None:
+    def __init__(self, executable: runtime.Executable) -> None:
+        self.executable = executable
         self.runtime_client = _get_runtime_client()
         self.stream = self.runtime_client.create_stream()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
         self.session = runtime.RuntimeSession(session_options, executable)
 
-        self.out_tensor_info = out_tensor_info
-
     # Slice the output buffer (allocated with max shapes) to get the data with runtime shapes.
-    def slice_outputs(self, outputs):
+    def slice_outputs(self, outputs, out_tensor_info):
         def slice_to_match(output_shape, runtime_shape):
             slice_spec = [slice(None)] * len(runtime_shape)  # Default slice is to include everything
             for index, (dim1, dim2) in enumerate(zip(output_shape, runtime_shape)):
@@ -85,7 +139,7 @@ class Executor:
                     slice_spec[index] = slice(0, dim2)
             return slice_spec
 
-        for out_index, (output, out_info) in enumerate(zip(outputs, self.out_tensor_info)):
+        for out_index, (output, out_info) in enumerate(zip(outputs, out_tensor_info)):
             runtime_shape = tuple([s.runtime_value for s in out_info.shape])
             output_shape = output.shape
             if output_shape != runtime_shape:
@@ -95,8 +149,14 @@ class Executor:
                 outputs[out_index] = sliced_t
 
     @log_time
-    def execute(self, inputs: List[Tensor] = []) -> List[Array]:
+    def execute(
+        self, output_runtime_shapes: List[int], output_devices=List[device], inputs: List[Tensor] = []
+    ) -> List[Array]:
         from tripy.frontend.trace.ops import Storage
+
+        # HACK (#109): Remove `get_runtime_shapes` once we can infer runtime shapes from executable.
+        # HACK (#155): Remove `get_devices` once executable output tensor location matches Trace IR.
+        out_tensor_info = _get_output_tensor_info(self.executable, output_runtime_shapes, output_devices)
 
         in_args = []
         for inp in inputs:
@@ -113,7 +173,7 @@ class Executor:
         # mlir-tensorrt requires the output buffer to be of the shape with max bounds.
         outputs = [
             Array(None, shape=from_dims(info.shape, use_max_value=True), dtype=info.dtype, device=info.device)
-            for info in self.out_tensor_info
+            for info in out_tensor_info
         ]
 
         out_args = []
@@ -128,7 +188,7 @@ class Executor:
         self.stream.sync()
 
         # For outputs that were on the host, do the copy back
-        for idx, out_info in enumerate(self.out_tensor_info):
+        for idx, out_info in enumerate(out_tensor_info):
             if out_info.device.kind != "gpu":
                 host_out = outputs[idx]
                 self.runtime_client.copy_to_host(
@@ -141,6 +201,6 @@ class Executor:
                     stream=None,
                 )
 
-        self.slice_outputs(outputs)
+        self.slice_outputs(outputs, out_tensor_info)
 
         return outputs

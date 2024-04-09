@@ -41,13 +41,13 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             return []
 
         output_name = output_names[0]
+        out_tensor = flat_ir.tensor_map[output_name]
 
         if output_name not in trace_output_names:
             assert (
                 out_tensor.reason_details
             ), f"All intermediate tensors should have reason_details set, but {out_tensor} does not!"
 
-        out_tensor = flat_ir.tensor_map[output_name]
         op = out_tensor.producer
 
         return (

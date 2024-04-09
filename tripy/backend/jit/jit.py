@@ -10,7 +10,7 @@ from tripy.backend.jit.dynamic_storage import DynamicStorage
 from tripy.backend.jit.utils import get_trace_signature
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
-from tripy.backend.utils import TensorInfo, get_tensor_info
+from tripy.backend.utils import TensorInfo, get_tensor_info, get_runtime_shapes, get_devices
 from tripy.common.device import device
 from tripy.common.exception import raise_error
 from tripy.frontend import Tensor
@@ -223,7 +223,9 @@ class jit:
             trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids + tuple(dim_list))
 
             trace = None
-            output_tensor_info = None
+
+            output_runtime_shapes = None
+            output_devices = None
 
             if trace_signature_key not in self._trace_signatures:
 
@@ -237,6 +239,8 @@ class jit:
                 self._trace_signatures[trace_signature_key] = compute_trace_signature(trace)
                 input_tensor_info = get_tensor_info(trace.inputs)
                 output_tensor_info = get_tensor_info(trace.outputs)
+                output_runtime_shapes = get_runtime_shapes(output_tensor_info)
+                output_devices = get_devices(output_tensor_info)
 
             tensors_on_host = [x for x in args if x.op.device.kind != "gpu"]
             if len(tensors_on_host) > 0:
@@ -259,17 +263,21 @@ class jit:
                 executable = CachedExecutable(
                     compiler.compile(mlir, flat_ir=flat_ir),
                     get_tensor_info(trace.inputs),
-                    get_tensor_info(trace.outputs),
+                    get_runtime_shapes(get_tensor_info(trace.outputs)),
+                    get_devices(get_tensor_info(trace.outputs)),
                 )
                 self.cache[trace_signature].append(executable)
 
             executor = Executor(
                 executable.executable,
-                # HACK (#109): We only use the executables I/O tensor information if we didn't recompute the trace.
-                utils.default(output_tensor_info, executable.output_info),
             )
+            # HACK (#109 and #155): We only use the executable information if we didn't recompute the trace.
             # filter out const-folded inputs
-            outputs = executor.execute(trace_inputs)
+            outputs = executor.execute(
+                utils.default(output_runtime_shapes, executable.output_runtime_shapes),
+                utils.default(output_devices, executable.output_devices),
+                trace_inputs,
+            )
 
             tensor_outputs = [Tensor(output) for output in outputs]
             if len(tensor_outputs) == 1:
