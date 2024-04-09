@@ -21,7 +21,7 @@ class TestWhere:
 
         with helper.raises(
             tp.TripyException,
-            match=re.escape("size of operand dimension 0 (2) is not compatible with size of result dimension 0 (3)"),
+            match=re.escape("Input tensors are not broadcast compatible."),
             has_stack_info_for=[a, b, c, cond],
         ):
             c.eval()

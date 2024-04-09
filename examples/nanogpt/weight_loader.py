@@ -44,8 +44,10 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     """
     from quantization import ammo_quantize
 
-    # Value of int8 torch.TensorQuantizer.maxbound
-    INT8_MAXBOUND = 127
+    def convert_to_scale(amax):
+        # Value of int8 torch.TensorQuantizer.maxbound
+        INT8_MAXBOUND = 127
+        return amax.float() / INT8_MAXBOUND
 
     print(f"Loading weights from pretrained model: '{model_type}'")
 
@@ -67,8 +69,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
         weight = hf_state_dict[key]
         if key.endswith("weight_quantizer._amax"):
             # compute scale
-            weight = hf_state_dict[key].float() / INT8_MAXBOUND
-            weight = weight.squeeze()
+            weight = convert_to_scale(weight).squeeze()
             # convert to tripy's key for scales
             key, _ = key.split("weight_quantizer._amax")
             key += "weight_scale"

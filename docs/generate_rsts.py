@@ -4,6 +4,7 @@ import inspect
 import os
 import re
 import shutil
+import subprocess
 from collections import defaultdict
 from dataclasses import dataclass
 from textwrap import dedent, indent
@@ -144,6 +145,9 @@ def process_guide(guide_path: str, processed_guide_path: str):
     # code might rely on things that were already defined in previous code blocks.
     code_locals = {}
     for block in blocks:
+        if block.lang.startswith("sh"):
+            subprocess.call(str(block), shell=True)
+
         if not block.lang.startswith("py"):
             new_blocks.append(block.raw_str())
             continue

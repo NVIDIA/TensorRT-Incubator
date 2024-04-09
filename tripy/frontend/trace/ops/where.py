@@ -35,8 +35,12 @@ class Where(BaseTraceOp):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
 
         # Output shape is broadcast of all 3 input tensor shapes.
-        out_rank = max(len(self.inputs[0].shape), len(self.inputs[1].shape), len(self.inputs[2].shape))
-        self.outputs[0].shape = utils.to_dims([-1] * out_rank)
+        operand_shape = self.get_operand_shape_after_broadcast(*[inp.shape for inp in self.inputs])
+        self.outputs[0].shape = operand_shape
+
+        # TODO: https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/152 will remove get_operand_shape_after_broadcast and line 38-39 and replace with line 42-43.
+        # out_rank = max(len(self.inputs[0].shape), len(self.inputs[1].shape), len(self.inputs[2].shape))
+        # self.outputs[0].shape = utils.to_dims([-1] * out_rank)
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"

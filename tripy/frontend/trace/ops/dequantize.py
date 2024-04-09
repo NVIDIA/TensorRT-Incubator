@@ -44,9 +44,9 @@ def dequantize(
     both with size of ``input.shape[dim]``.
 
     Args:
-        input: The input tensor
+        input: The input tensor with a valid quantized data type.
         scale: The scale tensor
-        dtype: Desired data type of the output tensor
+        dtype: The data type after dequantization. Must be :class:`tripy.float32` or :class:`tripy.float16`.
         dim: The dimension for per-channel dequantization
 
     Returns:
@@ -73,6 +73,8 @@ def dequantize(
 
         expected = (np.array([[1, 2, 3], [4, 5, 6]]) * np.array(scale).reshape(2, 1)).astype(np.float32) # doc: omit
         assert np.array_equal(output.numpy(), expected)
+
+    .. seealso:: :func:`quantize`
     """
     from tripy.frontend import Tensor
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze

@@ -33,7 +33,8 @@ def quantize(
     dim: Union[int, Any] = None,
 ) -> "tripy.Tensor":
     """
-    Quantizes the input Tensor.
+    Quantizes the input Tensor. The valid quantized data types are
+    :class:`tripy.int8`, :class:`tripy.int4`, :class:`tripy.float8e4m3fn`.
 
     If ``dim`` is not given, this function will perform "per-tensor"
     quantization. The ``scale`` must be a scalar tensor or a single
@@ -44,9 +45,9 @@ def quantize(
     both with size of ``input.shape[dim]``.
 
     Args:
-        input: The input tensor
+        input: The input tensor with data type of :class:`float32` or :class:`float16`.
         scale: The scale tensor
-        dtype: Desired data type of the output tensor
+        dtype: The quantization data type. Must be a valid quantized data type (see above).
         dim: The dimension for per-channel quantization
 
     Returns:
@@ -73,6 +74,8 @@ def quantize(
 
         expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / np.array(scale).reshape(2, 1)).astype(np.int8) # doc: omit
         assert np.array_equal(output.numpy(), expected)
+
+    .. seealso:: :func:`dequantize`
     """
     from tripy.frontend import Tensor
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze

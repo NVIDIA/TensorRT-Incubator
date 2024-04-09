@@ -33,6 +33,7 @@ class Reshape(BaseTraceOp):
             (dim[0].is_dynamic_dim() or dim[1].is_dynamic_dim())
             for dim in zip(inputs[0].shape, utils.to_dims(self.shape))
         ):
+            # TODO(#160): Add dynamic reshape op
             raise NotImplementedError("Dynamic reshape is not supported.")
 
         ReshapeOp.build(inputs, outputs)
