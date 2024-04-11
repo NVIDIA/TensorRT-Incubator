@@ -255,10 +255,10 @@ def main():
 
     processed_markdown_dirname = "processed_mds"
     processed_markdown_dir = make_output_path(processed_markdown_dirname)
-    for dir_path in guide_dirs:
+    for dir_path in sorted(guide_dirs):
         title = to_title(dir_path)
         guides = []
-        for guide in glob.iglob(os.path.join("docs", dir_path, "*.md")):
+        for guide in sorted(glob.iglob(os.path.join("docs", dir_path, "*.md"))):
             # Copy guide to build directory
             guide_filename = os.path.basename(guide)
             processed_guide = os.path.join(processed_markdown_dir, dir_path, guide_filename)

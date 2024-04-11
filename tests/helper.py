@@ -484,13 +484,17 @@ def update_code_block_with_outputs_and_locals(
     # Add local variables as a separate code block
     locals_str = ""
     if should_append_locals:
-        for name, obj in new_locals.items():
+        for name, obj in code_locals.items():
 
             def should_print():
+                # print_vars always takes precedence over anything else
                 if name in print_vars:
                     return True
+                elif print_vars:
+                    return False
 
-                if print_vars and name not in print_vars:
+                # By default, only print new variables (print_vars may override this)
+                if name not in new_locals:
                     return False
 
                 # Skip over any non-tripy types.
