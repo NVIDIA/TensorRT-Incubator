@@ -9,6 +9,7 @@ from mlir_tensorrt.compiler import ir
 
 from tripy import utils
 from tripy.common import ShapeInfo
+from tripy.logging import logger
 
 
 def make_ir_context() -> ir.Context:
@@ -27,7 +28,7 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
     return {
         "float32": ir.F32Type.get(),
         "float16": ir.F16Type.get(),
-        "float8e4m3fn": ir.Float8E4M3FNType.get(),
+        "float8": ir.Float8E4M3FNType.get(),
         "bfloat16": ir.BF16Type.get(),
         "int4": ir.IntegerType.get_signless(4),
         "int8": ir.IntegerType.get_signless(8),
@@ -52,7 +53,7 @@ def get_mlir_quant_dtype(
     Args:
         origin_dtype: original data type to be quantized
         quant_dtype: target data type to quantize
-        dtype: One of int4, int8, float8e4m3fn
+        dtype: One of int4, int8, float8
         scale: scale value of quantized tensor
         zero_point: zero point of quantized tensor
         storage_type_min: min value of quantized dtype
@@ -80,6 +81,7 @@ def make_mlir_tensor(shape: ShapeInfo, dtype: "tripy.common.dtype") -> ir.Ranked
     )
 
 
+UNKNOWN_LOC = "unknown"
 OUTPUT_SEPARATOR = ";;<out>;;"
 TRACE_INPUTS_SEPARATOR = ";;<trace_in>;;"
 TRACE_OUTPUTS_SEPARATOR = ";;<trace_out>;;"
@@ -130,8 +132,22 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
     if not locs:
         return [], [], [], [], []
 
-    # TODO (#150): Update this logic to not only look at the first location attribute.
-    loc = locs[0]
+    # TODO (#150): Update this logic to not only look at the first valid location attribute.
+    loc = None
+    contain_unknown_loc = False
+    for l in locs:
+        if not l or l == UNKNOWN_LOC:
+            contain_unknown_loc = True
+            continue
+        else:
+            loc = l
+            break
+    if contain_unknown_loc:
+        logger.warning("Error location may be inaccurate as there are unknown locations from backend.")
+
+    if not loc:
+        return [], [], [], [], []
+
     input_names, _, loc = loc.partition(OUTPUT_SEPARATOR)
     output_names, _, loc = loc.partition(TRACE_INPUTS_SEPARATOR)
     trace_inputs, _, trace_outputs = loc.partition(TRACE_OUTPUTS_SEPARATOR)

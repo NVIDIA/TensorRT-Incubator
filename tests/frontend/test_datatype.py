@@ -19,7 +19,7 @@ class TestDataType:
         EXPECTED_ITEMSIZES = {
             "float32": 4,
             "float16": 2,
-            "float8e4m3fn": 1,
+            "float8": 1,
             "bfloat16": 2,
             "int4": 0.5,
             "int8": 1,

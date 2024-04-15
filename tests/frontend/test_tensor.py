@@ -33,7 +33,7 @@ class TestTensor:
     def test_dtype(self, dtype):
         # (32): Allow setting all tripy supported types here.
         # Given a int/float data list, store data with requested data type.
-        if dtype in {tp.int4, tp.bfloat16, tp.float8e4m3fn}:
+        if dtype in {tp.int4, tp.bfloat16, tp.float8}:
             pytest.skip("Type is not supported by numpy/cupy")
 
         # (38): Add cast operation to support unsupported backend types. Allow requested type to be different than init data type for list data type.

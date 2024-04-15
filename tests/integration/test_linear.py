@@ -40,7 +40,7 @@ class TestLinear:
 
 class TestQuantLinear:
 
-    def _create_network(self, use_input_scale, weight_quant_dim):
+    def _create_network(self, use_input_scale, quant_dtype, weight_quant_dim):
         out_feat = 2
         in_feat = 4
 
@@ -59,7 +59,7 @@ class TestQuantLinear:
                 self.linear = tp.Linear(
                     in_feat,
                     out_feat,
-                    quant_dtype=tp.int8,
+                    quant_dtype=quant_dtype,
                     weight_quant_dim=weight_quant_dim,
                 )
 
@@ -74,9 +74,10 @@ class TestQuantLinear:
 
     @pytest.mark.parametrize("use_jit", [False, True])
     @pytest.mark.parametrize("use_input_scale", [False, True])
+    @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8])
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
-    def test_quant_linear(self, use_jit, use_input_scale, weight_quant_dim):
-        net = self._create_network(use_input_scale, weight_quant_dim)
+    def test_quant_linear(self, use_jit, use_input_scale, quant_dtype, weight_quant_dim):
+        net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
         if use_jit:
             net = tp.jit(net)
 

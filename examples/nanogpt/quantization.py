@@ -21,6 +21,8 @@ def ammo_quantize(model_hf, quant_mode):
         quant_cfg["quant_cfg"]["*input_quantizer"] = {
             "enable": False,
         }
+    elif quant_mode == "fp8":
+        quant_cfg = atq.FP8_DEFAULT_CFG
     else:
         raise NotImplementedError(f"Unsupported quantization mode: {quant_mode}")
 
@@ -29,6 +31,7 @@ def ammo_quantize(model_hf, quant_mode):
         dataset_name="cnn_dailymail",
         tokenizer=tokenizer,
         device=model_hf.device,
+        num_samples=100,
     )
 
     atq.quantize(model_hf, quant_cfg, forward_loop=forward_loop)

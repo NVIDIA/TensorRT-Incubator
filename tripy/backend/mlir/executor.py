@@ -28,6 +28,7 @@ NUMPY_TO_MLIR_TRT = {
     datatype.float16: runtime.ScalarTypeCode.f16,
     datatype.float32: runtime.ScalarTypeCode.f32,
     datatype.bool: runtime.ScalarTypeCode.i1,
+    datatype.float8: runtime.ScalarTypeCode.f8e4m3fn,
 }
 
 MLIR_TRT_TO_NUMPY = {v: k for k, v in NUMPY_TO_MLIR_TRT.items()}

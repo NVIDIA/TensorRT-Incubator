@@ -51,7 +51,7 @@ def _make_datatype(name, itemsize, docstring):
 
 float32 = _make_datatype("float32", 4, "32-bit floating point")
 float16 = _make_datatype("float16", 2, "16-bit floating point")
-float8e4m3fn = _make_datatype("float8e4m3fn", 1, "8-bit floating point")
+float8 = _make_datatype("float8", 1, "8-bit floating point")
 bfloat16 = _make_datatype("bfloat16", 2, "16-bit brain-float")
 int4 = _make_datatype("int4", 0.5, "4-bit signed integer")
 int8 = _make_datatype("int8", 1, "8-bit signed integer")

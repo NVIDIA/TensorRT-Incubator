@@ -77,14 +77,16 @@ def dequantize(
     .. seealso:: :func:`quantize`
     """
     from tripy.frontend import Tensor
-    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.logging import logger
 
     # check if input has a dequantizable dtype
-    if input.dtype not in (datatype.int8, datatype.int4, datatype.float8e4m3fn):
+    VALID_DEQUANT_DTYPES = [datatype.int8, datatype.int4, datatype.float8]
+    if input.dtype not in VALID_DEQUANT_DTYPES:
         raise_error(
             "Input does not have a valid dtype to dequantize",
             [
-                f"input.dtype must be one of `tp.int8, tp.int4, tp.float8e4m3fn`, ",
+                f"input.dtype must be one of {VALID_DEQUANT_DTYPES}.",
                 f"Got dtype={input.dtype}",
             ],
         )
@@ -100,9 +102,11 @@ def dequantize(
 
     # TODO(#111): remove this after switching to stablehlo
     if not isinstance(scale, Tensor):
-        scale = Tensor(scale if dim is not None else [scale], dtype=dtype)
-    elif dim is None:
-        # MLIR-TRT needs 1D Tensor in per-tensor mode
-        scale = unsqueeze(scale, 0)
+        scale = Tensor(scale)
+    # MLIR-TRT currently restricts scale to have fp32 dtype
+    # this could be updated in the future
+    if scale.dtype != datatype.float32:
+        logger.warning("Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
+        scale = cast(scale, datatype.float32)
 
     return Tensor.build([input, scale], Dequantize, dtype, dim)

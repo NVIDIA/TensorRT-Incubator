@@ -19,7 +19,7 @@ class TestUtils:
                 == {
                     "float32": ir.F32Type.get(),
                     "float16": ir.F16Type.get(),
-                    "float8e4m3fn": ir.Float8E4M3FNType.get(),
+                    "float8": ir.Float8E4M3FNType.get(),
                     "bfloat16": ir.BF16Type.get(),
                     "int4": ir.IntegerType.get_signless(4),
                     "int8": ir.IntegerType.get_signless(8),

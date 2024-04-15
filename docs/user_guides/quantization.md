@@ -105,7 +105,7 @@ forward_loop = create_forward_loop(
 atq.quantize(model, quant_cfg, forward_loop=forward_loop)
 ```
 
-To preserve accuracy, the last linear layer `lm_head` is not quantized. `ammo` replaces all other linear layers with `QuantLinear` layers, which contain the calibrated parameters.
+`ammo` replaces all linear layers specified in `quant_cfg` with `QuantLinear` layers, which contain the calibrated parameters.
 
 ### Load Scales Into The Tripy Model
 
@@ -118,9 +118,8 @@ print(model.transformer.h[0].attn.c_attn)
 The `amax` attribute gives us the dynamic range of the tensor. Tripy requires scaling factors, so we can convert it like so:
 
 ```py
-def convert_to_scale(amax):
-    INT8_MAXBOUND = 127
-    return amax.float() / INT8_MAXBOUND
+def convert_to_scale(amax, maxbound):
+    return amax.float() / maxbound
 ```
 
 Let's convert the `amax` to the scaling factor and load it to a compatible {class}`tripy.Linear` module:
@@ -133,7 +132,8 @@ weight_only_qlinear = tp.Linear(
     quant_dtype=tp.int8,
     weight_quant_dim=0,
 )
-scale = convert_to_scale(model.transformer.h[0].attn.c_attn.weight_quantizer.export_amax())
+quantizer = model.transformer.h[0].attn.c_attn.weight_quantizer
+scale = convert_to_scale(quantizer.export_amax(), quantizer.maxbound)
 scale = scale.squeeze().contiguous()
 weight_only_qlinear.weight_scale = tp.Parameter(scale)
 ```

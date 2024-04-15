@@ -54,7 +54,7 @@ def main():
         "--quant-mode",
         type=str,
         help="Quantization mode.",
-        choices=["int8-weight-only"],
+        choices=["int8-weight-only", "fp8"],
     )
 
     args = parser.parse_args()

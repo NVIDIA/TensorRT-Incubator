@@ -34,7 +34,7 @@ def quantize(
 ) -> "tripy.Tensor":
     """
     Quantizes the input Tensor. The valid quantized data types are
-    :class:`tripy.int8`, :class:`tripy.int4`, :class:`tripy.float8e4m3fn`.
+    :class:`tripy.int8`, :class:`tripy.int4`, :class:`tripy.float8`.
 
     If ``dim`` is not given, this function will perform "per-tensor"
     quantization. The ``scale`` must be a scalar tensor or a single
@@ -78,7 +78,8 @@ def quantize(
     .. seealso:: :func:`dequantize`
     """
     from tripy.frontend import Tensor
-    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.logging import logger
 
     if input.dtype not in (datatype.float32, datatype.float16):
         raise_error(
@@ -89,15 +90,24 @@ def quantize(
             ],
         )
 
-    # TODO: support other quantization dtypes (int4, fp8 etc)
-    if dtype != datatype.int8:
-        raise_error("Unsupported quantization dtype.", [f"Supported dtypes: `tp.int8`, Got dtype={dtype}"])
+    # TODO(#164): support int4 quantization dtype
+    SUPPORTED_QUANT_DTYPES = [datatype.int8, datatype.float8]
+    if dtype not in (datatype.int8, datatype.float8):
+        raise_error(
+            "Unsupported quantization dtype.",
+            [
+                f"Supported dtypes are: {SUPPORTED_QUANT_DTYPES}.",
+                f"Got dtype={dtype}",
+            ],
+        )
 
     # TODO(#111): remove this after switching to stablehlo
     if not isinstance(scale, Tensor):
-        scale = Tensor(scale if dim is not None else [scale], dtype=input.dtype)
-    elif dim is None:
-        # MLIR-TRT needs 1D Tensor in per-tensor mode
-        scale = unsqueeze(scale, 0)
+        scale = Tensor(scale)
+    # MLIR-TRT currently restricts scale to have fp32 dtype
+    # this could be updated in the future
+    if scale.dtype != datatype.float32:
+        logger.warning("Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
+        scale = cast(scale, datatype.float32)
 
     return Tensor.build([input, scale], Quantize, dtype, dim)

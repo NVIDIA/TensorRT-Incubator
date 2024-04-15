@@ -1,14 +1,17 @@
-import re
+import pytest
+
 import tripy as tp
 from tripy.frontend.trace import Trace
 from tripy.flat_ir.ops import DequantizeOp
 
 
 class TestDequantizeOp:
-    def test_str(self):
+
+    @pytest.mark.parametrize("dtype", [tp.float16, tp.float32])
+    def test_str(self, dtype):
         a = tp.Tensor([2, 4], dtype=tp.int8, name="a")
         scale = tp.Tensor(0.9, name="scale")
-        out = tp.dequantize(a, scale, tp.float32)
+        out = tp.dequantize(a, scale, dtype)
         out.name = "out"
 
         trace = Trace([out])
@@ -16,15 +19,13 @@ class TestDequantizeOp:
 
         dequant_op = flat_ir.ops[-1]
         assert isinstance(dequant_op, DequantizeOp)
-        assert re.match(
-            r"out: \[shape=\(2,\), dtype=\(float32\), loc=\(gpu:0\)\] = DequantizeOp\(a, t[0-9]+, axis=None\)",
-            str(dequant_op),
-        )
+        assert str(dequant_op) == f"out: [shape=(2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=None)"
 
-    def test_per_channel_str(self):
+    @pytest.mark.parametrize("dtype", [tp.float16, tp.float32])
+    def test_per_channel_str(self, dtype):
         a = tp.Tensor([[2, 4], [3, 5]], dtype=tp.int8, name="a")
         scale = tp.Tensor([0.9, 0.9], name="scale")
-        out = tp.dequantize(a, scale, tp.float32, dim=0)
+        out = tp.dequantize(a, scale, dtype, dim=0)
         out.name = "out"
 
         trace = Trace([out])
@@ -32,4 +33,4 @@ class TestDequantizeOp:
 
         dequant_op = flat_ir.ops[-1]
         assert isinstance(dequant_op, DequantizeOp)
-        assert str(dequant_op) == "out: [shape=(2, 2,), dtype=(float32), loc=(gpu:0)] = DequantizeOp(a, scale, axis=0)"
+        assert str(dequant_op) == f"out: [shape=(2, 2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=0)"

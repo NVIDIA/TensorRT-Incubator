@@ -18,17 +18,18 @@ class TestLinear:
         with helper.raises(tp.TripyException, match="Incompatible input shapes.", has_stack_info_for=[a]):
             out.eval()
 
+    @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8])
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
-    def test_quantized_params(self, weight_quant_dim):
+    def test_quantized_params(self, quant_dtype, weight_quant_dim):
         qlinear = tp.Linear(
             20,
             30,
-            quant_dtype=tp.int8,
+            quant_dtype=quant_dtype,
             weight_quant_dim=weight_quant_dim,
         )
         assert isinstance(qlinear, tp.Linear)
         assert qlinear.dtype == tp.float32
-        assert qlinear.quant_dtype == tp.int8
+        assert qlinear.quant_dtype == quant_dtype
         assert qlinear.weight.numpy().shape == (30, 20)
         assert qlinear.weight_scale is None
         assert qlinear.input_scale is None

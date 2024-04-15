@@ -40,14 +40,22 @@ def load_weights_from_hf(model, model_type, dtype):
 def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     """
     Loads quantization weights and computes weight scales.
-    Only works for int8 weight-only quantization mode for now.
     """
     from quantization import ammo_quantize
 
-    def convert_to_scale(amax):
-        # Value of int8 torch.TensorQuantizer.maxbound
-        INT8_MAXBOUND = 127
-        return amax.float() / INT8_MAXBOUND
+    def convert_to_scale(amax, maxbound):
+        return amax.float() / maxbound
+
+    def get_submodule(module, attr_name):
+        attrs = attr_name.split(".")
+        for attr in attrs:
+            if isinstance(module, torch.nn.ModuleList):
+                module = module[int(attr)]
+            elif isinstance(module, torch.nn.ModuleDict):
+                module = module[attr]
+            else:
+                module = getattr(module, attr)
+        return module
 
     print(f"Loading weights from pretrained model: '{model_type}'")
 
@@ -67,12 +75,13 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     # ammo has transposed the attn weights
     for key in hf_keys:
         weight = hf_state_dict[key]
-        if key.endswith("weight_quantizer._amax"):
+        if key.endswith("quantizer._amax"):
             # compute scale
-            weight = convert_to_scale(weight).squeeze()
+            quantizer = get_submodule(model_hf, key[: -len("._amax")])
+            weight = convert_to_scale(weight, quantizer.maxbound).squeeze()
             # convert to tripy's key for scales
-            key, _ = key.split("weight_quantizer._amax")
-            key += "weight_scale"
+            key, _ = key.split("quantizer._amax")
+            key += "scale"
 
         param = tp.Parameter(weight.contiguous())
         if "ln" not in key:

@@ -24,6 +24,9 @@ def linear_layer(config: GPTConfig, in_feat, out_feat, bias):
     if config.quant_mode == "int8-weight-only":
         quant_kwargs["quant_dtype"] = tp.int8
         quant_kwargs["weight_quant_dim"] = 0
+    elif config.quant_mode == "fp8":
+        quant_kwargs["quant_dtype"] = tp.float8
+        quant_kwargs["weight_quant_dim"] = None
 
     return tp.Linear(
         in_feat,
@@ -47,11 +50,11 @@ class CausalSelfAttention(tp.Module):
         self.bias = tp.tril(tp.ones((config.block_size, config.block_size), dtype=config.dtype))
 
     def __call__(self, x: tp.Tensor, attention_mask: Optional[tp.Tensor] = None):
-        attn = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
+        qkv = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
 
-        # q, k, v = attn.split(self.embedding_size, dim=2)
+        # q, k, v = qkv.split(self.embedding_size, dim=2)
         def extract(index):
-            weight = attn[:, :, index * self.embedding_size : (index + 1) * self.embedding_size]
+            weight = qkv[:, :, index * self.embedding_size : (index + 1) * self.embedding_size]
             return tp.transpose(
                 tp.reshape(
                     weight, (self.batch_size, self.seq_len, self.num_heads, self.embedding_size // self.num_heads)
@@ -60,6 +63,9 @@ class CausalSelfAttention(tp.Module):
                 2,
             )  # (batch_size, num_heads, seq_len, head_size)
 
+        # WAR for better accuracy and avoid TRT compilation error in fp16
+        if self.c_attn.quant_dtype == tp.float8:
+            qkv = tp.cast(qkv, tp.float32)
         q, k, v = extract(0), extract(1), extract(2)
         k_t = tp.transpose(k, -2, -1)
         att = (q @ k_t) * (1.0 / math.sqrt(self.embedding_size // self.num_heads))
@@ -74,8 +80,10 @@ class CausalSelfAttention(tp.Module):
             att = tp.masked_fill(att, attention_mask == 0.0, float("-inf"))
 
         att = tp.softmax(att, dim=-1)
+
         # (batch_size, num_heads, seq_len, seq_len) @ (batch_size, num_heads, seq_len, head_size) -> (batch_size, num_heads, seq_len, head_size)
         out = att @ v
+        out = tp.cast(out, x.dtype)
         out = tp.reshape(tp.transpose(out, 1, 2), (self.batch_size, self.seq_len, self.embedding_size))
         out = self.c_proj(out)  # (batch_size, seq_len, embedding_size)
         return out
@@ -139,8 +147,11 @@ class GPT(tp.Module):
         ), f"Cannot forward sequence of length {config.seq_len}, block size is only {config.block_size}"
 
         self.transformer = Transformer(config)
-        # lm_head is disabled for quantization by ammo
-        self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False, dtype=config.dtype)
+        if config.quant_mode == "fp8":
+            self.lm_head = linear_layer(config, config.embedding_size, config.vocab_size, bias=False)
+        else:
+            # lm_head is disabled for int8 quantization
+            self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False, dtype=config.dtype)
 
     # Decorating a function with tp.jit indicates to Tripy that it should compile an optimized
     # version of the implementation the first time the function is called. Subsequent calls will
