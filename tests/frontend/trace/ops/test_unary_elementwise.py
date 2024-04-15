@@ -19,5 +19,5 @@ class TestUnaryElementwise:
 
         out = func(a)
         assert isinstance(out, tp.Tensor)
-        assert isinstance(out.op, UnaryElementwise)
-        assert out.op.kind == kind
+        assert isinstance(out.trace_tensor.producer, UnaryElementwise)
+        assert out.trace_tensor.producer.kind == kind

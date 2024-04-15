@@ -9,7 +9,7 @@ class TestRandom:
     def test_uniform(self):
         a = tp.rand((2, 3))
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, RandomUniform)
+        assert isinstance(a.trace_tensor.producer, RandomUniform)
 
     def test_uniform_non_float_dtype(self):
         with helper.raises(
@@ -21,7 +21,7 @@ class TestRandom:
     def test_normal(self):
         a = tp.randn((2, 3))
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, RandomNormal)
+        assert isinstance(a.trace_tensor.producer, RandomNormal)
 
     def test_normal_non_float_dtype(self):
         with helper.raises(

@@ -41,12 +41,12 @@ def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
         output = tp.copy(input, tp.device("cpu"))
 
         assert np.array_equal(output.numpy(), np.array([1, 2], dtype=np.float32))
-        assert output.op.device.kind == "cpu"
+        assert output.trace_tensor.producer.device.kind == "cpu"
     """
     from tripy.frontend import Tensor
     from tripy.frontend.trace.ops import Storage
 
-    if isinstance(input.op, Storage) and input.op.device == device:
+    if isinstance(input.trace_tensor.producer, Storage) and input.trace_tensor.producer.device == device:
         return input
 
     return Tensor.build([input], Copy, device)

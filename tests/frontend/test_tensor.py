@@ -18,16 +18,16 @@ class TestTensor:
         a = tp.Tensor(VALUES)
 
         assert isinstance(a, tp.Tensor)
-        assert a.op.inputs == []
-        assert isinstance(a.op, tp.frontend.trace.ops.Storage)
+        assert a.trace_tensor.producer.inputs == []
+        assert isinstance(a.trace_tensor.producer, tp.frontend.trace.ops.Storage)
         assert a.numpy().tolist() == VALUES
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
 
-        assert isinstance(a.op, tp.frontend.trace.ops.Storage)
-        assert a.op.device.kind == kind
+        assert isinstance(a.trace_tensor.producer, tp.frontend.trace.ops.Storage)
+        assert a.trace_tensor.producer.device.kind == kind
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_dtype(self, dtype):
@@ -38,9 +38,9 @@ class TestTensor:
 
         # (38): Add cast operation to support unsupported backend types. Allow requested type to be different than init data type for list data type.
         tensor = tp.Tensor(np.array([1, 2, 3], dtype=convert_tripy_to_module_dtype(dtype, np)))
-        assert tensor.op.dtype == dtype
-        assert tensor.op.data.dtype.name == dtype.name
-        assert tensor.op.data.dtype.itemsize == dtype.itemsize
+        assert tensor.trace_tensor.producer.dtype == dtype
+        assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
+        assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     def test_stack_info_is_populated(self):
@@ -87,14 +87,14 @@ class TestTensor:
         b = tp.Tensor(np.array([2], dtype=np.float32))
 
         c = a + b
-        assert isinstance(c.op, tp.frontend.trace.ops.BinaryElementwise)
+        assert isinstance(c.trace_tensor.producer, tp.frontend.trace.ops.BinaryElementwise)
 
         c.eval()
 
-        assert isinstance(c.op, tp.frontend.trace.ops.Storage)
+        assert isinstance(c.trace_tensor.producer, tp.frontend.trace.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
-        assert c.op.inputs == []
-        assert (c.op.data.view().get() == np.array([3], dtype=np.float32)).all()
+        assert c.trace_tensor.producer.inputs == []
+        assert (c.trace_tensor.producer.data.view().get() == np.array([3], dtype=np.float32)).all()
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_torch(self, kind):

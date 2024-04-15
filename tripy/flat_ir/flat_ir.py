@@ -29,73 +29,96 @@ class FlatIR:
         return "\n".join(layer_strs)
 
     def to_mlir(self):
-        from mlir_tensorrt.compiler import ir
-        from mlir_tensorrt.compiler.dialects import func as func_dialect
+        def to_mlir_impl():
+            from mlir_tensorrt.compiler import ir
+            from mlir_tensorrt.compiler.dialects import func as func_dialect
 
-        from tripy.backend.mlir.utils import make_ir_context, make_tensor_location
+            from tripy.backend.mlir.utils import make_ir_context, make_tensor_location
 
-        with make_ir_context(), ir.Location.unknown():
-            module = ir.Module.create()
-            with ir.InsertionPoint(module.body) as ip:
-                # Lets assume only one function with inline code (#9 will fix it)
-                inp_types = [inp.to_mlir() for inp in self.inputs]
-                out_types = [o.to_mlir() for o in self.outputs]
-                ftype = ir.FunctionType.get(inp_types, out_types)
-                # Todo: Function name should be a property of Trace and used here.
-                func_op = func_dialect.FuncOp("main", ftype, ip=ip)
-                entry_block = func_op.add_entry_block()
-                with ir.InsertionPoint(entry_block):
-                    ops = []
-                    hlo_ops: Dict[str, ir.Operation] = {}
-                    # Initialize tensor dict with inputs
-                    for index, inp in enumerate(self.inputs):
-                        hlo_ops[inp.name] = entry_block.arguments[index]
+            with make_ir_context(), ir.Location.unknown():
+                module = ir.Module.create()
+                with ir.InsertionPoint(module.body) as ip:
+                    # Lets assume only one function with inline code (#9 will fix it)
+                    inp_types = [inp.to_mlir() for inp in self.inputs]
+                    out_types = [o.to_mlir() for o in self.outputs]
+                    ftype = ir.FunctionType.get(inp_types, out_types)
+                    # Todo: Function name should be a property of Trace and used here.
+                    func_op = func_dialect.FuncOp("main", ftype, ip=ip)
+                    entry_block = func_op.add_entry_block()
+                    with ir.InsertionPoint(entry_block):
+                        ops = []
+                        hlo_ops: Dict[str, ir.Operation] = {}
+                        # Initialize tensor dict with inputs
+                        for index, inp in enumerate(self.inputs):
+                            hlo_ops[inp.name] = entry_block.arguments[index]
 
-                    for op in self.ops:
-                        input_ops = [hlo_ops[inp.name] for inp in op.inputs]
+                        for op in self.ops:
+                            input_ops = [hlo_ops[inp.name] for inp in op.inputs]
 
-                        with make_tensor_location(
-                            [inp.name for inp in op.inputs],
-                            [out.name for out in op.outputs],
-                            op.trace_input_names,
-                            op.trace_output_names,
-                        ):
-                            layer_ops = op.to_mlir(input_ops)
+                            with make_tensor_location(
+                                [inp.name for inp in op.inputs],
+                                [out.name for out in op.outputs],
+                                op.trace_input_names,
+                                op.trace_output_names,
+                            ):
+                                layer_ops = op.to_mlir(input_ops)
 
-                        ops.extend(layer_ops)
-                        hlo_ops.update(zip([out.name for out in op.outputs], layer_ops))
+                            ops.extend(layer_ops)
+                            hlo_ops.update(zip([out.name for out in op.outputs], layer_ops))
 
-                    func_dialect.ReturnOp([hlo_ops[o.name] for o in self.outputs])
+                        func_dialect.ReturnOp([hlo_ops[o.name] for o in self.outputs])
 
-                # Create tensorrt.shape_profile attribute for all function arguments
-                arg_attrs: List[Dict[str, ir.Attribute]] = []
+                    # Create tensorrt.shape_profile attribute for all function arguments
+                    arg_attrs: List[Dict[str, ir.Attribute]] = []
 
-                for inp in self.inputs:
-                    min_profile_list = inp.get_optimization_profile_list("min")
-                    max_profile_list = inp.get_optimization_profile_list("max")
-                    opt_profile_list = inp.get_optimization_profile_list("opt")
+                    # Returns a list filled with requested optimization profile information.
+                    def get_optimization_profile_list(tensor, attr):
+                        return [
+                            getattr(s, attr) if s.is_dynamic_dim() else s.min for s in utils.make_list(tensor.shape)
+                        ]
 
-                    arg_attrs.append(
-                        {
-                            "tensorrt.shape_profile": ir.Attribute.parse(
-                                f"#tensorrt.shape_profile<min={min_profile_list}, opt={opt_profile_list}, max={max_profile_list}>"
-                            )
-                        }
-                    )
+                    for inp in self.inputs:
+                        min_profile_list = get_optimization_profile_list(inp, "min")
+                        max_profile_list = get_optimization_profile_list(inp, "max")
+                        opt_profile_list = get_optimization_profile_list(inp, "opt")
 
-                func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
+                        arg_attrs.append(
+                            {
+                                "tensorrt.shape_profile": ir.Attribute.parse(
+                                    f"#tensorrt.shape_profile<min={min_profile_list}, opt={opt_profile_list}, max={max_profile_list}>"
+                                )
+                            }
+                        )
 
-                # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
-                # (#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.
-                res_attrs = []
-                for output in self.outputs:
-                    if output.device.kind == "cpu":
-                        res_attrs.append(ir.Attribute.parse("{tensorrt.host_tensor}"))
-                    else:
-                        res_attrs.append(ir.DictAttr.get({}))
-                func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
+                    func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
 
-            return module
+                    # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
+                    # (#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.
+                    res_attrs = []
+                    for output in self.outputs:
+                        if output.device.kind == "cpu":
+                            res_attrs.append(ir.Attribute.parse("{tensorrt.host_tensor}"))
+                        else:
+                            res_attrs.append(ir.DictAttr.get({}))
+                    func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
+
+                return module
+
+        from tripy.backend.mlir.utils import redirect_stderr
+
+        try:
+            with redirect_stderr() as outfile:
+                mlir = to_mlir_impl()
+        except Exception as exc:
+            from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
+
+            outfile.flush()
+            outfile.seek(0)
+            stderr = outfile.read()
+
+            map_error_to_user_code_and_raise(self, exc, stderr.decode())
+
+        return mlir
 
     def register_tensor(self, tensor: "FlatIRTensor") -> "FlatIRTensor":
         """

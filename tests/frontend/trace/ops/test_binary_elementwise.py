@@ -53,14 +53,14 @@ class TestBinaryElementwise:
     def test_op_funcs(self, kind, func, lhs, rhs, left_side_is_non_tensor):
         out = func(lhs, rhs)
         assert isinstance(out, tp.Tensor)
-        assert isinstance(out.op, BinaryElementwise)
+        assert isinstance(out.trace_tensor.producer, BinaryElementwise)
         if kind in [k for k, _ in _COMPARISON_OPS]:
-            assert isinstance(out.op, Comparison)
+            assert isinstance(out.trace_tensor.producer, Comparison)
 
         if left_side_is_non_tensor and kind in _FLIP_OPS:
             kind = _FLIP_OPS[kind]
 
-        assert out.op.kind == kind
+        assert out.trace_tensor.producer.kind == kind
 
     def test_mismatched_dtypes_fails(self):
         a = tp.ones((2, 3), dtype=tp.float32)

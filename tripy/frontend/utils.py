@@ -2,10 +2,11 @@ import functools
 from typing import List, Tuple
 from tripy import utils
 from tripy.logging import logger
+from collections import OrderedDict
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
-def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = []):
+def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: List[str] = None):
     """
     Decorator that converts all arguments to Tensors before passing them along
     to the decorated function.
@@ -16,12 +17,13 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = []):
             arguments `a` and `b` and arguments `c` and `d` should have the same types. Type casting is only
             enabled for Python numbers, and at least one of the arguments in each tuple must be a Tensor.
 
+        exclude: A list of names of arguments to skip over. These arguments will not be modified.
+
     """
 
-    # NOTE: At some point we will need to make it so we can exclude arguments to convert.
-    # To do so, we should add a new parameter: `exclude: List[str]` which contains the names
-    # of arguments. Then, we can use `inspect.signature` to see which args or kwargs this corresponds
-    # to.
+    sync_arg_types = utils.default(sync_arg_types, [])
+    exclude = utils.default(exclude, [])
+
     def impl(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -89,28 +91,29 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = []):
 
                 return arg
 
-            # convert args to kwargs
-            arg_dict = dict(zip(func.__code__.co_varnames, args))
-            kwargs.update(arg_dict)
+            # Merge args with kwargs, preserving order.
+            all_args = OrderedDict(zip(func.__code__.co_varnames, args))
+            all_args.update(kwargs)
 
             new_kwargs = {}
-            for index, (name, arg) in enumerate(kwargs.items()):
-                if isinstance(arg, Tensor):
+            for index, (name, arg) in enumerate(all_args.items()):
+                if name in exclude or isinstance(arg, Tensor):
                     new_kwargs[name] = arg
                     continue
+
                 cast_dtype = None
                 for sync_tuple in sync_arg_types:
                     if name not in sync_tuple:
                         continue
 
                     for tensor_name in sync_tuple:
-                        sync_tensor = kwargs[tensor_name]
+                        sync_tensor = all_args[tensor_name]
                         # If multiple Tensors exist in a tuple,
                         # leave the dtype check to frontend ops
-                        if isinstance(kwargs[tensor_name], Tensor):
+                        if isinstance(all_args[tensor_name], Tensor):
                             break
                     else:
-                        sync_args = {arg_name: kwargs[arg_name] for arg_name in sync_tuple}
+                        sync_args = {arg_name: all_args[arg_name] for arg_name in sync_tuple}
                         raise_error(
                             f"At least one of the arguments: {sync_tuple} must be a `tripy.Tensor`.",
                             [f"Got {sync_args}"],
@@ -118,18 +121,7 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = []):
                     cast_dtype = sync_tensor.dtype
                     break
 
-                is_kwarg = True
-                if name in arg_dict:
-                    # get original index if arg was provided in args
-                    # args.index(arg) uses "==" to check equality
-                    # which triggers infinite recursions of this function
-                    def get_index(val, args):
-                        for index, arg in enumerate(args):
-                            if arg is val:
-                                return index
-
-                    index = get_index(arg, args)
-                    is_kwarg = False
+                is_kwarg = name in kwargs
                 new_kwargs[name] = add_column_info_for_non_tensor(arg, index, is_kwarg=is_kwarg, dtype=cast_dtype)
 
             return func(**new_kwargs)

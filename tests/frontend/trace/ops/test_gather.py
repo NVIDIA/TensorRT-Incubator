@@ -11,7 +11,7 @@ class TestGather:
         index = tp.Tensor(np.zeros(1, dtype=np.int32))
         out = tp.gather(a, 0, index)
         assert isinstance(out, tp.Tensor)
-        assert isinstance(out.op, Gather)
+        assert isinstance(out.trace_tensor.producer, Gather)
 
     def test_incorrect_dtype(self):
         a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))

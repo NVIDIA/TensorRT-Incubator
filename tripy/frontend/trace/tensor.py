@@ -13,22 +13,11 @@ class TraceTensor:
     """
 
     name: str
-    """A unique name for the tensor"""
-
     stack_info: utils.StackInfo
-    """Information about the stack where the tensor was created"""
-
     shape: ShapeInfo
-    """Information about the shape of this tensor"""
-
-    producer: "BaseTraceOp"
-    """Producer of the tensor"""
-
     dtype: "tripy.common.dtype"
-    """Data type of the tensor"""
-
     device: "tripy.common.device"
-    """Device location of the tensor"""
+    producer: "BaseTraceOp"
 
     def __str__(self) -> str:
         def str_from_dim(dim: dynamic_dim):
@@ -48,14 +37,10 @@ class TraceTensor:
     def __eq__(self, other: "TraceTensor") -> bool:
         return self.name == other.name and self.stack_info == other.stack_info and self.shape == other.shape
 
-    # Returns a list filled with requested optimization profile information.
-    def get_optimization_profile_list(self, attr):
-        return [getattr(s, attr) if s.is_dynamic_dim() else s.min for s in utils.make_list(self.shape)]
-
     def to_flat_ir(self) -> "FlatIRTensor":
         from tripy.flat_ir.tensor import FlatIRTensor
 
-        tensor = FlatIRTensor(**{field.name: getattr(self, field.name) for field in dataclasses.fields(self)})
-        # Unset producer to prevent confusing bugs. Otherwise we can end up with FlatIR tensors that point to trace ops.
-        tensor.producer = None
+        tensor = FlatIRTensor(
+            name=self.name, stack_info=self.stack_info, shape=self.shape, dtype=self.dtype, device=self.device
+        )
         return tensor

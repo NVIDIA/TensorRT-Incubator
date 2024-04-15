@@ -11,7 +11,7 @@ class TestPermute:
         a = tp.Tensor(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
         a = tp.permute(a, (1, 0))
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Permute)
+        assert isinstance(a.trace_tensor.producer, Permute)
 
     @pytest.mark.parametrize("perm", [(0,), (0, 1, 2)])
     def test_mistmatched_permutation_fails(self, perm):
@@ -29,7 +29,7 @@ class TestTranspose:
         a = tp.Tensor(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
         a = tp.transpose(a, 0, 1)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Transpose)
+        assert isinstance(a.trace_tensor.producer, Transpose)
 
     def test_incorrect_number_of_arguments(self):
         a = tp.ones((2, 3))

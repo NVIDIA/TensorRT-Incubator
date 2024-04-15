@@ -11,7 +11,7 @@ class TestDequantize:
         a = tp.Tensor([2, 4], dtype=tp.int8)
         a = tp.dequantize(a, 0.9, tp.float32)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Dequantize)
+        assert isinstance(a.trace_tensor.producer, Dequantize)
 
     def test_invalid_input_dtype(self):
         a = tp.Tensor([1.0, 2.0])

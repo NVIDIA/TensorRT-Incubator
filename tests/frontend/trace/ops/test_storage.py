@@ -56,7 +56,7 @@ class TestStorage:
 
         arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
         data = Array(arr, shape=(3,), dtype=dtype, device=None)
-        storage = Storage([], [TraceTensor("t0", None, [3], None, dtype, None)], data)
+        storage = Storage([], [TraceTensor("t0", None, [3], dtype, None, None)], data)
         with mlir_utils.make_ir_context(), ir.Location.unknown():
             flat_ir = FlatIR()
             fir_outputs = [out.to_flat_ir() for out in storage.outputs]

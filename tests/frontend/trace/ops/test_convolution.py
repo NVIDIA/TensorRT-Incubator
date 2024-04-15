@@ -12,7 +12,7 @@ class TestConvolution:
         output = conv_layer(input)
 
         assert isinstance(output, tp.Tensor)
-        assert isinstance(output.op, Convolution)
+        assert isinstance(output.trace_tensor.producer, Convolution)
 
     def test_mismatched_dtypes_fails(self):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)

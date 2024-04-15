@@ -8,7 +8,7 @@ class TestExpand:
         a = tp.ones((2, 1))
         a = tp.expand(a, (2, 2))
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Expand)
+        assert isinstance(a.trace_tensor.producer, Expand)
 
     def test_invalid_small_size(self):
         a = tp.ones((2, 1, 1))

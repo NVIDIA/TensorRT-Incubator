@@ -5,12 +5,11 @@ from typing import Any, List, Optional, Union
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
 from tripy import export, utils
+from tripy.backend.mlir.utils import parse_tensor_names_from_location, redirect_stderr, remove_constants
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
-
-from tripy.backend.mlir.utils import parse_tensor_names_from_location, redirect_stderr, remove_constants
 
 
 class TensorMeta(type):
@@ -104,24 +103,14 @@ class Tensor(metaclass=TensorMeta):
         STACK_DEPTH_IN_TENSOR = 3
         self.stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_IN_TENSOR)
 
-        inp_trace_tensors = []
-        for inp in inputs:
-            assert len(inp.op.outputs) == 1, "Multiple outputs are not supported!"
-            out = inp.op.outputs[0]
-            inp_trace_tensors.append(out)
-
         name = utils.default(name, Tensor.get_unique_name())
-        out_trace_tensors = [TraceTensor(name, self.stack_info, [], None, None, None)]
 
-        self.op = OpType(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
+        self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None)
 
-        # Update producer:
-        self.op.outputs[0].producer = self.op
+        self.trace_tensor.producer = OpType([inp.trace_tensor for inp in inputs], [self.trace_tensor], *args, **kwargs)
 
         # Update dtype
-        self.op.infer_dtypes()
-        self.dtype = self.op.outputs[0].dtype
-        """Data type of this tensor"""
+        self.trace_tensor.producer.infer_dtypes()
 
     # This function expects to receive a BaseTraceOp type (not instance!) along
     # with any extra arguments that it might need. It will then construct an instance
@@ -141,34 +130,28 @@ class Tensor(metaclass=TensorMeta):
 
     @property
     def name(self):
-        return self.op.outputs[0].name
+        return self.trace_tensor.name
 
     @name.setter
     def name(self, new_name):
-        self.op.outputs[0].name = new_name
+        self.trace_tensor.name = new_name
+
+    @property
+    def dtype(self):
+        return self.trace_tensor.dtype
 
     def eval(self) -> Array:
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
-        from tripy.backend.utils import get_tensor_info, get_runtime_shapes, get_devices
+        from tripy.backend.utils import get_devices, get_runtime_shapes, get_tensor_info
         from tripy.frontend.trace import Trace
 
-        if isinstance(self.op, Storage):
-            return self.op.data
+        if isinstance(self.trace_tensor.producer, Storage):
+            return self.trace_tensor.producer.data
 
         trace = Trace([self])
         flat_ir = trace.to_flat_ir()
-        try:
-            with redirect_stderr() as outfile:
-                mlir = flat_ir.to_mlir()
-        except Exception as exc:
-            from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
-
-            outfile.flush()
-            outfile.seek(0)
-            stderr = outfile.read()
-
-            map_error_to_user_code_and_raise(flat_ir, exc, stderr.decode())
+        mlir = flat_ir.to_mlir()
 
         compiler = Compiler(trt_builder_opt_level=0)
         executable = compiler.compile(mlir, flat_ir=flat_ir)
@@ -200,7 +183,7 @@ class Tensor(metaclass=TensorMeta):
         return (
             f"tensor({sep}"
             f"{indent(str(np_arr), prefix=indentation)}, {sep}"
-            f"{indent(f'dtype={self.op.dtype}, loc={self.op.device}, shape={self.op.shape}', prefix=indentation)}"
+            f"{indent(f'dtype={self.trace_tensor.producer.dtype}, loc={self.trace_tensor.producer.device}, shape={self.trace_tensor.producer.shape}', prefix=indentation)}"
             f"{sep})"
         )
 

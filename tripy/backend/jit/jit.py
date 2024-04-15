@@ -130,14 +130,20 @@ class jit:
                 # Copy stack information from the original tensor so error messages are better.
                 tensor.stack_info = arg.stack_info
                 # Replace the tensor op with one that can supply dynamic shapes.
-                storage = tensor.op
+                storage = tensor.trace_tensor.producer
                 assert isinstance(storage, Storage), f"{tensor} should have had a storage op after `eval()`"
                 tensor._finalize(tensor.name + "_dyn", [], DynamicStorage, storage.data, dynamic_shape)
 
                 if index not in const_argnums:
                     trace_inputs.append(tensor)
                 inputs.append(tensor)
-                input_tensor_info.append(TensorInfo(tensor.op.shape, tensor.op.dtype, tensor.op.device))
+                input_tensor_info.append(
+                    TensorInfo(
+                        tensor.trace_tensor.producer.shape,
+                        tensor.trace_tensor.producer.dtype,
+                        tensor.trace_tensor.producer.device,
+                    )
+                )
 
             def warn_if_user_code_has_illegal_code(illegal_condition: Callable, illegal_warning_prefix: str):
                 # Map from method name to statement where node is found.
@@ -218,7 +224,7 @@ class jit:
             #   shapes. This is only required because our executor currently needs the output memory up front.
             dim_list = []
             for inp in inputs:
-                dim_list.extend([dim.runtime_value for dim in inp.op.shape])
+                dim_list.extend([dim.runtime_value for dim in inp.trace_tensor.producer.shape])
 
             trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids + tuple(dim_list))
 
@@ -242,7 +248,7 @@ class jit:
                 output_runtime_shapes = get_runtime_shapes(output_tensor_info)
                 output_devices = get_devices(output_tensor_info)
 
-            tensors_on_host = [x for x in args if x.op.device.kind != "gpu"]
+            tensors_on_host = [x for x in args if x.trace_tensor.producer.device.kind != "gpu"]
             if len(tensors_on_host) > 0:
                 raise_error(
                     f"JIT requires all the inputs to be on GPU.",
@@ -293,7 +299,7 @@ class jit:
             # It not possible to verify from just the frontend tensor since the frontend tensor can be
             # part of multiple scopes.
             found_dynamic_storage = False
-            exprs = [tensor.op for tensor in args]
+            exprs = [tensor.trace_tensor.producer for tensor in args]
             seen_op_ids = set()
             while exprs:
                 head = exprs.pop(0)

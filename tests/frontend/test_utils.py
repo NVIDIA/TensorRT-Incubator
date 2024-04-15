@@ -52,7 +52,7 @@ class TestConverInputsToTensors:
     def test_includes_column_range_for_non_tensors_for_magic_methods(self):
         c = tp.ones((2, 3)) + 3
 
-        stack_info = c.op.inputs[1].stack_info
+        stack_info = c.trace_tensor.producer.inputs[1].stack_info
 
         # Column offset of the `3` above.
         assert stack_info[stack_info.get_first_user_frame_index()].column_range == (30, 31)
@@ -60,7 +60,7 @@ class TestConverInputsToTensors:
     def test_includes_column_range_for_non_tensors_for_magic_methods_with_kwargs(self):
         c = tp.ones((2, 3)).__add__(other=3)
 
-        stack_info = c.op.inputs[1].stack_info
+        stack_info = c.trace_tensor.producer.inputs[1].stack_info
 
         # Column offset of the `3` above.
         assert stack_info[stack_info.get_first_user_frame_index()].column_range == (36, 43)

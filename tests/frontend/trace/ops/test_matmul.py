@@ -12,7 +12,7 @@ class TestMatMul:
 
         out = a @ b
         assert isinstance(a, tp.Tensor)
-        assert isinstance(out.op, MatrixMultiplication)
+        assert isinstance(out.trace_tensor.producer, MatrixMultiplication)
 
     def test_0d_matrix_fails(self):
         a = tp.ones(tuple(), dtype=tp.float32)

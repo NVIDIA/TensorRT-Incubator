@@ -16,7 +16,7 @@ class TestTrace:
         assert len(trace.ops) == 1
         layer = trace.ops[0]
 
-        assert layer == a.op
+        assert layer == a.trace_tensor.producer
         assert layer.inputs == []
         # Check that name propagates
         assert layer.outputs[0].name == "a"
@@ -97,7 +97,7 @@ class TestTrace:
         trace = Trace([c])
 
         assert trace.ops[-1].outputs[0].shape == shape
-        assert trace.ops[-1].outputs[0].dtype == a.op.dtype
+        assert trace.ops[-1].outputs[0].dtype == a.trace_tensor.producer.dtype
         assert trace.ops[-1].outputs[0].device == tp.device("gpu")
 
     def test_multiple_outputs(self):

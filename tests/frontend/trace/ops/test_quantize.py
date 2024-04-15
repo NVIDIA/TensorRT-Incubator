@@ -8,7 +8,7 @@ class TestQuantize:
         a = tp.Tensor([1.0, 2.0])
         a = tp.quantize(a, 0.9, tp.int8)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Quantize)
+        assert isinstance(a.trace_tensor.producer, Quantize)
 
     def test_invalid_input_dtype(self):
         a = tp.Tensor([1, 2], dtype=tp.int32)

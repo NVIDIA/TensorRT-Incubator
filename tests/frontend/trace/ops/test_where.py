@@ -11,7 +11,7 @@ class TestWhere:
         condition = a >= b
         a = tp.where(condition, a, b)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Where)
+        assert isinstance(a.trace_tensor.producer, Where)
 
     def test_mismatched_input_shapes(self):
         cond = tp.ones((2,), dtype=tp.float32) > tp.ones((2,), dtype=tp.float32)
@@ -52,7 +52,7 @@ class TestMaskedFill:
         mask = a == b
         a = tp.masked_fill(a, mask, -1)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Where)
+        assert isinstance(a.trace_tensor.producer, Where)
 
     def test_condition_is_not_bool(self):
         a = tp.Tensor([0, 1, 0, 1])

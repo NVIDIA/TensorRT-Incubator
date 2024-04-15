@@ -160,8 +160,8 @@ class Executor:
 
         in_args = []
         for inp in inputs:
-            assert isinstance(inp.op, Storage)
-            memref = _convert_to_memref(inp.op.data, self.runtime_client)
+            assert isinstance(inp.trace_tensor.producer, Storage)
+            memref = _convert_to_memref(inp.trace_tensor.producer.data, self.runtime_client)
             if not memref:
                 raise_error(
                     "Could not convert tensor to memref",

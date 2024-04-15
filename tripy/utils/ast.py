@@ -76,7 +76,7 @@ def get_arg_candidate_column_offsets(
             arg_node = node.left if index == 0 else node.right
         elif isinstance(node, ast.Call):
             if is_kwarg:
-                arg_node = node.keywords[index]
+                arg_node = node.keywords[index - num_total_positional_args]
             else:
                 if len(node.args) == num_total_positional_args:
                     arg_node = node.args[index]

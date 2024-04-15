@@ -7,4 +7,4 @@ class TestUnsqueeze:
         a = tp.ones((2, 1))
         a = tp.unsqueeze(a, 0)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Unsqueeze)
+        assert isinstance(a.trace_tensor.producer, Unsqueeze)

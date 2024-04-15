@@ -8,7 +8,7 @@ class TestSlice:
         a = tp.Tensor([1, 2, 3, 4])
         a = a[:2]
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Slice)
+        assert isinstance(a.trace_tensor.producer, Slice)
 
     def test_incorrect_index_size(self):
         a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))

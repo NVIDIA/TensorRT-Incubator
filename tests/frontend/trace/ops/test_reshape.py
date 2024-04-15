@@ -10,13 +10,13 @@ class TestReshape:
         a = tp.Tensor([1, 2, 3, 4])
         a = tp.reshape(a, (1, 1, 4))
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Reshape)
+        assert isinstance(a.trace_tensor.producer, Reshape)
 
     def test_neg_dim_func(self):
         a = tp.Tensor([1, 2, 3, 4])
         a = tp.reshape(a, (1, 1, -1))
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Reshape)
+        assert isinstance(a.trace_tensor.producer, Reshape)
 
 
 class TestSqueeze:
@@ -24,7 +24,7 @@ class TestSqueeze:
         a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
         a = tp.squeeze(a)
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Squeeze)
+        assert isinstance(a.trace_tensor.producer, Squeeze)
 
     def test_incorrect_dims(self):
         a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))

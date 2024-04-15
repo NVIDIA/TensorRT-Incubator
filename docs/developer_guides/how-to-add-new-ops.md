@@ -379,7 +379,7 @@ class TestTheta:
     def test_op_func(self):
         a = tp.theta([2, 3])
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.op, Theta)
+        assert isinstance(a.trace_tensor.producer, Theta)
 
 
     # You should also include negative tests for anything that is expected to

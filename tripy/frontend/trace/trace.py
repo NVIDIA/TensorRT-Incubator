@@ -33,13 +33,12 @@ class Trace:
             inputs: Input tensors in a jit function.
         """
         self.ops: List[BaseTraceOp] = []
-        self.inputs: List[TraceTensor] = [inp.op.outputs[0] for inp in inputs]
-        self.outputs: List[TraceTensor] = []
+        self.inputs: List[TraceTensor] = [inp.trace_tensor for inp in inputs]
+        self.outputs: List[TraceTensor] = [tensor.trace_tensor for tensor in tensors]
 
-        exprs = [tensor.op for tensor in tensors]
-        # Track outputs:
-        output_ids = set(id(expr) for expr in exprs)
-        input_op_ids = set(id(inp.op) for inp in inputs)
+        exprs = [tensor.trace_tensor.producer for tensor in tensors]
+
+        input_op_ids = set(id(inp.trace_tensor.producer) for inp in inputs)
         seen_op_ids: Set[int] = set()
 
         # Check all tensors for duplicate names. We currently rely on tensor names being
@@ -71,9 +70,6 @@ class Trace:
                 self.ops.append(head)
                 exprs.extend([inp.producer for inp in head.inputs])
 
-            if id(head) in output_ids:
-                self.outputs.extend(head.outputs)
-
         # Reverse the order of the layers so they are topologically sorted
         self.ops = self.topological_sort()
 
@@ -86,9 +82,11 @@ class Trace:
         stack = list()
         visited_layer_ids = set()
 
+        input_ids = [id(inp) for inp in self.inputs]
+
         def add_to_stack(op, stack):
             visited_layer_ids.add(id(op))
-            for ip in filter(lambda inp: inp not in self.inputs, op.inputs):
+            for ip in filter(lambda inp: id(inp) not in input_ids, op.inputs):
                 if ip.producer is not None and id(ip.producer) not in visited_layer_ids:
                     add_to_stack(ip.producer, stack)
 
