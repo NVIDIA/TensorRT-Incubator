@@ -110,4 +110,4 @@ def quantize(
         logger.warning("Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
         scale = cast(scale, datatype.float32)
 
-    return Tensor.build([input, scale], Quantize, dtype, dim)
+    return Quantize.build([input, scale], dtype, dim)

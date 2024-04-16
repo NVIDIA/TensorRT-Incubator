@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import List, Set, Optional
+from typing import List, Set
 
 from tripy import utils
 
@@ -25,7 +25,7 @@ class BaseFlatIROp(abc.ABC):
     """The names of the output trace tensors of the FlatIR subgraph this operation is part of"""
 
     @classmethod
-    def build(cls, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], *args, **kwargs):
+    def build(cls, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], *args, **kwargs) -> "BaseFlatIROp":
         from tripy.flat_ir.tensor import FlatIRTensor
 
         assert all(isinstance(tensor, FlatIRTensor) for tensor in inputs + outputs)
@@ -33,6 +33,7 @@ class BaseFlatIROp(abc.ABC):
         op = cls(inputs, outputs, [], [], *args, **kwargs)
         for out in op.outputs:
             out.producer = op
+        return op
 
     @abc.abstractmethod
     def to_mlir(self, operands: List["ir.Operation"]) -> List["ir.Operation"]:

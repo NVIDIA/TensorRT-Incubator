@@ -141,6 +141,4 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.expand_dims(input.numpy(), 1))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], Unsqueeze, dim)
+    return Unsqueeze.build([input], dim)

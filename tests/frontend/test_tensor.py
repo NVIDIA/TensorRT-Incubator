@@ -43,35 +43,33 @@ class TestTensor:
         assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
-    def test_stack_info_is_populated(self):
-        class MockOp:
-            def __init__(self, inputs, outputs):
-                self.inputs = inputs
-                self.outputs = outputs
+    @pytest.mark.parametrize(
+        "build_func,expected_line_number",
+        [
+            (lambda: tp.Tensor([1, 1, 1]), sys._getframe().f_lineno),
+            (lambda: tp.ones((3,)), sys._getframe().f_lineno),
+        ],
+        ids=["constructor", "op"],
+    )
+    def test_stack_info_is_populated(self, build_func, expected_line_number):
+        a = build_func()
 
-            def infer_dtypes(self):
-                pass
-
-        # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
-        expected_line_number = sys._getframe().f_lineno + 1
-        a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs: MockOp(inputs, outputs))
-
-        # We don't check line number within tp.Tensor because it's diffficult to determine.
-        assert a.stack_info[1] == SourceInfo(
+        assert a.stack_info[0] == SourceInfo(
             inspect.getmodule(tp.Tensor).__name__,
             file=inspect.getsourcefile(tp.Tensor),
-            line=a.stack_info[1].line,
-            function=tp.Tensor.build.__name__,
+            # We don't check line number within tp.Tensor because it's difficult to determine.
+            line=a.stack_info[0].line,
+            function=tp.Tensor.__init__.__name__,
             code="",
             _dispatch_target="",
             column_range=None,
         )
-        assert a.stack_info[2] == SourceInfo(
+        assert a.stack_info[a.stack_info.get_first_user_frame_index()] == SourceInfo(
             __name__,
             file=__file__,
             line=expected_line_number,
-            function=TestTensor.test_stack_info_is_populated.__name__,
-            code="        a = tp.Tensor.build(inputs=[], OpType=lambda inputs, outputs: MockOp(inputs, outputs))",
+            function=build_func.__name__,
+            code=inspect.getsource(build_func).rstrip(),
             _dispatch_target="",
             column_range=None,
         )

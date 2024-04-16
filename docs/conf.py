@@ -96,7 +96,11 @@ suppress_warnings = ["myst.xref_missing"]
 
 myst_fence_as_directive = ["mermaid"]
 
-myst_url_schemes = {"source": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/blob/main/{{path}}"}
+myst_url_schemes = {
+    "http": None,
+    "https": None,
+    "source": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/blob/main/{{path}}",
+}
 myst_number_code_blocks = ["py", "rst"]
 
 exclude_patterns = ["*.md"]

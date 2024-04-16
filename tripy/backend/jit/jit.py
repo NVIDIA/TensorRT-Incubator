@@ -132,7 +132,7 @@ class jit:
                 # Replace the tensor op with one that can supply dynamic shapes.
                 storage = tensor.trace_tensor.producer
                 assert isinstance(storage, Storage), f"{tensor} should have had a storage op after `eval()`"
-                tensor._finalize(tensor.name + "_dyn", [], DynamicStorage, storage.data, dynamic_shape)
+                DynamicStorage.build_internal([], [tensor.trace_tensor], storage.data, dynamic_shape)
 
                 if index not in const_argnums:
                     trace_inputs.append(tensor)

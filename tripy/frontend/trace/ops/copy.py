@@ -49,4 +49,4 @@ def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     if isinstance(input.trace_tensor.producer, Storage) and input.trace_tensor.producer.device == device:
         return input
 
-    return Tensor.build([input], Copy, device)
+    return Copy.build([input], device)

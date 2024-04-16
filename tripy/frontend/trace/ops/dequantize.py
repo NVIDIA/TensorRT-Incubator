@@ -109,4 +109,4 @@ def dequantize(
         logger.warning("Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
         scale = cast(scale, datatype.float32)
 
-    return Tensor.build([input, scale], Dequantize, dtype, dim)
+    return Dequantize.build([input, scale], dtype, dim)

@@ -63,8 +63,8 @@ class TestBinaryElementwise:
         assert out.trace_tensor.producer.kind == kind
 
     def test_mismatched_dtypes_fails(self):
-        a = tp.ones((2, 3), dtype=tp.float32)
-        b = tp.ones((2, 3), dtype=tp.float16)
+        a = tp.Tensor([1, 2], dtype=tp.float32)
+        b = tp.ones((2,), dtype=tp.float16)
 
         with helper.raises(
             tp.TripyException,

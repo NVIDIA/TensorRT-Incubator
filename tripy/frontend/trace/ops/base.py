@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Union
 
 from tripy import utils
 
@@ -12,6 +12,52 @@ class BaseTraceOp(abc.ABC):
 
     outputs: List["TraceTensor"]
     """The outputs of this layer"""
+
+    @classmethod
+    def build_internal(
+        cls, inputs: List["TraceTensor"], outputs: List["TraceTensor"], *args, **kwargs
+    ) -> "BaseTraceOp":
+        """
+        Builds a Trace operation and binds it to the provided input and output trace tensors.
+
+        *args and **kwargs are passed along to the trace operation's constructor.
+        """
+        from tripy.frontend.trace.tensor import TraceTensor
+
+        assert all(isinstance(tensor, TraceTensor) for tensor in inputs + outputs)
+
+        op = cls(inputs, outputs, *args, **kwargs)
+        for out in op.outputs:
+            out.producer = op
+            out.shape = []
+
+        op.infer_dtypes()
+        return op
+
+    @classmethod
+    def build(cls, inputs: List["Tensor"], *args, num_outputs=1, **kwargs) -> Union["Tensor", List["Tensor"]]:
+        """
+        Builds a trace operation and binds its inputs to the trace tensors corresponding to the
+        frontend tensors provided in `inputs` and creates `num_outputs` new frontend tensors for the
+        outputs, whose trace tensors are bound to the outputs of the trace operation.
+
+        *args and **kwargs are passed along to the trace operation's constructor.
+
+        `num_outputs=1` is treated as a special case that will return the output tensor directly instead
+        of returning a list of output tensors.
+        """
+
+        from tripy.frontend.tensor import Tensor
+
+        outputs = [Tensor(None) for _ in range(num_outputs)]
+
+        inp_trace_tensors = [inp.trace_tensor for inp in inputs]
+        out_trace_tensors = [out.trace_tensor for out in outputs]
+        cls.build_internal(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
+
+        if num_outputs == 1:
+            return outputs[0]
+        return outputs
 
     @abc.abstractmethod
     def infer_shapes(self):
