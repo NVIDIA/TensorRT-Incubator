@@ -36,8 +36,15 @@ def dequantize(
     Dequantizes the input tensor.
 
     If ``dim`` is not given, this function will perform "per-tensor"
-    dequantization. The ``scale`` must be a scalar tensor or a single
-    python number.
+    or "block" quantization.
+    - For "per-tensor" quantization, the ``scale`` must be a scalar
+    tensor or a single python number.
+    - For "block" quantization, the ``dtype`` must only be :class:`tripy.int4`.
+    The ``input`` tensor must only have 2 dimensions, e.g. ``[D1, D2]``.
+    The ``scale`` must also be a 2-D tensor or a 2-D python sequence.
+    The first dimension of ``scale`` must be able to divide ``D1``,
+    where "blocking" is performed. The second dimension of ``scale``
+    must equal to ``D2``.
 
     If ``dim`` is given, this function will perform "per-channel"
     dequantization. The ``scale`` must be a 1-D tensor or a python sequence

@@ -60,7 +60,13 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int8-weight-only
     ```
 
-2. fp8 quantization:
+2. weight only int4 quantization:
+
+    ```bash
+    python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int4-weight-only
+    ```
+
+3. fp8 quantization:
 
     ```bash
     python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode fp8

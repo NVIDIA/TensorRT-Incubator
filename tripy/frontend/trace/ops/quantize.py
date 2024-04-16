@@ -36,9 +36,21 @@ def quantize(
     Quantizes the input Tensor. The valid quantized data types are
     :class:`tripy.int8`, :class:`tripy.int4`, :class:`tripy.float8`.
 
+    If ``dtype`` is :class:`tripy.int4`, the result of this function
+    cannot be printed as :class:`tripy.int4` is an internal quantized
+    data type. It must be dequantized :func:`dequantize` to a higher
+    precision first.
+
     If ``dim`` is not given, this function will perform "per-tensor"
-    quantization. The ``scale`` must be a scalar tensor or a single
-    python number.
+    or "block" quantization.
+    - For "per-tensor" quantization, the ``scale`` must be a scalar
+    tensor or a single python number.
+    - For "block" quantization, the ``dtype`` must only be :class:`tripy.int4`.
+    The ``input`` tensor must only have 2 dimensions, e.g. ``[D1, D2]``.
+    The ``scale`` must also be a 2-D tensor or a 2-D python sequence.
+    The first dimension of ``scale`` must be able to divide ``D1``,
+    where "blocking" is performed. The second dimension of ``scale``
+    must equal to ``D2``.
 
     If ``dim`` is given, this function will perform "per-channel"
     quantization. The ``scale`` must be a 1-D tensor or a python sequence
@@ -75,6 +87,17 @@ def quantize(
         expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / np.array(scale).reshape(2, 1)).astype(np.int8) # doc: omit
         assert np.array_equal(output.numpy(), expected)
 
+    .. code-block:: python
+        :linenos:
+        :caption: Block quantization
+
+        input = tp.Tensor([[0, 1, 2], [3, 4, 5]], dtype=tp.float32)
+        scale = [0.99872, 0.96125]
+        output = tp.quantize(input, scale, tp.int8, dim=0)
+
+        expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / np.array(scale).reshape(2, 1)).astype(np.int8) # doc: omit
+        assert np.array_equal(output.numpy(), expected)
+
     .. seealso:: :func:`dequantize`
     """
     from tripy.frontend import Tensor
@@ -90,9 +113,8 @@ def quantize(
             ],
         )
 
-    # TODO(#164): support int4 quantization dtype
-    SUPPORTED_QUANT_DTYPES = [datatype.int8, datatype.float8]
-    if dtype not in (datatype.int8, datatype.float8):
+    SUPPORTED_QUANT_DTYPES = (datatype.int8, datatype.int4, datatype.float8)
+    if dtype not in SUPPORTED_QUANT_DTYPES:
         raise_error(
             "Unsupported quantization dtype.",
             [

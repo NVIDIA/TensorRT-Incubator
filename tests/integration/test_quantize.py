@@ -42,3 +42,18 @@ class TestQuantize:
         quantized = tp.quantize(input, scale, tp.float8, dim=0)
         assert quantized.dtype == tp.float8
         assert quantized.numpy().dtype == np.uint8
+
+
+if __name__ == "__main__":
+    from tripy.logging import logger
+
+    logger.verbosity = "ir"
+
+    input = tp.Tensor([[1.0, 1.0], [1.0, 1.0]])
+    scale = tp.Tensor([[1.0, 1.0]])
+    # scale = [1.0] * 2
+    # scale = 1.0
+    input_q = tp.quantize(input, scale, tp.int4)
+    # print(input_q)
+    out = tp.dequantize(input_q, scale, tp.float32)
+    print(out)
