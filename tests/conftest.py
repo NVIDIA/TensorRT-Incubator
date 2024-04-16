@@ -5,8 +5,13 @@ import subprocess as sp
 from typing import Optional
 
 import pytest
+import torch
 
 from tests.helper import ROOT_DIR
+
+skip_if_older_than_sm89 = pytest.mark.skipif(
+    torch.cuda.get_device_capability() < (8, 9), reason="Some features (e.g. fp8) are not available before SM90"
+)
 
 
 @pytest.fixture()

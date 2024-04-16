@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
+import pytest
 
 import tripy as tp
+from tests.conftest import skip_if_older_than_sm89
 
 
 class TestQuantize:
@@ -27,6 +28,7 @@ class TestQuantize:
     # TODO(#161): Update fp8 test to check output value
     @pytest.mark.parametrize("scale", [0.5, 0.9])
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @skip_if_older_than_sm89
     def test_quantize_fp8_per_tensor(self, scale, dtype):
         data = [1.0, 2.0]
         input = tp.Tensor(data, dtype=dtype)
@@ -36,6 +38,7 @@ class TestQuantize:
 
     @pytest.mark.parametrize("scale", [[0.2, 0.1], [0.5, 0.5]])
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @skip_if_older_than_sm89
     def test_quantize_fp8_per_channel(self, scale, dtype):
         data = [[1.0, 2.0], [3.0, 4.0]]
         input = tp.Tensor(data, dtype=dtype)

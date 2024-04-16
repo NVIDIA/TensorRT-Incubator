@@ -4,6 +4,7 @@ from typing import Any, Union
 from tripy import export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -26,6 +27,8 @@ class Dequantize(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
+# TODO(#111): remove this after switching to stablehlo
+@frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 def dequantize(
     input: "tripy.Tensor",
     scale: Union["tripy.Tensor", Any],
@@ -100,9 +103,6 @@ def dequantize(
             ],
         )
 
-    # TODO(#111): remove this after switching to stablehlo
-    if not isinstance(scale, Tensor):
-        scale = Tensor(scale)
     # MLIR-TRT currently restricts scale to have fp32 dtype
     # this could be updated in the future
     if scale.dtype != datatype.float32:

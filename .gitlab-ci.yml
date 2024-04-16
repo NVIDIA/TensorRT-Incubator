@@ -70,7 +70,8 @@ l0-if-new-container:
   script:
     - python3 docs/generate_rsts.py
     - sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
-    - pytest tests/ -v -m "l0 or not l1" --durations=15
+    - pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l0 or not l1" --durations=15
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     paths:
       - build/docs
@@ -96,7 +97,8 @@ l0-if-no-new-container:
   script:
     - python3 docs/generate_rsts.py
     - sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
-    - pytest tests/ -v -m "l0 or not l1" --durations=15
+    - pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l0 or not l1" --durations=15
+  coverage: '/(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/'
   artifacts:
     paths:
       - build/docs

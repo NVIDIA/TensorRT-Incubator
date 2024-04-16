@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
+import pytest
 
 import tripy as tp
+from tests.conftest import skip_if_older_than_sm89
 
 
 class TestDequantize:
@@ -30,6 +31,7 @@ class TestDequantize:
     # TODO(#161): Update fp8 test to use frontend representation
     @pytest.mark.parametrize("scale", [0.5, 0.9])
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @skip_if_older_than_sm89
     def test_dequantize_fp8_per_tensor(self, scale, dtype):
         data = [56, 56]  # uint8 data for fp8 [1.0, 1.0]
         input = tp.Tensor(data, dtype=tp.float8)
@@ -39,6 +41,7 @@ class TestDequantize:
 
     @pytest.mark.parametrize("scale", [[0.8, 0.9], [0.5, 0.5]])
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @skip_if_older_than_sm89
     def test_dequantize_fp8_per_channel(self, scale, dtype):
         data = [[56, 56], [56, 56]]
         input = tp.Tensor(data, dtype=tp.float8)
