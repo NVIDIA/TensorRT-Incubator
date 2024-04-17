@@ -26,7 +26,7 @@ def linear_layer(config: GPTConfig, in_feat, out_feat, bias):
         quant_kwargs["weight_quant_dim"] = 0
     elif config.quant_mode == "int4-weight-only":
         quant_kwargs["quant_dtype"] = tp.int4
-        # quant_kwargs["weight_quant_dim"] = 0
+        quant_kwargs["weight_quant_dim"] = None
     elif config.quant_mode == "fp8":
         quant_kwargs["quant_dtype"] = tp.float8
         quant_kwargs["weight_quant_dim"] = None

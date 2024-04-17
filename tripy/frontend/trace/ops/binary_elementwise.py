@@ -164,9 +164,7 @@ def __add__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([3, 5]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUM)
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUM)
 
 
 @TENSOR_METHOD_REGISTRY("__sub__")
@@ -193,9 +191,7 @@ def __sub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([1, 1]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.SUB)
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUB)
 
 
 @TENSOR_METHOD_REGISTRY("__rsub__")
@@ -222,9 +218,7 @@ def __rsub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([0, -1]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.SUB)
+    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.SUB)
 
 
 @TENSOR_METHOD_REGISTRY("__pow__")
@@ -251,9 +245,7 @@ def __pow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([1, 8]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.POW)
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.POW)
 
 
 @TENSOR_METHOD_REGISTRY("__rpow__")
@@ -280,9 +272,7 @@ def __rpow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([4.0, 8.0]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.POW)
+    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.POW)
 
 
 @TENSOR_METHOD_REGISTRY("__mul__")
@@ -310,9 +300,7 @@ def __mul__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([2.0, 6.0]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.MUL)
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MUL)
 
 
 @TENSOR_METHOD_REGISTRY("__truediv__")
@@ -339,9 +327,7 @@ def __truediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], BinaryElementwise, BinaryElementwise.Kind.DIV)
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV)
 
 
 @TENSOR_METHOD_REGISTRY("__rtruediv__")
@@ -368,9 +354,7 @@ def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.array([3.0, 2.0]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([other, self], BinaryElementwise, BinaryElementwise.Kind.DIV)
+    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -398,9 +382,7 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
 
         assert np.array_equal(output.numpy(), np.array([2.0, 6.0]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([lhs, rhs], BinaryElementwise, BinaryElementwise.Kind.MAXIMUM)
+    return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MAXIMUM)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -428,9 +410,7 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
 
         assert np.array_equal(output.numpy(), np.array([1.0, 3.0]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([lhs, rhs], BinaryElementwise, BinaryElementwise.Kind.MINIMUM)
+    return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MINIMUM)
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
@@ -458,9 +438,7 @@ def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert output.eval().view().tolist() == [True, False]
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], Comparison, Comparison.Kind.LESS)
+    return Comparison.build([self, other], Comparison.Kind.LESS)
 
 
 @TENSOR_METHOD_REGISTRY("__le__")
@@ -487,9 +465,7 @@ def __le__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert output.eval().view().tolist() == [True, False]
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], Comparison, Comparison.Kind.LESS_EQUAL)
+    return Comparison.build([self, other], Comparison.Kind.LESS_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__eq__")
@@ -516,9 +492,7 @@ def __eq__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert output.eval().view().tolist() == [True, False]
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], Comparison, Comparison.Kind.EQUAL)
+    return Comparison.build([self, other], Comparison.Kind.EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__ne__")
@@ -545,9 +519,7 @@ def __ne__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert output.eval().view().tolist() == [True, False]
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], Comparison, Comparison.Kind.NOT_EQUAL)
+    return Comparison.build([self, other], Comparison.Kind.NOT_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__ge__")
@@ -574,9 +546,7 @@ def __ge__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert output.eval().view().tolist() == [True, False]
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], Comparison, Comparison.Kind.GREATER_EQUAL)
+    return Comparison.build([self, other], Comparison.Kind.GREATER_EQUAL)
 
 
 @TENSOR_METHOD_REGISTRY("__gt__")
@@ -603,6 +573,4 @@ def __gt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
         assert output.eval().view().tolist() == [True, False]
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self, other], Comparison, Comparison.Kind.GREATER)
+    return Comparison.build([self, other], Comparison.Kind.GREATER)

@@ -82,7 +82,7 @@ def rand(
     if dtype not in (datatype.float32, datatype.float16):
         raise_error("rand only supports float32 or float16.", [f"Got dtype={dtype}"])
 
-    return Tensor.build([], RandomUniform, utils.to_dims(shape), dtype, low, high)
+    return RandomUniform.build([], utils.to_dims(shape), dtype, low, high)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -114,4 +114,4 @@ def randn(
     if dtype not in (datatype.float32, datatype.float16):
         raise_error("randn only supports float32 or float16.", [f"Got dtype={dtype}"])
 
-    return Tensor.build([], RandomNormal, utils.to_dims(shape), dtype, mean, std)
+    return RandomNormal.build([], utils.to_dims(shape), dtype, mean, std)

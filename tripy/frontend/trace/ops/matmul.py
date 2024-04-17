@@ -222,9 +222,4 @@ def __matmul__(self, other: "tripy.Tensor") -> "tripy.Tensor":
         output = a @ b
         assert np.array_equal(output.numpy(), a.numpy() @ b.numpy())
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build(
-        [self, other],
-        MatrixMultiplication,
-    )
+    return MatrixMultiplication.build([self, other])

@@ -4,6 +4,7 @@ from typing import Any, Union
 from tripy import export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -26,6 +27,8 @@ class Dequantize(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
+# TODO(#111): remove this after switching to stablehlo
+@frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 def dequantize(
     input: "tripy.Tensor",
     scale: Union["tripy.Tensor", Any],
@@ -36,15 +39,15 @@ def dequantize(
     Dequantizes the input tensor.
 
     If ``dim`` is not given, this function will perform "per-tensor"
-    or "block" quantization.
-    - For "per-tensor" quantization, the ``scale`` must be a scalar
+    or "block-wise" dequantization.
+    - For "per-tensor" dequantization, the ``scale`` must be a scalar
     tensor or a single python number.
-    - For "block" quantization, the ``dtype`` must only be :class:`tripy.int4`.
-    The ``input`` tensor must only have 2 dimensions, e.g. ``[D1, D2]``.
+    - For "block-wise" dequantization, the ``dtype`` must only be :class:`tripy.int4`.
+    The ``input`` tensor must only have 2 dimensions, e.g. ``[D0, D1]``.
     The ``scale`` must also be a 2-D tensor or a 2-D python sequence.
-    The first dimension of ``scale`` must be able to divide ``D1``,
+    The first dimension of ``scale`` must be able to divide ``D0``,
     where "blocking" is performed. The second dimension of ``scale``
-    must equal to ``D2``.
+    must equal to ``D1``.
 
     If ``dim`` is given, this function will perform "per-channel"
     dequantization. The ``scale`` must be a 1-D tensor or a python sequence
@@ -107,13 +110,10 @@ def dequantize(
             ],
         )
 
-    # TODO(#111): remove this after switching to stablehlo
-    if not isinstance(scale, Tensor):
-        scale = Tensor(scale)
     # MLIR-TRT currently restricts scale to have fp32 dtype
     # this could be updated in the future
     if scale.dtype != datatype.float32:
         logger.warning("Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
         scale = cast(scale, datatype.float32)
 
-    return Tensor.build([input, scale], Dequantize, dtype, dim)
+    return Dequantize.build([input, scale], dtype, dim)

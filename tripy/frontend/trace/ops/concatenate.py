@@ -52,6 +52,4 @@ def concatenate(tensors: List["tripy.Tensor"], dim: int) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.concatenate((a.numpy(), b.numpy()), axis=0))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build(tensors, Concatenate, dim)
+    return Concatenate.build(tensors, dim)

@@ -69,6 +69,4 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
 
         assert np.array_equal(output.numpy(), np.take(data.numpy(), indices.numpy(), axis=0))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input, index], Gather, dim)
+    return Gather.build([input, index], dim)

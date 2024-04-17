@@ -31,10 +31,10 @@ COPY .lldbinit /root/
 
 # Install the recommended version of TensorRT for development.
 RUN cd /usr/lib/ && \
-    wget http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.1-a3728acd/12.2-r535/Linux-x64-agnostic/tar/TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz && \
-    tar -xvzf TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz && \
-    rm TensorRT-10.0.0.1.Linux.x86_64-gnu.cuda-12.2.tar.gz
-ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.0.0.1/lib/:$LD_LIBRARY_PATH
+    wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.0/tensorrt-10.0.0.6.linux.x86_64-gnu.cuda-12.4.tar.gz && \
+    tar -xvzf tensorrt-10.0.0.6.linux.x86_64-gnu.cuda-12.4.tar.gz && \
+    rm tensorrt-10.0.0.6.linux.x86_64-gnu.cuda-12.4.tar.gz
+ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.0.0.6/lib/:$LD_LIBRARY_PATH
 
 ARG gitlab_user
 ARG gitlab_token
@@ -53,7 +53,6 @@ RUN pip install .[docs,dev,test] \
 
 RUN apt-get install -y libopenmpi3 libopenmpi-dev libprotobuf-dev && \
     ln -snf /usr/lib/x86_64-linux-gnu/libprotobuf.so /usr/lib/x86_64-linux-gnu/libprotobuf.so.29
-ENV LD_LIBRARY_PATH=/usr/local/lib/python3.10/dist-packages/mlir_tensorrt/compiler/_mlir_libs/:$LD_LIBRARY_PATH
 
 # Export tripy into the PYTHONPATH so it doesn't need to be installed after making changes
 ENV PYTHONPATH=/tripy:$PYTHONPATH

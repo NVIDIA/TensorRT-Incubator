@@ -3,6 +3,7 @@ import pytest
 
 import tripy as tp
 from tests import helper
+from tests.conftest import skip_if_older_than_sm89
 
 
 def create_random_matrix(shape):
@@ -74,7 +75,7 @@ class TestQuantLinear:
 
     @pytest.mark.parametrize("use_jit", [False, True])
     @pytest.mark.parametrize("use_input_scale", [False, True])
-    @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8])
+    @pytest.mark.parametrize("quant_dtype", [tp.int8, pytest.param(tp.float8, marks=skip_if_older_than_sm89)])
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
     def test_quant_linear(self, use_jit, use_input_scale, quant_dtype, weight_quant_dim):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)

@@ -76,11 +76,18 @@ class Tensor(metaclass=TensorMeta):
 
             tensor = tp.Tensor([1.0, 2.0, 3.0], shape=(3,), dtype=tp.float32)
         """
-        # Note: It is important that we are able to call the Tensor constructor with no arguments
-        # since this is used internally by Tensor.build()
+        from tripy.frontend.trace.tensor import TraceTensor
+
+        self.stack_info = utils.get_stack_info()
+
+        name = utils.default(name, Tensor.get_unique_name())
+        self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None)
 
         # Note that most tensors won't have this field - generally only model input tensors.
         self._dynamic_shape = utils.to_dims(shape)
+
+        # Note: It is important that we are able to call the Tensor constructor with no arguments
+        # since this is used internally.
         if data is not None:
             if not isinstance(data, Array):
                 data = Array(data, dtype, utils.from_dims(shape), device)
@@ -90,36 +97,7 @@ class Tensor(metaclass=TensorMeta):
                 assert not any(
                     [shape, dtype, device]
                 ), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
-            self._finalize(name, [], Storage, data)
-
-    def _finalize(self, name: Optional[str], inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
-        # It is very important that this is called from all entrypoints to creating a tensor.
-        # We include logic here that needs to be applied to all tensors.
-        from tripy.frontend.trace.tensor import TraceTensor
-
-        # We include stack information from everything above `build` up to user code.
-        # This lets us generate very nice error messages.
-        # NOTE: If the call stack depth for this function changes, update the index here!
-        STACK_DEPTH_IN_TENSOR = 3
-        self.stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_IN_TENSOR)
-
-        name = utils.default(name, Tensor.get_unique_name())
-
-        self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None)
-
-        self.trace_tensor.producer = OpType([inp.trace_tensor for inp in inputs], [self.trace_tensor], *args, **kwargs)
-
-        # Update dtype
-        self.trace_tensor.producer.infer_dtypes()
-
-    # This function expects to receive a BaseTraceOp type (not instance!) along
-    # with any extra arguments that it might need. It will then construct an instance
-    # with inputs, outputs, and the extra arguments
-    @staticmethod
-    def build(inputs: List["Tensor"], OpType: type, *args, **kwargs) -> None:
-        tensor = Tensor(None)
-        tensor._finalize(None, inputs, OpType, *args, **kwargs)
-        return tensor
+            Storage.build_internal([], [self.trace_tensor], data)
 
     def __getattr__(self, name: str):
         import tripy as tp
@@ -162,7 +140,7 @@ class Tensor(metaclass=TensorMeta):
         data = executor.execute(get_runtime_shapes(output_tensor_info), get_devices(output_tensor_info))
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
-        self._finalize(self.name, [], Storage, data)
+        Storage.build_internal([], [self.trace_tensor], data)
         return data
 
     def numpy(self) -> "numpy.ndarray":

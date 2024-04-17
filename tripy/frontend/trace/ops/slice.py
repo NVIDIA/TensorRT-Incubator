@@ -59,11 +59,10 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
     """
-    from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.reshape import squeeze
 
     index = make_tuple(index)
-    out = Tensor.build([self], Slice, index)
+    out = Slice.build([self], index)
 
     squeeze_dims = []
     for i, idx in enumerate(index):

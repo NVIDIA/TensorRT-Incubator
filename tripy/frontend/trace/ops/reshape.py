@@ -98,9 +98,7 @@ def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.reshape(input.numpy(), (1, 6)))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], Reshape, shape)
+    return Reshape.build([input], shape)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -150,4 +148,4 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
     if isinstance(dims, int):
         dims = utils.make_tuple(dims)
 
-    return Tensor.build([input], Squeeze, None, dims)
+    return Squeeze.build([input], None, dims)

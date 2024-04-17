@@ -80,7 +80,7 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
     """
     from tripy.frontend import Tensor
 
-    return Tensor.build([], Fill, value, utils.to_dims(shape), dtype)
+    return Fill.build([], value, utils.to_dims(shape), dtype)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -106,6 +106,4 @@ def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tri
 
         assert np.array_equal(output.numpy(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], FillLike, value, None, dtype)
+    return FillLike.build([input], value, None, dtype)

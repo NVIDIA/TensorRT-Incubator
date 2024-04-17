@@ -180,9 +180,7 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 
         assert np.array_equal(output.numpy(), np.array([[1, 0], [1, 1]], dtype=np.float32))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([condition, input, other], Where)
+    return Where.build([condition, input, other])
 
 
 @export.public_api(document_under="tensor_operations")

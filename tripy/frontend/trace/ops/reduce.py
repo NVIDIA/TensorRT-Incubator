@@ -116,10 +116,9 @@ class ArgMinMax(Reduce):
 
 
 def _reduce_impl(self, kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
-    from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
-    out = Tensor.build([self], Reduce, dim, kind)
+    out = Reduce.build([self], dim, kind)
     if keepdim:
         if dim is None:
             # TODO(#96): Support dim=None, keepdim=True
@@ -311,7 +310,6 @@ def var(
 
 
 def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, keepdim: bool):
-    from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.iota import iota_like
     from tripy.frontend.trace.ops.reshape import reshape
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
@@ -319,7 +317,7 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, ke
     if dim is None:
         tensor = reshape(tensor, (-1,))
     indices = iota_like(tensor, dim if dim else 0, datatype.int32)
-    out = Tensor.build([tensor, indices], ArgMinMax, dim, kind)
+    out = ArgMinMax.build([tensor, indices], dim, kind)
     if keepdim:
         if dim is None:
             # TODO(#96): Support dim=None, keepdim=True

@@ -52,10 +52,10 @@ class Conv(Module):
 
     groups: int
     r"""
-    The number of groups in a grouped convolution where the input and output channels are divided into ``groups`` groups. 
-    Each output group is connected only to its corresponding input group through the convolution kernel weights, 
+    The number of groups in a grouped convolution where the input and output channels are divided into ``groups`` groups.
+    Each output group is connected only to its corresponding input group through the convolution kernel weights,
     and the outputs for each group are concatenated to produce the final result. This is in contrast to a standard convolution
-    which has full connectivity between all input and output channels. Grouped convolutions reduce computational cost by 
+    which has full connectivity between all input and output channels. Grouped convolutions reduce computational cost by
     a factor of ``groups`` and can benefit model parallelism and memory usage.
     Note that `in_channels` and `out_channels` must both be divisible by ``groups``.
     """
@@ -185,7 +185,6 @@ class Conv(Module):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = \Large \left\lfloor \frac{D_{k_{\text{in}}} - \text{kernel_dims}_k + \text{padding}_{k_0} + \text{padding}_{k_1}}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
-        from tripy.frontend import Tensor
         from tripy.frontend.trace.ops.convolution import Convolution
 
-        return Tensor.build([input, self.weight], Convolution, self.padding, self.stride, self.groups)
+        return Convolution.build([input, self.weight], self.padding, self.stride, self.groups)

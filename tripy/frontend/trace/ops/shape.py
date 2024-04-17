@@ -41,6 +41,4 @@ def shape(self) -> "tripy.Tensor":
 
         assert np.array_equal(shape.numpy(), np.array([8, 2]))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([self], Shape)
+    return Shape.build([self])

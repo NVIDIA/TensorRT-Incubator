@@ -14,10 +14,7 @@ class BroadcastOp(BaseFlatIROp):
 
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
-        broadcast_dim_attr = ir.DenseElementsAttr.get(
-            array.array("q", self.broadcast_dim),
-            type=ir.IntegerType.get_signless(64),
-        )
+        broadcast_dim_attr = ir.DenseI64ArrayAttr.get(self.broadcast_dim)
         output = stablehlo.broadcast_in_dim(out_type, operands[0], broadcast_dim_attr)
         return [output]
 

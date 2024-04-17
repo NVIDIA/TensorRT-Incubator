@@ -78,6 +78,4 @@ def expand(input: "tripy.Tensor", sizes: Sequence[int]) -> "tripy.Tensor":
 
         assert np.array_equal(output.numpy(), np.broadcast_to(input.numpy(), (3, 1, 1)))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], Expand, sizes)
+    return Expand.build([input], sizes)

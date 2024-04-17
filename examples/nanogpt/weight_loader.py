@@ -66,7 +66,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     model_hf = ammo_quantize(model_hf, quant_mode)
     hf_state_dict = model_hf.state_dict()
     # We ignore some of the keys in the HF checkpoint:
-    ignored_keys = [".attn.masked_bias", ".attn.bias"]
+    ignored_keys = [".attn.masked_bias", ".attn.bias", "_pre_quant_scale"]
     hf_keys = [key for key in hf_state_dict.keys() if not any(key.endswith(w) for w in ignored_keys)]
 
     # See https://paperswithcode.com/method/weight-tying for details on why we do this:
@@ -74,8 +74,13 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
 
     # ammo has transposed the attn weights
     for key in hf_keys:
+        print("Loading ", key)
         weight = hf_state_dict[key]
         if key.endswith("quantizer._amax"):
+            # reshape amax tensor for int4 block quantization
+            if quant_mode == "int4-weight-only":
+                linear = get_submodule(model_hf, key[: -len(".weight_quantizer._amax")])
+                weight = weight.reshape((-1, linear.in_features))
             # compute scale
             quantizer = get_submodule(model_hf, key[: -len("._amax")])
             weight = convert_to_scale(weight, quantizer.maxbound).squeeze()

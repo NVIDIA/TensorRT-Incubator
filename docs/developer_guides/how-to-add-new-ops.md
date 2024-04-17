@@ -217,12 +217,6 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
 
         assert np.array_equal(output.numpy(), np.arange(0, 3, dtype=np.float32))
     """
-    # Note that we import `Tensor` only within the function body. This is especially important
-    # if the public API is meant to be a method. In that case, you can define it out-of-line
-    # (as we have here) and decorate it with the TENSOR_METHOD_REGISTRY. The method must be
-    # registered *before* the `Tensor` class is created.
-    from tripy.frontend import Tensor
-
     # We first validate the input parameters. By using `raise_error`, we can ensure that
     # the generated error will be nicely formatted. Additionally, if any of the items in
     # the `details` argument contain stack information, it will be displayed automatically.
@@ -237,10 +231,10 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
             ],
         )
 
-    # Next we build a frontend `Tensor`. The `build()` function is responsible for constructing
-    # the `Trace` operator. All of the arguments that follow the `Trace` operator type argument
-    # (i.e. `Theta`) are forwarded directly to the constructor of the `Trace` operator.
-    return Tensor.build([], Theta, dim, utils.to_dims(shape), dtype)
+    # Next we build the trace operator. The `build()` function is also responsible for constructing
+    # the output frontend Tensors. All of the arguments that follow the inputs (an empty list here)
+    # are forwarded directly to the constructor of the `Trace` operator.
+    return Theta.build([], dim, utils.to_dims(shape), dtype)
 ```
 
 <!--

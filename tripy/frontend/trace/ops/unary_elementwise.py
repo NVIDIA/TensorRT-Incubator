@@ -56,9 +56,7 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
 
         assert np.allclose(output.numpy(), np.exp(input.numpy()))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.EXP)
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.EXP)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -81,9 +79,7 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
 
         assert np.allclose(output.numpy(), np.tanh(input.numpy()))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.TANH)
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.TANH)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -106,9 +102,7 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
 
         assert np.allclose(output.numpy(), np.sin(input.numpy()))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.SINE)
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.SINE)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -131,9 +125,7 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
 
         assert np.allclose(output.numpy(), np.cos(input.numpy()))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.COSINE)
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.COSINE)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -156,9 +148,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
         assert np.allclose(output.numpy(), (1.0 / np.sqrt(input.numpy())))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.RSQRT)
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.RSQRT)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -181,6 +171,4 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
 
         assert np.allclose(output.numpy(), (np.log(input.numpy())))
     """
-    from tripy.frontend import Tensor
-
-    return Tensor.build([input], UnaryElementwise, UnaryElementwise.Kind.LOG)
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.LOG)
