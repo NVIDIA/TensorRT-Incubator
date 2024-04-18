@@ -80,7 +80,6 @@ def quantize(
 
     .. seealso:: :func:`dequantize`
     """
-    from tripy.frontend import Tensor
     from tripy.frontend.trace.ops.cast import cast
     from tripy.logging import logger
 
@@ -104,10 +103,9 @@ def quantize(
             ],
         )
 
-    # MLIR-TRT currently restricts scale to have fp32 dtype
-    # this could be updated in the future
+    # TODO(MLIR-TRT #770) Remove scale casting
     if scale.dtype != datatype.float32:
-        logger.warning("Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
+        logger.warning(f"Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
         scale = cast(scale, datatype.float32)
 
     return Quantize.build([input, scale], dtype, dim)
