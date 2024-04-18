@@ -7,7 +7,7 @@ from tripy.flat_ir.ops import QuantizeOp
 
 class TestQuantizeOp:
 
-    @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8])
+    @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8, tp.int4])
     def test_str(self, quant_dtype):
         a = tp.Tensor([1.0, 2.0], name="a")
         scale = tp.Tensor(0.9, name="scale")
@@ -24,7 +24,7 @@ class TestQuantizeOp:
             == f"out: [shape=(2,), dtype=({quant_dtype}), loc=(gpu:0)] = QuantizeOp(a, scale, axis=None)"
         )
 
-    @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8])
+    @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8, tp.int4])
     def test_per_channel_str(self, quant_dtype):
         a = tp.Tensor([[1.0, 2.0], [3.0, 4.0]], name="a")
         scale = tp.Tensor([0.9, 0.9], name="scale")

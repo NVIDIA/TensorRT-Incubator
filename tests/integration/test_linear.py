@@ -97,3 +97,33 @@ class TestQuantLinear:
             )
 
             assert (out.numpy() == np.array(np_out)).all()
+
+    @pytest.mark.parametrize("use_jit", [False, True])
+    @pytest.mark.parametrize("quant_mode", ["block-wise", "per-tensor", "per-channel-0", "per-channel-1"])
+    def test_quant_linear_int4_weight_only(self, use_jit, quant_mode):
+        if quant_mode == "block-wise":
+            weight_quant_dim = None
+            scale = tp.Parameter(tp.ones((2, 4)))
+        elif quant_mode == "per-tensor":
+            weight_quant_dim = None
+            scale = tp.Parameter(1.0)
+        elif quant_mode.endswith("0"):
+            weight_quant_dim = 0
+            scale = tp.Parameter(tp.ones((8,)))
+        elif quant_mode.endswith("1"):
+            weight_quant_dim = 1
+            scale = tp.Parameter(tp.ones((4,)))
+
+        linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
+        linear.weight_scale = scale
+        if use_jit:
+            linear = tp.jit(linear)
+
+        input = tp.Tensor(np.ones((4, 4), dtype=np.float32), device=tp.device("gpu"))
+        out = linear(input)
+
+        np_out = np.ones((4, 4), dtype=np.float32) @ (np.ones((8, 4), dtype=np.float32).transpose()) + np.ones(
+            (1, 8), dtype=np.float32
+        )
+
+        assert np.array_equal(out.numpy(), np_out)

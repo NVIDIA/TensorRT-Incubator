@@ -24,21 +24,24 @@ def ammo_quantize(model_hf, quant_mode):
     elif quant_mode == "fp8":
         quant_cfg = atq.FP8_DEFAULT_CFG
     elif quant_mode == "int4-weight-only":
-        quant_cfg = atq.INT4_AWQ_CFG
+        quant_cfg = atq.INT4_BLOCKWISE_WEIGHT_ONLY_CFG
     else:
         raise NotImplementedError(f"Unsupported quantization mode: {quant_mode}")
 
+    calib_size = 512
+    batch_size = 1
+    if quant_mode == "int4-weight-only":
+        calib_size = 32
+        batch_size = 16
     forward_loop = create_forward_loop(
         model=model_hf,
         dataset_name="cnn_dailymail",
         tokenizer=tokenizer,
         device=model_hf.device,
-        num_samples=1,
+        batch_size=batch_size,
+        num_samples=calib_size,
     )
 
     atq.quantize(model_hf, quant_cfg, forward_loop=forward_loop)
-    # import pdb
-
-    # pdb.set_trace()
     print("Quantization complete.")
     return model_hf

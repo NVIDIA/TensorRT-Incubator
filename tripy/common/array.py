@@ -24,9 +24,11 @@ def convert_tripy_to_module_dtype(dtype: "tripy.common.datatype.dtype", module) 
             tripy.common.datatype.float16: module.float16,
             tripy.common.datatype.bool: module.bool_,
             tripy.common.datatype.float8: module.uint8,
-            tripy.common.datatype.int4: module.uint8,
         }
     )
+
+    if dtype not in TRIPY_TO_NUMPY:
+        raise_error(f"Tensor with {dtype} cannot be evaluated.", [])
 
     return TRIPY_TO_NUMPY[dtype]
 
@@ -136,15 +138,7 @@ class Array:
 
             # Check for consistency if dtype/shape was provided with data:
             # TODO(#161): Remove the exception for fp8 and int4
-            if (
-                dtype
-                not in (
-                    None,
-                    tripy.common.datatype.float8,
-                    tripy.common.datatype.int4,
-                )
-                and data_dtype != dtype
-            ):
+            if dtype not in (None, tripy.common.datatype.float8) and data_dtype != dtype:
                 raise_error(
                     "Data has incorrect dtype.",
                     details=[f"Input data had type: {data_dtype}, ", f"but provided dtype was: {dtype}"],

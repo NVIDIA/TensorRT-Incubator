@@ -74,7 +74,6 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
 
     # ammo has transposed the attn weights
     for key in hf_keys:
-        print("Loading ", key)
         weight = hf_state_dict[key]
         if key.endswith("quantizer._amax"):
             # reshape amax tensor for int4 block quantization

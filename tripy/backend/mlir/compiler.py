@@ -15,8 +15,6 @@ G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
 
 
 def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
-    print("origin exc: ", exc)
-    print("origin stderr: ", stderr)
     _, output_names, trace_input_names, trace_output_names, stderr = parse_tensor_names_from_location(stderr)
 
     assert (
@@ -99,7 +97,7 @@ class Compiler:
 
     def _make_mlir_opts(self, trt_builder_opt_level):
         opts = compiler.StableHLOToExecutableOptions(
-            tensorrt_builder_opt_level=trt_builder_opt_level, tensorrt_strongly_typed=False
+            tensorrt_builder_opt_level=trt_builder_opt_level, tensorrt_strongly_typed=True
         )
         if config.enable_mlir_debug:
             opts.set_debug_options(config.enable_mlir_debug, config.mlir_debug_types, config.mlir_debug_tree_path)
@@ -114,8 +112,7 @@ class Compiler:
     # The optional flat_ir parameter is used to generate nicer error messages.
     @utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
-        logger.mlir(str(mlir_module))
-        # logger.mlir(lambda: f"{utils.prefix_with_line_numbers(remove_constants(str(mlir_module)))}\n")
+        logger.mlir(lambda: f"{utils.prefix_with_line_numbers(remove_constants(str(mlir_module)))}\n")
         opts = self._make_mlir_opts(self.trt_builder_opt_level)
 
         try:
