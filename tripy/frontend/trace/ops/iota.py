@@ -82,7 +82,11 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
 
         assert np.array_equal(output.numpy(), np.arange(0, 3, dtype=np.float32))
     """
-    from tripy.frontend import Tensor
+    from tripy.frontend.trace.ops.cast import cast
+
+    if dtype not in (datatype.float32, datatype.int32):
+        result = Iota.build([], dim, utils.to_dims(shape), datatype.float32)
+        return cast(result, dtype)
 
     return Iota.build([], dim, utils.to_dims(shape), dtype)
 
@@ -111,4 +115,11 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtyp
 
         assert np.array_equal(output.numpy(), np.arange(0, 3, dtype=np.float32))
     """
+    from tripy.frontend.trace.ops.cast import cast
+
+    result_dtype = dtype if dtype is not None else input.dtype
+    if result_dtype not in (datatype.float32, datatype.int32):
+        result = IotaLike.build([input], dim, None, datatype.float32)
+        return cast(result, result_dtype)
+
     return IotaLike.build([input], dim, None, dtype)
