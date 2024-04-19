@@ -111,10 +111,10 @@ class MatrixMultiplication(BaseTraceOp):
         def split_shape_in_batch_and_mat_dims(input: "FlatIRTensor", nb_batch_dims: int):
             input_shape = op_utils.get_shape_of_tensor(input)
 
-            zero_1d = op_utils.add_constant_tensor_from_list(self, [0], input.device)
-            one_1d = op_utils.add_constant_tensor_from_list(self, [1], input.device)
+            zero_1d = op_utils.add_constant_tensor_from_list([0], input.device)
+            one_1d = op_utils.add_constant_tensor_from_list([1], input.device)
 
-            slice_len = op_utils.add_constant_tensor_from_list(self, [nb_batch_dims], input.device)
+            slice_len = op_utils.add_constant_tensor_from_list([nb_batch_dims], input.device)
             batch_slice = FlatIRTensor.build(
                 shape=utils.to_dims([nb_batch_dims]),
                 dtype=int32,
@@ -123,7 +123,7 @@ class MatrixMultiplication(BaseTraceOp):
             )
             DynamicSliceOp.build([input_shape, zero_1d, slice_len, one_1d], [batch_slice])
 
-            end_len = op_utils.add_constant_tensor_from_list(self, [len(input.shape)], input.device)
+            end_len = op_utils.add_constant_tensor_from_list([len(input.shape)], input.device)
             mat_slice = FlatIRTensor.build(
                 shape=utils.to_dims([len(input.shape) - nb_batch_dims]),
                 dtype=int32,
@@ -134,7 +134,7 @@ class MatrixMultiplication(BaseTraceOp):
             return batch_slice, mat_slice
 
         def append_ones_data_tensor(input, nb_ones):
-            extra_a_ones = op_utils.add_constant_tensor_from_list(self, [1] * nb_ones, input.device)
+            extra_a_ones = op_utils.add_constant_tensor_from_list([1] * nb_ones, input.device)
             input_expanded = FlatIRTensor.build(
                 shape=utils.to_dims(-1),
                 dtype=int32,
@@ -174,8 +174,8 @@ class MatrixMultiplication(BaseTraceOp):
         )
 
         # Concatenate the batch dims with matrix dims computed in step1.
-        a_dims = op_utils.concatenate_tensors(self, [max_of_batch_shapes, a_mat_shape], dim=0)
-        b_dims = op_utils.concatenate_tensors(self, [max_of_batch_shapes, b_mat_shape], dim=0)
+        a_dims = op_utils.concatenate_tensors([max_of_batch_shapes, a_mat_shape], dim=0)
+        b_dims = op_utils.concatenate_tensors([max_of_batch_shapes, b_mat_shape], dim=0)
 
         # Use the computed output dims from #4 to broadcast both the inputs.
         inputs[0] = op_utils.insert_broadcast(

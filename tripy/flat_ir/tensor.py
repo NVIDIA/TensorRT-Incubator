@@ -1,8 +1,12 @@
+import contextlib
+import copy
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
 from tripy import utils
 from tripy.common.types import ShapeInfo
+
+_BUILD_CONTEXT: List[Any] = None
 
 
 @dataclass(repr=False)
@@ -24,6 +28,19 @@ class FlatIRTensor:
     but optional for tensors that can be traced back to user tensors.
     It should complete the sentence: "This operation was added in order to...".
     """
+    reason_context: Optional[List[Any]] = None
+
+    @contextlib.contextmanager
+    @staticmethod
+    def context(ctx: List[Any]):
+        # TODO (#165): Make this support hierarchical contexts. Doing so should be fairly easy -
+        # we just need to make _BUILD_CONTEXT a list of lists which we push/pop from.
+        try:
+            global _BUILD_CONTEXT
+            _BUILD_CONTEXT = ctx
+            yield
+        finally:
+            _BUILD_CONTEXT = None
 
     def to_mlir(self):
         from tripy.backend.mlir import utils as mlir_utils
@@ -47,6 +64,7 @@ class FlatIRTensor:
             device=device,
             producer=None,
             reason_details=reason_details,
+            reason_context=copy.copy(_BUILD_CONTEXT),
         )
 
     def __str__(self) -> str:
