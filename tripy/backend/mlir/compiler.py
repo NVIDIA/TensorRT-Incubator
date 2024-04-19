@@ -44,6 +44,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
         out_tensor = flat_ir.tensor_map[output_name]
 
         if output_name not in trace_output_names:
+            # TODO (#165): Enforce reason_context like we do reason_details?
             assert (
                 out_tensor.reason_details
             ), f"All intermediate tensors should have reason_details set, but {out_tensor} does not!"
@@ -54,9 +55,15 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             [
                 "This error occured while trying to compile the following FlatIR expression:",
                 utils.code_pretty_str(str(op)),
+                "\n",
             ]
             + (
-                [f"\nThis operation was introduced by Tripy in order to ", *out_tensor.reason_details, "."]
+                [f"\nNote: Tripy introduced new operation(s) in order to ", *out_tensor.reason_context, "."]
+                if out_tensor.reason_context
+                else []
+            )
+            + (
+                [f"\nThis operation was introduced to ", *out_tensor.reason_details, "."]
                 if out_tensor.reason_details
                 else []
             )

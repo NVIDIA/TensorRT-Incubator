@@ -100,7 +100,7 @@ def get_shape_of_tensor(tensor: "FlatIRTensor"):
     return shape_output_tensor
 
 
-def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.device"):
+def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConstantOp
     from tripy.common.datatype import int32
@@ -116,7 +116,7 @@ def add_constant_tensor_from_list(op: "BaseTraceOp", data: list, device: "tripy.
     return const_output_tensor
 
 
-def concatenate_tensors(op: "BaseTraceOp", inputs: List["FlatIRTensor"], dim: int):
+def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConcatenateOp
     from tripy.common.datatype import int32
@@ -206,7 +206,6 @@ def insert_broadcast(
     )
 
     if use_dynamic_variant:
-        from tripy import int32
 
         assert shape_of_target_tensor, "shape_of_target_tensor is required for dynamic variant of the broadcast op."
 
@@ -226,7 +225,7 @@ def insert_broadcast(
 
 
 # Expands rank of a tensor via prepending extra dims provided by nb_extra_dims.
-def expand_rank_of_tensor(op: "BaseTraceOp", input: "FlatIRTensor", nb_extra_dims: int):
+def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
     import numpy as np
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, ConstantOp

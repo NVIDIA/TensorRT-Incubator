@@ -113,7 +113,7 @@ def main():
         idx[0, token_idx] = idx_next[0]
         idx = tp.Tensor(idx, device=tp.device("gpu"))
 
-    response = encoder.decode(idx[0].numpy().tolist())
+    response = encoder.decode(idx[0, :].numpy().tolist())
     print(response)
 
 

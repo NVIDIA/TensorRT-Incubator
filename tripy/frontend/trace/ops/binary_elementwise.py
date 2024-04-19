@@ -56,41 +56,43 @@ class BinaryElementwise(BaseTraceOp):
         from tripy.flat_ir.ops import MaxOp
 
         rank = max(len(inputs[0].shape), len(inputs[1].shape))
-        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], rank - len(inputs[0].shape))
-        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], rank - len(inputs[1].shape))
+        with FlatIRTensor.context([f"expand the inputs of '{self.kind.strip()}' to have the same rank"]):
+            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], rank - len(inputs[0].shape))
+            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], rank - len(inputs[1].shape))
 
-        shape_of_input0 = op_utils.get_shape_of_tensor(inputs[0])
-        shape_of_input1 = op_utils.get_shape_of_tensor(inputs[1])
+        with FlatIRTensor.context([f"broadcast the inputs of '{self.kind.strip()}' to compatible shapes"]):
+            shape_of_input0 = op_utils.get_shape_of_tensor(inputs[0])
+            shape_of_input1 = op_utils.get_shape_of_tensor(inputs[1])
 
-        # Compute element-wise max of input shapes to get the desired output shape.
-        max_output_shape_tensor = FlatIRTensor.build(
-            shape=inputs[0].shape,
-            dtype=int32,
-            device=inputs[0].device,
-            reason_details=[
-                f"compute the output shape using element-wise max of input shapes {shape_of_input0}, {shape_of_input1} to account for broadcasting."
-            ],
-        )
-        MaxOp.build(
-            [shape_of_input0, shape_of_input1],
-            [max_output_shape_tensor],
-        )
+            # Compute element-wise max of input shapes to get the desired output shape.
+            max_output_shape_tensor = FlatIRTensor.build(
+                shape=inputs[0].shape,
+                dtype=int32,
+                device=inputs[0].device,
+                reason_details=[
+                    f"compute the output shape using element-wise max of input shapes {shape_of_input0}, {shape_of_input1} to account for broadcasting."
+                ],
+            )
+            MaxOp.build(
+                [shape_of_input0, shape_of_input1],
+                [max_output_shape_tensor],
+            )
 
-        inputs[0] = op_utils.insert_broadcast(
-            inputs[0],
-            outputs[0].shape,
-            use_dynamic_variant=True,
-            shape_of_target_tensor=max_output_shape_tensor,
-            tensor_details=f"left operand of '{self.kind.strip()}'",
-        )
+            inputs[0] = op_utils.insert_broadcast(
+                inputs[0],
+                outputs[0].shape,
+                use_dynamic_variant=True,
+                shape_of_target_tensor=max_output_shape_tensor,
+                tensor_details=f"left operand",
+            )
 
-        inputs[1] = op_utils.insert_broadcast(
-            inputs[1],
-            outputs[0].shape,
-            use_dynamic_variant=True,
-            shape_of_target_tensor=max_output_shape_tensor,
-            tensor_details=f"right operand of '{self.kind.strip()}'",
-        )
+            inputs[1] = op_utils.insert_broadcast(
+                inputs[1],
+                outputs[0].shape,
+                use_dynamic_variant=True,
+                shape_of_target_tensor=max_output_shape_tensor,
+                tensor_details=f"right operand",
+            )
 
         return inputs
 

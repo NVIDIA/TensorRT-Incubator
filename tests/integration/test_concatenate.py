@@ -26,7 +26,7 @@ class TestConcatenate:
     )
     def test_negative_concat(self, tensor_shapes, dim):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
-        with helper.raises(tp.TripyException, match=f"do not match at non-concat index"):
+        with helper.raises(tp.TripyException, match=f"not compatible at non-concat index"):
             out = tp.concatenate(tensors, dim=dim)
             print(out)
 

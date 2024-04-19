@@ -69,9 +69,9 @@ class Where(BaseTraceOp):
 
         # Make rank of cond, a and b the same.
         output_rank = max(a_rank, b_rank, cond_rank)
-        inputs[0] = op_utils.expand_rank_of_tensor(self, inputs[0], output_rank - len(inputs[0].shape))
-        inputs[1] = op_utils.expand_rank_of_tensor(self, inputs[1], output_rank - len(inputs[1].shape))
-        inputs[2] = op_utils.expand_rank_of_tensor(self, inputs[2], output_rank - len(inputs[2].shape))
+        inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], output_rank - len(inputs[0].shape))
+        inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], output_rank - len(inputs[1].shape))
+        inputs[2] = op_utils.expand_rank_of_tensor(inputs[2], output_rank - len(inputs[2].shape))
 
         # Compute element-wise max of input shapes to get the desired output shape.
         max_of_cond_and_a_shape = FlatIRTensor.build(

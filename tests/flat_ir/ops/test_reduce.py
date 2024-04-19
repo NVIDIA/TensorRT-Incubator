@@ -62,8 +62,7 @@ class TestReduceOp:
         assert re.match(
             r"t[0-9]+: \[shape=\(\), dtype=\(int32\), loc=\(gpu:0\)\] = MulOp\(t_inter[0-9]+, t_inter[0-9]+\)", str(mul)
         )
-
-        reduce = flat_ir.ops[-23]
+        reduce = flat_ir.ops[2]
         assert isinstance(reduce, ReduceOp)
         assert re.match(
             r"t[0-9]+: \[shape=\(2,\), dtype=\(float32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode=sum, reduce_dims=\[0\]\)",
