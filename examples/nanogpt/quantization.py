@@ -24,7 +24,7 @@ def ammo_quantize(model_hf, quant_mode):
     elif quant_mode == "fp8":
         quant_cfg = atq.FP8_DEFAULT_CFG
     elif quant_mode == "int4-weight-only":
-        quant_cfg = atq.INT4_BLOCKWISE_WEIGHT_ONLY_CFG
+        quant_cfg = atq.INT4_AWQ_CFG
     else:
         raise NotImplementedError(f"Unsupported quantization mode: {quant_mode}")
 

@@ -40,14 +40,17 @@ def dequantize(
 
     If ``dim`` is not given, this function will perform "per-tensor"
     or "block-wise" dequantization.
-    - For "per-tensor" dequantization, the ``scale`` must be a scalar
-    tensor or a single python number.
-    - For "block-wise" dequantization, the ``dtype`` must only be :class:`tripy.int4`.
-    The ``input`` tensor must only have 2 dimensions, e.g. ``[D0, D1]``.
-    The ``scale`` must also be a 2-D tensor or a 2-D python sequence.
-    The first dimension of ``scale`` must be able to divide ``D0``,
-    where "blocking" is performed. The second dimension of ``scale``
-    must equal to ``D1``.
+
+    * For "per-tensor" dequantization, the ``scale`` must be a scalar
+      tensor or a single python number.
+
+    * For "block-wise" dequantization, the ``dtype`` must only be :class:`tripy.int4`.
+      The ``input`` tensor must only have 2 dimensions, e.g. ``[D0, D1]``.
+      The ``scale`` must also be a 2-D tensor or a 2-D python sequence.
+      The first dimension of ``scale`` must be able to divide ``D0``,
+      where "blocking" is performed. The second dimension of ``scale``
+      must equal to ``D1``.
+
 
     If ``dim`` is given, this function will perform "per-channel"
     dequantization. The ``scale`` must be a 1-D tensor or a python sequence
@@ -83,6 +86,19 @@ def dequantize(
 
         expected = (np.array([[1, 2, 3], [4, 5, 6]]) * np.array(scale).reshape(2, 1)).astype(np.float32) # doc: omit
         assert np.array_equal(output.numpy(), expected)
+
+    .. code-block:: python
+        :linenos:
+        :caption: Block-wise dequantization
+
+        # doc: print-locals input, output
+
+        input = tp.Tensor([[0, 1], [2, 3]], dtype=tp.float32)
+        scale = [[1.0, 1.0]]
+        quant = tp.quantize(input, scale, tp.int4)
+        output = tp.dequantize(quant, scale, tp.float32)
+
+        assert np.array_equal(output.numpy(), np.array([[0, 1], [2, 3]], dtype=np.float32))
 
     .. seealso:: :func:`quantize`
     """

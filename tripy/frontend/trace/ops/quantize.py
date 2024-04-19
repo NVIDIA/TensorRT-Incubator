@@ -46,14 +46,16 @@ def quantize(
 
     If ``dim`` is not given, this function will perform "per-tensor"
     or "block-wise" quantization.
-    - For "per-tensor" quantization, the ``scale`` must be a scalar
-    tensor or a single python number.
-    - For "block-wise" quantization, the ``dtype`` must only be :class:`tripy.int4`.
-    The ``input`` tensor must only have 2 dimensions, e.g. ``[D0, D1]``.
-    The ``scale`` must also be a 2-D tensor or a 2-D python sequence.
-    The first dimension of ``scale`` must be able to divide ``D0``,
-    where "blocking" is performed. The second dimension of ``scale``
-    must equal to ``D1``.
+
+    * For "per-tensor" quantization, the ``scale`` must be a scalar
+      tensor or a single python number.
+
+    * For "block-wise" quantization, the ``dtype`` must only be :class:`tripy.int4`.
+      The ``input`` tensor must only have 2 dimensions, e.g. ``[D0, D1]``.
+      The ``scale`` must also be a 2-D tensor or a 2-D python sequence.
+      The first dimension of ``scale`` must be able to divide ``D0``,
+      where "blocking" is performed. The second dimension of ``scale``
+      must equal to ``D1``.
 
     If ``dim`` is given, this function will perform "per-channel"
     quantization. The ``scale`` must be a 1-D tensor or a python sequence
@@ -92,14 +94,16 @@ def quantize(
 
     .. code-block:: python
         :linenos:
-        :caption: Block quantization
+        :caption: Block-wise quantization
 
-        input = tp.Tensor([[0, 1, 2], [3, 4, 5]], dtype=tp.float32)
-        scale = [0.99872, 0.96125]
-        output = tp.quantize(input, scale, tp.int8, dim=0)
+        # doc: print-locals input, output
 
-        expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / np.array(scale).reshape(2, 1)).astype(np.int8) # doc: omit
-        assert np.array_equal(output.numpy(), expected)
+        input = tp.Tensor([[0, 1], [2, 3]], dtype=tp.float32)
+        scale = [[1.0, 1.0]]
+        quant = tp.quantize(input, scale, tp.int4)
+        output = tp.dequantize(quant, scale, tp.float32)
+
+        assert np.array_equal(output.numpy(), np.array([[0, 1], [2, 3]], dtype=np.float32))
 
     .. seealso:: :func:`dequantize`
     """

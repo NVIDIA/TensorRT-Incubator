@@ -66,6 +66,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     model_hf = ammo_quantize(model_hf, quant_mode)
     hf_state_dict = model_hf.state_dict()
     # We ignore some of the keys in the HF checkpoint:
+    # TODO(#166): Figure out how to apply pre_quant_scale
     ignored_keys = [".attn.masked_bias", ".attn.bias", "_pre_quant_scale"]
     hf_keys = [key for key in hf_state_dict.keys() if not any(key.endswith(w) for w in ignored_keys)]
 

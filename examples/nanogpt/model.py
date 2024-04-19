@@ -67,7 +67,7 @@ class CausalSelfAttention(tp.Module):
             )  # (batch_size, num_heads, seq_len, head_size)
 
         # WAR for better accuracy and avoid TRT compilation error in fp16
-        if self.c_attn.quant_dtype == tp.float8:
+        if self.c_attn.quant_dtype in (tp.float8, tp.int4):
             qkv = tp.cast(qkv, tp.float32)
         q, k, v = extract(0), extract(1), extract(2)
         k_t = tp.transpose(k, -2, -1)
