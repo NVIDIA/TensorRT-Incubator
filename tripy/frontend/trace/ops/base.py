@@ -32,6 +32,7 @@ class BaseTraceOp(abc.ABC):
             out.shape = []
 
         op.infer_dtypes()
+        op.infer_rank()
         return op
 
     @classmethod
@@ -74,6 +75,16 @@ class BaseTraceOp(abc.ABC):
             self.inputs and len(self.outputs) == 1 and all(inp.dtype == self.inputs[0].dtype for inp in self.inputs)
         ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different data types. Please override."
         self.outputs[0].dtype = self.inputs[0].dtype
+
+    def infer_rank(self):
+        """
+        Infers and updates rank for the output of the operation.
+        """
+        assert (
+            self.inputs and len(self.outputs) == 1
+        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs."
+        # Max for all input ranks is done to account for rank broadcasting.
+        self.outputs[0].rank = max(inp.rank for inp in self.inputs)
 
     def infer_devices(self):
         """

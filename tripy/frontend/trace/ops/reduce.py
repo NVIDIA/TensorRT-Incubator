@@ -37,6 +37,13 @@ class Reduce(BaseTraceOp):
                     out_shape.append(s)
         self.outputs[0].shape = utils.to_dims(out_shape)
 
+    def infer_rank(self):
+        if self.dim is None:
+            self.outputs[0].rank = self.inputs[0].rank
+        else:
+            self.dim = make_list(self.dim)
+            self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
+
     def to_flat_ir(self, inputs, outputs):
 
         from tripy.common.array import Array

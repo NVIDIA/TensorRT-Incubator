@@ -103,3 +103,10 @@ class TestConvolution:
             if expect_input_stack_info:
                 output = conv_layer(input)
                 output.eval()
+
+    def test_infer_rank(self):
+        input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
+        conv_layer = tp.Conv(3, 16, (5, 5), dtype=tp.float32)
+        output = conv_layer(input)
+
+        assert output.trace_tensor.rank == input.rank

@@ -62,6 +62,9 @@ class Convolution(BaseTraceOp):
 
         self.outputs[0].shape = output_shape
 
+    def infer_rank(self):
+        self.outputs[0].rank = self.inputs[0].rank
+
     def infer_dtypes(self):
         op_utils.check_input_dtypes_match(self, "convolution")
         self.outputs[0].dtype = self.inputs[0].dtype

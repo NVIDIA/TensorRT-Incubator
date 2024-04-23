@@ -18,6 +18,7 @@ class TraceTensor:
     dtype: "tripy.common.dtype"
     device: "tripy.common.device"
     producer: "BaseTraceOp"
+    rank: int
 
     def __str__(self) -> str:
         def str_from_dim(dim: dynamic_dim):
@@ -27,6 +28,7 @@ class TraceTensor:
         return (
             f"{self.name}: [shape=({shape}), "
             + (f"dtype=({self.dtype.name}), " if self.dtype is not None else "")
+            + f"rank=({self.rank}), "
             + f"loc=({self.device})]"
         )
 

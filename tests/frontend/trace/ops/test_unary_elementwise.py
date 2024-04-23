@@ -21,3 +21,9 @@ class TestUnaryElementwise:
         assert isinstance(out, tp.Tensor)
         assert isinstance(out.trace_tensor.producer, UnaryElementwise)
         assert out.trace_tensor.producer.kind == kind
+
+    @pytest.mark.parametrize("func, kind", [(func, kind) for kind, func in _UNARY_OPS.items()])
+    def test_infer_rank(self, func, kind):
+        a = tp.ones((2, 3))
+        out = func(a)
+        assert out.trace_tensor.rank == 2

@@ -26,6 +26,9 @@ class Reshape(BaseTraceOp):
             self.shape = tuple(missing_dim if dim == -1 else dim for dim in self.shape)
         self.outputs[0].shape = utils.to_dims(self.shape)
 
+    def infer_rank(self):
+        self.outputs[0].rank = len(self.shape)
+
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ReshapeOp
 
@@ -73,6 +76,12 @@ class Squeeze(Reshape):
         self.shape = out_shape
 
         super().infer_shapes()
+
+    def infer_rank(self):
+        if self.dims:
+            self.outputs[0].rank = self.inputs[0].rank - len(self.dims)
+        else:
+            self.outputs[0].rank = self.inputs[0].rank
 
 
 @export.public_api(document_under="tensor_operations")

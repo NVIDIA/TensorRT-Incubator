@@ -20,3 +20,8 @@ class TestSlice:
             has_stack_info_for=[a, b],
         ) as exc:
             b.eval()
+
+    def test_infer_rank(self):
+        a = tp.ones((2, 3))
+        a = a[:2, :]
+        assert a.trace_tensor.rank == 2

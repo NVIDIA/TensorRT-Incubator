@@ -23,6 +23,12 @@ class MatrixMultiplication(BaseTraceOp):
         b_shape = batch_shapes + b_matrix
         return a_shape, b_shape
 
+    def infer_rank(self):
+        if self.inputs[0].rank == 1 and self.inputs[1].rank == 1:
+            self.outputs[0].rank = 0
+        else:
+            self.outputs[0].rank = max(inp.rank for inp in self.inputs)
+
     def infer_shapes(self):
 
         # Fix when broadcasting support is added (#25).

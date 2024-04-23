@@ -19,6 +19,9 @@ class Unsqueeze(BaseTraceOp):
         out_shape.insert(self.dim, 1)
         self.outputs[0].shape = utils.to_dims(out_shape)
 
+    def infer_rank(self):
+        self.outputs[0].rank = self.inputs[0].rank + 1
+
     def to_flat_ir(self, inputs, outputs):
 
         from tripy.common.array import Array

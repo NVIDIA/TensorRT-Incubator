@@ -28,3 +28,8 @@ class TestDequantize:
             match="Invalid dequantization dtype.",
         ):
             a = tp.dequantize(a, 0.9, tp.int32)
+
+    def test_infer_rank(self):
+        a = tp.Tensor([2, 4], dtype=tp.int8)
+        a = tp.dequantize(a, 0.9, tp.float32)
+        assert a.trace_tensor.rank == 1

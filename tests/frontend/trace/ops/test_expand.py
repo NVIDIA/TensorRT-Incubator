@@ -31,3 +31,8 @@ class TestExpand:
             has_stack_info_for=[a, b],
         ):
             b.eval()
+
+    def test_infer_rank(self):
+        a = tp.ones((2, 1))
+        a = tp.expand(a, (2, 2))
+        assert a.trace_tensor.rank == 2

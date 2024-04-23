@@ -22,3 +22,9 @@ class TestGather:
             has_stack_info_for=[a, index],
         ):
             b = tp.gather(a, 0, index)
+
+    def test_infer_rank(self):
+        a = tp.Tensor([1, 2, 3, 4])
+        index = tp.Tensor(np.zeros(1, dtype=np.int32))
+        out = tp.gather(a, 0, index)
+        assert out.trace_tensor.rank == 1

@@ -25,6 +25,9 @@ class Fill(BaseTraceOp):
 
         self.outputs[0].device = device("gpu")
 
+    def infer_rank(self):
+        self.outputs[0].rank = len(self.shape)
+
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.array import Array
         from tripy.common.device import device
@@ -55,6 +58,9 @@ class FillLike(Fill):
         if self.dtype is None:
             self.dtype = self.inputs[0].dtype
         super().infer_dtypes()
+
+    def infer_rank(self):
+        self.outputs[0].rank = self.inputs[0].rank
 
 
 @export.public_api(document_under="tensor_operations")

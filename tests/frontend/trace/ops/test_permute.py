@@ -23,6 +23,11 @@ class TestPermute:
         ):
             b.eval()
 
+    def test_infer_rank(self):
+        a = tp.ones((3, 2))
+        a = tp.permute(a, (1, 0))
+        assert a.trace_tensor.rank == 2
+
 
 class TestTranspose:
     def test_op_func(self):
@@ -36,3 +41,8 @@ class TestTranspose:
 
         with helper.raises(tp.TripyException, match="Function expects 3 parameters, but 4 arguments were provided."):
             b = tp.transpose(a, 1, 2, 3)
+
+    def test_infer_rank(self):
+        a = tp.ones((3, 2))
+        a = tp.transpose(a, 0, 1)
+        assert a.trace_tensor.rank == 2

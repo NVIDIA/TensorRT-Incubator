@@ -42,3 +42,17 @@ class TestReduce:
         a = tp.argmin(a, 0)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, ArgMinMax)
+
+    @pytest.mark.parametrize(
+        "func, expected_rank",
+        [
+            (lambda t: tp.sum(t, 0), 1),
+            (lambda t: tp.sum(t), 2),
+            (lambda t: tp.mean(t, 0), 1),
+            (lambda t: tp.mean(t), 2),
+        ],
+    )
+    def test_infer_rank(self, func, expected_rank):
+        a = tp.ones((2, 3))
+        out = func(a)
+        assert out.trace_tensor.rank == expected_rank

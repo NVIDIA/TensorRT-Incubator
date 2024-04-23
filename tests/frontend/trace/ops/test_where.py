@@ -44,6 +44,13 @@ class TestWhere:
         ):
             c = tp.where(cond, a, b)
 
+    def test_infer_rank(self):
+        a = tp.Tensor([[0, 1], [0, 1]], shape=(2, 2))
+        b = tp.Tensor([[0, 0], [1, 1]], shape=(2, 2))
+        condition = a >= b
+        a = tp.where(condition, a, b)
+        assert a.trace_tensor.rank == 2
+
 
 class TestMaskedFill:
     def test_op_func(self):
@@ -62,3 +69,10 @@ class TestMaskedFill:
             tp.TripyException, match="Condition input must have boolean type.", has_stack_info_for=[a, mask]
         ):
             b = tp.masked_fill(a, mask, -1)
+
+    def test_infer_rank(self):
+        a = tp.Tensor([0, 1, 0, 1])
+        b = tp.Tensor([0, 0, 1, 0])
+        mask = a == b
+        a = tp.masked_fill(a, mask, -1)
+        assert a.trace_tensor.rank == 1

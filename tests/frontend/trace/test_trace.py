@@ -82,7 +82,7 @@ class TestTrace:
                 b = storage(data=[1], shape=(1,), dtype=int32, device=cpu:0)
                 c = a + b
                 outputs:
-                    c: [shape=(1,), dtype=(int32), loc=(gpu:0)]
+                    c: [shape=(1,), dtype=(int32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -122,8 +122,8 @@ class TestTrace:
                 c = a + b
                 d = c + c
                 outputs:
-                    c: [shape=(1,), dtype=(float32), loc=(gpu:0)]
-                    d: [shape=(1,), dtype=(float32), loc=(gpu:0)]
+                    c: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    d: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -152,11 +152,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    a: [shape=(1,), dtype=(float32), loc=(gpu:0)]
-                    b: [shape=(1,), dtype=(float32), loc=(gpu:0)]
+                    a: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    b: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 c = a + b
                 outputs:
-                    c: [shape=(1,), dtype=(float32), loc=(gpu:0)]
+                    c: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -175,11 +175,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    a: [shape=(1,), dtype=(float32), loc=(gpu:0)]
+                    a: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 b = storage(data=[1.], shape=(1,), dtype=float32, device=cpu:0)
                 c = a + b
                 outputs:
-                    c: [shape=(1,), dtype=(float32), loc=(gpu:0)]
+                    c: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )

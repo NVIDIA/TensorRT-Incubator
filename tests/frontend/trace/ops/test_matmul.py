@@ -1,3 +1,5 @@
+import pytest
+
 import numpy as np
 
 import tripy as tp
@@ -46,3 +48,21 @@ class TestMatMul:
 
         with helper.raises(tp.TripyException, match="Incompatible input shapes.", has_stack_info_for=[a, b, c]):
             c.eval()
+
+    @pytest.mark.parametrize(
+        "a, b, expected_rank",
+        [
+            (
+                tp.ones((2,)),
+                tp.ones(
+                    2,
+                ),
+                0,
+            ),
+            (tp.ones((2, 3)), tp.ones((3, 2)), 2),
+            (tp.ones((4, 2, 3)), tp.ones((3, 2)), 3),
+        ],
+    )
+    def test_infer_rank(self, a, b, expected_rank):
+        out = a @ b
+        assert out.trace_tensor.rank == expected_rank

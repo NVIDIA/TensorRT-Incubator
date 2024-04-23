@@ -16,6 +16,9 @@ class Gather(BaseTraceOp):
         out_shape = data_shape[: self.axis] + indices_shape + data_shape[self.axis + 1 :]
         self.outputs[0].shape = utils.to_dims(out_shape)
 
+    def infer_rank(self):
+        self.outputs[0].rank = self.inputs[0].rank
+
     def infer_dtypes(self):
         from tripy import int32
 

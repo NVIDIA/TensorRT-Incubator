@@ -81,7 +81,7 @@ class Tensor(metaclass=TensorMeta):
         self.stack_info = utils.get_stack_info()
 
         name = utils.default(name, Tensor.get_unique_name())
-        self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None)
+        self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None, None)
 
         # Note that most tensors won't have this field - generally only model input tensors.
         self._dynamic_shape = utils.to_dims(shape)
@@ -117,6 +117,10 @@ class Tensor(metaclass=TensorMeta):
     @property
     def dtype(self):
         return self.trace_tensor.dtype
+
+    @property
+    def rank(self):
+        return self.trace_tensor.rank
 
     def eval(self) -> Array:
         from tripy.backend.mlir.compiler import Compiler

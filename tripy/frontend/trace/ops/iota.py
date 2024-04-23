@@ -30,6 +30,9 @@ class Iota(BaseTraceOp):
                 ],
             )
 
+    def infer_rank(self):
+        self.outputs[0].rank = len(self.shape)
+
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
@@ -53,6 +56,9 @@ class IotaLike(Iota):
     def infer_shapes(self):
         self.shape = self.inputs[0].shape
         super().infer_shapes()
+
+    def infer_rank(self):
+        self.outputs[0].rank = self.inputs[0].rank
 
     def infer_dtypes(self):
         if self.dtype is None:

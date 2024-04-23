@@ -56,7 +56,7 @@ class TestStorage:
 
         arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
         data = Array(arr, shape=(3,), dtype=dtype, device=None)
-        storage = Storage([], [TraceTensor("t0", None, [3], dtype, None, None)], data)
+        storage = Storage([], [TraceTensor("t0", None, [3], dtype, None, None, None)], data)
         with mlir_utils.make_ir_context(), ir.Location.unknown():
             flat_ir = FlatIR()
             fir_outputs = [out.to_flat_ir() for out in storage.outputs]
@@ -64,3 +64,8 @@ class TestStorage:
             flat_ir.integrate_subgraph([], fir_outputs)
             mlir_outputs = flat_ir.ops[0].to_mlir(operands=[])
             assert mlir_outputs[0].value.type.element_type == mlir_utils.get_mlir_dtype(dtype)
+
+    def test_infer_rank(self):
+        arr = [1.0, 2.0, 3.0]
+        t = tp.Tensor(arr)
+        assert t.trace_tensor.rank == 1

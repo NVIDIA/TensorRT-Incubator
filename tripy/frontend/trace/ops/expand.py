@@ -38,6 +38,9 @@ class Expand(BaseTraceOp):
 
         self.outputs[0].shape = utils.to_dims(out_shape)
 
+    def infer_rank(self):
+        self.outputs[0].rank = len(self.shape)
+
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import BroadcastOp
 

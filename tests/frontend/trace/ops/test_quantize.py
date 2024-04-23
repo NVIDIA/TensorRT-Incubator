@@ -25,3 +25,8 @@ class TestQuantize:
             match="Unsupported quantization dtype.",
         ):
             a = tp.quantize(a, 0.9, tp.float16)
+
+    def test_infer_rank(self):
+        a = tp.ones((2, 3))
+        a = tp.quantize(a, 0.9, tp.int8)
+        assert a.trace_tensor.rank == 2

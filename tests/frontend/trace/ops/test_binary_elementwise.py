@@ -61,6 +61,22 @@ class TestBinaryElementwise:
             kind = _FLIP_OPS[kind]
 
         assert out.trace_tensor.producer.kind == kind
+        assert out.trace_tensor.rank == 1
+
+    @pytest.mark.parametrize(
+        "lhs, rhs, expected_rank",
+        [
+            (tp.Tensor([1.0]), tp.Tensor([2.0]), 1),
+            (tp.Tensor([1.0]), np.array([2.0], dtype=np.float32), 1),
+            (np.array([1.0], dtype=np.float32), tp.Tensor([2.0]), 1),
+            (tp.Tensor([1.0]), 2.0, 1),
+            (1.0, tp.Tensor([2.0]), 1),
+            (tp.ones((2, 3)), 2.0, 2),
+        ],
+    )
+    def test_infer_rank(self, lhs, rhs, expected_rank):
+        out = lhs + rhs
+        assert out.trace_tensor.rank == expected_rank
 
     def test_mismatched_dtypes_fails(self):
         a = tp.Tensor([1, 2], dtype=tp.float32)

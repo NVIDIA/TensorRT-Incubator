@@ -29,3 +29,7 @@ class TestRandom:
             match="randn only supports float32 or float16.",
         ):
             a = tp.randn((2, 3), dtype=tp.int32)
+
+    def test_infer_rank(self):
+        a = tp.rand((2, 3))
+        assert a.trace_tensor.rank == 2

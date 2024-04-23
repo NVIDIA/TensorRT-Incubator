@@ -143,6 +143,12 @@ class Theta(BaseTraceOp):
     def infer_devices(self):
         self.outputs[0].device = device("gpu")
 
+    # `infer_rank()` populates the rank of the output `TraceTensor`s.
+    # For most operators, the output rank will depend on the rank of `self.inputs`.
+    # In our case, since `Theta` generates a tensor, there is no input tensor.
+    def infer_rank(self):
+        self.outputs[0].rank = len(self.shape)
+
     # `to_flat_ir()` translates the `Trace` operator to a subgraph of
     # one or more `FlatIR` operators. In our case, it's just a 1:1
     # mapping to the `ThetaOp` we created earlier.

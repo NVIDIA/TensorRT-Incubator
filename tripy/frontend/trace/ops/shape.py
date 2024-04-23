@@ -12,6 +12,9 @@ class Shape(BaseTraceOp):
 
         self.outputs[0].shape = (dynamic_dim(len(self.inputs[0].shape)),)
 
+    def infer_rank(self):
+        self.outputs[0].rank = 1
+
     def infer_dtypes(self):
         from tripy import int32
 

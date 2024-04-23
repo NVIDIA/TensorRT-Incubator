@@ -11,3 +11,9 @@ def test_copy(src, dst):
     assert isinstance(a, tp.Tensor)
     assert isinstance(a.trace_tensor.producer, Copy)
     assert a.trace_tensor.producer.target.kind == dst
+
+
+def test_infer_rank():
+    a = tp.Tensor([1, 2], device=tp.device("gpu"))
+    a = tp.copy(a, tp.device("cpu"))
+    assert a.trace_tensor.rank == 1

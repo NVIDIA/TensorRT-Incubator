@@ -21,6 +21,7 @@ class Slice(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_shapes(self):
+        # Static shape computation of the output rank is wrong since it should reduce the rank in case single element is selected along a dimension.
         input_shape = self.inputs[0].shape
         self.start_indices, self.limit_indices, self.strides = op_utils.get_slice_indices(self, input_shape, self.index)
         out_shape = [
@@ -28,6 +29,10 @@ class Slice(BaseTraceOp):
             for start, stop, stride in zip(self.start_indices, self.limit_indices, self.strides)
         ]
         self.outputs[0].shape = utils.to_dims(out_shape)
+
+    def infer_rank(self):
+        # How can we compute the output rank in the case when start, size, stride tensors are dynamic?
+        self.outputs[0].rank = self.inputs[0].rank
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import AddOp, CompareOp, SelectOp, DynamicSliceOp
