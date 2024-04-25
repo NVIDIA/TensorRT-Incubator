@@ -25,10 +25,10 @@ class TestReshape:
 
     def test_dynamic_reshape(self):
         dim = tp.dynamic_dim(runtime_value=4, min=3, opt=5, max=6)
-        a = tp.ones((dim, 5, 6, 7))
-        with helper.raises(NotImplementedError, match="Dynamic reshape is not supported"):
-            a = tp.reshape(a, (20, 3, 14))
-            print(a)
+        a_np = np.ones((4, 5, 6, 7), dtype=np.float32)
+        a = tp.Tensor(a_np, shape=(dim, 5, 6, 7))
+        a = tp.reshape(a, (20, -1, 14))
+        assert np.array_equal(a.numpy(), a_np.reshape((20, -1, 14)))
 
     def test_invalid_neg_dim_reshape(self):
         shape = (1, 30)

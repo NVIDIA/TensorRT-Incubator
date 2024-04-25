@@ -68,7 +68,6 @@ class TestConvolutionOp:
         kernel_nvalues = reduce(lambda x, y: x * y, kernel_shape)
         stride = list(stride)
         padding = [list(inner) for inner in padding]
-
         helper.check_mlir(
             flat_ir[0].to_mlir(),
             f"""
@@ -101,9 +100,10 @@ class TestConvolutionOp:
                     %24 = stablehlo.dynamic_broadcast_in_dim %14, %23, dims = [0] : (tensor<{kernel_nvalues}xf32>, tensor<1xi32>) -> tensor<{kernel_nvalues}xf32>
                     %25 = stablehlo.dynamic_broadcast_in_dim %16, %23, dims = [0] : (tensor<{kernel_nvalues}xf32>, tensor<1xi32>) -> tensor<{kernel_nvalues}xf32>
                     %26 = stablehlo.add %24, %25 : tensor<{kernel_nvalues}xf32>
-                    %27 = stablehlo.reshape %26 : (tensor<{kernel_nvalues}xf32>) -> tensor<16x{kernel_channels}x5x5xf32>
-                    %28 = stablehlo.convolution(%1, %27) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {stride}, pad = {padding}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} : (tensor<2x4x8x8xf32>, tensor<16x{kernel_channels}x5x5xf32>) -> tensor<2x16x{spatial_shape}x{spatial_shape}xf32>
-                    return %28 : tensor<2x16x{spatial_shape}x{spatial_shape}xf32>
+                    %27 = stablehlo.constant dense<[16, {kernel_shape[1]}, {kernel_shape[2]}, {kernel_shape[3]}]> : tensor<4xi32>
+                    %28 = stablehlo.dynamic_reshape %26, %27 : (tensor<{kernel_nvalues}xf32>, tensor<4xi32>) -> tensor<16x{kernel_channels}x5x5xf32>
+                    %29 = stablehlo.convolution(%1, %28) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {stride}, pad = {padding}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} : (tensor<2x4x8x8xf32>, tensor<16x{kernel_channels}x5x5xf32>) -> tensor<2x16x{spatial_shape}x{spatial_shape}xf32>
+                    return %29 : tensor<2x16x{spatial_shape}x{spatial_shape}xf32>
                 }}
             }}
             """,

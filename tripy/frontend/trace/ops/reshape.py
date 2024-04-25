@@ -30,16 +30,10 @@ class Reshape(BaseTraceOp):
         self.outputs[0].rank = len(self.shape)
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ReshapeOp
+        from tripy.flat_ir.ops import DynamicReshapeOp
 
-        if any(
-            (dim[0].is_dynamic_dim() or dim[1].is_dynamic_dim())
-            for dim in zip(inputs[0].shape, utils.to_dims(self.shape))
-        ):
-            # TODO(#160): Add dynamic reshape op
-            raise NotImplementedError("Dynamic reshape is not supported.")
-
-        ReshapeOp.build(inputs, outputs)
+        output_shape = op_utils.add_constant_tensor_from_list(self.shape, inputs[0].device)
+        DynamicReshapeOp.build([inputs[0], output_shape], outputs)
 
 
 @dataclass(repr=False)
