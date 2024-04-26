@@ -8,7 +8,7 @@ from tests.conftest import skip_if_older_than_sm89
 class TestDequantize:
 
     @pytest.mark.parametrize("scale", [0.5, 0.9])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
     def test_dequantize_int8_per_tensor(self, scale, dtype):
         data = [4, 8]
         input = tp.Tensor(data, dtype=tp.int8)
@@ -17,7 +17,7 @@ class TestDequantize:
         assert np.array_equal(dequantized.numpy(), expected)
 
     @pytest.mark.parametrize("scale", [[0.8, 0.9], [0.5, 0.5]])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
     def test_dequantize_int8_per_channel(self, scale, dtype):
         # TODO: Fix in #153
         if dtype == tp.float16:
@@ -30,20 +30,20 @@ class TestDequantize:
 
     # TODO(#161): Update fp8 test to use frontend representation
     @pytest.mark.parametrize("scale", [0.5, 0.9])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
     @skip_if_older_than_sm89
     def test_dequantize_fp8_per_tensor(self, scale, dtype):
-        data = [56, 56]  # uint8 data for fp8 [1.0, 1.0]
+        data = [1.0, 1.0]
         input = tp.Tensor(data, dtype=tp.float8)
         dequantized = tp.dequantize(input, scale, dtype)
         assert dequantized.dtype == dtype
         print(dequantized)
 
     @pytest.mark.parametrize("scale", [[0.8, 0.9], [0.5, 0.5]])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
     @skip_if_older_than_sm89
     def test_dequantize_fp8_per_channel(self, scale, dtype):
-        data = [[56, 56], [56, 56]]
+        data = [[1.0, 1.0], [1.0, 1.0]]
         input = tp.Tensor(data, dtype=tp.float8)
         dequantized = tp.dequantize(input, scale, dtype, dim=0)
         assert dequantized.dtype == dtype

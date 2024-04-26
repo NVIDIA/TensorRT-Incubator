@@ -25,7 +25,7 @@ class TestDequantize:
         a = tp.Tensor([2, 4], dtype=tp.int8)
         with helper.raises(
             tp.TripyException,
-            match="Invalid dequantization dtype.",
+            match="Unsupported dequantization dtype.",
         ):
             a = tp.dequantize(a, 0.9, tp.int32)
 

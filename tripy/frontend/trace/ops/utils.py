@@ -101,6 +101,7 @@ def get_shape_of_tensor(tensor: "FlatIRTensor"):
 
 
 def add_constant_tensor_from_list(data: list, device: "tripy.device"):
+    from tripy.common.array import Array
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConstantOp
     from tripy.common.datatype import int32
@@ -112,7 +113,11 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
         device=device,
         reason_details=[f"create constant rank 1 int32 tensor filled with {data}."],
     )
-    ConstantOp.build([], [const_output_tensor], data=np.array(data).astype(np.int32))
+    ConstantOp.build(
+        [],
+        [const_output_tensor],
+        data=Array(np.array(data).astype(np.int32), None, None, None),
+    )
     return const_output_tensor
 
 
@@ -226,11 +231,12 @@ def insert_broadcast(
 
 # Expands rank of a tensor via prepending extra dims provided by nb_extra_dims.
 def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
-    import numpy as np
+    from tripy.common.array import Array
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, ConstantOp
     from tripy.common.datatype import int32
     from tripy import utils
+    import numpy as np
 
     if nb_extra_dims == 0:
         return input
@@ -249,7 +255,11 @@ def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
         reason_details=[f"create a rank 1 shape tensor filled {nb_extra_dims} ones."],
     )
 
-    ConstantOp.build([], [const_val_tensor], data=np.array(1, dtype=np.int32))
+    ConstantOp.build(
+        [],
+        [const_val_tensor],
+        data=Array(np.array(1, dtype=np.int32), None, None, None),
+    )
     BroadcastOp.build([const_val_tensor], [ones_shape_tensor], broadcast_dim=[])
 
     shape_of_input = get_shape_of_tensor(input)

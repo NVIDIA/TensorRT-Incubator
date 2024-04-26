@@ -106,21 +106,22 @@ def dequantize(
     from tripy.logging import logger
 
     # check if input has a dequantizable dtype
-    VALID_DEQUANT_DTYPES = [datatype.int8, datatype.int4, datatype.float8]
-    if input.dtype not in VALID_DEQUANT_DTYPES:
+    SUPPORTED_INPUT_DTYPES = (datatype.int8, datatype.int4, datatype.float8)
+    if input.dtype not in SUPPORTED_INPUT_DTYPES:
         raise_error(
             "Input does not have a valid dtype to dequantize",
             [
-                f"input.dtype must be one of {VALID_DEQUANT_DTYPES}.",
+                f"input.dtype must be one of {SUPPORTED_INPUT_DTYPES}.",
                 f"Got dtype={input.dtype}",
             ],
         )
 
-    if dtype not in (datatype.float32, datatype.float16):
+    SUPPORTED_DEQUANT_DTYPES = (datatype.float32, datatype.float16, datatype.bfloat16)
+    if dtype not in SUPPORTED_DEQUANT_DTYPES:
         raise_error(
-            "Invalid dequantization dtype.",
+            "Unsupported dequantization dtype.",
             [
-                f"dtype must be one of `tp.float32, tp.float16`, ",
+                f"dtype must be one of {SUPPORTED_DEQUANT_DTYPES}, ",
                 f"Got dtype={dtype}",
             ],
         )

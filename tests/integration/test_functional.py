@@ -330,10 +330,10 @@ class TestDynamic:
 
 
 class TestConversionToTripyType:
+
     @pytest.mark.parametrize(
         "reverse_direction",
-        [False],
-        # #84 will fix issues found with reverse direction implementation.
+        [False, True],
     )
     @pytest.mark.parametrize(
         "input0",

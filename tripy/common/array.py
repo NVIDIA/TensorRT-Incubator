@@ -2,6 +2,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import cupy as cp
 import numpy as np
+import ml_dtypes
 
 from tripy import utils
 from tripy.common.device import device as tp_device
@@ -23,7 +24,8 @@ def convert_tripy_to_module_dtype(dtype: "tripy.common.datatype.dtype", module) 
             tripy.common.datatype.uint8: module.uint8,
             tripy.common.datatype.float16: module.float16,
             tripy.common.datatype.bool: module.bool_,
-            tripy.common.datatype.float8: module.uint8,
+            tripy.common.datatype.float8: ml_dtypes.float8_e4m3fn,
+            tripy.common.datatype.bfloat16: ml_dtypes.bfloat16,
         }
     )
 
@@ -53,9 +55,31 @@ def convert_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.datatype.dtype"
         "float16": tripy.common.datatype.float16,
         "float32": tripy.common.datatype.float32,
         "bool": tripy.common.datatype.bool,
+        "float8_e4m3fn": tripy.common.datatype.float8,
+        "bfloat16": tripy.common.datatype.bfloat16,
     }
 
     return NUMPY_TO_TRIPY.get(dtype_name, None)
+
+
+def check_data_consistency(data, shape, dtype):
+    if dtype is not None:
+        data_dtype = convert_to_tripy_dtype(data.dtype)
+        if not data_dtype:
+            raise_error(f"Data has unsupported dtype: {data.dtype}")
+        if data_dtype != dtype:
+            raise_error(
+                "Data has incorrect dtype.",
+                details=[f"Input data had type: {data_dtype}, ", f"but provided dtype was: {dtype}"],
+            )
+    if shape is not None and data.shape != shape:
+        raise_error(
+            "Data has incorrect shape.",
+            details=[
+                f"Input data had shape: {data.shape}, ",
+                f"but provided runtime shape was: {shape}",
+            ],
+        )
 
 
 # The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
@@ -95,63 +119,62 @@ class Array:
         if data is None:
             if shape is None:
                 raise_error("Shape must be provided when data is None.", [])
+            self.shape = shape
+            self.dtype = utils.default(dtype, tripy.common.datatype.float32)
             # Allocate dummy data
-            data = self._module.empty(
-                dtype=convert_tripy_to_module_dtype(
-                    utils.default(dtype, tripy.common.datatype.float32), module=self._module
-                ),
-                shape=shape,
+            if self.dtype in (tripy.common.datatype.float8, tripy.common.datatype.bfloat16):
+                # convert fp8, bfloat16 to uint8 to construct cupy array
+                data = np.empty(
+                    dtype=convert_tripy_to_module_dtype(self.dtype, module=np),
+                    shape=self.shape,
+                )
+                if not data.shape:
+                    data = data.reshape((1,))
+                data = data.view(np.uint8)
+            else:
+                data = self._module.empty(
+                    dtype=convert_tripy_to_module_dtype(self.dtype, module=self._module),
+                    shape=self.shape,
+                )
+        elif isinstance(data, (List, int, float, tuple)):
+
+            def get_element_type(elements):
+                e = elements
+                while isinstance(e, List) or isinstance(e, tuple):
+                    e = e[0]
+                if isinstance(e, int):
+                    return np.int32
+                elif isinstance(e, float):
+                    return np.float32
+                else:
+                    raise_error(
+                        "Unsupported element type.",
+                        details=[
+                            f"List element type can only be int or float.",
+                            f"Got element {e} of type {type(e)}.",
+                        ],
+                    )
+
+            element_type = get_element_type(data)
+            # Use numpy to construct host buffer for python types
+            # allow casting for python types
+            data = np.array(
+                data,
+                dtype=convert_tripy_to_module_dtype(dtype, self._module) if dtype is not None else element_type,
             )
+            check_data_consistency(data, shape, dtype)
+            self.dtype = convert_to_tripy_dtype(data.dtype)
+            self.shape = data.shape
+            if dtype in (tripy.common.datatype.float8, tripy.common.datatype.bfloat16):
+                # convert fp8, bfloat16 to uint8 to construct cupy array
+                if not data.shape:
+                    data = data.reshape((1,))
+                data = data.view(np.uint8)
         else:
-            if isinstance(data, (List, int, float, tuple)):
-
-                def get_element_type(elements):
-                    e = elements
-                    while isinstance(e, List) or isinstance(e, tuple):
-                        e = e[0]
-                    if isinstance(e, int):
-                        return self._module.int32
-                    elif isinstance(e, float):
-                        return self._module.float32
-                    else:
-                        raise_error(
-                            "Unsupported element type.",
-                            details=[
-                                f"List element type can only be int or float.",
-                                f"Got element {e} of type {type(e)}.",
-                            ],
-                        )
-
-                element_type = get_element_type(data)
-                # allow casting for python types
-                data = self._module.array(
-                    data,
-                    dtype=convert_tripy_to_module_dtype(dtype, self._module) if dtype is not None else element_type,
-                )
-
-            data_dtype = convert_to_tripy_dtype(data.dtype)
-            if not data_dtype:
-                raise_error(f"Data has unsupported dtype: {data.dtype}")
-
-            # Check for consistency if dtype/shape was provided with data:
-            # TODO(#161): Remove the exception for fp8
-            if dtype not in (None, tripy.common.datatype.float8) and data_dtype != dtype:
-                raise_error(
-                    "Data has incorrect dtype.",
-                    details=[f"Input data had type: {data_dtype}, ", f"but provided dtype was: {dtype}"],
-                )
-
-            if shape is not None and shape != data.shape:
-                raise_error(
-                    "Data has incorrect shape.",
-                    details=[
-                        f"Input data had shape: {data.shape}, ",
-                        f"but provided runtime shape was: {shape}",
-                    ],
-                )
-
-        self.shape = data.shape
-        self.dtype = dtype if dtype is not None else convert_to_tripy_dtype(data.dtype)
+            # data is dlpack array
+            check_data_consistency(data, shape, dtype)
+            self.dtype = convert_to_tripy_dtype(data.dtype)
+            self.shape = data.shape
 
         # Convert data with correct dtype and shape to a byte buffer.
         def convert_to_byte_buffer(data):
@@ -161,6 +184,7 @@ class Array:
                 data = data.reshape((1,))
             return self._module.array(data).view(self._module.uint8)
 
+        # TODO(#169): Replace with MLIR-TRT array
         self.byte_buffer: Union[np.ndarray, cp.ndarray] = convert_to_byte_buffer(data)
 
     def view(self):

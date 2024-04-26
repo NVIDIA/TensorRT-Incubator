@@ -110,11 +110,12 @@ def quantize(
     from tripy.frontend.trace.ops.cast import cast
     from tripy.logging import logger
 
-    if input.dtype not in (datatype.float32, datatype.float16):
+    SUPPORTED_INPUT_DTYPES = (datatype.float32, datatype.float16, datatype.bfloat16)
+    if input.dtype not in SUPPORTED_INPUT_DTYPES:
         raise_error(
             "Input does not have a valid dtype to quantize.",
             [
-                f"input.dtype must be one of `tp.float32, tp.float16`, ",
+                f"input.dtype must be one of {SUPPORTED_INPUT_DTYPES}, ",
                 f"Got dtype={input.dtype}",
             ],
         )

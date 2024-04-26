@@ -30,14 +30,24 @@ class TestTensor:
         assert a.trace_tensor.producer.device.kind == kind
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
-    def test_dtype(self, dtype):
-        # (32): Allow setting all tripy supported types here.
-        # Given a int/float data list, store data with requested data type.
-        if dtype in {tp.int4, tp.bfloat16, tp.float8}:
-            pytest.skip("Type is not supported by numpy/cupy")
+    def test_dtype_from_numpy(self, dtype):
+        if dtype == tp.int4:
+            pytest.skip("Int4 is not supported by frontend tensor.")
 
-        # (38): Add cast operation to support unsupported backend types. Allow requested type to be different than init data type for list data type.
-        tensor = tp.Tensor(np.array([1, 2, 3], dtype=convert_tripy_to_module_dtype(dtype, np)))
+        np_array = np.array([1, 2, 3], dtype=convert_tripy_to_module_dtype(dtype, np))
+        tensor = tp.Tensor(np_array)
+        assert tensor.trace_tensor.producer.dtype == dtype
+        assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
+        assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
+
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    def test_dtype_from_list(self, dtype):
+        # Given a int/float data list, store data with requested data type.
+        if dtype == tp.int4:
+            pytest.skip("Int4 is not supported by frontend tensor.")
+
+        # dtype casting is allowed for python list
+        tensor = tp.Tensor([1, 2, 3], dtype=dtype)
         assert tensor.trace_tensor.producer.dtype == dtype
         assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
         assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize

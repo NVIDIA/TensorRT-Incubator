@@ -156,7 +156,18 @@ class Tensor(metaclass=TensorMeta):
         return data.view()
 
     def __repr__(self) -> str:
-        np_arr = self.eval().view()
+        import numpy as np
+
+        from tripy.common.array import convert_tripy_to_module_dtype
+
+        # HACK(#169): Remove cupy .get()
+        # BUG(#170): Cannot simply use self.numpy() here
+        #            Breaks DS in JIT
+        arr = self.eval().byte_buffer
+        if self.trace_tensor.producer.device.kind == "gpu":
+            arr = arr.get()
+        np_arr = arr.view(convert_tripy_to_module_dtype(self.dtype, np))
+
         indentation = ""
         sep = ""
         if len(np_arr.shape) > 1 and any(dim > 1 for dim in np_arr.shape):
