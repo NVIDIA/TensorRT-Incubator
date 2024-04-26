@@ -6,6 +6,7 @@ import tripy as tp
 
 
 class TestReduceOp:
+
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
         [
@@ -14,6 +15,7 @@ class TestReduceOp:
             ((2, 3), 1, False),
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
+            ((2, 3, 4), None, True),
         ],
     )
     def test_mean(self, x_shape, axis, keepdim: bool):
@@ -33,6 +35,7 @@ class TestReduceOp:
             ((2, 3), 1, True),
             ((2, 3, 4), (1, 2), True),
             ((2, 3, 4), None, False),
+            ((2, 3, 4), None, True),
             ((2, 3), 1, False),
             ((2, 3, 4), (1, 2), False),
         ],
@@ -57,6 +60,7 @@ class TestReduceOp:
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
             ((2, 3, 4), None, False),
+            ((2, 3, 4), None, True),
         ],
     )
     def test_argmax(self, x_shape, axis, keepdim: bool):
@@ -78,6 +82,7 @@ class TestReduceOp:
             ((2, 3), 1, False),
             ((2, 3, 4), 2, False),
             ((2, 3, 4), None, False),
+            ((2, 3, 4), None, True),
         ],
     )
     def test_argmin(self, x_shape, axis, keepdim: bool):

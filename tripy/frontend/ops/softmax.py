@@ -34,6 +34,5 @@ def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
     from tripy.frontend.trace.ops.reduce import max, sum
     from tripy.frontend.trace.ops.unary_elementwise import exp
 
-    # TODO(#96): make keepdim always True to match the mlir pattern
     exp_inp = exp(input - max(input, dim, keepdim=True))
     return exp_inp / sum(exp_inp, dim, keepdim=True)

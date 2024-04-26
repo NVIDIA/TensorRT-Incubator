@@ -122,16 +122,17 @@ class ArgMinMax(Reduce):
         )
 
 
-def _reduce_impl(self, kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
+def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.frontend.trace.ops.reshape import reshape
 
-    out = Reduce.build([self], dim, kind)
+    out = Reduce.build([input], dim, kind)
     if keepdim:
         if dim is None:
-            # TODO(#96): Support dim=None, keepdim=True
-            raise NotImplementedError("dim=None, keepdim=True is not supported yet.")
-        for d in sorted(make_list(dim)):
-            out = unsqueeze(out, d)
+            out = reshape(out, (1,) * input.rank)
+        else:
+            for d in sorted(make_list(dim)):
+                out = unsqueeze(out, d)
 
     return out
 
@@ -321,15 +322,16 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, ke
     from tripy.frontend.trace.ops.reshape import reshape
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
+    input_rank = tensor.rank
     if dim is None:
         tensor = reshape(tensor, (-1,))
     indices = iota_like(tensor, dim if dim else 0, datatype.int32)
     out = ArgMinMax.build([tensor, indices], dim, kind)
     if keepdim:
         if dim is None:
-            # TODO(#96): Support dim=None, keepdim=True
-            raise NotImplementedError("dim=None, keepdim=True is not supported yet.")
-        out = unsqueeze(out, dim)
+            out = reshape(out, (1,) * input_rank)
+        else:
+            out = unsqueeze(out, dim)
     return out
 
 

@@ -8,13 +8,6 @@ from tripy.backend.mlir.utils import get_mlir_dtype
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
-# TODO (#137): This WAR is needed due to changes in StableHLO.
-# When we next upgrade MLIR-TRT, we can remove it.
-@ir.register_attribute_builder("I64DenseArrayOrElements1DAttr")
-def _denseI64ArrayAttr(x, context):
-    return ir.DenseI64ArrayAttr.get(x, context=context)
-
-
 @dataclass(repr=False)
 class ReduceOp(BaseFlatIROp):
 
