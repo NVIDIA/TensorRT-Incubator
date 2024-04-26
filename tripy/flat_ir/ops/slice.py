@@ -19,12 +19,7 @@ class SliceOp(BaseFlatIROp):
 
 @dataclass(repr=False)
 class DynamicSliceOp(BaseFlatIROp):
-    """
-    Operation to dynamically slice a tensor.
-    """
-
     def to_mlir(self, operands):
-
         return [
             stablehlo.real_dynamic_slice(
                 result=self.outputs[0].to_mlir(),

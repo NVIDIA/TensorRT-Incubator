@@ -5,6 +5,7 @@ from typing import Any, List, Tuple
 from colored import Fore, attr
 
 from tripy import export, utils
+from dataclasses import dataclass
 
 
 @export.public_api()
@@ -14,6 +15,22 @@ class TripyException(Exception):
     """
 
     pass
+
+
+@dataclass
+class OmitStackInfo:
+    """
+    Allows suppression of stack information in error messages by hiding
+    the `.stack_info` field. Acts as a passthrough for str/repr.
+    """
+
+    obj: Any
+
+    def __str__(self) -> str:
+        return str(self.obj)
+
+    def __repr__(self) -> str:
+        return repr(self.obj)
 
 
 def str_from_source_info(source_info, enable_color=True, is_first_frame=True, callee_info=None):

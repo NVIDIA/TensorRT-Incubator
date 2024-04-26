@@ -59,9 +59,9 @@ class Slice(BaseTraceOp):
                 dtype=int32,
                 device=device,
                 reason_details=[
-                    "slice rank 1 tensor ",
+                    "slice the 1D tensor ",
                     rank1_tensor,
-                    f" describing slice parameters to get the slice parameter value at {slice_index} dimension.",
+                    f" to get the slice parameter value at dimension {slice_index}",
                 ],
             )
             DynamicSliceOp.build([rank1_tensor, start_idx, slice_len, stride_index], [shape_slice])
@@ -79,7 +79,7 @@ class Slice(BaseTraceOp):
                 shape=utils.to_dims([1]),
                 dtype=bool,
                 device=device,
-                reason_details=["compare if index tensor ", index_tensor, " is greater than 0."],
+                reason_details=["compare if index tensor ", index_tensor, " is greater than 0"],
             )
             CompareOp.build(
                 [index_tensor, zero_1d],
@@ -91,7 +91,7 @@ class Slice(BaseTraceOp):
                 shape=utils.to_dims([1]),
                 dtype=int32,
                 device=device,
-                reason_details=["add 1 to index tensor", index_tensor, " to get the real dimension value."],
+                reason_details=["add 1 to index tensor", index_tensor, " to get the real dimension value"],
             )
             AddOp.build([index_tensor, dim], [add_out])
 
@@ -120,9 +120,9 @@ class Slice(BaseTraceOp):
 
             with FlatIRTensor.context(
                 [
-                    f"compute the {name} value at index {idx} by converting element {idx} in ",
+                    f"compute the slice {name} value at index {idx} by converting element {idx} in ",
                     index_tensor,
-                    " to a positive index.",
+                    " to a positive index",
                 ]
             ):
                 slices_tensor.append(convert_to_positive_idx(slice_rank1_tensor(index_tensor, idx), shape_slice))
@@ -134,10 +134,10 @@ class Slice(BaseTraceOp):
                 start_index_tensor,
                 shape_slice,
                 idx,
-                "start slice",
+                "start",
             )
-            compute_slice_param_value_at_index(limit_slices, limit_index_tensor, shape_slice, idx, "limit slice")
-            compute_slice_param_value_at_index(stride_slices, stride_index_tensor, shape_slice, idx, "stride slice")
+            compute_slice_param_value_at_index(limit_slices, limit_index_tensor, shape_slice, idx, "limit")
+            compute_slice_param_value_at_index(stride_slices, stride_index_tensor, shape_slice, idx, "stride")
 
         start_index_tensor = op_utils.concatenate_tensors(start_slices, dim=0)
         limit_index_tensor = op_utils.concatenate_tensors(limit_slices, dim=0)
@@ -188,7 +188,8 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
         assert isinstance(val, int) or isinstance(val, Tensor)
         return Tensor([val], dtype=int32) if isinstance(val, int) else val
 
-    # index can be a tuple of just integer, Tensor (ex; a[2] or a[t]) or can be a slice with optional start, stop and step fields set (where the element can be int or Tensor).
+    # index can be a tuple of just integer, Tensor (ex; a[2] or a[t]) or can be a
+    # slice with optional start, stop and step fields set (where the element can be int or Tensor).
     t_shape = self.shape
     for i, idx in enumerate(index):
 

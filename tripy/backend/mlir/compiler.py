@@ -5,7 +5,7 @@ from mlir_tensorrt.compiler import ir
 
 from tripy import config, utils
 from tripy.backend.mlir.utils import parse_tensor_names_from_location, redirect_stderr, remove_constants
-from tripy.common.exception import raise_error
+from tripy.common.exception import raise_error, OmitStackInfo
 import tripy.config as cfg
 from tripy.logging import logger
 
@@ -20,6 +20,9 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
     assert (
         len(output_names) <= 1
     ), f"Error messages are only implemented for single output ops. Please fix if you see this message!"
+
+    def omit_stack_info(details):
+        return list(map(lambda x: OmitStackInfo(x), details))
 
     def get_tensors(names, title=None):
         infos = []
@@ -58,12 +61,20 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
                 "\n",
             ]
             + (
-                [f"\nNote: Tripy introduced new operation(s) in order to ", *out_tensor.reason_context, "."]
+                [
+                    f"\nNote: Tripy introduced new operation(s) in order to ",
+                    *omit_stack_info(out_tensor.reason_context),
+                    ".",
+                ]
                 if out_tensor.reason_context
                 else []
             )
             + (
-                [f"\nThis operation was introduced to ", *out_tensor.reason_details, "."]
+                [
+                    f"\nThis operation was introduced to ",
+                    *omit_stack_info(out_tensor.reason_details),
+                    ".",
+                ]
                 if out_tensor.reason_details
                 else []
             )
