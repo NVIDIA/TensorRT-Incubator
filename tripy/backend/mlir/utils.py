@@ -12,6 +12,10 @@ from tripy.common import ShapeInfo
 from tripy.logging import logger
 
 
+def get_max_upper_bounds():
+    return sys.maxsize
+
+
 def make_ir_context() -> ir.Context:
     context = ir.Context()
 

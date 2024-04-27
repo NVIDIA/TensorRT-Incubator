@@ -4,10 +4,12 @@ import mlir_tensorrt.runtime.api as runtime
 import mlir_tensorrt.compiler.api as compiler
 
 from tripy.backend.utils import TensorInfo
+from tripy.backend.mlir.utils import get_max_upper_bounds
 from tripy.common import Array, datatype, device
 from tripy.common.exception import raise_error
 from tripy.frontend import Tensor, dynamic_dim
-from tripy.utils import Result, from_dims, log_time
+from tripy.utils import Result, from_dims, log_time, make_tuple
+
 
 G_RUNTIME_CLIENT = None
 
@@ -79,86 +81,164 @@ def _convert_to_memref(
     )
 
 
-def _get_output_tensor_info(
-    executable: runtime.Executable, output_runtime_shapes: List[int], output_devices=List[device]
-):
-    signature = executable.get_signature("main")
-    offset = signature.get_num_input_args()
-    output_info = []
-
-    for output_index in range(signature.get_num_output_args()):
-        arg_index = output_index + offset
-        arg = signature.get_arg(arg_index)
-        assert compiler.MemRefType.isinstance(arg) or compiler.ScalarType.isinstance(
-            arg
-        ), "Argument must be either MemRefType or ScalarType"
-        assert compiler.MemRefType.isinstance(
-            arg
-        ), "ScalarType argument are not yet supported"  # 158: Add scalar type output argument support.
-        memref = compiler.MemRefType(arg)
-        dtype = _convert_to_tripy_dtype(memref.dtype)
-        device_type = "gpu" if memref.address_space == runtime.PointerType.device else "cpu"
-        if output_devices[output_index]:
-            device_type = output_devices[output_index].kind
-        is_static_shape = all(dim >= 0 for dim in memref.shape)
-        if is_static_shape:
-            output_info.append(TensorInfo(tuple([dynamic_dim(s) for s in memref.shape]), dtype, device(device_type)))
-        else:
-            upper_bounds = signature.get_arg_bound(arg_index).max()
-            assert len(upper_bounds) == len(memref.shape), "Upper bounds and shape length must match"
-
-            max_shape = [upper if dim < 0 else dim for dim, upper in zip(memref.shape, upper_bounds)]
-            output_info.append(
-                TensorInfo(
-                    tuple(
-                        [
-                            dynamic_dim(runtime, min=None, opt=None, max=max)
-                            for max, runtime in zip(max_shape, output_runtime_shapes[output_index])
-                        ]
-                    ),
-                    dtype,
-                    device(device_type),
-                )
-            )
-
-    return output_info
-
-
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
-        self.executable = executable
         self.runtime_client = _get_runtime_client()
         self.stream = self.runtime_client.create_stream()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
         self.session = runtime.RuntimeSession(session_options, executable)
+        self.device = self.runtime_client.get_devices()[0]  # Assume a single device is available.
+        self.signature = executable.get_signature("main")
 
-    # Slice the output buffer (allocated with max shapes) to get the data with runtime shapes.
-    def slice_outputs(self, outputs, out_tensor_info):
-        def slice_to_match(output_shape, runtime_shape):
-            slice_spec = [slice(None)] * len(runtime_shape)  # Default slice is to include everything
-            for index, (dim1, dim2) in enumerate(zip(output_shape, runtime_shape)):
-                if dim1 > dim2:
-                    slice_spec[index] = slice(0, dim2)
-            return slice_spec
+    def _get_inputs_shape_memref(self, inputs):
+        inputs_shape_memref = []
+        for input in inputs:
+            # (#155) Shape function require input arguments to be on device.
+            input_shape = Array(
+                from_dims(input.trace_tensor.producer.data.shape),
+                shape=make_tuple(input.trace_tensor.rank),
+                dtype=datatype.int64,
+                device=device("cpu"),
+            )
+            input_shape_memref = self.runtime_client.create_memref(
+                input_shape.byte_buffer,
+                shape=make_tuple(input.trace_tensor.rank),
+                dtype=runtime.ScalarTypeCode.i64,
+                device=self.device,
+            )
+            inputs_shape_memref.append(input_shape_memref)
+        return inputs_shape_memref
 
-        for out_index, (output, out_info) in enumerate(zip(outputs, out_tensor_info)):
-            runtime_shape = tuple([s.runtime_value for s in out_info.shape])
-            output_shape = output.shape
-            if output_shape != runtime_shape:
-                t = Tensor(output)
-                slice_index = tuple(slice_to_match(output_shape, runtime_shape))
-                sliced_t = t[slice_index].eval()
-                outputs[out_index] = sliced_t
+    def _get_outputs_shape_memref(self):
+        offset = self.signature.get_num_input_args()
+        outputs_shape_memref = []
+        for output_index in range(self.signature.get_num_output_args()):
+            arg_index = output_index + offset
+            arg = self.signature.get_arg(arg_index)
+            assert compiler.MemRefType.isinstance(arg)
+            memref = runtime.MemRefType(arg)
+            rank = len(memref.shape)
+            if len(memref.shape) > 0:
+                output_shape = Array(memref.shape, shape=make_tuple(rank), dtype=datatype.int64, device=device("cpu"))
+                output_shape_memref = self.runtime_client.create_memref(
+                    output_shape.byte_buffer,
+                    shape=make_tuple(rank),
+                    dtype=runtime.ScalarTypeCode.i64,
+                    device=self.device,
+                )
+                outputs_shape_memref.append(output_shape_memref)
+            else:
+                outputs_shape_memref.append(None)
+        return outputs_shape_memref
+
+    def _execute_shape_inference(self, inputs_shape_memref, outputs_shape_memref):
+        # Only execute shape inference if shape function name is valid.
+        if self.signature.get_shape_func_name() == "":
+            for memref in outputs_shape_memref:
+                if memref is not None:
+                    assert (
+                        all(dim >= 0 for dim in memref.shape)
+                        and f"Output shape {memref.shape} must be statically known if shape inference function is missing. "
+                    )
+            return None
+
+        self.session.execute_function(
+            self.signature.get_shape_func_name(), in_args=inputs_shape_memref, out_args=outputs_shape_memref
+        )
+
+        outputs_shapes_host = [
+            Array(None, shape=s.shape, dtype=datatype.int64, device=device("cpu")) for s in outputs_shape_memref
+        ]
+
+        # (#155) Shape function require input arguments to be on device.
+        # Copy the device output shapes to host.
+        for idx, output_shape in enumerate(outputs_shapes_host):
+            self.runtime_client.copy_to_host(
+                device_memref=outputs_shape_memref[idx],
+                existing_host_memref=self.runtime_client.create_host_memref_view(
+                    ptr=int(output_shape.byte_buffer.ctypes.data),
+                    dtype=_convert_to_runtime_dtype(output_shape.dtype),
+                    shape=output_shape.shape,
+                ),
+                stream=None,
+            )
+
+        outputs_runtime_shape = [s.view().tolist() for s in outputs_shapes_host]
+        return outputs_runtime_shape
+
+    def _get_output_tensor_info(self, outputs_runtime_shape, output_devices):
+        offset = self.signature.get_num_input_args()
+        outputs_tensor_info = []
+        for output_index in range(self.signature.get_num_output_args()):
+            arg_index = output_index + offset
+            arg = self.signature.get_arg(arg_index)
+            assert compiler.MemRefType.isinstance(arg) or compiler.ScalarType.isinstance(
+                arg
+            ), "Argument must be either MemRefType or ScalarType"
+            assert compiler.MemRefType.isinstance(
+                arg
+            ), "ScalarType argument are not yet supported"  # 158: Add scalar type output argument support.
+            memref = compiler.MemRefType(arg)
+            dtype = _convert_to_tripy_dtype(memref.dtype)
+            device_type = "gpu" if memref.address_space == runtime.PointerType.device else "cpu"
+            if output_devices[output_index]:
+                device_type = output_devices[output_index].kind
+            is_static_shape = all(dim >= 0 for dim in memref.shape)
+            if is_static_shape:
+                outputs_tensor_info.append(
+                    TensorInfo(tuple([dynamic_dim(s) for s in memref.shape]), dtype, device(device_type))
+                )
+            else:
+                assert outputs_runtime_shape
+                upper_bounds = self.signature.get_arg_bound(arg_index).max()
+                assert len(upper_bounds) == len(memref.shape), "Upper bounds and shape length must match"
+                max_shape = [upper if dim < 0 else dim for dim, upper in zip(memref.shape, upper_bounds)]
+                for idx, dim in enumerate(memref.shape):
+                    if dim > 0:
+                        assert (
+                            outputs_runtime_shape[output_index][idx] == dim
+                            and f"Inferred runtime shape must be same as static output shape. Expected {dim}, received {outputs_runtime_shape[output_index][idx]}"
+                        )
+                for idx, dim in enumerate(memref.shape):
+                    if dim < 0:
+                        assert (
+                            upper_bounds[idx] >= outputs_runtime_shape[output_index][idx]
+                            and f"Upper bound {upper_bounds[idx]} for a dim at {idx} not be less than runtime shape {outputs_runtime_shape[output_index][idx]}"
+                        )
+                        # TODO: Improve this check to be stricter.
+                        assert (
+                            upper_bounds[idx] < outputs_runtime_shape[output_index][idx] + get_max_upper_bounds()
+                            and f"Upper bound {upper_bounds[idx]} for a dim at {idx} must not exceed runtime shapes {outputs_runtime_shape[output_index][idx]} by {get_max_upper_bounds()}"
+                        )
+                runtime_shape = [
+                    rs if dim < 0 else dim for dim, rs in zip(memref.shape, outputs_runtime_shape[output_index])
+                ]
+                outputs_tensor_info.append(
+                    TensorInfo(
+                        tuple(
+                            [
+                                dynamic_dim(runtime, min=None, opt=None, max=max)
+                                for runtime, max in zip(runtime_shape, max_shape)
+                            ]
+                        ),
+                        dtype,
+                        device(device_type),
+                    )
+                )
+        return outputs_tensor_info
+
+    def get_output_tensor_runtime_info(self, inputs, output_devices=List[device]):
+        inputs_shape_memref = self._get_inputs_shape_memref(
+            inputs
+        )  # Can we use executable signature inputs to retrieve this information?
+        outputs_shape_memref = self._get_outputs_shape_memref()
+        outputs_runtime_shape = self._execute_shape_inference(inputs_shape_memref, outputs_shape_memref)
+        output_tensor_info = self._get_output_tensor_info(outputs_runtime_shape, output_devices)
+        return output_tensor_info
 
     @log_time
-    def execute(
-        self, output_runtime_shapes: List[int], output_devices=List[device], inputs: List[Tensor] = []
-    ) -> List[Array]:
+    def execute(self, output_devices=List[device], inputs: List[Tensor] = []) -> List[Array]:
         from tripy.frontend.trace.ops import Storage
-
-        # HACK (#109): Remove `get_runtime_shapes` once we can infer runtime shapes from executable.
-        # HACK (#155): Remove `get_devices` once executable output tensor location matches Trace IR.
-        out_tensor_info = _get_output_tensor_info(self.executable, output_runtime_shapes, output_devices)
 
         in_args = []
         for inp in inputs:
@@ -171,11 +251,13 @@ class Executor:
                 )
             in_args.append(memref.value)
 
+        # HACK (#155): Remove `get_devices` once executable output tensor location matches Trace IR.
+        out_tensor_info = self.get_output_tensor_runtime_info(inputs, output_devices)
+
         # Allocate output memory and store buffer pointers.
         # mlir-tensorrt requires the output buffer to be of the shape with max bounds.
         outputs = [
-            Array(None, shape=from_dims(info.shape, use_max_value=True), dtype=info.dtype, device=info.device)
-            for info in out_tensor_info
+            Array(None, shape=from_dims(info.shape), dtype=info.dtype, device=info.device) for info in out_tensor_info
         ]
 
         out_args = []
@@ -202,7 +284,5 @@ class Executor:
                     ),
                     stream=None,
                 )
-
-        self.slice_outputs(outputs, out_tensor_info)
 
         return outputs

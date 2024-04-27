@@ -125,7 +125,7 @@ class Tensor(metaclass=TensorMeta):
     def eval(self) -> Array:
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
-        from tripy.backend.utils import get_devices, get_runtime_shapes, get_tensor_info
+        from tripy.backend.utils import get_devices, get_tensor_info
         from tripy.frontend.trace import Trace
 
         if isinstance(self.trace_tensor.producer, Storage):
@@ -141,7 +141,7 @@ class Tensor(metaclass=TensorMeta):
         executor = Executor(executable)
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
-        data = executor.execute(get_runtime_shapes(output_tensor_info), get_devices(output_tensor_info))
+        data = executor.execute(get_devices(output_tensor_info))
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
         Storage.build_internal([], [self.trace_tensor], data)

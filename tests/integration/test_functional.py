@@ -6,7 +6,7 @@ import pytest
 import torch
 
 import tripy as tp
-from tripy.backend.utils import get_tensor_info, get_runtime_shapes, get_devices
+from tripy.backend.utils import get_tensor_info, get_devices
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
 from tripy.frontend.trace import Trace
@@ -79,7 +79,7 @@ class TestFunctional:
         compiler = Compiler()
         output_tensor_info = get_tensor_info(flat_ir.outputs)
         executor = Executor(compiler.compile(flat_ir.to_mlir()))
-        out = executor.execute(get_runtime_shapes(output_tensor_info), get_devices(output_tensor_info))
+        out = executor.execute(get_devices(output_tensor_info))
         assert (
             len(out) == 2
             and (out[0].view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
@@ -283,7 +283,7 @@ class TestDynamic:
         ],
     )
     def test_dynamic_jit(self, dims_a, dims_b, capsys):
-        with logger.use_verbosity("mlir"):
+        with logger.use_verbosity({"mlir"}):
 
             def get_np_dims(dims, dim_func):
                 return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]

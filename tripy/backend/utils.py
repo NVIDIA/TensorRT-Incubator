@@ -28,9 +28,5 @@ def get_tensor_info(tensors) -> List[TensorInfo]:
     return [TensorInfo(tensor.shape, tensor.dtype, tensor.device) for tensor in tensors]
 
 
-def get_runtime_shapes(tensor_info):
-    return [tuple([s.runtime_value for s in info.shape]) for info in tensor_info]
-
-
 def get_devices(tensor_info):
     return [info.device for info in tensor_info]
