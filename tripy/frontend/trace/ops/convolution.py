@@ -9,10 +9,11 @@ import tripy.frontend.trace.ops.utils as op_utils
 
 @dataclass(repr=False)
 class Convolution(BaseTraceOp):
-    # TODO (#146): Add additional params like dilation
     padding: Sequence[Sequence[int]]
     stride: Sequence[int]
     groups: int
+    lhs_dilation: Sequence[int]
+    rhs_dilation: Sequence[int]
 
     def infer_shapes(self):
         tensor_shape = self.inputs[0].shape
@@ -30,36 +31,36 @@ class Convolution(BaseTraceOp):
 
         rank = len(tensor_shape)
 
-        if len(self.padding) != rank - 2:
-            op_utils.raise_error_io_info(
-                self,
-                "Number of padding values does not match number of spatial dimensions in the input.",
-                details=[
-                    f"Got {len(self.padding)} padding value pairs but the number of spatial dimensions is: {rank - 2}.",
-                ],
-            )
+        def verify_spatial_rank(attr, rank, string):
+            spatial_rank = rank - 2
+            if attr and len(attr) != spatial_rank:
+                op_utils.raise_error_io_info(
+                    self,
+                    f"Number of {string} values does not match number of spatial dimensions in the input.",
+                    details=[
+                        f"Got {len(attr)} {string} value pairs but the number of spatial dimensions is: {spatial_rank}.",
+                    ],
+                )
 
-        if len(self.stride) != rank - 2:
-            op_utils.raise_error_io_info(
-                self,
-                "Number of stride values does not match number of spatial dimensions in the input.",
-                details=[
-                    f"Got {len(self.stride)} stride values but the number of spatial dimensions is: {rank-2}.",
-                ],
-            )
+        verify_spatial_rank(self.padding, rank, "padding")
+        verify_spatial_rank(self.stride, rank, "stride")
+        verify_spatial_rank(self.lhs_dilation, rank, "lhs_dilation")
+        verify_spatial_rank(self.rhs_dilation, rank, "rhs_dilation")
 
+        # For regular convolution, we account for the number of zeros inserted into the kernel with dilation.
+        # The output size is then a function of the padding and kernel size, scaled by the stride.
         spatial_shape = ()
-        for spatial_dim_tensor, spatial_dim_kernel, pad, stride in zip(
-            tensor_shape[2:], kernel_shape[2:], self.padding, self.stride
+        for spatial_dim_tensor, spatial_dim_kernel, pad, stride, rhs_dilation in zip(
+            tensor_shape[2:], kernel_shape[2:], self.padding, self.stride, self.rhs_dilation
         ):
-            dim_val = (
-                1 + (spatial_dim_tensor.runtime_value - spatial_dim_kernel.runtime_value + pad[0] + pad[1]) // stride
-            )
+            input_spatial_size = spatial_dim_tensor.runtime_value
+            kernel_spatial_size = spatial_dim_kernel.runtime_value
+            kernel_dilated = kernel_spatial_size + (rhs_dilation - 1) * (kernel_spatial_size - 1)
+            dim_val = 1 + (input_spatial_size + pad[0] + pad[1] - kernel_dilated) // stride
             dim = dynamic_dim(dim_val)
             spatial_shape += (dim,)
 
         output_shape = (tensor_shape[0],) + (kernel_shape[0],) + spatial_shape
-
         self.outputs[0].shape = output_shape
 
     def infer_rank(self):
@@ -72,4 +73,12 @@ class Convolution(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConvolutionOp
 
-        ConvolutionOp.build(inputs, outputs, padding=self.padding, stride=self.stride, feature_group_count=self.groups)
+        ConvolutionOp.build(
+            inputs,
+            outputs,
+            padding=self.padding,
+            stride=self.stride,
+            feature_group_count=self.groups,
+            lhs_dilation=self.lhs_dilation,
+            rhs_dilation=self.rhs_dilation,
+        )

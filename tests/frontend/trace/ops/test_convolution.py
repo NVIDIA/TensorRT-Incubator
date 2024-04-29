@@ -8,7 +8,7 @@ from tripy.frontend.trace.ops import Convolution
 class TestConvolution:
     def test_op_func(self):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
-        conv_layer = tp.Conv(3, 16, (5, 5), dtype=tp.float32)
+        conv_layer = tp.Conv(3, 16, (5, 5), bias=False, dtype=tp.float32)
         output = conv_layer(input)
 
         assert isinstance(output, tp.Tensor)
@@ -110,3 +110,28 @@ class TestConvolution:
         output = conv_layer(input)
 
         assert output.trace_tensor.rank == input.rank
+
+    @pytest.mark.parametrize(
+        "dilation, err, expect_input_stack_info",
+        [
+            ((-1, 0), r"Non-positive dilation is not supported.", False),
+            (
+                (2, 2, 2),
+                r"Number of rhs_dilation values does not match number of spatial dimensions in the input.",
+                True,
+            ),
+        ],
+    )
+    def test_invalid_rhs_dilation(self, dilation, err, expect_input_stack_info):
+        input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
+        stack_info = [input] if expect_input_stack_info else None
+
+        with helper.raises(
+            tp.TripyException,
+            match=err,
+            has_stack_info_for=stack_info,
+        ):
+            conv_layer = tp.Conv(3, 16, (5, 5), dilation=dilation, dtype=tp.float32)
+            if expect_input_stack_info:
+                output = conv_layer(input)
+                output.eval()

@@ -11,6 +11,8 @@ class ConvolutionOp(BaseFlatIROp):
     padding: Sequence[Sequence[int]]
     stride: Sequence[int]
     feature_group_count: int
+    lhs_dilation: Sequence[int]
+    rhs_dilation: Sequence[int]
 
     def to_mlir(self, operands):
         # convolution spec: https://github.com/openxla/stablehlo/blob/main/docs/spec.md#convolution
@@ -49,8 +51,8 @@ class ConvolutionOp(BaseFlatIROp):
             batch_group_count=1,
             window_strides=self.stride,
             padding=self.padding,
-            lhs_dilation=None,
-            rhs_dilation=None,
+            lhs_dilation=self.lhs_dilation,
+            rhs_dilation=self.rhs_dilation,
             window_reversal=None,
         )
         return [output]

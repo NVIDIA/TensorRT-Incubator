@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from collections.abc import Sequence
+from typing import Optional
 
 from tripy import export, utils
 from tripy.common import datatype
@@ -11,7 +12,7 @@ from tripy.common.exception import raise_error
 
 @export.public_api(document_under="modules")
 @dataclass
-@utils.constant_fields(["dtype", "padding", "stride", "groups"])
+@utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
 class Conv(Module):
     r"""
     Applies a convolution on the input tensor.
@@ -21,7 +22,7 @@ class Conv(Module):
     the output values are given by:
 
     .. math::
-        \text{out}(N_i, C_{\text{out}_j}) =
+        \text{out}(N_i, C_{\text{out}_j}) = \text{Bias}_{C_{\text{out}}} +
         \sum_{k = 0}^{C_{\text{in}} - 1} \text{weight}(C_{\text{out}_j}, k) \star \text{input}(N_i, k)
 
 
@@ -35,7 +36,7 @@ class Conv(Module):
     r"""The data type to use for the convolution weights."""
 
     weight: Parameter
-    r"""The kernel of shape :math:`[\text{out_channels}, \frac{\text{in_channels}}{\text{groups}}, *\text{kernel_dims}]`."""
+    r"""The kernel of shape :math:`(\text{out_channels}, \frac{\text{in_channels}}{\text{groups}}, *\text{kernel_dims})`."""
 
     padding: Sequence[Sequence[int]]
     r"""
@@ -60,6 +61,19 @@ class Conv(Module):
     Note that `in_channels` and `out_channels` must both be divisible by ``groups``.
     """
 
+    dilation: Sequence[int]
+    r"""
+    A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
+    where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`. 
+    This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+    For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights. 
+    """
+
+    bias: Optional[Parameter]
+    r"""
+    The bias term to add to the output. The bias has a shape of :math:`(\text{Channels_{\text{out}}},)`.
+    """
+
     def __init__(
         self,
         in_channels: int,
@@ -68,6 +82,8 @@ class Conv(Module):
         padding: Sequence[Sequence[int]] = None,
         stride: Sequence[int] = None,
         groups: int = None,
+        dilation: Sequence[int] = None,
+        bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
     ) -> None:
         r"""
@@ -88,7 +104,12 @@ class Conv(Module):
                 which has full connectivity between all input and output channels. Grouped convolutions reduce computational cost by
                 a factor of ``groups`` and can benefit model parallelism and memory usage.
                 Note that `in_channels` and `out_channels` must both be divisible by ``groups``. Defaults to 1 (standard convolution).
-            dtype: The data type to use for the convolution weights.
+            dilation: A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
+                where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
+                This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+                For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
+            bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{Channels_{\text{out}}},)`. Defaults to True.
+            dtype: The data type to use for the convolution weights. Defaults to float32.
 
         .. code-block:: python
             :linenos:
@@ -98,8 +119,9 @@ class Conv(Module):
             conv = tp.Conv(in_channels=1, out_channels=1, kernel_dims=(2, 2), dtype=tp.float32)
             output = conv(input)
 
-            conv_layer_torch = torch.nn.Conv2d(1, 1, 2, bias=False) # doc: omit
+            conv_layer_torch = torch.nn.Conv2d(1, 1, 2) # doc: omit
             conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
+            conv_layer_torch.bias.data = torch.ones(1) # doc: omit
             expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
 
             assert torch.allclose(torch.from_numpy(output.numpy()), expected)
@@ -109,7 +131,7 @@ class Conv(Module):
             :caption: Using Padding and Stride
 
             input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
-            conv = tp.Conv(1, 1, (3, 3), padding=((1, 1), (1, 1)), stride=(3, 1), dtype=tp.float32)
+            conv = tp.Conv(1, 1, (3, 3), padding=((1, 1), (1, 1)), stride=(3, 1), bias=False, dtype=tp.float32)
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2, padding=1, stride=(3, 1), bias=False) # doc: omit
@@ -123,7 +145,7 @@ class Conv(Module):
             :caption: Depthwise Convolution
 
             input = tp.reshape(tp.arange(18, dtype=tp.float32), (1, 2, 3, 3))
-            conv = tp.Conv(2, 2, (3, 3), groups=2, dtype=tp.float32)
+            conv = tp.Conv(2, 2, (3, 3), groups=2, bias=False, dtype=tp.float32)
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(2, 2, 3, groups=2, bias=False) # doc: omit
@@ -131,14 +153,28 @@ class Conv(Module):
             expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
 
             assert torch.allclose(torch.from_numpy(output.numpy()), expected)
+
+        .. code-block:: python
+            :linenos:
+            :caption: Dilated Convolution (à trous algorithm)
+
+            input = tp.reshape(tp.arange(9, dtype=tp.float32), (1, 1, 3, 3))
+            conv = tp.Conv(1, 1, (2, 2), dilation=(2, 2), bias=False, dtype=tp.float32)
+            output = conv(input)
+
+            conv_layer_torch = torch.nn.Conv2d(1, 1, 2, dilation=2, bias=False) # doc: omit
+            conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
+            expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
+
+            assert torch.allclose(torch.from_numpy(output.numpy()), expected)
         """
-        # TODO (146): Add bias support in module
 
         super().__init__()
-        from tripy.frontend.ops.tensor_initializers import arange
+        from tripy.frontend.ops.tensor_initializers import arange, ones
         from tripy.frontend.trace.ops.reshape import reshape
 
         self.groups = utils.default(groups, 1)
+
         if self.groups <= 0:
             raise_error(
                 "Feature group count must be a positive integer.",
@@ -173,6 +209,17 @@ class Conv(Module):
                 details=[f"Got stride: {self.stride} but all values must be integers greater than 0."],
             )
 
+        self.dilation = utils.default(dilation, (1,) * (rank - 2))
+
+        if not all(isinstance(d, int) and d > 0 for d in self.dilation):
+            raise_error(
+                "Non-positive dilation is not supported.",
+                details=[f"Got dilation: {self.dilation} but all values must be integers greater than 0."],
+            )
+
+        if bias:
+            self.bias = Parameter(ones((out_channels,), dtype=dtype))
+
         self.dtype = dtype
 
     def __call__(self, input: "tripy.Tensor") -> "tripy.Tensor":
@@ -183,8 +230,25 @@ class Conv(Module):
         Returns:
             A tensor of the same data type as the input with a shape
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
-            where :math:`D_{k_{\text{out}}} = \Large \left\lfloor \frac{D_{k_{\text{in}}} - \text{kernel_dims}_k + \text{padding}_{k_0} + \text{padding}_{k_1}}{\text{stride}_k} \right\rfloor + \normalsize 1`
+            where :math:`D_{k_{\text{out}}} = \large \left\lfloor \frac{D_{k_{\text{in}}} + \text{padding}_{k_0} + \text{padding}_{k_1} - \text{dilation}_k \times (\text{kernel_dims}_k - 1) - 1}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
         from tripy.frontend.trace.ops.convolution import Convolution
+        from tripy.frontend.trace.ops.reshape import reshape
+        from tripy.frontend.trace.ops.convolution import Convolution
 
-        return Convolution.build([input, self.weight], self.padding, self.stride, self.groups)
+        x = Convolution.build(
+            [input, self.weight],
+            self.padding,
+            self.stride,
+            self.groups,
+            None,  # lhs_dilation for transposed conv only
+            self.dilation,
+        )
+        if hasattr(self, "bias"):
+            # TODO: #174 - Get integers out of TP Array & Fix convolution bias reshaping for broadcasting
+            out_channels = self.weight.shape[0].eval().byte_buffer.get()[0]
+            rank = self.weight.rank
+            bias_shape_to_broadcast = (1,) + (out_channels,) + (1,) * (rank - 2)
+            self.bias = reshape(self.bias, bias_shape_to_broadcast)
+            x += self.bias
+        return x
