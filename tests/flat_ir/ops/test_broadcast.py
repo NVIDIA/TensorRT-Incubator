@@ -1,6 +1,6 @@
 import tripy as tp
 from tripy.frontend.trace import Trace
-from tripy.flat_ir.ops import BroadcastOp
+from tripy.flat_ir.ops import DynamicBroadcastOp
 
 
 class TestBroadcastOp:
@@ -12,8 +12,8 @@ class TestBroadcastOp:
         flat_ir = trace.to_flat_ir()
 
         broadcast = flat_ir.ops[-1]
-        assert isinstance(broadcast, BroadcastOp)
+        assert isinstance(broadcast, DynamicBroadcastOp)
         assert (
             str(broadcast)
-            == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = BroadcastOp(t_inter1, broadcast_dim=[])"
+            == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(t_inter1, t_inter2, broadcast_dim=[])"
         )

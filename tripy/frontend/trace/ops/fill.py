@@ -6,6 +6,7 @@ from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -31,7 +32,7 @@ class Fill(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.array import Array
         from tripy.common.device import device
-        from tripy.flat_ir.ops import BroadcastOp, ConstantOp
+        from tripy.flat_ir.ops import ConstantOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
         const_val_tensor = FlatIRTensor.build(
@@ -45,7 +46,20 @@ class Fill(BaseTraceOp):
             [const_val_tensor],
             data=Array(self.value, self.dtype, shape=(), device=device("cpu")),
         )
-        BroadcastOp.build([const_val_tensor], outputs, broadcast_dim=[])
+
+        if len(inputs) == 1:
+            # Used for FillLike where the shape of output is provided by another tensor.
+            output_shape = op_utils.get_shape_of_tensor(inputs[0])
+        else:
+            output_shape = op_utils.add_constant_tensor_from_list(
+                [s.runtime_value for s in self.shape], device=outputs[0].device
+            )
+
+        DynamicBroadcastOp.build(
+            [const_val_tensor, output_shape],
+            outputs,
+            broadcast_dim=[],
+        )
 
 
 @dataclass(repr=False)
