@@ -98,7 +98,6 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
 
         assert np.array_equal(output.numpy(), np.full([2, 3], 2, dtype=np.float32))
     """
-    from tripy.frontend import Tensor
 
     return Fill.build([], value, utils.to_dims(shape), dtype)
 

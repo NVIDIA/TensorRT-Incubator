@@ -1,9 +1,9 @@
 import functools
+import inspect
 from collections import OrderedDict
 from typing import List, Tuple
 
 from tripy import utils
-from tripy.logging import logger
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
@@ -94,14 +94,44 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: 
 
                 return arg
 
-            # Merge args with kwargs, preserving order.
-            all_args = OrderedDict(zip(func.__code__.co_varnames, args))
-            all_args.update(kwargs)
+            # Merge positional and keyword arguments, trying to determine names where possible.
+            # In the case of variadic positional arguments, we cannot determine names, so we use
+            # None instead.
+            signature = inspect.signature(func)
+            arg_names = []
+            for name, param in signature.parameters.items():
+                if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                    # Positional arguments cannot follow variadic positional arguments
+                    # (they would just be absorbed into the variadic argument).
+                    break
 
+                arg_names.append(name)
+
+            arg_names += [None] * len(args)
+            all_args = list(zip(arg_names, args))
+            all_args.extend(kwargs.items())
+
+            def get_arg(name: str):
+                for arg_name, arg in all_args:
+                    if name == arg_name:
+                        return arg
+
+                assert (
+                    False
+                ), "Cannot retrieve unnamed argument. This could be because the argument is a variadic argument."
+
+            new_args = []
             new_kwargs = {}
-            for index, (name, arg) in enumerate(all_args.items()):
+            for index, (name, arg) in enumerate(all_args):
+
+                def add_arg(arg):
+                    if name not in kwargs:
+                        new_args.append(arg)
+                    else:
+                        new_kwargs[name] = arg
+
                 if name in exclude or isinstance(arg, Tensor):
-                    new_kwargs[name] = arg
+                    add_arg(arg)
                     continue
 
                 cast_dtype = None
@@ -110,13 +140,13 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: 
                         continue
 
                     for tensor_name in sync_tuple:
-                        sync_tensor = all_args[tensor_name]
+                        sync_tensor = get_arg(tensor_name)
                         # If multiple Tensors exist in a tuple,
                         # leave the dtype check to frontend ops
-                        if isinstance(all_args[tensor_name], Tensor):
+                        if isinstance(get_arg(tensor_name), Tensor):
                             break
                     else:
-                        sync_args = {arg_name: all_args[arg_name] for arg_name in sync_tuple}
+                        sync_args = {arg_name: get_arg(arg_name) for arg_name in sync_tuple}
                         raise_error(
                             f"At least one of the arguments: {sync_tuple} must be a `tripy.Tensor`.",
                             [f"Got {sync_args}"],
@@ -124,10 +154,9 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: 
                     cast_dtype = sync_tensor.dtype
                     break
 
-                is_kwarg = name in kwargs
-                new_kwargs[name] = add_column_info_for_non_tensor(arg, index, is_kwarg=is_kwarg, dtype=cast_dtype)
+                add_arg(add_column_info_for_non_tensor(arg, index, is_kwarg=name in kwargs, dtype=cast_dtype))
 
-            return func(**new_kwargs)
+            return func(*new_args, **new_kwargs)
 
         return wrapper
 

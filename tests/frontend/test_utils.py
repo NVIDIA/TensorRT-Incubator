@@ -18,12 +18,42 @@ def sync_arg_types(a, b, c):
     return a, b, c
 
 
+@convert_inputs_to_tensors()
+def variadic_positional_args(*args):
+    return args
+
+
+@convert_inputs_to_tensors()
+def arg_before_variadic_positional_args(x, *args):
+    return (x,) + args
+
+
+@convert_inputs_to_tensors()
+def kwarg_after_variadic_positional_args(*args, y):
+    return args + (y,)
+
+
 class TestConverInputsToTensors:
     def test_args(self):
         assert isinstance(func(0), tp.Tensor)
 
     def test_kwargs(self):
         assert isinstance(func(a=0), tp.Tensor)
+
+    def test_variadic_positional_args(self):
+        x, y = variadic_positional_args(1.0, 2.0)
+        assert isinstance(x, tp.Tensor)
+        assert isinstance(y, tp.Tensor)
+
+    def test_arg_before_variadic_positional_args(self):
+        x, y = arg_before_variadic_positional_args(1.0, 2.0)
+        assert isinstance(x, tp.Tensor)
+        assert isinstance(y, tp.Tensor)
+
+    def test_kwarg_after_variadic_positional_args(self):
+        x, y = kwarg_after_variadic_positional_args(1.0, y=2.0)
+        assert isinstance(x, tp.Tensor)
+        assert isinstance(y, tp.Tensor)
 
     # When we convert arguments to tensors, we should preserve the column range
     # of the original non-Tensor argument.
