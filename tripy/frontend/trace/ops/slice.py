@@ -169,6 +169,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
     from tripy.frontend.trace.ops.where import where
     from tripy.frontend.trace.ops.reshape import squeeze
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.frontend.trace.ops.reshape import reshape
     from tripy.common.datatype import int32
 
     index = make_tuple(index)
@@ -201,7 +202,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
                 t_idx_corrected_limit = t_idx_corrected + 1
             else:
                 t_idx_corrected_limit = where(
-                    t_idx_corrected >= 0, t_idx_corrected + 1, unsqueeze(t_shape[i], 0) + t_idx_corrected + 1
+                    t_idx_corrected >= 0, t_idx_corrected + 1, reshape(t_shape[i], (1,)) + t_idx_corrected + 1
                 )
             limit_index_list.append(t_idx_corrected_limit)
             stride_index_list.append(Tensor([1], dtype=int32))
@@ -215,7 +216,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int]]) -> "tripy.Tensor":
                     index_list.append(default_val)
 
             handle_slice_index(idx.start, start_index_list, zero)
-            handle_slice_index(idx.stop, limit_index_list, unsqueeze(t_shape[i], 0))
+            handle_slice_index(idx.stop, limit_index_list, reshape(t_shape[i], (1,)))
             handle_slice_index(idx.step, stride_index_list, ones)
 
         else:
