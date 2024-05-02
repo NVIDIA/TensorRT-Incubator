@@ -1,11 +1,11 @@
 from transformers import AutoTokenizer
-import ammo.torch.quantization as atq
+import modelopt.torch.quantization as mtq
 
-from ammo.torch.utils.dataset_utils import create_forward_loop
+from modelopt.torch.utils.dataset_utils import create_forward_loop
 
 
-def ammo_quantize(model_hf, quant_mode):
-    # quantize and calibrate pytorch model using ammo
+def modelopt_quantize(model_hf, quant_mode):
+    # quantize and calibrate pytorch model using modelopt
 
     MAX_SEQ_LEN = 2048
     tokenizer = AutoTokenizer.from_pretrained(
@@ -17,14 +17,14 @@ def ammo_quantize(model_hf, quant_mode):
     tokenizer.pad_token = tokenizer.eos_token
 
     if quant_mode == "int8-weight-only":
-        quant_cfg = atq.INT8_DEFAULT_CFG
+        quant_cfg = mtq.INT8_DEFAULT_CFG
         quant_cfg["quant_cfg"]["*input_quantizer"] = {
             "enable": False,
         }
     elif quant_mode == "fp8":
-        quant_cfg = atq.FP8_DEFAULT_CFG
+        quant_cfg = mtq.FP8_DEFAULT_CFG
     elif quant_mode == "int4-weight-only":
-        quant_cfg = atq.INT4_AWQ_CFG
+        quant_cfg = mtq.INT4_AWQ_CFG
     else:
         raise NotImplementedError(f"Unsupported quantization mode: {quant_mode}")
 
@@ -42,6 +42,6 @@ def ammo_quantize(model_hf, quant_mode):
         num_samples=calib_size,
     )
 
-    atq.quantize(model_hf, quant_cfg, forward_loop=forward_loop)
+    mtq.quantize(model_hf, quant_cfg, forward_loop=forward_loop)
     print("Quantization complete.")
     return model_hf

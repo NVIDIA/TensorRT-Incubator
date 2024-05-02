@@ -41,7 +41,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     """
     Loads quantization weights and computes weight scales.
     """
-    from quantization import ammo_quantize
+    from quantization import modelopt_quantize
 
     def convert_to_scale(amax, maxbound):
         return amax.float() / maxbound
@@ -63,7 +63,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
 
     # Load huggingface/transformers model
     model_hf = GPT2LMHeadModel.from_pretrained(model_type)
-    model_hf = ammo_quantize(model_hf, quant_mode)
+    model_hf = modelopt_quantize(model_hf, quant_mode)
     hf_state_dict = model_hf.state_dict()
     # We ignore some of the keys in the HF checkpoint:
     # TODO(#166): Figure out how to apply pre_quant_scale
@@ -73,7 +73,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     # See https://paperswithcode.com/method/weight-tying for details on why we do this:
     hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
 
-    # ammo has transposed the attn weights
+    # modelopt has transposed the attn weights
     for key in hf_keys:
         weight = hf_state_dict[key]
         if key.endswith("quantizer._amax"):

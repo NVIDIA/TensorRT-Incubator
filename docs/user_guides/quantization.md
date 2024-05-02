@@ -47,14 +47,14 @@ The result still has a data type of {class}`tripy.float32`, but internally, Tens
 
 Now that we have covered how quantization works in {class}`tripy.Linear`, we will walk through the workflow of running a real-world quantized model: [nanoGPT](source:/examples/nanogpt/).
 
-### Calibration With AMMO
+### Calibration With Model Optimizer
 
 <!-- Tripy: IGNORE Start -->
 
-The quantization scales are not available unless the model was trained with QAT (quantization-aware training). We need to perform another step called calibration to compute the correct scales for each quantized layer. There are many ways to do calibration, one of which is using the `ammo` toolkit. To install it, run:
+The quantization scales are not available unless the model was trained with QAT (quantization-aware training). We need to perform another step called calibration to compute the correct scales for each quantized layer. There are many ways to do calibration, one of which is using the `nvidia-modelopt` toolkit. To install it, run:
 
 ```sh
-python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-ammo transformers datasets
+python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt transformers datasets
 ```
 
 First, let's get the pre-trained GPT model from hugging face:
@@ -70,12 +70,12 @@ Then, we perform int8 weight-only quantization:
 
 ```py
 from transformers import AutoTokenizer
-import ammo.torch.quantization as atq
+import modelopt.torch.quantization as mtq
 
-from ammo.torch.utils.dataset_utils import create_forward_loop
+from modelopt.torch.utils.dataset_utils import create_forward_loop
 
-# define the ammo quant configs
-quant_cfg = atq.INT8_DEFAULT_CFG
+# define the modelopt quant configs
+quant_cfg = mtq.INT8_DEFAULT_CFG
 # disable input quantization for weight-only
 # quantized linear modules
 quant_cfg["quant_cfg"]["*input_quantizer"] = {
@@ -102,14 +102,14 @@ forward_loop = create_forward_loop(
 )
 
 # call the api for calibration
-atq.quantize(model, quant_cfg, forward_loop=forward_loop)
+mtq.quantize(model, quant_cfg, forward_loop=forward_loop)
 ```
 
-`ammo` replaces all linear layers specified in `quant_cfg` with `QuantLinear` layers, which contain the calibrated parameters.
+`mtq.quantize` replaces all linear layers specified in `quant_cfg` with `QuantLinear` layers, which contain the calibrated parameters.
 
 ### Load Scales Into The Tripy Model
 
-Let's take a look at one of the `QuantLinear` produced by ammo:
+Let's take a look at one of the `QuantLinear` produced by model optimizer:
 
 ```py
 print(model.transformer.h[0].attn.c_attn)
