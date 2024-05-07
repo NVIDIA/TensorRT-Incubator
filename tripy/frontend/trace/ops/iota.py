@@ -6,6 +6,7 @@ from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -42,9 +43,12 @@ class Iota(BaseTraceOp):
         self.outputs[0].device = device("gpu")
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import IotaOp
+        from tripy.flat_ir.ops import DynamicIotaOp
 
-        IotaOp.build(inputs, outputs, dim=self.dim)
+        output_shape = [s.runtime_value for s in self.shape]
+        DynamicIotaOp.build(
+            [op_utils.add_constant_tensor_from_list(output_shape, outputs[0].device)], outputs, dim=self.dim
+        )
 
 
 @dataclass(repr=False)
@@ -64,6 +68,11 @@ class IotaLike(Iota):
         if self.dtype is None:
             self.dtype = self.inputs[0].dtype
         super().infer_dtypes()
+
+    def to_flat_ir(self, inputs, outputs):
+        from tripy.flat_ir.ops import DynamicIotaOp
+
+        DynamicIotaOp.build([op_utils.get_shape_of_tensor(inputs[0])], outputs, dim=self.dim)
 
 
 @export.public_api(document_under="tensor_operations")

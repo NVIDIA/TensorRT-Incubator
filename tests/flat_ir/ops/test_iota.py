@@ -2,7 +2,7 @@ import pytest
 
 import tripy as tp
 from tests import helper
-from tripy.flat_ir.ops import IotaOp
+from tripy.flat_ir.ops import DynamicIotaOp
 from tripy.frontend.trace import Trace
 
 
@@ -18,17 +18,19 @@ def flat_ir():
 class TestIotaOp:
     def test_str(self, flat_ir):
         iota = flat_ir.ops[-1]
-        assert isinstance(iota, IotaOp)
-        assert str(iota) == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = IotaOp(dim=0)"
+        assert isinstance(iota, DynamicIotaOp)
+        assert str(iota) == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = DynamicIotaOp(t_inter1, dim=0)"
 
     def test_mlir(self, flat_ir):
+        print(str(flat_ir.to_mlir()))
         helper.check_mlir(
             flat_ir.to_mlir(),
             """
             module {
                 func.func @main() -> tensor<2x3xf32> {
-                    %0 = stablehlo.iota dim = 0 : tensor<2x3xf32>
-                    return %0 : tensor<2x3xf32>
+                    %0 = stablehlo.constant dense<[2, 3]> : tensor<2xi32>
+                    %1 = stablehlo.dynamic_iota %0, dim = 0 : (tensor<2xi32>) -> tensor<2x3xf32>
+                    return %1 : tensor<2x3xf32>
                 }
             }
             """,
