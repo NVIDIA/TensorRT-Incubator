@@ -254,7 +254,7 @@ class jit:
                 )
 
             trace_signature = self._trace_signatures[trace_signature_key]
-            for executable in self.cache.get(trace_signature, []):
+            for executable, executor in self.cache.get(trace_signature, []):
                 if executable.is_compatible(input_tensor_info):
                     break
             else:
@@ -262,18 +262,17 @@ class jit:
                     trace = make_trace()
                 flat_ir = trace.to_flat_ir()
                 mlir = flat_ir.to_mlir()
-
                 compiler = Compiler(trt_builder_opt_level=self.optimization_level)
                 executable = CachedExecutable(
                     compiler.compile(mlir, flat_ir=flat_ir),
                     get_tensor_info(trace.inputs),
                     get_devices(get_tensor_info(trace.outputs)),
                 )
-                self.cache[trace_signature].append(executable)
+                executor = Executor(
+                    executable.executable,
+                )
+                self.cache[trace_signature].append((executable, executor))
 
-            executor = Executor(
-                executable.executable,
-            )
             # HACK (#155): We only use the executable information if we didn't recompute the trace.
             # filter out const-folded inputs
             outputs = executor.execute(

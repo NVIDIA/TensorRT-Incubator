@@ -4,6 +4,7 @@ import tiktoken
 import torch
 from model import GPT, GPTConfig
 from weight_loader import load_weights_from_hf, load_quant_weights_from_hf
+import time
 
 import tripy as tp
 
@@ -80,26 +81,32 @@ def main():
     zeros = torch.zeros((1, args.max_new_tokens), dtype=torch.float32)
     idx = tp.copy(tp.Tensor(torch.cat((idx, zeros), dim=1).to(torch.int32)), tp.device("gpu"))
 
+    @tp.jit
     def generate_attention_mask(input_tokens):
         # Check where input_tokens !=0 and fill with ones.
         zeros = tp.zeros_like(input_tokens)
         ones = tp.ones_like(input_tokens)
         return tp.reshape(tp.cast(tp.where(input_tokens == 0, zeros, ones), model_dtype), (1, 1, 1, padded_seq_len))
 
+    # Run once outside the loop to compile the model.
+    mask = generate_attention_mask(idx)
+    compilation_start_time = time.time()
+    model(idx, mask)
+    print(f"Compilation took {time.time() - compilation_start_time} seconds.")
+
     generator = None
     if args.seed is not None:
         generator = torch.Generator(device="cuda")
         generator.manual_seed(args.seed)
 
+    start_time = time.perf_counter()
     for token_idx in range(len(input_ids), len(input_ids) + args.max_new_tokens):
         mask = generate_attention_mask(idx)
         logits = model(idx, mask)
 
-        # Scale by desired temperature
-        logits = logits[:, token_idx - 1, :] / TEMPERATURE
-
         # Crop the logits to only the top k options
         logits = torch.from_dlpack(logits)
+        logits = logits[:, token_idx - 1, :] / TEMPERATURE
         v, _ = torch.topk(logits, min(TOP_K, logits.size(-1)))
         logits[logits < v[:, [-1]]] = -float("Inf")
 
@@ -114,6 +121,8 @@ def main():
         idx = tp.Tensor(idx, device=tp.device("gpu"))
 
     response = encoder.decode(idx[0, :].numpy().tolist())
+    end_time = time.perf_counter()
+    print(f"Generating {args.max_new_tokens} tokens took {end_time - start_time} seconds.")
     print(response)
 
 
