@@ -47,6 +47,9 @@ def get_ast_node_func_name(node) -> Optional[str]:
         }
         return MAPPING.get(type(node.op))
 
+    if isinstance(node, ast.Subscript):
+        return "__getitem__"
+
     if isinstance(node, ast.Call):
         func = node.func
         if isinstance(func, ast.Call):
@@ -84,6 +87,26 @@ def get_arg_candidate_column_offsets(
                     # For methods, the `self` argument is omited from ast.Call.args
                     assert len(node.args) == num_total_positional_args - 1
                     arg_node = node.args[index - 1]
+        elif isinstance(node, ast.Subscript):
+            # For slices, index into the fields if they are specified.
+            # If it's not a slice or it's absent, it's best to indicate the whole expr
+            def index_into_expr(node: ast.expr, index: int) -> ast.expr:
+                if isinstance(node, ast.Slice):
+                    if index == 0 and node.lower is not None:
+                        return node.lower
+                    elif index == 1 and node.upper is not None:
+                        return node.upper
+                    elif node.step is not None:
+                        return node.step
+                return node
+
+            # If we have multiple dimensions specified, then we have a tuple of slices.
+            # Indices are given in as a list of start, stop, step
+            if isinstance(node.slice, ast.Tuple):
+                element = node.slice.elts[index // 3]
+                arg_node = index_into_expr(element, index % 3)
+            else:
+                arg_node = index_into_expr(node.slice, index)
 
         if arg_node is not None:
             candidates.append((indentation + arg_node.col_offset, indentation + arg_node.end_col_offset))

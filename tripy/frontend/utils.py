@@ -7,7 +7,11 @@ from tripy import utils
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
-def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: List[str] = None):
+def convert_inputs_to_tensors(
+    sync_arg_types: List[Tuple[str]] = None,
+    exclude: List[str] = None,
+    skip_num_stack_entries: int = 0,
+):
     """
     Decorator that converts all arguments to Tensors before passing them along
     to the decorated function.
@@ -20,6 +24,12 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: 
 
         exclude: A list of names of arguments to skip over. These arguments will not be modified.
 
+        skip_num_stack_entries: If the decorator is used on a function that is *called by*
+            a function that the user invokes, it will be necessary to skip stack entries
+            in order to get the column info from the user code. The number of entries skipped
+            should be equal to the nesting depth from a function called by user code
+            (if the decorated function is called by the user the depth is 0;
+            if the decorated function is called from a user function, the depth is 1; etc.)
     """
 
     sync_arg_types = utils.default(sync_arg_types, [])
@@ -50,12 +60,12 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: 
                 # Find the first caller of this function that is NOT the function registry.
                 # Also save the last dispatch target we see.
                 dispatch_target = None
-                for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH:]):
+                for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH + skip_num_stack_entries :]):
                     import tripy.function_registry
 
                     dispatch_target = source_info._dispatch_target or dispatch_target
                     if source_info.module != tripy.function_registry.__name__:
-                        frame_index = idx + WRAPPER_STACK_DEPTH
+                        frame_index = idx + WRAPPER_STACK_DEPTH + skip_num_stack_entries
                         break
                 else:
                     # Fallback path is just to look at the user code
@@ -78,6 +88,12 @@ def convert_inputs_to_tensors(sync_arg_types: List[Tuple[str]] = None, exclude: 
                     assert index in [0, 1]
                     index = 0 if index == 1 else 1
                     dispatch_target = dispatch_target.replace("__r", "__")
+
+                # Special case for __getitem__: It is variadic. Argument 0 is the tensor, argument 1 is the indices,
+                # and all subsequent arguments are slice parameters (in start, stop, step order).
+                # Hence, we subtract two to get the index of the slice parameters
+                if dispatch_target == "__getitem__":
+                    index -= 2
 
                 candidates = utils.get_arg_candidate_column_offsets(
                     source_info.code,
