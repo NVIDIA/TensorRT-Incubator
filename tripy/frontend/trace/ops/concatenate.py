@@ -1,9 +1,11 @@
-from typing import List
+from typing import List, Union
 from dataclasses import dataclass
 
 from tripy import export
 from tripy.common.device import device
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.frontend.utils import convert_inputs_to_tensors
+from .reshape import reshape
 
 from tripy import utils
 
@@ -14,6 +16,7 @@ class Concatenate(BaseTraceOp):
 
     def infer_shapes(self):
         # don't add check for non dim shapes matching since with DS the check should happen inside mlir-tensorrt.
+
         self.dim = self.dim + len(self.inputs[0].shape) if self.dim < 0 else self.dim
         concat_dim = sum(inp.shape[self.dim].runtime_value for inp in self.inputs)
         self.outputs[0].shape = utils.to_dims(
@@ -30,7 +33,7 @@ class Concatenate(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
-def concatenate(tensors: List["tripy.Tensor"], dim: int) -> "tripy.Tensor":
+def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.
 

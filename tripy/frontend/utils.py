@@ -1,15 +1,15 @@
 import functools
 import inspect
-from collections import OrderedDict
-from typing import List, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from tripy import utils
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
 def convert_inputs_to_tensors(
-    sync_arg_types: List[Tuple[str]] = None,
-    exclude: List[str] = None,
+    sync_arg_types: Optional[List[Tuple[str]]] = None,
+    exclude: Optional[List[str]] = None,
+    unpack_argument: Optional[List[str]] = None,
     skip_num_stack_entries: int = 0,
 ):
     """
@@ -21,8 +21,14 @@ def convert_inputs_to_tensors(
             that must share a type. For example, `sync_arg_types=[("a", "b"), ("c", "d")]` indicates that
             arguments `a` and `b` and arguments `c` and `d` should have the same types. Type casting is only
             enabled for Python numbers, and at least one of the arguments in each tuple must be a Tensor.
+            For arguments that are lists included in `convert_lists`,
+            the syncing will be done for each member of the specified lists.
 
         exclude: A list of names of arguments to skip over. These arguments will not be modified.
+
+        unpack_argument: If an argument name is included and it is a list,
+          the members of the list will each be individually converted into tensors,
+          rather than having the whole list converted into a tensor.
 
         skip_num_stack_entries: If the decorator is used on a function that is *called by*
             a function that the user invokes, it will be necessary to skip stack entries
@@ -34,6 +40,7 @@ def convert_inputs_to_tensors(
 
     sync_arg_types = utils.default(sync_arg_types, [])
     exclude = utils.default(exclude, [])
+    unpack_argument = utils.default(unpack_argument, [])
 
     def impl(func):
         @functools.wraps(func)
@@ -42,7 +49,7 @@ def convert_inputs_to_tensors(
             from tripy.frontend.tensor import Tensor
 
             # Try to include correct column offsets for non-tensor arguments.
-            def add_column_info_for_non_tensor(arg, index, is_kwarg, dtype):
+            def add_column_info_for_non_tensor(arg, arg_index, is_kwarg, dtype, list_index=None):
                 assert not isinstance(arg, Tensor)
                 arg = Tensor(arg, dtype=dtype)
 
@@ -85,22 +92,23 @@ def convert_inputs_to_tensors(
                 }
 
                 if dispatch_target in REVERSE_BIN_OPS:
-                    assert index in [0, 1]
-                    index = 0 if index == 1 else 1
+                    assert arg_index in [0, 1]
+                    arg_index = 0 if arg_index == 1 else 1
                     dispatch_target = dispatch_target.replace("__r", "__")
 
                 # Special case for __getitem__: It is variadic. Argument 0 is the tensor, argument 1 is the indices,
                 # and all subsequent arguments are slice parameters (in start, stop, step order).
                 # Hence, we subtract two to get the index of the slice parameters
                 if dispatch_target == "__getitem__":
-                    index -= 2
+                    arg_index -= 2
 
                 candidates = utils.get_arg_candidate_column_offsets(
                     source_info.code,
-                    index,
+                    arg_index,
                     len(args),
                     dispatch_target if dispatch_target else func.__name__,
                     is_kwarg,
+                    list_index=list_index,
                 )
 
                 # Only set column range if there is exactly one candidate, otherwise we can't reliably determine
@@ -146,31 +154,50 @@ def convert_inputs_to_tensors(
                     else:
                         new_kwargs[name] = arg
 
+                def find_sync_target_dtype(arg_name):
+
+                    for sync_tuple in sync_arg_types:
+                        if arg_name not in sync_tuple:
+                            continue
+
+                        for tensor_name in sync_tuple:
+                            sync_target = get_arg(tensor_name)
+                            # If multiple Tensors exist in a tuple,
+                            # leave the dtype check to frontend ops
+
+                            if isinstance(sync_target, Sequence):
+                                for member in sync_target:
+                                    if isinstance(member, Tensor):
+                                        return member.dtype
+                            elif isinstance(sync_target, Tensor):
+                                return sync_target.dtype
+                        else:
+                            sync_args = {sync_arg_name: get_arg(sync_arg_name) for sync_arg_name in sync_tuple}
+                            raise_error(
+                                f"At least one of the arguments: {sync_tuple} must be a `tripy.Tensor`.",
+                                [f"Got {sync_args}"],
+                            )
+                    return None
+
+                def convert_nontensor_arg(arg, list_index=None):
+                    cast_dtype = find_sync_target_dtype(name)
+                    return add_column_info_for_non_tensor(
+                        arg, index, is_kwarg=name in kwargs, dtype=cast_dtype, list_index=list_index
+                    )
+
                 if name in exclude or isinstance(arg, Tensor):
                     add_arg(arg)
                     continue
-
-                cast_dtype = None
-                for sync_tuple in sync_arg_types:
-                    if name not in sync_tuple:
-                        continue
-
-                    for tensor_name in sync_tuple:
-                        sync_tensor = get_arg(tensor_name)
-                        # If multiple Tensors exist in a tuple,
-                        # leave the dtype check to frontend ops
-                        if isinstance(get_arg(tensor_name), Tensor):
-                            break
-                    else:
-                        sync_args = {arg_name: get_arg(arg_name) for arg_name in sync_tuple}
-                        raise_error(
-                            f"At least one of the arguments: {sync_tuple} must be a `tripy.Tensor`.",
-                            [f"Got {sync_args}"],
-                        )
-                    cast_dtype = sync_tensor.dtype
-                    break
-
-                add_arg(add_column_info_for_non_tensor(arg, index, is_kwarg=name in kwargs, dtype=cast_dtype))
+                if name in unpack_argument and isinstance(arg, Sequence):
+                    new_list = [
+                        member if isinstance(member, Tensor) else convert_nontensor_arg(member, list_index=i)
+                        for i, member in enumerate(arg)
+                    ]
+                    if isinstance(arg, tuple):
+                        new_list = tuple(new_list)
+                    add_arg(new_list)
+                    continue
+                add_arg(convert_nontensor_arg(arg))
 
             return func(*new_args, **new_kwargs)
 

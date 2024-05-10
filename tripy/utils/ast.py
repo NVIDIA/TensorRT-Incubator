@@ -63,7 +63,12 @@ def get_ast_node_func_name(node) -> Optional[str]:
 
 
 def get_arg_candidate_column_offsets(
-    code: str, index: int, num_total_positional_args: int, func_name: str, is_kwarg: bool
+    code: str,
+    index: int,
+    num_total_positional_args: int,
+    func_name: str,
+    is_kwarg: bool,
+    list_index: Optional[int] = None,
 ) -> Tuple[int, int]:
     candidates = []
 
@@ -107,6 +112,10 @@ def get_arg_candidate_column_offsets(
                 arg_node = index_into_expr(element, index % 3)
             else:
                 arg_node = index_into_expr(node.slice, index)
+
+        # if the resulting arg node is a list or tuple literal, we might be able to narrow it down with a list index
+        if list_index is not None and isinstance(arg_node, (ast.List, ast.Tuple)) and list_index < len(arg_node.elts):
+            arg_node = arg_node.elts[list_index]
 
         if arg_node is not None:
             candidates.append((indentation + arg_node.col_offset, indentation + arg_node.end_col_offset))

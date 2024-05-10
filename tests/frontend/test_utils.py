@@ -33,12 +33,59 @@ def kwarg_after_variadic_positional_args(*args, y):
     return args + (y,)
 
 
-class TestConverInputsToTensors:
+@convert_inputs_to_tensors(unpack_argument=["xs"])
+def convert_list_input(xs):
+    return xs
+
+
+@convert_inputs_to_tensors(sync_arg_types=[("xs",)], unpack_argument=["xs"])
+def sync_within_list(xs):
+    return xs
+
+
+@convert_inputs_to_tensors(sync_arg_types=[("x", "ys")], unpack_argument=["ys"])
+def sync_single_type_to_list(x, ys):
+    return x, ys
+
+
+@convert_inputs_to_tensors(sync_arg_types=[("xs", "y")], unpack_argument=["xs"])
+def sync_list_type_to_single(xs, y):
+    return xs, y
+
+
+@convert_inputs_to_tensors(sync_arg_types=[("xs", "ys")], unpack_argument=["xs", "ys"])
+def sync_list_types(xs, ys):
+    return xs, ys
+
+
+class TestConvertInputsToTensors:
     def test_args(self):
         assert isinstance(func(0), tp.Tensor)
 
     def test_kwargs(self):
         assert isinstance(func(a=0), tp.Tensor)
+
+    def test_convert_list_into_tensor(self):
+        t1 = func([1, 2, 3])
+        assert isinstance(t1, tp.Tensor)
+        assert t1.shape == (3,)
+
+        t2 = func([[1, 2], [3, 4]])
+        assert t2.shape == (2, 2)
+
+    def test_convert_list_input(self):
+        xs = convert_list_input([1.0, 2.0, 3.0, 4.0])
+        assert len(xs) == 4
+        for x in xs:
+            assert isinstance(x, tp.Tensor)
+        assert not convert_list_input([])
+
+    def test_convert_tuple_input(self):
+        xs = convert_list_input((1.0, 2.0))
+        assert isinstance(xs, tuple)
+        assert len(xs) == 2
+        assert isinstance(xs[0], tp.Tensor)
+        assert isinstance(xs[1], tp.Tensor)
 
     def test_variadic_positional_args(self):
         x, y = variadic_positional_args(1.0, 2.0)
@@ -95,6 +142,16 @@ class TestConverInputsToTensors:
         # Column offset of the `3` above.
         assert stack_info[stack_info.get_first_user_frame_index()].column_range == (36, 43)
 
+    def test_includes_column_range_for_list_elements(self):
+        xs = convert_list_input([1.0, 2.0])
+        assert xs[0].stack_info[xs[0].stack_info.get_first_user_frame_index()].column_range == (33, 36)
+        assert xs[1].stack_info[xs[1].stack_info.get_first_user_frame_index()].column_range == (38, 41)
+
+    def test_includes_column_range_for_tuple_elements(self):
+        xs = convert_list_input((1.0, 2.0))
+        assert xs[0].stack_info[xs[0].stack_info.get_first_user_frame_index()].column_range == (33, 36)
+        assert xs[1].stack_info[xs[1].stack_info.get_first_user_frame_index()].column_range == (38, 41)
+
     def test_sync_arg_type_includes_non_tensor_column_range(self):
         x, y, z = sync_arg_types(tp.Tensor(3.0, dtype=tp.float16), 3, 4.0)
 
@@ -121,6 +178,44 @@ class TestConverInputsToTensors:
         assert x.dtype == tp.float32
         assert y.dtype == tp.int32
         assert z.dtype == tp.float16
+
+    def test_sync_arg_type_within_list(self):
+        xs = sync_within_list([1.0, tp.Tensor(3, dtype=tp.float16), 5])
+
+        assert xs[0].dtype == tp.float16
+        assert xs[1].dtype == tp.float16
+        assert xs[2].dtype == tp.float16
+
+    def test_sync_single_arg_type_to_list(self):
+        _, ys = sync_single_type_to_list(tp.Tensor(5, dtype=tp.int32), [2.0, 3.0, 4.0])
+
+        assert ys[0].dtype == tp.int32
+        assert ys[1].dtype == tp.int32
+        assert ys[2].dtype == tp.int32
+
+    def test_sync_list_arg_type_to_single_arg(self):
+        xs, y = sync_list_type_to_single([1.0, tp.Tensor(5, dtype=tp.int32), 4.0], 1.0)
+
+        assert xs[0].dtype == tp.int32
+        assert xs[2].dtype == tp.int32
+        assert y.dtype == tp.int32
+
+    def test_sync_list_arg_types(self):
+        xs, ys = sync_list_types([1.0, 2.0, 3.0], [3, 4, tp.Tensor(6, dtype=tp.int32)])
+
+        for x in xs:
+            assert x.dtype == tp.int32
+        for y in ys:
+            assert y.dtype == tp.int32
+
+    def test_sync_arg_type_list_not_applied_to_tensors(self):
+        xs = sync_within_list(
+            [tp.Tensor(1.0, dtype=tp.int32), tp.Tensor(3, dtype=tp.float16), tp.Tensor(5, dtype=tp.float32)]
+        )
+
+        assert xs[0].dtype == tp.int32
+        assert xs[1].dtype == tp.float16
+        assert xs[2].dtype == tp.float32
 
     def test_sync_arg_type_invalid(self):
         with helper.raises(
