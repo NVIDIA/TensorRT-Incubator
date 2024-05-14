@@ -37,8 +37,8 @@ for expected accuracy.
     <!-- Tripy: EXPECTED_STDOUT Start -->
     <!--
     ```
-    Loading weights from pretrained model: 'gpt2'
-    Do people really like using ONNX?
+    (?s).*?
+    Do people really like using ONNX\?
 
     This is something that I'm very excited
     ```
@@ -59,12 +59,30 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     ```bash
     python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int8-weight-only
     ```
+    <!-- Tripy: EXPECTED_STDOUT Start -->
+    <!--
+    ```
+    (?s).*?
+    Do people really like using ONNX\?
+
+    This is something that I'm very excited
+    ```
+     -->
+    <!-- Tripy: EXPECTED_STDOUT End -->
 
 2. weight only int4 quantization:
 
     ```bash
     python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int4-weight-only
     ```
+    <!-- Tripy: EXPECTED_STDOUT Start -->
+    <!--
+    ```
+    (?s).*?
+    Do people really like using ONNX\? You're actually using OX\? You're actually
+    ```
+     -->
+    <!-- Tripy: EXPECTED_STDOUT End -->
 
 <!-- Tripy: XFAIL Start -->
 3. fp8 quantization:
