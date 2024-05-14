@@ -101,10 +101,7 @@ class Executor:
                 device=device("cpu"),
             )
             input_shape_memref = self.runtime_client.create_memref(
-                input_shape.byte_buffer,
-                shape=make_tuple(input.trace_tensor.rank),
-                dtype=runtime.ScalarTypeCode.i64,
-                device=self.device,
+                input_shape.byte_buffer, shape=make_tuple(input.trace_tensor.rank), dtype=runtime.ScalarTypeCode.i64
             )
             inputs_shape_memref.append(input_shape_memref)
         return inputs_shape_memref
@@ -121,10 +118,7 @@ class Executor:
             if len(memref.shape) > 0:
                 output_shape = Array(memref.shape, shape=make_tuple(rank), dtype=datatype.int64, device=device("cpu"))
                 output_shape_memref = self.runtime_client.create_memref(
-                    output_shape.byte_buffer,
-                    shape=make_tuple(rank),
-                    dtype=runtime.ScalarTypeCode.i64,
-                    device=self.device,
+                    output_shape.byte_buffer, shape=make_tuple(rank), dtype=runtime.ScalarTypeCode.i64
                 )
                 outputs_shape_memref.append(output_shape_memref)
             else:
@@ -133,7 +127,7 @@ class Executor:
 
     def _execute_shape_inference(self, inputs_shape_memref, outputs_shape_memref):
         # Only execute shape inference if shape function name is valid.
-        if self.signature.get_shape_func_name() == "":
+        if self.signature.get_shape_func_name() is None:
             for memref in outputs_shape_memref:
                 if memref is not None:
                     assert (
@@ -146,24 +140,7 @@ class Executor:
             self.signature.get_shape_func_name(), in_args=inputs_shape_memref, out_args=outputs_shape_memref
         )
 
-        outputs_shapes_host = [
-            Array(None, shape=s.shape, dtype=datatype.int64, device=device("cpu")) for s in outputs_shape_memref
-        ]
-
-        # (#155) Shape function require input arguments to be on device.
-        # Copy the device output shapes to host.
-        for idx, output_shape in enumerate(outputs_shapes_host):
-            self.runtime_client.copy_to_host(
-                device_memref=outputs_shape_memref[idx],
-                existing_host_memref=self.runtime_client.create_host_memref_view(
-                    ptr=int(output_shape.byte_buffer.ctypes.data),
-                    dtype=_convert_to_runtime_dtype(output_shape.dtype),
-                    shape=output_shape.shape,
-                ),
-                stream=None,
-            )
-
-        outputs_runtime_shape = [s.view().tolist() for s in outputs_shapes_host]
+        outputs_runtime_shape = [memoryview(s).tolist() for s in outputs_shape_memref]
         return outputs_runtime_shape
 
     def _get_output_tensor_info(self, outputs_runtime_shape, output_devices):

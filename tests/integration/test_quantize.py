@@ -4,13 +4,15 @@ import pytest
 
 import tripy as tp
 from tests import helper
-from tests.conftest import skip_if_older_than_sm89
+from tests.conftest import skip_if_older_than_sm89, skip_if_older_than_sm80
 
 
 class TestQuantize:
 
     @pytest.mark.parametrize("scale", [0.5, 0.9])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
+    @pytest.mark.parametrize(
+        "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
+    )
     def test_quantize_int8_per_tensor(self, scale, dtype):
         data = [1.0, 2.0]
         input = tp.Tensor(data, dtype=dtype)
@@ -19,7 +21,9 @@ class TestQuantize:
         assert np.array_equal(quantized.numpy(), expected)
 
     @pytest.mark.parametrize("scale", [[0.2, 0.1], [0.5, 0.5]])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
+    @pytest.mark.parametrize(
+        "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
+    )
     def test_quantize_int8_per_channel(self, scale, dtype):
         data = [[1.0, 2.0], [3.0, 4.0]]
         input = tp.Tensor(data, dtype=dtype)
@@ -29,7 +33,9 @@ class TestQuantize:
 
     # TODO(#161): Update fp8 test to check output value
     @pytest.mark.parametrize("scale", [0.5, 0.9])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
+    @pytest.mark.parametrize(
+        "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
+    )
     @skip_if_older_than_sm89
     def test_quantize_fp8_per_tensor(self, scale, dtype):
         data = [1.0, 2.0]
@@ -39,7 +45,9 @@ class TestQuantize:
         assert quantized.numpy().dtype == ml_dtypes.float8_e4m3fn
 
     @pytest.mark.parametrize("scale", [[0.2, 0.1], [0.5, 0.5]])
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
+    @pytest.mark.parametrize(
+        "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
+    )
     @skip_if_older_than_sm89
     def test_quantize_fp8_per_channel(self, scale, dtype):
         data = [[1.0, 2.0], [3.0, 4.0]]
@@ -48,7 +56,9 @@ class TestQuantize:
         assert quantized.dtype == tp.float8
         assert quantized.numpy().dtype == ml_dtypes.float8_e4m3fn
 
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.bfloat16])
+    @pytest.mark.parametrize(
+        "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
+    )
     @pytest.mark.parametrize("quant_mode", ["block-wise", "per-tensor", "per-channel-0", "per-channel-1"])
     def test_qdq_int4(self, dtype, quant_mode):
         if quant_mode == "block-wise":

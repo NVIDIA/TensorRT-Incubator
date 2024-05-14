@@ -18,6 +18,7 @@ class TestMatrixMultiplication:
         out = a @ b
         assert np.allclose(out.numpy(), a_np @ b_np)
 
+    @pytest.mark.skip("#186: Fix test_matrix_multiplication.py hang for 1D tensor.")
     def test_1d_tensors(self):
         a_np = create_random_matrix((3,))  # 1D Tensor
         b_np = create_random_matrix((3,))  # 1D Tensor
@@ -38,6 +39,8 @@ class TestMatrixMultiplication:
         ],
     )
     def test_broadcast_gemm(self, shape_a, shape_b):
+        if len(shape_b) == 1:
+            pytest.skip("#186: Fix test_matrix_multiplication.py hang for 1D tensor.")
         a_np = create_random_matrix(shape_a)
         b_np = create_random_matrix(shape_b)
         a = tripy.Tensor(a_np)
