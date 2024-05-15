@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Union
 import tripy.common.datatype
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
+import tripy.third_party.utils
 from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
@@ -183,15 +184,6 @@ class Tensor(metaclass=TensorMeta):
             data = self.eval()  # Avoid recomputing everything after we've called `numpy()`
         assert isinstance(data, Array)
         return data
-
-    def numpy(self) -> "numpy.ndarray":
-        # TODO(#10): Move numpy() outside of tripy frontend.
-        import numpy as np
-
-        # TODO(#188): Replace Tensor.data() and np.array(...) with np.from_dlpack(...)
-        data = self.data().data()
-        dtype = np.int32 if get_element_type(data) == tripy.common.datatype.int32 else np.float32
-        return np.array(data, dtype=dtype)
 
     def __repr__(self) -> str:
         # BUG(#170): Cannot simply use self.numpy() here
