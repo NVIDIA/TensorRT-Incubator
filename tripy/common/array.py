@@ -100,29 +100,42 @@ class Array:
             return memoryview(host_memref).tolist()
         return memoryview(self.memref_value).tolist()
 
-    def _prettyprint(self, threshold=1000, linwidth=75):
+    def _prettyprint(self, threshold=1000, linewidth=10, edgeitems=3):
         data = self.data()
+
+        numel = 1
+        for d in self.shape:
+            numel *= d
+        summarize = numel > threshold
+
+        return self._data_str(data, 0, summarize, linewidth, edgeitems)
+
+    def _data_str(self, data, indent, summarize, linewidth, edgeitems):
         if isinstance(data, (float, int)):
             return str(data)
 
-        # Limit printing elements. Defaults to numpy print options i.e. 1000.
-        data_str = []
-        for item in data[:threshold]:
-            data_str.append(str(item))
-
-        # Limit line width. Defaults to numpy print options i.e. 75.
-        lines = []
-        current_line = "["
-        for item_str in data_str:
-            if len(current_line) + len(item_str) + 2 > linwidth:
-                lines.append(current_line.rstrip(", ") + ",")
-                current_line = " " + item_str + ", "
+        if len(data) == 0 or isinstance(data[0], (float, int)):
+            if summarize and len(data) > 2 * edgeitems:
+                data_lines = [data[:edgeitems] + [" ..."] + data[-edgeitems:]]
             else:
-                current_line += item_str + ", "
-        if current_line:
-            lines.append(current_line.rstrip(", ") + "]")
+                data_lines = [data[i : i + linewidth] for i in range(0, len(data), linewidth)]
+            lines = [", ".join([str(e) for e in line]) for line in data_lines]
+            return "[" + ("," + "\n" + " " * (indent + 1)).join(lines) + "]"
 
-        return "\n".join(lines)
+        if summarize and len(data) > 2 * edgeitems:
+            slices = (
+                [self._data_str(data[i], indent + 1, summarize, linewidth, edgeitems) for i in range(0, edgeitems)]
+                + ["..."]
+                + [
+                    self._data_str(data[i], indent + 1, summarize, linewidth, edgeitems)
+                    for i in range(len(data) - edgeitems, len(data))
+                ]
+            )
+        else:
+            slices = [self._data_str(data[i], indent + 1, summarize, linewidth, edgeitems) for i in range(0, len(data))]
+
+        tensor_str = ("," + "\n" * (len(self.shape) - 1) + " " * (indent + 1)).join(slices)
+        return "[" + tensor_str + "]"
 
     def _memref(self, data):
         from tripy.backend.mlir.utils import convert_tripy_dtype_to_runtime_dtype
