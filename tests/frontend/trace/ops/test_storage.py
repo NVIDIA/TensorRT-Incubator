@@ -1,9 +1,10 @@
-import cupy as cp
-import numpy as np
 import pytest
+
+import mlir_tensorrt.runtime.api as runtime
+import tripy as tp
+
 from mlir_tensorrt.compiler import ir
 
-import tripy as tp
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import Array
 from tripy.common.datatype import DATA_TYPES
@@ -16,13 +17,15 @@ class TestStorage:
     def test_cpu_storage(self):
         data = Array([1, 2, 3], dtype=None, shape=(3,), device=tp.device("cpu"))
         storage = Storage([], [], data)
-        assert isinstance(storage.data.byte_buffer, np.ndarray)
+        assert isinstance(storage.data.memref_value, runtime.MemRefValue)
+        assert storage.data.memref_value.address_space == runtime.PointerType.host
         assert storage.device.kind == "cpu"
 
     def test_gpu_storage(self):
         data = Array([1, 2, 3], dtype=None, shape=(3,), device=tp.device("gpu"))
         storage = Storage([], [], data)
-        assert isinstance(storage.data.byte_buffer, cp.ndarray)
+        assert isinstance(storage.data.memref_value, runtime.MemRefValue)
+        assert storage.data.memref_value.address_space == runtime.PointerType.device
         assert storage.device.kind == "gpu"
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())

@@ -1,4 +1,3 @@
-import ml_dtypes
 import numpy as np
 import pytest
 
@@ -42,7 +41,8 @@ class TestQuantize:
         input = tp.Tensor(data, dtype=dtype)
         quantized = tp.quantize(input, scale, tp.float8)
         assert quantized.dtype == tp.float8
-        assert quantized.numpy().dtype == ml_dtypes.float8_e4m3fn
+        # tp.float8 data is converted to np.float32 in .numpy() API.
+        assert quantized.numpy().dtype == np.float32
 
     @pytest.mark.parametrize("scale", [[0.2, 0.1], [0.5, 0.5]])
     @pytest.mark.parametrize(
@@ -54,7 +54,8 @@ class TestQuantize:
         input = tp.Tensor(data, dtype=dtype)
         quantized = tp.quantize(input, scale, tp.float8, dim=0)
         assert quantized.dtype == tp.float8
-        assert quantized.numpy().dtype == ml_dtypes.float8_e4m3fn
+        # tp.float8 data is converted to np.float32 in .numpy() API.
+        assert quantized.numpy().dtype == np.float32
 
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]

@@ -15,8 +15,10 @@ class TestDequantize:
         data = [4, 8]
         input = tp.Tensor(data, dtype=tp.int8)
         dequantized = tp.dequantize(input, scale, dtype)
-        expected = (np.array(data) * scale).astype(dtype.name)
-        assert np.array_equal(dequantized.numpy(), expected)
+        # tp.bfloat16 data is converted to np.float32 in .numpy() API.
+        expected = (np.array(data) * scale).astype(np.float32)
+        atol = 1e-1 if dtype == tp.bfloat16 else 1e-10
+        assert np.allclose(dequantized.numpy(), expected, atol=atol)
 
     @pytest.mark.parametrize("scale", [[0.8, 0.9], [0.5, 0.5]])
     @pytest.mark.parametrize(
@@ -29,8 +31,9 @@ class TestDequantize:
         data = [[4, 8], [4, 8]]
         input = tp.Tensor(data, dtype=tp.int8)
         dequantized = tp.dequantize(input, scale, dtype, dim=0)
-        expected = (np.array(data) * np.array(scale).reshape(2, 1)).astype(dtype.name)
-        assert np.array_equal(dequantized.numpy(), expected)
+        expected = (np.array(data) * np.array(scale).reshape(2, 1)).astype(np.float32)
+        atol = 1e-1 if dtype == tp.bfloat16 else 1e-10
+        assert np.allclose(dequantized.numpy(), expected, atol=atol)
 
     # TODO(#161): Update fp8 test to use frontend representation
     @pytest.mark.parametrize("scale", [0.5, 0.9])

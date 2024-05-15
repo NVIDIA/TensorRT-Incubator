@@ -65,18 +65,17 @@ def check_mlir(mlir, expected):
 # Supported NumPy data types
 NUMPY_TYPES = [
     np.int8,
-    # np.int16,
+    # np.int16, # (38): Add cast operation to support unsupported backend types.
     np.int32,
-    # (38): Add cast operation to support unsupported backend types.
-    # np.int64, # TODO: Fails as convert-hlo-to-tensorrt=allow-i64-to-i32-conversion is enabled in the mlir backend. Explore disabling - limitation can due to TRT limitation.
     np.uint8,
-    # np.uint16,
-    # np.uint32,
-    # np.uint64,
+    np.int64,
+    np.uint8,
+    # np.uint16, # (38): Add cast operation to support unsupported backend types.
+    # np.uint32, # (38): Add cast operation to support unsupported backend types.
+    # np.uint64, # (38): Add cast operation to support unsupported backend types.
     np.float16,
     np.float32,
-    # (38): Add cast operation to support unsupported backend types.
-    # np.float64, # TODO: How do we support in tripy? May be insert a cast to float32 in case of lossless conversion and error otherwise?
+    # np.float64, # (38): Add cast operation to support unsupported backend types.
 ]
 
 

@@ -93,7 +93,7 @@ class FlatIR:
                     func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
 
                     # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
-                    # (#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.
+                    # TODO(#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.
                     res_attrs = []
                     for output in self.outputs:
                         if output.device.kind == "cpu":

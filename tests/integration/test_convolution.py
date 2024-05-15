@@ -103,7 +103,8 @@ class TestConvolution:
 
         # FP32 kernel seems to lose some precision, and FP16 needs to be run in FP32 on torch
         atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        # TODO(#188): Remove cast when dlpack supports all precisions
+        assert torch.allclose(torch.from_numpy(output.numpy()).to(torch_dtype), expected, atol=atol_)
 
     @pytest.mark.parametrize("test_case", test_cases_2d)
     def test_convolution_2d(self, torch_dtype, tp_dtype, test_case):
@@ -149,7 +150,8 @@ class TestConvolution:
         output = conv_layer(input)
 
         atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        # TODO(#188): Remove cast when dlpack supports all precisions
+        assert torch.allclose(torch.from_numpy(output.numpy()).to(torch_dtype), expected, atol=atol_)
 
     @pytest.mark.parametrize("test_case", test_cases_3d)
     def test_convolution_3d(self, torch_dtype, tp_dtype, test_case):
@@ -205,8 +207,8 @@ class TestConvolution:
         output = conv_layer(input)
 
         atol_ = 1e-3 if tp_dtype == tp.float32 else 2e-2  # 3d conv has greater accumulation error
-
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        # TODO(#188): Remove cast when dlpack supports all precisions
+        assert torch.allclose(torch.from_numpy(output.numpy()).to(torch_dtype), expected, atol=atol_)
 
     def test_uneven_padding(self, torch_dtype, tp_dtype):
         input_torch = torch.randn((2, 4, 5, 5), dtype=torch.float32)
@@ -233,4 +235,5 @@ class TestConvolution:
         output = conv_layer(input)
 
         atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        # TODO(#188): Remove cast when dlpack supports all precisions
+        assert torch.allclose(torch.from_numpy(output.numpy()).to(torch_dtype), expected, atol=atol_)

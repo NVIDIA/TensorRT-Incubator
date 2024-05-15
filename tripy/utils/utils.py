@@ -134,7 +134,7 @@ def to_dims(shape: "ShapeInfo") -> Tuple["dynamic_dim"]:
     return tuple(dynamic_dim(dim) if not isinstance(dim, dynamic_dim) else dim for dim in make_list(shape))
 
 
-def from_dims(shape: "ShapeInfo", use_max_value=False) -> Tuple[int]:
+def from_dims(shape: "ShapeInfo") -> Tuple[int]:
     """
     Convert the given shape, which may contain dynamic_dim instances, into a concrete shape
     based on the runtime values (or max values if use_max_value is enabled) of those Dims.
@@ -143,10 +143,7 @@ def from_dims(shape: "ShapeInfo", use_max_value=False) -> Tuple[int]:
 
     if shape is None:
         return None
-    return tuple(
-        dim if not isinstance(dim, dynamic_dim) else (dim.max if use_max_value else dim.runtime_value)
-        for dim in make_list(shape)
-    )
+    return tuple(dim if not isinstance(dim, dynamic_dim) else dim.runtime_value for dim in make_list(shape))
 
 
 def volume(shape):
@@ -164,6 +161,42 @@ def volume(shape):
     for s in to_dims(shape):
         volume *= s.max
     return volume
+
+
+def flatten_list(data):
+    """
+    Flattens a nested list into a single list.
+    """
+    if isinstance(data, (int, float)):
+        # Need to return a list here as array.array require input to be a list.
+        return [data]
+    flat_list = []
+    for element in data:
+        if isinstance(element, list):
+            flat_list.extend(flatten_list(element))
+        else:
+            flat_list.append(element)
+    return flat_list
+
+
+def get_shape(data):
+    """
+    Find the shape of a nested list.
+
+    Args:
+        nested_list (list): The input nested list.
+
+    Returns:
+        list: The shape of the nested list.
+    """
+    shape = []
+    if isinstance(data, (int, float)):
+        # Return empty list for a scalar.
+        return []
+    while isinstance(data, (list, tuple)) and len(data) > 0:
+        shape.append(len(data))
+        data = data[0]
+    return shape
 
 
 def should_omit_constant_in_str(shape):

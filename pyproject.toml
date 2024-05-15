@@ -11,7 +11,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "ml_dtypes==0.2.0",
   "colored==2.2.3",
   "jinja2==3.1.2",
   "numpy==1.23.5",

@@ -1,5 +1,4 @@
 import tripy as tp
-import pytest
 
 
 def test_timing_cache(tmp_path):

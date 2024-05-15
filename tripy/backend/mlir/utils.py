@@ -5,10 +5,12 @@ import sys
 import tempfile
 from typing import BinaryIO, List, Tuple
 
+import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
 
 from tripy import utils
-from tripy.common import ShapeInfo
+from tripy.common import ShapeInfo, datatype
+from tripy.common.exception import raise_error
 from tripy.logging import logger
 
 
@@ -187,3 +189,30 @@ def redirect_stderr() -> BinaryIO:
 
         os.dup2(original_stderr, 2)
         os.close(original_stderr)
+
+
+TRIPY_DTYPE_TO_MLIR_TRT = {
+    datatype.int8: runtime.ScalarTypeCode.i8,
+    datatype.int32: runtime.ScalarTypeCode.i32,
+    datatype.int64: runtime.ScalarTypeCode.i64,
+    datatype.uint8: runtime.ScalarTypeCode.ui8,
+    datatype.float16: runtime.ScalarTypeCode.f16,
+    datatype.float32: runtime.ScalarTypeCode.f32,
+    datatype.bool: runtime.ScalarTypeCode.i1,
+    datatype.float8: runtime.ScalarTypeCode.f8e4m3fn,
+    datatype.bfloat16: runtime.ScalarTypeCode.bf16,
+}
+
+MLIR_TRT_TO_TRIPY_DTYPE = {v: k for k, v in TRIPY_DTYPE_TO_MLIR_TRT.items()}
+
+
+def convert_tripy_dtype_to_runtime_dtype(dtype: datatype.dtype) -> runtime.ScalarTypeCode:
+    if dtype not in TRIPY_DTYPE_TO_MLIR_TRT:
+        raise_error(f"Data type: '{dtype}' does not have a corresponding runtime data type")
+    return TRIPY_DTYPE_TO_MLIR_TRT.get(dtype)
+
+
+def convert_runtime_dtype_to_tripy_dtype(dtype: runtime.ScalarTypeCode) -> datatype.dtype:
+    if dtype not in MLIR_TRT_TO_TRIPY_DTYPE:
+        raise_error(f"Data type: '{dtype}' does not have a corresponding numpy data type")
+    return MLIR_TRT_TO_TRIPY_DTYPE.get(dtype)

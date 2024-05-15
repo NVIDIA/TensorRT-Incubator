@@ -5,6 +5,7 @@ from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
+from tripy.common.utils import is_supported_array_type
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 
@@ -99,7 +100,7 @@ def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float3
     """
     from tripy.frontend.trace.ops.cast import cast
 
-    if dtype not in (datatype.float32, datatype.int32):
+    if not is_supported_array_type(dtype):
         result = Iota.build([], dim, utils.to_dims(shape), datatype.float32)
         return cast(result, dtype)
 

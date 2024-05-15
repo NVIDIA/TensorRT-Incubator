@@ -105,7 +105,7 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConstantOp
     from tripy.common.datatype import int32
-    import numpy as np
+    from tripy.common.device import device
 
     const_output_tensor = FlatIRTensor.build(
         shape=(dynamic_dim(1),),
@@ -116,7 +116,7 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     ConstantOp.build(
         [],
         [const_output_tensor],
-        data=Array(np.array(data).astype(np.int32), None, None, None),
+        data=Array(data, shape=[len(data)], dtype=int32, device=device("cpu")),
     )
     return const_output_tensor
 
@@ -235,8 +235,8 @@ def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, ConstantOp
     from tripy.common.datatype import int32
+    from tripy.common.device import device
     from tripy import utils
-    import numpy as np
 
     if nb_extra_dims == 0:
         return input
@@ -258,7 +258,12 @@ def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
     ConstantOp.build(
         [],
         [const_val_tensor],
-        data=Array(np.array(1, dtype=np.int32), None, None, None),
+        data=Array(
+            1,
+            shape=(),
+            dtype=int32,
+            device=device("cpu"),
+        ),
     )
     BroadcastOp.build([const_val_tensor], [ones_shape_tensor], broadcast_dim=[])
 

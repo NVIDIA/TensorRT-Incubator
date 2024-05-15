@@ -5,6 +5,7 @@ from typing import Optional
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
+from tripy.common.utils import is_supported_array_type
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 
@@ -34,6 +35,9 @@ class Fill(BaseTraceOp):
         from tripy.common.device import device
         from tripy.flat_ir.ops import ConstantOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.frontend.tensor import convert_list_data_to_array
+        from tripy.frontend.trace.ops.cast import cast
+        import tripy.common.datatype as datatype
 
         const_val_tensor = FlatIRTensor.build(
             shape=[],
@@ -41,11 +45,11 @@ class Fill(BaseTraceOp):
             device=outputs[0].device,
             reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
         )
-        ConstantOp.build(
-            [],
-            [const_val_tensor],
-            data=Array(self.value, self.dtype, shape=(), device=device("cpu")),
-        )
+        if not is_supported_array_type(self.dtype):
+            data = convert_list_data_to_array(self.value, shape=(), dtype=self.dtype, device=device("cpu"))
+        else:
+            data = Array(self.value, self.dtype, shape=(), device=device("cpu"))
+        ConstantOp.build([], [const_val_tensor], data=data)
 
         if len(inputs) == 1:
             # Used for FillLike where the shape of output is provided by another tensor.

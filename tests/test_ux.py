@@ -3,6 +3,7 @@ Tests that ensure the user experience is nice. For example, making sure that
 README links work.
 """
 
+import glob
 import os
 import re
 
@@ -118,3 +119,18 @@ class TestMissingAttributes:
         a = tp.Tensor([1, 2])
         with pytest.raises(AttributeError):
             a.no_way_this_will_ever_be_a_real_tensor_attr_name
+
+
+class TestImports:
+    # TODO(#10): Add "numpy" to the invalid import list.
+    INVALID_IMPORTS = ["cupy", "pickle"]
+
+    @pytest.mark.parametrize(
+        "file_path", glob.glob(os.path.join(helper.ROOT_DIR, "tripy", "**", "*.py"), recursive=True)
+    )
+    def test_no_invalid_imports(self, file_path):
+        with open(file_path, "r") as file:
+            content = file.read()
+            for invalid_import in self.INVALID_IMPORTS:
+                assert f"import {invalid_import}" not in content, f"Found '{invalid_import}' in {file_path}"
+                assert f"from {invalid_import} import" not in content, f"Found '{invalid_import}' in {file_path}"

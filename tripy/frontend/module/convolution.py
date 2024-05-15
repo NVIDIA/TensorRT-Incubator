@@ -246,7 +246,7 @@ class Conv(Module):
         )
         if hasattr(self, "bias"):
             # TODO: #174 - Get integers out of TP Array & Fix convolution bias reshaping for broadcasting
-            out_channels = self.weight.shape[0].eval().byte_buffer.get()[0]
+            out_channels = self.weight.shape[0].data().data()
             rank = self.weight.rank
             bias_shape_to_broadcast = (1,) + (out_channels,) + (1,) * (rank - 2)
             self.bias = reshape(self.bias, bias_shape_to_broadcast)

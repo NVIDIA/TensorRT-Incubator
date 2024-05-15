@@ -2,12 +2,13 @@ from textwrap import indent
 from typing import Any, List, Optional, Union
 
 # Import ops to populate the registry before we define our Tensor class
+import tripy.common.datatype
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
 from tripy import export, utils
-from tripy.backend.mlir.utils import parse_tensor_names_from_location, redirect_stderr, remove_constants
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
+from tripy.common.utils import is_supported_array_type, get_element_type
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
@@ -25,6 +26,18 @@ class TensorMeta(type):
                 setattr(new, method_name, TENSOR_METHOD_REGISTRY[method_name])
 
         return new
+
+
+def convert_list_data_to_array(data, shape, dtype, device):
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.frontend.trace.ops.quantize import quantize
+
+    # (183) Initialize Array with an arbitrary data type. Requires implementing "create_memref_and_cast" API.
+    if dtype == tripy.common.datatype.float8:
+        return quantize(
+            Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), 1.0, dtype
+        ).eval()
+    return cast(Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), dtype).eval()
 
 
 @export.public_api(
@@ -90,7 +103,16 @@ class Tensor(metaclass=TensorMeta):
         # since this is used internally.
         if data is not None:
             if not isinstance(data, Array):
-                data = Array(data, dtype, utils.from_dims(shape), device)
+                if isinstance(data, (int, float, List, tuple)) and (
+                    (not is_supported_array_type(dtype))
+                    or get_element_type(data) == tripy.common.datatype.float32
+                    and dtype == tripy.common.datatype.int32
+                ):
+                    # 1. Allocate float32 and cast to unsupported types.
+                    # 2. Allocage float32 and cast to int32 to be compliant with numpy/cupy behavior.
+                    data = convert_list_data_to_array(data, shape, dtype, device)
+                else:
+                    data = Array(data, dtype, utils.from_dims(shape), device)
             else:
                 # Internal usage only
                 # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
@@ -147,44 +169,50 @@ class Tensor(metaclass=TensorMeta):
         Storage.build_internal([], [self.trace_tensor], data)
         return data
 
+    def data(self) -> List[Union[float, int]]:
+        import tripy.common.datatype
+        from tripy.frontend.trace.ops.cast import cast
+        from tripy.frontend.trace.ops.dequantize import dequantize
+
+        if not is_supported_array_type(self.dtype):
+            if self.dtype == tripy.common.datatype.float8:
+                data = dequantize(self, 1.0, tripy.common.datatype.float32).eval()
+            else:
+                data = cast(self, tripy.common.datatype.float32).eval()
+        else:
+            data = self.eval()  # Avoid recomputing everything after we've called `numpy()`
+        assert isinstance(data, Array)
+        return data
+
     def numpy(self) -> "numpy.ndarray":
-        from tripy.common.device import device
-        from tripy.frontend.trace.ops.copy import copy
-
-        self.eval()  # Avoid recomputing everything after we've called `numpy()`
-        data = copy(self, device("cpu")).eval()
-        return data.view()
-
-    def __repr__(self) -> str:
+        # TODO(#10): Move numpy() outside of tripy frontend.
         import numpy as np
 
-        from tripy.common.array import convert_tripy_to_module_dtype
+        # TODO(#188): Replace Tensor.data() and np.array(...) with np.from_dlpack(...)
+        data = self.data().data()
+        dtype = np.int32 if get_element_type(data) == tripy.common.datatype.int32 else np.float32
+        return np.array(data, dtype=dtype)
 
-        # HACK(#169): Remove cupy .get()
+    def __repr__(self) -> str:
         # BUG(#170): Cannot simply use self.numpy() here
         #            Breaks DS in JIT
-        arr = self.eval().byte_buffer
-        if self.trace_tensor.producer.device.kind == "gpu":
-            arr = arr.get()
-        np_arr = arr.view(convert_tripy_to_module_dtype(self.dtype, np))
-
+        arr = self.data()
+        assert isinstance(arr, Array)
         indentation = ""
         sep = ""
-        if len(np_arr.shape) > 1 and any(dim > 1 for dim in np_arr.shape):
+        if len(arr.shape) > 1 and any(dim > 1 for dim in arr.shape):
             indentation = " " * 4
             sep = "\n"
         return (
             f"tensor({sep}"
-            f"{indent(str(np_arr), prefix=indentation)}, {sep}"
-            f"{indent(f'dtype={self.trace_tensor.producer.dtype}, loc={self.trace_tensor.producer.device}, shape={self.trace_tensor.producer.shape}', prefix=indentation)}"
+            f"{indent(str(arr), prefix=indentation)}, {sep}"
+            f"{indent(f'dtype={arr.dtype}, loc={arr.device}, shape={arr.shape}', prefix=indentation)}"
             f"{sep})"
         )
 
-    # Since the underlying data is numpy/cupy we reuse their __dlpack__() methods
+    # Since the underlying data is an Array we reuse their __dlpack__() and __dlpack_device__() methods
     def __dlpack__(self, stream: Any = None):
-        array = self.eval().view()
-        return array.__dlpack__(stream=stream)
+        return self.eval().__dlpack__(stream=stream)
 
     def __dlpack_device__(self):
-        array = self.eval().view()
-        return array.__dlpack_device__()
+        return self.eval().__dlpack_device__()

@@ -82,8 +82,8 @@ class TestFunctional:
         out = executor.execute(get_devices(output_tensor_info))
         assert (
             len(out) == 2
-            and (out[0].view().get() == np.array([2.0, 2.0], dtype=np.float32)).all()
-            and (out[1].view().get() == np.array([4.0, 4.0], dtype=np.float32)).all()
+            and (cp.from_dlpack(out[0]).get() == np.array([2.0, 2.0], dtype=np.float32)).all()
+            and (cp.from_dlpack(out[1]).get() == np.array([4.0, 4.0], dtype=np.float32)).all()
         )
 
     def _test_framework_interoperability(self, data, device):
@@ -95,7 +95,7 @@ class TestFunctional:
                 data = data.get()
             c = tp.Tensor(jax.device_put(jnp.array(data), jax.devices("gpu")[0]), device=device)
         else:
-            c = tp.Tensor(jax.device_put(jnp.array(data), jax.devices("cpu")[0]))
+            c = tp.Tensor(jax.device_put(jnp.array(data), jax.devices("cpu")[0]), device=device)
 
         out = a + b + c
         assert (out.numpy() == np.array([3.0, 3.0], dtype=np.float32)).all()
@@ -174,7 +174,7 @@ class TestCopyFunctional:
         out = tp.copy(a, tp.device(dst))
         out = out.eval()
         assert out.device.kind == dst
-        assert out.view().tolist() == [1, 2]
+        assert out.data() == [1, 2]
 
     def test_multiple_copy_1(self):
         a = tp.Tensor([1, 2])
@@ -182,7 +182,7 @@ class TestCopyFunctional:
         a = tp.copy(a, tp.device("cpu"))
         out = a.eval()
         assert out.device.kind == "cpu"
-        assert out.view().tolist() == [1, 2]
+        assert out.data() == [1, 2]
 
     def test_multiple_copy_2(self):
         a = tp.Tensor([1, 2])
@@ -190,7 +190,7 @@ class TestCopyFunctional:
         a = tp.copy(a, tp.device("gpu"))
         out = a.eval()
         assert out.device.kind == "gpu"
-        assert out.view().tolist() == [1, 2]
+        assert out.data() == [1, 2]
 
     @pytest.mark.parametrize("dst", ["cpu", "gpu"])
     def test_jit_single_copy(self, dst):
@@ -204,7 +204,7 @@ class TestCopyFunctional:
         out = func(a)
         out = out.eval()
         assert out.device.kind == dst
-        assert out.view().tolist() == [1, 2]
+        assert out.data() == [1, 2]
 
     def test_jit_multiple_copy_1(self):
         a = tp.Tensor([1, 2], device=tp.device("gpu"))
@@ -218,7 +218,7 @@ class TestCopyFunctional:
         out = func(a)
         out = out.eval()
         assert out.device.kind == "gpu"
-        assert out.view().tolist() == [1, 2]
+        assert out.data() == [1, 2]
 
     def test_jit_multiple_copy_2(self):
         a = tp.Tensor([1, 2], device=tp.device("gpu"))
@@ -232,7 +232,7 @@ class TestCopyFunctional:
         out = func(a)
         out = out.eval()
         assert out.device.kind == "cpu"
-        assert out.view().tolist() == [1, 2]
+        assert out.data() == [1, 2]
 
     def test_with_ops(self):
         a = tp.Tensor([1, 2])
@@ -241,7 +241,7 @@ class TestCopyFunctional:
         out = tp.copy(out, tp.device("cpu"))
         out = out.eval()
         assert out.device.kind == "cpu"
-        assert out.view().tolist() == [3, 5]
+        assert out.data() == [3, 5]
 
     def test_jit_with_ops(self):
         a = tp.Tensor([1, 2], device=tp.device("gpu"))
@@ -256,7 +256,7 @@ class TestCopyFunctional:
         out = func(a, b)
         out = out.eval()
         assert out.device.kind == "cpu"
-        assert out.view().tolist() == [3, 5]
+        assert out.data() == [3, 5]
 
     def test_print_dynamic_tensor(self):
         arr = np.ones(4, dtype=np.float32)
@@ -317,16 +317,15 @@ class TestDynamic:
 
     @pytest.mark.parametrize("dim", [tp.dynamic_dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
-        with logger.use_verbosity({"ir", "verbose"}):
-            a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
-            b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+        a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+        b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
 
-            def func(a, b):
-                c = a + b
-                return c
+        def func(a, b):
+            c = a + b
+            return c
 
-            out = func(a, b)
-            assert np.array_equal(out.numpy(), np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32))
+        out = func(a, b)
+        assert np.array_equal(out.numpy(), np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32))
 
 
 class TestConversionToTripyType:
