@@ -24,6 +24,7 @@ class ConstantOp(BaseFlatIROp):
     def to_mlir(self, operands):
         from tripy.backend.mlir import utils as mlir_utils
 
+        # TODO(#189): Remove explicit copy to host for constants
         assert isinstance(self.data, Array)
         memref_value = self.data.memref_value
         if self.data.device.kind == "gpu":

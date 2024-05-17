@@ -65,17 +65,16 @@ def check_mlir(mlir, expected):
 # Supported NumPy data types
 NUMPY_TYPES = [
     np.int8,
-    # np.int16, # (38): Add cast operation to support unsupported backend types.
+    np.int16,
     np.int32,
-    np.uint8,
     np.int64,
     np.uint8,
-    # np.uint16, # (38): Add cast operation to support unsupported backend types.
-    # np.uint32, # (38): Add cast operation to support unsupported backend types.
-    # np.uint64, # (38): Add cast operation to support unsupported backend types.
+    # np.uint16, # TODO(#190): Add support for unsupported MLIR-TensorRT types.
+    # np.uint32, # TODO(#190): Add support for unsupported MLIR-TensorRT types.
+    # np.uint64, # TODO(#190): Add support for unsupported MLIR-TensorRT types.
     np.float16,
     np.float32,
-    # np.float64, # (38): Add cast operation to support unsupported backend types.
+    np.float64,
 ]
 
 

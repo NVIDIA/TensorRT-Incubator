@@ -54,11 +54,13 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
     NUMPY_TO_TRIPY = {
         "int4": tripy.common.datatype.int4,
         "int8": tripy.common.datatype.int8,
+        "int16": tripy.common.datatype.int16,
         "int32": tripy.common.datatype.int32,
         "int64": tripy.common.datatype.int64,
         "uint8": tripy.common.datatype.uint8,
         "float16": tripy.common.datatype.float16,
         "float32": tripy.common.datatype.float32,
+        "float64": tripy.common.datatype.float64,
         "bool": tripy.common.datatype.bool,
     }
 

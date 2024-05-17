@@ -186,8 +186,6 @@ class Tensor(metaclass=TensorMeta):
         return data
 
     def __repr__(self) -> str:
-        # BUG(#170): Cannot simply use self.numpy() here
-        #            Breaks DS in JIT
         arr = self.data()
         assert isinstance(arr, Array)
         indentation = ""

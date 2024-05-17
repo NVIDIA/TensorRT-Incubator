@@ -30,16 +30,10 @@ class TestStorage:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_dtype(self, dtype):
-        # (32): Allow setting all tripy supported types here.
         # Given a int/float data list, store data with requested data type.
-
-        if dtype in {tp.int4, tp.bfloat16, tp.float8}:
-            pytest.skip("Type is not supported by numpy/cupy")
-
-        if dtype in {tp.int8, tp.int64, tp.float16, tp.uint8, tp.bool}:
-            pytest.skip("Skip test until cast operation implemented.")
-
-        arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
+        if dtype not in {tp.float32, tp.int32, tp.int64}:
+            pytest.skip(f"List to tp.Array conversion only supports float32, int32, int64. Got {dtype}")
+        arr = [1.0, 2.0, 3.0] if dtype == tp.float32 else [1, 2, 3]
         data = Array(arr, shape=(3,), dtype=dtype, device=None)
         storage = Storage([], [], data)
         assert storage.dtype == dtype
@@ -48,16 +42,10 @@ class TestStorage:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_mlir_conversion(self, dtype):
-        # (32): Allow setting all tripy supported types here.
         # Given a int/float data list, store data with requested data type.
-
-        if dtype in {tp.int4, tp.bfloat16, tp.float8}:
-            pytest.skip("Type is not supported by numpy/cupy")
-
-        if dtype in {tp.int8, tp.int64, tp.float16, tp.uint8, tp.bool}:
-            pytest.skip("Skip test until cast operation implemented.")
-
-        arr = [1, 2, 3] if dtype == tp.int32 else [1.0, 2.0, 3.0]
+        if dtype not in {tp.float32, tp.int32, tp.int64}:
+            pytest.skip(f"List to tp.Array conversion only supports float32, int32, int64. Got {dtype}")
+        arr = [1.0, 2.0, 3.0] if dtype == tp.float32 else [1, 2, 3]
         data = Array(arr, shape=(3,), dtype=dtype, device=None)
         storage = Storage([], [TraceTensor("t0", None, [3], dtype, None, None, None)], data)
         with mlir_utils.make_ir_context(), ir.Location.unknown():

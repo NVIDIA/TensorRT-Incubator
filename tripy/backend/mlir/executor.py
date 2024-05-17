@@ -33,7 +33,6 @@ class Executor:
     def _get_inputs_shape_memref(self, inputs):
         inputs_shape_memref = []
         for input in inputs:
-            # TODO(#155) Shape function require input arguments to be on device.
             input_shape = Array(
                 from_dims(input.trace_tensor.producer.data.shape),
                 shape=make_tuple(input.trace_tensor.rank),
@@ -202,6 +201,7 @@ class Executor:
         self.session.execute_function("main", in_args=in_args, out_args=out_args, stream=self.stream)
         self.stream.sync()
         # For outputs that were on the host, do the copy back
+        # TODO(#155): MLIR-TensorRT should allow output tensor placements on host.
         for idx, out_info in enumerate(out_tensor_info):
             if out_info.device.kind != "gpu":
                 self.runtime_client.copy_to_host(

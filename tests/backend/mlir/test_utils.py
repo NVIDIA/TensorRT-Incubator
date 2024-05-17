@@ -17,15 +17,17 @@ class TestUtils:
             assert (
                 mlir_utils.get_mlir_dtype(dtype)
                 == {
+                    "float64": ir.F64Type.get(),
                     "float32": ir.F32Type.get(),
                     "float16": ir.F16Type.get(),
                     "float8": ir.Float8E4M3FNType.get(),
                     "bfloat16": ir.BF16Type.get(),
                     "int4": ir.IntegerType.get_signless(4),
                     "int8": ir.IntegerType.get_signless(8),
+                    "int16": ir.IntegerType.get_signless(16),
                     "int32": ir.IntegerType.get_signless(32),
                     "int64": ir.IntegerType.get_signless(64),
                     "uint8": ir.IntegerType.get_unsigned(8),
-                    # TODO (pranavm): Figure out how to make boolean types work.
+                    "bool": ir.IntegerType.get_signless(1),
                 }[dtype.name]
             )
