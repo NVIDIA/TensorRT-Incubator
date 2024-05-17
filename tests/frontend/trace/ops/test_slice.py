@@ -32,6 +32,11 @@ class TestSlice:
         assert a[0:1].shape == [1, 3, 4]
         assert list(a[0].shape.numpy()) == [3, 4]
 
+    def test_end_clamping(self):
+        a = tp.ones((2, 3, 4))
+        # equivalent to a[0:2, 0:3, 3:4]
+        assert a[0:7, 0:12, 3:5].shape == [2, 3, 1]
+
     def test_tensor_index(self):
         idx = tp.Tensor(1, dtype=tp.int32)
         a = tp.ones((2, 3))
@@ -70,27 +75,18 @@ class TestSlice:
 
     def test_invalid_multiple_dims(self):
         a = tp.ones((2, 3, 4))
-        second_dim_regex = r"(.|\n)*\| {13}a\[3:5, 2\]\.eval\(\)\n\s*\| {20}\x1b\[38;5;1m\^\n\n"
+        first_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^\n\n"
+        second_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {18}\x1b\[38;5;1m\^\n\n"
         with helper.raises(
             tp.TripyException,
-            # Looking the following:
-            # |             a[3:5, 2].eval()
+            # Looking three instance of the following:
+            # |             a[5, 3].eval()
             # |               ^
             #
-            # |             a[3:5, 2].eval()
-            # |                 ^
-            #
-            # |             a[3:5, 2].eval()
-            # |               ^^^ # cannot narrow down to a single entry
-            #
             # and three instances of the following:
-            # |             a[3:5, 2].eval()
-            # |                    ^
-            match=(
-                r"\| {13}a\[3:5, 2\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^\n\n"
-                r"(.|\n)*\| {13}a\[3:5, 2\]\.eval\(\)\n\s*\| {17}\x1b\[38;5;1m\^\n\n"
-                r"(.|\n)*\| {13}a\[3:5, 2\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^\^\^\n\n" + 3 * second_dim_regex
-            ),
+            # |             a[5, 3].eval()
+            # |                  ^
+            match=(3 * first_dim_regex + 3 * second_dim_regex),
             has_stack_info_for=[a],
         ):
-            a[3:5, 2].eval()
+            a[5, 3].eval()

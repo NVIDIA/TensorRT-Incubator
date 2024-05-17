@@ -19,6 +19,8 @@ class TestSliceOp:
             ((2, 3, 4), lambda t: t[1, 2, 3]),
             ((2, 3, 4), lambda t: t[:, :-1, 2]),
             ((1, 2, 1, 4), lambda t: t[:, 1, 0, 2:-1]),
+            # ensure that if a slice upper bound is past the end, it is clamped
+            ((2, 3, 4), lambda t: t[:3, :4, :5]),
             # TODO #156: implement when infer_rank is available on frontend tensor
             # The current way to dynamically add start,limit,stride content to slice params is very hacky and not worth adding right now.
             # ((2,3,4,5), lambda t: t[:1]),

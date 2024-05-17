@@ -34,7 +34,7 @@ class Slice(BaseTraceOp):
         self.outputs[0].rank = self.inputs[0].rank
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp
+        from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp, MinOp
         from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.datatype import int32
 
@@ -87,8 +87,19 @@ class Slice(BaseTraceOp):
                     DynamicReshapeOp.build([index_tensor, shape_input], [reshape_out])
                     return reshape_out
 
+                # the max dimension is clamped
+                def clamp(index_tensor):
+                    min_out = FlatIRTensor.build(
+                        shape=utils.to_dims([1]),
+                        dtype=int32,
+                        device=device,
+                        reason_details=["clamping the slice upper bound to the shape dim"],
+                    )
+                    MinOp.build([index_tensor, shape_slice], [min_out])
+                    return min_out
+
                 start_idxs.append(expand_to_rank1(slice_params[3 * dim]))
-                limit_idxs.append(expand_to_rank1(slice_params[3 * dim + 1]))
+                limit_idxs.append(clamp(expand_to_rank1(slice_params[3 * dim + 1])))
                 stride_idxs.append(expand_to_rank1(slice_params[3 * dim + 2]))
             else:
                 start_idxs.append(zero_1d)
