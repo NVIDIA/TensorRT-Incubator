@@ -51,29 +51,17 @@ class Slice(BaseTraceOp):
         limit_idxs = []
         stride_idxs = []
 
-        def slice_shape_tensor(shape_tensor, slice_index):
-            """
-            Slice shape tensor along a certain index.
-            Ex: tensor [1,2,3,4,5,6] sliced at slice_index 2 will return 3.
-            """
-            start_idx = op_utils.add_constant_tensor_from_list([slice_index], device)
-            stride_index = op_utils.add_constant_tensor_from_list([1], device)
-            slice_len = op_utils.add_constant_tensor_from_list([slice_index + 1], device)
-            shape_slice = FlatIRTensor.build(
-                shape=utils.to_dims([1]),
-                dtype=int32,
-                device=device,
+        for dim in range(input_rank):
+            shape_slice = op_utils.slice_rank1_tensor(
+                input_shape,
+                dim,
                 reason_details=[
                     "slicing the shape tensor ",
-                    shape_tensor,
-                    f" to get the dimension with index {slice_index}",
+                    input_shape,
+                    f" to get the dimension with index {dim}",
                 ],
             )
-            DynamicSliceOp.build([shape_tensor, start_idx, slice_len, stride_index], [shape_slice])
-            return shape_slice
 
-        for dim in range(input_rank):
-            shape_slice = slice_shape_tensor(input_shape, dim)
             if dim < len(slice_params) // 3:
 
                 def expand_to_rank1(index_tensor):

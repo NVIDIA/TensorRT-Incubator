@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List, Optional
 
 from colored import Fore, attr
 
@@ -339,3 +339,26 @@ def get_slice_indices(op, shape, index):
             limit_indices.append(min(dim, to_positive_idx(idx.stop, dim)) if (idx.stop is not None) else dim)
             strides.append(idx.step if idx.step else 1)
     return start_indices, limit_indices, strides
+
+
+def slice_rank1_tensor(rank1_tensor: "FlatIRTensor", slice_index: int, reason_details: Optional[List[Any]] = None):
+    """
+    Slice a rank 1 tensor tensor along a certain index.
+    Ex: tensor [1,2,3,4,5,6] sliced at slice_index 2 will return 3.
+    """
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.flat_ir.ops import DynamicSliceOp
+    from tripy.common.datatype import int32
+
+    device = rank1_tensor.device
+    start_idx = add_constant_tensor_from_list([slice_index], device)
+    stride_index = add_constant_tensor_from_list([1], device)
+    slice_len = add_constant_tensor_from_list([slice_index + 1], device)
+    result_slice = FlatIRTensor.build(
+        shape=utils.to_dims([1]),
+        dtype=int32,
+        device=device,
+        reason_details=reason_details if reason_details is not None else [],
+    )
+    DynamicSliceOp.build([rank1_tensor, start_idx, slice_len, stride_index], [result_slice])
+    return result_slice

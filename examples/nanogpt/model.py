@@ -55,21 +55,10 @@ class CausalSelfAttention(tp.Module):
     def __call__(self, x: tp.Tensor, attention_mask: Optional[tp.Tensor] = None):
         qkv = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
 
-        # q, k, v = qkv.split(self.embedding_size, dim=2)
-        def extract(index):
-            weight = qkv[:, :, index * self.embedding_size : (index + 1) * self.embedding_size]
-            return tp.transpose(
-                tp.reshape(
-                    weight, (self.batch_size, self.seq_len, self.num_heads, self.embedding_size // self.num_heads)
-                ),
-                1,
-                2,
-            )  # (batch_size, num_heads, seq_len, head_size)
-
         # WAR for better accuracy and avoid TRT compilation error in fp16
         if self.c_attn.quant_dtype in (tp.float8, tp.int4):
             qkv = tp.cast(qkv, tp.float32)
-        q, k, v = extract(0), extract(1), extract(2)
+        q, k, v = tp.split(qkv, 3, dim=2)
         k_t = tp.transpose(k, -2, -1)
         att = (q @ k_t) * (1.0 / math.sqrt(self.embedding_size // self.num_heads))
 

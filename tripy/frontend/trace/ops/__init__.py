@@ -20,3 +20,4 @@ from tripy.frontend.trace.ops.where import Where
 from tripy.frontend.trace.ops.quantize import Quantize
 from tripy.frontend.trace.ops.dequantize import Dequantize
 from tripy.frontend.trace.ops.convolution import Convolution
+from tripy.frontend.trace.ops.split import Split
