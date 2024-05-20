@@ -334,10 +334,16 @@ def get_slice_indices(op, shape, index):
             limit_indices.append(idx + 1)
             strides.append(1)
         else:
-            start_indices.append(to_positive_idx(idx.start, dim) if (idx.start is not None) else 0)
-            # clamp the limit index if it goes past the end
-            limit_indices.append(min(dim, to_positive_idx(idx.stop, dim)) if (idx.stop is not None) else dim)
-            strides.append(idx.step if idx.step else 1)
+            if idx.step is not None and idx.step < 0:
+                start_indices.append(
+                    0 if idx.start is None or idx.start >= dim else (dim - to_positive_idx(idx.start, dim) - 1)
+                )
+                limit_indices.append(dim if idx.stop is None else (dim - to_positive_idx(idx.stop, dim) - 1))
+            else:
+                start_indices.append(to_positive_idx(utils.default(idx.start, 0), dim))
+                # clamp the limit index if it goes past the end
+                limit_indices.append(min(dim, to_positive_idx(idx.stop, dim)) if (idx.stop is not None) else dim)
+            strides.append(abs(utils.default(idx.step, 1)))
     return start_indices, limit_indices, strides
 
 

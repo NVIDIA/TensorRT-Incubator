@@ -17,7 +17,22 @@ class TestSliceOp:
             ((4,), lambda t: t[-2]),
             ((4,), lambda t: t[1:]),
             ((2, 3, 4), lambda t: t[1, 2, 3]),
-            ((2, 3, 4), lambda t: t[:, :-1, 2]),
+            # flip one dimension
+            ((2, 3, 4), lambda t: t[:, ::-1, :]),
+            # negative step size that evenly and unevenly divides
+            ((2, 3, 4), lambda t: t[:, :, ::-2]),
+            ((2, 3, 4), lambda t: t[:, :, ::-3]),
+            # both bounds given with negative step size
+            ((10,), lambda t: t[8:2:-2]),
+            # one bound given with negative step size
+            ((10,), lambda t: t[8::-2]),
+            ((10,), lambda t: t[:2:-2]),
+            # both bounds with uneven step size
+            ((10,), lambda t: t[8:2:-3]),
+            # not the same thing as [10::-1] -- this one leaves off the last element
+            ((10,), lambda t: t[10:0:-1]),
+            # clamps the start index for negative step size
+            ((10,), lambda t: t[1024:0:-1]),
             ((1, 2, 1, 4), lambda t: t[:, 1, 0, 2:-1]),
             # ensure that if a slice upper bound is past the end, it is clamped
             ((2, 3, 4), lambda t: t[:3, :4, :5]),

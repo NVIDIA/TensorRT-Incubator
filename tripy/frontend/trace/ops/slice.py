@@ -24,7 +24,7 @@ class Slice(BaseTraceOp):
         input_shape = self.inputs[0].shape
         self.start_indices, self.limit_indices, self.strides = op_utils.get_slice_indices(self, input_shape, self.index)
         out_shape = [
-            math.ceil((stop - start) / stride)
+            math.ceil(abs((stop - start) / stride))
             for start, stop, stride in zip(self.start_indices, self.limit_indices, self.strides)
         ]
         self.outputs[0].shape = utils.to_dims(out_shape)
@@ -118,11 +118,19 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (1, 2, 3, 1))
         output = input[:, 1:2, :-1, 0]
         assert np.array_equal(output.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
+
+    .. code-block:: python
+        :linenos:
+        :caption: Negative step size
+
+        input = tp.arange(10)
+        output = input[8:2:-1]
+        assert np.array_equal(output.numpy(), np.arange(10)[8:2:-1])
     """
     from tripy.frontend.tensor import Tensor
+    from tripy.frontend.trace.ops.flip import flip
+    from tripy.frontend.trace.ops.reshape import reshape, squeeze
     from tripy.frontend.trace.ops.where import where
-    from tripy.frontend.trace.ops.reshape import squeeze
-    from tripy.frontend.trace.ops.reshape import reshape
 
     index = make_tuple(index)
     # Collect args in the order of (start, stop, step) in a flat list, filling in default values if any is missing.
@@ -132,6 +140,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
     # index can be a tuple of just integer, Tensor (ex; a[2] or a[t]) or can be a
     # slice with optional start, stop and step fields set (where the element can be int or Tensor).
     t_shape = self.shape
+    flip_dims = []
     for i, idx in enumerate(index):
 
         def convert_to_positive_idx(index: Union[int, Tensor]) -> Union[int, Tensor]:
@@ -146,9 +155,25 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
             args.append(convert_to_positive_idx(idx) + 1)
             args.append(1)
         elif isinstance(idx, slice):
-            args.append(convert_to_positive_idx(utils.default(idx.start, 0)))
-            args.append(convert_to_positive_idx(utils.default(idx.stop, t_shape[i])))
-            args.append(convert_to_positive_idx(utils.default(idx.step, 1)))
+            # For negative strides, we must convert the indices for the flipped dimension.
+            # For example, l[8:2:-1] starts from index 8 of the original list and proceeds
+            # to index 2 of the original list (exclusive). Index 0 in the original list is the final
+            # index of the flipped list, so index len(l) - 1. Index 8 is eight indices afterwards,
+            # so, len(l) - 1 - 8 in the flipped list. Hence, l[8:2:-1] starts from index len(l) - 9
+            # of the flipped list and goes to index len(l) - 3 of the flipped list.
+            if idx.step is not None and idx.step < 0:
+                flip_dims.append(i)
+                # note that if the starting index is past the end of the tensor, slicing clamps it
+                args.append(
+                    0
+                    if idx.start is None
+                    else where(idx.start >= t_shape[i], Tensor(0), t_shape[i] - convert_to_positive_idx(idx.start) - 1)
+                )
+                args.append(t_shape[i] if idx.stop is None else t_shape[i] - convert_to_positive_idx(idx.stop) - 1)
+            else:
+                args.append(convert_to_positive_idx(utils.default(idx.start, 0)))
+                args.append(convert_to_positive_idx(utils.default(idx.stop, t_shape[i])))
+            args.append(abs(utils.default(idx.step, 1)))
         else:
             raise_error(
                 "Slice index type is not supported.",
@@ -158,7 +183,11 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
                 ],
             )
 
-    out = slice_helper(self, index, *args)
+    input_tensor = self
+    if flip_dims:
+        input_tensor = flip(input_tensor, dims=flip_dims)
+    out = slice_helper(input_tensor, index, *args)
+
     squeeze_dims = []
     for i, idx in enumerate(index):
         if isinstance(idx, (tuple, list)):

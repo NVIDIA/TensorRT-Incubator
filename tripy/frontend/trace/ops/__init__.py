@@ -4,6 +4,7 @@ from tripy.frontend.trace.ops.cast import Cast
 from tripy.frontend.trace.ops.copy import Copy
 from tripy.frontend.trace.ops.expand import Expand
 from tripy.frontend.trace.ops.fill import Fill
+from tripy.frontend.trace.ops.flip import Flip
 from tripy.frontend.trace.ops.gather import Gather
 from tripy.frontend.trace.ops.iota import Iota
 from tripy.frontend.trace.ops.matmul import MatrixMultiplication
