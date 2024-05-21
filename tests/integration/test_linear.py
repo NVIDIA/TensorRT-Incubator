@@ -25,16 +25,18 @@ class TestLinear:
                 return self.linear(x)
 
         net = Network()
-        a1 = tp.Tensor(np.ones((3, 4), dtype=np.float32), device=tp.device("gpu"))
+        np_weight = net.linear.weight.numpy()
+        np_bias = net.linear.bias.numpy()
+
+        np_a1 = np.ones((3, 4), dtype=np.float32)
+        a1 = tp.Tensor(np_a1, device=tp.device("gpu"))
 
         if use_jit:
             net = tp.jit(net)
 
         out = net(a1)
 
-        np_out = np.ones((3, 4), dtype=np.float32) @ (np.ones((2, 4), dtype=np.float32).transpose()) + np.ones(
-            (1, 2), dtype=np.float32
-        )
+        np_out = np_a1 @ (np_weight.transpose()) + np_bias
 
         assert (out.numpy() == np.array(np_out)).all()
 
@@ -79,10 +81,14 @@ class TestQuantLinear:
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
     def test_quant_linear(self, use_jit, use_input_scale, quant_dtype, weight_quant_dim):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
+        np_weight = net.linear.weight.numpy()
+        np_bias = net.linear.bias.numpy()
+
         if use_jit:
             net = tp.jit(net)
 
-        a1 = tp.Tensor(np.ones((3, 4), dtype=np.float32), device=tp.device("gpu"))
+        np_a1 = np.ones((3, 4), dtype=np.float32)
+        a1 = tp.Tensor(np_a1, device=tp.device("gpu"))
         if use_input_scale and weight_quant_dim == 1:
             with helper.raises(
                 tp.TripyException,
@@ -92,38 +98,40 @@ class TestQuantLinear:
         else:
             out = net(a1)
 
-            np_out = np.ones((3, 4), dtype=np.float32) @ (np.ones((2, 4), dtype=np.float32).transpose()) + np.ones(
-                (1, 2), dtype=np.float32
-            )
+            np_out = np_a1 @ (np_weight.transpose()) + np_bias
 
             assert (out.numpy() == np.array(np_out)).all()
 
     @pytest.mark.parametrize("use_jit", [False, True])
-    @pytest.mark.parametrize("quant_mode", ["block-wise", "per-tensor", "per-channel-0", "per-channel-1"])
-    def test_quant_linear_int4_weight_only(self, use_jit, quant_mode):
-        if quant_mode == "block-wise":
-            weight_quant_dim = None
-            scale = tp.Parameter(tp.ones((2, 4)))
-        elif quant_mode == "per-tensor":
-            weight_quant_dim = None
-            scale = tp.Parameter(1.0)
-        elif quant_mode.endswith("0"):
-            weight_quant_dim = 0
-            scale = tp.Parameter(tp.ones((8,)))
-        elif quant_mode.endswith("1"):
-            weight_quant_dim = 1
-            scale = tp.Parameter(tp.ones((4,)))
+    @pytest.mark.parametrize(
+        "weight_quant_dim, scale",
+        [
+            (None, tp.ones((2, 4))),
+            (None, 1.0),
+            (0, tp.ones((8,))),
+            (1, tp.ones((4,))),
+        ],
+        ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
+    )
+    def test_quant_linear_int4_weight_only(self, use_jit, weight_quant_dim, scale):
+        scale = tp.Parameter(scale)
 
         linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
         linear.weight_scale = scale
+        # HACK: Use ones for stable accuracy.
+        linear.weight = tp.Parameter(tp.ones((8, 4)))
+        linear.bias = tp.Parameter(tp.ones((8,)))
+
+        np_weight = linear.weight.numpy()
+        np_bias = linear.bias.numpy()
+
         if use_jit:
             linear = tp.jit(linear)
 
-        input = tp.Tensor(np.ones((4, 4), dtype=np.float32), device=tp.device("gpu"))
+        np_input = np.ones((4, 4), dtype=np.float32)
+        input = tp.Tensor(np_input, device=tp.device("gpu"))
         out = linear(input)
 
-        np_out = np.ones((4, 4), dtype=np.float32) @ (np.ones((8, 4), dtype=np.float32).transpose()) + np.ones(
-            (1, 8), dtype=np.float32
-        )
+        np_out = np_input @ (np_weight.transpose()) + np_bias
 
         assert np.array_equal(out.numpy(), np_out)

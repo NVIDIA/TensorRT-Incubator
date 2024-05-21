@@ -309,3 +309,16 @@ class TestJIT:
 
         c = net(a, b).eval()
         assert len(Inner.__call__.cache.keys()) == 0
+
+    def test_param_is_marked_const(self, capsys):
+        with tp.logger.use_verbosity("flat_ir"):
+            param = tp.Parameter(tp.Tensor([1, 2, 3], device=tp.device("gpu")))
+
+            @tp.jit
+            def func(param):
+                return param + param
+
+            func(param)
+            captured = capsys.readouterr()
+            print(captured.out)
+            assert "ConstantOp(data=[1, 2, 3])" in captured.out.strip()

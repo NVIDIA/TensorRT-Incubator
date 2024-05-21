@@ -5,7 +5,7 @@ from typing import Optional
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter
+from tripy.frontend.module.parameter import Parameter, DefaultParameter
 
 from tripy.common.exception import raise_error
 
@@ -64,9 +64,9 @@ class Conv(Module):
     dilation: Sequence[int]
     r"""
     A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
-    where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`. 
+    where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
     This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
-    For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights. 
+    For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
     """
 
     bias: Optional[Parameter]
@@ -108,12 +108,12 @@ class Conv(Module):
                 where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
                 This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
                 For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
-            bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{Channels_{\text{out}}},)`. Defaults to True.
-            dtype: The data type to use for the convolution weights. Defaults to float32.
+            bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{Channels_{\text{out}}},)`.
+            dtype: The data type to use for the convolution weights.
 
         .. code-block:: python
             :linenos:
-            :caption: Basic Example
+            :caption: Example
 
             input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
             conv = tp.Conv(in_channels=1, out_channels=1, kernel_dims=(2, 2), dtype=tp.float32)
@@ -121,7 +121,7 @@ class Conv(Module):
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2) # doc: omit
             conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
-            conv_layer_torch.bias.data = torch.ones(1) # doc: omit
+            conv_layer_torch.bias.data = torch.from_numpy(conv.bias.numpy()).reshape([-1]) # doc: omit
             expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
 
             assert torch.allclose(torch.from_numpy(output.numpy()), expected)
@@ -170,8 +170,6 @@ class Conv(Module):
         """
 
         super().__init__()
-        from tripy.frontend.ops.tensor_initializers import arange, ones
-        from tripy.frontend.trace.ops.reshape import reshape
 
         self.groups = utils.default(groups, 1)
 
@@ -190,7 +188,7 @@ class Conv(Module):
             )
 
         kernel_shape = (out_channels, in_channels // self.groups, *kernel_dims)
-        self.weight = Parameter(reshape(arange(utils.volume(kernel_shape), dtype=dtype), kernel_shape))
+        self.weight = DefaultParameter(kernel_shape, dtype=dtype)
 
         rank = len(kernel_shape)
         self.padding = utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
@@ -218,7 +216,7 @@ class Conv(Module):
             )
 
         if bias:
-            self.bias = Parameter(ones((out_channels,), dtype=dtype))
+            self.bias = DefaultParameter((out_channels,), dtype=dtype)
 
         self.dtype = dtype
 
@@ -249,6 +247,5 @@ class Conv(Module):
             out_channels = self.weight.shape[0].data().data()
             rank = self.weight.rank
             bias_shape_to_broadcast = (1,) + (out_channels,) + (1,) * (rank - 2)
-            self.bias = reshape(self.bias, bias_shape_to_broadcast)
-            x += self.bias
+            x += reshape(self.bias, bias_shape_to_broadcast)
         return x

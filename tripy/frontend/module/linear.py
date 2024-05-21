@@ -4,7 +4,7 @@ from typing import Optional
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter
+from tripy.frontend.module.parameter import Parameter, DefaultParameter
 
 
 @export.public_api(document_under="modules")
@@ -58,7 +58,7 @@ class Linear(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example (normal)
+            :caption: Example
 
             linear = tp.Linear(3, 4)
 
@@ -69,9 +69,11 @@ class Linear(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example (quantized)
+            :caption: Quantized
 
             linear = tp.Linear(3, 4, quant_dtype=tp.int8, weight_quant_dim=0)
+            linear.weight = tp.Parameter(tp.ones((4, 3)))
+            linear.bias = tp.Parameter(tp.ones((4,)))
             weight_scale = [0.9] * 4
             linear.weight_scale = tp.Parameter(weight_scale)
 
@@ -81,21 +83,20 @@ class Linear(Module):
             assert output.numpy().shape == (2, 4)
         """
         super().__init__()
-        from tripy.frontend.ops import ones
 
         self.dtype = dtype
 
         # Replace with random weights when #74 is completed.
-        self.weight = Parameter(ones((out_features, in_features), dtype=dtype))
+        self.weight = DefaultParameter((out_features, in_features), dtype=dtype)
 
         if bias:
-            self.bias = Parameter(ones((out_features), dtype=dtype))
+            self.bias = DefaultParameter((out_features,), dtype=dtype)
 
         self.quant_dtype = quant_dtype
+        self.weight_quant_dim = weight_quant_dim
         if quant_dtype is not None:
-            self._params["weight_scale"] = None
-            self._params["input_scale"] = None
-            self.weight_quant_dim = weight_quant_dim
+            self._tripy_params["weight_scale"] = None
+            self._tripy_params["input_scale"] = None
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""

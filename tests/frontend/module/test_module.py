@@ -7,8 +7,8 @@ import tripy as tp
 class TestModule:
     def test_basic(self, all_network_modes):
         test_net, call_args, inputs = all_network_modes
-        assert len(test_net._params.keys()) == 1
-        assert len(test_net._modules.keys()) == 2
+        assert len(test_net._tripy_params.keys()) == 1
+        assert len(test_net._tripy_modules.keys()) == 2
 
         result = np.array([1.0, 2.0]) + np.full(2, sum(call_args), dtype=np.float32)
         assert np.array_equal(test_net(*inputs).numpy(), result)
@@ -18,12 +18,18 @@ class TestModule:
         assert hasattr(network, "new_attr")
 
         network.new_param = tp.Parameter(0.0)
-        assert "new_param" in network._params
+        assert "new_param" in network._tripy_params
 
-        network.param = 0
+        network.param = tp.Parameter([0.0, 1.0])
         network.dummy1 = None
-        assert network._params["param"] == 0
-        assert network._modules["dummy1"] is None
+        assert network._tripy_params["param"].numpy().tolist() == [0.0, 1.0]
+        assert network._tripy_modules["dummy1"] is None
+
+    def test_incompatible_parameter_cannot_be_set(self, network):
+        with helper.raises(
+            tp.TripyException, match="New parameter shape: \[2, 3\] is not compatible with current shape: \[2\]"
+        ):
+            network.param = tp.Parameter(tp.ones((2, 3)))
 
     def test_named_children(self, network):
         # Children should only return immediate children
@@ -61,7 +67,7 @@ class TestModule:
         state_dict = {"param": tp.Parameter(tp.zeros(3, dtype=tp.float32))}
 
         with helper.raises(
-            tp.TripyException, match="Shape of new parameter does not match shape of existing parameter."
+            tp.TripyException, match=r"New parameter shape: \[3\] is not compatible with current shape: \[2\]"
         ):
             network.load_from_state_dict(state_dict)
 
@@ -72,7 +78,7 @@ class TestModule:
         state_dict = {"param": tp.Parameter(tp.ones(2, dtype=tp.float16))}
 
         with helper.raises(
-            tp.TripyException, match="dtype of new parameter does not match dtype of existing parameter."
+            tp.TripyException, match="New parameter dtype: float16 is not compatible with current dtype: float32"
         ):
             network.load_from_state_dict(state_dict)
 

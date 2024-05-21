@@ -34,3 +34,11 @@ class Result:
 
     def __class_getitem__(cls, item):
         return f"{cls.__name__}[{item.__name__}]"
+
+    def __str__(self):
+        return repr(self)
+
+    def __repr__(self):
+        if self.is_ok:
+            return f"Result.ok({self.value})"
+        return f"Result.err({self.error_details})"

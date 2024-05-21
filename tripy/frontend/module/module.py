@@ -8,6 +8,18 @@ from tripy.frontend.module.parameter import Parameter
 from tripy.logging import logger
 
 
+def _check_param_compatible(original_param, new_param, param_name):
+    if not isinstance(original_param, Parameter):
+        return
+
+    is_compatible = original_param._is_compatible(new_param)
+    if not is_compatible:
+        raise_error(
+            f"For parameter: {param_name}, new parameter is not compatible with the existing parameter.",
+            details=is_compatible.error_details,
+        )
+
+
 @export.public_api(document_under="modules/index.rst")
 class Module:
     r"""
@@ -56,14 +68,16 @@ class Module:
     """
 
     def __init__(self):
-        self._params: Dict[str, Parameter] = {}
-        self._modules: Dict[str, "Module"] = {}
+        # Avoid name clashes with members of child classes:
+        self._tripy_params: Dict[str, Parameter] = {}
+        self._tripy_modules: Dict[str, "Module"] = {}
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if isinstance(value, Parameter) or ("_params" in self.__dict__ and name in self._params):
-            self._params[name] = value
-        elif isinstance(value, Module) or ("_modules" in self.__dict__ and name in self._modules):
-            self._modules[name] = value
+        if isinstance(value, Parameter) or ("_tripy_params" in self.__dict__ and name in self._tripy_params):
+            _check_param_compatible(getattr(self, name, None), value, name)
+            self._tripy_params[name] = value
+        elif isinstance(value, Module) or ("_tripy_modules" in self.__dict__ and name in self._tripy_modules):
+            self._tripy_modules[name] = value
         else:
             super().__setattr__(name, value)
             # avoid infinite recursion during initialization
@@ -80,10 +94,12 @@ class Module:
             if isinstance(value, List):
                 if _check_types(value, Module):
                     for idx, v in enumerate(value):
-                        self._modules[f"{name}.{idx}"] = v
+                        self._tripy_modules[f"{name}.{idx}"] = v
                 elif _check_types(value, Parameter):
                     for idx, v in enumerate(value):
-                        self._params[f"{name}.{idx}"] = v
+                        key = f"{name}.{idx}"
+                        _check_param_compatible(self._tripy_params.get(key), v, name)
+                        self._tripy_params[key] = v
                 else:
                     logger.warning("A list of mixed types will not get registered to module's state_dict().")
             elif isinstance(value, Dict):
@@ -91,18 +107,20 @@ class Module:
                     logger.warning("A dict with non-string keys will not get registered to module's state_dict().")
                 elif _check_types(value, Module):
                     for k, v in value.items():
-                        self._modules[f"{name}.{k}"] = v
+                        self._tripy_modules[f"{name}.{k}"] = v
                 elif _check_types(value, Parameter):
                     for k, v in value.items():
-                        self._params[f"{name}.{k}"] = v
+                        key = f"{name}.{k}"
+                        _check_param_compatible(self._tripy_params.get(key), v, name)
+                        self._tripy_params[key] = v
                 else:
                     logger.warning("A dict of mixed types will not get registered to module's state_dict().")
 
     def __getattr__(self, name: str) -> Any:
-        if name in self._params:
-            return self._params[name]
-        elif name in self._modules:
-            return self._modules[name]
+        if name in self._tripy_params:
+            return self._tripy_params[name]
+        elif name in self._tripy_modules:
+            return self._tripy_modules[name]
 
         raise AttributeError(f"No attribute '{name}' found in '{self.__class__.__name__}' module")
 
@@ -133,7 +151,7 @@ class Module:
 
             assert set(state_dict.keys()) == {"param", "linear1.weight", "linear1.bias", "linear2.weight", "linear2.bias"}
         """
-        state_dict = copy.copy(self._params)
+        state_dict = copy.copy(self._tripy_params)
 
         for child_name, child in self.named_children():
             child_state_dict = child.state_dict()
@@ -180,7 +198,7 @@ class Module:
         .. seealso:: :func:`state_dict`
         """
 
-        def _find_module(module: Union[Module, List, Dict], sub_strs: List[str]):
+        def find_module(module: Union[Module, List, Dict], sub_strs: List[str]):
             while sub_strs:
                 child_name = sub_strs.pop(0)
                 if isinstance(module, list):
@@ -190,27 +208,6 @@ class Module:
                 elif isinstance(module, Module):
                     module = operator.attrgetter(child_name)(module)
             return module
-
-        def _check_param_type(cls, original_param, new_param, param_name):
-            if not isinstance(original_param, Parameter):
-                return
-
-            original_param_shape = original_param.shape.eval()
-            new_param_shape = new_param.shape.eval()
-            if original_param_shape != new_param_shape:
-                raise_error(
-                    "Shape of new parameter does not match shape of existing parameter.",
-                    details=[
-                        f"For parameter '{param_name}', currently assigned parameter has shape: '{original_param_shape}' while new parameter has shape: '{new_param_shape}'"
-                    ],
-                )
-            if original_param.dtype != new_param.dtype:
-                raise_error(
-                    "dtype of new parameter does not match dtype of existing parameter.",
-                    details=[
-                        f"For parameter '{param_name}', currently assigned parameter has dtype: '{original_param.dtype}' while new parameter has dtype: '{new_param.dtype}'"
-                    ],
-                )
 
         for nested_attr_name, param in state_dict.items():
             submodule_name, _, param_name = nested_attr_name.rpartition(".")
@@ -223,16 +220,16 @@ class Module:
                 except AttributeError:
                     logger.verbose(f"Cannot access {submodule_name} directly, trying to find the correct module.")
                     # find module starting from the beginning
-                    module = _find_module(module, submodule_name.split("."))
+                    module = find_module(module, submodule_name.split("."))
 
             if isinstance(module, Module):
-                _check_param_type(self, getattr(module, param_name), param, nested_attr_name)
+                _check_param_compatible(getattr(module, param_name), param, nested_attr_name)
                 setattr(module, param_name, param)
             elif isinstance(module, list):
-                _check_param_type(self, module[int(param_name)], param, nested_attr_name)
+                _check_param_compatible(module[int(param_name)], param, nested_attr_name)
                 module[int(param_name)] = param
             elif isinstance(module, dict):
-                _check_param_type(self, module[param_name], param, nested_attr_name)
+                _check_param_compatible(module[param_name], param, nested_attr_name)
                 module[param_name] = param
 
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
@@ -262,4 +259,4 @@ class Module:
 
             assert [name for name, _ in stacked_linear.named_children()] == ["linear1", "linear2"]
         """
-        yield from self._modules.items()
+        yield from self._tripy_modules.items()

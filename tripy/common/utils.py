@@ -22,11 +22,14 @@ def get_element_type(elements):
         return tripy.common.datatype.int32
     elif isinstance(e, float):
         return tripy.common.datatype.float32
+    # Special handling for empty tensors
+    elif isinstance(e, list) or isinstance(e, tuple):
+        return None
     else:
         raise_error(
             "Unsupported element type.",
             details=[
-                f"List element type can only be int or float.",
+                f"List element type can only be int or float. ",
                 f"Got element {e} of type {type(e)}.",
             ],
         )

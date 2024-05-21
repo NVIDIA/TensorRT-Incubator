@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter
+from tripy.frontend.module.parameter import Parameter, DefaultParameter
 
 
 @export.public_api(document_under="modules")
@@ -50,19 +50,18 @@ class LayerNorm(Module):
 
             torch_tensor = torch.from_dlpack(input.numpy()) # doc: omit
             torch_ln = torch.nn.LayerNorm(3) # doc: omit
-            torch_ln.weight.data.fill_(1) # doc: omit
-            torch_ln.bias.data.fill_(1) # doc: omit
+            torch_ln.weight.data = torch.from_numpy(layer_norm.weight.numpy()) # doc: omit
+            torch_ln.bias.data = torch.from_numpy(layer_norm.bias.numpy()) # doc: omit
             assert np.array_equal(np_out, torch_ln(torch_tensor).detach().numpy())
         """
         super().__init__()
-        from tripy.frontend.ops import ones
 
         self.dtype = dtype
 
         # Replace with random weights when #74 is completed.
-        self.weight = Parameter(ones((normalized_shape,), dtype=dtype))
+        self.weight = DefaultParameter((normalized_shape,), dtype=dtype)
 
-        self.bias = Parameter(ones((normalized_shape,), dtype=dtype))
+        self.bias = DefaultParameter((normalized_shape,), dtype=dtype)
 
         self.eps = 1e-5
 

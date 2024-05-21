@@ -66,7 +66,6 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
         assert np.array_equal(output.numpy(), np.expand_dims(input.numpy(), 1))
     """
     from tripy.frontend.trace.ops.concatenate import concatenate
-    from tripy.frontend.trace.ops.reshape import reshape
 
     from tripy.frontend import Tensor
 

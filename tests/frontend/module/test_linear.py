@@ -29,9 +29,21 @@ class TestLinear:
         )
         assert isinstance(qlinear, tp.Linear)
         assert qlinear.dtype == tp.float32
-        assert qlinear.quant_dtype == quant_dtype
         assert qlinear.weight.numpy().shape == (30, 20)
-        assert qlinear.weight_scale is None
-        assert qlinear.input_scale is None
         assert qlinear.bias.numpy().shape == (30,)
+        assert qlinear.quant_dtype == quant_dtype
+        assert not qlinear.weight_scale
+        assert not qlinear.input_scale
         assert qlinear.weight_quant_dim == weight_quant_dim
+
+    def test_load_quantized_params_from_state_dict(self):
+        qlinear = tp.Linear(
+            20,
+            30,
+            quant_dtype=tp.int8,
+            weight_quant_dim=0,
+        )
+
+        qlinear.load_from_state_dict(
+            {"weight_scale": tp.Parameter(tp.ones((20,))), "input_scale": tp.Parameter(tp.ones((20,)))}
+        )
