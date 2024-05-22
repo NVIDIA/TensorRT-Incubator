@@ -16,17 +16,18 @@ from tripy.logging import logger
 class TestFunctional:
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_add_two_tensors(self, kind):
-        arr = np.array([2, 3], dtype=np.float32)
+        module = cp if kind == "gpu" else np
+        arr = module.array([2, 3], dtype=np.float32)
         a = tp.Tensor(arr, device=tp.device(kind))
-        b = tp.Tensor(np.ones(2, dtype=np.float32), device=tp.device(kind))
+        b = tp.Tensor(module.ones(2, dtype=module.float32), device=tp.device(kind))
 
         c = a + b
         out = c + c
-        assert (out.numpy() == np.array([6.0, 8.0], dtype=np.float32)).all()
+        assert (cp.from_dlpack(out).get() == np.array([6.0, 8.0], dtype=np.float32)).all()
 
     @pytest.mark.parametrize("dim", [tp.dynamic_dim(2, min=2, opt=3, max=4)])
     def test_add_two_tensors_dynamic(self, dim):
-        arr = np.ones(2, dtype=np.float32)
+        arr = cp.ones(2, dtype=np.float32)
         a = tp.Tensor(arr, shape=(dim,), device=tp.device("gpu"))
         b = tp.Tensor(arr, shape=(dim,), device=tp.device("gpu"))
 
@@ -36,7 +37,7 @@ class TestFunctional:
             return c
 
         out = func(a, b)
-        assert (out.numpy() == np.array([2.0, 2.0], dtype=np.float32)).all()
+        assert (cp.from_dlpack(out).get() == np.array([2.0, 2.0], dtype=np.float32)).all()
 
     @pytest.mark.parametrize(
         "dim_a, dim_b",
@@ -52,10 +53,10 @@ class TestFunctional:
         [False, True],
     )
     def test_static_broadcast_add_two_tensors(self, dim_a, dim_b, use_jit):
-        np_a = np.random.rand(*dim_a).astype(np.float32)
-        np_b = np.random.rand(*dim_b).astype(np.float32)
-        a = tp.Tensor(np_a, shape=dim_a, device=tp.device("gpu"))
-        b = tp.Tensor(np_b, shape=dim_b, device=tp.device("gpu"))
+        cp_a = cp.random.rand(*dim_a).astype(np.float32)
+        cp_b = cp.random.rand(*dim_b).astype(np.float32)
+        a = tp.Tensor(cp_a, shape=dim_a, device=tp.device("gpu"))
+        b = tp.Tensor(cp_b, shape=dim_b, device=tp.device("gpu"))
 
         def func(a, b):
             c = a + b
@@ -65,10 +66,10 @@ class TestFunctional:
             func = tp.jit(func)
 
         out = func(a, b)
-        assert (out.numpy() == np.array(np_a + np_b)).all()
+        assert (cp.from_dlpack(out) == cp.array(cp_a + cp_b)).all()
 
     def test_multi_output_trace(self):
-        arr = np.ones(2, dtype=np.float32)
+        arr = cp.ones(2, dtype=np.float32)
         a = tp.Tensor(arr)
         b = tp.Tensor(arr)
         c = a + b
@@ -82,13 +83,16 @@ class TestFunctional:
         out = executor.execute(get_devices(output_tensor_info))
         assert (
             len(out) == 2
-            and (cp.from_dlpack(out[0]).get() == np.array([2.0, 2.0], dtype=np.float32)).all()
-            and (cp.from_dlpack(out[1]).get() == np.array([4.0, 4.0], dtype=np.float32)).all()
+            and (cp.from_dlpack(out[0]) == cp.array([2.0, 2.0], dtype=np.float32)).all()
+            and (cp.from_dlpack(out[1]) == cp.array([4.0, 4.0], dtype=np.float32)).all()
         )
 
     def _test_framework_interoperability(self, data, device):
         a = tp.Tensor(data, device=device)
-        b = tp.Tensor(torch.tensor(data), device=device)
+        if device.kind == "gpu":
+            b = tp.Tensor(torch.tensor(data).to("cuda"), device=device)
+        else:
+            b = tp.Tensor(torch.tensor(data), device=device)
 
         if device.kind == "gpu":
             if isinstance(data, cp.ndarray):
@@ -98,7 +102,7 @@ class TestFunctional:
             c = tp.Tensor(jax.device_put(jnp.array(data), jax.devices("cpu")[0]), device=device)
 
         out = a + b + c
-        assert (out.numpy() == np.array([3.0, 3.0], dtype=np.float32)).all()
+        assert (cp.from_dlpack(out).get() == np.array([3.0, 3.0], dtype=np.float32)).all()
 
     def test_cpu_and_gpu_framework_interoperability(self):
         self._test_framework_interoperability(np.ones(2, np.float32), device=tp.device("cpu"))
@@ -110,16 +114,19 @@ class TestFunctional:
         # Assert round-tripping for numpy or cupy array
         xp_orig = data
         if device.kind == "gpu":
-            xp_round_tripped = cp.array(tp.Tensor(xp_orig, device=device).numpy())
+            xp_round_tripped = cp.array(cp.from_dlpack(tp.Tensor(xp_orig, device=device)))
         else:
-            xp_round_tripped = np.array(tp.Tensor(xp_orig, device=device).numpy())
+            xp_round_tripped = np.array(np.from_dlpack(tp.Tensor(xp_orig, device=device)))
         assert (xp_round_tripped == xp_orig).all()
         # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # assert xp_round_tripped.data == xp_orig.data
 
         # Assert round-tripping for Torch tensor
         torch_orig = torch.as_tensor(data)
-        torch_round_tripped = torch.as_tensor(tp.Tensor(torch_orig, device=device).numpy())
+        if device.kind == "gpu":
+            torch_round_tripped = torch.as_tensor(cp.from_dlpack(tp.Tensor(torch_orig.to("cuda"), device=device)))
+        else:
+            torch_round_tripped = torch.as_tensor(np.from_dlpack(tp.Tensor(torch_orig, device=device)))
         assert torch.equal(torch_round_tripped, torch_orig)
         # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # Below fails as we do allocate a new np array from Torch tensor data.
@@ -130,10 +137,10 @@ class TestFunctional:
             if isinstance(data, cp.ndarray):
                 data = data.get()
             jax_orig = jax.device_put(jnp.array(data), jax.devices("gpu")[0])
-            jax_round_tripped = jnp.array(tp.Tensor(jax_orig, device=device).numpy())
+            jax_round_tripped = jnp.array(cp.from_dlpack(tp.Tensor(jax_orig, device=device)).get())
         else:
             jax_orig = jax.device_put(jnp.array(data), jax.devices("cpu")[0])
-            jax_round_tripped = jnp.array(tp.Tensor(jax_orig, device=device).numpy())
+            jax_round_tripped = jnp.array(np.from_dlpack(tp.Tensor(jax_orig, device=device)))
         assert jnp.array_equal(jax_round_tripped, jax_orig)
         # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # Figure out how to compare two Jax data memory pointers.
@@ -141,7 +148,7 @@ class TestFunctional:
         # Assert round-tripping for List data
         if device.kind == "cpu":
             list_orig = data.tolist()
-            list_round_tripped = tp.Tensor(list_orig, shape=(2,)).numpy().tolist()
+            list_round_tripped = np.from_dlpack(tp.Tensor(list_orig, shape=(2,), device=device)).tolist()
             assert list_round_tripped == list_orig
             # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
             # assert id(list_round_tripped) == id(list_orig)
@@ -150,20 +157,30 @@ class TestFunctional:
         self._test_round_tripping(np.ones(2, np.float32), device=tp.device("cpu"))
         self._test_round_tripping(cp.ones(2, cp.float32), device=tp.device("gpu"))
 
-    def test_weights_loading_from_torch(self):
+    @pytest.mark.parametrize("kind", ["cpu", "gpu"])
+    def test_weights_loading_from_torch(self, kind):
         with torch.no_grad():
-            inp = torch.randn((2, 2), dtype=torch.float32)
+            if kind == "gpu":
+                inp = torch.randn((2, 2), dtype=torch.float32).to("cuda")
+            else:
+                inp = torch.randn((2, 2), dtype=torch.float32)
 
-            torch_linear = torch.nn.Linear(2, 3)
+            if kind == "gpu":
+                torch_linear = torch.nn.Linear(2, 3).to("cuda")
+            else:
+                torch_linear = torch.nn.Linear(2, 3)
             torch_out = torch_linear(inp)
 
             tripy_linear = tp.Linear(2, 3)
-            tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight))
-            tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias))
+            if kind == "gpu":
+                tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight.to("cuda"), device=tp.device(kind)))
+                tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias.to("cuda"), device=tp.device(kind)))
+            else:
+                tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight, device=tp.device(kind)))
+                tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias, device=tp.device(kind)))
 
-            tripy_out = tripy_linear(tp.Tensor(inp))
-
-            assert np.allclose(tripy_out.numpy(), torch_out.numpy())
+            tripy_out = tripy_linear(tp.Tensor(inp, device=tp.device(kind)))
+            assert np.allclose(cp.from_dlpack(tripy_out).get(), torch_out.cpu().numpy())
 
 
 class TestCopyFunctional:
@@ -259,14 +276,14 @@ class TestCopyFunctional:
         assert out.data() == [3, 5]
 
     def test_print_dynamic_tensor(self):
-        arr = np.ones(4, dtype=np.float32)
+        arr = cp.ones(4, dtype=np.float32)
         a = tp.Tensor(arr, shape=(tp.dynamic_dim(4, min=2, opt=4, max=6),), device=tp.device("gpu"))
-        assert np.array_equal(a.numpy(), arr)
+        assert cp.array_equal(cp.from_dlpack(a), arr)
 
     def test_print_static_tensor(self):
-        arr = np.ones(4, dtype=np.float32)
+        arr = cp.ones(4, dtype=np.float32)
         a = tp.Tensor(arr, shape=(4,), device=tp.device("gpu"))
-        assert np.array_equal(a.numpy(), arr)
+        assert cp.array_equal(cp.from_dlpack(a), arr)
 
 
 class TestDynamic:
@@ -288,11 +305,11 @@ class TestDynamic:
             def get_np_dims(dims, dim_func):
                 return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
-            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
-            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
+            a_cp = cp.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(cp.float32)
+            b_cp = cp.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(cp.float32)
 
-            a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
-            b = tp.Tensor(b_np, shape=dims_b, device=tp.device("gpu"))
+            a = tp.Tensor(a_cp, shape=dims_a, device=tp.device("gpu"))
+            b = tp.Tensor(b_cp, shape=dims_b, device=tp.device("gpu"))
 
             @tp.jit
             def func(a, b):
@@ -300,32 +317,32 @@ class TestDynamic:
                 return c
 
             out = func(a, b)
-            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
+            assert cp.array_equal(cp.from_dlpack(out), cp.array(a_cp + b_cp))
             print("Re-run dynamic shape test with a different input shape.")
 
-            a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
-            b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
+            a_cp = cp.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
+            b_cp = cp.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
 
-            a = tp.Tensor(a_np, device=tp.device("gpu"))
-            b = tp.Tensor(b_np, device=tp.device("gpu"))
+            a = tp.Tensor(a_cp, device=tp.device("gpu"))
+            b = tp.Tensor(b_cp, device=tp.device("gpu"))
 
             out = func(a, b)
-            assert np.array_equal(out.numpy(), np.array(a_np + b_np))
+            assert cp.array_equal(cp.from_dlpack(out), cp.array(a_cp + b_cp))
             # 1 compile call for stablehlo add.
             captured = capsys.readouterr()
             assert "stablehlo.add" in captured.out.strip()
 
     @pytest.mark.parametrize("dim", [tp.dynamic_dim(4, min=2, opt=4, max=6)])
     def test_dynamic_lazy(self, dim):
-        a = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
-        b = tp.Tensor(np.ones(4, dtype=np.float32), shape=(dim,), device=tp.device("gpu"))
+        a = tp.Tensor(cp.ones(4, dtype=cp.float32), shape=(dim,), device=tp.device("gpu"))
+        b = tp.Tensor(cp.ones(4, dtype=cp.float32), shape=(dim,), device=tp.device("gpu"))
 
         def func(a, b):
             c = a + b
             return c
 
         out = func(a, b)
-        assert np.array_equal(out.numpy(), np.array([2.0, 2.0, 2.0, 2.0], dtype=np.float32))
+        assert cp.array_equal(cp.from_dlpack(out), cp.array([2.0, 2.0, 2.0, 2.0], dtype=cp.float32))
 
 
 class TestConversionToTripyType:
@@ -336,7 +353,7 @@ class TestConversionToTripyType:
     )
     @pytest.mark.parametrize(
         "input0",
-        [np.ones((2, 3), dtype=np.float32), np.ones((3,), dtype=np.float32)],
+        [cp.ones((2, 3), dtype=cp.float32), cp.ones((3,), dtype=np.float32)],
     )
     @pytest.mark.parametrize(
         "input1",
@@ -345,19 +362,18 @@ class TestConversionToTripyType:
                 4.0,
             ],
             (5.0,),
-            np.array([4.0], dtype=np.float32),
-            np.ones((1, 3), dtype=np.float32),
+            cp.array([4.0], dtype=cp.float32),
+            cp.ones((1, 3), dtype=cp.float32),
             torch.Tensor([[4.0]]),
         ],
     )
     def test_element_wise_prod(self, reverse_direction, input0, input1):
         a = tp.Tensor(input0)
+        if isinstance(input1, torch.Tensor):
+            input1 = input1.to("cuda")
         if reverse_direction:
             out = input1 * a
             input0, input1 = input1, input0
         else:
             out = a * input1
-
-        if isinstance(input1, torch.Tensor):
-            input1 = input1.numpy()
-        assert np.array_equal(out.numpy(), np.array(input0 * input1))
+        assert cp.array_equal(cp.from_dlpack(out), cp.array(input0) * cp.array(input1))

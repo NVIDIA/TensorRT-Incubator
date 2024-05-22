@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-import numpy as np
+import cupy as cp
 
 import tripy as tp
 from tests import helper
@@ -89,8 +89,8 @@ class TestTrace:
 
     def test_infer_tensor_info(self):
         shape = (5, 5)
-        a = tp.Tensor(np.ones(shape, dtype=np.float32))
-        b = tp.Tensor(np.ones(shape, dtype=np.float32))
+        a = tp.Tensor(cp.ones(shape, dtype=cp.float32))
+        b = tp.Tensor(cp.ones(shape, dtype=cp.float32))
 
         c = a + b
 
@@ -102,8 +102,8 @@ class TestTrace:
 
     def test_multiple_outputs(self):
         shape = 1
-        a = tp.Tensor(np.ones(shape, dtype=np.float32), name="a")
-        b = tp.Tensor(np.ones(shape, dtype=np.float32), name="b")
+        a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
+        b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
 
         c = a + b
         c.name = "c"
@@ -138,10 +138,10 @@ class TestTrace:
 
     def test_all_inputs(self):
         shape = 1
-        # Need explicit data type here since by default dtype is np.float64 which is not yet supported.
+        # Need explicit data type here since by default dtype is cp.float64 which is not yet supported.
         # (38): Add cast operation to support unsupported backend types.
-        a = tp.Tensor(np.ones(shape, dtype=np.float32), name="a")
-        b = tp.Tensor(np.ones(shape, dtype=np.float32), name="b")
+        a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
+        b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
 
         c = a + b
         c.name = "c"
@@ -163,8 +163,8 @@ class TestTrace:
 
     def test_const_and_input(self):
         shape = 1
-        a = tp.Tensor(np.ones(shape, dtype=np.float32), name="a")
-        b = tp.Tensor(np.ones(shape, dtype=np.float32), name="b")
+        a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
+        b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
 
         c = a + b
         c.name = "c"

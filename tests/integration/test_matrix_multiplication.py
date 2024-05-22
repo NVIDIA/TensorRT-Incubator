@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 import pytest
 
@@ -16,7 +17,7 @@ class TestMatrixMultiplication:
         b = tripy.Tensor(b_np)
 
         out = a @ b
-        assert np.allclose(out.numpy(), a_np @ b_np)
+        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)
 
     @pytest.mark.skip("#186: Fix test_matrix_multiplication.py hang for 1D tensor.")
     def test_1d_tensors(self):
@@ -26,7 +27,7 @@ class TestMatrixMultiplication:
         b = tripy.Tensor(b_np)
 
         out = a @ b
-        assert np.allclose(out.numpy(), a_np @ b_np)
+        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)
 
     @pytest.mark.parametrize(
         "shape_a, shape_b",
@@ -47,4 +48,4 @@ class TestMatrixMultiplication:
         b = tripy.Tensor(b_np)
 
         out = a @ b
-        assert np.allclose(out.numpy(), a_np @ b_np)
+        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)

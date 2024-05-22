@@ -9,8 +9,9 @@ from tripy.function_registry import FunctionRegistry
 class TensorMethodRegistry(FunctionRegistry):
     def __call__(self, key: Any):
         # We make a special exception for "shape" since we actually do want that to be a property
+        allowed_methods = ["numpy", "cupy", "shape"]
         assert (
-            key == "numpy" or key == "shape" or key.startswith("__") and key.endswith("__")
+            key in allowed_methods or key.startswith("__") and key.endswith("__")
         ), f"The tensor method registry should only be used for magic methods, but was used for: {key}"
 
         return super().__call__(key)

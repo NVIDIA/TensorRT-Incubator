@@ -43,9 +43,9 @@ class Array:
     def __init__(
         self,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        dtype: "tripy.dtype",
-        shape: Optional[Tuple[int]],
-        device: tp_device,
+        dtype: "tripy.dtype" = None,
+        shape: Optional[Tuple[int]] = None,
+        device: tp_device = None,
     ) -> None:
         """
         Initialize an Array object.
@@ -61,8 +61,7 @@ class Array:
         assert dtype is None or isinstance(dtype, tripy.common.datatype.dtype), "Invalid data type"
         assert shape is None or all(s >= 0 for s in shape)
 
-        # Allocate on "gpu" by default.
-        self.device = utils.default(device, tp_device("gpu"))
+        self.device = device
 
         if data is None:
             if dtype is None:
@@ -144,15 +143,21 @@ class Array:
     def _memref(self, data):
         from tripy.backend.mlir.utils import convert_tripy_dtype_to_runtime_dtype
 
-        mlirtrt_device = self.runtime_client.get_devices()[0] if self.device == tp_device("gpu") else None
-
         if data is None:
-            # Allocate corresponding memref on host.
+            self.device = utils.default(self.device, tp_device("gpu"))
+            mlirtrt_device = self.runtime_client.get_devices()[0] if self.device == tp_device("gpu") else None
+
             return self.runtime_client.create_memref(
                 shape=list(self.shape), dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype), device=mlirtrt_device
             )
         else:
+
             if isinstance(data, (List, tuple, int, float)):
+                self.device = utils.default(self.device, tp_device("gpu"))
+                mlirtrt_device = (
+                    self.runtime_client.get_devices()[self.device.index] if self.device == tp_device("gpu") else None
+                )
+
                 if not is_supported_array_type(self.dtype):
                     raise_error(
                         f"Tripy array from list can be constructed with float32, int32, or int64, got {self.dtype}"
@@ -179,125 +184,51 @@ class Array:
                 # Assume data is allocated using external framework. Create a view over it.
                 from tripy.backend.mlir.utils import convert_tripy_dtype_to_runtime_dtype
 
-                if self.device == tp_device("cpu"):
-                    if hasattr(data, "__array_interface__"):
-                        return self.runtime_client.create_host_memref_view(
-                            int(data.ctypes.data),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                        )
-                    elif hasattr(data, "data_ptr") and data.device.type == "cpu":
-                        # Torch tensor allocated on CPU
-                        return self.runtime_client.create_host_memref_view(
-                            int(data.data_ptr()),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                        )
-                    elif hasattr(data, "data_ptr") and data.device.type == "cuda":
-                        # Torch tensor allocated on GPU
-                        memref_value = self.runtime_client.create_device_memref_view(
-                            int(data.data_ptr()),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                            device=self.runtime_client.get_devices()[0],
-                        )
-                        return self.runtime_client.copy_to_host(
-                            host_memref=memref_value,
-                        )
-                    elif hasattr(data, "data") and hasattr(data, "__cuda_array_interface__"):
-                        memref_value = self.runtime_client.create_device_memref_view(
-                            int(data.data.ptr),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                            device=self.runtime_client.get_devices()[0],
-                        )
-                        return self.runtime_client.copy_to_host(
-                            host_memref=memref_value,
-                        )
-                    elif hasattr(data, "__array__"):
-                        arr = data.__array__()
-                        if hasattr(arr, "__array_interface__"):
-                            # Jax tensor allocatd on CPU
-                            return self.runtime_client.create_host_memref_view(
-                                int(arr.ctypes.data),
-                                shape=list(self.shape),
-                                dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                            )
-                        else:
-                            assert hasattr(arr, "__cuda_array_interface__")
-                            # Jax tensor allocatd on GPU
-                            memref_value = self.runtime_client.create_device_memref_view(
-                                int(arr.data.ptr),
-                                shape=list(self.shape),
-                                dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                                device=self.runtime_client.get_devices()[0],
-                            )
-                            return self.runtime_client.copy_to_host(
-                                host_memref=memref_value,
-                            )
-                    else:
-                        assert 0 and "Conversion to memref is not supported."
+                def can_access_attr(attr_name):
+                    try:
+                        getattr(data, attr_name)
+                    except:
+                        return False
+                    return True
+
+                ptr = None
+                if hasattr(data, "__array_interface__"):
+                    ptr = int(data.ctypes.data)
+                    device = tp_device("cpu")
+                elif hasattr(data, "data_ptr"):
+                    ptr = int(data.data_ptr())
+                    device = tp_device(
+                        ("cpu" if data.device.type == "cpu" else "gpu")
+                        + (":" + str(data.device.index) if data.device.index is not None else "")
+                    )
+                elif can_access_attr("__cuda_array_interface__"):
+                    ptr = int(data.__cuda_array_interface__["data"][0])
+                    device = tp_device("gpu")
+                elif hasattr(data, "__array__"):
+                    ptr = data.__array__().ctypes.data
+                    device = tp_device("cpu")
                 else:
-                    assert self.device == tp_device("gpu")
-                    if hasattr(data, "__array_interface__"):
-                        memref_value = self.runtime_client.create_host_memref_view(
-                            int(data.ctypes.data),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                        )
-                        return self.runtime_client.copy_to_device(
-                            host_memref=memref_value,
-                            device=self.runtime_client.get_devices()[0],
-                        )
-                    elif hasattr(data, "data_ptr") and data.device.type == "cuda":
-                        return self.runtime_client.create_device_memref_view(
-                            int(data.data_ptr()),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                            device=self.runtime_client.get_devices()[0],
-                        )
-                    elif hasattr(data, "data_ptr") and data.device.type == "cpu":
-                        memref_value = self.runtime_client.create_host_memref_view(
-                            int(data.data_ptr()),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                        )
-                        return self.runtime_client.copy_to_device(
-                            host_memref=memref_value,
-                            device=self.runtime_client.get_devices()[0],
-                        )
-                    elif hasattr(data, "data") and hasattr(data, "__cuda_array_interface__"):
-                        return self.runtime_client.create_device_memref_view(
-                            int(data.data.ptr),
-                            shape=list(self.shape),
-                            dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                            device=self.runtime_client.get_devices()[0],
-                        )
-                    elif hasattr(data, "__array__"):
-                        arr = data.__array__()
-                        if hasattr(arr, "__cuda_array_interface__"):
-                            arr
-                            # Jax tensor allocatd on GPU
-                            return self.runtime_client.create_device_memref_view(
-                                int(arr.data.ptr),
-                                shape=list(self.shape),
-                                dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                                device=self.runtime_client.get_devices()[0],
-                            )
-                        else:
-                            assert hasattr(arr, "__array_interface__")
-                            # Jax tensor allocatd on CPU
-                            memref_value = self.runtime_client.create_host_memref_view(
-                                int(arr.ctypes.data),
-                                shape=list(self.shape),
-                                dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                            )
-                            return self.runtime_client.copy_to_device(
-                                host_memref=memref_value,
-                                device=self.runtime_client.get_devices()[0],
-                            )
-                    else:
-                        assert 0 and "Conversion to memref is not supported."
+                    raise_error(f"Unsupported type: {data}")
+
+                self.device = utils.default(self.device, device)
+                if self.device != device:
+                    raise_error(
+                        f"Cannot allocate tensor that is currently on: {device} on requested device: {self.device}"
+                    )
+
+                if self.device.kind == "cpu":
+                    return self.runtime_client.create_host_memref_view(
+                        ptr,
+                        shape=list(self.shape),
+                        dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
+                    )
+                else:
+                    return self.runtime_client.create_device_memref_view(
+                        ptr,
+                        shape=list(self.shape),
+                        dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
+                        device=self.runtime_client.get_devices()[self.device.index],
+                    )
 
     def __dlpack__(self, stream=None):
         return self.memref_value.__dlpack__()

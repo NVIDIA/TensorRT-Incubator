@@ -126,11 +126,7 @@ class TestImports:
 
     @pytest.mark.parametrize(
         "file_path",
-        [
-            file_path
-            for file_path in glob.iglob(os.path.join(helper.ROOT_DIR, "tripy", "**", "*.py"), recursive=True)
-            if not file_path.startswith(os.path.join(helper.ROOT_DIR, "tripy", "third_party"))
-        ],
+        [file_path for file_path in glob.iglob(os.path.join(helper.ROOT_DIR, "tripy", "**", "*.py"), recursive=True)],
     )
     def test_no_invalid_imports(self, file_path):
         with open(file_path, "r") as file:

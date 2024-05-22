@@ -1,8 +1,9 @@
+import cupy as cp
 import numpy as np
 import pytest
 
 import tripy as tp
-from tests.conftest import skip_if_older_than_sm89, skip_if_older_than_sm80
+from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 
 
 class TestDequantize:
@@ -15,14 +16,14 @@ class TestDequantize:
         data = [4, 8]
         input = tp.Tensor(data, dtype=tp.int8)
         dequantized = tp.dequantize(input, scale, dtype)
-        # tp.bfloat16 data is converted to np.float32 in .numpy() API.
+        # tp.bfloat16 data is converted to np.float32 in cp.from_dlpack().get() API.
         expected = (np.array(data) * scale).astype(np.float32)
         atol = 1e-1 if dtype == tp.bfloat16 else 1e-3
         try:
-            output = dequantized.numpy()
+            output = cp.from_dlpack(dequantized).get()
         except NotImplementedError as e:
             if str(e) == "CuPy does not support bfloat16 yet":
-                output = tp.cast(dequantized, dtype=tp.float32).numpy()
+                output = cp.from_dlpack(tp.cast(dequantized, dtype=tp.float32)).get()
             else:
                 assert 0 and f"Unsupported output type {dtype}"
         assert np.allclose(output, expected, atol=atol)
@@ -41,10 +42,10 @@ class TestDequantize:
         expected = (np.array(data) * np.array(scale).reshape(2, 1)).astype(np.float32)
         atol = 1e-1 if dtype == tp.bfloat16 else 1e-3
         try:
-            output = dequantized.numpy()
+            output = cp.from_dlpack(dequantized).get()
         except NotImplementedError as e:
             if str(e) == "CuPy does not support bfloat16 yet":
-                output = tp.cast(dequantized, dtype=tp.float32).numpy()
+                output = cp.from_dlpack(tp.cast(dequantized, dtype=tp.float32)).get()
             else:
                 assert 0 and f"Unsupported output type {dtype}"
         assert np.allclose(output, expected, atol=atol)

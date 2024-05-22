@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-import numpy as np
+import cupy as cp
 import pytest
 
 import tripy as tp
@@ -14,11 +14,11 @@ from tripy.frontend.trace import Trace
 def init_mlir_textual():
 
     # Ensure big matrix so that mlir_textual has constants hidden.
-    a_np = np.random.rand(4).astype(np.float32)
-    b_np = np.random.rand(2, 4).astype(np.float32)
+    a_cp = cp.random.rand(4).astype(cp.float32)
+    b_cp = cp.random.rand(2, 4).astype(cp.float32)
 
-    a = tp.Tensor(a_np)
-    b = tp.Tensor(b_np)
+    a = tp.Tensor(a_cp)
+    b = tp.Tensor(b_cp)
 
     out = a + b
     trace = Trace([out])

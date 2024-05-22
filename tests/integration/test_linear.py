@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 import pytest
 
@@ -25,20 +26,20 @@ class TestLinear:
                 return self.linear(x)
 
         net = Network()
-        np_weight = net.linear.weight.numpy()
-        np_bias = net.linear.bias.numpy()
+        np_weight = cp.from_dlpack(net.linear.weight).get()
+        np_bias = cp.from_dlpack(net.linear.bias).get()
 
-        np_a1 = np.ones((3, 4), dtype=np.float32)
-        a1 = tp.Tensor(np_a1, device=tp.device("gpu"))
+        cp_a1 = cp.ones((3, 4), dtype=cp.float32)
+        a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
 
         if use_jit:
             net = tp.jit(net)
 
         out = net(a1)
 
-        np_out = np_a1 @ (np_weight.transpose()) + np_bias
+        np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
-        assert (out.numpy() == np.array(np_out)).all()
+        assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
 
 
 class TestQuantLinear:
@@ -81,14 +82,14 @@ class TestQuantLinear:
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
     def test_quant_linear(self, use_jit, use_input_scale, quant_dtype, weight_quant_dim):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
-        np_weight = net.linear.weight.numpy()
-        np_bias = net.linear.bias.numpy()
+        np_weight = cp.from_dlpack(net.linear.weight).get()
+        np_bias = cp.from_dlpack(net.linear.bias).get()
 
         if use_jit:
             net = tp.jit(net)
 
-        np_a1 = np.ones((3, 4), dtype=np.float32)
-        a1 = tp.Tensor(np_a1, device=tp.device("gpu"))
+        cp_a1 = cp.ones((3, 4), dtype=cp.float32)
+        a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
         if use_input_scale and weight_quant_dim == 1:
             with helper.raises(
                 tp.TripyException,
@@ -98,9 +99,9 @@ class TestQuantLinear:
         else:
             out = net(a1)
 
-            np_out = np_a1 @ (np_weight.transpose()) + np_bias
+            np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
-            assert (out.numpy() == np.array(np_out)).all()
+            assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
 
     @pytest.mark.parametrize("use_jit", [False, True])
     @pytest.mark.parametrize(
@@ -122,16 +123,16 @@ class TestQuantLinear:
         linear.weight = tp.Parameter(tp.ones((8, 4)))
         linear.bias = tp.Parameter(tp.ones((8,)))
 
-        np_weight = linear.weight.numpy()
-        np_bias = linear.bias.numpy()
+        np_weight = cp.from_dlpack(linear.weight).get()
+        np_bias = cp.from_dlpack(linear.bias).get()
 
         if use_jit:
             linear = tp.jit(linear)
 
-        np_input = np.ones((4, 4), dtype=np.float32)
-        input = tp.Tensor(np_input, device=tp.device("gpu"))
+        cp_input = cp.ones((4, 4), dtype=np.float32)
+        input = tp.Tensor(cp_input, device=tp.device("gpu"))
         out = linear(input)
 
-        np_out = np_input @ (np_weight.transpose()) + np_bias
+        np_out = cp_input.get() @ (np_weight.transpose()) + np_bias
 
-        assert np.array_equal(out.numpy(), np_out)
+        assert np.array_equal(cp.from_dlpack(out).get(), np_out)

@@ -1,10 +1,11 @@
 import argparse
+import time
 
+import numpy as np
 import tiktoken
 import torch
 from model import GPT, GPTConfig
-from weight_loader import load_weights_from_hf, load_quant_weights_from_hf
-import time
+from weight_loader import load_quant_weights_from_hf, load_weights_from_hf
 
 import tripy as tp
 
@@ -120,7 +121,7 @@ def main():
         idx[0, token_idx] = idx_next[0]
         idx = tp.Tensor(idx, device=tp.device("gpu"))
 
-    response = encoder.decode(idx[0, :].numpy().tolist())
+    response = encoder.decode(np.from_dlpack(idx[0, :]).tolist())
     end_time = time.perf_counter()
     print(f"Generating {args.max_new_tokens} tokens took {end_time - start_time} seconds.")
     print(response)

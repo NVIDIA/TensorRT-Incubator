@@ -65,7 +65,7 @@ class Linear(Module):
             input = tp.iota((2, 3))
             output = linear(input)
 
-            assert output.numpy().shape == (2, 4)
+            assert cp.from_dlpack(output).get().shape == (2, 4)
 
         .. code-block:: python
             :linenos:
@@ -80,7 +80,7 @@ class Linear(Module):
             input = tp.iota((2, 3))
             output = linear(input)
 
-            assert output.numpy().shape == (2, 4)
+            assert cp.from_dlpack(output).get().shape == (2, 4)
         """
         super().__init__()
 

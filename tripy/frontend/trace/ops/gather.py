@@ -70,6 +70,6 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
         indices = tp.Tensor([0, 2], dtype=tp.int32)
         output = tp.gather(data, 0, indices)
 
-        assert np.array_equal(output.numpy(), np.take(data.numpy(), indices.numpy(), axis=0))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=0))
     """
     return Gather.build([input, index], dim)

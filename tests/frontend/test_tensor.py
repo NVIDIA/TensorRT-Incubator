@@ -1,14 +1,15 @@
 import inspect
 import sys
 
+import cupy as cp
 import jax
 import numpy as np
 import pytest
 import torch
 
 import tripy as tp
-from tripy.common.datatype import DATA_TYPES
 from tests.helper import NUMPY_TYPES
+from tripy.common.datatype import DATA_TYPES
 from tripy.utils.stack_info import SourceInfo
 
 
@@ -20,7 +21,7 @@ class TestTensor:
         assert isinstance(a, tp.Tensor)
         assert a.trace_tensor.producer.inputs == []
         assert isinstance(a.trace_tensor.producer, tp.frontend.trace.ops.Storage)
-        assert a.numpy().tolist() == VALUES
+        assert cp.from_dlpack(a).get().tolist() == VALUES
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
@@ -91,16 +92,14 @@ class TestTensor:
         )
 
     def test_eval_of_storage_tensor_is_nop(self):
-        a = tp.Tensor(np.array([1], dtype=np.float32))
+        a = tp.Tensor(cp.array([1], dtype=cp.float32))
 
         # TODO: Verify that we don't compile/execute somehow.
-        assert a.numpy().tolist() == [1]
+        assert cp.from_dlpack(a).get().tolist() == [1]
 
     def test_evaled_tensor_becomes_concrete(self):
-        import cupy as cp
-
-        a = tp.Tensor(np.array([1], dtype=np.float32))
-        b = tp.Tensor(np.array([2], dtype=np.float32))
+        a = tp.Tensor(cp.array([1], dtype=cp.float32))
+        b = tp.Tensor(cp.array([2], dtype=cp.float32))
 
         c = a + b
         assert isinstance(c.trace_tensor.producer, tp.frontend.trace.ops.BinaryElementwise)
@@ -110,16 +109,16 @@ class TestTensor:
         assert isinstance(c.trace_tensor.producer, tp.frontend.trace.ops.Storage)
         # Storage tensors should have no inputs since we don't want to trace back from them.
         assert c.trace_tensor.producer.inputs == []
-        assert (cp.from_dlpack(c.trace_tensor.producer.data).get() == np.array([3], dtype=np.float32)).all()
+        assert (cp.from_dlpack(c.trace_tensor.producer.data) == cp.array([3], dtype=np.float32)).all()
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_torch(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
         b = torch.from_dlpack(a)
-        assert np.array_equal(a.numpy(), b.cpu().numpy())
+        assert torch.equal(b.cpu(), torch.tensor([1, 2, 3]))
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_jax(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
         b = jax.dlpack.from_dlpack(a)
-        assert np.array_equal(a.numpy(), np.asarray(b))
+        assert jax.numpy.array_equal(b, jax.numpy.array([1, 2, 3]))

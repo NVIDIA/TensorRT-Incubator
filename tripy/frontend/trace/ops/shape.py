@@ -42,7 +42,7 @@ def shape(self) -> "tripy.Tensor":
         input = tp.ones((8, 2))
         shape = input.shape
 
-        assert np.array_equal(shape.numpy(), np.array([8, 2]))
+        assert np.array_equal(cp.from_dlpack(shape).get(), np.array([8, 2]))
     """
     from tripy.frontend.tensor import Tensor
     import tripy.common.datatype

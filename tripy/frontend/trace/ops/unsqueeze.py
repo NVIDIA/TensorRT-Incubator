@@ -63,7 +63,7 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
         input = tp.iota((2, 2), dtype=tp.float32)
         output = tp.unsqueeze(input, 1)
 
-        assert np.array_equal(output.numpy(), np.expand_dims(input.numpy(), 1))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.expand_dims(cp.from_dlpack(input).get(), 1))
     """
     from tripy.frontend.trace.ops.concatenate import concatenate
 

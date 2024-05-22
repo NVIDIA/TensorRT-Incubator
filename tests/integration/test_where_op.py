@@ -1,8 +1,9 @@
+import cupy as cp
 import numpy as np
 import pytest
 
-from tripy.frontend import Tensor
 import tripy as tp
+from tripy.frontend import Tensor
 
 
 class TestWhereOp:
@@ -28,4 +29,6 @@ class TestWhereOp:
         b = Tensor(rand_y)
         condition = tp.ones(cond) >= Tensor(rand_cond)
         out = tp.where(condition, a, b)
-        assert np.array_equal(out.numpy(), np.array(np.where((np.ones(cond) >= rand_cond), rand_x, rand_y)))
+        assert np.array_equal(
+            cp.from_dlpack(out).get(), np.array(np.where((np.ones(cond) >= rand_cond), rand_x, rand_y))
+        )

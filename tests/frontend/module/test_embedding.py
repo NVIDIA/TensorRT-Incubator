@@ -1,4 +1,5 @@
-import pytest
+import cupy as cp
+
 import tripy as tp
 from tests import helper
 
@@ -7,7 +8,7 @@ class TestEmbedding:
     def test_embedding(self):
         embedding = tp.Embedding(20, 30)
         assert isinstance(embedding, tp.Embedding)
-        assert embedding.weight.numpy().shape == (20, 30)
+        assert cp.from_dlpack(embedding.weight).get().shape == (20, 30)
 
     def test_incorrect_input_dtype(self):
         a = tp.ones((2, 3))

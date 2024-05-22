@@ -74,7 +74,7 @@ def dequantize(
         output = tp.dequantize(input, scale, tp.float32)
 
         expected = (np.array([1, 2, 3], dtype=np.int8) * scale).astype(np.float32) # doc: omit
-        assert np.array_equal(output.numpy(), expected)
+        assert np.array_equal(cp.from_dlpack(output).get(), expected)
 
     .. code-block:: python
         :linenos:
@@ -85,7 +85,7 @@ def dequantize(
         output = tp.dequantize(input, scale, tp.float32, dim=0)
 
         expected = (np.array([[1, 2, 3], [4, 5, 6]]) * np.array(scale).reshape(2, 1)).astype(np.float32) # doc: omit
-        assert np.array_equal(output.numpy(), expected)
+        assert np.array_equal(cp.from_dlpack(output).get(), expected)
 
     .. code-block:: python
         :linenos:
@@ -98,7 +98,7 @@ def dequantize(
         quant = tp.quantize(input, scale, tp.int4)
         output = tp.dequantize(quant, scale, tp.float32)
 
-        assert np.array_equal(output.numpy(), np.array([[0, 1], [2, 3]], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[0, 1], [2, 3]], dtype=np.float32))
 
     .. seealso:: :func:`quantize`
     """

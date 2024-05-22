@@ -53,6 +53,6 @@ def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor
 
         output = tp.concatenate([a, b], dim=0)
 
-        assert np.array_equal(output.numpy(), np.concatenate((a.numpy(), b.numpy()), axis=0))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.concatenate((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
     """
     return Concatenate.build(tensors, dim)

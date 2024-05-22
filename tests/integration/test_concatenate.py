@@ -1,4 +1,5 @@
 import numpy as np
+import cupy as cp
 import pytest
 import tripy as tp
 
@@ -18,7 +19,9 @@ class TestConcatenate:
     def test_static_concat(self, tensor_shapes, dim, expected_shape):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
         out = tp.concatenate(tensors, dim=dim)
-        assert np.array_equal(out.numpy(), np.concatenate([np.ones(shape) for shape in tensor_shapes], axis=dim))
+        assert np.array_equal(
+            cp.from_dlpack(out).get(), np.concatenate([np.ones(shape) for shape in tensor_shapes], axis=dim)
+        )
 
     @pytest.mark.parametrize(
         "tensor_shapes, dim",
@@ -43,11 +46,11 @@ class TestConcatenate:
         def get_np_dims(dims, dim_func):
             return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
-        a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
-        b_np = np.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(np.float32)
+        a_cp = cp.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(cp.float32)
+        b_cp = cp.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(cp.float32)
 
-        a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
-        b = tp.Tensor(b_np, shape=dims_b, device=tp.device("gpu"))
+        a = tp.Tensor(a_cp, shape=dims_a, device=tp.device("gpu"))
+        b = tp.Tensor(b_cp, shape=dims_b, device=tp.device("gpu"))
 
         @tp.jit
         def func(a, b):

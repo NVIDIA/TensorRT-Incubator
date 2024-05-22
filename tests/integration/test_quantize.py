@@ -1,9 +1,10 @@
+import cupy as cp
 import numpy as np
 import pytest
 
 import tripy as tp
 from tests import helper
-from tests.conftest import skip_if_older_than_sm89, skip_if_older_than_sm80
+from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 
 import mlir_tensorrt.runtime
 
@@ -19,7 +20,7 @@ class TestQuantize:
         input = tp.Tensor(data, dtype=dtype)
         quantized = tp.quantize(input, scale, tp.int8)
         expected = (np.array(data) / scale).astype(np.int8)
-        assert np.array_equal(quantized.numpy(), expected)
+        assert np.array_equal(cp.from_dlpack(quantized).get(), expected)
 
     @pytest.mark.parametrize("scale", [[0.2, 0.1], [0.5, 0.5]])
     @pytest.mark.parametrize(
@@ -30,7 +31,7 @@ class TestQuantize:
         input = tp.Tensor(data, dtype=dtype)
         quantized = tp.quantize(input, scale, tp.int8, dim=0)
         expected = (np.array(data) / np.array(scale).reshape(2, 1)).astype(np.int8)
-        assert np.array_equal(quantized.numpy(), expected)
+        assert np.array_equal(cp.from_dlpack(quantized).get(), expected)
 
     # TODO(#161): Update fp8 test to check output value
     @pytest.mark.parametrize("scale", [0.5, 0.9])
@@ -44,7 +45,7 @@ class TestQuantize:
         quantized = tp.quantize(input, scale, tp.float8)
         assert quantized.dtype == tp.float8
         try:
-            output = quantized.numpy()
+            output = cp.from_dlpack(quantized).get()
             assert (
                 0
                 and f"As of 5/21/2024 Fp8 output type is not supported. Remove exception below if this line is logged."
@@ -55,7 +56,7 @@ class TestQuantize:
                 str(e)
                 == "InvalidArgument: InvalidArgument: Scalar type code [f8e4m3fn] conversion to DLPackDataTypeCode is not supported."
             ):
-                output = tp.cast(quantized, dtype=tp.float32).numpy()
+                output = cp.from_dlpack(tp.cast(quantized, dtype=tp.float32)).get()
                 assert output.dtype == np.float32
             else:
                 assert 0 and f"Unsupported output type {dtype}"
@@ -71,7 +72,7 @@ class TestQuantize:
         quantized = tp.quantize(input, scale, tp.float8, dim=0)
         assert quantized.dtype == tp.float8
         try:
-            output = quantized.numpy()
+            output = cp.from_dlpack(quantized).get()
             assert (
                 0
                 and f"As of 5/21/2024 Fp8 output type is not supported. Remove exception below if this line is logged."
@@ -82,7 +83,7 @@ class TestQuantize:
                 str(e)
                 == "InvalidArgument: InvalidArgument: Scalar type code [f8e4m3fn] conversion to DLPackDataTypeCode is not supported."
             ):
-                output = tp.cast(quantized, dtype=tp.float32).numpy()
+                output = cp.from_dlpack(tp.cast(quantized, dtype=tp.float32)).get()
                 assert output.dtype == np.float32
             else:
                 assert 0 and f"Unsupported output type {dtype}"
@@ -109,17 +110,17 @@ class TestQuantize:
         quantized = tp.quantize(data, scale, tp.int4, dim)
         dequantized = tp.dequantize(quantized, scale, dtype, dim)
         try:
-            dq_out = dequantized.numpy()
+            dq_out = cp.from_dlpack(dequantized).get()
         except NotImplementedError as e:
             if str(e) == "CuPy does not support bfloat16 yet":
-                dq_out = tp.cast(dequantized, dtype=tp.float32).numpy()
+                dq_out = cp.from_dlpack(tp.cast(dequantized, dtype=tp.float32)).get()
             else:
                 assert 0 and f"Unsupported output type {dtype}"
         try:
-            data_out = data.numpy()
+            data_out = cp.from_dlpack(data).get()
         except NotImplementedError as e:
             if str(e) == "CuPy does not support bfloat16 yet":
-                data_out = tp.cast(data, dtype=tp.float32).numpy()
+                data_out = cp.from_dlpack(tp.cast(data, dtype=tp.float32)).get()
             else:
                 assert 0 and f"Unsupported output type {dtype}"
         assert np.array_equal(dq_out, data_out)

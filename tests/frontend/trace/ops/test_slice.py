@@ -1,3 +1,5 @@
+import cupy as cp
+
 import tripy as tp
 from tests import helper
 from tripy.frontend.trace.ops import Slice
@@ -30,7 +32,7 @@ class TestSlice:
         a = tp.ones((2, 3, 4))
         assert a[0].shape == [3, 4]
         assert a[0:1].shape == [1, 3, 4]
-        assert list(a[0].shape.numpy()) == [3, 4]
+        assert list(cp.from_dlpack(a[0].shape).get()) == [3, 4]
 
     def test_end_clamping(self):
         a = tp.ones((2, 3, 4))

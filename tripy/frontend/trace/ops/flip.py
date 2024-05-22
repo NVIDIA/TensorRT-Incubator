@@ -47,7 +47,7 @@ def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None
 
         input = tp.reshape(tp.arange(10), (2, 5))
         output = tp.flip(input) # equivalent to tp.flip(input, dims=[0, 1])
-        assert np.array_equal(output.numpy(), np.array([[9, 8, 7, 6, 5], [4, 3, 2, 1, 0]]))
+        assert cp.array_equal(cp.from_dlpack(output), cp.array([[9, 8, 7, 6, 5], [4, 3, 2, 1, 0]]))
 
     .. code-block:: python
         :linenos:
@@ -55,7 +55,7 @@ def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None
 
         input = tp.reshape(tp.arange(10), (2, 5))
         output = tp.flip(input, dims=-1)
-        assert np.array_equal(output.numpy(), np.array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
+        assert cp.array_equal(cp.from_dlpack(output), cp.array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
     """
     rank = input.rank
     if dims is None:

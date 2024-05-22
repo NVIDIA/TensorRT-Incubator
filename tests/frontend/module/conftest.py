@@ -1,4 +1,5 @@
 import numpy as np
+import cupy as cp
 import pytest
 
 import tripy as tp
@@ -103,7 +104,7 @@ class JitArgsNetwork(tp.Module):
 @pytest.fixture(params=[(Network, ()), (JitNetwork, ()), (JitArgsNetwork, (1, 2))])
 def all_network_modes(request):
     call_args = request.param[1]
-    inputs = [tp.Tensor(np.full(2, v, dtype=np.float32), device=tp.device("gpu")) for v in call_args]
+    inputs = [tp.Tensor(cp.full(2, v, dtype=np.float32), device=tp.device("gpu")) for v in call_args]
     yield request.param[0](), call_args, inputs
 
 

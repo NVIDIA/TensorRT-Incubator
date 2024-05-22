@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 import pytest
 import torch
@@ -27,7 +28,7 @@ class TestReduceOp:
 
         a = tp.Tensor(rand_x)
         out = tp.mean(a, dim=axis, keepdim=keepdim)
-        assert np.allclose(out.numpy(), np.array(rand_x.mean(axis=axis, keepdims=keepdim)))
+        assert np.allclose(cp.from_dlpack(out).get(), np.array(rand_x.mean(axis=axis, keepdims=keepdim)))
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -50,7 +51,7 @@ class TestReduceOp:
         a = tp.Tensor(rand_x)
         out = tp.var(a, dim=axis, keepdim=keepdim)
         torch_tensor = torch.Tensor(rand_x)
-        assert np.allclose(out.numpy(), torch_tensor.var(dim=axis, keepdim=keepdim))
+        assert np.allclose(cp.from_dlpack(out).get(), torch_tensor.var(dim=axis, keepdim=keepdim))
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -72,7 +73,7 @@ class TestReduceOp:
 
         a = tp.Tensor(rand_x)
         out = tp.argmax(a, dim=axis, keepdim=keepdim)
-        assert np.array_equal(out.numpy(), np.array(rand_x.argmax(axis=axis, keepdims=keepdim)))
+        assert np.array_equal(cp.from_dlpack(out).get(), np.array(rand_x.argmax(axis=axis, keepdims=keepdim)))
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -94,4 +95,4 @@ class TestReduceOp:
 
         a = tp.Tensor(rand_x)
         out = tp.argmin(a, dim=axis, keepdim=keepdim)
-        assert np.array_equal(out.numpy(), np.array(rand_x.argmin(axis=axis, keepdims=keepdim)))
+        assert np.array_equal(cp.from_dlpack(out).get(), np.array(rand_x.argmin(axis=axis, keepdims=keepdim)))

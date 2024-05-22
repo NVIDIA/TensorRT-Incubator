@@ -226,6 +226,6 @@ def __matmul__(self, other: "tripy.Tensor") -> "tripy.Tensor":
         b = tp.iota((3, 2), dtype=tp.float32)
 
         output = a @ b
-        assert np.array_equal(output.numpy(), a.numpy() @ b.numpy())
+        assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
     """
     return MatrixMultiplication.build([self, other])

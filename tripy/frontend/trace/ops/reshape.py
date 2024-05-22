@@ -99,7 +99,7 @@ def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
         input = tp.iota((2, 3), dtype=tp.float32)
         output = tp.reshape(input, (1, 6))
 
-        assert np.array_equal(output.numpy(), np.reshape(input.numpy(), (1, 6)))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
     """
     return Reshape.build([input], shape)
 
@@ -126,7 +126,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input)
-        assert np.array_equal(output.numpy(), np.squeeze(input.numpy()))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get()))
 
 
     .. code-block:: python
@@ -135,7 +135,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, 0)
-        assert np.array_equal(output.numpy(), np.squeeze(input.numpy(), 0))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), 0))
 
     .. code-block:: python
         :linenos:
@@ -144,7 +144,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, (0, 2))
 
-        assert np.array_equal(output.numpy(), np.squeeze(input.numpy(), (0, 2)))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), (0, 2)))
     """
     from tripy.frontend import Tensor
 

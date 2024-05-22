@@ -1,4 +1,4 @@
-import numpy as np
+import cupy as cp
 import pytest
 
 import tripy as tp
@@ -9,9 +9,9 @@ def compare_split_results(tp_out, reference_out):
         assert isinstance(reference_out, tuple)
         assert len(tp_out) == len(reference_out)
         for i in range(len(tp_out)):
-            assert np.array_equal(tp_out[i].numpy(), np.array(reference_out[i]))
+            assert cp.array_equal(cp.from_dlpack(tp_out[i]), cp.array(reference_out[i]))
     else:
-        assert np.array_equal(tp_out.numpy(), np.array(reference_out))
+        assert cp.array_equal(cp.from_dlpack(tp_out), cp.array(reference_out))
 
 
 class TestSplitOp:
@@ -33,8 +33,8 @@ class TestSplitOp:
         ],
     )
     def test_split_static(self, dims_a, split_params, reference_slices, use_jit):
-        a_np = np.random.rand(*dims_a).astype(np.float32)
-        a = tp.Tensor(a_np, device=tp.device("gpu"))
+        a_cp = cp.random.rand(*dims_a).astype(cp.float32)
+        a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(t):
             return tp.split(t, split_params[0], split_params[1])
@@ -43,7 +43,7 @@ class TestSplitOp:
             func = tp.jit(func)
 
         out = func(a)
-        reference_out = reference_slices(a_np)
+        reference_out = reference_slices(a_cp)
         compare_split_results(out, reference_out)
 
     @pytest.mark.parametrize(
@@ -62,8 +62,8 @@ class TestSplitOp:
     )
     def test_split_dynamic(self, dynamic_dims_a, split_params, reference_slices, use_jit):
         concrete_dims = tuple([d.runtime_value for d in dynamic_dims_a])
-        a_np = np.random.rand(*concrete_dims).astype(np.float32)
-        a = tp.Tensor(a_np, shape=dynamic_dims_a, device=tp.device("gpu"))
+        a_cp = cp.random.rand(*concrete_dims).astype(cp.float32)
+        a = tp.Tensor(a_cp, shape=dynamic_dims_a, device=tp.device("gpu"))
 
         def func(a):
             return tp.split(a, split_params[0], split_params[1])
@@ -72,5 +72,5 @@ class TestSplitOp:
             func = tp.jit(func)
 
         out = func(a)
-        reference_out = reference_slices(a_np)
+        reference_out = reference_slices(a_cp)
         compare_split_results(out, reference_out)

@@ -45,14 +45,14 @@ class LayerNorm(Module):
             input = tp.iota((2, 3))
             output = layer_norm(input)
 
-            np_out = output.numpy() # doc: omit
+            np_out = cp.from_dlpack(output).get() # doc: omit
             assert np_out.shape == (2, 3)
 
-            torch_tensor = torch.from_dlpack(input.numpy()) # doc: omit
+            torch_tensor = torch.from_dlpack(input) # doc: omit
             torch_ln = torch.nn.LayerNorm(3) # doc: omit
-            torch_ln.weight.data = torch.from_numpy(layer_norm.weight.numpy()) # doc: omit
-            torch_ln.bias.data = torch.from_numpy(layer_norm.bias.numpy()) # doc: omit
-            assert np.array_equal(np_out, torch_ln(torch_tensor).detach().numpy())
+            torch_ln.weight.data = torch.from_dlpack(layer_norm.weight) # doc: omit
+            torch_ln.bias.data = torch.from_dlpack(layer_norm.bias) # doc: omit
+            assert np.array_equal(np_out, cp.from_dlpack(torch_ln(torch_tensor).detach()).get())
         """
         super().__init__()
 

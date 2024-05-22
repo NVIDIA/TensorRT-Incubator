@@ -79,7 +79,7 @@ def quantize(
         output = tp.quantize(input, scale, tp.int8)
 
         expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / scale).astype(np.int8) # doc: omit
-        assert np.array_equal(output.numpy(), expected)
+        assert np.array_equal(cp.from_dlpack(output).get(), expected)
 
     .. code-block:: python
         :linenos:
@@ -90,7 +90,7 @@ def quantize(
         output = tp.quantize(input, scale, tp.int8, dim=0)
 
         expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / np.array(scale).reshape(2, 1)).astype(np.int8) # doc: omit
-        assert np.array_equal(output.numpy(), expected)
+        assert np.array_equal(cp.from_dlpack(output).get(), expected)
 
     .. code-block:: python
         :linenos:
@@ -103,7 +103,7 @@ def quantize(
         quant = tp.quantize(input, scale, tp.int4)
         output = tp.dequantize(quant, scale, tp.float32)
 
-        assert np.array_equal(output.numpy(), np.array([[0, 1], [2, 3]], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[0, 1], [2, 3]], dtype=np.float32))
 
     .. seealso:: :func:`dequantize`
     """

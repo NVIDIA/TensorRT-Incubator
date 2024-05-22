@@ -37,7 +37,7 @@ class Embedding(Module):
             input = tp.Tensor([0, 2], dtype=tp.int32)
             output = embedding(input)
 
-            assert np.array_equal(output.numpy(), embedding.weight.numpy()[[0,2], :])
+            assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(embedding.weight).get()[[0,2], :])
         """
         super().__init__()
 

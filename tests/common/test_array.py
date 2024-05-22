@@ -37,62 +37,26 @@ data_list.extend([jax.device_put(jnp.array(data), jax.devices("cpu")[0]) for dat
 # Extend the data list for Jax GPU arrays
 data_list.extend([jax.device_put(jnp.array(data), jax.devices("cuda")[0]) for data in np_data])
 
-# Define parameters for device type and index
-device_params = [
-    {"device_type": "cpu", "device_index": None},
-    {"device_type": "gpu", "device_index": 0},
-]
-
-
-def _move_to_device(data: Any, device: str) -> Any:
-    """Move input data to the target device."""
-    if isinstance(data, torch.Tensor):
-        # Use torch's to method to move data to the target device
-        if device not in str(data.device).lower():
-            device = "cuda" if device == "gpu" else device
-            data = data.to(device)
-    elif isinstance(data, jnp.ndarray):
-        # Use jax's device_put method to move data to the target device
-        if device not in str(jax.devices(device)[0]).lower():
-            data = jax.device_put(data, jax.devices(device)[0])
-    elif isinstance(data, cp.ndarray):
-        # Use Cupy's get method to move data to CPU
-        if device == "cpu":
-            data = data.get()
-    else:
-        # Ensure that data is either a NumPy array or a list
-        assert isinstance(data, (np.ndarray, List))
-
-    return data
-
 
 class TestArray:
 
-    @pytest.mark.parametrize(
-        "device_param", device_params, ids=lambda param: f"{param['device_type']}:{param['device_index']}"
-    )
     @pytest.mark.parametrize("input_data", data_list, ids=lambda data: f"{type(data).__qualname__}")
-    def test_creation(self, device_param, input_data):
+    def test_creation(self, input_data):
         """
         Test the creation of Array objects with different devices and data types.
         """
-        device_type = device_param["device_type"]
-        device_index = device_param["device_index"]
-        device = tp.device(f"{device_type}:{device_index}" if device_index is not None else device_type)
         dtype = convert_frontend_dtype_to_tripy_dtype(input_data.dtype)
         shape = input_data.shape
         if dtype is not None:
-            arr = Array(_move_to_device(input_data, device_type), dtype, shape, device)
+            arr = Array(input_data, dtype, shape)
             assert isinstance(arr, Array)
             assert isinstance(arr.memref_value, runtime.MemRefValue)
             assert arr.memref_value.dtype == convert_tripy_dtype_to_runtime_dtype(dtype)
             assert (
                 arr.memref_value.address_space == runtime.PointerType.host
-                if device_type == "cpu"
+                if arr.device.kind == "cpu"
                 else runtime.PointerType.device
             )
-            assert arr.device.kind == device_type
-            assert arr.device.index == utils.default(device_index, 0)
 
     @pytest.mark.parametrize("np_dtype", NUMPY_TYPES)
     def test_0d(self, np_dtype):

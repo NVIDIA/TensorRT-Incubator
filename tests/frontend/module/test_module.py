@@ -1,7 +1,8 @@
+import cupy as cp
 import numpy as np
 
-from tests import helper
 import tripy as tp
+from tests import helper
 
 
 class TestModule:
@@ -11,7 +12,7 @@ class TestModule:
         assert len(test_net._tripy_modules.keys()) == 2
 
         result = np.array([1.0, 2.0]) + np.full(2, sum(call_args), dtype=np.float32)
-        assert np.array_equal(test_net(*inputs).numpy(), result)
+        assert np.array_equal(cp.from_dlpack(test_net(*inputs)).get(), result)
 
     def test_get_set_attr(self, network):
         network.new_attr = True
@@ -22,7 +23,7 @@ class TestModule:
 
         network.param = tp.Parameter([0.0, 1.0])
         network.dummy1 = None
-        assert network._tripy_params["param"].numpy().tolist() == [0.0, 1.0]
+        assert cp.from_dlpack(network._tripy_params["param"]).get().tolist() == [0.0, 1.0]
         assert network._tripy_modules["dummy1"] is None
 
     def test_incompatible_parameter_cannot_be_set(self, network):

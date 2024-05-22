@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 import pytest
 
@@ -27,7 +28,7 @@ class TestUnsqueezeOp:
             return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
         a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
-        a = tp.Tensor(a_np, shape=dims_a, device=tp.device("gpu"))
+        a = tp.copy(tp.Tensor(a_np, shape=dims_a), tp.device("gpu"))
 
         def func(a):
             return tp.unsqueeze(a, dim=axis)
@@ -36,4 +37,4 @@ class TestUnsqueezeOp:
             func = tp.jit(func)
 
         out = func(a)
-        assert np.allclose(out.numpy(), np.array(np.expand_dims(a_np, axis=axis)))
+        assert np.allclose(cp.from_dlpack(out).get(), np.array(np.expand_dims(a_np, axis=axis)))

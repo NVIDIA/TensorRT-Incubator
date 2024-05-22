@@ -9,6 +9,7 @@ import pkgutil
 from textwrap import dedent, indent
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
+import cupy as cp
 import numpy as np
 import pytest
 import torch
@@ -136,7 +137,7 @@ def exec_code(code, code_locals=None) -> Dict[str, Any]:
     # By default, don't inherit most variables from the current environment
     # so we can be sure the docstring examples work in total isolation.
     code_locals = copy.copy(utils.default(code_locals, {}))
-    exec(code, {"tp": tp, "np": np, "torch": torch}, code_locals)
+    exec(code, {"tp": tp, "np": np, "torch": torch, "cp": cp}, code_locals)
     return code_locals
 
 

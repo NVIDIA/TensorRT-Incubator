@@ -29,7 +29,7 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.T
 
         output = tp.ones([2, 3])
 
-        assert np.array_equal(output.numpy(), np.ones([2, 3], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.ones([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`ones_like`, :func:`full`
     """
@@ -54,7 +54,7 @@ def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.
 
         output = tp.zeros([2, 3])
 
-        assert np.array_equal(output.numpy(), np.zeros([2, 3], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.zeros([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`zeros_like`, :func:`full`
     """
@@ -80,7 +80,7 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
         input = tp.zeros([2, 3], dtype=tp.float32)
         output = tp.ones_like(input)
 
-        assert np.array_equal(output.numpy(), np.ones([2, 3], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.ones([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`ones`, :func:`full_like`
     """
@@ -106,7 +106,7 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
         input = tp.iota([2, 3], dtype=tp.float32)
         output = tp.zeros_like(input)
 
-        assert np.array_equal(output.numpy(), np.zeros([2, 3], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.zeros([2, 3], dtype=np.float32))
 
     .. seealso:: :func:`zeros`, :func:`full_like`
     """
@@ -137,7 +137,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((5, 5)) + 1.
         output = tp.tril(input)
 
-        assert np.array_equal(output.numpy(), np.tril(input.numpy()))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get()))
 
     .. code-block:: python
         :linenos:
@@ -146,7 +146,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.tril(input, diagonal=2)
 
-        assert np.array_equal(output.numpy(), np.tril(input.numpy(), 2))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), 2))
 
     .. code-block:: python
         :linenos:
@@ -155,7 +155,7 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.tril(input, diagonal=-1)
 
-        assert np.array_equal(output.numpy(), np.tril(input.numpy(), -1))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
     """
     tri_mask = (iota_like(self, 0, datatype.int32) + full_like(self, diagonal, datatype.int32)) >= iota_like(
         self, 1, datatype.int32
@@ -187,7 +187,7 @@ def arange(
 
         output = tp.arange(0.5, 2.5)
 
-        assert (output.numpy() == np.arange(0.5, 2.5, dtype=np.float32)).all()
+        assert (cp.from_dlpack(output).get() == np.arange(0.5, 2.5, dtype=np.float32)).all()
 
     .. code-block:: python
         :linenos:
@@ -195,7 +195,7 @@ def arange(
 
         output = tp.arange(2.3, 0.8, -0.2)
 
-        assert np.allclose(output.numpy(), np.arange(2.3, 0.8, -0.2, dtype=np.float32))
+        assert np.allclose(cp.from_dlpack(output).get(), np.arange(2.3, 0.8, -0.2, dtype=np.float32))
     """
     if step == 0:
         raise_error("Step in arange cannot be 0.", [])
@@ -232,6 +232,6 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
 
         output = tp.arange(5)
 
-        assert (output.numpy() == np.arange(5, dtype=np.float32)).all()
+        assert (cp.from_dlpack(output).get() == np.arange(5, dtype=np.float32)).all()
     """
     return arange(0, stop, dtype=dtype)

@@ -1,4 +1,5 @@
 import numpy as np
+import cupy as cp
 import pytest
 from unittest.mock import patch
 
@@ -7,8 +8,8 @@ import tripy as tp
 
 @pytest.fixture
 def init_tensors():
-    a = tp.Tensor(np.array([2, 3], dtype=np.float32), device=tp.device("gpu"))
-    b = tp.Tensor(np.ones(2, dtype=np.float32), device=tp.device("gpu"))
+    a = tp.Tensor(cp.array([2, 3], dtype=np.float32), device=tp.device("gpu"))
+    b = tp.Tensor(cp.ones(2, dtype=np.float32), device=tp.device("gpu"))
     return a, b
 
 
@@ -40,8 +41,8 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (cp.from_dlpack(c) == cp.array([3.0, 4.0], dtype=cp.float32)).all() and (
+            cp.from_dlpack(d) == cp.array([6.0, 8.0], dtype=cp.float32)
         ).all()
 
     def test_functional_function(self, init_tensors):
@@ -53,8 +54,8 @@ class TestJIT:
         jitted_func = tp.jit(func)
         a, b = init_tensors
         c, d = jitted_func(a, b)
-        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (cp.from_dlpack(c) == cp.array([3.0, 4.0], dtype=cp.float32)).all() and (
+            cp.from_dlpack(d) == cp.array([6.0, 8.0], dtype=cp.float32)
         ).all()
 
     def test_functional_decorator_optimization_level(self, init_tensors):
@@ -67,8 +68,8 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (cp.from_dlpack(c) == cp.array([3.0, 4.0], dtype=cp.float32)).all() and (
+            cp.from_dlpack(d) == cp.array([6.0, 8.0], dtype=cp.float32)
         ).all()
 
     def test_functional_decorator_const_argnums(self, init_tensors):
@@ -80,8 +81,8 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (cp.from_dlpack(c) == cp.array([3.0, 4.0], dtype=cp.float32)).all() and (
+            cp.from_dlpack(d) == cp.array([6.0, 8.0], dtype=cp.float32)
         ).all()
 
     def test_functional_function_const_argnums(self, init_tensors):
@@ -96,8 +97,8 @@ class TestJIT:
         )
         a, b = init_tensors
         c, d = jitted_func(a, b)
-        assert (c.numpy() == np.array([3.0, 4.0], dtype=np.float32)).all() and (
-            d.numpy() == np.array([6.0, 8.0], dtype=np.float32)
+        assert (cp.from_dlpack(c) == cp.array([3.0, 4.0], dtype=cp.float32)).all() and (
+            cp.from_dlpack(d) == cp.array([6.0, 8.0], dtype=cp.float32)
         ).all()
 
     def test_functional_io_order(self, init_tensors):
@@ -107,7 +108,7 @@ class TestJIT:
 
         a, b = init_tensors
         c, d = func(a, b)
-        assert (c.numpy() == b.numpy()).all() and (d.numpy() == a.numpy()).all()
+        assert (cp.from_dlpack(c) == cp.from_dlpack(b)).all() and (cp.from_dlpack(d) == cp.from_dlpack(a)).all()
 
     def test_cache_decorator(self, init_tensors):
         @tp.jit
@@ -158,7 +159,7 @@ class TestJIT:
         assert len(jitted_func.cache) == 2
 
     def test_dynamic_shapes(self):
-        random_data = np.random.rand(3).astype(np.float32)
+        random_data = cp.random.rand(3).astype(np.float32)
         dynamic_dim = tp.dynamic_dim(3, min=2, opt=3, max=10)
 
         a = tp.Tensor(random_data, shape=(dynamic_dim,), device=tp.device("gpu"))
@@ -170,17 +171,19 @@ class TestJIT:
 
         # Compile once with dynamic shapes
         out = add(a, b)
-        assert np.array_equal(out.numpy(), random_data + random_data)
+        assert cp.array_equal(cp.from_dlpack(out), random_data + random_data)
 
         # We should be able to use other shapes without recompiling
         a = tp.ones((6,))
-        assert np.array_equal(add(a, a).numpy(), np.ones((6,), dtype=np.float32) + np.ones((6,), dtype=np.float32))
+        assert cp.array_equal(
+            cp.from_dlpack(add(a, a)), cp.ones((6,), dtype=cp.float32) + cp.ones((6,), dtype=cp.float32)
+        )
         assert len(add.cache) == 1
         # Make sure that there is only one cached executable for the cache key.
         assert len(list(add.cache.values())[0]) == 1
 
     def test_print_warnings(self, capsys):
-        random_data = np.random.rand(3).astype(np.float32)
+        random_data = cp.random.rand(3).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
         @tp.jit
@@ -195,7 +198,7 @@ class TestJIT:
         assert "Usage of print statement in jitted functions is not recommended" in captured.out
 
     def test_print_warnings_nested_class(self, capsys):
-        random_data = np.random.rand(3, 4).astype(np.float32)
+        random_data = cp.random.rand(3, 4).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
         class Dummy(tp.Module):
@@ -230,7 +233,7 @@ class TestJIT:
 
     def test_jit_warn_illegal_behavior(self, capsys):
 
-        random_data = np.random.rand(3).astype(np.float32)
+        random_data = cp.random.rand(3).astype(np.float32)
         a = tp.Tensor(random_data, device=tp.device("gpu"))
 
         with patch("pdb.set_trace"):

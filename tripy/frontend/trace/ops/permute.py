@@ -74,7 +74,7 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.transpose(input, 0, 1)
 
-        assert np.array_equal(output.numpy(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
     return Transpose.build([input], None, dim0, dim1)
 
@@ -100,6 +100,6 @@ def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.permute(input, (1, 0))
 
-        assert np.array_equal(output.numpy(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
     return Permute.build([input], perm)

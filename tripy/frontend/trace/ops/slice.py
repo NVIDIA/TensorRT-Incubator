@@ -117,7 +117,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (1, 2, 3, 1))
         output = input[:, 1:2, :-1, 0]
-        assert np.array_equal(output.numpy(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
+        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
 
     .. code-block:: python
         :linenos:
@@ -125,7 +125,8 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
 
         input = tp.arange(10)
         output = input[8:2:-1]
-        assert np.array_equal(output.numpy(), np.arange(10)[8:2:-1])
+        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
+
     """
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip

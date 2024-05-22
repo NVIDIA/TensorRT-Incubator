@@ -1,6 +1,6 @@
-import pytest
-
+import cupy as cp
 import numpy as np
+import pytest
 
 import tripy as tp
 
@@ -19,4 +19,4 @@ class TestUnaryElementwise:
     def test_op_funcs(self, tp_func, np_func):
         input = tp.arange(1, 4, dtype=tp.float32)
         output = tp_func(input)
-        assert np.allclose(output.numpy(), np_func(input.numpy()))
+        assert np.allclose(cp.from_dlpack(output).get(), np_func(cp.from_dlpack(input).get()))

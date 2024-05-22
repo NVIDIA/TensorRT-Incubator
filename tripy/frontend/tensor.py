@@ -5,11 +5,10 @@ from typing import Any, List, Optional, Union
 import tripy.common.datatype
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
-import tripy.third_party.utils
 from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
-from tripy.common.utils import is_supported_array_type, get_element_type
+from tripy.common.utils import get_element_type, is_supported_array_type
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 

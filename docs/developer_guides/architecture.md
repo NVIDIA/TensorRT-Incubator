@@ -131,7 +131,7 @@ out.eval()
 As mentioned before, Tripy uses a lazy evaluation model where a tensor is only evaluated when it is used.
 A tensor is considered "used" when, for example:
 
-- We interoperate with another framework (e.g. `torch.from_dlpack(out)` or `out.numpy()`)
+- We interoperate with another framework (e.g. `torch.from_dlpack(out)` or `np.from_dlpack(out)`)
 - When `__repr__` is called (e.g. if we `print(out)`)
 - We explicitly call `eval()` as we're doing here.
 

@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 import pytest
 
@@ -35,7 +36,7 @@ class TestIota:
         else:
             output = tp.iota(shape, dtype=dtype)
 
-        assert np.array_equal(output.numpy(), self._compute_ref_iota(dtype.name, shape, dim))
+        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype.name, shape, dim))
 
     @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.float16, tp.int8])
     @pytest.mark.parametrize(
@@ -53,7 +54,7 @@ class TestIota:
         else:
             output = tp.iota_like(tp.ones(shape), dtype=dtype)
 
-        assert np.array_equal(output.numpy(), self._compute_ref_iota(dtype.name, shape, dim))
+        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype.name, shape, dim))
 
     @pytest.mark.parametrize("dtype", [tp.float16, tp.int8])
     def test_negative_no_casting(self, dtype):

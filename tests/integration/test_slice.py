@@ -1,4 +1,6 @@
+import cupy as cp
 import numpy as np
+
 import pytest
 
 import tripy as tp
@@ -44,8 +46,8 @@ class TestSliceOp:
         ],
     )
     def test_static_slice_op(self, dims_a, slice_func, use_jit):
-        a_np = np.random.rand(*dims_a).astype(np.float32)
-        a = tp.Tensor(a_np, device=tp.device("gpu"))
+        a_cp = cp.random.rand(*dims_a).astype(np.float32)
+        a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(a):
             return slice_func(a)
@@ -54,4 +56,4 @@ class TestSliceOp:
             func = tp.jit(func)
 
         out = func(a)
-        assert np.array_equal(out.numpy(), np.array(slice_func(a_np)))
+        assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())

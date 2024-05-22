@@ -164,7 +164,7 @@ def __add__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2, 3])
         output = a + b
 
-        assert np.array_equal(output.numpy(), np.array([3, 5]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([3, 5]))
     """
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUM)
 
@@ -191,7 +191,7 @@ def __sub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([1, 2])
         output = a - b
 
-        assert np.array_equal(output.numpy(), np.array([1, 1]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 1]))
     """
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUB)
 
@@ -218,7 +218,7 @@ def __rsub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([1, 2])
         output = a - b
 
-        assert np.array_equal(output.numpy(), np.array([0, -1]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([0, -1]))
     """
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.SUB)
 
@@ -245,7 +245,7 @@ def __pow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = a ** b
 
-        assert np.array_equal(output.numpy(), np.array([1, 8]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 8]))
     """
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.POW)
 
@@ -272,7 +272,7 @@ def __rpow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = a ** b
 
-        assert np.array_equal(output.numpy(), np.array([4.0, 8.0]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([4.0, 8.0]))
     """
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.POW)
 
@@ -300,7 +300,7 @@ def __mul__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = a * b
 
-        assert np.array_equal(output.numpy(), np.array([2.0, 6.0]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 6.0]))
     """
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MUL)
 
@@ -327,7 +327,7 @@ def __truediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = a / b
 
-        assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
     """
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV)
 
@@ -354,7 +354,7 @@ def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2.0, 3.0])
         output = a / b
 
-        assert np.array_equal(output.numpy(), np.array([3.0, 2.0]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([3.0, 2.0]))
     """
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
 
@@ -382,7 +382,7 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
         b = tp.Tensor([2.0, 3.0])
         output = tp.maximum(a, b)
 
-        assert np.array_equal(output.numpy(), np.array([2.0, 6.0]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 6.0]))
     """
     return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MAXIMUM)
 
@@ -410,7 +410,7 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
         b = tp.Tensor([2.0, 3.0])
         output = tp.minimum(a, b)
 
-        assert np.array_equal(output.numpy(), np.array([1.0, 3.0]))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 3.0]))
     """
     return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MINIMUM)
 
@@ -436,7 +436,7 @@ def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
         output = b < a
-        # TODO(#26): replace with output.numpy() after MLIR-TRT can handle i1 dtype's allocation
+        # TODO(#26): replace with cp.from_dlpack(output).get() after MLIR-TRT can handle i1 dtype's allocation
 
         assert output.eval().data() == [True, False]
     """

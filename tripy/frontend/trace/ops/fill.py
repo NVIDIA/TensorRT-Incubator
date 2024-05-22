@@ -100,7 +100,7 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
 
         output = tp.full(shape=[2, 3], value=2)
 
-        assert np.array_equal(output.numpy(), np.full([2, 3], 2, dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
     """
 
     return Fill.build([], value, utils.to_dims(shape), dtype)
@@ -127,6 +127,6 @@ def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tri
         input = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
         output = tp.full_like(input, value=2)
 
-        assert np.array_equal(output.numpy(), np.array([[2, 2], [2, 2]], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
     return FillLike.build([input], value, None, dtype)

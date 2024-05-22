@@ -120,11 +120,11 @@ class Conv(Module):
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2) # doc: omit
-            conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
-            conv_layer_torch.bias.data = torch.from_numpy(conv.bias.numpy()).reshape([-1]) # doc: omit
-            expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
+            conv_layer_torch.weight.data = torch.from_dlpack(conv.weight) # doc: omit
+            conv_layer_torch.bias.data = torch.from_dlpack(conv.bias).reshape([-1]) # doc: omit
+            expected = conv_layer_torch(torch.from_dlpack(input)) # doc: omit
 
-            assert torch.allclose(torch.from_numpy(output.numpy()), expected)
+            assert torch.allclose(torch.from_dlpack(output), expected)
 
         .. code-block:: python
             :linenos:
@@ -135,10 +135,10 @@ class Conv(Module):
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2, padding=1, stride=(3, 1), bias=False) # doc: omit
-            conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
-            expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
+            conv_layer_torch.weight.data = torch.from_dlpack(conv.weight) # doc: omit
+            expected = conv_layer_torch(torch.from_dlpack(input)) # doc: omit
 
-            assert torch.allclose(torch.from_numpy(output.numpy()), expected)
+            assert torch.allclose(torch.from_dlpack(output), expected)
 
         .. code-block:: python
             :linenos:
@@ -149,10 +149,10 @@ class Conv(Module):
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(2, 2, 3, groups=2, bias=False) # doc: omit
-            conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
-            expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
+            conv_layer_torch.weight.data = torch.from_dlpack(conv.weight) # doc: omit
+            expected = conv_layer_torch(torch.from_dlpack(input)) # doc: omit
 
-            assert torch.allclose(torch.from_numpy(output.numpy()), expected)
+            assert torch.allclose(torch.from_dlpack(output), expected)
 
         .. code-block:: python
             :linenos:
@@ -163,10 +163,10 @@ class Conv(Module):
             output = conv(input)
 
             conv_layer_torch = torch.nn.Conv2d(1, 1, 2, dilation=2, bias=False) # doc: omit
-            conv_layer_torch.weight.data = torch.from_numpy(conv.weight.numpy()) # doc: omit
-            expected = conv_layer_torch(torch.from_numpy(input.numpy())) # doc: omit
+            conv_layer_torch.weight.data = torch.from_dlpack(conv.weight) # doc: omit
+            expected = conv_layer_torch(torch.from_dlpack(input)) # doc: omit
 
-            assert torch.allclose(torch.from_numpy(output.numpy()), expected)
+            assert torch.allclose(torch.from_dlpack(output), expected)
         """
 
         super().__init__()

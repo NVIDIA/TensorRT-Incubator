@@ -1,11 +1,12 @@
-import pytest
-from tests import helper
-
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 
+import cupy as cp
+import pytest
 import torch
+
 import tripy as tp
+from tests import helper
 
 DTYPES = [
     (torch.float16, tp.float16),
@@ -103,7 +104,7 @@ class TestConvolution:
 
         # FP32 kernel seems to lose some precision, and FP16 needs to be run in FP32 on torch
         atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected, atol=atol_)
 
     @pytest.mark.parametrize("test_case", test_cases_2d)
     def test_convolution_2d(self, torch_dtype, tp_dtype, test_case):
@@ -149,7 +150,7 @@ class TestConvolution:
         output = conv_layer(input)
 
         atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected, atol=atol_)
 
     @pytest.mark.parametrize("test_case", test_cases_3d)
     def test_convolution_3d(self, torch_dtype, tp_dtype, test_case):
@@ -205,7 +206,7 @@ class TestConvolution:
         output = conv_layer(input)
 
         atol_ = 1e-3 if tp_dtype == tp.float32 else 2e-2  # 3d conv has greater accumulation error
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected, atol=atol_)
 
     def test_uneven_padding(self, torch_dtype, tp_dtype):
         input_torch = torch.randn((2, 4, 5, 5), dtype=torch.float32)
@@ -232,4 +233,4 @@ class TestConvolution:
         output = conv_layer(input)
 
         atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
-        assert torch.allclose(torch.from_numpy(output.numpy()), expected, atol=atol_)
+        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected, atol=atol_)

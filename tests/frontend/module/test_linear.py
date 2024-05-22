@@ -1,4 +1,6 @@
+import cupy as cp
 import pytest
+
 import tripy as tp
 from tests import helper
 
@@ -7,8 +9,8 @@ class TestLinear:
     def test_linear_params(self):
         linear = tp.Linear(20, 30)
         assert isinstance(linear, tp.Linear)
-        assert linear.weight.numpy().shape == (30, 20)
-        assert linear.bias.numpy().shape == (30,)
+        assert cp.from_dlpack(linear.weight).get().shape == (30, 20)
+        assert cp.from_dlpack(linear.bias).get().shape == (30,)
 
     def test_mismatched_input_shapes(self):
         a = tp.ones((2, 3))
@@ -29,11 +31,11 @@ class TestLinear:
         )
         assert isinstance(qlinear, tp.Linear)
         assert qlinear.dtype == tp.float32
-        assert qlinear.weight.numpy().shape == (30, 20)
-        assert qlinear.bias.numpy().shape == (30,)
         assert qlinear.quant_dtype == quant_dtype
-        assert not qlinear.weight_scale
-        assert not qlinear.input_scale
+        assert cp.from_dlpack(qlinear.weight).get().shape == (30, 20)
+        assert qlinear.weight_scale is None
+        assert qlinear.input_scale is None
+        assert cp.from_dlpack(qlinear.bias).get().shape == (30,)
         assert qlinear.weight_quant_dim == weight_quant_dim
 
     def test_load_quantized_params_from_state_dict(self):

@@ -72,8 +72,8 @@ documentation is generated. Specifically:
 
 - Any code examples are executed so that their output can be
     displayed after the code block. Several modules, including `tripy` (as `tp`),
-    `numpy` (as `np`) and `torch` are automatically imported and can be used in
-    code examples.
+    `numpy` (as `np`), `cupy` (as `cp`), and `torch` are automatically imported
+    and can be used in code examples.
 
 - The values of any `tripy` type local variables are appended to the output.
     You can customize this behavior:

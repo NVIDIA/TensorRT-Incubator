@@ -56,7 +56,7 @@ class jit:
 
             output = add(a, b)
 
-            assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
+            assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
 
         .. code-block:: python
             :linenos:
@@ -72,7 +72,7 @@ class jit:
             jit_add = tp.jit(add)
             output = jit_add(a, b)
 
-            assert np.array_equal(output.numpy(), np.array([2.0, 2.0]))
+            assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
         """
         self.cache: Dict[str, List[CachedExecutable]] = defaultdict(list)
         self.const_argnums = const_argnums

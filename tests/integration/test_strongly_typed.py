@@ -1,3 +1,4 @@
+import cupy as cp
 import numpy as np
 
 import tripy as tp
@@ -14,4 +15,4 @@ class TestStronglyTyped:
         a = a / 5.0
         a = tp.cast(a, tp.float16)
 
-        assert a.numpy() == np.array([14000], dtype=np.float16)
+        assert cp.from_dlpack(a).get() == np.array([14000], dtype=np.float16)
