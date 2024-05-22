@@ -34,13 +34,9 @@ def log_time(func):
     """
 
     def wrapper(*args, **kwargs):
-        # Get textual representation of args/kwargs.
-        args_repr = [repr(a) for a in args]
-        kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
-        signature = ", ".join(args_repr + kwargs_repr)
         start_time = time.time()
         result = func(*args, **kwargs)
-        logger.timing(f"{func.__name__}({signature}) executed in {time.time() - start_time:.4f} seconds")
+        logger.timing(f"{func.__name__} executed in {time.time() - start_time:.4f} seconds")
         return result
 
     return wrapper

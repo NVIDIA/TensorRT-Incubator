@@ -73,6 +73,7 @@ class Tensor(metaclass=TensorMeta):
         dtype: Optional["tripy.dtype"] = None,
         device: Optional["tripy.device"] = None,
         name: Optional[str] = None,
+        stack_info: Optional["StackInfo"] = None,
     ) -> None:
         """
         Creates a tensor.
@@ -83,6 +84,7 @@ class Tensor(metaclass=TensorMeta):
             dtype: The data type of the tensor.
             device: The device on which to allocate the tensor.
             name: The name of the tensor. If provided, this must be a unique string.
+            stack_info: The stack infomation of the tensor.
 
         .. code-block:: python
             :linenos:
@@ -92,9 +94,10 @@ class Tensor(metaclass=TensorMeta):
         """
         from tripy.frontend.trace.tensor import TraceTensor
 
-        self.stack_info = utils.get_stack_info()
+        # not using utils.default() because it always evaluates the `default` argument.
+        self.stack_info = stack_info if stack_info is not None else utils.get_stack_info()
 
-        name = utils.default(name, Tensor.get_unique_name())
+        name = name if name is not None else Tensor.get_unique_name()
         self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None, None)
 
         # Note that most tensors won't have this field - generally only model input tensors.
