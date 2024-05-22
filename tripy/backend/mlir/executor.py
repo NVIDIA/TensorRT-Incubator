@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 import mlir_tensorrt.runtime.api as runtime
 import mlir_tensorrt.compiler.api as compiler

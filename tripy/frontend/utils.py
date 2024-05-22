@@ -3,6 +3,7 @@ import inspect
 from typing import List, Optional, Sequence, Tuple
 
 from tripy import utils
+from tripy.common.array import Array
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.

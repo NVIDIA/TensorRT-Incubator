@@ -5,6 +5,8 @@ import tripy as tp
 from tests import helper
 from tests.conftest import skip_if_older_than_sm89, skip_if_older_than_sm80
 
+import mlir_tensorrt.runtime
+
 
 class TestQuantize:
 
@@ -41,8 +43,22 @@ class TestQuantize:
         input = tp.Tensor(data, dtype=dtype)
         quantized = tp.quantize(input, scale, tp.float8)
         assert quantized.dtype == tp.float8
-        # tp.float8 data is converted to np.float32 in .numpy() API.
-        assert quantized.numpy().dtype == np.float32
+        try:
+            output = quantized.numpy()
+            assert (
+                0
+                and f"As of 5/21/2024 Fp8 output type is not supported. Remove exception below if this line is logged."
+            )
+        except mlir_tensorrt.runtime._mlir_libs._api.MTRTException as e:
+            # tp.float8 data must be converted to np.float32.
+            if (
+                str(e)
+                == "InvalidArgument: InvalidArgument: Scalar type code [f8e4m3fn] conversion to DLPackDataTypeCode is not supported."
+            ):
+                output = tp.cast(quantized, dtype=tp.float32).numpy()
+                assert output.dtype == np.float32
+            else:
+                assert 0 and f"Unsupported output type {dtype}"
 
     @pytest.mark.parametrize("scale", [[0.2, 0.1], [0.5, 0.5]])
     @pytest.mark.parametrize(
@@ -54,8 +70,22 @@ class TestQuantize:
         input = tp.Tensor(data, dtype=dtype)
         quantized = tp.quantize(input, scale, tp.float8, dim=0)
         assert quantized.dtype == tp.float8
-        # tp.float8 data is converted to np.float32 in .numpy() API.
-        assert quantized.numpy().dtype == np.float32
+        try:
+            output = quantized.numpy()
+            assert (
+                0
+                and f"As of 5/21/2024 Fp8 output type is not supported. Remove exception below if this line is logged."
+            )
+        except mlir_tensorrt.runtime._mlir_libs._api.MTRTException as e:
+            # tp.float8 data must be converted to np.float32.
+            if (
+                str(e)
+                == "InvalidArgument: InvalidArgument: Scalar type code [f8e4m3fn] conversion to DLPackDataTypeCode is not supported."
+            ):
+                output = tp.cast(quantized, dtype=tp.float32).numpy()
+                assert output.dtype == np.float32
+            else:
+                assert 0 and f"Unsupported output type {dtype}"
 
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
@@ -77,8 +107,22 @@ class TestQuantize:
 
         data = tp.ones((4, 4), dtype=dtype)
         quantized = tp.quantize(data, scale, tp.int4, dim)
-        out = tp.dequantize(quantized, scale, dtype, dim)
-        assert np.array_equal(out.numpy(), data.numpy())
+        dequantized = tp.dequantize(quantized, scale, dtype, dim)
+        try:
+            dq_out = dequantized.numpy()
+        except NotImplementedError as e:
+            if str(e) == "CuPy does not support bfloat16 yet":
+                dq_out = tp.cast(dequantized, dtype=tp.float32).numpy()
+            else:
+                assert 0 and f"Unsupported output type {dtype}"
+        try:
+            data_out = data.numpy()
+        except NotImplementedError as e:
+            if str(e) == "CuPy does not support bfloat16 yet":
+                data_out = tp.cast(data, dtype=tp.float32).numpy()
+            else:
+                assert 0 and f"Unsupported output type {dtype}"
+        assert np.array_equal(dq_out, data_out)
 
     @pytest.mark.parametrize("quant_mode", ["block-wise", "per-tensor"])
     def test_negative_invalid_dim(self, quant_mode):

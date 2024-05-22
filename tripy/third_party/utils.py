@@ -7,7 +7,13 @@ import tripy.common.datatype
 
 @TENSOR_METHOD_REGISTRY("numpy")
 def numpy(self) -> np.ndarray:
-    # TODO(#188): Replace Tensor.data() and np.array(...) with np.from_dlpack(...)
-    data = self.data().data()
-    dtype = np.int32 if get_element_type(data) == tripy.common.datatype.int32 else np.float32
-    return np.array(data, dtype=dtype)
+    import numpy as np
+    import cupy as cp
+
+    self.eval()
+    assert self.device is not None
+
+    try:
+        return cp.from_dlpack(self).get() if self.device == tripy.common.device("gpu") else np.from_dlpack(self)
+    except Exception as e:
+        raise e

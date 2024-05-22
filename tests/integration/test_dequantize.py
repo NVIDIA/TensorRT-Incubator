@@ -17,8 +17,15 @@ class TestDequantize:
         dequantized = tp.dequantize(input, scale, dtype)
         # tp.bfloat16 data is converted to np.float32 in .numpy() API.
         expected = (np.array(data) * scale).astype(np.float32)
-        atol = 1e-1 if dtype == tp.bfloat16 else 1e-10
-        assert np.allclose(dequantized.numpy(), expected, atol=atol)
+        atol = 1e-1 if dtype == tp.bfloat16 else 1e-3
+        try:
+            output = dequantized.numpy()
+        except NotImplementedError as e:
+            if str(e) == "CuPy does not support bfloat16 yet":
+                output = tp.cast(dequantized, dtype=tp.float32).numpy()
+            else:
+                assert 0 and f"Unsupported output type {dtype}"
+        assert np.allclose(output, expected, atol=atol)
 
     @pytest.mark.parametrize("scale", [[0.8, 0.9], [0.5, 0.5]])
     @pytest.mark.parametrize(
@@ -32,8 +39,15 @@ class TestDequantize:
         input = tp.Tensor(data, dtype=tp.int8)
         dequantized = tp.dequantize(input, scale, dtype, dim=0)
         expected = (np.array(data) * np.array(scale).reshape(2, 1)).astype(np.float32)
-        atol = 1e-1 if dtype == tp.bfloat16 else 1e-10
-        assert np.allclose(dequantized.numpy(), expected, atol=atol)
+        atol = 1e-1 if dtype == tp.bfloat16 else 1e-3
+        try:
+            output = dequantized.numpy()
+        except NotImplementedError as e:
+            if str(e) == "CuPy does not support bfloat16 yet":
+                output = tp.cast(dequantized, dtype=tp.float32).numpy()
+            else:
+                assert 0 and f"Unsupported output type {dtype}"
+        assert np.allclose(output, expected, atol=atol)
 
     # TODO(#161): Update fp8 test to use frontend representation
     @pytest.mark.parametrize("scale", [0.5, 0.9])

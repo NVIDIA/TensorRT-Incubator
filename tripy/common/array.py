@@ -61,7 +61,8 @@ class Array:
         assert dtype is None or isinstance(dtype, tripy.common.datatype.dtype), "Invalid data type"
         assert shape is None or all(s >= 0 for s in shape)
 
-        self.device = utils.default(device, tp_device("cpu"))
+        # Allocate on "gpu" by default.
+        self.device = utils.default(device, tp_device("gpu"))
 
         if data is None:
             if dtype is None:
@@ -91,6 +92,9 @@ class Array:
         self.runtime_client = runtime.RuntimeClient()
         self.data_ref = data  # Ensure that data does not go out of scope when we create a view over it.
         self.memref_value = self._memref(data)
+        self.device = (
+            tp_device("gpu") if self.memref_value.address_space == runtime.PointerType.device else tp_device("cpu")
+        )
 
     def data(self) -> List[Union[float, int]]:
         if self.memref_value.address_space == runtime.PointerType.device:

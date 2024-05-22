@@ -120,6 +120,10 @@ class Tensor(metaclass=TensorMeta):
                 assert not any(
                     [shape, dtype, device]
                 ), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+
+            # Data is present now. Assign the underlying device type.
+            self.device = data.device
+
             Storage.build_internal([], [self.trace_tensor], data)
 
     def __getattr__(self, name: str):
@@ -167,6 +171,9 @@ class Tensor(metaclass=TensorMeta):
         data = executor.execute(get_devices(output_tensor_info))
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
+        # Data is present now. Assign the underlying device type.
+        self.device = data.device
+
         Storage.build_internal([], [self.trace_tensor], data)
         return data
 
@@ -175,28 +182,26 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace.ops.cast import cast
         from tripy.frontend.trace.ops.dequantize import dequantize
 
+        arr = self.eval()
         if not is_supported_array_type(self.dtype):
             if self.dtype == tripy.common.datatype.float8:
-                data = dequantize(self, 1.0, tripy.common.datatype.float32).eval()
+                arr = dequantize(Tensor(arr), 1.0, tripy.common.datatype.float32).eval()
             else:
-                data = cast(self, tripy.common.datatype.float32).eval()
-        else:
-            data = self.eval()  # Avoid recomputing everything after we've called `numpy()`
-        assert isinstance(data, Array)
-        return data
+                arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
+        return arr
 
     def __repr__(self) -> str:
+        # The Evaluation required before accessing self.trace_tensor.producer attributes.
         arr = self.data()
-        assert isinstance(arr, Array)
         indentation = ""
         sep = ""
-        if len(arr.shape) > 1 and any(dim > 1 for dim in arr.shape):
+        if len(self.trace_tensor.producer.shape) > 1 and any(dim > 1 for dim in self.trace_tensor.producer.shape):
             indentation = " " * 4
             sep = "\n"
         return (
             f"tensor({sep}"
             f"{indent(str(arr), prefix=indentation)}, {sep}"
-            f"{indent(f'dtype={arr.dtype}, loc={arr.device}, shape={arr.shape}', prefix=indentation)}"
+            f"{indent(f'dtype={self.trace_tensor.producer.dtype}, loc={self.trace_tensor.producer.device}, shape={self.trace_tensor.producer.shape}', prefix=indentation)}"
             f"{sep})"
         )
 

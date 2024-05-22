@@ -151,8 +151,5 @@ class GPT(tp.Module):
     @tp.jit
     def __call__(self, idx, attention_mask: Optional[tp.Tensor] = None):
         x = self.transformer(idx, attention_mask)
-
         logits = self.lm_head(x)  # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, vocab_size)
-        # TODO(#188): Remove cast when dlpack supports all precisions
-        logits = tp.cast(logits, tp.float32)
         return logits
