@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 import array
 
 from tripy import utils
@@ -10,24 +10,91 @@ import mlir_tensorrt.runtime.api as runtime
 import tripy.common.datatype
 
 
-def check_data_consistency(data, shape, dtype):
-    if dtype is not None:
-        data_dtype = convert_frontend_dtype_to_tripy_dtype(data.dtype)
-        if not data_dtype:
-            raise_error(f"Data has unsupported dtype: {data.dtype}")
-        if data_dtype != dtype:
-            raise_error(
-                "Data has incorrect dtype.",
-                details=[f"Input data had type: {data_dtype}, ", f"but provided dtype was: {dtype}"],
-            )
-    if shape is not None and data.shape != shape:
+def check_dtype_consistency(actual_dtype, stated_dtype) -> None:
+    if stated_dtype is None:
+        return
+
+    convert_dtype = convert_frontend_dtype_to_tripy_dtype(actual_dtype)
+    if not convert_dtype:
+        raise_error(f"Data has unsupported dtype: {actual_dtype}")
+    if convert_dtype != stated_dtype:
+        raise_error(
+            "Data has incorrect dtype.",
+            details=[f"Input data had type: {convert_dtype}, ", f"but provided dtype was: {stated_dtype}"],
+        )
+
+
+def check_shape_consistency(actual_shape, stated_shape):
+    if stated_shape is None:
+        return
+
+    # cut off after a 0 dimension because there would be no further elements to compare
+    # so any values would be consistent with each other
+    def equal_up_to_0(actual_shape, stated_shape):
+        for i in range(max(len(actual_shape), len(stated_shape))):
+            # lengths differ but not because we hit a 0
+            if i >= len(actual_shape) or i >= len(stated_shape):
+                return False
+            if actual_shape[i] != stated_shape[i]:
+                return False
+            if actual_shape[i] == 0:
+                break
+        return True
+
+    if not equal_up_to_0(actual_shape, stated_shape):
         raise_error(
             "Data has incorrect shape.",
             details=[
-                f"Input data had shape: {data.shape}, ",
-                f"but provided runtime shape was: {shape}",
+                f"Input data had shape: {actual_shape}, ",
+                f"but provided runtime shape was: {stated_shape}",
             ],
         )
+
+
+def check_data_consistency(actual_shape, actual_dtype, stated_shape, stated_dtype):
+    check_dtype_consistency(actual_dtype, stated_dtype)
+    check_shape_consistency(actual_shape, stated_shape)
+
+
+def check_list_consistency(input_list: Any, computed_shape: List[int]) -> None:
+    def recursive_helper(input_list, dim_idx, *indices):
+        # compute only if we need it
+        def describe_indices():
+            if len(indices) == 0:
+                # this should not happen if we are computing the shape from the list
+                return "the top level"
+            if len(indices) == 1:
+                return f"index {str(indices[0])}"
+            return f"indices [{', '.join(map(str, indices))}]"
+
+        # base case: last dimension iff scalar
+        if not isinstance(input_list, Sequence):
+            return (
+                dim_idx >= len(computed_shape),
+                f"Expected sequence at {describe_indices()}, got {type(input_list).__name__}",
+            )
+        if dim_idx >= len(computed_shape):
+            return (
+                not isinstance(input_list, Sequence),
+                f"Expected scalar at {describe_indices()}, got {type(input_list).__name__}",
+            )
+
+        if len(input_list) != computed_shape[dim_idx]:
+            return (False, f"Length of list at {describe_indices()} does not match at dimension {dim_idx}")
+
+        # we should not encounter anything past the 0 if the shape was computed from the list
+        if computed_shape[dim_idx] == 0:
+            return True, ""
+
+        for i, child in enumerate(input_list):
+            check_result, msg = recursive_helper(child, dim_idx + 1, *indices, i)
+            if not check_result:
+                return (False, msg)
+        return True, ""
+
+    res, msg = recursive_helper(input_list, 0)
+    if not res:
+        raise_error(msg, details=[f"Input list: {input_list}\n", f"Expected shape: {computed_shape}"])
 
 
 # The class abstracts away implementation differences between Torch, Jax, Cupy, NumPy, and List.
@@ -76,14 +143,16 @@ class Array:
                     element_type = get_element_type(data)
                 else:
                     element_type = convert_frontend_dtype_to_tripy_dtype(dtype)
+                computed_shape = tuple(utils.get_shape(data))
+                check_list_consistency(data, computed_shape)
+                check_shape_consistency(computed_shape, shape)
                 self.dtype = element_type
                 if shape is None:
-                    # Consider if a list is a nested list
-                    self.shape = tuple(utils.get_shape(data))
+                    self.shape = computed_shape
                 else:
                     self.shape = shape
             else:
-                check_data_consistency(data, shape, dtype)
+                check_data_consistency(data.shape, data.dtype, shape, dtype)
                 self.dtype = convert_frontend_dtype_to_tripy_dtype(data.dtype)
                 self.shape = data.shape
 

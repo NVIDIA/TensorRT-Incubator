@@ -73,6 +73,24 @@ class TestArray:
         assert arr.shape == (2, 2)
         assert arr.dtype == dtype
 
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64])
+    def test_empty_dimension(self, dtype):
+        arr = Array([[], [], []], dtype=dtype, shape=(3, 0), device=tp.device("cpu"))
+        assert isinstance(arr, Array)
+        assert arr.shape == (
+            3,
+            0,
+        )
+        assert arr.dtype == dtype
+
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64])
+    def test_later_empty_dimensions(self, dtype):
+        # consistent to call it (3, 0, ...) because it can't be checked further
+        arr = Array([[], [], []], dtype=dtype, shape=(3, 0, 1, 2), device=tp.device("cpu"))
+        assert isinstance(arr, Array)
+        assert arr.shape == (3, 0, 1, 2)
+        assert arr.dtype == dtype
+
     def test_missing_data_shape(self):
         with pytest.raises(tp.TripyException, match="Shape must be provided when data is None.") as exc:
             _ = Array(None, tp.float32, None, tp.device("cpu"))
@@ -91,6 +109,26 @@ class TestArray:
     def test_incorrect_shape(self):
         with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
             _ = Array(np.ones((2,), dtype=np.int32), None, (3,), tp.device("cpu"))
+        print(str(exc.value))
+
+    def test_incorrect_shape_list(self):
+        with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
+            _ = Array((1, 2, 3), None, (5,), tp.device("cpu"))
+        print(str(exc.value))
+
+    def test_incorrect_shape_nested_list(self):
+        with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
+            _ = Array([[1, 2, 3], [4, 5, 6]], None, (1, 2, 3), tp.device("cpu"))
+        print(str(exc.value))
+
+    def test_inconsistent_jagged_list(self):
+        with pytest.raises(tp.TripyException, match="Length of list at index 1 does not match at dimension 1") as exc:
+            _ = Array([[1, 2, 3], [4, 5]], None, (2, 3), tp.device("cpu"))
+        print(str(exc.value))
+
+    def test_inconsistent_scalar_value(self):
+        with pytest.raises(tp.TripyException, match="Expected sequence at index 1, got int") as exc:
+            _ = Array([[1, 2, 3], 0], None, (2, 3), tp.device("cpu"))
         print(str(exc.value))
 
     def test_unsupported_list_element(self):

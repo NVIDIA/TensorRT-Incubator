@@ -189,8 +189,10 @@ def get_shape(data):
     if isinstance(data, (int, float)):
         # Return empty list for a scalar.
         return []
-    while isinstance(data, (list, tuple)) and len(data) > 0:
+    while isinstance(data, (list, tuple)):
         shape.append(len(data))
+        if len(data) == 0:
+            break
         data = data[0]
     return shape
 
