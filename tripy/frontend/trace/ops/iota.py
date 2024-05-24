@@ -25,7 +25,7 @@ class Iota(BaseTraceOp):
             raise_error(
                 "Invalid iota dim.",
                 details=[
-                    "iota dim must be satisfy 0 <= dim < rank(shape), got dim=",
+                    "iota dim must satisfy 0 <= dim < rank(shape), got dim=",
                     self.dim,
                     ", while rank of shape is ",
                     len(self.shape),
