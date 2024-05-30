@@ -13,7 +13,16 @@ from typing import Dict, List, Set
 import tripy as tp
 from tests import helper
 from tripy.export import PUBLIC_APIS
-import copy
+
+
+@dataclass
+class Order:
+    """
+    Describes how markdown guides should be ordered in the index.
+    """
+
+    is_before_api_ref: bool
+    index: int
 
 
 @dataclass
@@ -24,6 +33,7 @@ class GuideSet:
 
     title: str
     guides: List[str]
+    order: Order
 
 
 def to_snake_case(string):
@@ -95,7 +105,35 @@ def build_root_index_file(constituents, guide_sets):
                 f"""
                 .. include:: {os.path.join(os.path.pardir, os.path.pardir, "README.md")}
                     :parser: myst_parser.sphinx_
+                """
+            )
+        ).strip()
+        + "\n\n"
+    )
 
+    sorted_guide_sets = list(sorted(guide_sets, key=lambda guide_set: guide_set.order.index))
+
+    def add_guide_set(guide_set):
+        nonlocal contents
+        contents += (
+            dedent(
+                f"""
+                .. toctree::
+                    :caption: {guide_set.title}
+                    :maxdepth: 1
+                """
+            )
+            + indent("\n" + "\n".join(guide_set.guides), prefix=" " * 4)
+            + "\n\n"
+        )
+
+    for guide_set in filter(lambda guide_set: guide_set.order.is_before_api_ref, sorted_guide_sets):
+        add_guide_set(guide_set)
+
+    contents += (
+        (
+            dedent(
+                f"""
                 .. toctree::
                     :caption: API Reference
                     :maxdepth: 1
@@ -105,18 +143,8 @@ def build_root_index_file(constituents, guide_sets):
         + process_index_constituents(constituents)
         + "\n\n"
     )
-    for guide_set in guide_sets:
-        contents += (
-            # We want to include the top-level README in our main index file.
-            dedent(
-                f"""
-                .. toctree::
-                    :caption: {guide_set.title}
-                    :maxdepth: 1
-                """
-            )
-            + indent("\n" + "\n".join(guide_set.guides), prefix=" " * 4)
-        )
+    for guide_set in filter(lambda guide_set: not guide_set.order.is_before_api_ref, sorted_guide_sets):
+        add_guide_set(guide_set)
     return contents
 
 
@@ -256,7 +284,15 @@ def main():
     processed_markdown_dirname = "processed_mds"
     processed_markdown_dir = make_output_path(processed_markdown_dirname)
     for dir_path in sorted(guide_dirs):
-        title = to_title(dir_path)
+        # Extract order information from directory name.
+        order, _, title = dir_path.partition("_")
+        assert order.startswith("pre") or order.startswith(
+            "post"
+        ), f"Guide directories must start with a pre<N>/post<N> prefix, but got: {dir_path}"
+        is_before_api_ref = "pre" in order
+        index = int(order.replace("pre", "").replace("post", ""))
+
+        title = to_title(title)
         guides = []
         for guide in sorted(glob.iglob(os.path.join("docs", dir_path, "*.md"))):
             # Copy guide to build directory
@@ -273,7 +309,7 @@ def main():
                 )
             guides.append(f"{dir_path}/{os.path.splitext(guide_filename)[0]}")
 
-        guide_sets.append(GuideSet(title, guides))
+        guide_sets.append(GuideSet(title, guides, Order(is_before_api_ref, index)))
 
     for path, constituents in doc_hierarcy.items():
         is_root = path == ""

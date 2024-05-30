@@ -40,9 +40,28 @@ For all public facing docstrings, we have several requirements:
 
 ### Guides
 
-In addition to the API reference, we also include various guides
-in subdirectories of [docs](/docs). The markdown files there are included in `.rst`
-files and parsed by the Myst parser. This means we need to make some special considerations:
+In addition to the API reference, we also include various guides in subdirectories
+of [docs](/docs).
+
+Each such subdirectory must start with a `pre<N>_` or `post<N>_` prefix, which indicates
+the ordering of each set of guides in the index/side bar. Specifically, `pre` indicates
+that the guides in that directory should precede the API reference documentation, while
+`post` indicates that they should follow it. The number indicates the relative ordering
+with respect to other sets of guides. For example, if we have the following directories:
+
+- `pre0_user_guides`
+- `pre1_examples`
+- `post0_developer_guides`
+
+then the documentation will have the following ordering:
+
+- User Guides
+- Examples
+- API Reference
+- Developer Guides
+
+The markdown files there are included in `.rst` files and parsed by the Myst parser.
+This means we need to make some special considerations:
 
 1. We cannot use the `[[TOC]]` directive to automatically generate tables of contents.
     Instead, use:

@@ -364,7 +364,7 @@ class ReadmeCodeBlock:
         return AVAILABLE_MARKERS[name] in self.markers
 
     def __str__(self):
-        return dedent(self.content)
+        return self.content
 
     def __bool__(self):
         return bool(self.content)
