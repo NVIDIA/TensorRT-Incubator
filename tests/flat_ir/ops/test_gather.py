@@ -19,4 +19,6 @@ class TestGatherOp:
 
         print(str(reshape))
         assert isinstance(gather, GatherOp)
-        assert str(gather) == "out: [shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(data, indices, axis=0)"
+        assert (
+            str(gather) == "out: [rank=(1), shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(data, indices, axis=0)"
+        )

@@ -94,7 +94,7 @@ class Split(BaseTraceOp):
         zero_1d = op_utils.add_constant_tensor_from_list([0], device)
         one_1d = op_utils.add_constant_tensor_from_list([1], device)
 
-        for i in range(len(input_tensor.shape)):
+        for i in range(input_tensor.rank):
             shape_slice = op_utils.slice_rank1_tensor(
                 input_shape,
                 i,
@@ -134,7 +134,11 @@ class Split(BaseTraceOp):
 
         if isinstance(self.indices_or_sections, int):
             section_size_tensor = FlatIRTensor.build(
-                shape=utils.to_dims([1]), dtype=int32, device=device, reason_details=["Compute size of equal slices"]
+                shape=utils.to_dims([1]),
+                rank=1,
+                dtype=int32,
+                device=device,
+                reason_details=["Compute size of equal slices"],
             )
             DivideOp.build(
                 [axis_dim, op_utils.add_constant_tensor_from_list([self.indices_or_sections], device=device)],
@@ -144,6 +148,7 @@ class Split(BaseTraceOp):
                 # i*section_size
                 section_i_start_tensor = FlatIRTensor.build(
                     shape=utils.to_dims([1]),
+                    rank=1,
                     dtype=int32,
                     device=device,
                     reason_details=[f"Compute start index of split {i}"],
@@ -156,6 +161,7 @@ class Split(BaseTraceOp):
                 # (i+1)*section_size
                 section_i_end_tensor = FlatIRTensor.build(
                     shape=utils.to_dims([1]),
+                    rank=1,
                     dtype=int32,
                     device=device,
                     reason_details=[f"Compute end index of split {i}"],

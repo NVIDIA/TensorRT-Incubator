@@ -82,7 +82,7 @@ def get_mlir_quant_dtype(
     )
 
 
-def make_mlir_tensor(shape: ShapeInfo, dtype: "tripy.common.dtype") -> ir.RankedTensorType:
+def make_mlir_tensor(shape, dtype: "tripy.common.dtype") -> ir.RankedTensorType:
     return ir.RankedTensorType.get(
         [ir.ShapedType.get_dynamic_size() if s.is_dynamic_dim() else s.min for s in utils.make_list(shape)],
         get_mlir_dtype(dtype),

@@ -123,6 +123,7 @@ class MatrixMultiplication(BaseTraceOp):
             slice_len = op_utils.add_constant_tensor_from_list([nb_batch_dims], input.device)
             batch_slice = FlatIRTensor.build(
                 shape=utils.to_dims([nb_batch_dims]),
+                rank=1,
                 dtype=int32,
                 device=input.device,
                 reason_details=["slice the input shape ", input_shape, " to get batch dims."],
@@ -132,6 +133,7 @@ class MatrixMultiplication(BaseTraceOp):
             end_len = op_utils.add_constant_tensor_from_list([len(input.shape)], input.device)
             mat_slice = FlatIRTensor.build(
                 shape=utils.to_dims([len(input.shape) - nb_batch_dims]),
+                rank=1,
                 dtype=int32,
                 device=input.device,
                 reason_details=["slice the input shape ", input_shape, " into mat dims."],
@@ -143,6 +145,7 @@ class MatrixMultiplication(BaseTraceOp):
             extra_a_ones = op_utils.add_constant_tensor_from_list([1] * nb_ones, input.device)
             input_expanded = FlatIRTensor.build(
                 shape=utils.to_dims(-1),
+                rank=1,
                 dtype=int32,
                 device=input.device,
                 reason_details=[f"append {nb_ones} ones to the shape tensor ", input],
@@ -165,6 +168,7 @@ class MatrixMultiplication(BaseTraceOp):
         # Use Max of batch dims to get the output batch dims.
         max_of_batch_shapes = FlatIRTensor.build(
             shape=utils.to_dims([nb_result_batch_dims]),
+            rank=1,
             dtype=int32,
             device=inputs[0].device,
             reason_details=[
@@ -186,14 +190,16 @@ class MatrixMultiplication(BaseTraceOp):
         # Use the computed output dims from #4 to broadcast both the inputs.
         inputs[0] = op_utils.insert_broadcast(
             inputs[0],
-            utils.to_dims([-1] * (nb_result_batch_dims + a_rank - nb_a_batch_dims)),
+            out_shape=utils.to_dims([-1] * (nb_result_batch_dims + a_rank - nb_a_batch_dims)),
+            out_rank=nb_result_batch_dims + a_rank - nb_a_batch_dims,
             use_dynamic_variant=True,
             shape_of_target_tensor=a_dims,
             tensor_details=["left operand of DotOp"],
         )
         inputs[1] = op_utils.insert_broadcast(
             inputs[1],
-            utils.to_dims([-1] * (nb_result_batch_dims + b_rank - nb_b_batch_dims)),
+            out_shape=utils.to_dims([-1] * (nb_result_batch_dims + b_rank - nb_b_batch_dims)),
+            out_rank=nb_result_batch_dims + b_rank - nb_b_batch_dims,
             use_dynamic_variant=True,
             shape_of_target_tensor=b_dims,
             tensor_details=["right operand of DotOp"],

@@ -48,7 +48,7 @@ class TestFlipOp:
         flip_op = flat_ir.ops[-1]
         assert isinstance(flip_op, FlipOp)
         target = (
-            f"out: [shape=({', '.join(map(str, shape))},), dtype=(float32), loc=(gpu:0)]"
+            f"out: [rank=({len(shape)}), shape=({', '.join(map(str, shape))},), dtype=(float32), loc=(gpu:0)]"
             + f" = FlipOp(a, dims=[{', '.join(map(str, expected_dims))}])"
         )
         assert str(flip_op) == target

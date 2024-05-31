@@ -17,4 +17,6 @@ class TestConcatOp:
 
         concat = flat_ir.ops[-1]
         assert isinstance(concat, ConcatenateOp)
-        assert str(concat) == "out: [shape=(5, 3,), dtype=(float32), loc=(gpu:0)] = ConcatenateOp(a, b, dim=0)"
+        assert (
+            str(concat) == "out: [rank=(2), shape=(5, 3,), dtype=(float32), loc=(gpu:0)] = ConcatenateOp(a, b, dim=0)"
+        )

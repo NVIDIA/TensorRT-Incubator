@@ -19,7 +19,10 @@ class TestDequantizeOp:
 
         dequant_op = flat_ir.ops[-1]
         assert isinstance(dequant_op, DequantizeOp)
-        assert str(dequant_op) == f"out: [shape=(2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=None)"
+        assert (
+            str(dequant_op)
+            == f"out: [rank=(1), shape=(2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=None)"
+        )
 
     @pytest.mark.parametrize("dtype", [tp.float16, tp.float32])
     def test_per_channel_str(self, dtype):
@@ -33,4 +36,7 @@ class TestDequantizeOp:
 
         dequant_op = flat_ir.ops[-1]
         assert isinstance(dequant_op, DequantizeOp)
-        assert str(dequant_op) == f"out: [shape=(2, 2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=0)"
+        assert (
+            str(dequant_op)
+            == f"out: [rank=(2), shape=(2, 2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=0)"
+        )

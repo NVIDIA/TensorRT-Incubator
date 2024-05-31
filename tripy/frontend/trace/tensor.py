@@ -19,6 +19,8 @@ class TraceTensor:
     device: "tripy.common.device"
     producer: "BaseTraceOp"
     rank: int
+    # Note that this field will only be set in case TraceTensor is generated for input tensors
+    dynamic_shapes_profile: ShapeInfo
 
     def __str__(self) -> str:
         def str_from_dim(dim: dynamic_dim):
@@ -43,6 +45,12 @@ class TraceTensor:
         from tripy.flat_ir.tensor import FlatIRTensor
 
         tensor = FlatIRTensor(
-            name=self.name, stack_info=self.stack_info, shape=self.shape, dtype=self.dtype, device=self.device
+            name=self.name,
+            stack_info=self.stack_info,
+            shape=self.shape,
+            dtype=self.dtype,
+            device=self.device,
+            rank=self.rank,
+            profile=self.dynamic_shapes_profile,
         )
         return tensor

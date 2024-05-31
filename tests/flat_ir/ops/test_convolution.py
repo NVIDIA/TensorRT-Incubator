@@ -65,7 +65,7 @@ class TestConvolutionOp:
         spatial_shape = flat_ir[1]
         assert (
             str(Conv)
-            == f"output: [shape=(2, 16, {spatial_shape}, {spatial_shape},), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, kernel, padding={padding}, stride={stride}, feature_group_count={groups}, lhs_dilation=None, rhs_dilation={rhs_dilation})"
+            == f"output: [rank=(4), shape=(2, 16, {spatial_shape}, {spatial_shape},), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, kernel, padding={padding}, stride={stride}, feature_group_count={groups}, lhs_dilation=None, rhs_dilation={rhs_dilation})"
         )
 
     def test_mlir(self, flat_ir, padding, stride, groups, rhs_dilation):

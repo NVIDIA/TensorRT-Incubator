@@ -14,4 +14,4 @@ class TestGetBroadcastInDim:
         ],
     )
     def test_static_broadcast_in_dim(self, input_shape, output_shape, expected_dim):
-        assert get_broadcast_in_dim(input_shape, output_shape) == expected_dim
+        assert get_broadcast_in_dim(len(input_shape), len(output_shape)) == expected_dim

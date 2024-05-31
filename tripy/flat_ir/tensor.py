@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 from tripy import utils
 from tripy.common.types import ShapeInfo
+from tripy.frontend.dim import dynamic_dim
 
 _BUILD_CONTEXT: List[Any] = None
 
@@ -17,11 +18,13 @@ class FlatIRTensor:
 
     name: str
     stack_info: utils.StackInfo
-    shape: ShapeInfo
     dtype: "tripy.common.dtype"
     device: "tripy.common.device"
+    rank: int
+    profile: ShapeInfo
     producer: "BaseFlatIROp" = None
     reason_details: Optional[List[Any]] = None
+    shape: ShapeInfo = None
     """
     Describes why this tensor was created.
     This is required for any intermediate tensors created by Tripy,
@@ -45,14 +48,12 @@ class FlatIRTensor:
     def to_mlir(self):
         from tripy.backend.mlir import utils as mlir_utils
 
-        return mlir_utils.make_mlir_tensor(self.shape, self.dtype)
+        shape = utils.to_dims([dynamic_dim(-1) for i in range(self.rank)]) if self.shape is None else self.shape
+        return mlir_utils.make_mlir_tensor(shape, self.dtype)
 
     @staticmethod
     def build(
-        shape: ShapeInfo,
-        dtype: "tripy.common.dtype",
-        device: "tripy.common.device",
-        reason_details: List[Any],
+        dtype: "tripy.common.dtype", device: "tripy.common.device", rank: int, reason_details: List[Any], shape=None
     ) -> "FlatIRTensor":
         return FlatIRTensor(
             name=None,
@@ -62,7 +63,9 @@ class FlatIRTensor:
             shape=shape,
             dtype=dtype,
             device=device,
+            rank=rank,
             producer=None,
+            profile=None,
             reason_details=reason_details,
             reason_context=copy.copy(_BUILD_CONTEXT),
         )
@@ -73,7 +76,9 @@ class FlatIRTensor:
 
         shape = f"{' '.join(map(str_from_dim, self.shape))}"
         return (
-            f"{self.name}: [shape=({shape}), "
+            f"{self.name}: [rank=({self.rank}), "
+            + (f"profile=({' '.join(map(str_from_dim, self.profile))}), " if self.profile is not None else "")
+            + (f"shape=({' '.join(map(str_from_dim, self.shape))}), " if self.shape is not None else "")
             + (f"dtype=({self.dtype.name}), " if self.dtype is not None else "")
             + f"loc=({self.device})]"
         )

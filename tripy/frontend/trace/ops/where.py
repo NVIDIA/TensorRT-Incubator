@@ -65,7 +65,7 @@ class Where(BaseTraceOp):
 
         # Unconditionally insert broadcast for all operands
         assert len(inputs) == 3, f"Where op expects 3 inputs but got {len(inputs)}."
-        cond_rank, a_rank, b_rank = (len(input.shape) for input in inputs)
+        cond_rank, a_rank, b_rank = (input.rank for input in inputs)
 
         # Make rank of cond, a and b the same.
         output_rank = max(a_rank, b_rank, cond_rank)
@@ -76,6 +76,7 @@ class Where(BaseTraceOp):
         # Compute element-wise max of input shapes to get the desired output shape.
         max_of_cond_and_a_shape = FlatIRTensor.build(
             shape=inputs[0].shape,
+            rank=max(cond_rank, a_rank),
             dtype=int32,
             device=inputs[0].device,
             reason_details=[
@@ -93,6 +94,7 @@ class Where(BaseTraceOp):
 
         max_of_a_and_b_shape = FlatIRTensor.build(
             shape=inputs[0].shape,
+            rank=max(a_rank, b_rank),
             dtype=int32,
             device=inputs[0].device,
             reason_details=[
@@ -109,6 +111,7 @@ class Where(BaseTraceOp):
 
         computed_output_shape = FlatIRTensor.build(
             shape=inputs[0].shape,
+            rank=output_rank,
             dtype=int32,
             device=inputs[0].device,
             reason_details=[
@@ -126,6 +129,7 @@ class Where(BaseTraceOp):
         inputs[0] = op_utils.insert_broadcast(
             inputs[0],
             outputs[0].shape,
+            outputs[0].rank,
             use_dynamic_variant=True,
             shape_of_target_tensor=computed_output_shape,
             tensor_details=f"first input of 'where' ('condition')",
@@ -133,6 +137,7 @@ class Where(BaseTraceOp):
         inputs[1] = op_utils.insert_broadcast(
             inputs[1],
             outputs[0].shape,
+            outputs[0].rank,
             use_dynamic_variant=True,
             shape_of_target_tensor=computed_output_shape,
             tensor_details="second input of 'where' ('input')",
@@ -140,6 +145,7 @@ class Where(BaseTraceOp):
         inputs[2] = op_utils.insert_broadcast(
             inputs[2],
             outputs[0].shape,
+            outputs[0].rank,
             use_dynamic_variant=True,
             shape_of_target_tensor=computed_output_shape,
             tensor_details="third input of 'where' ('other')",

@@ -41,6 +41,7 @@ class Fill(BaseTraceOp):
 
         const_val_tensor = FlatIRTensor.build(
             shape=[],
+            rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,
             reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
@@ -59,6 +60,7 @@ class Fill(BaseTraceOp):
                 [s.runtime_value for s in self.shape], device=outputs[0].device
             )
 
+        assert output_shape.rank == 1
         DynamicBroadcastOp.build(
             [const_val_tensor, output_shape],
             outputs,

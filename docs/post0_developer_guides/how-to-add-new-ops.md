@@ -336,7 +336,7 @@ class TestThetaOp:
         assert isinstance(Theta, ThetaOp)
         assert (
             str(Theta)
-            == "out: [shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = ThetaOp(dim=0)"
+            == "out: [rank=(2), shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = ThetaOp(dim=0)"
         )
 
 

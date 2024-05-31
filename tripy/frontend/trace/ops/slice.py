@@ -44,7 +44,7 @@ class Slice(BaseTraceOp):
 
         data_tensor = inputs[0]
         slice_params = inputs[1:]
-        input_rank = len(data_tensor.shape)
+        input_rank = data_tensor.rank
         input_shape = op_utils.get_shape_of_tensor(data_tensor)
 
         start_idxs = []
@@ -67,6 +67,7 @@ class Slice(BaseTraceOp):
                 def expand_to_rank1(index_tensor):
                     reshape_out = FlatIRTensor.build(
                         shape=utils.to_dims([1]),
+                        rank=1,
                         dtype=int32,
                         device=device,
                         reason_details=["reshape index tensor into singleton in case it is () instead of (1,)"],
@@ -79,6 +80,7 @@ class Slice(BaseTraceOp):
                 def clamp(index_tensor):
                     min_out = FlatIRTensor.build(
                         shape=utils.to_dims([1]),
+                        rank=1,
                         dtype=int32,
                         device=device,
                         reason_details=["clamping the slice upper bound to the shape dim"],

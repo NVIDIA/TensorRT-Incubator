@@ -47,9 +47,9 @@ class TestReduce:
         "func, expected_rank",
         [
             (lambda t: tp.sum(t, 0), 1),
-            (lambda t: tp.sum(t), 2),
+            (lambda t: tp.sum(t), 0),
             (lambda t: tp.mean(t, 0), 1),
-            (lambda t: tp.mean(t), 2),
+            (lambda t: tp.mean(t), 0),
         ],
     )
     def test_infer_rank(self, func, expected_rank):

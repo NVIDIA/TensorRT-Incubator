@@ -102,10 +102,11 @@ class Tensor(metaclass=TensorMeta):
         )
 
         name = name if name is not None else Tensor.get_unique_name()
-        self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None, None)
 
         # Note that most tensors won't have this field - generally only model input tensors.
         self._dynamic_shape = utils.to_dims(shape)
+
+        self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None, None, self._dynamic_shape)
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
@@ -132,6 +133,9 @@ class Tensor(metaclass=TensorMeta):
             self.device = data.device
 
             Storage.build_internal([], [self.trace_tensor], data)
+
+            # Assign shapes to Trace tensor in case data shape is known by Array.
+            self.trace_tensor.shape = utils.to_dims(data.shape)
 
     def __getattr__(self, name: str):
         import tripy as tp

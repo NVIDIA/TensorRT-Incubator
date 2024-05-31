@@ -20,10 +20,10 @@ class TestMinOp:
         assert isinstance(min_op, MinOp)
         assert (
             str(broadcast_a)
-            == "t_inter3: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(a, t_inter4, broadcast_dim=[0])"
+            == "t_inter3: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(a, t_inter4, broadcast_dim=[0])"
         )
         assert (
             str(broadcast_b)
-            == "t_inter7: [shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(b, t_inter4, broadcast_dim=[0])"
+            == "t_inter7: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(b, t_inter4, broadcast_dim=[0])"
         )
-        assert str(min_op) == "out: [shape=(2,), dtype=(float32), loc=(gpu:0)] = MinOp(t_inter3, t_inter7)"
+        assert str(min_op) == "out: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = MinOp(t_inter3, t_inter7)"

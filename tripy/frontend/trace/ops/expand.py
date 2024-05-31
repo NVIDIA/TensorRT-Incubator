@@ -44,7 +44,7 @@ class Expand(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import BroadcastOp
 
-        broadcast_dim = op_utils.get_broadcast_in_dim(inputs[0].shape, outputs[0].shape)
+        broadcast_dim = op_utils.get_broadcast_in_dim(inputs[0].rank, outputs[0].rank)
         BroadcastOp.build(inputs, outputs, broadcast_dim=broadcast_dim)
 
 

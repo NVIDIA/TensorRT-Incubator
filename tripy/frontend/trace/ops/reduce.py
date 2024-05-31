@@ -40,9 +40,11 @@ class Reduce(BaseTraceOp):
 
     def infer_rank(self):
         if self.dim is None:
-            self.outputs[0].rank = self.inputs[0].rank
+            self.dim = list(range(self.inputs[0].rank))
+            self.outputs[0].rank = 0
         else:
             self.dim = make_list(self.dim)
+            self.dim = [idx if idx >= 0 else idx + self.inputs[0].rank for idx in self.dim]
             self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
 
     def to_flat_ir(self, inputs, outputs):
@@ -56,6 +58,7 @@ class Reduce(BaseTraceOp):
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(
             shape=[],
+            rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,
             reason_details=[
@@ -98,12 +101,14 @@ class ArgMinMax(Reduce):
 
         init_val_const = FlatIRTensor.build(
             shape=[],
+            rank=0,
             dtype=inputs[0].dtype,
             device=outputs[0].device,
             reason_details=[f"create the constant value tensor for the initial value of a '{self.kind}' operation"],
         )
         init_idx_const = FlatIRTensor.build(
             shape=[],
+            rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,
             reason_details=[
@@ -246,7 +251,7 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
             nb_elements_in_mean_dim = input_shape[d] * nb_elements_in_mean_dim
         divisor = nb_elements_in_mean_dim
     else:
-        divisor = nb_elements
+        divisor = nb_elements[0]
 
     if apply_to_divisor:
         divisor = apply_to_divisor(divisor)

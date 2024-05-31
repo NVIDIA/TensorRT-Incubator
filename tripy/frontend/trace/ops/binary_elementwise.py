@@ -55,7 +55,7 @@ class BinaryElementwise(BaseTraceOp):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import MaxOp
 
-        rank = max(len(inputs[0].shape), len(inputs[1].shape))
+        rank = max(inputs[0].rank, inputs[1].rank)
         with FlatIRTensor.context([f"expand the inputs of '{self.kind.strip()}' to have the same rank"]):
             inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], rank - len(inputs[0].shape))
             inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], rank - len(inputs[1].shape))
@@ -67,6 +67,7 @@ class BinaryElementwise(BaseTraceOp):
             # Compute element-wise max of input shapes to get the desired output shape.
             max_output_shape_tensor = FlatIRTensor.build(
                 shape=inputs[0].shape,
+                rank=rank,
                 dtype=int32,
                 device=inputs[0].device,
                 reason_details=[
@@ -80,7 +81,8 @@ class BinaryElementwise(BaseTraceOp):
 
             inputs[0] = op_utils.insert_broadcast(
                 inputs[0],
-                outputs[0].shape,
+                out_shape=outputs[0].shape,
+                out_rank=rank,
                 use_dynamic_variant=True,
                 shape_of_target_tensor=max_output_shape_tensor,
                 tensor_details=f"left operand",
@@ -88,7 +90,8 @@ class BinaryElementwise(BaseTraceOp):
 
             inputs[1] = op_utils.insert_broadcast(
                 inputs[1],
-                outputs[0].shape,
+                out_shape=outputs[0].shape,
+                out_rank=rank,
                 use_dynamic_variant=True,
                 shape_of_target_tensor=max_output_shape_tensor,
                 tensor_details=f"right operand",
