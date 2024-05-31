@@ -1,9 +1,10 @@
 import functools
 import inspect
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 
 from tripy import utils
-from tripy.common.array import Array
+from tripy.frontend.trace.ops import BaseTraceOp
+from tripy.flat_ir.ops import BaseFlatIROp
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
@@ -205,3 +206,29 @@ def convert_inputs_to_tensors(
         return wrapper
 
     return impl
+
+
+def topological_sort(ops: List[Union[BaseTraceOp, BaseFlatIROp]]) -> List[Union[BaseTraceOp, BaseFlatIROp]]:
+    """
+    This utility to topologically sort a graph that can be a Trace or a FlatIR graph.
+    """
+    stack = list()
+    visited_layer_ids = set()
+    id_ops = [id(op) for op in ops]
+
+    def add_to_stack(op, stack):
+        visited_layer_ids.add(id(op))
+        for ip in op.inputs:
+            if ip.producer is not None and id(ip.producer) not in visited_layer_ids and id(ip.producer) in id_ops:
+                add_to_stack(ip.producer, stack)
+
+        stack.append(op)
+
+    for op in ops:
+        if id(op) not in visited_layer_ids:
+            add_to_stack(op, stack)
+
+    assert len(ops) == len(
+        stack
+    ), f"Num original ops {len(ops)}, got num {len(stack)}, {len(set([id(op) for op in ops]))}"
+    return stack

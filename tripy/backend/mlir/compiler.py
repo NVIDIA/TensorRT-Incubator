@@ -130,7 +130,7 @@ class Compiler:
     # The optional flat_ir parameter is used to generate nicer error messages.
     @utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
-        logger.mlir(lambda: f"{utils.prefix_with_line_numbers(remove_constants(str(mlir_module)))}\n")
+        logger.mlir(lambda: f"{remove_constants(str(mlir_module))}\n")
         opts = self._make_mlir_opts(self.trt_builder_opt_level)
 
         try:

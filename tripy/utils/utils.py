@@ -42,15 +42,6 @@ def log_time(func):
     return wrapper
 
 
-def prefix_with_line_numbers(text: str) -> str:
-    """
-    Adds prefix line number to text.
-    """
-    lines = text.strip().split("\n")
-    numbered_lines = [f"{i+1:>3} | {line}" for i, line in enumerate(lines)]
-    return "\n".join(numbered_lines)
-
-
 def code_pretty_str(code, filename=None, line_no=None, func=None, enable_color=True):
     def apply_color(inp, color):
         if not enable_color:

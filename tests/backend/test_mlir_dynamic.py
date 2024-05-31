@@ -5,7 +5,6 @@ import tripy
 from tripy import jit
 from tripy.frontend import dynamic_dim, Tensor
 from tripy.frontend.trace import Trace
-from tripy.utils.utils import prefix_with_line_numbers
 
 
 @pytest.mark.skip(reason="Dynamic shape is not working with MLIR backend yet.")
@@ -23,5 +22,5 @@ def test_mlir_dynamic_generated():
     trace = Trace(out)
     flat_ir = trace.to_flat_ir()
     mlir_module = lower_flat_ir_to_mlir(flat_ir)
-    mlir_textual = prefix_with_line_numbers(mlir_module.__str__())
+    mlir_textual = str(mlir_module)
     assert "%0 = stablehlo.add %arg0, %arg1 : tensor<?x3xf32>" in mlir_textual

@@ -1,9 +1,10 @@
 import copy
 from typing import List, Sequence, Set
 
+from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import BaseTraceOp
 from tripy.frontend.trace.tensor import TraceTensor
-from tripy.common.exception import raise_error
+from tripy.frontend.utils import topological_sort
 from tripy.logging import logger
 
 
@@ -71,33 +72,12 @@ class Trace:
                 exprs.extend([inp.producer for inp in head.inputs])
 
         # Reverse the order of the layers so they are topologically sorted
-        self.ops = self.topological_sort()
+        self.ops = topological_sort(self.ops)
 
         # Perform shape/dtype/device inference to fill shape information for all tensors.
         self._infer_tensor_info()
 
         logger.trace(lambda: f"{self}\n")
-
-    def topological_sort(self) -> List[BaseTraceOp]:
-        stack = list()
-        visited_layer_ids = set()
-
-        input_ids = [id(inp) for inp in self.inputs]
-
-        def add_to_stack(op, stack):
-            visited_layer_ids.add(id(op))
-            for ip in filter(lambda inp: id(inp) not in input_ids, op.inputs):
-                if ip.producer is not None and id(ip.producer) not in visited_layer_ids:
-                    add_to_stack(ip.producer, stack)
-
-            stack.append(op)
-
-        for op in self.ops:
-            if id(op) not in visited_layer_ids:
-                add_to_stack(op, stack)
-
-        assert len(self.ops) == len(stack)
-        return stack
 
     def __str__(self) -> str:
         layer_strs: List[str] = []
