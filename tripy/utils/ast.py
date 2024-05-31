@@ -4,17 +4,26 @@ import inspect
 from typing import List, Optional, Tuple, Callable
 
 from tripy.utils.stack_info import SourceInfo
+from tripy.utils.result import Result
 
 
-def get_parsed_ast(code: str) -> Tuple[str, int]:
+def get_parsed_ast(code: str) -> Result[Tuple[str, int]]:
+
     # Returns the parsed AST and additional indentation that needs to be accounted for
     # when determining column offsets.
     raw_code = code
     code = raw_code.lstrip()
     indentation = len(raw_code) - len(code)
 
-    parsed_ast = ast.parse(code)
-    return parsed_ast, indentation
+    # In some cases, we may not be able to parse the line of code in isolation.
+    # e.g. something like this:
+    #   "X": (tp.ones((1, 2, 4, 4)) * 4.0)
+    # is invalid on its own, but syntactically correct as an element of a dictionary.
+    try:
+        parsed_ast = ast.parse(code)
+    except Exception as err:
+        return Result.err([str(err)])
+    return Result.ok((parsed_ast, indentation))
 
 
 def get_callee_func_name(callee: SourceInfo):
@@ -73,7 +82,10 @@ def get_arg_candidate_column_offsets(
     candidates = []
 
     # Gets the column offset of the argument at `index` to function called `func_name` in the provided `code` snippet.
-    parsed_ast, indentation = get_parsed_ast(code)
+    result = get_parsed_ast(code)
+    if not result:
+        return candidates
+    parsed_ast, indentation = result.value
     for node in ast.walk(parsed_ast):
         if get_ast_node_func_name(node) != func_name:
             continue
@@ -130,7 +142,10 @@ def get_candidate_column_offsets(cur_frame: SourceInfo, callee: SourceInfo) -> L
 
     candidate_column_offsets = []
 
-    parsed_ast, indentation = get_parsed_ast(cur_frame.code)
+    result = get_parsed_ast(cur_frame.code)
+    if not result:
+        return candidate_column_offsets
+    parsed_ast, indentation = result.value
 
     for node in ast.walk(parsed_ast):
 

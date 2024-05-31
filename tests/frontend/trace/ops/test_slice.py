@@ -53,7 +53,7 @@ class TestSlice:
             # Looks like:
             # |             a[3].eval()
             # |               ^
-            match=r"\| {13}a\[3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^\n\n",
+            match=r"\| {13}a\[3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^",
             has_stack_info_for=[a],
         ):
             a[3].eval()
@@ -67,9 +67,9 @@ class TestSlice:
             # |               ^
             # for each dimension
             match=(
-                r"\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^\n\n"
-                r"(.|\n)*\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {17}\x1b\[38;5;1m\^\n\n"
-                r"(.|\n)*\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {19}\x1b\[38;5;1m\^\n\n"
+                r"\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^"
+                r"(.|\n)*\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {17}\x1b\[38;5;1m\^"
+                r"(.|\n)*\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {19}\x1b\[38;5;1m\^"
             ),
             has_stack_info_for=[a],
         ):
@@ -77,8 +77,8 @@ class TestSlice:
 
     def test_invalid_multiple_dims(self):
         a = tp.ones((2, 3, 4))
-        first_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^\n\n"
-        second_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {18}\x1b\[38;5;1m\^\n\n"
+        first_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^"
+        second_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {18}\x1b\[38;5;1m\^"
         with helper.raises(
             tp.TripyException,
             # Looking three instance of the following:

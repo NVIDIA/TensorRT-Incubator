@@ -50,6 +50,8 @@ class BaseTraceOp(abc.ABC):
 
         from tripy.frontend.tensor import Tensor
 
+        # NOTE: If you change the stack depth where the tensors are constructed, update STACK_DEPTH_OF_BUILD in
+        # the Tensor constructor!
         outputs = [Tensor(None) for _ in range(num_outputs)]
 
         inp_trace_tensors = [inp.trace_tensor for inp in inputs]

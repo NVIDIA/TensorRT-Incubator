@@ -93,8 +93,13 @@ class Tensor(metaclass=TensorMeta):
         """
         from tripy.frontend.trace.tensor import TraceTensor
 
+        # We include code for everything above the `BaseTraceOp.build` function, which is called at most
+        # this many stack frames above the constructor.
+        STACK_DEPTH_OF_BUILD = 4
         # not using utils.default() because it always evaluates the `default` argument.
-        self.stack_info = stack_info if stack_info is not None else utils.get_stack_info()
+        self.stack_info = (
+            stack_info if stack_info is not None else utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
+        )
 
         name = name if name is not None else Tensor.get_unique_name()
         self.trace_tensor = TraceTensor(name, self.stack_info, [], None, None, None, None)

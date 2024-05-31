@@ -122,3 +122,18 @@ class TestTensor:
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
         b = jax.dlpack.from_dlpack(a)
         assert jax.numpy.array_equal(b, jax.numpy.array([1, 2, 3]))
+
+    def test_stack_depth_sanity(self):
+        # Makes sure STACK_DEPTH_OF_BUILD is correct
+        a = tp.ones((2, 3))
+
+        def find_frame(func_name):
+            for frame in a.stack_info:
+                if frame.function == func_name:
+                    return frame
+            assert False, f"Could not find frame for function: {func_name}"
+
+        # Make sure we include code for not only the `ones()` API but also the `full()` API
+        # that it calls underneath
+        assert find_frame("ones").code.strip() == "return full(shape, 1, dtype)"
+        assert find_frame("test_stack_depth_sanity").code.strip() == "a = tp.ones((2, 3))"
