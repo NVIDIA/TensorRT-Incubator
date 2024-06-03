@@ -1,6 +1,7 @@
 from typing import Dict, List, Set
 
 from tripy import utils
+from tripy.frontend.dim import dynamic_dim
 
 
 class FlatIR:
@@ -47,13 +48,13 @@ class FlatIR:
                     entry_block = func_op.add_entry_block()
                     with ir.InsertionPoint(entry_block):
                         ops = []
-                        hlo_ops: Dict[str, ir.Operation] = {}
+                        hlo_ops: Dict[str, ir.BlockArgument] = {}
                         # Initialize tensor dict with inputs
                         for index, inp in enumerate(self.inputs):
                             hlo_ops[inp.name] = entry_block.arguments[index]
 
                         for op in self.ops:
-                            input_ops = [hlo_ops[inp.name] for inp in op.inputs]
+                            layer_inputs = [hlo_ops[inp.name] for inp in op.inputs]
 
                             with make_tensor_location(
                                 [inp.name for inp in op.inputs],
@@ -61,12 +62,39 @@ class FlatIR:
                                 op.trace_input_names,
                                 op.trace_output_names,
                             ):
-                                layer_ops = op.to_mlir(input_ops)
+                                layer_outputs = op.to_mlir(layer_inputs)
 
-                            ops.extend(layer_ops)
-                            hlo_ops.update(zip([out.name for out in op.outputs], layer_ops))
+                                # stablehlo python bindings can do some naive shape and type inference.
+                                # If the shapes are freezed after adding a layer, assign these shapes back to flat_ir tensor.
+                                for mlir_out, flatir_out in zip(layer_outputs, op.outputs):
+                                    assert hasattr(mlir_out, "type") or hasattr(mlir_out, "result")
+                                    type = mlir_out.type if hasattr(mlir_out, "type") else mlir_out.result.type
+                                    flatir_out.shape = tuple(
+                                        [
+                                            (
+                                                dynamic_dim(-1)
+                                                if type.is_dynamic_dim(i)
+                                                else dynamic_dim(type.get_dim_size(i))
+                                            )
+                                            for i in range(type.rank)
+                                        ]
+                                    )
+
+                            ops.extend(layer_outputs)
+                            hlo_ops.update(zip([out.name for out in op.outputs], layer_outputs))
 
                         func_dialect.ReturnOp([hlo_ops[o.name] for o in self.outputs])
+
+                    # After lowering the complete graph to stablehlo, there can be mismatch between Tripy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
+                    # Here, we check if the types for the results and change the function signature to obey the inferred types.
+                    new_out_types = [
+                        hlo_ops[o.name].type if hasattr(hlo_ops[o.name], "type") else hlo_ops[o.name].result.type
+                        for o in self.outputs
+                    ]
+                    ftype = ir.FunctionType.get(inp_types, new_out_types)
+                    func_op.attributes["function_type"] = ir.TypeAttr.get(ftype)
+
+                    assert func_op.verify(), "Created function is invalid"
 
                     # Create tensorrt.shape_profile attribute for all function arguments
                     arg_attrs: List[Dict[str, ir.Attribute]] = []

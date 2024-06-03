@@ -103,7 +103,9 @@ class Executor:
             is_static_shape = all(dim >= 0 for dim in memref.shape)
             if is_static_shape:
                 outputs_tensor_info.append(
-                    TensorInfo(tuple([dynamic_dim(s) for s in memref.shape]), dtype, device(device_type))
+                    TensorInfo(
+                        len(memref.shape), tuple([dynamic_dim(s) for s in memref.shape]), dtype, device(device_type)
+                    )
                 )
             else:
                 assert outputs_runtime_shape
@@ -132,6 +134,7 @@ class Executor:
                 ]
                 outputs_tensor_info.append(
                     TensorInfo(
+                        len(runtime_shape),
                         tuple(
                             [
                                 dynamic_dim(runtime, min=None, opt=None, max=max)

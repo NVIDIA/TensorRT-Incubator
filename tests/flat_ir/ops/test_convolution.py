@@ -75,6 +75,6 @@ class TestConvolutionOp:
         stride = list(stride)
         padding = [list(inner) for inner in padding]
         rhs_dilation = list(rhs_dilation)
-        expected_str = f"stablehlo.convolution(%2, %32) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {stride}, pad = {padding}, rhs_dilate = {rhs_dilation}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} : (tensor<2x4x8x8xf32>, tensor<16x{kernel_channels}x5x5xf32>) -> tensor<2x16x{spatial_shape}x{spatial_shape}xf32>"
+        expected_str = f"stablehlo.convolution(%2, %36) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {stride}, pad = {padding}, rhs_dilate = {rhs_dilation}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} : (tensor<2x4x8x8xf32>, tensor<16x{kernel_channels}x5x5xf32>) -> tensor<2x16x{spatial_shape}x{spatial_shape}xf32>"
         print(str(flat_ir[0].to_mlir()))
         assert expected_str in str(flat_ir[0].to_mlir())

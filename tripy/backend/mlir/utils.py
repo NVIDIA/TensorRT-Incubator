@@ -220,3 +220,12 @@ def convert_runtime_dtype_to_tripy_dtype(dtype: runtime.ScalarTypeCode) -> datat
     if dtype not in MLIR_TRT_TO_TRIPY_DTYPE:
         raise_error(f"Data type: '{dtype}' does not have a corresponding numpy data type")
     return MLIR_TRT_TO_TRIPY_DTYPE.get(dtype)
+
+
+def is_any_dim_dynamic(mlir_tensor):
+    """
+    Returns true if any of the dimension in a mlir tensor is dynamic.
+    """
+    assert hasattr(mlir_tensor, "type") or hasattr(mlir_tensor, "result")
+    type = mlir_tensor.type if hasattr(mlir_tensor, "type") else mlir_tensor.result.type
+    return any([type.is_dynamic_dim(i) for i in range(type.rank)])

@@ -124,10 +124,17 @@ class Tensor(metaclass=TensorMeta):
                     data = Array(data, dtype, utils.from_dims(shape), device)
             else:
                 # Internal usage only
-                # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
-                assert not any(
-                    [shape, dtype, device]
-                ), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+                # Disallow duplicate dtype/device when using Array to initialize a Tensor
+                if shape is not None:
+                    assert len(data.shape) == len(
+                        shape
+                    ), f"Rank provided to the initializer of Tensor (rank = {len(shape)}) does not match Array rank (rank = {len(data.shape)})."
+                    for idx, (d1, d2) in enumerate(zip(utils.to_dims(shape), utils.to_dims(data.shape))):
+                        if d2.is_dynamic_dim():
+                            assert (
+                                d1.is_dynamic_dim()
+                            ), f"Array shape at index {idx} is dynamic (dim=({d2})) but the initializer shape at index {idx} is static (dim={d1})."
+                assert not any([dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
 
             # Data is present now. Assign the underlying device type.
             self.device = data.device

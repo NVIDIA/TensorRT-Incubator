@@ -5,6 +5,8 @@ from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.flat_ir.ops.base import BaseFlatIROp
+from tripy.common.array import Array
+from tripy.common.device import device
 
 
 @dataclass(repr=False)
@@ -30,7 +32,18 @@ class ShapeOp(BaseFlatIROp):
 
             dim_size = stablehlo.get_dimension_size(inp, dimension=broadcast_dim_attr)
             out_type = ir.RankedTensorType.get([1], mlir_utils.get_mlir_dtype(int32))
-            sliced_dims[i] = stablehlo.ReshapeOp(result=out_type, operand=dim_size)
+
+            data = Array([1], dtype=int32, device=device("cpu"))
+            attr = ir.DenseElementsAttr.get(
+                array=data.memref_value,
+                type=mlir_utils.get_mlir_dtype(int32),
+                shape=[
+                    1,
+                ],
+            )
+
+            output_shape = stablehlo.ConstantOp(attr)
+            sliced_dims[i] = stablehlo.dynamic_reshape(result=out_type, operand=dim_size, output_shape=output_shape)
 
         concatenate_dim = ir.IntegerAttr.get(
             type=ir.IntegerType.get_signless(64),

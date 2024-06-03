@@ -127,7 +127,7 @@ class jit:
                 # Creating a new tensor to make sure each arg has a unique name
                 # Copy stack information from the original tensor so error messages are better.
                 dynamic_shape = arg._dynamic_shape
-                tensor = Tensor(arg.eval(), stack_info=arg.stack_info)
+                tensor = Tensor(arg.eval(), dynamic_shape, stack_info=arg.stack_info)
                 # Replace the tensor op with one that can supply dynamic shapes.
                 storage = tensor.trace_tensor.producer
                 assert isinstance(storage, Storage), f"{tensor} should have had a storage op after `eval()`"
@@ -138,6 +138,7 @@ class jit:
                 inputs.append(tensor)
                 input_tensor_info.append(
                     TensorInfo(
+                        len(tensor.trace_tensor.producer.shape),
                         tensor.trace_tensor.producer.shape,
                         tensor.trace_tensor.producer.dtype,
                         tensor.trace_tensor.producer.device,

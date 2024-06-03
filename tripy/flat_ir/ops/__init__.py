@@ -17,7 +17,7 @@ from tripy.flat_ir.ops.divide import DivideOp
 from tripy.flat_ir.ops.reduce import ReduceOp, ArgMinMaxOp
 from tripy.flat_ir.ops.exponential import ExpOp
 from tripy.flat_ir.ops.tanh import TanhOp
-from tripy.flat_ir.ops.gather import GatherOp
+from tripy.flat_ir.ops.gather import GatherOp, DynamicGatherOp
 from tripy.flat_ir.ops.convert import ConvertOp
 from tripy.flat_ir.ops.rsqrt import RsqrtOp
 from tripy.flat_ir.ops.random_normal import RandomNormalOp

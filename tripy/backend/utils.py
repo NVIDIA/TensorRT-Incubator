@@ -9,6 +9,7 @@ from tripy.utils.json import Decoder, Encoder
 # to MLIR-TRT. Eventually, it should just call back into Tripy when it needs memory allocated.
 @dataclass
 class TensorInfo:
+    rank: int
     shape: ShapeInfo
     dtype: "tripy.dtype"
     device: "tripy.device"
@@ -16,16 +17,21 @@ class TensorInfo:
 
 @Encoder.register(TensorInfo)
 def encode(tensor_info: TensorInfo) -> Dict[str, Any]:
-    return {"shape": tensor_info.shape, "dtype": tensor_info.dtype, "device": tensor_info.device}
+    return {
+        "rank": tensor_info.rank,
+        "shape": tensor_info.shape,
+        "dtype": tensor_info.dtype,
+        "device": tensor_info.device,
+    }
 
 
 @Decoder.register(TensorInfo)
 def decode(dct: Dict[str, Any]) -> TensorInfo:
-    return TensorInfo(dct["shape"], dct["dtype"], dct["device"])
+    return TensorInfo(dct["rank"], dct["shape"], dct["dtype"], dct["device"])
 
 
 def get_tensor_info(tensors) -> List[TensorInfo]:
-    return [TensorInfo(tensor.shape, tensor.dtype, tensor.device) for tensor in tensors]
+    return [TensorInfo(tensor.rank, tensor.shape, tensor.dtype, tensor.device) for tensor in tensors]
 
 
 def get_devices(tensor_info):

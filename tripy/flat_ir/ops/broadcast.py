@@ -5,7 +5,8 @@ from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
-import array
+from tripy.backend.mlir.utils import is_any_dim_dynamic
+import tripy.utils.utils as utils
 
 
 @dataclass(repr=False)
@@ -25,6 +26,13 @@ class DynamicBroadcastOp(BaseFlatIROp):
     broadcast_dim: List[int]
 
     def to_mlir(self, operands):
+
+        if is_any_dim_dynamic(operands[1]):
+            # Tripy frontend does not have shape inference and stablehlo does not allow shape operand to be of dynamic shape.
+            # Since DynamicBroadcastOp was created internally by Tripy, we know the expected output rank. For dynamic_broadcast_in_dim operator, the shape of shape tensor is the same as output rank.
+            new_shape = [self.outputs[0].rank]
+            self.inputs[1].shape = utils.to_dims(new_shape)
+            operands[1].set_type(ir.RankedTensorType.get(new_shape, operands[1].type.element_type))
 
         broadcast_dim_attr = ir.DenseI64ArrayAttr.get(self.broadcast_dim)
         out_type = self.outputs[0].to_mlir()
