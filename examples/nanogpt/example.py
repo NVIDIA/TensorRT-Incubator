@@ -121,7 +121,7 @@ def main():
         idx[0, token_idx] = idx_next[0]
         idx = tp.Tensor(idx, device=tp.device("gpu"))
 
-    response = encoder.decode(np.from_dlpack(idx[0, :]).tolist())
+    response = encoder.decode(torch.from_dlpack(idx[0, :]).tolist())
     end_time = time.perf_counter()
     print(f"Generating {args.max_new_tokens} tokens took {end_time - start_time} seconds.")
     print(response)

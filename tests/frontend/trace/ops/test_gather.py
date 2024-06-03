@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import tripy as tp
 from tests import helper
@@ -23,8 +24,9 @@ class TestGather:
         ):
             b = tp.gather(a, 0, index)
 
-    def test_infer_rank(self):
+    @pytest.mark.parametrize("index_shape", [(1,), (2, 2)])
+    def test_infer_rank(self, index_shape):
         a = tp.Tensor([1, 2, 3, 4])
-        index = tp.Tensor(np.zeros(1, dtype=np.int32))
+        index = tp.Tensor(np.zeros(index_shape, dtype=np.int32))
         out = tp.gather(a, 0, index)
-        assert out.trace_tensor.rank == 1
+        assert out.trace_tensor.rank == a.rank + len(index_shape) - 1

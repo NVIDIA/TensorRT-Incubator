@@ -58,7 +58,15 @@ class CausalSelfAttention(tp.Module):
         # WAR for better accuracy and avoid TRT compilation error in fp16
         if self.c_attn.quant_dtype in (tp.float8, tp.int4):
             qkv = tp.cast(qkv, tp.float32)
+
         q, k, v = tp.split(qkv, 3, dim=2)
+        multi_heads = lambda x: tp.transpose(
+            tp.reshape(x, (self.batch_size, self.seq_len, self.num_heads, self.embedding_size // self.num_heads)), 1, 2
+        )
+        q = multi_heads(q)
+        k = multi_heads(k)
+        v = multi_heads(v)
+
         k_t = tp.transpose(k, -2, -1)
         att = (q @ k_t) * (1.0 / math.sqrt(self.embedding_size // self.num_heads))
 
