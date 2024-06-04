@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 from typing import Sequence
+from textwrap import dedent
 
 import pytest
 
@@ -84,7 +85,7 @@ def test_examples(example, sandboxed_install_run):
             block_text = str(block)
             if block.has_marker("expected_stdout"):
                 print("Checking command output against expected output:")
-                assert re.match(block_text.strip(), statuses[-1].stdout.strip())
+                assert re.match(dedent(block_text).strip(), statuses[-1].stdout.strip())
             else:
                 status = example.run(block_text, sandboxed_install_run)
 
