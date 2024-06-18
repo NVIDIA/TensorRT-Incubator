@@ -32,3 +32,10 @@ class TestWhereOp:
         assert np.array_equal(
             cp.from_dlpack(out).get(), np.array(np.where((np.ones(cond) >= rand_cond), rand_x, rand_y))
         )
+
+    def test_explicit_condition(self):
+        select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
+        ones = tp.ones((4,), dtype=tp.int32)
+        zeros = tp.zeros((4,), dtype=tp.int32)
+        w = tp.where(select_indices, ones, zeros)
+        assert cp.from_dlpack(w).get().tolist() == [1, 0, 1, 0]

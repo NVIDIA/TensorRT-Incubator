@@ -112,7 +112,7 @@ class Tensor(metaclass=TensorMeta):
         # since this is used internally.
         if data is not None:
             if not isinstance(data, Array):
-                if isinstance(data, (int, float, List, tuple)) and (
+                if isinstance(data, (List, tuple, bool, int, float)) and (
                     (not is_supported_array_type(dtype))
                     or get_element_type(data) == tripy.common.datatype.float32
                     and dtype == tripy.common.datatype.int32

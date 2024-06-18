@@ -41,6 +41,13 @@ class TestTensor:
         assert tensor.trace_tensor.producer.data.dtype.name == tp_dtype.name
         assert tensor.trace_tensor.producer.data.dtype.itemsize == tp_dtype.itemsize
 
+    def test_bool_tensor(self):
+        bool_values = [True, False, True]
+        t = tp.Tensor(bool_values, dtype=tp.bool)
+        assert isinstance(t, tp.Tensor)
+        assert t.trace_tensor.producer.inputs == []
+        assert cp.from_dlpack(t).get().tolist() == bool_values
+
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_dtype_from_list(self, dtype):
         # Given a int/float data list, store data with requested data type.
@@ -51,12 +58,13 @@ class TestTensor:
         if dtype == tp.float8 and torch.cuda.get_device_capability() < (8, 9):
             pytest.skip("fp8 requires GPU >= SM89")
         # dtype casting is allowed for python list
-        tensor = tp.Tensor([1, 2, 3], dtype=dtype)
-        if dtype == tp.bool or dtype == tp.uint8:
+        tensor = tp.Tensor([0, 1, 2, 3], dtype=dtype)
+        if dtype == tp.uint8:
             assert tensor.trace_tensor.producer.dtype == tp.int8
             assert tensor.trace_tensor.producer.data.dtype.name == "int8"
-        else:
-            assert tensor.trace_tensor.producer.dtype == dtype
+        if dtype == tp.bool:
+            assert tensor.trace_tensor.producer.dtype == tp.bool
+            assert tensor.trace_tensor.producer.data.dtype.name == "bool"
         assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.

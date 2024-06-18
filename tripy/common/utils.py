@@ -11,6 +11,7 @@ def is_supported_array_type(dtype: "tripy.common.datatype.dtype") -> bool:
         tripy.common.datatype.float32,
         tripy.common.datatype.int32,
         tripy.common.datatype.int64,
+        tripy.common.datatype.bool,
     ]
 
 
@@ -18,6 +19,8 @@ def get_element_type(elements):
     e = elements
     while (isinstance(e, List) or isinstance(e, tuple)) and len(e) > 0:
         e = e[0]
+    if isinstance(e, bool):
+        return tripy.common.datatype.bool
     if isinstance(e, int):
         return tripy.common.datatype.int32
     elif isinstance(e, float):

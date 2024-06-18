@@ -138,7 +138,7 @@ class Array:
             self.dtype = dtype
             self.shape = shape
         else:
-            if isinstance(data, (List, int, float, tuple)):
+            if isinstance(data, (List, bool, int, float, tuple)):
                 if dtype is None:
                     element_type = get_element_type(data)
                 else:
@@ -221,7 +221,7 @@ class Array:
             )
         else:
 
-            if isinstance(data, (List, tuple, int, float)):
+            if isinstance(data, (List, tuple, bool, int, float)):
                 self.device = utils.default(self.device, tp_device("gpu"))
                 mlirtrt_device = (
                     self.runtime_client.get_devices()[self.device.index] if self.device == tp_device("gpu") else None
@@ -239,6 +239,7 @@ class Array:
                         tripy.common.datatype.int32: "i",
                         tripy.common.datatype.float32: "f",
                         tripy.common.datatype.int64: "q",
+                        tripy.common.datatype.bool: "b",
                     }
                     return unicode.get(dtype)
 

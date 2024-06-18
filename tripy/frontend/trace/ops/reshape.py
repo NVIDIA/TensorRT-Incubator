@@ -18,6 +18,14 @@ class Reshape(BaseTraceOp):
         shape = self.inputs[0].shape
         input_volume = utils.volume(shape)
         reshape_volume = utils.volume(self.shape)
+        # TODO (#207): This is a workaround; we would want MLIR-TRT to catch this error neatly,
+        # but if we don't catch it, it results in a C assertion failure from MLIR
+        # (ignore if we have a negative dimension)
+        if -1 not in self.shape and input_volume != reshape_volume:
+            raise_error(
+                "Overall volume of the tensor cannot change through the reshape",
+                details=[f"Input volume: {input_volume}", f"Output volume: {reshape_volume}"],
+            )
         if -1 in self.shape:
             neg_count = self.shape.count(-1)
             if neg_count != 1:

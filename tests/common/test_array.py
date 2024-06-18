@@ -66,14 +66,14 @@ class TestArray:
         assert arr.shape == tuple()
         assert arr.dtype == dtype
 
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
     def test_nested_list(self, dtype):
         arr = Array([[1, 2], [3, 4]], dtype, None, tp.device("cpu"))
         assert isinstance(arr, Array)
         assert arr.shape == (2, 2)
         assert arr.dtype == dtype
 
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
     def test_empty_dimension(self, dtype):
         arr = Array([[], [], []], dtype=dtype, shape=(3, 0), device=tp.device("cpu"))
         assert isinstance(arr, Array)
@@ -83,7 +83,7 @@ class TestArray:
         )
         assert arr.dtype == dtype
 
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
     def test_later_empty_dimensions(self, dtype):
         # consistent to call it (3, 0, ...) because it can't be checked further
         arr = Array([[], [], []], dtype=dtype, shape=(3, 0, 1, 2), device=tp.device("cpu"))
@@ -138,14 +138,14 @@ class TestArray:
             _ = Array([Decimal(0)], None, None, tp.device("cpu"))
         print(str(exc.value))
 
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
     def test_supported_array_type(self, dtype):
         arr = Array([0], dtype=dtype, shape=None, device=tp.device("cpu"))
         assert isinstance(arr.memref_value, runtime.MemRefValue)
         assert arr.memref_value.dtype == convert_tripy_dtype_to_runtime_dtype(dtype)
         assert arr.memref_value.address_space == runtime.PointerType.host
 
-    @pytest.mark.parametrize("dtype", [tp.float16, tp.float8, tp.int8, tp.int4, tp.bool])
+    @pytest.mark.parametrize("dtype", [tp.float16, tp.float8, tp.int8, tp.int4])
     def test_unsupported_array_type(self, dtype):
         with pytest.raises(
             tp.TripyException,
