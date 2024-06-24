@@ -95,8 +95,8 @@ class Linear(Module):
         self.quant_dtype = quant_dtype
         self.weight_quant_dim = weight_quant_dim
         if quant_dtype is not None:
-            self._tripy_params["weight_scale"] = None
-            self._tripy_params["input_scale"] = None
+            self.weight_scale = None
+            self.input_scale = None
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""

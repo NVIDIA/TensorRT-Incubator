@@ -8,8 +8,8 @@ from tests import helper
 class TestModule:
     def test_basic(self, all_network_modes):
         test_net, call_args, inputs = all_network_modes
-        assert len(test_net._tripy_params.keys()) == 1
-        assert len(test_net._tripy_modules.keys()) == 2
+        assert len(dict(test_net.named_parameters())) == 1
+        assert len(dict(test_net.named_children())) == 2
 
         result = np.array([1.0, 2.0]) + np.full(2, sum(call_args), dtype=np.float32)
         assert np.array_equal(cp.from_dlpack(test_net(*inputs)).get(), result)
@@ -19,12 +19,12 @@ class TestModule:
         assert hasattr(network, "new_attr")
 
         network.new_param = tp.Parameter(0.0)
-        assert "new_param" in network._tripy_params
+        assert "new_param" in dict(network.named_parameters())
 
         network.param = tp.Parameter([0.0, 1.0])
         network.dummy1 = None
-        assert cp.from_dlpack(network._tripy_params["param"]).get().tolist() == [0.0, 1.0]
-        assert network._tripy_modules["dummy1"] is None
+        assert cp.from_dlpack(dict(network.named_parameters())["param"]).get().tolist() == [0.0, 1.0]
+        assert "dummy1" not in dict(network.named_children())
 
     def test_incompatible_parameter_cannot_be_set(self, network):
         with helper.raises(
@@ -83,6 +83,17 @@ class TestModule:
         ):
             network.load_from_state_dict(state_dict)
 
+    def test_mixed_collections_not_registered(self, network):
+        network.mix_param_list = [True, tp.Parameter(1)]
+        network.mix_param_dict = {0: True, "a": tp.Parameter(1)}
+        network.mix_module_list = [True, tp.Module()]
+        network.mix_module_dict = {0: True, "a": tp.Module()}
+
+        assert "mix_params_list" not in dict(network.named_parameters())
+        assert "mix_params_dict" not in dict(network.named_parameters())
+        assert "mix_modules_list" not in dict(network.named_children())
+        assert "mix_modules_dict" not in dict(network.named_children())
+
 
 class TestModuleWithList:
     def test_named_children(self, list_network):
@@ -117,6 +128,19 @@ class TestModuleWithList:
         state_dict = {"dummy_list.0.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
         list_network.load_from_state_dict(state_dict)
         assert list_network.dummy_list[0].nested.param is state_dict["dummy_list.0.nested.param"]
+
+    def test_modify_list_param(self, list_network):
+        new_param = tp.Parameter(5.0)
+        list_network.params[0] = new_param
+        assert dict(list_network.named_parameters())["params.0"] is new_param
+
+    def test_add_list_params(self, list_network):
+        param0 = tp.Parameter(0.0)
+        param1 = tp.Parameter(1.0)
+        list_network.new_params = [param0, param1]
+        tripy_params = dict(list_network.named_parameters())
+        assert tripy_params["new_params.0"] is param0
+        assert tripy_params["new_params.1"] is param1
 
 
 class TestModuleWithDict:
@@ -156,6 +180,19 @@ class TestModuleWithDict:
         state_dict = {"dummy_dict.op0.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
         dict_network.load_from_state_dict(state_dict)
         assert dict_network.dummy_dict["op0"].nested.param is state_dict["dummy_dict.op0.nested.param"]
+
+    def test_modify_dict_param(self, dict_network):
+        new_param = tp.Parameter(5.0)
+        dict_network.params["param"] = new_param
+        assert dict(dict_network.named_parameters())["params.param"] is new_param
+
+    def test_add_dict_params(self, dict_network):
+        param0 = tp.Parameter(0.0)
+        param1 = tp.Parameter(1.0)
+        dict_network.new_params = {"param0": param0, "param1": param1}
+        tripy_params = dict(dict_network.named_parameters())
+        assert tripy_params["new_params.param0"] is param0
+        assert tripy_params["new_params.param1"] is param1
 
 
 class TestComplexModule:

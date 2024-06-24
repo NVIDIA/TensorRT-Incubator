@@ -1,11 +1,14 @@
 import copy
 import operator
-from typing import Any, Dict, Iterator, List, Tuple, Union
+from typing import Any, Dict, Iterator, List, Tuple, Union, Sequence, TypeVar
 
 from tripy import export
 from tripy.common.exception import raise_error
 from tripy.frontend.module.parameter import Parameter
 from tripy.logging import logger
+
+
+T = TypeVar("T")
 
 
 def _check_param_compatible(original_param, new_param, param_name):
@@ -18,6 +21,14 @@ def _check_param_compatible(original_param, new_param, param_name):
             f"For parameter: {param_name}, new parameter is not compatible with the existing parameter.",
             details=is_compatible.error_details,
         )
+
+
+def _is_homogeneous_container(container: Sequence):
+    return len(set(map(type, container))) == 1
+
+
+def _contains_types(container: Sequence, types: type):
+    return any(any(isinstance(value, typ) for typ in types) for value in container)
 
 
 @export.public_api(document_under="modules/index.rst")
@@ -67,62 +78,19 @@ class Module:
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
     """
 
-    def __init__(self):
-        # Avoid name clashes with members of child classes:
-        self._tripy_params: Dict[str, Parameter] = {}
-        self._tripy_modules: Dict[str, "Module"] = {}
-
     def __setattr__(self, name: str, value: Any) -> None:
-        if isinstance(value, Parameter) or ("_tripy_params" in self.__dict__ and name in self._tripy_params):
+        if isinstance(value, Parameter) or name in dict(self.named_parameters()):
             _check_param_compatible(getattr(self, name, None), value, name)
-            self._tripy_params[name] = value
-        elif isinstance(value, Module) or ("_tripy_modules" in self.__dict__ and name in self._tripy_modules):
-            self._tripy_modules[name] = value
-        else:
-            super().__setattr__(name, value)
-            # avoid infinite recursion during initialization
-            if not value:
-                return
 
-            def _check_types(objs: Union[List, Dict], typ: Any):
-                if isinstance(objs, List):
-                    return all(isinstance(obj, typ) for obj in objs)
-                else:
-                    return all(isinstance(obj, typ) for _, obj in objs.items())
+        super().__setattr__(name, value)
+        # avoid infinite recursion during initialization
+        if not value:
+            return
 
-            # register modules/params from container if all elements are Modules/Parameters
-            if isinstance(value, List):
-                if _check_types(value, Module):
-                    for idx, v in enumerate(value):
-                        self._tripy_modules[f"{name}.{idx}"] = v
-                elif _check_types(value, Parameter):
-                    for idx, v in enumerate(value):
-                        key = f"{name}.{idx}"
-                        _check_param_compatible(self._tripy_params.get(key), v, name)
-                        self._tripy_params[key] = v
-                else:
-                    logger.warning("A list of mixed types will not get registered to module's state_dict().")
-            elif isinstance(value, Dict):
-                if not all(isinstance(k, str) for k in value):
-                    logger.warning("A dict with non-string keys will not get registered to module's state_dict().")
-                elif _check_types(value, Module):
-                    for k, v in value.items():
-                        self._tripy_modules[f"{name}.{k}"] = v
-                elif _check_types(value, Parameter):
-                    for k, v in value.items():
-                        key = f"{name}.{k}"
-                        _check_param_compatible(self._tripy_params.get(key), v, name)
-                        self._tripy_params[key] = v
-                else:
-                    logger.warning("A dict of mixed types will not get registered to module's state_dict().")
-
-    def __getattr__(self, name: str) -> Any:
-        if name in self._tripy_params:
-            return self._tripy_params[name]
-        elif name in self._tripy_modules:
-            return self._tripy_modules[name]
-
-        raise AttributeError(f"No attribute '{name}' found in '{self.__class__.__name__}' module")
+        if isinstance(value, List) or isinstance(value, Dict):
+            container = value if isinstance(value, List) else value.values()
+            if _contains_types(container, [Parameter, Module]) and not _is_homogeneous_container(container):
+                logger.warning("A container of mixed types will not be registered with this module's state_dict().")
 
     def state_dict(self) -> Dict[str, Parameter]:
         r"""
@@ -151,7 +119,7 @@ class Module:
 
             assert set(state_dict.keys()) == {"param", "linear1.weight", "linear1.bias", "linear2.weight", "linear2.bias"}
         """
-        state_dict = copy.copy(self._tripy_params)
+        state_dict = copy.copy(dict(self.named_parameters()))
 
         for child_name, child in self.named_children():
             child_state_dict = child.state_dict()
@@ -259,4 +227,45 @@ class Module:
 
             assert [name for name, _ in stacked_linear.named_children()] == ["linear1", "linear2"]
         """
-        yield from self._tripy_modules.items()
+        yield from self._iterate_members_of_type(Module)
+
+    def named_parameters(self) -> Iterator[Tuple[str, Parameter]]:
+        r"""
+        Returns:
+            An iterator over tuples containing the name of a parameter and the parameter itself.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            # doc: no-print-locals
+
+            class Linear(tp.Module):
+                def __init__(self):
+                    super().__init__()
+                    self.alpha = tp.Parameter(1)
+                    self.beta = tp.Parameter(2)
+
+            linear = Linear()
+
+            for name, parameter in linear.named_parameters():
+                print(f"{name}: {parameter}")
+
+            assert [name for name, _ in linear.named_parameters()] == ["alpha", "beta"]
+        """
+        yield from self._iterate_members_of_type(Parameter)
+
+    def _iterate_members_of_type(self, typ: T) -> Iterator[Tuple[str, T]]:
+        for name, value in vars(self).items():
+            if isinstance(value, typ):
+                yield name, value
+            elif isinstance(value, List) and _contains_types(value, [typ]) and _is_homogeneous_container(value):
+                for i, obj in enumerate(value):
+                    yield f"{name}.{i}", obj
+            elif (
+                isinstance(value, Dict)
+                and _contains_types(value.values(), [typ])
+                and _is_homogeneous_container(value.values())
+            ):
+                for key, obj in value.items():
+                    yield f"{name}.{key}", obj
