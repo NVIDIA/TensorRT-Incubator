@@ -16,7 +16,7 @@ class TestReduceOp:
         reduce = flat_ir.ops[-1]
         assert isinstance(reduce, ReduceOp)
         assert re.match(
-            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode=sum, reduce_dims=\[0\]\)",
+            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode='sum', reduce_dims=\[0\]\)",
             str(reduce),
         )
 
@@ -32,7 +32,7 @@ class TestReduceOp:
         assert isinstance(reduce, ReduceOp)
 
         assert re.match(
-            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode=max, reduce_dims=\[0\]\)",
+            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode='max', reduce_dims=\[0\]\)",
             str(reduce),
         )
 
@@ -68,7 +68,7 @@ class TestReduceOp:
         reduce = flat_ir.ops[2]
         assert isinstance(reduce, ReduceOp)
         assert re.match(
-            r"t[0-9]+: \[rank=\(1\), shape=\(\?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode=sum, reduce_dims=\[0\]\)",
+            r"t[0-9]+: \[rank=\(1\), shape=\(\?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode='sum', reduce_dims=\[0\]\)",
             str(reduce),
         )
 
@@ -83,7 +83,7 @@ class TestReduceOp:
         reduce = flat_ir.ops[-1]
         assert isinstance(reduce, ArgMinMaxOp)
         assert re.match(
-            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode=argmax, reduce_dims=\[0\]\)",
+            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode='argmax', reduce_dims=\[0\]\)",
             str(reduce),
         )
 
@@ -98,6 +98,6 @@ class TestReduceOp:
         reduce = flat_ir.ops[-1]
         assert isinstance(reduce, ArgMinMaxOp)
         assert re.match(
-            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode=argmin, reduce_dims=\[0\]\)",
+            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode='argmin', reduce_dims=\[0\]\)",
             str(reduce),
         )

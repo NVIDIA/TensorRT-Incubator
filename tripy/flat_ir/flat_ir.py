@@ -93,8 +93,6 @@ class FlatIR:
                     ]
                     ftype = ir.FunctionType.get(inp_types, new_out_types)
                     func_op.attributes["function_type"] = ir.TypeAttr.get(ftype)
-                    # TODO: when this assert failure occurs, very difficult to root-cause the error.
-                    assert func_op.verify(), "Created function is invalid"
 
                     # Create tensorrt.shape_profile attribute for all function arguments
                     arg_attrs: List[Dict[str, ir.Attribute]] = []
@@ -145,7 +143,7 @@ class FlatIR:
             with redirect_stderr() as outfile:
                 mlir = to_mlir_impl()
         except Exception as exc:
-            from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
+            from tripy.backend.mlir.utils import map_error_to_user_code_and_raise
 
             outfile.flush()
             outfile.seek(0)

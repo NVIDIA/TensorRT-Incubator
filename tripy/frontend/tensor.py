@@ -97,7 +97,7 @@ class Tensor(metaclass=TensorMeta):
         # this many stack frames above the constructor.
         STACK_DEPTH_OF_BUILD = 4
         # not using utils.default() because it always evaluates the `default` argument.
-        self.stack_info = (
+        stack_info = (
             stack_info if stack_info is not None else utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
         )
 
@@ -108,9 +108,9 @@ class Tensor(metaclass=TensorMeta):
         self.device = None
 
         # Note that most tensors won't have this field - generally only model input tensors.
-        self._dynamic_shape = utils.to_dims(shape)
+        dynamic_shape = utils.to_dims(shape)
 
-        self.trace_tensor = TraceTensor(name, self.stack_info, self._dynamic_shape, None, None, None, None)
+        self.trace_tensor = TraceTensor(name, stack_info, dynamic_shape, None, None, None, None)
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
@@ -162,6 +162,22 @@ class Tensor(metaclass=TensorMeta):
     @name.setter
     def name(self, new_name):
         self.trace_tensor.name = new_name
+
+    @property
+    def _dynamic_shape(self):
+        return self.trace_tensor.shape
+
+    @_dynamic_shape.setter
+    def _dynamic_shape(self, new_shape):
+        self.trace_tensor.shape = new_shape
+
+    @property
+    def stack_info(self):
+        return self.trace_tensor.stack_info
+
+    @stack_info.setter
+    def stack_info(self, new_stack_info):
+        self.trace_tensor.stack_info = new_stack_info
 
     @property
     def dtype(self):
@@ -227,7 +243,7 @@ class Tensor(metaclass=TensorMeta):
             f"tensor({sep}"
             f"{indent(str(arr), prefix=indentation)}, {sep}"
             f"{indent(f'dtype={self.trace_tensor.producer.dtype}, loc={self.trace_tensor.producer.device}, shape={self.trace_tensor.producer.shape}', prefix=indentation)}"
-            f"{sep})"
+            f")"
         )
 
     # Since the underlying data is an Array we reuse their __dlpack__() and __dlpack_device__() methods

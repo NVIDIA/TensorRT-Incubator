@@ -1,10 +1,10 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from collections.abc import Sequence
+import tripy.frontend.trace.ops.utils as op_utils
+from tripy import utils
 from tripy.frontend.dim import dynamic_dim
 from tripy.frontend.trace.ops.base import BaseTraceOp
-
-import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -18,7 +18,7 @@ class Convolution(BaseTraceOp):
     def verify_spatial_rank(self, attr, rank, string):
         spatial_rank = rank - 2
         if attr and len(attr) != spatial_rank:
-            op_utils.raise_error_io_info(
+            utils.raise_error_io_info(
                 self,
                 f"Number of {string} values does not match number of spatial dimensions in the input.",
                 details=[
@@ -30,7 +30,7 @@ class Convolution(BaseTraceOp):
 
     def validate_inputs(self, tensor_shape, kernel_shape):
         if len(tensor_shape) != len(kernel_shape):
-            op_utils.raise_error_io_info(
+            utils.raise_error_io_info(
                 self,
                 "Input tensor and kernel must have the same rank.",
                 details=[

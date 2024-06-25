@@ -60,7 +60,7 @@ class Executor:
 
     def _execute_shape_inference(self, inputs_shape_memref, outputs_shape_memref):
         # Only execute shape inference if shape function name is valid.
-        if self.signature.get_shape_func_name() is None:
+        if not self.signature.get_shape_func_name():
             for memref in outputs_shape_memref:
                 if memref is not None:
                     assert (

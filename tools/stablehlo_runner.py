@@ -1,6 +1,8 @@
 import argparse
 import re
+
 import numpy as np
+
 from tripy.backend.mlir.compiler import Compiler
 
 

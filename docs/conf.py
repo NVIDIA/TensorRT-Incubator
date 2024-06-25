@@ -122,9 +122,16 @@ def process_docstring(app, what, name, obj, options, lines):
         # We don't currently check overload dispatchers since this would require manual parsing of the docstring.
         if not hasattr(obj, "is_overload_dispatcher"):
             # The docstring has been processed at this point such that parameters appear as `:param <name>:`
-            documented_args = {match.replace(":param ", "").rstrip(":") for match in PARAM_PAT.findall(doc)}
+            documented_args = {
+                match.replace(":param ", "").rstrip(":").replace("\\", "") for match in PARAM_PAT.findall(doc)
+            }
 
             for pname, param in signature.parameters.items():
+                if param.kind == inspect.Parameter.VAR_KEYWORD:
+                    pname = "**" + pname
+                elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+                    pname = "*" + pname
+
                 if pname == "self":
                     # Don't want a type annotation for the self parameter.
                     assert (
@@ -133,7 +140,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 else:
                     assert (
                         pname in documented_args
-                    ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section"
+                    ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args}"
 
                     assert (
                         param.annotation != signature.empty

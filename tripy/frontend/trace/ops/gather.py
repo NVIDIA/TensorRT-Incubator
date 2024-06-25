@@ -19,7 +19,7 @@ class Gather(BaseTraceOp):
         from tripy import int32
 
         if self.inputs[1].dtype != int32:
-            op_utils.raise_error_io_info(
+            utils.raise_error_io_info(
                 self,
                 "Index tensor for gather operation should be of int32 type.",
                 details=[

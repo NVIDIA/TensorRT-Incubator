@@ -1,9 +1,11 @@
+import inspect
 from textwrap import dedent
+from typing import Any, Dict, List
 
 import pytest
 
 from tripy import TripyException
-from tripy.function_registry import FunctionRegistry
+from tripy.function_registry import AnnotationInfo, FunctionRegistry
 
 
 @pytest.fixture()
@@ -187,7 +189,7 @@ class TestFunctionRegistry:
         assert not func_overload.annotations
         assert registry["test"](0) == 1
         assert func_overload.annotations
-        assert func_overload.annotations["a"] == (int, False)
+        assert func_overload.annotations["a"] == AnnotationInfo(int, False, inspect.Parameter.POSITIONAL_OR_KEYWORD)
 
     def test_doc_of_non_overloaded_func(self, registry):
         # When there is no overload, the registry function should
@@ -237,3 +239,17 @@ class TestFunctionRegistry:
                 """
             ).strip()
         )
+
+    def test_variadic_positional_args(self, registry):
+        @registry("test")
+        def func(*args: List[Any]):
+            return sum(args)
+
+        assert registry["test"](1.0, 2.0, 3.0) == 6.0
+
+    def test_variadic_keyword_args(self, registry):
+        @registry("test")
+        def func(**kwargs: Dict[str, Any]):
+            return sum(kwargs.values())
+
+        assert registry["test"](a=1.0, b=2.0, c=3.0) == 6.0

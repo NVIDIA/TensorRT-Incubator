@@ -13,5 +13,5 @@ class CompareOp(BaseFlatIROp):
         compare_out = stablehlo.CompareOp(*operands, stablehlo.ComparisonDirectionAttr.get(self.compare_direction))
         return [compare_out]
 
-    def name(self) -> str:
+    def _op_name(self) -> str:
         return f"{self.__class__.__name__}.{self.compare_direction}"

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-import tripy.frontend.trace.ops.utils as op_utils
 from tripy import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.frontend.trace.ops import utils as op_utils
 
 
 @dataclass(repr=False)

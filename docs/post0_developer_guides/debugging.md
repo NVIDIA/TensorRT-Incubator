@@ -1,9 +1,9 @@
 # Debugging MLIR-TensorRT backend
 
 1. Install new python bindings for compiler and runtime. Assuming `tripy/mlir-tensorrt` directory exists. No need to update `LD_LIBRARY_PATH`.
-```bash
-python3 -m pip install --force-reinstall mlir-tensorrt/build/wheels/trt100/**/*.whl
-```
+	```bash
+	python3 -m pip install --force-reinstall mlir-tensorrt/build/wheels/trt100/**/*.whl
+	```
 
 2. Set environment flags for debugging:
 

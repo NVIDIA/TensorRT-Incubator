@@ -1,17 +1,17 @@
 import dataclasses
+import functools
 import glob
 import hashlib
 import os
 import time
 import typing
-from typing import Any, List, Tuple, Union, Sequence
+from typing import Any, List, Sequence, Tuple, Union
 
-from colored import Fore, attr
+from colored import Fore, Style
 
 from tripy import constants
-from tripy.logging import logger
 from tripy.common.exception import raise_error
-import functools
+from tripy.logging import logger
 
 
 def default(value, default):
@@ -28,11 +28,28 @@ def default(value, default):
     return value if value is not None else default
 
 
+def call_once(func):
+    """
+    Decorator that makes it so that the decorated function can only be called once.
+    Any subsequent calls will do nothing.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if wrapper.never_run:
+            wrapper.never_run = False
+            return func(*args, **kwargs)
+
+    wrapper.never_run = True
+    return wrapper
+
+
 def log_time(func):
     """
     Provides a wrapper for any arbitrary function to measure and log time to execute this function.
     """
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
@@ -46,7 +63,7 @@ def code_pretty_str(code, filename=None, line_no=None, func=None, enable_color=T
     def apply_color(inp, color):
         if not enable_color:
             return inp
-        return f"{color}{inp}{attr('reset')}"
+        return f"{color}{inp}{Style.reset}"
 
     line_info = ""
     if filename is not None:

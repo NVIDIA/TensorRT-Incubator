@@ -1,11 +1,11 @@
 import inspect
+from dataclasses import dataclass
 from textwrap import indent
 from typing import Any, List, Tuple
 
-from colored import Fore, attr
+from colored import Fore, Style
 
 from tripy import export, utils
-from dataclasses import dataclass
 
 
 @export.public_api()
@@ -37,7 +37,7 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     def apply_color(inp, color):
         if not enable_color:
             return inp
-        return f"{color}{inp}{attr('reset')}"
+        return f"{color}{inp}{Style.reset}"
 
     frame_info = ""
     if is_first_frame:

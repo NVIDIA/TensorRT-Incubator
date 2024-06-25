@@ -66,17 +66,17 @@ class BaseFlatIROp(abc.ABC):
         )
         skip_fields = self.str_skip_fields()
         args = [
-            f"{field.name}={getattr(self, field.name)}"
+            f"{field.name}={repr(getattr(self, field.name))}"
             for field in utils.get_dataclass_fields(self, BaseFlatIROp)
             if field.name not in skip_fields
         ]
-        return f"{outputs_str} = {self.name()}({', '.join([inp.name for inp in self.inputs] + args)})"
+        return f"{outputs_str} = {self._op_name()}({', '.join([inp.name for inp in self.inputs] + args)})"
 
     def __repr__(self) -> str:
         # This is a hack to prevent printing the entire stack info when we print this.
         return str(self)
 
-    def name(self) -> str:
+    def _op_name(self) -> str:
         """
         Returns the human readable name of this operation.
 

@@ -190,10 +190,9 @@ class Array:
         for d in self.shape:
             numel *= d
         summarize = numel > threshold
+        return self._data_str(data, summarize, linewidth, edgeitems)
 
-        return self._data_str(data, 0, summarize, linewidth, edgeitems)
-
-    def _data_str(self, data, indent, summarize, linewidth, edgeitems):
+    def _data_str(self, data, summarize, linewidth, edgeitems, indent=0):
         if isinstance(data, (float, int)):
             return str(data)
 
@@ -202,22 +201,22 @@ class Array:
                 data_lines = [data[:edgeitems] + [" ..."] + data[-edgeitems:]]
             else:
                 data_lines = [data[i : i + linewidth] for i in range(0, len(data), linewidth)]
-            lines = [", ".join([str(e) for e in line]) for line in data_lines]
+            lines = [", ".join([f"{e:.4f}" if isinstance(e, float) else str(e) for e in line]) for line in data_lines]
             return "[" + ("," + "\n" + " " * (indent + 1)).join(lines) + "]"
 
         if summarize and len(data) > 2 * edgeitems:
             slices = (
-                [self._data_str(data[i], indent + 1, summarize, linewidth, edgeitems) for i in range(0, edgeitems)]
+                [self._data_str(data[i], summarize, linewidth, edgeitems, indent + 1) for i in range(0, edgeitems)]
                 + ["..."]
                 + [
-                    self._data_str(data[i], indent + 1, summarize, linewidth, edgeitems)
+                    self._data_str(data[i], summarize, linewidth, edgeitems, indent + 1)
                     for i in range(len(data) - edgeitems, len(data))
                 ]
             )
         else:
-            slices = [self._data_str(data[i], indent + 1, summarize, linewidth, edgeitems) for i in range(0, len(data))]
+            slices = [self._data_str(data[i], summarize, linewidth, edgeitems, indent + 1) for i in range(0, len(data))]
 
-        tensor_str = ("," + "\n" * (len(self.shape) - 1) + " " * (indent + 1)).join(slices)
+        tensor_str = ("," + "\n" * (max(len(self.shape) - indent - 1, 1)) + " " * (indent + 1)).join(slices)
         return "[" + tensor_str + "]"
 
     def _memref(self, data):
@@ -334,6 +333,9 @@ class Array:
 
     def __str__(self):
         return self._prettyprint()
+
+    def __repr__(self):
+        return str(self)
 
     def __eq__(self, other) -> bool:
         """

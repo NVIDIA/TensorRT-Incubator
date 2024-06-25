@@ -1,22 +1,9 @@
 from typing import Any, List, Optional
 
-from colored import Fore, attr
-
 from tripy import utils
-from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import dynamic_dim
 from tripy.utils import Result
-
-
-# Like raise_error but adds information about the inputs and output.
-def raise_error_io_info(op, summary, details) -> None:
-    assert len(op.outputs) == 1, "This helper should only be used for ops with a single output!"
-    details += [":"] + [op.outputs[0]]
-    for index, inp in enumerate(op.inputs):
-        details.extend([f"{Fore.magenta}Input {index} was:{attr('reset')}", inp])
-
-    raise_error(summary, details)
 
 
 def _check_input_attr_matches(
@@ -40,7 +27,7 @@ def _check_input_attr_matches(
         for index, inp in enumerate(inputs):
             dtypes.extend([", " if index > 0 else "", getattr(inp, attr)])
 
-        raise_error_io_info(
+        utils.raise_error_io_info(
             op,
             f"Incompatible input {attr_name}s.",
             details=[
@@ -116,7 +103,7 @@ class ShapeOutputIdxPolicies:
 
 
 def is_quantized_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
-    from tripy.common.datatype import int4, int8, float8
+    from tripy.common.datatype import float8, int4, int8
 
     return dtype in {int4, int8, float8}
 
@@ -169,10 +156,10 @@ def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
 
 def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     from tripy.common.array import Array
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ConstantOp
     from tripy.common.datatype import int32
     from tripy.common.device import device
+    from tripy.flat_ir.ops import ConstantOp
+    from tripy.flat_ir.tensor import FlatIRTensor
 
     const_output_tensor = FlatIRTensor.build(
         shape=utils.to_dims((len(data),)),
@@ -190,9 +177,9 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
 
 
 def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int, out: "FlatIRTensor" = None):
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ConcatenateOp
     from tripy.common.datatype import int32
+    from tripy.flat_ir.ops import ConcatenateOp
+    from tripy.flat_ir.tensor import FlatIRTensor
 
     if out is None:
         out = FlatIRTensor.build(
@@ -210,9 +197,9 @@ def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int, out: "FlatIRTens
 
 
 def reshape_scalar_to_1d(input: "FlatIRTensor"):
+    from tripy.common.datatype import int32
     from tripy.flat_ir.ops import DynamicReshapeOp
     from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.common.datatype import int32
 
     shape_1d = add_constant_tensor_from_list([1], input.device)
     out = FlatIRTensor.build(
@@ -259,7 +246,8 @@ def is_broadcast_compatible(shape1, shape2) -> Result:
 def compute_shape_of_broadcast(
     shape1, shape2, output_rank: int, shape1_name: Optional[str] = None, shape2_name: Optional[str] = None
 ):
-    from tripy.common.datatype import int32, bool as tp_bool
+    from tripy.common.datatype import bool as tp_bool
+    from tripy.common.datatype import int32
     from tripy.flat_ir.ops import CompareOp, SelectOp
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.frontend.trace.ops.binary_elementwise import Comparison
@@ -359,12 +347,9 @@ def insert_broadcast(
 
 # Expands rank of a tensor via prepending extra dims provided by nb_extra_dims.
 def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
-    from tripy.common.array import Array
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, ConstantOp, DynamicBroadcastOp
     from tripy.common.datatype import int32
-    from tripy.common.device import device
-    from tripy import utils
+    from tripy.flat_ir.ops import ConcatenateOp
+    from tripy.flat_ir.tensor import FlatIRTensor
 
     if nb_extra_dims == 0:
         return input
@@ -420,7 +405,7 @@ def get_slice_indices(op, shape, index):
 
     dims = len(shape)
     if len(index) > dims:
-        raise_error_io_info(
+        utils.raise_error_io_info(
             op,
             "Too many indices for input tensor.",
             details=[
@@ -462,9 +447,9 @@ def slice_rank1_tensor(rank1_tensor: "FlatIRTensor", slice_index: int, reason_de
     Slice a rank 1 tensor tensor along a certain index.
     Ex: tensor [1,2,3,4,5,6] sliced at slice_index 2 will return 3.
     """
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import DynamicSliceOp
     from tripy.common.datatype import int32
+    from tripy.flat_ir.ops import DynamicSliceOp
+    from tripy.flat_ir.tensor import FlatIRTensor
 
     device = rank1_tensor.device
     start_idx = add_constant_tensor_from_list([slice_index], device)

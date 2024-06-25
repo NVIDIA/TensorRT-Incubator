@@ -9,8 +9,8 @@ import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
 
 from tripy import utils
-from tripy.common import ShapeInfo, datatype
-from tripy.common.exception import raise_error
+from tripy.common import datatype
+from tripy.common.exception import OmitStackInfo, raise_error
 from tripy.logging import logger
 
 
@@ -89,12 +89,6 @@ def make_mlir_tensor(shape, dtype: "tripy.common.dtype") -> ir.RankedTensorType:
     )
 
 
-UNKNOWN_LOC = "unknown"
-OUTPUT_SEPARATOR = ";;<out>;;"
-TRACE_INPUTS_SEPARATOR = ";;<trace_in>;;"
-TRACE_OUTPUTS_SEPARATOR = ";;<trace_out>;;"
-
-
 def remove_sym_attr(mlir_text: str) -> str:
     return re.sub(r"module @\S+ {", "module {", mlir_text)
 
@@ -119,6 +113,12 @@ def remove_constants(mlir_text) -> str:
     return "\n".join(replaced)
 
 
+UNKNOWN_LOC = "unknown"
+OUTPUT_SEPARATOR = ";;<out>;;"
+TRACE_INPUTS_SEPARATOR = ";;<trace_in>;;"
+TRACE_OUTPUTS_SEPARATOR = ";;<trace_out>;;"
+
+
 def make_tensor_location(
     input_names: List[str], output_names: List[str], trace_input_names: List[str], trace_output_names: List[str]
 ) -> ir.Location:
@@ -132,17 +132,22 @@ def make_tensor_location(
 
 # The way locations are printed by MLIR-TRT differs from how they are printed by TRT, hence all the `?`s.
 TENSOR_NAME_PATTERN = re.compile(r'loc\("?(.*?)"?\):? ?')
+# Noncapturing pattern is required so that when we `.split`, we eliminate the entire pattern and not just
+# the captured portions.
 TENSOR_NAME_PATTERN_NO_CAPTURE = re.compile(r'loc\("?.*?"?\):? ?')
 
 
-def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], str]:
+def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], List[str], List[str], str]:
     """
     Returns:
-        The input names, output names, trace input names, trace output names, and new error message with location information stripped respectively.
+        The input names, output names, trace input names, trace output names,
+        and new error message with location information stripped respectively.
+        If no location is found in the error message, the input/output names will all
+        be empty lists.
     """
     locs = TENSOR_NAME_PATTERN.findall(msg)
     if not locs:
-        return [], [], [], [], []
+        return [], [], [], [], msg
 
     # TODO (#150): Update this logic to not only look at the first valid location attribute.
     loc = None
@@ -158,7 +163,7 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], st
         logger.warning("Error location may be inaccurate as there are unknown locations from backend.")
 
     if not loc:
-        return [], [], [], [], []
+        return [], [], [], [], msg
 
     input_names, _, loc = loc.partition(OUTPUT_SEPARATOR)
     output_names, _, loc = loc.partition(TRACE_INPUTS_SEPARATOR)
@@ -248,7 +253,6 @@ class ShapeContext:
 
     def __init__(self):
         self.shape_caches = {}
-        pass
 
     @classmethod
     def get_compiler(cls):
@@ -321,3 +325,99 @@ class ShapeContext:
             assert len(func_output_types.results) == 1
             self.shape_caches[mlir_str] = func_output_types.results[0].shape
             return func_output_types.results[0].shape
+
+
+def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
+    """
+    Maps errors originating from the backend to user code and raises an error.
+    This function must be called in the context of an active exception, as it may reraise
+    the outer exception if the error does not originate from the backend.
+    """
+    if hasattr(exc, "error_diagnostics"):
+        stderr += ",".join(map(lambda err: str(err.location), exc.error_diagnostics))
+    input_names, output_names, trace_input_names, trace_output_names, stderr = parse_tensor_names_from_location(stderr)
+
+    # If no location was found in the error message, then just raise the original error.
+    if all(not val for val in [input_names, output_names, trace_input_names, trace_output_names]):
+        raise
+
+    assert (
+        len(output_names) <= 1
+    ), f"Error messages are only implemented for single output ops. Please fix if you see this message!"
+
+    def omit_stack_info(details):
+        return list(map(lambda x: OmitStackInfo(x), details))
+
+    def get_tensors(names, title=None):
+        infos = []
+        if flat_ir is None:
+            return infos
+
+        if not names or any(name not in flat_ir.tensor_map for name in names):
+            return infos
+
+        for index, name in enumerate(names):
+            if title:
+                infos.append(f"{title} {index}:")
+            infos.append(flat_ir.tensor_map[name])
+        return infos
+
+    def get_flat_ir_operation(output_names):
+        assert len(output_names) <= 1, f"Only implemented for single output ops"
+        if not output_names or flat_ir is None:
+            return []
+
+        output_name = output_names[0]
+        out_tensor = flat_ir.tensor_map[output_name]
+
+        if output_name not in trace_output_names:
+            # TODO (#165): Enforce reason_context like we do reason_details?
+            assert (
+                out_tensor.reason_details
+            ), f"All intermediate tensors should have reason_details set, but {out_tensor} does not!"
+
+        op = out_tensor.producer
+
+        return (
+            [
+                "This error occured while trying to compile the following FlatIR expression:",
+                utils.code_pretty_str(str(op)),
+                "\n",
+            ]
+            + (
+                [
+                    f"\nNote: Tripy introduced new operation(s) in order to ",
+                    *omit_stack_info(out_tensor.reason_context),
+                    ".",
+                ]
+                if out_tensor.reason_context
+                else []
+            )
+            + (
+                [
+                    f"\nThis operation was introduced to ",
+                    *omit_stack_info(out_tensor.reason_details),
+                    ".",
+                ]
+                if out_tensor.reason_details
+                else []
+            )
+            + [
+                "\n\n",
+            ]
+        )
+
+    raise_error(
+        repr(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
+        details=[stderr, "\n"]
+        + get_flat_ir_operation(output_names)
+        + (
+            (
+                ["Note: This originated from the following expression:"]
+                + get_tensors(trace_output_names)
+                + get_tensors(trace_input_names, "Input")
+            )
+            if trace_output_names or trace_input_names
+            else []
+        ),
+    )

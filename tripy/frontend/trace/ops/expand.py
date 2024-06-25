@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from tripy import export
+from tripy import export, utils
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
@@ -20,7 +20,7 @@ class Expand(BaseTraceOp):
     def infer_rank(self):
         if self.shape:
             if len(self.shape) < self.inputs[0].rank:
-                op_utils.raise_error_io_info(
+                utils.raise_error_io_info(
                     self,
                     "The number of sizes must be greater or equal to input tensor's rank.",
                     [f"Target sizes: {self.shape}", f" input rank: {self.inputs[0].rank}"],
@@ -34,7 +34,7 @@ class Expand(BaseTraceOp):
             self.outputs[0].rank = out_shape[0]
 
             if out_shape[0] < self.inputs[0].rank:
-                op_utils.raise_error_io_info(
+                utils.raise_error_io_info(
                     self,
                     "The shape of size tensor must be greater or equal to input tensor's rank.",
                     [f"Target sizes shape: {out_shape[0]}", f" input rank: {self.inputs[0].rank}"],

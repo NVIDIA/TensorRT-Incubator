@@ -3,7 +3,7 @@ from typing import Any, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
-from tripy import export
+from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -58,9 +58,9 @@ class BinaryElementwise(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def broadcast_inputs(self, inputs, outputs):
-        from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import MaxOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         rank = max(inputs[0].rank, inputs[1].rank)
         with FlatIRTensor.context([f"expand the inputs of '{self.kind.strip()}' to have the same rank"]):

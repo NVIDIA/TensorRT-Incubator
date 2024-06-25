@@ -5,6 +5,15 @@ from collections import OrderedDict, defaultdict
 from textwrap import dedent
 from typing import Any, Callable, Dict, List, Tuple
 
+from dataclasses import dataclass
+
+
+@dataclass
+class AnnotationInfo:
+    type_info: type
+    optional: bool
+    kind: Any  # Uses inspect.Parameter.<kind>
+
 
 class FuncOverload:
     def __init__(self, func):
@@ -31,7 +40,7 @@ class FuncOverload:
     def _get_annotations(self):
         if self.annotations is None:
             # Maps parameter names to their type annotations and a boolean indicating whether they are optional.
-            self.annotations: Dict[str, Tuple[type, bool]] = OrderedDict()
+            self.annotations: Dict[str, AnnotationInfo] = OrderedDict()
             signature = inspect.signature(self.func)
             for name, param in signature.parameters.items():
                 if name == "self":
@@ -58,7 +67,7 @@ class FuncOverload:
                                 f"\nNote: Error was: {e}"
                             )
 
-                self.annotations[name] = (annotation, param.default is not signature.empty)
+                self.annotations[name] = AnnotationInfo(annotation, param.default is not signature.empty, param.kind)
 
         return self.annotations
 
@@ -88,23 +97,35 @@ class FuncOverload:
 
         annotations = self._get_annotations()
 
-        # Check if we have too many arguments
-        if len(args) > len(annotations):
+        # Check if we have too many positional arguments. We can only do this if there isn't a variadic positional argument.
+        if not any(annotation.kind == inspect.Parameter.VAR_POSITIONAL for annotation in annotations.values()) and len(
+            args
+        ) > len(annotations):
             return Result.err(
                 [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
-        for (name, (typ, _)), arg in zip(annotations.items(), args):
-            if not matches_type(name, typ, arg):
+        for (name, annotation), arg in zip(annotations.items(), args):
+            if not matches_type(name, annotation.type_info, arg):
                 return Result.err(
                     [
                         f"For parameter: '{name}', expected an instance of type: "
-                        f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
+                        f"'{annotation.type_info.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
                     ],
                 )
 
         for name, arg in kwargs.items():
-            if name not in annotations:
+            if name in annotations:
+                typ = annotations[name].type_info
+                if not matches_type(name, typ, arg):
+                    return Result.err(
+                        [
+                            f"For parameter: '{name}', expected an instance of type: "
+                            f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
+                        ],
+                    )
+            elif not any(annotation.kind == inspect.Parameter.VAR_KEYWORD for annotation in annotations.values()):
+                # We can only validate the names of arguments if the function does not accept variadic kwargs
                 return Result.err(
                     [
                         f"Parameter: '{name}' is not valid for this function. "
@@ -112,27 +133,25 @@ class FuncOverload:
                     ],
                 )
 
-            typ, _ = annotations[name]
-            if not matches_type(name, typ, arg):
-                return Result.err(
-                    [
-                        f"For parameter: '{name}', expected an instance of type: "
-                        f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
-                    ],
-                )
-
         # Check if all required arguments are given. We do so by stripping out arguments
         # and then checking if any of the remaining ones are required.
         # We do this only after we know that all provided args/kwargs are valid.
-        missing_arg_dict = copy.copy(annotations)
+        # Don't count variadic arguments here since they will always be "missing".
+        missing_arg_dict = {
+            name: annotation
+            for name, annotation in annotations.items()
+            if annotation.kind not in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]
+        }
 
         arg_names = list(missing_arg_dict.keys())[: len(args)]
         kwarg_names = list(kwargs.keys())
 
         for name in arg_names + kwarg_names:
-            del missing_arg_dict[name]
+            # Names might not be present in the initial missing_arg_dict (which is the entire function signature) in case of e.g. variadic kwargs
+            if name in missing_arg_dict:
+                del missing_arg_dict[name]
 
-        missing_required_args = [name for name, (_, optional) in missing_arg_dict.items() if not optional]
+        missing_required_args = [name for name, annotation in missing_arg_dict.items() if not annotation.optional]
         if missing_required_args:
             return Result.err([f"Some required arguments were not provided: {missing_required_args}"])
 

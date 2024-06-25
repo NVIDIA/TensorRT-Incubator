@@ -39,7 +39,7 @@ class Where(BaseTraceOp):
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         if self.inputs[0].dtype != datatype.bool:
-            op_utils.raise_error_io_info(
+            utils.raise_error_io_info(
                 self,
                 "Condition input must have boolean type.",
                 details=[

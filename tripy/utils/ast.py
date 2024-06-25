@@ -1,14 +1,13 @@
 import ast
-import textwrap
 import inspect
-from typing import List, Optional, Tuple, Callable
+import textwrap
+from typing import Callable, List, Optional, Tuple
 
-from tripy.utils.stack_info import SourceInfo
 from tripy.utils.result import Result
+from tripy.utils.stack_info import SourceInfo
 
 
 def get_parsed_ast(code: str) -> Result[Tuple[str, int]]:
-
     # Returns the parsed AST and additional indentation that needs to be accounted for
     # when determining column offsets.
     raw_code = code

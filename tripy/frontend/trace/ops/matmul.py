@@ -33,7 +33,7 @@ class MatrixMultiplication(BaseTraceOp):
 
         for index, rank in enumerate([a_rank, b_rank]):
             if rank < 1:
-                op_utils.raise_error_io_info(
+                utils.raise_error_io_info(
                     self,
                     "Input tensors must have at least 1 dimension.",
                     details=[
