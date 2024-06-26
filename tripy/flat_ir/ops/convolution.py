@@ -28,6 +28,7 @@ class ConvolutionOp(BaseFlatIROp):
         lhs_shape = self.inputs[0].shape
         iota = tuple(range(len(lhs_shape)))
         lhs_spec, rhs_spec, out_spec = iota, iota, iota
+
         dnums = stablehlo.ConvDimensionNumbers.get(
             input_batch_dimension=lhs_spec[0],
             input_feature_dimension=lhs_spec[1],

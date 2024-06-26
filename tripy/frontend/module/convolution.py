@@ -10,10 +10,89 @@ from tripy.frontend.module.parameter import Parameter, DefaultParameter
 from tripy.common.exception import raise_error
 
 
-@export.public_api(document_under="modules")
 @dataclass
 @utils.constant_fields(["dtype", "padding", "stride", "groups", "dilation"])
-class Conv(Module):
+class ConvBase(Module):
+    r"""Base class for sharing common functionality between Conv and ConvTranspose."""
+
+    dtype: datatype.dtype
+    padding: Sequence[Sequence[int]]
+    stride: Sequence[int]
+    groups: int
+    dilation: Sequence[int]
+    bias: Optional[Parameter]
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_dims: Sequence[int],
+        padding: Sequence[Sequence[int]] = None,
+        stride: Sequence[int] = None,
+        groups: int = None,
+        dilation: Sequence[int] = None,
+        bias: bool = True,
+        dtype: datatype.dtype = datatype.float32,
+    ) -> None:
+
+        super().__init__()
+
+        self.groups = utils.default(groups, 1)
+
+        if self.groups <= 0:
+            raise_error(
+                "Feature group count must be a positive integer.",
+                details=[f"Got feature group count: {self.groups}."],
+            )
+
+        if in_channels % self.groups or out_channels % self.groups:
+            raise_error(
+                "Feature group count must divide both input and output channel counts evenly.",
+                details=[
+                    f"Got feature group count: {self.groups} which is incompatible with input and output channel counts: {in_channels} and {out_channels}."
+                ],
+            )
+
+        rank = len(kernel_dims) + 2
+        self.padding = utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
+
+        if not all(len(pad) == 2 for pad in self.padding):
+            raise_error(
+                f"Padding must be provided as a sequence of pairs of integers.",
+                details=[f"Supplied padding attribute: {self.padding} contains sequences that are not of length 2."],
+            )
+
+        if not all(p1 >= 0 and p2 >= 0 for p1, p2 in self.padding):
+            raise_error(
+                "Negative padding is not supported.",
+                details=[f"Got padding: {self.padding} but all values must be non-negative integers."],
+            )
+
+        self.stride = utils.default(stride, (1,) * (rank - 2))
+
+        if not all(s > 0 for s in self.stride):
+            raise_error(
+                "Non-positive stride is not supported.",
+                details=[f"Got stride: {self.stride} but all values must be integers greater than 0."],
+            )
+
+        self.dilation = utils.default(dilation, (1,) * (rank - 2))
+
+        if not all(isinstance(d, int) and d > 0 for d in self.dilation):
+            raise_error(
+                "Non-positive dilation is not supported.",
+                details=[f"Got dilation: {self.dilation} but all values must be integers greater than 0."],
+            )
+
+        if bias:
+            self.bias = DefaultParameter((out_channels,), dtype=dtype)
+
+        self.dtype = dtype
+
+
+@export.public_api(document_under="modules")
+@dataclass
+class Conv(ConvBase):
     r"""
     Applies a convolution on the input tensor.
 
@@ -71,7 +150,7 @@ class Conv(Module):
 
     bias: Optional[Parameter]
     r"""
-    The bias term to add to the output. The bias has a shape of :math:`(\text{Channels_{\text{out}}},)`.
+    The bias term to add to the output. The bias has a shape of :math:`(\text{out_channels},)`.
     """
 
     def __init__(
@@ -108,7 +187,7 @@ class Conv(Module):
                 where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
                 This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
                 For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
-            bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{Channels_{\text{out}}},)`.
+            bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{out_channels},)`.
             dtype: The data type to use for the convolution weights.
 
         .. code-block:: python
@@ -169,56 +248,10 @@ class Conv(Module):
             assert torch.allclose(torch.from_dlpack(output), expected)
         """
 
-        super().__init__()
-
-        self.groups = utils.default(groups, 1)
-
-        if self.groups <= 0:
-            raise_error(
-                "Feature group count must be a positive integer.",
-                details=[f"Got feature group count: {self.groups}."],
-            )
-
-        if in_channels % self.groups or out_channels % self.groups:
-            raise_error(
-                "Feature group count must divide both input and output channel counts evenly.",
-                details=[
-                    f"Got feature group count: {self.groups} which is incompatible with input and output channel counts: {in_channels} and {out_channels}."
-                ],
-            )
+        super().__init__(in_channels, out_channels, kernel_dims, padding, stride, groups, dilation, bias, dtype)
 
         kernel_shape = (out_channels, in_channels // self.groups, *kernel_dims)
         self.weight = DefaultParameter(kernel_shape, dtype=dtype)
-
-        rank = len(kernel_shape)
-        self.padding = utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
-
-        if not all(len(pad) == 2 for pad in self.padding):
-            raise_error(
-                f"Padding must be provided as a sequence of pairs of integers.",
-                details=[f"Supplied padding attribute: {self.padding} contains sequences that are not of length 2."],
-            )
-
-        self.stride = utils.default(stride, (1,) * (rank - 2))
-
-        if not all(s > 0 for s in self.stride):
-            raise_error(
-                "Non-positive stride is not supported.",
-                details=[f"Got stride: {self.stride} but all values must be integers greater than 0."],
-            )
-
-        self.dilation = utils.default(dilation, (1,) * (rank - 2))
-
-        if not all(isinstance(d, int) and d > 0 for d in self.dilation):
-            raise_error(
-                "Non-positive dilation is not supported.",
-                details=[f"Got dilation: {self.dilation} but all values must be integers greater than 0."],
-            )
-
-        if bias:
-            self.bias = DefaultParameter((out_channels,), dtype=dtype)
-
-        self.dtype = dtype
 
     def __call__(self, input: "tripy.Tensor") -> "tripy.Tensor":
         r"""
@@ -232,7 +265,6 @@ class Conv(Module):
         """
         from tripy.frontend.trace.ops.convolution import Convolution
         from tripy.frontend.trace.ops.reshape import reshape
-        from tripy.frontend.trace.ops.convolution import Convolution
 
         x = Convolution.build(
             [input, self.weight],
