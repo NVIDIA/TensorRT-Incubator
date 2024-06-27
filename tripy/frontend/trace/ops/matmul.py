@@ -109,7 +109,7 @@ class MatrixMultiplication(BaseTraceOp):
         # Following steps are followed in the implementation below:
         # 1. Slice the input shape into batch dims and matrix dims.
         # 2. Ensure that batch dims for both operands are of same rank by prepending shape tensor with 1s.
-        # 3. Use Max of batch dims to get the output batch dims.
+        # 3. Apply broadcasting rule to batch dims to get the output batch dims.
         # 4. Concatenate the batch dims with matrix dims computed in step1.
         # 5. Use the computed output dims from #4 to broadcast both the inputs.
         # 6. Invocate DotOp.
@@ -165,27 +165,18 @@ class MatrixMultiplication(BaseTraceOp):
         a_batch_shapes_with_ones = append_ones_data_tensor(a_batch_shape, nb_result_batch_dims - nb_a_batch_dims)
         b_batch_shapes_with_ones = append_ones_data_tensor(b_batch_shape, nb_result_batch_dims - nb_b_batch_dims)
 
-        # Use Max of batch dims to get the output batch dims.
-        max_of_batch_shapes = FlatIRTensor.build(
-            shape=utils.to_dims([nb_result_batch_dims]),
-            rank=1,
-            dtype=int32,
-            device=inputs[0].device,
-            reason_details=[
-                "compute the output shape using element-wise max of input shapes ",
-                a_batch_shapes_with_ones,
-                b_batch_shapes_with_ones,
-                " to account for broadcasting.",
-            ],
-        )
-        MaxOp.build(
-            [a_batch_shapes_with_ones, b_batch_shapes_with_ones],
-            [max_of_batch_shapes],
+        # Apply broadcasting rule of batch shapes to get the resulting batch shapes
+        bcast_of_batch_shapes = op_utils.compute_shape_of_broadcast(
+            a_batch_shapes_with_ones,
+            b_batch_shapes_with_ones,
+            nb_result_batch_dims,
+            shape1_name="the batch dims of a",
+            shape2_name="the batch dims of b",
         )
 
         # Concatenate the batch dims with matrix dims computed in step1.
-        a_dims = op_utils.concatenate_tensors([max_of_batch_shapes, a_mat_shape], dim=0)
-        b_dims = op_utils.concatenate_tensors([max_of_batch_shapes, b_mat_shape], dim=0)
+        a_dims = op_utils.concatenate_tensors([bcast_of_batch_shapes, a_mat_shape], dim=0)
+        b_dims = op_utils.concatenate_tensors([bcast_of_batch_shapes, b_mat_shape], dim=0)
 
         # Use the computed output dims from #4 to broadcast both the inputs.
         inputs[0] = op_utils.insert_broadcast(

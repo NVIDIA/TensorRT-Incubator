@@ -23,6 +23,11 @@ class TestTensor:
         assert isinstance(a.trace_tensor.producer, tp.frontend.trace.ops.Storage)
         assert cp.from_dlpack(a).get().tolist() == VALUES
 
+    def test_empty_tensor(self):
+        a = tp.Tensor([], dtype=tp.int32)  # dtype cannot be inferred for empty tensor
+        assert isinstance(a, tp.Tensor)
+        assert cp.from_dlpack(a).get().tolist() == []
+
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))

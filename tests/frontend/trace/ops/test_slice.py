@@ -32,7 +32,7 @@ class TestSlice:
         a = tp.ones((2, 3, 4))
         assert a[0].shape == [3, 4]
         assert a[0:1].shape == [1, 3, 4]
-        assert list(cp.from_dlpack(a[0].shape).get()) == [3, 4]
+        assert cp.from_dlpack(a[0].shape).get().tolist() == [3, 4]
 
     def test_end_clamping(self):
         a = tp.ones((2, 3, 4))
@@ -44,6 +44,12 @@ class TestSlice:
         a = tp.ones((2, 3))
         b = a[idx]
         assert b.shape == [3]
+
+    def test_empty_slice(self):
+        a = tp.ones((2, 3, 4))
+        b = a[3:2:1]
+        assert b.shape == (0, 3, 4)
+        assert cp.from_dlpack(b).get().tolist() == []
 
     def test_invalid_index(self):
         a = tp.ones((2, 3, 4))
@@ -57,23 +63,6 @@ class TestSlice:
             has_stack_info_for=[a],
         ):
             a[3].eval()
-
-    def test_invalid_slice(self):
-        a = tp.ones((2, 3, 4))
-        with helper.raises(
-            tp.TripyException,
-            # Looking for a match that looks like this:
-            # |             a[3:2:1].eval()
-            # |               ^
-            # for each dimension
-            match=(
-                r"\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^"
-                r"(.|\n)*\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {17}\x1b\[38;5;1m\^"
-                r"(.|\n)*\| {13}a\[3:2:1\]\.eval\(\)\n\s*\| {19}\x1b\[38;5;1m\^"
-            ),
-            has_stack_info_for=[a],
-        ):
-            a[3:2:1].eval()
 
     def test_invalid_multiple_dims(self):
         a = tp.ones((2, 3, 4))

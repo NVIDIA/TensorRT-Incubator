@@ -65,18 +65,12 @@ class BinaryElementwise(BaseTraceOp):
             shape_of_input1 = op_utils.get_shape_of_tensor(inputs[1])
 
             # Compute element-wise max of input shapes to get the desired output shape.
-            max_output_shape_tensor = FlatIRTensor.build(
-                shape=inputs[0].shape,
-                rank=rank,
-                dtype=int32,
-                device=inputs[0].device,
-                reason_details=[
-                    f"compute the output shape using element-wise max of input shapes {shape_of_input0}, {shape_of_input1} to account for broadcasting."
-                ],
-            )
-            MaxOp.build(
-                [shape_of_input0, shape_of_input1],
-                [max_output_shape_tensor],
+            output_shape_tensor = op_utils.compute_shape_of_broadcast(
+                shape_of_input0,
+                shape_of_input1,
+                rank,
+                shape1_name=f"the shape of the first input {shape_of_input0}",
+                shape2_name=f"the shape of the second input {shape_of_input1}",
             )
 
             inputs[0] = op_utils.insert_broadcast(
@@ -84,7 +78,7 @@ class BinaryElementwise(BaseTraceOp):
                 out_shape=outputs[0].shape,
                 out_rank=rank,
                 use_dynamic_variant=True,
-                shape_of_target_tensor=max_output_shape_tensor,
+                shape_of_target_tensor=output_shape_tensor,
                 tensor_details=f"left operand",
             )
 
@@ -93,7 +87,7 @@ class BinaryElementwise(BaseTraceOp):
                 out_shape=outputs[0].shape,
                 out_rank=rank,
                 use_dynamic_variant=True,
-                shape_of_target_tensor=max_output_shape_tensor,
+                shape_of_target_tensor=output_shape_tensor,
                 tensor_details=f"right operand",
             )
 

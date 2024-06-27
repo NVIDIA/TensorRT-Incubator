@@ -37,6 +37,7 @@ class TestMatrixMultiplication:
             ((2, 3, 4), (4, 2)),  # 3D tensor and 2D tensor
             ((3, 2, 3, 4), (4, 2)),  # 4D tensor and 2D tensor
             ((3, 2, 3), (1, 3, 2)),  # Broadcasting batch dimension
+            ((1, 2, 3), (0, 0, 3, 2)),  # Broadcasting batch dims with 0
         ],
     )
     def test_broadcast_gemm(self, shape_a, shape_b):

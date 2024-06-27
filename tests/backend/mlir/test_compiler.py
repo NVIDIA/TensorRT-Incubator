@@ -10,12 +10,14 @@ class TestErrorMapping:
         sliced = values[4]
 
         with helper.raises(
-            tp.TripyException, r"start index 4 is larger than limit index 3 in dimension 0", has_stack_info_for=[values]
+            tp.TripyException,
+            r"limit index 5 is larger than dimension size 3 in dimension 0",
+            has_stack_info_for=[values],
         ):
             sliced.eval()
 
     @pytest.mark.skip(
-        "MLIR-TRT currently triggers a C-style abort, which we cannot handle. Needs to be fixed in MLIR-TRT."
+        "TODO (#207): MLIR-TRT currently triggers a C-style abort, which we cannot handle. Needs to be fixed in MLIR-TRT."
     )
     def test_reshape_invalid_volume(self):
         tensor = tp.ones((2, 2))

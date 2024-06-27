@@ -43,6 +43,8 @@ class TestBinaryElementwise:
         [
             (tp.Tensor([1.0]), tp.Tensor([2.0]), False),
             (tp.Tensor([1.0]), np.array([2.0], dtype=np.float32), False),
+            # shape of (0,) is broadcastable with (1,)
+            (tp.Tensor([], dtype=tp.float32), tp.Tensor([1.0], dtype=tp.float32), False),
             (np.array([1.0], dtype=np.float32), tp.Tensor([2.0]), True),
             (tp.Tensor([1.0]), 2.0, False),
             (1.0, tp.Tensor([2.0]), True),

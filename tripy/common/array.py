@@ -10,6 +10,14 @@ import mlir_tensorrt.runtime.api as runtime
 import tripy.common.datatype
 
 
+def has_no_contents(data: Any) -> bool:
+    while isinstance(data, Sequence):
+        if len(data) == 0:
+            return True
+        data = data[0]
+    return False
+
+
 def check_dtype_consistency(actual_dtype, stated_dtype) -> None:
     if stated_dtype is None:
         return
@@ -139,6 +147,9 @@ class Array:
             self.shape = shape
         else:
             if isinstance(data, (List, bool, int, float, tuple)):
+                # shape can still be inferred for empty data, but dtype cannot be
+                if has_no_contents(data) and dtype is None:
+                    raise_error("Datatype must be provided for empty data (i.e., not containing any scalars).")
                 if dtype is None:
                     element_type = get_element_type(data)
                 else:
@@ -284,6 +295,21 @@ class Array:
                 if self.device != device:
                     raise_error(
                         f"Cannot allocate tensor that is currently on: {device} on requested device: {self.device}"
+                    )
+
+                # a pointer value of 0 is used only for empty tensors
+                if ptr == 0:
+                    assert 0 in list(
+                        self.shape
+                    ), f"Recieved null pointer for buffer but tensor is not empty (shape {list(self.shape)})"
+                    self.device = utils.default(self.device, tp_device("gpu"))
+                    mlirtrt_device = self.runtime_client.get_devices()[0] if self.device == tp_device("gpu") else None
+
+                    return self.runtime_client.create_memref(
+                        array.array("i", []),  # typecode is not important because it's empty
+                        shape=list(self.shape),
+                        dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
+                        device=mlirtrt_device,
                     )
 
                 if self.device.kind == "cpu":

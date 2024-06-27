@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Set
+from typing import Sequence, Set
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo

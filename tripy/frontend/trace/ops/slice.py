@@ -24,7 +24,8 @@ class Slice(BaseTraceOp):
         input_shape = self.inputs[0].shape
         self.start_indices, self.limit_indices, self.strides = op_utils.get_slice_indices(self, input_shape, self.index)
         out_shape = [
-            math.ceil(abs((stop - start) / stride))
+            # if start > stop, the dimension will be empty
+            math.ceil(abs((stop - start) / stride)) if stop >= start else 0
             for start, stop, stride in zip(self.start_indices, self.limit_indices, self.strides)
         ]
         self.outputs[0].shape = utils.to_dims(out_shape)
@@ -36,7 +37,7 @@ class Slice(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp, MinOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import int32
+        from tripy.common.datatype import bool as tp_bool, int32
 
         device = inputs[0].device
         zero_1d = op_utils.add_constant_tensor_from_list([0], device)
@@ -76,20 +77,40 @@ class Slice(BaseTraceOp):
                     DynamicReshapeOp.build([index_tensor, shape_input], [reshape_out])
                     return reshape_out
 
-                # the max dimension is clamped
-                def clamp(index_tensor):
-                    min_out = FlatIRTensor.build(
+                # if start > limit, the dim should be empty (we will set start to match the end)
+                def adjust_start(start_bound, end_bound):
+                    from tripy.frontend.trace.ops.binary_elementwise import Comparison
+                    from tripy.flat_ir.ops import CompareOp, SelectOp
+
+                    start_comparison = FlatIRTensor.build(
+                        shape=utils.to_dims([1]),
+                        rank=1,
+                        dtype=tp_bool,
+                        device=device,
+                        reason_details=["Check if start > end"],
+                    )
+                    adjusted_start = FlatIRTensor.build(
                         shape=utils.to_dims([1]),
                         rank=1,
                         dtype=int32,
                         device=device,
-                        reason_details=["clamping the slice upper bound to the shape dim"],
+                        reason_details=["Shift the start to the end so we get an empty dimension if start > end"],
                     )
-                    MinOp.build([index_tensor, shape_slice], [min_out])
-                    return min_out
 
-                start_idxs.append(expand_to_rank1(slice_params[3 * dim]))
-                limit_idxs.append(clamp(expand_to_rank1(slice_params[3 * dim + 1])))
+                    # pick start if it is <= end
+                    CompareOp.build(
+                        [start_bound, end_bound],
+                        [start_comparison],
+                        compare_direction=Comparison.Kind.LESS_EQUAL.compare_direction,
+                    )
+                    SelectOp.build([start_comparison, start_bound, end_bound], [adjusted_start])
+                    return adjusted_start
+
+                start_bound = expand_to_rank1(slice_params[3 * dim])
+                end_bound = expand_to_rank1(slice_params[3 * dim + 1])
+
+                start_idxs.append(adjust_start(start_bound, end_bound))
+                limit_idxs.append(end_bound)
                 stride_idxs.append(expand_to_rank1(slice_params[3 * dim + 2]))
             else:
                 start_idxs.append(zero_1d)
@@ -153,6 +174,14 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
             else:
                 return where(index >= 0, index, reshape(t_shape[i], (1,)) + index)
 
+        # when dealing with a slice (not a single index), we clamp the start and end bounds to [0, t_shape[i]]
+        # because out of bounds indices for a *slice* mean that the dim should be empty, not an error
+        def clamp_bound(bound: Union[int, Tensor]) -> Union[int, Tensor]:
+            if isinstance(bound, int):
+                return 0 if bound < 0 else where(bound > t_shape[i], t_shape[i], Tensor([bound]))
+            else:
+                return where(bound < 0, Tensor([0]), where(bound > t_shape[i], t_shape[i], bound))
+
         if isinstance(idx, int) or isinstance(idx, Tensor):
             args.append(convert_to_positive_idx(idx))
             args.append(convert_to_positive_idx(idx) + 1)
@@ -166,16 +195,13 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
             # of the flipped list and goes to index len(l) - 3 of the flipped list.
             if idx.step is not None and idx.step < 0:
                 flip_dims.append(i)
-                # note that if the starting index is past the end of the tensor, slicing clamps it
-                args.append(
-                    0
-                    if idx.start is None
-                    else where(idx.start >= t_shape[i], Tensor(0), t_shape[i] - convert_to_positive_idx(idx.start) - 1)
-                )
-                args.append(t_shape[i] if idx.stop is None else t_shape[i] - convert_to_positive_idx(idx.stop) - 1)
+                adjusted_start = 0 if idx.start is None else t_shape[i] - convert_to_positive_idx(idx.start) - 1
+                adjusted_stop = t_shape[i] if idx.stop is None else t_shape[i] - convert_to_positive_idx(idx.stop) - 1
+                args.append(clamp_bound(adjusted_start))
+                args.append(clamp_bound(adjusted_stop))
             else:
-                args.append(convert_to_positive_idx(utils.default(idx.start, 0)))
-                args.append(convert_to_positive_idx(utils.default(idx.stop, t_shape[i])))
+                args.append(clamp_bound(convert_to_positive_idx(utils.default(idx.start, 0))))
+                args.append(clamp_bound(convert_to_positive_idx(utils.default(idx.stop, t_shape[i]))))
             args.append(abs(utils.default(idx.step, 1)))
         else:
             raise_error(

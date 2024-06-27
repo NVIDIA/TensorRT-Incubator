@@ -23,6 +23,6 @@ class TestDivideOp:
         )
         assert (
             str(broadcast_b)
-            == "t_inter7: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(b, t_inter4, broadcast_dim=[0])"
+            == "t_inter9: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(b, t_inter4, broadcast_dim=[0])"
         )
-        assert str(div) == "out: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DivideOp(t_inter3, t_inter7)"
+        assert str(div) == "out: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DivideOp(t_inter3, t_inter9)"

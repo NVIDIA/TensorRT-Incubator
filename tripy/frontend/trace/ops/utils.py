@@ -68,7 +68,11 @@ def get_broadcast_dim(dim1, dim2):
         return dim2
     else:
         assert dim1 == 1 or dim2 == 1 or dim1 == dim2
-        return max(dim1, dim2)
+        # can't just return max(dim1, dim2) because one may be 0
+        if dim1 == 1:
+            return dim2
+        # dim1 == dim2 or dim2 == 1
+        return dim1
 
 
 ##
@@ -171,6 +175,48 @@ def is_broadcast_compatible(shape1, shape2) -> Result:
             )
 
     return Result.ok()
+
+
+# Given two shapes, compute the shape of the resulting broadcast. Assumes that the shapes are of equal rank
+def compute_shape_of_broadcast(
+    shape1, shape2, output_rank: int, shape1_name: Optional[str] = None, shape2_name: Optional[str] = None
+):
+    from tripy.common.datatype import int32, bool as tp_bool
+    from tripy.flat_ir.ops import CompareOp, SelectOp
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.frontend.trace.ops.binary_elementwise import Comparison
+
+    shape1_name = utils.default(shape1_name, "a tensor")
+    shape2_name = utils.default(shape2_name, "another tensor")
+
+    # can't just use the max of shape1 and shape2 because it will be incorrect if a dim is 0
+    # (the broadcast of 0 and 1 is 0)
+    resulting_shape = FlatIRTensor.build(
+        shape=utils.to_dims([output_rank]),
+        rank=1,
+        dtype=int32,
+        device=shape1.device,
+        reason_details=[
+            f"compute the broadcasted shape of {shape1_name} ",
+            shape1,
+            f" and {shape2_name} ",
+            shape2,
+        ],
+    )
+    shape_dim_comparison = FlatIRTensor.build(
+        shape=utils.to_dims([output_rank]),
+        rank=1,
+        dtype=tp_bool,
+        device=shape1.device,
+        reason_details=[
+            f"Compare the dims of {shape1_name} with 1",
+        ],
+    )
+    ones = add_constant_tensor_from_list([1] * output_rank, shape1.device)
+    # if shape1[i] == 1, use shape2[i]. Otherwise use shape1[i]
+    CompareOp.build([shape1, ones], [shape_dim_comparison], compare_direction=Comparison.Kind.EQUAL.compare_direction)
+    SelectOp.build([shape_dim_comparison, shape2, shape1], [resulting_shape])
+    return resulting_shape
 
 
 # To which dimension in the target shape each dimension of the operand shape corresponds to.

@@ -59,7 +59,9 @@ class Where(BaseTraceOp):
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import int32
+        from tripy.common.datatype import bool as tp_bool, int32
+        from tripy.frontend.trace.ops.binary_elementwise import Comparison
+        from tripy.flat_ir.ops import CompareOp
         from tripy.flat_ir.ops import SelectOp
         from tripy.flat_ir.ops import MaxOp
 
@@ -73,57 +75,26 @@ class Where(BaseTraceOp):
         inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], output_rank - len(inputs[1].shape))
         inputs[2] = op_utils.expand_rank_of_tensor(inputs[2], output_rank - len(inputs[2].shape))
 
-        # Compute element-wise max of input shapes to get the desired output shape.
-        max_of_cond_and_a_shape = FlatIRTensor.build(
-            shape=inputs[0].shape,
-            rank=max(cond_rank, a_rank),
-            dtype=int32,
-            device=inputs[0].device,
-            reason_details=[
-                "compute the elementwise maximum of the shapes of condition tensor ",
-                op_utils.get_shape_of_tensor(inputs[0]),
-                " and 'input' tensor ",
-                op_utils.get_shape_of_tensor(inputs[1]),
-            ],
+        bcast_cond_and_input = op_utils.compute_shape_of_broadcast(
+            op_utils.get_shape_of_tensor(inputs[0]),
+            op_utils.get_shape_of_tensor(inputs[1]),
+            output_rank,
+            shape1_name="the 'condition' tensor",
+            shape2_name="the 'input' tensor",
         )
-
-        MaxOp.build(
-            [op_utils.get_shape_of_tensor(inputs[0]), op_utils.get_shape_of_tensor(inputs[1])],
-            [max_of_cond_and_a_shape],
+        bcast_input_and_other = op_utils.compute_shape_of_broadcast(
+            op_utils.get_shape_of_tensor(inputs[1]),
+            op_utils.get_shape_of_tensor(inputs[2]),
+            output_rank,
+            shape1_name="the 'input' tensor",
+            shape2_name="the 'other' tensor",
         )
-
-        max_of_a_and_b_shape = FlatIRTensor.build(
-            shape=inputs[0].shape,
-            rank=max(a_rank, b_rank),
-            dtype=int32,
-            device=inputs[0].device,
-            reason_details=[
-                "compute the elementwise maximum of the shapes of 'input'",
-                op_utils.get_shape_of_tensor(inputs[1]),
-                " and 'other' tensor",
-                op_utils.get_shape_of_tensor(inputs[2]),
-            ],
-        )
-        MaxOp.build(
-            [op_utils.get_shape_of_tensor(inputs[1]), op_utils.get_shape_of_tensor(inputs[2])],
-            [max_of_a_and_b_shape],
-        )
-
-        computed_output_shape = FlatIRTensor.build(
-            shape=inputs[0].shape,
-            rank=output_rank,
-            dtype=int32,
-            device=inputs[0].device,
-            reason_details=[
-                "compute the elementwise maximum of previously computed partial elementwise maximum of 'condition' and 'input' tensor",
-                max_of_cond_and_a_shape,
-                "and elementwise maximum of the shapes of `input` and `other` tensor.",
-                max_of_a_and_b_shape,
-            ],
-        )
-        MaxOp.build(
-            [max_of_cond_and_a_shape, max_of_a_and_b_shape],
-            [computed_output_shape],
+        computed_output_shape = op_utils.compute_shape_of_broadcast(
+            bcast_cond_and_input,
+            bcast_input_and_other,
+            output_rank,
+            shape1_name="the previously computed broadcast of the 'condition' and 'input' tensor",
+            shape2_name="the previously computed broadcast of the 'input' and 'other' tensors",
         )
 
         inputs[0] = op_utils.insert_broadcast(

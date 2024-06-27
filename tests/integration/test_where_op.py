@@ -14,6 +14,8 @@ class TestWhereOp:
             ((2), (2, 2), (2, 2)),  # Add extra batch
             ((1,), (1, 3), (1, 3)),
             ((2, 2), (1,), (2,)),  # Broadcast x and y (not equal)
+            ((1,), (0,), (1,)),  # Broadcast with a 0 dim
+            ((0,), (1,), (1,)),  # 0 dim in the condition
         ],
     )
     def test_where_broadcast_shapes(self, cond, x, y):

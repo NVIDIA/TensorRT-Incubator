@@ -57,7 +57,7 @@ class TestReduceOp:
             str(broadcast),
         )
 
-        mul = flat_ir.ops[-13]
+        mul = flat_ir.ops[-15]
         assert isinstance(mul, MulOp)
         assert re.match(
             r"t[0-9]+: \[rank=\(0\), shape=\(\), dtype=\(int32\), loc=\(gpu:0\)\] = MulOp\(t_inter[0-9]+, t_inter[0-9]+\)",

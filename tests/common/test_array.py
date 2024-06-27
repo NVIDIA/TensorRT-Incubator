@@ -20,6 +20,8 @@ data_list = []
 
 # Create a data list for NumPy arrays
 np_data = [np.ones(1, dtype=dtype) for dtype in NUMPY_TYPES]
+# also test empty instantiation
+np_data.extend(np.ones(0, dtype=dtype) for dtype in NUMPY_TYPES)
 data_list.extend(np_data)
 
 # Extend the data list for Cupy arrays
@@ -99,6 +101,11 @@ class TestArray:
     def test_missing_data_dtype(self):
         with pytest.raises(tp.TripyException, match="Datatype must be provided when data is None.") as exc:
             _ = Array(None, None, (), tp.device("cpu"))
+        print(str(exc.value))
+
+    def test_missing_dtype_for_empty_array(self):
+        with pytest.raises(tp.TripyException, match="Datatype must be provided for empty data") as exc:
+            _ = Array([[[], []], [[], []]])
         print(str(exc.value))
 
     def test_incorrect_dtype(self):
