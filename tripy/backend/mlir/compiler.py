@@ -15,6 +15,8 @@ G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
 
 
 def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
+    if hasattr(exc, "error_diagnostics"):
+        stderr += ",".join(map(lambda err: str(err.location), exc.error_diagnostics))
     _, output_names, trace_input_names, trace_output_names, stderr = parse_tensor_names_from_location(stderr)
 
     assert (
