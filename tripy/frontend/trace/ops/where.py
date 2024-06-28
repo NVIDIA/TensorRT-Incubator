@@ -69,58 +69,59 @@ class Where(BaseTraceOp):
         assert len(inputs) == 3, f"Where op expects 3 inputs but got {len(inputs)}."
         cond_rank, a_rank, b_rank = (input.rank for input in inputs)
 
-        # Make rank of cond, a and b the same.
         output_rank = max(a_rank, b_rank, cond_rank)
-        inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], output_rank - len(inputs[0].shape))
-        inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], output_rank - len(inputs[1].shape))
-        inputs[2] = op_utils.expand_rank_of_tensor(inputs[2], output_rank - len(inputs[2].shape))
+        with FlatIRTensor.context(["make rank of cond, a and b the same."]):
+            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], output_rank - len(inputs[0].shape))
+            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], output_rank - len(inputs[1].shape))
+            inputs[2] = op_utils.expand_rank_of_tensor(inputs[2], output_rank - len(inputs[2].shape))
 
-        bcast_cond_and_input = op_utils.compute_shape_of_broadcast(
-            op_utils.get_shape_of_tensor(inputs[0]),
-            op_utils.get_shape_of_tensor(inputs[1]),
-            output_rank,
-            shape1_name="the 'condition' tensor",
-            shape2_name="the 'input' tensor",
-        )
-        bcast_input_and_other = op_utils.compute_shape_of_broadcast(
-            op_utils.get_shape_of_tensor(inputs[1]),
-            op_utils.get_shape_of_tensor(inputs[2]),
-            output_rank,
-            shape1_name="the 'input' tensor",
-            shape2_name="the 'other' tensor",
-        )
-        computed_output_shape = op_utils.compute_shape_of_broadcast(
-            bcast_cond_and_input,
-            bcast_input_and_other,
-            output_rank,
-            shape1_name="the previously computed broadcast of the 'condition' and 'input' tensor",
-            shape2_name="the previously computed broadcast of the 'input' and 'other' tensors",
-        )
+        with FlatIRTensor.context(["compute element-wise max of input shapes to get the desired output shape."]):
+            bcast_cond_and_input = op_utils.compute_shape_of_broadcast(
+                op_utils.get_shape_of_tensor(inputs[0]),
+                op_utils.get_shape_of_tensor(inputs[1]),
+                output_rank,
+                shape1_name="the 'condition' tensor",
+                shape2_name="the 'input' tensor",
+            )
+            bcast_input_and_other = op_utils.compute_shape_of_broadcast(
+                op_utils.get_shape_of_tensor(inputs[1]),
+                op_utils.get_shape_of_tensor(inputs[2]),
+                output_rank,
+                shape1_name="the 'input' tensor",
+                shape2_name="the 'other' tensor",
+            )
+            computed_output_shape = op_utils.compute_shape_of_broadcast(
+                bcast_cond_and_input,
+                bcast_input_and_other,
+                output_rank,
+                shape1_name="the previously computed broadcast of the 'condition' and 'input' tensor",
+                shape2_name="the previously computed broadcast of the 'input' and 'other' tensors",
+            )
 
-        inputs[0] = op_utils.insert_broadcast(
-            inputs[0],
-            outputs[0].shape,
-            outputs[0].rank,
-            use_dynamic_variant=True,
-            shape_of_target_tensor=computed_output_shape,
-            tensor_details=f"first input of 'where' ('condition')",
-        )
-        inputs[1] = op_utils.insert_broadcast(
-            inputs[1],
-            outputs[0].shape,
-            outputs[0].rank,
-            use_dynamic_variant=True,
-            shape_of_target_tensor=computed_output_shape,
-            tensor_details="second input of 'where' ('input')",
-        )
-        inputs[2] = op_utils.insert_broadcast(
-            inputs[2],
-            outputs[0].shape,
-            outputs[0].rank,
-            use_dynamic_variant=True,
-            shape_of_target_tensor=computed_output_shape,
-            tensor_details="third input of 'where' ('other')",
-        )
+            inputs[0] = op_utils.insert_broadcast(
+                inputs[0],
+                outputs[0].shape,
+                outputs[0].rank,
+                use_dynamic_variant=True,
+                shape_of_target_tensor=computed_output_shape,
+                tensor_details=f"first input of 'where' ('condition')",
+            )
+            inputs[1] = op_utils.insert_broadcast(
+                inputs[1],
+                outputs[0].shape,
+                outputs[0].rank,
+                use_dynamic_variant=True,
+                shape_of_target_tensor=computed_output_shape,
+                tensor_details="second input of 'where' ('input')",
+            )
+            inputs[2] = op_utils.insert_broadcast(
+                inputs[2],
+                outputs[0].shape,
+                outputs[0].rank,
+                use_dynamic_variant=True,
+                shape_of_target_tensor=computed_output_shape,
+                tensor_details="third input of 'where' ('other')",
+            )
 
         SelectOp.build(inputs, outputs)
 

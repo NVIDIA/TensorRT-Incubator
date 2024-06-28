@@ -145,47 +145,55 @@ class Split(BaseTraceOp):
                 [section_size_tensor],
             )
             for i in range(self.num_outputs()):
-                # i*section_size
-                section_i_start_tensor = FlatIRTensor.build(
-                    shape=utils.to_dims([1]),
-                    rank=1,
-                    dtype=int32,
-                    device=device,
-                    reason_details=[f"Compute start index of split {i}"],
-                )
-                MulOp.build(
-                    [section_size_tensor, op_utils.add_constant_tensor_from_list([i], device=device)],
-                    [section_i_start_tensor],
-                )
+                with FlatIRTensor.context([f"compute indices of split {i}"]):
+                    # i*section_size
+                    section_i_start_tensor = FlatIRTensor.build(
+                        shape=utils.to_dims([1]),
+                        rank=1,
+                        dtype=int32,
+                        device=device,
+                        reason_details=[f"Compute start index"],
+                    )
+                    MulOp.build(
+                        [section_size_tensor, op_utils.add_constant_tensor_from_list([i], device=device)],
+                        [section_i_start_tensor],
+                    )
 
-                # (i+1)*section_size
-                section_i_end_tensor = FlatIRTensor.build(
-                    shape=utils.to_dims([1]),
-                    rank=1,
-                    dtype=int32,
-                    device=device,
-                    reason_details=[f"Compute end index of split {i}"],
-                )
-                MulOp.build(
-                    [section_size_tensor, op_utils.add_constant_tensor_from_list([i + 1], device=device)],
-                    [section_i_end_tensor],
-                )
+                    # (i+1)*section_size
+                    section_i_end_tensor = FlatIRTensor.build(
+                        shape=utils.to_dims([1]),
+                        rank=1,
+                        dtype=int32,
+                        device=device,
+                        reason_details=[f"Compute end index"],
+                    )
+                    MulOp.build(
+                        [section_size_tensor, op_utils.add_constant_tensor_from_list([i + 1], device=device)],
+                        [section_i_end_tensor],
+                    )
 
-                self.build_slice_of_target_dim(
-                    input_tensor, input_shape, device, section_i_start_tensor, section_i_end_tensor, outputs[i]
-                )
+                    self.build_slice_of_target_dim(
+                        input_tensor, input_shape, device, section_i_start_tensor, section_i_end_tensor, outputs[i]
+                    )
         else:
             start_index_tensor_split_i = op_utils.add_constant_tensor_from_list([0], device)
             for i, index in enumerate(self.indices_or_sections):
-                end_index_tensor_split_i = op_utils.add_constant_tensor_from_list([index], device=device)
+                with FlatIRTensor.context([f"build split for index {index}"]):
+                    end_index_tensor_split_i = op_utils.add_constant_tensor_from_list([index], device=device)
+                    self.build_slice_of_target_dim(
+                        input_tensor,
+                        input_shape,
+                        device,
+                        start_index_tensor_split_i,
+                        end_index_tensor_split_i,
+                        outputs[i],
+                    )
+                    start_index_tensor_split_i = end_index_tensor_split_i
+
+            with FlatIRTensor.context(["build final split"]):
                 self.build_slice_of_target_dim(
-                    input_tensor, input_shape, device, start_index_tensor_split_i, end_index_tensor_split_i, outputs[i]
+                    input_tensor, input_shape, device, start_index_tensor_split_i, axis_dim, outputs[-1]
                 )
-                start_index_tensor_split_i = end_index_tensor_split_i
-            # final split
-            self.build_slice_of_target_dim(
-                input_tensor, input_shape, device, start_index_tensor_split_i, axis_dim, outputs[-1]
-            )
 
     # need override because the default implementation assumes a single output
     def __str__(self) -> str:

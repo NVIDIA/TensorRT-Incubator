@@ -73,23 +73,26 @@ class BinaryElementwise(BaseTraceOp):
                 shape2_name=f"the shape of the second input {shape_of_input1}",
             )
 
-            inputs[0] = op_utils.insert_broadcast(
-                inputs[0],
-                out_shape=outputs[0].shape,
-                out_rank=rank,
-                use_dynamic_variant=True,
-                shape_of_target_tensor=output_shape_tensor,
-                tensor_details=f"left operand",
-            )
+            with FlatIRTensor.context(
+                [f"broadcast the inputs of '{self.kind.strip()}' to {output_shape_tensor.shape}"]
+            ):
+                inputs[0] = op_utils.insert_broadcast(
+                    inputs[0],
+                    out_shape=outputs[0].shape,
+                    out_rank=rank,
+                    use_dynamic_variant=True,
+                    shape_of_target_tensor=output_shape_tensor,
+                    tensor_details=f"left operand",
+                )
 
-            inputs[1] = op_utils.insert_broadcast(
-                inputs[1],
-                out_shape=outputs[0].shape,
-                out_rank=rank,
-                use_dynamic_variant=True,
-                shape_of_target_tensor=output_shape_tensor,
-                tensor_details=f"right operand",
-            )
+                inputs[1] = op_utils.insert_broadcast(
+                    inputs[1],
+                    out_shape=outputs[0].shape,
+                    out_rank=rank,
+                    use_dynamic_variant=True,
+                    shape_of_target_tensor=output_shape_tensor,
+                    tensor_details=f"right operand",
+                )
 
         return inputs
 

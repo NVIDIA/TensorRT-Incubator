@@ -157,13 +157,15 @@ class MatrixMultiplication(BaseTraceOp):
         nb_a_batch_dims, nb_b_batch_dims = [max(rank - 2, 0) for rank in [a_rank, b_rank]]
         nb_result_batch_dims = max(nb_a_batch_dims, nb_b_batch_dims)
 
-        # Slice the input shape into batch dims and matrix dims.
-        a_batch_shape, a_mat_shape = split_shape_in_batch_and_mat_dims(inputs[0], nb_a_batch_dims)
-        b_batch_shape, b_mat_shape = split_shape_in_batch_and_mat_dims(inputs[1], nb_b_batch_dims)
+        with FlatIRTensor.context(["split the input shapes into batch dims and matrix dims"]):
+            a_batch_shape, a_mat_shape = split_shape_in_batch_and_mat_dims(inputs[0], nb_a_batch_dims)
+            b_batch_shape, b_mat_shape = split_shape_in_batch_and_mat_dims(inputs[1], nb_b_batch_dims)
 
-        # Ensure that batch dims for both operands are of same rank by prepending shape tensor with 1s.
-        a_batch_shapes_with_ones = append_ones_data_tensor(a_batch_shape, nb_result_batch_dims - nb_a_batch_dims)
-        b_batch_shapes_with_ones = append_ones_data_tensor(b_batch_shape, nb_result_batch_dims - nb_b_batch_dims)
+        with FlatIRTensor.context(
+            ["Ensure that batch dims for both operands are of same rank by prepending shape tensor with 1s."]
+        ):
+            a_batch_shapes_with_ones = append_ones_data_tensor(a_batch_shape, nb_result_batch_dims - nb_a_batch_dims)
+            b_batch_shapes_with_ones = append_ones_data_tensor(b_batch_shape, nb_result_batch_dims - nb_b_batch_dims)
 
         # Apply broadcasting rule of batch shapes to get the resulting batch shapes
         bcast_of_batch_shapes = op_utils.compute_shape_of_broadcast(
@@ -174,27 +176,27 @@ class MatrixMultiplication(BaseTraceOp):
             shape2_name="the batch dims of b",
         )
 
-        # Concatenate the batch dims with matrix dims computed in step1.
-        a_dims = op_utils.concatenate_tensors([bcast_of_batch_shapes, a_mat_shape], dim=0)
-        b_dims = op_utils.concatenate_tensors([bcast_of_batch_shapes, b_mat_shape], dim=0)
+        with FlatIRTensor.context(["concatenate batch dims with matrix dims computed in step 1"]):
+            a_dims = op_utils.concatenate_tensors([bcast_of_batch_shapes, a_mat_shape], dim=0)
+            b_dims = op_utils.concatenate_tensors([bcast_of_batch_shapes, b_mat_shape], dim=0)
 
-        # Use the computed output dims from #4 to broadcast both the inputs.
-        inputs[0] = op_utils.insert_broadcast(
-            inputs[0],
-            out_shape=utils.to_dims([-1] * (nb_result_batch_dims + a_rank - nb_a_batch_dims)),
-            out_rank=nb_result_batch_dims + a_rank - nb_a_batch_dims,
-            use_dynamic_variant=True,
-            shape_of_target_tensor=a_dims,
-            tensor_details=["left operand of DotOp"],
-        )
-        inputs[1] = op_utils.insert_broadcast(
-            inputs[1],
-            out_shape=utils.to_dims([-1] * (nb_result_batch_dims + b_rank - nb_b_batch_dims)),
-            out_rank=nb_result_batch_dims + b_rank - nb_b_batch_dims,
-            use_dynamic_variant=True,
-            shape_of_target_tensor=b_dims,
-            tensor_details=["right operand of DotOp"],
-        )
+        with FlatIRTensor.context(["Use the computed output dims from #4 to broadcast both the inputs."]):
+            inputs[0] = op_utils.insert_broadcast(
+                inputs[0],
+                out_shape=utils.to_dims([-1] * (nb_result_batch_dims + a_rank - nb_a_batch_dims)),
+                out_rank=nb_result_batch_dims + a_rank - nb_a_batch_dims,
+                use_dynamic_variant=True,
+                shape_of_target_tensor=a_dims,
+                tensor_details=["left operand of DotOp"],
+            )
+            inputs[1] = op_utils.insert_broadcast(
+                inputs[1],
+                out_shape=utils.to_dims([-1] * (nb_result_batch_dims + b_rank - nb_b_batch_dims)),
+                out_rank=nb_result_batch_dims + b_rank - nb_b_batch_dims,
+                use_dynamic_variant=True,
+                shape_of_target_tensor=b_dims,
+                tensor_details=["right operand of DotOp"],
+            )
 
         DotOp.build(inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
 

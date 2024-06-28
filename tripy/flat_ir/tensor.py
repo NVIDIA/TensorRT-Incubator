@@ -7,7 +7,7 @@ from tripy import utils
 from tripy.common.types import ShapeInfo
 from tripy.frontend.dim import dynamic_dim
 
-_BUILD_CONTEXT: List[Any] = None
+_BUILD_CONTEXT: List[Any] = []
 
 
 @dataclass(repr=False)
@@ -36,14 +36,12 @@ class FlatIRTensor:
     @contextlib.contextmanager
     @staticmethod
     def context(ctx: List[Any]):
-        # TODO (#165): Make this support hierarchical contexts. Doing so should be fairly easy -
-        # we just need to make _BUILD_CONTEXT a list of lists which we push/pop from.
         try:
             global _BUILD_CONTEXT
-            _BUILD_CONTEXT = ctx
+            _BUILD_CONTEXT.append(ctx)
             yield
         finally:
-            _BUILD_CONTEXT = None
+            _BUILD_CONTEXT.pop()
 
     def to_mlir(self):
         from tripy.backend.mlir import utils as mlir_utils
