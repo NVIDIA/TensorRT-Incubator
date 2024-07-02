@@ -8,9 +8,12 @@ __pycache__/
 # C extensions
 *.so
 
-# mlir-tensorrt repo & build
+# mlir-tensorrt
 mlir-tensorrt/
+
+# debug dumps
 mlir-dumps/
+tensorrt-dumps/
 
 # stablehlo repo
 stablehlo/

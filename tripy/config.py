@@ -13,7 +13,11 @@ export.public_api(autodoc_options=[":no-members:", ":no-special-members:"])(sys.
 # MLIR Debug options
 enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
 mlir_debug_types = ["-mlir-print-ir-after-all"]
-mlir_debug_tree_path = os.path.join("/", "tripy", "mlir-dumps")
+mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/", "tripy", "mlir-dumps"))
+
+# Tensorrt debug options
+enable_tensorrt_debug = os.environ.get("TRIPY_TRT_DEBUG_ENABLED", "0") == "1"
+tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "tripy", "tensorrt-dumps"))
 
 # Variables that are exposed to the user are kept lowercase.
 timing_cache_file_path: str = export.public_api(
