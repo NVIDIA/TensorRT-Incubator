@@ -29,23 +29,6 @@ class BinaryElementwise(BaseTraceOp):
             op_str = f"{self.kind}({self.inputs[0].name}, {self.inputs[1].name})"
         return f"{self.outputs[0].name} = {op_str}"
 
-    def infer_shapes(self):
-        input_shapes = [inp.shape for inp in self.inputs]
-        input_shapes = op_utils.get_broadcast_compatible_shapes(self.inputs[0].shape, self.inputs[1].shape)
-        bcast_check = op_utils.is_broadcast_compatible(*input_shapes)
-        if not bcast_check:
-            op_utils.raise_error_io_info(
-                self,
-                "Input tensors are not broadcast compatible.",
-                details=[
-                    "Input tensors for operation: '",
-                    self.kind.strip(),
-                    "' must be broadcast compatible but ",
-                ]
-                + bcast_check.error_details,
-            )
-        self.outputs[0].shape = tuple(op_utils.get_broadcast_dim(*d) for d in zip(*input_shapes))
-
     def infer_dtypes(self):
         op_utils.check_input_dtypes_match(self, self.kind.strip())
         self.outputs[0].dtype = self.inputs[0].dtype
@@ -57,8 +40,8 @@ class BinaryElementwise(BaseTraceOp):
 
         rank = max(inputs[0].rank, inputs[1].rank)
         with FlatIRTensor.context([f"expand the inputs of '{self.kind.strip()}' to have the same rank"]):
-            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], rank - len(inputs[0].shape))
-            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], rank - len(inputs[1].shape))
+            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], rank - inputs[0].rank)
+            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], rank - inputs[1].rank)
 
         with FlatIRTensor.context([f"broadcast the inputs of '{self.kind.strip()}' to compatible shapes"]):
             shape_of_input0 = op_utils.get_shape_of_tensor(inputs[0])
@@ -78,7 +61,6 @@ class BinaryElementwise(BaseTraceOp):
             ):
                 inputs[0] = op_utils.insert_broadcast(
                     inputs[0],
-                    out_shape=outputs[0].shape,
                     out_rank=rank,
                     use_dynamic_variant=True,
                     shape_of_target_tensor=output_shape_tensor,
@@ -87,7 +69,6 @@ class BinaryElementwise(BaseTraceOp):
 
                 inputs[1] = op_utils.insert_broadcast(
                     inputs[1],
-                    out_shape=outputs[0].shape,
                     out_rank=rank,
                     use_dynamic_variant=True,
                     shape_of_target_tensor=output_shape_tensor,

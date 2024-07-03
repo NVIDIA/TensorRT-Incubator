@@ -9,6 +9,7 @@ from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 import mlir_tensorrt.runtime
 
 
+@pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219")
 class TestQuantize:
 
     @pytest.mark.parametrize("scale", [0.5, 0.9])

@@ -3,7 +3,6 @@ import tripy as tp
 
 def test_timing_cache(tmp_path):
     # Create a dummy file using pytest fixture for timing cache.
-
     dummy_file = tmp_path / "dummy.txt"
     tp.config.timing_cache_file_path = str(dummy_file)
 
@@ -12,7 +11,7 @@ def test_timing_cache(tmp_path):
         c = a + b
         return c
 
-    a = tp.Tensor([2.0, 3.0], device=tp.device("gpu"))
+    a = tp.Tensor([2.0, 3.0], shape=(2,), device=tp.device("gpu"))
     b = tp.ones((2,))
     c = func(a, b).eval()
 

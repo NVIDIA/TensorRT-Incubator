@@ -15,7 +15,7 @@ class TestRandomOp:
         assert isinstance(random, RandomUniformOp)
         assert (
             str(random)
-            == "out: [rank=(2), shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = RandomUniformOp(static_low=0.0, static_high=1.0)"
+            == "out: [rank=(2), shape=(?, ?,), dtype=(float32), loc=(gpu:0)] = RandomUniformOp(static_low=0.0, static_high=1.0)"
         )
 
     def test_normal_str(self):
@@ -29,5 +29,5 @@ class TestRandomOp:
         assert isinstance(random, RandomNormalOp)
         assert (
             str(random)
-            == "out: [rank=(2), shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = RandomNormalOp(static_mean=0.0, static_std=1.0)"
+            == "out: [rank=(2), shape=(?, ?,), dtype=(float32), loc=(gpu:0)] = RandomNormalOp(static_mean=0.0, static_std=1.0)"
         )

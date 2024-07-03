@@ -27,11 +27,12 @@ class ReduceOp(BaseFlatIROp):
 
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
+        dims_attr = ir.DenseI64ArrayAttr.get(self.reduce_dims)
         reduce = stablehlo.ReduceOp(
             result=[out_type],
             inputs=[operands[0]],
             init_values=[operands[1]],
-            dimensions=self.reduce_dims,
+            dimensions=dims_attr,
         )
 
         input_dtype = get_mlir_dtype(self.inputs[0].dtype)
@@ -74,14 +75,16 @@ class ArgMinMaxOp(ReduceOp):
     def to_mlir(self, operands):
         out_idx_type = self.outputs[0].to_mlir()
         out_val_type = ir.RankedTensorType.get(
-            [ir.ShapedType.get_dynamic_size() if s.is_dynamic_dim() else s.min for s in self.outputs[0].shape],
+            [ir.ShapedType.get_dynamic_size() for s in range(self.outputs[0].rank)],
             get_mlir_dtype(self.inputs[0].dtype),
         )
+        dims_attr = ir.DenseI64ArrayAttr.get(self.reduce_dims)
+
         reduce = stablehlo.ReduceOp(
             result=[out_val_type, out_idx_type],
             inputs=operands[0:2],
             init_values=operands[2:4],
-            dimensions=self.reduce_dims,
+            dimensions=dims_attr,
         )
 
         val_dtype = get_mlir_dtype(self.inputs[0].dtype)

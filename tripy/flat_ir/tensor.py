@@ -21,7 +21,6 @@ class FlatIRTensor:
     dtype: "tripy.common.dtype"
     device: "tripy.common.device"
     rank: int
-    profile: ShapeInfo
     producer: "BaseFlatIROp" = None
     reason_details: Optional[List[Any]] = None
     shape: ShapeInfo = None
@@ -46,7 +45,11 @@ class FlatIRTensor:
     def to_mlir(self):
         from tripy.backend.mlir import utils as mlir_utils
 
-        shape = utils.to_dims([dynamic_dim(-1) for i in range(self.rank)]) if self.shape is None else self.shape
+        shape = (
+            utils.to_dims([dynamic_dim(-1) for i in range(self.rank)])
+            if (self.shape is None or self.shape == [])
+            else self.shape
+        )
         return mlir_utils.make_mlir_tensor(shape, self.dtype)
 
     @staticmethod
@@ -63,7 +66,6 @@ class FlatIRTensor:
             device=device,
             rank=rank,
             producer=None,
-            profile=None,
             reason_details=reason_details,
             reason_context=copy.copy(_BUILD_CONTEXT),
         )
@@ -72,11 +74,10 @@ class FlatIRTensor:
         def str_from_dim(dim: "dynamic_dim"):
             return ("?" if dim.is_dynamic_dim() else str(dim)) + ","
 
-        shape = f"{' '.join(map(str_from_dim, self.shape))}"
+        shape = self.shape if (self.shape != [] and self.shape is not None) else [dynamic_dim(-1)] * self.rank
         return (
             f"{self.name}: [rank=({self.rank}), "
-            + (f"profile=({' '.join(map(str_from_dim, self.profile))}), " if self.profile is not None else "")
-            + (f"shape=({' '.join(map(str_from_dim, self.shape))}), " if self.shape is not None else "")
+            + (f"shape=({' '.join(map(str_from_dim, shape))}), ")
             + (f"dtype=({self.dtype.name}), " if self.dtype is not None else "")
             + f"loc=({self.device})]"
         )

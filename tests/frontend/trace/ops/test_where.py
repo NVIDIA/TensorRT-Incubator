@@ -1,3 +1,4 @@
+import pytest
 import re
 import tripy as tp
 from tests import helper
@@ -13,14 +14,7 @@ class TestWhere:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Where)
 
-    def test_bool_condition(self):
-        cond = tp.Tensor([False, True, False], dtype=tp.bool)
-        a = tp.Tensor([1, 2, 3], shape=(3,), dtype=tp.int32)
-        b = tp.Tensor([4, 5, 6], shape=(3,), dtype=tp.int32)
-        w = tp.where(cond, a, b)
-        assert isinstance(w, tp.Tensor)
-        assert isinstance(w.trace_tensor.producer, Where)
-
+    @pytest.mark.skip("Test segfaults due to https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/885")
     def test_mismatched_input_shapes(self):
         cond = tp.ones((2,), dtype=tp.float32) > tp.ones((2,), dtype=tp.float32)
         a = tp.ones((2,), dtype=tp.float32)
@@ -29,7 +23,7 @@ class TestWhere:
 
         with helper.raises(
             tp.TripyException,
-            match=re.escape("Input tensors are not broadcast compatible."),
+            match=re.escape("size of operand dimension 0 (2) is not compatible with size of result dimension 0 (3)"),
             has_stack_info_for=[a, b, c, cond],
         ):
             c.eval()

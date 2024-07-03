@@ -21,7 +21,7 @@ class TestDequantizeOp:
         assert isinstance(dequant_op, DequantizeOp)
         assert (
             str(dequant_op)
-            == f"out: [rank=(1), shape=(2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=None)"
+            == f"out: [rank=(1), shape=(?,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=None)"
         )
 
     @pytest.mark.parametrize("dtype", [tp.float16, tp.float32])
@@ -38,5 +38,5 @@ class TestDequantizeOp:
         assert isinstance(dequant_op, DequantizeOp)
         assert (
             str(dequant_op)
-            == f"out: [rank=(2), shape=(2, 2,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=0)"
+            == f"out: [rank=(2), shape=(?, ?,), dtype=({dtype}), loc=(gpu:0)] = DequantizeOp(a, scale, axis=0)"
         )

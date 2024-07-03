@@ -32,9 +32,6 @@ class Storage(BaseTraceOp):
     def __eq__(self, other) -> bool:
         return self.data == other.data if isinstance(other, Storage) else False
 
-    def infer_shapes(self):
-        self.outputs[0].shape = self.shape
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 

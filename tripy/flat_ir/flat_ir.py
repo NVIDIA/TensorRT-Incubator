@@ -93,7 +93,7 @@ class FlatIR:
                     ]
                     ftype = ir.FunctionType.get(inp_types, new_out_types)
                     func_op.attributes["function_type"] = ir.TypeAttr.get(ftype)
-
+                    # TODO: when this assert failure occurs, very difficult to root-cause the error.
                     assert func_op.verify(), "Created function is invalid"
 
                     # Create tensorrt.shape_profile attribute for all function arguments
@@ -101,9 +101,13 @@ class FlatIR:
 
                     # Returns a list filled with requested optimization profile information.
                     def get_optimization_profile_list(tensor, attr):
-                        return [
-                            getattr(s, attr) if s.is_dynamic_dim() else s.min for s in utils.make_list(tensor.shape)
-                        ]
+                        return (
+                            []
+                            if tensor.rank == 0
+                            else [
+                                getattr(s, attr) if s.is_dynamic_dim() else s.min for s in utils.make_list(tensor.shape)
+                            ]
+                        )
 
                     for inp in self.inputs:
                         min_profile_list = get_optimization_profile_list(inp, "min")

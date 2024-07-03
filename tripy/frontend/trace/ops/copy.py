@@ -9,9 +9,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Copy(BaseTraceOp):
     target: device
 
-    def infer_shapes(self):
-        self.outputs[0].shape = self.inputs[0].shape
-
     def infer_devices(self):
         self.outputs[0].device = self.target
 

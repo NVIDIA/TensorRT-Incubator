@@ -20,10 +20,10 @@ class TestMaxOp:
         assert isinstance(max_op, MaxOp)
         assert (
             str(broadcast_a)
-            == "t_inter3: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(a, t_inter4, broadcast_dim=[0])"
+            == "t_inter3: [rank=(1), shape=(?,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(a, t_inter4, broadcast_dim=[0])"
         )
         assert (
             str(broadcast_b)
-            == "t_inter9: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(b, t_inter4, broadcast_dim=[0])"
+            == "t_inter9: [rank=(1), shape=(?,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(b, t_inter4, broadcast_dim=[0])"
         )
-        assert str(max_op) == "out: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = MaxOp(t_inter3, t_inter9)"
+        assert str(max_op) == "out: [rank=(1), shape=(?,), dtype=(float32), loc=(gpu:0)] = MaxOp(t_inter3, t_inter9)"

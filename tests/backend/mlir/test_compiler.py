@@ -25,7 +25,7 @@ class TestErrorMapping:
 
         with helper.raises(
             tp.TripyException,
-            r"error: number of output elements \(9\) doesn't match expected number of elements \(4\)",
+            r"output_shape is incompatible with input type of operation: input has 4 elements, but output_shape has 9",
             has_stack_info_for=[tensor, reshaped],
         ):
             reshaped.eval()

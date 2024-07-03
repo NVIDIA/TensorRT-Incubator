@@ -123,6 +123,13 @@ class dynamic_dim:
             )
         return f"{self.runtime_value}"
 
+    def __str__(self) -> str:
+        if self.is_dynamic_dim():
+            return (
+                f"dynamic_dim(runtime_value={self._runtime_value}, min={self._min}, opt={self._opt}, max={self._max})"
+            )
+        return f"{self.runtime_value}"
+
 
 @Encoder.register(dynamic_dim)
 def encode(dim: dynamic_dim) -> Dict[str, Any]:

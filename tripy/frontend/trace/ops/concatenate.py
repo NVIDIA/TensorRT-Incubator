@@ -14,21 +14,14 @@ from tripy import utils
 class Concatenate(BaseTraceOp):
     dim: int
 
-    def infer_shapes(self):
-        # don't add check for non dim shapes matching since with DS the check should happen inside mlir-tensorrt.
-
-        self.dim = self.dim + len(self.inputs[0].shape) if self.dim < 0 else self.dim
-        concat_dim = sum(inp.shape[self.dim].runtime_value for inp in self.inputs)
-        self.outputs[0].shape = utils.to_dims(
-            [s if idx != self.dim else concat_dim for idx, s in enumerate(self.inputs[0].shape)]
-        )
-
     def infer_devices(self):
         self.outputs[0].device = self.inputs[0].device
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConcatenateOp
 
+        if self.dim < 0:
+            self.dim += inputs[0].rank
         ConcatenateOp.build(inputs, outputs, dim=self.dim)
 
 

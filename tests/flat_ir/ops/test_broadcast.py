@@ -15,5 +15,5 @@ class TestBroadcastOp:
         assert isinstance(broadcast, DynamicBroadcastOp)
         assert (
             str(broadcast)
-            == "out: [rank=(2), shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(t_inter1, t_inter2, broadcast_dim=[])"
+            == "out: [rank=(2), shape=(?, ?,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(t_inter1, t_inter2, broadcast_dim=[])"
         )

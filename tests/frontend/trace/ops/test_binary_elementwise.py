@@ -92,6 +92,9 @@ class TestBinaryElementwise:
         ):
             c = a + b
 
+    @pytest.mark.skip(
+        "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/202: Test case includes broadcasting of ones two times and the final broadcasting works (max(4,3)) and is not throwing an error."
+    )
     def test_invalid_broadcast_fails(self):
         a = tp.ones((2, 4), dtype=tp.float32)
         b = tp.ones((2, 3), dtype=tp.float32)

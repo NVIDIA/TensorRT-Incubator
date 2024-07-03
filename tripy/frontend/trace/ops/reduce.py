@@ -23,21 +23,6 @@ class Reduce(BaseTraceOp):
     dim: Sequence[int]
     kind: Kind
 
-    def infer_shapes(self):
-        input_shape = self.inputs[0].shape
-
-        if self.dim is None:
-            out_shape = []
-            self.dim = list(range(len(input_shape)))
-        else:
-            self.dim = make_list(self.dim)
-            self.dim = [idx if idx >= 0 else idx + len(input_shape) for idx in self.dim]
-            out_shape = []
-            for idx, s in enumerate(input_shape):
-                if idx not in self.dim:
-                    out_shape.append(s)
-        self.outputs[0].shape = utils.to_dims(out_shape)
-
     def infer_rank(self):
         if self.dim is None:
             self.dim = list(range(self.inputs[0].rank))
@@ -57,7 +42,6 @@ class Reduce(BaseTraceOp):
 
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(
-            shape=[],
             rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,

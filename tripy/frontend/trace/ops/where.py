@@ -11,37 +11,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 @dataclass(repr=False)
 class Where(BaseTraceOp):
 
-    def get_operand_shape_after_broadcast(self, cond_shape, a_shape, b_shape):
-        def broadcast_equivalent_shape(a, b):
-            shapes = op_utils.get_broadcast_compatible_shapes(a, b)
-            bcast_check = op_utils.is_broadcast_compatible(*shapes)
-            if not bcast_check:
-                op_utils.raise_error_io_info(
-                    self,
-                    "Input tensors are not broadcast compatible.",
-                    details=[
-                        "Input tensors for where operation must be broadcast compatible but ",
-                    ]
-                    + bcast_check.error_details,
-                )
-            return tuple(op_utils.get_broadcast_dim(*d) for d in zip(*shapes))
-
-        cond_shape = broadcast_equivalent_shape(cond_shape, a_shape)
-        cond_shape = broadcast_equivalent_shape(cond_shape, b_shape)
-
-        return cond_shape
-
-    def infer_shapes(self):
-        assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
-
-        # Output shape is broadcast of all 3 input tensor shapes.
-        operand_shape = self.get_operand_shape_after_broadcast(*[inp.shape for inp in self.inputs])
-        self.outputs[0].shape = operand_shape
-
-        # TODO: https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/152 will remove get_operand_shape_after_broadcast and line 38-39 and replace with line 42-43.
-        # out_rank = max(len(self.inputs[0].shape), len(self.inputs[1].shape), len(self.inputs[2].shape))
-        # self.outputs[0].shape = utils.to_dims([-1] * out_rank)
-
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         if self.inputs[0].dtype != datatype.bool:
@@ -71,9 +40,9 @@ class Where(BaseTraceOp):
 
         output_rank = max(a_rank, b_rank, cond_rank)
         with FlatIRTensor.context(["make rank of cond, a and b the same."]):
-            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], output_rank - len(inputs[0].shape))
-            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], output_rank - len(inputs[1].shape))
-            inputs[2] = op_utils.expand_rank_of_tensor(inputs[2], output_rank - len(inputs[2].shape))
+            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], output_rank - cond_rank)
+            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], output_rank - a_rank)
+            inputs[2] = op_utils.expand_rank_of_tensor(inputs[2], output_rank - b_rank)
 
         with FlatIRTensor.context(["compute element-wise max of input shapes to get the desired output shape."]):
             bcast_cond_and_input = op_utils.compute_shape_of_broadcast(
@@ -100,7 +69,6 @@ class Where(BaseTraceOp):
 
             inputs[0] = op_utils.insert_broadcast(
                 inputs[0],
-                outputs[0].shape,
                 outputs[0].rank,
                 use_dynamic_variant=True,
                 shape_of_target_tensor=computed_output_shape,
@@ -108,7 +76,6 @@ class Where(BaseTraceOp):
             )
             inputs[1] = op_utils.insert_broadcast(
                 inputs[1],
-                outputs[0].shape,
                 outputs[0].rank,
                 use_dynamic_variant=True,
                 shape_of_target_tensor=computed_output_shape,
@@ -116,7 +83,6 @@ class Where(BaseTraceOp):
             )
             inputs[2] = op_utils.insert_broadcast(
                 inputs[2],
-                outputs[0].shape,
                 outputs[0].rank,
                 use_dynamic_variant=True,
                 shape_of_target_tensor=computed_output_shape,
@@ -149,7 +115,8 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
         :linenos:
         :caption: Example
 
-        condition = tp.Tensor([[True, False], [True, True]])
+        condition = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
+        #condition = tp.Tensor([[True, False], [True, True]])
         input = tp.ones([2, 2], dtype=tp.float32)
         other = tp.zeros([2, 2], dtype=tp.float32)
         output = tp.where(condition, input, other)
@@ -177,7 +144,8 @@ def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numb
         :linenos:
         :caption: Example
 
-        mask = tp.Tensor([[True, False], [True, True]])
+        # mask = tp.Tensor([[True, False], [True, True]])
+        mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
         input = tp.zeros([2, 2])
         output = tp.masked_fill(input, mask, -1.0)
 

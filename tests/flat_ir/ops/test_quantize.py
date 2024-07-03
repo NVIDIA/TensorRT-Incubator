@@ -21,7 +21,7 @@ class TestQuantizeOp:
         assert isinstance(quantize_op, QuantizeOp)
         assert (
             str(quantize_op)
-            == f"out: [rank=(1), shape=(2,), dtype=({quant_dtype}), loc=(gpu:0)] = QuantizeOp(a, scale, axis=None)"
+            == f"out: [rank=(1), shape=(?,), dtype=({quant_dtype}), loc=(gpu:0)] = QuantizeOp(a, scale, axis=None)"
         )
 
     @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8, tp.int4])
@@ -38,5 +38,5 @@ class TestQuantizeOp:
         assert isinstance(quantize_op, QuantizeOp)
         assert (
             str(quantize_op)
-            == f"out: [rank=(2), shape=(2, 2,), dtype=({quant_dtype}), loc=(gpu:0)] = QuantizeOp(a, scale, axis=0)"
+            == f"out: [rank=(2), shape=(?, ?,), dtype=({quant_dtype}), loc=(gpu:0)] = QuantizeOp(a, scale, axis=0)"
         )

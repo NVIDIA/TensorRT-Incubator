@@ -23,18 +23,17 @@ class CopyOp(BaseFlatIROp):
             )
             return [alloc_tensor]
         else:
-
-            inp = operands[0]
+            inp_type = operands[0].type if hasattr(operands[0], "type") else operands[0].result.type
             sliced_dims = []
             # Loop and slice all indices, concat to yield shape tensor.
-            for i in range(inp.type.rank):
-                if inp.type.is_dynamic_dim(i):
+            for i in range(inp_type.rank):
+                if inp_type.is_dynamic_dim(i):
                     idx = arith.ConstantOp.create_index(i)
                     dim = tensor.DimOp(operands[0], idx)
                     sliced_dims.append(dim)
 
-            alloc_tensor = bufferization.alloc_tensor(operands[0].type, sliced_dims, memory_space=mem_space_attr)
-            result_tensor = bufferization.materialize_in_destination(operands[0].type, operands[0], alloc_tensor)
+            alloc_tensor = bufferization.alloc_tensor(inp_type, sliced_dims, memory_space=mem_space_attr)
+            result_tensor = bufferization.materialize_in_destination(inp_type, operands[0], alloc_tensor)
             cast_tensor = tensor.cast(self.outputs[0].to_mlir(), result_tensor)
 
             return [cast_tensor]

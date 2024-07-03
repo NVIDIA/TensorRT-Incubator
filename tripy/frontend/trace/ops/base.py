@@ -29,7 +29,6 @@ class BaseTraceOp(abc.ABC):
         op = cls(inputs, outputs, *args, **kwargs)
         for out in op.outputs:
             out.producer = op
-            out.shape = []
 
         op.infer_dtypes()
         op.infer_rank()
@@ -62,12 +61,12 @@ class BaseTraceOp(abc.ABC):
             return outputs[0]
         return outputs
 
-    @abc.abstractmethod
     def infer_shapes(self):
         """
         Infers shapes for the operation and updates output tensor shapes accordingly.
         """
-        ...
+        # Default implementation of infer_shapes fills dynamic dim for all elements.
+        self.outputs[0].shape = utils.to_dims([-1] * self.outputs[0].rank)
 
     def infer_dtypes(self):
         """

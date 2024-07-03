@@ -10,22 +10,8 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Permute(BaseTraceOp):
     permutation: Sequence[int]
 
-    def infer_shapes(self):
-        assert len(self.inputs) == 1, "Permute operation should have exactly one input!"
-        input_shape = self.inputs[0].shape
-
-        if len(self.permutation) != len(input_shape):
-            op_utils.raise_error_io_info(
-                self,
-                "Incorrect number of elements in permutation.",
-                details=[
-                    f"In operation: 'permute', permutation was: {self.permutation}, containing "
-                    f"{len(self.permutation)} element(s), but it must have the same number of "
-                    f"elements as the rank of the input tensor (shape: {input_shape}, rank: {len(input_shape)})"
-                ],
-            )
-
-        self.outputs[0].shape = tuple(input_shape[idx] for idx in self.permutation)
+    def infer_rank(self):
+        self.outputs[0].rank = len(self.permutation)
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import TransposeOp
@@ -42,15 +28,11 @@ class Transpose(Permute):
     dim0: int
     dim1: int
 
-    def infer_shapes(self):
-        assert len(self.inputs) == 1, "Transpose operation should have exactly one input!"
-        input_shape = self.inputs[0].shape
-
-        perm = list(range(len(input_shape)))
+    def infer_rank(self):
+        self.outputs[0].rank = self.inputs[0].rank
+        perm = list(range(self.inputs[0].rank))
         perm[self.dim0], perm[self.dim1] = perm[self.dim1], perm[self.dim0]
         self.permutation = perm
-
-        return super().infer_shapes()
 
 
 @export.public_api(document_under="tensor_operations")

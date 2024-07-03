@@ -29,56 +29,6 @@ class Split(BaseTraceOp):
         for i in range(self.num_outputs()):
             self.outputs[i].dtype = self.inputs[0].dtype
 
-    def infer_shapes(self):
-        def copy_and_replace_axis(input_shape, axis_value):
-            return utils.to_dims([input_shape[i] if i != self.dim else axis_value for i in range(len(input_shape))])
-
-        axis_dim = self.inputs[0].shape[self.dim]
-        if isinstance(self.indices_or_sections, int):
-            if isinstance(axis_dim, int):
-                if axis_dim % self.indices_or_sections != 0:
-                    raise_error(
-                        f"Split input axis {axis_dim} must be divisible by the number of sections {self.indices_or_sections}",
-                        details=[self, self.inputs[0]],
-                    )
-
-                split_size = axis_dim // self.indices_or_sections
-            else:
-                if axis_dim.runtime_value != -1 and axis_dim.runtime_value % self.indices_or_sections != 0:
-                    raise_error(
-                        f"Split input axis {axis_dim.runtime_value} must be divisible by the number of sections {self.indices_or_sections}",
-                        details=[self, self.inputs[0]],
-                    )
-                split_size = dynamic_dim(
-                    runtime_value=(
-                        (axis_dim.runtime_value // self.indices_or_sections) if axis_dim.runtime_value != -1 else -1
-                    ),
-                    min=(axis_dim.min // self.indices_or_sections) if axis_dim.min else None,
-                    max=math.ceil(axis_dim.max / self.indices_or_sections) if axis_dim.max else None,
-                )
-            out_shape = copy_and_replace_axis(self.inputs[0].shape, split_size)
-            for i in range(self.indices_or_sections):
-                self.outputs[i].shape = out_shape
-        else:
-            index_start = 0
-            for i, dim in enumerate(self.indices_or_sections):
-                section_size = dim - index_start
-                index_start = dim
-                self.outputs[i].shape = copy_and_replace_axis(self.inputs[0].shape, section_size)
-            # and the last split is size axis_dim - self.indices_or_sections[-1]
-            if isinstance(axis_dim, int):
-                section_size = axis_dim - self.indices_or_sections[-1]
-            else:
-                section_size = dynamic_dim(
-                    runtime_value=(
-                        (axis_dim.runtime_value - self.indices_or_sections[-1]) if axis_dim.runtime_value != -1 else -1
-                    ),
-                    min=max(axis_dim.min - self.indices_or_sections[-1], 0),
-                    max=axis_dim.max - self.indices_or_sections[-1],
-                )
-                print(section_size)
-            self.outputs[-1].shape = copy_and_replace_axis(self.inputs[0].shape, section_size)
-
     def infer_rank(self):
         for i in range(self.num_outputs()):
             self.outputs[i].rank = self.inputs[0].rank

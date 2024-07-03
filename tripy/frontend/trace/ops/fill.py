@@ -16,9 +16,6 @@ class Fill(BaseTraceOp):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def infer_shapes(self):
-        self.outputs[0].shape = self.shape
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
@@ -40,7 +37,6 @@ class Fill(BaseTraceOp):
         import tripy.common.datatype as datatype
 
         const_val_tensor = FlatIRTensor.build(
-            shape=[],
             rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,
@@ -70,9 +66,6 @@ class Fill(BaseTraceOp):
 
 @dataclass(repr=False)
 class FillLike(Fill):
-    def infer_shapes(self):
-        self.shape = self.inputs[0].shape
-        super().infer_shapes()
 
     def infer_dtypes(self):
         if self.dtype is None:

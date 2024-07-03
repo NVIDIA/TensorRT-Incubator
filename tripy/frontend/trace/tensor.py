@@ -19,14 +19,12 @@ class TraceTensor:
     device: "tripy.common.device"
     producer: "BaseTraceOp"
     rank: int
-    # Note that this field will only be set in case TraceTensor is generated for input tensors
-    dynamic_shapes_profile: ShapeInfo
 
     def __str__(self) -> str:
         def str_from_dim(dim: dynamic_dim):
             return ("?" if dim.is_dynamic_dim() else str(dim)) + ","
 
-        shape = f"{' '.join(map(str_from_dim, self.shape))}"
+        shape = f"{' '.join(map(str_from_dim, self.shape if (self.shape != [] and self.shape is not None) else [dynamic_dim(-1)] * self.rank))}"
         return (
             f"{self.name}: [shape=({shape}), "
             + (f"dtype=({self.dtype.name}), " if self.dtype is not None else "")
@@ -51,6 +49,5 @@ class TraceTensor:
             dtype=self.dtype,
             device=self.device,
             rank=self.rank,
-            profile=self.dynamic_shapes_profile,
         )
         return tensor

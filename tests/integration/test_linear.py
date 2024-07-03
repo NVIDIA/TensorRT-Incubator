@@ -42,6 +42,7 @@ class TestLinear:
         assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
 
 
+@pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219")
 class TestQuantLinear:
 
     def _create_network(self, use_input_scale, quant_dtype, weight_quant_dim):

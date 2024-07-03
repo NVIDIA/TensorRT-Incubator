@@ -34,7 +34,7 @@ class TestUnaryElementWiseOps:
     def test_str(self, flat_ir, op_detail):
         op_type = flat_ir.ops[-1]
         assert isinstance(op_type, op_detail[1])
-        assert str(op_type) == f"out: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = {op_detail[0]}(inp)"
+        assert str(op_type) == f"out: [rank=(1), shape=(?,), dtype=(float32), loc=(gpu:0)] = {op_detail[0]}(inp)"
 
     @pytest.mark.parametrize(
         "flat_ir, op_detail", [(tp_func, op_detail) for tp_func, op_detail in _UNARY_OPS.items()], indirect=["flat_ir"]
@@ -43,9 +43,9 @@ class TestUnaryElementWiseOps:
         template = """
             module {{
                 func.func @main() -> tensor<2xf32> {{
-                    %0 = stablehlo.constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
-                    %1 = {op_type} %0 : tensor<2xf32>
-                    return %1 : tensor<2xf32>
+                    %cst = stablehlo.constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xf32>
+                    %0 = {op_type} %cst : tensor<2xf32>
+                    return %0 : tensor<2xf32>
                 }}
             }}
             """

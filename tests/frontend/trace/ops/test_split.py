@@ -1,3 +1,5 @@
+import pytest
+
 import tripy as tp
 from tests import helper
 from tripy.frontend.trace.ops import Split
@@ -46,6 +48,9 @@ class TestSplit:
         sp = tp.split(t, 1)
         validate_splits([sp], [[2, 2]])
 
+    @pytest.mark.skip(
+        "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/203: With no shapes tracking in the frontend it is not possible to catch indivisible split error."
+    )
     def test_indivisible_split(self):
         t = tp.ones((2, 2))
         sp = tp.split(t, 3)

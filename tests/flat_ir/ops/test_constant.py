@@ -20,7 +20,7 @@ class TestConstantOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
         mlir_text = str(flat_ir.to_mlir())
-        target = "%0 = stablehlo.constant dense<[2, 3]> : tensor<2xi32>"
+        target = "%c = stablehlo.constant dense<[2, 3]> : tensor<2xi32>"
         assert target in mlir_text
 
     def test_mlir_bool(self):
@@ -32,7 +32,7 @@ class TestConstantOp:
         flat_ir = trace.to_flat_ir()
         mlir_text = str(flat_ir.to_mlir())
 
-        int_constant = "%0 = stablehlo.constant dense<[1, 0]> : tensor<2xi32>"
-        conversion = "%1 = stablehlo.convert %0 : (tensor<2xi32>) -> tensor<2xi1>"
+        int_constant = "%c = stablehlo.constant dense<[1, 0]> : tensor<2xi32>"
+        conversion = "%0 = stablehlo.convert %c : (tensor<2xi32>) -> tensor<2xi1>"
         assert int_constant in mlir_text
         assert conversion in mlir_text

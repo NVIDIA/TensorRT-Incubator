@@ -1,7 +1,8 @@
 import tripy as tp
-from tripy.frontend.trace import Trace
-from tripy.flat_ir.ops import GatherOp
 from tripy import int32
+
+from tripy.flat_ir.ops import DynamicGatherOp
+from tripy.frontend.trace import Trace
 
 
 class TestGatherOp:
@@ -18,7 +19,8 @@ class TestGatherOp:
         reshape = flat_ir.ops[-2]
 
         print(str(reshape))
-        assert isinstance(gather, GatherOp)
+        assert isinstance(gather, DynamicGatherOp)
         assert (
-            str(gather) == "out: [rank=(1), shape=(1,), dtype=(float32), loc=(gpu:0)] = GatherOp(data, indices, axis=0)"
+            str(gather)
+            == "out: [rank=(1), shape=(?,), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter3, axis=0)"
         )

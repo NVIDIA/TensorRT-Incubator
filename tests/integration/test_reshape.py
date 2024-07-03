@@ -34,6 +34,6 @@ class TestReshape:
     def test_invalid_neg_dim_reshape(self):
         shape = (1, 30)
         new_shape = (-1, -1)
-        with helper.raises(tp.TripyException, match="Only one dimension can be -1."):
+        with helper.raises(tp.TripyException, match="Reshape operation size operand can have only one dimension as -1"):
             a = tp.reshape(tp.ones(shape), new_shape)
             print(a)

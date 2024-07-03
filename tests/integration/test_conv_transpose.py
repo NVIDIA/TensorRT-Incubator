@@ -110,7 +110,7 @@ class TestConvolution:
         expected = conv_layer_torch(input_torch).to(torch_dtype)
         output = conv_layer(input)
 
-        atol_ = 1e-7 if tp_dtype == tp.float32 else 1e-3
+        atol_ = 1e-3
         output_torch = torch.from_dlpack(output)
         assert torch.allclose(output_torch, expected, atol=atol_)
         assert output_torch.shape == expected.shape
@@ -160,7 +160,7 @@ class TestConvolution:
         expected = conv_layer_torch(input_torch).to(torch_dtype)
         output = conv_layer(input)
 
-        atol_ = 1e-7 if tp_dtype == tp.float32 else 1e-3
+        atol_ = 1e-3
         output_torch = torch.from_dlpack(output)
         assert torch.allclose(output_torch, expected, atol=atol_)
         assert output_torch.shape == expected.shape

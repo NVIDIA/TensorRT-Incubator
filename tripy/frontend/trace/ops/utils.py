@@ -87,7 +87,6 @@ def get_shape_of_tensor(tensor: "FlatIRTensor"):
     from tripy.flat_ir.tensor import FlatIRTensor
 
     shape_output_tensor = FlatIRTensor.build(
-        shape=(dynamic_dim(len(tensor.shape)),),
         rank=1,
         dtype=int32,
         device=tensor.device,
@@ -113,7 +112,6 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     from tripy.common.device import device
 
     const_output_tensor = FlatIRTensor.build(
-        shape=(dynamic_dim(1),),
         rank=1,
         dtype=int32,
         device=device,
@@ -133,9 +131,6 @@ def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int):
     from tripy.common.datatype import int32
 
     out = FlatIRTensor.build(
-        shape=utils.to_dims(
-            -1,
-        ),
         rank=1,
         dtype=int32,
         device=inputs[0].device,
@@ -240,7 +235,6 @@ def get_broadcast_in_dim(input_rank: int, output_rank: int) -> List[int]:
 # tensor_details should describe what this tensor is (e.g. left operand of '+')
 def insert_broadcast(
     input_tensor: "FlatIRTensor",
-    out_shape: ShapeInfo,
     out_rank: int,
     tensor_details: str,
     use_dynamic_variant: bool = False,
@@ -251,14 +245,13 @@ def insert_broadcast(
     from tripy.frontend.trace.ops.utils import get_broadcast_in_dim
 
     output_tensor = FlatIRTensor.build(
-        shape=out_shape,
         rank=out_rank,
         dtype=input_tensor.dtype,
         device=input_tensor.device,
         reason_details=[
             f"broadcast the {tensor_details}, which was: ",
             input_tensor,
-            f" to a shape of: {out_shape} in order to be compatible with the other input(s)",
+            f" to a rank of: {out_rank} in order to be compatible with the other input(s)",
         ],
     )
 
@@ -285,7 +278,7 @@ def insert_broadcast(
 def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
     from tripy.common.array import Array
     from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, ConstantOp
+    from tripy.flat_ir.ops import BroadcastOp, ConcatenateOp, ConstantOp, DynamicBroadcastOp
     from tripy.common.datatype import int32
     from tripy.common.device import device
     from tripy import utils
@@ -295,40 +288,13 @@ def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
 
     # Create array filled with 1s and concat with shape array
     assert nb_extra_dims > 0
-    const_val_tensor = FlatIRTensor.build(
-        shape=[],
-        rank=0,
-        dtype=int32,
-        device=input.device,
-        reason_details=f"create a rank 0 constant tensor filled with 1.",
-    )
-    ones_shape_tensor = FlatIRTensor.build(
-        shape=utils.to_dims(
-            nb_extra_dims,
-        ),
-        rank=1,
-        dtype=int32,
-        device=input.device,
-        reason_details=[f"create a rank 1 shape tensor filled {nb_extra_dims} ones."],
-    )
-
-    ConstantOp.build(
-        [],
-        [const_val_tensor],
-        data=Array(
-            1,
-            shape=(),
-            dtype=int32,
-            device=device("cpu"),
-        ),
-    )
-    BroadcastOp.build([const_val_tensor], [ones_shape_tensor], broadcast_dim=[])
-
+    # rank 1 tensor
     shape_of_input = get_shape_of_tensor(input)
+
+    # create rank 1 tensor filled with nb_extra_dims
+    extra_ones = add_constant_tensor_from_list([1] * nb_extra_dims, input.device)
+
     concat_output_tensor = FlatIRTensor.build(
-        shape=utils.to_dims(
-            nb_extra_dims + len(input.shape),
-        ),
         rank=1,
         dtype=int32,
         device=input.device,
@@ -336,14 +302,12 @@ def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
             f"append {nb_extra_dims} ones to the input shape {shape_of_input} to expand the rank of tensor."
         ],
     )
-    ConcatenateOp.build([ones_shape_tensor, shape_of_input], [concat_output_tensor], dim=0)
+    ConcatenateOp.build([extra_ones, shape_of_input], [concat_output_tensor], dim=0)
 
     # output shape usage just relies on rank.
-    output_shape = utils.to_dims((1,) * nb_extra_dims + input.shape)
     output_rank = input.rank + nb_extra_dims
     return insert_broadcast(
         input,
-        output_shape,
         out_rank=output_rank,
         use_dynamic_variant=True,
         shape_of_target_tensor=concat_output_tensor,
@@ -424,7 +388,6 @@ def slice_rank1_tensor(rank1_tensor: "FlatIRTensor", slice_index: int, reason_de
     stride_index = add_constant_tensor_from_list([1], device)
     slice_len = add_constant_tensor_from_list([slice_index + 1], device)
     result_slice = FlatIRTensor.build(
-        shape=utils.to_dims([1]),
         rank=1,
         dtype=int32,
         device=device,

@@ -19,7 +19,9 @@ class TestPermute:
         b = tp.permute(a, perm)
 
         with helper.raises(
-            tp.TripyException, match="Incorrect number of elements in permutation.", has_stack_info_for=[a, b]
+            tp.TripyException,
+            match="TransposeOp operand rank 2 does not match permutation size",
+            has_stack_info_for=[a, b],
         ):
             b.eval()
 

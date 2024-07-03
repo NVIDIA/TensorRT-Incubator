@@ -56,7 +56,7 @@ class ThetaOp(BaseFlatIROp):
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
         theta_dim = ir.IntegerAttr.get(type=ir.IntegerType.get_signless(64), value=self.dim)
-        output = stablehlo.IotaOp(out_type, theta_dim)
+        output = stablehlo.DynamicIotaOp(result=out_type, output_shape=operands[0], iota_dimension=theta_dim)
         return [output]
 ```
 
@@ -122,14 +122,8 @@ class Theta(BaseTraceOp):
     # Notice that we do *not* need to define a constructor and can rely on the default
     # implementation provided by `dataclass`.
     dim: int
-    shape: ShapeInfo
+    output_shape : ShapeInfo
     dtype: datatype.dtype
-
-    # `infer_shapes()` populates the shapes of the output `TraceTensor`s.
-    # For most operators, the output shapes will depend on the shapes of `self.inputs`.
-    # In our cases, since `Theta` generates a tensor, there is no input tensor.
-    def infer_shapes(self):
-        self.outputs[0].shape = self.shape
 
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
@@ -147,7 +141,7 @@ class Theta(BaseTraceOp):
     # For most operators, the output rank will depend on the rank of `self.inputs`.
     # In our case, since `Theta` generates a tensor, there is no input tensor.
     def infer_rank(self):
-        self.outputs[0].rank = len(self.shape)
+        self.outputs[0].rank = len(self.output_shape)
 
     # `to_flat_ir()` translates the `Trace` operator to a subgraph of
     # one or more `FlatIR` operators. In our case, it's just a 1:1
@@ -156,10 +150,14 @@ class Theta(BaseTraceOp):
         # Note that we import the `FlatIR` operator within the function
         # call - this is to avoid circular dependencies.
         from tripy.flat_ir.ops import ThetaOp
+        import tripy.frontend.trace.ops.utils as op_utils
 
+        output_shape = op_utils.add_constant_tensor_from_list(
+                [s.runtime_value for s in self.output_shape], device=outputs[0].device
+        )
         # This code may look a bit confusing; for more details, look at the
         # 'FlatIR section in the architecture document' (linked below).
-        ThetaOp.build(inputs, outputs, dim=self.dim)
+        ThetaOp.build([output_shape], outputs, dim=self.dim)
 ```
 
 <!-- TODO: Update this documentation once dynamic shapes are implemented -->
@@ -336,7 +334,7 @@ class TestThetaOp:
         assert isinstance(Theta, ThetaOp)
         assert (
             str(Theta)
-            == "out: [rank=(2), shape=(2, 3,), dtype=(float32), loc=(gpu:0)] = ThetaOp(dim=0)"
+            == "out: [rank=(2), shape=(?, ?,), dtype=(float32), loc=(gpu:0)] = ThetaOp(t_inter1, dim=0)"
         )
 
 
@@ -348,9 +346,10 @@ class TestThetaOp:
             flat_ir.to_mlir(),
             """
             module {
-                func.func @main() -> tensor<2x3xf32> {
-                    %0 = stablehlo.iota dim = 0 : tensor<2x3xf32>
-                    return %0 : tensor<2x3xf32>
+                func.func @main() -> tensor<?x?xf32> {
+                    %c = stablehlo.constant dense<[2, 3]> : tensor<2xi32>
+                    %0 = stablehlo.dynamic_iota %c, dim = 0 : (tensor<2xi32>) -> tensor<?x?xf32>
+                    return %0 : tensor<?x?xf32>
                 }
             }
             """,

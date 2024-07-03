@@ -19,11 +19,11 @@ class TestMatMul:
     def test_0d_matrix_fails(self):
         a = tp.ones(tuple(), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float32)
-        c = a @ b
 
         with helper.raises(
-            tp.TripyException, match="Input tensors must have at least 1 dimension.", has_stack_info_for=[a, b, c]
+            tp.TripyException, match="Input tensors must have at least 1 dimension.", has_stack_info_for=[a, b]
         ):
+            c = a @ b
             c.eval()
 
     def test_mismatched_dtypes_fails(self):
@@ -33,6 +33,9 @@ class TestMatMul:
         with helper.raises(tp.TripyException, match="Incompatible input data types.", has_stack_info_for=[a, b]):
             c = a @ b
 
+    @pytest.mark.skip(
+        "https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/860 fixes dynamic broadcast issue."
+    )
     def test_incompatible_1d_shapes_fails(self):
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((3,), dtype=tp.float32)
@@ -46,7 +49,9 @@ class TestMatMul:
         b = tp.ones((3, 6), dtype=tp.float32)
         c = a @ b
 
-        with helper.raises(tp.TripyException, match="Incompatible input shapes.", has_stack_info_for=[a, b, c]):
+        with helper.raises(
+            tp.TripyException, match="contracting dimension sizes must match for lhs/rhs", has_stack_info_for=[a, b, c]
+        ):
             c.eval()
 
     @pytest.mark.parametrize(

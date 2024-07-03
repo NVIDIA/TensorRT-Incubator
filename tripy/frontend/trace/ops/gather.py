@@ -9,13 +9,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Gather(BaseTraceOp):
     axis: int
 
-    def infer_shapes(self):
-        data_shape = self.inputs[0].shape
-        indices_shape = self.inputs[1].shape
-
-        out_shape = data_shape[: self.axis] + indices_shape + data_shape[self.axis + 1 :]
-        self.outputs[0].shape = utils.to_dims(out_shape)
-
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
 
@@ -39,12 +32,43 @@ class Gather(BaseTraceOp):
         self.outputs[0].device = device("gpu")
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import GatherOp
+        from tripy.flat_ir.ops import DynamicGatherOp, DynamicSliceOp
+        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.datatype import int32
 
-        if any(dim.is_dynamic_dim() for dim in (inputs[0].shape + inputs[1].shape)):
-            raise NotImplementedError("Dynamic gather is not supported")
+        input_shape = op_utils.get_shape_of_tensor(inputs[0])
+        zero_1d = op_utils.add_constant_tensor_from_list([0], inputs[0].device)
+        one_1d = op_utils.add_constant_tensor_from_list([1], inputs[0].device)
+        second_half_start = op_utils.add_constant_tensor_from_list([self.axis + 1], inputs[0].device)
 
-        GatherOp.build(inputs, outputs, self.axis)
+        # Gather slice_sizes is the same as size of input with dim at self.axis replaced with 1.
+        # Code below performs input_shape[0:self.axis], 1, input_shape[self.axis + 1 : ]
+        size_partial_tensors = []
+        if self.axis > 0:
+            slice_len = op_utils.add_constant_tensor_from_list([self.axis], inputs[0].device)
+            axis_first_half = FlatIRTensor.build(
+                shape=utils.to_dims([self.axis]),
+                dtype=int32,
+                device=inputs[0].device,
+                reason_details=["slice the input shape ", input_shape, " to get input_shape[0:self.axis]."],
+            )
+            DynamicSliceOp.build([input_shape, zero_1d, slice_len, one_1d], [axis_first_half])
+            size_partial_tensors.append(axis_first_half)
+
+        size_partial_tensors.append(one_1d)
+        slice_len = op_utils.add_constant_tensor_from_list([inputs[0].rank - self.axis], inputs[0].device)
+        axis_second_half = FlatIRTensor.build(
+            rank=1,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=["slice the input shape ", input_shape, " to get input_shape[self.axis + 1 :]."],
+        )
+        DynamicSliceOp.build([input_shape, second_half_start, slice_len, one_1d], [axis_second_half])
+        size_partial_tensors.append(axis_second_half)
+
+        slice_sizes = op_utils.concatenate_tensors(size_partial_tensors, dim=0)
+
+        DynamicGatherOp.build([inputs[0], inputs[1], slice_sizes], outputs, self.axis)
 
 
 @export.public_api(document_under="tensor_operations")

@@ -17,9 +17,6 @@ class UnaryElementwise(BaseTraceOp):
 
     kind: Kind
 
-    def infer_shapes(self):
-        self.outputs[0].shape = self.inputs[0].shape
-
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp, SineOp, CosineOp
 

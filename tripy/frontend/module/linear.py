@@ -67,20 +67,6 @@ class Linear(Module):
 
             assert cp.from_dlpack(output).get().shape == (2, 4)
 
-        .. code-block:: python
-            :linenos:
-            :caption: Quantized
-
-            linear = tp.Linear(3, 4, quant_dtype=tp.int8, weight_quant_dim=0)
-            linear.weight = tp.Parameter(tp.ones((4, 3)))
-            linear.bias = tp.Parameter(tp.ones((4,)))
-            weight_scale = [0.9] * 4
-            linear.weight_scale = tp.Parameter(weight_scale)
-
-            input = tp.iota((2, 3))
-            output = linear(input)
-
-            assert cp.from_dlpack(output).get().shape == (2, 4)
         """
         super().__init__()
 

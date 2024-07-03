@@ -60,8 +60,13 @@ class TestTensor:
             pytest.skip("Int4 is not supported by frontend tensor.")
         if dtype == tp.bfloat16 and torch.cuda.get_device_capability() < (8, 0):
             pytest.skip("bfloat16 requires GPU >= SM80")
-        if dtype == tp.float8 and torch.cuda.get_device_capability() < (8, 9):
-            pytest.skip("fp8 requires GPU >= SM89")
+        if dtype == tp.float8:
+            pytest.skip(
+                "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219 will re-enable q/dq in Tripy."
+            )
+            # if dtype == tp.float8 and torch.cuda.get_device_capability() < (8, 9):
+            # pytest.skip("fp8 requires GPU >= SM89")
+
         # dtype casting is allowed for python list
         tensor = tp.Tensor([0, 1, 2, 3], dtype=dtype)
         if dtype == tp.uint8:

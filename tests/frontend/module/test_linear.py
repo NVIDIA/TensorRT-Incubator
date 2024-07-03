@@ -17,7 +17,9 @@ class TestLinear:
         linear = tp.Linear(2, 128)
         out = linear(a)
 
-        with helper.raises(tp.TripyException, match="Incompatible input shapes.", has_stack_info_for=[a]):
+        with helper.raises(
+            tp.TripyException, match="contracting dimension sizes must match for lhs/rhs", has_stack_info_for=[a]
+        ):
             out.eval()
 
     @pytest.mark.parametrize("quant_dtype", [tp.int8, tp.float8])

@@ -229,3 +229,91 @@ def is_any_dim_dynamic(mlir_tensor):
     assert hasattr(mlir_tensor, "type") or hasattr(mlir_tensor, "result")
     type = mlir_tensor.type if hasattr(mlir_tensor, "type") else mlir_tensor.result.type
     return any([type.is_dynamic_dim(i) for i in range(type.rank)])
+
+
+class ShapeContext:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(ShapeContext, cls).__new__(cls)
+            from tripy.backend.mlir.compiler import Compiler
+
+            cls._instance.compiler = Compiler(trt_builder_opt_level=0)
+        return cls._instance
+
+    def __init__(self):
+        self.shape_caches = {}
+        pass
+
+    @classmethod
+    def get_compiler(cls):
+        return cls._instance.compiler
+
+    @utils.log_time
+    def get_shape_of_dynamic_trace_tensor(self, trace_tensor):
+
+        from tripy.flat_ir.flat_ir import FlatIR
+        from tripy.frontend.utils import topological_sort
+        import copy
+
+        def traverse_backwards(tensor, visited_tensors, visited_producers):
+            """
+            Recurse back from tensor to the inputs to the graph and store the visited tensors and nodes.
+            """
+            from tripy.frontend.trace.ops.unsqueeze import Unsqueeze
+
+            if id(tensor) in visited_tensors:
+                return
+
+            visited_tensors[id(tensor)] = tensor
+            if tensor.producer is not None:
+                visited_producers[id(tensor.producer)] = tensor.producer
+                # Special recursion conditions op by op basis.
+                # Only recurse inputs which are used in output shape calculations.
+                if isinstance(tensor.producer, Unsqueeze):
+                    traverse_backwards(tensor.producer.inputs[1], visited_tensors, visited_producers)
+                else:
+                    # Naively recurse all the inputs until a constant or user input.
+                    for input_tensor in tensor.producer.inputs:
+                        traverse_backwards(input_tensor, visited_tensors, visited_producers)
+
+        def find_inputs(graph_nodes):
+            """
+            Populates inputs of the topologically sorted graph.
+            """
+            id_graph_nodes = [id(n) for n in graph_nodes]
+            return [t for op in graph_nodes for t in op.inputs if id(t.producer) not in id_graph_nodes]
+
+        from tripy.common.device import device
+
+        trace_tensor.device = device("cpu")
+        subgraph = FlatIR()
+        visited_tensors = {}
+        visited_producers = {}
+
+        traverse_backwards(trace_tensor, visited_tensors, visited_producers)
+        visited_producers = [v for _, v in visited_producers.items()]
+
+        visited_producers = topological_sort(visited_producers)
+        input_tensors = find_inputs(visited_producers)
+
+        subgraph.inputs = [subgraph.register_tensor(inp.to_flat_ir()) for inp in input_tensors]
+        subgraph.outputs = [subgraph.register_tensor(trace_tensor.to_flat_ir())]
+
+        for op in visited_producers:
+            inputs = [subgraph.register_tensor(inp.to_flat_ir()) for inp in op.inputs]
+            outputs = [subgraph.register_tensor(out.to_flat_ir()) for out in op.outputs]
+            op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
+            subgraph.integrate_subgraph(inputs, outputs)
+
+        mlir = subgraph.to_mlir()
+        mlir_str = mlir.__str__()
+        if mlir_str in self.shape_caches:
+            return self.shape_caches[mlir_str]
+        else:
+            func_output_types = self.get_compiler().infer_shapes(mlir, subgraph)
+            # Calculate the elapsed time
+            assert len(func_output_types.results) == 1
+            self.shape_caches[mlir_str] = func_output_types.results[0].shape
+            return func_output_types.results[0].shape

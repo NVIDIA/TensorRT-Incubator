@@ -16,23 +16,9 @@ class Iota(BaseTraceOp):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def infer_shapes(self):
-        self.outputs[0].shape = self.shape
+    def infer_rank(self):
         if self.dim < 0:
             self.dim += len(self.shape)
-
-        if self.dim < 0 or self.dim >= len(self.shape):
-            raise_error(
-                "Invalid iota dim.",
-                details=[
-                    "iota dim must satisfy 0 <= dim < rank(shape), got dim=",
-                    self.dim,
-                    ", while rank of shape is ",
-                    len(self.shape),
-                ],
-            )
-
-    def infer_rank(self):
         self.outputs[0].rank = len(self.shape)
 
     def infer_dtypes(self):
@@ -58,11 +44,9 @@ class IotaLike(Iota):
     Represents an iota_like operation.
     """
 
-    def infer_shapes(self):
-        self.shape = self.inputs[0].shape
-        super().infer_shapes()
-
     def infer_rank(self):
+        if self.dim < 0:
+            self.dim += self.inputs[0].rank
         self.outputs[0].rank = self.inputs[0].rank
 
     def infer_dtypes(self):

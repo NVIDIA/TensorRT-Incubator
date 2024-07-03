@@ -13,14 +13,12 @@ class TestSlice:
         assert isinstance(a.trace_tensor.producer, Slice)
 
     def test_incorrect_index_size(self):
-        a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
-        b = a[:, :, 0:1]
-
         with helper.raises(
             tp.TripyException,
-            match=r"Input tensor has a rank of 2 but was attempted to be sliced with 3 indices.",
-            has_stack_info_for=[a, b],
+            match=r"Input tensor has a rank of 2 but was attempted to be sliced with 3 indices",
         ) as exc:
+            a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
+            b = a[:, :, 0:1]
             b.eval()
 
     def test_infer_rank(self):

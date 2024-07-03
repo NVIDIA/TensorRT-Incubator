@@ -97,7 +97,7 @@ class TestConvolutionOp:
         spatial_shape = conv_flat_ir[1]
         assert (
             str(Conv)
-            == f"output: [rank=(4), shape=(2, 16, {spatial_shape}, {spatial_shape},), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, kernel, padding={padding}, stride={stride}, feature_group_count={groups}, lhs_dilation=None, rhs_dilation={rhs_dilation})"
+            == f"output: [rank=(4), shape=(?, ?, ?, ?,), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, kernel, padding={padding}, stride={stride}, feature_group_count={groups}, lhs_dilation=None, rhs_dilation={rhs_dilation})"
         )
 
     def test_str_conv_transpose(self, conv_transpose_flat_ir, padding, stride, groups, rhs_dilation):
@@ -111,10 +111,9 @@ class TestConvolutionOp:
         for pad, dilation, kernel_size in zip(padding, rhs_dilation, kernel_shape[2:]):
             new_padding.append((dilation * (kernel_size - 1) - pad[0], dilation * (kernel_size - 1) - pad[1]))
         padding = tuple(new_padding)
-
         assert (
             str(Conv)
-            == f"output: [rank=(4), shape=(2, 16, {spatial_shape}, {spatial_shape},), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, {kernel_name}, padding={padding}, stride={(1, 1)}, feature_group_count={groups}, lhs_dilation={stride}, rhs_dilation={rhs_dilation})"
+            == f"output: [rank=(4), shape=(?, ?, ?, ?,), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, {kernel_name}, padding={padding}, stride={(1, 1)}, feature_group_count={groups}, lhs_dilation={stride}, rhs_dilation={rhs_dilation})"
         )
 
     def test_mlir_conv(self, conv_flat_ir, padding, stride, groups, rhs_dilation):
@@ -124,13 +123,14 @@ class TestConvolutionOp:
         stride = list(stride)
         padding = [list(inner) for inner in padding]
         rhs_dilation = list(rhs_dilation)
+
         target = str(conv_flat_ir[0].to_mlir())
         expected_op_call = r"stablehlo.convolution\(%\d+, %\d+\)"
         expected_op_signature = (
             "dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], "
             f"window = {{stride = {stride}, pad = {padding}, rhs_dilate = {rhs_dilation}}} "
             f"{{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} "
-            f": (tensor<2x4x8x8xf32>, tensor<16x{kernel_channels}x5x5xf32>) -> tensor<2x16x{spatial_shape}x{spatial_shape}xf32>"
+            f": (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>"
         )
         assert re.search(expected_op_call, target) and expected_op_signature in target
 
@@ -145,6 +145,6 @@ class TestConvolutionOp:
         padding = new_padding
         rhs_dilation = list(rhs_dilation)
         expected_op_call = rf"stablehlo.convolution\(%\d+, %\d+\)"
-        expected_op_signature = f"dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {[1] * len(stride)}, pad = {padding}, lhs_dilate = {stride}, rhs_dilate = {rhs_dilation}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} : (tensor<2x4x8x8xf32>, tensor<16x{kernel_channels}x5x5xf32>) -> tensor<2x16x{spatial_shape}x{spatial_shape}xf32>"
+        expected_op_signature = f"dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {[1] * len(stride)}, pad = {padding}, lhs_dilate = {stride}, rhs_dilate = {rhs_dilation}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>"
         target = str(conv_transpose_flat_ir[0].to_mlir())
         assert re.search(expected_op_call, target) and expected_op_signature in target

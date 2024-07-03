@@ -251,6 +251,7 @@ class TestCopyFunctional:
         assert out.device.kind == "cpu"
         assert out.data() == [1, 2]
 
+    @pytest.mark.skip("Remove copy op in Tripy: https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/756")
     def test_with_ops(self):
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])

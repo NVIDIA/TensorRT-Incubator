@@ -82,7 +82,7 @@ class TestTrace:
                 b = storage(data=[1], shape=(1,), dtype=int32, device=gpu:0)
                 c = a + b
                 outputs:
-                    c: [shape=(1,), dtype=(int32), rank=(1), loc=(gpu:0)]
+                    c: [shape=(?,), dtype=(int32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -96,7 +96,6 @@ class TestTrace:
 
         trace = Trace([c])
 
-        assert trace.ops[-1].outputs[0].shape == shape
         assert trace.ops[-1].outputs[0].dtype == a.trace_tensor.producer.dtype
         assert trace.ops[-1].outputs[0].device == tp.device("gpu")
 
@@ -122,8 +121,8 @@ class TestTrace:
                 c = a + b
                 d = c + c
                 outputs:
-                    c: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
-                    d: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    c: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    d: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -156,7 +155,7 @@ class TestTrace:
                     b: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 c = a + b
                 outputs:
-                    c: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    c: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -179,7 +178,7 @@ class TestTrace:
                 b = storage(data=[1.0], shape=(1,), dtype=float32, device=gpu:0)
                 c = a + b
                 outputs:
-                    c: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    c: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
                 """
             ).strip()
         )

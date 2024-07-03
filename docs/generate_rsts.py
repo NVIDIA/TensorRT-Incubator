@@ -164,6 +164,7 @@ def build_index_file(name, constituents, include_heading=True, caption=None):
 
 
 def process_guide(guide_path: str, processed_guide_path: str):
+
     os.makedirs(os.path.dirname(processed_guide_path), exist_ok=True)
 
     new_blocks = []

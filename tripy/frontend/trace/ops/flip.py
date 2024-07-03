@@ -11,9 +11,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Flip(BaseTraceOp):
     dims: Sequence[int]
 
-    def infer_shapes(self):
-        self.outputs[0].shape = self.inputs[0].shape
-
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank
 

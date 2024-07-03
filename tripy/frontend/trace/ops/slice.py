@@ -19,23 +19,12 @@ class Slice(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def infer_shapes(self):
-        # Static shape computation of the output rank is wrong since it should reduce the rank in case single element is selected along a dimension.
-        input_shape = self.inputs[0].shape
-        self.start_indices, self.limit_indices, self.strides = op_utils.get_slice_indices(self, input_shape, self.index)
-        out_shape = [
-            # if start > stop, the dimension will be empty
-            math.ceil(abs((stop - start) / stride)) if stop >= start else 0
-            for start, stop, stride in zip(self.start_indices, self.limit_indices, self.strides)
-        ]
-        self.outputs[0].shape = utils.to_dims(out_shape)
-
     def infer_rank(self):
         # How can we compute the output rank in the case when start, size, stride tensors are dynamic?
         self.outputs[0].rank = self.inputs[0].rank
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp, MinOp
+        from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp, MinOp, ReshapeOp
         from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.datatype import bool as tp_bool, int32
 
@@ -161,6 +150,8 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
     from tripy.frontend.trace.ops.where import where
 
     index = make_tuple(index)
+    if len(index) > self.rank:
+        raise_error(f"Input tensor has a rank of {self.rank} but was attempted to be sliced with {len(index)} indices")
     # Collect args in the order of (start, stop, step) in a flat list, filling in default values if any is missing.
     # For indices that are single ints/tensors, the default stop is start+1 and the default step is 1
     args = []
@@ -219,6 +210,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
     input_tensor = self
     if flip_dims:
         input_tensor = flip(input_tensor, dims=flip_dims)
+
     out = slice_helper(input_tensor, index, *args)
 
     squeeze_dims = []

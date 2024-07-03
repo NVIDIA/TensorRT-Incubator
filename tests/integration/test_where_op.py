@@ -7,6 +7,7 @@ from tripy.frontend import Tensor
 
 
 class TestWhereOp:
+
     @pytest.mark.parametrize(
         "cond, x, y",
         [
@@ -18,6 +19,7 @@ class TestWhereOp:
             ((0,), (1,), (1,)),  # 0 dim in the condition
         ],
     )
+    @pytest.mark.skip("Test segfaults due to https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/886")
     def test_where_broadcast_shapes(self, cond, x, y):
         rand_x = np.random.uniform(
             low=0.0,
@@ -36,7 +38,8 @@ class TestWhereOp:
         )
 
     def test_explicit_condition(self):
-        select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
+        # select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
+        select_indices = tp.ones((4,)) >= Tensor([0.0, 2.0, 0.0, 2.0])
         ones = tp.ones((4,), dtype=tp.int32)
         zeros = tp.zeros((4,), dtype=tp.int32)
         w = tp.where(select_indices, ones, zeros)

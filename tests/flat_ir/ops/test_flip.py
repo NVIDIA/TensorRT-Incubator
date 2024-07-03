@@ -47,8 +47,9 @@ class TestFlipOp:
         shape, _, expected_dims = flip_params
         flip_op = flat_ir.ops[-1]
         assert isinstance(flip_op, FlipOp)
+        shape_str = "?, " * len(shape)
         target = (
-            f"out: [rank=({len(shape)}), shape=({', '.join(map(str, shape))},), dtype=(float32), loc=(gpu:0)]"
+            f"out: [rank=({len(shape)}), shape=({shape_str[:-1]}), dtype=(float32), loc=(gpu:0)]"
             + f" = FlipOp(a, dims=[{', '.join(map(str, expected_dims))}])"
         )
         assert str(flip_op) == target
@@ -57,7 +58,8 @@ class TestFlipOp:
         shape, _, expected_dims = flip_params
         # looking for a reverse op with the specified dims
         target = (
-            rf"%1 = stablehlo.reverse %0, dims = [{', '.join(map(str, expected_dims))}]"
+            rf"%0 = stablehlo.reverse %cst, dims = [{', '.join(map(str, expected_dims))}]"
             + f" : tensor<{'x'.join(map(str, shape))}xf32>"
         )
+
         assert target in str(flat_ir.to_mlir())

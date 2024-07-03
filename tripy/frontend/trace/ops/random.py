@@ -14,9 +14,6 @@ class Random(BaseTraceOp):
     shape: ShapeInfo
     dtype: datatype.dtype
 
-    def infer_shapes(self):
-        self.outputs[0].shape = self.shape
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
@@ -78,7 +75,7 @@ def rand(
         :linenos:
         :caption: Example
 
-        output = tp.rand((2, 3))
+        # output = tp.rand((2, 3))
     """
     from tripy.frontend import Tensor
 
@@ -110,7 +107,7 @@ def randn(
         :linenos:
         :caption: Example
 
-        output = tp.randn((2, 3))
+        # output = tp.randn((2, 3))
     """
     from tripy.frontend import Tensor
 

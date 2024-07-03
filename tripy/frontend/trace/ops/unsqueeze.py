@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from tripy import export, utils
+from tripy.common.datatype import int32
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -8,14 +9,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Unsqueeze(BaseTraceOp):
 
     dim: int
-
-    def infer_shapes(self):
-        if self.dim < 0:
-            self.dim += len(self.inputs[0].shape) + 1
-
-        out_shape = list(self.inputs[0].shape)
-        out_shape.insert(self.dim, 1)
-        self.outputs[0].shape = utils.to_dims(out_shape)
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
@@ -26,7 +19,7 @@ class Unsqueeze(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicBroadcastOp
 
-        broadcast_dim = list(range(len(inputs[0].shape)))
+        broadcast_dim = list(range(inputs[0].rank))
         for idx in range(len(broadcast_dim)):
             if idx >= self.dim:
                 broadcast_dim[idx] += 1
@@ -51,7 +44,7 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
 
     Args:
         input: The input tensor.
-        dim: The index before which to insert the singleton dimension.
+        dim: index to insert the singleton dimension.
 
     Returns:
         A new tensor of the same data type as the input tensor.
@@ -69,9 +62,12 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
 
     from tripy.frontend import Tensor
 
+    if dim < 0:
+        dim = dim + input.rank + 1
+
     # Add specical case for rank 0 since tensor.shape is not supported when rank is 0.
     if input.rank == 0:
-        result_shape = Tensor([1])
+        result_shape = Tensor([1], dtype=int32)
     else:
         input_shape = input.shape
         result_shape = concatenate([input_shape[:dim], Tensor([1]), input_shape[dim:]], dim=0)
