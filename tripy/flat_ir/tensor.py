@@ -45,11 +45,7 @@ class FlatIRTensor:
     def to_mlir(self):
         from tripy.backend.mlir import utils as mlir_utils
 
-        shape = (
-            utils.to_dims([dynamic_dim(-1) for i in range(self.rank)])
-            if (self.shape is None or self.shape == [])
-            else self.shape
-        )
+        shape = utils.to_dims([dynamic_dim(-1) for i in range(self.rank)]) if (self.shape is None) else self.shape
         return mlir_utils.make_mlir_tensor(shape, self.dtype)
 
     @staticmethod

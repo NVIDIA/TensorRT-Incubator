@@ -92,7 +92,6 @@ def expand(input: "tripy.Tensor", sizes: Union[Sequence[int], "tripy.Tensor"]) -
     from tripy.frontend.trace.ops.concatenate import concatenate
     from tripy.frontend.trace.ops.reshape import reshape
 
-    size_tensor = sizes
     if isinstance(sizes, Tensor):
         if sizes.rank != 1:
             raise_error(
@@ -101,7 +100,6 @@ def expand(input: "tripy.Tensor", sizes: Union[Sequence[int], "tripy.Tensor"]) -
                     f"Got rank={sizes.rank}",
                 ],
             )
-        size_tensor = sizes
         return Expand.build([input, sizes], None)
 
     args = []

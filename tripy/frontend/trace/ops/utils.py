@@ -112,6 +112,7 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     from tripy.common.device import device
 
     const_output_tensor = FlatIRTensor.build(
+        shape=utils.to_dims((len(data),)),
         rank=1,
         dtype=int32,
         device=device,
