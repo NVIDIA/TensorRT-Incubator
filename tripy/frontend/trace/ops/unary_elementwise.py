@@ -14,11 +14,12 @@ class UnaryElementwise(BaseTraceOp):
         LOG = 3
         SINE = 4
         COSINE = 5
+        SQRT = 6
 
     kind: Kind
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp, SineOp, CosineOp
+        from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp, SineOp, CosineOp, SqrtOp
 
         OpType = {
             UnaryElementwise.Kind.EXP: ExpOp,
@@ -27,6 +28,7 @@ class UnaryElementwise(BaseTraceOp):
             UnaryElementwise.Kind.LOG: LogOp,
             UnaryElementwise.Kind.SINE: SineOp,
             UnaryElementwise.Kind.COSINE: CosineOp,
+            UnaryElementwise.Kind.SQRT: SqrtOp,
         }[self.kind]
         OpType.build(inputs, outputs)
 
@@ -146,6 +148,29 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
         assert np.allclose(cp.from_dlpack(output).get(), (1.0 / np.sqrt(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.RSQRT)
+
+
+@export.public_api(document_under="tensor_operations")
+def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
+    """
+    Computes the elementwise square root of the elements of the input tensor.
+
+    Args:
+        input: The input tensor.
+
+    Returns:
+        A new tensor of the same shape and data type as the input tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.arange(3, dtype=tp.float32) + 1.0
+        output = tp.sqrt(input)
+
+        assert np.allclose(cp.from_dlpack(output).get(), (np.sqrt(cp.from_dlpack(input).get())))
+    """
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.SQRT)
 
 
 @export.public_api(document_under="tensor_operations")

@@ -114,12 +114,13 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
 
 
 @export.public_api(document_under="tensor_operations")
-def tril(self, diagonal: int = 0) -> "tripy.Tensor":
+def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     r"""
     Returns the lower triangular part of each :math:`[M, N]` matrix in the tensor, with all other elements set to 0.
     If the tensor has more than two dimensions, it is treated as a batch of matrices.
 
     Args:
+        tensor: The tripy tensor to operate on.
         diagonal: The diagonal above which to zero elements.
             ``diagonal=0`` indicates the main diagonal which is defined by the set of indices
             :math:`{{(i, i)}}` where :math:`i \in [0, min(M, N))`.
@@ -157,11 +158,63 @@ def tril(self, diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
     """
-    tri_mask = (iota_like(self, 0, datatype.int32) + full_like(self, diagonal, datatype.int32)) >= iota_like(
-        self, 1, datatype.int32
+    tri_mask = (iota_like(tensor, 0, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) >= iota_like(
+        tensor, 1, datatype.int32
     )
-    zeros_tensor = zeros_like(self)
-    return where(tri_mask, self, zeros_tensor)
+    zeros_tensor = zeros_like(tensor)
+    return where(tri_mask, tensor, zeros_tensor)
+
+
+@export.public_api(document_under="tensor_operations")
+def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
+    r"""
+    Returns the upper triangular part of each :math:`[M, N]` matrix in the tensor, with all other elements set to 0.
+    If the tensor has more than two dimensions, it is treated as a batch of matrices.
+
+    Args:
+        tensor: The tripy tensor to operate on.
+        diagonal: The diagonal below which to zero elements.
+            ``diagonal=0`` indicates the main diagonal which is defined by the set of indices
+            :math:`{{(i, i)}}` where :math:`i \in [0, min(M, N))`.
+
+            Positive values indicate the diagonal which is that many diagonals above the main one,
+            while negative values indicate one which is below.
+
+    Returns:
+        A tensor of the same shape and datatype as this tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Main Diagonal
+
+        input = tp.iota((5, 5)) + 1.
+        output = tp.triu(input)
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get()))
+
+    .. code-block:: python
+        :linenos:
+        :caption: Two Diagonals Above Main
+
+        input = tp.iota((5, 5)) + 1. # doc: omit
+        output = tp.triu(input, diagonal=2)
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get(), 2))
+
+    .. code-block:: python
+        :linenos:
+        :caption: One Diagonal Below Main
+
+        input = tp.iota((5, 5)) + 1. # doc: omit
+        output = tp.triu(input, diagonal=-1)
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get(), -1))
+    """
+    tri_mask = (iota_like(tensor, 0, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) <= iota_like(
+        tensor, 1, datatype.int32
+    )
+    zeros_tensor = zeros_like(tensor)
+    return where(tri_mask, tensor, zeros_tensor)
 
 
 @export.public_api(document_under="tensor_operations")

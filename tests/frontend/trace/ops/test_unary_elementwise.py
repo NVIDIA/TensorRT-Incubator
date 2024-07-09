@@ -9,6 +9,7 @@ _UNARY_OPS = {
     UnaryElementwise.Kind.TANH: tp.tanh,
     UnaryElementwise.Kind.RSQRT: tp.rsqrt,
     UnaryElementwise.Kind.LOG: tp.log,
+    UnaryElementwise.Kind.SQRT: tp.sqrt,
 }
 
 

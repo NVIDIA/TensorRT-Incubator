@@ -11,6 +11,7 @@ _UNARY_OPS = {
     tp.log: np.log,
     tp.sin: np.sin,
     tp.cos: np.cos,
+    tp.sqrt: np.sqrt,
 }
 
 

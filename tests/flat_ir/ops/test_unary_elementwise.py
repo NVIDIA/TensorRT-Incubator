@@ -3,7 +3,7 @@ import pytest
 
 from tests import helper
 from tripy.frontend.trace import Trace
-from tripy.flat_ir.ops import ExpOp, TanhOp, RsqrtOp, LogOp, SineOp, CosineOp
+from tripy.flat_ir.ops import ExpOp, TanhOp, RsqrtOp, LogOp, SineOp, CosineOp, SqrtOp
 
 
 _UNARY_OPS = {
@@ -13,6 +13,7 @@ _UNARY_OPS = {
     tp.log: ("LogOp", LogOp, "stablehlo.log"),
     tp.sin: ("SineOp", SineOp, "stablehlo.sine"),
     tp.cos: ("CosineOp", CosineOp, "stablehlo.cosine"),
+    tp.sqrt: ("SqrtOp", SqrtOp, "stablehlo.sqrt"),
 }
 
 
