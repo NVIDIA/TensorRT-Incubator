@@ -98,11 +98,11 @@ def convert_inputs_to_tensors(
                     arg_index = 0 if arg_index == 1 else 1
                     dispatch_target = dispatch_target.replace("__r", "__")
 
-                # Special case for __getitem__: It is variadic. Argument 0 is the tensor, argument 1 is the indices,
+                # Special case for __getitem__: It is variadic. Argument 0 is the tensor,
                 # and all subsequent arguments are slice parameters (in start, stop, step order).
                 # Hence, we subtract two to get the index of the slice parameters
                 if dispatch_target == "__getitem__":
-                    arg_index -= 2
+                    arg_index -= 1
 
                 candidates = utils.get_arg_candidate_column_offsets(
                     source_info.code,

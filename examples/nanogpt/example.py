@@ -78,21 +78,12 @@ def main():
     else:
         load_quant_weights_from_hf(model, args.model_type, model_dtype, args.quant_mode)
 
-    idx = torch.Tensor(input_ids).reshape((1, len(input_ids)))
-    zeros = torch.zeros((1, args.max_new_tokens), dtype=torch.float32)
-    idx = tp.copy(tp.Tensor(torch.cat((idx, zeros), dim=1).to(torch.int32)), tp.device("gpu"))
-
-    @tp.jit
-    def generate_attention_mask(input_tokens):
-        # Check where input_tokens !=0 and fill with ones.
-        zeros = tp.zeros_like(input_tokens)
-        ones = tp.ones_like(input_tokens)
-        return tp.reshape(tp.cast(tp.where(input_tokens == 0, zeros, ones), model_dtype), (1, 1, 1, padded_seq_len))
+    idx = torch.Tensor(input_ids).reshape((1, len(input_ids))).to(torch.int32).to("cuda")
+    idx = tp.Tensor(idx, shape=(1, tp.dynamic_dim(len(input_ids), 1, len(input_ids), padded_seq_len)))
 
     # Run once outside the loop to compile the model.
-    mask = generate_attention_mask(idx)
     compilation_start_time = time.time()
-    model(idx, mask)
+    model(idx)
     print(f"Compilation took {time.time() - compilation_start_time} seconds.")
 
     generator = None
@@ -102,8 +93,7 @@ def main():
 
     start_time = time.perf_counter()
     for token_idx in range(len(input_ids), len(input_ids) + args.max_new_tokens):
-        mask = generate_attention_mask(idx)
-        logits = model(idx, mask)
+        logits = model(idx)
 
         # Crop the logits to only the top k options
         logits = torch.from_dlpack(logits)
@@ -114,11 +104,12 @@ def main():
         # Convert logits to normalized probabilities
         probs = torch.softmax(logits, dim=-1)
         # Sample from the distribution
-        idx_next = torch.multinomial(probs, num_samples=1, generator=generator).cpu()
+        idx_next = torch.multinomial(probs, num_samples=1, generator=generator)
+        idx_next = idx_next.reshape(1, 1)
 
         # Append sampled index to the running sequence and continue
         idx = torch.from_dlpack(idx).to(torch.int32)
-        idx[0, token_idx] = idx_next[0]
+        idx = torch.concat([idx, idx_next], dim=1).to(torch.int32)
         idx = tp.Tensor(idx, device=tp.device("gpu"))
 
     response = encoder.decode(torch.from_dlpack(idx[0, :]).tolist())

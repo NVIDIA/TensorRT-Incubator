@@ -14,8 +14,6 @@ from tripy.common.exception import raise_error
 @dataclass(repr=False)
 class Slice(BaseTraceOp):
 
-    index: Tuple[Union[slice, int]]
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
@@ -24,7 +22,7 @@ class Slice(BaseTraceOp):
         self.outputs[0].rank = self.inputs[0].rank
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp, MinOp, ReshapeOp
+        from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp
         from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.datatype import bool as tp_bool, int32
 
@@ -211,7 +209,7 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
     if flip_dims:
         input_tensor = flip(input_tensor, dims=flip_dims)
 
-    out = slice_helper(input_tensor, index, *args)
+    out = slice_helper(input_tensor, *args)
 
     squeeze_dims = []
     for i, idx in enumerate(index):
@@ -228,6 +226,6 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
 # Conveniently converts the inputs to tensors. The decorator also fills in column info for the converted tensors.
 # Because the helper is called inside another function, we need to skip one entry in the call stack to find
 # the original call to user code.
-@frontend_utils.convert_inputs_to_tensors(exclude=["index"], skip_num_stack_entries=1)
-def slice_helper(tensor, index, *slice_params):
-    return Slice.build(inputs=[tensor, *slice_params], index=index)
+@frontend_utils.convert_inputs_to_tensors(skip_num_stack_entries=1)
+def slice_helper(tensor, *slice_params):
+    return Slice.build(inputs=[tensor, *slice_params])

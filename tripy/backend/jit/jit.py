@@ -214,19 +214,14 @@ class jit:
                     outputs = func(*inputs, **kwargs)
                 if isinstance(outputs, Tensor):
                     outputs = [outputs]
+
                 return Trace(outputs, trace_inputs)
 
             # See _trace_signatures in __init__ for an explanation of this.
             # Note that the `trace_signature_key` is local to this instance so we can safely use Python's
             # built-in `hash()` even though it's randomized.
             #
-            # HACK (#109): If the input shapes change, we need to retrace so that we can determine the new output
-            #   shapes. This is only required because our executor currently needs the output memory up front.
-            dim_list = []
-            for inp in inputs:
-                dim_list.extend([dim.runtime_value for dim in inp.trace_tensor.producer.shape])
-
-            trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids + tuple(dim_list))
+            trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids)
 
             trace = None
 

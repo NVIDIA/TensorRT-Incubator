@@ -25,6 +25,7 @@ def get_trace_signature(trace: Trace) -> int:
             # Don't consider shapes/data for storage tensors
             return utils.md5(op.dtype, op.device)
 
+        # Note: if op.field is a Tensor, below code can incur computing the intermediate tensor values for hashing which can be very expensive.
         return utils.md5(
             [getattr(op, field.name) for field in utils.get_dataclass_fields(op, BaseTraceOp)],
         )
