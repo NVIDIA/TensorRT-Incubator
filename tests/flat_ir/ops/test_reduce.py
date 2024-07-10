@@ -15,9 +15,9 @@ class TestReduceOp:
 
         reduce = flat_ir.ops[-1]
         assert isinstance(reduce, ReduceOp)
-        assert (
-            str(reduce)
-            == "out: [rank=(1), shape=(?,), dtype=(int32), loc=(gpu:0)] = ReduceOp(inp, t_inter2, reduce_mode=sum, reduce_dims=[0])"
+        assert re.match(
+            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode=sum, reduce_dims=\[0\]\)",
+            str(reduce),
         )
 
     def test_max_str(self):
@@ -30,9 +30,10 @@ class TestReduceOp:
 
         reduce = flat_ir.ops[-1]
         assert isinstance(reduce, ReduceOp)
-        assert (
-            str(reduce)
-            == "out: [rank=(1), shape=(?,), dtype=(int32), loc=(gpu:0)] = ReduceOp(inp, t_inter2, reduce_mode=max, reduce_dims=[0])"
+
+        assert re.match(
+            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode=max, reduce_dims=\[0\]\)",
+            str(reduce),
         )
 
     def test_mean_str(self):
@@ -57,7 +58,7 @@ class TestReduceOp:
             str(broadcast),
         )
 
-        mul = flat_ir.ops[-14]
+        mul = flat_ir.ops[-20]
 
         assert isinstance(mul, MulOp)
         assert re.match(

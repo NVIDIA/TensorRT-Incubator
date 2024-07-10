@@ -12,14 +12,14 @@ class Shape(BaseTraceOp):
         self.outputs[0].rank = 1
 
     def infer_dtypes(self):
-        from tripy import int32
+        from tripy.common.datatype import int32
 
         self.outputs[0].dtype = int32
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ShapeOp
+        import tripy.frontend.trace.ops.utils as op_utils
 
-        ShapeOp.build(inputs, outputs)
+        op_utils.get_shape_of_tensor(inputs[0], outputs[0])
 
 
 @TENSOR_METHOD_REGISTRY("shape")
@@ -40,9 +40,4 @@ def shape(self) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(shape).get(), np.array([8, 2]))
     """
-    from tripy.frontend.tensor import Tensor
-    import tripy.common.datatype
-
-    if self.rank == 0:
-        return Tensor([], dtype=tripy.common.datatype.int32)
     return Shape.build([self])

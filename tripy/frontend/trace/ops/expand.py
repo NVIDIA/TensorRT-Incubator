@@ -95,7 +95,8 @@ def expand(input: "tripy.Tensor", sizes: Union[Sequence[int], "tripy.Tensor"]) -
     if isinstance(sizes, Tensor):
         if sizes.rank != 1:
             raise_error(
-                "Expand operation requires sizes tensor to be of rank 1."[
+                "Expand operation requires sizes tensor to be of rank 1.",
+                [
                     f"sizes tensor must of rank 1,",
                     f"Got rank={sizes.rank}",
                 ],

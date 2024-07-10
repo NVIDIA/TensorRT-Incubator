@@ -80,22 +80,44 @@ def get_broadcast_dim(dim1, dim2):
 ##
 
 
-def get_shape_of_tensor(tensor: "FlatIRTensor"):
+def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
     from tripy.common.array import Array
     from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import ConstantOp, ShapeOp
+    from tripy.flat_ir.ops import ConstantOp, GetDimensionSizeOp
     from tripy.flat_ir.tensor import FlatIRTensor
 
-    shape_output_tensor = FlatIRTensor.build(
-        rank=1,
-        dtype=int32,
-        device=tensor.device,
-        reason_details=["retrieve the shape of: ", tensor],
-    )
     if tensor.rank > 0:
-        ShapeOp.build([tensor], [shape_output_tensor])
+        inp_rank = tensor.rank
+        dim_sizes = [None] * inp_rank
+        for i in range(inp_rank):
+            # GetDimensionSizeOp returns a scalar
+            dim_scalar = FlatIRTensor.build(
+                shape=(),
+                rank=0,
+                dtype=int32,
+                device=tensor.device,
+                reason_details=[f"Get size of dim {i}."],
+            )
+            GetDimensionSizeOp.build([tensor], [dim_scalar], dim=i)
+            # reshape scalar to rank 1 so that it can be concatenated
+            dim_tensor = reshape_scalar_to_1d(dim_scalar)
+            assert dim_tensor.producer
+            dim_sizes[i] = dim_tensor
+
+        shape_output_tensor = concatenate_tensors(dim_sizes, 0, out)
     else:
         # TODO #80: Remove this codepath when shape dialect is used (shape.shape_of).
+        shape_output_tensor = (
+            FlatIRTensor.build(
+                shape=(),
+                rank=1,
+                dtype=int32,
+                device=tensor.device,
+                reason_details=["retrieve the shape of: ", tensor],
+            )
+            if out is None
+            else out
+        )
         ConstantOp.build(
             [],
             [shape_output_tensor],
@@ -126,22 +148,41 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     return const_output_tensor
 
 
-def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int):
+def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int, out: "FlatIRTensor" = None):
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.flat_ir.ops import ConcatenateOp
     from tripy.common.datatype import int32
 
+    if out is None:
+        out = FlatIRTensor.build(
+            rank=1,
+            dtype=int32,
+            device=inputs[0].device,
+            reason_details=[
+                "output of concatenation of the following tensors: ",
+                *[inp for inp in inputs],
+                f" along dim {dim}.",
+            ],
+        )
+    ConcatenateOp.build(inputs, [out], dim=dim)
+    return out
+
+
+def reshape_scalar_to_1d(input: "FlatIRTensor"):
+    from tripy.flat_ir.ops import DynamicReshapeOp
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.common.datatype import int32
+
+    shape_1d = add_constant_tensor_from_list([1], input.device)
     out = FlatIRTensor.build(
+        shape=utils.to_dims((1,)),
         rank=1,
         dtype=int32,
-        device=inputs[0].device,
-        reason_details=[
-            "output of concatenation of the following tensors: ",
-            *[inp for inp in inputs],
-            f" along dim {dim}.",
-        ],
+        device=input.device,
+        reason_details="Reshape input scalar to 1D.",
     )
-    ConcatenateOp.build(inputs, [out], dim=dim)
+
+    DynamicReshapeOp.build([input, shape_1d], [out])
     return out
 
 

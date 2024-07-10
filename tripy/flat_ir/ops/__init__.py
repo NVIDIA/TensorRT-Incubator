@@ -10,7 +10,6 @@ from tripy.flat_ir.ops.iota import IotaOp, DynamicIotaOp
 from tripy.flat_ir.ops.transpose import TransposeOp
 from tripy.flat_ir.ops.select import SelectOp
 from tripy.flat_ir.ops.slice import SliceOp, DynamicSliceOp
-from tripy.flat_ir.ops.shape import ShapeOp
 from tripy.flat_ir.ops.reshape import ReshapeOp, DynamicReshapeOp
 from tripy.flat_ir.ops.sub import SubtractOp
 from tripy.flat_ir.ops.divide import DivideOp
@@ -34,3 +33,4 @@ from tripy.flat_ir.ops.convolution import ConvolutionOp
 from tripy.flat_ir.ops.sin import SineOp
 from tripy.flat_ir.ops.cos import CosineOp
 from tripy.flat_ir.ops.flip import FlipOp
+from tripy.flat_ir.ops.get_dimension_size import GetDimensionSizeOp
