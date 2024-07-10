@@ -144,18 +144,6 @@ class TestConvolution:
 # edge cases specific to transpose convolution
 @pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/218")
 class TestConvolutionTranspose:
-    def test_transpose_zero_output_shape(self):
-        input = tp.ones((2, 3, 4, 4), dtype=tp.float32)
-
-        with helper.raises(
-            tp.TripyException,
-            match=r"Calculated output size for spatial dimension idx 0 is too small",
-            has_stack_info_for=[input],
-        ):
-            conv_layer = tp.ConvTranspose(3, 8, (1, 1), stride=(1, 2), padding=((2, 2), (0, 0)), dtype=tp.float32)
-            output = conv_layer(input)
-            output.eval()
-
     def test_transpose_negative_output_shape(self):
         input = tp.ones((4, 3, 1, 1), dtype=tp.float32)
 

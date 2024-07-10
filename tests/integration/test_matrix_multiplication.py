@@ -19,7 +19,6 @@ class TestMatrixMultiplication:
         out = a @ b
         assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)
 
-    @pytest.mark.skip("#186: Fix test_matrix_multiplication.py hang for 1D tensor.")
     def test_1d_tensors(self):
         a_np = create_random_matrix((3,))  # 1D Tensor
         b_np = create_random_matrix((3,))  # 1D Tensor
