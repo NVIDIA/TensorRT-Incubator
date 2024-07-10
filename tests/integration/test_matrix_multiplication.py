@@ -40,10 +40,6 @@ class TestMatrixMultiplication:
         ],
     )
     def test_broadcast_gemm(self, shape_a, shape_b):
-        if len(shape_a) == 1 or len(shape_b) == 1:
-            pytest.skip(
-                "https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/860 fixes dynamic broadcast issue."
-            )
         a_np = create_random_matrix(shape_a)
         b_np = create_random_matrix(shape_b)
         a = tripy.Tensor(a_np)

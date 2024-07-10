@@ -11,18 +11,6 @@ class MatrixMultiplication(BaseTraceOp):
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
-    def get_operand_shape_after_broadcast(self, a_shape, b_shape):
-        # Split the a and b shape into batch and matrix dims.
-        a_batch, a_matrix = a_shape[:-2], a_shape[-2:]
-        b_batch, b_matrix = b_shape[:-2], b_shape[-2:]
-
-        # Broadcasting batch dimensions
-        batch_shapes = op_utils.get_broadcast_compatible_shapes(a_batch, b_batch)
-        batch_shapes = tuple(op_utils.get_broadcast_dim(*d) for d in zip(*batch_shapes))
-        a_shape = batch_shapes + a_matrix
-        b_shape = batch_shapes + b_matrix
-        return a_shape, b_shape
-
     def infer_rank(self):
         if self.inputs[0].rank == 1 and self.inputs[1].rank == 1:
             self.outputs[0].rank = 0
@@ -50,20 +38,42 @@ class MatrixMultiplication(BaseTraceOp):
         else:
             # stablehlo dot_general requires same number of batching dims for lhs, rhs.
 
-            def get_contracting_dim(rank, lhs=True):
-                if lhs or rank == 1:
-                    return [rank - 1]
-                else:
-                    return [rank - 2]
+            def compute_contracting_dims(rank_a, rank_b):
+                if rank_a < 1 or rank_b < 1:
+                    raise ValueError("Ranks must be at least 1")
+
+                def is_vector(rank):
+                    return rank == 1
+
+                def is_matrix(rank):
+                    return rank >= 2
+
+                if is_vector(rank_a) and is_vector(rank_b):
+                    # Vector-vector multiplication
+                    return [[0], [0]]
+
+                elif is_vector(rank_a) and is_matrix(rank_b):
+                    # Vector-matrix multiplication
+                    return [[0], [rank_b - 2]]
+
+                elif is_matrix(rank_a) and is_vector(rank_b):
+                    # Matrix-vector multiplication
+                    return [[rank_a - 1], [0]]
+
+                else:  # Both are matrices or higher-rank tensors
+                    # Matrix-matrix multiplication (or higher-rank tensor multiplication)
+                    output_rank = max(rank_a, rank_b)
+                    return [[output_rank - 1], [output_rank - 2]]
 
             def get_batch_indices(rank):
                 return list(range(rank - 2))
 
             output_rank = 1 if a_rank == 1 or b_rank == 1 else max(a_rank, b_rank)
             self.batching_dim = {"lhs": get_batch_indices(output_rank), "rhs": get_batch_indices(output_rank)}
+            contracting_dim = compute_contracting_dims(a_rank, b_rank)
             self.contracting_dim = {
-                "lhs": get_contracting_dim(output_rank),
-                "rhs": get_contracting_dim(output_rank, False),
+                "lhs": contracting_dim[0],
+                "rhs": contracting_dim[1],
             }
 
             self.outputs[0].rank = output_rank
@@ -179,8 +189,9 @@ def __matmul__(self, other: "tripy.Tensor") -> "tripy.Tensor":
 
     - If both tensors are 1D, a dot product is performed.
     - If both tensors are 2D, matrix multiplication is performed.
-    - If either argument, but not both, is 1D, a dimension is inserted
-        and matrix multiplication is performed with relevant broadcast of dimension.
+    - If either argument, but not both, is 1D, matrix-vector multiplication is performed.
+    - If both tensors are 2D or higher dimensional and have differnt ranks, a dimension is inserted
+        and batched matrix multiplication is performed with broadcast of relevant dimension.
 
     Args:
         other: The tensor by which to multiply. Must have the same data type as this tensor.
