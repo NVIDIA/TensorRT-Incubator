@@ -52,7 +52,7 @@ class LayerNorm(Module):
             torch_ln = torch.nn.LayerNorm(3) # doc: omit
             torch_ln.weight.data = torch.from_dlpack(layer_norm.weight) # doc: omit
             torch_ln.bias.data = torch.from_dlpack(layer_norm.bias) # doc: omit
-            assert np.array_equal(np_out, cp.from_dlpack(torch_ln(torch_tensor).detach()).get())
+            assert np.allclose(np_out, cp.from_dlpack(torch_ln(torch_tensor).detach()).get())
         """
         super().__init__()
 

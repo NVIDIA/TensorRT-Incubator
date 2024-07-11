@@ -47,7 +47,11 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
     if isinstance(dtype, tripy.common.datatype.dtype):
         return dtype
 
-    PYTHON_NATIVE_MAPPING = {int: tripy.common.datatype.int32, float: tripy.common.datatype.float32}
+    PYTHON_NATIVE_MAPPING = {
+        int: tripy.common.datatype.int32,
+        float: tripy.common.datatype.float32,
+        bool: tripy.common.datatype.bool,
+    }
     if dtype in PYTHON_NATIVE_MAPPING:
         return PYTHON_NATIVE_MAPPING[dtype]
 

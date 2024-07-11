@@ -80,6 +80,12 @@ def get_broadcast_dim(dim1, dim2):
 ##
 
 
+def is_quantized_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
+    from tripy.common.datatype import int4, int8, float8
+
+    return dtype in {int4, int8, float8}
+
+
 def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
     from tripy.common.array import Array
     from tripy.common.datatype import int32

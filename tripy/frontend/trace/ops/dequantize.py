@@ -100,15 +100,14 @@ def dequantize(
     .. seealso:: :func:`quantize`
     """
     from tripy.frontend.trace.ops.cast import cast
+    from tripy.frontend.trace.ops.utils import is_quantized_dtype
     from tripy.logging import logger
 
-    # check if input has a dequantizable dtype
-    SUPPORTED_INPUT_DTYPES = (datatype.int8, datatype.int4, datatype.float8)
-    if input.dtype not in SUPPORTED_INPUT_DTYPES:
+    if not is_quantized_dtype(input.dtype):
         raise_error(
             "Input does not have a valid dtype to dequantize",
             [
-                f"input.dtype must be one of {SUPPORTED_INPUT_DTYPES}.",
+                f"input.dtype must be one of tp.int4, tp.int8, or tp.float8.",
                 f"Got dtype={input.dtype}",
             ],
         )

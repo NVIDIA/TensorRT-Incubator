@@ -105,6 +105,7 @@ def quantize(
     .. seealso:: :func:`dequantize`
     """
     from tripy.frontend.trace.ops.cast import cast
+    from tripy.frontend.trace.ops.utils import is_quantized_dtype
     from tripy.logging import logger
 
     SUPPORTED_INPUT_DTYPES = (datatype.float32, datatype.float16, datatype.bfloat16)
@@ -117,12 +118,11 @@ def quantize(
             ],
         )
 
-    SUPPORTED_QUANT_DTYPES = (datatype.int8, datatype.int4, datatype.float8)
-    if dtype not in SUPPORTED_QUANT_DTYPES:
+    if not is_quantized_dtype(dtype):
         raise_error(
             "Unsupported quantization dtype.",
             [
-                f"Supported dtypes are: {SUPPORTED_QUANT_DTYPES}.",
+                f"Supported dtypes are: tp.int4, tp.int8, tp.float8.",
                 f"Got dtype={dtype}",
             ],
         )
