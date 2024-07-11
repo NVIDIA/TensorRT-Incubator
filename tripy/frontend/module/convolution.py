@@ -263,8 +263,12 @@ class Conv(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = \large \left\lfloor \frac{D_{k_{\text{in}}} + \text{padding}_{k_0} + \text{padding}_{k_1} - \text{dilation}_k \times (\text{kernel_dims}_k - 1) - 1}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
+        from tripy.frontend.trace.ops.concatenate import concatenate
         from tripy.frontend.trace.ops.convolution import Convolution
+        from tripy.frontend.trace.ops.expand import expand
         from tripy.frontend.trace.ops.reshape import reshape
+        from tripy.frontend.ops.tensor_initializers import ones
+        from tripy.common.datatype import int32
 
         x = Convolution.build(
             [input, self.weight],
@@ -275,9 +279,8 @@ class Conv(ConvBase):
             self.dilation,
         )
         if hasattr(self, "bias"):
-            # TODO: #174 - Get integers out of TP Array & Fix convolution bias reshaping for broadcasting
-            out_channels = self.weight.shape[0].data().data()
-            rank = self.weight.rank
-            bias_shape_to_broadcast = (1,) + (out_channels,) + (1,) * (rank - 2)
+            out_channels = reshape(self.weight.shape[0], (1,))
+            one = ones((1,), dtype=int32)
+            bias_shape_to_broadcast = concatenate([one, out_channels, expand(one, (self.weight.rank - 2,))], dim=0)
             x += reshape(self.bias, bias_shape_to_broadcast)
         return x
