@@ -9,7 +9,6 @@ from tripy.frontend.trace.ops.gather import Gather
 from tripy.frontend.trace.ops.iota import Iota
 from tripy.frontend.trace.ops.matmul import MatrixMultiplication
 from tripy.frontend.trace.ops.permute import Permute, Transpose
-from tripy.frontend.trace.ops.random import RandomNormal, RandomUniform
 from tripy.frontend.trace.ops.reduce import ArgMinMax, Reduce
 from tripy.frontend.trace.ops.reshape import Reshape, Squeeze
 from tripy.frontend.trace.ops.shape import Shape

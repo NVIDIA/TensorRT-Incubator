@@ -20,8 +20,6 @@ from tripy.flat_ir.ops.gather import GatherOp, DynamicGatherOp
 from tripy.flat_ir.ops.convert import ConvertOp
 from tripy.flat_ir.ops.rsqrt import RsqrtOp
 from tripy.flat_ir.ops.sqrt import SqrtOp
-from tripy.flat_ir.ops.random_normal import RandomNormalOp
-from tripy.flat_ir.ops.random_uniform import RandomUniformOp
 from tripy.flat_ir.ops.maximum import MaxOp
 from tripy.flat_ir.ops.minimum import MinOp
 from tripy.flat_ir.ops.concatenate import ConcatenateOp
