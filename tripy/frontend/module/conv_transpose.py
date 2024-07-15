@@ -196,7 +196,7 @@ class ConvTranspose(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = (D_{k_{\text{in}}} - 1) \times \text{stride}_k - \text{padding}_{k_0} - \text{padding}_{k_1} + \text{dilation}_k \times (\text{kernel_dims}_k - 1) + 1`
         """
-        from tripy.frontend.trace.ops.convolution import ConvolutionTranspose
+        from tripy.frontend.trace.ops.convolution import Convolution
         from tripy.frontend.trace.ops.reshape import reshape
         from tripy.frontend.trace.ops.permute import transpose
         from tripy.frontend.trace.ops.flip import flip
@@ -214,7 +214,7 @@ class ConvTranspose(ConvBase):
             weight = transpose(weight, 1, 2)
             weight = reshape(weight, self._kernel_hlo_final_shape)
 
-        x = ConvolutionTranspose.build(
+        x = Convolution.build(
             [input, weight],
             self._transpose_padding,
             self._dummy_stride,

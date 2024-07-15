@@ -34,7 +34,6 @@ class TestConvolution:
         with helper.raises(tp.TripyException):
             output.eval()
 
-    # TODO : when https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/199 is fixed, the following tests should be fixed to include checking for stack info: test_invalid_rank_fails, test_invalid_padding, test_invalid_stride, test_invalid_rhs_dilation
     def test_invalid_rank_fails(self, conv_func):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
         conv_layer = conv_func(3, 16, (5,), dtype=tp.float32)
@@ -43,14 +42,14 @@ class TestConvolution:
         with helper.raises(
             tp.TripyException,
             match=r"expects convolution arguments to have same number of dimensions.",
-            has_stack_info_for=[],
+            has_stack_info_for=[input],
         ):
             output.eval()
 
     @pytest.mark.parametrize(
         "padding, err, expect_input_stack_info",
         [
-            (((2, 2),), r"expects padding-entries to have same dimension-size as size of window dimensions", False),
+            (((2, 2),), r"expects padding-entries to have same dimension-size as size of window dimensions", True),
             (((2, 2, 2), (2, 2, 2)), r"Padding must be provided as a sequence of pairs of integers.", False),
             (((1, 2), (-3, 1)), r"Negative padding is not supported.", False),
         ],
@@ -68,16 +67,16 @@ class TestConvolution:
         "stride, err, expect_input_stack_info",
         [
             ((-1, 0), r"Non-positive stride is not supported.", False),
-            ((2, 2, 2), r"expects window-strides to have same dimension-size as size of window dimensions", False),
+            ((2, 2, 2), r"expects window-strides to have same dimension-size as size of window dimensions", True),
         ],
     )
-    @pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/199 stack info missing.")
     def test_invalid_stride(self, conv_func, stride, err, expect_input_stack_info):
         input = tp.ones((4, 3, 8, 8), dtype=tp.float32)
-        stack_info = input  # if expect_input_stack_info else None
+        stack_info = [input] if expect_input_stack_info else None
 
         if conv_func == tp.ConvTranspose and expect_input_stack_info:
             err = err.replace("stride", "lhs_dilation")
+            err = err.replace("window-lhs_dilation", "base-dilation factor")
 
         with helper.raises(
             tp.TripyException,
@@ -123,7 +122,7 @@ class TestConvolution:
             (
                 (2, 2, 2),
                 r"expects window-dilation factors to have same dimension-size as size of window dimensions.",
-                False,
+                True,
             ),
         ],
     )

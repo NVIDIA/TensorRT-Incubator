@@ -25,8 +25,8 @@ class ConvolutionOp(BaseFlatIROp):
         # - "f" is the feature dimension.
         # - "i" and "o" are the input/output feature dimensions (respectively).
         # - "d1,...,dN" are spatial dimensions.
-        lhs_shape = self.inputs[0].shape
-        iota = tuple(range(len(lhs_shape)))
+        rank = self.inputs[0].rank
+        iota = tuple(range(rank))
         lhs_spec, rhs_spec, out_spec = iota, iota, iota
 
         dnums = stablehlo.ConvDimensionNumbers.get(
