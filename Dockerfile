@@ -18,13 +18,9 @@ RUN groupadd -r -f -g ${gid} trtuser && \
     echo 'trtuser:nvidia' | chpasswd && \
     mkdir -p /workspace && chown trtuser /workspace && \
     apt-get update && \
-    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget libcudnn8 lldb-15 && \
+    apt-get install -y software-properties-common sudo fakeroot python3-pip gdb git wget libcudnn8 && \
     apt-get clean && \
     python3 -m pip install --upgrade pip
-
-# Create symbolic link for LLDB Python packages (adjust Python version if necessary)
-RUN ln -s /usr/bin/lldb-15 /usr/bin/lldb
-RUN ln -s /usr/lib/llvm-15/lib/python3.10/dist-packages/lldb/* /usr/lib/python3/dist-packages/lldb/
 
 # Copy your .lldbinit file into the home directory of the root user
 COPY .lldbinit /root/
@@ -53,6 +49,22 @@ RUN pip install .[docs,dev,test] \
 
 RUN apt-get install -y libopenmpi3 libopenmpi-dev libprotobuf-dev && \
     ln -snf /usr/lib/x86_64-linux-gnu/libprotobuf.so /usr/lib/x86_64-linux-gnu/libprotobuf.so.29
+
+# Installl lldb for debugging purposes in Tripy container.
+# The LLVM version should correspond on LLVM_VERSION specified in https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/blob/master/build_tools/docker/Dockerfile.
+ARG LLVM_VERSION=17
+ENV LLVM_VERSION=$LLVM_VERSION
+ENV LLVM_PACKAGES="lldb-${LLVM_VERSION}" 
+RUN echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$LLVM_VERSION main" > /etc/apt/sources.list.d/llvm.list && \
+    echo "deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$LLVM_VERSION main" >> /etc/apt/sources.list.d/llvm.list && \
+    wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key 2>/dev/null > /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
+    wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null && \
+    echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main' | tee /etc/apt/sources.list.d/kitware.list >/dev/null && \
+    apt-get update && \
+    apt-get install -y ${LLVM_PACKAGES} && \
+    apt-get clean -y && \
+    rm -rf /var/lib/apt/lists/* && \    
+    ln -s /usr/bin/lldb-17 /usr/bin/lldb
 
 # Export tripy into the PYTHONPATH so it doesn't need to be installed after making changes
 ENV PYTHONPATH=/tripy:$PYTHONPATH
