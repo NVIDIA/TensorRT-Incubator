@@ -41,7 +41,6 @@ data_list.extend([jax.device_put(jnp.array(data), jax.devices("cuda")[0]) for da
 
 
 class TestArray:
-
     @pytest.mark.parametrize("input_data", data_list, ids=lambda data: f"{type(data).__qualname__}")
     def test_creation(self, input_data):
         """

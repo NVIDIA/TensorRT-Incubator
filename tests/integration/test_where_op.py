@@ -7,7 +7,6 @@ from tripy.frontend import Tensor
 
 
 class TestWhereOp:
-
     @pytest.mark.parametrize(
         "cond, x, y",
         [

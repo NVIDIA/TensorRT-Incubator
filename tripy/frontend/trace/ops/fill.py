@@ -66,7 +66,6 @@ class Fill(BaseTraceOp):
 
 @dataclass(repr=False)
 class FillLike(Fill):
-
     def infer_dtypes(self):
         if self.dtype is None:
             self.dtype = self.inputs[0].dtype

@@ -7,7 +7,6 @@ import tripy as tp
 
 
 class TestReduceOp:
-
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
         [

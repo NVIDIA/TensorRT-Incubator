@@ -6,7 +6,6 @@ from tripy.flat_ir.ops import DequantizeOp
 
 
 class TestDequantizeOp:
-
     @pytest.mark.parametrize("dtype", [tp.float16, tp.float32])
     def test_per_tensor_str(self, dtype):
         a = tp.Tensor([2, 4], dtype=tp.int8, name="a")

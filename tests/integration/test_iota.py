@@ -7,7 +7,6 @@ from tests import helper
 
 
 class TestIota:
-
     def _compute_ref_iota(self, dtype, shape, dim):
         if dim is None:
             dim = 0

@@ -6,7 +6,6 @@ from tripy.frontend.trace.ops import Dequantize
 
 
 class TestDequantize:
-
     def test_op(self):
         a = tp.Tensor([2, 4], dtype=tp.int8)
         a = tp.dequantize(a, 0.9, tp.float32)

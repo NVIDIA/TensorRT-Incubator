@@ -65,7 +65,6 @@ class Reduce(BaseTraceOp):
 
 @dataclass(repr=False)
 class ArgMinMax(Reduce):
-
     class Kind:
         ARG_MAX = "argmax"
         ARG_MIN = "argmin"

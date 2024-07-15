@@ -347,7 +347,6 @@ class TestDynamic:
 
 
 class TestConversionToTripyType:
-
     @pytest.mark.parametrize(
         "reverse_direction",
         [False, True],

@@ -44,7 +44,6 @@ class TestLinear:
 
 @pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219")
 class TestQuantLinear:
-
     def _create_network(self, use_input_scale, quant_dtype, weight_quant_dim):
         out_feat = 2
         in_feat = 4

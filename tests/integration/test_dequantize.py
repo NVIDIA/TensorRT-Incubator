@@ -8,7 +8,6 @@ from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 
 @pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219")
 class TestDequantize:
-
     @pytest.mark.parametrize("scale", [0.5, 0.9])
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]

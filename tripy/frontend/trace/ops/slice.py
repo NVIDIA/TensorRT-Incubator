@@ -13,7 +13,6 @@ from tripy.common.exception import raise_error
 
 @dataclass(repr=False)
 class Slice(BaseTraceOp):
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 

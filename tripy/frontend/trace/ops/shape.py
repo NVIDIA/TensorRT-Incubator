@@ -6,7 +6,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Shape(BaseTraceOp):
-
     def infer_rank(self):
         assert len(self.inputs) == 1, "ShapeOf operation should have exactly one input!"
         self.outputs[0].rank = 1

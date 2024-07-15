@@ -11,7 +11,6 @@ import mlir_tensorrt.runtime
 
 @pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219")
 class TestQuantize:
-
     @pytest.mark.parametrize("scale", [0.5, 0.9])
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]

@@ -7,7 +7,6 @@ import tripy as tp
 
 
 class TestSliceOp:
-
     @pytest.mark.parametrize(
         "use_jit",
         [False, True],

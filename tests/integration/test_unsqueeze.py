@@ -6,7 +6,6 @@ import tripy as tp
 
 
 class TestUnsqueezeOp:
-
     @pytest.mark.parametrize(
         "use_jit",
         [

@@ -42,7 +42,6 @@ class TestParameter:
 
 
 class TestDefaultParameter:
-
     @pytest.mark.parametrize(
         "other,is_compatible",
         [

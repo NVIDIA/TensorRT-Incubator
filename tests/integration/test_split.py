@@ -15,7 +15,6 @@ def compare_split_results(tp_out, reference_out):
 
 
 class TestSplitOp:
-
     @pytest.mark.parametrize(
         "use_jit",
         [False, True],
