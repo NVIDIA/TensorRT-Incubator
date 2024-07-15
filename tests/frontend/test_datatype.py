@@ -17,14 +17,12 @@ class TestDataType:
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_itemsize(self, dtype):
         EXPECTED_ITEMSIZES = {
-            "float64": 8,
             "float32": 4,
             "float16": 2,
             "float8": 1,
             "bfloat16": 2,
             "int4": 0.5,
             "int8": 1,
-            "int16": 2,
             "int32": 4,
             "int64": 8,
             "uint8": 1,

@@ -66,7 +66,7 @@ def check_mlir(mlir, expected):
 # Supported NumPy data types
 NUMPY_TYPES = [
     np.int8,
-    np.int16,
+    # np.int16, # TODO(#247): Add support for int16
     np.int32,
     np.int64,
     np.uint8,
@@ -75,12 +75,12 @@ NUMPY_TYPES = [
     # np.uint64, # TODO(#190): Add support for unsupported MLIR-TensorRT types.
     np.float16,
     np.float32,
-    np.float64,
+    # np.float64,  # TODO(#247): Add support for float64
 ]
 
 
 def torch_type_supported(data: np.ndarray):
-    unsupported_dtypes = [np.uint16, np.uint32, np.uint64]
+    unsupported_dtypes = [np.int16, np.uint16, np.uint32, np.uint64]
     return data.dtype not in unsupported_dtypes
 
 

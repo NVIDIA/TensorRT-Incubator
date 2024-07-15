@@ -8,7 +8,7 @@ import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
-from tripy.common.utils import get_element_type, is_supported_array_type
+from tripy.common.utils import get_element_type, is_supported_array_type, convert_frontend_dtype_to_tripy_dtype
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
@@ -37,6 +37,7 @@ def convert_list_data_to_array(data, shape, dtype, device):
         return quantize(
             Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), 1.0, dtype
         ).eval()
+    # Allocate float32 and cast to unsupported tripy array types like int8.
     return cast(Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), dtype).eval()
 
 

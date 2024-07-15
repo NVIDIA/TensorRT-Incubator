@@ -4,7 +4,12 @@ import array
 from tripy import utils
 from tripy.common.device import device as tp_device
 from tripy.common.exception import raise_error
-from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype, is_supported_array_type, get_element_type
+from tripy.common.utils import (
+    convert_frontend_dtype_to_tripy_dtype,
+    is_supported_array_type,
+    get_element_type,
+    get_supported_array_types,
+)
 
 import mlir_tensorrt.runtime.api as runtime
 import tripy.common.datatype
@@ -239,7 +244,10 @@ class Array:
 
                 if not is_supported_array_type(self.dtype):
                     raise_error(
-                        f"Tripy array from list can be constructed with float32, int32, or int64, got {self.dtype}"
+                        f"Tripy tensor does not support data type: {self.dtype}",
+                        [
+                            f"Tripy tensors constructed from Python sequences or numbers may use one of the following data types: {get_supported_array_types()}."
+                        ],
                     )
 
                 def _get_array_type_unicode(dtype: "tripy.common.datatype.dtype") -> str:

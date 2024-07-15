@@ -4,12 +4,12 @@ __version__ = "0.1.0"
 # import all the submodules so that the decorator is actually executed.
 __all__ = []
 
+import tripy
+
 
 def __discover_modules():
     import importlib
     import pkgutil
-
-    import tripy
 
     mods = [tripy]
     while mods:
@@ -27,3 +27,10 @@ def __discover_modules():
 
 
 _ = list(__discover_modules())
+
+
+def __getattr__(name: str):
+    from tripy.common.exception import search_for_missing_attr
+
+    look_in = [(tripy, "tripy")]
+    search_for_missing_attr("tripy", name, look_in)

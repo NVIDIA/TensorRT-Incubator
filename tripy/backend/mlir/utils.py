@@ -32,14 +32,12 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
     Converts a tripy data type to an MLIR data type.
     """
     return {
-        "float64": ir.F64Type.get(),
         "float32": ir.F32Type.get(),
         "float16": ir.F16Type.get(),
         "float8": ir.Float8E4M3FNType.get(),
         "bfloat16": ir.BF16Type.get(),
         "int4": ir.IntegerType.get_signless(4),
         "int8": ir.IntegerType.get_signless(8),
-        "int16": ir.IntegerType.get_signless(16),
         "int32": ir.IntegerType.get_signless(32),
         "int64": ir.IntegerType.get_signless(64),
         "uint8": ir.IntegerType.get_unsigned(8),
@@ -204,13 +202,11 @@ def redirect_stderr() -> BinaryIO:
 
 TRIPY_DTYPE_TO_MLIR_TRT = {
     datatype.int8: runtime.ScalarTypeCode.i8,
-    datatype.int16: runtime.ScalarTypeCode.i16,
     datatype.int32: runtime.ScalarTypeCode.i32,
     datatype.int64: runtime.ScalarTypeCode.i64,
     datatype.uint8: runtime.ScalarTypeCode.ui8,
     datatype.float16: runtime.ScalarTypeCode.f16,
     datatype.float32: runtime.ScalarTypeCode.f32,
-    datatype.float64: runtime.ScalarTypeCode.f64,
     datatype.bool: runtime.ScalarTypeCode.i1,
     datatype.float8: runtime.ScalarTypeCode.f8e4m3fn,
     datatype.bfloat16: runtime.ScalarTypeCode.bf16,

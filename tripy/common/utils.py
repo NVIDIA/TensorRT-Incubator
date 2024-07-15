@@ -1,18 +1,26 @@
 from typing import Any, List, Optional, Tuple, Union
 
 from tripy.common.exception import raise_error
+from tripy.logging import logger
+from tripy.common.datatype import float32, int32, int64
+from tripy.common.datatype import bool as tp_bool
 import tripy.common.datatype
+
+TRIPY_SUPPORTED_ARRAY_TYPES = [float32, int32, int64, tp_bool]
 
 
 def is_supported_array_type(dtype: "tripy.common.datatype.dtype") -> bool:
     if dtype is None:
         return True  # If an Tensor is created from a list or number without dtype field set.
-    return dtype in [
-        tripy.common.datatype.float32,
-        tripy.common.datatype.int32,
-        tripy.common.datatype.int64,
-        tripy.common.datatype.bool,
-    ]
+    return dtype in TRIPY_SUPPORTED_ARRAY_TYPES
+
+
+def get_supported_array_types() -> str:
+    return ", ".join([type.name for type in TRIPY_SUPPORTED_ARRAY_TYPES])
+
+
+def is_int32(data):
+    return tripy.common.datatype.INT32_MIN <= data <= tripy.common.datatype.INT32_MAX
 
 
 def get_element_type(elements):
@@ -22,7 +30,9 @@ def get_element_type(elements):
     if isinstance(e, bool):
         return tripy.common.datatype.bool
     if isinstance(e, int):
-        return tripy.common.datatype.int32
+        if is_int32(e):
+            return tripy.common.datatype.int32
+        return tripy.common.datatype.int64
     elif isinstance(e, float):
         return tripy.common.datatype.float32
     # Special handling for empty tensors
@@ -61,18 +71,25 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
         dtype_name = str(dtype).split(".", 1)[-1].strip("'>")
 
     # TODO(#182): Use DLPack/buffer protocol to convert FW types to MemRefValue.
-    NUMPY_TO_TRIPY = {
+    FW_TO_TRIPY = {
         "int4": tripy.common.datatype.int4,
         "int8": tripy.common.datatype.int8,
-        "int16": tripy.common.datatype.int16,
         "int32": tripy.common.datatype.int32,
         "int64": tripy.common.datatype.int64,
         "uint8": tripy.common.datatype.uint8,
         "float16": tripy.common.datatype.float16,
         "float32": tripy.common.datatype.float32,
-        "float64": tripy.common.datatype.float64,
         "bfloat16": tripy.common.datatype.bfloat16,
         "bool": tripy.common.datatype.bool,
     }
 
-    return NUMPY_TO_TRIPY.get(dtype_name, None)
+    converted_type = FW_TO_TRIPY.get(dtype_name, None)
+
+    if not converted_type:
+        raise_error(
+            f"Unsupported data type: '{dtype}'.",
+            [
+                f"Tripy tensors can be constructed from arrays with one of the following data types: {', '.join(FW_TO_TRIPY.keys())}."
+            ],
+        )
+    return converted_type

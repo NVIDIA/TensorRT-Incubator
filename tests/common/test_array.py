@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch
+from textwrap import dedent
 
 import mlir_tensorrt.runtime.api as runtime
 import tripy as tp
@@ -153,9 +154,15 @@ class TestArray:
 
     @pytest.mark.parametrize("dtype", [tp.float16, tp.float8, tp.int8, tp.int4])
     def test_unsupported_array_type(self, dtype):
+        dtype_name = str(dtype).split(".", 1)[-1].strip("'>")
         with pytest.raises(
             tp.TripyException,
-            match=f"Tripy array from list can be constructed with float32, int32, or int64, got {dtype}",
+            match=dedent(
+                rf"""
+            Tripy tensor does not support data type: {dtype_name}
+                Tripy tensors constructed from Python sequences or numbers may use one of the following data types: float32, int32, int64, bool.
+            """
+            ).strip(),
         ) as exc:
             _ = Array([0], dtype=dtype, shape=None, device=tp.device("cpu"))
         print(str(exc.value))

@@ -17,6 +17,20 @@ class TripyException(Exception):
     pass
 
 
+@export.public_api()
+class TripyAttributeError(AttributeError):
+    """
+    Base class for attribution error thrown by Tripy.
+    """
+
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+
 @dataclass
 class OmitStackInfo:
     """
@@ -218,10 +232,14 @@ def search_for_missing_attr(module_name: str, name: str, look_in: List[Tuple[Any
     for obj, obj_name in look_in:
         # Avoid infinite recursion - see comment above.
         if obj in stack_modules + stack_classes:
+            if name == "float64":
+                msg += f". Did you mean: 'float32'?"
+            if name == "int16":
+                msg += f". Did you mean: 'int32'?"
             continue
 
         if hasattr(obj, name):
             msg += f". Did you mean: '{obj_name}.{name}'?"
             break
 
-    raise AttributeError(msg.strip())
+    raise TripyAttributeError(msg.strip())
