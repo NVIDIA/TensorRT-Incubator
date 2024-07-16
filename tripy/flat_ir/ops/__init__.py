@@ -32,3 +32,4 @@ from tripy.flat_ir.ops.sin import SineOp
 from tripy.flat_ir.ops.cos import CosineOp
 from tripy.flat_ir.ops.flip import FlipOp
 from tripy.flat_ir.ops.get_dimension_size import GetDimensionSizeOp
+from tripy.flat_ir.ops.abs import AbsOp

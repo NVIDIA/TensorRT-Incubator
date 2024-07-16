@@ -18,6 +18,40 @@ class TestReduceOp:
             ((2, 3, 4), None, True),
         ],
     )
+    def test_all(self, x_shape, axis, keepdim):
+        rand_x = np.random.choice(a=[False, True], size=x_shape)
+        a = tp.Tensor(rand_x)
+        out = tp.all(a, dim=axis, keepdim=keepdim)
+        assert np.allclose(cp.from_dlpack(out).get(), np.array(rand_x.all(axis=axis, keepdims=keepdim)))
+
+    @pytest.mark.parametrize(
+        "x_shape, axis, keepdim",
+        [
+            ((2, 3), 1, True),
+            ((2, 3, 4), (1, 2), True),
+            ((2, 3), 1, False),
+            ((2, 3, 4), (1, 2), False),
+            ((2, 3, 4), None, False),
+            ((2, 3, 4), None, True),
+        ],
+    )
+    def test_any(self, x_shape, axis, keepdim):
+        rand_x = np.random.choice(a=[False, True], size=x_shape)
+        a = tp.Tensor(rand_x)
+        out = tp.any(a, dim=axis, keepdim=keepdim)
+        assert np.allclose(cp.from_dlpack(out).get(), np.array(rand_x.any(axis=axis, keepdims=keepdim)))
+
+    @pytest.mark.parametrize(
+        "x_shape, axis, keepdim",
+        [
+            ((2, 3), 1, True),
+            ((2, 3, 4), (1, 2), True),
+            ((2, 3), 1, False),
+            ((2, 3, 4), (1, 2), False),
+            ((2, 3, 4), None, False),
+            ((2, 3, 4), None, True),
+        ],
+    )
     def test_mean(self, x_shape, axis, keepdim: bool):
         rand_x = np.random.uniform(
             low=-2.0,

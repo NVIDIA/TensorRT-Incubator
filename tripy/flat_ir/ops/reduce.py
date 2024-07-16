@@ -22,6 +22,10 @@ class ReduceOp(BaseFlatIROp):
             return stablehlo.MaxOp
         elif self.reduce_mode == "mul":
             return stablehlo.MulOp
+        elif self.reduce_mode == "and":
+            return stablehlo.AndOp
+        elif self.reduce_mode == "or":
+            return stablehlo.OrOp
         else:
             raise NotImplementedError()
 

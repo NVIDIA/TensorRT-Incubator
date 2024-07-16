@@ -16,6 +16,7 @@ class UnaryElementwise(BaseTraceOp):
         SINE = 4
         COSINE = 5
         SQRT = 6
+        ABS = 7
 
     kind: Kind
 
@@ -23,7 +24,7 @@ class UnaryElementwise(BaseTraceOp):
     # require float inputs but shapes are always int
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp, SineOp, CosineOp, SqrtOp
+        from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp, SineOp, CosineOp, SqrtOp, AbsOp
 
         OpType = {
             UnaryElementwise.Kind.EXP: ExpOp,
@@ -33,6 +34,7 @@ class UnaryElementwise(BaseTraceOp):
             UnaryElementwise.Kind.SINE: SineOp,
             UnaryElementwise.Kind.COSINE: CosineOp,
             UnaryElementwise.Kind.SQRT: SqrtOp,
+            UnaryElementwise.Kind.ABS: AbsOp,
         }[self.kind]
         OpType.build(inputs, outputs)
 
@@ -198,3 +200,28 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
         assert np.allclose(cp.from_dlpack(output).get(), (np.log(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.LOG)
+
+
+@export.public_api(document_under="tensor_operations")
+def abs(input: "tripy.Tensor") -> "tripy.Tensor":
+    r"""
+    Computes the elementwise absolute value of the elements of the input tensor.
+
+    Args:
+        input: The input tensor.
+
+    Returns:
+        A new tensor of the same shape with all non-negative entries
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.Tensor([-1, -2], dtype=tp.int32)
+        output = tp.abs(input)
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))
+    """
+    from tripy.frontend import Tensor
+
+    return UnaryElementwise.build([input], UnaryElementwise.Kind.ABS)

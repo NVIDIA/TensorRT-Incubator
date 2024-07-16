@@ -20,6 +20,8 @@ class Reduce(BaseTraceOp):
         SUM = "sum", 0
         MAX = "max", 0
         MUL = "mul", 1
+        AND = "and", True
+        OR = "or", False
 
     dim: Sequence[int]
     kind: Kind
@@ -164,6 +166,60 @@ def sum(
         assert np.array_equal(cp.from_dlpack(output).get(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
     return _reduce_impl(input, Reduce.Kind.SUM, dim, keepdim)
+
+
+@export.public_api(document_under="tensor_operations")
+def all(
+    input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
+) -> "tripy.Tensor":
+    """
+    Returns a new tensor containing the logical AND of the elements of the input tensor along the specified dimension.
+
+    Args:
+        input: The input tensor.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        A new bool tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.Tensor([True, True], dtype=tp.bool)
+        assert tp.all(input) == tp.Tensor([True], dtype=tp.bool)
+    """
+    return _reduce_impl(input, Reduce.Kind.AND, dim, keepdim)
+
+
+@export.public_api(document_under="tensor_operations")
+def any(
+    input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
+) -> "tripy.Tensor":
+    """
+    Returns a new tensor containing the logical OR of the elements of the input tensor along the specified dimension.
+
+    Args:
+        input: The input tensor.
+        dim: The dimension or dimensions along which to reduce.
+            If this is not provided, all dimensions are reduced.
+        keepdim: Whether to retain reduced dimensions in the output.
+            If this is False, reduced dimensions will be squeezed.
+
+    Returns:
+        A new bool tensor.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.Tensor([True, False], dtype=tp.bool)
+        assert tp.any(input) == tp.Tensor([True], dtype=tp.bool)
+    """
+    return _reduce_impl(input, Reduce.Kind.OR, dim, keepdim)
 
 
 @export.public_api(document_under="tensor_operations")

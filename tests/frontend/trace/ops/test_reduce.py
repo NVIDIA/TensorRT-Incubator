@@ -17,6 +17,18 @@ class TestReduce:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Reduce)
 
+    def test_all(self):
+        a = tp.ones((2, 3))
+        a = tp.all(a)
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.trace_tensor.producer, Reduce)
+
+    def test_any(self):
+        a = tp.ones((2, 3))
+        a = tp.any(a)
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.trace_tensor.producer, Reduce)
+
     def test_mean(self):
         a = tp.ones((2, 3))
         a = tp.mean(a, 0)
