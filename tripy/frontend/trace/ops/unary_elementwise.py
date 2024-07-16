@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from tripy import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -17,6 +18,9 @@ class UnaryElementwise(BaseTraceOp):
         SQRT = 6
 
     kind: Kind
+
+    # Note: shape inputs will fail because the StableHLO implementations of these ops
+    # require float inputs but shapes are always int
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ExpOp, LogOp, RsqrtOp, TanhOp, SineOp, CosineOp, SqrtOp

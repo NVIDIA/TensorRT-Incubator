@@ -6,7 +6,7 @@ class TestShape:
         a = tp.ones((3, 4))
         shape_a = a.shape
         assert isinstance(a, tp.Tensor)
-        assert isinstance(shape_a, tp.Tensor)
+        assert isinstance(shape_a, tp.Shape)
 
     def test_infer_rank(self):
         a = tp.ones((3, 4))

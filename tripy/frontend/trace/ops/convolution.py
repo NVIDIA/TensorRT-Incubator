@@ -26,6 +26,8 @@ class Convolution(BaseTraceOp):
                 ],
             )
 
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+
     def validate_inputs(self, tensor_shape, kernel_shape):
         if len(tensor_shape) != len(kernel_shape):
             op_utils.raise_error_io_info(

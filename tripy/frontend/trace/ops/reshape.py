@@ -16,6 +16,17 @@ class Reshape(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
+    def infer_shape_output_idxs(self, inputs):
+        from tripy.frontend.shape import Shape
+        from tripy.utils import Result
+
+        # Only wrap the reshaped output if the result is rank 1, otherwise don't wrap
+        if isinstance(inputs[0], Shape) and (
+            (self.shape is not None and len(self.shape) == 1) or (len(inputs) == 2 and inputs[1].rank == 1)
+        ):
+            return Result.ok([0])
+        return Result.ok([])
+
     def infer_rank(self):
         if self.shape is None:
             if self.inputs[1].shape is None:
@@ -46,6 +57,10 @@ class Squeeze(BaseTraceOp):
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
+
+    # Even if given a shape input, the output should not be a shape because the result will not be rank 1.
+    # We should permit this, though, since it may be useful to extract a dimension from a shape as a scalar.
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     def infer_rank(self):
 

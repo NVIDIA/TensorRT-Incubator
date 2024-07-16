@@ -6,6 +6,7 @@ from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.utils import is_supported_array_type
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 from tripy.utils import make_list
 
 
@@ -22,6 +23,9 @@ class Reduce(BaseTraceOp):
 
     dim: Sequence[int]
     kind: Kind
+
+    # if the input is a shape, the output is likely not going to be rank 1 so we should not wrap as a shape
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     def infer_rank(self):
         if self.dim is None:

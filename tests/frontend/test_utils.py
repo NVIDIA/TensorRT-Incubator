@@ -1,3 +1,5 @@
+import cupy as cp
+
 import tripy as tp
 from tripy.frontend.utils import convert_inputs_to_tensors
 from tests import helper
@@ -58,6 +60,11 @@ def sync_list_types(xs, ys):
     return xs, ys
 
 
+@convert_inputs_to_tensors(shape_argument=["s"])
+def convert_shape(s):
+    return s
+
+
 class TestConvertInputsToTensors:
     def test_args(self):
         assert isinstance(func(0), tp.Tensor)
@@ -101,6 +108,45 @@ class TestConvertInputsToTensors:
         x, y = kwarg_after_variadic_positional_args(1.0, y=2.0)
         assert isinstance(x, tp.Tensor)
         assert isinstance(y, tp.Tensor)
+
+    def test_convert_shape_basic(self):
+        s = convert_shape([1, 2, 3])
+        assert isinstance(s, tp.Shape)
+        assert s.shape == (3,)
+
+    def test_convert_shape_already_shape(self):
+        s1 = tp.Shape([1, 2, 3])
+        s2 = convert_shape(s1)
+        assert s1.trace_tensor == s2.trace_tensor
+
+    def test_convert_shape_tensor(self):
+        t = tp.Tensor([1, 2, 3], dtype=tp.int32)
+        s2 = convert_shape(t)
+        assert isinstance(s2, tp.Shape)
+        assert t.trace_tensor == s2.trace_tensor
+
+    def test_convert_mixed_type_list_to_shape(self):
+        from tripy.frontend.trace.ops.concatenate import Concatenate
+
+        t = tp.Tensor([3], dtype=tp.int32)
+        s1 = tp.Shape([1, 2])
+        s2 = convert_shape([1, 2, 3, s1, 4, 5, t, s1, t, 6, t, 7])
+        assert isinstance(s2, tp.Shape)
+        assert isinstance(s2.trace_tensor.producer, Concatenate)
+        # ensure the concatenation is done correctly
+        assert cp.from_dlpack(s2).get().tolist() == [1, 2, 3, 1, 2, 4, 5, 3, 1, 2, 3, 6, 3, 7]
+
+    def test_convert_empty_shape(self):
+        s = convert_shape([])
+        assert isinstance(s, tp.Shape)
+        assert cp.from_dlpack(s).get().tolist() == []
+
+    def test_convert_shape_unsqueeze_tensors(self):
+        t1 = tp.Tensor(1, dtype=tp.int32)
+        t2 = tp.Tensor(2, dtype=tp.int32)
+        s = convert_shape([t1, t2])
+        assert isinstance(s, tp.Shape)
+        assert cp.from_dlpack(s).get().tolist() == [1, 2]
 
     # When we convert arguments to tensors, we should preserve the column range
     # of the original non-Tensor argument.

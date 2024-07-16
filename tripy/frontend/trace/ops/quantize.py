@@ -5,6 +5,7 @@ from tripy import export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 from tripy.frontend import utils as frontend_utils
 
 

@@ -6,6 +6,7 @@ from tripy import utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -23,6 +24,9 @@ class Storage(BaseTraceOp):
         self.shape = utils.to_dims(data.shape)
         self.dtype = data.dtype
         self.device = data.device
+
+    # for storage, we will always consider the result to be an ordinary tensor
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     def str_skip_fields(self) -> Set[str]:
         if utils.should_omit_constant_in_str(self.shape):

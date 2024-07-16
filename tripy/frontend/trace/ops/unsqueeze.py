@@ -3,12 +3,16 @@ from dataclasses import dataclass
 from tripy import export, utils
 from tripy.common.datatype import int32
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
 class Unsqueeze(BaseTraceOp):
 
     dim: int
+
+    # the result will not be rank 1 and so can't be a shape but we may want to unsqueeze shapes
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
@@ -60,15 +64,15 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     from tripy.frontend.trace.ops.concatenate import concatenate
 
-    from tripy.frontend import Tensor
+    from tripy.frontend import Shape, Tensor
 
     if dim < 0:
         dim = dim + input.rank + 1
 
     # Add specical case for rank 0 since tensor.shape is not supported when rank is 0.
     if input.rank == 0:
-        result_shape = Tensor([1], dtype=int32)
+        result_shape = Shape([1])
     else:
         input_shape = input.shape
-        result_shape = concatenate([input_shape[:dim], Tensor([1]), input_shape[dim:]], dim=0)
+        result_shape = concatenate([input_shape[:dim], Shape([1]), input_shape[dim:]], dim=0)
     return unsqueeze_two_operand(input, result_shape, dim)

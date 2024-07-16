@@ -102,6 +102,11 @@ class Tensor(metaclass=TensorMeta):
         )
 
         name = name if name is not None else Tensor.get_unique_name()
+
+        # set device now so we don't get errors due to not having a device attribute at all
+        # in the case where data is None
+        self.device = None
+
         # Note that most tensors won't have this field - generally only model input tensors.
         self._dynamic_shape = utils.to_dims(shape)
 

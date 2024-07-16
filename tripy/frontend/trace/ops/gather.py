@@ -9,6 +9,9 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Gather(BaseTraceOp):
     axis: int
 
+    # the output is a shape if the value input is a shape
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
 

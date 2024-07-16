@@ -2,10 +2,16 @@ from dataclasses import dataclass
 
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.utils import Result
 
 
 @dataclass(repr=False)
 class Shape(BaseTraceOp):
+
+    # always return a shape
+    def infer_shape_output_idxs(self, inputs) -> Result:
+        return Result.ok([0])
+
     def infer_rank(self):
         assert len(self.inputs) == 1, "ShapeOf operation should have exactly one input!"
         self.outputs[0].rank = 1

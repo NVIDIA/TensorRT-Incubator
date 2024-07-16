@@ -14,6 +14,9 @@ class Expand(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
+    # The expanded result will not be rank 1, so we don't wrap.
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+
     def infer_rank(self):
         if self.shape:
             if len(self.shape) < self.inputs[0].rank:

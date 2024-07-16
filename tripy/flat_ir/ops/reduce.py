@@ -79,7 +79,6 @@ class ArgMinMaxOp(ReduceOp):
             get_mlir_dtype(self.inputs[0].dtype),
         )
         dims_attr = ir.DenseI64ArrayAttr.get(self.reduce_dims)
-
         reduce = stablehlo.ReduceOp(
             result=[out_val_type, out_idx_type],
             inputs=operands[0:2],

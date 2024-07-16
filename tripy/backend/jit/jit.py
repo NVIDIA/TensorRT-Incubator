@@ -13,7 +13,7 @@ from tripy.backend.mlir.executor import Executor
 from tripy.backend.utils import TensorInfo, get_tensor_info, get_devices
 from tripy.common.device import device
 from tripy.common.exception import raise_error
-from tripy.frontend import Tensor
+from tripy.frontend import Shape, Tensor
 from tripy.frontend.module import Module, Parameter
 from tripy.frontend.trace import Trace
 from tripy.frontend.trace.ops import Storage
@@ -90,6 +90,11 @@ class jit:
         # for the cache keys.
         self._trace_signatures: Dict[int, int] = {}
 
+        # Note that since tp.Shape (frontend shapes) are handled only at the front-end,
+        # we also need to cache which outputs to treat as shapes or else we would
+        # have no way to reconstruct it
+        self._frontend_shape_outputs: Dict[int, Tuple[int]] = {}
+
         self._func: Callable = None
         self._decorated: Callable = None
         self._obj = None
@@ -118,6 +123,11 @@ class jit:
             #   to retrigger tracing and then also modify the trace signature.
             const_tensor_ids = tuple(id(args[idx]) for idx in const_argnums)
 
+            # since we are caching which outputs are frontend shapes and that can
+            # be affected by which *inputs* are frontend shapes, we should include this
+            # in the cache key
+            shape_input_info = tuple(isinstance(arg, Shape) for arg in args)
+
             inputs = []
             input_tensor_info = []
             # For the purposes of tracing, constant arguments are not considered inputs.
@@ -128,6 +138,8 @@ class jit:
                 # Copy stack information from the original tensor so error messages are better.
                 dynamic_shape = arg._dynamic_shape
                 tensor = Tensor(arg.eval(), dynamic_shape, stack_info=arg.stack_info)
+                if isinstance(arg, Shape):
+                    tensor = Shape(tensor)
                 # Replace the tensor op with one that can supply dynamic shapes.
                 storage = tensor.trace_tensor.producer
                 assert isinstance(storage, Storage), f"{tensor} should have had a storage op after `eval()`"
@@ -178,6 +190,8 @@ class jit:
 
             # The first time we run the function, we compute the cache key by looking at the signature of the
             # trace. On subsequent invocations, we skip this step.
+            # Note that we also have to take note of and preserve which inputs should be treated as tp.Shape,
+            # since this information is tracked only at the front-end.
             def make_trace():
                 try:
 
@@ -215,13 +229,17 @@ class jit:
                 if isinstance(outputs, Tensor):
                     outputs = [outputs]
 
-                return Trace(outputs, trace_inputs)
+                # we need to pass shape information in order to preserve it
+                outputs_as_shapes = [isinstance(output, Shape) for output in outputs]
+                return Trace(outputs, trace_inputs), outputs_as_shapes
 
             # See _trace_signatures in __init__ for an explanation of this.
             # Note that the `trace_signature_key` is local to this instance so we can safely use Python's
             # built-in `hash()` even though it's randomized.
             #
-            trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids)
+            # We also need to include the pattern of which arguments are front-end shapes because we cache
+            # which *outputs* are shapes and the inputs affect that.
+            trace_signature_key = hash(tuple(kwargs.items()) + const_tensor_ids + shape_input_info)
 
             trace = None
 
@@ -233,10 +251,12 @@ class jit:
                     from tripy import __version__
 
                     # HACK (#109): Treat different constant inputs as different traces.
-                    return str(utils.md5(__version__, get_trace_signature(trace), const_tensor_ids))
+                    # Similarly, treat different patterns of tp.Shape inputs likewise
+                    return str(utils.md5(__version__, get_trace_signature(trace), const_tensor_ids, shape_input_info))
 
-                trace = make_trace()
+                trace, outputs_as_shape = make_trace()
                 self._trace_signatures[trace_signature_key] = compute_trace_signature(trace)
+                self._frontend_shape_outputs[trace_signature_key] = tuple(outputs_as_shape)
                 input_tensor_info = get_tensor_info(trace.inputs)
                 output_tensor_info = get_tensor_info(trace.outputs)
                 output_devices = get_devices(output_tensor_info)
@@ -249,12 +269,13 @@ class jit:
                 )
 
             trace_signature = self._trace_signatures[trace_signature_key]
+            outputs_as_shape = self._frontend_shape_outputs[trace_signature_key]
             for executable, executor in self.cache.get(trace_signature, []):
                 if executable.is_compatible(input_tensor_info):
                     break
             else:
                 if trace is None:
-                    trace = make_trace()
+                    trace, outputs_as_shape = make_trace()
                 flat_ir = trace.to_flat_ir()
                 mlir = flat_ir.to_mlir()
                 compiler = Compiler(trt_builder_opt_level=self.optimization_level)
@@ -276,7 +297,11 @@ class jit:
             )
 
             # TODO(#192): avoid get_stack_info in runtime
-            tensor_outputs = [Tensor(output) for output in outputs]
+            # preserve which outputs are tp.Shape
+            tensor_outputs = [
+                Shape(output) if outputs_as_shape[i] else Tensor(output) for i, output in enumerate(outputs)
+            ]
+
             if len(tensor_outputs) == 1:
                 tensor_outputs = tensor_outputs[0]
             return tensor_outputs

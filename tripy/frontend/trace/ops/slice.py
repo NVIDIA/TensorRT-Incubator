@@ -20,6 +20,9 @@ class Slice(BaseTraceOp):
         # How can we compute the output rank in the case when start, size, stride tensors are dynamic?
         self.outputs[0].rank = self.inputs[0].rank
 
+    # we only care about the data input
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp
         from tripy.flat_ir.tensor import FlatIRTensor

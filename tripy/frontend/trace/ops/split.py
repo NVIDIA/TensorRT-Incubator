@@ -21,6 +21,9 @@ class Split(BaseTraceOp):
             # + 1 because of the last split, which is [self.indices_or_sections[-1]:]
             return len(self.indices_or_sections) + 1
 
+    # we only care about the data input
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+
     def infer_devices(self):
         for i in range(self.num_outputs()):
             self.outputs[i].device = self.inputs[0].device

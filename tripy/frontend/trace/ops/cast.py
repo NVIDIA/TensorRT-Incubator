@@ -8,6 +8,17 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Cast(BaseTraceOp):
     to_type: "tripy.common.dtype"
 
+    def infer_shape_output_idxs(self, inputs):
+        from tripy.common.datatype import int32
+        from tripy.frontend.shape import Shape
+        from tripy.utils import Result
+
+        if isinstance(inputs[0], Shape):
+            # Only still a valid shape if it remains int32
+            if self.to_type == int32:
+                return Result.ok([0])
+        return Result.ok([])
+
     def infer_dtypes(self):
         self.outputs[0].dtype = self.to_type
 

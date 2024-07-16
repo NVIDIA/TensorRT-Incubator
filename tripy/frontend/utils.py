@@ -12,25 +12,30 @@ def convert_inputs_to_tensors(
     sync_arg_types: Optional[List[Tuple[str]]] = None,
     exclude: Optional[List[str]] = None,
     unpack_argument: Optional[List[str]] = None,
+    shape_argument: Optional[List[str]] = None,
     skip_num_stack_entries: int = 0,
 ):
     """
-    Decorator that converts all arguments to Tensors before passing them along
+    Decorator that converts all arguments to `Tensor`s before passing them along
     to the decorated function.
 
     Args:
         sync_arg_types: A list of tuples of strings indicating the parameter indices for parameters
             that must share a type. For example, `sync_arg_types=[("a", "b"), ("c", "d")]` indicates that
             arguments `a` and `b` and arguments `c` and `d` should have the same types. Type casting is only
-            enabled for Python numbers, and at least one of the arguments in each tuple must be a Tensor.
-            For arguments that are lists included in `convert_lists`,
+            enabled for Python numbers, and at least one of the arguments in each tuple must be a `Tensor`.
+            For arguments that are lists included in `unpack_argument`,
             the syncing will be done for each member of the specified lists.
 
         exclude: A list of names of arguments to skip over. These arguments will not be modified.
 
         unpack_argument: If an argument name is included and it is a list,
-          the members of the list will each be individually converted into tensors,
-          rather than having the whole list converted into a tensor.
+          the members of the list will each be individually converted into `Tensor`s,
+          rather than having the whole list converted into a `Tensor`.
+
+        shape_argument: If an argument is included, it will be converted into a `Shape` rather than
+          an ordinary `Tensor`. If the named argument is a list, the individual members of the argument
+          will be converted to `Shape`s and then concatenated together into a single `Shape`.
 
         skip_num_stack_entries: If the decorator is used on a function that is *called by*
             a function that the user invokes, it will be necessary to skip stack entries
@@ -43,11 +48,13 @@ def convert_inputs_to_tensors(
     sync_arg_types = utils.default(sync_arg_types, [])
     exclude = utils.default(exclude, [])
     unpack_argument = utils.default(unpack_argument, [])
+    shape_argument = utils.default(shape_argument, [])
 
     def impl(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             from tripy.common.exception import raise_error
+            from tripy.frontend.shape import Shape
             from tripy.frontend.tensor import Tensor
 
             # Try to include correct column offsets for non-tensor arguments.
@@ -187,6 +194,48 @@ def convert_inputs_to_tensors(
                         arg, index, is_kwarg=name in kwargs, dtype=cast_dtype, list_index=list_index
                     )
 
+                if name in shape_argument:
+                    from tripy.frontend.trace.ops.concatenate import concatenate
+                    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+
+                    if isinstance(arg, Shape):
+                        add_arg(arg)
+                        continue
+                    if isinstance(arg, Tensor):
+                        add_arg(Shape(arg))
+                        continue
+                    # if it's not a tensor and not a sequence, we treat as a singleton shape
+                    if not isinstance(arg, Sequence):
+                        add_arg(Shape(convert_nontensor_arg([arg])))
+                        continue
+                    # otherwise, for a sequence we convert all at once if no member is a tensor
+                    # and concatenate together with tensors if there is
+                    if len(arg) == 0:
+                        add_arg(Shape([]))
+                        continue
+
+                    if not any(map(lambda member: isinstance(member, Tensor), arg)):
+                        add_arg(Shape(convert_nontensor_arg(arg)))
+                        continue
+
+                    shape_components = []
+                    # accumulate non-tensors together to be converted into shapes
+                    acc = []
+                    for member in arg:
+                        if isinstance(member, Tensor):
+                            if len(acc) > 0:
+                                shape_components.append(Shape(convert_nontensor_arg(acc)))
+                                acc = []
+                            if isinstance(member, Shape):
+                                shape_components.append(member)
+                                continue
+                            shape_components.append(Shape(member if member.rank > 0 else unsqueeze(member, 0)))
+                            continue
+                        acc.append(member)
+                    if len(acc) > 0:
+                        shape_components.append(Shape(convert_nontensor_arg(acc)))
+                    add_arg(concatenate(shape_components, 0))
+                    continue
                 if name in exclude or isinstance(arg, Tensor):
                     add_arg(arg)
                     continue

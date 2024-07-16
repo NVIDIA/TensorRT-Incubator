@@ -10,8 +10,8 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Permute(BaseTraceOp):
     permutation: Sequence[int]
 
-    def infer_rank(self):
-        self.outputs[0].rank = len(self.permutation)
+    # note that permuting a shape would not do anything
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import TransposeOp

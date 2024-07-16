@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
@@ -30,8 +31,9 @@ class GatherOp(BaseFlatIROp):
 
         slice_sizes = [s.runtime_value for s in self.inputs[0].shape]
         slice_sizes[self.axis] = 1
+        slice_sizes = ir.DenseI64ArrayAttr.get(slice_sizes)
         gather_out = stablehlo.gather(
-            operand=operands[0], start_indices=operands[1], dimension_numbers=attr, slice_sizes=tuple(slice_sizes)
+            operand=operands[0], start_indices=operands[1], dimension_numbers=attr, slice_sizes=slice_sizes
         )
         return [gather_out]
 

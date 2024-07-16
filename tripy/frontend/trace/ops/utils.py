@@ -52,6 +52,18 @@ def _check_input_attr_matches(
         )
 
 
+# Utility for error messages in wrap_shape_inputs
+def write_shape_input_indices_message(inputs: List["tp.Tensor"]) -> str:
+    from tripy.frontend.shape import Shape
+
+    shape_indices = list(map(str, filter(lambda i: isinstance(inputs[i], Shape), range(len(inputs)))))
+    if not shape_indices:
+        return ""
+    if len(shape_indices) == 1:
+        return f"input with index {shape_indices[0]} is tp.Shape"
+    return f"inputs with indices {', '.join(shape_indices)} are tp.Shape"
+
+
 # Checks whether properties of the inputs match. Optional index parameters can be provided in case not all inputs should be considered.
 def check_input_dtypes_match(op: "BaseTraceOp", op_details: str = "", start_index: int = None, stop_index: int = None):
     return _check_input_attr_matches(op, op_details, "dtype", "data type", start_index, stop_index)
@@ -73,6 +85,29 @@ def get_broadcast_dim(dim1, dim2):
             return dim2
         # dim1 == dim2 or dim2 == 1
         return dim1
+
+
+##
+## Handling shape outputs: These are common policies to use for overring infer_shape_output_idxs
+##
+
+
+class ShapeOutputIdxPolicies:
+    def infer_from_first_input_only(self, inputs):
+        """
+        Common override for `infer_shape_output_idxs`: Treat the outputs as shapes if the *first* input is a shape.
+        """
+        from tripy.frontend.shape import Shape
+
+        if isinstance(inputs[0], Shape):
+            return Result.ok(list(range(len(self.outputs))))
+        return Result.ok([])
+
+    def never_return_shape(self, inputs):
+        """
+        Accepts shapes but the result is always no shape indices
+        """
+        return Result.ok([])
 
 
 ##

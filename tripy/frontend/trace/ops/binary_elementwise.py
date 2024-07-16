@@ -29,6 +29,30 @@ class BinaryElementwise(BaseTraceOp):
             op_str = f"{self.kind}({self.inputs[0].name}, {self.inputs[1].name})"
         return f"{self.outputs[0].name} = {op_str}"
 
+    def infer_shape_output_idxs(self, inputs):
+        # permit one input to be a shape but require the output to be a shape
+        from tripy.frontend.shape import Shape
+        from tripy.utils import Result
+
+        if any(map(lambda t: isinstance(t, Shape), inputs)):
+            # if there is a non-shape input, it must be rank 1 or 0 to avoid broadcasting
+            if not all(map(lambda t: t.rank <= 1, inputs)):
+                invalid_indices_message = ", ".join(
+                    map(
+                        lambda i: f"Index {i} (rank {inputs[i].rank})",
+                        filter(lambda i: inputs[i].rank > 1, range(len(inputs))),
+                    )
+                )
+                return Result.err(
+                    [
+                        "For binary elementwise operators on Shapes, all inputs must be of rank at most 1.",
+                        f"The following inputs have invalid ranks: {invalid_indices_message}",
+                    ]
+                )
+            return Result.ok([0])
+        else:
+            return Result.ok([])
+
     def infer_dtypes(self):
         op_utils.check_input_dtypes_match(self, self.kind.strip())
         self.outputs[0].dtype = self.inputs[0].dtype
@@ -110,6 +134,9 @@ class Comparison(BinaryElementwise):
         GREATER = KindElem(" > ", "GT")
 
     kind: Kind.KindElem
+
+    # the result of a comparison will be bool, so do not wrap
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     def infer_dtypes(self):
         op_utils.check_input_dtypes_match(self, self.kind.strip())
