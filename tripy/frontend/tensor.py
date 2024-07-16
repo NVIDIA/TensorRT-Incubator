@@ -194,7 +194,7 @@ class Tensor(metaclass=TensorMeta):
         Storage.build_internal([], [self.trace_tensor], data)
         return data
 
-    def data(self) -> List[Union[float, int]]:
+    def data(self) -> Array:
         import tripy.common.datatype
         from tripy.frontend.trace.ops.cast import cast
         from tripy.frontend.trace.ops.dequantize import dequantize
@@ -206,6 +206,9 @@ class Tensor(metaclass=TensorMeta):
             else:
                 arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
+
+    def __iter__(self):
+        raise TypeError("Iterating over tensors is not supported")
 
     def __repr__(self) -> str:
         # The Evaluation required before accessing self.trace_tensor.producer attributes.
