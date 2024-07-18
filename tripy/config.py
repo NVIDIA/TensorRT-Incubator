@@ -12,7 +12,7 @@ export.public_api(autodoc_options=[":no-members:", ":no-special-members:"])(sys.
 
 # MLIR Debug options
 enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
-mlir_debug_types = ["-mlir-print-ir-after-all"]
+mlir_debug_types = ["-translate-to-tensorrt"]
 mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/", "tripy", "mlir-dumps"))
 
 # Tensorrt debug options

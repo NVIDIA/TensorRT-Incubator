@@ -134,6 +134,9 @@ class FlatIR:
                             res_attrs.append(ir.DictAttr.get({}))
                     func_op.res_attrs = ir.ArrayAttr.get(res_attrs)
 
+                module.operation.attributes["sym_name"] = ir.StringAttr.get(
+                    utils.UniqueNameGen.gen_uid([inp.name for inp in self.inputs], [out.name for out in self.outputs])
+                )
                 return module
 
         from tripy.backend.mlir.utils import redirect_stderr

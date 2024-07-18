@@ -84,3 +84,25 @@ class TestConstantFields:
         # the first instance already having initialized the field. This could happen if the implementation
         # doesn't take the instance into account when checking if the field has been initialized.
         const1 = make_with_constant_field()
+
+
+class TestUniqueNameGen:
+    @pytest.mark.parametrize(
+        "inputs, outputs, expected_prefix",
+        [
+            (None, None, ""),
+            (["a"], None, "ins_a_"),
+            (None, ["b"], "outs_b_"),
+            (["a"], ["b"], "ins_a_outs_b_"),
+            (["a", "b"], ["c", "d"], "ins_a_b_outs_c_d_"),
+        ],
+    )
+    def test_gen_uid(self, inputs, outputs, expected_prefix):
+        uid = utils.UniqueNameGen.gen_uid(inputs, outputs)
+        assert uid.startswith(expected_prefix)
+        assert uid.endswith(str(utils.UniqueNameGen._counter))
+        assert uid in utils.UniqueNameGen._used_names
+
+    def test_uniqueness(self):
+        uids = [utils.UniqueNameGen.gen_uid() for _ in range(100)]
+        assert len(set(uids)) == 100

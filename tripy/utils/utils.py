@@ -384,3 +384,33 @@ def md5(*args) -> int:
     to generate a byte buffer for the object.
     """
     return int(hashlib.md5(repr(args).encode()).hexdigest(), base=16)
+
+
+class UniqueNameGen:
+    """
+    Generates unique names based on inputs and outputs.
+    """
+
+    _used_names = set()
+    _counter = 0
+
+    @staticmethod
+    def gen_uid(inputs=None, outputs=None):
+        while True:
+            UniqueNameGen._counter += 1
+            uid = []
+
+            if inputs:
+                uid.append("ins")
+                uid.extend(inputs)
+
+            if outputs:
+                uid.append("outs")
+                uid.extend(outputs)
+
+            uid.append(str(UniqueNameGen._counter))
+            uid = "_".join(uid)
+
+            if uid not in UniqueNameGen._used_names:
+                UniqueNameGen._used_names.add(uid)
+                return uid

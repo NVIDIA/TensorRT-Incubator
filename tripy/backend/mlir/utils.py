@@ -95,6 +95,10 @@ TRACE_INPUTS_SEPARATOR = ";;<trace_in>;;"
 TRACE_OUTPUTS_SEPARATOR = ";;<trace_out>;;"
 
 
+def remove_sym_attr(mlir_text: str) -> str:
+    return re.sub(r"module @\S+ {", "module {", mlir_text)
+
+
 def remove_constants(mlir_text) -> str:
     lines = mlir_text.split("\n")
 
