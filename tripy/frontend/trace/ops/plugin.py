@@ -58,7 +58,8 @@ def plugin(
         :linenos:
         :caption: Example
 
-        inp = tp.iota((2, 1, 4))
+        # TODO: We add `+ 1` as a hack to work around MLIR-TRT Issue #915. We should be able to remove it once fixed # doc: omit
+        inp = tp.iota((2, 1, 4)) + 1
         out = tp.plugin(
             "CustomGeluPluginDynamic",
             [inp],

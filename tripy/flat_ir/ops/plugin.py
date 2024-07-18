@@ -94,7 +94,7 @@ class PluginOp(BaseFlatIROp):
     def to_mlir(self, operands):
         initialize_plugin_registry()
 
-        field_schema = compiler.get_tensorrt_plugin_field_schema(self.name, self.version, self.namespace)
+        field_schema = compiler.get_tensorrt_plugin_field_schema(self.name, self.version, self.namespace, "")
 
         plugin_err_prefix = f"Plugin: {self.name} (version={self.version}, namespace={repr(self.namespace)})"
 

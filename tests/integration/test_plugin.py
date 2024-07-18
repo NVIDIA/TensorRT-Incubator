@@ -6,7 +6,8 @@ from tripy import utils
 
 class TestPlugin:
     def test_gelu(self):
-        inp = tp.iota((2, 2))
+        # TODO: We add `+ 1` as a hack to work around MLIR-TRT Issue #915. We should be able to remove it once fixed
+        inp = tp.iota((2, 2)) + 1
         out = tp.plugin(
             "CustomGeluPluginDynamic",
             [inp],

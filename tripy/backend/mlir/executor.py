@@ -108,39 +108,13 @@ class Executor:
                     )
                 )
             else:
-                assert outputs_runtime_shape
-                upper_bounds = self.signature.get_arg_bound(arg_index).max()
-                assert len(upper_bounds) == len(memref.shape), "Upper bounds and shape length must match"
-                max_shape = [upper if dim < 0 else dim for dim, upper in zip(memref.shape, upper_bounds)]
-                for idx, dim in enumerate(memref.shape):
-                    if dim > 0:
-                        assert (
-                            outputs_runtime_shape[output_index][idx] == dim
-                            and f"Inferred runtime shape must be same as static output shape. Expected {dim}, received {outputs_runtime_shape[output_index][idx]}"
-                        )
-                for idx, dim in enumerate(memref.shape):
-                    if dim < 0:
-                        assert (
-                            upper_bounds[idx] >= outputs_runtime_shape[output_index][idx]
-                            and f"Upper bound {upper_bounds[idx]} for a dim at {idx} not be less than runtime shape {outputs_runtime_shape[output_index][idx]}"
-                        )
-                        # TODO: Improve this check to be stricter.
-                        assert (
-                            upper_bounds[idx] < outputs_runtime_shape[output_index][idx] + get_max_upper_bounds()
-                            and f"Upper bound {upper_bounds[idx]} for a dim at {idx} must not exceed runtime shapes {outputs_runtime_shape[output_index][idx]} by {get_max_upper_bounds()}"
-                        )
                 runtime_shape = [
                     rs if dim < 0 else dim for dim, rs in zip(memref.shape, outputs_runtime_shape[output_index])
                 ]
                 outputs_tensor_info.append(
                     TensorInfo(
                         len(runtime_shape),
-                        tuple(
-                            [
-                                dynamic_dim(runtime, min=None, opt=None, max=max)
-                                for runtime, max in zip(runtime_shape, max_shape)
-                            ]
-                        ),
+                        tuple([dynamic_dim(runtime, min=None, opt=None, max=None) for runtime in runtime_shape]),
                         dtype,
                         device(device_type),
                     )
