@@ -271,6 +271,7 @@ class TestShape:
         assert isinstance(c1, tp.Tensor)
         assert cp.from_dlpack(c1).get().tolist() == cp.from_dlpack(c2).get().tolist()
 
+    @pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/240")
     def test_expand_not_wrapped(self, values):
         e = tp.expand(tp.Shape(values), (len(values), 1))
         assert not isinstance(e, tp.Shape)

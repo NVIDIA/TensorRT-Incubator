@@ -27,7 +27,7 @@ class TestUnsqueezeOp:
             return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
         a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
-        a = tp.copy(tp.Tensor(a_np, shape=dims_a), tp.device("gpu"))
+        a = tp.Tensor(cp.asarray(a_np), shape=dims_a)
 
         def func(a):
             return tp.unsqueeze(a, dim=axis)
