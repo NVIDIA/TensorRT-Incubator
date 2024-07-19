@@ -23,16 +23,13 @@ class TestExpand:
             b = tp.expand(a, (2, 2))
             b.eval()
 
-    @pytest.mark.skip(
-        "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/202: mlir-tensorrt works fine for this case but Pytorch expects error."
-    )
     def test_invalid_mismatch_size(self):
         a = tp.ones((2, 1))
         b = tp.expand(a, (4, 2))
 
         with helper.raises(
             tp.TripyException,
-            match="The expanded size must match the existing size at non-singleton dimension.",
+            match=r"size of operand dimension 0 \(2\) is not compatible with size of result dimension 0 \(4\)",
             has_stack_info_for=[a, b],
         ):
             b.eval()

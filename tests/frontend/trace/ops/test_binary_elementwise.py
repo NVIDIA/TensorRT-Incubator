@@ -92,15 +92,14 @@ class TestBinaryElementwise:
         ):
             c = a + b
 
-    @pytest.mark.skip(
-        "https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/202: Test case includes broadcasting of ones two times and the final broadcasting works (max(4,3)) and is not throwing an error."
-    )
     def test_invalid_broadcast_fails(self):
         a = tp.ones((2, 4), dtype=tp.float32)
         b = tp.ones((2, 3), dtype=tp.float32)
         c = a + b
 
         with helper.raises(
-            tp.TripyException, match="Input tensors are not broadcast compatible.", has_stack_info_for=[a, b, c]
+            tp.TripyException,
+            match=r"size of operand dimension 1 \(3\) is not compatible with size of result dimension",
+            has_stack_info_for=[a, b, c],
         ):
             c.eval()
