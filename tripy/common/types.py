@@ -1,3 +1,3 @@
 from typing import Tuple, Union
 
-ShapeInfo = Tuple[Union[int, "tripy.dynamic_dim"]]
+ShapeInfo = Union[Tuple[Union[int, "tripy.dynamic_dim"]], "Shape"]

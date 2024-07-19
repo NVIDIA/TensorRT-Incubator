@@ -18,6 +18,13 @@ class TestFull:
         a = tp.full((2, 3), 1)
         assert a.trace_tensor.rank == 2
 
+    def test_shape_is_shape_tensor(self):
+        shape = tp.ones((2, 3)).shape
+        a = tp.full(shape, 1)
+        assert isinstance(a, tp.Tensor)
+        assert isinstance(a.trace_tensor.producer, Fill)
+        assert a.trace_tensor.rank == 2
+
 
 class TestFullLike:
     def test_op_func(self):
