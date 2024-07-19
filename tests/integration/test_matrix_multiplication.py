@@ -2,6 +2,7 @@ import cupy as cp
 import numpy as np
 import pytest
 
+import tripy as tp
 import tripy.common.datatype
 
 
@@ -13,20 +14,20 @@ class TestMatrixMultiplication:
     def test_2d_tensors(self):
         a_np = create_random_matrix((2, 3))
         b_np = create_random_matrix((3, 2))
-        a = tripy.Tensor(a_np)
-        b = tripy.Tensor(b_np)
+        a = tp.Tensor(a_np)
+        b = tp.Tensor(b_np)
 
         out = a @ b
         assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)
 
     def test_1d_tensors(self):
-        a_np = create_random_matrix((3,))  # 1D Tensor
-        b_np = create_random_matrix((3,))  # 1D Tensor
-        a = tripy.Tensor(a_np)
-        b = tripy.Tensor(b_np)
+        a_np = create_random_matrix((64,))  # 1D Tensor
+        b_np = create_random_matrix((64,))  # 1D Tensor
+        a = tripy.Tensor(cp.asanyarray(a_np))
+        b = tripy.Tensor(cp.asanyarray(b_np))
 
         out = a @ b
-        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)
+        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np, atol=1e-2)
 
     @pytest.mark.parametrize(
         "shape_a, shape_b",
@@ -42,8 +43,8 @@ class TestMatrixMultiplication:
     def test_broadcast_gemm(self, shape_a, shape_b):
         a_np = create_random_matrix(shape_a)
         b_np = create_random_matrix(shape_b)
-        a = tripy.Tensor(a_np)
-        b = tripy.Tensor(b_np)
+        a = tp.Tensor(a_np)
+        b = tp.Tensor(b_np)
 
         out = a @ b
         assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)

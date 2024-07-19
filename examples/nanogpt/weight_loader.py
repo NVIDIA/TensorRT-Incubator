@@ -24,14 +24,15 @@ def load_weights_from_hf(model, model_type, dtype):
     hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
 
     transposed = ["attn.c_attn.weight", "attn.c_proj.weight", "mlp.c_fc.weight", "mlp.c_proj.weight"]
+    torch_dtype = getattr(torch, dtype.name)
     for key in hf_keys:
         weight = hf_state_dict[key]
         if any(key.endswith(w) for w in transposed):
             with torch.no_grad():
                 weight = hf_state_dict[key].t().contiguous()
-        param = tp.Parameter(weight)
         if "ln" not in key:
-            param = tp.cast(param, dtype)
+            weight = weight.to(torch_dtype)
+        param = tp.Parameter(weight)
         tripy_state_dict[key] = param
 
     model.load_from_state_dict(tripy_state_dict)
@@ -74,6 +75,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
     hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
 
     # modelopt has transposed the attn weights
+    torch_dtype = getattr(torch, dtype.name)
     for key in hf_keys:
         weight = hf_state_dict[key]
         if key.endswith("quantizer._amax"):
@@ -88,9 +90,9 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
             key, _ = key.split("quantizer._amax")
             key += "scale"
 
-        param = tp.Parameter(weight.contiguous())
         if "ln" not in key:
-            param = tp.cast(param, dtype)
+            weight = weight.to(torch_dtype)
+        param = tp.Parameter(weight.contiguous())
         tripy_state_dict[key] = param
 
     model.load_from_state_dict(tripy_state_dict)

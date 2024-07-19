@@ -1,9 +1,8 @@
 from typing import Any, List, Optional
 
 from tripy import utils
-from tripy.common.types import ShapeInfo
-from tripy.frontend.dim import dynamic_dim
 from tripy.utils import Result
+import tripy.common.datatype as tp_dtype
 
 
 def _check_input_attr_matches(
@@ -102,36 +101,36 @@ class ShapeOutputIdxPolicies:
 ##
 
 
-def is_quantized_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
-    from tripy.common.datatype import float8, int4, int8
+def get_dim_size_1d_tensor(tensor: "FlatIRTensor", dim: int):
+    from tripy.common.datatype import int32
+    from tripy.flat_ir.ops import GetDimensionSizeOp
+    from tripy.flat_ir.tensor import FlatIRTensor
 
-    return dtype in {int4, int8, float8}
+    # GetDimensionSizeOp returns a scalar
+    dim_scalar = FlatIRTensor.build(
+        shape=(),
+        rank=0,
+        dtype=int32,
+        device=tensor.device,
+        reason_details=[f"Get size of dim {dim}."],
+    )
+    GetDimensionSizeOp.build([tensor], [dim_scalar], dim=dim)
+    # reshape scalar to rank 1
+    dim_tensor = reshape_scalar_to_1d(dim_scalar)
+    return dim_tensor
 
 
 def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
     from tripy.common.array import Array
     from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import ConstantOp, GetDimensionSizeOp
+    from tripy.flat_ir.ops import ConstantOp
     from tripy.flat_ir.tensor import FlatIRTensor
 
     if tensor.rank > 0:
         inp_rank = tensor.rank
         dim_sizes = [None] * inp_rank
         for i in range(inp_rank):
-            # GetDimensionSizeOp returns a scalar
-            dim_scalar = FlatIRTensor.build(
-                shape=(),
-                rank=0,
-                dtype=int32,
-                device=tensor.device,
-                reason_details=[f"Get size of dim {i}."],
-            )
-            GetDimensionSizeOp.build([tensor], [dim_scalar], dim=i)
-            # reshape scalar to rank 1 so that it can be concatenated
-            dim_tensor = reshape_scalar_to_1d(dim_scalar)
-            assert dim_tensor.producer
-            dim_sizes[i] = dim_tensor
-
+            dim_sizes[i] = get_dim_size_1d_tensor(tensor, i)
         shape_output_tensor = concatenate_tensors(dim_sizes, 0, out)
     else:
         # TODO #80: Remove this codepath when shape dialect is used (shape.shape_of).
@@ -463,3 +462,145 @@ def slice_rank1_tensor(rank1_tensor: "FlatIRTensor", slice_index: int, reason_de
     )
     DynamicSliceOp.build([rank1_tensor, start_idx, slice_len, stride_index], [result_slice])
     return result_slice
+
+
+##
+## Quantize
+##
+
+QUANTIZABLE_DTYPES = (tp_dtype.float32, tp_dtype.float16, tp_dtype.bfloat16)
+QUANTIZED_DTYPES = (tp_dtype.int8, tp_dtype.int4, tp_dtype.float8)
+
+
+def is_quantized_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
+    return dtype in QUANTIZED_DTYPES
+
+
+def is_quantizable_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
+    return dtype in QUANTIZABLE_DTYPES
+
+
+def get_clamp_min_max(element_dtype, quant_dtype):
+    from tripy.common.array import Array
+    from tripy.common.device import device
+    from tripy.flat_ir.tensor import FlatIRTensor
+    from tripy.flat_ir.ops import ConstantOp, ConvertOp
+
+    QUANT_CLAMP_MIN_MAX = {
+        tp_dtype.int8: (-128.0, 127.0),
+        tp_dtype.int4: (-8.0, 7.0),
+        tp_dtype.float8: (-448.0, 448.0),
+    }
+    min_val, max_val = QUANT_CLAMP_MIN_MAX[quant_dtype]
+    clamp_min = FlatIRTensor.build(
+        shape=(),
+        rank=0,
+        dtype=element_dtype,
+        device=device("gpu"),
+        reason_details=["Construct min value for clamp."],
+    )
+    clamp_max = FlatIRTensor.build(
+        shape=(),
+        rank=0,
+        dtype=element_dtype,
+        device=device("gpu"),
+        reason_details=["Construct max value for clamp."],
+    )
+    if element_dtype in (tp_dtype.float16, tp_dtype.bfloat16):
+        clamp_min_fp32 = FlatIRTensor.build(
+            shape=(),
+            rank=0,
+            dtype=tp_dtype.float32,
+            device=device("gpu"),
+            reason_details=["Construct min value in float32."],
+        )
+        clamp_max_fp32 = FlatIRTensor.build(
+            shape=(),
+            rank=0,
+            dtype=tp_dtype.float32,
+            device=device("gpu"),
+            reason_details=["Construct max value in float32."],
+        )
+        ConstantOp.build(
+            [],
+            [clamp_min_fp32],
+            data=Array(min_val, tp_dtype.float32, shape=(), device=device("cpu")),
+        )
+        ConstantOp.build(
+            [],
+            [clamp_max_fp32],
+            data=Array(max_val, tp_dtype.float32, shape=(), device=device("cpu")),
+        )
+        ConvertOp.build([clamp_min_fp32], [clamp_min])
+        ConvertOp.build([clamp_max_fp32], [clamp_max])
+    else:
+        ConstantOp.build(
+            [],
+            [clamp_min],
+            data=Array(min_val, element_dtype, shape=(), device=device("cpu")),
+        )
+        ConstantOp.build(
+            [],
+            [clamp_max],
+            data=Array(max_val, element_dtype, shape=(), device=device("cpu")),
+        )
+    return clamp_min, clamp_max
+
+
+def check_qdq_args(input, scale, dtype, dim, is_quantize):
+    from tripy.common.exception import raise_error
+
+    valid_input_dtypes = QUANTIZABLE_DTYPES if is_quantize else QUANTIZED_DTYPES
+    valid_target_dtypes = QUANTIZED_DTYPES if is_quantize else QUANTIZABLE_DTYPES
+    op_str = "quantize op" if is_quantize else "dequantize op"
+
+    if input.dtype not in valid_input_dtypes:
+        raise_error(
+            f"Input does not have a valid dtype in {op_str}.",
+            [
+                f"input.dtype must be one of {valid_input_dtypes}, ",
+                f"Got dtype={input.dtype}",
+            ],
+        )
+
+    if dtype not in valid_target_dtypes:
+        raise_error(
+            f"Unsupported dtype in {op_str}.",
+            [
+                f"Supported dtypes are: {valid_target_dtypes}. ",
+                f"Got dtype={dtype}",
+            ],
+        )
+
+    quantizable_dtype, quantized_dtype = (input.dtype, dtype) if is_quantize else (dtype, input.dtype)
+    if scale.dtype != quantizable_dtype:
+        raise_error(
+            f"Scale dtype does not match input dtype in {op_str}.",
+            [f"scale should have dtype={quantizable_dtype}, got {scale.dtype}"],
+        )
+
+    if dim is not None:
+        # per-channel
+        if scale.rank != 1:
+            raise_error(
+                f"If dim is given, scale must be a 1-D tensor in per-channel {op_str}.",
+                [f"scale has rank={scale.rank}."],
+            )
+    elif scale.rank == 2:
+        # block-wise:
+        if input.rank != 2:
+            raise_error(
+                f"Input must be a 2-D tensor in block-wise {op_str}.",
+                [f"input has rank={input.rank}."],
+            )
+        if quantized_dtype != tp_dtype.int4:
+            raise_error(
+                f"Unsupported dtype in block-wise {op_str}.",
+                [f"Only `tp.int4` is supported, got {quantized_dtype}"],
+            )
+    elif scale.rank != 0:
+        # per-tensor
+        raise_error(
+            f"Scale must be a scalar tensor in per-tensor {op_str}.",
+            [f"scale has rank={scale.rank}."],
+        )

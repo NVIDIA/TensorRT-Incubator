@@ -79,7 +79,9 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     <!--
     ```
     (?s).*?
-    Do people really like using ONNX\? You're actually using OX\? You're actually
+    Do people really like using ONNX\?
+
+    And then I'm not even though I
     ```
      -->
     <!-- Tripy: EXPECTED_STDOUT End -->

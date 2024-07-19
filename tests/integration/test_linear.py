@@ -42,7 +42,6 @@ class TestLinear:
         assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
 
 
-@pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219")
 class TestQuantLinear:
     def _create_network(self, use_input_scale, quant_dtype, weight_quant_dim):
         out_feat = 2
@@ -107,10 +106,10 @@ class TestQuantLinear:
     @pytest.mark.parametrize(
         "weight_quant_dim, scale",
         [
-            (None, tp.ones((2, 4))),
+            (None, cp.ones((2, 4), dtype=cp.float32)),
             (None, 1.0),
-            (0, tp.ones((8,))),
-            (1, tp.ones((4,))),
+            (0, cp.ones((8,), dtype=cp.float32)),
+            (1, cp.ones((4,), dtype=cp.float32)),
         ],
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )

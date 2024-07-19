@@ -52,6 +52,7 @@ class ConstantOp(BaseFlatIROp):
             constant_op = stablehlo.ConstantOp(attr)
             return [stablehlo.ConvertOp(result=cast_output, operand=constant_op)]
 
+        assert self.data.dtype == self.outputs[0].dtype
         attr = ir.DenseElementsAttr.get(
             array=memref_value, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=self.data.shape
         )

@@ -71,6 +71,7 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
         "float16": tripy.common.datatype.float16,
         "float32": tripy.common.datatype.float32,
         "float64": tripy.common.datatype.float64,
+        "bfloat16": tripy.common.datatype.bfloat16,
         "bool": tripy.common.datatype.bool,
     }
 

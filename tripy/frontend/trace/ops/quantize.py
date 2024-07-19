@@ -4,9 +4,10 @@ from typing import Any, Union
 from tripy import export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
-from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
 from tripy.frontend import utils as frontend_utils
+from tripy.frontend.trace.ops import utils as op_utils
+from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.frontend.dim import dynamic_dim
 
 
 @dataclass(repr=False)
@@ -19,13 +20,102 @@ class Quantize(BaseTraceOp):
         self.outputs[0].dtype = self.dtype
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import QuantizeOp
+        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.flat_ir.ops import (
+            ClampOp,
+            ConvertOp,
+            ConstantOp,
+            ConcatenateOp,
+            DynamicBroadcastOp,
+            DynamicReshapeOp,
+            DivideOp,
+            RoundNearestEvenOp,
+        )
+        from tripy.common.datatype import int32
 
-        QuantizeOp.build(inputs, outputs, self.dim)
+        if not isinstance(inputs[1].producer, ConstantOp):
+            raise_error("Scale must be a constant tensor in quantize op.")
+
+        # Represent quantize as clamp(round((input / scale))) + convert(dtype)
+        scaled_tensor = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            rank=inputs[0].rank,
+            dtype=inputs[0].dtype,
+            device=inputs[0].device,
+            reason_details=["Compute the scaled tensor by dividing input with scale."],
+        )
+        broadcast_scale = FlatIRTensor.build(
+            shape=inputs[0].shape,  # broadcast to input's shape
+            rank=inputs[0].rank,
+            dtype=inputs[1].dtype,
+            device=inputs[1].device,
+            reason_details=["Broadcast the scale to the input's shape in quantize operation."],
+        )
+        if inputs[1].rank == 0 or inputs[1].rank == 1:
+            shape_of_input = op_utils.get_shape_of_tensor(inputs[0])
+            broadcast_dim = [self.dim] if self.dim is not None else []
+            DynamicBroadcastOp.build([inputs[1], shape_of_input], [broadcast_scale], broadcast_dim=broadcast_dim)
+        else:
+            # block-wise quant, input: [block_size * A, B], scale: [A, B]
+            # Broadcast(scale) -> [block_size, A, B]
+            # Reshape(scale) -> [block_size * A, B]
+            # Divide(input, scale)
+            num_blocks = FlatIRTensor.build(
+                shape=(dynamic_dim(1),),
+                rank=1,
+                dtype=int32,
+                device=inputs[0].device,
+                reason_details=["Compute the number of blocks in block-wise quantization"],
+            )
+            blocked_shape = FlatIRTensor.build(
+                shape=(dynamic_dim(3),),
+                rank=1,
+                dtype=int32,
+                device=inputs[0].device,
+                reason_details=["Compute shape with an extra blocked_size dimension."],
+            )
+            blocked_scale = FlatIRTensor.build(
+                shape=(dynamic_dim(-1), dynamic_dim(-1), dynamic_dim(-1)),
+                rank=3,
+                dtype=inputs[1].dtype,
+                device=inputs[1].device,
+                reason_details=["Construct the scale to have an extra block_size dimension."],
+            )
+
+            input_dim0 = op_utils.get_dim_size_1d_tensor(inputs[0], dim=0)
+            scale_dim0 = op_utils.get_dim_size_1d_tensor(inputs[1], dim=0)
+            feat_dim = op_utils.get_dim_size_1d_tensor(inputs[1], dim=1)
+            DivideOp.build([input_dim0, scale_dim0], [num_blocks])
+            ConcatenateOp.build([num_blocks, scale_dim0, feat_dim], [blocked_shape], dim=0)
+            DynamicBroadcastOp.build([inputs[1], blocked_shape], [blocked_scale], broadcast_dim=[1, 2])
+            origin_input_shape = op_utils.get_shape_of_tensor(inputs[0])
+            DynamicReshapeOp.build([blocked_scale, origin_input_shape], [broadcast_scale])
+
+        DivideOp.build([inputs[0], broadcast_scale], [scaled_tensor])
+
+        rounded_tensor = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            rank=inputs[0].rank,
+            dtype=inputs[0].dtype,
+            device=inputs[0].device,
+            reason_details=["Perform round-to-nearest-even on the scaled tensor in quantize operation"],
+        )
+        RoundNearestEvenOp.build([scaled_tensor], [rounded_tensor])
+
+        clamped_tensor = FlatIRTensor.build(
+            shape=inputs[0].shape,
+            rank=inputs[0].rank,
+            dtype=inputs[0].dtype,
+            device=inputs[0].device,
+            reason_details=["Perform clamp on the rounded tensor in quantize operation"],
+        )
+        clamp_min, clamp_max = op_utils.get_clamp_min_max(inputs[0].dtype, outputs[0].dtype)
+        ClampOp.build([clamp_min, rounded_tensor, clamp_max], [clamped_tensor])
+
+        ConvertOp.build([clamped_tensor], outputs)
 
 
 @export.public_api(document_under="tensor_operations")
-# TODO(#111): remove this after switching to stablehlo
 @frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 def quantize(
     input: "tripy.Tensor",
@@ -61,7 +151,7 @@ def quantize(
 
     Args:
         input: The input tensor with data type of :class:`float32` or :class:`float16`.
-        scale: The scale tensor
+        scale: The scale tensor. Must be a constant tensor.
         dtype: The quantization data type. Must be a valid quantized data type (see above).
         dim: The dimension for per-channel quantization
 
@@ -85,10 +175,10 @@ def quantize(
 
         input = tp.Tensor([[0, 1, 2], [3, 4, 5]], dtype=tp.float32)
         scale = [0.99872, 0.96125]
-        # output = tp.quantize(input, scale, tp.int8, dim=0)
+        output = tp.quantize(input, scale, tp.int8, dim=0)
 
-        # expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / np.array(scale).reshape(2, 1)).astype(np.int8) # doc: omit
-        # assert np.array_equal(cp.from_dlpack(output).get(), expected)
+        expected = (np.reshape(np.arange(6, dtype=np.float32), (2, 3)) / np.array(scale).reshape(2, 1)).astype(np.int8) # doc: omit
+        assert np.array_equal(cp.from_dlpack(output).get(), expected)
 
     .. code-block:: python
         :linenos:
@@ -98,39 +188,13 @@ def quantize(
 
         input = tp.Tensor([[0, 1], [2, 3]], dtype=tp.float32)
         scale = [[1.0, 1.0]]
-        # quant = tp.quantize(input, scale, tp.int4)
-        # output = tp.dequantize(quant, scale, tp.float32)
+        quant = tp.quantize(input, scale, tp.int4)
+        output = tp.dequantize(quant, scale, tp.float32)
 
-        # assert np.array_equal(cp.from_dlpack(output).get(), np.array([[0, 1], [2, 3]], dtype=np.float32))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[0, 1], [2, 3]], dtype=np.float32))
 
     .. seealso:: :func:`dequantize`
     """
-    from tripy.frontend.trace.ops.cast import cast
-    from tripy.frontend.trace.ops.utils import is_quantized_dtype
-    from tripy.logging import logger
-
-    SUPPORTED_INPUT_DTYPES = (datatype.float32, datatype.float16, datatype.bfloat16)
-    if input.dtype not in SUPPORTED_INPUT_DTYPES:
-        raise_error(
-            "Input does not have a valid dtype to quantize.",
-            [
-                f"input.dtype must be one of {SUPPORTED_INPUT_DTYPES}, ",
-                f"Got dtype={input.dtype}",
-            ],
-        )
-
-    if not is_quantized_dtype(dtype):
-        raise_error(
-            "Unsupported quantization dtype.",
-            [
-                f"Supported dtypes are: tp.int4, tp.int8, tp.float8.",
-                f"Got dtype={dtype}",
-            ],
-        )
-
-    # TODO(MLIR-TRT #770) Remove scale casting
-    if scale.dtype != datatype.float32:
-        logger.warning(f"Casting scale to `tripy.float32`, original dtype is {scale.dtype}.")
-        scale = cast(scale, datatype.float32)
+    op_utils.check_qdq_args(input, scale, dtype, dim, True)
 
     return Quantize.build([input, scale], dtype, dim)

@@ -92,10 +92,6 @@ class TestDocstrings:
             ), f"Avoid importing {banned_module} in example docstrings"
             assert f"from {banned_module}" not in example_code, f"Avoid importing {banned_module} in example docstrings"
 
-        skip_tests = ["quant", "dequant"]
-        if any(s in example_code for s in skip_tests):
-            pytest.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/219")
-
         helper.exec_code(example_code)
 
     @pytest.mark.parametrize("api", PUBLIC_APIS)
