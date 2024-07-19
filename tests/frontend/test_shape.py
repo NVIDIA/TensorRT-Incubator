@@ -154,6 +154,17 @@ class TestShape:
         assert isinstance(flipped_shape.trace_tensor.producer, Flip)
         assert cp.from_dlpack(flipped_shape).get().tolist() == values[::-1]
 
+    def test_expand(self):
+        from tripy.frontend.trace.ops.expand import Expand
+
+        s = tp.Shape([1])
+        # rank-1 result, so it's wrapped
+        expanded = tp.expand(s, (3,))
+
+        assert isinstance(expanded, tp.Shape)
+        assert isinstance(expanded.trace_tensor.producer, Expand)
+        assert cp.from_dlpack(expanded).get().tolist() == [1, 1, 1]
+
     def test_gather(self, values):
         from tripy.frontend.trace.ops.gather import Gather
 
@@ -271,11 +282,11 @@ class TestShape:
         assert isinstance(c1, tp.Tensor)
         assert cp.from_dlpack(c1).get().tolist() == cp.from_dlpack(c2).get().tolist()
 
-    @pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/240")
-    def test_expand_not_wrapped(self, values):
-        e = tp.expand(tp.Shape(values), (len(values), 1))
+    def test_expand_higher_rank_not_wrapped(self):
+        s = tp.Shape([1])
+        e = tp.expand(s, [3, 1])
         assert not isinstance(e, tp.Shape)
-        assert cp.from_dlpack(e).get().tolist() == [[v] for v in values]
+        assert cp.from_dlpack(e).get().tolist() == [[1] for _ in range(3)]
 
     def test_split(self, values):
         s = tp.Shape(values)

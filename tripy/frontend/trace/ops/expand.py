@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Sequence, Union
 
 from tripy import export, utils
+from tripy.utils import Result
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
@@ -14,8 +15,15 @@ class Expand(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    # The expanded result will not be rank 1, so we don't wrap.
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    def infer_shape_output_idxs(self, inputs) -> Result:
+        from tripy.frontend.shape import Shape
+
+        # wrap if the first input is a shape and the output is rank-1
+        if isinstance(inputs[0], Shape) and (
+            (self.shape and len(self.shape) == 1) or self.get_shape_input_length() == 1
+        ):
+            return Result.ok([0])
+        return Result.ok([])
 
     def infer_rank(self):
         if self.shape:
@@ -27,18 +35,22 @@ class Expand(BaseTraceOp):
                 )
             self.outputs[0].rank = len(self.shape)
         else:
-            from tripy.backend.mlir.utils import ShapeContext
+            output_rank = self.get_shape_input_length()
+            self.outputs[0].rank = output_rank
 
-            out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[1])
-            assert len(out_shape) == 1, f"Rank of sizes tensor is expected to be 1, got {len(out_shape)}."
-            self.outputs[0].rank = out_shape[0]
-
-            if out_shape[0] < self.inputs[0].rank:
+            if output_rank < self.inputs[0].rank:
                 utils.raise_error_io_info(
                     self,
                     "The shape of size tensor must be greater or equal to input tensor's rank.",
-                    [f"Target sizes shape: {out_shape[0]}", f" input rank: {self.inputs[0].rank}"],
+                    [f"Target sizes shape: {output_rank}", f" input rank: {self.inputs[0].rank}"],
                 )
+
+    def get_shape_input_length(self):
+        from tripy.backend.mlir.utils import ShapeContext
+
+        out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[1])
+        assert len(out_shape) == 1, f"Rank of sizes tensor is expected to be 1, got {len(out_shape)}."
+        return out_shape[0]
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicBroadcastOp
