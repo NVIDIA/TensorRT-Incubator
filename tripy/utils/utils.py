@@ -72,6 +72,9 @@ def code_pretty_str(code, filename=None, line_no=None, func=None, enable_color=T
         ), f"If file information is provided, line number and function must also be set."
         line_info = f"--> {apply_color(filename, Fore.yellow)}:{line_no} in {apply_color(func + '()', Fore.cyan)}"
 
+    if not code:
+        return line_info
+
     INDENTATION = 4
 
     def make_line_no_str(index):

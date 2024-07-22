@@ -11,7 +11,7 @@ def raise_error_io_info(
     op: Union["BaseTraceOp", "BaseFlatIROp"], summary: str, details: List[Any] = None, include_inputs: bool = True
 ) -> None:
     details = default(details, ["This originated from the following expression:"])
-    details += [":"] + op.outputs
+    details += [":"] + op.outputs + ["\n"]
     if include_inputs:
         for index, inp in enumerate(op.inputs):
             details.extend([f"{Fore.magenta}Input {index} was:{Style.reset}", inp])

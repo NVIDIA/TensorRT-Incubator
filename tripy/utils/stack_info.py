@@ -17,7 +17,7 @@ class SourceInfo:
     """The line number"""
     function: str
     """The name of the function"""
-    code: str
+    code: Optional[str]
     """Code corresponding to the file and line number. To save space, this is not available for all frames."""
     _dispatch_target: str
     """If this stack frame is from a dispatch function in the function registry, this field indicates which function it's dispatching to"""
@@ -69,7 +69,7 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             file=frame.filename,
             line=frame.lineno,
             function=frame.function,
-            code="",
+            code=None,
             _dispatch_target="",
             column_range=None,
         )

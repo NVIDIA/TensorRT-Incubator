@@ -31,7 +31,7 @@ class TestGetStackInfo:
             file=__file__,
             line=expected_outer_line_num,
             function=self.test_get_stack_info.__name__,
-            code="",
+            code=None,
             _dispatch_target="",
             column_range=None,
         )

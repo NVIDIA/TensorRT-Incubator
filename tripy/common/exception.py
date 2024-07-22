@@ -1,7 +1,7 @@
 import inspect
 from dataclasses import dataclass
 from textwrap import indent
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Optional
 
 from colored import Fore, Style
 
@@ -74,7 +74,7 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     return frame_info
 
 
-def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> str:
+def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
     import tripy.function_registry
     from tripy.frontend.utils import convert_inputs_to_tensors
 
@@ -95,7 +95,7 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
     frame_strs = []
     num_frames_printed = 0
     for index, source_info in enumerate(stack_info):
-        if not source_info.code:
+        if source_info.code is None:
             continue
 
         if source_info.module == tripy.function_registry.__name__:
@@ -116,7 +116,8 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
 
     if frame_strs:
         return "".join(frame_strs)
-    return "\n\n<No stack information available>\n\n"
+
+    return None
 
 
 def raise_error(summary: str, details: List[Any] = []):
@@ -148,10 +149,14 @@ def raise_error(summary: str, details: List[Any] = []):
 
     detail_msg = ""
     for detail in details:
+        stack_info_message = None
         if hasattr(detail, "stack_info"):
-            detail_msg += _make_stack_info_message(detail.stack_info)
+            stack_info_message = _make_stack_info_message(detail.stack_info)
         elif isinstance(detail, utils.StackInfo):
-            detail_msg += _make_stack_info_message(detail)
+            stack_info_message = _make_stack_info_message(detail)
+
+        if stack_info_message is not None:
+            detail_msg += stack_info_message
         else:
             detail_msg += str(detail)
 

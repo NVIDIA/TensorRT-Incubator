@@ -91,7 +91,7 @@ class TestTensor:
             # We don't check line number within tp.Tensor because it's difficult to determine.
             line=a.stack_info[0].line,
             function=tp.Tensor.__init__.__name__,
-            code="",
+            code=None,
             _dispatch_target="",
             column_range=None,
         )
