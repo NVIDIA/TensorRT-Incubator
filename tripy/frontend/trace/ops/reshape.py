@@ -120,8 +120,8 @@ def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
     Args:
         input: The input tensor.
         shape: The desired compatible shape. If a shape dimension is -1, its value
-        is inferred based on the other dimensions and the number of elements in the input.
-        Atmost one dimension can be -1.
+            is inferred based on the other dimensions and the number of elements in the input.
+            Atmost one dimension can be -1.
 
     Returns:
         A new tensor of the same data type as the input tensor and the specified shape.

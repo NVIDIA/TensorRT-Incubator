@@ -9,6 +9,7 @@ from textwrap import dedent, indent
 
 import tripy as tp
 from tests import helper
+from tripy.dtype_info import TYPE_VERIFICATION
 
 
 PARAM_PAT = re.compile(":param .*?:")
@@ -114,7 +115,6 @@ seen_classes = set()
 def process_docstring(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
-
     # Check signature for functions/methods and class constructors.
     if what in {"function", "method"} or (what == "class" and name in seen_classes):
         signature = inspect.signature(obj)
@@ -159,6 +159,41 @@ def process_docstring(app, what, name, obj, options, lines):
                 assert (
                     ":returns:" in doc
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
+
+    # new docstring logic:
+    # first figure out if we should it is the new docstring
+    if name.split(".")[-1] in TYPE_VERIFICATION.keys():
+        cleaned_name = name.split(".")[-1]
+        add_text_index = -1
+        for index, block in enumerate(blocks):
+            if re.search(r".. code-block::", block):
+                type_dict = TYPE_VERIFICATION[cleaned_name][1]["types"]
+                blocks.insert(index, "Type Constraints:")
+                index += 1
+                for type_name, dt in type_dict.items():
+                    blocks.insert(index, f"    - {type_name}: " + ", ".join(dt))
+                    index += 1
+                blocks.insert(index, "\n")
+                break
+            if re.search(r":param \w+: ", block):
+                add_text_index = re.search(r":param \w+: ", block).span()[1]
+                param_name = re.match(r":param (\w+): ", block).group(1)
+                blocks[index] = (
+                    block[0:add_text_index]
+                    + "[dtype="
+                    + TYPE_VERIFICATION[cleaned_name][2][param_name]
+                    + "] "
+                    + block[add_text_index:]
+                )
+            if re.search(r":returns:", block):
+                add_text_index = re.search(r":returns:", block).span()[1] + 1
+                blocks[index] = (
+                    block[0:add_text_index]
+                    + "[dtype="
+                    + list(TYPE_VERIFICATION[cleaned_name][1]["returns"].values())[0]["dtype"]
+                    + "] "
+                    + block[add_text_index:]
+                )
 
     seen_classes.add(name)
 
