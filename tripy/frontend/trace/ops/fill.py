@@ -8,6 +8,7 @@ from tripy.common.types import ShapeInfo
 from tripy.common.utils import is_supported_array_type
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
+import tripy.frontend.utils as frontend_utils
 
 
 @dataclass(repr=False)
@@ -34,10 +35,9 @@ class Fill(BaseTraceOp):
             out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
             assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
             assert (
-                out_shape[0] > 0
+                out_shape[0] >= 0
             ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
-            self.inputs[0].shape = utils.to_dims(out_shape)
-            self.outputs[0].rank = self.inputs[0].shape[0].runtime_value
+            self.outputs[0].rank = utils.to_dims(out_shape)[0].runtime_value
         else:
             self.outputs[0].rank = len(self.shape)
 
@@ -47,8 +47,6 @@ class Fill(BaseTraceOp):
         from tripy.flat_ir.ops import ConstantOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.frontend.tensor import convert_list_data_to_array
-        from tripy.frontend.trace.ops.cast import cast
-        import tripy.common.datatype as datatype
 
         const_val_tensor = FlatIRTensor.build(
             rank=0,
@@ -94,6 +92,7 @@ class FillLike(Fill):
 
 
 @export.public_api(document_under="tensor_operations")
+@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["value", "dtype"])
 def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     """
     Returns a tensor of the desired shape with all values set to the specified value.
@@ -115,6 +114,7 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
         assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
     """
     from tripy.frontend import Shape
+    from tripy.frontend.trace.ops.reshape import reshape
 
     if isinstance(shape, Shape):
         return Fill.build([shape], value, None, dtype, True)
