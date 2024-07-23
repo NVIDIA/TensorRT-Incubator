@@ -114,6 +114,8 @@ from tripy.common import datatype, device
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
+
 
 # Just like with `FlatIR` operators, all `Trace` operators are implemented as `dataclass`es.
 # As before, we want `repr=False` here.
@@ -122,8 +124,12 @@ class Theta(BaseTraceOp):
     # Notice that we do *not* need to define a constructor and can rely on the default
     # implementation provided by `dataclass`.
     dim: int
-    output_shape : ShapeInfo
     dtype: datatype.dtype
+
+    # The `infer_shape_output_idxs` method should indicate which outputs of this operator represent shapes. 
+    # The corresponding outputs will be wrapped as `tripy.Shape` objects instead of regular `tripy.Tensor`s. 
+    # Our `Theta` operation should never return shapes, so we can use the corresponding preexisting policy. 
+    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
@@ -141,7 +147,16 @@ class Theta(BaseTraceOp):
     # For most operators, the output rank will depend on the rank of `self.inputs`.
     # In our case, since `Theta` generates a tensor, there is no input tensor.
     def infer_rank(self):
-        self.outputs[0].rank = len(self.output_shape)
+        from tripy.backend.mlir.utils import ShapeContext
+
+        # `self.inputs[0]` indicates the desired shape of the output. 
+        # Here, we compute the number of elements in the shape tensor, which determines the rank of the output.
+        out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
+        assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
+        assert (
+            out_shape[0] >= 0
+        ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
+        self.outputs[0].rank = utils.to_dims(out_shape)[0].runtime_value
 
     # `to_flat_ir()` translates the `Trace` operator to a subgraph of
     # one or more `FlatIR` operators. In our case, it's just a 1:1
@@ -152,17 +167,10 @@ class Theta(BaseTraceOp):
         from tripy.flat_ir.ops import ThetaOp
         import tripy.frontend.trace.ops.utils as op_utils
 
-        output_shape = op_utils.add_constant_tensor_from_list(
-                [s.runtime_value for s in self.output_shape], device=outputs[0].device
-        )
         # This code may look a bit confusing; for more details, look at the
         # 'FlatIR section in the architecture document' (linked below).
-        ThetaOp.build([output_shape], outputs, dim=self.dim)
+        ThetaOp.build(inputs, outputs, dim=self.dim)
 ```
-
-<!-- TODO: Update this documentation once dynamic shapes are implemented -->
-**If you're seeing this and dynamic shapes have already been implemented, please notify us so we**
-    **can update the documentation.**
 
 Links:
 - [FlatIR section in the architecture document](project:./architecture.md#lowering-to-flatir)
@@ -182,6 +190,7 @@ it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 ```py
 # doc: no-eval
 from tripy import export
+import tripy.frontend.utils as frontend_utils
 
 # We can use the `export.public_api()` decorator to automatically export this function into the
 # top-level module. This means it will be accessible as `tripy.theta`.
@@ -191,6 +200,11 @@ from tripy import export
 #
 # If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
+
+# The `convert_inputs_to_tensors` decorator converts function arguments to Tensors.
+# This is what makes it possible for the user to use Python numbers in Tripy functions (e.g. `tensor + 1`)
+# In this case, we want `shape` to turn into a `tripy.Shape` instead of a regular `Tensor`. 
+@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dim", "dtype"])
 def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here
@@ -221,24 +235,12 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
-    # We first validate the input parameters. By using `raise_error`, we can ensure that
-    # the generated error will be nicely formatted. Additionally, if any of the items in
-    # the `details` argument contain stack information, it will be displayed automatically.
-    if dim < 0 or dim >= len(shape):
-        raise_error(
-            "Invalid theta dim.",
-            details=[
-                "theta dim must be satisfy 0 <= dim < rank(shape), got dim=",
-                dim,
-                ", while rank of shape is ",
-                len(shape),
-            ],
-        )
-
+    
     # Next we build the trace operator. The `build()` function is also responsible for constructing
-    # the output frontend Tensors. All of the arguments that follow the inputs (an empty list here)
+    # the output frontend Tensors. All of the arguments that follow the inputs
     # are forwarded directly to the constructor of the `Trace` operator.
-    return Theta.build([], dim, utils.to_dims(shape), dtype)
+    return Theta.build([shape], dim, dtype)
+
 ```
 
 <!--
@@ -305,6 +307,7 @@ To do so, we can simply use the public API, generate a `Trace`, and convert to `
 ```py
 # doc: no-eval
 import pytest
+import re
 
 import tripy as tp
 from tests import helper
@@ -332,9 +335,9 @@ class TestThetaOp:
     def test_str(self, flat_ir):
         Theta = flat_ir.ops[-1]
         assert isinstance(Theta, ThetaOp)
-        assert (
-            str(Theta)
-            == "out: [rank=(2), shape=(?, ?,), dtype=(float32), loc=(gpu:0)] = ThetaOp(t_inter1, dim=0)"
+        assert re.match(
+            r"out: \[rank=\(2\), shape=\(\?\, \?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = ThetaOp\(t[0-9]+, dim=0\)",
+            str(Theta),
         )
 
 
@@ -380,14 +383,13 @@ class TestTheta:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Theta)
 
-
     # You should also include negative tests for anything that is expected to
-    # fail in the frontend. In our case, we just have `test_invalid_dim`,
+    # fail. In our case, we just have `test_invalid_dim`,
     # which ensures that we emit an error if the `dim` parameter is outside
     # the allowed range.
     def test_invalid_dim(self):
-        with helper.raises(tp.TripyException, match="Invalid theta dim."):
-            tp.theta([2, 3], dim=3)
+        with helper.raises(tp.TripyException, match="iota dimension cannot go beyond the output rank or be negative."):
+            tp.theta([2, 3], dim=3).eval()
 ```
 
 
@@ -412,6 +414,7 @@ def test_multi_dimensional():
     expected = np.broadcast_to(np.arange(0, 3, dtype=np.float32), (2, 3))
 
     assert np.array_equal(cp.from_dlpack(output).get(), expected)
+
 ```
 
 ## Done!
