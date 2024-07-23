@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-import cupy as cp
 import pytest
 import torch
 
@@ -60,7 +59,6 @@ test_cases_3d = [
 class TestConvolution:
     @pytest.mark.parametrize("test_case", test_cases_1d)
     def test_convolution_1d(self, torch_dtype, tp_dtype, test_case):
-        # TODO (#138): Switch to tripy random for tests
         if not test_case.torch_pad:
             test_case.torch_pad = 0
         if not test_case.stride:
@@ -68,7 +66,7 @@ class TestConvolution:
         if not test_case.dilation:
             test_case.dilation = (1,)
 
-        input_torch = torch.randn((2, 4, 5), dtype=torch.float32, device=torch.device("cuda"))
+        input_torch = torch.arange(40, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 4, 5))
         input = tp.cast(tp.Tensor(input_torch), tp_dtype)
 
         conv_layer_torch = torch.nn.Conv1d(
@@ -83,6 +81,12 @@ class TestConvolution:
             dtype=torch.float32,
             device=torch.device("cuda"),
         )
+        fixed_weights = torch.tensor(
+            [[[0.1, 0.2, 0.3]] * int(4 / conv_layer_torch.groups)] * 8,
+            dtype=torch.float32,
+            device=torch.device("cuda"),
+        )
+        conv_layer_torch.weight.data = fixed_weights
         for param in conv_layer_torch.parameters():
             param.requires_grad = False
         conv_layer = tp.Conv(
@@ -104,9 +108,9 @@ class TestConvolution:
         output = conv_layer(input)
 
         # FP32 kernel seems to lose some precision, and FP16 needs to be run in FP32 on torch
-        atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
+        rtol_ = 4e-5 if tp_dtype == tp.float32 else 1e-3
         output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, atol=atol_)
+        assert torch.allclose(output_torch, expected, rtol=rtol_)
         assert output_torch.shape == expected.shape
 
     @pytest.mark.parametrize("test_case", test_cases_2d)
@@ -118,7 +122,7 @@ class TestConvolution:
         if not test_case.dilation:
             test_case.dilation = (1, 1)
 
-        input_torch = torch.randn((2, 4, 5, 5), dtype=torch.float32, device=torch.device("cuda"))
+        input_torch = torch.arange(200, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 4, 5, 5))
         input = tp.cast(tp.Tensor(input_torch), tp_dtype)
 
         conv_layer_torch = torch.nn.Conv2d(
@@ -133,6 +137,12 @@ class TestConvolution:
             dtype=torch.float32,
             device=torch.device("cuda"),
         )
+        fixed_weights = torch.tensor(
+            [[[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]] * int(4 / (conv_layer_torch.groups))] * 8,
+            dtype=torch.float32,
+            device=torch.device("cuda"),
+        )
+        conv_layer_torch.weight.data = fixed_weights
         for param in conv_layer_torch.parameters():
             param.requires_grad = False
         conv_layer = tp.Conv(
@@ -153,9 +163,9 @@ class TestConvolution:
         expected = conv_layer_torch(input_torch).to(torch_dtype)
         output = conv_layer(input)
 
-        atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
+        rtol_ = 2e-7 if tp_dtype == tp.float32 else 1.5e-3
         output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, atol=atol_)
+        assert torch.allclose(output_torch, expected, rtol=rtol_)
         assert output_torch.shape == expected.shape
 
     @pytest.mark.parametrize("test_case", test_cases_3d)
@@ -167,7 +177,7 @@ class TestConvolution:
         if not test_case.dilation:
             test_case.dilation = (1, 1, 1)
 
-        input_torch = torch.randn((2, 4, 5, 5, 5), dtype=torch.float32, device=torch.device("cuda"))
+        input_torch = torch.arange(1000, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 4, 5, 5, 5))
         input = tp.cast(tp.Tensor(input_torch), tp_dtype)
 
         conv_layer_torch = torch.nn.Conv3d(
@@ -182,6 +192,12 @@ class TestConvolution:
             dtype=torch.float32,
             device=torch.device("cuda"),
         )
+        fixed_weights = torch.tensor(
+            [[[[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]] * 3] * int(4 / (conv_layer_torch.groups))] * 8,
+            dtype=torch.float32,
+            device=torch.device("cuda"),
+        )
+        conv_layer_torch.weight.data = fixed_weights
         for param in conv_layer_torch.parameters():
             param.requires_grad = False
         conv_layer = tp.Conv(
@@ -212,13 +228,13 @@ class TestConvolution:
         expected = conv_layer_torch(input_torch).to(torch_dtype)
         output = conv_layer(input)
 
-        atol_ = 1e-3 if tp_dtype == tp.float32 else 2e-2  # 3d conv has greater accumulation error
+        rtol_ = 2.8e-5 if tp_dtype == tp.float32 else 1.4e-3  # 3d conv has greater accumulation error
         output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, atol=atol_)
+        assert torch.allclose(output_torch, expected, rtol=rtol_)
         assert output_torch.shape == expected.shape
 
     def test_uneven_padding(self, torch_dtype, tp_dtype):
-        input_torch = torch.randn((2, 4, 5, 5), dtype=torch.float32, device=torch.device("cuda"))
+        input_torch = torch.arange(200, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 4, 5, 5))
         input = tp.cast(tp.Tensor(input_torch), tp_dtype)
 
         tp_pad = ((3, 1), (1, 2))
@@ -227,6 +243,12 @@ class TestConvolution:
         conv_layer_torch = torch.nn.Conv2d(
             4, 8, 3, padding=0, bias=False, dtype=torch.float32, device=torch.device("cuda")
         )
+        fixed_weights = torch.tensor(
+            [[[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]] * int(4 / (conv_layer_torch.groups))] * 8,
+            dtype=torch.float32,
+            device=torch.device("cuda"),
+        )
+        conv_layer_torch.weight.data = fixed_weights
         for param in conv_layer_torch.parameters():
             param.requires_grad = False
         conv_layer = tp.Conv(
@@ -243,7 +265,7 @@ class TestConvolution:
         expected = conv_layer_torch(input_torch).to(torch_dtype)
         output = conv_layer(input)
 
-        atol_ = 1e-3 if tp_dtype == tp.float32 else 5e-3
+        rtol_ = 2e-7 if tp_dtype == tp.float32 else 2e-3
         output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, atol=atol_)
+        assert torch.allclose(output_torch, expected, rtol=rtol_)
         assert output_torch.shape == expected.shape

@@ -7,10 +7,6 @@ from tests import helper
 from tests.conftest import skip_if_older_than_sm89
 
 
-def create_random_matrix(shape):
-    return np.random.rand(*shape).astype(np.float32)
-
-
 class TestLinear:
     @pytest.mark.parametrize(
         "use_jit",

@@ -2,6 +2,7 @@ import cupy as cp
 import pytest
 
 import tripy as tp
+import numpy as np
 
 
 def compare_split_results(tp_out, reference_out):
@@ -34,7 +35,7 @@ class TestSplitOp:
         ],
     )
     def test_split_static(self, dims_a, split_params, reference_slices, use_jit):
-        a_cp = cp.random.rand(*dims_a).astype(cp.float32)
+        a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(cp.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(t):
@@ -63,7 +64,7 @@ class TestSplitOp:
     )
     def test_split_dynamic(self, dynamic_dims_a, split_params, reference_slices, use_jit):
         concrete_dims = tuple([d.runtime_value for d in dynamic_dims_a])
-        a_cp = cp.random.rand(*concrete_dims).astype(cp.float32)
+        a_cp = cp.arange(np.prod(concrete_dims)).reshape(concrete_dims).astype(cp.float32)
         a = tp.Tensor(a_cp, shape=dynamic_dims_a, device=tp.device("gpu"))
 
         def func(a):

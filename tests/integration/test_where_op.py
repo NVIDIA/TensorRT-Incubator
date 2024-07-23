@@ -18,23 +18,15 @@ class TestWhereOp:
             ((0,), (1,), (1,)),  # 0 dim in the condition
         ],
     )
-    @pytest.mark.skip("Test segfaults due to https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/886")
     def test_where_broadcast_shapes(self, cond, x, y):
-        rand_x = np.random.uniform(
-            low=0.0,
-            high=2.0,
-            size=x,
-        ).astype(np.float32)
-        rand_y = np.random.uniform(low=0.0, high=2.0, size=y).astype(np.float32)
-        rand_cond = np.random.uniform(low=0.0, high=2.0, size=cond).astype(np.float32)
-
-        a = Tensor(rand_x)
-        b = Tensor(rand_y)
-        condition = tp.ones(cond) >= Tensor(rand_cond)
+        x = np.arange(np.prod(x)).reshape(x).astype(np.float32)
+        y = np.arange(np.prod(y)).reshape(y).astype(np.float32)
+        t_cond = np.arange(np.prod(cond)).reshape(cond).astype(np.float32)
+        a = Tensor(x)
+        b = Tensor(y)
+        condition = Tensor(t_cond % 2 == 0)
         out = tp.where(condition, a, b)
-        assert np.array_equal(
-            cp.from_dlpack(out).get(), np.array(np.where((np.ones(cond) >= rand_cond), rand_x, rand_y))
-        )
+        assert np.array_equal(cp.from_dlpack(out).get(), np.array(np.where((t_cond % 2 == 0), x, y)))
 
     def test_explicit_condition(self):
         # select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)

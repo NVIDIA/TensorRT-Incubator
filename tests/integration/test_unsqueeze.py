@@ -26,7 +26,8 @@ class TestUnsqueezeOp:
         def get_np_dims(dims, dim_func):
             return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
-        a_np = np.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(np.float32)
+        dims = get_np_dims(dims_a, lambda x: x.runtime_value)
+        a_np = np.arange(np.prod(dims)).reshape(dims).astype(np.float32)
         a = tp.Tensor(cp.asarray(a_np), shape=dims_a)
 
         def func(a):

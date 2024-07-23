@@ -46,8 +46,16 @@ class TestConcatenate:
         def get_np_dims(dims, dim_func):
             return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
-        a_cp = cp.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(cp.float32)
-        b_cp = cp.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(cp.float32)
+        a_cp = (
+            cp.arange(np.product(get_np_dims(dims_a, lambda x: x.runtime_value)))
+            .reshape(shape=get_np_dims(dims_a, lambda x: x.runtime_value))
+            .astype(cp.float32)
+        )
+        b_cp = (
+            cp.arange(np.product(get_np_dims(dims_b, lambda x: x.runtime_value)))
+            .reshape(shape=get_np_dims(dims_b, lambda x: x.runtime_value))
+            .astype(cp.float32)
+        )
 
         a = tp.Tensor(a_cp, shape=dims_a, device=tp.device("gpu"))
         b = tp.Tensor(b_cp, shape=dims_b, device=tp.device("gpu"))

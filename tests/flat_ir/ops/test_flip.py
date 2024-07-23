@@ -34,7 +34,7 @@ def flip_params(request):
 @pytest.fixture
 def flat_ir(flip_params):
     shape, dims, _ = flip_params
-    np_a = np.random.rand(*shape).astype(np.float32)
+    np_a = np.arange(np.prod(shape)).reshape(shape).astype(np.float32)
     a = tp.Tensor(np_a, shape=shape, dtype=tp.float32, name="a")
     out = tp.flip(a, dims=dims)
     out.name = "out"

@@ -159,11 +159,11 @@ class TestJIT:
         assert len(jitted_func.cache) == 2
 
     def test_dynamic_shapes(self):
-        random_data = cp.random.rand(3).astype(np.float32)
+        data = cp.arange(3).astype(np.float32)
         dynamic_dim = tp.dynamic_dim(3, min=2, opt=3, max=10)
 
-        a = tp.Tensor(random_data, shape=(dynamic_dim,), device=tp.device("gpu"))
-        b = tp.Tensor(random_data, shape=(dynamic_dim,), device=tp.device("gpu"))
+        a = tp.Tensor(data, shape=(dynamic_dim,), device=tp.device("gpu"))
+        b = tp.Tensor(data, shape=(dynamic_dim,), device=tp.device("gpu"))
 
         @tp.jit
         def add(a, b):
@@ -171,7 +171,7 @@ class TestJIT:
 
         # Compile once with dynamic shapes
         out = add(a, b)
-        assert cp.array_equal(cp.from_dlpack(out), random_data + random_data)
+        assert cp.array_equal(cp.from_dlpack(out), data + data)
 
         # We should be able to use other shapes without recompiling
         a = tp.ones((6,))
@@ -183,8 +183,8 @@ class TestJIT:
         assert len(list(add.cache.values())[0]) == 1
 
     def test_print_warnings(self, capsys):
-        random_data = cp.random.rand(3).astype(np.float32)
-        a = tp.Tensor(random_data, device=tp.device("gpu"))
+        data = cp.arange(3).astype(np.float32)
+        a = tp.Tensor(data, device=tp.device("gpu"))
 
         @tp.jit
         def add(a):
@@ -198,8 +198,8 @@ class TestJIT:
         assert "Usage of print statement in jitted functions is not recommended" in captured.out
 
     def test_print_warnings_nested_class(self, capsys):
-        random_data = cp.random.rand(3, 4).astype(np.float32)
-        a = tp.Tensor(random_data, device=tp.device("gpu"))
+        data = cp.arange(12).reshape((3, 4)).astype(np.float32)
+        a = tp.Tensor(data, device=tp.device("gpu"))
 
         class Dummy(tp.Module):
             def __init__(self):
@@ -233,8 +233,8 @@ class TestJIT:
 
     def test_jit_warn_illegal_behavior(self, capsys):
 
-        random_data = cp.random.rand(3).astype(np.float32)
-        a = tp.Tensor(random_data, device=tp.device("gpu"))
+        data = cp.arange(3).astype(np.float32)
+        a = tp.Tensor(data, device=tp.device("gpu"))
 
         with patch("pdb.set_trace"):
 

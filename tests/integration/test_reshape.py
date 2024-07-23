@@ -17,7 +17,7 @@ class TestReshape:
         ],
     )
     def test_static_reshape(self, shape, new_shape):
-        cp_a = cp.random.rand(*shape).astype(np.float32)
+        cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
         a = tp.Tensor(cp_a, shape=shape, device=tp.device("gpu"))
         b = tp.reshape(a, new_shape)
         if -1 in new_shape:

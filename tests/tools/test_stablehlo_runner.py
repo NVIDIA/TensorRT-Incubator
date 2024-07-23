@@ -14,8 +14,8 @@ from tripy.frontend.trace import Trace
 def init_mlir_textual():
 
     # Ensure big matrix so that mlir_textual has constants hidden.
-    a_cp = cp.random.rand(4).astype(cp.float32)
-    b_cp = cp.random.rand(2, 4).astype(cp.float32)
+    a_cp = cp.arange(4).astype(cp.float32)
+    b_cp = cp.arange(8).reshape((2, 4)).astype(cp.float32)
 
     a = tp.Tensor(a_cp)
     b = tp.Tensor(b_cp)

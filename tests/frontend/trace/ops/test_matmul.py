@@ -9,9 +9,8 @@ from tripy.frontend.trace.ops import MatrixMultiplication
 
 class TestMatMul:
     def test_op_func(self):
-        a = tp.Tensor(np.random.rand(2, 3).astype(np.float32))
-        b = tp.Tensor(np.random.rand(3, 2).astype(np.float32))
-
+        a = tp.Tensor(np.arange(6).reshape((2, 3)).astype(np.float32))
+        b = tp.Tensor(np.arange(6).reshape((2, 3))[::-1].astype(np.float32))
         out = a @ b
         assert isinstance(a, tp.Tensor)
         assert isinstance(out.trace_tensor.producer, MatrixMultiplication)

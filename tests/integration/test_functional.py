@@ -53,8 +53,8 @@ class TestFunctional:
         [False, True],
     )
     def test_static_broadcast_add_two_tensors(self, dim_a, dim_b, use_jit):
-        cp_a = cp.random.rand(*dim_a).astype(np.float32)
-        cp_b = cp.random.rand(*dim_b).astype(np.float32)
+        cp_a = cp.arange(np.prod(dim_a)).reshape(dim_a).astype(np.float32)
+        cp_b = cp.arange(np.prod(dim_b)).reshape(dim_b).astype(np.float32)
         a = tp.Tensor(cp_a, shape=dim_a, device=tp.device("gpu"))
         b = tp.Tensor(cp_b, shape=dim_b, device=tp.device("gpu"))
 
@@ -161,9 +161,9 @@ class TestFunctional:
     def test_weights_loading_from_torch(self, kind):
         with torch.no_grad():
             if kind == "gpu":
-                inp = torch.randn((2, 2), dtype=torch.float32).to("cuda")
+                inp = torch.arange(4, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 2))
             else:
-                inp = torch.randn((2, 2), dtype=torch.float32)
+                inp = torch.arange(4, dtype=torch.float32).reshape(*(2, 2))
 
             if kind == "gpu":
                 torch_linear = torch.nn.Linear(2, 3).to("cuda")
@@ -307,8 +307,16 @@ class TestDynamic:
             def get_np_dims(dims, dim_func):
                 return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
 
-            a_cp = cp.random.rand(*get_np_dims(dims_a, lambda x: x.runtime_value)).astype(cp.float32)
-            b_cp = cp.random.rand(*get_np_dims(dims_b, lambda x: x.runtime_value)).astype(cp.float32)
+            a_cp = (
+                cp.arange(np.prod(get_np_dims(dims_a, lambda x: x.runtime_value)))
+                .reshape(get_np_dims(dims_a, lambda x: x.runtime_value))
+                .astype(np.float32)
+            )
+            b_cp = (
+                cp.arange(np.prod(get_np_dims(dims_b, lambda x: x.runtime_value)))
+                .reshape(get_np_dims(dims_b, lambda x: x.runtime_value))
+                .astype(np.float32)
+            )
 
             a = tp.Tensor(a_cp, shape=dims_a, device=tp.device("gpu"))
             b = tp.Tensor(b_cp, shape=dims_b, device=tp.device("gpu"))
@@ -322,8 +330,16 @@ class TestDynamic:
             assert cp.array_equal(cp.from_dlpack(out), cp.array(a_cp + b_cp))
             print("Re-run dynamic shape test with a different input shape.")
 
-            a_cp = cp.random.rand(*get_np_dims(dims_a, lambda x: x.max)).astype(np.float32)
-            b_cp = cp.random.rand(*get_np_dims(dims_b, lambda x: x.max)).astype(np.float32)
+            a_cp = (
+                cp.arange(np.prod(get_np_dims(dims_a, lambda x: x.max)))
+                .reshape(get_np_dims(dims_a, lambda x: x.max))
+                .astype(np.float32)
+            )
+            b_cp = (
+                cp.arange(np.prod(get_np_dims(dims_b, lambda x: x.max)))
+                .reshape(get_np_dims(dims_b, lambda x: x.max))
+                .astype(np.float32)
+            )
 
             a = tp.Tensor(a_cp, device=tp.device("gpu"))
             b = tp.Tensor(b_cp, device=tp.device("gpu"))

@@ -10,7 +10,7 @@ class TestFlip:
         [0, 1, None, [0, 1], [1, 0], -1, -2, [0, -1], [-2, 1]],
     )
     def test_flip(self, dims):
-        cp_a = cp.random.rand(4, 4).astype(cp.float32)
+        cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
         f = tp.flip(a, dims=dims)
         assert np.array_equal(cp.from_dlpack(f).get(), np.flip(cp_a.get(), axis=dims))
@@ -20,7 +20,7 @@ class TestFlip:
         assert cp.array_equal(cp.from_dlpack(f2), cp_a)
 
     def test_no_op(self):
-        cp_a = cp.random.rand(4, 4).astype(cp.float32)
+        cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
         f = tp.flip(a, dims=[])
         assert cp.array_equal(cp.from_dlpack(a), cp.from_dlpack(f))
@@ -35,7 +35,7 @@ class TestFlip:
         [(0, -2), (1, -1), ([0, 1], None), ([0, 1], [1, 0]), ([0, 1], [-2, -1])],
     )
     def test_equivalences(self, dims1, dims2):
-        cp_a = cp.random.rand(4, 4).astype(cp.float32)
+        cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
         f1 = tp.flip(a, dims=dims1)
         f2 = tp.flip(a, dims=dims2)

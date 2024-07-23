@@ -57,7 +57,7 @@ class TestSliceOp:
         ],
     )
     def test_static_slice_op(self, dims_a, slice_func, use_jit):
-        a_cp = cp.random.rand(*dims_a).astype(np.float32)
+        a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(np.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(a):
