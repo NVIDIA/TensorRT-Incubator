@@ -1,5 +1,6 @@
 import cupy as cp
 import numpy as np
+from functools import reduce
 
 import pytest
 
@@ -68,3 +69,24 @@ class TestSliceOp:
 
         out = func(a)
         assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())
+
+    def test_slice_as_gather(self):
+        x_data = [0, 1, 2]
+        y_data = [3, 4, 5]
+        x = tp.Tensor(x_data)
+        y = tp.Tensor(y_data)
+        x_cp = cp.array(x_data)
+        y_cp = cp.array(y_data)
+
+        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())
+
+        x_shape = (2, 2)
+        y_shape = (4, 3, 2)
+        x_vol = reduce((lambda x, y: x * y), x_shape)
+        y_vol = reduce((lambda x, y: x * y), y_shape)
+        x = tp.reshape(tp.arange(x_vol, dtype=tp.int32), x_shape)
+        y = tp.reshape(tp.arange(y_vol), y_shape)
+        x_cp = cp.arange(x_vol, dtype=cp.int32).reshape(x_shape)
+        y_cp = cp.arange(y_vol).reshape(y_shape)
+
+        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())

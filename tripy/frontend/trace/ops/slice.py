@@ -148,6 +148,11 @@ def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.reshape import reshape, squeeze
     from tripy.frontend.trace.ops.where import where
+    from tripy.frontend.trace.ops.gather import gather
+
+    # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
+    if isinstance(index, Tensor):
+        return gather(self, 0, index)
 
     index = make_tuple(index)
     if len(index) > self.rank:
