@@ -1,6 +1,8 @@
 import inspect
 import sys
 
+from textwrap import dedent
+
 import cupy as cp
 import jax
 import numpy as np
@@ -8,8 +10,9 @@ import pytest
 import torch
 
 import tripy as tp
-from tests.helper import NUMPY_TYPES
+from tests.helper import NUMPY_TYPES, raises_conditionally
 from tripy.common.datatype import DATA_TYPES
+from tripy.common.exception import TripyException
 from tripy.utils.stack_info import SourceInfo
 
 
@@ -55,23 +58,26 @@ class TestTensor:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_dtype_from_list(self, dtype):
-        # Given a int/float data list, store data with requested data type.
-        if dtype == tp.int4:
-            pytest.skip("Int4 is not supported by frontend tensor.")
-        if dtype == tp.bfloat16 and torch.cuda.get_device_capability() < (8, 0):
-            pytest.skip("bfloat16 requires GPU >= SM80")
-        if dtype == tp.float8 and torch.cuda.get_device_capability() < (8, 9):
-            pytest.skip("fp8 requires GPU >= SM89")
-
-        # dtype casting is allowed for python list
-        tensor = tp.Tensor([0, 1, 2, 3], dtype=dtype)
-        if dtype == tp.uint8:
-            assert tensor.trace_tensor.producer.dtype == tp.int8
-            assert tensor.trace_tensor.producer.data.dtype.name == "int8"
+        data = [0.0, 1.0, 2.0, 3.0]
         if dtype == tp.bool:
-            assert tensor.trace_tensor.producer.dtype == tp.bool
-            assert tensor.trace_tensor.producer.data.dtype.name == "bool"
-        assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
+            data = [0, 1, 0, 1]
+        elif dtype in [tp.int4, tp.int8, tp.uint8, tp.int32, tp.int64]:
+            data = [0, 1, 2, 3]
+
+        with raises_conditionally(
+            dtype in [tp.int4, tp.float8, tp.bfloat16],
+            TripyException,
+            match=dedent(
+                rf"""
+            Tripy tensor does not support data type: {dtype}
+                Tripy tensors constructed from Python sequences or numbers may use one of the following data types: float32, float16, int8, int32, int64, uint8, bool.
+            """
+            ).strip(),
+        ):
+            tensor = tp.Tensor(data, dtype=dtype)
+            assert tensor.trace_tensor.producer.dtype == dtype
+            assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
+            assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     @pytest.mark.parametrize(

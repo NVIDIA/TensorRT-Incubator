@@ -6,9 +6,9 @@ from tripy.common.device import device as tp_device
 from tripy.common.exception import raise_error
 from tripy.common.utils import (
     convert_frontend_dtype_to_tripy_dtype,
-    is_supported_array_type,
+    convert_list_to_bytebuffer,
     get_element_type,
-    get_supported_array_types,
+    get_supported_type_for_python_sequence,
 )
 
 import mlir_tensorrt.runtime.api as runtime
@@ -241,28 +241,21 @@ class Array:
                 mlirtrt_device = (
                     self.runtime_client.get_devices()[self.device.index] if self.device == tp_device("gpu") else None
                 )
-
-                if not is_supported_array_type(self.dtype):
+                # (249): Allow initializing tp.Tensor with tp.Tensor. This allow lazy compilation and evaluation of casting/quantization logic.
+                # We could compile a graph to allocate float32 tensor and cast them unsupported buffer types.
+                if self.dtype not in get_supported_type_for_python_sequence():
+                    supported_type_str = ", ".join(t.name for t in get_supported_type_for_python_sequence())
                     raise_error(
                         f"Tripy tensor does not support data type: {self.dtype}",
                         [
-                            f"Tripy tensors constructed from Python sequences or numbers may use one of the following data types: {get_supported_array_types()}."
+                            f"Tripy tensors constructed from Python sequences or numbers may use one of the following data types: {supported_type_str}."
                         ],
                     )
 
-                def _get_array_type_unicode(dtype: "tripy.common.datatype.dtype") -> str:
-                    assert dtype is not None
-                    assert is_supported_array_type(dtype)
-                    unicode = {
-                        tripy.common.datatype.int32: "i",
-                        tripy.common.datatype.float32: "f",
-                        tripy.common.datatype.int64: "q",
-                        tripy.common.datatype.bool: "b",
-                    }
-                    return unicode.get(dtype)
+                buffer = convert_list_to_bytebuffer(utils.flatten_list(utils.make_list(data)), self.dtype)
 
                 return self.runtime_client.create_memref(
-                    array.array(_get_array_type_unicode(self.dtype), utils.flatten_list(data)),
+                    buffer,
                     shape=list(self.shape),
                     dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
                     device=mlirtrt_device,

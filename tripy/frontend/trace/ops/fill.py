@@ -5,7 +5,6 @@ from typing import Optional, Sequence
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
-from tripy.common.utils import is_supported_array_type
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -46,7 +45,6 @@ class Fill(BaseTraceOp):
         from tripy.common.device import device
         from tripy.flat_ir.ops import ConstantOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.frontend.tensor import convert_list_data_to_array
 
         const_val_tensor = FlatIRTensor.build(
             rank=0,
@@ -54,10 +52,7 @@ class Fill(BaseTraceOp):
             device=outputs[0].device,
             reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
         )
-        if not is_supported_array_type(self.dtype):
-            data = convert_list_data_to_array(self.value, shape=(), dtype=self.dtype, device=device("cpu"))
-        else:
-            data = Array(self.value, self.dtype, shape=(), device=device("cpu"))
+        data = Array(self.value, self.dtype, shape=(), device=device("cpu"))
         ConstantOp.build([], [const_val_tensor], data=data)
 
         DynamicBroadcastOp.build(

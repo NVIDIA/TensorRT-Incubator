@@ -11,9 +11,9 @@ from textwrap import dedent
 import mlir_tensorrt.runtime.api as runtime
 import tripy as tp
 
-from tests.helper import NUMPY_TYPES, torch_type_supported
-from tripy import utils
+from tests.helper import NUMPY_TYPES, raises_conditionally, torch_type_supported
 from tripy.common.array import Array
+from tripy.common.datatype import DATA_TYPES
 from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype
 from tripy.backend.mlir.utils import convert_tripy_dtype_to_runtime_dtype
 
@@ -145,24 +145,19 @@ class TestArray:
             _ = Array([Decimal(0)], None, None, tp.device("cpu"))
         print(str(exc.value))
 
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_supported_array_type(self, dtype):
-        arr = Array([0], dtype=dtype, shape=None, device=tp.device("cpu"))
-        assert isinstance(arr.memref_value, runtime.MemRefValue)
-        assert arr.memref_value.dtype == convert_tripy_dtype_to_runtime_dtype(dtype)
-        assert arr.memref_value.address_space == runtime.PointerType.host
-
-    @pytest.mark.parametrize("dtype", [tp.float16, tp.float8, tp.int8, tp.int4])
-    def test_unsupported_array_type(self, dtype):
-        dtype_name = str(dtype).split(".", 1)[-1].strip("'>")
-        with pytest.raises(
+        with raises_conditionally(
+            dtype in [tp.int4, tp.float8, tp.bfloat16],
             tp.TripyException,
             match=dedent(
                 rf"""
-            Tripy tensor does not support data type: {dtype_name}
-                Tripy tensors constructed from Python sequences or numbers may use one of the following data types: float32, int32, int64, bool.
+            Tripy tensor does not support data type: {dtype}
+                Tripy tensors constructed from Python sequences or numbers may use one of the following data types: float32, float16, int8, int32, int64, uint8, bool.
             """
             ).strip(),
-        ) as exc:
-            _ = Array([0], dtype=dtype, shape=None, device=tp.device("cpu"))
-        print(str(exc.value))
+        ):
+            arr = Array([0], dtype=dtype, shape=None, device=tp.device("cpu"))
+            assert isinstance(arr.memref_value, runtime.MemRefValue)
+            assert arr.memref_value.dtype == convert_tripy_dtype_to_runtime_dtype(dtype)
+            assert arr.memref_value.address_space == runtime.PointerType.host

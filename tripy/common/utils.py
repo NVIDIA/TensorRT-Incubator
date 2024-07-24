@@ -1,3 +1,5 @@
+import re
+import struct
 from typing import Any, List, Optional, Tuple, Union
 
 from tripy.common.exception import raise_error
@@ -5,18 +7,15 @@ from tripy.logging import logger
 from tripy.common.datatype import float32, int32, int64
 from tripy.common.datatype import bool as tp_bool
 import tripy.common.datatype
-
-TRIPY_SUPPORTED_ARRAY_TYPES = [float32, int32, int64, tp_bool]
-
-
-def is_supported_array_type(dtype: "tripy.common.datatype.dtype") -> bool:
-    if dtype is None:
-        return True  # If an Tensor is created from a list or number without dtype field set.
-    return dtype in TRIPY_SUPPORTED_ARRAY_TYPES
+from tripy.common.datatype import DATA_TYPES
 
 
-def get_supported_array_types() -> str:
-    return ", ".join([type.name for type in TRIPY_SUPPORTED_ARRAY_TYPES])
+def get_supported_type_for_python_sequence() -> List["tripy.common.datatype"]:
+    return [
+        t
+        for t in DATA_TYPES.values()
+        if t not in [tripy.common.datatype.int4, tripy.common.datatype.float8, tripy.common.datatype.bfloat16]
+    ]
 
 
 def is_int32(data):
@@ -57,39 +56,72 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
     if isinstance(dtype, tripy.common.datatype.dtype):
         return dtype
 
-    PYTHON_NATIVE_MAPPING = {
-        int: tripy.common.datatype.int32,
-        float: tripy.common.datatype.float32,
-        bool: tripy.common.datatype.bool,
-    }
-    if dtype in PYTHON_NATIVE_MAPPING:
-        return PYTHON_NATIVE_MAPPING[dtype]
-
     try:
         dtype_name = dtype.name
     except AttributeError:
-        dtype_name = str(dtype).split(".", 1)[-1].strip("'>")
 
-    # TODO(#182): Use DLPack/buffer protocol to convert FW types to MemRefValue.
-    FW_TO_TRIPY = {
-        "int4": tripy.common.datatype.int4,
+        def _convert_class_string(class_string):
+            pattern = r"<class '([\w.]+)'>$"
+            match = re.match(pattern, class_string)
+            return match.group(1) if match else class_string
+
+        def _extract_type_name(type_string):
+            pattern = r"(?:.*\.)?(\w+)$"
+            match = re.match(pattern, type_string)
+            return match.group(1) if match else type_string
+
+        dtype_name = _extract_type_name(_convert_class_string(str(dtype)))
+
+    DTYPE_NAME_TO_TRIPY = {
+        # Native python types.
+        "int": tripy.common.datatype.int32,
+        "float": tripy.common.datatype.float32,
+        "bool": tripy.common.datatype.bool,
+        # Framework types.
+        "bool_": tripy.common.datatype.bool,
         "int8": tripy.common.datatype.int8,
         "int32": tripy.common.datatype.int32,
         "int64": tripy.common.datatype.int64,
         "uint8": tripy.common.datatype.uint8,
+        "float8_e4m3fn": tripy.common.datatype.float8,
         "float16": tripy.common.datatype.float16,
-        "float32": tripy.common.datatype.float32,
         "bfloat16": tripy.common.datatype.bfloat16,
-        "bool": tripy.common.datatype.bool,
+        "float32": tripy.common.datatype.float32,
     }
 
-    converted_type = FW_TO_TRIPY.get(dtype_name, None)
-
+    converted_type = DTYPE_NAME_TO_TRIPY.get(dtype_name, None)
     if not converted_type:
         raise_error(
             f"Unsupported data type: '{dtype}'.",
             [
-                f"Tripy tensors can be constructed from arrays with one of the following data types: {', '.join(FW_TO_TRIPY.keys())}."
+                f"Tripy tensors can be constructed with one of the following data types: {', '.join(DTYPE_NAME_TO_TRIPY.keys())}."
             ],
         )
+
     return converted_type
+
+
+def convert_list_to_bytebuffer(values: List[Any], dtype: str) -> bytes:
+    """Convert a list of values to a byte buffer based on the specified dtype."""
+
+    # Lookup table for types and their corresponding struct format characters
+    TYPE_TO_FORMAT = {
+        tripy.common.datatype.bool: "?",
+        tripy.common.datatype.int8: "b",
+        tripy.common.datatype.int32: "i",
+        tripy.common.datatype.int64: "q",
+        tripy.common.datatype.uint8: "B",
+        tripy.common.datatype.float16: "e",
+        tripy.common.datatype.float32: "f",
+    }
+
+    if dtype not in TYPE_TO_FORMAT:
+        raise ValueError(f"Unsupported type: {dtype}")
+
+    buffer = bytearray()
+
+    for value in values:
+        format_char = TYPE_TO_FORMAT[dtype]
+        buffer.extend(struct.pack(f"<{format_char}", value))
+
+    return bytes(buffer)

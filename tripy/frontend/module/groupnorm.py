@@ -95,8 +95,8 @@ class GroupNorm(Module):
         from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
         # TODO #95 & #174 - Get integers out of TP Array
-        batch_size = x.shape[0].data().data()
-        spatial_shape = x.shape[2:].data().data()
+        batch_size = int(x.shape[0].data().data())
+        spatial_shape = [int(s) for s in x.shape[2:].data().data()]
 
         x = reshape(x, (batch_size, self.num_groups, -1))
         mean_val = mean(x, dim=-1, keepdim=True)

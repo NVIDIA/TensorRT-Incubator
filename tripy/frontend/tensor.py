@@ -8,7 +8,7 @@ import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.types import ShapeInfo
-from tripy.common.utils import get_element_type, is_supported_array_type, convert_frontend_dtype_to_tripy_dtype
+from tripy.common.utils import get_element_type, get_supported_type_for_python_sequence
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
@@ -26,19 +26,6 @@ class TensorMeta(type):
                 setattr(new, method_name, TENSOR_METHOD_REGISTRY[method_name])
 
         return new
-
-
-def convert_list_data_to_array(data, shape, dtype, device):
-    from tripy.frontend.trace.ops.cast import cast
-    from tripy.frontend.trace.ops.quantize import quantize
-
-    # (183) Initialize Array with an arbitrary data type. Requires implementing "create_memref_and_cast" API.
-    if dtype == tripy.common.datatype.float8:
-        return quantize(
-            Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), 1.0, dtype
-        ).eval()
-    # Allocate float32 and cast to unsupported tripy array types like int8.
-    return cast(Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), dtype).eval()
 
 
 @export.public_api(
@@ -118,13 +105,15 @@ class Tensor(metaclass=TensorMeta):
         if data is not None:
             if not isinstance(data, Array):
                 if isinstance(data, (List, tuple, bool, int, float)) and (
-                    (not is_supported_array_type(dtype))
-                    or get_element_type(data) == tripy.common.datatype.float32
-                    and dtype == tripy.common.datatype.int32
+                    get_element_type(data) == tripy.common.datatype.float32 and dtype == tripy.common.datatype.int32
                 ):
-                    # 1. Allocate float32 and cast to unsupported types.
-                    # 2. Allocage float32 and cast to int32 to be compliant with numpy/cupy behavior.
-                    data = convert_list_data_to_array(data, shape, dtype, device)
+                    # Allocate float32 and cast to int32 to be compliant with numpy/cupy behavior.
+                    # (249): Allow initializing tp.Tensor with tp.Tensor. This allow lazy compilation and evaluation of casting/quantization logic.
+                    from tripy.frontend.trace.ops.cast import cast
+
+                    data = cast(
+                        Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), dtype
+                    ).eval()
                 else:
                     data = Array(data, dtype, utils.from_dims(shape), device)
             else:
@@ -222,7 +211,9 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace.ops.dequantize import dequantize
 
         arr = self.eval()
-        if not is_supported_array_type(self.dtype):
+
+        # Make an exception for float16, since it can not be printed via memoryview()
+        if self.dtype not in get_supported_type_for_python_sequence() or self.dtype == tripy.common.datatype.float16:
             if self.dtype == tripy.common.datatype.float8:
                 arr = dequantize(Tensor(arr), 1.0, tripy.common.datatype.float32).eval()
             else:

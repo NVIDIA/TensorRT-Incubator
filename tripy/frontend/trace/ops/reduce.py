@@ -4,7 +4,6 @@ from typing import Optional, Sequence, Union
 
 from tripy import export, utils
 from tripy.common import datatype
-from tripy.common.utils import is_supported_array_type
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy.utils import make_list
@@ -44,7 +43,6 @@ class Reduce(BaseTraceOp):
         from tripy.common.device import device
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.frontend.tensor import convert_list_data_to_array
 
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(
@@ -55,10 +53,7 @@ class Reduce(BaseTraceOp):
                 f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation"
             ],
         )
-        if not is_supported_array_type(outputs[0].dtype):
-            data = convert_list_data_to_array(init_value, shape=(), dtype=outputs[0].dtype, device=device("cpu"))
-        else:
-            data = Array(init_value, outputs[0].dtype, shape=(), device=device("cpu"))
+        data = Array(init_value, outputs[0].dtype, shape=(), device=device("cpu"))
         ConstantOp.build([], [init_const], data=data)
 
         ConstantOp.build(

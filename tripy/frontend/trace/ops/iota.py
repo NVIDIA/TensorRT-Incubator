@@ -53,12 +53,6 @@ class Iota(BaseTraceOp):
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["dim", "dtype", "output_rank"], shape_argument=["shape"])
 def iota_impl(shape: ShapeInfo, dim: int, dtype: datatype.dtype, output_rank: int) -> "tripy.Tensor":
-    from tripy.frontend.trace.ops.cast import cast
-
-    if dtype not in (datatype.float32, datatype.int32):
-        result = Iota.build([shape], dim, output_rank, datatype.float32)
-        return cast(result, dtype)
-
     return Iota.build([shape], dim, output_rank, dtype)
 
 
