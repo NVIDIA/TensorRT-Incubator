@@ -1,4 +1,5 @@
 import pytest
+import re
 
 import tripy as tp
 from tests import helper
@@ -19,8 +20,9 @@ class TestIotaOp:
     def test_str(self, flat_ir):
         iota = flat_ir.ops[-1]
         assert isinstance(iota, DynamicIotaOp)
-        assert (
-            str(iota) == "out: [rank=(2), shape=(?, ?,), dtype=(float32), loc=(gpu:0)] = DynamicIotaOp(t_inter1, dim=0)"
+        assert re.match(
+            r"out: \[rank=\(2\), shape=\(\?\, \?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicIotaOp\(t[0-9]+, dim=0\)",
+            str(iota),
         )
 
     def test_mlir(self, flat_ir):

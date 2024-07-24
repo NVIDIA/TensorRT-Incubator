@@ -1,17 +1,18 @@
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple, Union
+from typing import Sequence, Tuple, List, Union
 
-import tripy.frontend.trace.ops.utils as op_utils
 from tripy import export, utils
 from tripy.common.exception import raise_error
 from tripy.common.types import ShapeInfo
+from tripy.frontend import utils as frontend_utils
+from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
 class Reshape(BaseTraceOp):
 
-    shape: Sequence[int]
+    output_rank: int
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
@@ -21,32 +22,93 @@ class Reshape(BaseTraceOp):
         from tripy.utils import Result
 
         # Only wrap the reshaped output if the result is rank 1, otherwise don't wrap
-        if isinstance(inputs[0], Shape) and (
-            (self.shape is not None and len(self.shape) == 1) or (len(inputs) == 2 and inputs[1].rank == 1)
-        ):
+        if isinstance(inputs[0], Shape) and (self.output_rank == 1):
             return Result.ok([0])
         return Result.ok([])
 
     def infer_rank(self):
-        if self.shape is None:
+        if self.output_rank is None:
             if self.inputs[1].shape is None:
                 from tripy.backend.mlir.utils import ShapeContext
 
                 out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[1])
                 assert len(out_shape) == 1
-                assert out_shape[0] > 0, f"incorrect shape computation {out_shape}"
+                assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
                 self.inputs[1].shape = utils.to_dims(out_shape)
             self.outputs[0].rank = self.inputs[1].shape[0].runtime_value
         else:
-            self.outputs[0].rank = len(self.shape)
+            self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicReshapeOp
 
-        output_shape = (
-            inputs[1] if len(inputs) == 2 else op_utils.add_constant_tensor_from_list(self.shape, inputs[0].device)
-        )
-        DynamicReshapeOp.build([inputs[0], output_shape], outputs)
+        DynamicReshapeOp.build(inputs, outputs)
+
+
+@frontend_utils.convert_inputs_to_tensors(exclude=["input", "output_rank"], shape_argument=["shape"])
+def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int = None) -> "tripy.Tensor":
+    return Reshape.build([input, shape], output_rank)
+
+
+@export.public_api(document_under="tensor_operations")
+def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
+    """
+    Returns a new tensor with the contents of the input tensor in the specified shape.
+
+    Args:
+        input: The input tensor.
+        shape: The desired compatible shape. If a shape dimension is -1, its value
+            is inferred based on the other dimensions and the number of elements in the input.
+            Atmost one dimension can be -1.
+
+    Returns:
+        A new tensor of the same data type as the input tensor and the specified shape.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.iota((2, 3), dtype=tp.float32)
+        output = tp.reshape(input, (1, 6))
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
+    """
+    from tripy.frontend.tensor import Tensor
+
+    if isinstance(shape, Tensor):
+        return Reshape.build([input, shape], None)
+
+    def compute_unknown_dim(input_tensor, out_shape):
+        # Elements in `out_shape` can be i) int ii) -1 iii) scalar Tensor
+        # Compute the product of known dimensions in the reshape shape
+        known_dims_product = 1
+        for dim in out_shape:
+            if isinstance(dim, int) and dim == -1:
+                continue
+            known_dims_product *= dim
+
+        # Compute the total number of elements in the original shape
+        total_elements = 1
+        input_shape = input_tensor.shape
+        for i in range(input_tensor.rank):
+            total_elements *= input_shape[i]
+
+        # Infer the dimension
+        inferred_dim = total_elements / known_dims_product
+
+        return inferred_dim
+
+    unknown_dim_index = -1
+    for i, dim in enumerate(shape):
+        if isinstance(dim, int) and dim == -1:
+            if unknown_dim_index != -1:
+                raise_error(f"Reshape operation size operand can have only one dimension as -1, got shape={shape}.")
+            unknown_dim_index = i
+    if unknown_dim_index != -1:
+        shape = list(shape)
+        shape[unknown_dim_index] = compute_unknown_dim(input, shape)
+
+    return reshape_impl(input, shape, len(shape))
 
 
 @dataclass(repr=False)
@@ -113,70 +175,6 @@ class Squeeze(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
-def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
-    """
-    Returns a new tensor with the contents of the input tensor in the specified shape.
-
-    Args:
-        input: The input tensor.
-        shape: The desired compatible shape. If a shape dimension is -1, its value
-            is inferred based on the other dimensions and the number of elements in the input.
-            Atmost one dimension can be -1.
-
-    Returns:
-        A new tensor of the same data type as the input tensor and the specified shape.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        input = tp.iota((2, 3), dtype=tp.float32)
-        output = tp.reshape(input, (1, 6))
-
-        assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
-    """
-    from tripy.frontend.tensor import Tensor
-    from tripy.frontend.trace.ops.concatenate import concatenate
-
-    if isinstance(shape, Tensor):
-        return Reshape.build([input, shape], None)
-
-    def compute_reshape_shape(input_tensor, out_shape):
-        # Compute the total number of elements in the original shape
-        output_shape = Tensor(list(out_shape))
-        total_elements = 1
-        input_shape = input_tensor.shape
-        for i in range(input_tensor.rank):
-            total_elements *= input_shape[i]
-
-        # Compute the product of known dimensions in the reshape shape
-        known_dims_product = 1
-        inferred_index = -1
-        for i, dim in enumerate(out_shape):
-            if dim == -1:
-                inferred_index = i
-            else:
-                known_dims_product *= dim
-
-        # Infer the dimension
-        if inferred_index != -1:
-            inferred_dim = total_elements / known_dims_product
-            output_shape = concatenate(
-                [output_shape[:inferred_index], reshape(inferred_dim, (1,)), output_shape[inferred_index + 1 :]], dim=0
-            )
-
-        return output_shape
-
-    if -1 in shape:
-        if shape.count(-1) > 1:
-            raise_error(f"Reshape operation size operand can have only one dimension as -1, got shape={shape}.")
-        shape = compute_reshape_shape(input, shape)
-        return Reshape.build([input, shape], None)
-
-    return Reshape.build([input], shape)
-
-
-@export.public_api(document_under="tensor_operations")
 def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Tensor":
     """
     Returns a new tensor with all specified singleton dimensions of the input tensor removed.
@@ -221,7 +219,5 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 
     if isinstance(dims, int):
         dims = utils.make_tuple(dims)
-    elif dims is None:
-        raise_error(f"Reshape operation size operand can have only one dimension as -1, got shape.")
 
     return Squeeze.build([input], dims, None)

@@ -37,3 +37,14 @@ class TestReshape:
         with helper.raises(tp.TripyException, match="Reshape operation size operand can have only one dimension as -1"):
             a = tp.reshape(tp.ones(shape), new_shape)
             print(a)
+
+    def test_reshape_shape_tensor(self):
+        a = tp.ones((2, 3, 4))
+        b = tp.ones((2, 3, 2, 2))
+        out = tp.reshape(a, (a.shape[0], a.shape[1], b.shape[2], b.shape[3]))
+        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
+
+    def test_reshape_shape_with_unknown(self):
+        a = tp.ones((2, 3, 4))
+        out = tp.reshape(a, (2, a.shape[1], a.shape[2] / 2, -1))
+        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))

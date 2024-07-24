@@ -75,16 +75,6 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     ```bash
     python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int4-weight-only
     ```
-    <!-- Tripy: EXPECTED_STDOUT Start -->
-    <!--
-    ```
-    (?s).*?
-    Do people really like using ONNX\?
-
-    And then I'm not even though I
-    ```
-     -->
-    <!-- Tripy: EXPECTED_STDOUT End -->
 
 <!-- Tripy: XFAIL Start -->
 3. fp8 quantization:

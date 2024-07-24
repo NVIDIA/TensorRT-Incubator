@@ -57,13 +57,23 @@ class TestIota:
 
     @pytest.mark.parametrize("dtype", [tp.float16, tp.int8])
     def test_negative_no_casting(self, dtype):
-        from tripy import utils
         from tripy.frontend.trace.ops.iota import Iota
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
-        out = Iota.build([], dim=0, shape=utils.to_dims((2, 2)), dtype=dtype)
+        a = tp.iota((2, 2))
+        out = Iota.build([a.shape], dim=0, output_rank=2, dtype=dtype)
         with helper.raises(
             tp.TripyException,
             match="InternalError: failed to run compilation pipeline",
         ):
             print(out)
+
+    def test_iota_from_shape_tensor(self):
+        a = tp.ones((2, 2))
+        output = tp.iota(a.shape)
+        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota("float32", (2, 2), 0))
+
+    def test_iota_from_mixed_seqence(self):
+        a = tp.ones((2, 2))
+        output = tp.iota((3, a.shape[0]))
+        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota("float32", (3, 2), 0))

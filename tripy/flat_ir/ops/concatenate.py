@@ -17,4 +17,8 @@ class ConcatenateOp(BaseFlatIROp):
         )
 
         output = stablehlo.concatenate(operands, dimension=concatenate_dim)
+        # overwrite output type if its shape is inferred
+        if self.outputs[0].shape is not None:
+            out_type = self.outputs[0].to_mlir()
+            output.set_type(out_type)
         return [output]

@@ -1,22 +1,21 @@
 import numbers
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.common.types import ShapeInfo
 from tripy.common.utils import is_supported_array_type
+from tripy.frontend import utils as frontend_utils
+from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
-import tripy.frontend.utils as frontend_utils
 
 
 @dataclass(repr=False)
 class Fill(BaseTraceOp):
     value: float
-    shape: ShapeInfo
+    output_rank: int
     dtype: datatype.dtype
-    is_input_shape_tensor: bool = False
 
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
@@ -29,17 +28,18 @@ class Fill(BaseTraceOp):
         self.outputs[0].device = device("gpu")
 
     def infer_rank(self):
-        if self.is_input_shape_tensor:
-            from tripy.backend.mlir.utils import ShapeContext
+        if self.output_rank is None:
+            if self.inputs[0].shape is None:
+                from tripy.backend.mlir.utils import ShapeContext
 
-            out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
-            assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
-            assert (
-                out_shape[0] >= 0
-            ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
-            self.outputs[0].rank = utils.to_dims(out_shape)[0].runtime_value
-        else:
-            self.outputs[0].rank = len(self.shape)
+                out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
+                assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
+                assert (
+                    out_shape[0] >= 0
+                ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
+                self.inputs[0].shape = utils.to_dims(out_shape)
+            self.output_rank = self.inputs[0].shape[0].runtime_value
+        self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.array import Array
@@ -59,36 +59,17 @@ class Fill(BaseTraceOp):
         else:
             data = Array(self.value, self.dtype, shape=(), device=device("cpu"))
         ConstantOp.build([], [const_val_tensor], data=data)
-        if len(inputs) == 1:
-            if self.is_input_shape_tensor:
-                output_shape = inputs[0]
-            else:
-                # Used for FillLike where the shape of output is provided by another tensor.
-                output_shape = op_utils.get_shape_of_tensor(inputs[0])
-        else:
-            output_shape = op_utils.add_constant_tensor_from_list(
-                [s.runtime_value for s in self.shape], device=outputs[0].device
-            )
 
-        assert output_shape.rank == 1
         DynamicBroadcastOp.build(
-            [const_val_tensor, output_shape],
+            [const_val_tensor, inputs[0]],
             outputs,
             broadcast_dim=[],
         )
 
 
-@dataclass(repr=False)
-class FillLike(Fill):
-
-    def infer_dtypes(self):
-        if self.dtype is None:
-            self.dtype = self.inputs[0].dtype
-
-        super().infer_dtypes()
-
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank
+@frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
+def full_impl(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype", output_rank: int) -> "tripy.Tensor":
+    return Fill.build([shape], value, output_rank, dtype)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -113,13 +94,8 @@ def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatyp
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
     """
-    from tripy.frontend import Shape
-    from tripy.frontend.trace.ops.reshape import reshape
-
-    if isinstance(shape, Shape):
-        return Fill.build([shape], value, None, dtype, True)
-
-    return Fill.build([], value, utils.to_dims(shape), dtype)
+    output_rank = len(shape) if isinstance(shape, Sequence) else None
+    return full_impl(shape, value, dtype, output_rank)
 
 
 @export.public_api(document_under="tensor_operations")
@@ -145,4 +121,4 @@ def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tri
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
-    return FillLike.build([input], value, None, dtype, False)
+    return full_impl(input.shape, value, utils.default(dtype, input.dtype), input.rank)
