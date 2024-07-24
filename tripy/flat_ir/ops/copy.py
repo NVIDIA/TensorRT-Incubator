@@ -16,7 +16,7 @@ class CopyOp(BaseFlatIROp):
 
         assert len(operands) == 1 and len(self.inputs) == 1, "Copy should have exactly one input!"
         mem_space_str = "device" if self.target.kind == "gpu" else "host_pinned"
-        mem_space_attr = ir.Attribute.parse(f"#executor.memory_type<{mem_space_str}>")
+        mem_space_attr = ir.Attribute.parse(f"#plan.memory_space<{mem_space_str}>")
         inp_type = operands[0].type if hasattr(operands[0], "type") else operands[0].result.type
         sliced_dims = []
         # Loop and slice all dynamic indices, concat to yield shape tensor.

@@ -183,7 +183,6 @@ class TestFunctional:
             assert np.allclose(cp.from_dlpack(tripy_out).get(), torch_out.cpu().numpy())
 
 
-@pytest.mark.skip("https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/241")
 class TestCopyFunctional:
     @pytest.mark.parametrize("src", ["cpu", "gpu"])
     @pytest.mark.parametrize("dst", ["cpu", "gpu"])

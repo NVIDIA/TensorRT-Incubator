@@ -34,14 +34,12 @@ def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        # TODO(#241): Re-enable the code
-        # input = tp.Tensor([1, 2], device=tp.device("gpu"))
-        # output = tp.copy(input, tp.device("cpu"))
+        input = tp.Tensor([1, 2], device=tp.device("gpu"))
+        output = tp.copy(input, tp.device("cpu"))
 
-        # assert np.array_equal(np.from_dlpack(output), np.array([1, 2], dtype=np.float32))
-        # assert output.trace_tensor.producer.device.kind == "cpu"
+        assert np.array_equal(np.from_dlpack(output), np.array([1, 2], dtype=np.float32))
+        assert output.trace_tensor.producer.device.kind == "cpu"
     """
-    from tripy.frontend import Tensor
     from tripy.frontend.trace.ops import Storage
 
     if isinstance(input.trace_tensor.producer, Storage) and input.trace_tensor.producer.device == device:
