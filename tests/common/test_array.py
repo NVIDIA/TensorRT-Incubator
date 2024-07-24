@@ -50,7 +50,7 @@ class TestArray:
         dtype = convert_frontend_dtype_to_tripy_dtype(input_data.dtype)
         shape = input_data.shape
         if dtype is not None:
-            arr = Array(input_data, dtype, shape)
+            arr = Array(input_data, shape, dtype)
             assert isinstance(arr, Array)
             assert isinstance(arr.memref_value, runtime.MemRefValue)
             assert arr.memref_value.dtype == convert_tripy_dtype_to_runtime_dtype(dtype)
@@ -63,21 +63,21 @@ class TestArray:
     @pytest.mark.parametrize("np_dtype", NUMPY_TYPES)
     def test_0d(self, np_dtype):
         dtype = convert_frontend_dtype_to_tripy_dtype(np_dtype)
-        arr = Array(np.array(1, dtype=np_dtype), dtype, None, tp.device("cpu"))
+        arr = Array(np.array(1, dtype=np_dtype), None, dtype, tp.device("cpu"))
         assert isinstance(arr, Array)
         assert arr.shape == tuple()
         assert arr.dtype == dtype
 
     @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
     def test_nested_list(self, dtype):
-        arr = Array([[1, 2], [3, 4]], dtype, None, tp.device("cpu"))
+        arr = Array([[1, 2], [3, 4]], None, dtype, tp.device("cpu"))
         assert isinstance(arr, Array)
         assert arr.shape == (2, 2)
         assert arr.dtype == dtype
 
     @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
     def test_empty_dimension(self, dtype):
-        arr = Array([[], [], []], dtype=dtype, shape=(3, 0), device=tp.device("cpu"))
+        arr = Array([[], [], []], shape=(3, 0), dtype=dtype, device=tp.device("cpu"))
         assert isinstance(arr, Array)
         assert arr.shape == (
             3,
@@ -88,19 +88,19 @@ class TestArray:
     @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.int64, tp.bool])
     def test_later_empty_dimensions(self, dtype):
         # consistent to call it (3, 0, ...) because it can't be checked further
-        arr = Array([[], [], []], dtype=dtype, shape=(3, 0, 1, 2), device=tp.device("cpu"))
+        arr = Array([[], [], []], shape=(3, 0, 1, 2), dtype=dtype, device=tp.device("cpu"))
         assert isinstance(arr, Array)
         assert arr.shape == (3, 0, 1, 2)
         assert arr.dtype == dtype
 
     def test_missing_data_shape(self):
         with pytest.raises(tp.TripyException, match="Shape must be provided when data is None.") as exc:
-            _ = Array(None, tp.float32, None, tp.device("cpu"))
+            _ = Array(None, None, tp.float32, tp.device("cpu"))
         print(str(exc.value))
 
     def test_missing_data_dtype(self):
         with pytest.raises(tp.TripyException, match="Datatype must be provided when data is None.") as exc:
-            _ = Array(None, None, (), tp.device("cpu"))
+            _ = Array(None, None, None, tp.device("cpu"))
         print(str(exc.value))
 
     def test_missing_dtype_for_empty_array(self):
@@ -110,32 +110,32 @@ class TestArray:
 
     def test_incorrect_dtype(self):
         with pytest.raises(tp.TripyException, match="Data has incorrect dtype.") as exc:
-            _ = Array(np.ones((2,), dtype=np.int32), tp.float32, None, tp.device("cpu"))
+            _ = Array(np.ones((2,), dtype=np.int32), None, tp.float32, tp.device("cpu"))
         print(str(exc.value))
 
     def test_incorrect_shape(self):
         with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
-            _ = Array(np.ones((2,), dtype=np.int32), None, (3,), tp.device("cpu"))
+            _ = Array(np.ones((2,), dtype=np.int32), (3,), None, tp.device("cpu"))
         print(str(exc.value))
 
     def test_incorrect_shape_list(self):
         with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
-            _ = Array((1, 2, 3), None, (5,), tp.device("cpu"))
+            _ = Array((1, 2, 3), (5,), None, tp.device("cpu"))
         print(str(exc.value))
 
     def test_incorrect_shape_nested_list(self):
         with pytest.raises(tp.TripyException, match="Data has incorrect shape.") as exc:
-            _ = Array([[1, 2, 3], [4, 5, 6]], None, (1, 2, 3), tp.device("cpu"))
+            _ = Array([[1, 2, 3], [4, 5, 6]], (1, 2, 3), None, tp.device("cpu"))
         print(str(exc.value))
 
     def test_inconsistent_jagged_list(self):
         with pytest.raises(tp.TripyException, match="Length of list at index 1 does not match at dimension 1") as exc:
-            _ = Array([[1, 2, 3], [4, 5]], None, (2, 3), tp.device("cpu"))
+            _ = Array([[1, 2, 3], [4, 5]], (2, 3), None, tp.device("cpu"))
         print(str(exc.value))
 
     def test_inconsistent_scalar_value(self):
         with pytest.raises(tp.TripyException, match="Expected sequence at index 1, got int") as exc:
-            _ = Array([[1, 2, 3], 0], None, (2, 3), tp.device("cpu"))
+            _ = Array([[1, 2, 3], 0], (2, 3), None, tp.device("cpu"))
         print(str(exc.value))
 
     def test_unsupported_list_element(self):
@@ -157,7 +157,7 @@ class TestArray:
             """
             ).strip(),
         ):
-            arr = Array([0], dtype=dtype, shape=None, device=tp.device("cpu"))
+            arr = Array([0], shape=None, dtype=dtype, device=tp.device("cpu"))
             assert isinstance(arr.memref_value, runtime.MemRefValue)
             assert arr.memref_value.dtype == convert_tripy_dtype_to_runtime_dtype(dtype)
             assert arr.memref_value.address_space == runtime.PointerType.host

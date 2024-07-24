@@ -50,7 +50,7 @@ class Cast(BaseTraceOp):
                 device=convert_input.device,
                 reason_details=["Zero scalar for casting to bool"],
             )
-            ConstantOp.build([], [single_zero], data=Array(0, dtype=zero_dtype, shape=(), device=convert_input.device))
+            ConstantOp.build([], [single_zero], data=Array(0, shape=(), dtype=zero_dtype, device=convert_input.device))
             zeros_shape = op_utils.get_shape_of_tensor(convert_input)
             zeros = FlatIRTensor.build(
                 shape=convert_input.shape,

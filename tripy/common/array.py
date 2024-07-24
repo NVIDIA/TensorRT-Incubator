@@ -123,8 +123,8 @@ class Array:
     def __init__(
         self,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        dtype: "tripy.dtype" = None,
         shape: Optional[Tuple[int]] = None,
+        dtype: "tripy.dtype" = None,
         device: tp_device = None,
     ) -> None:
         """

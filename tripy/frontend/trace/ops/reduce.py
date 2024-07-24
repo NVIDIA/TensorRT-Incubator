@@ -53,7 +53,7 @@ class Reduce(BaseTraceOp):
                 f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation"
             ],
         )
-        data = Array(init_value, outputs[0].dtype, shape=(), device=device("cpu"))
+        data = Array(init_value, shape=(), dtype=outputs[0].dtype, device=device("cpu"))
         ConstantOp.build([], [init_const], data=data)
 
         ConstantOp.build(
@@ -103,12 +103,12 @@ class ArgMinMax(Reduce):
         ConstantOp.build(
             [],
             [init_val_const],
-            data=Array(0, inputs[0].dtype, shape=(), device=device("cpu")),
+            data=Array(0, shape=(), dtype=inputs[0].dtype, device=device("cpu")),
         )
         ConstantOp.build(
             [],
             [init_idx_const],
-            data=Array(0, outputs[0].dtype, shape=(), device=device("cpu")),
+            data=Array(0, shape=(), dtype=outputs[0].dtype, device=device("cpu")),
         )
 
         ArgMinMaxOp.build(

@@ -148,7 +148,7 @@ def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
         ConstantOp.build(
             [],
             [shape_output_tensor],
-            data=Array(None, int32, shape=(0,), device=tensor.device),
+            data=Array(None, shape=(0,), dtype=int32, device=tensor.device),
         )
     return shape_output_tensor
 
@@ -524,12 +524,12 @@ def get_clamp_min_max(element_dtype, quant_dtype):
         ConstantOp.build(
             [],
             [clamp_min_fp32],
-            data=Array(min_val, tp_dtype.float32, shape=(), device=device("cpu")),
+            data=Array(min_val, shape=(), dtype=tp_dtype.float32, device=device("cpu")),
         )
         ConstantOp.build(
             [],
             [clamp_max_fp32],
-            data=Array(max_val, tp_dtype.float32, shape=(), device=device("cpu")),
+            data=Array(max_val, shape=(), dtype=tp_dtype.float32, device=device("cpu")),
         )
         ConvertOp.build([clamp_min_fp32], [clamp_min])
         ConvertOp.build([clamp_max_fp32], [clamp_max])
@@ -537,12 +537,12 @@ def get_clamp_min_max(element_dtype, quant_dtype):
         ConstantOp.build(
             [],
             [clamp_min],
-            data=Array(min_val, element_dtype, shape=(), device=device("cpu")),
+            data=Array(min_val, shape=(), dtype=element_dtype, device=device("cpu")),
         )
         ConstantOp.build(
             [],
             [clamp_max],
-            data=Array(max_val, element_dtype, shape=(), device=device("cpu")),
+            data=Array(max_val, shape=(), dtype=element_dtype, device=device("cpu")),
         )
     return clamp_min, clamp_max
 

@@ -112,10 +112,10 @@ class Tensor(metaclass=TensorMeta):
                     from tripy.frontend.trace.ops.cast import cast
 
                     data = cast(
-                        Tensor(Array(data, tripy.common.datatype.float32, utils.from_dims(shape), device)), dtype
+                        Tensor(Array(data, utils.from_dims(shape), tripy.common.datatype.float32, device)), dtype
                     ).eval()
                 else:
-                    data = Array(data, dtype, utils.from_dims(shape), device)
+                    data = Array(data, utils.from_dims(shape), dtype, device)
             else:
                 # Internal usage only
                 # Disallow duplicate dtype/device when using Array to initialize a Tensor

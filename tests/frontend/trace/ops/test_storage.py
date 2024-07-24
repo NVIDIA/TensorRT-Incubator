@@ -15,14 +15,14 @@ from tripy.frontend.trace.tensor import TraceTensor
 
 class TestStorage:
     def test_cpu_storage(self):
-        data = Array([1, 2, 3], dtype=None, shape=(3,), device=tp.device("cpu"))
+        data = Array([1, 2, 3], shape=(3,), dtype=None, device=tp.device("cpu"))
         storage = Storage([], [], data)
         assert isinstance(storage.data.memref_value, runtime.MemRefValue)
         assert storage.data.memref_value.address_space == runtime.PointerType.host
         assert storage.device.kind == "cpu"
 
     def test_gpu_storage(self):
-        data = Array([1, 2, 3], dtype=None, shape=(3,), device=tp.device("gpu"))
+        data = Array([1, 2, 3], shape=(3,), dtype=None, device=tp.device("gpu"))
         storage = Storage([], [], data)
         assert isinstance(storage.data.memref_value, runtime.MemRefValue)
         assert storage.data.memref_value.address_space == runtime.PointerType.device

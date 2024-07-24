@@ -52,7 +52,7 @@ class Fill(BaseTraceOp):
             device=outputs[0].device,
             reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
         )
-        data = Array(self.value, self.dtype, shape=(), device=device("cpu"))
+        data = Array(self.value, shape=(), dtype=self.dtype, device=device("cpu"))
         ConstantOp.build([], [const_val_tensor], data=data)
 
         DynamicBroadcastOp.build(
