@@ -140,8 +140,7 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
         :linenos:
         :caption: Example
 
-        condition = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
-        #condition = tp.Tensor([[True, False], [True, True]])
+        condition = tp.Tensor([[True, False], [True, True]])
         input = tp.ones([2, 2], dtype=tp.float32)
         other = tp.zeros([2, 2], dtype=tp.float32)
         output = tp.where(condition, input, other)
@@ -169,8 +168,7 @@ def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numb
         :linenos:
         :caption: Example
 
-        # mask = tp.Tensor([[True, False], [True, True]])
-        mask = tp.iota([2, 2], 0) >= tp.iota([2, 2], 1)
+        mask = tp.Tensor([[True, False], [True, True]])
         input = tp.zeros([2, 2])
         output = tp.masked_fill(input, mask, -1.0)
 

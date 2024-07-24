@@ -29,8 +29,7 @@ class TestWhereOp:
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(np.where((t_cond % 2 == 0), x, y)))
 
     def test_explicit_condition(self):
-        # select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
-        select_indices = tp.ones((4,)) >= Tensor([0.0, 2.0, 0.0, 2.0])
+        select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
         ones = tp.ones((4,), dtype=tp.int32)
         zeros = tp.zeros((4,), dtype=tp.int32)
         w = tp.where(select_indices, ones, zeros)

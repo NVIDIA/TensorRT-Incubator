@@ -14,6 +14,14 @@ class TestWhere:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Where)
 
+    def test_bool_condition(self):
+        cond = tp.Tensor([False, True, False], dtype=tp.bool)
+        a = tp.Tensor([1, 2, 3], shape=(3,), dtype=tp.int32)
+        b = tp.Tensor([4, 5, 6], shape=(3,), dtype=tp.int32)
+        w = tp.where(cond, a, b)
+        assert isinstance(w, tp.Tensor)
+        assert isinstance(w.trace_tensor.producer, Where)
+
     @pytest.mark.skip("Test segfaults due to https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/885")
     def test_mismatched_input_shapes(self):
         cond = tp.ones((2,), dtype=tp.float32) > tp.ones((2,), dtype=tp.float32)
