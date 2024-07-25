@@ -41,6 +41,7 @@ RUN pip install .[docs,dev,test] \
     --extra-index-url https://${gitlab_user}:${gitlab_token}@gitlab-master.nvidia.com/api/v4/projects/73221/packages/pypi/simple \
     --trusted-host gitlab-master.nvidia.com
 
+
 ########################################
 # Configure mlir-tensorrt packages
 ########################################
@@ -65,6 +66,8 @@ RUN echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$LLVM_VERSION main
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/* && \    
     ln -s /usr/bin/lldb-17 /usr/bin/lldb
+
+RUN pip3 install --upgrade build
 
 # Export tripy into the PYTHONPATH so it doesn't need to be installed after making changes
 ENV PYTHONPATH=/tripy:$PYTHONPATH

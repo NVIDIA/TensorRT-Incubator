@@ -7,11 +7,15 @@ readme = "README.md"
 dependencies = [
   "mlir-tensorrt-compiler==0.1.29+cuda12.trt100",
   "mlir-tensorrt-runtime==0.1.29+cuda12.trt100",
+  "colored==2.2.3",
 ]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 dev = [
-  "colored==2.2.3",
   "jinja2==3.1.2",
   "numpy==1.25.0",
   "cupy-cuda12x",
@@ -25,6 +29,7 @@ docs = [
   "docutils==0.20.1",
   "myst-parser==2.0.0",
   "sphinxcontrib-mermaid==0.9.2",
+  "mypy==1.11.0"
 ]
 test = [
   "torch==2.0.0+cu118",
