@@ -207,16 +207,16 @@ def convert_inputs_to_tensors(
                     # accumulate non-tensors together to be converted into shapes
                     acc = []
                     for member in arg:
-                        if isinstance(member, Tensor):
-                            if len(acc) > 0:
-                                shape_components.append(Shape(convert_nontensor_arg(acc)))
-                                acc = []
-                            if isinstance(member, Shape):
-                                shape_components.append(member)
-                                continue
-                            shape_components.append(Shape(member if member.rank > 0 else unsqueeze(member, 0)))
+                        if not isinstance(member, Tensor):
+                            acc.append(member)
                             continue
-                        acc.append(member)
+                        if len(acc) > 0:
+                            shape_components.append(Shape(convert_nontensor_arg(acc)))
+                            acc = []
+                        if member.rank != 0:
+                            raise_error("Tensor in a shape argument must be a scalar.", [f"Got {member}"])
+                        member = Shape(unsqueeze(member, 0))
+                        shape_components.append(member)
                     if len(acc) > 0:
                         shape_components.append(Shape(convert_nontensor_arg(acc)))
                     add_arg(concatenate(shape_components, 0))

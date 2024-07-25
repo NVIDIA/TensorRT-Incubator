@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 from tripy import export, utils
 from tripy.common import datatype
@@ -51,12 +51,16 @@ class Iota(BaseTraceOp):
 
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["dim", "dtype", "output_rank"], shape_argument=["shape"])
-def iota_impl(shape: Sequence[int], dim: int, dtype: datatype.dtype, output_rank: int) -> "tripy.Tensor":
+def iota_impl(
+    shape: Union["tripy.Shape", Sequence[int]], dim: int, dtype: datatype.dtype, output_rank: int
+) -> "tripy.Tensor":
     return Iota.build([shape], dim, output_rank, dtype)
 
 
 @export.public_api(document_under="tensor_operations")
-def iota(shape: Sequence[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def iota(
+    shape: Union["tripy.Shape", Sequence[int]], dim: int = 0, dtype: datatype.dtype = datatype.float32
+) -> "tripy.Tensor":
     """
     Fills an output tensor with consecutive values starting from zero along the given dimension.
 

@@ -130,11 +130,16 @@ class TestConvertInputsToTensors:
 
         t = tp.Tensor([3], dtype=tp.int32)
         s1 = tp.Shape([1, 2])
-        s2 = convert_shape([1, 2, 3, s1, 4, 5, t, s1, t, 6, t, 7])
+        s2 = convert_shape([1, 2, 3, s1[0], 4, 5, t[0], s1[1], 6, 7])
         assert isinstance(s2, tp.Shape)
         assert isinstance(s2.trace_tensor.producer, Concatenate)
         # ensure the concatenation is done correctly
-        assert cp.from_dlpack(s2).get().tolist() == [1, 2, 3, 1, 2, 4, 5, 3, 1, 2, 3, 6, 3, 7]
+        assert cp.from_dlpack(s2).get().tolist() == [1, 2, 3, 1, 4, 5, 3, 2, 6, 7]
+
+    def test_negative_non_scalar_in_shape(self):
+        s1 = tp.Shape([1, 2])
+        with helper.raises(tp.TripyException, match="Tensor in a shape argument must be a scalar."):
+            s2 = convert_shape([1, s1])
 
     def test_convert_empty_shape(self):
         s = convert_shape([])

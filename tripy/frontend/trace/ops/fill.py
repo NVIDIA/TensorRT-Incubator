@@ -1,6 +1,6 @@
 import numbers
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
@@ -64,12 +64,13 @@ class Fill(BaseTraceOp):
 
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
-def full_impl(shape: Tuple[int], value: numbers.Number, dtype: "tripy.dtype", output_rank: int) -> "tripy.Tensor":
+def full_impl(
+    shape: Union["tripy.Shape", Sequence[int]], value: numbers.Number, dtype: "tripy.dtype", output_rank: int
+) -> "tripy.Tensor":
     return Fill.build([shape], value, output_rank, dtype)
 
 
 @export.public_api(document_under="tensor_operations")
-@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["value", "dtype"])
 def full(
     shape: Union["tripy.Shape", Sequence[int]], value: numbers.Number, dtype: "tripy.dtype" = datatype.float32
 ) -> "tripy.Tensor":
