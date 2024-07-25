@@ -59,9 +59,7 @@ class TestDecoder:
         # If the name of a class changes, then we need to specify an `alias` when registering
         # to retain backwards compatibility.
         assert set(Decoder.REGISTERED.keys()) == {
-            "CachedExecutable",
             "device",
-            "dynamic_dim",
             "dtype",
             "Dummy",
             "TensorInfo",

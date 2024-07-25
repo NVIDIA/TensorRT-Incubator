@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from tripy.common.exception import raise_error
-import tripy.frontend.trace.ops.utils as op_utils
 from tripy import export, utils
+from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 

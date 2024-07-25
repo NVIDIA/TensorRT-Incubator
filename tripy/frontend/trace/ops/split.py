@@ -5,7 +5,6 @@ from tripy import export
 from tripy import utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.dim import dynamic_dim
 from tripy.common.exception import raise_error
 
 
@@ -87,7 +86,7 @@ class Split(BaseTraceOp):
 
         if isinstance(self.indices_or_sections, int):
             section_size_tensor = FlatIRTensor.build(
-                shape=utils.to_dims([1]),
+                shape=[1],
                 rank=1,
                 dtype=int32,
                 device=device,
@@ -101,7 +100,7 @@ class Split(BaseTraceOp):
                 with FlatIRTensor.context([f"compute indices of split {i}"]):
                     # i*section_size
                     section_i_start_tensor = FlatIRTensor.build(
-                        shape=utils.to_dims([1]),
+                        shape=[1],
                         rank=1,
                         dtype=int32,
                         device=device,
@@ -114,7 +113,7 @@ class Split(BaseTraceOp):
 
                     # (i+1)*section_size
                     section_i_end_tensor = FlatIRTensor.build(
-                        shape=utils.to_dims([1]),
+                        shape=[1],
                         rank=1,
                         dtype=int32,
                         device=device,

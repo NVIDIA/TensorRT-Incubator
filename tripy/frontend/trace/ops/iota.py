@@ -3,7 +3,6 @@ from typing import Optional, Sequence
 
 from tripy import export, utils
 from tripy.common import datatype
-from tripy.common.types import ShapeInfo
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -27,11 +26,11 @@ class Iota(BaseTraceOp):
                 assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
                 self.output_rank = out_shape[0]
             else:
-                self.output_rank = self.inputs[0].shape[0].runtime_value
+                self.output_rank = self.inputs[0].shape[0]
 
         # Iota requires inputs[0] to be statically shaped
         if self.inputs[0].shape is None:
-            self.inputs[0].shape = utils.to_dims((self.output_rank,))
+            self.inputs[0].shape = (self.output_rank,)
 
         if self.dim < 0:
             self.dim += self.output_rank
@@ -52,12 +51,12 @@ class Iota(BaseTraceOp):
 
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["dim", "dtype", "output_rank"], shape_argument=["shape"])
-def iota_impl(shape: ShapeInfo, dim: int, dtype: datatype.dtype, output_rank: int) -> "tripy.Tensor":
+def iota_impl(shape: Sequence[int], dim: int, dtype: datatype.dtype, output_rank: int) -> "tripy.Tensor":
     return Iota.build([shape], dim, output_rank, dtype)
 
 
 @export.public_api(document_under="tensor_operations")
-def iota(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def iota(shape: Sequence[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Fills an output tensor with consecutive values starting from zero along the given dimension.
 

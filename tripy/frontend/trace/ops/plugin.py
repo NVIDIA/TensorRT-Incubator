@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Sequence, List, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 from tripy import export, utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -34,7 +34,7 @@ def plugin(
     output_info: List[Tuple[int, "tripy.dtype"]],
     version: str = "1",
     namespace: str = "",
-    **kwargs: Dict[str, Any],
+    **kwargs,
 ) -> Union["Tensor", List["Tensor"]]:
     """
     Calls a TensorRT plugin. Only the ``IPluginV2DynamicExt`` and ``IPluginV3`` interfaces are supported.

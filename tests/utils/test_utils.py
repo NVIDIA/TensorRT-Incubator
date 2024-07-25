@@ -2,7 +2,6 @@ import pytest
 
 import tripy as tp
 from tripy import utils
-from tripy.frontend.dim import dynamic_dim
 from tests import helper
 from collections import defaultdict
 
@@ -27,19 +26,6 @@ class TestMd5:
         obj0 = func()
         obj1 = func()
         assert utils.md5(obj0) == utils.md5(obj1)
-
-
-@pytest.mark.parametrize(
-    "inp, expected",
-    [
-        ((2, 3, 4), (dynamic_dim(2), dynamic_dim(3), dynamic_dim(4))),
-        (((2, dynamic_dim(3), 4)), (dynamic_dim(2), dynamic_dim(3), dynamic_dim(4))),
-        (None, None),
-        ((), ()),
-    ],
-)
-def test_to_dims(inp, expected):
-    assert utils.to_dims(inp) == expected
 
 
 def make_with_constant_field():

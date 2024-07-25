@@ -47,7 +47,7 @@ class TestStorage:
             pytest.skip(f"List to tp.Array conversion only supports float32, int32, int64. Got {dtype}")
         arr = [1.0, 2.0, 3.0] if dtype == tp.float32 else [1, 2, 3]
         data = Array(arr, shape=(3,), dtype=dtype, device=None)
-        storage = Storage([], [TraceTensor("t0", None, [3], dtype, None, None, 1)], data)
+        storage = Storage([], [TraceTensor("t0", None, dtype, None, None, 1, shape=[3])], data)
         with mlir_utils.make_ir_context(), ir.Location.unknown():
             flat_ir = FlatIR()
             fir_outputs = [out.to_flat_ir() for out in storage.outputs]

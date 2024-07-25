@@ -8,11 +8,7 @@ from tests.conftest import skip_if_older_than_sm89
 
 
 class TestLinear:
-    @pytest.mark.parametrize(
-        "use_jit",
-        [False, True],
-    )
-    def test_linear_module(self, use_jit):
+    def test_linear_module(self):
         class Network(tp.Module):
             def __init__(self):
                 super().__init__()
@@ -27,9 +23,6 @@ class TestLinear:
 
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
         a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
-
-        if use_jit:
-            net = tp.jit(net)
 
         out = net(a1)
 
@@ -71,17 +64,13 @@ class TestQuantLinear:
             net.linear.input_scale = _get_dummy_scale(None)
         return net
 
-    @pytest.mark.parametrize("use_jit", [False, True])
     @pytest.mark.parametrize("use_input_scale", [False, True])
     @pytest.mark.parametrize("quant_dtype", [tp.int8, pytest.param(tp.float8, marks=skip_if_older_than_sm89)])
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
-    def test_quant_linear(self, use_jit, use_input_scale, quant_dtype, weight_quant_dim):
+    def test_quant_linear(self, use_input_scale, quant_dtype, weight_quant_dim):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
         np_weight = cp.from_dlpack(net.linear.weight).get()
         np_bias = cp.from_dlpack(net.linear.bias).get()
-
-        if use_jit:
-            net = tp.jit(net)
 
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
         a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
@@ -98,7 +87,6 @@ class TestQuantLinear:
 
             assert (cp.from_dlpack(out).get() == np.array(np_out)).all()
 
-    @pytest.mark.parametrize("use_jit", [False, True])
     @pytest.mark.parametrize(
         "weight_quant_dim, scale",
         [
@@ -109,7 +97,7 @@ class TestQuantLinear:
         ],
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )
-    def test_quant_linear_int4_weight_only(self, use_jit, weight_quant_dim, scale):
+    def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale):
         scale = tp.Parameter(scale)
 
         linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
@@ -120,9 +108,6 @@ class TestQuantLinear:
 
         np_weight = cp.from_dlpack(linear.weight).get()
         np_bias = cp.from_dlpack(linear.bias).get()
-
-        if use_jit:
-            linear = tp.jit(linear)
 
         cp_input = cp.ones((4, 4), dtype=np.float32)
         input = tp.Tensor(cp_input, device=tp.device("gpu"))

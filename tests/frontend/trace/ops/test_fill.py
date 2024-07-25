@@ -1,5 +1,7 @@
-from tripy.frontend.trace.ops import Fill
+import pytest
+
 import tripy as tp
+from tripy.frontend.trace.ops import Fill
 
 
 class TestFull:

@@ -15,6 +15,6 @@ class TestBroadcastOp:
         broadcast = flat_ir.ops[-1]
         assert isinstance(broadcast, DynamicBroadcastOp)
         assert re.match(
-            r"out: \[rank=\(2\), shape=\(\?\, \?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter2, t[0-9]+, broadcast_dim=\[\]\)",
+            r"out: \[rank=\(2\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter2, t[0-9]+, broadcast_dim=\[\]\)",
             str(broadcast),
         )

@@ -21,7 +21,7 @@ class DynamicReshapeOp(BaseFlatIROp):
             # Tripy frontend does not have shape inference and stablehlo does not allow shape operand to be of dynamic shape.
             # Since DynamicReshapeOp was created internally by Tripy, we know the expected output rank. For dynamic_reshape operator, the shape of shape tensor is the same as output rank.
             new_shape = [self.outputs[0].rank]
-            self.inputs[1].shape = utils.to_dims(new_shape)
+            self.inputs[1].shape = new_shape
             operands[1].set_type(ir.RankedTensorType.get(new_shape, operands[1].type.element_type))
 
         output = stablehlo.dynamic_reshape(

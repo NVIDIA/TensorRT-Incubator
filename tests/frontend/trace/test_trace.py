@@ -82,7 +82,7 @@ class TestTrace:
                 b = storage(data=[1], shape=(1,), dtype=int32, device=gpu:0)
                 c = a + b
                 outputs:
-                    c: [shape=(?,), dtype=(int32), rank=(1), loc=(gpu:0)]
+                    c: [rank=(1), dtype=(int32), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -121,8 +121,8 @@ class TestTrace:
                 c = a + b
                 d = c + c
                 outputs:
-                    c: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
-                    d: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    c: [rank=(1), dtype=(float32), loc=(gpu:0)]
+                    d: [rank=(1), dtype=(float32), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -151,11 +151,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    a: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
-                    b: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    a: [rank=(1), shape=((1,)), dtype=(float32), loc=(gpu:0)]
+                    b: [rank=(1), shape=((1,)), dtype=(float32), loc=(gpu:0)]
                 c = a + b
                 outputs:
-                    c: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    c: [rank=(1), dtype=(float32), loc=(gpu:0)]
                 """
             ).strip()
         )
@@ -174,11 +174,11 @@ class TestTrace:
             == dedent(
                 """
                 inputs:
-                    a: [shape=(1,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    a: [rank=(1), shape=((1,)), dtype=(float32), loc=(gpu:0)]
                 b = storage(data=[1.0000], shape=(1,), dtype=float32, device=gpu:0)
                 c = a + b
                 outputs:
-                    c: [shape=(?,), dtype=(float32), rank=(1), loc=(gpu:0)]
+                    c: [rank=(1), dtype=(float32), loc=(gpu:0)]
                 """
             ).strip()
         )

@@ -97,7 +97,7 @@ class TestConvolutionOp:
         spatial_shape = conv_flat_ir[1]
         assert (
             str(Conv)
-            == f"output: [rank=(4), shape=(?, ?, ?, ?,), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, kernel, padding={padding}, stride={stride}, feature_group_count={groups}, lhs_dilation=None, rhs_dilation={rhs_dilation})"
+            == f"output: [rank=(4), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, kernel, padding={padding}, stride={stride}, feature_group_count={groups}, lhs_dilation=None, rhs_dilation={rhs_dilation})"
         )
 
     def test_str_conv_transpose(self, conv_transpose_flat_ir, padding, stride, groups, rhs_dilation):
@@ -113,7 +113,7 @@ class TestConvolutionOp:
         padding = tuple(new_padding)
         assert (
             str(Conv)
-            == f"output: [rank=(4), shape=(?, ?, ?, ?,), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, {kernel_name}, padding={padding}, stride={(1, 1)}, feature_group_count={groups}, lhs_dilation={stride}, rhs_dilation={rhs_dilation})"
+            == f"output: [rank=(4), dtype=(float32), loc=(gpu:0)] = ConvolutionOp(input, {kernel_name}, padding={padding}, stride={(1, 1)}, feature_group_count={groups}, lhs_dilation={stride}, rhs_dilation={rhs_dilation})"
         )
 
     def test_mlir_conv(self, conv_flat_ir, padding, stride, groups, rhs_dilation):

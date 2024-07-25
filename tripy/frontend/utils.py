@@ -127,22 +127,7 @@ def convert_inputs_to_tensors(
 
                 return arg
 
-            # Merge positional and keyword arguments, trying to determine names where possible.
-            # In the case of variadic positional arguments, we cannot determine names, so we use
-            # None instead.
-            signature = inspect.signature(func)
-            arg_names = []
-            for name, param in signature.parameters.items():
-                if param.kind == inspect.Parameter.VAR_POSITIONAL:
-                    # Positional arguments cannot follow variadic positional arguments
-                    # (they would just be absorbed into the variadic argument).
-                    break
-
-                arg_names.append(name)
-
-            arg_names += [None] * len(args)
-            all_args = list(zip(arg_names, args))
-            all_args.extend(kwargs.items())
+            all_args = utils.merge_function_arguments(func, *args, **kwargs)
 
             def get_arg(name: str):
                 for arg_name, arg in all_args:

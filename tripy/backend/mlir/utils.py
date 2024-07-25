@@ -3,7 +3,7 @@ import os
 import re
 import sys
 import tempfile
-from typing import BinaryIO, List, Tuple
+from typing import BinaryIO, List, Tuple, Sequence, Optional
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
@@ -80,9 +80,17 @@ def get_mlir_quant_dtype(
     )
 
 
-def make_mlir_tensor(shape, dtype: "tripy.common.dtype") -> ir.RankedTensorType:
+def make_mlir_tensor(
+    dtype: "tripy.common.dtype", shape: Optional[Sequence[int]] = None, rank: Optional[int] = None
+) -> ir.RankedTensorType:
+    if shape is not None:
+        return ir.RankedTensorType.get(
+            [ir.ShapedType.get_dynamic_size() if dim < 0 else dim for dim in shape], get_mlir_dtype(dtype)
+        )
+
+    assert rank is not None
     return ir.RankedTensorType.get(
-        [ir.ShapedType.get_dynamic_size() if s.is_dynamic_dim() else s.min for s in utils.make_list(shape)],
+        [ir.ShapedType.get_dynamic_size()] * rank,
         get_mlir_dtype(dtype),
     )
 
@@ -169,11 +177,15 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], Li
 
     out_str = f"({trace_outputs})"
 
+    # Filter out empty names
+    def remove_empty(lst):
+        return list(filter(lambda x: x, lst))
+
     return (
-        input_names.split(","),
-        output_names.split(","),
-        trace_inputs.split(","),
-        trace_outputs.split(","),
+        remove_empty(input_names.split(",")),
+        remove_empty(output_names.split(",")),
+        remove_empty(trace_inputs.split(",")),
+        remove_empty(trace_outputs.split(",")),
         out_str.join(TENSOR_NAME_PATTERN_NO_CAPTURE.split(msg)),
     )
 
@@ -329,13 +341,15 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
     This function must be called in the context of an active exception, as it may reraise
     the outer exception if the error does not originate from the backend.
     """
+    from tripy.common.exception import TripyException
+
+    # We don't want to do any additional processing for Tripy exceptions
+    if isinstance(exc, TripyException):
+        raise
+
     if hasattr(exc, "error_diagnostics"):
         stderr += ",".join(map(lambda err: str(err.location), exc.error_diagnostics))
-    input_names, output_names, trace_input_names, trace_output_names, stderr = parse_tensor_names_from_location(stderr)
-
-    # If no location was found in the error message, then just raise the original error.
-    if all(not val for val in [input_names, output_names, trace_input_names, trace_output_names]):
-        raise
+    _, output_names, trace_input_names, trace_output_names, stderr = parse_tensor_names_from_location(stderr)
 
     assert (
         len(output_names) <= 1
@@ -406,7 +420,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
     raise_error(
         repr(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
-        + get_flat_ir_operation(output_names)
+        + ([get_flat_ir_operation(output_names)] if output_names else [])
         + (
             (
                 ["Note: This originated from the following expression:"]

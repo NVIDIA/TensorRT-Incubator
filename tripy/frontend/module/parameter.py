@@ -1,6 +1,7 @@
+from typing import Sequence
+
 import tripy.frontend.utils as frontend_utils
 from tripy import export, utils
-from tripy.common.types import ShapeInfo
 from tripy.frontend.tensor import Tensor
 from tripy.utils import Result
 
@@ -53,7 +54,7 @@ class DefaultParameter(Parameter):
     Useful for initializing module parameters.
     """
 
-    def __init__(self, shape: ShapeInfo, dtype: "tripy.dtype") -> None:
+    def __init__(self, shape: Sequence[int], dtype: "tripy.dtype") -> None:
         from tripy.frontend.ops.tensor_initializers import arange
         from tripy.frontend.trace.ops.reshape import reshape
 

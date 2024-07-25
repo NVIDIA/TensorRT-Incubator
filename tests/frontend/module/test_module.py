@@ -49,7 +49,7 @@ class TestModule:
         self,
         network,
     ):
-        state_dict = {"param": tp.Parameter(tp.zeros(2, dtype=tp.float32))}
+        state_dict = {"param": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
         network.load_from_state_dict(state_dict)
         assert network.param is state_dict["param"]
 
@@ -65,7 +65,7 @@ class TestModule:
         self,
         network,
     ):
-        state_dict = {"param": tp.Parameter(tp.zeros(3, dtype=tp.float32))}
+        state_dict = {"param": tp.Parameter(tp.zeros((3,), dtype=tp.float32))}
 
         with helper.raises(
             tp.TripyException, match=r"New parameter shape: \[3\] is not compatible with current shape: \[2\]"
@@ -76,7 +76,7 @@ class TestModule:
         self,
         network,
     ):
-        state_dict = {"param": tp.Parameter(tp.ones(2, dtype=tp.float16))}
+        state_dict = {"param": tp.Parameter(tp.ones((2,), dtype=tp.float16))}
 
         with helper.raises(
             tp.TripyException, match="New parameter dtype: float16 is not compatible with current dtype: float32"
@@ -117,7 +117,7 @@ class TestModuleWithList:
         self,
         list_network,
     ):
-        state_dict = {"params.0": tp.Parameter(tp.zeros(2, dtype=tp.float32))}
+        state_dict = {"params.0": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
         list_network.load_from_state_dict(state_dict)
         assert list_network.params[0] is state_dict["params.0"]
 
@@ -169,7 +169,7 @@ class TestModuleWithDict:
         self,
         dict_network,
     ):
-        state_dict = {"params.param": tp.Parameter(tp.zeros(2, dtype=tp.float32))}
+        state_dict = {"params.param": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
         dict_network.load_from_state_dict(state_dict)
         assert dict_network.params["param"] is state_dict["params.param"]
 

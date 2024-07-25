@@ -94,7 +94,7 @@ class TestDocstrings:
 
         helper.exec_code(example_code)
 
-    @pytest.mark.parametrize("api", PUBLIC_APIS)
+    @pytest.mark.parametrize("api", PUBLIC_APIS, ids=lambda public_api: public_api.qualname)
     def test_all_public_apis_have_docstrings(self, api):
         assert api.obj.__doc__, f"All public APIs must include docstrings but: {api.obj} has no docstring!"
 

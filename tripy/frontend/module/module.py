@@ -109,7 +109,7 @@ class Module:
             class MyModule(tp.Module):
                 def __init__(self):
                     super().__init__()
-                    self.param = tp.Parameter(tp.ones(2, dtype=tp.float32))
+                    self.param = tp.Parameter(tp.ones((2,), dtype=tp.float32))
                     self.linear1 = tp.Linear(2, 2)
                     self.linear2 = tp.Linear(2, 2)
 
@@ -147,7 +147,7 @@ class Module:
             class MyModule(tp.Module): # doc: omit
                 def __init__(self): # doc: omit
                     super().__init__() # doc: omit
-                    self.param = tp.Parameter(tp.ones(2, dtype=tp.float32)) # doc: omit
+                    self.param = tp.Parameter(tp.ones((2,), dtype=tp.float32)) # doc: omit
                     self.linear1 = tp.Linear(2, 2) # doc: omit
                     self.linear2 = tp.Linear(2, 2) # doc: omit
             module = MyModule() # doc: omit
@@ -156,12 +156,12 @@ class Module:
             # Using the `module` and `state_dict` from the `state_dict()` example:
             print(f"Before: {module.param}")
 
-            state_dict["param"] = tp.Parameter(tp.zeros(2, dtype=tp.float32))
+            state_dict["param"] = tp.Parameter(tp.zeros((2,), dtype=tp.float32))
             module.load_from_state_dict(state_dict)
 
             print(f"After: {module.param}")
 
-            assert np.array_equal(cp.from_dlpack(module.state_dict()["param"]).get(), np.array(np.zeros(2, dtype=np.float32)))
+            assert np.array_equal(cp.from_dlpack(module.state_dict()["param"]).get(), np.array(np.zeros((2,), dtype=np.float32)))
 
         .. seealso:: :func:`state_dict`
         """

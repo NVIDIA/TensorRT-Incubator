@@ -24,13 +24,6 @@ class TestReshape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
         assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(new_shape).get())
 
-    def test_dynamic_reshape(self):
-        dim = tp.dynamic_dim(runtime_value=4, min=3, opt=5, max=6)
-        a_np = np.ones((4, 5, 6, 7), dtype=np.float32)
-        a = tp.Tensor(a_np, shape=(dim, 5, 6, 7))
-        a = tp.reshape(a, (20, -1, 14))
-        assert np.array_equal(cp.from_dlpack(a).get(), a_np.reshape((20, -1, 14)))
-
     def test_invalid_neg_dim_reshape(self):
         shape = (1, 30)
         new_shape = (-1, -1)

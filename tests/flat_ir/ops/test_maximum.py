@@ -20,14 +20,14 @@ class TestMaxOp:
 
         assert isinstance(max_op, MaxOp)
         assert re.match(
-            r"t_inter[0-9]+: \[rank=\(1\), shape=\(\?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(a, t_inter[0-9]+, broadcast_dim=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(a, t_inter[0-9]+, broadcast_dim=\[0\]\)",
             str(broadcast_a),
         )
         assert re.match(
-            r"t_inter[0-9]+: \[rank=\(1\), shape=\(\?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(b, t_inter[0-9]+, broadcast_dim=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(b, t_inter[0-9]+, broadcast_dim=\[0\]\)",
             str(broadcast_b),
         )
         assert re.match(
-            r"out: \[rank=\(1\), shape=\(\?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = MaxOp\(t_inter[0-9]+, t_inter[0-9]+\)",
+            r"out: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = MaxOp\(t_inter[0-9]+, t_inter[0-9]+\)",
             str(max_op),
         )

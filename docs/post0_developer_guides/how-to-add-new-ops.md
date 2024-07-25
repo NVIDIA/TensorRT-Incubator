@@ -37,7 +37,6 @@ from dataclasses import dataclass
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 
-from tripy.common.types import ShapeInfo
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
@@ -108,11 +107,11 @@ First, we'll implement the `Trace` operator itself:
 ```py
 # doc: no-eval
 from dataclasses import dataclass
+from typing import Tuple
 
 from tripy import utils
 from tripy.common import datatype, device
 from tripy.common.exception import raise_error
-from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 
@@ -126,9 +125,9 @@ class Theta(BaseTraceOp):
     dim: int
     dtype: datatype.dtype
 
-    # The `infer_shape_output_idxs` method should indicate which outputs of this operator represent shapes. 
-    # The corresponding outputs will be wrapped as `tripy.Shape` objects instead of regular `tripy.Tensor`s. 
-    # Our `Theta` operation should never return shapes, so we can use the corresponding preexisting policy. 
+    # The `infer_shape_output_idxs` method should indicate which outputs of this operator represent shapes.
+    # The corresponding outputs will be wrapped as `tripy.Shape` objects instead of regular `tripy.Tensor`s.
+    # Our `Theta` operation should never return shapes, so we can use the corresponding preexisting policy.
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     # *Optional* `infer_dtypes()` populates the data types of the
@@ -149,14 +148,14 @@ class Theta(BaseTraceOp):
     def infer_rank(self):
         from tripy.backend.mlir.utils import ShapeContext
 
-        # `self.inputs[0]` indicates the desired shape of the output. 
+        # `self.inputs[0]` indicates the desired shape of the output.
         # Here, we compute the number of elements in the shape tensor, which determines the rank of the output.
         out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
         assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
         assert (
             out_shape[0] >= 0
         ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
-        self.outputs[0].rank = utils.to_dims(out_shape)[0].runtime_value
+        self.outputs[0].rank = out_shape[0]
 
     # `to_flat_ir()` translates the `Trace` operator to a subgraph of
     # one or more `FlatIR` operators. In our case, it's just a 1:1
@@ -203,9 +202,9 @@ import tripy.frontend.utils as frontend_utils
 
 # The `convert_inputs_to_tensors` decorator converts function arguments to Tensors.
 # This is what makes it possible for the user to use Python numbers in Tripy functions (e.g. `tensor + 1`)
-# In this case, we want `shape` to turn into a `tripy.Shape` instead of a regular `Tensor`. 
+# In this case, we want `shape` to turn into a `tripy.Shape` instead of a regular `Tensor`.
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dim", "dtype"])
-def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here
     # adheres to all of these requirements. Non-compliant docstrings will, in most cases,
@@ -235,7 +234,7 @@ def theta(shape: ShapeInfo, dim: int = 0, dtype: datatype.dtype = datatype.float
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
-    
+
     # Next we build the trace operator. The `build()` function is also responsible for constructing
     # the output frontend Tensors. All of the arguments that follow the inputs
     # are forwarded directly to the constructor of the `Trace` operator.
@@ -336,7 +335,7 @@ class TestThetaOp:
         Theta = flat_ir.ops[-1]
         assert isinstance(Theta, ThetaOp)
         assert re.match(
-            r"out: \[rank=\(2\), shape=\(\?\, \?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = ThetaOp\(t[0-9]+, dim=0\)",
+            r"out: \[rank=\(2\), dtype=\(float32\), loc=\(gpu:0\)\] = ThetaOp\(t[0-9]+, dim=0\)",
             str(Theta),
         )
 

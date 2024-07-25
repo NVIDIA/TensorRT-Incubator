@@ -2,6 +2,7 @@ import dataclasses
 import functools
 import glob
 import hashlib
+import inspect
 import os
 import time
 import typing
@@ -129,30 +130,6 @@ def make_tuple(obj):
 ##
 
 
-def to_dims(shape: "ShapeInfo") -> Tuple["dynamic_dim"]:
-    """
-    Convert the given shape tuple to a tuple of dynamic_dim objects.
-    """
-    from tripy.frontend.dim import dynamic_dim
-
-    if shape is None:
-        return None
-
-    return tuple(dynamic_dim(dim) if not isinstance(dim, dynamic_dim) else dim for dim in make_list(shape))
-
-
-def from_dims(shape: "ShapeInfo") -> Tuple[int]:
-    """
-    Convert the given shape, which may contain dynamic_dim instances, into a concrete shape
-    based on the runtime values (or max values if use_max_value is enabled) of those Dims.
-    """
-    from tripy.frontend.dim import dynamic_dim
-
-    if shape is None:
-        return None
-    return tuple(dim if not isinstance(dim, dynamic_dim) else dim.runtime_value for dim in make_list(shape))
-
-
 def volume(shape):
     """
     Computes volume of a tensor shape.
@@ -165,8 +142,8 @@ def volume(shape):
     """
 
     volume = 1
-    for s in to_dims(shape):
-        volume *= s.max
+    for s in shape:
+        volume *= s
     return volume
 
 
@@ -434,3 +411,31 @@ class UniqueNameGen:
             if uid not in UniqueNameGen._used_names:
                 UniqueNameGen._used_names.add(uid)
                 return uid
+
+
+##
+## Functions
+##
+def get_positional_arg_names(func, *args):
+    # Returns the names of positional arguments by inspecting the function signature.
+    # In the case of variadic positional arguments, we cannot determine names, so we use
+    # None instead.
+    signature = inspect.signature(func)
+    arg_names = []
+    for name, param in signature.parameters.items():
+        if param.kind == inspect.Parameter.VAR_POSITIONAL:
+            # Positional arguments cannot follow variadic positional arguments
+            # (they would just be absorbed into the variadic argument).
+            break
+
+        arg_names.append(name)
+
+    arg_names.extend([None] * (len(args) - len(arg_names)))
+    return list(zip(arg_names, args))
+
+
+def merge_function_arguments(func, *args, **kwargs):
+    # Merge positional and keyword arguments, trying to determine names where possible.
+    all_args = get_positional_arg_names(func, *args)
+    all_args.extend(kwargs.items())
+    return all_args

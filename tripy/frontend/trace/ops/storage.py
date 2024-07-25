@@ -1,10 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Sequence, Set
 
 import tripy.common
 from tripy import utils
 from tripy.common.array import Array
-from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 
@@ -13,7 +12,7 @@ import tripy.frontend.trace.ops.utils as op_utils
 class Storage(BaseTraceOp):
 
     data: Array
-    shape: ShapeInfo  # This is a ShapeInfo but will always be a static shape
+    shape: Sequence[int]
     dtype: type
     device: tripy.common.device
 
@@ -21,7 +20,7 @@ class Storage(BaseTraceOp):
         super().__init__(inputs, outputs)
 
         self.data = data
-        self.shape = utils.to_dims(data.shape)
+        self.shape = data.shape
         self.dtype = data.dtype
         self.device = data.device
 

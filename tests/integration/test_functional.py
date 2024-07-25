@@ -6,11 +6,9 @@ import pytest
 import torch
 
 import tripy as tp
-from tripy.backend.utils import get_tensor_info, get_devices
 from tripy.backend.mlir.compiler import Compiler
 from tripy.backend.mlir.executor import Executor
 from tripy.frontend.trace import Trace
-from tripy.logging import logger
 
 
 class TestFunctional:
@@ -25,20 +23,6 @@ class TestFunctional:
         out = c + c
         assert (cp.from_dlpack(out).get() == np.array([6.0, 8.0], dtype=np.float32)).all()
 
-    @pytest.mark.parametrize("dim", [tp.dynamic_dim(2, min=2, opt=3, max=4)])
-    def test_add_two_tensors_dynamic(self, dim):
-        arr = cp.ones(2, dtype=np.float32)
-        a = tp.Tensor(arr, shape=(dim,), device=tp.device("gpu"))
-        b = tp.Tensor(arr, shape=(dim,), device=tp.device("gpu"))
-
-        @tp.jit
-        def func(a, b):
-            c = a + b
-            return c
-
-        out = func(a, b)
-        assert (cp.from_dlpack(out).get() == np.array([2.0, 2.0], dtype=np.float32)).all()
-
     @pytest.mark.parametrize(
         "dim_a, dim_b",
         [
@@ -48,11 +32,7 @@ class TestFunctional:
             ((1, 3, 7), (4, 3, 1)),  # broadcast at differnt dim of both operand
         ],
     )
-    @pytest.mark.parametrize(
-        "use_jit",
-        [False, True],
-    )
-    def test_static_broadcast_add_two_tensors(self, dim_a, dim_b, use_jit):
+    def test_static_broadcast_add_two_tensors(self, dim_a, dim_b):
         cp_a = cp.arange(np.prod(dim_a)).reshape(dim_a).astype(np.float32)
         cp_b = cp.arange(np.prod(dim_b)).reshape(dim_b).astype(np.float32)
         a = tp.Tensor(cp_a, shape=dim_a, device=tp.device("gpu"))
@@ -61,9 +41,6 @@ class TestFunctional:
         def func(a, b):
             c = a + b
             return c
-
-        if use_jit:
-            func = tp.jit(func)
 
         out = func(a, b)
         assert (cp.from_dlpack(out) == cp.array(cp_a + cp_b)).all()
@@ -78,9 +55,8 @@ class TestFunctional:
         flat_ir = trace.to_flat_ir()
 
         compiler = Compiler()
-        output_tensor_info = get_tensor_info(flat_ir.outputs)
         executor = Executor(compiler.compile(flat_ir.to_mlir()))
-        out = executor.execute(get_devices(output_tensor_info))
+        out = executor.execute([out.device for out in flat_ir.outputs])
         assert (
             len(out) == 2
             and (cp.from_dlpack(out[0]) == cp.array([2.0, 2.0], dtype=np.float32)).all()
@@ -209,48 +185,6 @@ class TestCopyFunctional:
         assert out.device.kind == "gpu"
         assert out.data() == [1, 2]
 
-    @pytest.mark.parametrize("dst", ["cpu", "gpu"])
-    def test_jit_single_copy(self, dst):
-        a = tp.Tensor([1, 2], device=tp.device("gpu"))
-
-        @tp.jit
-        def func(x):
-            x = tp.copy(x, tp.device(dst))
-            return x
-
-        out = func(a)
-        out = out.eval()
-        assert out.device.kind == dst
-        assert out.data() == [1, 2]
-
-    def test_jit_multiple_copy_1(self):
-        a = tp.Tensor([1, 2], device=tp.device("gpu"))
-
-        @tp.jit
-        def func(x):
-            x = tp.copy(x, tp.device("cpu"))
-            x = tp.copy(x, tp.device("gpu"))
-            return x
-
-        out = func(a)
-        out = out.eval()
-        assert out.device.kind == "gpu"
-        assert out.data() == [1, 2]
-
-    def test_jit_multiple_copy_2(self):
-        a = tp.Tensor([1, 2], device=tp.device("gpu"))
-
-        @tp.jit
-        def func(x):
-            x = tp.copy(x, tp.device("gpu"))
-            x = tp.copy(x, tp.device("cpu"))
-            return x
-
-        out = func(a)
-        out = out.eval()
-        assert out.device.kind == "cpu"
-        assert out.data() == [1, 2]
-
     @pytest.mark.skip("Remove copy op in Tripy: https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/756")
     def test_with_ops(self):
         a = tp.Tensor([1, 2])
@@ -260,106 +194,6 @@ class TestCopyFunctional:
         out = out.eval()
         assert out.device.kind == "cpu"
         assert out.data() == [3, 5]
-
-    def test_jit_with_ops(self):
-        a = tp.Tensor([1, 2], device=tp.device("gpu"))
-        b = tp.Tensor([2, 3], device=tp.device("gpu"))
-
-        @tp.jit
-        def func(x, y):
-            out = x + y
-            out = tp.copy(out, tp.device("cpu"))
-            return out
-
-        out = func(a, b)
-        out = out.eval()
-        assert out.device.kind == "cpu"
-        assert out.data() == [3, 5]
-
-    def test_print_dynamic_tensor(self):
-        arr = cp.ones(4, dtype=np.float32)
-        a = tp.Tensor(arr, shape=(tp.dynamic_dim(4, min=2, opt=4, max=6),), device=tp.device("gpu"))
-        assert cp.array_equal(cp.from_dlpack(a), arr)
-
-    def test_print_static_tensor(self):
-        arr = cp.ones(4, dtype=np.float32)
-        a = tp.Tensor(arr, shape=(4,), device=tp.device("gpu"))
-        assert cp.array_equal(cp.from_dlpack(a), arr)
-
-
-class TestDynamic:
-    @pytest.mark.parametrize(
-        "dims_a, dims_b",
-        [
-            ((tp.dynamic_dim(4, min=2, opt=4, max=6), 2), (tp.dynamic_dim(4, min=2, opt=4, max=6), 2)),
-            (
-                (tp.dynamic_dim(4, min=2, opt=4, max=6), 2),
-                (tp.dynamic_dim(4, min=2, opt=4, max=6), 1),
-            ),  # use DynamicBroadcast static dim
-            ((tp.dynamic_dim(4, min=2, opt=4, max=6), 2), (1, 2)),  # use DynamicBroadcast dynamic dim
-            ((1, 2), (tp.dynamic_dim(4, min=2, opt=4, max=6), 2)),  # use DynamicBroadcast dynamic dim
-        ],
-    )
-    def test_dynamic_jit(self, dims_a, dims_b, capsys):
-        with logger.use_verbosity({"mlir"}):
-
-            def get_np_dims(dims, dim_func):
-                return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
-
-            a_cp = (
-                cp.arange(np.prod(get_np_dims(dims_a, lambda x: x.runtime_value)))
-                .reshape(get_np_dims(dims_a, lambda x: x.runtime_value))
-                .astype(np.float32)
-            )
-            b_cp = (
-                cp.arange(np.prod(get_np_dims(dims_b, lambda x: x.runtime_value)))
-                .reshape(get_np_dims(dims_b, lambda x: x.runtime_value))
-                .astype(np.float32)
-            )
-
-            a = tp.Tensor(a_cp, shape=dims_a, device=tp.device("gpu"))
-            b = tp.Tensor(b_cp, shape=dims_b, device=tp.device("gpu"))
-
-            @tp.jit
-            def func(a, b):
-                c = a + b
-                return c
-
-            out = func(a, b)
-            assert cp.array_equal(cp.from_dlpack(out), cp.array(a_cp + b_cp))
-            print("Re-run dynamic shape test with a different input shape.")
-
-            a_cp = (
-                cp.arange(np.prod(get_np_dims(dims_a, lambda x: x.max)))
-                .reshape(get_np_dims(dims_a, lambda x: x.max))
-                .astype(np.float32)
-            )
-            b_cp = (
-                cp.arange(np.prod(get_np_dims(dims_b, lambda x: x.max)))
-                .reshape(get_np_dims(dims_b, lambda x: x.max))
-                .astype(np.float32)
-            )
-
-            a = tp.Tensor(a_cp, device=tp.device("gpu"))
-            b = tp.Tensor(b_cp, device=tp.device("gpu"))
-
-            out = func(a, b)
-            assert cp.array_equal(cp.from_dlpack(out), cp.array(a_cp + b_cp))
-            # 1 compile call for stablehlo add.
-            captured = capsys.readouterr()
-            assert "stablehlo.add" in captured.out.strip()
-
-    @pytest.mark.parametrize("dim", [tp.dynamic_dim(4, min=2, opt=4, max=6)])
-    def test_dynamic_lazy(self, dim):
-        a = tp.Tensor(cp.ones(4, dtype=cp.float32), shape=(dim,), device=tp.device("gpu"))
-        b = tp.Tensor(cp.ones(4, dtype=cp.float32), shape=(dim,), device=tp.device("gpu"))
-
-        def func(a, b):
-            c = a + b
-            return c
-
-        out = func(a, b)
-        assert cp.array_equal(cp.from_dlpack(out), cp.array([2.0, 2.0, 2.0, 2.0], dtype=cp.float32))
 
 
 class TestConversionToTripyType:

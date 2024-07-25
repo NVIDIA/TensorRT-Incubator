@@ -21,7 +21,7 @@ class TestIotaOp:
         iota = flat_ir.ops[-1]
         assert isinstance(iota, DynamicIotaOp)
         assert re.match(
-            r"out: \[rank=\(2\), shape=\(\?\, \?\,\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicIotaOp\(t[0-9]+, dim=0\)",
+            r"out: \[rank=\(2\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicIotaOp\(t[0-9]+, dim=0\)",
             str(iota),
         )
 

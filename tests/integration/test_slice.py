@@ -9,10 +9,6 @@ import tripy as tp
 
 class TestSliceOp:
     @pytest.mark.parametrize(
-        "use_jit",
-        [False, True],
-    )
-    @pytest.mark.parametrize(
         "dims_a, slice_func",
         [
             ((2,), lambda t: t[-1]),
@@ -57,15 +53,12 @@ class TestSliceOp:
             ((5,), lambda t: t[-12:-5:-1]),
         ],
     )
-    def test_static_slice_op(self, dims_a, slice_func, use_jit):
+    def test_static_slice_op(self, dims_a, slice_func):
         a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(np.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(a):
             return slice_func(a)
-
-        if use_jit:
-            func = tp.jit(func)
 
         out = func(a)
         assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())

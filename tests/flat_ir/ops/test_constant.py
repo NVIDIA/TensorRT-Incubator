@@ -14,7 +14,7 @@ class TestConstantOp:
         assert isinstance(const, ConstantOp)
         assert (
             str(const)
-            == "out: [rank=(1), shape=(2,), dtype=(float32), loc=(gpu:0)] = ConstantOp(data=[2.0000, 3.0000])"
+            == "out: [rank=(1), shape=((2,)), dtype=(float32), loc=(gpu:0)] = ConstantOp(data=[2.0000, 3.0000])"
         )
 
     def test_mlir(self):

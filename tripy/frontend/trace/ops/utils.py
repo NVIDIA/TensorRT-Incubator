@@ -39,7 +39,7 @@ def _check_input_attr_matches(
 
 
 # Utility for error messages in wrap_shape_inputs
-def write_shape_input_indices_message(inputs: List["tp.Tensor"]) -> str:
+def write_shape_input_indices_message(inputs: List["tripy.Tensor"]) -> str:
     from tripy.frontend.shape import Shape
 
     shape_indices = list(map(str, filter(lambda i: isinstance(inputs[i], Shape), range(len(inputs)))))
@@ -161,7 +161,7 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     from tripy.flat_ir.tensor import FlatIRTensor
 
     const_output_tensor = FlatIRTensor.build(
-        shape=utils.to_dims((len(data),)),
+        shape=[len(data)],
         rank=1,
         dtype=int32,
         device=device,
@@ -202,7 +202,7 @@ def reshape_scalar_to_1d(input: "FlatIRTensor"):
 
     shape_1d = add_constant_tensor_from_list([1], input.device)
     out = FlatIRTensor.build(
-        shape=utils.to_dims((1,)),
+        shape=(1,),
         rank=1,
         dtype=int32,
         device=input.device,
@@ -225,7 +225,7 @@ def get_broadcast_compatible_shapes(shape1, shape2):
     elif len(shape2) > len(shape1):
         shape1 = (1,) * (len(shape2) - len(shape1)) + shape1
 
-    return utils.to_dims(shape1), utils.to_dims(shape2)
+    return shape1, shape2
 
 
 def is_broadcast_compatible(shape1, shape2) -> Result:
@@ -257,7 +257,7 @@ def compute_shape_of_broadcast(
     # can't just use the max of shape1 and shape2 because it will be incorrect if a dim is 0
     # (the broadcast of 0 and 1 is 0)
     resulting_shape = FlatIRTensor.build(
-        shape=utils.to_dims([output_rank]),
+        shape=[output_rank],
         rank=1,
         dtype=int32,
         device=shape1.device,
@@ -269,7 +269,7 @@ def compute_shape_of_broadcast(
         ],
     )
     shape_dim_comparison = FlatIRTensor.build(
-        shape=utils.to_dims([output_rank]),
+        shape=[output_rank],
         rank=1,
         dtype=tp_bool,
         device=shape1.device,
@@ -385,60 +385,6 @@ def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
 ##
 ## Slice
 ##
-
-
-def get_slice_indices(op, shape, index):
-    """
-    Converts index to slices required by Slice operation
-
-    Args:
-        shape: shape of input tensor
-
-    Returns:
-        start_indices: list of start slice index
-        limit_indices: list of end slice index
-        strides: list of slice strides
-    """
-    # TODO: only works for static shape, figure out how to handle DS
-    runtime_shape = [dim.runtime_value for dim in shape]
-
-    dims = len(shape)
-    if len(index) > dims:
-        utils.raise_error_io_info(
-            op,
-            "Too many indices for input tensor.",
-            details=[
-                "Input tensor has a rank of ",
-                dims,
-                " but was attempted to be sliced with ",
-                len(index),
-                " indices",
-            ],
-        )
-    index += (dims - len(index)) * (slice(None),)
-    start_indices = []
-    limit_indices = []
-    strides = []
-    to_positive_idx = lambda idx, dim: idx + dim if idx < 0 else idx
-    for idx, dim in zip(index, runtime_shape):
-        if isinstance(idx, int):
-            # slice the single element and squeeze later
-            idx = to_positive_idx(idx, dim)
-            start_indices.append(idx)
-            limit_indices.append(idx + 1)
-            strides.append(1)
-        else:
-            if idx.step is not None and idx.step < 0:
-                start_indices.append(
-                    0 if idx.start is None or idx.start >= dim else (dim - to_positive_idx(idx.start, dim) - 1)
-                )
-                limit_indices.append(dim if idx.stop is None else (dim - to_positive_idx(idx.stop, dim) - 1))
-            else:
-                start_indices.append(to_positive_idx(utils.default(idx.start, 0), dim))
-                # clamp the limit index if it goes past the end
-                limit_indices.append(min(dim, to_positive_idx(idx.stop, dim)) if (idx.stop is not None) else dim)
-            strides.append(abs(utils.default(idx.step, 1)))
-    return start_indices, limit_indices, strides
 
 
 def slice_rank1_tensor(rank1_tensor: "FlatIRTensor", slice_index: int, reason_details: Optional[List[Any]] = None):

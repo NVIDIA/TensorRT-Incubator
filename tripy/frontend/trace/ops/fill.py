@@ -1,10 +1,11 @@
 import numbers
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple, Union
 
+import tripy.frontend.trace.ops.utils as op_utils
+import tripy.frontend.utils as frontend_utils
 from tripy import export, utils
 from tripy.common import datatype
-from tripy.common.types import ShapeInfo
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -36,8 +37,8 @@ class Fill(BaseTraceOp):
                 assert (
                     out_shape[0] >= 0
                 ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
-                self.inputs[0].shape = utils.to_dims(out_shape)
-            self.output_rank = self.inputs[0].shape[0].runtime_value
+                self.inputs[0].shape = out_shape
+            self.output_rank = self.inputs[0].shape[0]
         self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
@@ -63,13 +64,15 @@ class Fill(BaseTraceOp):
 
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
-def full_impl(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype", output_rank: int) -> "tripy.Tensor":
+def full_impl(shape: Tuple[int], value: numbers.Number, dtype: "tripy.dtype", output_rank: int) -> "tripy.Tensor":
     return Fill.build([shape], value, output_rank, dtype)
 
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["value", "dtype"])
-def full(shape: ShapeInfo, value: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
+def full(
+    shape: Union["tripy.Shape", Sequence[int]], value: numbers.Number, dtype: "tripy.dtype" = datatype.float32
+) -> "tripy.Tensor":
     """
     Returns a tensor of the desired shape with all values set to the specified value.
 

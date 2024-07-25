@@ -142,9 +142,10 @@ def process_docstring(app, what, name, obj, options, lines):
                         pname in documented_args
                     ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args}"
 
-                    assert (
-                        param.annotation != signature.empty
-                    ), f"Missing type annotation for parameter: '{pname}' in: '{obj}'. Please update the signature with type annotations"
+                    assert (param.annotation != signature.empty) or param.kind in {
+                        inspect.Parameter.VAR_POSITIONAL,
+                        inspect.Parameter.VAR_KEYWORD,
+                    }, f"Missing type annotation for parameter: '{pname}' in: '{obj}'. Please update the signature with type annotations"
 
                     assert not inspect.ismodule(
                         param.annotation

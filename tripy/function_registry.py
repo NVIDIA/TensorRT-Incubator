@@ -48,9 +48,10 @@ class FuncOverload:
                     # don't require an annotation for it.
                     annotation = Any
                 else:
-                    assert (
-                        param.annotation and param.annotation is not signature.empty
-                    ), f"Function parameters must have type annotations, but parameter: '{name}' of function: '{self.func.__name__}' has no type annotation!"
+                    assert (param.annotation and param.annotation is not signature.empty) or param.kind in {
+                        inspect.Parameter.VAR_POSITIONAL,
+                        inspect.Parameter.VAR_KEYWORD,
+                    }, f"Non-variadic function parameters must have type annotations, but parameter: '{name}' of function: '{self.func.__name__}' has no type annotation!"
                     annotation = param.annotation
                     # In cases where a type is not available at the time of function definition, the type
                     # annotation may be provided as a string. Since we need the actual type, we just
@@ -181,7 +182,7 @@ class FunctionRegistry(dict):
     # NOTE: If you change this signature, also update `stack_info.py` - it currently relies on getting `key` to determine function names.
     def find_overload(self, key: str, args: List, kwargs: Dict) -> Callable:
         # NOTE: We could introduce a fast path when len(overloads) == 1, but it seems worth the overhead
-        # to have the type checks and nice error messages. Note that this overhead will not be a factor when we JIT.
+        # to have the type checks and nice error messages. Note that this overhead will not be a factor when we compile.
 
         def raise_overload_error(msg, candidate_overloads, mismatch_reasons=None, extra_info=""):
             arg_type_strs = []

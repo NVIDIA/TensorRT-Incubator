@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from tripy import utils
 import tripy.frontend.trace.ops.utils as op_utils
+from tripy import utils
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -95,9 +95,9 @@ class MatrixMultiplication(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.flat_ir.ops import ConcatenateOp, DotOp, DynamicSliceOp, MaxOp
         from tripy.common.datatype import int32
+        from tripy.flat_ir.ops import ConcatenateOp, DotOp, DynamicSliceOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         # Following steps are followed in the implementation below:
         # 1. Slice the input shape into batch dims and matrix dims.
@@ -114,10 +114,10 @@ class MatrixMultiplication(BaseTraceOp):
             one_1d = op_utils.add_constant_tensor_from_list([1], input.device)
             slice_len = op_utils.add_constant_tensor_from_list([nb_batch_dims], input.device)
             batch_slice = FlatIRTensor.build(
-                shape=utils.to_dims([nb_batch_dims]),
-                rank=1,
                 dtype=int32,
                 device=input.device,
+                rank=1,
+                shape=[nb_batch_dims],
                 reason_details=["slice the input shape ", input_shape, " to get batch dims."],
             )
             DynamicSliceOp.build([input_shape, zero_1d, slice_len, one_1d], [batch_slice])

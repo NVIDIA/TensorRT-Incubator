@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
-from tripy.common.types import ShapeInfo
 from tripy.utils.json import Decoder, Encoder
 
 
@@ -10,7 +9,7 @@ from tripy.utils.json import Decoder, Encoder
 @dataclass
 class TensorInfo:
     rank: int
-    shape: ShapeInfo
+    shape: Sequence[int]
     dtype: "tripy.dtype"
     device: "tripy.device"
 
@@ -28,11 +27,3 @@ def encode(tensor_info: TensorInfo) -> Dict[str, Any]:
 @Decoder.register(TensorInfo)
 def decode(dct: Dict[str, Any]) -> TensorInfo:
     return TensorInfo(dct["rank"], dct["shape"], dct["dtype"], dct["device"])
-
-
-def get_tensor_info(tensors) -> List[TensorInfo]:
-    return [TensorInfo(tensor.rank, tensor.shape, tensor.dtype, tensor.device) for tensor in tensors]
-
-
-def get_devices(tensor_info):
-    return [info.device for info in tensor_info]

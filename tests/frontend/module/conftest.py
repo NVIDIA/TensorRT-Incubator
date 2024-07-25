@@ -26,8 +26,8 @@ class DummyOp(tp.Module):
 class Network(tp.Module):
     def __init__(self):
         super().__init__()
-        self.param = tp.Parameter(tp.ones(2, dtype=tp.float32))
-        self.dummy1 = DummyOp(tp.zeros(2, dtype=tp.float32))
+        self.param = tp.Parameter(tp.ones((2,), dtype=tp.float32))
+        self.dummy1 = DummyOp(tp.zeros((2,), dtype=tp.float32))
         self.dummy2 = DummyOp(tp.arange(2, dtype=tp.float32))
 
     def __call__(self):
@@ -37,8 +37,8 @@ class Network(tp.Module):
 class ListNetwork(tp.Module):
     def __init__(self):
         super().__init__()
-        self.params = [tp.Parameter(tp.ones(2, dtype=tp.float32))]
-        self.dummy_list = [DummyOp(tp.zeros(2, dtype=tp.float32)), DummyOp(tp.arange(2, dtype=tp.float32))]
+        self.params = [tp.Parameter(tp.ones((2,), dtype=tp.float32))]
+        self.dummy_list = [DummyOp(tp.zeros((2,), dtype=tp.float32)), DummyOp(tp.arange(2, dtype=tp.float32))]
 
     def __call__(self):
         out = self.param
@@ -50,9 +50,9 @@ class ListNetwork(tp.Module):
 class DictNetwork(tp.Module):
     def __init__(self):
         super().__init__()
-        self.params = {"param": tp.Parameter(tp.ones(2, dtype=tp.float32))}
+        self.params = {"param": tp.Parameter(tp.ones((2,), dtype=tp.float32))}
         self.dummy_dict = {
-            "op0": DummyOp(tp.zeros(2, dtype=tp.float32)),
+            "op0": DummyOp(tp.zeros((2,), dtype=tp.float32)),
             "op1": DummyOp(tp.arange(2, dtype=tp.float32)),
         }
 
@@ -77,31 +77,7 @@ class ComplexNetwork(tp.Module):
         return out1 + out2
 
 
-class JitNetwork(tp.Module):
-    def __init__(self):
-        super().__init__()
-        self.param = tp.Parameter(tp.ones(2, dtype=tp.float32))
-        self.dummy1 = DummyOp(tp.zeros(2, dtype=tp.float32))
-        self.dummy2 = DummyOp(tp.arange(2, dtype=tp.float32))
-
-    @tp.jit
-    def __call__(self):
-        return self.param + self.dummy1() + self.dummy2()
-
-
-class JitArgsNetwork(tp.Module):
-    def __init__(self):
-        super().__init__()
-        self.param = tp.Parameter(tp.ones(2, dtype=tp.float32))
-        self.dummy1 = DummyOp(tp.zeros(2, dtype=tp.float32))
-        self.dummy2 = DummyOp(tp.arange(2, dtype=tp.float32))
-
-    @tp.jit()
-    def __call__(self, tensor1, tensor2):
-        return self.param + self.dummy1() + self.dummy2() + tensor1 + tensor2
-
-
-@pytest.fixture(params=[(Network, ()), (JitNetwork, ()), (JitArgsNetwork, (1, 2))])
+@pytest.fixture(params=[(Network, ())])
 def all_network_modes(request):
     call_args = request.param[1]
     inputs = [tp.Tensor(cp.full(2, v, dtype=np.float32), device=tp.device("gpu")) for v in call_args]

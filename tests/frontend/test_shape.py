@@ -83,36 +83,6 @@ class TestShape:
         assert isinstance(new_shape.trace_tensor.producer, Concatenate)
         assert cp.from_dlpack(new_shape).get().tolist() == values + appended
 
-    def test_shape_jit(self, values):
-        s = tp.Shape(values)
-
-        @tp.jit
-        def cat(a, b):
-            return a + b
-
-        new_shape = cat(s, s)
-        assert isinstance(new_shape, tp.Shape)
-        assert cp.from_dlpack(new_shape).get().tolist() == values + values
-
-        # try with an ordinary tensor, using the ordinary tensor's definition of +
-        t = tp.Tensor(values)
-        new_t = cat(t, t)
-        assert not isinstance(new_t, tp.Shape)
-        expected_sum = [2 * v for v in values]
-        assert cp.from_dlpack(new_t).get().tolist() == expected_sum
-
-        # use with tensors of a different rank to ensure that there is recompilation,
-        # since the cache uses shape information
-        tt = tp.Tensor([values, values])
-        new_tt = cat(tt, tt)
-        assert not isinstance(new_tt, tp.Shape)
-        assert cp.from_dlpack(new_tt).get().tolist() == [expected_sum, expected_sum]
-
-        # call a second time to ensure that shape information is cached correctly
-        new_shape = cat(s, s)
-        assert isinstance(new_shape, tp.Shape)
-        assert cp.from_dlpack(new_shape).get().tolist() == values + values
-
     def test_comparison_not_wrapped(self, values):
         from tripy.frontend.trace.ops.binary_elementwise import Comparison
 
@@ -308,10 +278,6 @@ class TestShape:
         assert isinstance(res, tp.Shape)
         assert isinstance(res.trace_tensor.producer, Where)
         assert cp.from_dlpack(res).get().tolist() == [0 if values[i] < 2 else values[i] for i in range(len(values))]
-
-    def test_rank_mismatch(self):
-        with raises(tp.TripyException, match="Data has incorrect shape"):
-            _ = tp.Shape(np.array([1, 2, 3], dtype=np.int32), num_dims=2)
 
     def test_invalid_input_dtype(self):
         with raises(tp.TripyException, match="Data has incorrect dtype"):

@@ -7,7 +7,6 @@ from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.dim import dynamic_dim
 
 
 @dataclass(repr=False)
@@ -61,21 +60,20 @@ class Quantize(BaseTraceOp):
             # Reshape(scale) -> [block_size * A, B]
             # Divide(input, scale)
             num_blocks = FlatIRTensor.build(
-                shape=(dynamic_dim(1),),
+                shape=(1,),
                 rank=1,
                 dtype=int32,
                 device=inputs[0].device,
                 reason_details=["Compute the number of blocks in block-wise quantization"],
             )
             blocked_shape = FlatIRTensor.build(
-                shape=(dynamic_dim(3),),
+                shape=(3,),
                 rank=1,
                 dtype=int32,
                 device=inputs[0].device,
                 reason_details=["Compute shape with an extra blocked_size dimension."],
             )
             blocked_scale = FlatIRTensor.build(
-                shape=(dynamic_dim(-1), dynamic_dim(-1), dynamic_dim(-1)),
                 rank=3,
                 dtype=inputs[1].dtype,
                 device=inputs[1].device,

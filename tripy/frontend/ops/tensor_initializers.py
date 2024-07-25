@@ -1,11 +1,10 @@
 import math
 import numbers
-from typing import Optional
+from typing import Optional, Sequence, Union
 
 from tripy import export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
-from tripy.common.types import ShapeInfo
 from tripy.frontend.trace.ops.fill import full, full_like
 from tripy.frontend.trace.ops.iota import iota, iota_like
 from tripy.frontend.trace.ops.where import where
@@ -14,7 +13,7 @@ from tripy.frontend import utils as frontend_utils
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
-def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def ones(shape: Union["tripy.Shape", Sequence[int]], dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 1.
 
@@ -40,7 +39,7 @@ def ones(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.T
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
-def zeros(shape: ShapeInfo, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def zeros(shape: Union["tripy.Shape", Sequence[int]], dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 0.
 

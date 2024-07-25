@@ -1,7 +1,7 @@
-from typing import Dict, List, Set
+from typing import Dict, List, Sequence, Set
 
 from tripy import utils
-from tripy.frontend.dim import dynamic_dim
+from tripy.common.shape_bounds import ShapeBounds
 
 
 class FlatIR:
@@ -9,11 +9,12 @@ class FlatIR:
     A flattened low level representation of a computation graph which maps directly with StableHLO dialect.
     """
 
-    def __init__(self):
+    def __init__(self, shapes: Sequence[ShapeBounds] = None):
         self.inputs: List["FlatIRTensor"] = []
         self.outputs: List["FlatIRTensor"] = []
         self.ops: List["BaseFlatIROp"] = []
 
+        self.shapes = shapes
         self.tensor_map: Dict[str] = {}
 
     def __str__(self):
@@ -48,13 +49,13 @@ class FlatIR:
                     entry_block = func_op.add_entry_block()
                     with ir.InsertionPoint(entry_block):
                         ops = []
-                        hlo_ops: Dict[str, ir.BlockArgument] = {}
+                        mlir_ops: Dict[str, ir.BlockArgument] = {}
                         # Initialize tensor dict with inputs
                         for index, inp in enumerate(self.inputs):
-                            hlo_ops[inp.name] = entry_block.arguments[index]
+                            mlir_ops[inp.name] = entry_block.arguments[index]
 
                         for op in self.ops:
-                            layer_inputs = [hlo_ops[inp.name] for inp in op.inputs]
+                            layer_inputs = [mlir_ops[inp.name] for inp in op.inputs]
 
                             with make_tensor_location(
                                 [inp.name for inp in op.inputs],
@@ -71,56 +72,40 @@ class FlatIR:
                                     type = mlir_out.type if hasattr(mlir_out, "type") else mlir_out.result.type
                                     flatir_out.shape = tuple(
                                         [
-                                            (
-                                                dynamic_dim(-1)
-                                                if type.is_dynamic_dim(i)
-                                                else dynamic_dim(type.get_dim_size(i))
-                                            )
+                                            (-1 if type.is_dynamic_dim(i) else type.get_dim_size(i))
                                             for i in range(type.rank)
                                         ]
                                     )
 
                             ops.extend(layer_outputs)
-                            hlo_ops.update(zip([out.name for out in op.outputs], layer_outputs))
+                            mlir_ops.update(zip([out.name for out in op.outputs], layer_outputs))
 
-                        func_dialect.ReturnOp([hlo_ops[o.name] for o in self.outputs])
+                        func_dialect.ReturnOp([mlir_ops[o.name] for o in self.outputs])
 
                     # After lowering the complete graph to stablehlo, there can be mismatch between Tripy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
                     # Here, we check if the types for the results and change the function signature to obey the inferred types.
                     new_out_types = [
-                        hlo_ops[o.name].type if hasattr(hlo_ops[o.name], "type") else hlo_ops[o.name].result.type
+                        mlir_ops[o.name].type if hasattr(mlir_ops[o.name], "type") else mlir_ops[o.name].result.type
                         for o in self.outputs
                     ]
                     ftype = ir.FunctionType.get(inp_types, new_out_types)
                     func_op.attributes["function_type"] = ir.TypeAttr.get(ftype)
 
-                    # Create tensorrt.shape_profile attribute for all function arguments
-                    arg_attrs: List[Dict[str, ir.Attribute]] = []
+                    if self.shapes:
+                        # Create tensorrt.shape_profile attribute for all function arguments
+                        arg_attrs: List[Dict[str, ir.Attribute]] = []
+                        for bound in self.shapes:
+                            # TODO (#244): Support multiple profiles
 
-                    # Returns a list filled with requested optimization profile information.
-                    def get_optimization_profile_list(tensor, attr):
-                        return (
-                            []
-                            if tensor.rank == 0
-                            else [
-                                getattr(s, attr) if s.is_dynamic_dim() else s.min for s in utils.make_list(tensor.shape)
-                            ]
-                        )
+                            arg_attrs.append(
+                                {
+                                    "tensorrt.shape_profile": ir.Attribute.parse(
+                                        f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                    )
+                                }
+                            )
 
-                    for inp in self.inputs:
-                        min_profile_list = get_optimization_profile_list(inp, "min")
-                        max_profile_list = get_optimization_profile_list(inp, "max")
-                        opt_profile_list = get_optimization_profile_list(inp, "opt")
-
-                        arg_attrs.append(
-                            {
-                                "tensorrt.shape_profile": ir.Attribute.parse(
-                                    f"#tensorrt.shape_profile<min={min_profile_list}, opt={opt_profile_list}, max={max_profile_list}>"
-                                )
-                            }
-                        )
-
-                    func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
+                        func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
 
                     # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
                     # TODO(#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.

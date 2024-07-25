@@ -31,7 +31,7 @@ class DynamicBroadcastOp(BaseFlatIROp):
             # Tripy frontend does not have shape inference and stablehlo does not allow shape operand to be of dynamic shape.
             # Since DynamicBroadcastOp was created internally by Tripy, we know the expected output rank. For dynamic_broadcast_in_dim operator, the shape of shape tensor is the same as output rank.
             new_shape = [self.outputs[0].rank]
-            self.inputs[1].shape = utils.to_dims(new_shape)
+            self.inputs[1].shape = new_shape
             operands[1].set_type(ir.RankedTensorType.get(new_shape, operands[1].type.element_type))
 
         broadcast_dim_attr = ir.DenseI64ArrayAttr.get(self.broadcast_dim)

@@ -95,8 +95,8 @@ def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""
     Returns a tensor with the contents of the input tensor casted to the specified data type.
 
-    For casts into quantized datatypes (`int4` and `float8`), this performs a per-tensor
-    quantization into that datatype with scale 1.0; for casts _from_ those datatypes, this performs
+    For casts into quantized datatypes (:class:`int4` and :class:`float8`), this performs a per-tensor
+    quantization into that datatype with scale 1.0; for casts `from` those datatypes, this performs
     a per-tensor dequantization with scale 1.0. Direct use of :func:`quantize` and :func:`dequantize` allows
     for finer control over these parameters.
 

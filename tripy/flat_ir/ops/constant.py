@@ -48,7 +48,7 @@ class ConstantOp(BaseFlatIROp):
             attr = ir.DenseElementsAttr.get(
                 array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=self.data.shape
             )
-            cast_output = mlir_utils.make_mlir_tensor(utils.to_dims(self.data.shape), datatype.bool)
+            cast_output = mlir_utils.make_mlir_tensor(datatype.bool, self.data.shape)
             constant_op = stablehlo.ConstantOp(attr)
             return [stablehlo.ConvertOp(result=cast_output, operand=constant_op)]
 

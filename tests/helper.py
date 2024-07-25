@@ -447,14 +447,23 @@ def update_code_block_with_outputs_and_locals(
 
     should_append_locals = True
     should_eval = True
+
     # By default, we print all local variables. If `print_vars` it not empty,
     # then we'll only print those that appear in it.
     print_vars = set()
+    # Set of variables *not* to print
+    no_print_vars = set()
 
     code_block_lines = []
     for block_line in block.splitlines():
-        if block_line.strip() == NO_PRINT_LOCALS:
-            should_append_locals = False
+        if block_line.strip().startswith(NO_PRINT_LOCALS):
+            _, _, names = block_line.strip().partition(NO_PRINT_LOCALS)
+            names = names.strip().split(" ")
+            # If no names are specified, then we disable all local variables.
+            if not names:
+                should_append_locals = False
+            else:
+                no_print_vars.update(names)
 
         if block_line.strip() == NO_EVAL:
             should_eval = False
@@ -504,10 +513,10 @@ def update_code_block_with_outputs_and_locals(
         for name, obj in code_locals.items():
 
             def should_print():
-                # print_vars always takes precedence over anything else
+                # print_vars/no_print_vars always take precedence over anything else
                 if name in print_vars:
                     return True
-                elif print_vars:
+                elif print_vars or name in no_print_vars:
                     return False
 
                 # By default, only print new variables (print_vars may override this)
@@ -518,7 +527,7 @@ def update_code_block_with_outputs_and_locals(
                 if not any(isinstance(obj, tripy_obj) for tripy_obj in TRIPY_CLASSES):
                     return False
 
-                EXCLUDE_OBJECTS = [tp.jit]
+                EXCLUDE_OBJECTS = []
 
                 if any(isinstance(obj, exclude_obj) for exclude_obj in EXCLUDE_OBJECTS):
                     return False

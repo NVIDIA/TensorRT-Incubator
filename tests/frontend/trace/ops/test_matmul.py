@@ -58,9 +58,7 @@ class TestMatMul:
         [
             (
                 tp.ones((2,)),
-                tp.ones(
-                    2,
-                ),
+                tp.ones((2,)),
                 0,
             ),
             (tp.ones((2, 3)), tp.ones((3, 2)), 2),

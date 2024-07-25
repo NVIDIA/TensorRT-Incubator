@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils
-from tripy.frontend.dim import dynamic_dim
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 

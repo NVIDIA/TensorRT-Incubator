@@ -1,14 +1,12 @@
 from typing import List
 
-import mlir_tensorrt.runtime.api as runtime
 import mlir_tensorrt.compiler.api as compiler
+import mlir_tensorrt.runtime.api as runtime
 
 from tripy.backend.utils import TensorInfo
 from tripy.common import Array, datatype, device
 from tripy.common.exception import raise_error
-from tripy.frontend import Tensor, dynamic_dim
-from tripy.utils import Result, from_dims, log_time, make_tuple
-
+from tripy.utils import log_time, make_tuple
 
 G_RUNTIME_CLIENT = None
 
@@ -34,7 +32,7 @@ class Executor:
         inputs_shape_memref = []
         for input in inputs:
             input_shape = Array(
-                from_dims(input.trace_tensor.producer.data.shape),
+                input.trace_tensor.producer.data.shape,
                 shape=make_tuple(input.trace_tensor.rank),
                 dtype=datatype.int64,
                 device=device("cpu"),
@@ -82,7 +80,7 @@ class Executor:
         return outputs_runtime_shape
 
     def _get_output_tensor_info(self, outputs_runtime_shape, output_devices):
-        from tripy.backend.mlir.utils import get_max_upper_bounds, convert_runtime_dtype_to_tripy_dtype
+        from tripy.backend.mlir.utils import convert_runtime_dtype_to_tripy_dtype
 
         offset = self.signature.get_num_input_args()
         outputs_tensor_info = []
@@ -103,9 +101,7 @@ class Executor:
             is_static_shape = all(dim >= 0 for dim in memref.shape)
             if is_static_shape:
                 outputs_tensor_info.append(
-                    TensorInfo(
-                        len(memref.shape), tuple([dynamic_dim(s) for s in memref.shape]), dtype, device(device_type)
-                    )
+                    TensorInfo(len(memref.shape), tuple(memref.shape), dtype, device(device_type))
                 )
             else:
                 runtime_shape = [
@@ -114,7 +110,7 @@ class Executor:
                 outputs_tensor_info.append(
                     TensorInfo(
                         len(runtime_shape),
-                        tuple([dynamic_dim(runtime, min=None, opt=None, max=None) for runtime in runtime_shape]),
+                        tuple(runtime_shape),
                         dtype,
                         device(device_type),
                     )
@@ -131,7 +127,7 @@ class Executor:
         return output_tensor_info
 
     @log_time
-    def execute(self, output_devices=List[device], inputs: List[Tensor] = []) -> List[Array]:
+    def execute(self, output_devices=List[device], inputs: List["Tensor"] = []) -> List[Array]:
         from tripy.frontend.trace.ops import Storage
 
         in_args = []
@@ -156,9 +152,7 @@ class Executor:
         out_tensor_info = self.get_output_tensor_runtime_info(inputs, output_devices)
 
         # Allocate output memory and store buffer pointers.
-        outputs = [
-            Array(None, shape=from_dims(info.shape), dtype=info.dtype, device=info.device) for info in out_tensor_info
-        ]
+        outputs = [Array(None, shape=info.shape, dtype=info.dtype, device=info.device) for info in out_tensor_info]
 
         out_args = []
         for out in outputs:

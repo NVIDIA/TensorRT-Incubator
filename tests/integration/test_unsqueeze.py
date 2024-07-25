@@ -6,35 +6,16 @@ import tripy as tp
 
 
 class TestUnsqueezeOp:
-    @pytest.mark.parametrize(
-        "use_jit",
-        [
-            False,
-            # TODO: DS blocked on https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/635
-            #    True
-        ],
-    )
-    @pytest.mark.parametrize(
-        "dims_a, axis",
-        [
-            ((tp.dynamic_dim(4, min=2, opt=4, max=6), 2), 0),
-            ((tp.dynamic_dim(4, min=2, opt=4, max=6), 2, 2, 3), 2),
-            ((tp.dynamic_dim(4, min=2, opt=4, max=6), 2, 2, 3), 3),
-        ],
-    )
-    def test_unsqueeze_dynamic_op(self, dims_a, axis, use_jit):
-        def get_np_dims(dims, dim_func):
-            return [dim_func(d) if isinstance(d, tp.dynamic_dim) else d for d in dims]
-
-        dims = get_np_dims(dims_a, lambda x: x.runtime_value)
-        a_np = np.arange(np.prod(dims)).reshape(dims).astype(np.float32)
-        a = tp.Tensor(cp.asarray(a_np), shape=dims_a)
-
+    @pytest.mark.parametrize("axis", [0, 2, 3])
+    def test_unsqueeze_dynamic_op(self, axis):
         def func(a):
             return tp.unsqueeze(a, dim=axis)
 
-        if use_jit:
-            func = tp.jit(func)
+        # TODO: DS blocked on https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/635
+        # compiler = tp.Compiler(func)
+        # compiler.compile(tp.InputInfo(([2, 4, 6], 2, 2, 3), dtype=tp.float32))
 
-        out = func(a)
-        assert np.allclose(cp.from_dlpack(out).get(), np.array(np.expand_dims(a_np, axis=axis)))
+        inp = np.ones((4, 2, 2, 3), dtype=np.float32)
+
+        out = func(tp.Tensor(inp))
+        assert np.allclose(cp.from_dlpack(out).get(), np.array(np.expand_dims(inp, axis=axis)))

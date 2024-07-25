@@ -22,5 +22,5 @@ class TestGatherOp:
         assert isinstance(gather, DynamicGatherOp)
         assert (
             str(gather)
-            == "out: [rank=(1), shape=(?,), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter3, axis=0)"
+            == "out: [rank=(1), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter3, axis=0)"
         )

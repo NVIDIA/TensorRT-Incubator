@@ -1,10 +1,10 @@
-from tripy import export, utils
 from typing import Optional, Sequence, Union
+
+from tripy import export, utils
 from tripy.common.array import Array
+from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
-from tripy.common.device import device
-from tripy.common.datatype import int32
 
 
 @export.public_api()
@@ -20,7 +20,6 @@ class Shape(Tensor):
     def __init__(
         self,
         data: Union[Sequence, Tensor, Array, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        num_dims: Optional[Union[int, "tripy.dynamic_dim"]] = None,
         name: Optional[str] = None,
     ) -> None:
         r"""
@@ -45,7 +44,7 @@ class Shape(Tensor):
                 )
 
             # the shape of data should correspond to the given rank
-            super().__init__(data=None, shape=utils.to_dims(num_dims), dtype=int32, name=name, device=data.device)
+            super().__init__(data=None, shape=None, dtype=int32, name=name, device=data.device)
             # the device field is not set by the superclass constructor if the data field is not passed
             self.device = data.device
             # share the underlying data
@@ -60,9 +59,9 @@ class Shape(Tensor):
                 )
             # for an array, duplicate fields are not allowed
             if isinstance(data, Array):
-                super().__init__(data=data, shape=utils.to_dims(num_dims))
+                super().__init__(data=data, shape=shape)
             else:
-                super().__init__(data=data, shape=utils.to_dims(num_dims), dtype=int32, name=name, device=device)
+                super().__init__(data=data, shape=shape, dtype=int32, name=name, device=device)
 
     def as_tensor(self) -> Tensor:
         """
@@ -80,12 +79,12 @@ class Shape(Tensor):
             assert isinstance(t, tp.Tensor) and not isinstance(t, tp.Shape)
             assert np.array_equal(cp.from_dlpack(s).get(), cp.from_dlpack(t).get())
         """
-        ret = Tensor(data=None, shape=utils.to_dims(self.rank), dtype=int32, name=self.name, device=self.device)
+        ret = Tensor(data=None, shape=(self.rank,), dtype=int32, name=self.name, device=self.device)
         ret.trace_tensor = self.trace_tensor
         ret.stack_info = self.stack_info
         return ret
 
-    def add(self, other: Union["tp.Shape", Tensor]) -> "tp.Shape":
+    def add(self, other: Union["tripy.Shape", Tensor]) -> "tripy.Shape":
         """
         The + operator for shapes is concatenation. This method is exposed to allow for elementwise addition,
         should it be necessary.

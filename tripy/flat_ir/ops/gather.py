@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 
 from mlir_tensorrt.compiler import ir
@@ -29,7 +30,7 @@ class GatherOp(BaseFlatIROp):
             index_vector_dim=index_vector_dim,
         )
 
-        slice_sizes = [s.runtime_value for s in self.inputs[0].shape]
+        slice_sizes = copy.copy(self.inputs[0].shape)
         slice_sizes[self.axis] = 1
         slice_sizes = ir.DenseI64ArrayAttr.get(slice_sizes)
         gather_out = stablehlo.gather(

@@ -72,11 +72,11 @@ class TestIota:
         from tripy.frontend.trace.ops.iota import Iota
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
-        a = tp.iota((2, 2))
+        a = tp.ones((2, 2))
         out = Iota.build([a.shape], dim=0, output_rank=2, dtype=dtype)
         with helper.raises(
             tp.TripyException,
-            match="InternalError: failed to run compilation pipeline",
+            match="error: 'tensorrt.linspace' op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values",
         ):
             print(out)
 

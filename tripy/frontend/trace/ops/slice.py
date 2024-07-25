@@ -58,7 +58,7 @@ class Slice(BaseTraceOp):
 
                     def expand_to_rank1(index_tensor):
                         reshape_out = FlatIRTensor.build(
-                            shape=utils.to_dims([1]),
+                            shape=[1],
                             rank=1,
                             dtype=int32,
                             device=device,
@@ -74,14 +74,14 @@ class Slice(BaseTraceOp):
                         from tripy.flat_ir.ops import CompareOp, SelectOp
 
                         start_comparison = FlatIRTensor.build(
-                            shape=utils.to_dims([1]),
+                            shape=[1],
                             rank=1,
                             dtype=tp_bool,
                             device=device,
                             reason_details=["Check if start > end"],
                         )
                         adjusted_start = FlatIRTensor.build(
-                            shape=utils.to_dims([1]),
+                            shape=[1],
                             rank=1,
                             dtype=int32,
                             device=device,

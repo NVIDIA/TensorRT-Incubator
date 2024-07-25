@@ -50,7 +50,7 @@ class Gather(BaseTraceOp):
         if self.axis > 0:
             slice_len = op_utils.add_constant_tensor_from_list([self.axis], inputs[0].device)
             axis_first_half = FlatIRTensor.build(
-                shape=utils.to_dims([self.axis]),
+                shape=[self.axis],
                 dtype=int32,
                 device=inputs[0].device,
                 reason_details=["slice the input shape ", input_shape, " to get input_shape[0:self.axis]."],

@@ -3,7 +3,6 @@ from typing import Sequence, Tuple, List, Union
 
 from tripy import export, utils
 from tripy.common.exception import raise_error
-from tripy.common.types import ShapeInfo
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -34,8 +33,8 @@ class Reshape(BaseTraceOp):
                 out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[1])
                 assert len(out_shape) == 1
                 assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
-                self.inputs[1].shape = utils.to_dims(out_shape)
-            self.outputs[0].rank = self.inputs[1].shape[0].runtime_value
+                self.inputs[1].shape = out_shape
+            self.outputs[0].rank = self.inputs[1].shape[0]
         else:
             self.outputs[0].rank = self.output_rank
 
@@ -51,7 +50,7 @@ def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int = None
 
 
 @export.public_api(document_under="tensor_operations")
-def reshape(input: "tripy.Tensor", shape: ShapeInfo) -> "tripy.Tensor":
+def reshape(input: "tripy.Tensor", shape: Sequence[int]) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
 

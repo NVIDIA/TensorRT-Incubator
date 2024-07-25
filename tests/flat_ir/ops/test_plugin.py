@@ -37,7 +37,7 @@ class TestPluginOp:
         assert isinstance(plugin_op, PluginOp)
         assert (
             str(plugin_op)
-            == "out: [rank=(4), shape=(?, ?, ?, ?,), dtype=(float32), loc=(gpu:0)] = PluginOp(X, rois, batch_indices, name='ROIAlign_TRT', version='1', namespace='', creator_params={'output_height': 5, 'output_width': 5})"
+            == "out: [rank=(4), dtype=(float32), loc=(gpu:0)] = PluginOp(X, rois, batch_indices, name='ROIAlign_TRT', version='1', namespace='', creator_params={'output_height': 5, 'output_width': 5})"
         )
 
     def test_mlir(self, flat_ir):

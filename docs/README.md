@@ -97,10 +97,13 @@ documentation is generated. Specifically:
 - The values of any `tripy` type local variables are appended to the output.
     You can customize this behavior:
 
-    - To disable it completely, add `# doc: no-print-locals`.
-
     - To only display certain variables, add `# doc: print-locals` followed by a space
         separated list of variable names. For example: `# doc: print-locals inp out`.
+
+    - To only disable certain variables, add `# doc: no-print-locals` followed by a space
+        separated list of variable names. For example: `# doc: no-print-locals inp out`.
+
+    - To disable it completely, add just `# doc: no-print-locals` without specifying any variables.
 
 - Any `assert` statements are stripped out.
 

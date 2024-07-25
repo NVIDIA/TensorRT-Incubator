@@ -1,7 +1,6 @@
 import argparse
 import time
 
-import numpy as np
 import tiktoken
 import torch
 from model import GPT, GPTConfig
@@ -78,13 +77,20 @@ def main():
     else:
         load_quant_weights_from_hf(model, args.model_type, model_dtype, args.quant_mode)
 
-    idx = torch.Tensor(input_ids).reshape((1, len(input_ids))).to(torch.int32).to("cuda")
-    idx = tp.Tensor(idx, shape=(1, tp.dynamic_dim(len(input_ids), 1, len(input_ids), padded_seq_len)))
+    idx = tp.reshape(tp.Tensor(input_ids), shape=(1, len(input_ids)))
 
-    # Run once outside the loop to compile the model.
-    compilation_start_time = time.time()
-    model(idx)
-    print(f"Compilation took {time.time() - compilation_start_time} seconds.")
+    # Compile the model before running inference.
+    compile_start_time = time.perf_counter()
+    compiler = tp.Compiler(model)
+    input_shape = (
+        1,
+        # We can specify dynamic dimensions by using a sequence indicating the min/opt/max values that
+        # a dimension should support:
+        [1, len(input_ids), padded_seq_len],
+    )
+    model = compiler.compile(tp.InputInfo(input_shape, dtype=tp.int32))
+    compile_end_time = time.perf_counter()
+    print(f"Compilation took {compile_end_time - compile_start_time} seconds.")
 
     generator = None
     if args.seed is not None:

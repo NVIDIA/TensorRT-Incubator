@@ -70,9 +70,7 @@ class CausalSelfAttention(tp.Module):
             [B, T, tp.Tensor([self.num_heads]), tp.Tensor([self.embedding_size // self.num_heads])], dim=0
         )
         # WAR to prevent computing output rank in infer_rank for reshape, will be addressed by https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/228
-        multi_head_output_shape.trace_tensor.shape = utils.to_dims(
-            4,
-        )
+        multi_head_output_shape.trace_tensor.shape = (4,)
         multi_heads = lambda x: tp.transpose(tp.reshape(x, multi_head_output_shape), 1, 2)
 
         q = multi_heads(q)
@@ -94,9 +92,7 @@ class CausalSelfAttention(tp.Module):
         out = tp.cast(out, x.dtype)
         out_shape = tp.concatenate([B, T, tp.Tensor([self.embedding_size])], dim=0)
         # WAR to prevent computing output rank in infer_rank for reshape, will be addressed by https://gitlab-master.nvidia.com/TensorRT/poc/tripy/-/issues/228
-        out_shape.trace_tensor.shape = utils.to_dims(
-            3,
-        )
+        out_shape.trace_tensor.shape = (3,)
         out = tp.reshape(tp.transpose(out, 1, 2), out_shape)
         out = self.c_proj(out)  # (batch_size, seq_len, embedding_size)
         return out
@@ -166,10 +162,6 @@ class GPT(tp.Module):
             # lm_head is disabled for int8 quantization
             self.lm_head = tp.Linear(config.embedding_size, config.vocab_size, bias=False, dtype=config.dtype)
 
-    # Decorating a function with tp.jit indicates to Tripy that it should compile an optimized
-    # version of the implementation the first time the function is called. Subsequent calls will
-    # use the faster implementation instead.
-    @tp.jit
     def __call__(self, idx):
         x = self.transformer(idx)
         logits = self.lm_head(x)  # (batch_size, seq_len, embedding_size) -> (batch_size, seq_len, vocab_size)

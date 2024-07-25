@@ -112,7 +112,7 @@ class BaseTraceOp(abc.ABC):
         Infers shapes for the operation and updates output tensor shapes accordingly.
         """
         # Default implementation of infer_shapes fills dynamic dim for all elements.
-        self.outputs[0].shape = utils.to_dims([-1] * self.outputs[0].rank)
+        self.outputs[0].shape = [-1] * self.outputs[0].rank
 
     def infer_dtypes(self):
         """
