@@ -5,7 +5,7 @@ ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), os.path.pard
 sys.path.insert(0, ROOT_DIR)
 import inspect
 import re
-from textwrap import dedent, indent
+from textwrap import indent
 
 import tripy as tp
 from tests import helper
@@ -199,12 +199,16 @@ def process_docstring(app, what, name, obj, options, lines):
     seen_classes.add(name)
 
     def allow_no_example():
-        return (
-            what in {"attribute", "module", "class", "data"}
-            or
-            # Modules include examples in their constructors
-            (what == "method" and obj.__name__ == "__call__")
-        )
+        # `tp.Module`s include examples in their constructors, so their __call__ methods don't require examples.
+        is_tripy_module_call_method = False
+        if what == "method" and obj.__name__ == "__call__":
+            class_name = name.rpartition(".")[0]
+            # Class names will be prefixed with tripy.<...>, so we need to import it here to make eval() work.
+            import tripy
+
+            is_tripy_module_call_method = issubclass(eval(class_name), tp.Module)
+
+        return what in {"attribute", "module", "class", "data"} or is_tripy_module_call_method
 
     if not allow_no_example():
         assert (

@@ -23,8 +23,6 @@ class Shape(Tensor):
         name: Optional[str] = None,
     ) -> None:
         r"""
-        Create a new shape.
-
         Args:
             data: The value of the shape, which should be a 1D array of integers (the dimensions).
             num_dims: The number of dimensions in the shape (its rank), which should correspond to the number of elements in data
@@ -65,10 +63,10 @@ class Shape(Tensor):
 
     def as_tensor(self) -> Tensor:
         """
-        Return an ordinary Tripy `Tensor` with the same contents as this `Shape`. No copying is done.
+        Return an ordinary Tripy :class:`Tensor` with the same contents as this :class:`Shape` . No copying is done.
 
         Returns:
-            A `Tensor` with the same underlying value as the current `Shape`.
+            A :class:`Tensor` with the same underlying value as the current :class:`Shape` .
 
         .. code-block:: python
             :linenos:
@@ -90,10 +88,10 @@ class Shape(Tensor):
         should it be necessary.
 
         Args:
-            other: Another Shape or Tensor (though the result will be a Shape).
+            other: Another :class:`Shape` or :class:`Tensor` .
 
         Returns:
-            The result of elementwise addition of this `Shape` and `other`.
+            The result of elementwise addition of this :class:`Shape` and `other`, returned as a :class:`Shape` .
 
         .. code-block:: python
             :linenos:

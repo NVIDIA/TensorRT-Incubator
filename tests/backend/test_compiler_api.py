@@ -1,3 +1,6 @@
+import inspect
+from typing import Sequence
+
 import cupy as cp
 import pytest
 
@@ -69,6 +72,64 @@ class TestInput:
     def test_invalid_shape(self, shape, expected_error):
         with helper.raises(tp.TripyException, expected_error):
             tp.InputInfo(shape=shape, dtype=tp.float32)
+
+
+@pytest.fixture(scope="session")
+def single_return_executable():
+    compiler = tp.Compiler(add)
+    return compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32))
+
+
+@pytest.fixture(scope="session")
+def multiple_return_executable():
+    compiler = tp.Compiler(returns_multiple_tensors)
+    return compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32))
+
+
+class TestExecutable:
+    @pytest.mark.parametrize(
+        "args,kwargs,expected_error",
+        [
+            ([tp.ones((2, 2), dtype=tp.float32)], {}, "Missing argument: b"),
+            (
+                [
+                    tp.ones((2, 2), dtype=tp.float32),
+                    tp.ones((2, 2), dtype=tp.float32),
+                    tp.ones((2, 2), dtype=tp.float32),
+                ],
+                {},
+                "Incorrect number of arguments.",
+            ),
+            (
+                [tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32)],
+                {"b": tp.ones((2, 2), dtype=tp.float32)},
+                "Extra keyword arguments: \['b'\]",
+            ),
+            (
+                [tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32)],
+                {"c": tp.ones((2, 2), dtype=tp.float32)},
+                "Extra keyword arguments: \['c'\]",
+            ),
+        ],
+    )
+    def test_incorrect_arguments(self, args, kwargs, expected_error, single_return_executable):
+        with helper.raises(tp.TripyException, match=expected_error):
+            single_return_executable(*args, **kwargs)
+
+    def test_signature(self, single_return_executable):
+        signature = inspect.signature(single_return_executable)
+
+        assert list(signature.parameters.keys()) == ["a", "b"]
+        for param in signature.parameters.values():
+            assert param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+            assert param.annotation == tp.Tensor
+
+        assert signature.return_annotation == tp.Tensor
+
+    def test_signature_multiple_return_values(self, multiple_return_executable):
+        signature = inspect.signature(multiple_return_executable)
+
+        assert signature.return_annotation == Sequence[tp.Tensor]
 
 
 class TestCompile:
