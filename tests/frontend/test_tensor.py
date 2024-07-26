@@ -10,7 +10,7 @@ import pytest
 import torch
 
 import tripy as tp
-from tests.helper import NUMPY_TYPES, raises_conditionally
+from tests.helper import NUMPY_TYPES
 from tripy.common.datatype import DATA_TYPES
 from tripy.common.exception import TripyException
 from tripy.utils.stack_info import SourceInfo
@@ -64,17 +64,17 @@ class TestTensor:
         elif dtype in [tp.int4, tp.int8, tp.uint8, tp.int32, tp.int64]:
             data = [0, 1, 2, 3]
 
-        with raises_conditionally(
-            dtype in [tp.int4, tp.float8, tp.bfloat16],
-            TripyException,
-            match=dedent(
-                rf"""
-            Tripy tensor does not support data type: {dtype}
-                Tripy tensors constructed from Python sequences or numbers may use one of the following data types: float32, float16, int8, int32, int64, uint8, bool.
-            """
-            ).strip(),
-        ):
-            tensor = tp.Tensor(data, dtype=dtype)
+        tensor = tp.Tensor(data, dtype=dtype)
+
+        if dtype == tp.int4:
+            pytest.skip(f"Unsupported front-end data type {dtype}")
+
+        if dtype in [tp.float8, tp.bfloat16]:
+            assert tensor.trace_tensor.producer.dtype == dtype
+            print(tensor)
+            assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
+            assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
+        else:
             assert tensor.trace_tensor.producer.dtype == dtype
             assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
             assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize

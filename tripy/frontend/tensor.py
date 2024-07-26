@@ -94,20 +94,25 @@ class Tensor(metaclass=TensorMeta):
 
         self.trace_tensor = TraceTensor(name, stack_info, None, None, None, None, shape=shape)
 
+        if isinstance(data, (List, tuple, bool, int, float)) and dtype is not None:
+            from tripy.frontend.trace.ops.cast import cast
+            from tripy.frontend.trace.ops.quantize import quantize
+
+            if dtype not in get_supported_type_for_python_sequence() or (
+                get_element_type(data) == tripy.common.datatype.float32 and dtype == tripy.common.datatype.int32
+            ):
+                # 1) Allocate float32 and cast to unsupported python sequence type.
+                # 2) Allocate float32 and cast to int32 to be compliant with numpy/cupy behavior.
+                self.trace_tensor = cast(
+                    Tensor(data, shape, tripy.common.datatype.float32, device), dtype=dtype
+                ).trace_tensor
+                return
+
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
         if data is not None:
             if not isinstance(data, Array):
-                if isinstance(data, (List, tuple, bool, int, float)) and (
-                    get_element_type(data) == tripy.common.datatype.float32 and dtype == tripy.common.datatype.int32
-                ):
-                    # Allocate float32 and cast to int32 to be compliant with numpy/cupy behavior.
-                    # (249): Allow initializing tp.Tensor with tp.Tensor. This allow lazy compilation and evaluation of casting/quantization logic.
-                    from tripy.frontend.trace.ops.cast import cast
-
-                    data = cast(Tensor(Array(data, shape, tripy.common.datatype.float32, device)), dtype).eval()
-                else:
-                    data = Array(data, shape, dtype, device)
+                data = Array(data, shape, dtype, device)
             else:
                 # Internal usage only
                 # Disallow duplicate dtype/device when using Array to initialize a Tensor
@@ -190,10 +195,7 @@ class Tensor(metaclass=TensorMeta):
 
         # Make an exception for float16, since it can not be printed via memoryview()
         if self.dtype not in get_supported_type_for_python_sequence() or self.dtype == tripy.common.datatype.float16:
-            if self.dtype == tripy.common.datatype.float8:
-                arr = dequantize(Tensor(arr), 1.0, tripy.common.datatype.float32).eval()
-            else:
-                arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
+            arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
 
     def __iter__(self):

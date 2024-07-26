@@ -54,17 +54,6 @@ def raises(ExcType: type, match: Optional[str] = None, has_stack_info_for: Seque
         assert expected_stack_info in error_msg, f"Missing stack information for tensor:\n{expected_stack_info}"
 
 
-@contextlib.contextmanager
-def raises_conditionally(
-    condition: bool, ExcType: type, match: Optional[str] = None, has_stack_info_for: Sequence[tp.Tensor] = None
-):
-    if condition:
-        with raises(ExcType, match=match, has_stack_info_for=has_stack_info_for) as exc_info:
-            yield exc_info
-    else:
-        yield
-
-
 def check_mlir(mlir, expected):
     # Checks a given MLIR module against a string of the expected program.
     # MLIR indents with 2 spaces; we'll replace it with 4 spaces so that it's

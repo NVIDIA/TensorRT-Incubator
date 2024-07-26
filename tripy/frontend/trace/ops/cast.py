@@ -5,7 +5,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Cast(BaseTraceOp):
-    to_type: "tripy.common.dtype"
+    dtype: "tripy.common.dtype"
 
     def infer_shape_output_idxs(self, inputs):
         from tripy.common.datatype import int32
@@ -14,12 +14,12 @@ class Cast(BaseTraceOp):
 
         if isinstance(inputs[0], Shape):
             # Only still a valid shape if it remains int32
-            if self.to_type == int32:
+            if self.dtype == int32:
                 return Result.ok([0])
         return Result.ok([])
 
     def infer_dtypes(self):
-        self.outputs[0].dtype = self.to_type
+        self.outputs[0].dtype = self.dtype
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.array import Array
@@ -37,7 +37,7 @@ class Cast(BaseTraceOp):
         # For conversion to bool, we must compare with 0 since the underlying semantics for StableHLO
         # are to do truncation for conversion to integer types (and bools are i1). This would get
         # unintended results for even numbers, which truncate to 0 in i1.
-        if self.to_type == tp_bool:
+        if self.dtype == tp_bool:
             # Creating a zero tensor uses the same logic as the zeros_like initializer
 
             # If the input dtype does not allow directly creating a Tripy array, we have to use another like f32

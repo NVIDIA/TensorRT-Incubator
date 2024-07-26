@@ -3,6 +3,8 @@ import numpy as np
 import pytest
 
 import tripy as tp
+
+from tripy.common.datatype import DATA_TYPES
 from tests import helper
 
 
@@ -19,7 +21,7 @@ class TestIota:
         expected = np.broadcast_to(expected, shape)
         return expected
 
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.float16, tp.int8])
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     @pytest.mark.parametrize(
         "shape, dim",
         [
@@ -35,15 +37,7 @@ class TestIota:
         else:
             output = tp.iota(shape, dtype=dtype)
 
-        # (243): Fix tp.iota() for float16 and int8 type.
-        with helper.raises_conditionally(
-            dtype in [tp.float16, tp.int8],
-            tp.TripyException,
-            r"'tensorrt.linspace' op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values, but got",
-        ):
-            assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype.name, shape, dim))
-
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.int32, tp.float16, tp.int8])
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     @pytest.mark.parametrize(
         "shape, dim",
         [
@@ -59,24 +53,23 @@ class TestIota:
         else:
             output = tp.iota_like(tp.ones(shape), dtype=dtype)
 
-        # (243): Fix tp.iota() for float16 and int8 type.
-        with helper.raises_conditionally(
-            dtype in [tp.float16, tp.int8],
-            tp.TripyException,
-            r"'tensorrt.linspace' op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values, but got",
-        ):
-            assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype.name, shape, dim))
-
-    @pytest.mark.parametrize("dtype", [tp.float16, tp.int8])
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_negative_no_casting(self, dtype):
         from tripy.frontend.trace.ops.iota import Iota
+
+        if dtype in [tp.float32, tp.int32, tp.int64]:
+            pytest.skip("tp.iota() supports float32, int32, and int64 without cast")
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
         a = tp.ones((2, 2))
         out = Iota.build([a.shape], dim=0, output_rank=2, dtype=dtype)
+
+        exception_str = "error: 'tensorrt.linspace' op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values"
+        if dtype == tp.bool:
+            exception_str = "InternalError: failed to run compilation pipeline"
         with helper.raises(
             tp.TripyException,
-            match="error: 'tensorrt.linspace' op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values",
+            match=exception_str,
         ):
             print(out)
 

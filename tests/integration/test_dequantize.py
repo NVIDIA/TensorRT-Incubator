@@ -46,8 +46,7 @@ class TestDequantize:
     @skip_if_older_than_sm89
     def test_dequantize_fp8_per_tensor(self, dtype):
         data_value = [1.0, 1.0]
-        data = jnp.array(data_value, dtype=jnp.float8_e4m3fn)  # Only Jax support float8 type
-        input_tp = tp.Tensor(data, dtype=tp.float8)
+        input_tp = tp.Tensor(data_value, dtype=tp.float8)
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
         dequantized = tp.dequantize(input_tp, scale_tp, dtype)
@@ -63,8 +62,7 @@ class TestDequantize:
     @skip_if_older_than_sm89
     def test_dequantize_fp8_per_channel(self, dtype):
         data_value = [[1.0, 1.0], [1.0, 1.0]]
-        data = jnp.array(data_value, dtype=jnp.float8_e4m3fn)  # Only Jax support float8 type
-        input_tp = tp.Tensor(data, dtype=tp.float8)
+        input_tp = tp.Tensor(data_value, dtype=tp.float8)
         scale = torch.tensor([0.8, 0.9], dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
         dequantized = tp.dequantize(input_tp, scale_tp, dtype, dim=0)

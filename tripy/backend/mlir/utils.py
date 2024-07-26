@@ -235,7 +235,7 @@ def convert_tripy_dtype_to_runtime_dtype(dtype: datatype.dtype) -> runtime.Scala
 
 def convert_runtime_dtype_to_tripy_dtype(dtype: runtime.ScalarTypeCode) -> datatype.dtype:
     if dtype not in MLIR_TRT_TO_TRIPY_DTYPE:
-        raise_error(f"Data type: '{dtype}' does not have a corresponding numpy data type")
+        raise_error(f"Data type: '{dtype}' does not have a corresponding tripy data type")
     return MLIR_TRT_TO_TRIPY_DTYPE.get(dtype)
 
 

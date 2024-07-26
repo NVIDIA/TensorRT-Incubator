@@ -241,19 +241,8 @@ class Array:
                 mlirtrt_device = (
                     self.runtime_client.get_devices()[self.device.index] if self.device == tp_device("gpu") else None
                 )
-                # (249): Allow initializing tp.Tensor with tp.Tensor. This allow lazy compilation and evaluation of casting/quantization logic.
-                # We could compile a graph to allocate float32 tensor and cast them unsupported buffer types.
-                if self.dtype not in get_supported_type_for_python_sequence():
-                    supported_type_str = ", ".join(t.name for t in get_supported_type_for_python_sequence())
-                    raise_error(
-                        f"Tripy tensor does not support data type: {self.dtype}",
-                        [
-                            f"Tripy tensors constructed from Python sequences or numbers may use one of the following data types: {supported_type_str}."
-                        ],
-                    )
-
+                assert self.dtype in get_supported_type_for_python_sequence() and f"Unsupported type {self.dtype}"
                 buffer = convert_list_to_bytebuffer(utils.flatten_list(utils.make_list(data)), self.dtype)
-
                 return self.runtime_client.create_memref(
                     buffer,
                     shape=list(self.shape),
