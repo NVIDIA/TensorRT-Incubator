@@ -1,6 +1,7 @@
 import functools
 import inspect
 from typing import List, Optional, Sequence, Tuple, Union
+from collections import deque
 
 from tripy import utils
 from tripy.frontend.trace.ops import BaseTraceOp
@@ -246,23 +247,35 @@ def topological_sort(ops: List[Union[BaseTraceOp, BaseFlatIROp]]) -> List[Union[
     """
     This utility to topologically sort a graph that can be a Trace or a FlatIR graph.
     """
-    stack = list()
+    stack = deque()
     visited_layer_ids = set()
-    id_ops = [id(op) for op in ops]
-
-    def add_to_stack(op, stack):
-        visited_layer_ids.add(id(op))
-        for ip in op.inputs:
-            if ip.producer is not None and id(ip.producer) not in visited_layer_ids and id(ip.producer) in id_ops:
-                add_to_stack(ip.producer, stack)
-
-        stack.append(op)
+    result_set = set()
+    result = list()
+    id_ops = set(id(op) for op in ops)
 
     for op in ops:
         if id(op) not in visited_layer_ids:
-            add_to_stack(op, stack)
+            stack.append((op, False))
 
-    assert len(ops) == len(
-        stack
-    ), f"Num original ops {len(ops)}, got num {len(stack)}, {len(set([id(op) for op in ops]))}"
-    return stack
+            while stack:
+                current_op, is_processed = stack.pop()
+                if id(current_op) in result_set:
+                    continue
+                if is_processed:
+                    result.append(current_op)
+                    result_set.add(id(current_op))
+                    continue
+
+                visited_layer_ids.add(id(current_op))
+                stack.append((current_op, True))
+
+                for ip in reversed(current_op.inputs):
+                    if (
+                        ip.producer is not None
+                        and id(ip.producer) not in visited_layer_ids
+                        and id(ip.producer) in id_ops
+                    ):
+                        stack.append((ip.producer, False))
+
+    assert len(ops) == len(result), f"Num original ops {len(ops)}, got num {len(result)}"
+    return result
