@@ -14,3 +14,13 @@ repos:
     rev: 24.1.0
     hooks:
     - id: black
+
+repos:
+  - repo: local
+    hooks:
+      - id: add-license
+        name: Add License
+        entry: python tools/add_copyright.py
+        language: python
+        stages: [pre-commit]
+        files: \.py$

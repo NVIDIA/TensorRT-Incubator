@@ -1,0 +1,5 @@
+This software uses depends on the following software:
+MLIR and The LLVM Project (Apache License v2.0 with LLVM Exceptions),
+see https://github.com/llvm/llvm-project/blob/main/LICENSE.TXT.
+The Stablehlo Project (Apache License Version 2.0):
+https://github.com/openxla/stablehlo/blob/main/LICENSE
