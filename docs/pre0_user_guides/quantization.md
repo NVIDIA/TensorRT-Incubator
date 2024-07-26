@@ -54,7 +54,7 @@ Now that we have covered how quantization works in {class}`tripy.Linear`, we wil
 The quantization scales are not available unless the model was trained with QAT (quantization-aware training). We need to perform another step called calibration to compute the correct scales for each quantized layer. There are many ways to do calibration, one of which is using the `nvidia-modelopt` toolkit. To install it, run:
 
 ```sh
-python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt transformers datasets
+python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt==0.11.0 transformers datasets
 ```
 
 First, let's get the pre-trained GPT model from hugging face:
