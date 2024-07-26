@@ -100,7 +100,6 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
         "int8": tripy.common.datatype.int8,
         "int32": tripy.common.datatype.int32,
         "int64": tripy.common.datatype.int64,
-        "uint8": tripy.common.datatype.uint8,
         "float8_e4m3fn": tripy.common.datatype.float8,
         "float16": tripy.common.datatype.float16,
         "bfloat16": tripy.common.datatype.bfloat16,
@@ -128,7 +127,6 @@ def convert_list_to_bytebuffer(values: List[Any], dtype: str) -> bytes:
         tripy.common.datatype.int8: "b",
         tripy.common.datatype.int32: "i",
         tripy.common.datatype.int64: "q",
-        tripy.common.datatype.uint8: "B",
         tripy.common.datatype.float16: "e",
         tripy.common.datatype.float32: "f",
     }

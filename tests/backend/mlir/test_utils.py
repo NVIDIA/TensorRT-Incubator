@@ -45,7 +45,6 @@ class TestUtils:
                     "int16": ir.IntegerType.get_signless(16),
                     "int32": ir.IntegerType.get_signless(32),
                     "int64": ir.IntegerType.get_signless(64),
-                    "uint8": ir.IntegerType.get_unsigned(8),
                     "bool": ir.IntegerType.get_signless(1),
                 }[dtype.name]
             )

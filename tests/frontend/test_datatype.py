@@ -43,7 +43,6 @@ class TestDataType:
             "int8": 1,
             "int32": 4,
             "int64": 8,
-            "uint8": 1,
             "bool": 1,
         }
         assert dtype.itemsize == EXPECTED_ITEMSIZES[dtype.name]

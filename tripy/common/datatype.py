@@ -77,7 +77,6 @@ int4 = _make_datatype("int4", 0.5, "4-bit signed integer")
 int8 = _make_datatype("int8", 1, "8-bit signed integer")
 int32 = _make_datatype("int32", 4, "32-bit signed integer")
 int64 = _make_datatype("int64", 8, "64-bit signed integer")
-uint8 = _make_datatype("uint8", 1, "8-bit unsigned integer")
 bool = _make_datatype("bool", 1, "Boolean")
 
 

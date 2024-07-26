@@ -58,7 +58,6 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
         "int8": ir.IntegerType.get_signless(8),
         "int32": ir.IntegerType.get_signless(32),
         "int64": ir.IntegerType.get_signless(64),
-        "uint8": ir.IntegerType.get_unsigned(8),
         "bool": ir.IntegerType.get_signless(1),
     }[dtype.name]
 
@@ -234,7 +233,6 @@ TRIPY_DTYPE_TO_MLIR_TRT = {
     datatype.int8: runtime.ScalarTypeCode.i8,
     datatype.int32: runtime.ScalarTypeCode.i32,
     datatype.int64: runtime.ScalarTypeCode.i64,
-    datatype.uint8: runtime.ScalarTypeCode.ui8,
     datatype.float16: runtime.ScalarTypeCode.f16,
     datatype.float32: runtime.ScalarTypeCode.f32,
     datatype.bool: runtime.ScalarTypeCode.i1,

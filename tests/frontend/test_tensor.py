@@ -79,7 +79,7 @@ class TestTensor:
         data = [0.0, 1.0, 2.0, 3.0]
         if dtype == tp.bool:
             data = [0, 1, 0, 1]
-        elif dtype in [tp.int4, tp.int8, tp.uint8, tp.int32, tp.int64]:
+        elif dtype in [tp.int4, tp.int8, tp.int32, tp.int64]:
             data = [0, 1, 2, 3]
 
         tensor = tp.Tensor(data, dtype=dtype)
