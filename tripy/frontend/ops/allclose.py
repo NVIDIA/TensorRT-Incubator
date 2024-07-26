@@ -28,4 +28,4 @@ def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: fl
     from tripy.frontend.trace.ops.reduce import all
 
     compare = abs(a - b) <= (atol + rtol * abs(b))
-    return all(compare).data().data()
+    return bool(all(compare))

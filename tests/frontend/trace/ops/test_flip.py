@@ -16,7 +16,7 @@ class TestFlip:
         assert isinstance(f, tp.Tensor)
         assert isinstance(f.trace_tensor.producer, Flip)
         assert f.trace_tensor.rank == 2
-        assert f.shape == (2, 5)
+        assert f.shape == [2, 5]
 
     def test_flip_0_rank(self):
         t = tp.Tensor(1)

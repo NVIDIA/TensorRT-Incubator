@@ -34,13 +34,13 @@ class TestSplit:
     def test_different_axis(self):
         t = tp.ones((4, 5, 6))
         sp = tp.split(t, 3, dim=2)
-        validate_splits(sp, [[4, 5, 3]] * 3)
+        validate_splits(sp, [[4, 5, 2]] * 3)
 
     def test_index_list(self):
         t = tp.ones((4, 5, 6))
-        sp = tp.split(t, [2, 3], dim=1)
+        sp = tp.split(t, [2, 3], dim=0)
         # :2, 2:3, 3:
-        expected_shapes = [[2, 5, 6], [1, 5, 6], [3, 5, 6]]
+        expected_shapes = [[2, 5, 6], [1, 5, 6], [1, 5, 6]]
         validate_splits(sp, expected_shapes)
 
     def test_single_slice(self):

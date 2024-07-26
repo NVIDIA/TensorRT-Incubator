@@ -8,6 +8,7 @@ import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.utils import get_element_type, get_supported_type_for_python_sequence
+from tripy.common.exception import raise_error
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
@@ -222,3 +223,16 @@ class Tensor(metaclass=TensorMeta):
 
     def __dlpack_device__(self):
         return self.eval().__dlpack_device__()
+
+    def __bool__(self):
+        data = self.data().data()
+        if any(dim != 1 for dim in self.trace_tensor.producer.shape):
+            raise_error(
+                "Boolean value of a Tensor with more than one value is ambiguous",
+                [f"Note: tensor shape was: {self.trace_tensor.producer.shape}"],
+            )
+
+        # Unwrap, since the item could be nested within a list. Without unwrapping, `[[[0]]]` returns True, when this should return False.
+        for _ in range(self.rank):
+            data = data[0]
+        return bool(data)

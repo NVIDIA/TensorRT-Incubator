@@ -84,7 +84,7 @@ class Module:
 
         super().__setattr__(name, value)
         # avoid infinite recursion during initialization
-        if not value:
+        if value is None:
             return
 
         if isinstance(value, List) or isinstance(value, Dict):

@@ -46,7 +46,7 @@ class TestSlice:
     def test_empty_slice(self):
         a = tp.ones((2, 3, 4))
         b = a[3:2:1]
-        assert b.shape == (0, 3, 4)
+        assert b.shape == [0, 3, 4]
         assert cp.from_dlpack(b).get().tolist() == []
 
     def test_invalid_index(self):

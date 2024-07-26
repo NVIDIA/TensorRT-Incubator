@@ -75,10 +75,10 @@ class TestConvertInputsToTensors:
     def test_convert_list_into_tensor(self):
         t1 = func([1, 2, 3])
         assert isinstance(t1, tp.Tensor)
-        assert t1.shape == (3,)
+        assert t1.shape == [3]
 
         t2 = func([[1, 2], [3, 4]])
-        assert t2.shape == (2, 2)
+        assert t2.shape == [2, 2]
 
     def test_convert_list_input(self):
         xs = convert_list_input([1.0, 2.0, 3.0, 4.0])
@@ -112,7 +112,7 @@ class TestConvertInputsToTensors:
     def test_convert_shape_basic(self):
         s = convert_shape([1, 2, 3])
         assert isinstance(s, tp.Shape)
-        assert s.shape == (3,)
+        assert s.shape == [3]
 
     def test_convert_shape_already_shape(self):
         s1 = tp.Shape([1, 2, 3])

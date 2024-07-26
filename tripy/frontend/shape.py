@@ -5,6 +5,7 @@ from tripy.common.array import Array
 from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
+from tripy.frontend.utils import convert_inputs_to_tensors
 
 
 @export.public_api()
@@ -134,3 +135,9 @@ class Shape(Tensor):
         elif not isinstance(other, Shape):
             other = Shape(other)
         return concatenate([other, self], 0)
+
+    @convert_inputs_to_tensors(shape_argument=["other"])
+    def __eq__(self, other):
+        from tripy.frontend.trace.ops.reduce import all
+
+        return bool(all(self.as_tensor() == other.as_tensor()))

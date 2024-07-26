@@ -157,3 +157,24 @@ class TestTensor:
         # that it calls underneath
         assert find_frame("ones").code.strip() == "return full(shape, 1, dtype)"
         assert find_frame("test_stack_depth_sanity").code.strip() == "a = tp.ones((2, 3))"
+
+    @pytest.mark.parametrize(
+        "tensor",
+        [
+            tp.Tensor([0]),
+            tp.Tensor([1]),
+            tp.zeros((1, 1, 1)),
+            tp.ones((1, 1, 1)),
+            tp.Tensor([[[3.12]]]),
+            tp.Tensor([False]),
+            tp.Tensor([True]),
+        ],
+    )
+    def test_boolean_method(self, tensor):
+        assert bool(tensor) == bool(cp.from_dlpack(tensor))
+
+    def test_multiple_elements_boolean_fails(self):
+        tensor = tp.ones((2, 2))
+
+        with pytest.raises(tp.TripyException):
+            bool(tensor)
