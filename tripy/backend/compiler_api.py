@@ -1,4 +1,3 @@
-
 #
 # SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -16,8 +15,10 @@
 # limitations under the License.
 #
 
+import base64
 import inspect
 import numbers
+from dataclasses import dataclass
 from typing import Callable, Sequence, Tuple, Union
 
 import mlir_tensorrt.runtime.api as runtime
@@ -25,9 +26,11 @@ import mlir_tensorrt.runtime.api as runtime
 from tripy import export, utils
 from tripy.backend.mlir import Compiler as MLIRCompiler
 from tripy.backend.mlir import Executor
+from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
 from tripy.frontend import Tensor, Trace
+from tripy.utils import json as json_utils
 
 
 @export.public_api(document_under="compiler")
@@ -102,6 +105,16 @@ class InputInfo:
         return f"InputInfo(min={self.shape_bounds.min}, opt={self.shape_bounds.opt}, max={self.shape_bounds.max}, dtype={self.dtype})"
 
 
+# TODO(MLIR-TRT #923): Can generalize `InputInfo` and drop this class.
+@export.public_api(document_under="compiler")
+@dataclass
+class ArgInfo:
+    shape_bounds: Sequence[Tuple[int, int]]
+    """A sequence of tuple(min, max) indicating the bounds of each dimension"""
+    dtype: "tripy.dtype"
+    """The datatype of the argument"""
+
+
 @export.public_api(document_under="compiler")
 class Executable:
     """
@@ -111,11 +124,11 @@ class Executable:
     """
 
     # The constructor is intentionally undocumented because it is not meant to be called by users.
-    def __init__(self, executable, arg_names, expected_input_dtypes, output_devices):
+    # TODO(#155): output_devices is not needed after they can be queried from executable
+    def __init__(self, executable, arg_names, output_devices):
         self._executable = executable
         self._executor = Executor(self._executable)
         self._arg_names = arg_names
-        self._expected_input_dtypes = expected_input_dtypes
         self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
 
@@ -199,7 +212,8 @@ class Executable:
             # TODO: Evaluate whether this should be moved into the executor
             if "function expects a memref type with element type" in str(err):
                 # If the problem is a mismatched data type, we can provide a better error message than the executor can.
-                for tensor, dtype, arg_name in zip(input_tensors, self._expected_input_dtypes, self._arg_names):
+                expected_input_dtypes = [info.dtype for info in self.get_input_info()]
+                for tensor, dtype, arg_name in zip(input_tensors, expected_input_dtypes, self._arg_names):
                     if tensor.dtype != dtype:
                         raise_error(
                             f"Unexpected tensor data type.",
@@ -215,6 +229,140 @@ class Executable:
         if len(output_tensors) == 1:
             output_tensors = output_tensors[0]
         return output_tensors
+
+    def _get_arg_info(self, idx):
+        arg = self._executable_signature.get_arg(idx)
+        arg = runtime.MemRefType(arg)
+        arg_bound = self._executable_signature.get_arg_bound(idx)
+        shape_bounds = tuple(zip(arg_bound.min(), arg_bound.max()))
+        return ArgInfo(shape_bounds, mlir_utils.convert_runtime_dtype_to_tripy_dtype(arg.dtype))
+
+    def get_input_info(self) -> Sequence[ArgInfo]:
+        """
+        Returns input tensors' information.
+
+        Returns:
+            A list containing one `ArgInfo` per input.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Get input info
+
+            def add(a, b):
+                return a + b
+
+            # doc: no-print-locals compiler compiled_add
+            compiler = tp.Compiler(add)
+            compiled_add = compiler.compile(tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32))
+            print(compiled_add.get_input_info())
+        """
+        input_info = []
+        for idx in range(self._executable_signature.get_num_input_args()):
+            input_info.append(self._get_arg_info(idx))
+        return input_info
+
+    def get_output_info(self) -> Sequence[ArgInfo]:
+        """
+        Returns output tensors' information.
+
+        Returns:
+            A list containing one `ArgInfo` per input.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Get output info
+
+            def add(a, b):
+                return a + b
+
+            # doc: no-print-locals compiler compiled_add
+            compiler = tp.Compiler(add)
+            compiled_add = compiler.compile(tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32))
+            print(compiled_add.get_output_info())
+        """
+        output_info = []
+        offset = self._executable_signature.get_num_input_args()
+        for idx in range(self._executable_signature.get_num_output_args()):
+            output_info.append(self._get_arg_info(idx + offset))
+        return output_info
+
+    def save(self, path: str) -> None:
+        """
+        Saves the compiled executable to the given file.
+
+        Args:
+            path: The name of file to save the executable.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Save executable
+
+            import os, tempfile
+
+            def add(a, b):
+                return a + b
+
+            # doc: no-print-locals compiler compiled_add executable_file
+            compiler = tp.Compiler(add)
+            compiled_add = compiler.compile(tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32))
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                executable_file = os.path.join(temp_dir, "executable.json")
+                compiled_add.save(executable_file)
+                assert os.path.exists(executable_file)
+        """
+        json_utils.save(self, path)
+
+    @classmethod
+    def load(cls, path: str) -> "tripy.Executable":
+        """
+        Loads a compiled executable from a given directory.
+
+        Args:
+            path: The name of file to load the exectuable from.
+
+        Returns:
+            The executable object loaded from the file.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Save and load executable
+
+            import os, tempfile
+
+            def add(a, b):
+                return a + b
+
+            # doc: no-print-locals compiler compiled_add executable_file
+            compiler = tp.Compiler(add)
+            compiled_add = compiler.compile(tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32))
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                executable_file = os.path.join(temp_dir, "executable.json")
+                compiled_add.save(executable_file)
+                assert os.path.exists(executable_file)
+                loaded_executable = tp.Executable.load(executable_file)
+        """
+        return json_utils.load(path)
+
+
+@json_utils.Encoder.register(Executable)
+def encode_executable(executable):
+    return {
+        "arg_names": executable._arg_names,
+        "output_devices": executable._output_devices,
+        "executable": base64.b64encode(executable._executable.serialize()).decode(),
+    }
+
+
+@json_utils.Decoder.register(Executable)
+def decode_executable(executable_dict):
+    executable_bytes = base64.b64decode(executable_dict["executable"])
+    return Executable(
+        runtime.Executable(executable_bytes),
+        executable_dict["arg_names"],
+        executable_dict["output_devices"],
+    )
 
 
 # TODO (#230): Support collections of tensors in args/kwargs
@@ -392,6 +540,5 @@ class Compiler:
         return Executable(
             executable,
             compiled_arg_names,
-            expected_input_dtypes=[inp.dtype for inp in trace_inputs],
             output_devices=[out.device for out in trace.outputs],
         )

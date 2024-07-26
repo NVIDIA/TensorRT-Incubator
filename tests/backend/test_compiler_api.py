@@ -16,6 +16,8 @@
 # limitations under the License.
 #
 import inspect
+import os
+import tempfile
 from typing import Sequence
 
 import cupy as cp
@@ -147,6 +149,32 @@ class TestExecutable:
         signature = inspect.signature(multiple_return_executable)
 
         assert signature.return_annotation == Sequence[tp.Tensor]
+
+    def test_io_tensor_info(self, multiple_return_executable):
+        input_info = multiple_return_executable.get_input_info()
+        assert len(input_info) == 2
+        for i in range(2):
+            assert input_info[i].shape_bounds == ((2, 2), (2, 2))
+            assert input_info[i].dtype == tp.float32
+        output_info = multiple_return_executable.get_output_info()
+        assert len(output_info) == 2
+        for i in range(2):
+            assert output_info[i].shape_bounds == ((2, 2), (2, 2))
+            assert output_info[i].dtype == tp.float32
+
+    def test_file_io(self, single_return_executable):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            exe_file = os.path.join(temp_dir, "executable.json")
+            single_return_executable.save(exe_file)
+            assert os.path.exists(exe_file)
+            loaded_executable = tp.Executable.load(exe_file)
+            assert loaded_executable.get_input_info() == single_return_executable.get_input_info()
+            assert loaded_executable.get_output_info() == single_return_executable.get_output_info()
+
+            inp = tp.iota((2, 2), dtype=tp.float32)
+            out1 = single_return_executable(inp, inp)
+            out2 = loaded_executable(inp, inp)
+            assert cp.array_equal(cp.from_dlpack(out1), cp.from_dlpack(out2))
 
 
 class TestCompile:
