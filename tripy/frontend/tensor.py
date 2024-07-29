@@ -210,9 +210,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace.ops.dequantize import dequantize
 
         arr = self.eval()
-
-        # Make an exception for float16, since it can not be printed via memoryview()
-        if self.dtype not in get_supported_type_for_python_sequence() or self.dtype == tripy.common.datatype.float16:
+        if self.dtype not in get_supported_type_for_python_sequence():
             arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
 

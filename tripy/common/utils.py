@@ -140,3 +140,70 @@ def convert_list_to_bytebuffer(values: List[Any], dtype: str) -> bytes:
         buffer.extend(struct.pack(f"<{format_char}", value))
 
     return bytes(buffer)
+
+
+class Float16MemoryView:
+    """
+    A custom memory view class for handling float16 data.
+    """
+
+    def __init__(self, buffer):
+        """
+        Initialize the Float16MemoryView with a buffer.
+
+        Args:
+            buffer (buffer): The buffer containing float16 data.
+        """
+        self.buffer = buffer
+        self.itemsize = 2  # size of float16 in bytes
+        self.format = "e"  # format character for float16
+
+    def __getitem__(self, index):
+        """
+        Get an item or a slice from the buffer.
+
+        Args:
+            index (int or slice): The index or slice to retrieve.
+
+        Returns:
+            float or list of floats: The float16 value(s) at the specified index or slice.
+        """
+        if isinstance(index, slice):
+            return [
+                self._unpack(self.buffer[i * self.itemsize : i * self.itemsize + self.itemsize])
+                for i in range(*index.indices(len(self)))
+            ]
+        else:
+            start = index * self.itemsize
+            end = start + self.itemsize
+            return self._unpack(self.buffer[start:end])
+
+    def _unpack(self, data):
+        """
+        Unpack a float16 value from bytes.
+
+        Args:
+            data (bytes): The bytes to unpack.
+
+        Returns:
+            float: The unpacked float16 value.
+        """
+        return struct.unpack(self.format, data)[0]
+
+    def __len__(self):
+        """
+        Get the number of float16 values in the buffer.
+
+        Returns:
+            int: The number of float16 values.
+        """
+        return len(self.buffer) // self.itemsize
+
+    def tolist(self):
+        """
+        Convert the buffer to a list of float16 values.
+
+        Returns:
+            list: The list of float16 values.
+        """
+        return [self[i] for i in range(len(self))]

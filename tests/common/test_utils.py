@@ -30,7 +30,12 @@ import tripy.common.datatype
 from tests import helper
 
 from tripy.common.exception import TripyException
-from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype, convert_list_to_bytebuffer, get_element_type
+from tripy.common.utils import (
+    convert_frontend_dtype_to_tripy_dtype,
+    convert_list_to_bytebuffer,
+    Float16MemoryView,
+    get_element_type,
+)
 
 
 def test_get_element_type():
@@ -147,3 +152,33 @@ def test_convert_frontend_dtype_to_tripy_dtype():
 def test_convert_list_to_bytebuffer(values, dtype, expected):
     result = convert_list_to_bytebuffer(values, dtype)
     assert result == expected
+
+
+def test_float16_memoryview():
+    memview = Float16MemoryView(bytearray(struct.pack("5e", 1.5, 2.5, 3.5, 4.5, 5.5)))
+    assert memview.itemsize == 2
+    assert memview.format == "e"
+    len(memview) == 5
+    assert memview[0] == pytest.approx(1.5)
+    assert memview[2] == pytest.approx(3.5)
+    assert memview[1:4] == pytest.approx([2.5, 3.5, 4.5])
+    expected = [1.5, 2.5, 3.5, 4.5, 5.5]
+    assert memview.tolist() == pytest.approx(expected)
+
+    # Largest representable value in float16
+    large_value = 65504.0
+    buffer = struct.pack("e", large_value)
+    mv = Float16MemoryView(buffer)
+    assert mv[0] == pytest.approx(large_value)
+
+    # Smallest positive normal number for float16
+    small_value = 6.1035e-5
+    buffer = struct.pack("e", small_value)
+    mv = Float16MemoryView(buffer)
+    assert mv[0] == pytest.approx(small_value, rel=1e-3)
+
+    # Negative value
+    negative_value = -42.5
+    buffer = struct.pack("e", negative_value)
+    mv = Float16MemoryView(buffer)
+    assert mv[0] == pytest.approx(negative_value)

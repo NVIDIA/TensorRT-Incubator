@@ -75,16 +75,16 @@ class TestTensor:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_dtype_from_list(self, dtype):
+        if dtype == tp.int4:
+            pytest.skip(f"Unsupported front-end data type {dtype}")
+
         data = [0.0, 1.0, 2.0, 3.0]
         if dtype == tp.bool:
             data = [0, 1, 0, 1]
-        elif dtype in [tp.int4, tp.int8, tp.int32, tp.int64]:
+        elif dtype in [tp.int8, tp.int32, tp.int64]:
             data = [0, 1, 2, 3]
 
         tensor = tp.Tensor(data, dtype=dtype)
-
-        if dtype == tp.int4:
-            pytest.skip(f"Unsupported front-end data type {dtype}")
 
         if dtype in [tp.float8, tp.bfloat16]:
             assert tensor.trace_tensor.producer.dtype == dtype
@@ -95,6 +95,22 @@ class TestTensor:
             assert tensor.trace_tensor.producer.dtype == dtype
             assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
             assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
+
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    def test_dtype_printing(self, dtype):
+        if dtype == tp.int4:
+            pytest.skip(f"Unsupported front-end data type {dtype}")
+        from tripy.logging import logger
+
+        # This is required to print intermediate data representations.
+        with tp.logger.use_verbosity("ir"):
+            data = [0.0, 1.0, 2.0, 3.0]
+            if dtype == tp.bool:
+                data = [False, True, False, True]
+            elif dtype in [tp.int8, tp.int32, tp.int64]:
+                data = [0, 1, 2, 3]
+            a = tp.Tensor(data, dtype=dtype)
+            print(a)
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     @pytest.mark.parametrize(
