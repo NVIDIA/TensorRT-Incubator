@@ -326,6 +326,8 @@ AVAILABLE_MARKERS = {
     "expected_stdout": Marker.from_name("EXPECTED_STDOUT"),
     # Marks that a block should be run under pytest.
     "pytest": Marker.from_name("PYTEST"),
+    # Indicates that a block should be omitted from the rendered documentation.
+    "omit_from_doc": Marker.from_name("OMIT_FROM_DOC"),
 }
 
 
@@ -388,7 +390,7 @@ class ReadmeCodeBlock:
         return AVAILABLE_MARKERS[name] in self.markers
 
     def __str__(self):
-        return self.content
+        return self.content or ""
 
     def __bool__(self):
         return bool(self.content)
@@ -407,6 +409,7 @@ def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBloc
     cmd_blocks = []
     current_block = ReadmeCodeBlock(markers=set(), lang="text")
     with MarkerTracker(readme_path) as tracker:
+        previous_markers = copy.copy(tracker.active_markers)
         for line in tracker:
             # We use copy here so we don't accidentally alias.
             if tracker.entering(AVAILABLE_MARKERS["command"]):
@@ -420,8 +423,14 @@ def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBloc
                 cmd_blocks.append(copy.copy(current_block))
                 # Create new text block for contents between command blocks
                 current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang="text")
+            elif tracker.active_markers != previous_markers:
+                cmd_blocks.append(copy.copy(current_block))
+                # When markers change, create a new text block
+                current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang="text")
             else:
                 current_block.add(line)
+
+            previous_markers = copy.copy(tracker.active_markers)
 
     if current_block:
         cmd_blocks.append(current_block)

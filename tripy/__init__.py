@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 
 # export.public_api() will expose things here. To make sure that happens, we just need to
 # import all the submodules so that the decorator is actually executed.
