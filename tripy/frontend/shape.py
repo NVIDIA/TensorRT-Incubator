@@ -129,6 +129,9 @@ class Shape(Tensor):
         assert tensor_repr[:6] == "tensor"
         return "shape" + tensor_repr[6:]
 
+    def __str__(self) -> str:
+        return "shape" + '(' + ', '.join(map(str, self.data().data())) + ')'
+
     # addition for shapes is concatenation, not tensor addition
 
     def __add__(self, other):

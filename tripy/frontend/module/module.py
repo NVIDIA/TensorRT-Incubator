@@ -286,3 +286,20 @@ class Module:
             ):
                 for key, obj in value.items():
                     yield f"{name}.{key}", obj
+
+    def __str__(self):
+        from textwrap import indent
+        class_name = self.__class__.__name__
+        module_str = f"{class_name}(\n"
+
+        # Add children with hierarchical indentation
+        for name, child in self.named_children():
+            c = indent(str(child), prefix="    ")
+            module_str += f"  {name}=\n{c},\n"
+
+        # Add parameters with hierarchical indentation
+        for name, param in self.named_parameters():
+            module_str += f" {name}={param.shape},\n"
+
+        module_str += f")"
+        return module_str
