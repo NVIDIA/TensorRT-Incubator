@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import cupy as cp
 
 import tripy as tp
@@ -75,10 +92,10 @@ class TestConvertInputsToTensors:
     def test_convert_list_into_tensor(self):
         t1 = func([1, 2, 3])
         assert isinstance(t1, tp.Tensor)
-        assert t1.shape == (3,)
+        assert t1.shape == [3]
 
         t2 = func([[1, 2], [3, 4]])
-        assert t2.shape == (2, 2)
+        assert t2.shape == [2, 2]
 
     def test_convert_list_input(self):
         xs = convert_list_input([1.0, 2.0, 3.0, 4.0])
@@ -112,7 +129,7 @@ class TestConvertInputsToTensors:
     def test_convert_shape_basic(self):
         s = convert_shape([1, 2, 3])
         assert isinstance(s, tp.Shape)
-        assert s.shape == (3,)
+        assert s.shape == [3]
 
     def test_convert_shape_already_shape(self):
         s1 = tp.Shape([1, 2, 3])

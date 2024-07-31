@@ -18,13 +18,13 @@ quant_linear = tp.Linear(
 )
 ```
 
-As we can see in the `state_dict` above, the quantized linear module has 2 additional {class}`tripy.Parameter`s compared to a normal linear layer:
+As described in {class}`tripy.Linear`, the quantized linear module has 2 additional {class}`tripy.Parameter`s compared to a normal linear layer:
 
 1. `weight_scale`: The quantization scale for `weight`.
 
 2. `input_scale`: The quantization scale for the input.
 
-They are both initialized to `None`. `weight_scale` must always be provided while `input_scale` is optional. The input will be quantized only if `input_scale` is provided. For a `Linear` module in this example, only "per-tensor" quantization is allowed for the input. This is why there is no `input_quant_dim` argument.  
+`weight_scale` must always be provided while `input_scale` is optional. The input will be quantized only if `input_scale` is provided. For a `Linear` module in this example, only "per-tensor" quantization is allowed for the input. This is why there is no `input_quant_dim` argument.  
 
 Let's fill the scale parameters with dummy data:
 

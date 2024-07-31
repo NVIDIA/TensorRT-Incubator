@@ -1,9 +1,27 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import contextlib
 import os
 import re
 import sys
 import tempfile
 from typing import BinaryIO, List, Tuple, Sequence, Optional
+from itertools import chain
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
@@ -40,7 +58,6 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
         "int8": ir.IntegerType.get_signless(8),
         "int32": ir.IntegerType.get_signless(32),
         "int64": ir.IntegerType.get_signless(64),
-        "uint8": ir.IntegerType.get_unsigned(8),
         "bool": ir.IntegerType.get_signless(1),
     }[dtype.name]
 
@@ -216,7 +233,6 @@ TRIPY_DTYPE_TO_MLIR_TRT = {
     datatype.int8: runtime.ScalarTypeCode.i8,
     datatype.int32: runtime.ScalarTypeCode.i32,
     datatype.int64: runtime.ScalarTypeCode.i64,
-    datatype.uint8: runtime.ScalarTypeCode.ui8,
     datatype.float16: runtime.ScalarTypeCode.f16,
     datatype.float32: runtime.ScalarTypeCode.f32,
     datatype.bool: runtime.ScalarTypeCode.i1,
@@ -372,6 +388,9 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             infos.append(flat_ir.tensor_map[name])
         return infos
 
+    def interleave_newline(arr):
+        return list(chain(*[omit_stack_info(sublist) + ["\n"] for sublist in arr]))[:-1]
+
     def get_flat_ir_operation(output_names):
         assert len(output_names) <= 1, f"Only implemented for single output ops"
         if not output_names or flat_ir is None:
@@ -397,7 +416,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             + (
                 [
                     f"\nNote: Tripy introduced new operation(s) in order to ",
-                    *omit_stack_info(out_tensor.reason_context),
+                    *interleave_newline(out_tensor.reason_context),
                     ".",
                 ]
                 if out_tensor.reason_context
@@ -420,7 +439,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
     raise_error(
         repr(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
-        + ([get_flat_ir_operation(output_names)] if output_names else [])
+        + (get_flat_ir_operation(output_names) if output_names else [])
         + (
             (
                 ["Note: This originated from the following expression:"]

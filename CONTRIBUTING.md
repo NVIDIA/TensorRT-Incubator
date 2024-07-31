@@ -10,37 +10,37 @@
 
 1. Clone the Tripy repository:
 
-	```bash
-	git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/poc/tripy.git
-	```
+    ```bash
+    git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/poc/tripy.git
+    ```
 
 2. Pull the prebuilt development container:
 
-	```bash
-	docker login gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
-	docker pull gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
-	```
+    ```bash
+    docker login gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
+    docker pull gitlab-master.nvidia.com:5005/tensorrt/poc/tripy
+    ```
 
 3. Launch the container; from the [`tripy` root directory](.), run:
 
-	```bash
-	docker run --gpus all -it -v $(pwd):/tripy/ --rm gitlab-master.nvidia.com:5005/tensorrt/poc/tripy:latest
-	```
+    ```bash
+    docker run --gpus all -it -v $(pwd):/tripy/ --rm gitlab-master.nvidia.com:5005/tensorrt/poc/tripy:latest
+    ```
 
 4. You should now be able to use `tripy` in the container. To test it out, you can run a quick sanity check:
 
-	```bash
-	python3 -c "import tripy as tp; print(tp.ones((2, 3)))"
-	```
+    ```bash
+    python3 -c "import tripy as tp; print(tp.ones((2, 3)))"
+    ```
 
-	This should give you some output like:
-	```
-	tensor(
-		[[1. 1. 1.]
-		[1. 1. 1.]],
-		dtype=float32, loc=gpu:0, shape=(2, 3)
-	)
-	```
+    This should give you some output like:
+    ```
+    tensor(
+        [[1. 1. 1.]
+        [1. 1. 1.]],
+        dtype=float32, loc=gpu:0, shape=(2, 3)
+    )
+    ```
 
 ## Making Changes
 
@@ -66,6 +66,52 @@ documentation.
 
 If you're intersted in adding a new operator to Tripy, refer to [this guide](./docs/post0_developer_guides/how-to-add-new-ops.md).
 
+### Making Commits
+
+Ensure you sign off on any commits you make.
+To sign off on a commit you simply use the --signoff (or -s) option when committing your changes:
+
+```bash
+git commit -m "<commit message>" -s
+```
+
+Please make sure any contributions you make satisfy the developer ceritifcate of origin:
+
+> Developer Certificate of Origin
+>	Version 1.1
+>
+>	Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+>
+>	Everyone is permitted to copy and distribute verbatim copies of this
+>	license document, but changing it is not allowed.
+>
+>
+>	Developer's Certificate of Origin 1.1
+>
+>	By making a contribution to this project, I certify that:
+>
+>	(a) The contribution was created in whole or in part by me and I
+>		have the right to submit it under the open source license
+>		indicated in the file; or
+>
+>	(b) The contribution is based upon previous work that, to the best
+>		of my knowledge, is covered under an appropriate open source
+>		license and I have the right under that license to submit that
+>		work with modifications, whether created in whole or in part
+>		by me, under the same open source license (unless I am
+>		permitted to submit under a different license), as indicated
+>		in the file; or
+>
+>	(c) The contribution was provided directly to me by some other
+>		person who certified (a), (b) or (c) and I have not modified
+>		it.
+>
+>	(d) I understand and agree that this project and the contribution
+>		are public and that a record of the contribution (including all
+>		personal information I submit with it, including my sign-off) is
+>		maintained indefinitely and may be redistributed consistent with
+>		this project or the open source license(s) involved.
+
 
 ### Tests
 
@@ -82,20 +128,20 @@ For details on the public documentation, see [the documentation README](./docs/R
 ## Advanced: Building A Container Locally
 
 1. First [set up your personal access token in GitLab](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html)
-	and export it:
+    and export it:
 
-	```bash
-	export GITLAB_API_TOKEN=<your token here>
-	```
+    ```bash
+    export GITLAB_API_TOKEN=<your token here>
+    ```
 
 2.  From the [`tripy` root directory](.), run:
 
-	```bash
-	docker build -t tripy --build-arg gitlab_user=__token__ --build-arg gitlab_token=$GITLAB_API_TOKEN  .
-	```
+    ```bash
+    docker build -t tripy --build-arg gitlab_user=__token__ --build-arg gitlab_token=$GITLAB_API_TOKEN  .
+    ```
 
 3. You can launch the container with:
 
-	```bash
-	docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
-	```
+    ```bash
+    docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
+    ```

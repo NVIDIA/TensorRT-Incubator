@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import pytest
 
 import tripy as tp
@@ -34,13 +51,13 @@ class TestSplit:
     def test_different_axis(self):
         t = tp.ones((4, 5, 6))
         sp = tp.split(t, 3, dim=2)
-        validate_splits(sp, [[4, 5, 3]] * 3)
+        validate_splits(sp, [[4, 5, 2]] * 3)
 
     def test_index_list(self):
         t = tp.ones((4, 5, 6))
-        sp = tp.split(t, [2, 3], dim=1)
+        sp = tp.split(t, [2, 3], dim=0)
         # :2, 2:3, 3:
-        expected_shapes = [[2, 5, 6], [1, 5, 6], [3, 5, 6]]
+        expected_shapes = [[2, 5, 6], [1, 5, 6], [1, 5, 6]]
         validate_splits(sp, expected_shapes)
 
     def test_single_slice(self):

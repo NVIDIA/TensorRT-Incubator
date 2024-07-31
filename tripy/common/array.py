@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from typing import Any, List, Optional, Sequence, Tuple, Union
 import array
 
@@ -9,6 +26,7 @@ from tripy.common.utils import (
     convert_list_to_bytebuffer,
     get_element_type,
     get_supported_type_for_python_sequence,
+    Float16MemoryView,
 )
 
 import mlir_tensorrt.runtime.api as runtime
@@ -155,9 +173,8 @@ class Array:
                 # shape can still be inferred for empty data, but dtype cannot be
                 if has_no_contents(data) and dtype is None:
                     raise_error("Datatype must be provided for empty data (i.e., not containing any scalars).")
-                if dtype is None:
-                    element_type = get_element_type(data)
-                else:
+                element_type = get_element_type(data)
+                if dtype is not None:
                     element_type = convert_frontend_dtype_to_tripy_dtype(dtype)
                 computed_shape = tuple(utils.get_shape(data))
                 check_list_consistency(data, computed_shape)
@@ -181,12 +198,18 @@ class Array:
         )
 
     def data(self) -> List[Union[float, int]]:
+        memref = self.memref_value
         if self.memref_value.address_space == runtime.PointerType.device:
-            host_memref = self.runtime_client.copy_to_host(
+            memref = self.runtime_client.copy_to_host(
                 device_memref=self.memref_value,
             )
-            return memoryview(host_memref).tolist()
-        return memoryview(self.memref_value).tolist()
+        try:
+            return memoryview(memref).tolist()
+        except NotImplementedError as e:
+            if "memoryview: format e not supported" in str(e):
+                assert memref.dtype == runtime.ScalarTypeCode.f16
+                return Float16MemoryView(bytearray(memref)).tolist()
+            raise
 
     def _prettyprint(self, threshold=1000, linewidth=10, edgeitems=3):
         data = self.data()

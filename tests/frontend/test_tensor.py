@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import inspect
 import sys
 
@@ -58,16 +75,16 @@ class TestTensor:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_dtype_from_list(self, dtype):
+        if dtype == tp.int4:
+            pytest.skip(f"Unsupported front-end data type {dtype}")
+
         data = [0.0, 1.0, 2.0, 3.0]
         if dtype == tp.bool:
             data = [0, 1, 0, 1]
-        elif dtype in [tp.int4, tp.int8, tp.uint8, tp.int32, tp.int64]:
+        elif dtype in [tp.int8, tp.int32, tp.int64]:
             data = [0, 1, 2, 3]
 
         tensor = tp.Tensor(data, dtype=dtype)
-
-        if dtype == tp.int4:
-            pytest.skip(f"Unsupported front-end data type {dtype}")
 
         if dtype in [tp.float8, tp.bfloat16]:
             assert tensor.trace_tensor.producer.dtype == dtype
@@ -78,6 +95,22 @@ class TestTensor:
             assert tensor.trace_tensor.producer.dtype == dtype
             assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
             assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
+
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    def test_dtype_printing(self, dtype):
+        if dtype == tp.int4:
+            pytest.skip(f"Unsupported front-end data type {dtype}")
+        from tripy.logging import logger
+
+        # This is required to print intermediate data representations.
+        with tp.logger.use_verbosity("ir"):
+            data = [0.0, 1.0, 2.0, 3.0]
+            if dtype == tp.bool:
+                data = [False, True, False, True]
+            elif dtype in [tp.int8, tp.int32, tp.int64]:
+                data = [0, 1, 2, 3]
+            a = tp.Tensor(data, dtype=dtype)
+            print(a)
 
     # In this test we only check the two innermost stack frames since beyond that it's all pytest code.
     @pytest.mark.parametrize(
@@ -157,3 +190,24 @@ class TestTensor:
         # that it calls underneath
         assert find_frame("ones").code.strip() == "return full(shape, 1, dtype)"
         assert find_frame("test_stack_depth_sanity").code.strip() == "a = tp.ones((2, 3))"
+
+    @pytest.mark.parametrize(
+        "tensor",
+        [
+            tp.Tensor([0]),
+            tp.Tensor([1]),
+            tp.zeros((1, 1, 1)),
+            tp.ones((1, 1, 1)),
+            tp.Tensor([[[3.12]]]),
+            tp.Tensor([False]),
+            tp.Tensor([True]),
+        ],
+    )
+    def test_boolean_method(self, tensor):
+        assert bool(tensor) == bool(cp.from_dlpack(tensor))
+
+    def test_multiple_elements_boolean_fails(self):
+        tensor = tp.ones((2, 2))
+
+        with pytest.raises(tp.TripyException):
+            bool(tensor)

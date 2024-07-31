@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import copy
 import operator
 from typing import Any, Dict, Iterator, List, Tuple, Union, Sequence, TypeVar
@@ -84,7 +101,7 @@ class Module:
 
         super().__setattr__(name, value)
         # avoid infinite recursion during initialization
-        if not value:
+        if value is None:
             return
 
         if isinstance(value, List) or isinstance(value, Dict):
@@ -269,3 +286,20 @@ class Module:
             ):
                 for key, obj in value.items():
                     yield f"{name}.{key}", obj
+
+    def __str__(self):
+        from textwrap import indent
+        class_name = self.__class__.__name__
+        module_str = f"{class_name}(\n"
+
+        # Add children with hierarchical indentation
+        for name, child in self.named_children():
+            c = indent(str(child), prefix="    ")
+            module_str += f"  {name}=\n{c},\n"
+
+        # Add parameters with hierarchical indentation
+        for name, param in self.named_parameters():
+            module_str += f" {name}={param.shape},\n"
+
+        module_str += f")"
+        return module_str

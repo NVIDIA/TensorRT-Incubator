@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from textwrap import indent
 from typing import Any, List, Optional, Tuple, Union
 
@@ -8,6 +25,7 @@ import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.common.array import Array
 from tripy.common.utils import get_element_type, get_supported_type_for_python_sequence
+from tripy.common.exception import raise_error
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
@@ -192,9 +210,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace.ops.dequantize import dequantize
 
         arr = self.eval()
-
-        # Make an exception for float16, since it can not be printed via memoryview()
-        if self.dtype not in get_supported_type_for_python_sequence() or self.dtype == tripy.common.datatype.float16:
+        if self.dtype not in get_supported_type_for_python_sequence():
             arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
 
@@ -222,3 +238,16 @@ class Tensor(metaclass=TensorMeta):
 
     def __dlpack_device__(self):
         return self.eval().__dlpack_device__()
+
+    def __bool__(self):
+        data = self.data().data()
+        if any(dim != 1 for dim in self.trace_tensor.producer.shape):
+            raise_error(
+                "Boolean value of a Tensor with more than one value is ambiguous",
+                [f"Note: tensor shape was: {self.trace_tensor.producer.shape}"],
+            )
+
+        # Unwrap, since the item could be nested within a list. Without unwrapping, `[[[0]]]` returns True, when this should return False.
+        for _ in range(self.rank):
+            data = data[0]
+        return bool(data)

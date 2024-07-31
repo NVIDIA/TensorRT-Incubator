@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import argparse
 import glob
 import inspect
@@ -97,13 +114,13 @@ def process_index_constituents(constituents):
     )
 
 
-def build_root_index_file(constituents, guide_sets):
+def build_root_index_file(constituents, guide_sets, processed_markdown_dirname):
     contents = (
         (
             # We want to include the top-level README in our main index file.
             dedent(
                 f"""
-                .. include:: {os.path.join(os.path.pardir, os.path.pardir, "README.md")}
+                .. include:: {os.path.join(processed_markdown_dirname, "README.md")}
                     :parser: myst_parser.sphinx_
                 """
             )
@@ -174,6 +191,9 @@ def process_guide(guide_path: str, processed_guide_path: str):
     # code might rely on things that were already defined in previous code blocks.
     code_locals = {}
     for block in blocks:
+        if block.has_marker("omit_from_doc"):
+            continue
+
         if block.lang.startswith("sh"):
             subprocess.call(str(block), shell=True)
 
@@ -274,43 +294,64 @@ def main():
 
     print(f"Generating documentation hierarchy:\n{str_from_hierarchy(doc_hierarcy)}")
 
+    EXCLUDE_DIRS = ["_static"]
+
     guide_sets: List[GuideSet] = []
     guide_dirs = list(
         filter(
-            lambda path: not path.startswith("_"),
-            [os.path.basename(path) for path in glob.iglob(os.path.join("docs", "*")) if os.path.isdir(path)],
+            lambda path: not any(exclude in path for exclude in EXCLUDE_DIRS),
+            # Include top-level directory for the main README.md
+            [""] + [path for path in glob.iglob(os.path.join("docs", "*")) if os.path.isdir(path)],
         )
     )
 
     processed_markdown_dirname = "processed_mds"
     processed_markdown_dir = make_output_path(processed_markdown_dirname)
     for dir_path in sorted(guide_dirs):
+        is_top_level_dir = dir_path == ""
+
         # Extract order information from directory name.
-        order, _, title = dir_path.partition("_")
-        assert order.startswith("pre") or order.startswith(
-            "post"
-        ), f"Guide directories must start with a pre<N>/post<N> prefix, but got: {dir_path}"
-        is_before_api_ref = "pre" in order
-        index = int(order.replace("pre", "").replace("post", ""))
+        basename = os.path.basename(dir_path)
+        order, _, title = basename.partition("_")
+        # Exempt top-level README from pre/post prefix requirements since they are not actually added to the final docs.
+        if not is_top_level_dir:
+            assert order.startswith("pre") or order.startswith(
+                "post"
+            ), f"Guide directories must start with a pre<N>/post<N> prefix, but got: {dir_path}"
+            is_before_api_ref = "pre" in order
+            index = int(order.replace("pre", "").replace("post", ""))
 
         title = to_title(title)
         guides = []
-        for guide in sorted(glob.iglob(os.path.join("docs", dir_path, "*.md"))):
+
+        if is_top_level_dir:
+            # We only want the main README from the top-level directory.
+            guide_mds = [os.path.join(dir_path, "README.md")]
+        else:
+            guide_mds = sorted(glob.iglob(os.path.join(dir_path, "*.md")))
+
+        for guide in guide_mds:
             # Copy guide to build directory
             guide_filename = os.path.basename(guide)
-            processed_guide = os.path.join(processed_markdown_dir, dir_path, guide_filename)
+            processed_guide = os.path.join(processed_markdown_dir, basename, guide_filename)
             process_guide(guide, processed_guide)
-            guide_out_path = make_output_path(dir_path, os.path.basename(processed_guide).replace(".md", ".rst"))
+            guide_out_path = make_output_path(basename, os.path.basename(processed_guide).replace(".md", ".rst"))
             os.makedirs(os.path.dirname(guide_out_path), exist_ok=True)
-            with open(guide_out_path, "w") as f:
-                f.write(
-                    build_markdown_doc(
-                        source_path=os.path.join(os.path.pardir, processed_markdown_dirname, dir_path, guide_filename)
-                    )
-                )
-            guides.append(f"{dir_path}/{os.path.splitext(guide_filename)[0]}")
 
-        guide_sets.append(GuideSet(title, guides, Order(is_before_api_ref, index)))
+            # Do not create RSTs for top-level README
+            if not is_top_level_dir:
+                with open(guide_out_path, "w") as f:
+                    # Grab the path of the .md file relative to the directory containing the .rst file so we can include it correctly.
+                    f.write(
+                        build_markdown_doc(
+                            source_path=os.path.relpath(processed_guide, os.path.dirname(guide_out_path))
+                        )
+                    )
+            guides.append(os.path.join(basename, os.path.splitext(guide_filename)[0]))
+
+        # We have special treatment for the files in the top-level directory.
+        if not is_top_level_dir:
+            guide_sets.append(GuideSet(title, guides, Order(is_before_api_ref, index)))
 
     for path, constituents in doc_hierarcy.items():
         is_root = path == ""
@@ -325,7 +366,7 @@ def main():
 
         with open(index_path, "a") as f:
             f.write(
-                build_root_index_file(constituents, guide_sets)
+                build_root_index_file(constituents, guide_sets, processed_markdown_dirname)
                 if is_root
                 else build_index_file(
                     name=to_title(os.path.basename(os.path.dirname(index_path))),

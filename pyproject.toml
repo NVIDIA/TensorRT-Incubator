@@ -1,17 +1,26 @@
 [project]
 name = "tripy"
-version = "0.1.0"
-description = ""
-authors = [{name = "Parth Chadha", email="pchadha@nvidia.com"}]
+version = "0.0.1"
+authors = [{name = "NVIDIA", email="svc_tensorrt@nvidia.com"}]
+description = "Tripy: A Python Programming Model For TensorRT"
 readme = "README.md"
+requires-python = ">= 3.8"
+license = {text = "Apache 2.0"}
 dependencies = [
   "mlir-tensorrt-compiler==0.1.29+cuda12.trt100",
   "mlir-tensorrt-runtime==0.1.29+cuda12.trt100",
   "colored==2.2.3",
 ]
 
+# TODO: Add documentation link
+[project.urls]
+Repository = "https://github.com/NVIDIA/tensorrt-incubator/tripy/"
+Issues = "https://github.com/NVIDIA/tensorrt-incubator/issues"
+Changelog = "https://github.com/NVIDIA/tensorrt-incubator/tripy/blob/master/CHANGELOG.md"
+
+
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=45", "wheel", "mypy==1.11.0"]
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
@@ -29,7 +38,7 @@ docs = [
   "docutils==0.20.1",
   "myst-parser==2.0.0",
   "sphinxcontrib-mermaid==0.9.2",
-  "mypy==1.11.0"
+
 ]
 test = [
   "torch==2.0.0+cu118",

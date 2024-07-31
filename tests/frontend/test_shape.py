@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import numpy as np
 import cupy as cp
 import pytest
@@ -82,17 +99,6 @@ class TestShape:
         assert isinstance(new_shape, tp.Shape)
         assert isinstance(new_shape.trace_tensor.producer, Concatenate)
         assert cp.from_dlpack(new_shape).get().tolist() == values + appended
-
-    def test_comparison_not_wrapped(self, values):
-        from tripy.frontend.trace.ops.binary_elementwise import Comparison
-
-        s = tp.Shape(values)
-        eq_comparison = s == values
-        assert not isinstance(eq_comparison, tp.Shape)
-        assert isinstance(eq_comparison.trace_tensor.producer, Comparison)
-        assert eq_comparison.trace_tensor.producer.kind == Comparison.Kind.EQUAL
-        # TODO (#26): Currently these are returned as ints, not bools
-        assert cp.from_dlpack(eq_comparison).get().tolist() == [1 for _ in values]
 
     def test_explicit_addition(self, values):
         from tripy.frontend.trace.ops.binary_elementwise import BinaryElementwise
@@ -346,3 +352,9 @@ class TestShape:
             ),
         ):
             v.eval()
+
+    def test_shape_equality(self, other_values):
+        a = tp.Shape([4, 5])
+        if isinstance(other_values, np.ndarray):
+            pytest.skip("numpy array cannot be implicitly cast to Shape type")
+        assert isinstance(a == other_values, bool)

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This example demonstrates how to implement a NanoGPT model using Tripy APIs.
+This example demonstrates how to implement a [NanoGPT model](https://github.com/karpathy/nanoGPT) using Tripy APIs.
 
 It's broken up into three components:
 
@@ -25,22 +25,20 @@ for expected accuracy.
 2. Run the example:
 
     ```bash
-    python3 example.py --input-text "Do people really like using ONNX?"
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?"
     ```
 
 3. **[Optional]** You also use a fixed seed to ensure predictable outputs each time:
 
     ```bash
-    python3 example.py --input-text "Do people really like using ONNX?" --seed=1
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1
     ```
 
     <!-- Tripy: EXPECTED_STDOUT Start -->
     <!--
     ```
     (?s).*?
-    Do people really like using ONNX\?
-
-    This is something that I'm very excited
+    What is the answer to life, the universe, and everything\? The answer to Aquinas, the most important thinker
     ```
      -->
     <!-- Tripy: EXPECTED_STDOUT End -->
@@ -57,29 +55,26 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
 1. weight only int8 quantization:
 
     ```bash
-    python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int8-weight-only
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode int8-weight-only
     ```
     <!-- Tripy: EXPECTED_STDOUT Start -->
     <!--
     ```
     (?s).*?
-    Do people really like using ONNX\?
-
-    This is something that I'm very excited
-    ```
+    What is the answer to life, the universe, and everything\? The answer to all of this is: I believe    ```
      -->
     <!-- Tripy: EXPECTED_STDOUT End -->
 
 2. weight only int4 quantization:
 
     ```bash
-    python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode int4-weight-only
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode int4-weight-only
     ```
 
 <!-- Tripy: XFAIL Start -->
 3. fp8 quantization:
 
     ```bash
-    python3 example.py --input-text "Do people really like using ONNX?" --seed=1 --quant-mode fp8
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode fp8
     ```
 <!-- Tripy: XFAIL End -->

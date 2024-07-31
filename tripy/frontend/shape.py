@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from typing import Optional, Sequence, Union
 
 from tripy import export, utils
@@ -5,6 +22,7 @@ from tripy.common.array import Array
 from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
+from tripy.frontend.utils import convert_inputs_to_tensors
 
 
 @export.public_api()
@@ -111,6 +129,9 @@ class Shape(Tensor):
         assert tensor_repr[:6] == "tensor"
         return "shape" + tensor_repr[6:]
 
+    def __str__(self) -> str:
+        return "shape" + '(' + ', '.join(map(str, self.data().data())) + ')'
+
     # addition for shapes is concatenation, not tensor addition
 
     def __add__(self, other):
@@ -134,3 +155,9 @@ class Shape(Tensor):
         elif not isinstance(other, Shape):
             other = Shape(other)
         return concatenate([other, self], 0)
+
+    @convert_inputs_to_tensors(shape_argument=["other"])
+    def __eq__(self, other):
+        from tripy.frontend.trace.ops.reduce import all
+
+        return bool(all(self.as_tensor() == other.as_tensor()))
