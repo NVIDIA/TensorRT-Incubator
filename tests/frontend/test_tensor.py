@@ -18,8 +18,6 @@
 import inspect
 import sys
 
-from textwrap import dedent
-
 import cupy as cp
 import jax
 import numpy as np
@@ -27,9 +25,8 @@ import pytest
 import torch
 
 import tripy as tp
+from tests.conftest import DATA_TYPE_TEST_CASES
 from tests.helper import NUMPY_TYPES
-from tripy.common.datatype import DATA_TYPES
-from tripy.common.exception import TripyException
 from tripy.utils.stack_info import SourceInfo
 
 
@@ -73,7 +70,7 @@ class TestTensor:
         assert t.trace_tensor.producer.inputs == []
         assert cp.from_dlpack(t).get().tolist() == bool_values
 
-    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_from_list(self, dtype):
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
@@ -96,7 +93,7 @@ class TestTensor:
             assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
             assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
 
-    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")

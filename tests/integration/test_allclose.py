@@ -15,11 +15,10 @@
 # limitations under the License.
 #
 
-import torch
 import pytest
-import tripy as tp
+import torch
 
-from tests import helper
+import tripy as tp
 
 
 class TestAllClose:

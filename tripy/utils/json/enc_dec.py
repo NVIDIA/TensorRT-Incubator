@@ -29,7 +29,7 @@ def str_from_type(typ):
 
 class BaseCustomImpl:
     """
-    Base class for Tripy's JSON encoder/decoder.
+    Base class for TriPy's JSON encoder/decoder.
     """
 
     @classmethod

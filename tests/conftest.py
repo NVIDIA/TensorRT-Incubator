@@ -24,7 +24,9 @@ from typing import Optional
 import pytest
 import torch
 
+import tripy as tp
 from tests.helper import ROOT_DIR
+from tripy.common.datatype import DATA_TYPES
 
 skip_if_older_than_sm89 = pytest.mark.skipif(
     torch.cuda.get_device_capability() < (8, 9), reason="Some features (e.g. fp8) are not available before SM90"
@@ -33,6 +35,11 @@ skip_if_older_than_sm89 = pytest.mark.skipif(
 skip_if_older_than_sm80 = pytest.mark.skipif(
     torch.cuda.get_device_capability() < (8, 0), reason="Some features (e.g. bfloat16) are not available before SM80"
 )
+
+DATA_TYPE_TEST_CASES = [
+    dtype if dtype not in [tp.float8] else pytest.param(tp.float8, marks=skip_if_older_than_sm89)
+    for dtype in DATA_TYPES.values()
+]
 
 
 @pytest.fixture()
@@ -52,7 +59,7 @@ def sandboxed_install_run(virtualenv):
 
     def run_impl(command: str, cwd: Optional[str] = None):
         env = copy.copy(os.environ)
-        # Always prioritize our own copy of Tripy over anything in the venv.
+        # Always prioritize our own copy of TriPy over anything in the venv.
         env["PYTHONPATH"] = ROOT_DIR + os.pathsep + VENV_PYTHONPATH
 
         print(f"Running command: {command}")

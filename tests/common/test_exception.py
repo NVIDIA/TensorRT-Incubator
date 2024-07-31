@@ -113,9 +113,9 @@ class TestRaiseError:
             dedent(
                 """
                 --> /tripy/tmp.py:3 in <module>()
-                    |
-                  3 | a = tp.zeros((2, 3)) - tp.ones((2, 4))
-                    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                      |
+                    3 | a = tp.zeros((2, 3)) - tp.ones((2, 4))
+                      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                 """
             ).strip()
             in dedent(error_msg).strip()

@@ -1,4 +1,4 @@
-# Contributing To Tripy
+# Contributing To TriPy
 
 
 ## Table Of Contents
@@ -8,7 +8,7 @@
 
 ## Setting Up
 
-1. Clone the Tripy repository:
+1. Clone the TriPy repository:
 
     ```bash
     git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/poc/tripy.git
@@ -64,7 +64,7 @@ We've added several guides [here](./docs/post0_developer_guides/) that can help 
 the codebase. We recommend starting with the [architecture](./docs/post0_developer_guides/architecture.md)
 documentation.
 
-If you're intersted in adding a new operator to Tripy, refer to [this guide](./docs/post0_developer_guides/how-to-add-new-ops.md).
+If you're intersted in adding a new operator to TriPy, refer to [this guide](./docs/post0_developer_guides/how-to-add-new-ops.md).
 
 ### Making Commits
 

@@ -41,7 +41,7 @@ class FlatIRTensor:
     reason_details: Optional[List[Any]] = None
     """
     Describes why this tensor was created.
-    This is required for any intermediate tensors created by Tripy,
+    This is required for any intermediate tensors created by TriPy,
     but optional for tensors that can be traced back to user tensors.
     It should complete the sentence: "This operation was added in order to...".
     """

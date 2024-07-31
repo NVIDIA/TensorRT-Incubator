@@ -150,7 +150,7 @@ def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
             dim_sizes[i] = get_dim_size_1d_tensor(tensor, i)
         shape_output_tensor = concatenate_tensors(dim_sizes, 0, out)
     else:
-        # TODO #80: Remove this codepath when shape dialect is used (shape.shape_of).
+        # TODO #111: Remove this codepath when shape dialect is used (shape.shape_of).
         shape_output_tensor = (
             FlatIRTensor.build(
                 shape=(),

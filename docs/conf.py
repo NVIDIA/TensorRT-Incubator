@@ -1,4 +1,3 @@
-
 #
 # SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -75,7 +74,7 @@ source_suffix = [".rst"]
 master_doc = "index"
 
 # General information about the project.
-project = "Tripy"
+project = "TriPy"
 copyright = "2024, NVIDIA"
 author = "NVIDIA"
 
@@ -97,7 +96,7 @@ html_theme_options = {
     "documentation_font_size": "1.0rem",
     "monospace_font_size": "0.85rem",
     "repository_url": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy",
-    "repository_name": "Tripy",
+    "repository_name": "TriPy",
 }
 
 html_sidebars = {"**": ["globaltoc.html"]}
@@ -239,13 +238,16 @@ def process_docstring(app, what, name, obj, options, lines):
             lines.append(block)
             continue
 
-        code_block_lines, _ = helper.update_code_block_with_outputs_and_locals(
+        code_block_lines, local_var_lines, output_lines, _ = helper.process_code_block_for_outputs_and_locals(
             block,
             block.code(),
-            err_msg=f"Failed while processing docstring for: {what}: {name} ({obj})",
             format_contents=lambda title, contents, lang: f"\n\n.. code-block:: {lang}\n"
             + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * helper.TAB_SIZE),
+            err_msg=f"Failed while processing docstring for: {what}: {name} ({obj})",
+            strip_assertions=True,
         )
+
+        code_block_lines += local_var_lines + output_lines
 
         # Grab the caption from the example code block.
         for line in code_block_lines:

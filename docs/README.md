@@ -80,6 +80,21 @@ This means we need to make some special considerations:
     Links to markdown files are an exception; if a markdown file is part of the *rendered*
     documentation, it should be linked to using the `project:` tag instead.
 
+3. For links to documentation for APIs, you can use the following syntax:
+
+    ```md
+    {<api_kind>}`<api_name>`
+    ```
+
+    For example:
+
+    ```md
+    {class}`tripy.Parameter`
+    ```
+
+    `<api_kind>` can take on any value that is a valid role provided by
+    [Sphinx's Python domain](https://www.sphinx-doc.org/en/master/usage/domains/python.html).
+
 Guides may use the markers specified in [tests/helper.py](/tests/helper.py) to customize
 how the documentation is interpreted (see `AVAILABLE_MARKERS` in that file).
 
@@ -105,11 +120,12 @@ documentation is generated. Specifically:
 
     - To disable it completely, add just `# doc: no-print-locals` without specifying any variables.
 
-- Any `assert` statements are stripped out.
+- In docstrings, but not guides, any `assert` statements are stripped out.
 
 - Any lines that end with `# doc: omit` are stripped out.
 
-To avoid running code entirely, you can add `# doc: no-eval` in the docstring.
+To avoid running code entirely, you can add `# doc: no-eval` in the docstring. Note that this will
+not prevent the code block from being executed in the tests.
 
 
 ### Dynamically Generating Content In Guides
@@ -118,15 +134,16 @@ In some cases, it's useful to run Python code and include the output in a guide 
 the Python code itself. To do so, you can use a trick like this:
 
 ```md
-<!--```py
-# doc: no-print-locals
-print("This line should be rendered into the docs")
-```-->
+    <!-- TriPy: DOC: OMIT Start -->
+    ```py
+    # doc: no-print-locals
+    print("This line should be rendered into the docs")
+    ```
+    <!-- TriPy: DOC: OMIT End -->
 ```
 
-Note that the markdown comment markers are *on the same line* as the backticks demarcating the Python
-code block. This is required because our parser will otherwise insert the output immediately after the
-code block, but *inside* the comment.
+This works because `DOC: OMIT` removes the encapsulated text from the post-processed markdown file
+but does *not* prevent the block from being evaluated (to do that, use `# doc: no-eval` as normal).
 
-We include special logic when generating output that will omit the `Output:` heading when the output
+We include special logic that will omit the `Output:` heading when the output
 is generated in this way.

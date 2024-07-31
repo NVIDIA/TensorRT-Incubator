@@ -96,18 +96,18 @@ def test_examples(example, sandboxed_install_run):
     with example as command_blocks:
         # NOTE: This logic is not smart enough to handle multiple separate commands in a single block.
         for block in command_blocks:
-            if block.has_marker("ignore") or not block.has_marker("command"):
+            if block.has_marker("test: ignore") or not block.has_marker("command"):
                 continue
 
             block_text = str(block)
-            if block.has_marker("expected_stdout"):
+            if block.has_marker("test: expected_stdout"):
                 print("Checking command output against expected output:")
                 assert re.match(dedent(block_text).strip(), statuses[-1].stdout.strip())
             else:
                 status = example.run(block_text, sandboxed_install_run)
 
                 details = f"Note: Command was: {block_text}.\n==== STDOUT ====\n{status.stdout}\n==== STDERR ====\n{status.stderr}"
-                if block.has_marker("xfail"):
+                if block.has_marker("test: xfail"):
                     assert not status.success, f"Command that was expected to fail did not fail. {details}"
                 else:
                     assert status.success, f"Command that was expected to succeed did not succeed. {details}"

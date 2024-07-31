@@ -16,7 +16,7 @@
 #
 
 """
-Global configuration options for Tripy.
+Global configuration options for TriPy.
 """
 
 import os

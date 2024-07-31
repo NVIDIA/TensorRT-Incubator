@@ -1,8 +1,8 @@
-# Implementing Nano-GPT With Tripy
+# Implementing Nano-GPT With TriPy
 
 ## Introduction
 
-This example demonstrates how to implement a [NanoGPT model](https://github.com/karpathy/nanoGPT) using Tripy APIs.
+This example demonstrates how to implement a [NanoGPT model](https://github.com/karpathy/nanoGPT) using TriPy APIs.
 
 It's broken up into three components:
 
@@ -34,14 +34,14 @@ for expected accuracy.
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1
     ```
 
-    <!-- Tripy: EXPECTED_STDOUT Start -->
+    <!-- TriPy: TEST: EXPECTED_STDOUT Start -->
     <!--
     ```
     (?s).*?
     What is the answer to life, the universe, and everything\? The answer to Aquinas, the most important thinker
     ```
      -->
-    <!-- Tripy: EXPECTED_STDOUT End -->
+    <!-- TriPy: TEST: EXPECTED_STDOUT End -->
 
 ### Running with Quantization
 
@@ -57,13 +57,13 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode int8-weight-only
     ```
-    <!-- Tripy: EXPECTED_STDOUT Start -->
+    <!-- TriPy: TEST: EXPECTED_STDOUT Start -->
     <!--
     ```
     (?s).*?
     What is the answer to life, the universe, and everything\? The answer to all of this is: I believe    ```
      -->
-    <!-- Tripy: EXPECTED_STDOUT End -->
+    <!-- TriPy: TEST: EXPECTED_STDOUT End -->
 
 2. weight only int4 quantization:
 
@@ -71,10 +71,10 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode int4-weight-only
     ```
 
-<!-- Tripy: XFAIL Start -->
+<!-- TriPy: TEST: XFAIL Start -->
 3. fp8 quantization:
 
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode fp8
     ```
-<!-- Tripy: XFAIL End -->
+<!-- TriPy: TEST: XFAIL End -->

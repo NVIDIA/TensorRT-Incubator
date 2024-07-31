@@ -93,7 +93,7 @@ def code_pretty_str(code, filename=None, line_no=None, func=None, enable_color=T
     if not code:
         return line_info
 
-    INDENTATION = 4
+    INDENTATION = 6
 
     def make_line_no_str(index):
         if line_no is None:

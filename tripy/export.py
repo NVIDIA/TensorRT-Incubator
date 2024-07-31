@@ -68,7 +68,7 @@ def public_api(
         autodoc_options: Autodoc options to apply to the documented API.
             For example: ``[":special-members:"]``.
 
-        module: The module under which to export this public API. Defaults to the top-level Tripy module.
+        module: The module under which to export this public API. Defaults to the top-level TriPy module.
 
         symbol: The name of the symbol, if different from ``__name__``.
     """

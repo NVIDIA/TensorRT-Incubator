@@ -378,7 +378,10 @@ class Compiler:
             func: The function or :class:`Module` to optimize. The function must satisfy the following requirements:
 
                 - Must be a pure function with no side effects.
+                  This means, for example, that you cannot use ``print`` or ``assert``.
+
                 - Must not accept variadic positional or keyword arguments.
+
                 - Must return one or more :class:`Tensor` s and no other types.
 
                 The compiled function will have the following constraints:
@@ -445,17 +448,17 @@ class Compiler:
 
             # doc: no-print-locals compiler compiled_add
             compiler = tp.Compiler(add)
-            # Support shapes in the range of (1,) to (3,), optimizing for a shape of (2,)
-            compiled_add = compiler.compile(tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32))
+            # Support shapes in the range of (1, 2) to (3, 2), optimizing for a shape of (2, 2)
+            compiled_add = compiler.compile(tp.InputInfo(([1, 2, 3], 2), dtype=tp.float32), tp.InputInfo(([1, 2, 3], 2), dtype=tp.float32))
 
-            small_a = tp.ones((1,), dtype=tp.float32)
-            small_b = tp.ones((1,), dtype=tp.float32)
+            small_a = tp.ones((1, 2), dtype=tp.float32)
+            small_b = tp.ones((1, 2), dtype=tp.float32)
 
             small_out = compiled_add(small_a, small_b)
 
             # Now we can reuse the compiled function for any shapes within the range:
-            big_a = tp.ones((3,), dtype=tp.float32)
-            big_b = tp.ones((3,), dtype=tp.float32)
+            big_a = tp.ones((3, 2), dtype=tp.float32)
+            big_b = tp.ones((3, 2), dtype=tp.float32)
 
             big_out = compiled_add(big_a, big_b)
 

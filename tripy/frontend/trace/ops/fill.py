@@ -82,14 +82,19 @@ class Fill(BaseTraceOp):
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
 def full_impl(
-    shape: Union["tripy.Shape", Sequence[int]], value: numbers.Number, dtype: "tripy.dtype", output_rank: int
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    value: numbers.Number,
+    dtype: "tripy.dtype",
+    output_rank: int,
 ) -> "tripy.Tensor":
     return Fill.build([shape], value, output_rank, dtype)
 
 
 @export.public_api(document_under="tensor_operations")
 def full(
-    shape: Union["tripy.Shape", Sequence[int]], value: numbers.Number, dtype: "tripy.dtype" = datatype.float32
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    value: numbers.Number,
+    dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":
     """
     Returns a tensor of the desired shape with all values set to the specified value.

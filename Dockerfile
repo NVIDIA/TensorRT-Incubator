@@ -46,16 +46,16 @@ RUN pip install .[docs,dev,test] \
 # Configure mlir-tensorrt packages
 ########################################
 # WAR's for small bugs in the MLIR-TRT wheels
-# Protobuf isn't actually used for how Tripy uses MLIR-TRT, so we just install any version to make the loader happy.
+# Protobuf isn't actually used for how TriPy uses MLIR-TRT, so we just install any version to make the loader happy.
 
 RUN apt-get install -y libopenmpi3 libopenmpi-dev libprotobuf-dev && \
     ln -snf /usr/lib/x86_64-linux-gnu/libprotobuf.so /usr/lib/x86_64-linux-gnu/libprotobuf.so.29
 
-# Installl lldb for debugging purposes in Tripy container.
+# Installl lldb for debugging purposes in TriPy container.
 # The LLVM version should correspond on LLVM_VERSION specified in https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/blob/master/build_tools/docker/Dockerfile.
 ARG LLVM_VERSION=17
 ENV LLVM_VERSION=$LLVM_VERSION
-ENV LLVM_PACKAGES="lldb-${LLVM_VERSION}" 
+ENV LLVM_PACKAGES="lldb-${LLVM_VERSION}"
 RUN echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$LLVM_VERSION main" > /etc/apt/sources.list.d/llvm.list && \
     echo "deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$LLVM_VERSION main" >> /etc/apt/sources.list.d/llvm.list && \
     wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key 2>/dev/null > /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
@@ -64,7 +64,7 @@ RUN echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-$LLVM_VERSION main
     apt-get update && \
     apt-get install -y ${LLVM_PACKAGES} && \
     apt-get clean -y && \
-    rm -rf /var/lib/apt/lists/* && \    
+    rm -rf /var/lib/apt/lists/* && \
     ln -s /usr/bin/lldb-17 /usr/bin/lldb
 
 RUN pip3 install --upgrade build

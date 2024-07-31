@@ -8,32 +8,32 @@ user experience without compromising performance. Some of the features of TriPy 
 
 - **Excellent Error Messages**: When something goes wrong, TriPy tries to provide
     informative and actionable error messages. Even in cases where the error comes
-    from deep within the software stack, Tripy is able to map it back to the Python code
+    from deep within the software stack, TriPy is able to map it back to the Python code
     that caused it.
 
 
-<!-- Tripy: OMIT_FROM_DOC Start -->
+<!-- TriPy: DOC: OMIT Start -->
 ## Table Of Contents
 
 [[_TOC_]]
 
-<!-- Tripy: OMIT_FROM_DOC End -->
+<!-- TriPy: DOC: OMIT End -->
 
 ## Installation
 
-<!-- TODO: Include `pip install` instructions here -->
+<!-- TODO (#release): Include `pip install` instructions here -->
 
 
 ## Quickstart
 
-<!-- TODO: Link to intro to tripy guide -->
+<!-- TODO (#release): Link to intro to tripy guide -->
 
 
-<!-- Tripy: OMIT_FROM_DOC Start -->
+<!-- TriPy: DOC: OMIT Start -->
 
 ## Documentation
 
-<!-- TODO: Link to docs -->
+<!-- TODO (#release): Link to docs -->
 
 
 ## Examples
@@ -45,4 +45,4 @@ The [examples](./examples/) directory includes end-to-end examples.
 
 For information on how you can contribute to this project, see [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-<!-- Tripy: OMIT_FROM_DOC End -->
+<!-- TriPy: DOC: OMIT End -->

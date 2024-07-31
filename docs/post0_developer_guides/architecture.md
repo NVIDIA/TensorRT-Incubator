@@ -1,6 +1,6 @@
 # Architecture
 
-This document explains the overall architecture of Tripy.
+This document explains the overall architecture of TriPy.
 
 ```{contents} Table of Contents
 :depth: 3
@@ -8,19 +8,19 @@ This document explains the overall architecture of Tripy.
 
 ## Overview
 
-The main technical requirement of Tripy is twofold:
+The main technical requirement of TriPy is twofold:
 
 1. We must be able to provide a Pythonic, functional style interface to the user.
 2. We must be able to provide a computation graph to the compiler.
 
-Tripy uses a series of intermediate representations to solve this problem.
+TriPy uses a series of intermediate representations to solve this problem.
 Below is a diagram of how these IRs are connected to each other:
 
 ```mermaid
 graph TD
     subgraph "Python"
         subgraph "Frontend"
-            A[Tripy Python API] -->|Stage Out| B[Trace]
+            A[TriPy Python API] -->|Stage Out| B[Trace]
         end
 
         subgraph "Flat IR"
@@ -57,7 +57,7 @@ The final representation before we hand off to the compiler is the MLIR itself, 
 consists primarily of StableHLO operations but can also include other dialects for certain operations.
 
 
-## A Day In The Life Of A Tripy Tensor
+## A Day In The Life Of A TriPy Tensor
 
 To understand these components better, let's take a look at what happens when we write a simple
 program like:
@@ -92,7 +92,7 @@ the [`UnaryElementwise` operation](source:/tripy/frontend/trace/ops/unary_elemen
 
 #### What Does It Do?
 
-Tripy uses a lazy evaluation model; that means that computation doesn't happen immediately when you call a function
+TriPy uses a lazy evaluation model; that means that computation doesn't happen immediately when you call a function
 like `tp.full()` or `tp.tanh()`. Instead, all we do is create a frontend `Tensor` object which contains a `Trace` operation.
 The `Trace` operation includes inputs and outputs in the form of `TraceTensor`s and is essentially just a symbolic
 representation of the computation that needs to be done.
@@ -128,7 +128,7 @@ The bulk of the real work happens once we reach the final line:
 out.eval()
 ```
 
-As mentioned before, Tripy uses a lazy evaluation model where a tensor is only evaluated when it is used.
+As mentioned before, TriPy uses a lazy evaluation model where a tensor is only evaluated when it is used.
 A tensor is considered "used" when, for example:
 
 - We interoperate with another framework (e.g. `torch.from_dlpack(out)` or `np.from_dlpack(out)`)
@@ -145,21 +145,19 @@ collecting trace operations as we go.
 
 Here's the textual representation for the `Trace` from our example:
 
-<!--```py
-from tripy.frontend.trace import Trace
+<!-- TriPy: DOC: OMIT Start -->
+```py
 # doc: no-print-locals
+from tripy.frontend.trace import Trace
 # Output has been eval'd already, so we'll construct a new one
 new_out = tp.tanh(inp)
 trace = Trace([new_out])
 print(trace)
-```-->
+```
+<!-- TriPy: DOC: OMIT End -->
 
-<!-- TODO: Fix this if we change anything about shape/type inference -->
-*NOTE: This information might become stale after we implement dynamic shapes. If you're seeing this note*
-    *and tripy already supports dynamic shapes, please let us know so we can update the documentation!*
-
-When we've built up the complete trace, we run shape, data type, and device inference. This is why the
-output tensor in the trace has its `shape`, `dtype`, and `loc` fields populated.
+When we've built up the complete trace, we run rank, data type, and device inference. This is why the
+output tensor in the trace has its `rank`, `dtype`, and `loc` fields populated.
 
 #### Lowering To FlatIR
 
@@ -193,11 +191,13 @@ that already exist in the `FlatIR`.
 Here's the textual representation for the `FlatIR` from our example; you'll notice that we have more operations
 now than we did in the trace:
 
-<!--```py
+<!-- TriPy: DOC: OMIT Start -->
+```py
 # doc: no-print-locals
 flat_ir = trace.to_flat_ir()
 print(flat_ir)
-```-->
+```
+<!-- TriPy: DOC: OMIT End -->
 
 #### Lowering To MLIR
 
@@ -214,19 +214,20 @@ def to_mlir(self, operands):
 
 There's not much more to explain here, so let's go right to the textual representation:
 
-<!--```py
+<!-- TriPy: DOC: OMIT Start -->
+```py
 # doc: no-print-locals
 print(flat_ir.to_mlir())
-```-->
-
+```
+<!-- TriPy: DOC: OMIT End -->
 
 #### Compilation
 
-Once we have the complete MLIR representation, our next step is to compile it to an executable.
-
-TODO: Fill out this section
+Once we have the complete MLIR representation, we then compile it to an executable using the MLIR-TRT compiler.
 
 
 #### Execution
 
-TODO: Fill out this section
+Finally, we use the MLIR-TRT executor to launch the executable and retrieve the output tensors.
+The executable returns [`memref`s](https://mlir.llvm.org/docs/Dialects/MemRef/) which we then
+wrap in TriPy frontend {class}`tripy.Tensor`s.

@@ -67,7 +67,7 @@ def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int = None
 
 
 @export.public_api(document_under="tensor_operations")
-def reshape(input: "tripy.Tensor", shape: Sequence[int]) -> "tripy.Tensor":
+def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
 

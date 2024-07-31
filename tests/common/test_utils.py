@@ -131,7 +131,7 @@ def test_convert_frontend_dtype_to_tripy_dtype():
             match=dedent(
                 rf"""
             Unsupported data type: '{unsupported_type}'.
-                Tripy tensors can be constructed with one of the following data types: int, float, bool, bool_, int8, int32, int64, float8_e4m3fn, float16, bfloat16, float32.
+                TriPy tensors can be constructed with one of the following data types: int, float, bool, bool_, int8, int32, int64, float8_e4m3fn, float16, bfloat16, float32.
             """
             ).strip(),
         ):

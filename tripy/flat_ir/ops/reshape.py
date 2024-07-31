@@ -35,8 +35,8 @@ class ReshapeOp(BaseFlatIROp):
 class DynamicReshapeOp(BaseFlatIROp):
     def to_mlir(self, operands):
         if is_any_dim_dynamic(operands[1]):
-            # Tripy frontend does not have shape inference and stablehlo does not allow shape operand to be of dynamic shape.
-            # Since DynamicReshapeOp was created internally by Tripy, we know the expected output rank. For dynamic_reshape operator, the shape of shape tensor is the same as output rank.
+            # TriPy frontend does not have shape inference and stablehlo does not allow shape operand to be of dynamic shape.
+            # Since DynamicReshapeOp was created internally by TriPy, we know the expected output rank. For dynamic_reshape operator, the shape of shape tensor is the same as output rank.
             new_shape = [self.outputs[0].rank]
             self.inputs[1].shape = new_shape
             operands[1].set_type(ir.RankedTensorType.get(new_shape, operands[1].type.element_type))

@@ -191,34 +191,38 @@ def process_guide(guide_path: str, processed_guide_path: str):
     # code might rely on things that were already defined in previous code blocks.
     code_locals = {}
     for block in blocks:
-        if block.has_marker("omit_from_doc"):
-            continue
-
         if block.lang.startswith("sh"):
             subprocess.call(str(block), shell=True)
 
-        if not block.lang.startswith("py"):
-            new_blocks.append(block.raw_str())
-            continue
+        if block.lang.startswith("py"):
 
-        def add_block(title, contents, lang):
-            print(f"Appending output block for code in: {guide_path}")
-            # Only include the "Output:" heading when the code block is actually rendered in the documentation.
-            return (
-                "\n"
-                + (title if not block.has_marker("comment") else "")
-                + f"\n```{lang}\n{dedent(contents).strip()}\n```"
+            def add_block(title, contents, lang):
+                print(f"Appending output block for code in: {guide_path}")
+                # Only include the "Output:" heading when the code block is actually rendered in the documentation.
+                return (
+                    "\n"
+                    + (title if not block.has_marker("doc: omit") else "")
+                    + f"\n```{lang}\n{dedent(contents).strip()}\n```"
+                )
+
+            code_block_lines, local_var_lines, output_lines, code_locals = (
+                helper.process_code_block_for_outputs_and_locals(
+                    block.raw_str(),
+                    str(block),
+                    format_contents=add_block,
+                    err_msg=f"Error while executing code block from {guide_path}.",
+                    local_vars=code_locals,
+                )
             )
 
-        code_block_lines, code_locals = helper.update_code_block_with_outputs_and_locals(
-            block.raw_str(),
-            str(block),
-            err_msg=f"Error while executing code block from {guide_path}.",
-            format_contents=add_block,
-            local_vars=code_locals,
-        )
+            if not block.has_marker("doc: omit"):
+                new_blocks.extend(code_block_lines)
 
-        new_blocks.extend(code_block_lines)
+            new_blocks.extend(local_var_lines)
+            new_blocks.extend(output_lines)
+
+        elif not block.has_marker("doc: omit"):
+            new_blocks.append(block.raw_str())
 
     with open(processed_guide_path, "w") as fout:
         fout.write("\n".join(new_blocks))

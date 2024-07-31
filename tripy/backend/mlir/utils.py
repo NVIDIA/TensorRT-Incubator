@@ -359,7 +359,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
     """
     from tripy.common.exception import TripyException
 
-    # We don't want to do any additional processing for Tripy exceptions
+    # We don't want to do any additional processing for TriPy exceptions
     if isinstance(exc, TripyException):
         raise
 
@@ -415,7 +415,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             ]
             + (
                 [
-                    f"\nNote: Tripy introduced new operation(s) in order to ",
+                    f"\nNote: TriPy introduced new operation(s) in order to ",
                     *interleave_newline(out_tensor.reason_context),
                     ".",
                 ]
