@@ -21,4 +21,4 @@ class TestUnaryElementwise:
     def test_op_funcs(self, tp_func, np_func):
         input = tp.arange(1, 4, dtype=tp.float32)
         output = tp_func(input)
-        assert np.allclose(cp.from_dlpack(output).get(), np_func(cp.from_dlpack(input).get()))
+        assert tp.allclose(output, tp.Tensor(np_func(cp.from_dlpack(input).get())))

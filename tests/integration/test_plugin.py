@@ -27,7 +27,7 @@ class TestPlugin:
         compiled_gelu = compiler.compile(tp.InputInfo((2, (1, 2, 3), 4), dtype=tp.float32))
 
         inp = tp.iota((2, 1, 4))
-        assert cp.allclose(cp.from_dlpack(compiled_gelu(inp)), cp.from_dlpack(tp.gelu(inp)))
+        assert tp.allclose(compiled_gelu(inp), tp.gelu(inp))
 
         new_inp = tp.ones((2, 2, 4), dtype=tp.float32)
-        assert cp.allclose(cp.from_dlpack(compiled_gelu(new_inp)), cp.from_dlpack(tp.gelu(new_inp)))
+        assert tp.allclose(compiled_gelu(new_inp), tp.gelu(new_inp))

@@ -22,7 +22,7 @@ def sigmoid(input: "tripy.Tensor") -> "tripy.Tensor":
         output = tp.sigmoid(input)
 
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
-        assert np.allclose(cp.from_dlpack(output).get(), np.from_dlpack(torch.nn.functional.sigmoid(t)))
+        assert tp.allclose(output, tp.Tensor(torch.nn.functional.sigmoid(t)))
     """
     from tripy.frontend.trace.ops.unary_elementwise import exp
 

@@ -14,7 +14,7 @@ class TestMatrixMultiplication:
         b = tp.Tensor(b_np)
 
         out = a @ b
-        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)
+        assert tp.allclose(out, tp.Tensor(a_np @ b_np))
 
     def test_1d_tensors(self):
         a_np = np.arange(64).astype(np.float32)  # 1D Tensor
@@ -23,7 +23,7 @@ class TestMatrixMultiplication:
         b = tripy.Tensor(cp.asanyarray(b_np))
 
         out = a @ b
-        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np, atol=1e-2)
+        assert tp.allclose(out, tp.Tensor(cp.array(a_np @ b_np)), atol=1e-2)
 
     @pytest.mark.parametrize(
         "shape_a, shape_b",
@@ -43,4 +43,4 @@ class TestMatrixMultiplication:
         b = tp.Tensor(b_np)
 
         out = a @ b
-        assert np.allclose(cp.from_dlpack(out).get(), a_np @ b_np)
+        assert tp.allclose(out, tp.Tensor(a_np @ b_np))

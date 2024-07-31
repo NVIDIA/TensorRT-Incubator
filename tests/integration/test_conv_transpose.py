@@ -118,7 +118,7 @@ class TestConvolution:
 
         rtol_ = 1e-3
         output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, rtol=rtol_)
+        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
         assert output_torch.shape == expected.shape
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_2d)
