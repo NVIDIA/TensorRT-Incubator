@@ -22,7 +22,7 @@ from typing import Any, List, Optional
 
 from tripy import utils
 
-_BUILD_CONTEXT: List[Any] = []
+_BUILD_CONTEXT: List[List[Any]] = []
 
 
 @dataclass(repr=False)
@@ -45,7 +45,7 @@ class FlatIRTensor:
     but optional for tensors that can be traced back to user tensors.
     It should complete the sentence: "This operation was added in order to...".
     """
-    reason_context: Optional[List[Any]] = None
+    reason_context: Optional[List[List[Any]]] = None
 
     @contextlib.contextmanager
     @staticmethod

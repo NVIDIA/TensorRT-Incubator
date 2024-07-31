@@ -21,6 +21,7 @@ import re
 import sys
 import tempfile
 from typing import BinaryIO, List, Tuple, Sequence, Optional
+from itertools import chain
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
@@ -387,6 +388,9 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             infos.append(flat_ir.tensor_map[name])
         return infos
 
+    def interleave_newline(arr):
+        return list(chain(*[omit_stack_info(sublist) + ["\n"] for sublist in arr]))[:-1]
+
     def get_flat_ir_operation(output_names):
         assert len(output_names) <= 1, f"Only implemented for single output ops"
         if not output_names or flat_ir is None:
@@ -412,7 +416,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             + (
                 [
                     f"\nNote: Tripy introduced new operation(s) in order to ",
-                    *omit_stack_info(out_tensor.reason_context),
+                    *interleave_newline(out_tensor.reason_context),
                     ".",
                 ]
                 if out_tensor.reason_context
@@ -435,7 +439,7 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
     raise_error(
         repr(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
-        + ([get_flat_ir_operation(output_names)] if output_names else [])
+        + (get_flat_ir_operation(output_names) if output_names else [])
         + (
             (
                 ["Note: This originated from the following expression:"]

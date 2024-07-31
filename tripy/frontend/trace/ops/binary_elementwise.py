@@ -97,7 +97,7 @@ class BinaryElementwise(BaseTraceOp):
                 shape2_name=f"the shape of the second input {shape_of_input1}",
             )
 
-            with FlatIRTensor.context([f"broadcast the inputs of '{self.kind.strip()}'"]):
+            with FlatIRTensor.context([f"broadcasting the inputs of '{self.kind.strip()}'"]):
                 inputs[0] = op_utils.insert_broadcast(
                     inputs[0],
                     out_rank=rank,
