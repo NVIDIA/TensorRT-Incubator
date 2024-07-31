@@ -18,16 +18,17 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from tripy import export, utils
+from tripy import export
 from tripy.utils import Result
 from tripy.common.exception import raise_error
+from tripy.frontend import utils as frontend_utils
+from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
 class Expand(BaseTraceOp):
-    shape: Sequence[int]
+    output_rank: int
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
@@ -36,59 +37,41 @@ class Expand(BaseTraceOp):
         from tripy.frontend.shape import Shape
 
         # wrap if the first input is a shape and the output is rank-1
-        if isinstance(inputs[0], Shape) and (
-            (self.shape and len(self.shape) == 1) or self.get_shape_input_length() == 1
-        ):
+        if isinstance(inputs[0], Shape) and self.output_rank == 1:
             return Result.ok([0])
         return Result.ok([])
 
     def infer_rank(self):
-        if self.shape:
-            if len(self.shape) < self.inputs[0].rank:
-                utils.raise_error_io_info(
-                    self,
-                    "The number of sizes must be greater or equal to input tensor's rank.",
-                    [f"Target sizes: {self.shape}", f" input rank: {self.inputs[0].rank}"],
-                )
-            self.outputs[0].rank = len(self.shape)
-        else:
-            output_rank = self.get_shape_input_length()
-            self.outputs[0].rank = output_rank
+        if self.output_rank is None:
+            from tripy.backend.mlir.utils import ShapeContext
 
-            if output_rank < self.inputs[0].rank:
-                utils.raise_error_io_info(
-                    self,
-                    "The shape of size tensor must be greater or equal to input tensor's rank.",
-                    [f"Target sizes shape: {output_rank}", f" input rank: {self.inputs[0].rank}"],
-                )
+            out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[1])
+            assert len(out_shape) == 1
+            assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
+            self.inputs[1].shape = out_shape
+            self.output_rank = out_shape[0]
 
-    def get_shape_input_length(self):
-        from tripy.backend.mlir.utils import ShapeContext
-
-        out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[1])
-        assert len(out_shape) == 1, f"Rank of sizes tensor is expected to be 1, got {len(out_shape)}."
-        return out_shape[0]
+        self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicBroadcastOp
 
         broadcast_dim = op_utils.get_broadcast_in_dim(inputs[0].rank, outputs[0].rank)
 
-        output_shape = (
-            op_utils.add_constant_tensor_from_list(self.shape, device=inputs[0].device)
-            if len(inputs) == 1
-            else inputs[1]
-        )
-
         DynamicBroadcastOp.build(
-            [inputs[0], output_shape],
+            [inputs[0], inputs[1]],
             outputs,
             broadcast_dim=broadcast_dim,
         )
 
 
+@frontend_utils.convert_inputs_to_tensors(exclude=["input", "output_rank"], shape_argument=["shape"])
+def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int):
+    return Expand.build([input, shape], output_rank)
+
+
 @export.public_api(document_under="tensor_operations")
-def expand(input: "tripy.Tensor", sizes: Union[Sequence[int], "tripy.Tensor"]) -> "tripy.Tensor":
+def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
     """
     Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.
 
@@ -121,30 +104,23 @@ def expand(input: "tripy.Tensor", sizes: Union[Sequence[int], "tripy.Tensor"]) -
         assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
     """
     from tripy.frontend.tensor import Tensor
-    from tripy.frontend.trace.ops.concatenate import concatenate
-    from tripy.frontend.trace.ops.reshape import reshape
 
     if isinstance(sizes, Tensor):
-        if sizes.rank != 1:
-            raise_error(
-                "Expand operation requires sizes tensor to be of rank 1.",
-                [
-                    f"sizes tensor must of rank 1,",
-                    f"Got rank={sizes.rank}",
-                ],
-            )
         return Expand.build([input, sizes], None)
 
-    args = []
-    for i, idx in enumerate(sizes):
-        t_shape = input.shape
+    if len(sizes) < input.rank:
+        raise_error(
+            "The length of `sizes` must be greater or equal to input tensor's rank.",
+            [f"sizes has length: {len(sizes)}", f" input rank: {input.rank}"],
+        )
 
-        def convert_to_positive_idx(index: int) -> Tensor:
-            # Base condition for t_shape[i] else the frontend will recurse infinitely.
-            assert isinstance(index, int)
-            return Tensor([index]) if index >= 0 else reshape(index + t_shape[i] + 1, (1,))
+    idx_offset = len(sizes) - input.rank
+    out_shape = []
+    for i, size in enumerate(sizes):
+        if isinstance(size, int) and size == -1:
+            # keep the original dimension
+            out_shape.append(input.shape[i - idx_offset])
+            continue
+        out_shape.append(size)
 
-        args.append(convert_to_positive_idx(idx) if i < input.rank else Tensor([1]))
-
-    sizes = concatenate(args, dim=0)
-    return Expand.build([input, sizes], None)
+    return expand_impl(input, out_shape, len(sizes))

@@ -30,7 +30,9 @@ from tripy.frontend import utils as frontend_utils
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
-def ones(shape: Union["tripy.Shape", Sequence[int]], dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def ones(
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]], dtype: datatype.dtype = datatype.float32
+) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 1.
 
@@ -56,7 +58,9 @@ def ones(shape: Union["tripy.Shape", Sequence[int]], dtype: datatype.dtype = dat
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
-def zeros(shape: Union["tripy.Shape", Sequence[int]], dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def zeros(
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]], dtype: datatype.dtype = datatype.float32
+) -> "tripy.Tensor":
     """
     Creates a Tensor of the specified shape and dtype with all elements set to 0.
 

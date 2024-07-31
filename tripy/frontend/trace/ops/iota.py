@@ -83,7 +83,9 @@ def iota_impl(
 
 @export.public_api(document_under="tensor_operations")
 def iota(
-    shape: Union["tripy.Shape", Sequence[int]], dim: int = 0, dtype: datatype.dtype = datatype.float32
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    dim: int = 0,
+    dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":
     """
     Fills an output tensor with consecutive values starting from zero along the given dimension.

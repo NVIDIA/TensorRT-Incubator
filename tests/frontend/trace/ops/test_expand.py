@@ -34,11 +34,9 @@ class TestExpand:
 
         with helper.raises(
             tp.TripyException,
-            match="The shape of size tensor must be greater or equal to input tensor's rank",
-            has_stack_info_for=[a],
+            match="The length of `sizes` must be greater or equal to input tensor's rank.",
         ):
             b = tp.expand(a, (2, 2))
-            b.eval()
 
     def test_invalid_mismatch_size(self):
         a = tp.ones((2, 1))
