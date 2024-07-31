@@ -53,6 +53,7 @@ class TestIota:
             output = tp.iota(shape, dim, dtype)
         else:
             output = tp.iota(shape, dtype=dtype)
+        # TODO: Actually test something here
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     @pytest.mark.parametrize(
@@ -69,6 +70,7 @@ class TestIota:
             output = tp.iota_like(tp.ones(shape), dim, dtype)
         else:
             output = tp.iota_like(tp.ones(shape), dtype=dtype)
+        # TODO: Actually test something here
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_negative_no_casting(self, dtype):

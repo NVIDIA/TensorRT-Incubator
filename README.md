@@ -12,12 +12,12 @@ user experience without compromising performance. Some of the features of TriPy 
     that caused it.
 
 
-<!-- Tripy: OMIT_FROM_DOC Start -->
+<!-- Tripy: DOC: OMIT Start -->
 ## Table Of Contents
 
 [[_TOC_]]
 
-<!-- Tripy: OMIT_FROM_DOC End -->
+<!-- Tripy: DOC: OMIT End -->
 
 ## Installation
 
@@ -29,7 +29,7 @@ user experience without compromising performance. Some of the features of TriPy 
 <!-- TODO: Link to intro to tripy guide -->
 
 
-<!-- Tripy: OMIT_FROM_DOC Start -->
+<!-- Tripy: DOC: OMIT Start -->
 
 ## Documentation
 
@@ -45,4 +45,4 @@ The [examples](./examples/) directory includes end-to-end examples.
 
 For information on how you can contribute to this project, see [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-<!-- Tripy: OMIT_FROM_DOC End -->
+<!-- Tripy: DOC: OMIT End -->

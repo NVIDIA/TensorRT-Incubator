@@ -145,21 +145,19 @@ collecting trace operations as we go.
 
 Here's the textual representation for the `Trace` from our example:
 
-<!--```py
-from tripy.frontend.trace import Trace
+<!-- Tripy: DOC: OMIT Start -->
+```py
 # doc: no-print-locals
+from tripy.frontend.trace import Trace
 # Output has been eval'd already, so we'll construct a new one
 new_out = tp.tanh(inp)
 trace = Trace([new_out])
 print(trace)
-```-->
+```
+<!-- Tripy: DOC: OMIT End -->
 
-<!-- TODO: Fix this if we change anything about shape/type inference -->
-*NOTE: This information might become stale after we implement dynamic shapes. If you're seeing this note*
-    *and tripy already supports dynamic shapes, please let us know so we can update the documentation!*
-
-When we've built up the complete trace, we run shape, data type, and device inference. This is why the
-output tensor in the trace has its `shape`, `dtype`, and `loc` fields populated.
+When we've built up the complete trace, we run rank, data type, and device inference. This is why the
+output tensor in the trace has its `rank`, `dtype`, and `loc` fields populated.
 
 #### Lowering To FlatIR
 
@@ -193,11 +191,13 @@ that already exist in the `FlatIR`.
 Here's the textual representation for the `FlatIR` from our example; you'll notice that we have more operations
 now than we did in the trace:
 
-<!--```py
+<!-- Tripy: DOC: OMIT Start -->
+```py
 # doc: no-print-locals
 flat_ir = trace.to_flat_ir()
 print(flat_ir)
-```-->
+```
+<!-- Tripy: DOC: OMIT End -->
 
 #### Lowering To MLIR
 
@@ -214,11 +214,12 @@ def to_mlir(self, operands):
 
 There's not much more to explain here, so let's go right to the textual representation:
 
-<!--```py
+<!-- Tripy: DOC: OMIT Start -->
+```py
 # doc: no-print-locals
 print(flat_ir.to_mlir())
-```-->
-
+```
+<!-- Tripy: DOC: OMIT End -->
 
 #### Compilation
 

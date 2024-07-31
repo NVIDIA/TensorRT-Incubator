@@ -5,6 +5,7 @@ structure is meant to exactly mirror the structure of the code. That means, for 
 that `tripy/path/to/<file>.py` will have all of its unit tests in `tests/path/to/test_<file>.py`.
 The `tests/integration` directory captures the latter group of tests.
 
+
 ## Running Tests
 
 You can run all tests locally in the development container by running:
@@ -60,7 +61,7 @@ unit test files under `tests`. For integration tests, you can find an appropriat
 We don't necessarily want to run every test in every single pipeline. You can use special
 pytest markers to indicate the cadence for a test. For example:
 
-<!-- Tripy: IGNORE Start -->
+<!-- Tripy: TEST: IGNORE Start -->
 
 ```py
 @pytest.mark.l1
@@ -68,7 +69,7 @@ def test_really_slow_things():
     ...
 ```
 
-<!-- Tripy: IGNORE End -->
+<!-- Tripy: TEST: IGNORE End -->
 
 The markers we currently support are:
 
@@ -90,11 +91,13 @@ The code block format is:
 """
 .. code-block:: python
     :linenos:
-    :caption: Descriptive Title For This Example
+    :caption: Descriptive Title
 
     <example code>
 """
 ```
+
+Any caption other than `Example` will have a prefix of `Example: ` prepended to it.
 
 **NOTE: The docstrings must *not* import `tripy`, `numpy`, or `torch`. They will be imported**
     **automatically as `tp`, `np`, and `torch` respectively. Any other modules will need to be imported.**

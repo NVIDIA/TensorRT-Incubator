@@ -6,7 +6,9 @@
 
 ## Using Quantized Modules
 
-Various modules predefined by Tripy support quantization. For example, the {class}`tripy.Linear` module includes two arguments to configure the quantization mode. Let's construct the following quantized linear module:
+Various modules predefined by Tripy support quantization. For example, the {class}`tripy.Linear`
+module includes two arguments to configure the quantization mode. Let's construct the following
+quantized linear module:
 
 ```py
 # doc: print-locals quant_linear
@@ -18,13 +20,16 @@ quant_linear = tp.Linear(
 )
 ```
 
-As described in {class}`tripy.Linear`, the quantized linear module has 2 additional {class}`tripy.Parameter`s compared to a normal linear layer:
+As described in {class}`tripy.Linear`, the quantized linear module has
+2 additional {class}`tripy.Parameter`s compared to a normal linear layer:
 
 1. `weight_scale`: The quantization scale for `weight`.
 
 2. `input_scale`: The quantization scale for the input.
 
-`weight_scale` must always be provided while `input_scale` is optional. The input will be quantized only if `input_scale` is provided. For a `Linear` module in this example, only "per-tensor" quantization is allowed for the input. This is why there is no `input_quant_dim` argument.  
+`weight_scale` must always be provided while `input_scale` is optional. The input will be quantized
+only if `input_scale` is provided. For a `Linear` module in this example, only "per-tensor" quantization
+is allowed for the input. This is why there is no `input_quant_dim` argument.
 
 Let's fill the scale parameters with dummy data:
 
@@ -41,17 +46,22 @@ x = tp.iota((3, 4), dtype=tp.float32)
 out = quant_linear(x)
 ```
 
-The result still has a data type of {class}`tripy.float32`, but internally, TensorRT quantized the input and weight, executed the linear layer with {class}`tripy.int8` precision, and finally dequantized the output back to the original precision.
+The result still has a data type of {class}`tripy.float32`, but internally, TensorRT quantized the
+input and weight, executed the linear layer with {class}`tripy.int8` precision, and finally dequantized
+the output back to the original precision.
 
 ## Running Quantized Models
 
-Now that we have covered how quantization works in {class}`tripy.Linear`, we will walk through the workflow of running a real-world quantized model: [nanoGPT](source:/examples/nanogpt/).
+Now that we have covered how quantization works in {class}`tripy.Linear`, we will walk through
+the workflow of running a real-world quantized model: [nanoGPT](source:/examples/nanogpt/).
 
 ### Calibration With Model Optimizer
 
-<!-- Tripy: IGNORE Start -->
+<!-- Tripy: TEST: IGNORE Start -->
 
-The quantization scales are not available unless the model was trained with QAT (quantization-aware training). We need to perform another step called calibration to compute the correct scales for each quantized layer. There are many ways to do calibration, one of which is using the `nvidia-modelopt` toolkit. To install it, run:
+The quantization scales are not available unless the model was trained with QAT (quantization-aware training).
+We need to perform another step called calibration to compute the correct scales for each quantized layer.
+There are many ways to do calibration, one of which is using the `nvidia-modelopt` toolkit. To install it, run:
 
 ```sh
 python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt==0.11.0 transformers datasets
@@ -105,7 +115,8 @@ forward_loop = create_forward_loop(
 mtq.quantize(model, quant_cfg, forward_loop=forward_loop)
 ```
 
-`mtq.quantize` replaces all linear layers specified in `quant_cfg` with `QuantLinear` layers, which contain the calibrated parameters.
+`mtq.quantize` replaces all linear layers specified in `quant_cfg` with `QuantLinear`
+layers, which contain the calibrated parameters.
 
 ### Load Scales Into The Tripy Model
 
@@ -138,6 +149,7 @@ scale = scale.squeeze().contiguous()
 weight_only_qlinear.weight_scale = tp.Parameter(scale)
 ```
 
-For an example of how to load weights from a quantized model, refer to [load_quant_weights_from_hf](source:/examples/nanogpt/weight_loader.py) from the nanoGPT example.
+For an example of how to load weights from a quantized model, refer to
+[load_quant_weights_from_hf](source:/examples/nanogpt/weight_loader.py) from the nanoGPT example.
 
-<!-- Tripy: IGNORE End -->
+<!-- Tripy: TEST: IGNORE End -->

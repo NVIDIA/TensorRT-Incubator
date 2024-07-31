@@ -34,7 +34,7 @@ DOC_CODE_SNIPPETS = {
     readme: [
         code_block
         for code_block in helper.consolidate_code_blocks_from_readme(readme)
-        if "py" in code_block.lang and not code_block.has_marker("ignore")
+        if "py" in code_block.lang and not code_block.has_marker("test: ignore")
     ]
     for readme in helper.MARKDOWN_FILES
 }
@@ -48,9 +48,9 @@ DOC_CODE_SNIPPETS = {readme: code_blocks for readme, code_blocks in DOC_CODE_SNI
     ids=DOC_CODE_SNIPPETS.keys(),
 )
 def test_python_code_snippets(code_blocks):
-    all_pytest = all(block.has_marker("pytest") for block in code_blocks)
+    all_pytest = all(block.has_marker("test: use_pytest") for block in code_blocks)
     assert (
-        not any(block.has_marker("pytest") for block in code_blocks) or all_pytest
+        not any(block.has_marker("test: use_pytest") for block in code_blocks) or all_pytest
     ), f"This test does not currently support mixing blocks meant to be run with PyTest with blocks meant to be run by themselves!"
 
     # We concatenate all the code together because most documentation includes code

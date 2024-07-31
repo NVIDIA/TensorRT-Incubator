@@ -38,6 +38,7 @@ from tripy.common.exception import _make_stack_info_message
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
 
+
 TAB_SIZE = 4
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
@@ -313,21 +314,16 @@ AVAILABLE_MARKERS = {
         matches_start_func=lambda line: "```" in line,
         matches_end_func=lambda line: "```" in line,
     ),
-    # Indicates that a block is inside a markdown comment.
-    "comment": Marker(
-        matches_start_func=lambda line: line.startswith("<!--") and not "-->" in line,
-        matches_end_func=lambda line: "-->" in line,
-    ),
     # Marks an entire block to be ignored by the tests.
-    "ignore": Marker.from_name("IGNORE"),
+    "test: ignore": Marker.from_name("TEST: IGNORE"),
     # Marks an entire block as being expected to fail.
-    "xfail": Marker.from_name("XFAIL"),
+    "test: xfail": Marker.from_name("TEST: XFAIL"),
     # Marks that a block contains the expected output from the immediate previous block.
-    "expected_stdout": Marker.from_name("EXPECTED_STDOUT"),
+    "test: expected_stdout": Marker.from_name("TEST: EXPECTED_STDOUT"),
     # Marks that a block should be run under pytest.
-    "pytest": Marker.from_name("PYTEST"),
+    "test: use_pytest": Marker.from_name("TEST: USE_PYTEST"),
     # Indicates that a block should be omitted from the rendered documentation.
-    "omit_from_doc": Marker.from_name("OMIT_FROM_DOC"),
+    "doc: omit": Marker.from_name("DOC: OMIT"),
 }
 
 
@@ -443,13 +439,15 @@ def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBloc
 ##
 
 
-def update_code_block_with_outputs_and_locals(
+def process_code_block_for_outputs_and_locals(
     block: str,
     code: str,
-    err_msg: str,
     format_contents: Callable[[str, str, str], str],
-    local_vars=None,
+    err_msg: str = "",
+    local_vars: Dict[str, Any] = None,
+    strip_assertions: bool = False,
 ):
+    # Make sure to update `docs/README.md` if updating the behavior of this function.
     local_vars = utils.default(local_vars, {})
 
     TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
@@ -457,7 +455,9 @@ def update_code_block_with_outputs_and_locals(
     NO_EVAL = "# doc: no-eval"
     NO_PRINT_LOCALS = "# doc: no-print-locals"
     PRINT_LOCALS = "# doc: print-locals"
-    REMOVE_TAGS = ["assert ", NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL]
+    REMOVE_TAGS = [NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL]
+    if strip_assertions:
+        REMOVE_TAGS.append("assert ")
     OMIT_COMMENT = "# doc: omit"
 
     should_append_locals = True
@@ -470,10 +470,13 @@ def update_code_block_with_outputs_and_locals(
     no_print_vars = set()
 
     code_block_lines = []
+    output_lines = []
+    local_var_lines = []
+
     for block_line in block.splitlines():
         if block_line.strip().startswith(NO_PRINT_LOCALS):
             _, _, names = block_line.strip().partition(NO_PRINT_LOCALS)
-            names = names.strip().split(" ")
+            names = list(filter(lambda x: x, names.strip().split(" ")))
             # If no names are specified, then we disable all local variables.
             if not names:
                 should_append_locals = False
@@ -493,20 +496,7 @@ def update_code_block_with_outputs_and_locals(
         code_block_lines.append(block_line)
 
     if not should_eval:
-        return code_block_lines, local_vars
-
-    def add_block(title, contents, lang="python"):
-        line = block.splitlines()[1]
-        indentation = len(line) - len(line.lstrip())
-
-        out = (
-            indent(
-                format_contents(title, contents, lang),
-                prefix=" " * (indentation - 4),
-            )
-            + "\n\n"
-        )
-        code_block_lines.extend(out.splitlines())
+        return code_block_lines, local_var_lines, output_lines, local_vars
 
     code = dedent(code)
     try:
@@ -569,13 +559,26 @@ def update_code_block_with_outputs_and_locals(
             else:
                 locals_str += f"\n{obj}"
 
+    def split_block_lines(title, contents, lang="python"):
+        line = block.splitlines()[1]
+        indentation = len(line) - len(line.lstrip())
+
+        out = (
+            indent(
+                format_contents(title, contents, lang),
+                prefix=" " * (indentation - 4),
+            )
+            + "\n\n"
+        )
+        return out.splitlines()
+
     if locals_str:
-        add_block("", locals_str)
+        local_var_lines = split_block_lines("", locals_str)
 
     # Add output as a separate code block.
     stdout = outfile.read() or ""
 
     if stdout:
-        add_block("Output:", stdout, lang="")
+        output_lines = split_block_lines("Output:", stdout, lang="")
 
-    return code_block_lines, code_locals
+    return code_block_lines, local_var_lines, output_lines, code_locals

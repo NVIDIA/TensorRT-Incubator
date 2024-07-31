@@ -378,7 +378,10 @@ class Compiler:
             func: The function or :class:`Module` to optimize. The function must satisfy the following requirements:
 
                 - Must be a pure function with no side effects.
+                  This means, for example, that you cannot use ``print`` or ``assert``.
+
                 - Must not accept variadic positional or keyword arguments.
+
                 - Must return one or more :class:`Tensor` s and no other types.
 
                 The compiled function will have the following constraints:

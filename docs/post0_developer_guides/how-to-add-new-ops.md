@@ -15,9 +15,9 @@ So that it doesn't clash with Tripy's actual `Iota` implementation, we'll call i
 :depth: 3
 ```
 
-<!-- Use the PYTEST marker since we'll be defining unit tests as part of the guide.
+<!-- Use the TEST: USE_PYTEST marker since we'll be defining unit tests as part of the guide.
     With this marker, those tests can actually be run under pytest. -->
-<!-- Tripy: PYTEST Start -->
+<!-- Tripy: TEST: USE_PYTEST Start -->
 
 ## Implementation
 
@@ -76,22 +76,24 @@ To make this possible, we need to import the `ThetaOp` into the `flat_ir.ops` su
 We can do so by adding the following line into
 [`tripy/flat_ir/ops/__init__.py`](source:/tripy/flat_ir/ops/__init__.py):
 
-<!-- Tripy: IGNORE Start -->
+<!-- Tripy: TEST: IGNORE Start -->
 
 ```py
 # doc: no-eval
 from tripy.flat_ir.ops.theta import ThetaOp
 ```
-<!-- Tripy: IGNORE End -->
+<!-- Tripy: TEST: IGNORE End -->
 
-<!--
-Need to simulate the __init__.py changes to make the tests work:
+
+<!-- Tripy: DOC: OMIT Start -->
+<!-- Need to simulate the __init__.py changes to make the tests work: -->
+
 ```py
 # doc: no-eval
 import tripy.flat_ir.ops
 tripy.flat_ir.ops.ThetaOp = ThetaOp
 ```
- -->
+<!-- Tripy: DOC: OMIT End -->
 
 
 ## `Trace` Operator And The Public API
@@ -242,14 +244,15 @@ def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.floa
 
 ```
 
-<!--
-Need to simulate the `public_api()` call to make the tests work:
+<!-- Tripy: DOC: OMIT Start -->
+<!-- Need to simulate the `public_api()` call to make the tests work: -->
+
 ```py
 # doc: no-eval
 import tripy
 tripy.theta = theta
 ```
- -->
+<!-- Tripy: DOC: OMIT End -->
 
 
 Links:
@@ -262,23 +265,23 @@ Similarly to the `FlatIR` operator, we need to import `Theta` into the
 `frontend.trace.ops` submodule. We can do so by adding the following line into
 [`tripy/frontend/trace/ops/__init__.py`](source:/tripy/frontend/trace/ops/__init__.py):
 
-<!-- Tripy: IGNORE Start -->
+<!-- Tripy: TEST: IGNORE Start -->
 
 ```py
 # doc: no-eval
 from tripy.frontend.trace.ops.theta import Theta, theta
 ```
-<!-- Tripy: IGNORE End -->
+<!-- Tripy: TEST: IGNORE End -->
 
-<!--
-Need to simulate the __init__.py changes to make the tests work:
+<!-- Tripy: DOC: OMIT Start -->
+<!-- Need to simulate the __init__.py changes to make the tests work: -->
 ```py
 # doc: no-eval
 import tripy.frontend.trace.ops
 tripy.frontend.trace.ops.Theta = Theta
 tripy.frontend.trace.ops.theta = theta
 ```
- -->
+<!-- Tripy: DOC: OMIT End -->
 
 ## Testing
 
@@ -421,4 +424,4 @@ def test_multi_dimensional():
 If you've reached this point, you have successfully added a new operation to
 Tripy. Congratulations!
 
-<!-- Tripy: PYTEST End -->
+<!-- Tripy: TEST: USE_PYTEST End -->

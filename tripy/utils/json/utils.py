@@ -31,7 +31,6 @@ def from_json(src: str) -> Any:
     return json.loads(src, object_pairs_hook=Decoder())
 
 
-# TODO: Add examples here once we're able to serialize something.
 def save(obj: Any, dest: Union[str, typing.IO]):
     """
     Saves an object to the specified destination.
