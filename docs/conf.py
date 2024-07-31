@@ -74,7 +74,7 @@ source_suffix = [".rst"]
 master_doc = "index"
 
 # General information about the project.
-project = "Tripy"
+project = "TriPy"
 copyright = "2024, NVIDIA"
 author = "NVIDIA"
 
@@ -96,7 +96,7 @@ html_theme_options = {
     "documentation_font_size": "1.0rem",
     "monospace_font_size": "0.85rem",
     "repository_url": "https://gitlab-master.nvidia.com/TensorRT/poc/tripy",
-    "repository_name": "Tripy",
+    "repository_name": "TriPy",
 }
 
 html_sidebars = {"**": ["globaltoc.html"]}

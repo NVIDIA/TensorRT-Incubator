@@ -207,7 +207,6 @@ class Tensor(metaclass=TensorMeta):
     def data(self) -> Array:
         import tripy.common.datatype
         from tripy.frontend.trace.ops.cast import cast
-        from tripy.frontend.trace.ops.dequantize import dequantize
 
         arr = self.eval()
         if self.dtype not in get_supported_type_for_python_sequence():

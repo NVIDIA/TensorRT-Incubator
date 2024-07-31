@@ -22,7 +22,7 @@ from tripy.utils.json import Decoder, Encoder
 
 
 # HACK (#109): This is a temporary class which we need in order to convey output information
-# to MLIR-TRT. Eventually, it should just call back into Tripy when it needs memory allocated.
+# to MLIR-TRT. Eventually, it should just call back into TriPy when it needs memory allocated.
 @dataclass
 class TensorInfo:
     rank: int

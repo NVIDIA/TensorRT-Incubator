@@ -28,7 +28,7 @@ from tripy import export, utils
 @export.public_api(document_under="exception")
 class TripyException(Exception):
     """
-    Base class for exceptions thrown by Tripy.
+    Base class for exceptions thrown by TriPy.
     """
 
     pass
@@ -152,7 +152,7 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
 
 def raise_error(summary: str, details: List[Any] = []):
     """
-    Raises a Tripy exception with a formatted message.
+    Raises a TriPy exception with a formatted message.
 
     Args:
         summary: A summary of the error message. This will be displayed before any other details.

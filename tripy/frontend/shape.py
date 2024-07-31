@@ -81,7 +81,7 @@ class Shape(Tensor):
 
     def as_tensor(self) -> Tensor:
         """
-        Return an ordinary Tripy :class:`Tensor` with the same contents as this :class:`Shape` . No copying is done.
+        Return an ordinary TriPy :class:`Tensor` with the same contents as this :class:`Shape` . No copying is done.
 
         Returns:
             A :class:`Tensor` with the same underlying value as the current :class:`Shape` .
@@ -130,7 +130,7 @@ class Shape(Tensor):
         return "shape" + tensor_repr[6:]
 
     def __str__(self) -> str:
-        return "shape" + '(' + ', '.join(map(str, self.data().data())) + ')'
+        return "shape" + "(" + ", ".join(map(str, self.data().data())) + ")"
 
     # addition for shapes is concatenation, not tensor addition
 
@@ -139,7 +139,7 @@ class Shape(Tensor):
 
         if not isinstance(other, Shape) and isinstance(other, Tensor):
             raise_error(
-                "Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly"
+                "Attempting to add a TriPy Tensor to a TriPy Shape, which is not allowed. Consider calling tp.Shape explicitly"
             )
         elif not isinstance(other, Shape):
             other = Shape(other)
@@ -150,7 +150,7 @@ class Shape(Tensor):
 
         if not isinstance(other, Shape) and isinstance(other, Tensor):
             raise_error(
-                "Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly"
+                "Attempting to add a TriPy Tensor to a TriPy Shape, which is not allowed. Consider calling tp.Shape explicitly"
             )
         elif not isinstance(other, Shape):
             other = Shape(other)

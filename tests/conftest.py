@@ -59,7 +59,7 @@ def sandboxed_install_run(virtualenv):
 
     def run_impl(command: str, cwd: Optional[str] = None):
         env = copy.copy(os.environ)
-        # Always prioritize our own copy of Tripy over anything in the venv.
+        # Always prioritize our own copy of TriPy over anything in the venv.
         env["PYTHONPATH"] = ROOT_DIR + os.pathsep + VENV_PYTHONPATH
 
         print(f"Running command: {command}")

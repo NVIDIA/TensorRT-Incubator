@@ -134,12 +134,12 @@ In some cases, it's useful to run Python code and include the output in a guide 
 the Python code itself. To do so, you can use a trick like this:
 
 ```md
-    <!-- Tripy: DOC: OMIT Start -->
+    <!-- TriPy: DOC: OMIT Start -->
     ```py
     # doc: no-print-locals
     print("This line should be rendered into the docs")
     ```
-    <!-- Tripy: DOC: OMIT End -->
+    <!-- TriPy: DOC: OMIT End -->
 ```
 
 This works because `DOC: OMIT` removes the encapsulated text from the post-processed markdown file

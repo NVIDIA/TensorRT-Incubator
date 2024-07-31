@@ -3,12 +3,12 @@
 *You may find it helpful to read the [architecture](project:./architecture.md) documentation*
     *before you start reading this guide.*
 
-Adding new operators to Tripy typically involves making changes in the frontend as well
+Adding new operators to TriPy typically involves making changes in the frontend as well
 as in the `FlatIR`. In some cases, the frontend operator can be expressed in terms of existing
 `FlatIR` operators, in which case you only need to make changes in the frontend.
 
-Let's take a look at an example of how you might add an `Iota` operator to Tripy.
-So that it doesn't clash with Tripy's actual `Iota` implementation, we'll call it
+Let's take a look at an example of how you might add an `Iota` operator to TriPy.
+So that it doesn't clash with TriPy's actual `Iota` implementation, we'll call it
 `Theta` instead.
 
 ```{contents} Table of Contents
@@ -17,14 +17,14 @@ So that it doesn't clash with Tripy's actual `Iota` implementation, we'll call i
 
 <!-- Use the TEST: USE_PYTEST marker since we'll be defining unit tests as part of the guide.
     With this marker, those tests can actually be run under pytest. -->
-<!-- Tripy: TEST: USE_PYTEST Start -->
+<!-- TriPy: TEST: USE_PYTEST Start -->
 
 ## Implementation
 
 ### `FlatIR` Operator
 
 The `FlatIR` operator is usually the most challenging aspect of implementing operators
-in Tripy. The good news is that you might not even need to do this if the low-level operators
+in TriPy. The good news is that you might not even need to do this if the low-level operators
 you need already exist in the `FlatIR`. And if you do, then it'll only get easier after this!
 
 We'll start by adding a new file under [`tripy/flat_ir/ops`](source:/tripy/flat_ir/ops/) called
@@ -76,16 +76,16 @@ To make this possible, we need to import the `ThetaOp` into the `flat_ir.ops` su
 We can do so by adding the following line into
 [`tripy/flat_ir/ops/__init__.py`](source:/tripy/flat_ir/ops/__init__.py):
 
-<!-- Tripy: TEST: IGNORE Start -->
+<!-- TriPy: TEST: IGNORE Start -->
 
 ```py
 # doc: no-eval
 from tripy.flat_ir.ops.theta import ThetaOp
 ```
-<!-- Tripy: TEST: IGNORE End -->
+<!-- TriPy: TEST: IGNORE End -->
 
 
-<!-- Tripy: DOC: OMIT Start -->
+<!-- TriPy: DOC: OMIT Start -->
 <!-- Need to simulate the __init__.py changes to make the tests work: -->
 
 ```py
@@ -93,7 +93,7 @@ from tripy.flat_ir.ops.theta import ThetaOp
 import tripy.flat_ir.ops
 tripy.flat_ir.ops.ThetaOp = ThetaOp
 ```
-<!-- Tripy: DOC: OMIT End -->
+<!-- TriPy: DOC: OMIT End -->
 
 
 ## `Trace` Operator And The Public API
@@ -203,7 +203,7 @@ import tripy.frontend.utils as frontend_utils
 @export.public_api(document_under="tensor_operations")
 
 # The `convert_inputs_to_tensors` decorator converts function arguments to Tensors.
-# This is what makes it possible for the user to use Python numbers in Tripy functions (e.g. `tensor + 1`)
+# This is what makes it possible for the user to use Python numbers in TriPy functions (e.g. `tensor + 1`)
 # In this case, we want `shape` to turn into a `tripy.Shape` instead of a regular `Tensor`.
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dim", "dtype"])
 def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
@@ -244,7 +244,7 @@ def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.floa
 
 ```
 
-<!-- Tripy: DOC: OMIT Start -->
+<!-- TriPy: DOC: OMIT Start -->
 <!-- Need to simulate the `public_api()` call to make the tests work: -->
 
 ```py
@@ -252,7 +252,7 @@ def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.floa
 import tripy
 tripy.theta = theta
 ```
-<!-- Tripy: DOC: OMIT End -->
+<!-- TriPy: DOC: OMIT End -->
 
 
 Links:
@@ -265,15 +265,15 @@ Similarly to the `FlatIR` operator, we need to import `Theta` into the
 `frontend.trace.ops` submodule. We can do so by adding the following line into
 [`tripy/frontend/trace/ops/__init__.py`](source:/tripy/frontend/trace/ops/__init__.py):
 
-<!-- Tripy: TEST: IGNORE Start -->
+<!-- TriPy: TEST: IGNORE Start -->
 
 ```py
 # doc: no-eval
 from tripy.frontend.trace.ops.theta import Theta, theta
 ```
-<!-- Tripy: TEST: IGNORE End -->
+<!-- TriPy: TEST: IGNORE End -->
 
-<!-- Tripy: DOC: OMIT Start -->
+<!-- TriPy: DOC: OMIT Start -->
 <!-- Need to simulate the __init__.py changes to make the tests work: -->
 ```py
 # doc: no-eval
@@ -281,7 +281,7 @@ import tripy.frontend.trace.ops
 tripy.frontend.trace.ops.Theta = Theta
 tripy.frontend.trace.ops.theta = theta
 ```
-<!-- Tripy: DOC: OMIT End -->
+<!-- TriPy: DOC: OMIT End -->
 
 ## Testing
 
@@ -422,6 +422,6 @@ def test_multi_dimensional():
 ## Done!
 
 If you've reached this point, you have successfully added a new operation to
-Tripy. Congratulations!
+TriPy. Congratulations!
 
-<!-- Tripy: TEST: USE_PYTEST End -->
+<!-- TriPy: TEST: USE_PYTEST End -->

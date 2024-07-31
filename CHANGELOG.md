@@ -1,4 +1,4 @@
-# Tripy Change Log
+# TriPy Change Log
 
 Dates are in YYYY-MM-DD format.
 

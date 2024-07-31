@@ -32,7 +32,7 @@ from tripy import export
 
 class _Logger:
     """
-    The global logger used across Tripy.
+    The global logger used across TriPy.
 
     The verbosity can be controlled using the ``verbosity`` property and may be either a single string
     or set of strings:

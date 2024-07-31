@@ -61,7 +61,7 @@ unit test files under `tests`. For integration tests, you can find an appropriat
 We don't necessarily want to run every test in every single pipeline. You can use special
 pytest markers to indicate the cadence for a test. For example:
 
-<!-- Tripy: TEST: IGNORE Start -->
+<!-- TriPy: TEST: IGNORE Start -->
 
 ```py
 @pytest.mark.l1
@@ -69,7 +69,7 @@ def test_really_slow_things():
     ...
 ```
 
-<!-- Tripy: TEST: IGNORE End -->
+<!-- TriPy: TEST: IGNORE End -->
 
 The markers we currently support are:
 

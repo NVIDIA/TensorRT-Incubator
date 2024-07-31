@@ -110,7 +110,7 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
         raise_error(
             f"Unsupported data type: '{dtype}'.",
             [
-                f"Tripy tensors can be constructed with one of the following data types: {', '.join(DTYPE_NAME_TO_TRIPY.keys())}."
+                f"TriPy tensors can be constructed with one of the following data types: {', '.join(DTYPE_NAME_TO_TRIPY.keys())}."
             ],
         )
 

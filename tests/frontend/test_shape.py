@@ -311,7 +311,7 @@ class TestShape:
         t = tp.Tensor(values, dtype=tp.int32)
         with raises(
             tp.TripyException,
-            match="Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly",
+            match="Attempting to add a TriPy Tensor to a TriPy Shape, which is not allowed. Consider calling tp.Shape explicitly",
         ):
             s + t
 
@@ -320,7 +320,7 @@ class TestShape:
         t = tp.Tensor(values, dtype=tp.int32)
         with raises(
             tp.TripyException,
-            match="Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly",
+            match="Attempting to add a TriPy Tensor to a TriPy Shape, which is not allowed. Consider calling tp.Shape explicitly",
         ):
             t + s
 

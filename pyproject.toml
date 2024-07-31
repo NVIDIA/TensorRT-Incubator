@@ -2,7 +2,7 @@
 name = "tripy"
 version = "0.0.1"
 authors = [{name = "NVIDIA", email="svc_tensorrt@nvidia.com"}]
-description = "Tripy: A Python Programming Model For TensorRT"
+description = "TriPy: A Python Programming Model For TensorRT"
 readme = "README.md"
 requires-python = ">= 3.8"
 license = {text = "Apache 2.0"}
@@ -12,11 +12,11 @@ dependencies = [
   "colored==2.2.3",
 ]
 
-# TODO: Add documentation link
+# TODO (#release): Add documentation link
 [project.urls]
 Repository = "https://github.com/NVIDIA/tensorrt-incubator/tripy/"
 Issues = "https://github.com/NVIDIA/tensorrt-incubator/issues"
-Changelog = "https://github.com/NVIDIA/tensorrt-incubator/tripy/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/NVIDIA/tensorrt-incubator/blob/main/tripy/CHANGELOG.md"
 
 
 [build-system]

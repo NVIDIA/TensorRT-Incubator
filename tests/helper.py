@@ -208,7 +208,7 @@ def discover_tripy_objects():
 # and any classes/functions contained in those submodules.
 
 
-# Returns a list of all classes, functions, and methods defined in Tripy.
+# Returns a list of all classes, functions, and methods defined in TriPy.
 def get_all_tripy_interfaces():
     all_objects = set()
     for obj in discover_tripy_objects():
@@ -284,11 +284,11 @@ class Marker:
 
     Special markers follow the format:
 
-    <!-- Tripy: <NAME> Start -->
+    <!-- TriPy: <NAME> Start -->
 
     and:
 
-    <!-- Tripy: <NAME> End -->
+    <!-- TriPy: <NAME> End -->
 
     marking the start and end of the block respectively.
     """
@@ -303,8 +303,8 @@ class Marker:
     @staticmethod
     def from_name(name: str) -> "Marker":
         return Marker(
-            matches_start_func=lambda line: line == f"<!-- Tripy: {name} Start -->",
-            matches_end_func=lambda line: line == f"<!-- Tripy: {name} End -->",
+            matches_start_func=lambda line: line == f"<!-- TriPy: {name} Start -->",
+            matches_end_func=lambda line: line == f"<!-- TriPy: {name} End -->",
         )
 
 

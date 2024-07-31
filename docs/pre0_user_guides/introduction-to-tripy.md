@@ -1,15 +1,15 @@
-# An Introduction To Tripy
+# An Introduction To TriPy
 
 ```{contents} Table of Contents
 :depth: 3
 ```
 
-## What Is Tripy?
+## What Is TriPy?
 
-Tripy is a compiler that compiles deep learning models for inference using TensorRT as a backend.
+TriPy is a compiler that compiles deep learning models for inference using TensorRT as a backend.
 It aims to be fast, easy to debug, and provide an easy-to-use Pythonic interface.
 
-## Your First Tripy Program
+## Your First TriPy Program
 
 But enough talk; let's see some code:
 
@@ -27,7 +27,7 @@ NumPy and PyTorch.
 
 ### Lazy Evaluation: Putting Off Work
 
-One important point is that Tripy uses a lazy evaluation model; that is,
+One important point is that TriPy uses a lazy evaluation model; that is,
 no computation is performed until a value is actually needed.
 
 In the example above, that means that `c` will not be evaluated until it is used,
@@ -49,9 +49,9 @@ end = time.time()
 print(f"Time to create 'c': {end - start:.3f} seconds.")
 ```
 
-It looks like Tripy is very fast! While Tripy *execution* is very fast, initializing
-the compiler and compiling the program takes some time. The reason the time is so low relative
-to what we'd expect for initializing and running the compiler is that *we're not doing that yet*.
+It looks like TriPy is very fast! While TriPy *execution* is very fast, compiling the program
+takes some time. The reason the time is so low relative to what we'd expect for initializing
+and running the compiler is that *we're not doing that yet*.
 
 The actual compilation and computation only happens when we evaluate `c`:
 
@@ -75,7 +75,7 @@ long it took to compile and run the subgraph that computes `c`.
 
 The {class}`tripy.Module` API allows you to create reusable blocks that can be composed together
 to create models. Modules may be comprised of other modules, including modules predefined
-by Tripy, like {class}`tripy.Linear` and {class}`tripy.LayerNorm`.
+by TriPy, like {class}`tripy.Linear` and {class}`tripy.LayerNorm`.
 
 For example, we can define a Transfomer MLP block like so:
 
@@ -98,11 +98,58 @@ To use it, we just need to construct and call it:
 ```py
 mlp = MLP(embedding_size=2)
 
-inp = tp.iota(shape=(1, 2), dim=1)
+inp = tp.iota(shape=(1, 2), dim=1, dtype=tp.float32)
 out = mlp(inp)
 ```
 
 
-## To `jit` Or Not To `jit`
+## To `compile` Or Not To `compile`
 
-TODO: Fill out this section
+All the code we've seen so far has been using TriPy's eager mode. It is also possible to compile
+functions or modules ahead of time, which can result in significantly better performance.
+
+*Note that the compiler imposes some requirements on the functions/modules it can compile.*
+*See {class}`tripy.Compiler` for details.*
+
+Let's compile the MLP module we defined above as an example:
+
+```py
+# doc: no-print-locals
+compiler = tp.Compiler(mlp)
+
+# When we compile, we need to indicate which parameters to the function should be runtime inputs.
+# In this case, MLP takes a single input tensor for which we can specify our desired shape and datatype.
+fast_mlp = compiler.compile(tp.InputInfo(shape=(1, 2), dtype=tp.float32))
+```
+
+It is also possible to compile for a range of possible input shapes.
+See {func}`tripy.Compiler.compile` for details.
+
+Now let's benchmark the compiled version against eager mode:
+```py
+# doc: no-print-locals
+ITERS = 10
+
+start = time.time()
+for _ in range(ITERS):
+    out = mlp(inp)
+    out.eval() # Recall that we need to evaluate in order to actually materialize `out`
+end = time.time()
+
+eager_time = (end - start) / ITERS
+print(f"Eager mode average time: {eager_time:.4f} seconds")
+
+start = time.time()
+for _ in range(ITERS):
+    out = fast_mlp(inp)
+    out.eval()
+end = time.time()
+
+compiled_time = (end - start) / ITERS
+print(f"Compiled mode average time: {(end - start) / ITERS:.4f} seconds")
+# Make sure compiled mode is actually faster # doc: omit
+assert compiled_time < 0.01 * eager_time # doc: omit
+```
+
+As you can see, the compiled module is significantly faster than running the module
+in eager mode.

@@ -6,7 +6,7 @@
 
 ## Using Quantized Modules
 
-Various modules predefined by Tripy support quantization. For example, the {class}`tripy.Linear`
+Various modules predefined by TriPy support quantization. For example, the {class}`tripy.Linear`
 module includes two arguments to configure the quantization mode. Let's construct the following
 quantized linear module:
 
@@ -57,7 +57,7 @@ the workflow of running a real-world quantized model: [nanoGPT](source:/examples
 
 ### Calibration With Model Optimizer
 
-<!-- Tripy: TEST: IGNORE Start -->
+<!-- TriPy: TEST: IGNORE Start -->
 
 The quantization scales are not available unless the model was trained with QAT (quantization-aware training).
 We need to perform another step called calibration to compute the correct scales for each quantized layer.
@@ -118,7 +118,7 @@ mtq.quantize(model, quant_cfg, forward_loop=forward_loop)
 `mtq.quantize` replaces all linear layers specified in `quant_cfg` with `QuantLinear`
 layers, which contain the calibrated parameters.
 
-### Load Scales Into The Tripy Model
+### Load Scales Into The TriPy Model
 
 Let's take a look at one of the `QuantLinear` produced by model optimizer:
 
@@ -126,7 +126,7 @@ Let's take a look at one of the `QuantLinear` produced by model optimizer:
 print(model.transformer.h[0].attn.c_attn)
 ```
 
-The `amax` attribute gives us the dynamic range of the tensor. Tripy requires scaling factors, so we can convert it like so:
+The `amax` attribute gives us the dynamic range of the tensor. TriPy requires scaling factors, so we can convert it like so:
 
 ```py
 def convert_to_scale(amax, maxbound):
@@ -152,4 +152,4 @@ weight_only_qlinear.weight_scale = tp.Parameter(scale)
 For an example of how to load weights from a quantized model, refer to
 [load_quant_weights_from_hf](source:/examples/nanogpt/weight_loader.py) from the nanoGPT example.
 
-<!-- Tripy: TEST: IGNORE End -->
+<!-- TriPy: TEST: IGNORE End -->

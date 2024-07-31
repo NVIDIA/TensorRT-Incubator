@@ -12,7 +12,7 @@ were chosen over alternatives.
 One way we deviate from frameworks like PyTorch is that our API only provides one way to do things.
 For example, in PyTorch, `softmax` is exposed as `torch.softmax`, `torch.nn.functional.softmax`,
 `torch.Tensor.softmax`, `torch.nn.Softmax`, etc. All of these are functionally identical and unnecessarily
-increase the API surface. In Tripy, we only expose `tripy.softmax`. Trying to use anything else will
+increase the API surface. In TriPy, we only expose `tripy.softmax`. Trying to use anything else will
 result in a (helpful) error message:
 
 ```
@@ -24,7 +24,7 @@ AttributeError: Module: 'tripy.Tensor' does not have attribute: 'softmax'. Did y
 
 ## Why `FlatIR`?
 
-In a previous version of Tripy, we used to map `Trace` operators directly to MLIR
+In a previous version of TriPy, we used to map `Trace` operators directly to MLIR
 operators. We eventually realized this was creating a lot of code duplication and had two
 options:
 
@@ -53,7 +53,7 @@ def to_flat_ir(self, inputs, outputs):
 
 ### Alternative 1: Returning Operators
 
-In a previous version of Tripy, we would return a list of operators that we wanted in the
+In a previous version of TriPy, we would return a list of operators that we wanted in the
 `FlatIR` subgraph. Our example code would have looked something like this:
 
 ```py
@@ -102,7 +102,7 @@ to MLIR if needed or return the newly created ones.
 
 ## Why Not Build On [JAX](https://github.com/google/jax)?
 
-Tripy’s architecture looks very similar to JAX's, where python code is staged out and
+TriPy’s architecture looks very similar to JAX's, where python code is staged out and
 lowered into a custom IR and eventually to MLIR.
 
 Then why not build on top of JAX? There are a couple reasons:
@@ -111,7 +111,7 @@ Then why not build on top of JAX? There are a couple reasons:
     and constraints than TensorRT. We do not want to inherit those limitations unnecessarily.
 
 2. Using any components from JAX (e.g. the frontend, `LAX`, etc.) would create logistical
-    challenges and introduce latency in building/shipping Tripy.
+    challenges and introduce latency in building/shipping TriPy.
     By building our own stack, we control our destiny and can ship on our own schedule
     without any dependency on external ecosystems.
 
@@ -127,7 +127,7 @@ Building our own stack has a few other advantages:
     from the entire stack - all the way from the Python frontend down to the compiler.
 
     Here's an example of an error emitted from MLIR-TRT due to an operation inserted
-    by Tripy during one of the lowering passes. Notice that we are able to explain
+    by TriPy during one of the lowering passes. Notice that we are able to explain
     exactly why the operation was inserted and which part of the user's Python code
     it originated from:
 
@@ -145,7 +145,7 @@ Building our own stack has a few other advantages:
             | t_inter11: [shape=(3, 4,), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(t1, t_inter8, broadcast_dim=[0, 1])
             |
 
-        Note: Tripy introduced new operation(s) in order to broadcast the inputs of '+' to compatible shapes.
+        Note: TriPy introduced new operation(s) in order to broadcast the inputs of '+' to compatible shapes.
         This operation was introduced to broadcast the right operand, which was:
         t1: [shape=(3, 3,), dtype=(float32), loc=(gpu:0)] to a shape of: (3, 4) in order to be compatible with the other input(s).
 

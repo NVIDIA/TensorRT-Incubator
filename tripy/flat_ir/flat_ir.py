@@ -61,7 +61,7 @@ class FlatIR:
                     inp_types = [inp.to_mlir() for inp in self.inputs]
                     out_types = [o.to_mlir() for o in self.outputs]
                     ftype = ir.FunctionType.get(inp_types, out_types)
-                    # Todo: Function name should be a property of Trace and used here.
+                    # TODO: Function name should be a property of Trace and used here.
                     func_op = func_dialect.FuncOp("main", ftype, ip=ip)
                     entry_block = func_op.add_entry_block()
                     with ir.InsertionPoint(entry_block):
@@ -99,7 +99,7 @@ class FlatIR:
 
                         func_dialect.ReturnOp([mlir_ops[o.name] for o in self.outputs])
 
-                    # After lowering the complete graph to stablehlo, there can be mismatch between Tripy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
+                    # After lowering the complete graph to stablehlo, there can be mismatch between TriPy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
                     # Here, we check if the types for the results and change the function signature to obey the inferred types.
                     new_out_types = [
                         mlir_ops[o.name].type if hasattr(mlir_ops[o.name], "type") else mlir_ops[o.name].result.type
