@@ -69,9 +69,11 @@ class TestReduceOp:
             ((2, 3, 4), None, True),
         ],
     )
-    def test_mean(self, x_shape, axis, keepdim: bool):
-        x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
-        a = tp.Tensor(x)
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    def test_mean(self, x_shape, axis, keepdim: bool, dtype):
+        np_dtype = np.float32 if dtype == tp.float32 else np.float16
+        x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np_dtype)
+        a = tp.Tensor(x, dtype=dtype)
         out = tp.mean(a, dim=axis, keepdim=keepdim)
         assert np.allclose(cp.from_dlpack(out).get(), np.array(x.mean(axis=axis, keepdims=keepdim)))
 
