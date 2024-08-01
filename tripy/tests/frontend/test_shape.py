@@ -150,7 +150,6 @@ class TestShape:
         assert isinstance(s2.trace_tensor.producer, Gather)
         assert cp.from_dlpack(s2).get().tolist() == [values[0], values[-1]]
 
-    @pytest.mark.skip("#186: Fix test_matrix_multiplication.py hang for 1D tensor.")
     def test_matmul(self, values):
         s1 = tp.Shape(values)
         s2 = tp.Shape(values)

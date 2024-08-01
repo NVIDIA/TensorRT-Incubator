@@ -49,16 +49,13 @@ class TestSqueeze:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Squeeze)
 
-    @pytest.mark.skip(
-        "Program segfaulting instead of error being reported: mlir-tensorrt #855"
-    )
     def test_incorrect_dims(self):
         a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
         b = tp.squeeze(a, 2)
 
         with helper.raises(
             tp.TripyException,
-            match="Cannot select an axis to squeeze out which has size not equal to one",
+            match="output_shape is incompatible with input type of operation: input has 4 elements, but output_shape has 1",
             has_stack_info_for=[a, b],
         ):
             b.eval()

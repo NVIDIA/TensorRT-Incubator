@@ -33,9 +33,6 @@ class TestErrorMapping:
         ):
             sliced.eval()
 
-    @pytest.mark.skip(
-        "TODO (#207): MLIR-TRT currently triggers a C-style abort, which we cannot handle. Needs to be fixed in MLIR-TRT."
-    )
     def test_reshape_invalid_volume(self):
         tensor = tp.ones((2, 2))
         reshaped = tp.reshape(tensor, (3, 3))

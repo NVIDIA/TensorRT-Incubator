@@ -16,19 +16,20 @@
 # limitations under the License.
 #
 
-
+import os
 import re
-import sys
 import subprocess
-import re
+import sys
 from datetime import datetime
 
 current_year = str(datetime.now().year)
 
-# Read the license text from the LICENSE file
 def get_license_header():
-    with open('LICENSE', 'r', encoding='utf-8') as license_file:
-        return license_file.read().strip()
+    for license_path in ['LICENSE', 'tripy/LICENSE']:
+        if os.path.exists(license_path):
+            with open(license_path, 'r', encoding='utf-8') as license_file:
+                return license_file.read().strip()
+    raise FileNotFoundError('LICENSE file not found in the current directory or tripy folder')
 
 license_text = get_license_header()
 
@@ -57,7 +58,7 @@ def get_files(mode):
         raise ValueError("Invalid mode. Use 'new' or 'all'.")
     
     result = subprocess.run(command, capture_output=True, text=True)
-    return [f for f in result.stdout.splitlines() if f.endswith('.py')]
+    return [f for f in result.stdout.splitlines() if f.endswith('.py') and f.startswith('tripy/')]
 
 def main(mode):
     files = get_files(mode)

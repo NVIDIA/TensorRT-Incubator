@@ -20,7 +20,7 @@ repos:
     hooks:
       - id: add-license
         name: Add License
-        entry: python tools/add_copyright.py
+        entry: python tripy/tools/add_copyright.py
         language: python
         stages: [pre-commit]
         files: \.py$
