@@ -58,7 +58,7 @@ def get_files(mode):
         raise ValueError("Invalid mode. Use 'new' or 'all'.")
     
     result = subprocess.run(command, capture_output=True, text=True)
-    return [f for f in result.stdout.splitlines() if f.endswith('.py')]
+    return [f for f in result.stdout.splitlines() if f.endswith('.py') and f.startswith('tripy/')]
 
 def main(mode):
     files = get_files(mode)
