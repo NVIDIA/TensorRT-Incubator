@@ -46,7 +46,7 @@ def _get_compiler_objects() -> Tuple[ir.Context, compiler.CompilerClient]:
 
     if G_MLIR_CONTEXT is None or G_COMPILER_CLIENT is None:
         G_MLIR_CONTEXT = make_ir_context()
-        G_COMPILER_CLIENT = compiler.CompilerClient(G_MLIR_CONTEXT, compiler.CompilerClientOptions(G_TIMING_CACHE_FILE))
+        G_COMPILER_CLIENT = compiler.CompilerClient(G_MLIR_CONTEXT)
     return G_MLIR_CONTEXT, G_COMPILER_CLIENT
 
 
@@ -56,9 +56,10 @@ class Compiler:
         self.trt_builder_opt_level = trt_builder_opt_level
 
     def _make_mlir_opts(self, trt_builder_opt_level):
-        opts = compiler.StableHLOToExecutableOptions(
-            tensorrt_builder_opt_level=trt_builder_opt_level, tensorrt_strongly_typed=True
-        )
+        opts = compiler.StableHLOToExecutableOptions(self.compiler_client,
+                                                     [f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
+                                                      f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
+                                                      "--tensorrt-strongly-typed=True"])
         if config.enable_mlir_debug or config.enable_tensorrt_debug:
             opts.set_debug_options(
                 config.enable_mlir_debug,
