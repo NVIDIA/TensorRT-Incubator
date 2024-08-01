@@ -1,0 +1,60 @@
+#################
+Tensor Operations
+#################
+
+.. toctree::
+    :maxdepth: 1
+
+    abs
+    all
+    allclose
+    any
+    arange
+    argmax
+    argmin
+    cast
+    concatenate
+    copy
+    cos
+    dequantize
+    exp
+    expand
+    flip
+    full
+    full_like
+    gather
+    gelu
+    iota
+    iota_like
+    log
+    masked_fill
+    max
+    maximum
+    mean
+    minimum
+    ones
+    ones_like
+    permute
+    plugin
+    prod
+    quantize
+    relu
+    reshape
+    rsqrt
+    sigmoid
+    silu
+    sin
+    softmax
+    split
+    sqrt
+    squeeze
+    sum
+    tanh
+    transpose
+    tril
+    triu
+    unsqueeze
+    var
+    where
+    zeros
+    zeros_like

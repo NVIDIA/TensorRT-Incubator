@@ -1,0 +1,11 @@
+
+######
+config
+######
+
+.. automodule:: tripy.config
+    :no-members:
+    :no-special-members:
+
+.. autodata:: tripy.config.timing_cache_file_path
+    :no-value:

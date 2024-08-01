@@ -1,0 +1,6 @@
+
+######
+Linear
+######
+
+.. autoclass:: tripy.Linear

@@ -1,0 +1,6 @@
+
+####
+sqrt
+####
+
+.. autofunction:: tripy.sqrt

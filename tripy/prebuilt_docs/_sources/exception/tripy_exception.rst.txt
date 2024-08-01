@@ -1,0 +1,6 @@
+
+##############
+TripyException
+##############
+
+.. autoclass:: tripy.TripyException

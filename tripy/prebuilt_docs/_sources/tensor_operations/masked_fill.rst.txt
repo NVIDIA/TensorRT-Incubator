@@ -1,0 +1,6 @@
+
+###########
+masked_fill
+###########
+
+.. autofunction:: tripy.masked_fill

@@ -1,0 +1,6 @@
+
+#########
+LayerNorm
+#########
+
+.. autoclass:: tripy.LayerNorm

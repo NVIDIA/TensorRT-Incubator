@@ -1,0 +1,6 @@
+
+###
+sum
+###
+
+.. autofunction:: tripy.sum

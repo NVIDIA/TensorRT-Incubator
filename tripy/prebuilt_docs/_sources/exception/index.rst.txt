@@ -1,0 +1,8 @@
+#########
+Exception
+#########
+
+.. toctree::
+    :maxdepth: 1
+
+    tripy_exception

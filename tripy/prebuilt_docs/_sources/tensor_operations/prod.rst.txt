@@ -1,0 +1,6 @@
+
+####
+prod
+####
+
+.. autofunction:: tripy.prod

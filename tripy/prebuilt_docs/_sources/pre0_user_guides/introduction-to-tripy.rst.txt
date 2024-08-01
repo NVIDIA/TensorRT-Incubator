@@ -1,0 +1,2 @@
+.. include:: ../processed_mds/pre0_user_guides/introduction-to-tripy.md
+    :parser: myst_parser.sphinx_

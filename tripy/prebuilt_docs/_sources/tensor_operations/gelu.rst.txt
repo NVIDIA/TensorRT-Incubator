@@ -1,0 +1,6 @@
+
+####
+gelu
+####
+
+.. autofunction:: tripy.gelu

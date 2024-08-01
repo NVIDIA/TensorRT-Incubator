@@ -1,0 +1,6 @@
+
+#########
+ones_like
+#########
+
+.. autofunction:: tripy.ones_like

@@ -1,0 +1,6 @@
+
+#########
+InputInfo
+#########
+
+.. autoclass:: tripy.InputInfo

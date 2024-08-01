@@ -1,0 +1,7 @@
+
+######
+logger
+######
+
+.. autodata:: tripy.logger
+    :annotation:

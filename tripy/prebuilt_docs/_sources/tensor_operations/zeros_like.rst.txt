@@ -1,0 +1,6 @@
+
+##########
+zeros_like
+##########
+
+.. autofunction:: tripy.zeros_like

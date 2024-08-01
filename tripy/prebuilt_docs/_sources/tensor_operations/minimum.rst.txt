@@ -1,0 +1,6 @@
+
+#######
+minimum
+#######
+
+.. autofunction:: tripy.minimum

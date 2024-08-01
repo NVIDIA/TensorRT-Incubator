@@ -1,0 +1,6 @@
+
+#######
+permute
+#######
+
+.. autofunction:: tripy.permute

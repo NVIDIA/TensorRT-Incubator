@@ -1,0 +1,6 @@
+
+#####
+zeros
+#####
+
+.. autofunction:: tripy.zeros

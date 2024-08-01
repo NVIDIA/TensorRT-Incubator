@@ -1,0 +1,6 @@
+
+###
+cos
+###
+
+.. autofunction:: tripy.cos

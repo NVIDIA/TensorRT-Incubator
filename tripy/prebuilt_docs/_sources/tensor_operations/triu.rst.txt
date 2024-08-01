@@ -1,0 +1,6 @@
+
+####
+triu
+####
+
+.. autofunction:: tripy.triu

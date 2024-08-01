@@ -1,0 +1,433 @@
+
+
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+  <head>
+    <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="docsearch:name" content="Tripy" />
+    <meta name="docsearch:package_type" content="" />
+    <meta name="docsearch:release" content="0.0.1" />
+    <meta name="docsearch:version" content="0.0.1" />
+    
+      <title>Using Python APIs of MLIR Dialects &mdash; Tripy 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/bootstrap-icons.css" type="text/css" />
+          <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=3d3fbe02" />
+          <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+          <link id="pygments_dark_css" media="(prefers-color-scheme: dark)" rel="stylesheet" type="text/css" href="../_static/pygments_dark.css?v=b20cc3f5" />
+          <link rel="stylesheet" type="text/css" href="../_static/colorsets/sphinx-nefertiti-green.min.css" />
+          <link rel="stylesheet" type="text/css" href="../_static/fonts/nunito/stylesheet.css" />
+          <link rel="stylesheet" type="text/css" href="../_static/fonts/red-hat-mono/stylesheet.css" />
+          <link rel="stylesheet" type="text/css" href="../_static/pygments_dark.css?v=b20cc3f5" />
+          <link rel="stylesheet" type="text/css" href="../_static/style.css?v=270043a8" />
+        <link rel="index" title="Index" href="../genindex.html" />
+        <link rel="search" title="Search" href="../search.html" />
+        <link rel="top" title="Tripy 0.0.1 documentation" href="#" />
+        <link rel="prev" title="Adding New Operators" href="how-to-add-new-ops.html" />
+    <style>
+      :root {
+        --nftt-body-font-family: "Nunito", var(--nftt-font-sans-serif) !important;
+        --nftt-font-monospace: "Red Hat Mono", var(--nftt-font-family-monospace) !important;
+        --nftt-project-name-font: var(--nftt-body-font-family);
+        --nftt-documentation-font: var(--nftt-body-font-family);
+        --nftt-doc-headers-font: "Georgia", var(--nftt-documentation-font);--nftt-documentation-font-size: 1.0rem;--nftt-monospace-font-size: 0.85rem;}
+      h1 *, h2 *, h3 *, h4 *, h5 *, h6 * { font-size: inherit; }
+    </style>
+  </head>
+  <body>
+    <header class="navbar navbar-expand-lg navbar-dark nftt-navbar flex-column fixed-top">
+      <div class="skip-links container-xxl visually-hidden-focusable overflow-hidden justify-content-start">
+        <div class="border-bottom mb-2 pb-2 w-100">
+          <a class="d-none d-md-inline-flex p-2 m-1" href="#sidebar-filter">Skip to docs navigation</a>
+          <a class="d-inline-flex p-2 m-1" href="#content">Skip to main content</a>
+        </div>
+      </div>
+      <nav class="container-xxl nftt-gutter flex-wrap flex-lg-nowrap" aria-label="Main navigation">
+        <div class="nftt-navbar-toggler">
+          <button class="navbar-toggler p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Toggle documentation navigation">
+            <i class="bi bi-list"></i>
+          </button>
+        </div>
+          <a href="../index.html"
+              
+              class="navbar-brand p-0 me-0 md-lg-2"
+          ><span class="brand-text">Tripy</span></a>
+        
+        <div class="d-flex d-lg-none">
+          <button class="navbar-toggler p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#nfttSearch" aria-controls="nfttSearch" aria-label="Search">
+            <i class="bi bi-search"></i>
+          </button>
+          <button class="navbar-toggler p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#nfttNavbar" aria-controls="nfttNavbar" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+        </div>
+        
+<div class="offcanvas-lg offcanvas-end flex-grow-1" tabindex="-1" id="nfttSearch" aria-labelledby="nfttSearchOffcanvasLabel" data-bs-scroll="true">
+  <div class="offcanvas-header px-4 pb-0">
+    <h5 class="offcanvas-title fw-bold" id="nfttSearchOffcanvasLabel">Search the documentation</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#nfttSearch"></button>
+  </div>
+  <div class="offcanvas-body p-4 pt-0 p-lg-0 px-lg-3">
+    <hr class="d-lg-none text-white-50">
+    <ul class="navbar-nav flex-row align-items-center flex-wrap ms-md-auto">
+      <li class="nav-item col-12 col-lg-auto">
+        <form id="nftt-search-form" action="../search.html" method="get">
+          <div class="input-group">
+            <input type="text" name="q" class="form-control" placeholder="Search docs" aria-label="Search" aria-describedby="button-search">
+            <input type="hidden" name="check_keywords" value="yes" />
+            <input type="hidden" name="area" value="default" />
+            <button class="btn btn-primary" type="submit" id="button-search" aria-label="Search"><i class="bi bi-search"></i></button>
+          </div>
+        </form>
+      </li>
+    </ul>
+  </div>
+</div>
+
+        <div class="offcanvas-lg offcanvas-end" tabindex="-1" id="nfttNavbar" aria-labelledby="nfttNavbarOffcanvasLabel" data-bs-scroll="true">
+          <div class="offcanvas-header px-4 pb-0">
+            <div class="offcanvas-title text-white fw-bold" id="nfttNavbarOffcanvasLabel"><span class="brand-text">Nefertiti for Sphinx</span></div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#nfttNavbar"></button>
+          </div>
+          <div class="offcanvas-body p-4 pt-0 p-lg-0">
+            <hr class="d-lg-none text-white-50">
+            <ul class="navbar-nav flex-row align-items-center flex-wrap ms-md-auto">
+              
+              <li class="nav-item col-12 col-lg-auto">
+                <a class="nav-link py-2 py-lg-0 px-0 px-lg-2" href="https://github.com/NVIDIA/TensorRT-Incubator" target="_blank" rel="noopener">
+                  <div class="d-flex align-items-center">
+                    <div class="me-2">
+                      <i class="bi bi-git size-24"></i>
+                    </div>
+                    <div class="repo d-flex flex-column align-items-center" data-snftt-repo-url="https://github.com/NVIDIA/TensorRT-Incubator">
+                      Tripy
+                      <div class="d-flex justify-content-center" data-snftt-repo-metrics>
+                        <span class="pe-2 d-flex justify-content-center align-items-center">
+                          <i class="bi bi-tag size-14"></i>
+                          <span class="repo-metric" data-snftt-repo-tag></span>
+                        </span>
+                        <span class="pe-2 d-flex justify-content-center align-items-center">
+                          <i class="bi bi-star size-14"></i>
+                          <span class="repo-metric" data-snftt-repo-stars></span>
+                        </span>
+                        <span class="d-flex justify-content-center align-items-center">
+                          <i class="bi bi-diagram-2 size-14"></i>
+                          <span class="repo-metric" data-snftt-repo-forks></span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              </li>
+              <li class="nav-item col-12 col-lg-auto h-100" aria-hidden="true">
+                <div class="vr d-none d-lg-flex h-100 mx-lg-2 text-white"></div>
+                <hr class="d-lg-none text-white-50">
+              </li>
+              
+              <!-- version_dropdown.html -->
+
+              
+              <!-- colorscheme_dropdown.html -->
+<li class="nav-item dropdown">
+  <a class="nav-link d-flex py-2 px-0 px-lg-2 dropdown-toggle align-items-center" id="snftt-luz" href="#" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Toggle light/dark">
+    <i class="bi bi-circle-half" data-snftt-luz-icon-active></i>
+    <span id="snftt-luz-text" class="d-lg-none small ms-2">Toggle light/dark</span>
+  </a>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="snftt-luz-text">
+    <li>
+      <h6 class="dropdown-header">Light/dark</h6>
+    </li>
+    <li>
+      <a class="dropdown-item d-flex align-items-center" data-snftt-luz="light" href="#" aria-pressed="false">
+        <span class="small">
+          <i class="bi bi-sun" data-snftt-luz-icon="light"></i>
+        </span>
+        <span class="small ms-3">Light</span>
+        <i class="bi bi-check ms-auto"></i>
+      </a>
+    </li>
+    <li>
+      <a class="dropdown-item d-flex align-items-center" data-snftt-luz="dark" href="#" aria-pressed="false">
+        <span class="small">
+          <i class="bi bi-moon-stars" data-snftt-luz-icon="dark"></i>
+        </span>
+        <span class="small ms-3">Dark</span>
+        <i class="bi bi-check ms-auto"></i>
+      </a>
+    </li>
+    <li>
+      <a class="dropdown-item current d-flex align-items-center" data-snftt-luz="default" href="#" aria-pressed="false">
+        <span class="small">
+          <i class="bi bi-circle-half" data-snftt-luz-icon="default"></i>
+        </span>
+        <span class="small ms-3">Default</span>
+        <i class="bi bi-check ms-auto"></i>
+      </a>
+    </li>
+  </ul>
+</li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <div class="container-xxl nftt-gutter nftt-layout">
+      <aside class="nftt-sidebar">
+        <div class="title d-none d-md-block">
+          <i class="bi bi-book"></i>&nbsp;&nbsp;<span>Table of contents</span>
+        </div>
+        <div id="sidebar" tabindex="-1" class="offcanvas-lg offcanvas-start" aria-labelledby="nfttSidebarOffcanvasLabel">
+            <!-- danirus sidebartemplate: "globaltoc.html" --><div class="offcanvas-header border-bottom">
+  <h5 class="offcanvas-title" id="nfttSidebarOffcanvasLabel">
+    Table of contents
+  </h5>
+  <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#sidebar"></button>
+</div>
+
+<div class="offcanvas-body">
+  <nav class="toc" aria-label="Main menu">
+    <div class="mb-3 p-1 pt-3 pb-4 border-bottom">
+      <input id="sidebar-filter" type="text" name="filter" class="form-control form-control-sm" placeholder="filter" aria-label="filter">
+    </div>
+    <p class="caption" role="heading"><span class="caption-text">User Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/introduction-to-tripy.html">An Introduction To Tripy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/quantization.html">Quantization</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../compiler/index.html">Compiler</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../compiler/arg_info.html">ArgInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../compiler/executable.html">Executable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../compiler/input_info.html">InputInfo</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../config.html">config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../datatype.html">dtype</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../device.html">device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../exception/index.html">Exception</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../exception/tripy_exception.html">TripyException</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../logger.html">logger</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../modules/conv.html">Conv</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/conv_transpose.html">ConvTranspose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/embedding.html">Embedding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/group_norm.html">GroupNorm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/layer_norm.html">LayerNorm</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/linear.html">Linear</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modules/parameter.html">Parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../shape.html">Shape</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tensor/index.html">Tensor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tensor_operations/index.html">Tensor Operations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/abs.html">abs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/all.html">all</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/allclose.html">allclose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/any.html">any</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/arange.html">arange</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/argmax.html">argmax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/argmin.html">argmin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/cast.html">cast</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/concatenate.html">concatenate</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/copy.html">copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/cos.html">cos</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/dequantize.html">dequantize</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/exp.html">exp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/expand.html">expand</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/flip.html">flip</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/full.html">full</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/full_like.html">full_like</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/gather.html">gather</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/gelu.html">gelu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/iota.html">iota</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/iota_like.html">iota_like</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/log.html">log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/masked_fill.html">masked_fill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/max.html">max</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/maximum.html">maximum</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/mean.html">mean</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/minimum.html">minimum</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/ones.html">ones</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/ones_like.html">ones_like</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/permute.html">permute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/plugin.html">plugin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/prod.html">prod</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/quantize.html">quantize</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/relu.html">relu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/reshape.html">reshape</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/rsqrt.html">rsqrt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sigmoid.html">sigmoid</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/silu.html">silu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sin.html">sin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/softmax.html">softmax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/split.html">split</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sqrt.html">sqrt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/squeeze.html">squeeze</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sum.html">sum</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/tanh.html">tanh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/transpose.html">transpose</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/tril.html">tril</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/triu.html">triu</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/unsqueeze.html">unsqueeze</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/var.html">var</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/where.html">where</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/zeros.html">zeros</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/zeros_like.html">zeros_like</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debugging.html">Debugging MLIR-TensorRT backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="design-decisions.html">Design Decisions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how-to-add-new-ops.html">Adding New Operators</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Using Python APIs of MLIR Dialects</a></li>
+</ul>
+
+  </nav>
+  <template data-toggle-item-template>
+    <button class="btn btn-sm btn-link toctree-expand" type="button">
+      <i class="bi bi-caret-right"></i>
+      <span class="visually-hidden">Toggle menu contents</span>
+    </button>
+  </template>
+</div>
+        </div>
+      </aside>
+      <main class="nftt-main">
+        <article id="content" class="nftt-content" role="main">
+    <section id="using-python-apis-of-mlir-dialects">
+<h1>Using Python APIs of MLIR Dialects<a class="headerlink" href="#using-python-apis-of-mlir-dialects" title="Link to this heading">¶</a></h1>
+<section id="choosing-the-right-dialect-s">
+<h2>Choosing The Right Dialect(s)<a class="headerlink" href="#choosing-the-right-dialect-s" title="Link to this heading">¶</a></h2>
+<p>The first step is to choose the correct MLIR ops from one or more dialects:</p>
+<ul>
+<li><p><a class="reference external" href="https://github.com/openxla/stablehlo/blob/main/docs/spec.md">stablehlo</a> dialect is
+usually the first choice as it covers most of the computing ops.</p>
+<p><strong>You can refer to <a class="reference external" href="https://github.com/google/jax/blob/059fdaf1554ff508db5e267b884d7d47f583fe8a/jax/_src/lax/">jax’s implementations</a></strong>
+<strong>before looking for other dialects.</strong></p>
+</li>
+<li><p>For some ops like tensor allocation, initialization, copy or custom ops, we need ops from other
+<a class="reference external" href="https://mlir.llvm.org/docs/Dialects/">MLIR dialects</a>; the most helpful ones includes:
+<code class="docutils literal notranslate"><span class="pre">arith</span></code>, <code class="docutils literal notranslate"><span class="pre">tensor</span></code>, <code class="docutils literal notranslate"><span class="pre">bufferization</span></code>, and <code class="docutils literal notranslate"><span class="pre">linalg</span></code>.</p></li>
+<li><p>Sometimes we may need to mix ops from different dialects to implement one operation; for example, we may require
+<code class="docutils literal notranslate"><span class="pre">arith.constant</span></code> to declare a single constant value, and then <code class="docutils literal notranslate"><span class="pre">tensor.empty</span></code> or <code class="docutils literal notranslate"><span class="pre">bufferization.alloc_tensor</span></code>
+to allocate an output tensor, and finally <code class="docutils literal notranslate"><span class="pre">linalg.fill</span></code> or other ops to perform the operation we want.</p></li>
+</ul>
+</section>
+<section id="python-source-code">
+<h2>Python Source Code<a class="headerlink" href="#python-source-code" title="Link to this heading">¶</a></h2>
+<p>The python source code is auto-generated according to <code class="docutils literal notranslate"><span class="pre">.td</span></code> files.</p>
+<ol class="arabic simple">
+<li><p>Check the <code class="docutils literal notranslate"><span class="pre">.td</span></code> file for the op description:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/openxla/stablehlo/blob/main/stablehlo/dialect/StablehloOps.td">stablehlo.td</a></p></li>
+<li><p>Other dialects’ <code class="docutils literal notranslate"><span class="pre">.td</span></code> files are under <code class="docutils literal notranslate"><span class="pre">mlir-tensorrt/third_party/llvm-project/mlir/include/mlir/Dialect/</span></code></p></li>
+</ul>
+</li>
+<li><p>Check the generated python source code for detailed API:</p>
+<ul class="simple">
+<li><p>stablehlo (requires the built package): <code class="docutils literal notranslate"><span class="pre">stablehlo/python-build/tools/stablehlo/python_packages/stablehlo/mlir/dialects/_stablehlo_ops_gen.py</span></code></p></li>
+<li><p>other dialects: <code class="docutils literal notranslate"><span class="pre">stablehlo/python-build/tools/mlir/python/dialects/</span></code></p></li>
+<li><p>most importantly, the <code class="docutils literal notranslate"><span class="pre">ir</span></code> module: <code class="docutils literal notranslate"><span class="pre">stablehlo/python-build/tools/stablehlo/python_packages/stablehlo/mlir/ir.py</span></code> and
+<code class="docutils literal notranslate"><span class="pre">stablehlo/python-build/tools/stablehlo/python_packages/stablehlo/mlir/_mlir_libs/_mlir/ir.pyi</span></code></p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="example-usage">
+<h2>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading">¶</a></h2>
+<p>We can find some examples in tests, but not all of the ops are covered.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/openxla/stablehlo/tree/main/stablehlo/integrations/python/tests">stablehlo</a>: almost no test code for its ops’ python APIs</p></li>
+<li><p>other dialects: <code class="docutils literal notranslate"><span class="pre">mlir-tensorrt/third_party/llvm-project/mlir/test/python/dialects</span></code></p></li>
+</ul>
+<p><em>TIP: Always search for the op’s python API within <code class="docutils literal notranslate"><span class="pre">*.py</span></code> files under <code class="docutils literal notranslate"><span class="pre">mlir-tensorrt</span></code> and <code class="docutils literal notranslate"><span class="pre">stablehlo</span></code>.</em></p>
+</section>
+</section>
+
+</article>
+        
+          <aside class="nftt-toc">
+            <div class="mt-3 mb-1 my-lg-0 ps-xl-3 text-muted">
+              <button class="btn btn-link link-dark p-md-0 mb-2 mb-md-0 text-decoration-none nftt-toc-toggle d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#tocContents" aria-expanded="false" aria-controls="tocContents"
+              >On this page <i class="ms-2 bi bi-chevron-expand"></i></button>
+              <div class="title d-none d-md-block">
+                <i class="bi bi-file-earmark-text"></i>&nbsp;&nbsp;<span class="small">On this page</span>
+              </div>
+              <hr class="d-none d-md-block my-2">
+              <div class="collapse nftt-toc-collapse" id="tocContents">
+                <nav id="TableOfContents">
+                  <ul>
+<li><a class="reference internal" href="#">Using Python APIs of MLIR Dialects</a><ul>
+<li><a class="reference internal" href="#choosing-the-right-dialect-s">Choosing The Right Dialect(s)</a></li>
+<li><a class="reference internal" href="#python-source-code">Python Source Code</a></li>
+<li><a class="reference internal" href="#example-usage">Example Usage</a></li>
+</ul>
+</li>
+</ul>
+
+                </nav>
+              </div>
+            </div>
+          </aside>
+        
+      </main>
+    </div>
+
+    <footer class="nftt-footer">
+      <nav id="paginator" class="py-4" aria-label="Documentation navigation">
+    <div class="container">
+      <ul class="pagination justify-content-between mb-0"><li class="page-item">
+            <a href="how-to-add-new-ops.html" class="d-flex px-5 align-items-end" rel="prev" aria-label="Previous page: Adding New Operators">
+              <span class="prev-page"><i class="bi bi-caret-left"></i></span>
+              <div class="d-flex flex-column">
+                <span class="text-small text-start text-muted">Previous</span>
+                <span class="underline">Adding New Operators</span>
+              </div>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </nav>
+
+      <div class="py-5 px-4 px-md-3">
+  <div class="container">
+    
+
+    <div class="row">
+      <div class="col-lg-12 text-center">
+        <a class="brand-text d-inline-flex align-items-center mb-2 text-decoration-none" href="/" aria-label="Nefertiti-for-Sphinx">
+          <span class="fs-6 fw-bold">Tripy</span>
+        </a>
+        
+          <ul class="list-unstyled small text-muted">
+            <li>2024, NVIDIA</li>
+          </ul>
+        
+        
+      </div>
+    </div>
+  </div>
+</div>
+    </footer>
+    <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../_static/doctools.js?v=888ff710"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+
+    <script type="text/javascript" src="../_static/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="../_static/sphinx-nefertiti.min.js"></script>
+    
+  </body>
+</html>

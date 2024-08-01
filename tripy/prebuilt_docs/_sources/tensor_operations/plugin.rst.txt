@@ -1,0 +1,6 @@
+
+######
+plugin
+######
+
+.. autofunction:: tripy.plugin

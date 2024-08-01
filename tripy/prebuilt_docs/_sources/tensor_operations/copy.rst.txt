@@ -1,0 +1,6 @@
+
+####
+copy
+####
+
+.. autofunction:: tripy.copy

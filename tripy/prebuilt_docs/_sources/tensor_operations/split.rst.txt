@@ -1,0 +1,6 @@
+
+#####
+split
+#####
+
+.. autofunction:: tripy.split

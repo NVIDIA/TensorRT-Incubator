@@ -1,0 +1,6 @@
+
+####
+iota
+####
+
+.. autofunction:: tripy.iota

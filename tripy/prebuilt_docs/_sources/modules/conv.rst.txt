@@ -1,0 +1,6 @@
+
+####
+Conv
+####
+
+.. autoclass:: tripy.Conv

@@ -1,0 +1,6 @@
+
+#######
+ArgInfo
+#######
+
+.. autoclass:: tripy.ArgInfo

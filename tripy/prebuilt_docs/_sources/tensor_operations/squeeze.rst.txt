@@ -1,0 +1,6 @@
+
+#######
+squeeze
+#######
+
+.. autofunction:: tripy.squeeze

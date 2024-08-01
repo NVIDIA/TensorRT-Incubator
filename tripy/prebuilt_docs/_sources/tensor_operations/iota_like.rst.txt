@@ -1,0 +1,6 @@
+
+#########
+iota_like
+#########
+
+.. autofunction:: tripy.iota_like

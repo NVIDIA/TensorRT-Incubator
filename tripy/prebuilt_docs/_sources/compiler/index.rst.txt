@@ -1,0 +1,15 @@
+
+########
+Compiler
+########
+
+.. autoclass:: tripy.Compiler
+
+
+.. toctree::
+    :maxdepth: 1
+    :caption: See also:
+
+    arg_info
+    executable
+    input_info

@@ -1,0 +1,6 @@
+
+#######
+sigmoid
+#######
+
+.. autofunction:: tripy.sigmoid

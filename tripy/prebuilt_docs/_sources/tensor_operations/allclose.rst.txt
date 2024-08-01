@@ -1,0 +1,6 @@
+
+########
+allclose
+########
+
+.. autofunction:: tripy.allclose

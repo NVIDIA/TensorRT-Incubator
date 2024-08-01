@@ -1,0 +1,6 @@
+
+####
+mean
+####
+
+.. autofunction:: tripy.mean

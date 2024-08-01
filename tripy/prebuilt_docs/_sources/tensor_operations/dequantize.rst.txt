@@ -1,0 +1,6 @@
+
+##########
+dequantize
+##########
+
+.. autofunction:: tripy.dequantize

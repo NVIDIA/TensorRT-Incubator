@@ -1,0 +1,6 @@
+
+###
+max
+###
+
+.. autofunction:: tripy.max
