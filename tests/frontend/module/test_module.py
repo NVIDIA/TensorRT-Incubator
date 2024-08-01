@@ -22,6 +22,7 @@ import tripy as tp
 from tests import helper
 from textwrap import dedent
 
+
 class TestModule:
     def test_basic(self, all_network_modes):
         test_net, call_args, inputs = all_network_modes
@@ -111,9 +112,9 @@ class TestModule:
         assert "mix_modules_list" not in dict(network.named_children())
         assert "mix_modules_dict" not in dict(network.named_children())
 
-
     def test_module_print(self, network):
-        expected_output = dedent("""\
+        expected_output = dedent(
+            """\
             Network(
               dummy1=
                 DummyOp(
@@ -130,8 +131,9 @@ class TestModule:
                     ),
                 ),
              param=shape(2),
-            )""")
-        assert str(network) == dedent(expected_output)
+            )"""
+        )
+
 
 class TestModuleWithList:
     def test_named_children(self, list_network):

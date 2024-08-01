@@ -23,7 +23,7 @@ from tripy.flat_ir.ops import DynamicBroadcastOp
 
 class TestBroadcastOp:
     def test_str(self):
-        out = tp.ones([2, 3], dtype=tp.float32)
+        out = tp.full([2, 3], value=1.0)
         out.name = "out"
 
         trace = Trace([out])

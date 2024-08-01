@@ -23,9 +23,9 @@ from tripy.common.device import device as tp_device
 from tripy.common.exception import raise_error
 from tripy.common.utils import (
     convert_frontend_dtype_to_tripy_dtype,
-    convert_list_to_bytebuffer,
+    convert_list_to_array,
     get_element_type,
-    get_supported_type_for_python_sequence,
+    get_supported_array_type,
     Float16MemoryView,
 )
 
@@ -264,8 +264,8 @@ class Array:
                 mlirtrt_device = (
                     self.runtime_client.get_devices()[self.device.index] if self.device == tp_device("gpu") else None
                 )
-                assert self.dtype in get_supported_type_for_python_sequence() and f"Unsupported type {self.dtype}"
-                buffer = convert_list_to_bytebuffer(utils.flatten_list(utils.make_list(data)), self.dtype)
+                assert self.dtype in get_supported_array_type() and f"Unsupported type {self.dtype}"
+                buffer = convert_list_to_array(utils.flatten_list(utils.make_list(data)), self.dtype)
                 return self.runtime_client.create_memref(
                     buffer,
                     shape=list(self.shape),

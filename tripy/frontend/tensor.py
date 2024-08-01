@@ -24,8 +24,8 @@ import tripy.frontend.ops
 import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.common.array import Array
-from tripy.common.utils import get_element_type, get_supported_type_for_python_sequence
 from tripy.common.exception import raise_error
+from tripy.common.utils import get_element_type, get_supported_array_type
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
@@ -114,17 +114,24 @@ class Tensor(metaclass=TensorMeta):
 
         if isinstance(data, (List, tuple, bool, int, float)) and dtype is not None:
             from tripy.frontend.trace.ops.cast import cast
-            from tripy.frontend.trace.ops.quantize import quantize
 
-            if dtype not in get_supported_type_for_python_sequence() or (
-                get_element_type(data) == tripy.common.datatype.float32 and dtype == tripy.common.datatype.int32
-            ):
-                # 1) Allocate float32 and cast to unsupported python sequence type.
-                # 2) Allocate float32 and cast to int32 to be compliant with numpy/cupy behavior.
-                self.trace_tensor = cast(
-                    Tensor(data, shape, tripy.common.datatype.float32, device), dtype=dtype
-                ).trace_tensor
-                return
+            element_type = get_element_type(data)
+            if element_type != dtype:
+                if element_type is not None:
+                    self.trace_tensor = cast(Tensor(data, shape, element_type, device), dtype=dtype).trace_tensor
+                    return
+                else:
+                    # We need explicit casting only if dtype can not be implicitly represented using `array.array`
+                    if dtype not in get_supported_array_type():
+                        from tripy.common.datatype import floating, integer
+
+                        element_type = dtype
+                        if issubclass(dtype, integer):
+                            element_type = tripy.common.datatype.int32
+                        elif issubclass(dtype, floating):
+                            element_type = tripy.common.datatype.float32
+                        self.trace_tensor = cast(Tensor(data, shape, element_type, device), dtype=dtype).trace_tensor
+                        return
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
@@ -209,7 +216,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace.ops.cast import cast
 
         arr = self.eval()
-        if self.dtype not in get_supported_type_for_python_sequence():
+        if self.dtype not in get_supported_array_type():
             arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
 
