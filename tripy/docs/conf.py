@@ -118,8 +118,7 @@ myst_fence_as_directive = ["mermaid"]
 myst_url_schemes = {
     "http": None,
     "https": None,
-    # TODO (#release): Update link
-    "source": "https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main/{{path}}",
+    "source": "https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy/{{path}}",
 }
 myst_number_code_blocks = ["py", "rst"]
 

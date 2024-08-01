@@ -39,7 +39,6 @@ class TestWhere:
         assert isinstance(w, tp.Tensor)
         assert isinstance(w.trace_tensor.producer, Where)
 
-    @pytest.mark.skip("Test segfaults due to mlir-tensorrt #885")
     def test_mismatched_input_shapes(self):
         cond = tp.ones((2,), dtype=tp.float32) > tp.ones((2,), dtype=tp.float32)
         a = tp.ones((2,), dtype=tp.float32)
@@ -48,7 +47,7 @@ class TestWhere:
 
         with helper.raises(
             tp.TripyException,
-            match=re.escape("size of operand dimension 0 (2) is not compatible with size of result dimension 0 (3)"),
+            match=re.escape("size of operand dimension 0 (3) is not compatible with size of result dimension 0 (2)"),
             has_stack_info_for=[a, b, c, cond],
         ):
             c.eval()

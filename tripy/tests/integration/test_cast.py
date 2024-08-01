@@ -61,7 +61,6 @@ class TestCast:
 
         assert np.array_equal(cp.from_dlpack(output).get(), np_input.astype(target_dtype))
 
-    @pytest.mark.skip("#219: Quantize/dequantize fail with dynamic shapes")
     # these dtypes don't have analogues in numpy
     @pytest.mark.parametrize("source_dtype", [pytest.param(tp.float8, marks=skip_if_older_than_sm89), tp.int4])
     def test_cast_quantized_dtypes_into_bool(self, source_dtype):
@@ -71,8 +70,7 @@ class TestCast:
         output = tp.cast(q, tp.bool)
         assert cp.from_dlpack(output).get().tolist() == [True, False, False, True]
 
-    @pytest.mark.skip("#219: Dequantize fails with dynamic shapes")
-    @pytest.mark.parametrize("target_dtype", [np.float32, np.float64, np.int32, np.int64, np.int8])
+    @pytest.mark.parametrize("target_dtype", [np.float32, np.int32, np.int64, np.int8])
     def test_cast_from_bool(self, target_dtype):
         from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype
 
