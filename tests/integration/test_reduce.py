@@ -39,6 +39,7 @@ class TestReduceOp:
         x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = tp.all(a, dim=axis, keepdim=keepdim)
+        #np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
         assert tp.allclose(out, tp.Tensor(np.array(x.all(axis=axis, keepdims=keepdim))))
 
     @pytest.mark.parametrize(
@@ -75,7 +76,9 @@ class TestReduceOp:
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np_dtype)
         a = tp.Tensor(x, dtype=dtype)
         out = tp.mean(a, dim=axis, keepdim=keepdim)
-        assert tp.allclose(out, tp.Tensor(np.array(x.mean(axis=axis, keepdims=keepdim))))
+        # For test case ((2, 3, 4), (1, 2), True) without out.eval() tp.allclose fails. (Issue #)
+        out.eval()
+        assert tp.allclose(out, tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim))))
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
