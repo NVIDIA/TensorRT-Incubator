@@ -173,7 +173,7 @@ class TestFunctional:
                 tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias, device=tp.device(kind)))
 
             tripy_out = tripy_linear(tp.Tensor(inp, device=tp.device(kind)))
-            assert tp.allclose(tripy_out, tp.Tensor(torch_out.cpu().numpy()))
+            assert tp.allclose(tripy_out, tp.Tensor(torch_out))
 
 
 class TestCopyFunctional:
