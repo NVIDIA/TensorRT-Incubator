@@ -31,7 +31,7 @@ from tripy.flat_ir.ops.divide import DivideOp
 from tripy.flat_ir.ops.dot import DotOp
 from tripy.flat_ir.ops.exponential import ExpOp
 from tripy.flat_ir.ops.flip import FlipOp
-from tripy.flat_ir.ops.gather import DynamicGatherOp, GatherOp
+from tripy.flat_ir.ops.gather import DynamicGatherOp
 from tripy.flat_ir.ops.get_dimension_size import GetDimensionSizeOp
 from tripy.flat_ir.ops.iota import DynamicIotaOp, IotaOp
 from tripy.flat_ir.ops.log import LogOp
