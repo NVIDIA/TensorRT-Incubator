@@ -1,0 +1,135 @@
+namespace mlirtrt.runtime.impl;
+
+enum ScalarTypeCode : byte {
+  unknown = 0,
+  f8e4m3fn = 1,
+  f16 = 2,
+  f32 = 3,
+  f64 = 4,
+  i1 = 5,
+  i8 = 6,
+  ui8 = 7,
+  i16 = 8,
+  i32 = 9,
+  i64 = 10,
+  bf16 = 11,
+  i4 = 12
+}
+
+enum PointerType : byte {
+  host,
+  pinned_host,
+  device,
+  unified,
+  unknown
+}
+
+enum PointerOwner : byte {
+  internal,
+  external,
+  unknown
+}
+
+enum CallingConvention : byte {
+  // Indicates that a functions arguments (as described by the information in th
+  // signature) should be passed as a normal list of arguments (with respect to the
+  // backend's definition of arguments).
+  packed,
+  // Indicates that a functions arguments (as described by the information in th
+  // signature) should be passed by packing them into an aggregate, allowing for a single
+  // level of indirection. The exact mechanism is backend-dependent.
+  unpacked
+}
+
+table ScalarType {
+  type:ScalarTypeCode;
+}
+
+table MemRefType {
+  element_type:ScalarTypeCode;
+  shape:[int64];
+  strides:[int64];
+  // Optional address space qualifier (required to indicate that a buffer lives in host, pinned_host, device etc.)
+  // Use default value of "unknown" to indicate unitialized address space.
+  address_space:PointerType = unknown;
+}
+
+enum ExternalOpaqueRefKind : byte {
+  cuda_stream,
+  unknown
+}
+
+table ExternalOpaqueRefType {
+  code:ExternalOpaqueRefKind;
+}
+
+union Type {ScalarType, MemRefType, ExternalOpaqueRefType}
+
+// Represents linear array of dimensions indexed by canonical packed layout with decreasing strides
+table DimensionBounds {
+  min:[int64];
+  max:[int64];
+}
+
+// Represents linear array of values indexed by canonical packed layout with decreasing strides
+table ValueBounds {
+  min:[int64];
+  max:[int64];
+}
+
+// Define an empty table to represent missing bounds.
+table NoneBounds {}
+
+union Bounds {DimensionBounds, ValueBounds, NoneBounds}
+
+table FunctionSignature {
+  args:[Type];
+  results:[Type];
+
+  // The number of destination-passing-style output arguments, which is the
+  // number of types at the end of `args` which are considered output arguments.
+  // Note that a function can have both normal returns (results) and output
+  // args.
+  num_output_args: uint32;
+
+  // Store min/max bounds corresponding to args and results.
+  // arg_bounds and result_bounds size must be same as corresponding args and results size.
+  arg_bounds:[Bounds];
+  result_bounds:[Bounds];
+
+  // An optional shape function name for the given function.
+  shape_function_name:string;
+
+  // The calling convention of the function. If not given, then "unpacked"
+  // convention is assumed.
+  calling_convention:CallingConvention;
+}
+
+table Function {
+  name:string;
+  signature:FunctionSignature;
+}
+
+table Constant {
+  name:string (offset64);
+  // A vector of bytes, which are in the 64 bit region.
+  data:[byte] (vector64);
+}
+
+table Executable {
+  name:string;
+  source:string;
+  constants:[Constant];
+
+  // Contains metadata for functions that are publicly callable.
+  // Note that this may not exactly match the signature of the function
+  // source depending on lowering, backends need to be aware of the
+  // lowering and ABI.
+  functions:[Function];
+
+  // Contains shape about the process grid (interpretation
+  // depends on backend).
+  process_grid_shape:[uint32];
+}
+
+root_type Executable;

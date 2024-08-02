@@ -1,0 +1,15 @@
+@LIT_SITE_CFG_IN_HEADER@
+
+config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
+config.mlir_obj_dir = "@MLIR_BINARY_DIR@"
+config.enable_bindings_python = @MLIR_ENABLE_BINDINGS_PYTHON@
+config.tensorrt_dialect_obj_root = "@MLIR_TENSORRT_DIALECT_BINARY_DIR@"
+config.llvm_shlib_ext = "@SHLIBEXT@"
+config.enable_asan = @ENABLE_ASAN@
+config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
+
+import lit.llvm
+lit.llvm.initialize(lit_config, config)
+
+# Let the main config do the real work.
+lit_config.load_config(config, "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@/test/lit.cfg.py")

@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tools.setuptools]
+include-package-data = true
+
+[tools.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"mlir_tensorrt.runtime._mlir_libs" = ["*.so"]
+
+[project]
+name = "mlir_tensorrt_runtime"
+description = "The MLIR-TensorRT Runtime implementation."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Private :: Do Not Upload"
+]
+dynamic = ["version"]

@@ -1,0 +1,9 @@
+add_mlir_executor_enum_gen(MLIRTensorRTStatusEnumIncGen
+  StatusEnums.td
+  StatusEnums.h.inc
+)
+add_mlir_executor_enum_gen(MLIRTensorRTStatusEnumCIncGen
+  StatusEnums.td
+  StatusEnums.c.h.inc
+  GEN_C
+)

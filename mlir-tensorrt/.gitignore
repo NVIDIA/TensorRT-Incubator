@@ -1,0 +1,35 @@
+# Build artifacts
+**/build/**
+*.log
+**/llvm-project/**
+
+# Docs build artifacts
+/public/
+/docs/www/_build
+
+# Python artifacts
+__pycache__
+*.pyc
+*.egg-info
+**/python/**/dist
+**/python/**/build
+
+# IDE & Clangd
+**/.vscode/**
+**/.cache/**
+**/.cache.cpm/**
+compile_commands.json
+**/.env*
+
+# Bazel files
+**/bazel-*
+**/user.bazelrc
+**/.bazel-disk-cache/** */
+
+# Private/temporary Files:
+**/*.private.*
+*.private
+**/tmp/**
+
+# TRT Timing Cache artifacts
+*.timing-cache

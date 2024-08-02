@@ -1,0 +1,81 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
+// https://github.com/microsoft/vscode-dev-containers/tree/v0.245.2/containers/docker-existing-dockerfile
+{
+	"build": {
+		"context": "${localWorkspaceFolder}",
+		"dockerfile": "${localWorkspaceFolder}/build_tools/docker/Dockerfile",
+		"args": {
+			"BASE_IMAGE": "nvcr.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04",
+			"USERNAME": "nvidia"
+		}
+	},
+	"runArgs": [
+		"--name",
+		"mlir-tensorrt-dev-${localEnv:USER:nvidia}",
+		"--cap-add=SYS_PTRACE",
+		"--security-opt",
+		"seccomp=unconfined",
+		"--shm-size=1g",
+		"--ulimit",
+		"memlock=-1"
+	],
+	"hostRequirements": {
+		"gpu": "optional"
+	},
+	"remoteUser": "nvidia",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/mlir-tensorrt,type=bind,consistency=cached",
+	"workspaceFolder": "/workspaces/mlir-tensorrt",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"llvm-vs-code-extensions.vscode-clangd",
+				"llvm-vs-code-extensions.vscode-mlir",
+				"ms-python.black-formatter",
+				"ms-python.python",
+				"eamodio.gitlens"
+			],
+			"settings": {
+				"[python]": {
+					"editor.defaultFormatter": "ms-python.black-formatter"
+				},
+				// These are for the default build directory location.
+				// The developer can override if building in a non-standard location.
+				"mlir.pdll_server_path": "build/llvm-project/bin/mlir-pdll-lsp-server",
+				"mlir.pdll_compilation_databases": [
+					"build/mlir-tensorrt/pdll_compile_commands.yml"
+				],
+				"mlir.server_path": "build/mlir-tensorrt/bin/mlir-tensorrt-lsp-server",
+				"mlir.tablegen_server_path": "build/llvm-project/bin/tblgen-lsp-server",
+				"files.exclude": {
+					"**/.git": true,
+					"**/.cache": true,
+					"**/.venv*": true
+				},
+				"files.watcherExclude": {
+					"**/.git/objects/**": true,
+					"**/.git/subtree-cache/**": true,
+					"**/.venv*/**": true,
+					"**/build/**": true
+				},
+				"search.exclude": {
+					"**/.venv*": true,
+					"**/build": true
+				}
+			}
+		}
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2.4.4": {
+			"username": "nvidia",
+			"uid": "automatic",
+			"gid": "automatic",
+			"installZsh": true,
+			"installOhMyZsh": true,
+			"configureZshAsDefaultShell": false,
+			"upgradePackages": false
+		},
+		"ghcr.io/devcontainers/features/git:1": {
+			"version": "latest"
+		}
+	}
+}

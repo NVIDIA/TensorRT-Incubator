@@ -1,0 +1,18 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61.0", "requests"]
+
+[project]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "Private :: Do Not Upload",
+]
+description = "A set of python development tools used in MLIR-TensorRT project."
+dynamic = ["dependencies", "version"]
+name = "mlir_tensorrt_tools"
+readme = "README.md"
+requires-python = ">=3.9"
+
+[tool.isort]
+profile = "black"
