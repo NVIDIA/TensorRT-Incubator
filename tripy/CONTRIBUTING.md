@@ -66,7 +66,7 @@ To sign off on a commit you simply use the --signoff (or -s) option when committ
 git commit -m "<commit message>" -s
 ```
 
-Please make sure any contributions you make satisfy the developer ceritifcate of origin:
+Please make sure any contributions you make satisfy the developer certificate of origin:
 
 > Developer Certificate of Origin
 >	Version 1.1
