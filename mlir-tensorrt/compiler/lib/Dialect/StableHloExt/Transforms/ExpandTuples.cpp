@@ -41,11 +41,11 @@ public:
   using Base::Base;
   void convertMaybeNestedTuples(OpBuilder &builder, Location loc, Value input,
                                 SmallVector<Value> &r) {
-    for (unsigned i = 0; i < input.getType().cast<TupleType>().size(); i++) {
+    for (unsigned i = 0; i < cast<TupleType>(input.getType()).size(); i++) {
       Value tupleElement =
           builder.create<stablehlo::GetTupleElementOp>(loc, input, i)
               .getResult();
-      if (tupleElement.getType().isa<TupleType>())
+      if (isa<TupleType>(tupleElement.getType()))
         convertMaybeNestedTuples(builder, loc, tupleElement, r);
       else
         r.push_back(tupleElement);
@@ -80,7 +80,7 @@ public:
     typeConverter.addTargetMaterialization(
         [this](OpBuilder &builder, TypeRange resultTypes, Value input,
                Location loc) -> std::optional<SmallVector<Value>> {
-          auto inputType = input.getType().dyn_cast<TupleType>();
+          auto inputType = dyn_cast<TupleType>(input.getType());
           if (!inputType)
             return std::nullopt;
           SmallVector<Value> r;

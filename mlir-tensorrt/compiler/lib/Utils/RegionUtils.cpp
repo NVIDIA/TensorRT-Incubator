@@ -40,7 +40,7 @@ tensorrt::sinkConstantsAndGetUsedValuesDefinedAbove(RewriterBase &rewriter,
     Type t = v.getType();
     Operation *defOp = v.getDefiningOp();
     return defOp && defOp->hasTrait<OpTrait::ConstantLike>() &&
-           (t.isIntOrFloat() || t.isa<VectorType>() || t.isa<IndexType>());
+           (t.isIntOrFloat() || isa<VectorType>(t) || isa<IndexType>(t));
   });
 
   for (Value v : cloneableValues) {

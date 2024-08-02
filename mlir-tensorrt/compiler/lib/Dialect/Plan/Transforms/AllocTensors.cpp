@@ -542,9 +542,9 @@ static OpOperand *traverseDpsUseDefChain(OpOperand &v,
   OpOperand *lastTiedDpsOperandToResult = nullptr;
   Value current = v.get();
   while (true) {
-    assert(current.isa<OpResult>() && "expected value to be an OpResult");
+    assert(isa<OpResult>(current) && "expected value to be an OpResult");
     lastTiedDpsOperandToResult =
-        getTiedOpOperand(resultDpsProducer, current.cast<OpResult>());
+        getTiedOpOperand(resultDpsProducer, cast<OpResult>(current));
     assert(lastTiedDpsOperandToResult && "expected tied operand");
     Operation *lastTiedDpsOperandProducer =
         lastTiedDpsOperandToResult->get().getDefiningOp();
@@ -576,7 +576,7 @@ travelUseDefChainAndUpdateUses(RewriterBase &rewriter, OpOperand &v,
   if (&v == lastTiedDpsOperand)
     return failure();
 
-  if (!lastTiedDpsOperand->get().isa<OpResult>())
+  if (!isa<OpResult>(lastTiedDpsOperand->get()))
     return failure();
 
   if (auto emptyOp = lastTiedDpsOperand->get().getDefiningOp()) {
@@ -692,12 +692,13 @@ static LogicalResult rewriteNotPrivateFuncsToDPS(RewriterBase &rewriter,
     // Check if the function is already in DPS style.
     Operation *term = nonPrivateFunction.getBody().front().getTerminator();
     if (llvm::all_of(term->getOpOperands(), [&](OpOperand &operand) {
-          BlockArgument arg = isDpsOrDpsLikeOp(operand.get().getDefiningOp())
-                                  ? traverseDpsUseDefChain(
-                                        operand, operand.get().getDefiningOp())
-                                        ->get()
-                                        .dyn_cast<BlockArgument>()
-                                  : operand.get().dyn_cast<BlockArgument>();
+          BlockArgument arg =
+              isDpsOrDpsLikeOp(operand.get().getDefiningOp())
+                  ? dyn_cast<BlockArgument>(
+                        traverseDpsUseDefChain(operand,
+                                               operand.get().getDefiningOp())
+                            ->get())
+                  : dyn_cast<BlockArgument>(operand.get());
           if (!arg)
             return false;
           return nonPrivateFunction.getArgAttr(
@@ -785,10 +786,9 @@ static LogicalResult rewriteLoopBodyRegionsToDPS(RewriterBase &rewriter,
     if (llvm::all_of(yieldedOperands, [&](OpOperand &operand) {
           if (auto dpsProducer =
                   operand.get().getDefiningOp<DestinationStyleOpInterface>())
-            return traverseDpsUseDefChain(operand, dpsProducer)
-                ->get()
-                .isa<BlockArgument>();
-          return operand.get().isa<BlockArgument>();
+            return isa<BlockArgument>(
+                traverseDpsUseDefChain(operand, dpsProducer)->get());
+          return isa<BlockArgument>(operand.get());
         }))
       continue;
 

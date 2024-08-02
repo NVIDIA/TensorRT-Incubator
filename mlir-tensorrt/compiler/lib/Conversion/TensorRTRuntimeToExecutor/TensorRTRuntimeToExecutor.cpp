@@ -192,10 +192,10 @@ struct ConvertEnqueueToCall
     SmallVector<Value> argTablePack;
 
     auto createMemRefAndExractPtr = [&](Value oldVal, Value newVal) {
-      auto memrefType = oldVal.getType().cast<MemRefType>();
+      auto memrefType = cast<MemRefType>(oldVal.getType());
       if (!memrefType)
         return failure();
-      assert(newVal.getType().isa<TableType>());
+      assert(isa<TableType>(newVal.getType()));
       executor::MemRefDescriptor memref(newVal, memrefType);
       Value offset =
           convertOffsetInElementsToBytes(b, memref.offset(b), memrefType);

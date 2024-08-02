@@ -44,7 +44,7 @@ LogicalResult tensorrt::ActivationOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ActivationOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   inferredReturnShapes.emplace_back(
       /*vec=*/inputType.getShape(),
       /*elementType=*/inputType.getElementType());
@@ -60,7 +60,7 @@ LogicalResult tensorrt::UnaryOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   UnaryOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   inferredReturnShapes.emplace_back(
       /*vec=*/inputType.getShape(),
       /*elementType=*/inputType.getElementType());
@@ -105,8 +105,8 @@ LogicalResult tensorrt::ElementWiseOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ElementWiseOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto input1Type = adaptor.getInput1().getType().cast<RankedTensorType>();
-  auto input2Type = adaptor.getInput2().getType().cast<RankedTensorType>();
+  auto input1Type = cast<RankedTensorType>(adaptor.getInput1().getType());
+  auto input2Type = cast<RankedTensorType>(adaptor.getInput2().getType());
 
   FailureOr<SmallVector<int64_t>> expectedShape =
       getBroadcastedShape(input1Type, input2Type);
@@ -136,7 +136,7 @@ LogicalResult tensorrt::ConcatenationOp::inferReturnTypeComponents(
 
   SmallVector<RankedTensorType> inputTypes =
       llvm::to_vector(llvm::map_range(adaptor.getInputs(), [](Value v) {
-        return v.getType().cast<RankedTensorType>();
+        return cast<RankedTensorType>(v.getType());
       }));
 
   // Perform some simple verification since this can run before op verifier.
@@ -185,7 +185,7 @@ LogicalResult tensorrt::ConvolutionOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ConvolutionOp::Adaptor adaptor(operands, attributes, properties, regions);
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
   auto inpShapeComp = ConvDeconvPoolTensorShapeComponents::createFromInputShape(
       inputType.getShape());
   if (failed(inpShapeComp))
@@ -208,7 +208,7 @@ LogicalResult tensorrt::ConvolutionOp::inferReturnTypeComponents(
   ArrayRef<int64_t> kernelShape =
       adaptor.getKernelStatic().has_value()
           ? adaptor.getKernelStatic()->getShapedType().getShape()
-          : adaptor.getKernel().getType().cast<RankedTensorType>().getShape();
+          : cast<RankedTensorType>(adaptor.getKernel().getType()).getShape();
 
   auto kernelShapeComp = ConvDeconvKernelShapeComponents::createFromKernelShape(
       kernelShape, /*isOpConv=*/true, numGroups);
@@ -248,10 +248,8 @@ LogicalResult tensorrt::EinsumOp::inferReturnTypeComponents(
 
   inferredReturnShapes.emplace_back(
       /*vec=*/*outputShape,
-      /*elementType=*/adaptor.getInputs()
-          .front()
-          .getType()
-          .cast<RankedTensorType>()
+      /*elementType=*/cast<RankedTensorType>(
+          adaptor.getInputs().front().getType())
           .getElementType());
 
   return success();
@@ -268,13 +266,13 @@ LogicalResult tensorrt::GatherOp::inferReturnTypeComponents(
   GatherOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getData().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getData().getType());
   int64_t axis = adaptor.getAxis();
   int64_t numBroadcastDims = adaptor.getNumBroadcastDims();
   if (axis < 0 || axis >= inputType.getRank())
     return emitOptionalError(loc, "axis must obey 0 <= axis < rank(input).");
   RankedTensorType indices =
-      adaptor.getIndices().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getIndices().getType());
   SmallVector<int64_t> resultShape;
   resultShape.reserve(inputType.getRank() + indices.getRank() - 1 -
                       numBroadcastDims);
@@ -308,7 +306,7 @@ LogicalResult tensorrt::GatherNdOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   GatherNdOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getData().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getData().getType());
   auto indicesType = cast<RankedTensorType>(adaptor.getIndices().getType());
   SmallVector<int64_t> resultShape;
 
@@ -346,9 +344,9 @@ LogicalResult tensorrt::GatherElementsOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   GatherElementsOp::Adaptor adaptor(operands, attributes, properties, regions);
   RankedTensorType inputType =
-      adaptor.getData().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getData().getType());
   RankedTensorType indicesType =
-      adaptor.getIndices().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getIndices().getType());
   inferredReturnShapes.emplace_back(
       /*vec=*/indicesType.getShape(),
       /*elementsType=*/inputType.getElementType());
@@ -364,7 +362,7 @@ LogicalResult tensorrt::Identity84Op::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   Identity84Op::Adaptor adaptor(operands, attributes, properties, regions);
-  auto rtt = adaptor.getInput().getType().dyn_cast<RankedTensorType>();
+  auto rtt = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
   if (!rtt)
     return emitOptionalError(loc, "expected input to be a ranked tensor");
   inferredReturnShapes.emplace_back(/*vec=*/rtt.getShape(),
@@ -381,7 +379,7 @@ LogicalResult tensorrt::IdentityOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   IdentityOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto rtt = adaptor.getInput().getType().dyn_cast<RankedTensorType>();
+  auto rtt = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
   if (!rtt)
     return emitOptionalError(loc, "expected input to be a ranked tensor");
   inferredReturnShapes.emplace_back(/*vec=*/rtt.getShape(),
@@ -405,7 +403,7 @@ LogicalResult tensorrt::RandomNormalOp::inferReturnTypeComponents(
   }
 
   RankedTensorType shapeType =
-      adaptor.getShape().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getShape().getType());
 
   if (shapeType.getRank() != 1 || shapeType.isDynamicDim(0))
     return emitOptionalError(
@@ -435,7 +433,7 @@ LogicalResult tensorrt::LinspaceOp::inferReturnTypeComponents(
   }
 
   RankedTensorType shapeType =
-      adaptor.getShape().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getShape().getType());
 
   if (shapeType.getRank() != 1 || shapeType.isDynamicDim(0))
     return emitOptionalError(
@@ -465,7 +463,7 @@ LogicalResult tensorrt::RandomUniformOp::inferReturnTypeComponents(
   }
 
   RankedTensorType shapeType =
-      adaptor.getShape().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getShape().getType());
 
   if (shapeType.getRank() != 1 || shapeType.isDynamicDim(0))
     return emitOptionalError(
@@ -490,7 +488,7 @@ LogicalResult tensorrt::PoolingOp::inferReturnTypeComponents(
   PoolingOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
   auto inpShapeComp = ConvDeconvPoolTensorShapeComponents::createFromInputShape(
       inputType.getShape());
   if (failed(inpShapeComp))
@@ -535,7 +533,7 @@ LogicalResult tensorrt::ReduceOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ReduceOp::Adaptor adaptor(operands, attributes, properties, regions);
   bool keepDims = adaptor.getKeepDimensions();
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   ArrayRef<int64_t> reduceAxes = adaptor.getReduceAxes();
 
   // Calculate the result shape.
@@ -566,12 +564,9 @@ LogicalResult tensorrt::SelectOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   SelectOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto thenInputType =
-      adaptor.getThenInput().getType().cast<RankedTensorType>();
-  auto elseInputType =
-      adaptor.getElseInput().getType().cast<RankedTensorType>();
-  auto condInputType =
-      adaptor.getCondition().getType().cast<RankedTensorType>();
+  auto thenInputType = cast<RankedTensorType>(adaptor.getThenInput().getType());
+  auto elseInputType = cast<RankedTensorType>(adaptor.getElseInput().getType());
+  auto condInputType = cast<RankedTensorType>(adaptor.getCondition().getType());
 
   FailureOr<SmallVector<int64_t>> expectedShape =
       getBroadcastedShape({thenInputType.getShape(), elseInputType.getShape(),
@@ -596,7 +591,7 @@ LogicalResult tensorrt::SliceOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   SliceOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().dyn_cast<RankedTensorType>();
+  auto inputType = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
   if (!inputType)
     return emitOptionalError(loc, "expected input to be a ranked tensor");
 
@@ -611,8 +606,7 @@ LogicalResult tensorrt::SliceOp::inferReturnTypeComponents(
   }
 
   // Otherwise, we can only infer the rank.
-  auto sizeTensorType =
-      adaptor.getSize().getType().dyn_cast<RankedTensorType>();
+  auto sizeTensorType = dyn_cast<RankedTensorType>(adaptor.getSize().getType());
   if (!sizeTensorType || sizeTensorType.getRank() != 1 ||
       sizeTensorType.isDynamicDim(0))
     return emitOptionalError(
@@ -632,7 +626,7 @@ LogicalResult tensorrt::SoftMaxOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   SoftMaxOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   inferredReturnShapes.emplace_back(
       /*vec=*/inputType.getShape(),
       /*elementType=*/inputType.getElementType());
@@ -647,7 +641,7 @@ LogicalResult tensorrt::OneHotOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   OneHotOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto indicesType = adaptor.getIndices().getType().cast<RankedTensorType>();
+  auto indicesType = cast<RankedTensorType>(adaptor.getIndices().getType());
   const int64_t indicesRank = indicesType.getRank();
   int64_t axis = adaptor.getAxis();
 
@@ -661,7 +655,7 @@ LogicalResult tensorrt::OneHotOp::inferReturnTypeComponents(
   // axis = -1 becomes axis = 4
   // axis = -5 becoems axis = 0
   axis = (axis + (indicesRank + 1)) % (indicesRank + 1);
-  auto valuesType = adaptor.getValues().getType().cast<RankedTensorType>();
+  auto valuesType = cast<RankedTensorType>(adaptor.getValues().getType());
   const int64_t valuesRank = valuesType.getRank();
   if (valuesRank != 1)
     return emitOptionalError(loc, "expected values to be of rank 1");
@@ -688,10 +682,10 @@ LogicalResult tensorrt::RaggedSoftMaxOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   RaggedSoftMaxOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   const int64_t inputRank = inputType.getRank();
   auto boundsRank =
-      adaptor.getBounds().getType().cast<RankedTensorType>().getRank();
+      cast<RankedTensorType>(adaptor.getBounds().getType()).getRank();
 
   // As of TRT 8.6.10.0, `input` and `bounds` must be a 3D tensor in the
   // explicit batch mode.
@@ -714,8 +708,8 @@ LogicalResult tensorrt::MatrixMultiplyOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   MatrixMultiplyOp::Adaptor adaptor(operands, attributes, properties, regions);
 
-  TensorType input0Type = adaptor.getInput0().getType().cast<TensorType>();
-  TensorType input1Type = adaptor.getInput1().getType().cast<TensorType>();
+  TensorType input0Type = cast<TensorType>(adaptor.getInput0().getType());
+  TensorType input1Type = cast<TensorType>(adaptor.getInput1().getType());
   MatrixOperation input0MatOp = adaptor.getOp0();
   MatrixOperation input1MatOp = adaptor.getOp1();
 
@@ -767,7 +761,7 @@ LogicalResult tensorrt::TopKOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   TopKOp::Adaptor adaptor(operands, attributes, properties, regions);
 
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
 
   // Calculate the result shape.
   SmallVector<int64_t> resultShape(inputType.getShape());
@@ -796,7 +790,7 @@ LogicalResult tensorrt::PaddingOp::inferReturnTypeComponents(
   PaddingOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
   int64_t inputRank = inputType.getRank();
   ArrayRef<int64_t> prePadding = adaptor.getPrePadding();
   ArrayRef<int64_t> postPadding = adaptor.getPostPadding();
@@ -830,7 +824,7 @@ LogicalResult tensorrt::NonZeroOp::inferReturnTypeComponents(
   NonZeroOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
 
   SmallVector<int64_t> resultShape(2);
   resultShape[0] = inputType.getRank();
@@ -862,9 +856,9 @@ LogicalResult tensorrt::IfOp::inferReturnTypeComponents(
            llvm::zip(trueRegionYieldOp->getOperands().getType(),
                      falseRegionYieldOp->getOperands().getType()))) {
     auto trueRegionOutRankedTensor =
-        std::get<0>(regionOutputTensors).cast<RankedTensorType>();
+        cast<RankedTensorType>(std::get<0>(regionOutputTensors));
     auto falseRegionOutRankedTensor =
-        std::get<1>(regionOutputTensors).cast<RankedTensorType>();
+        cast<RankedTensorType>(std::get<1>(regionOutputTensors));
     if (trueRegionOutRankedTensor.getElementType() !=
             falseRegionOutRankedTensor.getElementType() ||
         !trueRegionOutRankedTensor.getShape().equals(
@@ -888,7 +882,7 @@ LogicalResult tensorrt::ShapeOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ShapeOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   SmallVector<int64_t> inputShape = {inputType.getRank()};
   inferredReturnShapes.emplace_back(
       /*vec=*/inputShape,
@@ -906,8 +900,8 @@ LogicalResult tensorrt::ParametricReLUOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
 
   ParametricReLUOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto input = adaptor.getInput().getType().cast<RankedTensorType>();
-  auto slope = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto input = cast<RankedTensorType>(adaptor.getInput().getType());
+  auto slope = cast<RankedTensorType>(adaptor.getInput().getType());
 
   LogicalResult isSlopeBroadcastable =
       checkLhsShapeBroadcastableToRhs(slope.getShape(), input.getShape());
@@ -931,7 +925,7 @@ LogicalResult tensorrt::ShuffleOp::inferReturnTypeComponents(
   ShuffleOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
 
   // `tensorrt.shuffle` layer applies 3 operations on input in sequence:
   // transpose => reshape(optional) => transpose
@@ -984,11 +978,10 @@ LogicalResult tensorrt::ShuffleOp::inferReturnTypeComponents(
 
   } else if (adaptor.getDynamicReshape()) {
     // Dynamic reshape
-    ShapeAfterReshape = SmallVector<int64_t>(adaptor.getDynamicReshape()
-                                                 .getType()
-                                                 .cast<RankedTensorType>()
-                                                 .getDimSize(0),
-                                             ShapedType::kDynamic);
+    ShapeAfterReshape = SmallVector<int64_t>(
+        cast<RankedTensorType>(adaptor.getDynamicReshape().getType())
+            .getDimSize(0),
+        ShapedType::kDynamic);
   }
 
   // Verification and shape inference for 2nd transpose
@@ -1024,7 +1017,7 @@ LogicalResult tensorrt::DeconvolutionOp::inferReturnTypeComponents(
   DeconvolutionOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
 
   auto inpShapeComp = ConvDeconvPoolTensorShapeComponents::createFromInputShape(
       inputType.getShape());
@@ -1045,9 +1038,7 @@ LogicalResult tensorrt::DeconvolutionOp::inferReturnTypeComponents(
   ArrayRef<int64_t> kernelShape =
       adaptor.getKernelWeightsStatic().has_value()
           ? adaptor.getKernelWeightsStaticAttr().getShapedType().getShape()
-          : adaptor.getKernelWeights()
-                .getType()
-                .cast<RankedTensorType>()
+          : cast<RankedTensorType>(adaptor.getKernelWeights().getType())
                 .getShape();
   auto kernelShapeConstruct =
       ConvDeconvKernelShapeComponents::createFromKernelShape(kernelShape, false,
@@ -1076,7 +1067,7 @@ LogicalResult tensorrt::TransposeOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   TransposeOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().dyn_cast<RankedTensorType>();
+  auto inputType = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
 
   if (!inputType)
     return emitOptionalError(loc, "expected " + getOperationName() +
@@ -1111,7 +1102,7 @@ LogicalResult tensorrt::BroadcastOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   BroadcastOp::Adaptor adaptor(operands, attributes, properties, regions);
-  auto inputType = adaptor.getInput().getType().dyn_cast<RankedTensorType>();
+  auto inputType = dyn_cast<RankedTensorType>(adaptor.getInput().getType());
   if (!inputType)
     return emitOptionalError(loc, "expected input to be RankedTensorType");
   // In the static shape case, we can only infer the element type, not the rank.
@@ -1121,7 +1112,7 @@ LogicalResult tensorrt::BroadcastOp::inferReturnTypeComponents(
     return success();
   }
   // In the dynamic shape case, we can infer the rank.
-  auto shapeType = adaptor.getShape().getType().dyn_cast<RankedTensorType>();
+  auto shapeType = dyn_cast<RankedTensorType>(adaptor.getShape().getType());
   if (!shapeType || shapeType.getRank() != 1 || shapeType.isDynamicDim(0))
     return emitOptionalError(loc,
                              "expected shape to be 1D tensor of known size");
@@ -1144,7 +1135,7 @@ LogicalResult tensorrt::ArgMaxOp::inferReturnTypeComponents(
   ArgMaxOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
 
   // Check axis.
   const int32_t axis = static_cast<int32_t>(adaptor.getAxis());
@@ -1174,7 +1165,7 @@ LogicalResult tensorrt::ArgMinOp::inferReturnTypeComponents(
   ArgMinOp::Adaptor adaptor(operands, attributes, properties, regions);
 
   RankedTensorType inputType =
-      adaptor.getInput().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(adaptor.getInput().getType());
 
   // Check axis.
   const int32_t axis = static_cast<int32_t>(adaptor.getAxis());
@@ -1213,7 +1204,7 @@ LogicalResult tensorrt::ResizeNearestOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ResizeNearestOp::Adaptor adaptor(operands, attributes, properties, regions);
 
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   int64_t resizeDims = std::min(static_cast<int64_t>(3), inputType.getRank());
   if (adaptor.getScales().has_value()) {
     if (static_cast<int64_t>(adaptor.getScales().value().size()) !=
@@ -1255,7 +1246,7 @@ LogicalResult tensorrt::ResizeLinearOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ResizeLinearOp::Adaptor adaptor(operands, attributes, properties, regions);
 
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   int64_t resizeDims = std::min(static_cast<int64_t>(3), inputType.getRank());
   if (adaptor.getScales().has_value()) {
     if (static_cast<int64_t>(adaptor.getScales().value().size()) !=
@@ -1298,7 +1289,7 @@ LogicalResult tensorrt::ResizeCubicOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ResizeCubicOp::Adaptor adaptor(operands, attributes, properties, regions);
 
-  auto inputType = adaptor.getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(adaptor.getInput().getType());
   if (inputType.getRank() < 2)
     return emitOptionalError(
         loc, "does not support resizing on a tensor that has rank < 2");
@@ -1341,7 +1332,7 @@ LogicalResult tensorrt::ScatterOp::inferReturnTypeComponents(
     DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
   ScatterOp::Adaptor adaptor(operands, attributes, properties, regions);
-  TensorType inputDataType = adaptor.getData().getType().cast<TensorType>();
+  TensorType inputDataType = cast<TensorType>(adaptor.getData().getType());
   inferredReturnShapes.emplace_back(ShapeAdaptor(inputDataType));
   return success();
 }
@@ -1356,7 +1347,7 @@ LogicalResult tensorrt::ScatterElementsOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
 
   ScatterElementsOp::Adaptor adaptor(operands, attributes, properties, regions);
-  TensorType inputDataType = adaptor.getData().getType().cast<TensorType>();
+  TensorType inputDataType = cast<TensorType>(adaptor.getData().getType());
 
   SmallVector<int64_t> resultShape(inputDataType.getShape());
   inferredReturnShapes.emplace_back(
@@ -1376,7 +1367,7 @@ LogicalResult tensorrt::NormalizationOp::inferReturnTypeComponents(
     SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
 
   NormalizationOp::Adaptor adaptor(operands, attributes, properties, regions);
-  TensorType inputDataType = adaptor.getInput().getType().cast<TensorType>();
+  TensorType inputDataType = cast<TensorType>(adaptor.getInput().getType());
 
   SmallVector<int64_t> resultShape(inputDataType.getShape());
   inferredReturnShapes.emplace_back(

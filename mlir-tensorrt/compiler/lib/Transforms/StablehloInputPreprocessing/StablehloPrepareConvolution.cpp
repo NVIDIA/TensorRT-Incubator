@@ -31,7 +31,7 @@ using namespace mlir;
 /// Expand (n, c, h) input to (n, c, 1, h) input.
 static Value stablehloExpandSpatialDims(OpBuilder &b, Location loc,
                                         Value input) {
-  RankedTensorType rtt = input.getType().cast<RankedTensorType>();
+  RankedTensorType rtt = cast<RankedTensorType>(input.getType());
   Type expandedType = RankedTensorType::Builder(rtt).insertDim(1, 2);
   return b.create<stablehlo::ReshapeOp>(loc, expandedType, input);
 }
@@ -39,7 +39,7 @@ static Value stablehloExpandSpatialDims(OpBuilder &b, Location loc,
 /// Collapse NCHW to NCW where must H be 1.
 static Value stablehloCollapseNchwToNch(OpBuilder &b, Location loc,
                                         Value input) {
-  auto rtt = input.getType().cast<RankedTensorType>();
+  auto rtt = cast<RankedTensorType>(input.getType());
   assert(rtt.getDimSize(2) == 1);
   RankedTensorType newType = RankedTensorType::Builder(rtt).dropDim(2);
   return b.create<stablehlo::ReshapeOp>(loc, newType, input);
@@ -51,7 +51,7 @@ static DenseIntElementsAttr
 prependIntElementsAttrs2dRow(DenseIntElementsAttr attr, int64_t val = 0) {
   if (!attr)
     return nullptr;
-  auto attrType = attr.getType().cast<RankedTensorType>();
+  auto attrType = cast<RankedTensorType>(attr.getType());
   assert(attrType.getRank() == 2);
   const int64_t numRows = attrType.getDimSize(0);
   const int64_t rowSize = attrType.getDimSize(1);

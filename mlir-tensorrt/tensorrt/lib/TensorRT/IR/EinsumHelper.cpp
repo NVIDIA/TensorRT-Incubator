@@ -134,10 +134,10 @@ static LogicalResult validateInputsSubscript(const IOSubscripts &subscripts,
       return emitErrorFn(
           loc, Twine("each tensor dimension must have a label. Tensor input ") +
                    Twine(inputIdx) + Twine(" has rank of ") +
-                   Twine(operand.cast<RankedTensorType>().getRank()) +
+                   Twine(cast<RankedTensorType>(operand).getRank()) +
                    Twine(" but subscript size is ") + Twine(subscript.size()));
     for (const auto &[label, dimension] :
-         llvm::zip(subscript, operand.cast<RankedTensorType>().getShape())) {
+         llvm::zip(subscript, cast<RankedTensorType>(operand).getShape())) {
       // check if label to dimension mapping is unique between all inputs.
       // If label is shared between the inputs, corresponding dimension must
       // match. for example, ('ij,jk->ik', a, b) is valid for a =
@@ -202,7 +202,7 @@ static LogicalResult inferOutputShapeImpl(const IOSubscripts &ioSubscripts,
   for (const auto &[subscript, operand] :
        llvm::zip((ioSubscripts).inputs, inputOperands)) {
     for (const auto &[label, dims] :
-         llvm::zip(subscript, operand.cast<RankedTensorType>().getShape()))
+         llvm::zip(subscript, cast<RankedTensorType>(operand).getShape()))
       if (inputLabelsDims.count(label) == 0)
         inputLabelsDims.insert(std::pair<char, int64_t>(label, dims));
   }

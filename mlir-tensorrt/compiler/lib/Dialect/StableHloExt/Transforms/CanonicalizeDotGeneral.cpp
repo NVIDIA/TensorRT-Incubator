@@ -246,7 +246,7 @@ static Value transposeAndReshapeOperand(PatternRewriter &rewriter, Location loc,
                                         ArrayRef<int64_t> rightSideIndices,
                                         Value dotOpOperand) {
   RankedTensorType dotOpOperandType =
-      dotOpOperand.getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(dotOpOperand.getType());
   int64_t collapsedLeftSideShape = 1;
   for (const int64_t &idx : leftSideIndices)
     collapsedLeftSideShape *= dotOpOperandType.getDimSize(idx);
@@ -281,7 +281,7 @@ static Value processOperand(PatternRewriter &rewriter, Location loc,
                             ArrayRef<int64_t> contractDims,
                             Value dotOpOperand) {
   RankedTensorType dotOpOperandType =
-      dotOpOperand.getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(dotOpOperand.getType());
   SmallVector<int64_t> operandIndices =
       llvm::to_vector(llvm::seq<int64_t>(0, dotOpOperandType.getRank()));
   ArrayRef<int64_t> operandIndicesRef = ArrayRef<int64_t>(operandIndices);
@@ -355,10 +355,10 @@ struct DotGeneralCollapsingRewrite : public DotGeneralCanonicalizerBase {
 
     Value newLhs = processOperand(rewriter, op->getLoc(), lhsBatchDims.size(),
                                   lhsContractDims, op.getLhs());
-    RankedTensorType newLhsType = newLhs.getType().cast<RankedTensorType>();
+    RankedTensorType newLhsType = cast<RankedTensorType>(newLhs.getType());
     Value newRhs = processOperand(rewriter, op->getLoc(), lhsBatchDims.size(),
                                   rhsContractDims, op.getRhs());
-    RankedTensorType newRhsType = newRhs.getType().cast<RankedTensorType>();
+    RankedTensorType newRhsType = cast<RankedTensorType>(newRhs.getType());
 
     SmallVector<int64_t> newOutputShape(
         op.getLhs().getType().getShape().take_front(lhsBatchDims.size()));

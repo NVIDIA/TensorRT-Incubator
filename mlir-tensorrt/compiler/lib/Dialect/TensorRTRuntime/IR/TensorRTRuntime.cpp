@@ -27,7 +27,6 @@
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/TypeUtilities.h"
-#include "mlir/IR/Value.h"
 #include "mlir/Transforms/InliningUtils.h"
 #include "llvm/ADT/TypeSwitch.h"
 
@@ -47,7 +46,7 @@ LogicalResult EnqueueOp::inferReturnTypes(
   // If the `outs` operands are tensor types, then we shoudl return those as
   // results. Otherwise, for memref outs, we do not return results.
   for (Type t : TypeRange(adaptor.getOuts())) {
-    auto tensorType = t.dyn_cast<TensorType>();
+    auto tensorType = dyn_cast<TensorType>(t);
     if (!tensorType)
       continue;
     inferredReturnTypes.push_back(tensorType);

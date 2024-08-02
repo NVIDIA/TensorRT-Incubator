@@ -436,7 +436,7 @@ static ElementsAttr compareFolder(RankedTensorType sourceType,
        llvm::zip(lhs.getValues<APFloat>(), rhs.getValues<APFloat>())) {
     values.push_back(Convert()(lVal, rVal));
   }
-  return DenseElementsAttr::get(resultType.cast<ShapedType>(), values);
+  return DenseElementsAttr::get(cast<ShapedType>(resultType), values);
 }
 
 namespace {

@@ -47,10 +47,10 @@ struct RewriteRankReshapeOpToShuffle : public OpRewritePattern<OpType> {
     // `I1`, it needs to be supported via `I32` conversion
     TensorValue operand = op.getInput();
     RankedTensorType resultType =
-        op.getResult().getType().template cast<RankedTensorType>();
+        cast<RankedTensorType>(op.getResult().getType());
     if (operand.getType().getElementType().isInteger(1)) {
       RankedTensorType i32OperandType =
-          RankedTensorType::Builder(operand.getType().cast<RankedTensorType>())
+          RankedTensorType::Builder(cast<RankedTensorType>(operand.getType()))
               .setElementType(rewriter.getI32Type());
       resultType = RankedTensorType::Builder(resultType)
                        .setElementType(rewriter.getI32Type());
@@ -86,7 +86,7 @@ struct RewriteReshapeOpToShuffle : public OpRewritePattern<ReshapeOp> {
     RankedTensorType shuffleResultType = cast<RankedTensorType>(op.getType());
     if (operand.getType().getElementType().isInteger(1)) {
       RankedTensorType i32TensorType =
-          RankedTensorType::Builder(operand.getType().cast<RankedTensorType>())
+          RankedTensorType::Builder(cast<RankedTensorType>(operand.getType()))
               .setElementType(rewriter.getI32Type());
       shuffleResultType = RankedTensorType::Builder(shuffleResultType)
                               .setElementType(rewriter.getI32Type());
@@ -126,7 +126,7 @@ struct ArgMinMaxToTopK : public OpRewritePattern<OpType> {
                                 PatternRewriter &rewriter) const override {
     TypedValue<RankedTensorType> operand = op.getInput();
     RankedTensorType argMinMaxInputType =
-        op.getInput().getType().template cast<RankedTensorType>();
+        cast<RankedTensorType>(op.getInput().getType());
 
     auto maybeCastBack = [&](TensorValue tensor) {
       if (tensor.getType() == op.getType(0))
@@ -137,7 +137,7 @@ struct ArgMinMaxToTopK : public OpRewritePattern<OpType> {
 
     // TensorRT TopK op accepts tensors of 2 or more dimension in only FP32
     // and FP16.
-    if (argMinMaxInputType.getElementType().isa<IntegerType>()) {
+    if (isa<IntegerType>(argMinMaxInputType.getElementType())) {
       RankedTensorType f32CastType =
           RankedTensorType::Builder(argMinMaxInputType)
               .setElementType(rewriter.getF32Type());
@@ -209,7 +209,7 @@ static TensorValue reshapeBroadcastInput(OpBuilder &b, Location loc,
   assert(op.getBroadcastDimsPermutation().isIdentity() &&
          "expected identity broadcast permutation");
   TensorValue input = op.getInput();
-  auto resultType = op.getResult().getType().cast<RankedTensorType>();
+  auto resultType = cast<RankedTensorType>(op.getResult().getType());
   // If input is a scalar, just reshape to all 1's.
   if (input.getType().getRank() == 0)
     return b.create<ExpandRankOp>(

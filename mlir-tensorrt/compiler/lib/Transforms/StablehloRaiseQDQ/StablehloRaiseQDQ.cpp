@@ -74,9 +74,9 @@ static FailureOr<Value> outlineQDQPatternToPrivateFuncAndAddComposite(
   OpBuilder b(rewriter.getContext());
 
   // Create outline function type and op
-  FunctionType funcType = rewriter.getFunctionType(
-      {funcArgument.getType().cast<RankedTensorType>()},
-      {funcReturn.getType().cast<RankedTensorType>()});
+  FunctionType funcType =
+      rewriter.getFunctionType({cast<RankedTensorType>(funcArgument.getType())},
+                               {cast<RankedTensorType>(funcReturn.getType())});
   func::FuncOp funcOp =
       func::FuncOp::create(funcReturn.getLoc(), qdqTypeName, funcType);
   // Private visibility and `plan.decomposition` attribute is used to recognize

@@ -171,7 +171,7 @@ struct PushdownTransposeIdentity : public OpRewritePattern<IdentityOp> {
       return failure();
     Type newIdentityType =
         RankedTensorType::Builder(
-            transposeProducer.getInput().getType().cast<RankedTensorType>())
+            cast<RankedTensorType>(transposeProducer.getInput().getType()))
             .setElementType(op.getType().getElementType());
     Value newIdentityResult = rewriter.create<IdentityOp>(
         op.getLoc(), newIdentityType, transposeProducer.getInput());

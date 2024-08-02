@@ -5,4 +5,5 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanToExecutor
   MLIRTensorRTExecutorDialect
   MLIRTensorRTPlanDialect
   MLIRTransforms
+  MLIRSCFTransforms
 )
