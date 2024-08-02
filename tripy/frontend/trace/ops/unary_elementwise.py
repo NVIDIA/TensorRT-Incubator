@@ -99,7 +99,7 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.tanh(input)
 
-        assert tp.allclose(output, tp.Tensor(np.tanh(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(cp.tanh(input))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.TANH)
 
