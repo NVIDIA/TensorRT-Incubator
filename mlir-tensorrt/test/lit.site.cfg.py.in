@@ -1,0 +1,32 @@
+@LIT_SITE_CFG_IN_HEADER@
+config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
+config.mlir_src_root = "@MLIR_MAIN_SRC_DIR@"
+
+config.mlir_tensorrt_obj_root = "@CMAKE_BINARY_DIR@"
+config.mlir_tensorrt_root = "@MLIR_TENSORRT_ROOT_DIR@"
+
+config.host_os = "@HOST_OS@"
+config.host_cc = "@HOST_CC@"
+config.host_cxx = "@HOST_CXX@"
+config.host_arch = "@HOST_ARCH@"
+
+config.enable_bindings_python = @MLIR_TRT_ENABLE_PYTHON@
+config.python_executable = "@Python3_EXECUTABLE@"
+
+config.mlir_tensorrt_include_hlo_tests = @MLIR_TRT_ENABLE_HLO@
+config.mlir_tensorrt_include_tensorrt_target_tests = @MLIR_TRT_TARGET_TENSORRT@
+config.mlir_tensorrt_compile_time_version = "@MLIR_TRT_TENSORRT_VERSION@"
+config.mlir_tensorrt_include_cpp_tests = @MLIR_TRT_TARGET_CPP@
+config.mlir_tensorrt_include_lua_target_tests = @MLIR_TRT_TARGET_LUA@
+config.mlir_tensorrt_include_nccl_tests = @MLIR_TRT_ENABLE_NCCL@
+config.mlir_tensorrt_include_runner_integration_tests = @MLIR_TRT_TARGET_LUA@
+config.mlir_tensorrt_include_executor_tests = @MLIR_TRT_ENABLE_EXECUTOR@
+
+config.enable_asan = @MLIR_TRT_WITH_ASAN@
+config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
+
+import lit.llvm
+lit.llvm.initialize(lit_config, config)
+
+# Let the main config do the real work.
+lit_config.load_config(config, "@CMAKE_SOURCE_DIR@/test/lit.cfg.py")

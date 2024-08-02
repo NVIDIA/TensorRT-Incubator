@@ -1,0 +1,11 @@
+/build/
+/docs/
+/examples/
+/third_party/
+/.cache/
+/.git/
+**/.git
+/.cache.cpm/
+/.private*
+/tmp/
+*.timing-cache

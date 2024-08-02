@@ -1,0 +1,1289 @@
+#ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
+#define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
+
+include "mlir-executor/Executor/IR/ExecutorDialect.td"
+include "mlir-executor/Executor/IR/ExecutorInterfaces.td"
+include "mlir-executor/Executor/IR/ExecutorTypes.td"
+
+include "mlir/Interfaces/MemorySlotInterfaces.td"
+include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/Interfaces/FunctionInterfaces.td"
+include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/IR/BuiltinAttributeInterfaces.td"
+include "mlir/IR/BuiltinTypeInterfaces.td"
+include "mlir/IR/EnumAttr.td"
+include "mlir/IR/OpAsmInterface.td"
+include "mlir/IR/SymbolInterfaces.td"
+include "mlir/Interfaces/InferTypeOpInterface.td"
+
+//===----------------------------------------------------------------------===//
+// Traits
+//===----------------------------------------------------------------------===//
+
+def Executor_LowerToFuncCallTrait : NativeOpTrait<"LowerToFuncCallTrait"> {
+  let cppNamespace = "::mlir::executor";
+}
+
+class IntOrFloatElementBitWidth<string name> :
+    StrFunc<"$" # name # ".getType().getIntOrFloatBitWidth()">;
+
+class AllBitWidthsMatch<list<string> names> :
+    AllMatchSameOperatorTrait<names, IntOrFloatElementBitWidth<"_self">.result,
+                              "bit width">;
+
+//===----------------------------------------------------------------------===//
+// Shorthand declarations
+//===----------------------------------------------------------------------===//
+
+/// A normal Executor op
+class Executor_Op<
+  string mnemonic,
+  list<Trait> traits = []
+> : Op<
+  Executor_Dialect,
+  mnemonic,
+  !listconcat(traits, [ExecutorOpInterface])
+>;
+
+def I4  : I<4>;
+defvar Executor_ArithFloatTypes = [F64, F32, F16, F8E4M3FN, BF16];
+defvar Executor_ArithIntTypes = [I64, I32, I16, I8, I4, Index];
+
+// Integer signness semantics are specified by individual operations, not
+// the integer type.
+def Executor_Integer : AnyTypeOf<!listconcat(Executor_ArithIntTypes,
+      [I1])>;
+def Executor_Float : AnyTypeOf<Executor_ArithFloatTypes>;
+def Executor_MemRefElementTypes: AnyTypeOf<
+  !listconcat(Executor_ArithFloatTypes, [I32, I16, I8, I1])>;
+def Executor_AnyType : AnyTypeOf<[
+      Executor_Integer, Executor_Float, Executor_Table,
+      Executor_Ptr]>;
+def Executor_Index : AnyTypeOf<[I64, I32]>;
+
+/// Base class for cast-like operations.
+class Executor_CastOp<string mnemonic, list<Trait> traits = []>
+  : Executor_Op<mnemonic, !listconcat(traits, [
+            Pure,
+            DeclareOpInterfaceMethods<RuntimeBuiltinInterface,
+              ["getTypesForNameSuffix"]>
+          ])> {
+  let assemblyFormat = "$operand attr-dict `:` type($operand) `to` type($result)";
+  let extraClassDefinition = [{
+    SmallVector<Type> $cppClass::getTypesForNameSuffix() {
+      return SmallVector<Type>{getOperand().getType(), getType()};
+    }
+  }];
+}
+
+/// Base class for ops that cast from one float type to another.
+class Executor_FloatCastOp<string mnemonic, list<Trait> traits = []>
+        : Executor_CastOp<mnemonic, traits> {
+  let arguments = (ins Executor_Float:$operand);
+  let results = (outs Executor_Float:$result);
+}
+
+//===----------------------------------------------------------------------===//
+// AssertOp
+//===----------------------------------------------------------------------===//
+
+def Executor_AssertOp : Executor_Op<"assert"> {
+  let summary = "Assert operation with message attribute";
+  let description = [{
+
+    The `executor.assert` operation represents a runtime assertion with a single
+    boolean operand and an error message attribute.
+
+    If the argument is `true` this operation has no effect. Otherwise, the
+    program execution will abort. The provided error message may be used by a
+    runtime to propagate the error to the user.
+
+    Example:
+
+    ```mlir
+    executor.assert %b, "Expected some condition to be true"
+    ```
+  }];
+
+  let arguments = (ins I1:$arg, StrAttr:$msg);
+
+  let assemblyFormat = "$arg `,` $msg attr-dict";
+  let hasCanonicalizeMethod = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// ConstantOp
+//===----------------------------------------------------------------------===//
+
+def Executor_ConstantOp : Executor_Op<"constant",
+    [ConstantLike, Pure,
+     DeclareOpInterfaceMethods<OpAsmOpInterface, ["getAsmResultNames"]>,
+     AllTypesMatch<["value", "result"]>]> {
+
+  let summary = "integer or floating point constant";
+  let description = [{
+    The `executor.constant` operation produces an SSA value equal to some
+    integer or floating-point constant specified by an attribute.
+
+    This is basically the same as `arith.constant`, but we are more limited
+    in terms of allowed types based on the target VM.
+
+    For example, if Lua is the target VM, then depending on Lua's build
+    config, integers are either signed 32 bit or signed 64 bit.
+
+    Example:
+
+    ```
+    // Integer constant
+    %1 = executor.constant 42 : i32
+
+    // Equivalent generic form
+    %1 = "executor.constant"() {value = 42 : i32} : () -> i32
+    ```
+  }];
+
+  let arguments = (ins TypedAttrInterface:$value);
+
+  let results = (outs AnyTypeOf<[Executor_Integer, Executor_Float]>:$result);
+
+  let builders = [
+    OpBuilder<(ins "Attribute":$value, "Type":$type), [{
+      build($_builder, $_state, cast<TypedAttr>(value));
+    }]>,
+  ];
+
+  let hasFolder = 1;
+  let assemblyFormat = "attr-dict $value";
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// ConstantResourceOp
+//===----------------------------------------------------------------------===//
+
+def Executor_ConstantResourceOp : Executor_Op<"constant_resource", [Symbol]> {
+
+  let summary = "declares a read-only constant resource";
+
+  let description = [{
+    The `executor.constant_resource` operation represents a declaration of a
+    constant buffer that can be loaded as a `!executor.ptr<host>` from the
+    Executable's constant data section.
+
+    Any `executor.global` declaration with a non-scalar type is lowered to
+    a load of a constant_resource.
+  }];
+
+  let arguments = (ins SymbolNameAttr:$sym_name, ElementsAttr:$value);
+  let assemblyFormat = "attr-dict $sym_name $value";
+
+  let builders = [
+    OpBuilder<(ins "StringRef":$sym_name, "TypedAttr":$attr), [{
+      assert(isa<ElementsAttr>(attr) && "expected an ElementsAttr");
+      build($_builder, $_state, sym_name, cast<ElementsAttr>(attr));
+    }]>
+  ];
+
+  let extraClassDeclaration = [{
+    /// Construct the op from the location context.
+    static ConstantResourceOp create(Location loc, StringRef name,
+                                     ElementsAttr value);
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// StrLiteralOp
+//===----------------------------------------------------------------------===//
+
+def Executor_StrLiteralOp : Executor_Op<"str_literal", [Pure]> {
+  let summary = "declares a constant string literal";
+  let description = [{
+    The `executor.str_literal` operation declares an SSA value
+    that holds a single string literal.
+  }];
+  let arguments = (ins StrAttr:$value);
+  let results = (outs Executor_StrLiteral:$result);
+  let assemblyFormat = [{
+    attr-dict $value
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// ConstantResourceLoadOp
+//===----------------------------------------------------------------------===//
+
+def Executor_ConstantResourceLoadOp : Executor_Op<"load_constant_resource",
+  [DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+
+  let summary = "loads a constant resource into a new host buffer";
+
+  let description = [{
+    The `executor.load_constant_resource` operation allocates a new host buffer
+    and loads the specified resource into the buffer.
+  }];
+
+  let arguments = (ins FlatSymbolRefAttr:$name);
+  let results = (outs Executor_HostPtr:$result);
+
+  let builders = [OpBuilder<(ins "FlatSymbolRefAttr":$name), [{
+    build($_builder, $_state, PointerType::get($_builder.getContext(),
+            MemoryType::host), name);
+  }]>];
+
+  let assemblyFormat = "attr-dict $name `:` qualified(type($result))";
+}
+
+//===----------------------------------------------------------------------===//
+// GlobalOp
+//===----------------------------------------------------------------------===//
+
+def Executor_GlobalOp : Executor_Op<"global", [Symbol, IsolatedFromAbove]> {
+  let summary = "defines a global variable";
+
+  let description = [{
+    The `executor.global` operation describes a global variable declaration and,
+    optionally, the IR that initializes the global when the program is loaded.
+
+    Providing an initialization region is optional. Besides initialization
+    regions, a global with a numeric constant value can also utilize the
+    `initial_value` attribute. Only one of `initial_value` and an initialization
+    region can be used. If the program does not provide an initialization region
+    or an initial_value, then its state is considered undefined.
+
+    If an initialization region is provided, then it should be terminated with
+    an `executor.return` statement that returns the SSA value which should be
+    stored into the region. The type of this value must match the `type`
+    attribute.
+
+    The operation can optionally specify that the global is a constant. In this
+    case, a `executor.set_global` referencing this global is illegal, the global
+    can only be set by its initialization region.
+
+    Please note that ordering of `executor.global` operations matter: Since any
+    number of `executor.global` variables can be declared, the final backend
+    should execute the initialization of global variables one after another in
+    the order that they are listed in the IR. Therefore, certain globals can
+    depend on the initialization of other globals as long as the global being
+    used in the initialization region was initialized earlier in the program
+    declaration.
+  }];
+
+  let arguments = (ins SymbolNameAttr:$sym_name,
+                       TypeAttr:$type,
+                       OptionalAttr<TypedAttrInterface>:$initial_value,
+                       UnitAttr:$constant);
+  let regions = (region AnyRegion:$body_region);
+  let assemblyFormat = [{
+    $sym_name (`constant` $constant^)? `:` $type attr-dict-with-keyword
+    ($body_region^)?
+  }];
+
+  let builders = [
+    OpBuilder<(ins "StringRef":$name, "DenseI8ResourceElementsAttr":$initial_value,
+      CArg<"bool", "true">:$constant)>,
+    OpBuilder<(ins "StringRef":$name, "Type":$type,
+      "std::function<void(OpBuilder&,Location)>":$initBuilder,
+      CArg<"bool", "false">:$constant)>
+  ];
+
+  let extraClassDeclaration = [{
+    bool hasInitRegion() {
+      return !getBodyRegion().getBlocks().empty();
+    }
+
+    Block *getInitBody() {
+      assert(hasInitRegion() && "does not have init region");
+      return &getBodyRegion().getBlocks().front();
+    }
+  }];
+
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// ReturnOp
+//===----------------------------------------------------------------------===//
+
+def Executor_ReturnOp : Executor_Op<"return", [Pure, Terminator]> {
+  let summary = "global initialization or function return operation";
+  let description = [{
+    The `executor.return` op represents a return within a region that yields
+    some results, such as a global initialization region.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$operands);
+
+  let builders = [OpBuilder<(ins), [{
+    build($_builder, $_state, std::nullopt);
+  }]>];
+
+  let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
+}
+
+//===----------------------------------------------------------------------===//
+// GetGlobalOp
+//===----------------------------------------------------------------------===//
+
+def Executor_GetGlobalOp : Executor_Op<"get_global", [Pure,
+    DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+
+  let description = [{
+    The `executor.get_global` operation returns an SSA value representing the
+    global stored at the given symbol name.
+  }];
+
+  let arguments = (ins FlatSymbolRefAttr:$name);
+  let results = (outs AnyType:$result);
+  let assemblyFormat = "$name attr-dict `:` type($result)";
+
+  let builders = [
+    OpBuilder<(ins "GlobalOp":$globalOp), [{
+      build($_builder, $_state, globalOp.getType(),
+        FlatSymbolRefAttr::get(globalOp));
+    }]>
+  ];
+
+  let extraClassDeclaration = [{
+    /// Return the global that this operation references.
+    GlobalOp getGlobal(SymbolTableCollection &symbolTable);
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// SetGlobalOp
+//===----------------------------------------------------------------------===//
+
+def Executor_SetGlobalOp : Executor_Op<"set_global", [
+      DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+
+  let description = [{
+    The `executor.set_global` operation sets the value of the global
+    with the given symbol name to the given `value`.
+  }];
+
+  let arguments = (ins AnyType:$value,  FlatSymbolRefAttr:$name);
+  let assemblyFormat = "$value `,` $name attr-dict `:` type($value)";
+}
+
+//===----------------------------------------------------------------------===//
+// FuncOp
+//===----------------------------------------------------------------------===//
+
+def Executor_FuncOp : Executor_Op<"func", [IsolatedFromAbove,
+  FunctionOpInterface, AutomaticAllocationScope, CallableOpInterface]> {
+  let summary = "an executor function";
+
+  let description = [{
+    The `executor.func` operation defines either a function along
+    with its definition or a function declaration that is defined
+    externally by runtime bindings.
+
+    Example:
+
+    ```mlir
+    executor.func @enqueue_kernel(%arg0: i32, ...)
+    ```
+  }];
+
+  let arguments = (ins
+    StrAttr:$sym_name,
+    TypeAttrOf<Executor_ExecutorFunctionType>:$function_type,
+    OptionalAttr<StrAttr>:$sym_visibility,
+    OptionalAttr<DictArrayAttr>:$arg_attrs,
+    OptionalAttr<DictArrayAttr>:$res_attrs
+  );
+
+  let regions = (region AnyRegion:$body);
+
+  let builders = [
+    OpBuilder<(ins "StringRef":$name, "ExecutorFunctionType":$type,
+      CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)>
+  ];
+
+  let extraClassDeclaration = [{
+    static executor::FuncOp create(Location location, StringRef name,
+      ExecutorFunctionType type, ArrayRef<NamedAttribute> attrs = {});
+    //===------------------------------------------------------------------===//
+    // CallableOpInterface
+    //===------------------------------------------------------------------===//
+
+    Region *getCallableRegion() { return isExternal() ? nullptr : &getBody(); }
+    ArrayRef<Type> getCallableResults() { return getFunctionType().getResults(); }
+    ArrayAttr getCallableArgAttrs() { return getArgAttrs().value_or(nullptr); }
+    ArrayAttr getCallableResAttrs() { return getResAttrs().value_or(nullptr); }
+
+    //===------------------------------------------------------------------===//
+    // FunctionOpInterface Methods
+    //===------------------------------------------------------------------===//
+
+    ArrayRef<Type> getArgumentTypes() { return getFunctionType().getArgs(); }
+    ArrayRef<Type> getResultTypes() { return getFunctionType().getResults(); }
+
+    //===------------------------------------------------------------------===//
+    // SymbolOpInterface Methods
+    //===------------------------------------------------------------------===//
+
+    bool isDeclaration() { return isExternal(); }
+  }];
+
+  let hasCustomAssemblyFormat = 1;
+  let hasVerifier = 1;
+  let hasRegionVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// CallOp
+//===----------------------------------------------------------------------===//
+
+def Executor_CallOp : Executor_Op<"call", [
+    CallOpInterface,
+    DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
+  let summary = "call to an Executor IR function";
+
+  let description = [{
+    The `executor.call` operation represents a procedure call to an externally
+    defined function given by the `callee` symbol name. The procedure is invoked
+    by passing `args` as well as immediate operands (attribute values) given
+    by `immediate_args`. The `immediate_args` attribute is optional.
+
+    If `immediate_args` is not specified, then the values in `args` are
+    passed to `callee` in the order that they are listed.
+
+    If `immediate_args` is specified, then the immediate args will first
+    be passed, followed by the values.
+
+    Currently, `immediate_args` values are restricted to be integers
+    attributes.
+
+    The function definition is currently not checked the verify that passing
+    immediate args makes sense. It is only verified against the types of
+    `args` and `results`.
+  }];
+
+  let arguments = (ins FlatSymbolRefAttr:$callee,
+                       Variadic<AnyType>:$args,
+                       OptionalAttr<ArrayAttr>:$immediate_args);
+  let results = (outs Variadic<AnyType>:$results);
+
+  let assemblyFormat = [{
+    $callee `(` $args `)` ($immediate_args^)? attr-dict
+       `:`  functional-type($args, $results)
+  }];
+
+  let builders = [
+    OpBuilder<(ins "TypeRange":$types,
+                   "StringRef":$callee,
+                   "ValueRange":$args), [{
+      build($_builder, $_state, types, callee, args, ArrayAttr{});
+    }]>
+  ];
+
+  let hasVerifier = 1;
+
+  let extraClassDeclaration = [{
+    //===------------------------------------------------------------------===//
+    // CallOpInterface
+    //===------------------------------------------------------------------===//
+    operand_range getArgOperands() { return getArgs(); }
+    CallInterfaceCallable getCallableForCallee() {
+      return (*this)->getAttrOfType<SymbolRefAttr>("callee");
+    }
+
+    void setCalleeFromCallable(CallInterfaceCallable callee) {
+      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+    }
+
+    MutableOperandRange getArgOperandsMutable() {
+      return getArgsMutable();
+    }
+  }];
+}
+
+
+//===----------------------------------------------------------------------===//
+// Integer arithmetic ops
+//===----------------------------------------------------------------------===//
+
+// Class for arithmetic binary operations.
+class Executor_ArithBinaryOpBase<Type type, string mnemonic,
+                                      list<Trait> traits = []> :
+        Executor_Op<mnemonic,
+            !listconcat([Pure, SameOperandsAndResultType], traits)> {
+  dag commonArgs = (ins type:$lhs, type:$rhs);
+  let results = (outs type:$res);
+  let assemblyFormat = "$lhs `,` $rhs attr-dict `:` type($res)";
+}
+// Class for unary arithmetic operations.
+class Executor_ArithUnaryOpBase<Type type, string mnemonic,
+                            list<Trait> traits = []> :
+        Executor_Op<mnemonic,
+            !listconcat([Pure, SameOperandsAndResultType], traits)> {
+  dag commonArgs = (ins type:$operand);
+  let results = (outs type:$result);
+  let assemblyFormat = "$operand attr-dict `:` type($result)";
+}
+// Class for arithmetic binary operations operating on integers.
+class Executor_ArithBinaryIntOp<string mnemonic,
+                              list<Trait> traits=[]> :
+    Executor_ArithBinaryOpBase<AnyTypeOf<Executor_ArithIntTypes>, mnemonic,
+      traits> {
+  let arguments = commonArgs;
+}
+class Executor_ArithBinaryBitwiseIntOp<string mnemonic,
+                              list<Trait> traits=[]> :
+    Executor_ArithBinaryOpBase<Executor_Integer, mnemonic,
+      traits> {
+  let arguments = commonArgs;
+}
+class Executor_ArithBinaryOpIntWithFolder<string mnemonic,
+                              list<Trait> traits=[]> :
+    Executor_ArithBinaryIntOp<mnemonic, traits> {
+  let hasFolder = 1;
+}
+// Class for arithmetic unary operations operating on integers.
+class Executor_ArithUnaryIntOp<string mnemonic,
+                               list<Trait> traits = []> :
+      Executor_ArithUnaryOpBase<AnyTypeOf<Executor_ArithIntTypes>, mnemonic,
+                                traits> {
+  let arguments = commonArgs;
+}
+
+def Executor_AddIOp : Executor_ArithBinaryOpIntWithFolder<"addi", [Commutative]>;
+def Executor_SubIOp : Executor_ArithBinaryOpIntWithFolder<"subi">;
+def Executor_MulIOp : Executor_ArithBinaryOpIntWithFolder<"muli", [Commutative]>;
+// Round towards zero
+def Executor_SDivIOp : Executor_ArithBinaryOpIntWithFolder<"sdivi">;
+// Round towards -inf
+def Executor_SFloorDivIOp : Executor_ArithBinaryOpIntWithFolder<"sfloor_divi">;
+// Remainder
+def Executor_SRemIOp : Executor_ArithBinaryOpIntWithFolder<"sremi">;
+// Shift an integer value to the left by a variable amount
+def Executor_ShiftLeftIOp : Executor_ArithBinaryIntOp<"shift_lefti">;
+// Shift right arithmetic
+def Executor_ShiftRightArithmeticIOp : Executor_ArithBinaryIntOp<"shift_right_arithmetici">;
+// Shift right logical. Interger operand is reinterprested as unsigned before
+// right shift is applied.
+def Executor_ShiftRightLogicalIOp : Executor_ArithBinaryIntOp<"shift_right_logicali">;
+
+def Executor_BitwiseAndIOp : Executor_ArithBinaryBitwiseIntOp<"bitwise_andi">;
+def Executor_BitwiseOrIOp  : Executor_ArithBinaryBitwiseIntOp<"bitwise_ori">;
+def Executor_BitwiseXOrIOp : Executor_ArithBinaryBitwiseIntOp<"bitwise_xori">;
+
+//===----------------------------------------------------------------------===//
+// Integer math ops
+// These operations correspond to math dialect ops and must be offloaded to
+// a function call or expanded to more trivial ops.
+//===----------------------------------------------------------------------===//
+
+def Executor_AbsIOp : Executor_ArithUnaryIntOp<"absi", [RuntimeBuiltinInterface]>;
+
+//===----------------------------------------------------------------------===//
+// Floating-point arithmetic ops
+//===----------------------------------------------------------------------===//
+
+// Class for arithmetic binary operations operating on float data type.
+class Executor_ArithBinaryFloatOp<string mnemonic,
+                              list<Trait> traits=[]> :
+    Executor_ArithBinaryOpBase<AnyTypeOf<Executor_ArithFloatTypes>, mnemonic,
+        traits> {
+  let arguments = commonArgs;
+}
+
+def Executor_AddFOp : Executor_ArithBinaryFloatOp<"addf",  [Commutative]>;
+def Executor_SubFOp : Executor_ArithBinaryFloatOp<"subf">;
+def Executor_MulFOp : Executor_ArithBinaryFloatOp<"mulf", [Commutative]>;
+def Executor_DivFOp : Executor_ArithBinaryFloatOp<"divf">;
+
+//===----------------------------------------------------------------------===//
+// Floating-point math ops
+// These operations correspond to math dialect ops and must be offloaded to
+// a function call or expanded to more trivial ops.
+//===----------------------------------------------------------------------===//
+
+// Class for arithmetic unary operations operating on float data types.
+class Executor_ArithUnaryMathFloatOp<string mnemonic,
+                               list<Trait> traits = []> :
+      Executor_ArithUnaryOpBase<AnyTypeOf<Executor_ArithFloatTypes>, mnemonic,
+                               !listconcat(traits,
+                                [Pure, RuntimeBuiltinInterface])> {
+  let arguments = commonArgs;
+}
+class Executor_ArithBinaryMathFloatOp<string mnemonic,
+                               list<Trait> traits = []> :
+      Executor_ArithBinaryOpBase<AnyTypeOf<Executor_ArithFloatTypes>, mnemonic,
+                               !listconcat(traits,
+                                [Pure, RuntimeBuiltinInterface])> {
+  let arguments = commonArgs;
+}
+
+
+// Unary ops
+def Executor_AbsFOp : Executor_ArithUnaryMathFloatOp<"absf">;
+def Executor_CbrtOp : Executor_ArithUnaryMathFloatOp<"cbrt">;
+def Executor_CeilOp : Executor_ArithUnaryMathFloatOp<"ceil">;
+def Executor_CosOp : Executor_ArithUnaryMathFloatOp<"cos">;
+def Executor_ErfOp : Executor_ArithUnaryMathFloatOp<"erf">;
+def Executor_ExpOp : Executor_ArithUnaryMathFloatOp<"exp">;
+def Executor_Exp2Op : Executor_ArithUnaryMathFloatOp<"exp2">;
+def Executor_Expm1Op : Executor_ArithUnaryMathFloatOp<"expm1">;
+def Executor_FloorOp : Executor_ArithUnaryMathFloatOp<"floor">;
+def Executor_LogOp : Executor_ArithUnaryMathFloatOp<"log">;
+def Executor_Log10Op : Executor_ArithUnaryMathFloatOp<"log10">;
+def Executor_Log1pOp : Executor_ArithUnaryMathFloatOp<"log1p">;
+def Executor_Log2Op : Executor_ArithUnaryMathFloatOp<"log2">;
+def Executor_NegfOp : Executor_ArithUnaryMathFloatOp<"negf">;
+def Executor_SinOp : Executor_ArithUnaryMathFloatOp<"sin">;
+def Executor_SqrtOp : Executor_ArithUnaryMathFloatOp<"sqrt">;
+def Executor_TanOp : Executor_ArithUnaryMathFloatOp<"tan">;
+def Executor_TanhOp : Executor_ArithUnaryMathFloatOp<"tanh">;
+def Executor_RoundOp : Executor_ArithUnaryMathFloatOp<"round">;
+
+// Binary ops
+def Executor_Atan2Op : Executor_ArithBinaryMathFloatOp<"atan2">;
+def Executor_CopysignOp : Executor_ArithBinaryMathFloatOp<"copysign">;
+
+//===----------------------------------------------------------------------===//
+// ICmpOp
+//===----------------------------------------------------------------------===//
+
+def Executor_ICmpOp : Executor_Op<"icmp", [
+      Pure, AllTypesMatch<["lhs", "rhs"]>]> {
+  let description = [{
+    `executor.icmp` performs a comparison between `lhs` and `rhs` integers.
+    The comparison type is given by the `predicate` attribute.
+  }];
+  let results = (outs I1:$result);
+  let arguments = (ins Executor_Integer:$lhs, Executor_Integer:$rhs,
+    Executor_ICmpTypeAttr:$predicate);
+  let assemblyFormat = "$predicate $lhs `,` $rhs attr-dict `:` type($lhs)";
+}
+
+//===----------------------------------------------------------------------===//
+// FCmpOp
+//===----------------------------------------------------------------------===//
+
+def Executor_FCmpOp : Executor_Op<"fcmp", [
+      Pure, AllTypesMatch<["lhs", "rhs"]>]> {
+  let description = [{
+    `executor.fcmp` performs a comparison between `lhs` and `rhs` floats.
+    The comparison type is given by the `predicate` attribute.
+  }];
+  let results = (outs I1:$result);
+  let arguments = (ins Executor_Float:$lhs, Executor_Float:$rhs,
+    Executor_FCmpTypeAttr:$predicate);
+  let assemblyFormat = "$predicate $lhs `,` $rhs attr-dict `:` type($lhs)";
+}
+
+//===----------------------------------------------------------------------===//
+// BitcastOp
+//===----------------------------------------------------------------------===//
+
+def Executor_BitcastOp : Executor_Op<"bitcast",
+      [Pure, AllBitWidthsMatch<["input", "result"]>]> {
+  let description = [{
+    `executor.bitcast` op performs a bitcast between values of equal bit width.
+  }];
+  let arguments = (ins AnyTypeOf<[F64, F32, F16, I64, I32, I16]>:$input);
+  let results = (outs AnyTypeOf<[F64, F32, F16, I64, I32, I16]>:$result);
+  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let hasVerifier = 1;
+  let hasFolder = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// SelectOp
+//===----------------------------------------------------------------------===//
+
+def Executor_SelectOp : Executor_Op<"select",
+      [Pure, AllTypesMatch<["true_value", "false_value", "result"]>]> {
+  let description = [{
+    `executor.select`op chooses one of the `true_value` or `false_value` based on
+    value of the predicate. If the value of predicate is 1, `true_value` is chosen
+    otherwise `false_value` is chosen.
+  }];
+  let arguments = (ins I1:$predicate, Executor_AnyType:$true_value,
+                                      Executor_AnyType:$false_value);
+  let results = (outs Executor_AnyType:$result);
+  let assemblyFormat = "attr-dict $predicate `,` $true_value `,` $false_value `:` type($true_value)";
+}
+
+//===----------------------------------------------------------------------===//
+// ExtfOp
+//===----------------------------------------------------------------------===//
+
+def Executor_ExtfOp : Executor_FloatCastOp<"extf"> {
+  let description = [{
+    Cast a floating point type to another floating point type of a wider
+    bitwidth. The numeric values should be equivalent.
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// Truncf
+//===----------------------------------------------------------------------===//
+
+def Executor_TruncfOp : Executor_FloatCastOp<"truncf"> {
+  let description = [{
+    Truncates a floating point type from one bitwidth to a floating point
+    type of a narrower bitwidth. When an exact conversion is not possible,
+    rounding occurs using the default rounding mode.
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// SIToFPOp
+//===----------------------------------------------------------------------===//
+
+def Executor_SIToFPOp : Executor_CastOp<"sitofp"> {
+  let description = [{
+    `executor.sitofp` casts signed integer to the corresponding floating point
+    value. This is similar to `static_cast` in C++. If value can't be exactly
+    represented, it is rounded (implementation-defined).
+  }];
+  let arguments = (ins AnyTypeOf<Executor_ArithIntTypes>:$operand);
+  let results = (outs AnyTypeOf<Executor_ArithFloatTypes>:$result);
+}
+
+//===----------------------------------------------------------------------===//
+// FPToSIOp
+//===----------------------------------------------------------------------===//
+
+def Executor_FPToSIOp : Executor_CastOp<"fptosi"> {
+  let description = [{
+    `executor.fptosi` casts floating point value to the nearest signed integer
+    value. This is similar to `static_cast` in C++.
+  }];
+  let arguments = (ins AnyTypeOf<Executor_ArithFloatTypes>:$operand);
+  let results = (outs AnyTypeOf<Executor_ArithIntTypes>:$result);
+}
+
+//===----------------------------------------------------------------------===//
+// TruncOp
+//===----------------------------------------------------------------------===//
+
+def Executor_TruncOp : Executor_CastOp<"trunc"> {
+  let description = [{
+    The `executor.trunc` op truncates an integer to a smaller bitwidth.
+  }];
+  let arguments = (ins Executor_Integer:$operand);
+  let results =(outs Executor_Integer:$result);
+}
+
+//===----------------------------------------------------------------------===//
+// ZExtOp
+//===----------------------------------------------------------------------===//
+
+def Executor_ZExtOp : Executor_CastOp<"zext"> {
+  let description = [{
+    `executor.zext` extends the bitwidth of an integer, filling in the
+    new bits with zeros.
+  }];
+  let arguments = (ins Executor_Integer:$operand);
+  let results =(outs Executor_Integer:$result);
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// SIExtOp
+//===----------------------------------------------------------------------===//
+
+def Executor_SIExtOp : Executor_CastOp<"siext"> {
+  let description = [{
+    `executor.siext` extends the bitwidth of an integer, by appending bits to
+    the most significant side of the nubmer such that the positive/negative
+    sign of the number is preserved. The positive/negative sign of the number
+    is determined by interpreting the `operand` as an integer in two's complement
+    format.
+  }];
+  let arguments = (ins Executor_Integer:$operand);
+  let results =(outs Executor_Integer:$result);
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// SMinOp / SMaxOp
+//===----------------------------------------------------------------------===//
+
+class Executor_MinMaxOp<string mnemonic, Type type> : Executor_Op<mnemonic, [
+    Pure,
+    AllTypesMatch<["lhs", "rhs", "result"]>,
+    RuntimeBuiltinInterface,
+    Commutative]> {
+  let assemblyFormat = "operands attr-dict `:` type($lhs)";
+  let arguments = (ins type:$lhs, type:$rhs);
+  let results = (outs type:$result);
+}
+
+def Executor_SMaxOp : Executor_MinMaxOp<"smax", Executor_Integer>;
+def Executor_SMinOp : Executor_MinMaxOp<"smin", Executor_Integer>;
+def Executor_FMaxOp : Executor_MinMaxOp<"fmax", Executor_Float>;
+def Executor_FMinOp : Executor_MinMaxOp<"fmin", Executor_Float>;
+
+
+//===----------------------------------------------------------------------===//
+// Table Ops
+//===----------------------------------------------------------------------===//
+
+def Executor_CreateTableOp : Executor_Op<"table.create", [Pure]> {
+  // Can optionally accept some number of initial values.
+  let arguments = (ins Variadic<Executor_AnyType>:$init);
+  let results = (outs Executor_Table:$result);
+  let assemblyFormat = "attr-dict (`(` $init^ `:` type($init) `)`)? `:` type($result)";
+  let hasVerifier = 1;
+  let builders = [
+    OpBuilder<(ins "Type":$result), [{
+      build($_builder, $_state, result, ValueRange{});
+    }]>,
+    // Convenience builders for constructing memref descriptors.
+    OpBuilder<(ins "Type":$result, "Value":$allocatedPtr, "Value":$alignedPtr,
+      "Value":$offset, "ValueRange":$sizes, "ValueRange":$strides)>,
+    OpBuilder<(ins "Type":$result, "Value":$allocatedPtr, "Value":$alignedPtr,
+      "OpFoldResult":$offset, "ArrayRef<OpFoldResult>":$sizes,
+      "ArrayRef<OpFoldResult>":$strides)>
+  ];
+}
+
+def Executor_InsertTableValueOp : Executor_Op<"table.set", [
+  Pure, AllTypesMatch<["table", "result"]>
+]> {
+  let description = [{
+    The `executor.table.insert` operation insert `value` into the `index`-th
+    position in the table, returning a new (updated) copy of the table.
+  }];
+
+  let arguments = (ins Executor_Table:$table,
+                       Executor_AnyType:$value,
+                       I64Attr:$index);
+  let results = (outs Executor_AnyType:$result);
+
+  let assemblyFormat = [{
+    attr-dict $value `into` $table `[` $index `]` `:` type($value) `,` type($table)
+  }];
+
+  let hasVerifier = 1;
+}
+
+def Executor_ExtractTableValueOp : Executor_Op<"table.get", [
+  Pure, DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+
+  let description = [{
+    The `executor.table.extract` operation returns the element at the `index-th`
+    position in the given table.
+  }];
+
+  let arguments = (ins Executor_Table:$table,
+                       I64Attr:$index);
+  let results = (outs Executor_AnyType:$result);
+
+  let assemblyFormat = [{
+    attr-dict $table `[` $index `]` `:` type($table)
+  }];
+
+  let hasVerifier = 1;
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
+}
+
+def Executor_DynamicExtractTableValueOp : Executor_Op<"table.dynamic_get", [
+  Pure]> {
+
+  let description = [{
+    The `executor.table.dynamic_get` operation returns the element at the
+    `index-th` position in the given table. `index` is a variable.
+  }];
+
+  let arguments = (ins Executor_Table:$table,
+                       Executor_Index:$index);
+  let results = (outs Executor_AnyType:$result);
+
+  let assemblyFormat = [{
+    attr-dict $table `[` $index `]` `:` functional-type(operands, results)
+  }];
+
+  let hasVerifier = 1;
+}
+
+
+//===----------------------------------------------------------------------===//
+// PrintOp
+//===----------------------------------------------------------------------===//
+
+def Executor_PrintOp : Executor_Op<"print", [
+    MemoryEffects<[MemWrite]>,]> {
+  let description = [{
+    The `executor.print` op prints a formatted string to "the output stream",
+    the specifics of which depend on the runtime implementation.
+
+    The operation takes an optional format string, which follows the C
+    `sprintf`-style string formatting rules.
+  }];
+  let arguments = (ins Variadic<AnyType>:$arguments, OptionalAttr<StrAttr>:$format);
+  let results = (outs);
+  let assemblyFormat = [{
+    attr-dict ($format^)? `(` ($arguments^ `:` type($arguments))?  `)`
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// AlignToOp
+//===----------------------------------------------------------------------===//
+
+def Executor_AlignToOp : Executor_Op<"alignto", [Pure,
+    AllTypesMatch<["arg", "result"]>,
+    DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["lowerToCall"]>]> {
+
+  let summary = "rounds up integer operand to nearest multiple of power-of-two alignment";
+
+  let description = [{
+    `executor.alignto` returns an integer formed from taking `arg` and
+    rounding it up to the nearest multiple of `alignment`, which must be a power
+    of two.
+
+    One possible implementation of this is:
+
+    ```
+    bumped = arg + alignment -1
+    result = bumped - urem(bumped, alignment)
+    ```
+  }];
+
+  let arguments = (ins Executor_Index:$arg,
+    UI32Attr:$alignment);
+
+  let results = (outs Executor_Index:$result);
+  let assemblyFormat = "attr-dict $arg `,` $alignment `:` type($arg)";
+  let hasFolder = 1;
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// GetOffsetOp
+//===----------------------------------------------------------------------===//
+
+def Executor_GetOffsetOp : Executor_Op<"getoffset", [Pure]> {
+  let summary = "calculates byte offsets to positions within aggregate types";
+
+  let description = [{
+    The `executor.getoffset` operation is used to calculate byte offsets within
+    an aggregate type (e.g. array or table/struct). It is semantically equivalent
+    to the [LLVM GetElementPtr (GEP) operation](https://llvm.org/docs/GetElementPtr.html),
+    except that the `executor.getoffset` operation does not perform pointer arithmetic,
+    it only calculates offsets. While the LLVM GEP op takes a pointer operand to
+    which the calculated offset is added, this operation does not take a pointer
+    operand and simply returns the offset which should be added to a base pointer
+    assuming the base pointer points to data of `elem_type`.
+
+    Since `executor` load/store operations take byte offsets as arguments,
+    we omitted the pointer modification, especially since doing so would
+    require materialization of excess `inttoptr|ptrtoint` ops.
+
+    This operation may be further lowered when targeting interpreters; in
+    such cases the `executor-expand-ops` pass can be invoked with
+    `lower-getoffset=true` to lower `executor.getoffset` to more primitive
+    ops.
+
+    Note that internal storage of `staticIndices` uses I64, but if the
+    DataModel specifies that the pointer or index type width is 32, then
+    static indices should be convertible to i32 losslessly.
+  }];
+
+  let arguments =  (ins
+    Variadic<Executor_Index>:$dynamicIndices,
+    DenseI64ArrayAttr:$staticIndices,
+    TypeAttr:$elem_type);
+
+  let results = (outs Executor_Index:$result);
+  let builders = [
+    OpBuilder<(ins "Type":$resultType, "Type":$elementType,
+      "ArrayRef<OpFoldResult>":$indices)>
+  ];
+
+  let assemblyFormat = [{
+    `[` custom<ExecutorMixedIndices>($dynamicIndices, $staticIndices) `]` attr-dict
+    `:` functional-type(operands, results) `,` $elem_type
+  }];
+
+  let extraClassDeclaration = [{
+    SmallVector<OpFoldResult> getIndices();
+  }];
+  let hasFolder = 1;
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// Memory Ops
+//===----------------------------------------------------------------------===//
+
+def Executor_UndefinedOp : Executor_Op<"undef", [Pure]> {
+  let summary = "produces an undefined value";
+
+  let description = [{
+
+    The `executor.undefined` operation produces a value whose binary
+    storage representation (of the correct size for the scalar or fixed size
+    aggregate) contains undefined data, and therefore may contain any possible
+    bit pattern
+
+    Current support for lowering `executor.undefined` is very limited. It
+    is only created at intermediate stages (e.g. to support mem2reg transform,
+    and translation to certain targets like the Lua interpreter will yield
+    an error if the IR contains lingering `undef` values).
+
+    See also [discussion on LLVM's undef](https://llvm.org/docs/LangRef.html#undefined-values)
+    values for background on why this op exists and ideas for what we can
+    do with it in the future.
+  }];
+
+  let results = (outs AnyTypeOf<[
+    Executor_Integer, Executor_Float, Executor_Table, Executor_Ptr]>:$result);
+  let assemblyFormat = "attr-dict `:` type($result)";
+}
+
+def Executor_AllocaOp : Executor_Op<"alloca", [
+      DeclareOpInterfaceMethods<PromotableAllocationOpInterface>,
+]> {
+  let summary = "block-scoped temporary allocation";
+
+  let description = [{
+    The `executor.alloca` operation allocates temporary memory to be
+    automatically released when control transfers back from the region of its
+    closest surrounding operation with an
+    [`AutomaticAllocationScope`](../Traits.md/#automaticallocationscope) trait.
+
+    The size of the allocation is specified by giving the element type and
+    number of elements of an array which it must be large enough to hold.
+    Once allocated, the size of the allocation cannot change.
+
+    An optional alignment can be specified, the alignment is implicitly
+    interpreted as the DataLayout-specified ABI alignment for the
+    `element_type`.
+  }];
+
+  let arguments = (ins Executor_Index:$num_elements,
+                       OptionalAttr<UI32Attr>:$alignment,
+                       TypeAttr:$element_type);
+  let results = (outs Res<Executor_HostPtr, "",
+                          [MemAlloc<AutomaticAllocationScopeResource>]>:$result);
+  let hasVerifier = 1;
+  let assemblyFormat = [{
+    $num_elements `x` $element_type (`align` `(` $alignment^ `)`)?
+      attr-dict `:` functional-type(operands, results)
+  }];
+}
+
+def Executor_AllocateOp : Executor_Op<"alloc", [Executor_LowerToFuncCallTrait]> {
+  let description = [{
+    `executor.alloc` performs an allocation of `num_bytes` using the given
+    allocation. It returns an opaque pointer representing the allocation.
+    The caller must also specify `alignment`.
+
+    Backends/runtimes impleemnting this operation may automatically round up
+    `num_bytes` to the next multiple of the `alignment`. `num_bytes` should
+    be a power of two.
+  }];
+  let arguments = (ins Executor_Index:$num_bytes, Executor_Index:$alignment);
+  let results = (outs Executor_Ptr:$result);
+  let assemblyFormat = [{
+    attr-dict $num_bytes `bytes` `align` `(` $alignment `)` `:` functional-type(operands, results)
+  }];
+  let hasVerifier = 1;
+}
+
+def Executor_AllocateHostPinnedOp : Executor_Op<"alloc_host_pinned", [
+      DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getTypesForNameSuffix"]>
+]> {
+  let description = [{
+    The `executor.alloc_host_pinned` op performs a synchronous allocation of
+    `num_bytes` of host-pinned memory. The actual allocation size may be larger;
+    this is decided by the underlying runtime allocator object.
+  }];
+
+  let arguments = (ins Executor_Index:$num_bytes);
+
+  let results = (outs Executor_HostPinnedPtr:$result);
+
+  let assemblyFormat = [{
+    attr-dict $num_bytes `bytes` `:` functional-type(operands, results)
+  }];
+
+  let extraClassDefinition = [{
+    SmallVector<Type> $cppClass::getTypesForNameSuffix(){
+      return {};
+    }
+  }];
+}
+
+def Executor_DeallocateOp : Executor_Op<"dealloc", [
+  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getRuntimeBuiltinFunctionType"]>
+]> {
+  let arguments = (ins Executor_Ptr:$ptr);
+  let assemblyFormat = [{
+    attr-dict $ptr `:` type($ptr)
+  }];
+   let extraClassDefinition = [{
+    ExecutorFunctionType $cppClass::getRuntimeBuiltinFunctionType(TypeRange results,
+                TypeRange operands) {
+      auto *ctx = (*this)->getContext();
+      return ExecutorFunctionType::get(
+            ctx, {}, {}, UnitAttr::get(ctx));
+    }
+  }];
+}
+
+def Executor_LoadOp : Executor_Op<"load", [
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
+  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, [
+    "getRuntimeBuiltinFunctionType", "lowerToCall"]>
+]> {
+  let description = [{
+    `executor.load` loads `result` from the memory location given by `ptr +
+    offset`. The offset is in terms of bytes.
+  }];
+  let arguments = (ins Executor_Ptr:$ptr, Executor_Index:$offset);
+  let results = (outs AnyTypeOf<[Executor_Integer, Executor_Float, Executor_Table, Executor_Ptr]>:$result);
+
+  let assemblyFormat = [{
+    attr-dict $ptr `+` $offset `:` functional-type(operands, results)
+  }];
+
+  let extraClassDefinition = [{
+    /// Specify the function type. Different pointer types can be used, so treat as variadic.
+    /// TODO: fix this when we have `!executor.any_ptr`.
+    ExecutorFunctionType
+    $cppClass::getRuntimeBuiltinFunctionType(TypeRange results, TypeRange operands) {
+      auto *ctx = (*this)->getContext();
+      return ExecutorFunctionType::get(
+            ctx, {}, llvm::to_vector(results), UnitAttr::get(ctx));
+    }
+  }];
+}
+
+def Executor_StoreOp : Executor_Op<"store", [
+  DeclareOpInterfaceMethods<PromotableMemOpInterface>,
+  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, [
+    "getRuntimeBuiltinFunctionType", "getTypesForNameSuffix"]>
+]> {
+  let description = [{
+    `executor.store` stores `value` to the memory location given by `ptr +
+    offset`. The offset is in terms of bytes.
+  }];
+  let arguments = (ins
+    Executor_Ptr:$ptr,
+    Executor_Index:$offset,
+    AnyTypeOf<[Executor_Ptr, Executor_Integer, Executor_Float, Executor_Table]>:$value);
+
+  let assemblyFormat = [{
+    attr-dict $value `to` $ptr `+` $offset
+     `:` type($value) `,` qualified(type($ptr)) `,` type($offset)
+  }];
+
+  let extraClassDefinition = [{
+    /// Specify the function type. Different pointer types can be used, so treat as variadic.
+    /// TODO: fix this when we have `!executor.any_ptr`.
+    ExecutorFunctionType
+    $cppClass::getRuntimeBuiltinFunctionType(TypeRange results, TypeRange operands) {
+      auto *ctx = (*this)->getContext();
+      return ExecutorFunctionType::get(
+            ctx, {}, llvm::to_vector(results), UnitAttr::get(ctx));
+    }
+
+    SmallVector<Type>
+    $cppClass::getTypesForNameSuffix() {
+      return {getValue().getType()};
+    }
+  }];
+}
+
+def Executor_MemcpyOp : Executor_Op<"memcpy", [Executor_LowerToFuncCallTrait,
+  AllTypesMatch<["src_offset", "dest_offset", "num_bytes"]>
+]> {
+  let description = [{
+    `executor.memcpy` copies `num_bytes` bytes from `source` to `dest`. Both
+    buffers must be host memory buffers.
+  }];
+  let arguments = (ins Executor_HostVisiblePtr:$src,
+                       Executor_Index:$src_offset,
+                       Executor_HostVisiblePtr:$dest,
+                       Executor_Index:$dest_offset,
+                       Executor_Index:$num_bytes);
+  let assemblyFormat = [{
+    attr-dict $src `+` $src_offset `to` $dest `+` $dest_offset `size` $num_bytes
+     `:` type(operands)
+  }];
+}
+
+def Executor_StridedMemrefCopyOp : Executor_Op<"strided_memref_copy", [
+  DeclareOpInterfaceMethods<RuntimeBuiltinInterface, ["getRuntimeBuiltinFunctionType"]>
+]> {
+  let description = [{
+    Executes a copy from `src` to `dest` where `src` and `dest` may be
+    strided memrefs (with potentially different strides, but of the same shape).
+  }];
+  let arguments = (ins Executor_Index:$rank, Executor_Index:$elem_size,
+                       Variadic<Executor_AnyType>:$memrefs);
+  let assemblyFormat = [{
+    attr-dict `(` operands `)`
+     `:` type(operands)
+  }];
+
+  let extraClassDefinition = [{
+    ExecutorFunctionType $cppClass::getRuntimeBuiltinFunctionType(TypeRange results,
+                TypeRange operands) {
+      auto *ctx = (*this)->getContext();
+      return ExecutorFunctionType::get(
+            ctx,
+            llvm::to_vector(operands.take_front(2)),
+            {}, UnitAttr::get(ctx));
+    }
+  }];
+}
+
+//===----------------------------------------------------------------------===//
+// Pointer<->Int Cast Ops
+//===----------------------------------------------------------------------===//
+
+class Executor_PointerCastOp <string mnemonic, list<Trait> traits = []> :
+  Executor_Op<mnemonic,
+      !listconcat(traits, [Pure, DeclareOpInterfaceMethods<RuntimeBuiltinInterface,
+        ["getRuntimeBuiltinFunctionName"]>])> {
+  let assemblyFormat = [{
+    attr-dict $arg `:` functional-type(operands, results)
+  }];
+}
+
+def Executor_PtrToIntOp : Executor_PointerCastOp<"ptrtoint"> {
+  let arguments = (ins Executor_Ptr:$arg);
+  let results = (outs Executor_Index:$result);
+  let extraClassDefinition = [{
+    FailureOr<std::string>
+    $cppClass::getRuntimeBuiltinFunctionName(const DataLayout &dataLayout) {
+      std::string result;
+      llvm::raw_string_ostream ss(result);
+      uint64_t ptrWidth = dataLayout.getTypeSizeInBits(getArg().getType());
+      ss << "_ptrtoint_i" << ptrWidth
+         << "_" << getType();
+      ss.flush();
+      return result;
+    }
+  }];
+}
+
+def Executor_IntToPtrOp : Executor_PointerCastOp<"inttoptr"> {
+  let arguments = (ins Executor_Index:$arg);
+  let results = (outs Executor_Ptr:$result);
+  let extraClassDefinition = [{
+    /// Specify the function type. Different pointer types can be used, so treat as variadic.
+    FailureOr<std::string>
+    $cppClass::getRuntimeBuiltinFunctionName(const DataLayout &dataLayout) {
+      std::string result;
+      uint64_t ptrWidth = dataLayout.getTypeSizeInBits(getType());
+      llvm::raw_string_ostream ss(result);
+      ss << "_inttoptr_i" << ptrWidth
+         << "_" << getArg().getType();
+      ss.flush();
+      return result;
+    }
+  }];
+}
+
+#endif // MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD

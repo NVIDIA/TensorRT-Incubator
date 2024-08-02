@@ -1,0 +1,151 @@
+//===- MathToExecutor.pdll -------------------------------------*- PDLL -*-===//
+//
+// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//===----------------------------------------------------------------------===//
+// PDLL rewrites for Math dialect to Executor dialect.
+//===----------------------------------------------------------------------===//
+#include "mlir/Dialect/Math/IR/MathOps.td"
+#include "mlir-executor/Executor/IR/ExecutorOps.td"
+#include "mlir/Transforms/DialectConversion.pdll"
+
+Pattern =>
+  replace op<math.absf>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.absf>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.cbrt>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.cbrt>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.ceil>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.ceil>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.cos>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.cos>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.erf>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.erf>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.exp>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.exp>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.exp2>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.exp2>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.expm1>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.expm1>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.floor>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.floor>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.log>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.log>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.log10>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.log10>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.log1p>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.log1p>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.log2>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.log2>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.negf>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.negf>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.sin>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.sin>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.sqrt>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.sqrt>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.tan>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.tan>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.tanh>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.tanh>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.round>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.round>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.absi>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.absi>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<math.copysign>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.copysign>(convertValues(args)) -> (convertTypes(results));
+Pattern =>
+  replace op<math.atan2>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.atan2>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.extf>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.extf>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.truncf>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.truncf>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.extui>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.zext>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.extsi>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.siext>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.trunci>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.trunc>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.minsi>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.smin>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.maxsi>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.smax>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.minimumf>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.fmin>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.maximumf>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.fmax>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.remsi>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.sremi>(convertValues(args)) -> (convertTypes(results));

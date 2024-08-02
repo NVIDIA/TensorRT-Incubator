@@ -1,0 +1,124 @@
+"""Copyright (c) 2024 NVIDIA CORPORATION. All rights reserved.
+
+This file contains functions and a CLI implementation for querying available
+GPUs, selecting a GPU for running a test workload, and estimating the number of
+tests which should be allowed to run in parallel.
+"""
+
+from contextlib import contextmanager
+from typing import List, Tuple
+
+import click
+import numpy as np
+from pynvml import *
+
+
+def get_uniform_devices() -> List[int]:
+    """Returns a list of device IDs matching the highest SM version
+    of all devices on the system.
+    """
+    deviceCount = nvmlDeviceGetCount()
+    sm_versions = []
+    for i in range(deviceCount):
+        handle = nvmlDeviceGetHandleByIndex(i)
+        cc = nvmlDeviceGetCudaComputeCapability(handle)
+        sm_versions.append(float(f"{cc[0]}.{cc[1]}"))
+    sm_versions = np.asarray(sm_versions)
+    max_version = sm_versions.max()
+    if not np.all(sm_versions == max_version):
+        return np.flatnonzero(sm_versions == max_version).tolist()
+    return list(x for x in range(deviceCount))
+
+
+def get_sm_version() -> Tuple[int, int]:
+    """Returns the largest/latest SM version among all devices on the host."""
+    deviceCount = nvmlDeviceGetCount()
+    version = (0, 0)
+    for i in range(deviceCount):
+        handle = nvmlDeviceGetHandleByIndex(i)
+        cc = nvmlDeviceGetCudaComputeCapability(handle)
+        cc = (cc[0], cc[1])
+        if cc > version:
+            version = cc
+    return version
+
+
+@contextmanager
+def nvml_context(*args, **kwargs):
+    """A context manager that handles NVML init and shutdown. Yields the
+    uniform devices list when entered into.
+    """
+    nvmlInit()
+    try:
+        devices = get_uniform_devices()
+        yield devices
+    finally:
+        nvmlShutdown()
+
+
+def get_stats(devices: List[int]) -> Tuple[List[float], List[float], List[float]]:
+    """Returns lists of available memory, GPU utilization rate, and GPU memory utilization rate"""
+    avail_mem_gb = []
+    gpu_rates = []
+    mem_rates = []
+    for i in devices:
+        handle = nvmlDeviceGetHandleByIndex(i)
+        info = nvmlDeviceGetMemoryInfo(handle)
+        avail_mem_gb.append(float(info.free) / (1024.0 * 1024.0 * 1024.0))
+        util_rates = nvmlDeviceGetUtilizationRates(handle)
+        gpu_rates.append(util_rates.gpu)
+        mem_rates.append(util_rates.memory)
+    return avail_mem_gb, gpu_rates, mem_rates
+
+
+def select_device(devices: List[int]) -> int:
+    """Selects the device (that is among those with the highest SM version
+    if SM versions are not uniform) that has the most available GPU memory.
+    """
+    avail_mem_gb, _, _ = get_stats(devices)
+
+    # All devices have same SM version.
+    # Check utilization rates.
+    max_mem = int(np.argmax(avail_mem_gb))
+    return max_mem
+
+
+def estimate_parallelism_from_memory(devices: List[int], required_mem: float) -> int:
+    """Retrieves the sum total of free GPU memory across eligible devices and
+    divides by the required GB of GPU memory for a workload to yield the estimated
+    number of (single device) workloads that should be OK to run in parallel without
+    exhausting the available memory.
+    """
+    mem_gb, _, _ = get_stats(devices)
+    avail_gb = sum(mem_gb)
+    return int(avail_gb / required_mem)
+
+
+def has_fp8_support():
+    """Returns True if the devices support FP8"""
+    return get_sm_version() >= (8, 9)
+
+
+@click.group()
+def cli():
+    pass
+
+
+@cli.command("pick-device")
+def pick_device():
+    with nvml_context() as devices:
+        print(select_device(devices))
+    return
+
+
+@cli.command("get-parallelism")
+@click.option(
+    "--required-mem", help="required GPU memory in GB", default=1.0, type=click.FLOAT
+)
+def get_parallelism(required_mem: float):
+    with nvml_context() as devices:
+        print(estimate_parallelism_from_memory(devices, required_mem))
+
+
+if __name__ == "__main__":
+    cli()
