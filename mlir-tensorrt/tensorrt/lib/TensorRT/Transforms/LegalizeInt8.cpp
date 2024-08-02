@@ -58,7 +58,7 @@ static std::pair<DequantizeOp, QuantizeOp> addIdentityQDQ(OpBuilder &rewriter,
       loc, DenseElementsAttr::get(
                RankedTensorType::get({1}, rewriter.getF32Type()), 1.0f));
   RankedTensorType dqType =
-      RankedTensorType::Builder(int8Value.getType().cast<RankedTensorType>())
+      RankedTensorType::Builder(cast<RankedTensorType>(int8Value.getType()))
           .setElementType(rewriter.getF32Type());
   auto dequantizeOp = rewriter.create<DequantizeOp>(loc, dqType, int8Value,
                                                     scale, IntegerAttr());
@@ -82,7 +82,7 @@ static mlir::LogicalResult addDummyQDQNodes(RewriterBase &rewriter,
   rewriter.setInsertionPointToStart(body);
 
   auto hasInt8ElType = [](Type t) {
-    return isTensorRTInt8Type(t.cast<TensorType>().getElementType());
+    return isTensorRTInt8Type(cast<TensorType>(t).getElementType());
   };
   bool hasInt8Args = llvm::any_of(op.getArgumentTypes(), hasInt8ElType);
   bool hasInt8Results = llvm::any_of(op.getResultTypes(), hasInt8ElType);

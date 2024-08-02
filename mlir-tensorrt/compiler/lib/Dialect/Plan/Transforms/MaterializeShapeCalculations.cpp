@@ -568,8 +568,8 @@ struct ResolveDimOfInferShapedTypePattern
 
     assert(reifiedResultShapes.size() == shapedTypeOp->getNumResults() &&
            "expected equal number of result types");
-    Value resultShape = reifiedResultShapes
-        [dimOp.getSource().cast<OpResult>().getResultNumber()];
+    Value resultShape = reifiedResultShapes[cast<OpResult>(dimOp.getSource())
+                                                .getResultNumber()];
     auto resultShapeType = dyn_cast<RankedTensorType>(resultShape.getType());
     if (!resultShapeType ||
         !isa<IntegerType, IndexType>(resultShapeType.getElementType()))

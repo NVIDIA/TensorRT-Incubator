@@ -84,7 +84,7 @@ static FailureOr<BroadcastOp> exchangeCollapseRankAndBroadcast(
 
   Type newCollapseShapeType =
       RankedTensorType::Builder(
-          bcastOp.getInput().getType().cast<RankedTensorType>())
+          cast<RankedTensorType>(bcastOp.getInput().getType()))
           .setShape(bcastInputShape);
 
   Value newBcastInput = rewriter.create<CollapseRankOp>(
@@ -132,7 +132,7 @@ struct SimplifyBroadcast : public OpRewritePattern<BroadcastOp> {
     Location loc = op.getLoc();
     auto perm = op.getBroadcastDimsPermutation();
     TensorValue input = op.getInput();
-    auto resultType = op.getResult().getType().cast<RankedTensorType>();
+    auto resultType = cast<RankedTensorType>(op.getResult().getType());
 
     if (perm.isIdentity() && resultType.getRank() == input.getType().getRank())
       return failure();

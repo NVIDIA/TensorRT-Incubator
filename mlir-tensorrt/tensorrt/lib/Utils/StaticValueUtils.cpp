@@ -26,7 +26,7 @@ using namespace mlir;
 
 std::optional<DenseResourceElementsHandle>
 mlir::getElidedResourceElementsAttr(ElementsAttr attr) {
-  auto denseResourceAttr = attr.dyn_cast<DenseResourceElementsAttr>();
+  auto denseResourceAttr = dyn_cast<DenseResourceElementsAttr>(attr);
   if (!denseResourceAttr)
     return std::nullopt;
   DenseResourceElementsHandle handle = denseResourceAttr.getRawHandle();

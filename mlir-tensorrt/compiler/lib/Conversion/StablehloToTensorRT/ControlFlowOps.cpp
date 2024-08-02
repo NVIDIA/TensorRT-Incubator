@@ -118,7 +118,7 @@ struct ConvertCaseOp : public ConvertHloOpToTensorRTPattern<stablehlo::CaseOp> {
       if (!isa_and_nonnull<tensorrt::IdentityOp, stablehlo::ConvertOp>(op))
         return false;
       RankedTensorType producerType =
-          op->getOperand(0).getType().cast<RankedTensorType>();
+          cast<RankedTensorType>(op->getOperand(0).getType());
       return isa_and_nonnull<tensorrt::IdentityOp, stablehlo::ConvertOp>(op) &&
              producerType.getElementType().isInteger(1) &&
              producerType.getNumElements() == 1;

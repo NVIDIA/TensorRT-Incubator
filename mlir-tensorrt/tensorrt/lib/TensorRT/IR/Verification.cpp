@@ -268,8 +268,8 @@ LogicalResult tensorrt::NormalizationOp::verify() {
 }
 
 LogicalResult tensorrt::ExpandRankOp::verify() {
-  auto inputType = getInput().getType().cast<RankedTensorType>();
-  auto resultType = getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(getInput().getType());
+  auto resultType = cast<RankedTensorType>(getType());
   if (inputType.getRank() > resultType.getRank())
     return emitOpError(
         "result rank should be greater than or equal to input rank");
@@ -288,8 +288,8 @@ LogicalResult tensorrt::ExpandRankOp::verify() {
 }
 
 LogicalResult tensorrt::CollapseRankOp::verify() {
-  auto inputType = getInput().getType().cast<RankedTensorType>();
-  auto resultType = getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(getInput().getType());
+  auto resultType = cast<RankedTensorType>(getType());
   const int64_t inputRank = inputType.getRank();
   const int64_t resultRank = resultType.getRank();
   if (inputRank < resultRank)
@@ -430,7 +430,7 @@ LogicalResult tensorrt::ConvolutionOp::verify() {
     ArrayRef<int64_t> kernelShape =
         getKernelStatic().has_value()
             ? getKernelStaticAttr().getShapedType().getShape()
-            : getKernel().getType().cast<RankedTensorType>().getShape();
+            : cast<RankedTensorType>(getKernel().getType()).getShape();
 
     if (getInput().getType().getDimSize(1) % getNumGroups() != 0 ||
         kernelShape[0] % getNumGroups() != 0)
@@ -542,7 +542,7 @@ LogicalResult tensorrt::SoftMaxOp::verify() {
 } // LogicalResult tensorrt::SoftMaxOp::verify()
 
 LogicalResult tensorrt::ConcatenationOp::verify() {
-  auto input0Type = getInputs()[0].getType().cast<RankedTensorType>();
+  auto input0Type = cast<RankedTensorType>(getInputs()[0].getType());
   int64_t input0Rank = input0Type.getRank();
 
   auto concatAxis = getAxis();
@@ -553,7 +553,7 @@ LogicalResult tensorrt::ConcatenationOp::verify() {
   // for concat axis dimension).
   SmallVector<SmallVector<uint32_t>> inputDimensions;
   for (size_t i = 1; i < getInputs().size(); ++i) {
-    auto curInputType = getInputs()[i].getType().cast<RankedTensorType>();
+    auto curInputType = cast<RankedTensorType>(getInputs()[i].getType());
     auto curInputRank = curInputType.getRank();
     if (curInputRank != input0Rank)
       return emitOpError("input rank at input[")
@@ -618,8 +618,8 @@ static LogicalResult verifyElementWiseDataTypes(ElementWiseOp op) {
   ElementWiseOperation opType = op.getElementwiseOperation();
 
   SmallVector<Type, 2> inputElementTypes{
-      op.getInput1().getType().cast<RankedTensorType>().getElementType(),
-      op.getInput2().getType().cast<RankedTensorType>().getElementType()};
+      cast<RankedTensorType>(op.getInput1().getType()).getElementType(),
+      cast<RankedTensorType>(op.getInput2().getType()).getElementType()};
   Type resultElType = op.getType().getElementType();
 
   // Lambda returns true if the given type is an i1 (bool).
@@ -823,9 +823,9 @@ LogicalResult tensorrt::OneHotOp::verify() {
 LogicalResult tensorrt::MatrixMultiplyOp::verify() {
   // MatrixMultiply impl start
   Value input0 = this->getInput0();
-  auto input0Type = input0.getType().cast<RankedTensorType>();
+  auto input0Type = cast<RankedTensorType>(input0.getType());
   Value input1 = this->getInput1();
-  auto input1Type = input1.getType().cast<RankedTensorType>();
+  auto input1Type = cast<RankedTensorType>(input1.getType());
   if (input0Type.getRank() == 1 || input1Type.getRank() == 1) {
     if (input0Type.getRank() == 1 && this->getOp0() != MatrixOperation::kVECTOR)
       return emitOpError("Input 0 has rank one. Expected TRT MatOp kVCETOR ");
@@ -1301,7 +1301,7 @@ bool hasElementType(TensorType t, Callable... funcs) {
 /// into separate ops.
 static LogicalResult verifyAllowedDataTypes(UnaryOp op) {
   // TensorRT unary op doesn't accept scalar.
-  if (op.getInput().getType().cast<RankedTensorType>().getRank() == 0)
+  if (cast<RankedTensorType>(op.getInput().getType()).getRank() == 0)
     return op->emitOpError("TensorRT Unary ops need at least 1D input");
 
   // Names of the lambdas appear in the error message using the macro below.

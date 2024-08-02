@@ -52,7 +52,7 @@ stablehloReshapeScatterUpdatesToAddInsertedDims(OpBuilder &b, Location loc,
   assert(indexDepth >= 1 && "expected non-zero index depth");
   const size_t numScatterBatchDims = 1;
   RankedTensorType updateType =
-      updates.front().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(updates.front().getType());
   const int64_t currUpdateSliceRank =
       updateType.getRank() - numScatterBatchDims;
   const int64_t expectedUpdateSliceRank = inputRank - indexDepth;
@@ -93,17 +93,17 @@ stablehloReshapeScatterUpdatesToAddInsertedDims(OpBuilder &b, Location loc,
 
 bool tensorrt::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
   if (llvm::any_of(scatterOp.getOperandTypes(), [](Type operandType) {
-        return !operandType.isa<RankedTensorType>();
+        return !isa<RankedTensorType>(operandType);
       }))
     return false;
   stablehlo::ScatterDimensionNumbersAttr dimsAttrs =
       scatterOp.getScatterDimensionNumbers();
   auto indicesType =
-      scatterOp.getScatterIndices().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(scatterOp.getScatterIndices().getType());
   auto operandType =
-      scatterOp.getInputs().front().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(scatterOp.getInputs().front().getType());
   auto updateType =
-      scatterOp.getUpdates().front().getType().cast<RankedTensorType>();
+      cast<RankedTensorType>(scatterOp.getUpdates().front().getType());
   auto isSeq = [](ArrayRef<int64_t> ar, int64_t start, int64_t end) {
     return llvm::equal(ar, llvm::seq<int64_t>(start, end));
   };
@@ -136,9 +136,9 @@ struct StablehloCanonicalizeScatterToTensorRtScatterNdFormat
       return failure();
 
     RankedTensorType canonicalizedInputType =
-        op.getInputs().front().getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(op.getInputs().front().getType());
     RankedTensorType canonicalizedIndexType =
-        op.getScatterIndices().getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(op.getScatterIndices().getType());
 
     LLVM_DEBUG(DBGS() << "canonicalizing " << op << "\n");
 
@@ -153,7 +153,7 @@ struct StablehloCanonicalizeScatterToTensorRtScatterNdFormat
 
     // Create the new scatter op.
     auto canonicalizedUpdatesType =
-        canonicalizedUpdates->front().getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(canonicalizedUpdates->front().getType());
     assert(((canonicalizedInputType.getRank() - indexDepth) +
             (canonicalizedIndexType.getRank() - 1)) ==
                canonicalizedUpdatesType.getRank() &&
@@ -192,7 +192,7 @@ struct RewriteArithConstToStablehlo
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(arith::ConstantOp op,
                                 PatternRewriter &rewriter) const override {
-    if (!op.getType().isa<RankedTensorType>())
+    if (!isa<RankedTensorType>(op.getType()))
       return failure();
     rewriter.replaceOpWithNewOp<stablehlo::ConstantOp>(
         op, op.getType(), cast<ElementsAttr>(op.getValueAttr()));

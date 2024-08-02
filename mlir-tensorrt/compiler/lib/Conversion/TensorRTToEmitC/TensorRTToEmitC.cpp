@@ -344,7 +344,7 @@ LogicalResult EmitCConverter::encodeRegion(OpBuilder &b, Region &region) {
 
 static bool isElided(ElementsAttr elementsAttr) {
   if (auto denseResourceAttr =
-          elementsAttr.dyn_cast<DenseResourceElementsAttr>()) {
+          dyn_cast<DenseResourceElementsAttr>(elementsAttr)) {
     DenseResourceElementsHandle handle = denseResourceAttr.getRawHandle();
     if (handle.getKey() == "__elided__")
       return true;
@@ -372,7 +372,7 @@ Value EmitCConverter::getNvInferWeights(OpBuilder &b, Location loc,
                                         ElementsAttr weights) {
   assert(weightsMap && "expected weightsMap to be a valid Value");
   MLIRContext *ctx = b.getContext();
-  RankedTensorType type = weights.getType().cast<RankedTensorType>();
+  RankedTensorType type = cast<RankedTensorType>(weights.getType());
   static unsigned constCount = 0;
   std::string name = "c" + std::to_string(constCount++);
 
@@ -422,7 +422,7 @@ Value EmitCConverter::lookup(OpBuilder &b, Value v) {
   // Pass through non-Tensor types. Otherwise, we should remap them to the
   // appropriate Values that represent ITensor pointer values in the EmitC
   // dialect.
-  if (!v.getType().isa<RankedTensorType>())
+  if (!isa<RankedTensorType>(v.getType()))
     return v;
   assert(valueMap.count(v) > 0 && "expected value to be remapped");
   return valueMap.lookup(v);
@@ -508,10 +508,9 @@ static emitc::CallOpaqueOp dispatchLayerBuilderCall(OpBuilder &b,
         .build(b, loc, e);
   }
   if (auto reduceOp = dyn_cast<ReduceOp>(op.getOperation())) {
-    auto mode =
-        COpaqueAttr::get(ctx, reduceOp.getReduceOperationAttr()
-                                  .cast<tensorrt::TensorRTEnumAttrInterface>()
-                                  .getNvInferEnumValueStr());
+    auto mode = COpaqueAttr::get(ctx, cast<tensorrt::TensorRTEnumAttrInterface>(
+                                          reduceOp.getReduceOperationAttr())
+                                          .getNvInferEnumValueStr());
     return call.pushOperand(reduceOp.getInput())
         .pushOperand(reduceOp.getKeepDimensionsAttr())
         .pushDimensionListAsBitMask(reduceOp.getReduceAxes())
@@ -529,25 +528,25 @@ static emitc::CallOpaqueOp dispatchLayerBuilderCall(OpBuilder &b,
   // compile-time constant values like nvinfer Dims/Weights/enums.
   for (NamedAttribute namedAttr : op->getAttrs()) {
     Attribute attr = namedAttr.getValue();
-    if (auto dimArray = attr.dyn_cast<DenseI64ArrayAttr>()) {
+    if (auto dimArray = dyn_cast<DenseI64ArrayAttr>(attr)) {
       call.pushNvInferDims(dimArray.asArrayRef());
       continue;
     }
-    if (auto dimArray = attr.dyn_cast<DenseI32ArrayAttr>()) {
+    if (auto dimArray = dyn_cast<DenseI32ArrayAttr>(attr)) {
       call.pushNvInferDims(dimArray.asArrayRef());
       continue;
     }
-    if (auto typeAttr = attr.dyn_cast<TypeAttr>()) {
+    if (auto typeAttr = dyn_cast<TypeAttr>(attr)) {
       call.pushNvInferDataType(typeAttr.getValue());
       continue;
     }
-    if (auto elAttr = attr.dyn_cast<ElementsAttr>()) {
+    if (auto elAttr = dyn_cast<ElementsAttr>(attr)) {
       call.pushOperand(e.getNvInferWeights(b, loc, elAttr));
       continue;
     }
 
     if (auto trtEnumAttr =
-            attr.dyn_cast<tensorrt::TensorRTEnumAttrInterface>()) {
+            dyn_cast<tensorrt::TensorRTEnumAttrInterface>(attr)) {
       call.pushOperand(
           COpaqueAttr::get(ctx, trtEnumAttr.getNvInferEnumValueStr()));
       continue;
@@ -590,7 +589,7 @@ LogicalResult EmitCConverter::encodeFunc(OpBuilder &b,
 
   // Add the inputs to the builder.
   for (auto [idx, argType] : llvm::enumerate(func.getArgumentTypes())) {
-    auto rtt = argType.dyn_cast<RankedTensorType>();
+    auto rtt = dyn_cast<RankedTensorType>(argType);
     if (!rtt)
       return failure();
     std::string argName = "input_" + std::to_string(idx);
@@ -686,7 +685,7 @@ static FailureOr<func::FuncOp> createEmitCTesterOp(ModuleOp moduleOp,
   // Set shape profiles, if required.
   // Add the inputs to the builder.
   for (auto [idx, argType] : llvm::enumerate(op.getArgumentTypes())) {
-    RankedTensorType type = argType.dyn_cast<RankedTensorType>();
+    RankedTensorType type = dyn_cast<RankedTensorType>(argType);
     if (!type)
       return failure();
 

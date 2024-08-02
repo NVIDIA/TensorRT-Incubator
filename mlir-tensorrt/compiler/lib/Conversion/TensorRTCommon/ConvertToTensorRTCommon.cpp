@@ -108,7 +108,7 @@ std::optional<Type> TensorRTTypeConverter::convertTensorType(TensorType type) {
   if (isLegalTensorType(type))
     return type;
 
-  auto rtt = type.cast<RankedTensorType>();
+  auto rtt = cast<RankedTensorType>(type);
   Type i32Type = IntegerType::get(type.getContext(), 32);
 
   // Handle i64 depending on options.
@@ -137,7 +137,7 @@ ConvertToTensorRTPattern::castTensor(RewriterBase &rewriter,
   if (newElementType == src.getType().getElementType())
     return src;
   Type newType =
-      RankedTensorType::Builder(src.getType().cast<RankedTensorType>())
+      RankedTensorType::Builder(cast<RankedTensorType>(src.getType()))
           .setElementType(newElementType);
   return rewriter.create<tensorrt::IdentityOp>(src.getLoc(), newType, src)
       .getResult();

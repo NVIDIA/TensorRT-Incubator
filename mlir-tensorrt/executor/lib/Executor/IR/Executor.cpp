@@ -149,17 +149,17 @@ static LogicalResult
 checkAttributeType(ArrayRef<Type> types, ArrayRef<Attribute> bounds,
                    function_ref<InFlightDiagnostic()> emitError) {
   for (unsigned i = 0; i < types.size(); ++i) {
-    if (auto dimensionBounds = bounds[i].dyn_cast<DimensionBoundsAttr>()) {
+    if (auto dimensionBounds = dyn_cast<DimensionBoundsAttr>(bounds[i])) {
       if (failed(
               checkDimensionBoundsAttr(types[i], dimensionBounds, emitError)))
         return emitError() << "Unsupported DimensionBoundsAttr";
     }
-    if (auto valueBounds = bounds[i].dyn_cast<ValueBoundsAttr>()) {
+    if (auto valueBounds = dyn_cast<ValueBoundsAttr>(bounds[i])) {
       if (failed(checkValueBoundsAttr(types[i], valueBounds, emitError)))
         return emitError() << "Unsupported ValueBoundsAttr";
     }
-    if (!bounds[i].isa<UnitAttr>() && !bounds[i].isa<DimensionBoundsAttr>() &&
-        !bounds[i].isa<ValueBoundsAttr>())
+    if (!isa<UnitAttr>(bounds[i]) && !isa<DimensionBoundsAttr>(bounds[i]) &&
+        !isa<ValueBoundsAttr>(bounds[i]))
       return emitError() << "Unsupported attribute type";
   }
   return success();
@@ -196,7 +196,7 @@ void printTypesWithBoundsAttrs(AsmPrinter &printer, ArrayRef<Type> types,
       printer.getStream() << ", ";
     types[i].print(printer.getStream());
     // Skip UnitAttr which depict a NoneType.
-    if (!attrs[i].isa<UnitAttr>()) {
+    if (!isa<UnitAttr>(attrs[i])) {
       printer.getStream() << " {";
       attrs[i].print(printer.getStream());
       printer.getStream() << "}";
@@ -592,7 +592,7 @@ LogicalResult executor::ConstantOp::verify() {
       !llvm::cast<IntegerType>(type).isSignless())
     return emitOpError("integer return type must be signless");
   // Only int/float or ElementsAttr are allowed.
-  if (!getValue().isa<IntegerAttr, FloatAttr, ElementsAttr>())
+  if (!isa<IntegerAttr, FloatAttr, ElementsAttr>(getValue()))
     return emitOpError(
         "value must be an integer, float, or elements attribute");
   return success();
@@ -868,7 +868,7 @@ verifyStructIndices(Type baseGEPType, unsigned indexPos,
 
   return TypeSwitch<Type, LogicalResult>(baseGEPType)
       .Case<TableType>([&](TableType structType) -> LogicalResult {
-        auto indexAttr = indices[indexPos].dyn_cast<Attribute>();
+        auto indexAttr = dyn_cast<Attribute>(indices[indexPos]);
         if (!indexAttr)
           return emitOpError() << "expected index " << indexPos
                                << " indexing a struct to be constant";
@@ -910,7 +910,7 @@ OpFoldResult GetOffsetOp::fold(FoldAdaptor adaptor) {
   // executor.gep [0] -> 0
   if (indices.size() == 1)
     if (auto integer = llvm::dyn_cast_or_null<IntegerAttr>(
-            indices[0].dyn_cast<Attribute>()))
+            dyn_cast<Attribute>(indices[0])))
       if (integer.getValue().isZero())
         return IntegerAttr::get(getType(), 0);
 

@@ -41,7 +41,7 @@ struct ConvertChloErfToTensorRT
                   ConversionPatternRewriter &rewriter) const override {
     Location loc = op->getLoc();
     auto operand = adaptor.getOperand();
-    auto operandType = operand.getType().cast<RankedTensorType>();
+    auto operandType = cast<RankedTensorType>(operand.getType());
     Type resultType = typeConverter->convertType(op.getType());
     if (!resultType)
       return failure();
@@ -74,7 +74,7 @@ struct ConvertChloTopKOpToTensorRT
   matchAndRewrite(chlo::TopKOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto operand = adaptor.getOperand();
-    RankedTensorType operandType = operand.getType().cast<RankedTensorType>();
+    RankedTensorType operandType = cast<RankedTensorType>(operand.getType());
 
     int64_t rank = operandType.getRank();
     uint64_t axis = static_cast<uint64_t>(rank) - 1;

@@ -543,14 +543,14 @@ struct matchAndRewriteNormalizationOp : public OpRewritePattern<ElementWiseOp> {
       // bias should either come from a BlockArgument OR a `ConstantOp` OR a
       // `ExtendRankOp` used to add 1's in the beginning. We check these two
       // possibilities here.
-      if (v.isa<BlockArgument>() || v.getDefiningOp<ConstantOp>())
+      if (isa<BlockArgument>(v) || v.getDefiningOp<ConstantOp>())
         return true;
       // Output of `expand_rank`. Input to `expand_rank` can be either an
       // argument or a constant op result. If input is arg, defining op is NULL.
       auto expandRankOp = v.getDefiningOp<ExpandRankOp>();
       return expandRankOp &&
              (expandRankOp.getInput().getDefiningOp<ConstantOp>() ||
-              expandRankOp.getInput().isa<BlockArgument>());
+              isa<BlockArgument>(expandRankOp.getInput()));
     };
 
     // This elementwise op is considered to be the last step in normalization,
@@ -579,8 +579,9 @@ struct matchAndRewriteNormalizationOp : public OpRewritePattern<ElementWiseOp> {
         !isComingFromConstantOpOrArgument(scale))
       return failure();
     // Check if scale and bias has the same shape
-    if (!scale.getType().cast<RankedTensorType>().getShape().equals(
-            bias.getType().cast<RankedTensorType>().getShape()))
+    if (!cast<RankedTensorType>(scale.getType())
+             .getShape()
+             .equals(cast<RankedTensorType>(bias.getType()).getShape()))
       return failure();
     // sqrtOfVar: v12 = 1/sqrt(v11)
     auto recipOfVar = sqrtOfVar.getInput().getDefiningOp<UnaryOp>();
@@ -647,7 +648,7 @@ struct matchAndRewriteNormalizationOp : public OpRewritePattern<ElementWiseOp> {
       return failure();
     // Normalization op supports only F16 or F32 input.
     RankedTensorType inputType =
-        squareInput.getInput1().getType().cast<RankedTensorType>();
+        cast<RankedTensorType>(squareInput.getInput1().getType());
     if (!inputType.getElementType().isF16() &&
         !inputType.getElementType().isF32())
       return failure();
@@ -844,14 +845,14 @@ void tensorrt::ConvolutionOp::build(
   if (bias.is<Value>()) {
     biasValue = bias.get<Value>();
   } else if (bias.is<Attribute>()) {
-    biasStatic = bias.get<Attribute>().dyn_cast<ElementsAttr>();
+    biasStatic = dyn_cast<ElementsAttr>(bias.get<Attribute>());
   }
   Value kernelValue = nullptr;
   ElementsAttr kernelStatic = nullptr;
   if (kernel.is<Value>()) {
     kernelValue = kernel.get<Value>();
   } else if (kernel.is<Attribute>()) {
-    kernelStatic = kernel.get<Attribute>().dyn_cast<ElementsAttr>();
+    kernelStatic = dyn_cast<ElementsAttr>(kernel.get<Attribute>());
   }
   ConvolutionOp::build(
       odsBuilder, odsState, type, input, kernelValue, biasValue, kernelStatic,
@@ -906,14 +907,14 @@ void tensorrt::DeconvolutionOp::build(
   if (biasWeights.is<Value>()) {
     biasValue = biasWeights.get<Value>();
   } else if (biasWeights.is<Attribute>()) {
-    biasStatic = biasWeights.get<Attribute>().dyn_cast<ElementsAttr>();
+    biasStatic = dyn_cast<ElementsAttr>(biasWeights.get<Attribute>());
   }
   Value kernelValue = nullptr;
   ElementsAttr kernelStatic = nullptr;
   if (kernelWeights.is<Value>()) {
     kernelValue = kernelWeights.get<Value>();
   } else if (kernelWeights.is<Attribute>()) {
-    kernelStatic = kernelWeights.get<Attribute>().dyn_cast<ElementsAttr>();
+    kernelStatic = dyn_cast<ElementsAttr>(kernelWeights.get<Attribute>());
   }
   DeconvolutionOp::build(
       odsBuilder, odsState, type, input, kernelValue, biasValue, kernelStatic,
@@ -1056,10 +1057,9 @@ void MatrixMultiplyOp::getCanonicalizationPatterns(
 /// valid, the other will be nullptr.
 static std::pair<Value, DenseI32ArrayAttr>
 decomposeSliceOpFoldResultParam(OpFoldResult ofr) {
-  if (auto v = ofr.dyn_cast<Value>())
+  if (auto v = dyn_cast<Value>(ofr))
     return std::make_pair(v, nullptr);
-  return std::make_pair(Value(),
-                        ofr.get<Attribute>().cast<DenseI32ArrayAttr>());
+  return std::make_pair(Value(), cast<DenseI32ArrayAttr>(ofr.get<Attribute>()));
 }
 
 void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
@@ -1194,9 +1194,9 @@ AffineMap ShuffleOp::getSecondTransposeMap() {
 }
 
 RankedTensorType ShuffleOp::getIntermediateType() {
-  auto inputType = getInput().getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(getInput().getType());
   if (inputType.getRank() == 0)
-    return getInput().getType().cast<RankedTensorType>();
+    return cast<RankedTensorType>(getInput().getType());
   AffineMap firstTranspose = getFirstTransposeMap();
   return RankedTensorType::Builder(inputType).setShape(
       applyPermutationMap(firstTranspose, inputType.getShape()));
@@ -1431,7 +1431,7 @@ void tensorrt::YieldOp::build(OpBuilder &builder, OperationState &state) {
 void tensorrt::TopKOp::build(OpBuilder &odsBuilder, OperationState &odsState,
                              Value input, int64_t k, int64_t axis,
                              tensorrt::TopKOperation topKOperation) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   auto rttBuilder = RankedTensorType::Builder(inputType);
   SmallVector<int64_t> shape(inputType.getShape());
   shape[axis] = k;
@@ -1466,7 +1466,7 @@ struct FoldConstExpandRank : public OpRewritePattern<OpType> {
       return success();
     }
     if (auto constAttr =
-            producer.getWeightsAttr().template dyn_cast<DenseElementsAttr>()) {
+            dyn_cast<DenseElementsAttr>(producer.getWeightsAttr())) {
       rewriter.replaceOpWithNewOp<tensorrt::ConstantOp>(
           op, constAttr.reshape(op.getType()));
       return success();
@@ -1677,7 +1677,7 @@ void BroadcastOp::build(::mlir::OpBuilder &odsBuilder,
 
 void tensorrt::ArgMinOp::build(OpBuilder &odsBuilder, OperationState &odsState,
                                Value input, int64_t axis) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   auto rttBuilder = RankedTensorType::Builder(inputType);
   SmallVector<int64_t> shape(inputType.getShape());
   shape[axis] = 1;
@@ -1695,7 +1695,7 @@ void tensorrt::ArgMinOp::build(OpBuilder &odsBuilder, OperationState &odsState,
 
 void tensorrt::ArgMaxOp::build(OpBuilder &odsBuilder, OperationState &odsState,
                                Value input, int64_t axis) {
-  auto inputType = input.getType().cast<RankedTensorType>();
+  auto inputType = cast<RankedTensorType>(input.getType());
   auto rttBuilder = RankedTensorType::Builder(inputType);
   SmallVector<int64_t> shape(inputType.getShape());
   shape[axis] = 1;
@@ -1806,10 +1806,10 @@ LogicalResult tensorrt::IfOp::verifyRegions() {
 }
 
 static std::optional<bool> getConditionalAttribute(Attribute condition) {
-  auto elementsAttr = condition.dyn_cast_or_null<ElementsAttr>();
+  auto elementsAttr = dyn_cast_or_null<ElementsAttr>(condition);
   if (!elementsAttr)
     return std::nullopt;
-  auto rtt = elementsAttr.getType().dyn_cast<RankedTensorType>();
+  auto rtt = dyn_cast<RankedTensorType>(elementsAttr.getType());
   if (!rtt || !rtt.getElementType().isInteger(1) || rtt.getRank() != 0)
     return std::nullopt;
   return elementsAttr.getValues<bool>()[0];
@@ -2079,7 +2079,7 @@ struct SimplifyShapeOfStaticInput : public OpRewritePattern<tensorrt::ShapeOp> {
     OpFoldResult shape = foldShapeOp(op);
     if (shape.is<Value>())
       return failure();
-    auto shapeConst = shape.get<Attribute>().cast<DenseElementsAttr>();
+    auto shapeConst = cast<DenseElementsAttr>(shape.get<Attribute>());
     rewriter.replaceOpWithNewOp<tensorrt::ConstantOp>(op, shapeConst.getType(),
                                                       shapeConst);
     return success();
@@ -2416,7 +2416,7 @@ LogicalResult tensorrt::detail::verifyInferredTensorTypesWithPartialInfo(
     // here. Default for ShapedTypeComponents is to set 'ranked' to false.
     // Since we don't allow unranked shapes, we use this to mean the shape is
     // not inferrable.
-    auto resultRtt = resultType.dyn_cast<RankedTensorType>();
+    auto resultRtt = dyn_cast<RankedTensorType>(resultType);
 
     // This is true because TensorRT ops are only allowed to return
     // RankedTensorType'd values.
@@ -2460,22 +2460,21 @@ bool tensorrt::detail::isCompatibleReturnTypesShapes(
     return lhs == rhs;
   return llvm::all_of(llvm::zip(lhs, rhs), [](auto pair) {
     auto [l, r] = pair;
-    return areShapesEquivalentUpToDynamicDims(
-        l.template cast<RankedTensorType>(),
-        r.template cast<RankedTensorType>());
+    return areShapesEquivalentUpToDynamicDims(cast<RankedTensorType>(l),
+                                              cast<RankedTensorType>(r));
   });
 }
 
 bool tensorrt::isTensorRTInt8Type(Type elType) {
   return elType.isSignlessInteger(8) ||
-         (((elType.isa<mlir::quant::UniformQuantizedType>())) &&
-          ((elType.cast<mlir::quant::UniformQuantizedType>()
+         (((isa<mlir::quant::UniformQuantizedType>(elType))) &&
+          ((cast<mlir::quant::UniformQuantizedType>(elType)
                 .getStorageType()
                 .isSignlessInteger(8))) &&
-          (((elType.cast<mlir::quant::UniformQuantizedType>()
+          (((cast<mlir::quant::UniformQuantizedType>(elType)
                  .getExpressedType()
                  .isF32())) ||
-           ((elType.cast<mlir::quant::UniformQuantizedType>()
+           ((cast<mlir::quant::UniformQuantizedType>(elType)
                  .getExpressedType()
                  .isF16()))));
 }
@@ -2490,7 +2489,7 @@ class TensorRTDialectOpAsmInterface : public OpAsmDialectInterface {
   /// Tells MLIR assembly printer/parser that the ShapeProfileAttr can be
   /// aliased using #profile[num]. This make the IR more readable.
   AliasResult getAlias(Attribute attr, raw_ostream &os) const override {
-    if (attr.isa<ShapeProfileAttr>()) {
+    if (isa<ShapeProfileAttr>(attr)) {
       os << "profile";
       return AliasResult::FinalAlias;
     }
@@ -2506,7 +2505,7 @@ class TensorRTDialectOpAsmInterface : public OpAsmDialectInterface {
 Operation *TensorRTDialect::materializeConstant(OpBuilder &builder,
                                                 Attribute value, Type type,
                                                 Location loc) {
-  auto elementsAttr = value.dyn_cast<ElementsAttr>();
+  auto elementsAttr = dyn_cast<ElementsAttr>(value);
   if (!elementsAttr)
     return nullptr;
   if (type != elementsAttr.getType())

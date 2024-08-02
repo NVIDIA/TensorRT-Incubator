@@ -21,4 +21,5 @@ add_mlir_library(MLIRTensorRTExecutorTransforms
   MLIRTensorRTConvertToExecutorCommon
   MLIRTensorRTStdToExecutor
   MLIRAffineToStandard
+  MLIRReconcileUnrealizedCasts
 )

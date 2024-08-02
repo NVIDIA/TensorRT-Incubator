@@ -50,7 +50,7 @@ git apply ../build_tools/llvm-project.patch
 
 # Do the build
 cd ..
-./build_tools/scripts/build_mlir.sh llvm-project build/llvm
+./build_tools/scripts/build_mlir.sh llvm-project build/llvm-project
 ```
 
 2. Build the project and run all tests

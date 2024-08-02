@@ -6,7 +6,7 @@ set_target_properties(MLIRTensorRTUnitTests PROPERTIES FOLDER "MLIR-TensorRT Tes
 function(add_mlir_tensorrt_unittest name)
   add_unittest(MLIRTensorRTUnitTests ${name} ${ARGN})
   _mtrt_set_target_compile_defs(${name})
-  llvm_update_compiler_flags(compile_opts DISABLE_WERROR OFF)
+  llvm_update_compile_flags(${name})
 endfunction()
 
 include_directories(${MLIR_TENSORRT_ROOT_DIR}/compiler/include)

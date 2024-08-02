@@ -330,7 +330,7 @@ getConvertedArgAttrs(func::FuncOp func, FunctionType newFuncType,
       // well.
       if (mapping->size != 1)
         continue;
-      result[mapping->inputNo] = argAttrs[i].cast<DictionaryAttr>();
+      result[mapping->inputNo] = cast<DictionaryAttr>(argAttrs[i]);
     }
   }
   // TODO: also handle result arguments.
@@ -347,10 +347,8 @@ struct RewriteFunc : ConvertOpToExecutorPattern<func::FuncOp> {
                   ConversionPatternRewriter &rewriter) const override {
     FunctionType funcType = op.getFunctionType();
     TypeConverter::SignatureConversion sigConvert(funcType.getNumInputs());
-    FunctionType newFuncType =
-        getTypeConverter()
-            ->convertFunctionSignature(funcType, sigConvert)
-            .dyn_cast_or_null<FunctionType>();
+    FunctionType newFuncType = dyn_cast_or_null<FunctionType>(
+        getTypeConverter()->convertFunctionSignature(funcType, sigConvert));
     if (!newFuncType)
       return rewriter.notifyMatchFailure(op, "failed to convert function type");
 

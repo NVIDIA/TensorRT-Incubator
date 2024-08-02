@@ -18,3 +18,5 @@ cupy-cuda12x # Required for test_create_memref.py
 ml_dtypes
 nvidia-ml-py
 black
+build
+psutil
