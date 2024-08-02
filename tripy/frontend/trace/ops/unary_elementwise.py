@@ -76,7 +76,7 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.exp(input)
 
-        assert tp.allclose(output, tp.Tensor(cp.exp(input)))
+        assert tp.allclose(output, tp.Tensor(np.exp(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.EXP)
 
@@ -122,7 +122,7 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.sin(input)
 
-        assert tp.allclose(output, tp.Tensor(cp.sin(input)))
+        assert tp.allclose(output, tp.Tensor(np.sin(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SINE)
 
@@ -145,7 +145,7 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.cos(input)
 
-        assert tp.allclose(output, tp.Tensor(cp.cos(input)))
+        assert tp.allclose(output, tp.Tensor(np.cos(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.COSINE)
 
@@ -168,7 +168,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.rsqrt(input)
 
-        assert tp.allclose(output, tp.Tensor((1.0 / cp.sqrt(input))))
+        assert tp.allclose(output, tp.Tensor(1.0 / np.sqrt(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.RSQRT)
 
@@ -191,7 +191,7 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.sqrt(input)
 
-        assert tp.allclose(output, tp.Tensor((cp.sqrt(input))))
+        assert tp.allclose(output, tp.Tensor(np.sqrt(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SQRT)
 
@@ -214,7 +214,7 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(1, 3, dtype=tp.float32)
         output = tp.log(input)
 
-        assert tp.allclose(output, tp.Tensor((cp.log(input))))
+        assert tp.allclose(output, tp.Tensor(np.log(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.LOG)
 
