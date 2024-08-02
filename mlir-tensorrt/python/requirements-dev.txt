@@ -3,7 +3,7 @@
 -r requirements.txt
 --extra-index-url https://download.pytorch.org/whl/cpu
 numpy<2.0.0
-torch==2.1.0+cpu
+torch==2.2.0
 click
 datasets==2.14.5
 flax==0.8.1
