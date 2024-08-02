@@ -390,7 +390,7 @@ class TestTheta:
     # which ensures that we emit an error if the `dim` parameter is outside
     # the allowed range.
     def test_invalid_dim(self):
-        with helper.raises(tp.TripyException, match="iota dimension cannot go beyond the output rank or be negative."):
+        with helper.raises(tp.TripyException, match="iota dimension cannot go beyond the output rank"):
             tp.theta([2, 3], dim=3).eval()
 ```
 

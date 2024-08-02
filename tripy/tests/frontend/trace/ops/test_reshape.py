@@ -55,7 +55,7 @@ class TestSqueeze:
 
         with helper.raises(
             tp.TripyException,
-            match="output_shape is incompatible with input type of operation: input has 4 elements, but output_shape has 1",
+            match="number of output elements \(1\) doesn't match expected number of elements \(4\)",
             has_stack_info_for=[a, b],
         ):
             b.eval()

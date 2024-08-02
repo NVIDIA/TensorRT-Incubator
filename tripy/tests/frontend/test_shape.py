@@ -344,10 +344,7 @@ class TestShape:
         with raises(
             tp.TripyException,
             match=(
-                "must be ranked tensor of f8E4M3B11FNUZ type or f8E4M3FN type or f8E4M3FNUZ type "
-                "or f8E5M2 type or f8E5M2FNUZ type or 16-bit float or 32-bit float or 64-bit float or bfloat16 "
-                "type or complex type with 32-bit float or 64-bit float elements or 4/8/16/32-bit uniform "
-                "quantized signed integer or 4/8/16/32-bit uniform quantized unsigned integer values"
+                "'stablehlo.exponential' op operand #0 must be ranked tensor of"
             ),
         ):
             v.eval()
