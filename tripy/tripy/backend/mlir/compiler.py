@@ -30,24 +30,23 @@ from tripy.backend.mlir.utils import (
 )
 from tripy.logging import logger
 
-G_MLIR_CONTEXT = None
 G_COMPILER_CLIENT = None
 G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
 
 
 # Avoid instantiating the compiler more than once.
 def _get_compiler_objects() -> Tuple[ir.Context, compiler.CompilerClient]:
-    global G_MLIR_CONTEXT, G_COMPILER_CLIENT, G_TIMING_CACHE_FILE
+    global G_COMPILER_CLIENT, G_TIMING_CACHE_FILE
     if G_TIMING_CACHE_FILE != cfg.timing_cache_file_path:
         # Reinitialize the compiler if the timing cache file path has changed.
         global G_COMPILER_CLIENT
         G_COMPILER_CLIENT = None
         G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
 
-    if G_MLIR_CONTEXT is None or G_COMPILER_CLIENT is None:
-        G_MLIR_CONTEXT = make_ir_context()
-        G_COMPILER_CLIENT = compiler.CompilerClient(G_MLIR_CONTEXT)
-    return G_MLIR_CONTEXT, G_COMPILER_CLIENT
+    ctx = make_ir_context()
+    if G_COMPILER_CLIENT is None:
+        G_COMPILER_CLIENT = compiler.CompilerClient(ctx)
+    return ctx, G_COMPILER_CLIENT
 
 
 class Compiler:

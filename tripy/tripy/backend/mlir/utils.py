@@ -31,19 +31,25 @@ from tripy.common import datatype
 from tripy.common.exception import OmitStackInfo, raise_error
 from tripy.logging import logger
 
+# MLIR context needs to be shared across the Module op and CompilerClient
+class MLIRContext:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.context = ir.Context()
+        return cls._instance.context
 
 def get_max_upper_bounds():
     return sys.maxsize
 
-
 def make_ir_context() -> ir.Context:
-    context = ir.Context()
-
-    context.enable_multithreading(False)
+    ctx = MLIRContext()
+    ctx.enable_multithreading(False)
     # Allow unregistered dialects to assign trt shape_profile attribute to stablehlo program.
-    context.allow_unregistered_dialects = True
-    return context
-
+    ctx.allow_unregistered_dialects = True
+    return ctx
 
 def get_mlir_dtype(dtype: "tripy.dtype"):
     """
