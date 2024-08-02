@@ -124,10 +124,10 @@ struct CudaBlasRunGemmOpConverter
     SmallVector<Value> newOperands = {adaptor.getHandle(), adaptor.getStream()};
     newOperands.push_back(adaptor.getAlgo());
     auto createMemRefAndExractPtr = [&](Value oldVal, Value newVal) {
-      auto memrefType = oldVal.getType().cast<MemRefType>();
+      auto memrefType = cast<MemRefType>(oldVal.getType());
       if (!memrefType)
         return failure();
-      assert(newVal.getType().isa<TableType>());
+      assert(isa<TableType>(newVal.getType()));
       executor::MemRefDescriptor memref(newVal, memrefType);
       newOperands.push_back(memref.alignedPtr(b));
       return success();

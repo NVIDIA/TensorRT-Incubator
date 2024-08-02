@@ -94,21 +94,21 @@ struct BlasRunGemmOpInterface
       bool transposeA = callOp->hasAttr("transpose_a") ? true : false;
       bool transposeB = callOp->hasAttr("transpose_b") ? true : false;
 
-      MemRefType bufferAType = (*bufferA).getType().dyn_cast<MemRefType>();
+      MemRefType bufferAType = dyn_cast<MemRefType>((*bufferA).getType());
       Type dataType = bufferAType.getElementType();
       FailureOr<SmallVector<int64_t>> sizeA = getMemrefShape(bufferAType);
       if (failed(sizeA))
         return failure();
       SmallVector<long, 6> strideA =
           mlir::getStridesAndOffset(bufferAType).first;
-      MemRefType bufferBType = (*bufferB).getType().dyn_cast<MemRefType>();
+      MemRefType bufferBType = dyn_cast<MemRefType>((*bufferB).getType());
       FailureOr<SmallVector<int64_t>> sizeB = getMemrefShape(bufferBType);
       if (failed(sizeB))
         return failure();
       SmallVector<long, 6> strideB =
           mlir::getStridesAndOffset(bufferBType).first;
       MemRefType resultBufferType =
-          (*resultBuffer).getType().dyn_cast<MemRefType>();
+          dyn_cast<MemRefType>((*resultBuffer).getType());
       FailureOr<SmallVector<int64_t>> sizeC = getMemrefShape(resultBufferType);
       if (failed(sizeC))
         return failure();

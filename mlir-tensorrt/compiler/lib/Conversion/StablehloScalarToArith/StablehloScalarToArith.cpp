@@ -119,7 +119,7 @@ struct StablehloRewriteConcat
   matchAndRewrite(stablehlo::ConcatenateOp op, OpAdaptor adaptor,
                   OneToNPatternRewriter &rewriter) const override {
     if (!llvm::all_of(op->getOperandTypes(), [](Type t) {
-          return t.cast<RankedTensorType>().getRank() == 1;
+          return cast<RankedTensorType>(t).getRank() == 1;
         }))
       return failure();
     rewriter.replaceOp(op, adaptor.getFlatOperands(),
@@ -133,13 +133,13 @@ struct StablehloRewriteConcat
 /// scalar `type`.
 static Attribute getScalarValue(RewriterBase &rewriter, Type type,
                                 int64_t idx) {
-  if (type.isa<FloatType>())
+  if (isa<FloatType>(type))
     return rewriter.getFloatAttr(type, static_cast<double>(idx));
-  if (type.isa<IndexType>())
+  if (isa<IndexType>(type))
     return rewriter.getIndexAttr(idx);
-  if (auto integerType = type.dyn_cast<IntegerType>())
+  if (auto integerType = dyn_cast<IntegerType>(type))
     return rewriter.getIntegerAttr(
-        type, APInt(type.cast<IntegerType>().getWidth(), idx));
+        type, APInt(cast<IntegerType>(type).getWidth(), idx));
   return {};
 }
 

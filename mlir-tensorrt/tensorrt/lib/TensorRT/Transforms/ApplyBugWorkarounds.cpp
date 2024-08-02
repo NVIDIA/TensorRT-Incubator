@@ -44,7 +44,7 @@ struct Unary8IWorkaround : public OpRewritePattern<tensorrt::UnaryOp> {
         op.getType().getRank() >= 2)
       return failure();
 
-    RankedTensorType inputType = op.getType().cast<RankedTensorType>();
+    RankedTensorType inputType = cast<RankedTensorType>(op.getType());
     int64_t rank = inputType.getRank();
     auto expandedShape = RankedTensorType::Builder(inputType);
     for (int64_t i = rank; i < 2; i++)

@@ -53,7 +53,7 @@ bool tensorrt::hasHostTensorValueBounds(FunctionOpInterface op,
 static FailureOr<ShapeProfileAttr> getArgumentShapeInfoDynamicBatchOnly(
     FunctionOpInterface op, const DynamicDimensionBounds &batchSizeRange,
     unsigned argIndex) {
-  auto argType = op.getArgument(argIndex).getType().cast<TensorType>();
+  auto argType = cast<TensorType>(op.getArgument(argIndex).getType());
   if (argType.hasStaticShape() || !argType.hasRank())
     return failure();
   if (!onlyBatchDimStatic(argType))
@@ -94,7 +94,7 @@ FailureOr<ShapeProfileAttr> tensorrt::inferArgShapeProfile(
     FunctionOpInterface op, unsigned argIndex,
     std::optional<DynamicDimensionBounds> batchSizeRange) {
   BlockArgument arg = op.getArgument(argIndex);
-  RankedTensorType t = arg.getType().dyn_cast<RankedTensorType>();
+  RankedTensorType t = dyn_cast<RankedTensorType>(arg.getType());
   if (!t)
     return failure();
 

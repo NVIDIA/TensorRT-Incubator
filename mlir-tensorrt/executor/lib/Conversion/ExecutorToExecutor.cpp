@@ -351,15 +351,14 @@ static LogicalResult convertExecutorFunctionMetadataAttrs(
   // Converts the type in the metadata signature. We allow most types
   // since they can carry important high-level information. But we disallow
   // 'index type', since we expect the backend to be specialized to i32 or i64.
-  auto convertType = [&](Type t) {
+  auto convertType = [&](Type t) -> Type {
     if (isa<IndexType>(t))
       return typeConverter.getIndexType();
     if (isa<MemRefType>(t)) {
       auto mT = llvm::cast<MemRefType>(t);
       if (llvm::isa<IndexType>(mT.getElementType())) {
         return MemRefType::get(mT.getShape(), typeConverter.getIndexType(),
-                               mT.getLayout(), mT.getMemorySpace())
-            .cast<Type>();
+                               mT.getLayout(), mT.getMemorySpace());
       }
     }
     return t;

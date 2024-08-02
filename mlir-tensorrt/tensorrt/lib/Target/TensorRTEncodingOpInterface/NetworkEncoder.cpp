@@ -123,7 +123,7 @@ uint32_t tensorrt::getBitMaskFromDimensionList(ArrayRef<int64_t> dimensions) {
 static LogicalResult sanityCheckTypes(nvinfer1::ITensor *trtTensor,
                                       Value mlirTensor) {
   nvinfer1::Dims dims = trtTensor->getDimensions();
-  auto type = mlirTensor.getType().cast<RankedTensorType>();
+  auto type = cast<RankedTensorType>(mlirTensor.getType());
   Location loc = mlirTensor.getLoc();
   if (dims.nbDims != type.getRank())
     return emitError(loc) << "ranks of MLIR Tensor is " << type.getRank()
@@ -410,7 +410,7 @@ static void updateLowerPrecisionIndicators(Operation *op, bool &usesF16,
                                            bool &usesInt8, bool &usesF8,
                                            bool &usesBf16, bool &usesInt4) {
   auto update = [&](Type t) {
-    Type elType = t.cast<RankedTensorType>().getElementType();
+    Type elType = cast<RankedTensorType>(t).getElementType();
     usesF16 |= elType.isF16();
     usesInt8 |= isTensorRTInt8Type(elType);
     usesF8 |= elType.isFloat8E4M3FN();
@@ -505,7 +505,7 @@ static void serializeSplatElements(DenseIntOrFPElementsAttr values,
                                    std::vector<int8_t> &data) {
   assert(values.isSplat() && "expected SplatElementsAttr");
 
-  auto rtt = values.getType().cast<RankedTensorType>();
+  auto rtt = cast<RankedTensorType>(values.getType());
   if (rtt.getElementType().isInteger(32)) {
     std::fill_n(reinterpret_cast<int32_t *>(data.data()),
                 values.getNumElements(), values.getSplatValue<int32_t>());
@@ -559,7 +559,7 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
   if (llvm::endianness::native == llvm::endianness::big)
     llvm_unreachable("big endian system currently not implemented");
 
-  auto rtt = values.getType().dyn_cast<RankedTensorType>();
+  auto rtt = dyn_cast<RankedTensorType>(values.getType());
   if (!rtt)
     return kNullWeights;
 
@@ -814,7 +814,7 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
            << "failed to insert passthrough identity layers";
 
   for (BlockArgument arg : func.getArguments()) {
-    RankedTensorType argType = arg.getType().dyn_cast<RankedTensorType>();
+    RankedTensorType argType = dyn_cast<RankedTensorType>(arg.getType());
     if (!argType)
       return func.emitOpError() << "expect all inputs to be ranked tensors";
     if (argType.getElementType().isInteger(4))
@@ -857,7 +857,7 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
 
   // Encode shape profile / shape value bounds information.
   for (BlockArgument arg : func.getArguments()) {
-    RankedTensorType argType = arg.getType().cast<RankedTensorType>();
+    RankedTensorType argType = cast<RankedTensorType>(arg.getType());
     nvinfer1::ITensor *inputTensor = this->lookup(arg);
     std::string name = inputTensor->getName();
     bool isShapeTensor = func.getArgAttr(arg.getArgNumber(),

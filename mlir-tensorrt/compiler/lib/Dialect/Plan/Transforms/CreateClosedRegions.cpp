@@ -75,7 +75,7 @@ getShapeBoundsForValue(Value v, presburger::BoundType boundType,
     DBGS() << "trying to infer "
            << (boundType == presburger::BoundType::UB ? "upper" : "lower")
            << " bound for the shape of ";
-    if (v.isa<OpResult>())
+    if (isa<OpResult>(v))
       llvm::dbgs() << v;
     else
       llvm::dbgs()

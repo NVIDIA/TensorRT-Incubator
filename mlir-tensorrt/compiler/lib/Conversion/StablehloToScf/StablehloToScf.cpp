@@ -51,7 +51,7 @@ static void inlineStablehloRegionIntoSCFRegion(PatternRewriter &rewriter,
 static Value extractScalarFromTensorValue(OpBuilder &b, Value tensor) {
   Location loc = tensor.getLoc();
   // If ranked tensor, first collapse shape.
-  if (tensor.getType().cast<RankedTensorType>().getRank() != 0)
+  if (cast<RankedTensorType>(tensor.getType()).getRank() != 0)
     tensor = b.create<tensor::CollapseShapeOp>(
         loc, tensor, SmallVector<ReassociationIndices>());
 
@@ -129,10 +129,10 @@ static scf::IfOp createNestedCases(int currentIdx, stablehlo::CaseOp op,
 
   // Determine if the current index matches the case index.
   auto scalarType = idxValue.getType();
-  auto shapedType = scalarType.cast<ShapedType>();
+  auto shapedType = cast<ShapedType>(scalarType);
   auto constAttr = DenseElementsAttr::get(
       shapedType,
-      {outerBuilder.getI32IntegerAttr(currentIdx).cast<mlir::Attribute>()});
+      {cast<mlir::Attribute>(outerBuilder.getI32IntegerAttr(currentIdx))});
   Value currentIdxVal = outerBuilder.create<stablehlo::ConstantOp>(
       loc, idxValue.getType(), constAttr);
 

@@ -98,9 +98,8 @@ struct ConstantOpConverter : public OpConversionPattern<arith::ConstantOp> {
   LogicalResult
   matchAndRewrite(arith::ConstantOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    auto resultType = getTypeConverter()
-                          ->convertType(op.getType())
-                          .dyn_cast_or_null<RankedTensorType>();
+    auto resultType = dyn_cast_or_null<RankedTensorType>(
+        getTypeConverter()->convertType(op.getType()));
     if (!resultType)
       return failure();
 

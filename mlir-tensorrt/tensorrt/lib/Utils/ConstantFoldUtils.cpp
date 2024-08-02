@@ -77,8 +77,8 @@ ElementsAttr mlir::constantFoldTranspose(ElementsAttr attr,
     return DenseResourceElementsAttr::get(outputType, *handle);
 
   // If the constant is a splat, then we can just change the shape directly.
-  if (attr.isSplat() && attr.isa<DenseElementsAttr>())
-    return attr.cast<DenseElementsAttr>().reshape(outputType);
+  if (attr.isSplat() && isa<DenseElementsAttr>(attr))
+    return cast<DenseElementsAttr>(attr).reshape(outputType);
 
   Type elementType = inputType.getElementType();
   if (auto intType = llvm::dyn_cast<IntegerType>(elementType)) {
@@ -131,7 +131,7 @@ static ElementsAttr constantFoldConvertFromFloatType(Type newElementType,
   ShapedType inputType = attr.getShapedType();
   // FloatType -> FloatType
   if (auto newType = dyn_cast<FloatType>(newElementType)) {
-    if (attr.isSplat() && attr.isa<DenseElementsAttr>()) {
+    if (attr.isSplat() && isa<DenseElementsAttr>(attr)) {
       APFloat in = attr.getSplatValue<APFloat>();
       bool losesInfo{false};
       in.convert(newType.getFloatSemantics(), APFloat::rmNearestTiesToEven,
@@ -155,7 +155,7 @@ static ElementsAttr constantFoldConvertFromFloatType(Type newElementType,
   if (auto newType = dyn_cast<IntegerType>(newElementType)) {
     bool isIntegerTypeUnsigned =
         newType.isUnsignedInteger() || newType.isInteger(1);
-    if (attr.isSplat() && attr.isa<DenseElementsAttr>()) {
+    if (attr.isSplat() && isa<DenseElementsAttr>(attr)) {
       APFloat in = attr.getSplatValue<APFloat>();
       APSInt out(newType.getIntOrFloatBitWidth(), isIntegerTypeUnsigned);
       bool isExact;
@@ -186,7 +186,7 @@ static ElementsAttr constantFoldConvertFromIntegerType(Type newElementType,
 
   // IntType -> FloatType
   if (auto newType = dyn_cast<FloatType>(newElementType)) {
-    if (attr.isSplat() && attr.isa<DenseElementsAttr>()) {
+    if (attr.isSplat() && isa<DenseElementsAttr>(attr)) {
       APInt in = attr.getSplatValue<APInt>();
       APFloat floatVal(newType.getFloatSemantics(),
                        APInt::getZero(newType.getWidth()));
@@ -210,7 +210,7 @@ static ElementsAttr constantFoldConvertFromIntegerType(Type newElementType,
 
   // Int -> Int conversion
   if (auto newType = dyn_cast<IntegerType>(newElementType)) {
-    if (attr.isSplat() && attr.isa<DenseElementsAttr>()) {
+    if (attr.isSplat() && isa<DenseElementsAttr>(attr)) {
       APSInt out(attr.getSplatValue<APInt>(), isInputTypeUnsigned);
       return DenseElementsAttr::get(
           inputType.clone(newElementType),
@@ -319,7 +319,7 @@ ElementsAttr mlir::constantFoldSliceOffsetLimitStride(
         DenseResourceElementsAttr::get(outputType, *handle));
 
   // If the constant is a splat, then we can just change the shape directly.
-  if (attr.isSplat() && attr.isa<DenseElementsAttr>())
+  if (attr.isSplat() && isa<DenseElementsAttr>(attr))
     return cast<ElementsAttr>(
         cast<DenseElementsAttr>(attr).resizeSplat(outputType));
 

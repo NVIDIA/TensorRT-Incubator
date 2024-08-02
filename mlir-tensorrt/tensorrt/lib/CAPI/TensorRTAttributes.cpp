@@ -41,13 +41,13 @@
 
 #define DEFINE_IS_ATTR(attrName)                                               \
   bool tensorrtIs##attrName##Attr(MlirAttribute attr) {                        \
-    return unwrap(attr).isa<mlir::tensorrt::attrName##Attr>();                 \
+    return llvm::isa<mlir::tensorrt::attrName##Attr>(unwrap(attr));            \
   }
 
 #define DEFINE_STRING_GETTER_FROM_ATTR(attrName)                               \
   MlirStringRef tensorrt##attrName##AttrGetValue(MlirAttribute attr) {         \
     return wrap(mlir::tensorrt::stringify##attrName(                           \
-        unwrap(attr).cast<mlir::tensorrt::attrName##Attr>().getValue()));      \
+        llvm::cast<mlir::tensorrt::attrName##Attr>(unwrap(attr)).getValue())); \
   }
 
 DEFINE_ATTR_GETTER_FROM_STRING(ActivationType)
