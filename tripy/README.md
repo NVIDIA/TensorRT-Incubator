@@ -1,6 +1,8 @@
+[**Installation**](#installation) | [**Quickstart**](#quickstart) | [**Documentation**](#documentation) | [**Examples**](#examples)
+
 # Tripy: A Python Programming Model For TensorRT
 
-Tripy is a Python programming model for TensorRT that aims to provide an excellent
+Tripy is a Python programming model for [TensorRT](https://developer.nvidia.com/tensorrt) that aims to provide an excellent
 user experience without compromising performance. Some of the features of Tripy include:
 
 - **Intuitive API**: Tripy doesn't reinvent the wheel: If you have used NumPy or
@@ -12,19 +14,48 @@ user experience without compromising performance. Some of the features of Tripy 
     that caused it.
 
 
-<!-- Tripy: DOC: OMIT Start -->
-## Table Of Contents
-
-[[_TOC_]]
-
-<!-- Tripy: DOC: OMIT End -->
-
 ## Installation
 
-<!-- TODO (#release): Include `pip install` instructions here -->
+<!-- TODO (#release): Include `pip install` instructions here. Also, point to documentation for building mlir-tensorrt from source and using the built python packages. -->
 
 
 ## Quickstart
+
+In lazy mode evalulation, Tripy defers computation until it is actually needed:
+
+```py
+import tripy as tp
+import os
+
+def add(a, b):
+    return a + b
+
+print(add(tp.Tensor([1., 2.]), tp.Tensor([1.])))
+#tensor([2.0000, 3.0000], dtype=float32, loc=gpu:0, shape=(2,))
+```
+
+Tripy can compile functions to generate efficient machine code for faster execution:
+
+```py
+compiler = tp.Compiler(add)
+
+# a is a 1D dynamic shape tensor of shape (d,), where `d` can range from 1 to 5.
+# `[1, 2, 5]` indicates a range from 1 to 5, with optimization for `d = 2`.
+a_info = tp.InputInfo(shape=([1, 2, 5],), dtype=tp.float32)
+
+# `b` is a 1D tensor of shape (1,).
+b_info = tp.InputInfo((1,), dtype=tp.float32)
+
+compiled_add = compiler.compile(a_info, b_info)
+
+print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
+# tensor([4.0000, 5.0000, 6.0000], dtype=float32, loc=gpu:0, shape=(3,))
+
+# Save the compile executable to disk.
+executable_file = os.path.join(os.getcwd(), "add_executable.json")
+compiled_add.save(executable_file)
+```
+
 
 <!-- TODO (#release): Link to intro to tripy guide -->
 
