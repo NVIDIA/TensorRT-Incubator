@@ -492,9 +492,11 @@ class Compiler:
         def process_arg(name, arg):
             if isinstance(arg, InputInfo):
                 # Make new tensors for tracing.
-                from tripy.frontend.ops import ones
+                from tripy.common.datatype import floating, integer
+                from tripy.frontend.trace.ops.fill import full
 
-                tensor = ones(shape=arg.shape_bounds.opt, dtype=arg.dtype)
+                init_value = 1 if issubclass(arg.dtype, integer) else 1.0 if issubclass(arg.dtype, floating) else True
+                tensor = full(shape=arg.shape_bounds.opt, value=init_value, dtype=arg.dtype)
                 tensor.name = name
 
                 trace_input_map[name] = tensor

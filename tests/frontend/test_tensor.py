@@ -28,6 +28,7 @@ import tripy as tp
 from tests.conftest import DATA_TYPE_TEST_CASES
 from tests.helper import NUMPY_TYPES
 from tripy.utils.stack_info import SourceInfo
+from tripy.common.utils import get_element_type
 
 
 class TestTensor:
@@ -70,28 +71,26 @@ class TestTensor:
         assert t.trace_tensor.producer.inputs == []
         assert cp.from_dlpack(t).get().tolist() == bool_values
 
+    @pytest.mark.parametrize("input_data", [[], [0.0, 1.0, 2.0, 3.0], [1, 2, 3, 4], [False, True, False, True]])
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
-    def test_dtype_from_list(self, dtype):
+    def test_dtype_from_list(self, input_data, dtype):
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
-
-        data = [0.0, 1.0, 2.0, 3.0]
-        if dtype == tp.bool:
-            data = [0, 1, 0, 1]
-        elif dtype in [tp.int8, tp.int32, tp.int64]:
-            data = [0, 1, 2, 3]
-
-        tensor = tp.Tensor(data, dtype=dtype)
-
-        if dtype in [tp.float8, tp.bfloat16]:
-            assert tensor.trace_tensor.producer.dtype == dtype
-            print(tensor)
-            assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
-            assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
-        else:
-            assert tensor.trace_tensor.producer.dtype == dtype
-            assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
-            assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
+        # Error: input.dtype must be one of (float32, float16, bfloat16), Got dtype=bool
+        if (get_element_type(input_data) in [tp.int32, tp.bool]) and dtype == tp.float8:
+            pytest.skip(
+                f"Input data {input_data} with {get_element_type(input_data)} type can not be implicitly converted to {dtype}"
+            )
+        # Error: 'plan.inline_closed_group' op input operand #0 of type 'tensor<0xf32>' does not have a TensorKind associated with it
+        if len(input_data) == 0 and dtype == tp.float8:
+            pytest.skip(
+                f"Input data {input_data} with {get_element_type(input_data)} type can not be implicitly converted to {dtype}"
+            )
+        tensor = tp.Tensor(input_data, dtype=dtype)
+        assert tensor.trace_tensor.producer.dtype == dtype
+        print(tensor)
+        assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
+        assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
 
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):

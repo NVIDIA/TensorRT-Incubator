@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import array
 import re
 import struct
 from typing import Any, List, Optional, Tuple, Union
@@ -27,11 +28,12 @@ import tripy.common.datatype
 from tripy.common.datatype import DATA_TYPES
 
 
-def get_supported_type_for_python_sequence() -> List["tripy.common.datatype"]:
+def get_supported_array_type() -> List["tripy.common.datatype"]:
     return [
-        t
-        for t in DATA_TYPES.values()
-        if t not in [tripy.common.datatype.int4, tripy.common.datatype.float8, tripy.common.datatype.bfloat16]
+        tripy.common.datatype.bool,
+        tripy.common.datatype.int32,
+        tripy.common.datatype.int64,
+        tripy.common.datatype.float32,
     ]
 
 
@@ -44,16 +46,17 @@ def get_element_type(elements):
     while (isinstance(e, List) or isinstance(e, tuple)) and len(e) > 0:
         e = e[0]
     if isinstance(e, bool):
-        return tripy.common.datatype.bool
-    if isinstance(e, int):
+        dtype = tripy.common.datatype.bool
+    elif isinstance(e, int):
         if is_int32(e):
-            return tripy.common.datatype.int32
-        return tripy.common.datatype.int64
+            dtype = tripy.common.datatype.int32
+        else:
+            dtype = tripy.common.datatype.int64
     elif isinstance(e, float):
-        return tripy.common.datatype.float32
+        dtype = tripy.common.datatype.float32
     # Special handling for empty tensors
     elif isinstance(e, list) or isinstance(e, tuple):
-        return None
+        dtype = None
     else:
         raise_error(
             "Unsupported element type.",
@@ -62,6 +65,9 @@ def get_element_type(elements):
                 f"Got element {e} of type {type(e)}.",
             ],
         )
+
+    assert dtype is None or dtype in get_supported_array_type()
+    return dtype
 
 
 def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.datatype.dtype"]:
@@ -117,29 +123,19 @@ def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.
     return converted_type
 
 
-def convert_list_to_bytebuffer(values: List[Any], dtype: str) -> bytes:
+def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
     """Convert a list of values to a byte buffer based on the specified dtype."""
-
     # Lookup table for types and their corresponding struct format characters
     TYPE_TO_FORMAT = {
-        tripy.common.datatype.bool: "?",
-        tripy.common.datatype.int8: "b",
+        tripy.common.datatype.bool: "b",
+        tripy.common.datatype.int64: "l",
         tripy.common.datatype.int32: "i",
-        tripy.common.datatype.int64: "q",
-        tripy.common.datatype.float16: "e",
         tripy.common.datatype.float32: "f",
     }
-
     if dtype not in TYPE_TO_FORMAT:
         raise ValueError(f"Unsupported type: {dtype}")
 
-    buffer = bytearray()
-
-    for value in values:
-        format_char = TYPE_TO_FORMAT[dtype]
-        buffer.extend(struct.pack(f"<{format_char}", value))
-
-    return bytes(buffer)
+    return array.array(TYPE_TO_FORMAT[dtype], values)
 
 
 class Float16MemoryView:

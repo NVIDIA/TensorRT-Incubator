@@ -31,7 +31,7 @@ import tripy as tp
 from tests.helper import NUMPY_TYPES, torch_type_supported
 from tripy.common.array import Array
 from tripy.common.datatype import DATA_TYPES
-from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype, get_supported_type_for_python_sequence
+from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype, get_supported_array_type
 from tripy.backend.mlir.utils import convert_tripy_dtype_to_runtime_dtype
 
 data_list = []
@@ -162,7 +162,7 @@ class TestArray:
             _ = Array([Decimal(0)], None, None, tp.device("cpu"))
         print(str(exc.value))
 
-    @pytest.mark.parametrize("dtype", get_supported_type_for_python_sequence())
+    @pytest.mark.parametrize("dtype", get_supported_array_type())
     def test_array_supported_python_sequence_type(self, dtype):
         arr = Array([0], shape=None, dtype=dtype, device=tp.device("cpu"))
         assert isinstance(arr.memref_value, runtime.MemRefValue)
@@ -171,8 +171,7 @@ class TestArray:
 
     @pytest.mark.parametrize(
         "dtype",
-        [dtype for dtype in DATA_TYPES.values() if dtype not in get_supported_type_for_python_sequence()]
-        + ["unsupported_type"],
+        [dtype for dtype in DATA_TYPES.values() if dtype not in get_supported_array_type()] + ["unsupported_type"],
     )
     def test_array_unsupported_python_sequence_type(self, dtype):
         with pytest.raises(AssertionError):

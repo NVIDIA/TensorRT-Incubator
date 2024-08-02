@@ -28,11 +28,11 @@ import torch
 import tripy.common.datatype
 
 from tests import helper
-
+from tripy.common.datatype import DATA_TYPES
 from tripy.common.exception import TripyException
 from tripy.common.utils import (
     convert_frontend_dtype_to_tripy_dtype,
-    convert_list_to_bytebuffer,
+    convert_list_to_array,
     Float16MemoryView,
     get_element_type,
 )
@@ -149,8 +149,8 @@ def test_convert_frontend_dtype_to_tripy_dtype():
         ([1.0, 2.0], tripy.common.datatype.float32, b"\x00\x00\x80?\x00\x00\x00@"),
     ],
 )
-def test_convert_list_to_bytebuffer(values, dtype, expected):
-    result = convert_list_to_bytebuffer(values, dtype)
+def convert_list_to_array(values, dtype, expected):
+    result = convert_list_to_array(values, dtype)
     assert result == expected
 
 

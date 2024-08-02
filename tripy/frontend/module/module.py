@@ -289,6 +289,7 @@ class Module:
 
     def __str__(self):
         from textwrap import indent
+
         class_name = self.__class__.__name__
         module_str = f"{class_name}(\n"
 

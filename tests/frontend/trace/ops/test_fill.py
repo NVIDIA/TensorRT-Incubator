@@ -18,14 +18,32 @@
 import pytest
 
 import tripy as tp
-from tripy.frontend.trace.ops import Fill
+
+from tripy.common.datatype import DATA_TYPES
+from tripy.frontend.trace.ops import Fill, Cast
 
 
 class TestFull:
     def test_op_func(self):
-        a = tp.full([1, 2], 1)
+        a = tp.full([1, 2], 1, dtype=tp.int32)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Fill)
+
+    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    @pytest.mark.parametrize("value, fill_no_cast_dtype", [(True, tp.bool), (1.0, tp.float32), (1, tp.int32)])
+    def test_explicit_cast(self, dtype, value, fill_no_cast_dtype):
+        if dtype == tp.int4:
+            pytest.skip(f"Unsupported front-end data type {dtype}")
+        if dtype == tp.float8:
+            pytest.skip(f"Data can not be implicitly converted to {dtype}")
+
+        a = tp.full([1, 2], value, dtype=dtype)
+
+        if dtype == fill_no_cast_dtype:
+            assert isinstance(a.trace_tensor.producer, Fill)
+        else:
+            assert isinstance(a.trace_tensor.producer, Cast)
+            assert isinstance(a.trace_tensor.producer.inputs[0].producer, Fill)
 
     def test_infer_rank(self):
         a = tp.full((2, 3), 1)
@@ -33,14 +51,14 @@ class TestFull:
 
     def test_shape_is_shape_tensor(self):
         shape = tp.ones((2, 3)).shape
-        a = tp.full(shape, 1)
+        a = tp.full(shape, 1, dtype=tp.int32)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Fill)
         assert a.trace_tensor.rank == 2
 
     def test_scalar_convert_to_shape_tensor(self):
         shape = tp.ones((2, 3)).shape
-        a = tp.full((shape[0],), 1)
+        a = tp.full((shape[0],), 1, dtype=tp.int32)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Fill)
         assert a.trace_tensor.rank == 1
