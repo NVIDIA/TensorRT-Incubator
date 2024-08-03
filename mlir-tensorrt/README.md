@@ -61,7 +61,7 @@ cmake -B ./build/mlir-tensorrt -S . -G Ninja \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DMLIR_TRT_USE_LINKER=lld \
     -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
-    -DMLIR_DIR=build/llvm/lib/cmake/mlir \
+    -DMLIR_DIR=build/llvm-project/lib/cmake/mlir \
     -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON
 ninja -C build/mlir-tensorrt all
 ninja -C build/mlir-tensorrt check-mlir-executor
