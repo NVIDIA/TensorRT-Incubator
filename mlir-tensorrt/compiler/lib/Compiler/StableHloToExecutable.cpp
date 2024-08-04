@@ -153,6 +153,7 @@ compiler::getStableHLOProgramRefinedSignature(
     CompilerClient &client, mlir::ModuleOp module,
     const StableHLOProgramSignatureRefinementOptions &options) {
 
+#ifndef NDEBUG
   //===----------------------------------------------------------------------===//
   // Set debug options.
   //===----------------------------------------------------------------------===//
@@ -164,6 +165,7 @@ compiler::getStableHLOProgramRefinedSignature(
                                debugTypeLiterals.size());
     llvm::DebugFlag = true;
   }
+#endif
 
   //===----------------------------------------------------------------------===//
   // Setup pass manager
@@ -388,6 +390,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     llvm::dbgs() << "\n";
   });
 
+#ifndef NDEBUG
   //===----------------------------------------------------------------------===//
   // Set debug options.
   //===----------------------------------------------------------------------===//
@@ -399,6 +402,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
                                debugTypeLiterals.size());
     llvm::DebugFlag = true;
   }
+#endif
 
   //===----------------------------------------------------------------------===//
   // Setup pass manager
@@ -429,9 +433,11 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
                             "failed to translate compiled MLIR module to a "
                             "MLIR-TensorRT runtime Executable");
 
+#ifndef NDEBUG
   // Turn debugging back off if we turned it on.
   if (options.debugOptions.enableLLVMDebugFlag)
     llvm::DebugFlag = false;
+#endif
 
   return std::make_unique<runtime::Executable>(std::move(*exeStorage));
 }
@@ -450,6 +456,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     llvm::dbgs() << "\n";
   });
 
+#ifndef NDEBUG
   if (options.debugOptions.enableLLVMDebugFlag) {
     SmallVector<const char *> debugTypeLiterals =
         llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
@@ -458,6 +465,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
                                debugTypeLiterals.size());
     llvm::DebugFlag = true;
   }
+#endif
 
   mlir::PassManager &runner =
       client.getOrCreatePassManager<StableHloToExecutableTask>(options);
@@ -476,9 +484,11 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
                             "failed to translate compiled MLIR module to a "
                             "MLIR-TensorRT runtime Executable");
 
+#ifndef NDEBUG
   // Turn debugging back off if we turned it on.
   if (options.debugOptions.enableLLVMDebugFlag)
     llvm::DebugFlag = false;
+#endif
 
   return std::make_unique<runtime::Executable>(std::move(*exeStorage));
 }
