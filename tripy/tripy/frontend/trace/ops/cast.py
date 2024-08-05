@@ -18,6 +18,7 @@
 from dataclasses import dataclass
 from tripy import export, dtype_info
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -57,7 +58,7 @@ class Cast(BaseTraceOp):
         if self.dtype == tp_bool:
             # Creating a zero tensor uses the same logic as the zeros_like initializer
 
-            # If the input dtype does not allow directly creating a Tripy array, we have to use another like f32
+            # If the input dtype does not allow directly creating a TriPy array, we have to use another like f32
             # and then cast the zeros tensor.
             zero_dtype = convert_input.dtype if convert_input.dtype in DTYPES_FOR_CONSTANTS else float32
             single_zero = FlatIRTensor.build(
@@ -97,16 +98,13 @@ class Cast(BaseTraceOp):
         ConvertOp.build([convert_input], outputs)
 
 
-from tripy.common.datatype import DATA_TYPES
-
-
 @export.public_api(document_under="tensor_operations")
 @dtype_info.dtype_info(
     dtype_variables={
-        "T": DATA_TYPES.keys(),
         "T1": DATA_TYPES.keys(),
+        "T2": DATA_TYPES.keys(),
     },
-    dtype_constraints={"input": "T", "dtype": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
 )
 def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""
@@ -135,7 +133,7 @@ def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
 
     .. seealso:: :func:`quantize`, :func:`dequantize`
     """
-    from tripy.common.datatype import bool as tp_bool, int8, float16, float32
+    from tripy.common.datatype import bool as tp_bool, int8, float32
     from tripy.frontend.trace.ops.dequantize import dequantize
     from tripy.frontend.trace.ops.quantize import quantize
     from tripy.frontend.trace.ops.utils import is_quantized_dtype
@@ -149,12 +147,13 @@ def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     # If given a quantized input, dequantize before converting. If bool is the target dtype,
     # we do still need to quantize int8s because it compiles into an MLIR-TRT *comparison* op
     if is_quantized_dtype(input.dtype) and (input.dtype != int8 or dtype == tp_bool):
-        # if float16 is the target dtype, we can dequantize straight into it and skip the cast node
-        dequant_dtype = float32 if dtype != float16 else float16
+        dequant_dtype = float32
         input = dequantize(input, 1.0, dequant_dtype)
         if dtype == dequant_dtype:
             return input
 
     if is_quantized_dtype(dtype) and dtype != int8:
+        if input.dtype != float32:
+            input = Cast.build([input], float32)
         return quantize(input, 1.0, dtype)
     return Cast.build([input], dtype)

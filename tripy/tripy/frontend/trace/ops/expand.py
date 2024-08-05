@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from tripy import export
+from tripy import export, dtype_info
 from tripy.utils import Result
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
@@ -71,6 +71,11 @@ def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int):
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"], "T2": [ "int8", "int32", "int64"]},
+    dtype_constraints={"input": "T1", "sizes": "T2", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"sizes": {"init": (3, 4)}, "input": {"shape": (3, 1)}},
+)
 def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
     """
     Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.

@@ -16,10 +16,11 @@
 #
 
 from dataclasses import dataclass
-
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import Result
+from tripy import dtype_info
+from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -46,7 +47,11 @@ class Shape(BaseTraceOp):
 
 @TENSOR_METHOD_REGISTRY("shape")
 @property
-def shape(self) -> "tripy.Tensor":
+@dtype_info.dtype_info(
+    dtype_variables={"self_dtype": DATA_TYPES.keys(), "T2": ["int32"]},
+    dtype_constraints={"self": "self_dtype", dtype_info.RETURN_VALUE: "T2"},
+)
+def shape(self: "tripy.Tensor") -> "tripy.Tensor":
     """
     Represents the shape of the tensor.
 

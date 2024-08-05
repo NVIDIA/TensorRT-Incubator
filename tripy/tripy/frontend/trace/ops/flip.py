@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from tripy import export, utils
+from tripy import export, utils, dtype_info
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -37,6 +37,13 @@ class Flip(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16","int32", "bool"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 1}}
+)
 def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None) -> "tripy.Tensor":
     r"""
     Return a new tensor with the same value as the `input` tensor, with the values in the

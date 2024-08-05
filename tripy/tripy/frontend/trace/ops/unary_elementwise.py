@@ -18,9 +18,8 @@
 import enum
 from dataclasses import dataclass
 
-from tripy import export
+from tripy import export, dtype_info
 from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -57,6 +56,12 @@ class UnaryElementwise(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the elementwise exponential of the elements of the input tensor:
@@ -82,6 +87,12 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise hyperbolic tangent of the elements of the input tensor.
@@ -105,6 +116,12 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def sin(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise sine of the elements of the input tensor.
@@ -128,6 +145,12 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def cos(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise cosine of the elements of the input tensor.
@@ -151,6 +174,12 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise reciprocal square root of the elements of the input tensor.
@@ -174,6 +203,12 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise square root of the elements of the input tensor.
@@ -197,6 +232,12 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def log(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise natural logarithm (base e) of the elements of the input tensor.
@@ -220,6 +261,12 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def abs(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the elementwise absolute value of the elements of the input tensor.

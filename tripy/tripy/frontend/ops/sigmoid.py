@@ -15,10 +15,16 @@
 # limitations under the License.
 #
 
-from tripy import export
+from tripy import export, dtype_info
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def sigmoid(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies a logistic sigmoid function to each element of the input tensor:

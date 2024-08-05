@@ -24,6 +24,7 @@ import inspect
 import re
 from textwrap import indent
 
+from tripy import dtype_info
 import tripy as tp
 from tests import helper
 from tripy.dtype_info import TYPE_VERIFICATION
@@ -179,8 +180,8 @@ def process_docstring(app, what, name, obj, options, lines):
                     ":returns:" in doc
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
 
-    # new docstring logic:
-    # first figure out if we should it is the new docstring
+    # New docstring logic:
+    # First figure out if we should it is the new docstring.
     if name.split(".")[-1] in TYPE_VERIFICATION.keys():
         cleaned_name = name.split(".")[-1]
         add_text_index = -1
@@ -190,29 +191,26 @@ def process_docstring(app, what, name, obj, options, lines):
                 blocks.insert(index, "Type Constraints:")
                 index += 1
                 for type_name, dt in type_dict.items():
-                    blocks.insert(index, f"    - {type_name}: " + ", ".join(dt))
+                    blocks.insert(
+                        index,
+                        f"    - **{type_name}**: :class:`" + "`, :class:`".join(set(dt) - {"int4", "float8"}) + "`",
+                    )
                     index += 1
                 blocks.insert(index, "\n")
                 break
             if re.search(r":param \w+: ", block):
-                add_text_index = re.search(r":param \w+: ", block).span()[1]
                 param_name = re.match(r":param (\w+): ", block).group(1)
-                blocks[index] = (
-                    block[0:add_text_index]
-                    + "[dtype="
-                    + TYPE_VERIFICATION[cleaned_name][2][param_name]
-                    + "] "
-                    + block[add_text_index:]
-                )
+                if TYPE_VERIFICATION[cleaned_name][2].get(param_name, None):
+                    add_text_index = re.search(r":param \w+: ", block).span()[1]
+                    blocks[index] = (
+                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[cleaned_name][2][param_name]}**\ ] {block[add_text_index:]}"
+                    )
             if re.search(r":returns:", block):
-                add_text_index = re.search(r":returns:", block).span()[1] + 1
-                blocks[index] = (
-                    block[0:add_text_index]
-                    + "[dtype="
-                    + list(TYPE_VERIFICATION[cleaned_name][1]["returns"].values())[0]["dtype"]
-                    + "] "
-                    + block[add_text_index:]
-                )
+                if TYPE_VERIFICATION[cleaned_name][2].get(dtype_info.RETURN_VALUE, None):
+                    add_text_index = re.search(r":returns:", block).span()[1] + 1
+                    blocks[index] = (
+                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[cleaned_name][1]['return_dtype']}**\ ] {block[add_text_index:]}"
+                    )
 
     seen_classes.add(name)
 

@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Any, Union
 
-from tripy import export
+from tripy import export, dtype_info
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
@@ -132,6 +132,11 @@ class Quantize(BaseTraceOp):
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
+@dtype_info.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int8", "float8"]},
+    dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+    default_constraints={"scale": {"init": [1, 1, 1]}, "dim": {"init": 0}},
+)
 def quantize(
     input: "tripy.Tensor",
     scale: Union["tripy.Tensor", Any],

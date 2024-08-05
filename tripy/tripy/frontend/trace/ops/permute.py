@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-from tripy import export
+from tripy import export, dtype_info
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.trace.ops import utils as op_utils
 
@@ -53,6 +53,11 @@ class Transpose(Permute):
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim0": {"init": 0}, "dim1": {"init": 1}},
+)
 def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     """
     Returns a new tensor that is a transposed version of the input tensor where
@@ -79,6 +84,11 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"perm": {"init": (1, 0)}},
+)
 def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
     """
     Returns a tensor with its dimensions permuted.

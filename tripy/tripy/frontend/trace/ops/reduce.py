@@ -19,7 +19,7 @@ import enum
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from tripy import export, utils
+from tripy import export, dtype_info
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
@@ -160,6 +160,13 @@ def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Seque
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "int32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def sum(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -189,6 +196,13 @@ def sum(
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["bool"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def all(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -216,6 +230,13 @@ def all(
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["bool"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def any(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -243,6 +264,13 @@ def any(
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "int32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def max(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -272,6 +300,13 @@ def max(
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "int32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def prod(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -323,6 +358,13 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "int32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def mean(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -352,6 +394,13 @@ def mean(
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def var(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
 ) -> "tripy.Tensor":
@@ -412,6 +461,13 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, ke
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["int32"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
     Returns a new tensor containing the indices of maximum values of the input tensor along the specified dimension.
@@ -440,6 +496,13 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["int32"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    default_constraints={"dim": {"init": 0}},
+)
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
     Returns a new tensor containing the indices of minimum values of the input tensor along the specified dimension.

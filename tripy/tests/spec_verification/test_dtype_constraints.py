@@ -19,116 +19,129 @@ from typing import List
 from tripy.common.datatype import DATA_TYPES
 from colored import fg, attr
 import itertools
-import inspect
 import pytest
 from tests.spec_verification.object_builders import create_obj
 from tripy.dtype_info import TYPE_VERIFICATION, RETURN_VALUE
-
-# imports necessary for creating inputs and running exec:
 import tripy as tp
-import numpy as np
-import cupy as cp
-import pytest
 
 
-def method_handler(kwargs, func_obj):
-    """
-    handles any function that has a special way of being called such as methods
-    """
+def _method_handler(kwargs, func_obj, api_call_locals):
     _METHOD_OPS = {
-        "__add__": (lambda a, b: f"{a} + {b}"),
-        "__sub__": (lambda a, b: f"{a} - {b}"),
-        "__rsub__": (lambda a, b: f"{a} - {b}"),
-        "__pow__": (lambda a, b: f"{a}**{b}"),
-        "__rpow__": (lambda a, b: f"{a}**{b}"),
-        "__mul__": (lambda a, b: f"{a} * {b}"),
-        "__rmul__": (lambda a, b: f"{a} * {b}"),
-        "__truediv__": (lambda a, b: f"{a} / {b}"),
-        "__lt__": (lambda a, b: f"{a} < {b}"),
-        "__le__": (lambda a, b: f"{a} <= {b}"),
-        "__eq__": (lambda a, b: f"{a} == {b}"),
-        "__ne__": (lambda a, b: f"{a} != {b}"),
-        "__ge__": (lambda a, b: f"{a} >= {b}"),
-        "__gt__": (lambda a, b: f"{a} > {b}"),
+        "__add__": (lambda self, other: self + other),
+        "__sub__": (lambda self, other: self - other),
+        "__rsub__": (lambda self, other: self - other),
+        "__pow__": (lambda self, other: self**other),
+        "__rpow__": (lambda self, other: self**other),
+        "__mul__": (lambda self, other: self * other),
+        "__rmul__": (lambda self, other: self * other),
+        "__truediv__": (lambda self, other: self / other),
+        "__rtruediv__": (lambda self, other: self / other),
+        "__lt__": (lambda self, other: self < other),
+        "__le__": (lambda self, other: self <= other),
+        "__eq__": (lambda self, other: self == other),
+        "__ne__": (lambda self, other: self != other),
+        "__ge__": (lambda self, other: self >= other),
+        "__gt__": (lambda self, other: self > other),
+        "__matmul__": (lambda self, other: self @ other),
+        "shape": (lambda self: self.shape),
+        "__getitem__": (lambda self, index: self.__getitem__(index)),
     }
-    if not func_obj.__name__.startswith("_"):
-        return f"{RETURN_VALUE} = " + f"tp.{func_obj.__name__}(**kwargs)"
-    elif _METHOD_OPS.get(func_obj.__name__, None):
+    if func_obj.__name__ in _METHOD_OPS.keys():
+        # Function needs to be executed in a specific way
         rtn_builder = _METHOD_OPS.get(func_obj.__name__, None)
-        args_list = list(kwargs.values())
-        if len(args_list) > 2:
-            print("WARNING WILL ONLY USE FIRST TWO PARAMS")
-        return f"{RETURN_VALUE} = " + rtn_builder(args_list[0], args_list[1])
+        api_call_locals[RETURN_VALUE] = rtn_builder(**kwargs)
     else:
-        raise RuntimeError(f"{fg('red')}Could not figure out method in function: {func_obj.__name__}{attr('reset')}")
+        # Execute API call normally.
+        exec(f"{RETURN_VALUE} = " + f"tp.{func_obj.__name__}(**kwargs)", globals(), api_call_locals)
+    # Print out debugging info.
+    print("API call: ", func_obj.__name__, ", with parameters: ", kwargs)
 
 
 func_list = []
 for func_obj, parsed_dict, types_assignments in TYPE_VERIFICATION.values():
     inputs = parsed_dict["inputs"]
-    returns = parsed_dict["returns"]
+    return_dtype = parsed_dict["return_dtype"]
     types = parsed_dict["types"]
-    # exclude quantization types until q/dq MR is merged
+    # Issue #268 exclude float8 until casting to float8 gets fixed.
+    # Issue #268 exclude int4 until int4 is representable.
     types_to_exclude = ["int4", "float8"]
-    # get all of the dtypes for positive test case
     positive_test_dtypes = {}
-    for name, dt in types.items():
-        positive_test_dtypes[name] = list(filter(lambda item: item not in types_to_exclude, set(dt)))
-
-    # get all dtypes for negative test case
     negative_test_dtypes = {}
     for name, dt in types.items():
+        # Get all of the dtypes for positive test case by excluding types_to_exclude.
+        positive_test_dtypes[name] = list(filter(lambda item: item not in types_to_exclude, set(dt)))
+        # Get all dtypes for negative test case.
         total_dtypes = set(filter(lambda item: item not in types_to_exclude, map(str, DATA_TYPES.values())))
-        cleaned_dtypes = set()
-        for inp_type in dt:
-            cleaned_dtypes.add(inp_type)
-        temp_list = list(total_dtypes - cleaned_dtypes)
-        negative_test_dtypes[name] = list(total_dtypes - cleaned_dtypes)
+        pos_dtypes = set(dt)
+        negative_test_dtypes[name] = list(total_dtypes - pos_dtypes)
     for positive_case in [True, False]:
-        dtype_lists_list = []
         if positive_case:
-            #  positive test case dtypes:
-            dtype_keys = positive_test_dtypes.keys()
-            dtype_lists_list.append(dict(zip(dtype_keys, positive_test_dtypes.values())))
+            dtype_lists_list = [positive_test_dtypes]
             case_name = "valid: "
         else:
-            # deal with all negative cases:
-            # create a list of dictionary lists and then go over each dictionary
-            for name_temp, dt in negative_test_dtypes.items():
-                # creating a temp dictionary:
-                temp_dict = {name_temp: dt}
-                for name_not_equal in negative_test_dtypes.keys():
-                    if name_temp != name_not_equal:
-                        temp_dict[name_not_equal] = set(
+            dtype_lists_list = []
+            all_dtypes = set(
                             filter(
                                 lambda item: item not in types_to_exclude,
                                 map(str, DATA_TYPES.values()),
                             )
                         )
+            # Create a list of dictionary lists and then go over each dictionary.
+            for name_temp, dt in negative_test_dtypes.items():
+                temp_dict = {name_temp: dt}
+                # Iterate through and leave one dtype set to negative and the rest is all dtypes.
+                for name_not_equal in negative_test_dtypes.keys():
+                    if name_temp != name_not_equal:
+                        temp_dict[name_not_equal] = all_dtypes
                 dtype_lists_list.append(temp_dict)
             case_name = "invalid: "
         for dtype_lists in dtype_lists_list:
             for combination in itertools.product(*(dtype_lists.values())):
-                # Create a tuple with keys and corresponding elements
+                # Create a tuple with keys and corresponding elements.
                 namespace = dict(zip(dtype_lists.keys(), map(lambda val: getattr(tp, val), combination)))
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
-                func_list.append((func_obj, inputs, returns, namespace, positive_case, case_name + ", ".join(ids)))
+                func_list.append(
+                    (
+                        func_obj,
+                        inputs,
+                        return_dtype,
+                        namespace,
+                        positive_case,
+                        func_obj.__name__ + "_" + case_name + ", ".join(ids),
+                    )
+                )
+
+
+def _run_dtype_constraints_subtest(test_data):
+    func_obj, inputs, _, namespace, _, _ = test_data
+    kwargs = {}
+    # Create all input objects using object_builders.create_obj.
+    for param_name, input_desc in inputs.items():
+        kwargs[param_name] = create_obj(param_name, input_desc, namespace)
+    # Run api call through _method_handler and setup namespace (api_call_locals).
+    api_call_locals = {"kwargs": kwargs}
+    _method_handler(kwargs, func_obj, api_call_locals)
+    # If output is a list then checking the return the first element in the list. (Assumes list of Tensors)
+    if isinstance(api_call_locals[RETURN_VALUE], List): 
+        api_call_locals[RETURN_VALUE] = api_call_locals[RETURN_VALUE][0]
+    # If output is a boolean skip .eval().
+    if isinstance(api_call_locals[RETURN_VALUE], bool): 
+        return api_call_locals, namespace
+    # Run eval to check for any backend errors.
+    api_call_locals[RETURN_VALUE].eval()
+    return api_call_locals, namespace
 
 
 @pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[5])
 def test_dtype_constraints(test_data):
-    func_obj, inputs, returns, namespace, positive_case, _ = test_data
-    # create all inputs for positive test case
-    kwargs = {}
-    for param_name, input_desc in inputs.items():
-        kwargs[param_name] = create_obj(func_obj, param_name, input_desc, namespace)
-    # run api call
-    api_call_locals = {"kwargs": kwargs}
-    exec(method_handler(kwargs, func_obj), globals(), api_call_locals)
-    # assert with output
+    _, _, return_dtype, _, positive_case, _ = test_data
     if positive_case:
-        assert api_call_locals[RETURN_VALUE].dtype == namespace[list(returns.values())[0]["dtype"]]
+        api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
+        if isinstance(api_call_locals[RETURN_VALUE],bool):
+                assert namespace[return_dtype]==tp.bool
+        else:
+            assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
     else:
-        assert (
-            not api_call_locals[RETURN_VALUE].dtype == namespace[list(returns.values())[0]["dtype"]]
-        ), f"{fg('red')}invalid test case failure: {list(namespace.values())[0]} is a valid dtype for {list(namespace.keys())[0]}{attr('reset')}"
+        with pytest.raises(Exception):
+            api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
+            assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]

@@ -16,10 +16,16 @@
 #
 
 import tripy as tp
-from tripy import export
+from tripy import export, dtype_info
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool", "int8"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def relu(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies Rectified Linear Unit (RELU) function

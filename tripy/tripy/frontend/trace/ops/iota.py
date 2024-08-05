@@ -18,11 +18,12 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from tripy import export, utils
+from tripy import export, utils, dtype_info
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -82,6 +83,11 @@ def iota_impl(
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={"T1": ["int32"], "T2": DATA_TYPES.keys()},
+    dtype_constraints={"shape": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+    default_constraints={"shape": {"shape": (3)}},
+)
 def iota(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
     dim: int = 0,
@@ -112,6 +118,13 @@ def iota(
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": DATA_TYPES.keys(),
+        "T2": DATA_TYPES.keys(),
+    },
+    dtype_constraints={"input": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+)
 def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with consecutive values
