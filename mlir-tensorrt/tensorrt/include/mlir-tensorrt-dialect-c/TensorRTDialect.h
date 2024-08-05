@@ -21,8 +21,8 @@
 /// Declaration of TensorRT dialect CAPI registration.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_C_DIALECT_TENSORRT_TENSORRTDIALECT
-#define MLIR_TENSORRT_C_DIALECT_TENSORRT_TENSORRTDIALECT
+#ifndef MLIR_TENSORRT_DIALECT_C_TENSORRTDIALECT
+#define MLIR_TENSORRT_DIALECT_C_TENSORRTDIALECT
 
 #include "mlir-c/IR.h"
 
@@ -39,4 +39,4 @@ MLIR_DECLARE_CAPI_DIALECT_REGISTRATION(TensorRT, tensorrt);
 }
 #endif
 
-#endif // MLIR_TENSORRT_C_DIALECT_TENSORRT_TENSORRTDIALECT
+#endif // MLIR_TENSORRT_DIALECT_C_TENSORRTDIALECT

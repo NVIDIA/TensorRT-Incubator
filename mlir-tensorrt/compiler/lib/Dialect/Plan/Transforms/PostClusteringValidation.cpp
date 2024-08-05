@@ -31,10 +31,12 @@
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 #define DEBUG_TYPE "post-clustering-validation"
@@ -48,12 +50,16 @@ namespace mlir::plan {
 using namespace mlir;
 using namespace mlir::plan;
 
-/// An op present in a public func after clustering is valid if,
-/// 1. It belongs to one of the `tensorrt`, `trtrt`, `executor`, `func`,
-/// `arith`, `scf`, `tensor`, `bufferization`, `plan`  dialects.
-/// 2. If it belongs to `stablehlo` dialect, it must be `stablehlo.constant`.
+/// This function attempts to identify operations that we know we can't support
+/// after the clustering phase. This includes operations that operate on tensor
+/// types but are not bufferizable.
 static bool isValidOp(Operation *op) {
-  return isa<stablehlo::ConstantOp, affine::AffineApplyOp>(op) ||
+  auto isNonTensor = [](Type t) { return !isa<ShapedType>(t); };
+  if (isPure(op) && llvm::all_of(op->getOperandTypes(), isNonTensor) &&
+      llvm::all_of(op->getResultTypes(), isNonTensor))
+    return true;
+  return isa<bufferization::BufferizableOpInterface>(op) ||
+         isa<stablehlo::ConstantOp, affine::AffineApplyOp>(op) ||
          isa<tensorrt::TensorRTDialect, trtrt::TensorRTRuntimeDialect,
              executor::ExecutorDialect, func::FuncDialect, arith::ArithDialect,
              scf::SCFDialect, tensor::TensorDialect,

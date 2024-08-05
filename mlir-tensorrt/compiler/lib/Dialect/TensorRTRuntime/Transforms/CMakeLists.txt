@@ -1,7 +1,7 @@
 add_mlir_tensorrt_library(MLIRTensorRTTensorRTRuntimeTransforms
   BufferizableOpInterfaceImpl.cpp
 
-  LINK_LIBS
+  LINK_LIBS PUBLIC
   MLIRIR
   MLIRTensorRTPlanDialect
   MLIRTensorRTTensorRTRuntimeDialect
