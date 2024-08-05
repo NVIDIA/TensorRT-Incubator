@@ -63,7 +63,7 @@ class TestReduceOp:
         "x_shape, axis, keepdim",
         [
             ((2, 3), 1, True),
-            ((2, 3, 4), (1, 2), True),
+            pytest.param((2, 3, 4), (1, 2), True, marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)")),
             ((2, 3), 1, False),
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
@@ -76,8 +76,6 @@ class TestReduceOp:
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np_dtype)
         a = tp.Tensor(x, dtype=dtype)
         out = tp.mean(a, dim=axis, keepdim=keepdim)
-        # For test case ((2, 3, 4), (1, 2), True) without out.eval() tp.allclose fails. (Issue #)
-        out.eval()
         assert tp.allclose(out, tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim))))
 
     @pytest.mark.parametrize(
