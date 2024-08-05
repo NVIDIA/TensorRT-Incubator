@@ -30,22 +30,10 @@ RUN cd /usr/lib/ && \
     rm TensorRT-10.1.0.27.Linux.x86_64-gnu.cuda-12.4.tar.gz
 ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.1.0.27/lib/:$LD_LIBRARY_PATH
 
-
-# Setup args to fetch mlir-tensorrt packages
-ARG GITHUB_TOKEN
-ARG PYTHON_VERSION=310
-ARG VERSION=0.1.29
-
-COPY tools/download_mlir_trt_package.sh /tripy/
-RUN chmod +x /tripy/download_mlir_trt_package.sh
-
-# TODO (#release) : remove bash script and download directly from public github repo.
-RUN /tripy/download_mlir_trt_package.sh ${GITHUB_TOKEN} ${VERSION} ${PYTHON_VERSION}
-RUN pip3 install *.whl
-
 COPY pyproject.toml /tripy/pyproject.toml
 RUN pip install .[docs,dev,test] \
     -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    -f https://github.com/NVIDIA/TensorRT-Incubator/releases/ \
     --extra-index-url https://download.pytorch.org/whl
 
 
