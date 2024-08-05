@@ -1,3 +1,0 @@
-settings set target.load-cwd-lldbinit false
-settings set target.source-map /workspaces/mlir-tensorrt /tripy/mlir-tensorrt
-settings show target.source-map

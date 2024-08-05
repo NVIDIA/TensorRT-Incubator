@@ -1,7 +1,0 @@
-add_subdirectory(Utils)
-add_subdirectory(Executor)
-add_subdirectory(Conversion)
-add_subdirectory(Support)
-add_subdirectory(Target)
-add_subdirectory(Runtime)
-add_subdirectory(Tools)

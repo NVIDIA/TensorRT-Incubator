@@ -1,5 +1,0 @@
-# VSCode will by default exclude all .gitignore paths from
-# quick-search. This undoes that effect for the CPM cache directory
-# so that dependencies are not hidden from quick search actions.
-!/.cache.cpm/
-!/llvm-project/

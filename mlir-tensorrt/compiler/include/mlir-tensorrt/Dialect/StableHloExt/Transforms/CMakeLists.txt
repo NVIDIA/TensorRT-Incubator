@@ -1,6 +1,0 @@
-include_directories(${MLIR_INCLUDE_DIRS})
-set(LLVM_TARGET_DEFINITIONS Passes.td)
-mlir_tablegen(Passes.h.inc -gen-pass-decls -name StableHloExt)
-mlir_tablegen(Passes.capi.h.inc -gen-pass-capi-header --prefix StableHloExt)
-mlir_tablegen(Passes.capi.cpp.inc -gen-pass-capi-impl --prefix StableHloExt)
-add_public_tablegen_target(MLIRTensorRTStableHloExtTransformsPassIncGen)

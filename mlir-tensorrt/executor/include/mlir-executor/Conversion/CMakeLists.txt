@@ -1,6 +1,0 @@
-include_directories(${MLIR_INCLUDE_DIRS})
-set(LLVM_TARGET_DEFINITIONS Passes.td)
-set(_TABLEGEN_ARGS )
-
-mlir_tablegen(Passes.h.inc -gen-pass-decls -name MLIRExecutorConversion ${_TABLEGEN_ARGS})
-add_public_tablegen_target(MLIRExecutorConversionPassIncGen)

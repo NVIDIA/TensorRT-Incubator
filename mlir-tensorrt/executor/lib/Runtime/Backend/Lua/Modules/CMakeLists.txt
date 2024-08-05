@@ -1,6 +1,0 @@
-add_subdirectory(Core)
-add_subdirectory(CUDA)
-add_subdirectory(TensorRT)
-add_subdirectory(Utils)
-add_subdirectory(NCCL)
-add_subdirectory(CuBLAS)

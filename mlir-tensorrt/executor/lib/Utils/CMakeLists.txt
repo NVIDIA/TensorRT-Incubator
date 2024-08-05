@@ -1,1 +1,0 @@
-add_subdirectory(TensorRTDynamicLoader EXCLUDE_FROM_ALL)
