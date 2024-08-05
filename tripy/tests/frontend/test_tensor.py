@@ -88,7 +88,10 @@ class TestTensor:
             )
         tensor = tp.Tensor(input_data, dtype=dtype)
         assert tensor.trace_tensor.producer.dtype == dtype
-        print(tensor)
+        if dtype == tp.float8:
+            assert tensor.data().dtype == tp.float32
+        else:
+            assert tensor.data().dtype == dtype
         assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
         assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
 
