@@ -325,5 +325,5 @@ class TestConvolution:
         output = conv_layer(input)
 
         rtol_ = 1e-15 if tp_dtype == tp.float32 else 1e-10
-        assert tp.allclose(output, expected, rtol=rtol_)
+        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
         assert output.shape == expected.shape
