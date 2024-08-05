@@ -263,7 +263,7 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
 @export.public_api(document_under="tensor_operations")
 @dtype_info.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"],
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32"],
     },
     dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
 )
