@@ -1,6 +1,0 @@
-
-######
-gather
-######
-
-.. autofunction:: tripy.gather

@@ -1,6 +1,0 @@
-
-#############
-ConvTranspose
-#############
-
-.. autoclass:: tripy.ConvTranspose

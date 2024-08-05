@@ -1,6 +1,0 @@
-
-######
-expand
-######
-
-.. autofunction:: tripy.expand

@@ -1,6 +1,0 @@
-
-#####
-where
-#####
-
-.. autofunction:: tripy.where
