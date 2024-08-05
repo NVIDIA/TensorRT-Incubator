@@ -161,7 +161,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         :linenos:
         :caption: Main Diagonal
 
-        input = tp.iota((5, 5)) + 1.
+        input = tp.iota((2, 1, 3, 3), dim=2) + 1.
         output = tp.tril(input)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get()))
@@ -184,8 +184,8 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
     """
-    tri_mask = (iota_like(tensor, 0, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) >= iota_like(
-        tensor, 1, datatype.int32
+    tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) >= iota_like(
+        tensor, -1, datatype.int32
     )
     zeros_tensor = zeros_like(tensor)
     return where(tri_mask, tensor, zeros_tensor)
@@ -213,7 +213,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         :linenos:
         :caption: Main Diagonal
 
-        input = tp.iota((5, 5)) + 1.
+        input = tp.iota((2, 1, 3, 3), dim=2) + 1.
         output = tp.triu(input)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get()))
@@ -236,8 +236,8 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get(), -1))
     """
-    tri_mask = (iota_like(tensor, 0, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) <= iota_like(
-        tensor, 1, datatype.int32
+    tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) <= iota_like(
+        tensor, -1, datatype.int32
     )
     zeros_tensor = zeros_like(tensor)
     return where(tri_mask, tensor, zeros_tensor)
