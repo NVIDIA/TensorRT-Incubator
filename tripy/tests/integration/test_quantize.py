@@ -69,7 +69,7 @@ class TestQuantize:
         with raises(
             Exception,
             match=re.escape(
-                "InvalidArgument: InvalidArgument: Scalar type code [f8e4m3fn] conversion to DLPackDataTypeCode is not supported."
+                "UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"
             ),
         ):
             assert torch.equal(
@@ -92,7 +92,7 @@ class TestQuantize:
         with raises(
             Exception,
             match=re.escape(
-                "InvalidArgument: InvalidArgument: Scalar type code [f8e4m3fn] conversion to DLPackDataTypeCode is not supported."
+                "UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"
             ),
         ):
             assert torch.equal(
