@@ -126,12 +126,11 @@ mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript) {
   return returnCode;
 }
 
-/// Create an execution state. This will setup a Lua environment and invoke
-/// global initialization.
-StatusOr<std::unique_ptr<RuntimeSession>>
-mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
-    ExecutableView executable, const RuntimeSessionOptions &options) {
-  ADD_RUNTIME_MODULE_RANGE("runtime_loadExecutable");
+/// If the program was compiled with NCCL enabled, then check for the
+/// NCCL uuid if the system has multiple GPUs.
+static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
+#if MLIR_TRT_ENABLE_NCCL
+
   if (options.getNumDevices() > 1 && options.getNcclUuid().empty())
     return getInternalErrorStatus(
         "number of devices is {0} but the NCCL UUID is empty",
@@ -140,6 +139,19 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   MTRT_DBG("creating session with DeviceID={0}/{1} UUID={2}",
            options.getDeviceId(), options.getNumDevices(),
            options.getNcclUuid());
+
+#endif
+  return getOkStatus();
+}
+
+/// Create an execution state. This will setup a Lua environment and invoke
+/// global initialization.
+StatusOr<std::unique_ptr<RuntimeSession>>
+mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
+    ExecutableView executable, const RuntimeSessionOptions &options) {
+  ADD_RUNTIME_MODULE_RANGE("runtime_loadExecutable");
+
+  MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
 
   auto pinnedMemoryAllocator = std::make_unique<PinnedMemoryAllocator>();
   auto allocTracker = std::make_unique<AllocTracker>();

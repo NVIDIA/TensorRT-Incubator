@@ -104,7 +104,7 @@ public:
     });
   }
 
-private:
+protected:
   /// Callbacks performing extension initialization, e.g., registering ops,
   /// types and defining the additional data.
   SmallVector<Initializer> initializers;
