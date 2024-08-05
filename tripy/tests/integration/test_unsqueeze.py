@@ -35,4 +35,4 @@ class TestUnsqueezeOp:
         inp = np.ones((4, 2, 2, 3), dtype=np.float32)
 
         out = func(tp.Tensor(inp))
-        assert np.allclose(cp.from_dlpack(out).get(), np.array(np.expand_dims(inp, axis=axis)))
+        assert tp.allclose(out, tp.Tensor(np.expand_dims(inp, axis=axis)))

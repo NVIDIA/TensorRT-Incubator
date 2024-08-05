@@ -274,7 +274,7 @@ def arange(
 
         output = tp.arange(2.3, 0.8, -0.2)
 
-        assert np.allclose(cp.from_dlpack(output).get(), np.arange(2.3, 0.8, -0.2, dtype=np.float32))
+        assert tp.allclose(output, tp.Tensor(np.arange(2.3, 0.8, -0.2, dtype=np.float32)))
     """
     if step == 0:
         raise_error("Step in arange cannot be 0.", [])

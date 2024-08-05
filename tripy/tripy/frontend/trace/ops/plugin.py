@@ -87,6 +87,6 @@ def plugin(
             type_id=0,
         )
 
-        assert cp.allclose(cp.from_dlpack(out), cp.from_dlpack(tp.gelu(inp)))
+        assert tp.allclose(out,tp.gelu(inp))
     """
     return Plugin.build(inputs, name, version, namespace, output_info, kwargs, num_outputs=len(output_info))

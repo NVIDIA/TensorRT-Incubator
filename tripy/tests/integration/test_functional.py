@@ -173,7 +173,7 @@ class TestFunctional:
                 tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias, device=tp.device(kind)))
 
             tripy_out = tripy_linear(tp.Tensor(inp, device=tp.device(kind)))
-            assert np.allclose(cp.from_dlpack(tripy_out).get(), torch_out.cpu().numpy())
+            assert tp.allclose(tripy_out, tp.Tensor(torch_out))
 
 
 class TestCopyFunctional:
@@ -202,7 +202,7 @@ class TestCopyFunctional:
         assert out.device.kind == "gpu"
         assert out.data() == [1, 2]
 
-    @pytest.mark.skip("Remove copy op in Tripy: mlir-tensorrt #756")
+    @pytest.mark.skip("Remove copy op in TriPy: https://gitlab-master.nvidia.com/initialdl/mlir-tensorrt/-/issues/756")
     def test_with_ops(self):
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])
