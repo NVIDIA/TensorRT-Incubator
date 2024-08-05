@@ -84,7 +84,7 @@ def iota_impl(
 
 @export.public_api(document_under="tensor_operations")
 @dtype_info.dtype_info(
-    dtype_variables={"T1": ["int32"], "T2": ["float32", "float16", "bfloat16", "int8", "int32", "bool"]},
+    dtype_variables={"T1": ["int32"], "T2": DATA_TYPES.keys()},
     dtype_constraints={"shape": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
     default_constraints={"shape": {"shape": (3)}},
 )
@@ -121,7 +121,7 @@ def iota(
 @dtype_info.dtype_info(
     dtype_variables={
         "T1": DATA_TYPES.keys(),
-        "T2": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
+        "T2": DATA_TYPES.keys(),
     },
     dtype_constraints={"input": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
 )

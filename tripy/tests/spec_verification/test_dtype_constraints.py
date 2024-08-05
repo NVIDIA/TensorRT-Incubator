@@ -26,7 +26,29 @@ import tripy as tp
 
 
 def _method_handler(kwargs, func_obj, api_call_locals):
+def _method_handler(kwargs, func_obj, api_call_locals):
     _METHOD_OPS = {
+        "__add__": (lambda self, other: self + other),
+        "__sub__": (lambda self, other: self - other),
+        "__rsub__": (lambda self, other: self - other),
+        "__pow__": (lambda self, other: self**other),
+        "__rpow__": (lambda self, other: self**other),
+        "__mul__": (lambda self, other: self * other),
+        "__rmul__": (lambda self, other: self * other),
+        "__truediv__": (lambda self, other: self / other),
+        "__rtruediv__": (lambda self, other: self / other),
+        "__lt__": (lambda self, other: self < other),
+        "__le__": (lambda self, other: self <= other),
+        "__eq__": (lambda self, other: self == other),
+        "__ne__": (lambda self, other: self != other),
+        "__ge__": (lambda self, other: self >= other),
+        "__gt__": (lambda self, other: self > other),
+        "__matmul__": (lambda self, other: self @ other),
+        "shape": (lambda self: self.shape),
+        "__getitem__": (lambda self, index: self.__getitem__(index)),
+    }
+    if func_obj.__name__ in _METHOD_OPS.keys():
+        # Function needs to be executed in a specific way
         "__add__": (lambda self, other: self + other),
         "__sub__": (lambda self, other: self - other),
         "__rsub__": (lambda self, other: self - other),
@@ -50,7 +72,12 @@ def _method_handler(kwargs, func_obj, api_call_locals):
         # Function needs to be executed in a specific way
         rtn_builder = _METHOD_OPS.get(func_obj.__name__, None)
         api_call_locals[RETURN_VALUE] = rtn_builder(**kwargs)
+        api_call_locals[RETURN_VALUE] = rtn_builder(**kwargs)
     else:
+        # Execute API call normally.
+        exec(f"{RETURN_VALUE} = " + f"tp.{func_obj.__name__}(**kwargs)", globals(), api_call_locals)
+    # Print out debugging info.
+    print("API call: ", func_obj.__name__, ", with parameters: ", kwargs)
         # Execute API call normally.
         exec(f"{RETURN_VALUE} = " + f"tp.{func_obj.__name__}(**kwargs)", globals(), api_call_locals)
     # Print out debugging info.
@@ -61,24 +88,35 @@ func_list = []
 for func_obj, parsed_dict, types_assignments in TYPE_VERIFICATION.values():
     inputs = parsed_dict["inputs"]
     return_dtype = parsed_dict["return_dtype"]
+    return_dtype = parsed_dict["return_dtype"]
     types = parsed_dict["types"]
+    # Issue #268 exclude float8 until casting to float8 gets fixed.
+    # Issue #268 exclude int4 until int4 is representable.
     # Issue #268 exclude float8 until casting to float8 gets fixed.
     # Issue #268 exclude int4 until int4 is representable.
     types_to_exclude = ["int4", "float8"]
     positive_test_dtypes = {}
     negative_test_dtypes = {}
+    negative_test_dtypes = {}
     for name, dt in types.items():
+        # Get all of the dtypes for positive test case by excluding types_to_exclude.
         # Get all of the dtypes for positive test case by excluding types_to_exclude.
         positive_test_dtypes[name] = list(filter(lambda item: item not in types_to_exclude, set(dt)))
         # Get all dtypes for negative test case.
+        # Get all dtypes for negative test case.
         total_dtypes = set(filter(lambda item: item not in types_to_exclude, map(str, DATA_TYPES.values())))
+        pos_dtypes = set(dt)
+        negative_test_dtypes[name] = list(total_dtypes - pos_dtypes)
         pos_dtypes = set(dt)
         negative_test_dtypes[name] = list(total_dtypes - pos_dtypes)
     for positive_case in [True, False]:
         if positive_case:
             dtype_lists_list = [positive_test_dtypes]
+            dtype_lists_list = [positive_test_dtypes]
             case_name = "valid: "
         else:
+            dtype_lists_list = []
+            all_dtypes = set(
             dtype_lists_list = []
             all_dtypes = set(
                             filter(
@@ -93,10 +131,18 @@ for func_obj, parsed_dict, types_assignments in TYPE_VERIFICATION.values():
                 for name_not_equal in negative_test_dtypes.keys():
                     if name_temp != name_not_equal:
                         temp_dict[name_not_equal] = all_dtypes
+            # Create a list of dictionary lists and then go over each dictionary.
+            for name_temp, dt in negative_test_dtypes.items():
+                temp_dict = {name_temp: dt}
+                # Iterate through and leave one dtype set to negative and the rest is all dtypes.
+                for name_not_equal in negative_test_dtypes.keys():
+                    if name_temp != name_not_equal:
+                        temp_dict[name_not_equal] = all_dtypes
                 dtype_lists_list.append(temp_dict)
             case_name = "invalid: "
         for dtype_lists in dtype_lists_list:
             for combination in itertools.product(*(dtype_lists.values())):
+                # Create a tuple with keys and corresponding elements.
                 # Create a tuple with keys and corresponding elements.
                 namespace = dict(zip(dtype_lists.keys(), map(lambda val: getattr(tp, val), combination)))
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
@@ -121,12 +167,12 @@ def _run_dtype_constraints_subtest(test_data):
     # Run api call through _method_handler and setup namespace (api_call_locals).
     api_call_locals = {"kwargs": kwargs}
     _method_handler(kwargs, func_obj, api_call_locals)
-    # If output does not have dtype skip .eval().
-    if isinstance(api_call_locals[RETURN_VALUE], int): 
-        return api_call_locals, namespace
     # If output is a list then checking the return the first element in the list. (Assumes list of Tensors)
     if isinstance(api_call_locals[RETURN_VALUE], List): 
         api_call_locals[RETURN_VALUE] = api_call_locals[RETURN_VALUE][0]
+    # If output is a boolean skip .eval().
+    if isinstance(api_call_locals[RETURN_VALUE], bool): 
+        return api_call_locals, namespace
     # Run eval to check for any backend errors.
     api_call_locals[RETURN_VALUE].eval()
     return api_call_locals, namespace
@@ -135,16 +181,14 @@ def _run_dtype_constraints_subtest(test_data):
 @pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[5])
 def test_dtype_constraints(test_data):
     _, _, return_dtype, _, positive_case, _ = test_data
+    _, _, return_dtype, _, positive_case, _ = test_data
     if positive_case:
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-        if isinstance(api_call_locals[RETURN_VALUE], int): 
-                return
+        if isinstance(api_call_locals[RETURN_VALUE],bool):
+                assert namespace[return_dtype]==tp.bool
         else:
             assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
     else:
         with pytest.raises(Exception):
             api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-            if isinstance(api_call_locals[RETURN_VALUE], int): 
-                return
-            else:
-                assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
+            assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]

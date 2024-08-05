@@ -17,23 +17,17 @@
 
 import inspect
 from typing import Union, Optional, get_origin, get_args, ForwardRef
+from typing import Union, Optional, get_origin, get_args, ForwardRef
 
 TYPE_VERIFICATION = {}
 RETURN_VALUE = "RETURN_VALUE"
 
-class InputValues:
-    dtype: str = None
-    init: Union[tuple,list] = None
-    shape: tuple = None
-    target: str = None
-    count: int = None
 
 def dtype_info(
     dtype_variables: dict = {},
     dtype_constraints: dict = {},
     default_constraints: dict = {},
     param_type_specification: dict = {},
-    function_name : Optional[str] = "",
 ):
     """
     This function is a decorator that populates TYPE_VERIFICATION global dictionary which will be used by
@@ -41,17 +35,18 @@ def dtype_info(
     """
     def decorator(func_obj):
         # Get names and type hints for each param.
+        # Get names and type hints for each param.
         func_sig = inspect.signature(func_obj)
         param_dict = func_sig.parameters
         # Construct inputs_dict.
+        # Construct inputs_dict.
         inputs_dict = {}
+        default_val = None
         for param_name, param_type in param_dict.items():
-            input_values = InputValues()
             # If parameter had a default then use it otherwise skip.
             if param_type.default is not param_type.empty:
-                # Checking if not equal to None since we want to enter if default is 0 or similar.
-                if not param_type.default == None:
-                    input_values.init = param_type.default
+                if not param_type.default is None:
+                    default_val = {"init": param_type.default}
             param_type = param_type.annotation
             # Check if there is a specific type that should be used.
             if param_type_specification.get(param_name, None):
@@ -63,15 +58,20 @@ def dtype_info(
                 if isinstance(param_type, ForwardRef):
                     param_type = param_type.__forward_arg__
             # Check if there are any provided constraints and add them to the constraint dict.
-            
-            input_values.dtype = dtype_constraints.get(param_name, None)
+            param_constraint_dict = {param_type: {}}
+            dtype_constraint = dtype_constraints.get(param_name, None)
             other_constraint = default_constraints.get(param_name, None)
+            if dtype_constraint:
+                param_constraint_dict[param_type].update({"dtype": dtype_constraint})
+            if default_val: 
+                param_constraint_dict[param_type].update(default_val)
             if other_constraint:
                 param_constraint_dict[param_type].update(other_constraint)
             inputs_dict[param_name] = param_constraint_dict
         parsed_dict = {"inputs": inputs_dict, "return_dtype": dtype_constraints[RETURN_VALUE], "types": dtype_variables}
+        parsed_dict = {"inputs": inputs_dict, "return_dtype": dtype_constraints[RETURN_VALUE], "types": dtype_variables}
         TYPE_VERIFICATION[func_obj.__qualname__] = (func_obj, parsed_dict, dtype_constraints)
-        # Some functions are mapped to multiple APIs, so we need to add entries for those here:
+        # These ops are double counted in binary_elementwise.py, but only one func signature.
         if func_obj.__qualname__ in ["__add__", "__mul__"]:  
             TYPE_VERIFICATION[func_obj.__qualname__[0:2] + "r" + func_obj.__qualname__[2:]] = (
                 func_obj,

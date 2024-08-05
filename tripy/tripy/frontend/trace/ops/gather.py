@@ -94,7 +94,7 @@ class Gather(BaseTraceOp):
 @export.public_api(document_under="tensor_operations")
 @dtype_info.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
         "T2": ["int32"],
     },
     dtype_constraints={"input": "T1", "index": "T2", dtype_info.RETURN_VALUE: "T1"},
