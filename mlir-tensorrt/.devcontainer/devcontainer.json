@@ -11,7 +11,7 @@
 	},
 	"runArgs": [
 		"--name",
-		"tensorrt-incubator-${localEnv:USER:nvidia}",
+		"mlir-tensorrt-${localEnv:USER:nvidia}",
 		"--cap-add=SYS_PTRACE",
 		"--security-opt",
 		"seccomp=unconfined",
@@ -23,6 +23,8 @@
 		"gpu": "optional"
 	},
 	"remoteUser": "nvidia",
+	"workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces/TensorRT-Incubator,type=bind,consistency=cached",
+	"workspaceFolder": "/workspaces/TensorRT-Incubator",
 	"workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces/TensorRT-Incubator,type=bind,consistency=cached",
 	"workspaceFolder": "/workspaces/TensorRT-Incubator",
 	"customizations": {
@@ -77,6 +79,8 @@
 		"ghcr.io/devcontainers/features/git:1": {
 			"version": "latest"
 		},
-		"ghcr.io/devcontainers/features/github-cli:1": {}
+		"features": {
+			"ghcr.io/devcontainers/features/github-cli:1": {}
+		}
 	}
 }
