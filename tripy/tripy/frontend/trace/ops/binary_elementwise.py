@@ -262,7 +262,7 @@ def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
 @TENSOR_METHOD_REGISTRY("__pow__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 @dtype_info.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
     dtype_constraints={"self": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
 )
 def __pow__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
@@ -293,7 +293,7 @@ def __pow__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
 @TENSOR_METHOD_REGISTRY("__rpow__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 @dtype_info.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
     dtype_constraints={"self": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
     default_constraints={"self": {"init": 1}}
 )
