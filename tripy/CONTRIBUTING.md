@@ -13,7 +13,7 @@
 
     <!-- TODO (#release) -->
     ```bash
-    docker build  -t tripy --build-arg GITHUB_TOKEN=$GITHUB_TOKEN  . 
+    docker build -t tripy --build-arg GITHUB_TOKEN=$GITHUB_TOKEN .
     ```
 
 3. Launch the container; from the [`tripy` root directory](.), run:
@@ -63,12 +63,9 @@ If you're intersted in adding a new operator to Tripy, refer to [this guide](./d
 
 ### Making Commits
 
-Ensure you sign off on any commits you make.
-To sign off on a commit you simply use the --signoff (or -S) option when committing your changes:
-
-```bash
-git commit -m "<commit message>" -S
-```
+Ensure any commits you make are signed. See
+[this page](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#ssh-commit-signature-verification)
+for details on signing commits.
 
 Please make sure any contributions you make satisfy the developer certificate of origin:
 
