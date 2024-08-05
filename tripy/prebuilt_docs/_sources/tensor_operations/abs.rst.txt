@@ -1,6 +1,0 @@
-
-###
-abs
-###
-
-.. autofunction:: tripy.abs

@@ -1,6 +1,0 @@
-
-#########
-Embedding
-#########
-
-.. autoclass:: tripy.Embedding

@@ -1,6 +1,0 @@
-
-#######
-softmax
-#######
-
-.. autofunction:: tripy.softmax

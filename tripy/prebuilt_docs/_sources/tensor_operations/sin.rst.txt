@@ -1,6 +1,0 @@
-
-###
-sin
-###
-
-.. autofunction:: tripy.sin

@@ -1,8 +1,0 @@
-
-#########
-Parameter
-#########
-
-.. autoclass:: tripy.Parameter
-    :no-members:
-    :no-special-members:

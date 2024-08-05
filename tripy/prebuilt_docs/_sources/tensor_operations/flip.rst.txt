@@ -1,6 +1,0 @@
-
-####
-flip
-####
-
-.. autofunction:: tripy.flip

@@ -1,6 +1,0 @@
-
-#########
-transpose
-#########
-
-.. autofunction:: tripy.transpose

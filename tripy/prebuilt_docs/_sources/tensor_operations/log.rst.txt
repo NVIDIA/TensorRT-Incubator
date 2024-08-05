@@ -1,6 +1,0 @@
-
-###
-log
-###
-
-.. autofunction:: tripy.log

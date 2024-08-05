@@ -1,6 +1,0 @@
-
-####
-silu
-####
-
-.. autofunction:: tripy.silu

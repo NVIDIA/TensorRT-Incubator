@@ -1,6 +1,0 @@
-
-####
-cast
-####
-
-.. autofunction:: tripy.cast

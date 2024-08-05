@@ -1,6 +1,0 @@
-
-#######
-reshape
-#######
-
-.. autofunction:: tripy.reshape
