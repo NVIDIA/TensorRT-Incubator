@@ -13,14 +13,13 @@
 
     <!-- TODO (#release) -->
     ```bash
-    cd tripy/
     docker build  -t tripy --build-arg GITHUB_TOKEN=$GITHUB_TOKEN  . 
     ```
 
 3. Launch the container; from the [`tripy` root directory](.), run:
 
     ```bash
-    docker run --gpus all -v tripy:/tripy/ -it --rm tripy:latest
+    docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
     ```
 
 4. You should now be able to use `tripy` in the container. To test it out, you can run a quick sanity check:
@@ -65,10 +64,10 @@ If you're intersted in adding a new operator to Tripy, refer to [this guide](./d
 ### Making Commits
 
 Ensure you sign off on any commits you make.
-To sign off on a commit you simply use the --signoff (or -s) option when committing your changes:
+To sign off on a commit you simply use the --signoff (or -S) option when committing your changes:
 
 ```bash
-git commit -m "<commit message>" -s
+git commit -m "<commit message>" -S
 ```
 
 Please make sure any contributions you make satisfy the developer certificate of origin:
