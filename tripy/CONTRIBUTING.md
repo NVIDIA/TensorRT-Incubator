@@ -9,9 +9,19 @@
     git clone https://github.com/NVIDIA/TensorRT-Incubator.git
     ```
 
-2. Launch the container; from the [`tripy` root directory](.), run:
+2.  From the [`tripy` root directory](.), run:
 
     <!-- TODO (#release) -->
+    ```bash
+    cd tripy/
+    docker build  -t tripy --build-arg GITHUB_TOKEN=$GITHUB_TOKEN  . 
+    ```
+
+3. Launch the container; from the [`tripy` root directory](.), run:
+
+    ```bash
+    docker run --gpus all -v tripy:/tripy/ -it --rm tripy:latest
+    ```
 
 4. You should now be able to use `tripy` in the container. To test it out, you can run a quick sanity check:
 
@@ -109,19 +119,3 @@ For details on tests, see [the tests README](./tests/README.md).
 
 If you add or modify any public-facing interfaces, you should also update the documentation accordingly.
 For details on the public documentation, see [the documentation README](./docs/README.md).
-
-
-## Advanced: Building A Container Locally
-
-1.  From the [`tripy` root directory](.), run:
-
-    # TODO (#release)
-    ```bash
-    docker build -t tripy .
-    ```
-
-3. You can launch the container with:
-
-    ```bash
-    docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
-    ```
