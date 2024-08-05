@@ -40,7 +40,6 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Tensor/Transforms/Transforms.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
@@ -272,6 +271,10 @@ Status StableHLOToExecutableOptions::inferDeviceOptionsFromHost() {
   return Status::getOk();
 }
 
+//===----------------------------------------------------------------------===//
+// StableHloToExecutableTask
+//===----------------------------------------------------------------------===//
+
 static void populateExtensionPasses(
     mlir::OpPassManager &pm, const StableHLOToExecutableOptions &options,
     StableHLOToExecutableOptions::ExtensionBase::Phase phase) {
@@ -281,9 +284,8 @@ static void populateExtensionPasses(
   }
 }
 
-static void
-buildStablehloClusteringPipeline(OpPassManager &pm,
-                                 const StableHLOToExecutableOptions &opts) {
+void StableHloToExecutableTask::buildStablehloClusteringPipeline(
+    OpPassManager &pm, const StableHLOToExecutableOptions &opts) {
   using Phase = StableHLOToExecutableOptions::ExtensionBase::Phase;
   pm.addPass(createConvertStablehloToScfPass());
 
@@ -317,9 +319,8 @@ buildStablehloClusteringPipeline(OpPassManager &pm,
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 }
 
-static void
-buildPostClusteringPipeline(OpPassManager &pm,
-                            const StableHLOToExecutableOptions &opts) {
+void StableHloToExecutableTask::buildPostClusteringPipeline(
+    OpPassManager &pm, const StableHLOToExecutableOptions &opts) {
   using Phase = StableHLOToExecutableOptions::ExtensionBase::Phase;
   populateExtensionPasses(pm, opts, Phase::PreBufferization);
 
@@ -349,10 +350,6 @@ buildPostClusteringPipeline(OpPassManager &pm,
 
   pm.addPass(createDropNestedModulesPass());
 }
-
-//===----------------------------------------------------------------------===//
-// StableHloToExecutableRunner
-//===----------------------------------------------------------------------===//
 
 void StableHloToExecutableTask::populatePassManager(
     mlir::PassManager &pm, const StableHLOToExecutableOptions &options) {
@@ -547,7 +544,7 @@ void mlirtrt::compiler::registerStablehloClusteringPipelines() {
       "stablehlo-clustering-pipeline",
       "apply clustering and initial transformations to stablehlo IR",
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
-        buildStablehloClusteringPipeline(
+        StableHloToExecutableTask::buildStablehloClusteringPipeline(
             pm, populateStablehloClusteringPipelineOpts(opts));
       });
 
@@ -556,7 +553,7 @@ void mlirtrt::compiler::registerStablehloClusteringPipelines() {
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
         StableHLOToExecutableOptions finalOpts =
             populateStablehloClusteringPipelineOpts(opts);
-        buildPostClusteringPipeline(pm, finalOpts);
+        StableHloToExecutableTask::buildPostClusteringPipeline(pm, finalOpts);
       });
 }
 
