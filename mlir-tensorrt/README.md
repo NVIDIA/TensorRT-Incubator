@@ -2,7 +2,7 @@
 
 This code contains:
 
-- A [MLIR](https://mlir.llvm.org/)[dialect](https://mlir.llvm.org/docs/LangRef/#dialects)
+- A [MLIR](https://mlir.llvm.org/) [dialect](https://mlir.llvm.org/docs/LangRef/#dialects)
   that attempts  to precisely model the [TensorRT operator set](https://docs.nvidia.com/deeplearning/tensorrt/operators/docs/).
   It provides an MLIR dialect, static verification and type inference, optimizations,
   translations to TensorRT by invoking the TensorRT builder API (`nvinfer1::INetworkBuilder`),
