@@ -82,10 +82,15 @@ function(download_tensorrt)
   if(ARG_VERSION VERSION_EQUAL "10.1")
     set(ARG_VERSION "10.1.0.27")
   endif()
+  # Canonicalize "10.2" version by setting it to the latest public TRT 10.2 version.
+  if(ARG_VERSION VERSION_EQUAL "10.2")
+    set(ARG_VERSION "10.2.0.19")
+  endif()
 
   set(downloadable_versions
     "9.0.1.4" "9.1.0.4" "9.2.0.5"
     "10.0.0.6" "10.1.0.27"
+    "10.2.0.19"
   )
 
   if(NOT ARG_VERSION IN_LIST downloadable_versions)
@@ -126,6 +131,10 @@ function(download_tensorrt)
 
   if(ARG_VERSION VERSION_EQUAL 10.1.0.27)
     set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.1.0/tars/tensorrt-10.1.0.27.linux.x86_64-gnu.cuda-12.4.tar.gz")
+  endif()
+
+  if(ARG_VERSION VERSION_EQUAL 10.2.0.19)
+    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.2.0/tars/TensorRT-10.2.0.19.Linux.x86_64-gnu.cuda-12.5.tar.gz")
   endif()
 
   if(NOT _url)
