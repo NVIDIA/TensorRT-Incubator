@@ -1,9 +1,5 @@
 include(CMakeParseArguments)
 
-if(NOT COMMAND CPMAddPackage)
-  include(../build_tools/cmake/CPM.cmake)
-endif()
-
 #-------------------------------------------------------------------------------------
 # Wrapper around CPMAddPackage This functions exactly like CPMAddPackage.
 # However, if the GROUP_CICD_TOKEN environment variable is set, then it will
