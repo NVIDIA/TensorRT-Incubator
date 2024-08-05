@@ -219,17 +219,17 @@ LogicalResult BlasRunGemmOp::verify() {
     return emitOpError("For GEMM, both `alpha` and `beta` should be provided.");
 
   // If `mat_a` is a tensor type, make sure all other inputs are tensors as well
-  if (auto tensorType = getMatA().getType().dyn_cast<TensorType>()) {
-    if (!getMatB().getType().dyn_cast<TensorType>() ||
-        !getMatC().getType().dyn_cast<TensorType>())
+  if (auto tensorType = dyn_cast<TensorType>(getMatA().getType())) {
+    if (!dyn_cast<TensorType>(getMatB().getType()) ||
+        !dyn_cast<TensorType>(getMatC().getType()))
       return emitOpError(
           "If one input is `TensorType`, all must be `TensorType`.");
   }
 
   // If `mat_a` is a memref type, make sure all other inputs are memref as well
-  if (auto tensorType = getMatA().getType().dyn_cast<MemRefType>()) {
-    if (!getMatB().getType().dyn_cast<MemRefType>() ||
-        !getMatC().getType().dyn_cast<MemRefType>())
+  if (auto tensorType = dyn_cast<MemRefType>(getMatA().getType())) {
+    if (!dyn_cast<MemRefType>(getMatB().getType()) ||
+        !dyn_cast<MemRefType>(getMatC().getType()))
       return emitOpError(
           "If first input is `MemRefType`, all must be `MemRefType`.");
 
@@ -238,25 +238,25 @@ LogicalResult BlasRunGemmOp::verify() {
 
     // cuBLAS needs last dim of every input to be contiguous
     if (failed(
-            isLastDimContiguous(getMatA().getType().dyn_cast<MemRefType>())) ||
+            isLastDimContiguous(dyn_cast<MemRefType>(getMatA().getType()))) ||
         failed(
-            isLastDimContiguous(getMatB().getType().dyn_cast<MemRefType>())) ||
-        failed(isLastDimContiguous(getMatC().getType().dyn_cast<MemRefType>())))
+            isLastDimContiguous(dyn_cast<MemRefType>(getMatB().getType()))) ||
+        failed(isLastDimContiguous(dyn_cast<MemRefType>(getMatC().getType()))))
       return emitOpError(
           "cuBLAS needs last dimension to be contiguous i.e. stride 1");
   }
 
   // Check if input is valid for matmul
-  if (failed(isRankValidForMatmul(getMatA().getType().cast<ShapedType>())) ||
-      failed(isRankValidForMatmul(getMatB().getType().cast<ShapedType>())) ||
-      failed(isRankValidForMatmul(getMatC().getType().cast<ShapedType>())))
+  if (failed(isRankValidForMatmul(cast<ShapedType>(getMatA().getType()))) ||
+      failed(isRankValidForMatmul(cast<ShapedType>(getMatB().getType()))) ||
+      failed(isRankValidForMatmul(cast<ShapedType>(getMatC().getType()))))
     return emitOpError("All inputs must be 2D or 3D (first batch dim) for "
                        "cuBLAS GEMM/MatMul.");
 
   // Check for data type support
   // Only FP16, FP32, F64, and I32 types are supported
   for (auto t : getOperandTypes()) {
-    auto maybeShapedType = t.dyn_cast<ShapedType>();
+    auto maybeShapedType = dyn_cast<ShapedType>(t);
     if (maybeShapedType && !maybeShapedType.getElementType().isF16() &&
         !maybeShapedType.getElementType().isF32() &&
         !maybeShapedType.getElementType().isF64() &&
@@ -275,7 +275,7 @@ LogicalResult BlasRunGemmOp::inferReturnTypes(
 
   // If the `out` operand is a tensor type, then we should return that as
   // results. Otherwise, for memref types, we do not return results.
-  if (auto tensorType = adaptor.getMatC().getType().dyn_cast<TensorType>())
+  if (auto tensorType = dyn_cast<TensorType>(adaptor.getMatC().getType()))
     inferredReturnTypes.push_back(tensorType);
   return success();
 }
