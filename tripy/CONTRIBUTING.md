@@ -1,11 +1,6 @@
 # Contributing To Tripy
 
 
-## Table Of Contents
-
-[[_TOC_]]
-
-
 ## Setting Up
 
 1. Clone the TensorRT-Incubator repository:
@@ -16,7 +11,7 @@
 
 2. Launch the container; from the [`tripy` root directory](.), run:
 
-    # TODO (#release)
+    <!-- TODO (#release) -->
 
 4. You should now be able to use `tripy` in the container. To test it out, you can run a quick sanity check:
 
