@@ -1,7 +1,7 @@
 string(REGEX MATCH "([0-9]+)\.([0-9]+)" TRT_VERSION "${MLIR_TRT_TENSORRT_VERSION}")
 string(REPLACE "." "" TRT_VERSION "${TRT_VERSION}")
 set(PKG_VERSION "${MLIR_TENSORRT_VERSION}+cuda12.trt${TRT_VERSION}")
-set(WHEEL_OUTPUT_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/wheels/trt${TRT_VERSION}")
+set(WHEEL_OUTPUT_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/wheels/python${Python3_VERSION}/trt${TRT_VERSION}")
 
 # Specifies that all MLIR packages are co-located under the `mlir_tensorrt.compiler`
 # top level package. This definition is used in the MLIR Python binding headers for
@@ -119,7 +119,7 @@ if(MLIR_TRT_ENABLE_PYTHON)
     SOURCES
       README.md
       pyproject.toml
-      mlir_tensorrt/tools/__init__.py      
+      mlir_tensorrt/tools/__init__.py
       mlir_tensorrt/tools/gpu_tools.py
   )
 

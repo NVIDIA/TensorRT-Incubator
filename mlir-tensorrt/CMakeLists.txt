@@ -1,52 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 project(mlir-tensorrt LANGUAGES CXX C)
 
-include(Version.cmake)
-
-set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
-
-if(PROJECT_IS_TOP_LEVEL)
-  set(MLIR_TRT_EXTERNAL_PROJECT_BUILD OFF)
-  message("Building MLIR-TensorRT as a standalone project.")
-
-  find_package(MLIR REQUIRED CONFIG)
-
-  message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
-  message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
-
-  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
-  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
-
-  # For whatever reason, StableHLO uses this CMake variable to decide whether to build
-  # in "external project mode" or not. Since we don't want external project mode,
-  # set it to the current binary dir.
-  set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
-
-  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
-  list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
-
-elseif(NOT MLIR_BINARY_DIR)
-  set(MLIR_TRT_EXTERNAL_PROJECT_BUILD ON)
-  set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
-  set(MLIR_INCLUDE_DIR ${MLIR_MAIN_SRC_DIR}/include)
-  set(MLIR_GENERATED_INCLUDE_DIR ${LLVM_BINARY_DIR}/tools/mlir/include)
-  set(MLIR_INCLUDE_DIRS "${MLIR_INCLUDE_DIR};${MLIR_GENERATED_INCLUDE_DIR}")
-  message("Building MLIR-TensorRT as an LLVM external project.")
-else()
-  message("Building MLIR-TensorRT as a sub-project.")
-  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
-  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/lib)
-endif()
-
-# Setup use of ccache for C, CXX, and CUDA languages if we are the top-level
-# project.
-# Enables generation of compile_commands.json for clangd.
-if(PROJECT_IS_TOP_LEVEL)
-  include(build_tools/cmake/CompilerCache.cmake)
-  mtrt_use_compiler_cache()
-  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-endif()
-
 # -------------------------------------------------
 # Set CMake behavior policies
 # -------------------------------------------------
@@ -55,6 +9,29 @@ if(POLICY CMP0135)
   # are involved.
   cmake_policy(SET CMP0135 NEW)
 endif()
+
+# -------------------------------------------------
+# Package cache configuration
+# -------------------------------------------------
+
+if(MLIR_TRT_PACKAGE_CACHE_DIR)
+  set(CPM_SOURCE_CACHE "${MLIR_TRT_PACKAGE_CACHE_DIR}" CACHE STRING "" FORCE)
+  set(CPM_USE_NAMED_CACHE_DIRECTORIES ON CACHE BOOL "" FORCE)
+else()
+  message(WARNING "MLIR_TRT_PACKAGE_CACHE_DIR is not set. Downloaded packages will be \
+  stored in your build directory. It is highly recommended to specify a package cache directory outside of \
+  your build directory (for example '$PWD/.cache.cpm')")
+endif()
+
+# -------------------------------------------------
+# Include utils/tools
+# -------------------------------------------------
+include(build_tools/cmake/CPM.cmake)
+include(build_tools/cmake/CompilationOptions.cmake)
+include(build_tools/cmake/Targets.cmake)
+include(build_tools/cmake/Dependencies.cmake)
+include(build_tools/cmake/ManagedLLVM.cmake)
+include(Version.cmake)
 
 # -------------------------------------------------
 # Project Options / Configuration
@@ -75,19 +52,14 @@ set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.0" CACHE STRING
    "Version of TensorRT to download and use. It overrides MLIR_TRT_TENSORRT_DIR.")
 set(MLIR_TRT_PACKAGE_CACHE_DIR "" CACHE STRING "Directory where to cache downloaded C++ packages")
 set(MLIR_TRT_USE_LINKER "" CACHE STRING "Specify a linker to use (e.g. LLD); this is just an alias for LLVM_USE_LINKER")
+set(MLIR_TRT_LLVM_COMMIT
+  "99bb9a719cec9513e72ad275c1c0302b76b6c408"
+  CACHE STRING
+  "LLVM source archive commit for managed llvm-project build")
 
 # -------------------------------------------------
 # Option validation
 # -------------------------------------------------
-
-if(MLIR_TRT_PACKAGE_CACHE_DIR)
-  set(CPM_SOURCE_CACHE "${MLIR_TRT_PACKAGE_CACHE_DIR}" CACHE STRING "" FORCE)
-  set(CPM_USE_NAMED_CACHE_DIRECTORIES ON CACHE BOOL "" FORCE)
-else()
-  message(WARNING "MLIR_TRT_PACKAGE_CACHE_DIR is not set. Downloaded packages will be \
-  stored in your build directory. It is highly recommended to specify a package cache directory outside of \
-  your build directory (for example '$PWD/.cache.cpm')")
-endif()
 
 # Some overly-complex logic for making `MLIR_TRT_USE_LINKER` alias `LLVM_USE_LINKER`.
 if((MLIR_TRT_USE_LINKER AND LLVM_USE_LINKER) AND NOT
@@ -103,14 +75,53 @@ if(MLIR_TRT_USE_LINKER AND NOT LLVM_USE_LINKER)
   set(LLVM_USE_LINKER "${MLIR_TRT_USE_LINKER}" CACHE STRING "" FORCE)
 endif()
 
-# -------------------------------------------------
-# Include utils/tools
-# -------------------------------------------------
-include(build_tools/cmake/CPM.cmake)
-include(build_tools/cmake/CompilationOptions.cmake)
-include(build_tools/cmake/Targets.cmake)
-include(build_tools/cmake/Dependencies.cmake)
+# Setup use of ccache for C, CXX, and CUDA languages if we are the top-level
+# project.
+# Enables generation of compile_commands.json for clangd.
+if(PROJECT_IS_TOP_LEVEL)
+  include(build_tools/cmake/CompilerCache.cmake)
+  mtrt_use_compiler_cache()
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+endif()
 
+# -------------------------------------------------
+# Setup LLVM/MLIR
+# -------------------------------------------------
+
+set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
+
+if(PROJECT_IS_TOP_LEVEL)
+  set(MLIR_TRT_EXTERNAL_PROJECT_BUILD OFF)
+  message("Building MLIR-TensorRT as a standalone project.")
+
+  if(MLIR_DIR)
+    find_package(MLIR REQUIRED CONFIG)
+    message(STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}")
+    message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+    list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+    list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+    set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
+    set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
+  elseif(MLIR_TRT_LLVM_COMMIT)
+    mtrt_llvm_project()
+  endif()
+
+  # For whatever reason, StableHLO uses this CMake variable to decide whether to build
+  # in "external project mode" or not. Since we don't want external project mode,
+  # set it to the current binary dir.
+  set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
+elseif(NOT MLIR_BINARY_DIR)
+  set(MLIR_TRT_EXTERNAL_PROJECT_BUILD ON)
+  set(MLIR_MAIN_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../mlir)
+  set(MLIR_INCLUDE_DIR ${MLIR_MAIN_SRC_DIR}/include)
+  set(MLIR_GENERATED_INCLUDE_DIR ${LLVM_BINARY_DIR}/tools/mlir/include)
+  set(MLIR_INCLUDE_DIRS "${MLIR_INCLUDE_DIR};${MLIR_GENERATED_INCLUDE_DIR}")
+  message("Building MLIR-TensorRT as an LLVM external project.")
+else()
+  message("Building MLIR-TensorRT as a sub-project.")
+  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/bin)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_CURRENT_BINARY_DIR}/lib)
+endif()
 
 # -------------------------------------------------
 # Set global options
@@ -151,7 +162,6 @@ endif()
 if(MLIR_TRT_ENABLE_TESTING)
   # TODO: force the flag that makes LLVM build google benchmark.
 endif()
-
 
 if(MLIR_TRT_TARGET_TENSORRT)
   find_tensorrt(
