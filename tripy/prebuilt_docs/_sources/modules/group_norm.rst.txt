@@ -1,6 +1,0 @@
-
-#########
-GroupNorm
-#########
-
-.. autoclass:: tripy.GroupNorm

@@ -1,6 +1,0 @@
-
-###
-any
-###
-
-.. autofunction:: tripy.any

@@ -1,6 +1,0 @@
-
-####
-relu
-####
-
-.. autofunction:: tripy.relu

@@ -1,6 +1,0 @@
-
-####
-ones
-####
-
-.. autofunction:: tripy.ones

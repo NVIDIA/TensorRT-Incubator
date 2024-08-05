@@ -1,6 +1,0 @@
-
-###
-exp
-###
-
-.. autofunction:: tripy.exp

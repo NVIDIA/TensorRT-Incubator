@@ -1,6 +1,0 @@
-
-######
-argmax
-######
-
-.. autofunction:: tripy.argmax

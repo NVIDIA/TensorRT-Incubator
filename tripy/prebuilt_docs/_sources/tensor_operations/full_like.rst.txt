@@ -1,6 +1,0 @@
-
-#########
-full_like
-#########
-
-.. autofunction:: tripy.full_like

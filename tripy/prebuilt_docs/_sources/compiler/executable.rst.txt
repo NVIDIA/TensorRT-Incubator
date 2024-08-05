@@ -1,6 +1,0 @@
-
-##########
-Executable
-##########
-
-.. autoclass:: tripy.Executable

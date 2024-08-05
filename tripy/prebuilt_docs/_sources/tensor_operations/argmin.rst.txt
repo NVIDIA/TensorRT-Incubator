@@ -1,6 +1,0 @@
-
-######
-argmin
-######
-
-.. autofunction:: tripy.argmin

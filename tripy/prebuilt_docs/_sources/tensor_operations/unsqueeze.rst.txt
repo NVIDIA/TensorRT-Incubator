@@ -1,6 +1,0 @@
-
-#########
-unsqueeze
-#########
-
-.. autofunction:: tripy.unsqueeze

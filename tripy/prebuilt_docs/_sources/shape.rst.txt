@@ -1,6 +1,0 @@
-
-#####
-Shape
-#####
-
-.. autoclass:: tripy.Shape

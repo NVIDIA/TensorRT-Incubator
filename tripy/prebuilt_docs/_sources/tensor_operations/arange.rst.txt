@@ -1,6 +1,0 @@
-
-######
-arange
-######
-
-.. autofunction:: tripy.arange
