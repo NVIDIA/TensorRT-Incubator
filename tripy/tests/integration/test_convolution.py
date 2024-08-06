@@ -75,7 +75,7 @@ test_cases_3d = [
 @pytest.mark.parametrize("torch_dtype,tp_dtype", DTYPES)
 class TestConvolution:
     @pytest.mark.parametrize("test_case", test_cases_1d)
-    def test_convolution_1d(self, torch_dtype, tp_dtype, test_case):
+    def test_convolution_1d(self, torch_dtype, tp_dtype, test_case, compile_fixture):
         if not test_case.torch_pad:
             test_case.torch_pad = 0
         if not test_case.stride:
@@ -122,7 +122,7 @@ class TestConvolution:
             conv_layer.bias = tp.cast(tp.Tensor(conv_layer_torch.bias.data), tp_dtype)
 
         expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = conv_layer(input)
+        output = compile_fixture(conv_layer, input)
 
         # FP32 kernel seems to lose some precision, and FP16 needs to be run in FP32 on torch
         rtol_ = 4e-5 if tp_dtype == tp.float32 else 1e-3
@@ -131,7 +131,7 @@ class TestConvolution:
         assert output_torch.shape == expected.shape
 
     @pytest.mark.parametrize("test_case", test_cases_2d)
-    def test_convolution_2d(self, torch_dtype, tp_dtype, test_case):
+    def test_convolution_2d(self, torch_dtype, tp_dtype, test_case, compile_fixture):
         if not test_case.torch_pad:
             test_case.torch_pad = 0
         if not test_case.stride:
@@ -178,7 +178,7 @@ class TestConvolution:
             conv_layer.bias = tp.cast(tp.Tensor(conv_layer_torch.bias.data), tp_dtype)
 
         expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = conv_layer(input)
+        output = compile_fixture(conv_layer, input)
 
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 1.5e-3
         output_torch = torch.from_dlpack(output)
@@ -186,7 +186,7 @@ class TestConvolution:
         assert output_torch.shape == expected.shape
 
     @pytest.mark.parametrize("test_case", test_cases_3d)
-    def test_convolution_3d(self, torch_dtype, tp_dtype, test_case):
+    def test_convolution_3d(self, torch_dtype, tp_dtype, test_case, compile_fixture):
         pytest.skip("TODO (#260): Fix accuracy bugs in 3D conv")
         if not test_case.torch_pad:
             test_case.torch_pad = 0
@@ -245,14 +245,14 @@ class TestConvolution:
             return
 
         expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = conv_layer(input)
+        output = compile_fixture(conv_layer, input)
 
         rtol_ = 2e-4 if tp_dtype == tp.float32 else 1.4e-3  # 3d conv has greater accumulation error
         output_torch = torch.from_dlpack(output)
         assert torch.allclose(output_torch, expected, rtol=rtol_)
         assert output_torch.shape == expected.shape
 
-    def test_uneven_padding(self, torch_dtype, tp_dtype):
+    def test_uneven_padding(self, torch_dtype, tp_dtype, compile_fixture):
         input_torch = torch.arange(200, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 4, 5, 5))
         input = tp.cast(tp.Tensor(input_torch), tp_dtype)
 
@@ -282,7 +282,7 @@ class TestConvolution:
 
         input_torch = torch_pad(input_torch)
         expected = conv_layer_torch(input_torch).to(torch_dtype)
-        output = conv_layer(input)
+        output = compile_fixture(conv_layer, input)
 
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 2e-3
         output_torch = torch.from_dlpack(output)
