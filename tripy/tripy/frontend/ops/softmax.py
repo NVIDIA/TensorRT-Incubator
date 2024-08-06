@@ -46,7 +46,7 @@ def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
         input = tp.iota([2, 2], dtype=tp.float32)
         output = tp.softmax(input, dim=0)
 
-        assert np.allclose(cp.from_dlpack(output).get(), np.from_dlpack(torch.Tensor([[0., 0.], [1., 1.]]).softmax(0)))
+        assert tp.allclose(output, tp.Tensor(torch.Tensor([[0., 0.], [1., 1.]]).softmax(0)))
     """
     from tripy.frontend.trace.ops.reduce import max, sum
     from tripy.frontend.trace.ops.unary_elementwise import exp

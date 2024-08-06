@@ -43,6 +43,10 @@ def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: fl
     """
     from tripy.frontend.trace.ops.unary_elementwise import abs
     from tripy.frontend.trace.ops.reduce import all
+    from tripy.common.datatype import bool as tp_bool
 
-    compare = abs(a - b) <= (atol + rtol * abs(b))
+    if a.dtype == tp_bool and b.dtype == tp_bool:
+        compare = a == b
+    else:
+        compare = abs(a - b) <= (atol + rtol * abs(b))
     return bool(all(compare))
