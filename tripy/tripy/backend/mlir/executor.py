@@ -25,20 +25,11 @@ from tripy.common import Array, datatype, device
 from tripy.common.exception import raise_error
 from tripy.utils import log_time, make_tuple
 
-G_RUNTIME_CLIENT = None
-
-
-def _get_runtime_client() -> runtime.RuntimeClient:
-    global G_RUNTIME_CLIENT
-    if G_RUNTIME_CLIENT is None:
-        G_RUNTIME_CLIENT = runtime.RuntimeClient()
-
-    return G_RUNTIME_CLIENT
-
 
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
-        self.runtime_client = _get_runtime_client()
+        from tripy.backend.mlir.utils import MLIRRuntimeClient
+        self.runtime_client = MLIRRuntimeClient()
         self.stream = self.runtime_client.create_stream()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
         self.session = runtime.RuntimeSession(session_options, executable)
