@@ -25,16 +25,20 @@ def mode(request):
 
 @pytest.fixture
 def compile_fixture(mode):
-    def get_shape(x: tp.Tensor):
-        x.eval()
-        return tp.InputInfo(x.trace_tensor.shape, dtype=x.dtype)
-
     def wrapper(func, *args, **kwargs):
+        def get_shape(x: tp.Tensor):
+            x.eval()
+            return tp.InputInfo(x.trace_tensor.shape, dtype=x.dtype)
+        
         if mode == 'compile':
             compiler = tp.Compiler(func)
+            # Cast appropriate args / kwargs to use `tp.InputInfo`
             compile_args = tuple(map(lambda x: get_shape(x) if isinstance(x, tp.Tensor) else x, list(args)))
             compile_kwargs = dict((k, get_shape(v) if isinstance(v, tp.Tensor) else v) for k, v in kwargs.items())
             compiled_func = compiler.compile(*compile_args, **compile_kwargs)
+            # Remove baked in args, aka, only keep tp.Tensor's
+            args = tuple(filter(lambda x: isinstance(x, tp.Tensor), args))
+            kwargs = dict(filter(lambda _, v: isinstance(v, tp.Tensor), kwargs.items()))
             return compiled_func(*args, **kwargs)
         elif mode == "eager":
             return func(*args, **kwargs)
