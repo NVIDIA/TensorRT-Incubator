@@ -37,6 +37,7 @@
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/TypeID.h"
 
@@ -170,14 +171,28 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
 };
 
 //===----------------------------------------------------------------------===//
-// StableHloToExecutableRunner
+// StableHloToExecutableTask
 //===----------------------------------------------------------------------===//
 
+/// A StableHloToExecutableTask is a concrete CompilationTask (PassManager) that
+/// accepts StableHLO input IR and lowers it down to Executor IR which can be
+/// translated into a MLIR-TensorRT executable.
 class StableHloToExecutableTask
     : public CompilationTask<StableHloToExecutableTask,
                              StableHLOToExecutableOptions> {
 public:
   using Base::Base;
+
+  /// Build the clustering pipeline that occurs on Stablehlo Ops.
+  static void
+  buildStablehloClusteringPipeline(mlir::OpPassManager &pm,
+                                   const StableHLOToExecutableOptions &options);
+
+  /// Build the pipeline (bufferization and lowering) that runs after
+  /// clustering.
+  static void
+  buildPostClusteringPipeline(mlir::OpPassManager &pm,
+                              const StableHLOToExecutableOptions &options);
 
   static void populatePassManager(mlir::PassManager &pm,
                                   const StableHLOToExecutableOptions &options);

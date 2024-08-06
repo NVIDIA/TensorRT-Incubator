@@ -30,20 +30,10 @@ RUN cd /usr/lib/ && \
     rm TensorRT-10.1.0.27.Linux.x86_64-gnu.cuda-12.4.tar.gz
 ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.1.0.27/lib/:$LD_LIBRARY_PATH
 
-
-# Setup args to fetch mlir-tensorrt packages
-ARG GITHUB_TOKEN
-ARG PYTHON_VERSION=310
-ARG VERSION=0.1.29
-
-COPY tools/download_mlir_trt_package.sh /tripy/
-RUN chmod +x /tripy/download_mlir_trt_package.sh
-
-# TODO (#release) : remove bash script and download directly from public github repo.
-RUN /tripy/download_mlir_trt_package.sh ${GITHUB_TOKEN} ${VERSION} ${PYTHON_VERSION}
-RUN pip3 install *.whl
-
 COPY pyproject.toml /tripy/pyproject.toml
+RUN pip install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_compiler-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
+RUN pip install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_runtime-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
+
 RUN pip install .[docs,dev,test] \
     -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
     --extra-index-url https://download.pytorch.org/whl
@@ -52,11 +42,8 @@ RUN pip install .[docs,dev,test] \
 ########################################
 # Configure mlir-tensorrt packages
 ########################################
-# WAR's for small bugs in the MLIR-TRT wheels
-# Protobuf isn't actually used for how TriPy uses MLIR-TRT, so we just install any version to make the loader happy.
 
-RUN apt-get install -y libopenmpi3 libopenmpi-dev libprotobuf-dev && \
-    ln -snf /usr/lib/x86_64-linux-gnu/libprotobuf.so /usr/lib/x86_64-linux-gnu/libprotobuf.so.29
+RUN apt-get install -y libopenmpi3 libopenmpi-dev
 
 # Installl lldb for debugging purposes in Tripy container.
 # The LLVM version should correspond on LLVM_VERSION specified in https://github.com/NVIDIA/TensorRT-Incubator/blob/main/mlir-tensorrt/build_tools/docker/Dockerfile#L30.

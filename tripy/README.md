@@ -16,8 +16,13 @@ user experience without compromising performance. Some of the features of Tripy 
 
 ## Installation
 
-<!-- TODO (#release): Include `pip install` instructions here. Also, point to documentation for building mlir-tensorrt from source and using the built python packages. -->
+```bash
+pip3 install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_compiler-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
+pip3 install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_runtime-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
+pip3 install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/tripy-v0.0.1/tripy-0.0.1-py3-none-any.whl
+```
 
+If you want to build from source, please follow the instructions in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Quickstart
 
