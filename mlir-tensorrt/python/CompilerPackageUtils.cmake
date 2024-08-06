@@ -308,7 +308,7 @@ function(add_mtrt_python_wheel name)
     "DEPENDS" ${ARGN})
 
   if(NOT ARG_OUTPUT_DIR)
-    set(ARG_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/wheels/${name}")
+    set(ARG_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/wheels/python${Python3_VERSION}/${name}")
   else()
     # Always force the wheel to be generated into a subdirectory.
     set(ARG_OUTPUT_DIR "${ARG_OUTPUT_DIR}/${name}")
