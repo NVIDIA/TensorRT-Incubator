@@ -134,9 +134,8 @@ class TestConvolution:
         output = conv_layer(input)
 
         rtol_ = 1e-3
-        output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
+        assert output.shape == expected.shape
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_2d)
     def test_transposed_convolution_2d(self, torch_dtype, tp_dtype, test_case):
@@ -190,9 +189,8 @@ class TestConvolution:
         output = conv_layer(input)
 
         rtol_ = 1e-3
-        output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
+        assert output.shape == expected.shape
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_3d)
     def test_transposed_convolution_3d(self, torch_dtype, tp_dtype, test_case):
@@ -245,9 +243,8 @@ class TestConvolution:
         expected = conv_layer_torch(input_torch).to(torch_dtype)
         output = conv_layer(input)
         rtol_ = 1.3e-6 if tp_dtype == tp.float32 else 1.6e-3
-        output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
+        assert output.shape == expected.shape
 
     def test_transposed_equivalency(self, torch_dtype, tp_dtype):
         input_torch = torch.arange(9, dtype=torch.float32, device=torch.device("cuda")).reshape(*(1, 1, 3, 3))
@@ -286,15 +283,13 @@ class TestConvolution:
         output_transpose = conv_transpose_layer(input)
 
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 9e-4
-        output_torch = torch.from_dlpack(output)
-        output_transpose_torch = torch.from_dlpack(output_transpose)
-        assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
-        assert torch.allclose(output_transpose_torch, expected_transpose, rtol=rtol_)
-        assert output_transpose_torch.shape == expected_transpose.shape
-        assert torch.allclose(output_torch, output_transpose_torch, rtol=rtol_)
-        assert output_torch.shape == output_transpose_torch.shape
-        assert torch.allclose(expected, expected_transpose, rtol=rtol_)
+        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
+        assert output.shape == expected.shape
+        assert tp.allclose(output_transpose, tp.Tensor(expected_transpose), rtol=rtol_)
+        assert output_transpose.shape == expected_transpose.shape
+        assert tp.allclose(output, output_transpose, rtol=rtol_)
+        assert output.shape == output_transpose.shape
+        assert tp.allclose(tp.Tensor(expected), tp.Tensor(expected_transpose), rtol=rtol_)
         assert expected.shape == expected_transpose.shape
 
     @pytest.mark.parametrize("test_case", test_cases_transpose_downscale)
@@ -330,6 +325,5 @@ class TestConvolution:
         output = conv_layer(input)
 
         rtol_ = 1e-15 if tp_dtype == tp.float32 else 1e-10
-        output_torch = torch.from_dlpack(output)
-        assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
+        assert output.shape == expected.shape

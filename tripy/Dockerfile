@@ -31,11 +31,10 @@ RUN cd /usr/lib/ && \
 ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.1.0.27/lib/:$LD_LIBRARY_PATH
 
 COPY pyproject.toml /tripy/pyproject.toml
-RUN pip install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_compiler-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
-RUN pip install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_runtime-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
 
 RUN pip install .[docs,dev,test] \
     -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html \
+    -f https://nvidia.github.io/TensorRT-Incubator/packages.html \
     --extra-index-url https://download.pytorch.org/whl
 
 

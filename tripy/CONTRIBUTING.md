@@ -13,7 +13,7 @@
 
     <!-- TODO (#release) -->
     ```bash
-    docker build -t tripy --build-arg GITHUB_TOKEN=$GITHUB_TOKEN .
+    docker build -t tripy .
     ```
 
 3. Launch the container; from the [`tripy` root directory](.), run:

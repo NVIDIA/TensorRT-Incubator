@@ -48,7 +48,7 @@ def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
         output = tp.gelu(input)
 
         t = torch.tensor([1, 2, 3, 4], dtype=torch.float32) # doc: omit
-        assert np.allclose(cp.from_dlpack(output).get(), np.from_dlpack(torch.nn.functional.gelu(t, approximate='tanh')))
+        assert tp.allclose(output, tp.Tensor(torch.nn.functional.gelu(t, approximate='tanh')))
     """
     from tripy.frontend.trace.ops.unary_elementwise import tanh
 

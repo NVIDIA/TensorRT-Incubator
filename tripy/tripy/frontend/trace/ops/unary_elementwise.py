@@ -88,7 +88,7 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.exp(input)
 
-        assert np.allclose(cp.from_dlpack(output).get(), np.exp(cp.from_dlpack(input).get()))
+        assert tp.allclose(output, tp.Tensor(np.exp(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.EXP)
 
@@ -123,7 +123,7 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.tanh(input)
 
-        assert np.allclose(cp.from_dlpack(output).get(), np.tanh(cp.from_dlpack(input).get()))
+        assert tp.allclose(output, tp.Tensor(np.tanh(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.TANH)
 
@@ -158,7 +158,7 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.sin(input)
 
-        assert np.allclose(cp.from_dlpack(output).get(), np.sin(cp.from_dlpack(input).get()))
+        assert tp.allclose(output, tp.Tensor(np.sin(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SINE)
 
@@ -193,7 +193,7 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32)
         output = tp.cos(input)
 
-        assert np.allclose(cp.from_dlpack(output).get(), np.cos(cp.from_dlpack(input).get()))
+        assert tp.allclose(output, tp.Tensor(np.cos(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.COSINE)
 
@@ -228,7 +228,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.rsqrt(input)
 
-        assert np.allclose(cp.from_dlpack(output).get(), (1.0 / np.sqrt(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(1.0 / np.sqrt(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.RSQRT)
 
@@ -263,7 +263,7 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.sqrt(input)
 
-        assert np.allclose(cp.from_dlpack(output).get(), (np.sqrt(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(np.sqrt(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SQRT)
 
@@ -298,7 +298,7 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.arange(1, 3, dtype=tp.float32)
         output = tp.log(input)
 
-        assert np.allclose(cp.from_dlpack(output).get(), (np.log(cp.from_dlpack(input).get())))
+        assert tp.allclose(output, tp.Tensor(np.log(cp.from_dlpack(input).get())))
     """
     return UnaryElementwise.build([input], UnaryElementwise.Kind.LOG)
 

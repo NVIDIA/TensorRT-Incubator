@@ -17,32 +17,33 @@ user experience without compromising performance. Some of the features of Tripy 
 ## Installation
 
 ```bash
-pip3 install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_compiler-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
-pip3 install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/mlir-tensorrt-v0.1.29/mlir_tensorrt_runtime-0.1.29+cuda12.trt102-cp310-cp310-linux_x86_64.whl
-pip3 install https://github.com/NVIDIA/TensorRT-Incubator/releases/download/tripy-v0.0.1/tripy-0.0.1-py3-none-any.whl
+pip3 install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
 ```
 
 If you want to build from source, please follow the instructions in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Quickstart
 
-In lazy mode evalulation, Tripy defers computation until it is actually needed:
+In eager mode, Tripy works just like you'd expect:
 
 ```py
 import tripy as tp
-import os
 
+a = tp.Tensor([1.0, 2.0])
+print(a + 1)
+
+# tensor([2.0000, 3.0000], dtype=float32, loc=gpu:0, shape=(2,))
+```
+
+Tripy can also compile functions to generate efficient machine code for faster execution:
+
+```py
 def add(a, b):
     return a + b
 
-print(add(tp.Tensor([1., 2.]), tp.Tensor([1.])))
-#tensor([2.0000, 3.0000], dtype=float32, loc=gpu:0, shape=(2,))
-```
-
-Tripy can compile functions to generate efficient machine code for faster execution:
-
-```py
 compiler = tp.Compiler(add)
+
+# When compiling, we need to specify shape and data type constraints on the inputs:
 
 # a is a 1D dynamic shape tensor of shape (d,), where `d` can range from 1 to 5.
 # `[1, 2, 5]` indicates a range from 1 to 5, with optimization for `d = 2`.
@@ -55,21 +56,18 @@ compiled_add = compiler.compile(a_info, b_info)
 
 print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
 # tensor([4.0000, 5.0000, 6.0000], dtype=float32, loc=gpu:0, shape=(3,))
-
-# Save the compile executable to disk.
-executable_file = os.path.join(os.getcwd(), "add_executable.json")
-compiled_add.save(executable_file)
 ```
 
-
-<!-- TODO (#release): Link to intro to tripy guide -->
+For more details, see the
+[Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/introduction-to-tripy.html)
+guide.
 
 
 <!-- Tripy: DOC: OMIT Start -->
 
 ## Documentation
 
-<!-- TODO (#release): Link to docs -->
+The documentation is hosted [here](https://nvidia.github.io/TensorRT-Incubator/).
 
 
 ## Examples
