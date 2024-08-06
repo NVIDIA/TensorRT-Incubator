@@ -1,7 +1,5 @@
 enable_testing()
 
-set(MLIR_TENSORRT_TOOLS_DIR ${MLIR_TENSORRT_ROOT_BINARY_DIR}/lib/Tools)
-
 llvm_canonicalize_cmake_booleans(
   MLIR_ENABLE_BINDINGS_PYTHON
   MLIR_TRT_ENABLE_PYTHON
@@ -12,8 +10,7 @@ llvm_canonicalize_cmake_booleans(
   MLIR_TRT_TARGET_LUA
   MLIR_TRT_ENABLE_EXECUTOR
   MLIR_TRT_WITH_ASAN
-  
-)
+  )
 
 # All the GTest-based unit tests are located under 'Unit' subfolder.
 add_subdirectory(Unit)

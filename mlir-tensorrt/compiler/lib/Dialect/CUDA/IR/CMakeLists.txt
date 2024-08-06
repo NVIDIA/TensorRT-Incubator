@@ -8,4 +8,9 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTCUDADialect
 
   DEPENDS
   MLIRCUDAOpsIncGen
-)
+
+  LINK_LIBS PUBLIC
+  MLIRIR
+  MLIRTensorRTPlanDialect
+  MLIRTensorRTExecutorDialect
+  )

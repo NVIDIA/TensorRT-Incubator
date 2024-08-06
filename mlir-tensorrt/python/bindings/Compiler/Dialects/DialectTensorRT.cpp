@@ -9,8 +9,8 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-c/IR.h"
-#include "mlir-tensorrt-c/Dialect/TensorRT/TensorRTAttributes.h"
-#include "mlir-tensorrt-c/Dialect/TensorRT/TensorRTDialect.h"
+#include "mlir-tensorrt-dialect-c/TensorRTAttributes.h"
+#include "mlir-tensorrt-dialect-c/TensorRTDialect.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 
 #define ADD_PYTHON_ATTRIBUTE_ADAPTOR(attrName)                                 \
