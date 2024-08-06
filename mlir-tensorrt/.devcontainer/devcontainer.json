@@ -23,6 +23,9 @@
 		"gpu": "optional"
 	},
 	"remoteUser": "nvidia",
+	"mounts": [
+		"source=${localEnv:HOME}/.ssh,target=/home/nvidia/.ssh,type=bind,consistency=cached"
+	],
 	"workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces/TensorRT-Incubator,type=bind,consistency=cached",
 	"workspaceFolder": "/workspaces/TensorRT-Incubator",
 	"customizations": {
