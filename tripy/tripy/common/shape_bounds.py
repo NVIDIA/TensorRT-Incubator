@@ -24,3 +24,6 @@ class ShapeBounds:
     min: Sequence[int]
     opt: Sequence[int]
     max: Sequence[int]
+    
+    def is_static(self):
+        return self.min == self.opt == self.max
