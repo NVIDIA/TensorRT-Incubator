@@ -59,6 +59,14 @@ class FlatIR:
                 with ir.InsertionPoint(module.body) as ip:
                     # Lets assume only one function with inline code (#9 will fix it)
                     inp_types = [inp.to_mlir() for inp in self.inputs]
+                    if self.shapes:
+                        assert len(inp_types) == len(self.shapes), "mismatched number of inputs vs number of shapes"
+                        for i, (inp_type, inp_shape) in enumerate(zip(inp_types, self.shapes)):
+                            if inp_shape.has_static_shape():
+                                inp_types[i] = ir.RankedTensorType.get(
+                                    inp_shape.get_static_shape(), inp_type.element_type, inp_type.encoding
+                                )
+
                     out_types = [o.to_mlir() for o in self.outputs]
                     ftype = ir.FunctionType.get(inp_types, out_types)
                     # TODO: Function name should be a property of Trace and used here.

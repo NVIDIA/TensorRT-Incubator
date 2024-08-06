@@ -24,3 +24,10 @@ class ShapeBounds:
     min: Sequence[int]
     opt: Sequence[int]
     max: Sequence[int]
+
+    def has_static_shape(self):
+        return self.min == self.max
+    
+    def get_static_shape(self):
+        assert self.has_static_shape(), "shape is not static"
+        return self.min

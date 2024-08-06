@@ -46,7 +46,6 @@ test = [
   "pytest-virtualenv==1.7.0",
   "pytest-cov==4.1.0",
   "jax[cuda12_local]==0.4.23",
-  "jaxlib==0.4.23+cuda12.cudnn89",
   "coverage==7.4.1",
   "vulture==2.11",
 ]

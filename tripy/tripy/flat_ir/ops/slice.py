@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
+from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir.utils import is_any_dim_dynamic
@@ -52,7 +53,7 @@ class DynamicSliceOp(BaseFlatIROp):
         if any(dynamic_dim_attrs):
             assert static_dim_attrs, "DynamicSliceOp requires at-least 1 attribute to be of static shape."
             for d in dynamic_dim_attrs:
-                new_shape = [s for s in static_dim_attrs[0].type.shape]
+                new_shape = [s for s in get_op_result_or_value(static_dim_attrs[0]).type.shape]
                 d.set_type(ir.RankedTensorType.get(new_shape, d.type.element_type))
 
         return [
