@@ -33,7 +33,7 @@ class TestConcatenate:
             ([(2, 3, 4)], 0),
         ],
     )
-    def test_concat(self, tensor_shapes, dim):
+    def test_concat(self, tensor_shapes, dim, compile_fixture):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
         out = tp.concatenate(tensors, dim=dim)
         assert np.array_equal(

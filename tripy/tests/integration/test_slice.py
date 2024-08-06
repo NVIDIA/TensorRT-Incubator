@@ -70,14 +70,14 @@ class TestSliceOp:
             ((5,), lambda t: t[-12:-5:-1]),
         ],
     )
-    def test_static_slice_op(self, dims_a, slice_func):
+    def test_static_slice_op(self, dims_a, slice_func, compile_fixture):
         a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(np.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(a):
             return slice_func(a)
 
-        out = func(a)
+        out = compile_fixture(func, a)
         assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())
 
     def test_slice_as_gather(self):
