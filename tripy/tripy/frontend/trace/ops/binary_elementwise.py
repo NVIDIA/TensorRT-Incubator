@@ -170,6 +170,12 @@ class Comparison(BinaryElementwise):
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"self": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
+    function_name="__add__",
+)
+@dtype_info.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"self": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
+    function_name="__radd__",
 )
 def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
@@ -328,6 +334,12 @@ def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"self": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
+    function_name="__mul__"
+)
+@dtype_info.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"self": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
+    function_name="__rmul__"
 )
 def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
