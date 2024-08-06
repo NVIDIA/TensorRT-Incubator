@@ -62,7 +62,6 @@ def unsqueeze_two_operand(input, result_shape, dim):
 @dtype_info.dtype_info(
     dtype_variables={"T1": DATA_TYPES.keys()},
     dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"dim": {"init": 1}}
 )
 def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """

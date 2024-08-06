@@ -98,7 +98,6 @@ class Gather(BaseTraceOp):
         "T2": ["int32"],
     },
     dtype_constraints={"input": "T1", "index": "T2", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"dim": {"init": 0}, "index": {"shape": (1)}},
 )
 def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """

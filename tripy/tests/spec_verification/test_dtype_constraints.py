@@ -25,7 +25,7 @@ from tripy.dtype_info import TYPE_VERIFICATION, RETURN_VALUE
 import tripy as tp
 
 
-def _method_handler(kwargs, func_obj, api_call_locals):
+def _method_handler(func_name, kwargs, func_obj, api_call_locals):
     _METHOD_OPS = {
         "__add__": (lambda self, other: self + other),
         "__sub__": (lambda self, other: self - other),
@@ -54,11 +54,66 @@ def _method_handler(kwargs, func_obj, api_call_locals):
         # Execute API call normally.
         exec(f"{RETURN_VALUE} = " + f"tp.{func_obj.__name__}(**kwargs)", globals(), api_call_locals)
     # Print out debugging info.
-    print("API call: ", func_obj.__name__, ", with parameters: ", kwargs)
+    print("API call: ", func_name, ", with parameters: ", kwargs)
 
+
+default_constraints_all = {"__rtruediv__": {"self": {"init": 1}},
+                           "__rsub__": {"self": {"init": 1}},
+                           "__radd__": {"self": {"init": 1}},
+                           "__rpow__": {"self": {"init": 1}},
+                           "__rmul__": {"self": {"init": 1}},
+                           "softmax": {"dim": {"init": 1}},
+                           "concatenate": {"dim": {"init": 0}},
+                           "expand": {"sizes": {"init": (3, 4)}, "input": {"shape": (3, 1)}},
+                           "full": {"shape": {"shape": (3)}, "value": {"init": 1}},
+                           "full_like": {"value": {"init": 1}},
+                           "flip": {"dim": {"init": 1}},
+                           "gather": {"dim": {"init": 0}, "index": {"shape": (1)}},
+                           "iota": {"shape": {"shape": (3)}},
+                           "__matmul__": {"self": {"shape": (2, 3)}},
+                           "transpose": {"dim0": {"init": 0}, "dim1": {"init": 1}},
+                           "permute": {"perm": {"init": (1, 0)}},
+                           "quantize": {"scale": {"init": [1, 1, 1]}, "dim": {"init": 0}},
+                           "sum": {"dim": {"init": 0}},
+                           "all":{"dim": {"init": 0}},
+                           "any": {"dim": {"init": 0}},
+                           "max": {"dim": {"init": 0}},
+                           "prod": {"dim": {"init": 0}},
+                           "mean": {"dim": {"init": 0}},
+                           "var": {"dim": {"init": 0}},
+                           "argmax": {"dim": {"init": 0}},
+                           "argmin": {"dim": {"init": 0}},
+                           "reshape": {"shape": {"init": (6,)}},
+                           "squeeze": {"input": {"shape": (3, 1)}, "dims": {"init": (1)}},
+                           "__getitem__": {"index": {"init": 2}},
+                           "split": {"indices_or_sections": {"init": 2}},
+                           "unsqueeze": {"dim": {"init": 1}},
+                           "masked_fill": {"value": {"init": 1}},
+                          }
+
+# Add default_constraints to input_values within TYPE_VERIFICATION
+for func_name, (func_obj, parsed_dict, types_assignments) in TYPE_VERIFICATION.items():
+    default_constraints = default_constraints_all.get(func_name, None)
+    if default_constraints != None:
+        input_dict = parsed_dict["inputs"]
+        for param_name, input_info in input_dict.items():
+            input_values = list(input_dict[param_name].values())[0]
+            other_constraint = default_constraints.get(param_name, None)
+            if other_constraint:
+                for key, val in other_constraint.items():
+                    if key == "init":
+                        input_values.init = val
+                    elif key == "shape":
+                        input_values.shape = val
+                    elif key == "target":
+                        input_values.target = val
+                    elif key == "count":
+                        input_values.count = val
+                    else:
+                        raise RuntimeError(f"Could not match key for default_constraints. Key was {key}, value was {val}")
 
 func_list = []
-for func_obj, parsed_dict, types_assignments in TYPE_VERIFICATION.values():
+for func_name, (func_obj, parsed_dict, types_assignments) in TYPE_VERIFICATION.items():
     inputs = parsed_dict["inputs"]
     return_dtype = parsed_dict["return_dtype"]
     types = parsed_dict["types"]
@@ -102,25 +157,26 @@ for func_obj, parsed_dict, types_assignments in TYPE_VERIFICATION.values():
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
                 func_list.append(
                     (
+                        func_name,
                         func_obj,
                         inputs,
                         return_dtype,
                         namespace,
                         positive_case,
-                        func_obj.__name__ + "_" + case_name + ", ".join(ids),
+                        func_name + "_" + case_name + ", ".join(ids),
                     )
                 )
 
 
 def _run_dtype_constraints_subtest(test_data):
-    func_obj, inputs, _, namespace, _, _ = test_data
+    func_name, func_obj, inputs, _, namespace, _, _ = test_data
     kwargs = {}
     # Create all input objects using object_builders.create_obj.
     for param_name, input_desc in inputs.items():
         kwargs[param_name] = create_obj(param_name, input_desc, namespace)
     # Run api call through _method_handler and setup namespace (api_call_locals).
     api_call_locals = {"kwargs": kwargs}
-    _method_handler(kwargs, func_obj, api_call_locals)
+    _method_handler(func_name, kwargs, func_obj, api_call_locals)
     # If output does not have dtype skip .eval().
     if isinstance(api_call_locals[RETURN_VALUE], int): 
         return api_call_locals, namespace
@@ -134,7 +190,7 @@ def _run_dtype_constraints_subtest(test_data):
 
 @pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[5])
 def test_dtype_constraints(test_data):
-    _, _, return_dtype, _, positive_case, _ = test_data
+    _, _, _, return_dtype, _, positive_case, _ = test_data
     if positive_case:
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
         if isinstance(api_call_locals[RETURN_VALUE], int): 

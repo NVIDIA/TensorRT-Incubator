@@ -43,7 +43,6 @@ class Concatenate(BaseTraceOp):
         "T1": DATA_TYPES.keys(),
     },
     dtype_constraints={"tensors": "T1", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"dim": {"init": 0}},
 )
 def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor":
     r"""

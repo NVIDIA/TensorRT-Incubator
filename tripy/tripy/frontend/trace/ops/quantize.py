@@ -135,7 +135,6 @@ class Quantize(BaseTraceOp):
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int8", "float8"]},
     dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
-    default_constraints={"scale": {"init": [1, 1, 1]}, "dim": {"init": 0}},
 )
 def quantize(
     input: "tripy.Tensor",

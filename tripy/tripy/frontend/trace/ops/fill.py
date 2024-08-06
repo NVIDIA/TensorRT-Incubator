@@ -102,7 +102,6 @@ def full_impl(
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["int32"], "T2": DATA_TYPES.keys()},
     dtype_constraints={"shape": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
-    default_constraints={"shape": {"shape": (3)}, "value": {"init": 1}},
 )
 def full(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
@@ -139,7 +138,6 @@ def full(
         "T2": DATA_TYPES.keys(),
     },
     dtype_constraints={"input": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
-    default_constraints={"value": {"init": 1}}
 )
 def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tripy.dtype"] = None) -> "tripy.Tensor":
     """

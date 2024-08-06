@@ -24,7 +24,6 @@ from tripy import export, dtype_info
         "T1": ["float32", "float16", "bfloat16"],
     },
     dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"dim": {"init": 1}}
 )
 def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
     r"""

@@ -181,7 +181,6 @@ class Split(BaseTraceOp):
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"indices_or_sections": {"init": 2}}
 )
 def split(
     input: "tripy.Tensor", indices_or_sections: Union[int, Sequence[int]], dim: int = 0

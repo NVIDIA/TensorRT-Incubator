@@ -74,7 +74,6 @@ def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int):
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"], "T2": [ "int8", "int32", "int64"]},
     dtype_constraints={"input": "T1", "sizes": "T2", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"sizes": {"init": (3, 4)}, "input": {"shape": (3, 1)}},
 )
 def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
     """

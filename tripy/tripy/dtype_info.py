@@ -31,7 +31,6 @@ class InputValues:
 def dtype_info(
     dtype_variables: dict = {},
     dtype_constraints: dict = {},
-    default_constraints: dict = {},
     param_type_specification: dict = {},
     function_name : Optional[str] = "",
 ):
@@ -50,7 +49,7 @@ def dtype_info(
             # If parameter had a default then use it otherwise skip.
             if param_type.default is not param_type.empty:
                 # Checking if not equal to None since we want to enter if default is 0 or similar.
-                if not param_type.default == None:
+                if param_type.default != None:
                     input_values.init = param_type.default
             param_type = param_type.annotation
             # Check if there is a specific type that should be used.
@@ -63,21 +62,7 @@ def dtype_info(
                 if isinstance(param_type, ForwardRef):
                     param_type = param_type.__forward_arg__
             # Check if there are any provided constraints and add them to the constraint dict.
-            
             input_values.dtype = dtype_constraints.get(param_name, None)
-            other_constraint = default_constraints.get(param_name, None)
-            if other_constraint:
-                for key, val in other_constraint.items():
-                    if key == "init":
-                        input_values.init = val
-                    elif key == "shape":
-                        input_values.shape = val
-                    elif key == "target":
-                        input_values.target = val
-                    elif key == "count":
-                        input_values.count = val
-                    else:
-                        raise RuntimeError(f"Could not match key for default_constraints. Key was {key}, value was {val}")
             inputs_dict[param_name] = {param_type: input_values}
         return_dtype = dtype_constraints.get(RETURN_VALUE, -1)
         parsed_dict = {"inputs": inputs_dict, "return_dtype": return_dtype, "types": dtype_variables}

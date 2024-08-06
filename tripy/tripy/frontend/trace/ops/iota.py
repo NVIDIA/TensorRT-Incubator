@@ -86,7 +86,6 @@ def iota_impl(
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["int32"], "T2": ["float32", "float16", "bfloat16", "int8", "int32", "bool"]},
     dtype_constraints={"shape": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
-    default_constraints={"shape": {"shape": (3)}},
 )
 def iota(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],

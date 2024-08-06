@@ -56,7 +56,6 @@ class Transpose(Permute):
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"dim0": {"init": 0}, "dim1": {"init": 1}},
 )
 def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     """
@@ -87,7 +86,6 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
 @dtype_info.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"perm": {"init": (1, 0)}},
 )
 def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
     """

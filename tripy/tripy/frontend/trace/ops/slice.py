@@ -138,7 +138,6 @@ class Slice(BaseTraceOp):
     dtype_variables={"self_dtype": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"self": "self_dtype", dtype_info.RETURN_VALUE: "self_dtype"},
     param_type_specification={"index": int},
-    default_constraints={"index": {"init": 2}},
 )
 def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "tripy.Tensor":
     """

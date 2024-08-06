@@ -175,7 +175,6 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 @dtype_info.dtype_info(
     dtype_variables={"T1": DATA_TYPES.keys(), "T2": ["bool"]},
     dtype_constraints={"input": "T1", "mask": "T2", dtype_info.RETURN_VALUE: "T1"},
-    default_constraints={"value": {"init": 1}}
 )
 def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
