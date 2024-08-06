@@ -95,7 +95,6 @@ html_theme_options = {
     "show_powered_by": False,
     "documentation_font_size": "1.0rem",
     "monospace_font_size": "0.85rem",
-    # TODO (#release)
     "repository_url": "https://github.com/NVIDIA/TensorRT-Incubator",
     "repository_name": "Tripy",
 }
