@@ -17,7 +17,6 @@
 
 import inspect
 from typing import Union, Optional, get_origin, get_args, ForwardRef
-from typing import Union, Optional, get_origin, get_args, ForwardRef
 
 TYPE_VERIFICATION = {}
 RETURN_VALUE = "RETURN_VALUE"
@@ -42,10 +41,8 @@ def dtype_info(
     """
     def decorator(func_obj):
         # Get names and type hints for each param.
-        # Get names and type hints for each param.
         func_sig = inspect.signature(func_obj)
         param_dict = func_sig.parameters
-        # Construct inputs_dict.
         # Construct inputs_dict.
         inputs_dict = {}
         for param_name, param_type in param_dict.items():
@@ -70,17 +67,22 @@ def dtype_info(
             input_values.dtype = dtype_constraints.get(param_name, None)
             other_constraint = default_constraints.get(param_name, None)
             if other_constraint:
-                param_constraint_dict[param_type].update(other_constraint)
-            inputs_dict[param_name] = param_constraint_dict
-        parsed_dict = {"inputs": inputs_dict, "return_dtype": dtype_constraints[RETURN_VALUE], "types": dtype_variables}
-        TYPE_VERIFICATION[func_obj.__qualname__] = (func_obj, parsed_dict, dtype_constraints)
-        # Some functions are mapped to multiple APIs, so we need to add entries for those here:
-        if func_obj.__qualname__ in ["__add__", "__mul__"]:  
-            TYPE_VERIFICATION[func_obj.__qualname__[0:2] + "r" + func_obj.__qualname__[2:]] = (
-                func_obj,
-                parsed_dict,
-                dtype_constraints,
-            )
+                for key, val in other_constraint.items():
+                    if key == "init":
+                        input_values.init = val
+                    elif key == "shape":
+                        input_values.shape = val
+                    elif key == "target":
+                        input_values.target = val
+                    elif key == "count":
+                        input_values.count = val
+                    else:
+                        raise RuntimeError(f"Could not match key for default_constraints. Key was {key}, value was {val}")
+            inputs_dict[param_name] = {param_type: input_values}
+        return_dtype = dtype_constraints.get(RETURN_VALUE, -1)
+        parsed_dict = {"inputs": inputs_dict, "return_dtype": return_dtype, "types": dtype_variables}
+        func_name = func_obj.__qualname__ if not function_name else function_name
+        TYPE_VERIFICATION[func_name] = (func_obj, parsed_dict, dtype_constraints)
         return func_obj
 
     return decorator

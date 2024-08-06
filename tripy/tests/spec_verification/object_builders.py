@@ -16,10 +16,9 @@
 #
 
 import numbers
-import numbers
 import tripy as tp
 
-from typing import Union, Any, Tuple, List, Sequence, Optional
+from typing import Union, Tuple, List, Sequence
 from tripy.common import datatype
 
 def tensor_builder(input_values, namespace):
@@ -70,29 +69,11 @@ find_func = {
     "tripy.device": device_builder,
     bool: default_builder,
     float: default_builder,
-    "tripy.Tensor": tensor_builder,
-    "tripy.Shape": tensor_builder,
-    Sequence[int]: default_builder,
-    numbers.Number: default_builder,
-    int: default_builder,
-    "tripy.dtype": dtype_builder,
-    datatype.dtype: dtype_builder,
-    Tuple: default_builder,
-    List[Union["tripy.Tensor"]]: tensor_list_builder,
-    "tripy.device": device_builder,
-    bool: default_builder,
-    float: default_builder,
 }
 
 
 def create_obj(param_name, input_desc, namespace):
-def create_obj(param_name, input_desc, namespace):
     param_type = list(input_desc.keys())[0]
-    create_obj_func = find_func.get(param_type, None)
-    if create_obj_func:
-        namespace[param_name] = create_obj_func(input_desc[param_type], namespace)
-        return namespace[param_name]
-    return None
     create_obj_func = find_func.get(param_type, None)
     if create_obj_func:
         namespace[param_name] = create_obj_func(input_desc[param_type], namespace)
