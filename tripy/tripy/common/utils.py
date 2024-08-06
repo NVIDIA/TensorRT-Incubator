@@ -18,14 +18,10 @@
 import array
 import re
 import struct
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional
 
 from tripy.common.exception import raise_error
-from tripy.logging import logger
-from tripy.common.datatype import float32, int32, int64
-from tripy.common.datatype import bool as tp_bool
 import tripy.common.datatype
-from tripy.common.datatype import DATA_TYPES
 
 
 def get_supported_array_type() -> List["tripy.common.datatype"]:

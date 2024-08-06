@@ -18,7 +18,6 @@
 from dataclasses import dataclass
 
 from tripy import export, dtype_info
-from tripy.common.datatype import int32
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy.common.datatype import DATA_TYPES

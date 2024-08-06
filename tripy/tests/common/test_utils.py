@@ -28,7 +28,6 @@ import torch
 import tripy.common.datatype
 
 from tests import helper
-from tripy.common.datatype import DATA_TYPES
 from tripy.common.exception import TripyException
 from tripy.common.utils import (
     convert_frontend_dtype_to_tripy_dtype,

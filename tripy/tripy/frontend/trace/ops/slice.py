@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import math
 from dataclasses import dataclass
 from typing import Tuple, Union
 from tripy import utils, dtype_info
@@ -24,7 +23,6 @@ from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_tuple
-from tripy.frontend.trace.ops.binary_elementwise import Comparison
 from tripy.common.exception import raise_error
 
 

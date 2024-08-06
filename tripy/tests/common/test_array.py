@@ -15,15 +15,12 @@
 # limitations under the License.
 #
 
-from typing import Any, List
-
 import cupy as cp
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch
-from textwrap import dedent
 
 import mlir_tensorrt.runtime.api as runtime
 import tripy as tp
