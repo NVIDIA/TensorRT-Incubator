@@ -58,7 +58,7 @@ class Cast(BaseTraceOp):
         if self.dtype == tp_bool:
             # Creating a zero tensor uses the same logic as the zeros_like initializer
 
-            # If the input dtype does not allow directly creating a TriPy array, we have to use another like f32
+            # If the input dtype does not allow directly creating a Tripy array, we have to use another like f32
             # and then cast the zeros tensor.
             zero_dtype = convert_input.dtype if convert_input.dtype in DTYPES_FOR_CONSTANTS else float32
             single_zero = FlatIRTensor.build(
