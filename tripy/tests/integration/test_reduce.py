@@ -63,8 +63,7 @@ class TestReduceOp:
         "x_shape, axis, keepdim",
         [
             ((2, 3), 1, True),
-            pytest.param((2, 3, 4), (1, 2), True, marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)")),
-            pytest.param((2, 3, 4), (1, 2), True, marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)")),
+            pytest.param((2, 3, 4), (1, 2), True, marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #278)")),
             ((2, 3), 1, False),
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
