@@ -41,6 +41,17 @@ class MLIRContext:
             cls._instance.context = ir.Context()
         return cls._instance.context
 
+# MLIR runtime needs to be initialized once.
+class MLIRRuntimeClient:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.context = runtime.RuntimeClient()
+        return cls._instance.context
+
+
 def get_max_upper_bounds():
     return sys.maxsize
 
