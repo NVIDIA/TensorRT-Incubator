@@ -26,10 +26,14 @@ class TestStronglyTyped:
     Sanity test that strongly typed mode is enabled.
     """
 
-    def test_fp16_no_overflow(self):
+    def test_fp16_no_overflow(self, compile_fixture):
         a = tp.Tensor([10000, 60000], dtype=tp.float32)
-        a = tp.sum(a)  # 7e+4 is out of fp16 upperbound
-        a = a / 5.0
-        a = tp.cast(a, tp.float16)
+
+        def compute(a):
+            a = tp.sum(a)  # 7e+4 is out of fp16 upperbound
+            a = a / 5.0
+            return tp.cast(a, tp.float16)
+        
+        a = compile_fixture(compute, a)
 
         assert cp.from_dlpack(a).get() == np.array([14000], dtype=np.float16)
