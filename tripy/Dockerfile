@@ -52,11 +52,8 @@ RUN pip install .[docs,dev,test] \
 ########################################
 # Configure mlir-tensorrt packages
 ########################################
-# WAR's for small bugs in the MLIR-TRT wheels
-# Protobuf isn't actually used for how TriPy uses MLIR-TRT, so we just install any version to make the loader happy.
 
-RUN apt-get install -y libopenmpi3 libopenmpi-dev libprotobuf-dev && \
-    ln -snf /usr/lib/x86_64-linux-gnu/libprotobuf.so /usr/lib/x86_64-linux-gnu/libprotobuf.so.29
+RUN apt-get install -y libopenmpi3 libopenmpi-dev
 
 # Installl lldb for debugging purposes in Tripy container.
 # The LLVM version should correspond on LLVM_VERSION specified in https://github.com/NVIDIA/TensorRT-Incubator/blob/main/mlir-tensorrt/build_tools/docker/Dockerfile#L30.
