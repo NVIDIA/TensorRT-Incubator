@@ -20,7 +20,6 @@
 
     ```bash
     docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
-    docker run --gpus all -it -v $(pwd):/tripy/ --rm tripy:latest
     ```
 
 4. You should now be able to use `tripy` in the container. To test it out, you can run a quick sanity check:

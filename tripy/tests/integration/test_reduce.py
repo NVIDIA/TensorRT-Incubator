@@ -30,7 +30,6 @@ class TestReduceOp:
             ((2, 3), 1, True),
             ((2, 3, 4), (1, 2), True),
             ((2, 3), 1, True),
-            ((2, 3), 1, True),
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
             ((2, 3, 4), None, True),
@@ -40,8 +39,6 @@ class TestReduceOp:
         x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = tp.all(a, dim=axis, keepdim=keepdim)
-        #np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
-        assert tp.allclose(out, tp.Tensor(np.array(x.all(axis=axis, keepdims=keepdim))))
         #np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
         assert tp.allclose(out, tp.Tensor(np.array(x.all(axis=axis, keepdims=keepdim))))
 
@@ -56,12 +53,11 @@ class TestReduceOp:
             ((2, 3, 4), None, True),
         ],
     )
-    def test_any(self, x_shape, axis, keepdim):
+
     def test_any(self, x_shape, axis, keepdim):
         x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = tp.any(a, dim=axis, keepdim=keepdim)
-        assert tp.allclose(out, tp.Tensor(np.array(x.any(axis=axis, keepdims=keepdim))))
         assert tp.allclose(out, tp.Tensor(np.array(x.any(axis=axis, keepdims=keepdim))))
 
     @pytest.mark.parametrize(
@@ -82,7 +78,6 @@ class TestReduceOp:
         a = tp.Tensor(x, dtype=dtype)
         out = tp.mean(a, dim=axis, keepdim=keepdim)
         assert tp.allclose(out, tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim))))
-        assert tp.allclose(out, tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim))))
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -100,7 +95,6 @@ class TestReduceOp:
         a = tp.Tensor(x)
         out = tp.var(a, dim=axis, keepdim=keepdim)
         torch_tensor = torch.Tensor(x)
-        assert tp.allclose(out, tp.Tensor(torch_tensor.var(dim=axis, keepdim=keepdim)))
         assert tp.allclose(out, tp.Tensor(torch_tensor.var(dim=axis, keepdim=keepdim)))
 
     @pytest.mark.parametrize(
