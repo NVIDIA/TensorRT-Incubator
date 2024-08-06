@@ -11,7 +11,7 @@
 	},
 	"runArgs": [
 		"--name",
-		"mlir-tensorrt-${localEnv:USER:nvidia}",
+		"tensorrt-incubator-${localEnv:USER:nvidia}",
 		"--cap-add=SYS_PTRACE",
 		"--security-opt",
 		"seccomp=unconfined",
