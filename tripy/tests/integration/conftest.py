@@ -19,7 +19,7 @@ import pytest
 
 import tripy as tp
 
-@pytest.fixture(params=['compile', 'lazy'])
+@pytest.fixture(params=['compile', 'eager'])
 def mode(request):
     return request.param
 
@@ -36,6 +36,6 @@ def compile_fixture(mode):
             compile_kwargs = dict((k, get_shape(v) if isinstance(v, tp.Tensor) else v) for k, v in kwargs.items())
             compiled_func = compiler.compile(*compile_args, **compile_kwargs)
             return compiled_func(*args, **kwargs)
-        elif mode == "lazy":
+        elif mode == "eager":
             return func(*args, **kwargs)
     return wrapper
