@@ -150,12 +150,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                     pname = "*" + pname
 
-                if pname == "self":
-                    # Don't want a type annotation for the self parameter.
-                    assert (
-                        param.annotation == signature.empty
-                    ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation!"
-                else:
+                if pname != "self":
                     assert (
                         pname in documented_args
                     ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args}"

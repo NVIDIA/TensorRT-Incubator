@@ -17,7 +17,6 @@
 
 from typing import List
 from tripy.common.datatype import DATA_TYPES
-from colored import fg, attr
 import itertools
 import pytest
 from tests.spec_verification.object_builders import create_obj
