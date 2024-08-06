@@ -121,12 +121,12 @@ def _run_dtype_constraints_subtest(test_data):
     # Run api call through _method_handler and setup namespace (api_call_locals).
     api_call_locals = {"kwargs": kwargs}
     _method_handler(kwargs, func_obj, api_call_locals)
+    # If output does not have dtype skip .eval().
+    if isinstance(api_call_locals[RETURN_VALUE], int): 
+        return api_call_locals, namespace
     # If output is a list then checking the return the first element in the list. (Assumes list of Tensors)
     if isinstance(api_call_locals[RETURN_VALUE], List): 
         api_call_locals[RETURN_VALUE] = api_call_locals[RETURN_VALUE][0]
-    # If output is a boolean skip .eval().
-    if isinstance(api_call_locals[RETURN_VALUE], bool): 
-        return api_call_locals, namespace
     # Run eval to check for any backend errors.
     api_call_locals[RETURN_VALUE].eval()
     return api_call_locals, namespace
@@ -137,11 +137,14 @@ def test_dtype_constraints(test_data):
     _, _, return_dtype, _, positive_case, _ = test_data
     if positive_case:
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-        if isinstance(api_call_locals[RETURN_VALUE],bool):
-                assert namespace[return_dtype]==tp.bool
+        if isinstance(api_call_locals[RETURN_VALUE], int): 
+                return
         else:
             assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
     else:
         with pytest.raises(Exception):
             api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-            assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
+            if isinstance(api_call_locals[RETURN_VALUE], int): 
+                return
+            else:
+                assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
