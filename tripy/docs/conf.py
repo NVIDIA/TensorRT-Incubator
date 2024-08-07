@@ -27,7 +27,7 @@ from textwrap import indent
 from tripy import dtype_info
 import tripy as tp
 from tests import helper
-from tripy.dtype_info import TYPE_VERIFICATION, FUNC_W_DOC_VERIF
+from tripy.dtype_info import TYPE_VERIFICATION
 
 
 PARAM_PAT = re.compile(":param .*?:")
@@ -151,15 +151,11 @@ def process_docstring(app, what, name, obj, options, lines):
                     pname = "*" + pname
 
                 if pname == "self":
-                    if obj.__qualname__ in FUNC_W_DOC_VERIF:
+                    if obj.__qualname__ in TYPE_VERIFICATION.keys():
                         # We want a type annotation for self parameter only if it is also using a dtype_info.dtype_info decorator.
                         assert (
                             pname in documented_args
                         ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args} {doc}"
-                    else:
-                        assert (
-                            param.annotation == signature.empty
-                        ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation! Note: Documented parameters were: {documented_args} {doc} {obj.__qualname__} {FUNC_W_DOC_VERIF}"
                 else:
                     assert (
                         pname in documented_args

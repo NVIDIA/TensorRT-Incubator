@@ -24,17 +24,13 @@ from tripy.dtype_info import TYPE_VERIFICATION, RETURN_VALUE
 import tripy as tp
 
 
-def _method_handler(func_name, kwargs, func_obj, api_call_locals):
+def _method_handler(kwargs, func_obj, api_call_locals):
     _METHOD_OPS = {
         "__add__": (lambda self, other: self + other),
         "__sub__": (lambda self, other: self - other),
-        "__rsub__": (lambda self, other: self - other),
         "__pow__": (lambda self, other: self**other),
-        "__rpow__": (lambda self, other: self**other),
         "__mul__": (lambda self, other: self * other),
-        "__rmul__": (lambda self, other: self * other),
         "__truediv__": (lambda self, other: self / other),
-        "__rtruediv__": (lambda self, other: self / other),
         "__lt__": (lambda self, other: self < other),
         "__le__": (lambda self, other: self <= other),
         "__eq__": (lambda self, other: self == other),
@@ -56,12 +52,7 @@ def _method_handler(func_name, kwargs, func_obj, api_call_locals):
     print("API call: ", func_name, ", with parameters: ", kwargs)
 
 
-default_constraints_all = {"__rtruediv__": {"self": {"init": 1}},
-                           "__rsub__": {"self": {"init": 1}},
-                           "__radd__": {"self": {"init": 1}},
-                           "__rpow__": {"self": {"init": 1}},
-                           "__rmul__": {"self": {"init": 1}},
-                           "softmax": {"dim": {"init": 1}},
+default_constraints_all = {"softmax": {"dim": {"init": 1}},
                            "concatenate": {"dim": {"init": 0}},
                            "expand": {"sizes": {"init": (3, 4)}, "input": {"shape": (3, 1)}},
                            "full": {"shape": {"shape": (3)}, "value": {"init": 1}},
@@ -155,7 +146,6 @@ for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYP
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
                 func_list.append(
                     (
-                        func_name,
                         func_obj,
                         inputs,
                         return_dtype,
@@ -167,14 +157,14 @@ for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYP
 
 
 def _run_dtype_constraints_subtest(test_data):
-    func_name, func_obj, inputs, _, namespace, _, _ = test_data
+    func_obj, inputs, _, namespace, _, _ = test_data
     kwargs = {}
     # Create all input objects using object_builders.create_obj.
     for param_name, input_desc in inputs.items():
         kwargs[param_name] = create_obj(param_name, input_desc, namespace)
     # Run api call through _method_handler and setup namespace (api_call_locals).
     api_call_locals = {"kwargs": kwargs}
-    _method_handler(func_name, kwargs, func_obj, api_call_locals)
+    _method_handler(kwargs, func_obj, api_call_locals)
     # If output does not have dtype skip .eval().
     if isinstance(api_call_locals[RETURN_VALUE], int): 
         return api_call_locals, namespace
@@ -186,9 +176,9 @@ def _run_dtype_constraints_subtest(test_data):
     return api_call_locals, namespace
 
 
-@pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[6])
+@pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[5])
 def test_dtype_constraints(test_data):
-    _, _, _, return_dtype, _, positive_case, _ = test_data
+    _, _, return_dtype, _, positive_case, _ = test_data
     if positive_case:
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
         if isinstance(api_call_locals[RETURN_VALUE], int): 
