@@ -216,7 +216,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace.ops.cast import cast
 
         arr = self.eval()
-        if self.dtype not in get_supported_array_type():
+        if self.dtype in [tripy.common.datatype.float8, tripy.common.datatype.int4]:
             arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
 

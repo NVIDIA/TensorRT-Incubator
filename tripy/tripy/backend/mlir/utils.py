@@ -434,10 +434,6 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             ]
         )
 
-    # Capture the full error message in case exception is rethrown.
-    full_error_info = traceback.format_exc()
-    new_message = f"{str(exc)}\n\nAdditional context:\n{full_error_info}"
-
     # Construct the new exception with the formatted message
     error_message = f"{type(exc).__name__}: {str(exc)}\n\nAdditional context:\n{traceback.format_exc()}"
 
