@@ -2,16 +2,6 @@
 
 Thank you for considering contributing to Tripy!
 
-## Table of Contents
-- [Setting Up](#setting-up)
-- [Making Changes](#making-changes)
-  - [Before You Start: Install pre-commit](#before-you-start-install-pre-commit)
-  - [Getting Up To Speed](#getting-up-to-speed)
-  - [Making Commits](#making-commits)
-- [Tests](#tests)
-- [Documentation](#documentation)
-- [Use Custom MLIR-TensorRT with Tripy](#use-custom-mlir-tensorrt-with-tripy)
-
 ## Setting Up
 
 1. Clone the TensorRT-Incubator repository:
@@ -81,7 +71,7 @@ If you're intersted in adding a new operator to Tripy, refer to [this guide](./d
     - Create a PR to merge changes from fork to the main repo
 
 2. Managing PRs
-    - Label your PR correctly (e.g., use `tripy` for `tripy` repository).
+    - Label your PR correctly (e.g., use `tripy` for changes to `tripy`).
     - Add a brief description explaining the purpose of the change.
     - Each functional change should include an update to an existing test or a new test.
     - Ensure any commits you make are signed. See [this page](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#ssh-commit-signature-verification)
