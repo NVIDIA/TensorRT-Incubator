@@ -56,11 +56,13 @@ cd ..
 2. Build the project and run all tests
 
 ```bash
+export DOWNLOAD_TENSORRT_VERSION="10.2.0.19"
 cmake -B ./build/mlir-tensorrt -S . -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DMLIR_TRT_USE_LINKER=lld \
     -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
+    -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION="$DOWNLOAD_TENSORRT_VERSION" \
     -DMLIR_DIR=build/llvm-project/lib/cmake/mlir \
     -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON
 ninja -C build/mlir-tensorrt all
