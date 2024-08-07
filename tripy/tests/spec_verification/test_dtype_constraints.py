@@ -88,6 +88,10 @@ default_constraints_all = {"__rtruediv__": {"self": {"init": 1}},
                            "split": {"indices_or_sections": {"init": 2}},
                            "unsqueeze": {"dim": {"init": 1}},
                            "masked_fill": {"value": {"init": 1}},
+                           "ones": {"shape": {"init": (3,2)}},
+                           "zeros": {"shape": {"init": (3,2)}},
+                           "arange_4_params": {"start": {"init": 0}, "stop": {"init": 5}},
+                           "arange_2_params": {"stop": {"init": 5}},
                           }
 
 # Add default_constraints to input_values within TYPE_VERIFICATION
@@ -187,7 +191,7 @@ def _run_dtype_constraints_subtest(test_data):
     return api_call_locals, namespace
 
 
-@pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[5])
+@pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[6])
 def test_dtype_constraints(test_data):
     _, _, _, return_dtype, _, positive_case, _ = test_data
     if positive_case:

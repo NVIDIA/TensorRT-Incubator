@@ -182,6 +182,7 @@ def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Performs an elementwise sum.
 
     Args:
+        self: Tensor to be added to other.
         other: The tensor to add to this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -213,6 +214,7 @@ def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Performs an elementwise subtraction.
 
     Args:
+        self: Tensor to be subtracted by other.
         other: The tensor to subtract from this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -245,6 +247,7 @@ def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     Performs an elementwise subtraction.
 
     Args:
+        self: Tensor to be subtracted by other.
         other: The tensor to be subtracted from this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -276,6 +279,7 @@ def __pow__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Performs an elementwise exponentiation.
 
     Args:
+        self: Tensor to be exponentiated by other.
         other: The tensor by which to exponentiate this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -307,6 +311,7 @@ def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     Performs an elementwise exponentiation.
 
     Args:
+        self: Tensor to be exponentiated by other.
         other: The tensor to be exponentiated by this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -346,6 +351,7 @@ def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Performs an elementwise multiplication.
 
     Args:
+        self: Tensor to be multiplied by other.
         other: The tensor by which to multiply this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -377,6 +383,7 @@ def __truediv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", A
     Performs an elementwise division.
 
     Args:
+        self: Tensor to be divided by other.
         other: The tensor by which to divide this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -408,6 +415,7 @@ def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tr
     Performs an elementwise division.
 
     Args:
+        self: Tensor to be subtracted by other.
         other: The tensor to be divided by this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -503,6 +511,7 @@ def __lt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Performs a 'less than' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -535,6 +544,7 @@ def __le__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Performs a 'less than or equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -566,6 +576,7 @@ def __eq__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Performs an 'equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -597,6 +608,7 @@ def __ne__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Performs a 'not equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -628,6 +640,7 @@ def __ge__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Performs a 'greater than or equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.
@@ -659,6 +672,7 @@ def __gt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Performs a 'greater than' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
             It must have the same data type as this tensor
             and should be broadcast-compatible.

@@ -227,6 +227,7 @@ def __matmul__(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         and batched matrix multiplication is performed with broadcast of relevant dimension.
 
     Args:
+        self: Tensor to be multiplied with other.
         other: The tensor by which to multiply. Must have the same data type as this tensor.
 
     Returns:

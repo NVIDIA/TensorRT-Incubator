@@ -142,6 +142,7 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
     Returns a tensor containing a slice of this tensor.
 
     Args:
+        self: Tensor that will be sliced.
         index: The index (as an int or Tripy tensor) or slice.
 
     Returns:

@@ -19,6 +19,7 @@ import inspect
 from typing import Union, Optional, get_origin, get_args, ForwardRef
 
 TYPE_VERIFICATION = {}
+FUNC_W_DOC_VERIF = []
 RETURN_VALUE = "RETURN_VALUE"
 
 class InputValues:
@@ -68,6 +69,7 @@ def dtype_info(
         parsed_dict = {"inputs": inputs_dict, "return_dtype": return_dtype, "types": dtype_variables}
         func_name = func_obj.__qualname__ if not function_name else function_name
         TYPE_VERIFICATION[func_name] = (func_obj, parsed_dict, dtype_constraints)
+        FUNC_W_DOC_VERIF.append(func_obj.__qualname__)
         return func_obj
 
     return decorator
