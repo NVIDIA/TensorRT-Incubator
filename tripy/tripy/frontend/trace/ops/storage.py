@@ -57,6 +57,7 @@ class Storage(BaseTraceOp):
 
     def infer_rank(self):
         self.outputs[0].rank = len(self.shape)
+        self.outputs[0].shape = self.shape
 
     def infer_devices(self):
         # This is different from self.device

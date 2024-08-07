@@ -79,6 +79,11 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
     }[dtype.name]
 
 
+def get_mlir_scalar_attr(dtype: "tripy.dtype", value):
+    attr_func = ir.FloatAttr.get if "float" in dtype.name else ir.IntegerAttr.get
+    return attr_func(get_mlir_dtype(dtype), value)
+
+
 def get_mlir_quant_dtype(
     origin_dtype: "tripy.dtype",
     quant_dtype: "tripy.dtype",

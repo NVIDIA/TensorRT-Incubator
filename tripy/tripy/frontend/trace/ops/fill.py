@@ -63,8 +63,6 @@ class Fill(BaseTraceOp):
         from tripy.common.device import device
         from tripy.flat_ir.ops import ConstantOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.frontend.tensor import Tensor
-        from tripy.frontend.trace.ops.cast import cast
 
         const_val_tensor = FlatIRTensor.build(
             rank=0,
@@ -90,11 +88,6 @@ def full_impl(
     dtype: "tripy.dtype",
     output_rank: int,
 ) -> "tripy.Tensor":
-    from tripy.common.utils import get_element_type
-    from tripy.frontend.trace.ops.cast import cast
-
-    if get_element_type(value) != dtype:
-        return cast(Fill.build([shape], value, output_rank, get_element_type(value)), dtype)
     return Fill.build([shape], value, output_rank, dtype)
 
 

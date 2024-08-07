@@ -187,7 +187,7 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
     ConstantOp.build(
         [],
         [const_output_tensor],
-        data=Array(data, shape=[len(data)], dtype=int32, device=device("cpu")),
+        data=Array(data if len(data) else None, shape=[len(data)], dtype=int32, device=device("cpu")),
     )
     return const_output_tensor
 

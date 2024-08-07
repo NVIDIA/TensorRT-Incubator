@@ -161,6 +161,7 @@ class Array:
 
         self.device = device
 
+        self.has_memref = not isinstance(data, (Sequence, bool, int, float))
         if data is None:
             if dtype is None:
                 raise_error("Datatype must be provided when data is None.", [])
@@ -169,7 +170,7 @@ class Array:
             self.dtype = dtype
             self.shape = shape
         else:
-            if isinstance(data, (List, bool, int, float, tuple)):
+            if not self.has_memref:
                 # shape can still be inferred for empty data, but dtype cannot be
                 if has_no_contents(data) and dtype is None:
                     raise_error("Datatype must be provided for empty data (i.e., not containing any scalars).")
@@ -192,12 +193,15 @@ class Array:
         # Store the memref_value
         self.runtime_client = MLIRRuntimeClient()
         self.data_ref = data  # Ensure that data does not go out of scope when we create a view over it.
-        self.memref_value = self._memref(data)
-        self.device = (
-            tp_device("gpu") if self.memref_value.address_space == runtime.PointerType.device else tp_device("cpu")
-        )
+        if self.has_memref:
+            self.memref_value = self._memref(data)
+            self.device = (
+                tp_device("gpu") if self.memref_value.address_space == runtime.PointerType.device else tp_device("cpu")
+            )
 
     def data(self) -> List[Union[float, int]]:
+        if not self.has_memref:
+            return self.data_ref
         memref = self.memref_value
         if self.memref_value.address_space == runtime.PointerType.device:
             memref = self.runtime_client.copy_to_host(
@@ -258,85 +262,68 @@ class Array:
                 shape=list(self.shape), dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype), device=mlirtrt_device
             )
         else:
+            # TODO(#182): Use DLPack/buffer protocol to convert FW types to MemRefValue.
+            # Assume data is allocated using external framework. Create a view over it.
+            from tripy.backend.mlir.utils import convert_tripy_dtype_to_runtime_dtype
 
-            if isinstance(data, (List, tuple, bool, int, float)):
-                self.device = utils.default(self.device, tp_device("gpu"))
-                mlirtrt_device = (
-                    self.runtime_client.get_devices()[self.device.index] if self.device == tp_device("gpu") else None
+            def can_access_attr(attr_name):
+                try:
+                    getattr(data, attr_name)
+                except:
+                    return False
+                return True
+
+            ptr = None
+            if hasattr(data, "__array_interface__"):
+                ptr = int(data.ctypes.data)
+                device = tp_device("cpu")
+            elif hasattr(data, "data_ptr"):
+                ptr = int(data.data_ptr())
+                device = tp_device(
+                    ("cpu" if data.device.type == "cpu" else "gpu")
+                    + (":" + str(data.device.index) if data.device.index is not None else "")
                 )
-                assert self.dtype in get_supported_array_type() and f"Unsupported type {self.dtype}"
-                buffer = convert_list_to_array(utils.flatten_list(utils.make_list(data)), self.dtype)
+            elif can_access_attr("__cuda_array_interface__"):
+                ptr = int(data.__cuda_array_interface__["data"][0])
+                device = tp_device("gpu")
+            elif hasattr(data, "__array__"):
+                ptr = data.__array__().ctypes.data
+                device = tp_device("cpu")
+            else:
+                raise_error(f"Unsupported type: {data}")
+
+            self.device = utils.default(self.device, device)
+            if self.device != device:
+                raise_error(f"Cannot allocate tensor that is currently on: {device} on requested device: {self.device}")
+
+            # a pointer value of 0 is used only for empty tensors
+            if ptr == 0:
+                assert 0 in list(
+                    self.shape
+                ), f"Recieved null pointer for buffer but tensor is not empty (shape {list(self.shape)})"
+                self.device = utils.default(self.device, tp_device("gpu"))
+                mlirtrt_device = self.runtime_client.get_devices()[0] if self.device == tp_device("gpu") else None
+
                 return self.runtime_client.create_memref(
-                    buffer,
+                    array.array("i", []),  # typecode is not important because it's empty
                     shape=list(self.shape),
                     dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
                     device=mlirtrt_device,
                 )
+
+            if self.device.kind == "cpu":
+                return self.runtime_client.create_host_memref_view(
+                    ptr,
+                    shape=list(self.shape),
+                    dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
+                )
             else:
-                # TODO(#182): Use DLPack/buffer protocol to convert FW types to MemRefValue.
-                # Assume data is allocated using external framework. Create a view over it.
-                from tripy.backend.mlir.utils import convert_tripy_dtype_to_runtime_dtype
-
-                def can_access_attr(attr_name):
-                    try:
-                        getattr(data, attr_name)
-                    except:
-                        return False
-                    return True
-
-                ptr = None
-                if hasattr(data, "__array_interface__"):
-                    ptr = int(data.ctypes.data)
-                    device = tp_device("cpu")
-                elif hasattr(data, "data_ptr"):
-                    ptr = int(data.data_ptr())
-                    device = tp_device(
-                        ("cpu" if data.device.type == "cpu" else "gpu")
-                        + (":" + str(data.device.index) if data.device.index is not None else "")
-                    )
-                elif can_access_attr("__cuda_array_interface__"):
-                    ptr = int(data.__cuda_array_interface__["data"][0])
-                    device = tp_device("gpu")
-                elif hasattr(data, "__array__"):
-                    ptr = data.__array__().ctypes.data
-                    device = tp_device("cpu")
-                else:
-                    raise_error(f"Unsupported type: {data}")
-
-                self.device = utils.default(self.device, device)
-                if self.device != device:
-                    raise_error(
-                        f"Cannot allocate tensor that is currently on: {device} on requested device: {self.device}"
-                    )
-
-                # a pointer value of 0 is used only for empty tensors
-                if ptr == 0:
-                    assert 0 in list(
-                        self.shape
-                    ), f"Recieved null pointer for buffer but tensor is not empty (shape {list(self.shape)})"
-                    self.device = utils.default(self.device, tp_device("gpu"))
-                    mlirtrt_device = self.runtime_client.get_devices()[0] if self.device == tp_device("gpu") else None
-
-                    return self.runtime_client.create_memref(
-                        array.array("i", []),  # typecode is not important because it's empty
-                        shape=list(self.shape),
-                        dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                        device=mlirtrt_device,
-                    )
-
-                if self.device.kind == "cpu":
-                    return self.runtime_client.create_host_memref_view(
-                        ptr,
-                        shape=list(self.shape),
-                        dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                    )
-                else:
-                    return self.runtime_client.create_device_memref_view(
-                        ptr,
-                        shape=list(self.shape),
-                        dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
-                        device=self.runtime_client.get_devices()[self.device.index],
-                    )
+                return self.runtime_client.create_device_memref_view(
+                    ptr,
+                    shape=list(self.shape),
+                    dtype=convert_tripy_dtype_to_runtime_dtype(self.dtype),
+                    device=self.runtime_client.get_devices()[self.device.index],
+                )
 
     def __dlpack__(self, stream=None):
         return self.memref_value.__dlpack__()
