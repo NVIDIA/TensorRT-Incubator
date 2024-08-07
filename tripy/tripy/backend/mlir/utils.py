@@ -22,6 +22,7 @@ import sys
 import tempfile
 from typing import BinaryIO, List, Tuple, Sequence, Optional
 from itertools import chain
+import traceback
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
@@ -433,8 +434,16 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             ]
         )
 
+    # Capture the full error message in case exception is rethrown.
+    full_error_info = traceback.format_exc()
+    new_message = f"{str(exc)}\n\nAdditional context:\n{full_error_info}"
+
+    # Construct the new exception with the formatted message
+    new_exc = type(exc)(new_message)
+    erorr_message = f"{type(new_exc).__name__}: " + str(new_exc)
+
     raise_error(
-        repr(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
+        erorr_message.replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
         + (get_flat_ir_operation(output_names) if output_names else [])
         + (
