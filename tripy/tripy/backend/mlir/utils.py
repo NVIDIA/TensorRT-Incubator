@@ -439,11 +439,10 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
     new_message = f"{str(exc)}\n\nAdditional context:\n{full_error_info}"
 
     # Construct the new exception with the formatted message
-    new_exc = type(exc)(new_message)
-    erorr_message = f"{type(new_exc).__name__}: " + str(new_exc)
+    error_message = f"{type(exc).__name__}: {str(exc)}\n\nAdditional context:\n{traceback.format_exc()}"
 
     raise_error(
-        erorr_message.replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
+        error_message.replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
         + (get_flat_ir_operation(output_names) if output_names else [])
         + (
