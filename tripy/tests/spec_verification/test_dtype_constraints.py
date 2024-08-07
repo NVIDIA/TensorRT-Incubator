@@ -91,7 +91,6 @@ default_constraints_all = {"__rtruediv__": {"self": {"init": 1}},
                            "ones": {"shape": {"init": (3,2)}},
                            "zeros": {"shape": {"init": (3,2)}},
                            "arange_4_params": {"start": {"init": 0}, "stop": {"init": 5}},
-                           "arange_2_params": {"stop": {"init": 5}},
                           }
 
 # Add default_constraints to input_values within TYPE_VERIFICATION

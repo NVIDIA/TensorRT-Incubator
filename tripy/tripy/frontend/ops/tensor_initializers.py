@@ -291,7 +291,6 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
     },
     dtype_constraints={"dtype": "T1", dtype_info.RETURN_VALUE: "T1"},
-    function_name= "arange_4_params"
 )
 def arange(
     start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
@@ -346,7 +345,6 @@ def arange(
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
     },
     dtype_constraints={"dtype": "T1", dtype_info.RETURN_VALUE: "T1"},
-    function_name= "arange_2_params"
 )
 def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""
