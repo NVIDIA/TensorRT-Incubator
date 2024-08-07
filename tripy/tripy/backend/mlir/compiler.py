@@ -26,7 +26,6 @@ from tripy.backend.mlir.utils import (
     make_ir_context,
     map_error_to_user_code_and_raise,
     redirect_stderr,
-    remove_constants,
 )
 from tripy.logging import logger
 
@@ -93,7 +92,7 @@ class Compiler:
     # The optional flat_ir parameter is used to generate nicer error messages.
     @utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
-        logger.mlir(lambda: f"{remove_constants(str(mlir_module))}\n")
+        logger.mlir(lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n")
         opts = self._make_mlir_opts(self.trt_builder_opt_level)
 
         try:

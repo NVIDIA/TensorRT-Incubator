@@ -133,26 +133,6 @@ def remove_sym_attr(mlir_text: str) -> str:
     return re.sub(r"module @\S+ {", "module {", mlir_text)
 
 
-def remove_constants(mlir_text) -> str:
-    lines = mlir_text.split("\n")
-
-    def replace_dense_data(text):
-        const_start_index = text.find("<") + 1
-        const_end_index = text.find(">") - 1
-        start_index = text.find(": tensor<") + 9
-
-        substr = text[start_index:]
-        dims = substr.split("x")
-        dims = [int(dim) for dim in dims if dim.isdigit()]
-
-        if utils.should_omit_constant_in_str(dims):
-            return text[:const_start_index] + "..." + text[const_end_index + 1 :]
-        return text
-
-    replaced = [replace_dense_data(line) if "stablehlo.constant dense" in line else line for line in lines]
-    return "\n".join(replaced)
-
-
 UNKNOWN_LOC = "unknown"
 OUTPUT_SEPARATOR = ";;<out>;;"
 TRACE_INPUTS_SEPARATOR = ";;<trace_in>;;"
