@@ -17,6 +17,7 @@
 
 import inspect
 from typing import Union, Optional, get_origin, get_args, ForwardRef
+from collections import namedtuple
 
 TYPE_VERIFICATION = {}
 FUNC_W_DOC_VERIF = []
@@ -66,9 +67,9 @@ def dtype_info(
             input_values.dtype = dtype_constraints.get(param_name, None)
             inputs_dict[param_name] = {param_type: input_values}
         return_dtype = dtype_constraints.get(RETURN_VALUE, -1)
-        parsed_dict = {"inputs": inputs_dict, "return_dtype": return_dtype, "types": dtype_variables}
         func_name = func_obj.__qualname__ if not function_name else function_name
-        TYPE_VERIFICATION[func_name] = (func_obj, parsed_dict, dtype_constraints)
+        VerifInfo = namedtuple('VerifInfo', ['obj', 'inputs', 'return_dtype', 'dtypes', 'dtype_constraints'])
+        TYPE_VERIFICATION[func_name] = VerifInfo(func_obj, inputs_dict, return_dtype, dtype_variables, dtype_constraints)
         FUNC_W_DOC_VERIF.append(func_obj.__qualname__)
         return func_obj
 

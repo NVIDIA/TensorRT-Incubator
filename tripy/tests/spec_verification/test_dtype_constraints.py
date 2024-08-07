@@ -94,10 +94,9 @@ default_constraints_all = {"__rtruediv__": {"self": {"init": 1}},
                           }
 
 # Add default_constraints to input_values within TYPE_VERIFICATION
-for func_name, (func_obj, parsed_dict, types_assignments) in TYPE_VERIFICATION.items():
+for func_name, (func_obj, input_dict, _, _, types_assignments) in TYPE_VERIFICATION.items():
     default_constraints = default_constraints_all.get(func_name, None)
     if default_constraints != None:
-        input_dict = parsed_dict["inputs"]
         for param_name, input_info in input_dict.items():
             input_values = list(input_dict[param_name].values())[0]
             other_constraint = default_constraints.get(param_name, None)
@@ -115,10 +114,7 @@ for func_name, (func_obj, parsed_dict, types_assignments) in TYPE_VERIFICATION.i
                         raise RuntimeError(f"Could not match key for default_constraints. Key was {key}, value was {val}")
 
 func_list = []
-for func_name, (func_obj, parsed_dict, types_assignments) in TYPE_VERIFICATION.items():
-    inputs = parsed_dict["inputs"]
-    return_dtype = parsed_dict["return_dtype"]
-    types = parsed_dict["types"]
+for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYPE_VERIFICATION.items():
     # Issue #268 exclude float8 until casting to float8 gets fixed.
     # Issue #268 exclude int4 until int4 is representable.
     types_to_exclude = ["int4", "float8"]

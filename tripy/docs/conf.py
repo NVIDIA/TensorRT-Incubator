@@ -194,7 +194,7 @@ def process_docstring(app, what, name, obj, options, lines):
         add_text_index = -1
         for index, block in enumerate(blocks):
             if re.search(r".. code-block::", block):
-                type_dict = TYPE_VERIFICATION[cleaned_name][1]["types"]
+                type_dict = TYPE_VERIFICATION[cleaned_name].dtypes
                 blocks.insert(index, "Type Constraints:")
                 index += 1
                 for type_name, dt in type_dict.items():
@@ -207,16 +207,16 @@ def process_docstring(app, what, name, obj, options, lines):
                 break
             if re.search(r":param \w+: ", block):
                 param_name = re.match(r":param (\w+): ", block).group(1)
-                if TYPE_VERIFICATION[cleaned_name][2].get(param_name, None):
+                if TYPE_VERIFICATION[cleaned_name].dtype_constraints.get(param_name, None):
                     add_text_index = re.search(r":param \w+: ", block).span()[1]
                     blocks[index] = (
-                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[cleaned_name][2][param_name]}**\ ] {block[add_text_index:]}"
+                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[cleaned_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
                     )
             if re.search(r":returns:", block):
-                if TYPE_VERIFICATION[cleaned_name][2].get(dtype_info.RETURN_VALUE, None):
+                if TYPE_VERIFICATION[cleaned_name].dtype_constraints.get(dtype_info.RETURN_VALUE, None):
                     add_text_index = re.search(r":returns:", block).span()[1] + 1
                     blocks[index] = (
-                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[cleaned_name][1]['return_dtype']}**\ ] {block[add_text_index:]}"
+                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[cleaned_name].return_dtype}**\ ] {block[add_text_index:]}"
                     )
 
     seen_classes.add(name)
