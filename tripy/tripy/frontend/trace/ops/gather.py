@@ -67,6 +67,7 @@ class Gather(BaseTraceOp):
         if self.axis > 0:
             slice_len = op_utils.add_constant_tensor_from_list([self.axis], inputs[0].device)
             axis_first_half = FlatIRTensor.build(
+                rank=1,
                 shape=[self.axis],
                 dtype=int32,
                 device=inputs[0].device,
@@ -76,18 +77,18 @@ class Gather(BaseTraceOp):
             size_partial_tensors.append(axis_first_half)
 
         size_partial_tensors.append(one_1d)
-        slice_len = op_utils.add_constant_tensor_from_list([inputs[0].rank - self.axis], inputs[0].device)
-        axis_second_half = FlatIRTensor.build(
-            rank=1,
-            dtype=int32,
-            device=inputs[0].device,
-            reason_details=["slice the input shape ", input_shape, " to get input_shape[self.axis + 1 :]."],
-        )
-        DynamicSliceOp.build([input_shape, second_half_start, slice_len, one_1d], [axis_second_half])
-        size_partial_tensors.append(axis_second_half)
+        if self.axis + 1 < inputs[0].rank:
+            slice_len = op_utils.add_constant_tensor_from_list([inputs[0].rank - self.axis + 1], inputs[0].device)
+            axis_second_half = FlatIRTensor.build(
+                rank=1,
+                dtype=int32,
+                device=inputs[0].device,
+                reason_details=["slice the input shape ", input_shape, " to get input_shape[self.axis + 1 :]."],
+            )
+            DynamicSliceOp.build([input_shape, second_half_start, slice_len, one_1d], [axis_second_half])
+            size_partial_tensors.append(axis_second_half)
 
         slice_sizes = op_utils.concatenate_tensors(size_partial_tensors, dim=0)
-
         DynamicGatherOp.build([inputs[0], inputs[1], slice_sizes], outputs, self.axis)
 
 
@@ -110,10 +111,10 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
         :linenos:
         :caption: Example
 
-        data = tp.iota((3, 2, 2))
+        data = tp.iota((3, 3, 2))
         indices = tp.Tensor([0, 2], dtype=tp.int32)
-        output = tp.gather(data, 0, indices)
+        output = tp.gather(data, 1, indices)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=0))
+        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
     """
     return Gather.build([input, index], dim)
