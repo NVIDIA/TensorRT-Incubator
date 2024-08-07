@@ -16,15 +16,9 @@ user experience without compromising performance. Some of the features of Tripy 
 
 ## Installation
 
-Due to how our wheels are currently hosted, installation is slightly more complicated than a simple `pip install`. 
-This should change in the near future, but until then, you can install Tripy with:
-
-```bash
-pip3 install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
-pip3 install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
-```
-
-If you want to build from source, please follow the instructions in [CONTRIBUTING.md](./CONTRIBUTING.md).
+Due to how our package is currently set up, installation is more complicated than a simple `pip install`. 
+This should change in the near future, but for now, you can use Tripy by building the development container
+as specified in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Quickstart
 
