@@ -113,16 +113,18 @@ class FlatIR:
                         arg_attrs: List[Dict[str, ir.Attribute]] = []
                         for bound in self.shapes:
                             # TODO (#244): Support multiple profiles
-
-                            arg_attrs.append(
-                                {
-                                    "tensorrt.shape_profile": ir.Attribute.parse(
-                                        f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                            if bound.is_static():
+                                arg_attrs.append(ir.DictAttr.get({}))
+                            else:
+                                arg_attrs.append(
+                                    ir.DictAttr.get({
+                                        "tensorrt.shape_profile": ir.Attribute.parse(
+                                            f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                            )
+                                        }
                                     )
-                                }
-                            )
-
-                        func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
+                                )
+                        func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
 
                     # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
                     # TODO(#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.

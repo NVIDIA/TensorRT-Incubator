@@ -47,7 +47,7 @@ class ConstantOp(BaseFlatIROp):
         assert isinstance(self.data, Array)
         memref_value = self.data.memref_value
         if self.data.device.kind == "gpu":
-            memref_value = runtime.RuntimeClient().copy_to_host(
+            memref_value = mlir_utils.MLIRRuntimeClient().copy_to_host(
                 device_memref=memref_value,
                 stream=None,
             )

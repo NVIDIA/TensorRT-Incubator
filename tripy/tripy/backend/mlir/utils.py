@@ -41,6 +41,17 @@ class MLIRContext:
             cls._instance.context = ir.Context()
         return cls._instance.context
 
+# MLIR runtime needs to be initialized once.
+class MLIRRuntimeClient:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.context = runtime.RuntimeClient()
+        return cls._instance.context
+
+
 def get_max_upper_bounds():
     return sys.maxsize
 
@@ -120,26 +131,6 @@ def make_mlir_tensor(
 
 def remove_sym_attr(mlir_text: str) -> str:
     return re.sub(r"module @\S+ {", "module {", mlir_text)
-
-
-def remove_constants(mlir_text) -> str:
-    lines = mlir_text.split("\n")
-
-    def replace_dense_data(text):
-        const_start_index = text.find("<") + 1
-        const_end_index = text.find(">") - 1
-        start_index = text.find(": tensor<") + 9
-
-        substr = text[start_index:]
-        dims = substr.split("x")
-        dims = [int(dim) for dim in dims if dim.isdigit()]
-
-        if utils.should_omit_constant_in_str(dims):
-            return text[:const_start_index] + "..." + text[const_end_index + 1 :]
-        return text
-
-    replaced = [replace_dense_data(line) if "stablehlo.constant dense" in line else line for line in lines]
-    return "\n".join(replaced)
 
 
 UNKNOWN_LOC = "unknown"

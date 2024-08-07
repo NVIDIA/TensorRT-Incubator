@@ -33,7 +33,7 @@ import torch
 
 import tripy as tp
 from tripy import utils
-from tripy.backend.mlir.utils import remove_constants, remove_sym_attr
+from tripy.backend.mlir.utils import remove_sym_attr
 from tripy.common.exception import _make_stack_info_message
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
@@ -76,7 +76,7 @@ def check_mlir(mlir, expected):
     # Checks a given MLIR module against a string of the expected program.
     # MLIR indents with 2 spaces; we'll replace it with 4 spaces so that it's
     # easier to write the expected string.
-    mlir_str = remove_constants(str(mlir)).replace(" " * 2, " " * 4).strip()
+    mlir_str = mlir.operation.get_asm(large_elements_limit=32).replace(" " * 2, " " * 4).strip()
     mlir_str = remove_sym_attr(mlir_str)
     assert mlir_str == dedent(expected).strip()
 
