@@ -58,7 +58,7 @@ def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None
             If a given dimension is negative, it will be counted backwards from the last dimension.
 
     Returns:
-        A new tensor with the same datatype and values as `input`, with the specified dimensions reversed.
+        A new tensor with the same values as `input`, with the specified dimensions reversed.
 
     .. code-block:: python
         :linenos:

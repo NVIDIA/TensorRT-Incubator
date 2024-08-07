@@ -82,7 +82,7 @@ def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[in
             Atmost one dimension can be -1.
 
     Returns:
-        A new tensor of the same data type as the input tensor and the specified shape.
+        A new tensor with the specified shape.
 
     .. code-block:: python
         :linenos:
@@ -212,7 +212,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
         TripyException: If any of the specified dimensions have a size that is not equal to 1.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:

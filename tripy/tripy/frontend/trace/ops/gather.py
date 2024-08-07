@@ -110,7 +110,7 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
         index: The indices of elements to gather.
 
     Returns:
-        A new tensor of the same data type as the input tensor and same shape along every
+        A new tensor of the same shape along every
         dimension except ``dim``, which will have a size equal to ``len(index)``.
 
     .. code-block:: python

@@ -35,7 +35,7 @@ def sigmoid(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A tensor of the same shape and data type as the input.
+        A tensor of the same shape as the input.
 
     .. code-block:: python
         :linenos:

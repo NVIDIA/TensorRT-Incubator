@@ -180,7 +180,7 @@ def sum(
             If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -281,7 +281,7 @@ def max(
             If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -316,7 +316,7 @@ def prod(
             If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -473,7 +473,7 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
             If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        A new tensor of datatype of ``tp.int32``.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -507,7 +507,7 @@ def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
             If this is False, reduced dimensions will be squeezed.
 
     Returns:
-        A new tensor of datatype ``tp.int32``.
+        A new tensor.
 
     .. code-block:: python
         :linenos:

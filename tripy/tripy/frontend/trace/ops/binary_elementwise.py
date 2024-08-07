@@ -184,11 +184,10 @@ def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Args:
         self: Tensor to be added to other.
         other: The tensor to add to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -216,11 +215,10 @@ def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Args:
         self: Tensor to be subtracted by other.
         other: The tensor to subtract from this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -249,11 +247,10 @@ def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     Args:
         self: Tensor to be subtracted by other.
         other: The tensor to be subtracted from this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -281,11 +278,10 @@ def __pow__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Args:
         self: Tensor to be exponentiated by other.
         other: The tensor by which to exponentiate this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -313,11 +309,10 @@ def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     Args:
         self: Tensor to be exponentiated by other.
         other: The tensor to be exponentiated by this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -353,11 +348,10 @@ def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     Args:
         self: Tensor to be multiplied by other.
         other: The tensor by which to multiply this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -385,11 +379,10 @@ def __truediv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", A
     Args:
         self: Tensor to be divided by other.
         other: The tensor by which to divide this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -417,11 +410,10 @@ def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tr
     Args:
         self: Tensor to be subtracted by other.
         other: The tensor to be divided by this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -449,11 +441,10 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     Args:
         lhs: The first input tensor.
         rhs: The second input tensor.
-            It must have the same data type as the first input
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -481,11 +472,10 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     Args:
         lhs: The first input tensor.
         rhs: The second input tensor.
-            It must have the same data type as the first input
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -513,11 +503,10 @@ def __lt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Args:
         self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -546,11 +535,10 @@ def __le__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Args:
         self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -578,11 +566,10 @@ def __eq__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Args:
         self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -610,11 +597,10 @@ def __ne__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Args:
         self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -642,11 +628,10 @@ def __ge__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Args:
         self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -674,11 +659,10 @@ def __gt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     Args:
         self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:

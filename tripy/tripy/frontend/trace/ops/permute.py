@@ -68,7 +68,7 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
         dim1: The second dimension to be transposed.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -98,7 +98,7 @@ def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
               where :math:`N` is the rank of the input tensor.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:

@@ -72,7 +72,7 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
         dim: index to insert the singleton dimension.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:

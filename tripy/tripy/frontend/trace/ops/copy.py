@@ -47,11 +47,11 @@ def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     Returns a copy of the input tensor on the target device.
 
     Args:
-        input:
+        input: Tensor that will be copied
         device: The target device.
 
     Returns:
-        A copy of this tensor on target device.
+        A copy of input tensor on target device.
 
     .. code-block:: python
         :linenos:

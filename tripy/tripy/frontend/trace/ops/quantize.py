@@ -169,7 +169,7 @@ def quantize(
     both with size of ``input.shape[dim]``.
 
     Args:
-        input: The input tensor with data type of :class:`float32` or :class:`float16`.
+        input: The input tensor.
         scale: The scale tensor. Must be a constant tensor.
         dtype: The quantization data type. Must be a valid quantized data type (see above).
         dim: The dimension for per-channel quantization

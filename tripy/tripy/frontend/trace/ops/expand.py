@@ -87,7 +87,7 @@ def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int
             are prepended.
 
     Returns:
-        The new tensor of the same data type as this tensor.
+        The new tensor.
 
     .. code-block:: python
         :linenos:

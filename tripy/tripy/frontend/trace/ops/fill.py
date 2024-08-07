@@ -117,7 +117,7 @@ def full(
         dtype: The desired data type.
 
     Returns:
-        A tensor of shape ``shape`` and data type ``dtype``.
+        A tensor of shape ``shape``.
 
     .. code-block:: python
         :linenos:

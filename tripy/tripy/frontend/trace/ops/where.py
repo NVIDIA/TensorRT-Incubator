@@ -144,15 +144,14 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
     Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
 
     Args:
-        condition: The condition tensor. This must have data type :class:`tripy.bool`.
+        condition: The condition tensor.
             Where this is ``True``, elements are selected from ``input``.
             Otherwise, elements are selected from ``other``.
         input: Tensor of values selected at indices where condition is ``True``.
         other: Tensor values selected at indices where condition is ``False``.
-            This must have the same datatype as ``input``.
 
     Returns:
-        A new tensor with the broadcasted shape and the same data type as ``input`` and ``other``.
+        A new tensor with the broadcasted shape.
 
     Constraints:
         All three parameters must be broadcast-compatible with each other.
@@ -183,11 +182,11 @@ def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numb
 
     Args:
         input: The input tensor.
-        mask: The mask tensor. This should have data type :class:`tripy.bool`.
+        mask: The mask tensor. 
         value: the value to fill with. This will be casted to match the data type of the input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor of the same shape as the input tensor.
 
     .. code-block:: python
         :linenos:

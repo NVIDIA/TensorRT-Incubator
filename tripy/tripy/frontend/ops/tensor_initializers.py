@@ -191,7 +191,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
             while negative values indicate one which is below.
 
     Returns:
-        A tensor of the same shape and datatype as this tensor.
+        A tensor of the same shape as this tensor.
 
     .. code-block:: python
         :linenos:
@@ -249,7 +249,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
             while negative values indicate one which is below.
 
     Returns:
-        A tensor of the same shape and datatype as this tensor.
+        A tensor of the same shape as this tensor.
 
     .. code-block:: python
         :linenos:

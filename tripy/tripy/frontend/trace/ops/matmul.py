@@ -228,10 +228,10 @@ def __matmul__(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
 
     Args:
         self: Tensor to be multiplied with other.
-        other: The tensor by which to multiply. Must have the same data type as this tensor.
+        other: The tensor by which to multiply.
 
     Returns:
-        A new tensor of the same data type as this one.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
