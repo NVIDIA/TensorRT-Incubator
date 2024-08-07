@@ -123,7 +123,7 @@ class Trace:
         # Assign shapes to static shape arguments to ease translation and optimizations during the lowering to MLIR.
         if self.shapes:
             for input, shape_bounds in zip(self.inputs, self.shapes):
-                if shape_bounds.is_static():
+                if shape_bounds.is_static() and input.shape is None:
                     assert all(s >= 0 for s in shape_bounds.min), f"shape bounds expected to be >= 0, got {shape_bounds.min}"
                     input.shape = shape_bounds.min
 
