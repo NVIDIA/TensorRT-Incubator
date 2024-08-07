@@ -105,11 +105,42 @@ Please make sure any contributions you make satisfy the developer certificate of
 >		this project or the open source license(s) involved.
 
 
+### Use custom MLIR-TensorRT with Tripy
+Tripy depends on [MLIR-TensorRT](../mlir-tensorrt/README.md) for compilation and execution.
+Tripy container currently builds with [mlir-tensorrt-v0.1.29](https://github.com/NVIDIA/TensorRT-Incubator/releases/tag/mlir-tensorrt-v0.1.29), but you may
+choose to test Tripy with custom version of MLIR-TensorRT.
+
+1. [Build custom MLIR-TensorRT](#contributing-to-mlir-tensorrt)
+
+2. Launch the container; from the [`tripy` root directory](.) with mlir-tensorrt repository mapped for accessing wheels files, run:
+    ```bash
+    docker run --gpus all -it -v $(pwd):/tripy/ -v $(pwd)/../mlir-tensorrt:/mlir-tensorrt  --rm tripy:latest
+    ```
+
+3. Install MLIR-TensorRT wheels
+    MLIR-TensorRT builds with a specific version of TensorRT, ensure it matches the version required by Tripy.
+    This requirement can be relaxed in future.
+
+    You can confirm the required TensorRT version:
+    ```bash
+      echo "$LD_LIBRARY_PATH" | grep -oP 'TensorRT-\K\d+\.\d+\.\d+\.\d+'
+    ```
+    Ensure that installed wheels version (`major * 10 + minor` version) matches above TensorRT version.
+
+    For python 3.10.12, run:
+    ```bash
+    python3 -m pip install --force-reinstall /mlir-tensorrt/build/mlir-tensorrt/wheels/python3.10.12/trt101/**/*.whl
+    ```
+
+4. Verify everything works
+    ```bash
+    python3 -c "import tripy as tp; print(tp.ones((2, 3)))"
+    ```
+
 ### Tests
 
 Almost any change you make will require you to add tests or modify existing ones.
 For details on tests, see [the tests README](./tests/README.md).
-
 
 ### Documentation
 
