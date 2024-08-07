@@ -22,14 +22,6 @@ RUN groupadd -r -f -g ${gid} trtuser && \
 
 # Copy your .lldbinit file into the home directory of the root user
 COPY .lldbinit /root/
-
-# Install the recommended version of TensorRT for development.
-RUN cd /usr/lib/ && \
-    wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.1.0/tars/TensorRT-10.1.0.27.Linux.x86_64-gnu.cuda-12.4.tar.gz && \
-    tar -xvzf TensorRT-10.1.0.27.Linux.x86_64-gnu.cuda-12.4.tar.gz && \
-    rm TensorRT-10.1.0.27.Linux.x86_64-gnu.cuda-12.4.tar.gz
-ENV LD_LIBRARY_PATH=/usr/lib/TensorRT-10.1.0.27/lib/:$LD_LIBRARY_PATH
-
 COPY pyproject.toml /tripy/pyproject.toml
 
 RUN pip install .[docs,dev,test] \
