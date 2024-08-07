@@ -21,4 +21,7 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Private :: Do Not Upload"
 ]
+dependencies = [
+    "tensorrt~=10.0",
+]
 dynamic = ["version"]
