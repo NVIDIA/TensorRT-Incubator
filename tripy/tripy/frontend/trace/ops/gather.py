@@ -65,7 +65,7 @@ class Gather(BaseTraceOp):
         # Code below performs input_shape[0:self.axis], 1, input_shape[self.axis + 1 : ]
         size_partial_tensors = []
         if self.axis > 0:
-            slice_len = op_utils.add_constant_tensor_from_list([self.axis], inputs[0].device)
+            slice_limit = op_utils.add_constant_tensor_from_list([self.axis], inputs[0].device)
             axis_first_half = FlatIRTensor.build(
                 rank=1,
                 shape=[self.axis],
@@ -73,19 +73,19 @@ class Gather(BaseTraceOp):
                 device=inputs[0].device,
                 reason_details=["slice the input shape ", input_shape, " to get input_shape[0:self.axis]."],
             )
-            DynamicSliceOp.build([input_shape, zero_1d, slice_len, one_1d], [axis_first_half])
+            DynamicSliceOp.build([input_shape, zero_1d, slice_limit, one_1d], [axis_first_half])
             size_partial_tensors.append(axis_first_half)
 
         size_partial_tensors.append(one_1d)
         if self.axis + 1 < inputs[0].rank:
-            slice_len = op_utils.add_constant_tensor_from_list([inputs[0].rank - self.axis + 1], inputs[0].device)
+            slice_limit = op_utils.add_constant_tensor_from_list([inputs[0].rank], inputs[0].device)
             axis_second_half = FlatIRTensor.build(
                 rank=1,
                 dtype=int32,
                 device=inputs[0].device,
                 reason_details=["slice the input shape ", input_shape, " to get input_shape[self.axis + 1 :]."],
             )
-            DynamicSliceOp.build([input_shape, second_half_start, slice_len, one_1d], [axis_second_half])
+            DynamicSliceOp.build([input_shape, second_half_start, slice_limit, one_1d], [axis_second_half])
             size_partial_tensors.append(axis_second_half)
 
         slice_sizes = op_utils.concatenate_tensors(size_partial_tensors, dim=0)
