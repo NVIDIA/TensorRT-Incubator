@@ -101,8 +101,7 @@ def single_return_executable():
 @pytest.fixture(scope="session")
 def multiple_return_executable():
     compiler = tp.Compiler(returns_multiple_tensors)
-    # TODO: revert back to InputInfo (2,2) when https://github.com/NVIDIA/TensorRT-Incubator/issues/44 is fixed.
-    return compiler.compile(tp.InputInfo((2, [1,2,3]), dtype=tp.float32), tp.InputInfo((2, [1,2,3]), dtype=tp.float32))
+    return compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32))
 
 
 class TestExecutable:
@@ -154,12 +153,12 @@ class TestExecutable:
         input_info = multiple_return_executable.get_input_info()
         assert len(input_info) == 2
         for i in range(2):
-            assert input_info[i].shape_bounds == ((2, 2), (1, 3))
+            assert input_info[i].shape_bounds == ((2, 2), (2, 2))
             assert input_info[i].dtype == tp.float32
         output_info = multiple_return_executable.get_output_info()
         assert len(output_info) == 2
         for i in range(2):
-            assert output_info[i].shape_bounds == ((2, 2), (1, 3))
+            assert output_info[i].shape_bounds == ((2, 2), (2, 2))
             assert output_info[i].dtype == tp.float32
 
     def test_file_io(self, single_return_executable):
