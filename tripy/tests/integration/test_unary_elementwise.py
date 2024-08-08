@@ -35,7 +35,7 @@ _UNARY_OPS = {
 
 class TestUnaryElementwise:
     @pytest.mark.parametrize("tp_func, np_func", [(tp_func, np_func) for tp_func, np_func in _UNARY_OPS.items()])
-    def test_op_funcs(self, tp_func, np_func):
+    def test_op_funcs(self, tp_func, np_func, compile_fixture):
         input = tp.arange(1, 4, dtype=tp.float32)
-        output = tp_func(input)
+        output = compile_fixture(tp_func, input)
         assert tp.allclose(output, tp.Tensor(np_func(cp.from_dlpack(input).get())))

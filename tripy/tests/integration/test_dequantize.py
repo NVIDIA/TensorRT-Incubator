@@ -30,12 +30,12 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
-    def test_dequantize_int8_per_tensor(self, dtype):
+    def test_dequantize_int8_per_tensor(self, dtype, compile_fixture):
         data = [4, 8]
         input_tp = tp.Tensor(data, dtype=tp.int8)
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
-        dequantized = tp.dequantize(input_tp, scale_tp, dtype)
+        dequantized = compile_fixture(tp.dequantize, input_tp, scale_tp, dtype)
         expected = torch.tensor(data) * scale
         output = torch.from_dlpack(dequantized)
         assert torch.allclose(expected, output.to("cpu"))
@@ -43,7 +43,7 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
-    def test_dequantize_int8_per_channel(self, dtype):
+    def test_dequantize_int8_per_channel(self, dtype, compile_fixture):
         # TODO: Fix in #153
         if dtype == tp.float16:
             pytest.skip("TRT does not support fp16->int8 per-channel dequant.")
@@ -51,7 +51,7 @@ class TestDequantize:
         input_tp = tp.Tensor(data, dtype=tp.int8)
         scale = torch.tensor([0.8, 0.9], dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
-        dequantized = tp.dequantize(input_tp, scale_tp, dtype, dim=0)
+        dequantized = compile_fixture(tp.dequantize, input_tp, scale_tp, dtype, dim=0)
         expected = torch.tensor(data) * scale.reshape((2, 1))
         output = torch.from_dlpack(dequantized)
         assert torch.allclose(expected, output.to("cpu"))
@@ -61,14 +61,13 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    def test_dequantize_fp8_per_tensor(self, dtype):
+    def test_dequantize_fp8_per_tensor(self, dtype, compile_fixture):
         data_value = [1.0, 1.0]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
-        dequantized = tp.dequantize(input_tp, scale_tp, dtype)
+        dequantized = compile_fixture(tp.dequantize, input_tp, scale_tp, dtype)
         assert dequantized.dtype == dtype
-        print(dequantized)
         expected = torch.Tensor(data_value) * scale
         output = torch.from_dlpack(dequantized).to(dtype=torch.float32)
         assert torch.allclose(expected, output.to("cpu"))
@@ -77,23 +76,23 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    def test_dequantize_fp8_per_channel(self, dtype):
+    def test_dequantize_fp8_per_channel(self, dtype, compile_fixture):
         data_value = [[1.0, 1.0], [1.0, 1.0]]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
         scale = torch.tensor([0.8, 0.9], dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
-        dequantized = tp.dequantize(input_tp, scale_tp, dtype, dim=0)
+        dequantized = compile_fixture(tp.dequantize, input_tp, scale_tp, dtype, dim=0)
         assert dequantized.dtype == dtype
         print(dequantized)
         expected = torch.Tensor(data_value) * scale.reshape((2, 1))
         output = torch.from_dlpack(dequantized).to(dtype=torch.float32)
         assert torch.allclose(expected, output.to("cpu"))
 
-    def test_negative_non_constant_scale(self):
+    def test_negative_non_constant_scale(self, compile_fixture):
         data = [[4, 8], [4, 8]]
         input = tp.Tensor(data, dtype=tp.int8)
         scale = tp.ones((2,))
-        dequantized = tp.dequantize(input, scale, tp.float32, dim=0)
+        dequantized = compile_fixture(tp.dequantize, input, scale, tp.float32, dim=0)
         with raises(
             tp.TripyException,
             match="Scale must be a constant tensor in dequantize op",

@@ -35,19 +35,19 @@ class TestWhereOp:
             ((0,), (1,), (1,)),  # 0 dim in the condition
         ],
     )
-    def test_where_broadcast_shapes(self, cond, x, y):
+    def test_where_broadcast_shapes(self, cond, x, y, compile_fixture):
         x = np.arange(np.prod(x)).reshape(x).astype(np.float32)
         y = np.arange(np.prod(y)).reshape(y).astype(np.float32)
         t_cond = np.arange(np.prod(cond)).reshape(cond).astype(np.float32)
         a = Tensor(x)
         b = Tensor(y)
         condition = Tensor(t_cond % 2 == 0)
-        out = tp.where(condition, a, b)
+        out = compile_fixture(tp.where, condition, a, b)
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(np.where((t_cond % 2 == 0), x, y)))
 
-    def test_explicit_condition(self):
+    def test_explicit_condition(self, compile_fixture):
         select_indices = tp.Tensor([True, False, True, False], dtype=tp.bool)
         ones = tp.ones((4,), dtype=tp.int32)
         zeros = tp.zeros((4,), dtype=tp.int32)
-        w = tp.where(select_indices, ones, zeros)
+        w = compile_fixture(tp.where, select_indices, ones, zeros)
         assert cp.from_dlpack(w).get().tolist() == [1, 0, 1, 0]

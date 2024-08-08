@@ -26,14 +26,14 @@ class TestFlip:
         "dims",
         [0, 1, None, [0, 1], [1, 0], -1, -2, [0, -1], [-2, 1]],
     )
-    def test_flip(self, dims):
+    def test_flip(self, dims, compile_fixture):
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
-        f = tp.flip(a, dims=dims)
+        f = compile_fixture(tp.flip, a, dims=dims)
         assert np.array_equal(cp.from_dlpack(f).get(), np.flip(cp_a.get(), axis=dims))
 
         # also ensure that flipping a second time restores the original value
-        f2 = tp.flip(f, dims=dims)
+        f2 = compile_fixture(tp.flip, f, dims=dims)
         assert cp.array_equal(cp.from_dlpack(f2), cp_a)
 
     def test_no_op(self):

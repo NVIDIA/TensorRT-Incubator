@@ -48,7 +48,7 @@ class TestCast:
             # (np.int8, bool),
         ],
     )
-    def test_cast(self, input_dtype, target_dtype):
+    def test_cast(self, input_dtype, target_dtype, compile_fixture):
         from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype
 
         tp_input_dtype = convert_frontend_dtype_to_tripy_dtype(input_dtype)
@@ -57,7 +57,8 @@ class TestCast:
         # TODO(#222): Integer casts with negative numbers fail in many cases
         input_tensor = tp.Tensor([0, 1, 2], dtype=tp_input_dtype)
         np_input = cp.from_dlpack(input_tensor).get()
-        output = tp.cast(input_tensor, tp_target_dtype)
+
+        output = compile_fixture(tp.cast, input_tensor, tp_target_dtype)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np_input.astype(target_dtype))
 
