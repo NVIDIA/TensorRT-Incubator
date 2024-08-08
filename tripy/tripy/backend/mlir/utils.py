@@ -22,6 +22,7 @@ import sys
 import tempfile
 from typing import BinaryIO, List, Tuple, Sequence, Optional
 from itertools import chain
+import traceback
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
@@ -40,6 +41,17 @@ class MLIRContext:
             cls._instance = super().__new__(cls)
             cls._instance.context = ir.Context()
         return cls._instance.context
+
+# MLIR runtime needs to be initialized once.
+class MLIRRuntimeClient:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance.context = runtime.RuntimeClient()
+        return cls._instance.context
+
 
 def get_max_upper_bounds():
     return sys.maxsize
@@ -120,26 +132,6 @@ def make_mlir_tensor(
 
 def remove_sym_attr(mlir_text: str) -> str:
     return re.sub(r"module @\S+ {", "module {", mlir_text)
-
-
-def remove_constants(mlir_text) -> str:
-    lines = mlir_text.split("\n")
-
-    def replace_dense_data(text):
-        const_start_index = text.find("<") + 1
-        const_end_index = text.find(">") - 1
-        start_index = text.find(": tensor<") + 9
-
-        substr = text[start_index:]
-        dims = substr.split("x")
-        dims = [int(dim) for dim in dims if dim.isdigit()]
-
-        if utils.should_omit_constant_in_str(dims):
-            return text[:const_start_index] + "..." + text[const_end_index + 1 :]
-        return text
-
-    replaced = [replace_dense_data(line) if "stablehlo.constant dense" in line else line for line in lines]
-    return "\n".join(replaced)
 
 
 UNKNOWN_LOC = "unknown"
@@ -442,8 +434,11 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             ]
         )
 
+    # Construct the new exception with the formatted message
+    error_message = f"{type(exc).__name__}: {str(exc)}\n\nAdditional context:\n{traceback.format_exc()}"
+
     raise_error(
-        repr(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
+        error_message.replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
         + (get_flat_ir_operation(output_names) if output_names else [])
         + (

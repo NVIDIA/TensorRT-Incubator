@@ -59,14 +59,6 @@ class FlatIR:
                 with ir.InsertionPoint(module.body) as ip:
                     # Lets assume only one function with inline code (#9 will fix it)
                     inp_types = [inp.to_mlir() for inp in self.inputs]
-                    if self.shapes:
-                        assert len(inp_types) == len(self.shapes), "mismatched number of inputs vs number of shapes"
-                        for i, (inp_type, inp_shape) in enumerate(zip(inp_types, self.shapes)):
-                            if inp_shape.has_static_shape():
-                                inp_types[i] = ir.RankedTensorType.get(
-                                    inp_shape.get_static_shape(), inp_type.element_type, inp_type.encoding
-                                )
-
                     out_types = [o.to_mlir() for o in self.outputs]
                     ftype = ir.FunctionType.get(inp_types, out_types)
                     # TODO: Function name should be a property of Trace and used here.
@@ -121,16 +113,18 @@ class FlatIR:
                         arg_attrs: List[Dict[str, ir.Attribute]] = []
                         for bound in self.shapes:
                             # TODO (#244): Support multiple profiles
-
-                            arg_attrs.append(
-                                {
-                                    "tensorrt.shape_profile": ir.Attribute.parse(
-                                        f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                            if bound.is_static():
+                                arg_attrs.append(ir.DictAttr.get({}))
+                            else:
+                                arg_attrs.append(
+                                    ir.DictAttr.get({
+                                        "tensorrt.shape_profile": ir.Attribute.parse(
+                                            f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                            )
+                                        }
                                     )
-                                }
-                            )
-
-                        func_op.arg_attrs = ir.ArrayAttr.get([ir.DictAttr.get(attrs) for attrs in arg_attrs])
+                                )
+                        func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
 
                     # Append device location if outputs are on host as MLIR-TensorRT does not adhere to this constraint.
                     # TODO(#155): Fix TensorKindAnalysis to ensure result tensors with attribute `tensorrt.host_tensor` are allocated on host.

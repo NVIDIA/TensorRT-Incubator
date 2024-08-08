@@ -28,7 +28,6 @@ from tripy.common.utils import (
     get_supported_array_type,
     Float16MemoryView,
 )
-
 import mlir_tensorrt.runtime.api as runtime
 import tripy.common.datatype
 
@@ -155,6 +154,7 @@ class Array:
             device: Target device (tripy.Device("cpu") or tripy.Device("gpu")).
         """
         import tripy.common.datatype
+        from tripy.backend.mlir.utils import MLIRRuntimeClient
 
         assert dtype is None or isinstance(dtype, tripy.common.datatype.dtype), "Invalid data type"
         assert shape is None or all(s >= 0 for s in shape)
@@ -190,7 +190,7 @@ class Array:
                 self.shape = data.shape
 
         # Store the memref_value
-        self.runtime_client = runtime.RuntimeClient()
+        self.runtime_client = MLIRRuntimeClient()
         self.data_ref = data  # Ensure that data does not go out of scope when we create a view over it.
         self.memref_value = self._memref(data)
         self.device = (

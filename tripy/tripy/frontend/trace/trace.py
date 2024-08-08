@@ -120,6 +120,12 @@ class Trace:
         from tripy.flat_ir.flat_ir import FlatIR
 
         flat_ir = FlatIR(shapes=self.shapes)
+        # Assign shapes to static shape arguments to ease translation and optimizations during the lowering to MLIR.
+        if self.shapes:
+            for input, shape_bounds in zip(self.inputs, self.shapes):
+                if shape_bounds.is_static() and input.shape is None:
+                    assert all(s >= 0 for s in shape_bounds.min), f"shape bounds expected to be >= 0, got {shape_bounds.min}"
+                    input.shape = shape_bounds.min
 
         flat_ir.inputs = [flat_ir.register_tensor(inp.to_flat_ir()) for inp in self.inputs]
         flat_ir.outputs = [flat_ir.register_tensor(out.to_flat_ir()) for out in self.outputs]
