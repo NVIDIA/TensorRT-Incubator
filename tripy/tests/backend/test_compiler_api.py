@@ -62,6 +62,14 @@ class TestInput:
             ([(1, 2, 3)], (1,), (2,), (3,)),
             # Only one value specified
             ([1], (1,), (1,), (1,)),
+            # one dynamic and one static dim
+            ([(1, 2, 3), 4], (1, 4), (2, 4), (3, 4)),
+            # Both dim dynamic
+            ([(1, 2, 3), (4, 5, 6)], (1, 4), (2, 5), (3, 6)),
+            # min/opt/max specified as shape tensor
+            ([tp.Shape([1, 2, 3])], (1,), (2,), (3,)),
+            # Only one value specified as shape tensor
+            ([tp.Shape([1])], (1,), (1,), (1,))                      
         ],
     )
     def test_shapes_normalized(self, shape, expected_min, expected_opt, expected_max):
@@ -77,7 +85,7 @@ class TestInput:
             # Not a number
             (
                 (tp.int32, 1),
-                "Shape values should be either a single number or a Tuple specifying min/opt/max bounds.",
+                "Shape values should be either a single number or a Tuple or tripy.Shape tensor specifying min/opt/max bounds.",
             ),
             # Too few elements in dimension
             (((1, 1), 1), "Incorrect number of shape values provided"),
@@ -85,6 +93,8 @@ class TestInput:
             (((1, 1, 1, 1), 1), "Incorrect number of shape values provided"),
             # Tuple containing a non-number
             (((tp.int32, 1, 1), 1), "Shape values must be numbers"),
+            # Too few elements in shape tensor
+            ((tp.Shape([1, 1]),), "Incorrect number of shape values provided"),
         ],
     )
     def test_invalid_shape(self, shape, expected_error):
@@ -95,7 +105,7 @@ class TestInput:
 @pytest.fixture(scope="session")
 def single_return_executable():
     compiler = tp.Compiler(add)
-    return compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32))
+    return compiler.compile(tp.InputInfo((tp.Shape([2]), tp.Shape([2])), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32))
 
 
 @pytest.fixture(scope="session")
