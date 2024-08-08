@@ -115,23 +115,23 @@ class Tensor(metaclass=TensorMeta):
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
         if data is not None:
-            if not isinstance(data, Array):
+            if isinstance(data, (List, Tuple, int, float, bool)):
+                Storage.build_internal([], [self.trace_tensor], data, shape, dtype, device)
+            elif not isinstance(data, Array):
                 data = Array(data, shape, dtype, device)
+                Storage.build_internal([], [self.trace_tensor], data)
             else:
                 # Internal usage only
-                # Disallow duplicate dtype/device when using Array to initialize a Tensor
-                if shape is not None:
-                    assert len(data.shape) == len(
-                        shape
-                    ), f"Rank provided to the initializer of Tensor (rank = {len(shape)}) does not match Array rank (rank = {len(data.shape)})."
-                assert not any([dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+                # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
+                assert not any(
+                    [shape, dtype, device]
+                ), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+                Storage.build_internal([], [self.trace_tensor], data)
 
-            # Data is present now. Assign the underlying device type.
-            self.device = data.device
-
-            Storage.build_internal([], [self.trace_tensor], data)
-            self.trace_tensor.shape = data.shape
-            self.trace_tensor.device = data.device
+            storage_op = self.trace_tensor.producer
+            self.device = storage_op.device
+            self.trace_tensor.shape = storage_op.shape
+            self.trace_tensor.device = storage_op.device
 
     def __getattr__(self, name: str):
         import tripy as tp
@@ -169,7 +169,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
 
-        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.data.has_memref:
+        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_array:
             return self.trace_tensor.producer.data
 
         trace = Trace([self])
@@ -196,7 +196,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace.ops.cast import cast
 
         arr = self.eval()
-        if arr.has_memref and self.dtype not in get_supported_array_type():
+        if self.dtype not in get_supported_array_type():
             arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
 

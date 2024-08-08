@@ -17,7 +17,7 @@
 
 import numbers
 from dataclasses import dataclass
-from typing import Sequence, Set
+from typing import Sequence, Set, Union
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
@@ -30,10 +30,11 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 @dataclass(repr=False)
 class ConstantOp(BaseFlatIROp):
 
-    data: Array
+    data: Union[Sequence, Array]
 
     def str_skip_fields(self) -> Set[str]:
-        if utils.should_omit_constant_in_str(self.data.shape):
+        data_shape = self.data.shape if isinstance(self.data, Array) else utils.get_shape(self.data)
+        if utils.should_omit_constant_in_str(data_shape):
             return {"data"}
         return set()
 
@@ -43,8 +44,8 @@ class ConstantOp(BaseFlatIROp):
         from tripy.backend.mlir import utils as mlir_utils
 
         # TODO(#189): Remove explicit copy to host for constants
-        assert self.data.dtype == self.outputs[0].dtype
-        if self.data.has_memref:
+        if isinstance(self.data, Array):
+            assert self.data.dtype == self.outputs[0].dtype
             memref_value = self.data.memref_value
             if self.data.device.kind == "gpu":
                 memref_value = mlir_utils.MLIRRuntimeClient().copy_to_host(
@@ -83,6 +84,6 @@ class ConstantOp(BaseFlatIROp):
                     attrs.extend(to_attrs(element))
                 return attrs
 
-            attr = ir.DenseElementsAttr.get(attrs=to_attrs(self.data.data()), type=self.outputs[0].to_mlir())
+            attr = ir.DenseElementsAttr.get(attrs=to_attrs(self.data), type=self.outputs[0].to_mlir())
 
         return [stablehlo.ConstantOp(attr)]

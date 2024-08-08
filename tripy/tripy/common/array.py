@@ -23,9 +23,6 @@ from tripy.common.device import device as tp_device
 from tripy.common.exception import raise_error
 from tripy.common.utils import (
     convert_frontend_dtype_to_tripy_dtype,
-    convert_list_to_array,
-    get_element_type,
-    get_supported_array_type,
     Float16MemoryView,
 )
 import mlir_tensorrt.runtime.api as runtime
@@ -133,13 +130,13 @@ def check_list_consistency(input_list: Any, computed_shape: List[int]) -> None:
 # Views with different data types can be created using the `view` method.
 class Array:
     """
-    A versatile array container that works with Torch, Jax, Cupy, NumPy, and List implementations.
+    A versatile array container that works with Torch, Jax, Cupy, NumPy.
     It can be used to store any object implementing dlpack interface.
     """
 
     def __init__(
         self,
-        data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        data: Union["np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
         shape: Optional[Tuple[int]] = None,
         dtype: "tripy.dtype" = None,
         device: tp_device = None,
@@ -148,7 +145,7 @@ class Array:
         Initialize an Array object.
 
         Args:
-            data: Input data list or an object implementing dlpack interface such as np.ndarray, cp.ndarray, torch.Tensor, or jnp.ndarray.
+            data: Input data that implements dlpack interface such as np.ndarray, cp.ndarray, torch.Tensor, or jnp.ndarray.
             dtype: Data type of the array.
             shape: Shape information for static allocation.
             device: Target device (tripy.Device("cpu") or tripy.Device("gpu")).
@@ -161,7 +158,6 @@ class Array:
 
         self.device = device
 
-        self.has_memref = not isinstance(data, (Sequence, bool, int, float))
         if data is None:
             if dtype is None:
                 raise_error("Datatype must be provided when data is None.", [])
@@ -170,38 +166,19 @@ class Array:
             self.dtype = dtype
             self.shape = shape
         else:
-            if not self.has_memref:
-                # shape can still be inferred for empty data, but dtype cannot be
-                if has_no_contents(data) and dtype is None:
-                    raise_error("Datatype must be provided for empty data (i.e., not containing any scalars).")
-                element_type = get_element_type(data)
-                if dtype is not None:
-                    element_type = convert_frontend_dtype_to_tripy_dtype(dtype)
-                computed_shape = tuple(utils.get_shape(data))
-                check_list_consistency(data, computed_shape)
-                check_shape_consistency(computed_shape, shape)
-                self.dtype = element_type
-                if shape is None:
-                    self.shape = computed_shape
-                else:
-                    self.shape = shape
-            else:
-                check_data_consistency(data.shape, data.dtype, shape, dtype)
-                self.dtype = convert_frontend_dtype_to_tripy_dtype(data.dtype)
-                self.shape = data.shape
+            check_data_consistency(data.shape, data.dtype, shape, dtype)
+            self.dtype = convert_frontend_dtype_to_tripy_dtype(data.dtype)
+            self.shape = data.shape
 
         # Store the memref_value
         self.runtime_client = MLIRRuntimeClient()
         self.data_ref = data  # Ensure that data does not go out of scope when we create a view over it.
-        if self.has_memref:
-            self.memref_value = self._memref(data)
-            self.device = (
-                tp_device("gpu") if self.memref_value.address_space == runtime.PointerType.device else tp_device("cpu")
-            )
+        self.memref_value = self._memref(data)
+        self.device = (
+            tp_device("gpu") if self.memref_value.address_space == runtime.PointerType.device else tp_device("cpu")
+        )
 
     def data(self) -> List[Union[float, int]]:
-        if not self.has_memref:
-            return self.data_ref
         memref = self.memref_value
         if self.memref_value.address_space == runtime.PointerType.device:
             memref = self.runtime_client.copy_to_host(

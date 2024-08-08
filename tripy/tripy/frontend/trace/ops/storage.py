@@ -16,30 +16,58 @@
 #
 
 from dataclasses import dataclass
-from typing import List, Sequence, Set
+from typing import List, Sequence, Set, Union
 
 import tripy.common
 from tripy import utils
+from tripy.common import utils as common_utils
 from tripy.common.array import Array
+from tripy.common.exception import raise_error
+from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
 class Storage(BaseTraceOp):
 
-    data: Array
+    data: Union[Array, Sequence]
     shape: Sequence[int]
     dtype: type
     device: tripy.common.device
 
-    def __init__(self, inputs: List["Tensor"], outputs: List["Tensor"], data: Array) -> None:
+    def __init__(
+        self,
+        inputs: List["Tensor"],
+        outputs: List["Tensor"],
+        data: Union[Array, Sequence],
+        shape: Sequence[int] = None,
+        dtype: "tripy.dtype" = None,
+        device: tripy.common.device = None,
+    ) -> None:
         super().__init__(inputs, outputs)
 
         self.data = data
-        self.shape = data.shape
-        self.dtype = data.dtype
-        self.device = data.device
+        self.has_array = isinstance(data, Array)
+        if self.has_array:
+            self.shape = data.shape
+            self.dtype = data.dtype
+            self.device = data.device
+        else:
+            data_shape = tuple(utils.get_shape(data))
+            if shape is not None and tuple(shape) != data_shape:
+                raise_error(
+                    "Data has incorrect shape.",
+                    details=[
+                        f"Input data had shape: {data_shape}, ",
+                        f"but provided shape was: {shape}",
+                    ],
+                )
+            self.shape = data_shape
+            if dtype is None:
+                data_dtype = common_utils.get_element_type(data)
+                dtype = common_utils.convert_frontend_dtype_to_tripy_dtype(data_dtype)
+            self.dtype = dtype
+            self.device = utils.default(device, tripy.common.device("gpu"))
 
     # for storage, we will always consider the result to be an ordinary tensor
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape

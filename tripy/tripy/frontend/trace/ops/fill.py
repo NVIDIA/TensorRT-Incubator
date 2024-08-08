@@ -65,14 +65,14 @@ class Fill(BaseTraceOp):
         from tripy.flat_ir.tensor import FlatIRTensor
 
         const_val_tensor = FlatIRTensor.build(
+            shape=(),
             rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,
             reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
         )
 
-        data = Array(self.value, shape=(), dtype=self.dtype, device=device("cpu"))
-        ConstantOp.build([], [const_val_tensor], data=data)
+        ConstantOp.build([], [const_val_tensor], data=self.value)
 
         DynamicBroadcastOp.build(
             [const_val_tensor, inputs[0]],
