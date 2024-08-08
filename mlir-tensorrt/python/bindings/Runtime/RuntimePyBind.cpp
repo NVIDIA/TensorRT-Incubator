@@ -25,6 +25,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cuda_runtime.h>
 #include <exception>
 #include <memory>
 #include <numeric>
@@ -118,6 +119,16 @@ struct type_caster<MTRT_MemRefValue> {
 } // namespace pybind11::detail
 
 namespace {
+
+bool isGPUPointer(void *ptr) {
+  cudaPointerAttributes attributes;
+  cudaError_t status = cudaPointerGetAttributes(&attributes, ptr);
+  if (status != cudaSuccess) {
+    return false;
+  }
+  return attributes.type == cudaMemoryTypeDevice ||
+         attributes.type == cudaMemoryTypeManaged;
+}
 
 class PyRuntimeClient;
 
@@ -520,6 +531,14 @@ PYBIND11_MODULE(_api, m) {
       });
   py::class_<PyMemRefValue>(m, "MemRefValue", py::module_local(),
                             py::buffer_protocol())
+      .def_property_readonly("ptr",
+                             [](PyMemRefValue &self) {
+                               MTRT_MemRefValueInfo info;
+                               MTRT_Status s =
+                                   mtrtMemRefValueGetInfo(self, &info);
+                               THROW_IF_MTRT_ERROR(s);
+                               return info.ptr;
+                             })
       .def_property_readonly(
           "shape",
           [](PyMemRefValue &self) {
@@ -713,6 +732,13 @@ PYBIND11_MODULE(_api, m) {
           [](PyRuntimeClient &self, uintptr_t ptr, std::vector<int64_t> shape,
              MTRT_ScalarTypeCode scalarType, PyDevice &device) {
             MTRT_PointerType addressSpace = MTRT_PointerType_device;
+            MTRT_Status s;
+            if (!isGPUPointer(reinterpret_cast<void *>(ptr))) {
+              s = mtrtStatusCreate(
+                  MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
+                  "Can not create device memory view over a host pointer");
+            }
+            THROW_IF_MTRT_ERROR(s);
             return getMemRefViewWithCContiguousLayout(
                        self, ptr, shape, scalarType, device, addressSpace)
                 .release();
@@ -723,6 +749,13 @@ PYBIND11_MODULE(_api, m) {
           "create_host_memref_view",
           [](PyRuntimeClient &self, uintptr_t ptr, std::vector<int64_t> shape,
              MTRT_ScalarTypeCode scalarType) {
+            MTRT_Status s;
+            if (isGPUPointer(reinterpret_cast<void *>(ptr))) {
+              s = mtrtStatusCreate(
+                  MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
+                  "Can not create host memory view over a device pointer");
+            }
+            THROW_IF_MTRT_ERROR(s);
             MTRT_PointerType addressSpace = MTRT_PointerType_host;
             return getMemRefViewWithCContiguousLayout(
                        self, ptr, shape, scalarType, {}, addressSpace)
