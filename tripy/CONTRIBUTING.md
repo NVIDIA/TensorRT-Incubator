@@ -1,5 +1,6 @@
 # Contributing To Tripy
 
+Thank you for considering contributing to Tripy!
 
 ## Setting Up
 
@@ -61,13 +62,22 @@ documentation.
 
 If you're intersted in adding a new operator to Tripy, refer to [this guide](./docs/post0_developer_guides/how-to-add-new-ops.md).
 
+
 ### Making Commits
 
-Ensure any commits you make are signed. See
-[this page](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#ssh-commit-signature-verification)
-for details on signing commits.
+1. Tripy follows [fork based developement](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo).
+    - Fork repo from GitHub
+    - Push changes to your branches on fork instead of the main repo
+    - Create a PR to merge changes from fork to the main repo
 
-Please make sure any contributions you make satisfy the developer certificate of origin:
+2. Managing PRs
+    - Label your PR correctly (e.g., use `tripy` for changes to `tripy`).
+    - Add a brief description explaining the purpose of the change.
+    - Each functional change should include an update to an existing test or a new test.
+    - Ensure any commits you make are signed. See [this page](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification#ssh-commit-signature-verification)
+    for details on signing commits.
+
+3. Please make sure any contributions you make satisfy the developer certificate of origin:
 
 > Developer Certificate of Origin
 >	Version 1.1
@@ -104,14 +114,51 @@ Please make sure any contributions you make satisfy the developer certificate of
 >		maintained indefinitely and may be redistributed consistent with
 >		this project or the open source license(s) involved.
 
-
 ### Tests
 
 Almost any change you make will require you to add tests or modify existing ones.
 For details on tests, see [the tests README](./tests/README.md).
 
-
 ### Documentation
 
 If you add or modify any public-facing interfaces, you should also update the documentation accordingly.
 For details on the public documentation, see [the documentation README](./docs/README.md).
+
+### Coding Guidelines
+
+We do not have a specific coding style at the moment. However, we recommend contributors to follow consistent coding style with the existing codebase and refer to [PEP8 style guide](https://peps.python.org/pep-0008/).
+
+Python files are formatted using the [`black` formatter](https://black.readthedocs.io/en/stable/).
+
+### Use custom MLIR-TensorRT with Tripy
+Tripy depends on [MLIR-TensorRT](../mlir-tensorrt/README.md) for compilation and execution.
+The Tripy container currently builds with [mlir-tensorrt-v0.1.29](https://github.com/NVIDIA/TensorRT-Incubator/releases/tag/mlir-tensorrt-v0.1.29), but you may
+choose to test Tripy with a custom version of MLIR-TensorRT.
+
+1. [Build custom MLIR-TensorRT](#contributing-to-mlir-tensorrt)
+
+2. Launch the container with mlir-tensorrt repository mapped for accessing wheels files; from the [`tripy` root directory](.), run:
+    ```bash
+    docker run --gpus all -it -v $(pwd):/tripy/ -v $(pwd)/../mlir-tensorrt:/mlir-tensorrt  --rm tripy:latest
+    ```
+
+3. Install MLIR-TensorRT wheels
+    MLIR-TensorRT can be built with a specific version of TensorRT. Once built, it can link with a compatible range of TensorRT versions. For instance, if MLIR-TensorRT is built with TensorRT 10.2, it can link with TensorRT versions 10.0 and above.
+
+    The Tripy container includes a pre-installed TensorRT library. Follow these steps to confirm the TensorRT version and ensure compatibility with your TensorRT wheels.
+    ```bash
+      echo "$LD_LIBRARY_PATH" | grep -oP 'TensorRT-\K\d+\.\d+\.\d+\.\d+'
+    ```
+    Ensure the installed TensorRT wheels have:
+    * The same major version as the TensorRT version in the container.
+    * A minor version equal to or higher than the version in the container.
+
+    For python 3.10.12, run:
+    ```bash
+    python3 -m pip install --force-reinstall /mlir-tensorrt/build/mlir-tensorrt/wheels/python3.10.12/trt101/**/*.whl
+    ```
+
+4. Verify everything works
+    ```bash
+    python3 -c "import tripy as tp; print(tp.ones((2, 3)))"
+    ```
