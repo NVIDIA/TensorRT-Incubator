@@ -22,6 +22,7 @@ import sys
 import tempfile
 from typing import BinaryIO, List, Tuple, Sequence, Optional
 from itertools import chain
+import traceback
 
 import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
@@ -433,8 +434,11 @@ def map_error_to_user_code_and_raise(flat_ir, exc, stderr):
             ]
         )
 
+    # Construct the new exception with the formatted message
+    error_message = f"{type(exc).__name__}: {str(exc)}\n\nAdditional context:\n{traceback.format_exc()}"
+
     raise_error(
-        repr(exc).replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
+        error_message.replace("InternalError: InternalError:", "InternalError:").rstrip(".") + ".",
         details=[stderr, "\n"]
         + (get_flat_ir_operation(output_names) if output_names else [])
         + (
