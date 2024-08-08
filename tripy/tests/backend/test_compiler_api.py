@@ -62,6 +62,12 @@ class TestInput:
             ([(1, 2, 3)], (1,), (2,), (3,)),
             # Only one value specified
             ([1], (1,), (1,), (1,)),
+            # one dynamic and one static dim
+            ([(1, 2, 3), 4], (1, 4), (2, 4), (3, 4)),
+            # Both dim dynamic
+            ([(1, 2, 3), (4, 5, 6)], (1, 4), (2, 5), (3, 6)),
+            # static shape via shape tensor
+            (tp.Shape([1, 4]), (1, 4), (1, 4), (1, 4)),
         ],
     )
     def test_shapes_normalized(self, shape, expected_min, expected_opt, expected_max):
@@ -95,7 +101,7 @@ class TestInput:
 @pytest.fixture(scope="session")
 def single_return_executable():
     compiler = tp.Compiler(add)
-    return compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32))
+    return compiler.compile(tp.InputInfo(tp.Shape([2, 2]), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32))
 
 
 @pytest.fixture(scope="session")

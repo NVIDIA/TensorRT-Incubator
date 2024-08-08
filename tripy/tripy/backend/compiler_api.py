@@ -29,7 +29,7 @@ from tripy.backend.mlir import Executor
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
-from tripy.frontend import Tensor, Trace
+from tripy.frontend import Tensor, Trace, Shape
 from tripy.utils import json as json_utils
 
 
@@ -40,7 +40,9 @@ class InputInfo:
     """
 
     def __init__(
-        self, shape: Sequence[Union[int, Tuple[int], Tuple[int, int], Tuple[int, int, int]]], dtype: "tripy.dtype"
+        self,
+        shape: Sequence[Union[int, Tuple[int], Tuple[int, int], Tuple[int, int, int], Shape]],
+        dtype: "tripy.dtype",
     ) -> None:
         """
         Args:
@@ -67,36 +69,44 @@ class InputInfo:
             assert inp.shape_bounds.opt == (2, 4)
             assert inp.shape_bounds.max == (3, 4)
         """
-        # TODO (#252): Allow `shape` to be a shape tensor
         min_shape = []
         opt_shape = []
         max_shape = []
-        for elem in shape:
-            if isinstance(elem, numbers.Number):
-                elem = (elem,) * 3
-            elif isinstance(elem, Sequence):
-                if not all(isinstance(val, numbers.Number) for val in elem):
+        if isinstance(shape, Shape):
+            assert shape.shape.rank == 1
+            nb_dims = shape.shape.data().data()[0]
+            for i in range(nb_dims):
+                d = shape[i].data().data()
+                assert isinstance(d, numbers.Number)
+                min_shape.append(d)
+                opt_shape.append(d)
+                max_shape.append(d)
+        else:
+            for elem in shape:
+                if isinstance(elem, numbers.Number):
+                    elem = (elem,) * 3
+                elif isinstance(elem, Sequence):
+                    if not all(isinstance(val, numbers.Number) for val in elem):
+                        raise_error(
+                            "Shape values must be numbers.",
+                            [f"Shape: {shape} contains an element: {repr(elem)} with non-numerical value(s)"],
+                        )
+                    if len(elem) != 3:
+                        raise_error(
+                            "Incorrect number of shape values provided.",
+                            [
+                                f"Exactly 3 shape values must be provided for each dimension (min/opt/max)"
+                                f" but got: {len(elem)} values in shape: {shape}. "
+                            ],
+                        )
+                else:
                     raise_error(
-                        "Shape values must be numbers.",
-                        [f"Shape: {shape} contains an element: {repr(elem)} with non-numerical value(s)"],
+                        "Shape values should be either a single number or a Tuple specifying min/opt/max bounds ",
+                        [f"Shape: {shape} contains an invalid element: {elem}"],
                     )
-                if len(elem) != 3:
-                    raise_error(
-                        "Incorrect number of shape values provided.",
-                        [
-                            f"Exactly 3 shape values must be provided for each dimension (min/opt/max)"
-                            f" but got: {len(elem)} values in shape: {shape}. "
-                        ],
-                    )
-            else:
-                raise_error(
-                    "Shape values should be either a single number or a Tuple specifying min/opt/max bounds.",
-                    [f"Shape: {shape} contains an invalid element: {elem}"],
-                )
-
-            min_shape.append(elem[0])
-            opt_shape.append(elem[1])
-            max_shape.append(elem[2])
+                min_shape.append(elem[0])
+                opt_shape.append(elem[1])
+                max_shape.append(elem[2])
 
         self.shape_bounds = ShapeBounds(tuple(min_shape), tuple(opt_shape), tuple(max_shape))
         self.dtype = dtype
