@@ -129,6 +129,19 @@ def make_mlir_tensor(
         get_mlir_dtype(dtype),
     )
 
+def get_constant_value(arg) -> Optional[ir.DenseElementsAttr]:
+    from mlir_tensorrt.compiler.dialects import stablehlo
+
+    if isinstance(arg, ir.Value) and ir.OpResult.isinstance(arg):
+        arg = ir.OpResult(arg).owner
+
+    if isinstance(arg, ir.Operation):
+        arg = arg.opview
+
+    if isinstance(arg, stablehlo.ConstantOp):
+        return arg.value
+
+    return None
 
 def remove_sym_attr(mlir_text: str) -> str:
     return re.sub(r"module @\S+ {", "module {", mlir_text)
@@ -282,7 +295,6 @@ class ShapeContext:
 
     @utils.log_time
     def get_shape_of_dynamic_trace_tensor(self, trace_tensor):
-
         from tripy.flat_ir.flat_ir import FlatIR
         from tripy.frontend.utils import topological_sort
         import copy

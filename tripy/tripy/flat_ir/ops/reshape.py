@@ -24,21 +24,8 @@ from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 from mlir_tensorrt.compiler import ir
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
-from tripy.backend.mlir.utils import is_any_dim_dynamic
+from tripy.backend.mlir.utils import is_any_dim_dynamic, get_constant_value
 import tripy.utils.utils as utils
-
-
-def get_constant_value(arg) -> Optional[ir.DenseElementsAttr]:
-    if isinstance(arg, ir.Value) and ir.OpResult.isinstance(arg):
-        arg = ir.OpResult(arg).owner
-
-    if isinstance(arg, ir.Operation):
-        arg = arg.opview
-
-    if isinstance(arg, stablehlo.ConstantOp):
-        return arg.value
-
-    return None
 
 
 def _do_static_reshape(arg, new_shape: Sequence[int]):
@@ -77,7 +64,6 @@ class DynamicReshapeOp(BaseFlatIROp):
         if const_shape_value:
             return [_do_static_reshape(operands[0], list(const_shape_value))]
 
-        # build the dynamic reshape
         output = stablehlo.dynamic_reshape(
             result=self.outputs[0].to_mlir(), operand=operands[0], output_shape=operands[1]
         )
