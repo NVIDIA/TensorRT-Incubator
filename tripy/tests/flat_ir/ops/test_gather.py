@@ -16,7 +16,6 @@
 #
 
 import tripy as tp
-from tripy import int32
 
 from tripy.flat_ir.ops import DynamicGatherOp
 from tripy.frontend.trace import Trace
