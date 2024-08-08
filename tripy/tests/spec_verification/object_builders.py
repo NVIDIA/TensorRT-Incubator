@@ -24,10 +24,7 @@ from tripy.common import datatype
 def tensor_builder(input_values, namespace):
     init = input_values.init
     if init:
-        # Have to eval for "init" to force tensor to be constant which is currently an issue for quantize.
-        temp = tp.Tensor(init, dtype=namespace[input_values.dtype])
-        temp.eval()
-        return temp
+        return tp.Tensor(init, dtype=namespace[input_values.dtype])
     shape = input_values.shape
     if not shape:
         shape = (3,2)
@@ -78,4 +75,4 @@ def create_obj(param_name, input_desc, namespace):
     if create_obj_func:
         namespace[param_name] = create_obj_func(input_desc[param_type], namespace)
         return namespace[param_name]
-    return None
+    raise RuntimeError("Could not discern param_type: ", param_type)

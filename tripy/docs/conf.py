@@ -197,6 +197,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 type_dict = TYPE_VERIFICATION[cleaned_name].dtypes
                 blocks.insert(index, "Type Constraints:")
                 index += 1
+                # Add the dtype constraint name and the dtypes that correlate. Remove excluded dtypes.
                 for type_name, dt in type_dict.items():
                     blocks.insert(
                         index,
@@ -207,6 +208,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 break
             if re.search(r":param \w+: ", block):
                 param_name = re.match(r":param (\w+): ", block).group(1)
+                # Add dtype constraint to start of each parameter description.
                 if TYPE_VERIFICATION[cleaned_name].dtype_constraints.get(param_name, None):
                     add_text_index = re.search(r":param \w+: ", block).span()[1]
                     blocks[index] = (
@@ -215,6 +217,7 @@ def process_docstring(app, what, name, obj, options, lines):
             if re.search(r":returns:", block):
                 if TYPE_VERIFICATION[cleaned_name].dtype_constraints.get(dtype_info.RETURN_VALUE, None):
                     add_text_index = re.search(r":returns:", block).span()[1] + 1
+                    # Add dtype constraint to start of returns description.
                     blocks[index] = (
                         f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[cleaned_name].return_dtype}**\ ] {block[add_text_index:]}"
                     )
