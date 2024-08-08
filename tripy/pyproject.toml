@@ -7,6 +7,7 @@ readme = "README.md"
 requires-python = ">= 3.9"
 license = {text = "Apache 2.0"}
 dependencies = [
+  "tensorrt~=10.0",
   "mlir-tensorrt-compiler==0.1.29+cuda12.trt102",
   "mlir-tensorrt-runtime==0.1.29+cuda12.trt102",
   "colored==2.2.3",

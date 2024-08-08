@@ -25,15 +25,18 @@ from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import tensorrt
 
 from tripy import utils
-from tripy.common.exception import raise_error
 from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.utils import Result
 
 
 @utils.call_once
 def initialize_plugin_registry():
+    import tensorrt as trt
+
+    major_version, _, _ = trt.__version__.partition(".")
+
     # TODO (#191): Make this work on Windows too
-    handle = ctypes.CDLL("libnvinfer_plugin.so")
+    handle = ctypes.CDLL(f"libnvinfer_plugin.so.{major_version}")
     handle.initLibNvInferPlugins(None, "")
 
 
