@@ -235,6 +235,9 @@ class Executable:
         arg = runtime.MemRefType(arg)
         arg_bound = self._executable_signature.get_arg_bound(idx)
         shape_bounds = tuple(zip(arg_bound.min(), arg_bound.max()))
+        if len(shape_bounds) == 0:
+            # For static shape arguments, get_arg_bound returns an empty list and we fallback to arg.shape
+            shape_bounds = tuple((x, x) for x in arg.shape)
         return ArgInfo(shape_bounds, mlir_utils.convert_runtime_dtype_to_tripy_dtype(arg.dtype))
 
     def get_input_info(self) -> Sequence[ArgInfo]:

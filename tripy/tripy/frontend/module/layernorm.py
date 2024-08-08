@@ -47,11 +47,12 @@ class LayerNorm(Module):
     eps: float
     """A value added to the denominator to prevent division by zero."""
 
-    def __init__(self, normalized_shape: int, dtype: datatype.dtype = datatype.float32) -> None:
+    def __init__(self, normalized_shape: int, dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:
         """
         Args:
             normalized_shape: The size of the feature dimension of the input over which normalization is performed.
             dtype: The data type to use for the weight and bias parameters.
+            eps: :math:\epsilon value 
 
         .. code-block:: python
             :linenos:
@@ -80,7 +81,7 @@ class LayerNorm(Module):
 
         self.bias = DefaultParameter((normalized_shape,), dtype=dtype)
 
-        self.eps = 1e-5
+        self.eps = eps
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
