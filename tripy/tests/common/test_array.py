@@ -176,3 +176,31 @@ class TestArray:
     def test_array_unsupported_python_sequence_type(self, dtype):
         with pytest.raises(AssertionError):
             arr = Array([0], shape=None, dtype=dtype, device=tp.device("cpu"))
+
+    @pytest.mark.parametrize("src, dst", [("cpu", "gpu"), ("gpu", "cpu")])
+    def test_invalid_memory_copy(self, src, dst):
+        with tests.helper.raises(tp.TripyException, f"Cannot allocate tensor that is currently on: {src}:0 on requested device: {dst}:0"):
+            module = np if src == "cpu" else cp
+            data = module.ones((1000,), dtype=np.int32)
+            a = Array(data, None, tp.int32, device=tp.device(dst))
+
+    def test_memory_allocation(self):
+        # Allocate on cpu -> cpu view
+        data = np.ones((1000,), dtype=np.int32)
+        a = Array(data, None, tp.int32, tp.device("cpu"))
+        assert data.ctypes.data == a.memref_value.ptr
+
+        # (torch) Allocate on cpu -> cpu view
+        torch_data = torch.tensor(data)
+        a = Array(torch_data, None, tp.int32, tp.device("cpu"))
+        assert torch_data.data_ptr() == a.memref_value.ptr
+
+        # (torch) Allocate on gpu -> gpu view
+        torch_data = torch.tensor(data).to(torch.device("cuda"))
+        a = Array(torch_data, None, tp.int32, tp.device("gpu"))
+        assert torch_data.data_ptr() == a.memref_value.ptr
+
+        # (cupy) Allocate on gpu -> gpu view
+        cp_data = cp.ones((1000,), dtype=np.int32)
+        a = Array(cp_data, None, tp.int32, tp.device("gpu"))
+        assert cp_data.data.ptr == a.memref_value.ptr
