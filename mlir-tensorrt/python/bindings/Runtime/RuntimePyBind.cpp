@@ -312,7 +312,7 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
   return std::make_unique<PyMemRefValue>(result);
 }
 
-static MTRT_ScalarTypeCode getScalarTypeCodeFromDLDataTypeCode(uint8_t code) {
+static MTRT_ScalarTypeCode getScalarTypeCodeFromDLDataType(DLDataType dtype) {
   switch (dtype.code) {
     case kDLBool:
       return MTRT_ScalarTypeCode_i1;
