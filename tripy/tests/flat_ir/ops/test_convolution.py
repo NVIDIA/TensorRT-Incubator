@@ -147,7 +147,6 @@ class TestConvolutionOp:
             "dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], "
             f"window = {{stride = {stride}, pad = {padding}, rhs_dilate = {rhs_dilation}}} "
             f"{{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} "
-            f": (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>"
         )
         assert re.search(expected_op_call, target) and expected_op_signature in target
 
@@ -162,6 +161,6 @@ class TestConvolutionOp:
         padding = new_padding
         rhs_dilation = list(rhs_dilation)
         expected_op_call = rf"stablehlo.convolution\(%\d+, %\d+\)"
-        expected_op_signature = f"dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {[1] * len(stride)}, pad = {padding}, lhs_dilate = {stride}, rhs_dilate = {rhs_dilation}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>"
+        expected_op_signature = f"dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1], window = {{stride = {[1] * len(stride)}, pad = {padding}, lhs_dilate = {stride}, rhs_dilate = {rhs_dilation}}} {{batch_group_count = 1 : i64, feature_group_count = {groups} : i64}}"
         target = str(conv_transpose_flat_ir[0].to_mlir())
         assert re.search(expected_op_call, target) and expected_op_signature in target
