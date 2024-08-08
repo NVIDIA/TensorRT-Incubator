@@ -29,7 +29,7 @@ from tripy.backend.mlir import Executor
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
-from tripy.frontend import Tensor, Trace
+from tripy.frontend import Tensor, Trace, Shape
 from tripy.utils import json as json_utils
 
 
@@ -40,7 +40,7 @@ class InputInfo:
     """
 
     def __init__(
-        self, shape: Sequence[Union[int, Tuple[int], Tuple[int, int], Tuple[int, int, int]]], dtype: "tripy.dtype"
+        self, shape: Sequence[Union[int, Tuple[int], Tuple[int, int], Tuple[int, int, int], Shape]], dtype: "tripy.dtype"
     ) -> None:
         """
         Args:
@@ -80,18 +80,23 @@ class InputInfo:
                         "Shape values must be numbers.",
                         [f"Shape: {shape} contains an element: {repr(elem)} with non-numerical value(s)"],
                     )
-                if len(elem) != 3:
-                    raise_error(
-                        "Incorrect number of shape values provided.",
-                        [
-                            f"Exactly 3 shape values must be provided for each dimension (min/opt/max)"
-                            f" but got: {len(elem)} values in shape: {shape}. "
-                        ],
-                    )
+            elif isinstance(elem, Shape):
+                elem = elem.data().data()
+                if len(elem) == 1:
+                    elem = (elem[0],) * 3
             else:
                 raise_error(
-                    "Shape values should be either a single number or a Tuple specifying min/opt/max bounds.",
+                    "Shape values should be either a single number or a Tuple or tripy.Shape tensor specifying min/opt/max bounds.",
                     [f"Shape: {shape} contains an invalid element: {elem}"],
+                )
+
+            if len(elem) != 3:
+                raise_error(
+                    "Incorrect number of shape values provided.",
+                    [
+                        f"Exactly 3 shape values must be provided for each dimension (min/opt/max)"
+                        f" but got: {len(elem)} values in shape: {shape}. "
+                    ],
                 )
 
             min_shape.append(elem[0])

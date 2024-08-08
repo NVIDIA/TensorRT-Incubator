@@ -79,6 +79,9 @@ class Shape(Tensor):
             else:
                 super().__init__(data=data, shape=shape, dtype=int32, name=name, device=device)
 
+    def __iter__(self):
+        raise TypeError("Iterating over shape tensors is not supported")
+
     def as_tensor(self) -> Tensor:
         """
         Return an ordinary Tripy :class:`Tensor` with the same contents as this :class:`Shape` . No copying is done.
