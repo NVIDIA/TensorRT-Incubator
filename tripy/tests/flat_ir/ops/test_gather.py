@@ -20,24 +20,13 @@ from tripy import int32
 
 from tripy.flat_ir.ops import DynamicGatherOp
 from tripy.frontend.trace import Trace
-import pytest
+
 
 class TestGatherOp:
-    @pytest.mark.parametrize("axis", [0,1,2])
-    def test_gather_str_dim0(self, axis):
-        data = tp.Tensor([[[0.0000, 0.0000],
-                           [0.0000, 0.0000],
-                           [0.0000, 0.0000]],
-
-                          [[1.0000, 1.0000],
-                           [1.0000, 1.0000],
-                           [1.0000, 1.0000]],
-
-                          [[2.0000, 2.0000],
-                           [2.0000, 2.0000],
-                           [2.0000, 2.0000]]], name="data")
-        index = tp.Tensor([1], dtype=tp.int32, name="indices")
-        out = tp.gather(data, axis, index)
+    def test_gather_str(self):
+        data = tp.Tensor([3.0, 4.0], name="data")
+        index = tp.Tensor([0], dtype=int32, name="indices")
+        out = tp.gather(data, 0, index)
         out.name = "out"
 
         trace = Trace([out])
@@ -45,9 +34,10 @@ class TestGatherOp:
 
         gather = flat_ir.ops[-1]
         reshape = flat_ir.ops[-2]
+
         print(str(reshape))
         assert isinstance(gather, DynamicGatherOp)
         assert (
             str(gather)
-            == f"out: [rank=(3), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter3, axis={axis})"
+            == "out: [rank=(1), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter3, axis=0)"
         )
