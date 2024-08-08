@@ -166,11 +166,11 @@ class TestFunctional:
 
             tripy_linear = tp.Linear(2, 3)
             if kind == "gpu":
-                tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight.to("cuda"), device=tp.device(kind)))
-                tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias.to("cuda"), device=tp.device(kind)))
+                tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight.detach().to("cuda"), device=tp.device(kind)))
+                tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias.detach().to("cuda"), device=tp.device(kind)))
             else:
-                tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight, device=tp.device(kind)))
-                tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias, device=tp.device(kind)))
+                tripy_linear.weight = tp.Parameter(tp.Tensor(torch_linear.weight.detach(), device=tp.device(kind)))
+                tripy_linear.bias = tp.Parameter(tp.Tensor(torch_linear.bias.detach(), device=tp.device(kind)))
 
             tripy_out = tripy_linear(tp.Tensor(inp, device=tp.device(kind)))
             assert tp.allclose(tripy_out, tp.Tensor(torch_out))
