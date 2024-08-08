@@ -270,8 +270,8 @@ def is_any_dim_dynamic(mlir_tensor):
     """
     Returns true if any of the dimension in a mlir tensor is dynamic.
     """
-    assert hasattr(mlir_tensor, "type") or hasattr(mlir_tensor, "result")
-    type = mlir_tensor.type if hasattr(mlir_tensor, "type") else mlir_tensor.result.type
+    from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
+    type = get_op_result_or_value(mlir_tensor).type
     return any([type.is_dynamic_dim(i) for i in range(type.rank)])
 
 
