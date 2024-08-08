@@ -24,17 +24,8 @@ import pytest
 class TestGatherOp:
     @pytest.mark.parametrize("axis", [0,1,2])
     def test_gather_str_dim0(self, axis):
-        data = tp.Tensor([[[0.0000, 0.0000],
-                           [0.0000, 0.0000],
-                           [0.0000, 0.0000]],
-
-                          [[1.0000, 1.0000],
-                           [1.0000, 1.0000],
-                           [1.0000, 1.0000]],
-
-                          [[2.0000, 2.0000],
-                           [2.0000, 2.0000],
-                           [2.0000, 2.0000]]], name="data")
+        data = tp.iota((3, 3, 2))
+        data.name = "data"
         index = tp.Tensor([1], dtype=tp.int32, name="indices")
         out = tp.gather(data, axis, index)
         out.name = "out"
@@ -48,5 +39,5 @@ class TestGatherOp:
         assert isinstance(gather, DynamicGatherOp)
         assert (
             str(gather)
-            == f"out: [rank=(3), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter3, axis={axis})"
+            == f"out: [rank=(3), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter4, axis={axis})"
         )
