@@ -191,7 +191,6 @@ class Array:
 
         # Store the memref_value
         self.runtime_client = MLIRRuntimeClient()
-        self.data_ref = data  # Ensure that data does not go out of scope when we create a view over it.
         self.memref_value = self._memref(data)
         self.device = (
             tp_device("gpu") if self.memref_value.address_space == runtime.PointerType.device else tp_device("cpu")
