@@ -24,7 +24,6 @@
 #ifndef MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_UTILS
 #define MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_UTILS
 
-#include "mlir/Dialect/Utils/StructuredOpsUtils.h"
 #include "mlir/IR/Operation.h"
 namespace mlir {
 class Value;

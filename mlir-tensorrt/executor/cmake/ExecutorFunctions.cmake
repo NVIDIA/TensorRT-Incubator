@@ -50,3 +50,19 @@ function(add_mlir_executor_flatbuffer_schema target)
     DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${generatedFileName}"
   )
 endfunction()
+
+# --------------------------------------------------------------
+# Wrapper around `add_mlir_library`
+# --------------------------------------------------------------
+function(add_mlir_executor_library name)
+  set_property(GLOBAL APPEND PROPERTY MLIR_EXECUTOR_LIBS ${name})
+  add_mlir_library(${name} ${ARGN})
+endfunction()
+
+# --------------------------------------------------------------
+# Wrapper around `add_mlir_library`
+# --------------------------------------------------------------
+function(add_mlir_executor_runtime_library name)
+  set_property(GLOBAL APPEND PROPERTY MLIR_EXECUTOR_RUNTIME_LIBS ${name})
+  add_mlir_library(${name} ${ARGN})
+endfunction()

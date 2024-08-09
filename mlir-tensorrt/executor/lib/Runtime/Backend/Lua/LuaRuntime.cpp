@@ -39,18 +39,36 @@
 #include "llvm/ADT/STLExtras.h"
 #include <memory>
 
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 #include "cuda_fp16.h"
 #include "cuda_fp8.h"
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
+
+#ifndef MLIR_EXECUTOR_ENABLE_NCCL
+/// Registers functions that are dependent on certain parameters like the
+/// device number and ncclUniqueId. This is usually called late just before
+/// execution.
+static void registerDefaultDeviceDependentMethods(lua_State *state,
+                                                  int32_t numDevices,
+                                                  int32_t deviceIdx) {
+  sol::state_view lua(state);
+  lua["__spmd_global_num_ranks"] = [numDevices](sol::this_state state) {
+    return numDevices;
+  };
+  lua["__spmd_global_rank"] = [deviceIdx](sol::this_state state) {
+    return deviceIdx;
+  };
+}
+
+#endif
 
 static void registerLuaRuntimeMethodsCommon(
     lua_State *state, PinnedMemoryAllocator *pinnedMemoryAllocator,
@@ -59,8 +77,12 @@ static void registerLuaRuntimeMethodsCommon(
                                               allocTracker);
   registerExecutorCUDAModuleLuaRuntimeMethods(
       state, allocTracker, pinnedMemoryAllocator, resourceTracker);
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
   registerExecutorCuBLASModuleLuaRuntimeMethods(state, allocTracker,
                                                 resourceTracker);
+#endif
+
   registerExecutorTensorRTModuleLuaRuntimeMethods(
       state, pinnedMemoryAllocator, allocTracker, resourceTracker);
 }
@@ -71,16 +93,17 @@ void mlirtrt::runtime::registerLuaRuntimeMethods(
     ResourceTracker *resourceTracker) {
   registerLuaRuntimeMethodsCommon(state, pinnedMemoryAllocator, allocTracker,
                                   resourceTracker);
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
   registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
   registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
                                      options.getDeviceId(),
                                      options.getNcclUuid());
 #else
   // MpiCommSizeOp/MpiCommRankOp are used to get the device count and id. When
-  // not building with NCCL, always use device 0.
-  registerDeviceDependentNCCLMethods(state, /*numDevices=*/1, /*deviceIdx=*/0,
-                                     "");
+  // not building with NCCL, always use device 0. This is not constraining
+  // because user can always set CUDA_VISIBLE_DEVICES.
+  registerDefaultDeviceDependentMethods(state, /*numDevices=*/1,
+                                        /*deviceIdx=*/0);
 #endif
 }
 
@@ -129,7 +152,7 @@ mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript) {
 /// If the program was compiled with NCCL enabled, then check for the
 /// NCCL uuid if the system has multiple GPUs.
 static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
-#if MLIR_TRT_ENABLE_NCCL
+#if MLIR_EXECUTOR_ENABLE_NCCL
 
   if (options.getNumDevices() > 1 && options.getNcclUuid().empty())
     return getInternalErrorStatus(
@@ -212,7 +235,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
   if (!client.isOk())
     return client.getStatus();
 
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
   StatusOr<RuntimeSessionOptions> options =
       RuntimeSessionOptions::createUsingSingleHostMpi();
 #else

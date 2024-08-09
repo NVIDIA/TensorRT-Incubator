@@ -25,6 +25,7 @@
 #ifndef MLIR_TENSORRT_RUNTIME_API_API
 #define MLIR_TENSORRT_RUNTIME_API_API
 
+#include "dlpack/dlpack.h"
 #include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
@@ -34,20 +35,18 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include <functional>
 #include <memory>
 #include <string_view>
 
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wcovered-switch-default"
 #endif
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
-#ifdef MLIR_TRT_ENABLE_PYTHON
-#include "dlpack/dlpack.h"
-#endif // MLIR_TRT_ENABLE_PYTHON
 
 namespace mlirtrt::runtime {
 

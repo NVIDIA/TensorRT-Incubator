@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTExecutorRuntimeCUDAModule
+add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCUDAModule
   CUDAModule.cpp
 
   LINK_LIBS

@@ -5,7 +5,7 @@
 # for perhaps LLVMSupport for right now) so that it can be used in the
 # integrations. Anything specific to a runtime backend (e.g. Lua) also doens't
 # belong here.
-add_mlir_library(MLIRTensorRTExecutorRuntimeAPI
+add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   API.cpp
 
   LINK_LIBS PUBLIC
@@ -18,12 +18,11 @@ add_mlir_library(MLIRTensorRTExecutorRuntimeAPI
   lua::core
 
   PRIVATE
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:MPI::MPI_C>
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:NCCL>
+  $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:MPI::MPI_C>
+  $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:NCCL>
 
 
   DEPENDS
   MLIRTensorRTRuntimeExecutableFlatbufferGen
 )
-target_link_libraries(MLIRTensorRTExecutorRuntimeAPI PUBLIC
-  $<$<BOOL:${MLIR_TRT_ENABLE_PYTHON}>:DLPack::Headers>)
+target_link_libraries(MLIRTensorRTExecutorRuntimeAPI PUBLIC DLPack::Headers)

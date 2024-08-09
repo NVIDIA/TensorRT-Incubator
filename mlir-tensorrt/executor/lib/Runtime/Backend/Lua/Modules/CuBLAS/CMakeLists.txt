@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTExecutorRuntimeCuBLASModule
+add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCuBLASModule
   CuBLASModule.cpp
 
   LINK_LIBS

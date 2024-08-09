@@ -24,7 +24,7 @@
 #include "mlir-tensorrt-c/Compiler/Compiler.h"
 #include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
-#include "mlir-tensorrt-c/Support/Status.h"
+#include "mlir-executor-c/Support/Status.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/StableHloToExecutable.h"

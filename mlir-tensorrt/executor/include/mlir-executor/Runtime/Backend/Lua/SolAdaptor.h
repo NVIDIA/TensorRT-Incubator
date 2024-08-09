@@ -24,7 +24,7 @@
 #ifndef MLIR_TENSORRT_RUNTIME_BACKEND_LUA_SOLADAPTOR
 #define MLIR_TENSORRT_RUNTIME_BACKEND_LUA_SOLADAPTOR
 
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__clang__)
 #pragma GCC diagnostic push
 // In Debug builds, Sol2 has an ASSERT macro that is problematic due to this
 // string conversion.
@@ -32,7 +32,7 @@
 #pragma GCC diagnostic ignored "-Wcovered-switch-default"
 #endif
 #include "sol/sol.hpp"
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 

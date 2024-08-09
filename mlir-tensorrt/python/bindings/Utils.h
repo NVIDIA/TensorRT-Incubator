@@ -38,8 +38,8 @@
 #define BINDINGS_UTILS
 
 #include "CPyBindInterop.h"
-#include "mlir-tensorrt-c/Common/Common.h"
-#include "mlir-tensorrt-c/Support/Status.h"
+#include "mlir-executor-c/Common/Common.h"
+#include "mlir-executor-c/Support/Status.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 #include "llvm/ADT/Twine.h"

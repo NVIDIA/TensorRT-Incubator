@@ -79,13 +79,13 @@ public:
   auto serialize64(mlir::ArrayRef<T> span) {
     return this->CreateVector64(span.data(), span.size());
   }
-
-  template <>
-  auto serialize64(mlir::ArrayRef<char> span) {
-    return this->CreateVector<int8_t, fb::Offset64, fb::Vector64>(
-        reinterpret_cast<const int8_t *>(span.data()), span.size());
-  }
 };
+
+template <>
+auto FBBuilder::serialize64(mlir::ArrayRef<char> span) {
+  return this->CreateVector<int8_t, fb::Offset64, fb::Vector64>(
+      reinterpret_cast<const int8_t *>(span.data()), span.size());
+}
 
 /// An implementation of `ExecutableStorage` that just uses a
 /// `flatbuffers::DetachedBuffer`. This allows us to avoid a copy of the

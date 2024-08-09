@@ -22,10 +22,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_TENSORRT_C_COMMON_COMMON_H
-#define MLIR_TENSORRT_C_COMMON_COMMON_H
+#ifndef MLIR_EXECUTOR_C_COMMON_COMMON
+#define MLIR_EXECUTOR_C_COMMON_COMMON
 
-#include "mlir-tensorrt-c/Support/Status.h"
+#include "mlir-executor-c/Support/Status.h"
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -265,4 +265,4 @@ MTRT_CAPI_EXPORTED MTRT_Status mtrtFunctionSignatureGetShapeFuncName(
 }
 #endif
 
-#endif // MLIR_TENSORRT_C_COMMON_COMMON_H
+#endif // MLIR_EXECUTOR_C_COMMON_COMMON

@@ -32,6 +32,8 @@ struct lua_State;
 
 namespace mlirtrt::runtime {
 
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+
 /// Returns the ncclUniqueId as a string. If the project is not built with NCCL,
 /// then this just returns an empty string.
 StatusOr<std::string> getCommunicatorUniqueId();
@@ -46,6 +48,16 @@ void registerExecutorNCCLModuleLuaRuntimeMethods(lua_State *state,
 void registerDeviceDependentNCCLMethods(lua_State *state, int32_t numDevices,
                                         int32_t deviceIdx,
                                         llvm::StringRef ncclUuid);
+
+#else
+
+/// Returns the ncclUniqueId as a string. If the project is not built with NCCL,
+/// then this just returns an empty string.
+inline static StatusOr<std::string> getCommunicatorUniqueId() {
+  return std::string{};
+}
+
+#endif // MLIR_EXECUTOR_ENABLE_NCCL
 
 } // namespace mlirtrt::runtime
 
