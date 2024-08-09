@@ -112,46 +112,26 @@ class Tensor(metaclass=TensorMeta):
 
         self.trace_tensor = TraceTensor(name, stack_info, None, None, None, None, shape=shape)
 
-        if isinstance(data, (List, tuple, bool, int, float)) and dtype is not None:
-            from tripy.frontend.trace.ops.cast import cast
-
-            element_type = get_element_type(data)
-            if element_type != dtype:
-                if element_type is not None:
-                    self.trace_tensor = cast(Tensor(data, shape, element_type, device), dtype=dtype).trace_tensor
-                    return
-                else:
-                    # We need explicit casting only if dtype can not be implicitly represented using `array.array`
-                    if dtype not in get_supported_array_type():
-                        from tripy.common.datatype import floating, integer
-
-                        element_type = dtype
-                        if issubclass(dtype, integer):
-                            element_type = tripy.common.datatype.int32
-                        elif issubclass(dtype, floating):
-                            element_type = tripy.common.datatype.float32
-                        self.trace_tensor = cast(Tensor(data, shape, element_type, device), dtype=dtype).trace_tensor
-                        return
-
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
         if data is not None:
-            if not isinstance(data, Array):
+            if isinstance(data, (List, Tuple, int, float, bool)):
+                Storage.build_internal([], [self.trace_tensor], data, shape, dtype, device)
+            elif not isinstance(data, Array):
                 data = Array(data, shape, dtype, device)
+                Storage.build_internal([], [self.trace_tensor], data)
             else:
                 # Internal usage only
-                # Disallow duplicate dtype/device when using Array to initialize a Tensor
-                if shape is not None:
-                    assert len(data.shape) == len(
-                        shape
-                    ), f"Rank provided to the initializer of Tensor (rank = {len(shape)}) does not match Array rank (rank = {len(data.shape)})."
-                assert not any([dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+                # Disallow duplicate shape/dtype/device when using Array to initialize a Tensor
+                assert not any(
+                    [shape, dtype, device]
+                ), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+                Storage.build_internal([], [self.trace_tensor], data)
 
-            # Data is present now. Assign the underlying device type.
-            self.device = data.device
-
-            Storage.build_internal([], [self.trace_tensor], data)
-            self.trace_tensor.shape = data.shape
+            storage_op = self.trace_tensor.producer
+            self.device = storage_op.device
+            self.trace_tensor.shape = storage_op.shape
+            self.trace_tensor.device = storage_op.device
 
     def __getattr__(self, name: str):
         import tripy as tp
@@ -189,7 +169,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
 
-        if isinstance(self.trace_tensor.producer, Storage):
+        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_array:
             return self.trace_tensor.producer.data
 
         trace = Trace([self])
@@ -225,7 +205,7 @@ class Tensor(metaclass=TensorMeta):
 
     def __repr__(self) -> str:
         # The Evaluation required before accessing self.trace_tensor.producer attributes.
-        arr = self.data()
+        arr = self.eval()
         indentation = ""
         sep = ""
         if len(arr.shape) > 1 and any(dim > 1 for dim in arr.shape):
@@ -246,7 +226,7 @@ class Tensor(metaclass=TensorMeta):
         return self.eval().__dlpack_device__()
 
     def __bool__(self):
-        data = self.data().data()
+        data = self.eval().data()
         if any(dim != 1 for dim in self.trace_tensor.producer.shape):
             raise_error(
                 "Boolean value of a Tensor with more than one value is ambiguous",
