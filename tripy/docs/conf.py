@@ -150,17 +150,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                     pname = "*" + pname
 
-                if pname == "self":
-                    if obj.__qualname__ in FUNC_W_DOC_VERIF:
-                        # We want a type annotation for self parameter only if it is also using a dtype_info.dtype_info decorator.
-                        assert (
-                            pname in documented_args
-                        ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args} {doc}"
-                    else:
-                        assert (
-                            param.annotation == signature.empty
-                        ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation! Note: Documented parameters were: {documented_args} {doc} {obj.__qualname__} {FUNC_W_DOC_VERIF}"
-                else:
+                if pname != "self" or obj.__qualname__ in FUNC_W_DOC_VERIF:
                     assert (
                         pname in documented_args
                     ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args} {doc}"
@@ -176,6 +166,10 @@ def process_docstring(app, what, name, obj, options, lines):
                     assert not inspect.ismodule(
                         param.annotation
                     ), f"Type annotation cannot be a module, but got: '{param.annotation}' for parameter: '{pname}' in: '{obj}'. Please specify a type!"
+                else:
+                    assert (
+                        param.annotation == signature.empty
+                    ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation! Note: Documented parameters were: {documented_args} {doc}"
 
             assert signature.return_annotation != signature.empty, (
                 f"Missing return type annotation for: '{obj}'. "
