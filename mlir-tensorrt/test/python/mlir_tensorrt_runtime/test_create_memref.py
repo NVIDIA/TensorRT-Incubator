@@ -238,3 +238,50 @@ test_memref_view_from_cupy()
 #  CHECK-NEXT: Cupy Array (float32):  [1. 2. 3.]
 #  CHECK-NEXT: Array: [1. 2. 3.] dtype=float64
 #  CHECK-NEXT: Cupy Array (float64):  [1. 2. 3.]
+
+def create_host_memref_external_owner_with_external_reference(arr):
+    # memref ptr is owned externally, should not get deleted until np holds memref ptr
+    memref = client.create_host_memref_view(int(arr.ctypes.data), shape=[3], dtype=runtime.ScalarTypeCode.f64)
+    return np.from_dlpack(memref)
+
+def create_device_memref_external_owner_with_external_reference(arr):
+    # memref ptr is owned externally, should not get deleted until np holds memref ptr
+    memref = client.create_device_memref_view(int(arr.data.ptr), shape=[3], dtype=runtime.ScalarTypeCode.f64, device=devices[0])
+    return cp.from_dlpack(memref)
+
+def create_host_memref_internal_owner_with_external_reference():
+    # memref is owned internally, should not get deleted until np holds memref ptr
+    arr = array.array('f', [5.0, 4.0, 2.0])
+    memref = client.create_memref(arr)
+    return np.from_dlpack(memref)
+
+def create_device_memref_internal_owner_with_external_reference():
+    # memref is owned internally, should not get deleted until np holds memref ptr
+    arr = array.array('f', [5.0, 4.0, 2.0])
+    memref = client.create_memref(arr, device=devices[0])
+    return cp.from_dlpack(memref)
+
+def test_memref_external_reference():
+    np_arr = np.array([5.0, 4.0, 2.0])
+    cp_arr = cp.array([5.0, 4.0, 2.0])
+    print(f"Test externally owned Array -> client.host_memref_view -> externally referenced numpy.from_dlpack")
+    print(f"Numpy Array: ", create_host_memref_external_owner_with_external_reference(np_arr))
+    print(f"Test externally owned Array -> client.device_memref_view -> externally referenced cupy.from_dlpack")
+    print(f"Cupy Array: ", create_device_memref_external_owner_with_external_reference(cp_arr))
+    print(f"Test internally owned Array -> client.host_memref -> externally referenced numpy.from_dlpack")
+    print(f"Numpy Array: ", create_host_memref_internal_owner_with_external_reference())
+    print(f"Test internally owned Array -> client.device_memref-> externally referenced cupy.from_dlpack")
+    print(f"Cupy Array: ", create_device_memref_internal_owner_with_external_reference())
+
+print("Test memref external reference counting")
+test_memref_external_reference()
+
+# CHECK-LABEL: Test memref external reference counting
+# CHECK-NEXT: Test externally owned Array -> client.host_memref_view -> externally referenced numpy.from_dlpack
+# CHECK-NEXT: Numpy Array:  [5. 4. 2.]
+# CHECK-NEXT: Test externally owned Array -> client.device_memref_view -> externally referenced cupy.from_dlpack
+# CHECK-NEXT: Cupy Array:  [5. 4. 2.]
+# CHECK-NEXT: Test internally owned Array -> client.host_memref -> externally referenced numpy.from_dlpack
+# CHECK-NEXT: Numpy Array:  [5. 4. 2.]
+# CHECK-NEXT: Test internally owned Array -> client.device_memref-> externally referenced cupy.from_dlpack
+# CHECK-NEXT: Cupy Array:  [5. 4. 2.]
