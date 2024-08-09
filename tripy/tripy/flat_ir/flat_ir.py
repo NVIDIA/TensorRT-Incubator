@@ -17,6 +17,7 @@
 
 from typing import Dict, List, Sequence, Set
 
+from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 from tripy import utils
 from tripy.common.shape_bounds import ShapeBounds
 
@@ -85,8 +86,7 @@ class FlatIR:
                                 # stablehlo python bindings can do some naive shape and type inference.
                                 # If the shapes are freezed after adding a layer, assign these shapes back to flat_ir tensor.
                                 for mlir_out, flatir_out in zip(layer_outputs, op.outputs):
-                                    assert hasattr(mlir_out, "type") or hasattr(mlir_out, "result")
-                                    type = mlir_out.type if hasattr(mlir_out, "type") else mlir_out.result.type
+                                    type = get_op_result_or_value(mlir_out).type
                                     flatir_out.shape = tuple(
                                         [
                                             (-1 if type.is_dynamic_dim(i) else type.get_dim_size(i))
@@ -101,10 +101,7 @@ class FlatIR:
 
                     # After lowering the complete graph to stablehlo, there can be mismatch between Tripy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
                     # Here, we check if the types for the results and change the function signature to obey the inferred types.
-                    new_out_types = [
-                        mlir_ops[o.name].type if hasattr(mlir_ops[o.name], "type") else mlir_ops[o.name].result.type
-                        for o in self.outputs
-                    ]
+                    new_out_types = [get_op_result_or_value(mlir_ops[o.name]).type for o in self.outputs]
                     ftype = ir.FunctionType.get(inp_types, new_out_types)
                     func_op.attributes["function_type"] = ir.TypeAttr.get(ftype)
 

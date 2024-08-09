@@ -18,6 +18,7 @@
 from dataclasses import dataclass
 
 from mlir_tensorrt.compiler import ir
+from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 
 import tripy.common
 from tripy.flat_ir.ops.base import BaseFlatIROp
@@ -34,7 +35,7 @@ class CopyOp(BaseFlatIROp):
         assert len(operands) == 1 and len(self.inputs) == 1, "Copy should have exactly one input!"
         mem_space_str = "device" if self.target.kind == "gpu" else "host_pinned"
         mem_space_attr = ir.Attribute.parse(f"#plan.memory_space<{mem_space_str}>")
-        inp_type = operands[0].type if hasattr(operands[0], "type") else operands[0].result.type
+        inp_type = get_op_result_or_value(operands[0]).type
         sliced_dims = []
         # Loop and slice all dynamic indices, concat to yield shape tensor.
         for i in range(inp_type.rank):

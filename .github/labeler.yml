@@ -1,0 +1,7 @@
+tripy:
+- changed-files:
+  - any-glob-to-any-file: tripy/**
+
+mlir-tensorrt:
+- changed-files:
+  - any-glob-to-any-file: mlir-tensorrt/**

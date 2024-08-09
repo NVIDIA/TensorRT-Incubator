@@ -19,8 +19,13 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
+from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
+
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
+
+# TODO: this should go in top-level Tripy config?
+DIM_TENSOR_BITWIDTH = 32
 
 
 @dataclass(repr=False)
@@ -29,9 +34,27 @@ class GetDimensionSizeOp(BaseFlatIROp):
     dim: int
 
     def to_mlir(self, operands):
-        inp = operands[0]
+        inp = get_op_result_or_value(operands[0])
+
+        inp_type = ir.RankedTensorType(inp.type)
+        assert self.dim < inp_type.rank, "expected dim to be less than rank"
+        dim_int_type = ir.IntegerType.get_signless(DIM_TENSOR_BITWIDTH)
+
+        # If we can view the type of the tensor and the dimension is static,
+        # then just materialize a constant operation.
+        if not ir.ShapedType.is_dynamic_size(inp_type.shape[self.dim]):
+            result = stablehlo.constant(
+                ir.DenseIntElementsAttr.get_splat(
+                    ir.RankedTensorType.get([], dim_int_type),
+                    ir.IntegerAttr.get(dim_int_type, inp_type.shape[self.dim]),
+                )
+            )
+            return [result]
+
+        # otherwise, create `stablehlo.get_dimension_size`
         dim_attr = ir.IntegerAttr.get(
             type=ir.IntegerType.get_signless(64),
             value=self.dim,
         )
-        return [stablehlo.get_dimension_size(inp, dimension=dim_attr)]
+        result = stablehlo.get_dimension_size(inp, dimension=dim_attr)
+        return [result]

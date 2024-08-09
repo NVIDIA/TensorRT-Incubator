@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
+from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
@@ -31,7 +32,8 @@ class DynamicGatherOp(BaseFlatIROp):
     def to_mlir(self, operands):
         index_dims = self.inputs[1].rank
         # Ensure slice_sizes is a static tensor with the same shape as the input.
-        operands[2].set_type(ir.RankedTensorType.get([self.inputs[0].rank], operands[2].type.element_type))
+        slice_sizes = get_op_result_or_value(operands[2])
+        slice_sizes.set_type(ir.RankedTensorType.get([self.inputs[0].rank], slice_sizes.type.element_type))
         offset_dims = list(range(self.axis)) + list(range(self.axis + index_dims, self.inputs[0].rank + index_dims - 1))
         index_vector_dim = self.inputs[1].rank
 
@@ -49,6 +51,6 @@ class DynamicGatherOp(BaseFlatIROp):
         )
 
         gather_out = stablehlo.dynamic_gather(
-            operand=operands[0], start_indices=operands[1], dimension_numbers=attr, slice_sizes=operands[2]
+            operand=operands[0], start_indices=operands[1], dimension_numbers=attr, slice_sizes=slice_sizes
         )
         return [gather_out]
