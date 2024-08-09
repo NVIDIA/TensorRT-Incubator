@@ -56,12 +56,11 @@ def _method_handler(func_name, kwargs, func_obj, api_call_locals):
     print("API call: ", func_name, ", with parameters: ", kwargs)
 
 
-
-'''
-default_constraints_all: This dictionary helps set specific constraints and values for parameters. These constraints correspond to the type hint of each parameter. 
-Some type have default values, so you might not need to pass other_constraints for every operation. 
-If there is no default, you must specify an initialization value, or the testcase may fail. 
-The dictionary's keys must be the name of the function that they are constraining and the value must be what the parameter should be initialized to. 
+"""
+default_constraints_all: This dictionary helps set specific constraints and values for parameters. These constraints correspond to the type hint of each parameter.
+Some type have default values, so you might not need to pass other_constraints for every operation.
+If there is no default, you must specify an initialization value, or the testcase may fail.
+The dictionary's keys must be the name of the function that they are constraining and the value must be what the parameter should be initialized to.
 Here is the list of parameter types that have defaults or work differently from other types:
     - tensor - default: tp.ones(shape=(3,2)). If init is passed then value must be in the form of a list. Example: "scale": tp.Tensor([1,1,1]) or "scale": tp.ones((3,3))
     - dtype - default: no default. Dtype parameters will be set using dtype_constraints input so using default_constraints_all will not change anything.
@@ -69,43 +68,44 @@ Here is the list of parameter types that have defaults or work differently from 
         This will create a list/sequence of tensors of size count and each tensor will follow the init and shape value similar to tensor parameters.
     - device - default: tp.device("gpu"). Example: {"device": tp.device("cpu")}.
 All other types do not have defaults and must be passed to the verifier using default_constraints_all.
-'''
-default_constraints_all = {"__rtruediv__": {"self": 1},
-                           "__rsub__": {"self": 1},
-                           "__radd__": {"self": 1},
-                           "__rpow__": {"self": 1},
-                           "__rmul__": {"self": 1},
-                           "softmax": {"dim": 1},
-                           "concatenate": {"dim": 0},
-                           "expand": {"sizes": tp.Tensor([3,4]), "input": tp.ones((3,1))},
-                           "full": {"shape": tp.Tensor([3]), "value": 1},
-                           "full_like": {"value": 1},
-                           "flip": {"dim": 1},
-                           "gather": {"dim": 0, "index": tp.Tensor([1])},
-                           "iota": {"shape": tp.Tensor([3])},
-                           "__matmul__": {"self": tp.ones((2,3))},
-                           "transpose": {"dim0": 0, "dim1": 1},
-                           "permute": {"perm": [1,0]},
-                           "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
-                           "sum": {"dim": 0},
-                           "all":{"dim": 0},
-                           "any": {"dim": 0},
-                           "max": {"dim": 0},
-                           "prod": {"dim": 0},
-                           "mean": {"dim": 0},
-                           "var": {"dim": 0},
-                           "argmax": {"dim": 0},
-                           "argmin": {"dim": 0},
-                           "reshape": {"shape": tp.Tensor([6])},
-                           "squeeze": {"input": tp.ones((3,1)), "dims": (1)},
-                           "__getitem__": {"index": 2},
-                           "split": {"indices_or_sections": 2},
-                           "unsqueeze": {"dim": 1},
-                           "masked_fill": {"value": 1},
-                           "ones": {"shape": tp.Tensor([3,2])},
-                           "zeros": {"shape": tp.Tensor([3,2])},
-                           "arange": {"start": 0, "stop": 5},
-                          }
+"""
+default_constraints_all = {
+    "__rtruediv__": {"self": 1},
+    "__rsub__": {"self": 1},
+    "__radd__": {"self": 1},
+    "__rpow__": {"self": 1},
+    "__rmul__": {"self": 1},
+    "softmax": {"dim": 1},
+    "concatenate": {"dim": 0},
+    "expand": {"sizes": tp.Tensor([3, 4]), "input": tp.ones((3, 1))},
+    "full": {"shape": tp.Tensor([3]), "value": 1},
+    "full_like": {"value": 1},
+    "flip": {"dim": 1},
+    "gather": {"dim": 0, "index": tp.Tensor([1])},
+    "iota": {"shape": tp.Tensor([3])},
+    "__matmul__": {"self": tp.ones((2, 3))},
+    "transpose": {"dim0": 0, "dim1": 1},
+    "permute": {"perm": [1, 0]},
+    "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
+    "sum": {"dim": 0},
+    "all": {"dim": 0},
+    "any": {"dim": 0},
+    "max": {"dim": 0},
+    "prod": {"dim": 0},
+    "mean": {"dim": 0},
+    "var": {"dim": 0},
+    "argmax": {"dim": 0},
+    "argmin": {"dim": 0},
+    "reshape": {"shape": tp.Tensor([6])},
+    "squeeze": {"input": tp.ones((3, 1)), "dims": (1)},
+    "__getitem__": {"index": 2},
+    "split": {"indices_or_sections": 2},
+    "unsqueeze": {"dim": 1},
+    "masked_fill": {"value": 1},
+    "ones": {"shape": tp.Tensor([3, 2])},
+    "zeros": {"shape": tp.Tensor([3, 2])},
+    "arange": {"start": 0, "stop": 5},
+}
 
 # Add default_constraints to input_values within TYPE_VERIFICATION
 for func_name, (func_obj, input_dict, _, _, types_assignments) in TYPE_VERIFICATION.items():
@@ -138,11 +138,11 @@ for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYP
         else:
             dtype_lists_list = []
             all_dtypes = set(
-                            filter(
-                                lambda item: item not in types_to_exclude,
-                                map(str, DATA_TYPES.values()),
-                            )
-                        )
+                filter(
+                    lambda item: item not in types_to_exclude,
+                    map(str, DATA_TYPES.values()),
+                )
+            )
             # Create a list of dictionary lists and then go over each dictionary.
             for name_temp, dt in negative_test_dtypes.items():
                 temp_dict = {name_temp: dt}
@@ -180,10 +180,10 @@ def _run_dtype_constraints_subtest(test_data):
     api_call_locals = {"kwargs": kwargs}
     _method_handler(func_name, kwargs, func_obj, api_call_locals)
     # If output does not have dtype skip .eval().
-    if isinstance(api_call_locals[RETURN_VALUE], int): 
+    if isinstance(api_call_locals[RETURN_VALUE], int):
         return api_call_locals, namespace
     # If output is a list then checking the return the first element in the list. (Assumes list of Tensors)
-    if isinstance(api_call_locals[RETURN_VALUE], List): 
+    if isinstance(api_call_locals[RETURN_VALUE], List):
         api_call_locals[RETURN_VALUE] = api_call_locals[RETURN_VALUE][0]
     # Run eval to check for any backend errors.
     api_call_locals[RETURN_VALUE].eval()
@@ -195,14 +195,10 @@ def test_dtype_constraints(test_data):
     _, _, _, return_dtype, _, positive_case, _ = test_data
     if positive_case:
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-        if isinstance(api_call_locals[RETURN_VALUE], int): 
-                return
-        else:
+        if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
             assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
     else:
         with pytest.raises(Exception):
             api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-            if isinstance(api_call_locals[RETURN_VALUE], int): 
-                return
-            else:
+            if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
                 assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
