@@ -44,12 +44,6 @@ def _do_static_reshape(arg, new_shape: Sequence[int]):
     return stablehlo.reshape(output_type, arg)
 
 
-@dataclass(repr=False)
-class ReshapeOp(BaseFlatIROp):
-    def to_mlir(self, operands):
-        return [_do_static_reshape(operands[0], self.outputs[0].to_mlir().shape)]
-
-
 class DynamicReshapeOp(BaseFlatIROp):
     def to_mlir(self, operands):
         if is_any_dim_dynamic(operands[1]):

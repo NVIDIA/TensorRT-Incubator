@@ -327,7 +327,7 @@ def insert_broadcast(
     use_dynamic_variant: bool = False,
     shape_of_target_tensor: "FlatIRTensor" = None,
 ):
-    from tripy.flat_ir.ops import BroadcastOp, DynamicBroadcastOp
+    from tripy.flat_ir.ops import DynamicBroadcastOp
     from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.frontend.trace.ops.utils import get_broadcast_in_dim
 
