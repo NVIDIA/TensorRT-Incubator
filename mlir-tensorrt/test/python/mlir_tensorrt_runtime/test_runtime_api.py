@@ -3,6 +3,7 @@ from typing import Callable
 
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
+import cupy as cp
 
 TESTS = []
 
@@ -189,6 +190,57 @@ def test_host_memref():
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
 #  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
+
+
+@make_test
+def test_report_allocated_memory():
+    client = runtime.RuntimeClient()
+    devices = client.get_devices()
+
+    np_arr = np.ones((1000), dtype=np.int32)
+    cp_arr = cp.ones((1000), dtype=np.int32)
+
+    # Allocate GPU memory
+    memref = client.create_memref(np_arr, device=devices[0])
+    memory_usage = client.report_allocated_memory()
+    print("CPU Memory: ", memory_usage.cpu_memory)
+    print("GPU Memory: ", memory_usage.gpu_memory)
+
+    # Allocate CPU memory
+    memref = client.create_memref(np_arr)
+    memory_usage = client.report_allocated_memory()
+    print("CPU Memory: ", memory_usage.cpu_memory)
+    print("GPU Memory: ", memory_usage.gpu_memory)
+
+    # No CPU memory allocation as creating a view.
+    memref = client.create_host_memref_view(
+        np_arr.ctypes.data, shape=list(np_arr.shape), dtype=runtime.ScalarTypeCode.i32
+    )
+    memory_usage = client.report_allocated_memory()
+    print("CPU Memory: ", memory_usage.cpu_memory)
+    print("GPU Memory: ", memory_usage.gpu_memory)
+
+    # No CPU memory allocation as creating a view.
+    memref = client.create_device_memref_view(
+        cp_arr.data.ptr,
+        shape=list(cp_arr.shape),
+        dtype=runtime.ScalarTypeCode.i32,
+        device=devices[0],
+    )
+    memory_usage = client.report_allocated_memory()
+    print("CPU Memory: ", memory_usage.cpu_memory)
+    print("GPU Memory: ", memory_usage.gpu_memory)
+
+
+# CHECK-LABEL: Test:  test_report_allocated_memory
+#       CHECK:    CPU Memory:  0
+#       CHECK:    GPU Memory:  4000
+#       CHECK:    CPU Memory:  4000
+#       CHECK:    GPU Memory:  0
+#       CHECK:    CPU Memory:  0
+#       CHECK:    GPU Memory:  0
+#       CHECK:    CPU Memory:  0
+#       CHECK:    GPU Memory:  0
 
 if __name__ == "__main__":
     for t in TESTS:

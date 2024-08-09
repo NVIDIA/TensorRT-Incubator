@@ -640,6 +640,16 @@ MTRT_Status mtrtRuntimeClientGetDevice(MTRT_RuntimeClient client, int32_t index,
   return mtrtStatusGetOk();
 }
 
+MTRT_Status mtrtReportAllocatedMemory(MTRT_RuntimeClient client,
+                                  int64_t *totalCpuMemory,
+                                  int64_t *totalGpuMemory) {
+  RuntimeClient *cppClient = unwrap(client);
+  auto const &allocated = cppClient->getAllocTracker().reportAllocatedMemory();
+  *totalCpuMemory = allocated.first;
+  *totalGpuMemory = allocated.second;
+  return mtrtStatusGetOk();
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_ScalarValue
 //===----------------------------------------------------------------------===//

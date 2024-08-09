@@ -775,7 +775,18 @@ PYBIND11_MODULE(_api, m) {
             THROW_IF_MTRT_ERROR(s);
           },
           py::arg("device_memref"), py::arg("existing_host_memref"),
-          py::arg("stream") = py::none());
+          py::arg("stream") = py::none())
+      .def(
+          "report_allocated_memory",
+          [](PyRuntimeClient &self) {
+            int64_t totalGpuMemory;
+            int64_t totalCpuMemory;
+            MTRT_Status s = mtrtReportAllocatedMemory(self, &totalCpuMemory, &totalGpuMemory);
+            THROW_IF_MTRT_ERROR(s);
+            py::object namedtuple = py::module::import("collections").attr("namedtuple");
+            py::object MemoryUsage = namedtuple("MemoryUsage", "cpu_memory gpu_memory");
+            return MemoryUsage(totalCpuMemory, totalGpuMemory);
+          });
 
   py::class_<PyRuntimeValue>(m, "RuntimeValue", py::module_local())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR,
