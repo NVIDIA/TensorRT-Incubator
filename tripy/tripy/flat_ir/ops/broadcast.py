@@ -23,18 +23,6 @@ from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir.utils import is_any_dim_dynamic
-import tripy.utils.utils as utils
-
-
-@dataclass(repr=False)
-class BroadcastOp(BaseFlatIROp):
-    broadcast_dim: List[int]
-
-    def to_mlir(self, operands):
-        out_type = self.outputs[0].to_mlir()
-        broadcast_dim_attr = ir.DenseI64ArrayAttr.get(self.broadcast_dim)
-        output = stablehlo.broadcast_in_dim(out_type, operands[0], broadcast_dim_attr)
-        return [output]
 
 
 @dataclass(repr=False)

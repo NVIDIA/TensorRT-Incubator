@@ -27,17 +27,6 @@ from tripy.backend.mlir.utils import is_any_dim_dynamic
 
 
 @dataclass(repr=False)
-class SliceOp(BaseFlatIROp):
-
-    start_indices: List[int]
-    limit_indices: List[int]
-    strides: List[int]
-
-    def to_mlir(self, operands):
-        return [stablehlo.slice(operands[0], self.start_indices, self.limit_indices, self.strides)]
-
-
-@dataclass(repr=False)
 class DynamicSliceOp(BaseFlatIROp):
     def to_mlir(self, operands):
 
