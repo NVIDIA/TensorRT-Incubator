@@ -119,8 +119,8 @@ for func_name, (func_obj, input_dict, _, _, types_assignments) in TYPE_VERIFICAT
 
 func_list = []
 for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYPE_VERIFICATION.items():
-    # Issue #268 exclude float8 until casting to float8 gets fixed.
-    # Issue #268 exclude int4 until int4 is representable.
+    # TODO (#268) exclude float8 until casting to float8 gets fixed.
+    # TODO (#268) exclude int4 until int4 is representable.
     types_to_exclude = ["int4", "float8"]
     positive_test_dtypes = {}
     negative_test_dtypes = {}
