@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTExecutorTransforms
+add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   AllocsToGlobals.cpp
   ExpandOps.cpp
   LowerGlobals.cpp

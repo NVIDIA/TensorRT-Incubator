@@ -5,6 +5,15 @@ project(mlir-executor LANGUAGES C CXX)
 # Options and settings
 #-------------------------------------------------------------------------------
 
+macro(mlir_executor_option name)
+  option(${name} ${ARGN})
+  list(APPEND MLIR_EXECUTOR_FEATURE_FLAGS ${name})
+endmacro()
+
+mlir_executor_option(MLIR_EXECUTOR_ENABLE_CUBLAS "Enable use of CUBLAS in the runtime" ON)
+mlir_executor_option(MLIR_EXECUTOR_ENABLE_NCCL "Enable use of NCCL in the runtime" ON)
+mlir_executor_option(MLIR_EXECUTOR_ENABLE_MPI "Enable use of MPI in the runtime" ON)
+
 #-------------------------------------------------------------------------------
 # Project Setup
 #-------------------------------------------------------------------------------
@@ -62,22 +71,27 @@ mlir_executor_add_lua()
 mlir_executor_add_sol2()
 mlir_executor_add_flatbuffers()
 mlir_executor_find_and_patch_libnvptxcompiler(CUDANVPTXCompilerLibraryPatched)
+mlir_tensorrt_find_dlpack()
 
-if(MLIR_TRT_ENABLE_NCCL)
-  find_package(MPI REQUIRED COMPONENTS C)
-  mlir_executor_find_nccl()
+find_package(MPI COMPONENTS C)
+mlir_executor_find_nccl()
+
+if(MLIR_EXECUTOR_ENABLE_NCCL AND NOT TARGET NCCL)
+  message(FATAL_ERROR "MLIR_EXECUTOR_ENABLE_NCCL=ON but NCCL was not found")
+endif()
+if(MLIR_EXECUTOR_ENABLE_MPI AND NOT MPI_FOUND)
+  message(FATAL_ERROR "MLIR_EXECUTOR_ENABLE_MPI=ON but MPI was not found")
 endif()
 
 #-------------------------------------------------------------------------------
 # Project Targets
 #-------------------------------------------------------------------------------
-if(MLIR_TRT_ENABLE_NCCL)
-  add_definitions(-DMLIR_TRT_ENABLE_NCCL)
-endif()
-if(MLIR_TRT_TARGET_LUA)
-  add_definitions(-DMLIR_TRT_TARGET_LUA)
-endif()
-add_definitions(-DMLIR_TRT_ENABLE_NVTX)
+set(MLIR_EXECUTOR_DEFINITIONS)
+foreach(feature_flag IN LISTS MLIR_EXECUTOR_FEATURE_FLAGS)
+  if(${feature_flag})
+    list(APPEND MLIR_EXECUTOR_DEFINITIONS "-D${feature_flag}")
+  endif()
+endforeach()
 
 set(MLIR_EXECUTOR_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 set(MLIR_EXECUTOR_BINARY_DIR ${PROJECT_BINARY_DIR})
@@ -86,7 +100,7 @@ include_directories(${MLIR_INCLUDE_DIRS})
 include_directories(${MLIR_EXECUTOR_SOURCE_DIR}/include)
 include_directories(${MLIR_EXECUTOR_BINARY_DIR}/include)
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
-add_definitions(${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS} ${MLIR_EXECUTOR_DEFINITIONS})
 
 add_subdirectory(executor-tblgen)
 add_subdirectory(include/mlir-executor)
@@ -95,3 +109,9 @@ add_subdirectory(executor-opt)
 add_subdirectory(executor-translate)
 add_subdirectory(executor-runner)
 add_subdirectory(test)
+
+get_property(MLIR_EXECUTOR_LIBS GLOBAL PROPERTY MLIR_EXECUTOR_LIBS)
+add_library(MLIRTensorRTExecutorLibraries INTERFACE)
+target_link_libraries(MLIRTensorRTExecutorLibraries INTERFACE
+  ${MLIR_EXECUTOR_LIBS})
+add_library(MLIRTensorRT::Executor ALIAS MLIRTensorRTExecutorLibraries)

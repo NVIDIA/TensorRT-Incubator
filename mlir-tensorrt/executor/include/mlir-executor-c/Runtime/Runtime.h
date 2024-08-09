@@ -22,12 +22,12 @@
 /// external consumers.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_C_RUNTIME_RUNTIME
-#define MLIR_TENSORRT_C_RUNTIME_RUNTIME
+#ifndef MLIR_EXECUTOR_C_RUNTIME_RUNTIME
+#define MLIR_EXECUTOR_C_RUNTIME_RUNTIME
 
 #include "mlir-c/Support.h"
-#include "mlir-tensorrt-c/Common/Common.h"
-#include "mlir-tensorrt-c/Support/Status.h"
+#include "mlir-executor-c/Common/Common.h"
+#include "mlir-executor-c/Support/Status.h"
 #include <stddef.h>
 #include <stdint.h>
 

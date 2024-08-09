@@ -21,8 +21,7 @@
 /// MLIR-TensorRT runtime status implementation.
 ///
 //===----------------------------------------------------------------------===//
-
-#include "mlir-tensorrt-c/Support/Status.h"
+#include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Support/Status.h"
 
 //===----------------------------------------------------------------------===//

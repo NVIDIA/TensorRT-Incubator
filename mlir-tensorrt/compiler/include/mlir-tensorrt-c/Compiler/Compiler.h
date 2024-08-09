@@ -26,8 +26,8 @@
 
 #include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
-#include "mlir-tensorrt-c/Common/Common.h"
-#include "mlir-tensorrt-c/Support/Status.h"
+#include "mlir-executor-c/Common/Common.h"
+#include "mlir-executor-c/Support/Status.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -25,19 +25,22 @@
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "llvm/Support/raw_ostream.h"
 
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifdef MLIR_EXECUTOR_ENABLE_MPI
 #define OMPI_SKIP_MPICXX
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsuggest-override"
-#endif
+#endif // defined(__clang__) || defined(__GNUC__)
 #include "mpi.h"
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
-#endif
+#endif // defined(__clang__) || defined(__GNUC__)
+#endif // MLIR_EXECUTOR_ENABLE_MPI
 
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
+
+#ifdef MLIR_EXECUTOR_ENABLE_MPI
 
 static Status getMPIErrorStatus(llvm::StringRef msg, int32_t errCode) {
   llvm::SmallString<MPI_MAX_ERROR_STRING> str;
@@ -52,6 +55,7 @@ static Status getMPIErrorStatus(llvm::StringRef msg, int32_t errCode) {
 }
 
 StatusOr<std::unique_ptr<MPIManager>> MPIManager::create() {
+
   int status = MPI_Init(nullptr, nullptr);
   if (status != MPI_SUCCESS)
     return getMPIErrorStatus("MPI_init failed", status);
@@ -71,4 +75,10 @@ MPIManager::~MPIManager() {
   }
 }
 
-#endif //  MLIR_TRT_ENABLE_NCCL
+#else // MLIR_EXECUTOR_ENABLE_MPI
+
+MPIManager::MPIManager() {}
+
+MPIManager::~MPIManager() {}
+
+#endif // MLIR_EXECUTOR_ENABLE_MPI

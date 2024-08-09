@@ -42,12 +42,12 @@ using namespace mlirtrt;
 
 namespace cl = llvm::cl;
 
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
 static llvm::ManagedStatic<std::unique_ptr<MPIManager>> mpiManager;
-#endif // MLIR_TRT_ENABLE_NCCL
+#endif // MLIR_EXECUTOR_ENABLE_NCCL
 
 static Status maybeInitializeMpi() {
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
 
   StatusOr<std::unique_ptr<MPIManager>> mgr = MPIManager::create();
   if (!mgr.isOk())
@@ -58,7 +58,7 @@ static Status maybeInitializeMpi() {
   return Status::getOk();
 #else
   return mlirtrt::Status::getOk();
-#endif // MLIR_TRT_ENABLE_NCCL
+#endif // MLIR_EXECUTOR_ENABLE_NCCL
 }
 
 /// Try to infer the input type from the filename, otherwise return failure.

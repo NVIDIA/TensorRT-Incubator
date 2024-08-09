@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTTargetLua
+add_mlir_executor_library(MLIRTensorRTTargetLua
   TranslateToLua.cpp
   TranslateToRuntimeExecutable.cpp
 

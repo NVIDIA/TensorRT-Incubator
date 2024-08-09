@@ -1,6 +1,7 @@
 llvm_canonicalize_cmake_booleans(
   MLIR_ENABLE_BINDINGS_PYTHON
   ENABLE_ASAN
+  ${MLIR_EXECUTOR_FEATURE_FLAGS}
 )
 
 configure_lit_site_cfg(

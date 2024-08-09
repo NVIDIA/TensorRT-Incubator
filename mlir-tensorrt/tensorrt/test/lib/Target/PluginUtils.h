@@ -1,4 +1,28 @@
-
+//===- PluginUtils.h -----------------------------------------*- C++ -*-===//
+//
+// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
+// All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+//===----------------------------------------------------------------------===//
+///
+/// Declares utilities for plugin tests.
+///
+//===----------------------------------------------------------------------===//
+#ifndef LIB_TARGET_PLUGINUTILS
+#define LIB_TARGET_PLUGINUTILS
 
 #include "NvInferRuntime.h"
 #include "NvInferRuntimePlugin.h"
@@ -27,7 +51,7 @@ creatorShouldFail(const nvinfer1::PluginFieldCollection *fc) {
       });
 }
 
-static std::optional<unsigned> getWidth(const PluginField &field) {
+inline static std::optional<unsigned> getWidth(const PluginField &field) {
 #define HANDLE_CASE(x, w)                                                      \
   case PluginFieldType::x:                                                     \
     return w;
@@ -46,14 +70,17 @@ static std::optional<unsigned> getWidth(const PluginField &field) {
     HANDLE_CASE(kINT64, 64)
     HANDLE_CASE(kFP8, 8)
 #endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 2, 0)
+    HANDLE_CASE(kINT4, 4);
+#endif
   }
 #undef HANDLE_CASE
   llvm_unreachable("unhandled PluginFieldType enumeration value");
 }
 
 /// Read a scalar field and extend to 64 bits.
-static std::optional<uint64_t> readScalarField(const PluginField &field,
-                                               unsigned idx = 0) {
+inline static std::optional<uint64_t> readScalarField(const PluginField &field,
+                                                      unsigned idx = 0) {
 #define HANDLE_CASE(x, w)                                                      \
   case PluginFieldType::x:                                                     \
     return *(reinterpret_cast<const w *>(field.data) + idx);
@@ -118,9 +145,9 @@ static void printScalar(std::ostream &os, unsigned width, uint64_t value,
   }
   return;
 }
+
 template <typename T>
-static void printScalar(std::ostream &os, const PluginField &field,
-                        unsigned idx = 0) {
+void printScalar(std::ostream &os, const PluginField &field, unsigned idx = 0) {
   std::optional<unsigned> width = getWidth(field);
   if (!width)
     return;
@@ -133,7 +160,7 @@ static void printScalar(std::ostream &os, const PluginField &field,
 }
 
 /// Print a Dims object.
-static void printDims(std::ostream &os, const Dims &dims) {
+inline static void printDims(std::ostream &os, const Dims &dims) {
   llvm::raw_os_ostream adaptor(os);
   adaptor << "Dims<";
   llvm::interleave(llvm::make_range(dims.d, dims.d + dims.nbDims), adaptor,
@@ -142,7 +169,7 @@ static void printDims(std::ostream &os, const Dims &dims) {
 }
 
 /// Prints the plugin field name, type, and value to the stream.
-static void printField(std::ostream &os, const PluginField &field) {
+inline static void printField(std::ostream &os, const PluginField &field) {
   os << "name=" << field.name << ", ";
   os << "type=";
 #define HANDLE_CASE(x)                                                         \
@@ -163,6 +190,9 @@ static void printField(std::ostream &os, const PluginField &field) {
     HANDLE_CASE(kBF16)
     HANDLE_CASE(kINT64)
     HANDLE_CASE(kFP8)
+#endif
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 2, 0)
+    HANDLE_CASE(kINT4)
 #endif
   }
   os << ", length=" << field.length << ", ";
@@ -219,3 +249,5 @@ static void printField(std::ostream &os, const PluginField &field) {
   }
   os << "]\n";
 }
+
+#endif // LIB_TARGET_PLUGINUTILS

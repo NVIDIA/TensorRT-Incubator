@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTExecutorRuntimeModuleUtils
+add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeModuleUtils
   MemRefUtils.cpp
 
   LINK_LIBS

@@ -1,4 +1,4 @@
-add_mlir_tensorrt_public_c_api_library(MLIRTensorRTCAPISupportStatus
+add_mlir_public_c_api_library(MLIRTensorRTCAPISupportStatus
   Status.cpp
 
   ADDITIONAL_HEADER_DIRS

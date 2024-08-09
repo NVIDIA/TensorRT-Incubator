@@ -18,7 +18,6 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/Utils.h"
-#include "mlir/IR/Value.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 using namespace mlir;
