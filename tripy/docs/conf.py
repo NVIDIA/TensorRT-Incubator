@@ -24,10 +24,9 @@ import inspect
 import re
 from textwrap import indent
 
-from tripy import dtype_info
 import tripy as tp
 from tests import helper
-from tripy.dtype_info import TYPE_VERIFICATION, FUNC_W_DOC_VERIF
+from tripy.tripy.constraints import TYPE_VERIFICATION, FUNC_W_DOC_VERIF
 
 
 PARAM_PAT = re.compile(":param .*?:")

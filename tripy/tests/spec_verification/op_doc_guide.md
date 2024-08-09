@@ -4,9 +4,9 @@ Spec verification is designed to ensure that the datatypes documented in the ope
 
 # How to Verify an Operation
 
-To run the verification program on an operation, add the decorator `@dtype_info.dtype_info` to the operation. The inputs to the decorator will help the verifier determine the constraints on the inputs and the datatypes to verify.
+To run the verification program on an operation, add the decorator `@constraints.dtype_info` to the operation. The inputs to the decorator will help the verifier determine the constraints on the inputs and the datatypes to verify.
 
-There are four optional inputs for the decorator `dtype_variables`, `dtype_constraints`, `param_type_specification`, and `function_name`. To learn more about how these work go to `tripy/dtype_info.py`
+There are four optional inputs for the decorator `dtype_variables`, `dtype_constraints`, `param_type_specification`, and `function_name`. To learn more about how these work go to `tripy/constraints.py`
 
 If your function requires setting up some input variables you can do so by adding an element to `default_constraints_all` dictionary within `tests/spec_verification/test_dtype_constraints.py`. You can find more information about how `default_constraints_all` works withing `tests/spec_verification/test_dtype_constraints.py`.
 

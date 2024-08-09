@@ -46,8 +46,8 @@ def dtype_info(
             Any datatype not included will be tested to ensure it fails the test cases.
         dtype_constraints: This input assigns inputs and return parameters to variable groups. 
             It must be a dictionary with parameter names as keys and variable group names as values. 
-            For assigning the return value, the key must be dtype_info.RETURN_VALUE. 
-            Example: dtype_constraints={"input": "T", "index": "T1", dtype_info.RETURN_VALUE: "T"}.
+            For assigning the return value, the key must be constraints.RETURN_VALUE. 
+            Example: dtype_constraints={"input": "T", "index": "T1", constraints.RETURN_VALUE: "T"}.
         param_type_specification: This parameter addresses situations where the type hint is not defined or linked to an internal object builder. 
             It also allows the verifier to use a type other than the first option in a Union type hint. 
             Example: param_type_specification={"self": "tripy.Tensor"}. 

@@ -18,7 +18,7 @@ To view the documentation, you can open `build/docs/index.html` in a browser.
 The `export.public_api()` decorator allows you to specify metadata for documentation
 generation, such as where in the documentation hierarchy the API should be documented.
 
-The `dtype_info.dtype_info()` decorator verifies the data types a function claims to support and generates 
+The `constraints.dtype_info()` decorator verifies the data types a function claims to support and generates 
 corresponding documentation. For more information, see [this guide](../tests/spec_verification/op_doc_guide.md).
 
 The `generate_rsts.py` script uses this information to automatically generate a directory

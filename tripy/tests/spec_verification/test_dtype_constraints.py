@@ -20,7 +20,7 @@ from tripy.common.datatype import DATA_TYPES
 import itertools
 import pytest
 from tests.spec_verification.object_builders import create_obj
-from tripy.dtype_info import TYPE_VERIFICATION, RETURN_VALUE
+from tripy.tripy.constraints import TYPE_VERIFICATION, RETURN_VALUE
 import tripy as tp
 
 
