@@ -181,7 +181,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
 
     # New docstring logic:
-    # First figure out if we should it is the new docstring.
+    # First figure out if object is using the @constraints.dtype_info decorator.
     unqual_name = name.split(".")[-1]
     if unqual_name in TYPE_VERIFICATION.keys():
         add_text_index = -1
