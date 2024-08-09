@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+from typing import Union, Optional, get_origin, get_args, ForwardRef
+import inspect
 from typing import List
 from tripy.common.datatype import DATA_TYPES
 import itertools
@@ -108,12 +110,42 @@ default_constraints_all = {
     "arange": {"start": 0, "stop": 5},
 }
 
+
+class InputValues:
+    dtype: str = None
+    init = None
+
+
 # Add default_constraints to input_values within TYPE_VERIFICATION
-for func_name, (func_obj, input_dict, _, _, types_assignments) in TYPE_VERIFICATION.items():
+for func_name, (func_obj, inputs_dict, return_dtype, dtype_variables, dtype_constraints) in TYPE_VERIFICATION.items():
+    # Complete the rest of the processing for TEST_VERIFICATION:
+    # Get names and type hints for each param.
+    func_sig = inspect.signature(func_obj)
+    param_dict = func_sig.parameters
+    # Construct inputs_dict.
+    for param_name, param_type in param_dict.items():
+        input_values = InputValues()
+        # If parameter had a default then use it otherwise skip.
+        if param_type.default is not param_type.empty:
+            # Checking if not equal to None since we want to enter if default is 0 or similar.
+            if param_type.default != None:
+                input_values.init = param_type.default
+        param_type = param_type.annotation
+        # If type is an optional or union get the first type.
+        while get_origin(param_type) in [Union, Optional]:
+            param_type = get_args(param_type)[0]
+            # ForwardRef refers to any case where type hint is a string.
+            if isinstance(param_type, ForwardRef):
+                param_type = param_type.__forward_arg__
+        # Check if there are any provided constraints and add them to the constraint dict.
+        input_values.dtype = dtype_constraints.get(param_name, None)
+        inputs_dict[param_name] = {param_type: input_values}
+
+    # Apply default_constraints_all.
     default_constraints = default_constraints_all.get(func_name, None)
     if default_constraints != None:
-        for param_name, input_info in input_dict.items():
-            input_values = list(input_dict[param_name].values())[0]
+        for param_name, input_info in inputs_dict.items():
+            input_values = list(inputs_dict[param_name].values())[0]
             other_constraint = default_constraints.get(param_name, None)
             if other_constraint is not None:
                 input_values.init = other_constraint
