@@ -15,10 +15,16 @@
 # limitations under the License.
 #
 
-from tripy import export
+from tripy import export, dtype_info
 
 
 @export.public_api(document_under="tensor_operations")
+@dtype_info.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+)
 def silu(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies the Sigmoid Linear Unit (SiLU) function  to each element of the
@@ -32,7 +38,7 @@ def silu(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A tensor of the same shape and data type as the input.
+        A tensor of the same shape as the input.
 
     .. code-block:: python
         :linenos:

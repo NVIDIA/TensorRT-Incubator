@@ -15,16 +15,12 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import jax.numpy as jnp
-import jaxlib
-import numpy as np
 import pytest
 import re
 import torch
 
 import tripy as tp
-from tripy import TripyException
 from tests.helper import raises, TORCH_DTYPES
 from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 

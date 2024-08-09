@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, Sequence
 
 from tripy.utils.json import Decoder, Encoder
 

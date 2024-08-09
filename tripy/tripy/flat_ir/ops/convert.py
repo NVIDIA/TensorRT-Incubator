@@ -21,8 +21,6 @@ from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
-from tripy.common.datatype import float32, float16, bfloat16, int8, int32, int64, bool as tp_bool
-
 
 @dataclass(repr=False)
 class ConvertOp(BaseFlatIROp):

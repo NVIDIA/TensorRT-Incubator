@@ -23,7 +23,7 @@ import inspect
 import os
 import time
 import typing
-from typing import Any, List, Sequence, Tuple, Union
+from typing import Any, List, Sequence, Union
 
 from colored import Fore, Style
 
