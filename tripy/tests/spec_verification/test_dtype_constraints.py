@@ -117,7 +117,14 @@ class InputValues:
 
 
 # Add default_constraints to input_values within TYPE_VERIFICATION
-for func_name, (func_obj, inputs_dict, return_dtype, dtype_variables, dtype_constraints) in TYPE_VERIFICATION.items():
+for func_name, (
+    func_obj,
+    inputs_dict,
+    dtype_exceptions,
+    return_dtype,
+    dtype_variables,
+    dtype_constraints,
+) in TYPE_VERIFICATION.items():
     # Complete the rest of the processing for TEST_VERIFICATION:
     # Get names and type hints for each param.
     func_sig = inspect.signature(func_obj)
@@ -150,19 +157,28 @@ for func_name, (func_obj, inputs_dict, return_dtype, dtype_variables, dtype_cons
             if other_constraint is not None:
                 input_values.init = other_constraint
 
+    # Update dtype_exceptions from string to tripy dtype.
+    for i, dtype_exception in enumerate(dtype_exceptions):
+        for key, val in dtype_exception.items():
+            dtype_exceptions[i][key] = getattr(tp, val)
+
 func_list = []
-for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYPE_VERIFICATION.items():
-    # TODO (#268) exclude float8 until casting to float8 gets fixed.
-    # TODO (#268) exclude int4 until int4 is representable.
-    types_to_exclude = ["int4", "float8"]
+for func_name, (
+    func_obj,
+    inputs,
+    dtype_exceptions,
+    return_dtype,
+    types,
+    types_assignments,
+) in TYPE_VERIFICATION.items():
     positive_test_dtypes = {}
     negative_test_dtypes = {}
     for name, dt in types.items():
         # Get all of the dtypes for positive test case by excluding types_to_exclude.
-        positive_test_dtypes[name] = list(filter(lambda item: item not in types_to_exclude, set(dt)))
-        # Get all dtypes for negative test case.
-        total_dtypes = set(filter(lambda item: item not in types_to_exclude, map(str, DATA_TYPES.values())))
         pos_dtypes = set(dt)
+        positive_test_dtypes[name] = list(pos_dtypes)
+        # Get all dtypes for negative test case.
+        total_dtypes = set(map(str, DATA_TYPES.values()))
         negative_test_dtypes[name] = list(total_dtypes - pos_dtypes)
     for positive_case in [True, False]:
         if positive_case:
@@ -170,25 +186,26 @@ for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYP
             case_name = "valid: "
         else:
             dtype_lists_list = []
-            all_dtypes = set(
-                filter(
-                    lambda item: item not in types_to_exclude,
-                    map(str, DATA_TYPES.values()),
-                )
-            )
             # Create a list of dictionary lists and then go over each dictionary.
             for name_temp, dt in negative_test_dtypes.items():
                 temp_dict = {name_temp: dt}
                 # Iterate through and leave one dtype set to negative and the rest is all dtypes.
                 for name_not_equal in negative_test_dtypes.keys():
                     if name_temp != name_not_equal:
-                        temp_dict[name_not_equal] = all_dtypes
+                        temp_dict[name_not_equal] = total_dtypes
                 dtype_lists_list.append(temp_dict)
             case_name = "invalid: "
         for dtype_lists in dtype_lists_list:
             for combination in itertools.product(*(dtype_lists.values())):
                 # Create a tuple with keys and corresponding elements.
                 namespace = dict(zip(dtype_lists.keys(), map(lambda val: getattr(tp, val), combination)))
+                exception = False
+                for dtype_exception in dtype_exceptions:
+                    if positive_case and namespace == dtype_exception:
+                        exception = True
+                        positive_case = False
+                        case_name = "invalid: "
+
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
                 func_list.append(
                     (
@@ -201,6 +218,9 @@ for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYP
                         func_name + "_" + case_name + ", ".join(ids),
                     )
                 )
+                if exception:
+                    positive_case = True
+                    case_name = "valid: "
 
 
 def _run_dtype_constraints_subtest(test_data):

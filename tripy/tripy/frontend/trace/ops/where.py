@@ -136,7 +136,10 @@ class Where(BaseTraceOp):
 
 @export.public_api(document_under="tensor_operations")
 @constraints.dtype_info(
-    dtype_variables={"T1": DATA_TYPES.keys(), "T2": ["bool"]},
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
     dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
@@ -172,7 +175,10 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 
 @export.public_api(document_under="tensor_operations")
 @constraints.dtype_info(
-    dtype_variables={"T1": DATA_TYPES.keys(), "T2": ["bool"]},
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
     dtype_constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},
 )
 def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
@@ -182,7 +188,7 @@ def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numb
 
     Args:
         input: The input tensor.
-        mask: The mask tensor. 
+        mask: The mask tensor.
         value: the value to fill with. This will be casted to match the data type of the input tensor.
 
     Returns:

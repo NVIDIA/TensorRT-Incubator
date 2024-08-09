@@ -68,7 +68,10 @@ def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int = None
 
 @export.public_api(document_under="tensor_operations")
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"], "T2": ["int8", "int32", "int64"]},
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["int8", "int32", "int64"],
+    },
     dtype_constraints={"input": "T1", "shape": "T2", constraints.RETURN_VALUE: "T1"},
 )
 def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
@@ -196,7 +199,7 @@ class Squeeze(BaseTraceOp):
 
 @export.public_api(document_under="tensor_operations")
 @constraints.dtype_info(
-    dtype_variables={"T1": DATA_TYPES.keys()},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Tensor":

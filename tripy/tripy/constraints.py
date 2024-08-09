@@ -26,6 +26,7 @@ RETURN_VALUE = "RETURN_VALUE"
 def dtype_info(
     dtype_variables: dict = {},
     dtype_constraints: dict = {},
+    dtype_exceptions: dict = [],
     function_name: Optional[str] = "",
 ):
     """
@@ -46,8 +47,12 @@ def dtype_info(
     def decorator(func_obj):
         return_dtype = dtype_constraints.get(RETURN_VALUE, -1)
         func_name = func_obj.__qualname__ if not function_name else function_name
-        VerifInfo = namedtuple("VerifInfo", ["obj", "inputs", "return_dtype", "dtypes", "dtype_constraints"])
-        TYPE_VERIFICATION[func_name] = VerifInfo(func_obj, {}, return_dtype, dtype_variables, dtype_constraints)
+        VerifInfo = namedtuple(
+            "VerifInfo", ["obj", "inputs", "dtype_exceptions", "return_dtype", "dtypes", "dtype_constraints"]
+        )
+        TYPE_VERIFICATION[func_name] = VerifInfo(
+            func_obj, {}, dtype_exceptions, return_dtype, dtype_variables, dtype_constraints
+        )
         FUNC_W_DOC_VERIF.append(func_obj.__qualname__)
         return func_obj
 

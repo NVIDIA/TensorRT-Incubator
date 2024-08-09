@@ -26,7 +26,7 @@ from textwrap import indent
 
 import tripy as tp
 from tests import helper
-from tripy.tripy.constraints import TYPE_VERIFICATION, FUNC_W_DOC_VERIF
+from tripy.constraints import TYPE_VERIFICATION, FUNC_W_DOC_VERIF
 
 
 PARAM_PAT = re.compile(":param .*?:")
@@ -190,14 +190,26 @@ def process_docstring(app, what, name, obj, options, lines):
                 type_dict = TYPE_VERIFICATION[unqual_name].dtypes
                 blocks.insert(index, "Type Constraints:")
                 index += 1
-                # Add the dtype constraint name and the dtypes that correlate. Remove excluded dtypes.
+                # Add the dtype constraint name and the dtypes that correlate.
                 for type_name, dt in type_dict.items():
                     blocks.insert(
                         index,
-                        f"    - **{type_name}**: :class:`" + "`, :class:`".join(set(dt) - {"int4", "float8"}) + "`",
+                        f"    - **{type_name}**: :class:`" + "`, :class:`".join(set(dt)) + "`",
                     )
                     index += 1
                 blocks.insert(index, "\n")
+                if TYPE_VERIFICATION[unqual_name].dtype_exceptions != []:
+                    # Add the dtype exceptions.
+                    index += 1
+                    blocks.insert(index, "**Type Exceptions**:")
+                    index += 1
+                    output_text = ""
+                    for exception_dict in TYPE_VERIFICATION[unqual_name].dtype_exceptions:
+                        for key, val in exception_dict.items():
+                            output_text += f"{key}: :class:`{val}`, "
+                        output_text = output_text[:-2] + "; "
+                    output_text = output_text[:-2] + "\n"
+                    blocks.insert(index, output_text)
                 break
             if re.search(r":param \w+: ", block):
                 param_name = re.match(r":param (\w+): ", block).group(1)

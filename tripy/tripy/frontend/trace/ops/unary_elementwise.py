@@ -176,7 +176,7 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
 @export.public_api(document_under="tensor_operations")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16"],
+        "T1": ["float32", "float16", "bfloat16", "float8"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
@@ -205,7 +205,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 @export.public_api(document_under="tensor_operations")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16"],
+        "T1": ["float32", "float16", "bfloat16", "float8"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
