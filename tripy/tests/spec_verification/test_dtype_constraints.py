@@ -43,7 +43,7 @@ def _method_handler(func_name, kwargs, func_obj, api_call_locals):
         "__gt__": (lambda self, other: self > other),
         "__matmul__": (lambda self, other: self @ other),
         "shape": (lambda self: self.shape),
-        "__getitem__": (lambda self, index: self.__getitem__(index)),
+        "__getitem__": (lambda self, index: self[index]),
     }
     if func_obj.__name__ in _METHOD_OPS.keys():
         # Function needs to be executed in a specific way
@@ -56,6 +56,23 @@ def _method_handler(func_name, kwargs, func_obj, api_call_locals):
     print("API call: ", func_name, ", with parameters: ", kwargs)
 
 
+
+'''
+default_constraints: This dictionary helps set specific constraints and values for parameters. These constraints correspond to the type hint of each parameter. 
+Each type has different constraints that can be set, and some have default values, so you might not need to pass other_constraints for every operation. 
+If there is no default, you must specify an initialization value, or the testcase may fail. 
+The dictionary's keys must be the name of the function that they are constraining and the value must be a dictionary with the constraints. Here is the list of possible parameter types and constraints:
+    - **tensor** - constraints: init and shape default: tp.ones(shape=(3,2)). If init is passed then value must be in the form of a list. Example: "scale": {"init": [1, 1, 1]} or "scale": {"shape": (3,3)}
+    - **int** - constraints: init default: **no default**. Example: "dim": {"init": 0}.
+    - **dtype** - constraints: **no constraints** default: **no default**. Dtype parameters will be set using dtype_constraints input.
+    - **tuple** - constraints: init default: **no default**. Example: "dims": {"init": (3,3)}. 
+    - **list/sequence of tensors** - constraints: count, init, and shape default: count=2, shape=(3,2). Example: "dim": {"count": 3}. No default means that you must specify an initialization value or an error will be thrown. 
+        This will create a list/sequence of tensors of size count and each tensor will follow the init and shape value similar to tensor parameters.
+    - **device** - constraints: target default: target="gpu". Example: {"device": {"target": "cpu"}}.
+    - **int list** - constraints: init default: **no default**. Example: "dim": {"init": [1, 2, 3]}.
+    - **bool** - constraints: init default: **no default**. Example: "dim": {"init": True}. 
+    - **float** - constraints: init default: **no default**. Example: "dim": {"init": 1.23}
+'''
 default_constraints_all = {"__rtruediv__": {"self": {"init": 1}},
                            "__rsub__": {"self": {"init": 1}},
                            "__radd__": {"self": {"init": 1}},
