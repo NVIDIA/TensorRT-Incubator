@@ -4,12 +4,12 @@ Spec verification is designed to ensure that the datatypes documented in the ope
 
 # How to Verify an Operation
 
-To run the verification program on an operation, add the decorator @dtype_info.dtype_info to the operation. The inputs to the decorator will help the verifier determine the constraints on the inputs and the datatypes to verify.
+To run the verification program on an operation, add the decorator `@dtype_info.dtype_info` to the operation. The inputs to the decorator will help the verifier determine the constraints on the inputs and the datatypes to verify.
 
 There are four optional inputs for the decorator:
 
  -  `dtype_variables`: This input must be a dictionary with the names of groups of variables as the keys and lists of datatypes as the values. Example: dtype_variables={"T": ["float32", "float16", "int8", "int32", "int64", "bool"], "T1": ["int32"]}. Any datatype not included will be tested to ensure it fails the test cases.
- - `dtype_constraints`: This input assigns inputs and return parameters to variable groups. It must be a dictionary with parameter names as keys and variable group names as values. For assigning the return value, the key must be dtype_info.RETURN_VALUE. Example: dtype_constraints={"input": "T", "index": "T1", dtype_info.RETURN_VALUE: "T"}.. 
+ - `dtype_constraints`: This input assigns inputs and return parameters to variable groups. It must be a dictionary with parameter names as keys and variable group names as values. For assigning the return value, the key must be dtype_info.RETURN_VALUE. Example: dtype_constraints={"input": "T", "index": "T1", dtype_info.RETURN_VALUE: "T"}.
  - `param_type_specification`: This parameter addresses situations where the type hint is not defined or linked to an internal object builder. It also allows the verifier to use a type other than the first option in a Union type hint. Example: `param_type_specification={"self": "tripy.Tensor"}`. Here is a list of type hints that are currently being used: `"tripy.Tensor", "tripy.Shape", Sequence[int], numbers.Number, int, "tripy.dtype", datatype.dtype, Tuple, List[Union["tripy.Tensor"]], "tripy.device", bool, float`
  - `function_name`: This parameter is only needed if a function is being mapped to multiple APIs. Takes a string with the function name as input.
 
