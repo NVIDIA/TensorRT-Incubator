@@ -22,6 +22,7 @@ import pytest
 from tests.spec_verification.object_builders import create_obj
 from tripy.constraints import TYPE_VERIFICATION, RETURN_VALUE
 import tripy as tp
+from contextlib import ExitStack
 
 
 def _method_handler(func_name, kwargs, func_obj, api_call_locals):
@@ -193,12 +194,9 @@ def _run_dtype_constraints_subtest(test_data):
 @pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[6])
 def test_dtype_constraints(test_data):
     _, _, _, return_dtype, _, positive_case, _ = test_data
-    if positive_case:
+    with ExitStack() as stack:
+        if not positive_case:
+            stack.enter_context(pytest.raises(Exception))
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
         if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
             assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
-    else:
-        with pytest.raises(Exception):
-            api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-            if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
-                assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
