@@ -183,8 +183,8 @@ def process_docstring(app, what, name, obj, options, lines):
 
     # New docstring logic:
     # First figure out if we should it is the new docstring.
-    if name.split(".")[-1] in TYPE_VERIFICATION.keys():
-        cleaned_name = name.split(".")[-1]
+    unqual_name = name.split(".")[-1]
+    if unqual_name in TYPE_VERIFICATION.keys():
         add_text_index = -1
         for index, block in enumerate(blocks):
             if re.search(r".. code-block::", block):
