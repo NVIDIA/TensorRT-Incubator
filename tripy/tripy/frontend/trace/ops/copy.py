@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 
-from tripy import export, dtype_info
+from tripy import export, constraints
 from tripy.common.device import device
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -36,11 +36,11 @@ class Copy(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     r"""

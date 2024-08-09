@@ -15,11 +15,11 @@
 # limitations under the License.
 #
 
-from tripy import export, dtype_info
+from tripy import export, constraints
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"]
     },

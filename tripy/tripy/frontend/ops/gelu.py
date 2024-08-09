@@ -17,15 +17,15 @@
 
 import math
 
-from tripy import export, dtype_info
+from tripy import export, constraints
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def gelu(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""

@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from tripy import export, dtype_info
+from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.datatype import DATA_TYPES
 
@@ -99,12 +99,12 @@ class Cast(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": DATA_TYPES.keys(),
         "T2": DATA_TYPES.keys(),
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""

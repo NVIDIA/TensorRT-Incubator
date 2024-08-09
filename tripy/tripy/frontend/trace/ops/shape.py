@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import Result
-from tripy import dtype_info
+from tripy import constraints
 from tripy.common.datatype import DATA_TYPES
 
 
@@ -47,9 +47,9 @@ class Shape(BaseTraceOp):
 
 @TENSOR_METHOD_REGISTRY("shape")
 @property
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={"self_dtype": DATA_TYPES.keys(), "T2": ["int32"]},
-    dtype_constraints={"self": "self_dtype", dtype_info.RETURN_VALUE: "T2"},
+    dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "T2"},
 )
 def shape(self: "tripy.Tensor") -> "tripy.Tensor":
     """

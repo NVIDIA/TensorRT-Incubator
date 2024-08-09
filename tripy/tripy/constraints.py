@@ -25,15 +25,12 @@ RETURN_VALUE = "RETURN_VALUE"
 
 class InputValues:
     dtype: str = None
-    init: Union[tuple,list] = None
-    shape: tuple = None
-    target: str = None
-    count: int = None
+    init = None
+
 
 def dtype_info(
     dtype_variables: dict = {},
     dtype_constraints: dict = {},
-    param_type_specification: dict = {},
     function_name : Optional[str] = "",
 ):
     """
@@ -48,11 +45,6 @@ def dtype_info(
             It must be a dictionary with parameter names as keys and variable group names as values. 
             For assigning the return value, the key must be constraints.RETURN_VALUE. 
             Example: dtype_constraints={"input": "T", "index": "T1", constraints.RETURN_VALUE: "T"}.
-        param_type_specification: This parameter addresses situations where the type hint is not defined or linked to an internal object builder. 
-            It also allows the verifier to use a type other than the first option in a Union type hint. 
-            Example: param_type_specification={"self": "tripy.Tensor"}. 
-            Here is a list of type hints that are currently being used: "tripy.Tensor", "tripy.Shape", Sequence[int], numbers.Number, int, "tripy.dtype", 
-            datatype.dtype, Tuple, List[Union["tripy.Tensor"]], "tripy.device", bool, float.
         function_name: This parameter is only needed if a function is being mapped to multiple APIs. Takes a string with the function name as input.
     """
     def decorator(func_obj):
@@ -69,9 +61,6 @@ def dtype_info(
                 if param_type.default != None:
                     input_values.init = param_type.default
             param_type = param_type.annotation
-            # Check if there is a specific type that should be used.
-            if param_type_specification.get(param_name, None):
-                param_type = param_type_specification[param_name]
             # If type is an optional or union get the first type.
             while get_origin(param_type) in [Union, Optional]:
                 param_type = get_args(param_type)[0]

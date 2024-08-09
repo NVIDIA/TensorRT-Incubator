@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 
-from tripy import export, dtype_info
+from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy.common.datatype import DATA_TYPES
@@ -58,9 +58,9 @@ def unsqueeze_two_operand(input, result_shape, dim):
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={"T1": DATA_TYPES.keys()},
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """

@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 from typing import Tuple, Union
-from tripy import utils, dtype_info
+from tripy import utils, constraints
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend import utils as frontend_utils
@@ -132,10 +132,9 @@ class Slice(BaseTraceOp):
 
 
 @TENSOR_METHOD_REGISTRY("__getitem__")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={"self_dtype": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"self": "self_dtype", dtype_info.RETURN_VALUE: "self_dtype"},
-    param_type_specification={"index": int},
+    dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
 )
 def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "tripy.Tensor":
     """

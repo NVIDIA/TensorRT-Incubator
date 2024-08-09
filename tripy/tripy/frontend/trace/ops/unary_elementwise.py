@@ -18,8 +18,7 @@
 import enum
 from dataclasses import dataclass
 
-from tripy import export, dtype_info
-from tripy import export, dtype_info
+from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -57,11 +56,11 @@ class UnaryElementwise(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
@@ -88,11 +87,11 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -117,11 +116,11 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def sin(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -146,11 +145,11 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def cos(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -175,11 +174,11 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -204,11 +203,11 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -233,11 +232,11 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def log(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -262,11 +261,11 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32"],
     },
-    dtype_constraints={"input": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def abs(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""

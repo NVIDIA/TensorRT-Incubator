@@ -19,7 +19,7 @@ import numbers
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import export, dtype_info, utils
+from tripy import export, constraints, utils
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.datatype import DATA_TYPES
@@ -135,9 +135,9 @@ class Where(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={"T1": DATA_TYPES.keys(), "T2": ["bool"]},
-    dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
@@ -171,9 +171,9 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={"T1": DATA_TYPES.keys(), "T2": ["bool"]},
-    dtype_constraints={"input": "T1", "mask": "T2", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},
 )
 def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""

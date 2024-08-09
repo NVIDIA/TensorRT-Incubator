@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import export, utils, dtype_info
+from tripy import export, utils, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -93,12 +93,12 @@ class Gather(BaseTraceOp):
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
         "T2": ["int32"],
     },
-    dtype_constraints={"input": "T1", "index": "T2", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", "index": "T2", constraints.RETURN_VALUE: "T1"},
 )
 def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """

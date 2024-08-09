@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils, dtype_info
+from tripy import utils, constraints
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -212,9 +212,9 @@ class MatrixMultiplication(BaseTraceOp):
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
-    dtype_constraints={"self": "T1", "other": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def __matmul__(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """

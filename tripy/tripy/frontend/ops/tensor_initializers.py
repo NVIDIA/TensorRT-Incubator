@@ -19,7 +19,7 @@ import math
 import numbers
 from typing import Optional, Sequence, Union
 
-from tripy import export, dtype_info
+from tripy import export, constraints
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.fill import full, full_like
@@ -32,12 +32,12 @@ from tripy.common.datatype import DATA_TYPES
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
         "T2": DATA_TYPES.keys(),
     },
-    dtype_constraints={"shape": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def ones(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
@@ -68,12 +68,12 @@ def ones(
 
 @export.public_api(document_under="tensor_operations")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
         "T2": DATA_TYPES.keys(),
     },
-    dtype_constraints={"shape": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def zeros(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
@@ -103,12 +103,12 @@ def zeros(
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": DATA_TYPES.keys(),
         "T2": DATA_TYPES.keys(),
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
@@ -136,12 +136,12 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": DATA_TYPES.keys(),
         "T2": DATA_TYPES.keys(),
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", dtype_info.RETURN_VALUE: "T2"},
+    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
@@ -170,11 +170,11 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
     },
-    dtype_constraints={"tensor": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     r"""
@@ -228,11 +228,11 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
     },
-    dtype_constraints={"tensor": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     r"""
@@ -286,11 +286,11 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
     },
-    dtype_constraints={"dtype": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def arange(
     start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
@@ -340,11 +340,11 @@ def arange(
 
 
 @export.public_api(document_under="tensor_operations")
-@dtype_info.dtype_info(
+@constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
     },
-    dtype_constraints={"dtype": "T1", dtype_info.RETURN_VALUE: "T1"},
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""

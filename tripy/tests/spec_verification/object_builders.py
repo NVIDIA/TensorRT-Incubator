@@ -23,12 +23,12 @@ from tripy.common import datatype
 
 def tensor_builder(input_values, namespace):
     init = input_values.init
-    if init:
-        return tp.Tensor(init, dtype=namespace[input_values.dtype])
-    shape = input_values.shape
-    if not shape:
-        shape = (3,2)
-    return tp.ones(dtype=namespace[input_values.dtype], shape=shape)
+    if init is None:
+        return tp.ones(dtype=namespace[input_values.dtype], shape=(3,2))
+    elif not isinstance(init, tp.Tensor):
+        assert input_values.dtype == None
+        return init
+    return tp.cast(init,dtype=namespace[input_values.dtype])
 
 
 def dtype_builder(input_values, namespace):
@@ -36,17 +36,18 @@ def dtype_builder(input_values, namespace):
 
 
 def tensor_list_builder(input_values, namespace):
-    count = input_values.count
-    if not count:
-        count = 2
-    return [tensor_builder(input_values, namespace) for _ in range(count)]
+    init = input_values.init
+    if init is None:
+        return [tp.ones(shape=(3,2),dtype=namespace[input_values.dtype]) for _ in range(2)]
+    else:
+        return [tp.cast(tens,dtype=namespace[input_values.dtype]) for tens in init]
 
 
 def device_builder(input_values, namespace):
-    target = input_values.target
-    if not target:
-        target = "gpu"
-    return tp.device(target)
+    target = input_values.init
+    if target is None:
+        return tp.device("gpu")
+    return target
 
 
 def default_builder(input_values, namespace):
@@ -56,23 +57,17 @@ def default_builder(input_values, namespace):
 find_func = {
     "tripy.Tensor": tensor_builder,
     "tripy.Shape": tensor_builder,
-    Sequence[int]: default_builder,
-    numbers.Number: default_builder,
-    int: default_builder,
     "tripy.dtype": dtype_builder,
     datatype.dtype: dtype_builder,
-    Tuple: default_builder,
     List[Union["tripy.Tensor"]]: tensor_list_builder,
     "tripy.device": device_builder,
-    bool: default_builder,
-    float: default_builder,
 }
 
 
 def create_obj(param_name, input_desc, namespace):
     param_type = list(input_desc.keys())[0]
-    create_obj_func = find_func.get(param_type, None)
+    create_obj_func = find_func.get(param_type, default_builder)
     if create_obj_func:
         namespace[param_name] = create_obj_func(input_desc[param_type], namespace)
         return namespace[param_name]
-    raise RuntimeError("Could not discern param_type: ", param_type)
+    

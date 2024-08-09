@@ -20,7 +20,7 @@ from tripy.common.datatype import DATA_TYPES
 import itertools
 import pytest
 from tests.spec_verification.object_builders import create_obj
-from tripy.tripy.constraints import TYPE_VERIFICATION, RETURN_VALUE
+from tripy.constraints import TYPE_VERIFICATION, RETURN_VALUE
 import tripy as tp
 
 
@@ -58,56 +58,53 @@ def _method_handler(func_name, kwargs, func_obj, api_call_locals):
 
 
 '''
-default_constraints: This dictionary helps set specific constraints and values for parameters. These constraints correspond to the type hint of each parameter. 
-Each type has different constraints that can be set, and some have default values, so you might not need to pass other_constraints for every operation. 
+default_constraints_all: This dictionary helps set specific constraints and values for parameters. These constraints correspond to the type hint of each parameter. 
+Some type have default values, so you might not need to pass other_constraints for every operation. 
 If there is no default, you must specify an initialization value, or the testcase may fail. 
-The dictionary's keys must be the name of the function that they are constraining and the value must be a dictionary with the constraints. Here is the list of possible parameter types and constraints:
-    - **tensor** - constraints: init and shape default: tp.ones(shape=(3,2)). If init is passed then value must be in the form of a list. Example: "scale": {"init": [1, 1, 1]} or "scale": {"shape": (3,3)}
-    - **int** - constraints: init default: **no default**. Example: "dim": {"init": 0}.
-    - **dtype** - constraints: **no constraints** default: **no default**. Dtype parameters will be set using dtype_constraints input.
-    - **tuple** - constraints: init default: **no default**. Example: "dims": {"init": (3,3)}. 
-    - **list/sequence of tensors** - constraints: count, init, and shape default: count=2, shape=(3,2). Example: "dim": {"count": 3}. No default means that you must specify an initialization value or an error will be thrown. 
+The dictionary's keys must be the name of the function that they are constraining and the value must be what the parameter should be initialized to. 
+Here is the list of parameter types that have defaults or work differently from other types:
+    - tensor - default: tp.ones(shape=(3,2)). If init is passed then value must be in the form of a list. Example: "scale": tp.Tensor([1,1,1]) or "scale": tp.ones((3,3))
+    - dtype - default: no default. Dtype parameters will be set using dtype_constraints input so using default_constraints_all will not change anything.
+    - list/sequence of tensors - default: [tp.ones((3,2)),tp.ones((3,2))]. Example: "dim": [tp.ones((2,4)),tp.ones((1,2))].
         This will create a list/sequence of tensors of size count and each tensor will follow the init and shape value similar to tensor parameters.
-    - **device** - constraints: target default: target="gpu". Example: {"device": {"target": "cpu"}}.
-    - **int list** - constraints: init default: **no default**. Example: "dim": {"init": [1, 2, 3]}.
-    - **bool** - constraints: init default: **no default**. Example: "dim": {"init": True}. 
-    - **float** - constraints: init default: **no default**. Example: "dim": {"init": 1.23}
+    - device - default: tp.device("gpu"). Example: {"device": tp.device("cpu")}.
+All other types do not have defaults and must be passed to the verifier using default_constraints_all.
 '''
-default_constraints_all = {"__rtruediv__": {"self": {"init": 1}},
-                           "__rsub__": {"self": {"init": 1}},
-                           "__radd__": {"self": {"init": 1}},
-                           "__rpow__": {"self": {"init": 1}},
-                           "__rmul__": {"self": {"init": 1}},
-                           "softmax": {"dim": {"init": 1}},
-                           "concatenate": {"dim": {"init": 0}},
-                           "expand": {"sizes": {"init": (3, 4)}, "input": {"shape": (3, 1)}},
-                           "full": {"shape": {"shape": (3)}, "value": {"init": 1}},
-                           "full_like": {"value": {"init": 1}},
-                           "flip": {"dim": {"init": 1}},
-                           "gather": {"dim": {"init": 0}, "index": {"shape": (1)}},
-                           "iota": {"shape": {"shape": (3)}},
-                           "__matmul__": {"self": {"shape": (2, 3)}},
-                           "transpose": {"dim0": {"init": 0}, "dim1": {"init": 1}},
-                           "permute": {"perm": {"init": (1, 0)}},
-                           "quantize": {"scale": {"init": [1, 1, 1]}, "dim": {"init": 0}},
-                           "sum": {"dim": {"init": 0}},
-                           "all":{"dim": {"init": 0}},
-                           "any": {"dim": {"init": 0}},
-                           "max": {"dim": {"init": 0}},
-                           "prod": {"dim": {"init": 0}},
-                           "mean": {"dim": {"init": 0}},
-                           "var": {"dim": {"init": 0}},
-                           "argmax": {"dim": {"init": 0}},
-                           "argmin": {"dim": {"init": 0}},
-                           "reshape": {"shape": {"init": (6,)}},
-                           "squeeze": {"input": {"shape": (3, 1)}, "dims": {"init": (1)}},
-                           "__getitem__": {"index": {"init": 2}},
-                           "split": {"indices_or_sections": {"init": 2}},
-                           "unsqueeze": {"dim": {"init": 1}},
-                           "masked_fill": {"value": {"init": 1}},
-                           "ones": {"shape": {"init": (3,2)}},
-                           "zeros": {"shape": {"init": (3,2)}},
-                           "arange": {"start": {"init": 0}, "stop": {"init": 5}},
+default_constraints_all = {"__rtruediv__": {"self": 1},
+                           "__rsub__": {"self": 1},
+                           "__radd__": {"self": 1},
+                           "__rpow__": {"self": 1},
+                           "__rmul__": {"self": 1},
+                           "softmax": {"dim": 1},
+                           "concatenate": {"dim": 0},
+                           "expand": {"sizes": tp.Tensor([3,4]), "input": tp.ones((3,1))},
+                           "full": {"shape": tp.Tensor([3]), "value": 1},
+                           "full_like": {"value": 1},
+                           "flip": {"dim": 1},
+                           "gather": {"dim": 0, "index": tp.Tensor([1])},
+                           "iota": {"shape": tp.Tensor([3])},
+                           "__matmul__": {"self": tp.ones((2,3))},
+                           "transpose": {"dim0": 0, "dim1": 1},
+                           "permute": {"perm": [1,0]},
+                           "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
+                           "sum": {"dim": 0},
+                           "all":{"dim": 0},
+                           "any": {"dim": 0},
+                           "max": {"dim": 0},
+                           "prod": {"dim": 0},
+                           "mean": {"dim": 0},
+                           "var": {"dim": 0},
+                           "argmax": {"dim": 0},
+                           "argmin": {"dim": 0},
+                           "reshape": {"shape": tp.Tensor([6])},
+                           "squeeze": {"input": tp.ones((3,1)), "dims": (1)},
+                           "__getitem__": {"index": 2},
+                           "split": {"indices_or_sections": 2},
+                           "unsqueeze": {"dim": 1},
+                           "masked_fill": {"value": 1},
+                           "ones": {"shape": tp.Tensor([3,2])},
+                           "zeros": {"shape": tp.Tensor([3,2])},
+                           "arange": {"start": 0, "stop": 5},
                           }
 
 # Add default_constraints to input_values within TYPE_VERIFICATION
@@ -117,18 +114,8 @@ for func_name, (func_obj, input_dict, _, _, types_assignments) in TYPE_VERIFICAT
         for param_name, input_info in input_dict.items():
             input_values = list(input_dict[param_name].values())[0]
             other_constraint = default_constraints.get(param_name, None)
-            if other_constraint:
-                for key, val in other_constraint.items():
-                    if key == "init":
-                        input_values.init = val
-                    elif key == "shape":
-                        input_values.shape = val
-                    elif key == "target":
-                        input_values.target = val
-                    elif key == "count":
-                        input_values.count = val
-                    else:
-                        raise RuntimeError(f"Could not match key for default_constraints. Key was {key}, value was {val}")
+            if other_constraint is not None:
+                input_values.init = other_constraint
 
 func_list = []
 for func_name, (func_obj, inputs, return_dtype, types, types_assignments) in TYPE_VERIFICATION.items():
