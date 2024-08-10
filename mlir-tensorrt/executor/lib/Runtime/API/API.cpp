@@ -429,6 +429,24 @@ PointerInfo AllocTracker::lookupOrDefault(uintptr_t ptr) const {
   return map.at(ptr);
 }
 
+std::pair<int64_t, int64_t> AllocTracker::reportAllocatedMemory() const {
+    int64_t totalCpuMemory = 0;
+    int64_t totalGpuMemory = 0;
+
+    for (const auto &entry : map) {
+        const PointerInfo &info = entry.second;
+        if (info.isExternallyManaged())
+          continue;
+        if (info.type == PointerType::host || info.type == PointerType::pinned_host) {
+            totalCpuMemory += info.size;
+        } else if (info.type == PointerType::device || info.type == PointerType::unified) {
+            totalGpuMemory += info.size;
+        }
+    }
+
+    return {totalCpuMemory, totalGpuMemory};
+}
+
 StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
                                         uint64_t size,
                                         std::optional<uint32_t> alignment,

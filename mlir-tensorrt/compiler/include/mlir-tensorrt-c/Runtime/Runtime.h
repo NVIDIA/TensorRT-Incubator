@@ -221,9 +221,14 @@ mtrtRuntimeClientGetNumDevices(MTRT_RuntimeClient client, int32_t *numDevices);
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeClientGetDevice(
     MTRT_RuntimeClient client, int32_t index, MTRT_Device *device);
 
-/// Retrieve the runtiem client that manages the specified memref.
+/// Retrieve the runtime client that manages the specified memref.
 MLIR_CAPI_EXPORTED MTRT_RuntimeClient
 mtrtMemRefGetClient(MTRT_MemRefValue memref);
+
+/// Retrieve the runtime client allocated cpu and gpu memory.
+MTRT_Status mtrtReportAllocatedMemory(MTRT_RuntimeClient client,
+                                  int64_t *totalCpuMemory,
+                                  int64_t *totalGpuMemory);
 
 //===----------------------------------------------------------------------===//
 // Data Transfer

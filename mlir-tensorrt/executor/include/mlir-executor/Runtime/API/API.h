@@ -773,6 +773,9 @@ public:
   /// Return true if the tracker's map contains `ptr`.
   bool contains(uintptr_t ptr) const;
 
+  /// Report total CPU and GPU memory allocated by runtime client.
+  std::pair<int64_t, int64_t> reportAllocatedMemory() const;
+
 private:
   llvm::DenseMap<uintptr_t, PointerInfo> map;
 };
