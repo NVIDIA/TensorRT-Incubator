@@ -1,4 +1,4 @@
-add_mlir_library(MLIRExecutorRunnerLib
+add_mlir_executor_library(MLIRExecutorRunnerLib
   ExecutorRunnerMain.cpp
 
   LINK_LIBS PUBLIC

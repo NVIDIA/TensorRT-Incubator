@@ -13,16 +13,16 @@ config.host_arch = "@HOST_ARCH@"
 config.enable_bindings_python = @MLIR_TRT_ENABLE_PYTHON@
 config.python_executable = "@Python3_EXECUTABLE@"
 
-config.mlir_tensorrt_include_hlo_tests = @MLIR_TRT_ENABLE_HLO@
-config.mlir_tensorrt_include_tensorrt_target_tests = @MLIR_TRT_TARGET_TENSORRT@
+config.enable_hlo = @MLIR_TRT_ENABLE_HLO@
+config.target_tensorrt = @MLIR_TRT_TARGET_TENSORRT@
 config.mlir_tensorrt_compile_time_version = "@MLIR_TRT_TENSORRT_VERSION@"
-config.mlir_tensorrt_include_cpp_tests = @MLIR_TRT_TARGET_CPP@
-config.mlir_tensorrt_include_lua_target_tests = @MLIR_TRT_TARGET_LUA@
-config.mlir_tensorrt_include_nccl_tests = @MLIR_TRT_ENABLE_NCCL@
-config.mlir_tensorrt_include_runner_integration_tests = @MLIR_TRT_TARGET_LUA@
-config.mlir_tensorrt_include_executor_tests = @MLIR_TRT_ENABLE_EXECUTOR@
+config.target_cpp = @MLIR_TRT_TARGET_CPP@
+config.target_lua = @MLIR_TRT_TARGET_LUA@
+config.enable_nccl = @MLIR_TRT_ENABLE_NCCL@
+config.target_lua = @MLIR_TRT_TARGET_LUA@
+config.enable_executor = @MLIR_TRT_ENABLE_EXECUTOR@
 
-config.enable_asan = @MLIR_TRT_WITH_ASAN@
+config.enable_asan = @ENABLE_ASAN@
 config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
 
 import lit.llvm

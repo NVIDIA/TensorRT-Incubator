@@ -21,9 +21,8 @@
 /// Declarations for MPI runtime utilities.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_RUNTIME_SUPPORT_MPI
-#define MLIR_TENSORRT_RUNTIME_SUPPORT_MPI
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifndef MLIR_EXECUTOR_RUNTIME_SUPPORT_MPI
+#define MLIR_EXECUTOR_RUNTIME_SUPPORT_MPI
 
 #include "mlir-executor/Support/Status.h"
 #include <memory>
@@ -49,5 +48,4 @@ private:
 
 } // namespace mlirtrt::runtime
 
-#endif // MLIR_TRT_ENABLE_NCCL
-#endif // MLIR_TENSORRT_RUNTIME_SUPPORT_MPI
+#endif // MLIR_EXECUTOR_RUNTIME_SUPPORT_MPI
