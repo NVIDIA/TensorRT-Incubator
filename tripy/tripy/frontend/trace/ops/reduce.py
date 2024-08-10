@@ -63,6 +63,7 @@ class Reduce(BaseTraceOp):
         from tripy.common.utils import get_element_type
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(
+            shape=(),
             rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,
@@ -70,21 +71,7 @@ class Reduce(BaseTraceOp):
                 f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation"
             ],
         )
-        if get_element_type(init_value) != outputs[0].dtype:
-            init_const_from_kind = FlatIRTensor.build(
-                rank=0,
-                dtype=get_element_type(init_value),
-                device=outputs[0].device,
-                reason_details=[
-                    f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation with type {get_element_type(init_value)}"
-                ],
-            )
-            data = Array(init_value, shape=(), dtype=get_element_type(init_value), device=device("cpu"))
-            ConstantOp.build([], [init_const_from_kind], data=data)
-            ConvertOp.build([init_const_from_kind], [init_const])
-        else:
-            data = Array(init_value, shape=(), dtype=outputs[0].dtype, device=device("cpu"))
-            ConstantOp.build([], [init_const], data=data)
+        ConstantOp.build([], [init_const], data=init_value)
 
         ReduceOp.build([inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
 
@@ -125,16 +112,8 @@ class ArgMinMax(Reduce):
             ],
         )
 
-        ConstantOp.build(
-            [],
-            [init_val_const],
-            data=Array(0, shape=(), dtype=inputs[0].dtype, device=device("cpu")),
-        )
-        ConstantOp.build(
-            [],
-            [init_idx_const],
-            data=Array(0, shape=(), dtype=outputs[0].dtype, device=device("cpu")),
-        )
+        ConstantOp.build([], [init_val_const], data=0)
+        ConstantOp.build([], [init_idx_const], data=0)
 
         ArgMinMaxOp.build(
             [inputs[0], inputs[1], init_val_const, init_idx_const],

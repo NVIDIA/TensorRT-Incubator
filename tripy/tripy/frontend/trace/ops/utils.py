@@ -184,11 +184,9 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
         device=device,
         reason_details=[f"create constant rank 1 int32 tensor filled with {data}."],
     )
-    ConstantOp.build(
-        [],
-        [const_output_tensor],
-        data=Array(data, shape=[len(data)], dtype=int32, device=device("cpu")),
-    )
+    if not data:
+        data = Array(None, shape=(0,), dtype=int32, device=device("cpu"))
+    ConstantOp.build([], [const_output_tensor], data=data)
     return const_output_tensor
 
 
