@@ -1,6 +1,6 @@
 find_package(CUDAToolkit REQUIRED)
 
-add_mlir_library(MLIRTensorRTSupportStatus
+add_mlir_executor_library(MLIRTensorRTSupportStatus
   PARTIAL_SOURCES_INTENDED
   Status.cpp
 
@@ -9,7 +9,7 @@ add_mlir_library(MLIRTensorRTSupportStatus
   MLIRTensorRTStatusEnumCIncGen
 )
 
-add_mlir_library(MLIRTensorRTSupportAllocators
+add_mlir_executor_library(MLIRTensorRTSupportAllocators
   PARTIAL_SOURCES_INTENDED
   Allocators.cpp
 
@@ -19,7 +19,7 @@ add_mlir_library(MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStatus
 )
 
-add_mlir_library(MLIRTensorRTSupportDeviceInfo
+add_mlir_executor_library(MLIRTensorRTSupportDeviceInfo
   PARTIAL_SOURCES_INTENDED
   DeviceInfo.cpp
 
