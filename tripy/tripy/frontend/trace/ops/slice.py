@@ -37,6 +37,11 @@ class Slice(BaseTraceOp):
         # How can we compute the output rank in the case when start, size, stride tensors are dynamic?
         self.outputs[0].rank = self.inputs[0].rank
 
+    def infer_len(self):
+        # Skipping inference here since it depends on the concrete _values_ of the inputs
+        # rather than their shapes. This can be revisited if necessary
+        return [None]
+
     # we only care about the data input
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
 

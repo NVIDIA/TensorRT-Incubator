@@ -29,6 +29,13 @@ class Concatenate(BaseTraceOp):
     def infer_devices(self):
         self.outputs[0].device = self.inputs[0].device
 
+    def infer_len(self):
+        # for shapes, only have to sum the input shapes
+        from tripy.frontend.trace.ops import utils as op_utils
+
+        out_length = sum(map(lambda inp: op_utils.get_op_input_shape(inp)[0], self.inputs))
+        return [out_length]
+
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConcatenateOp
 

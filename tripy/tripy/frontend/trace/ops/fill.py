@@ -46,16 +46,12 @@ class Fill(BaseTraceOp):
 
     def infer_rank(self):
         if self.output_rank is None:
-            if self.inputs[0].shape is None:
-                from tripy.backend.mlir.utils import ShapeContext
-
-                out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
-                assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
-                assert (
-                    out_shape[0] >= 0
-                ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
-                self.inputs[0].shape = out_shape
-            self.output_rank = self.inputs[0].shape[0]
+            input_shape = op_utils.get_op_input_shape(self.inputs[0])
+            assert len(input_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(input_shape)}"
+            assert (
+                input_shape[0] >= 0
+            ), f"Incorrect shape of shape tensor, expected shape to be positive, got {input_shape[0]}"
+            self.output_rank = input_shape[0]
         self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):

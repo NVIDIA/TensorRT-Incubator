@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence
 
 from tripy import utils
 from tripy.utils import Result
@@ -111,6 +111,29 @@ class ShapeOutputIdxPolicies:
         Accepts shapes but the result is always no shape indices
         """
         return Result.ok([])
+
+
+##
+## Inferring shape lengths (helpers)
+##
+
+
+def get_op_input_shape(input: "TraceTensor") -> Sequence[int]:
+    """
+    Given an operator input tensor, return its shape if it has already been given
+    or get its shape from the shape context if it's needed.
+    """
+    if input.shape is None:
+        from tripy.backend.mlir.utils import ShapeContext
+
+        # memoize while we're at it
+        input.shape = ShapeContext().get_shape_of_dynamic_trace_tensor(input)
+    return input.shape
+
+
+class InferLenPolicies:
+    def infer_same_as_first_input(self):
+        return [get_op_input_shape(self.inputs[0])[0]]
 
 
 ##

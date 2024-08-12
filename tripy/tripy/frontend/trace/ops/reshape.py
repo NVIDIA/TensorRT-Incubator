@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from typing import Sequence, Tuple, List, Union
+from typing import Optional, Sequence, Tuple, List, Union
 
 from tripy import export, utils
 from tripy.common.exception import raise_error
@@ -29,29 +29,33 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Reshape(BaseTraceOp):
 
     output_rank: int
+    output_len: Optional[int]
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
+
+    def infer_len(self):
+        if self.output_len is not None:
+            return self.output_len
+        # skip inference for now because it requires obtaining the concrete _value_ of the second input,
+        # not just its shape
+        return [None]
 
     def infer_shape_output_idxs(self, inputs):
         from tripy.frontend.shape import Shape
         from tripy.utils import Result
 
         # Only wrap the reshaped output if the result is rank 1, otherwise don't wrap
-        if isinstance(inputs[0], Shape) and (self.output_rank == 1):
+        if isinstance(inputs[0], Shape) and self.output_rank == 1:
             return Result.ok([0])
         return Result.ok([])
 
     def infer_rank(self):
         if self.output_rank is None:
-            if self.inputs[1].shape is None:
-                from tripy.backend.mlir.utils import ShapeContext
-
-                out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[1])
-                assert len(out_shape) == 1
-                assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
-                self.inputs[1].shape = out_shape
-            self.outputs[0].rank = self.inputs[1].shape[0]
+            shape_of_shape_input = op_utils.get_op_input_shape(self.inputs[1])
+            assert len(shape_of_shape_input) == 1
+            assert shape_of_shape_input[0] >= 0, f"incorrect shape computation {shape_of_shape_input}"
+            self.outputs[0].rank = shape_of_shape_input[0]
         else:
             self.outputs[0].rank = self.output_rank
 
@@ -61,9 +65,11 @@ class Reshape(BaseTraceOp):
         DynamicReshapeOp.build(inputs, outputs)
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["input", "output_rank"], shape_argument=["shape"])
-def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int = None) -> "tripy.Tensor":
-    return Reshape.build([input, shape], output_rank)
+@frontend_utils.convert_inputs_to_tensors(exclude=["input", "output_rank", "output_len"], shape_argument=["shape"])
+def reshape_impl(
+    input: "tripy.Tensor", shape: Sequence, output_rank: int, output_len: Optional[int] = None
+) -> "tripy.Tensor":
+    return Reshape.build([input, shape], output_rank, output_len)
 
 
 @export.public_api(document_under="operations/functions")
@@ -90,6 +96,7 @@ def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[in
         assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
     """
     from tripy.frontend.tensor import Tensor
+    from tripy.frontend.shape import Shape
 
     if isinstance(shape, Tensor):
         return Reshape.build([input, shape], None)
@@ -124,7 +131,12 @@ def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[in
         shape = list(shape)
         shape[unknown_dim_index] = compute_unknown_dim(input, shape)
 
-    return reshape_impl(input, shape, len(shape))
+    # we can support infer_len for tp.Shape if the result is rank 1 and the shape is constant
+    output_len = None
+    if isinstance(input, Shape) and len(shape) == 1 and isinstance(shape[0], int):
+        output_len = shape[0]
+
+    return reshape_impl(input, shape, len(shape), output_len)
 
 
 @dataclass(repr=False)
@@ -147,7 +159,7 @@ class Squeeze(BaseTraceOp):
         else:
             from tripy.backend.mlir.utils import ShapeContext
 
-            input_0_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
+            input_0_shape = op_utils.get_op_input_shape(self.inputs[0])
 
             def squeeze_shape(shape, indices_to_squeeze):
                 # Convert shape to list if it's not already
