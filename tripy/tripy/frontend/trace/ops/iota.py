@@ -81,7 +81,7 @@ def iota_impl(
     return Iota.build([shape], dim, output_rank, dtype)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 def iota(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
     dim: int = 0,
@@ -111,7 +111,7 @@ def iota(
     return iota_impl(shape, dim, dtype, output_rank)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with consecutive values

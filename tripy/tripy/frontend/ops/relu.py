@@ -19,7 +19,7 @@ import tripy as tp
 from tripy import export
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def relu(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies Rectified Linear Unit (RELU) function

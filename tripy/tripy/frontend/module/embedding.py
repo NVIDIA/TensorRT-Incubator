@@ -23,7 +23,7 @@ from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter, DefaultParameter
 
 
-@export.public_api(document_under="modules")
+@export.public_api(document_under="operations/modules")
 @dataclass
 @utils.constant_fields(["dtype"])
 class Embedding(Module):

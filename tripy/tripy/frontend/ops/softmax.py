@@ -18,7 +18,7 @@
 from tripy import export
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
     r"""
     Applies the softmax function to the input tensor:

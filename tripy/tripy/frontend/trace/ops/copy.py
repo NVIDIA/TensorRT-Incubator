@@ -35,7 +35,7 @@ class Copy(BaseTraceOp):
         CopyOp.build(inputs, outputs, target=self.target)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.

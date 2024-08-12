@@ -25,7 +25,7 @@ from tripy.frontend.module.parameter import Parameter, DefaultParameter
 from tripy.common.exception import raise_error
 
 
-@export.public_api(document_under="modules")
+@export.public_api(document_under="operations/modules")
 @dataclass
 @utils.constant_fields(["num_groups", "num_channels", "dtype"])
 class GroupNorm(Module):
