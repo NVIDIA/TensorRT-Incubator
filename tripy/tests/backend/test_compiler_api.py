@@ -173,7 +173,7 @@ class TestExecutable:
             inp = tp.iota((2, 2), dtype=tp.float32)
             out1 = single_return_executable(inp, inp)
             out2 = loaded_executable(inp, inp)
-            assert cp.array_equal(cp.from_dlpack(out1), cp.from_dlpack(out2))
+            assert tp.array_equal(out1, out2)
 
 
 class TestCompile:
@@ -185,8 +185,7 @@ class TestCompile:
         inp = tp.ones((2, 2), dtype=tp.float32)
         out = compiled_gelu(inp)
 
-        # TODO (#225): Replace with tp.all
-        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(tp.relu(inp)))
+        assert tp.array_equal(out, tp.relu(inp))
 
     def test_module(self):
         layernorm = tp.LayerNorm(2)
@@ -195,7 +194,7 @@ class TestCompile:
         inp = tp.ones((2, 2), dtype=tp.float32)
         out = compiled_layernorm(inp)
 
-        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(layernorm(inp)))
+        assert tp.array_equal(out, layernorm(inp))
 
     def test_compile_arg_order_irrelevant(self):
         compiler = tp.Compiler(sub)
@@ -212,7 +211,7 @@ class TestCompile:
 
         # Compiled function should still take arguments in (a, b) order.
         out = compiled_sub(a, b)
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.float32))
+        assert tp.array_equal(out, tp.ones((2, 2), dtype=tp.float32))
 
     @pytest.mark.parametrize("b", [2, tp.ones((2, 2), dtype=tp.float32) * 2])
     def test_constants_baked(self, b):
@@ -225,7 +224,7 @@ class TestCompile:
 
         out = compiled_add(a)
 
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.float32) * 2)
+        assert tp.array_equal(out, tp.ones((2, 2), dtype=tp.float32) * 2)
 
     @pytest.mark.parametrize("func", [variadic_positional, variadic_keyword])
     def test_variadic_arguments_rejected(self, func):
@@ -247,8 +246,8 @@ class TestCompile:
 
         plus, minus = compiled_func(a, b)
 
-        assert cp.array_equal(cp.from_dlpack(plus), cp.ones((2, 2), dtype=cp.float32) * 3)
-        assert cp.array_equal(cp.from_dlpack(minus), cp.ones((2, 2), dtype=cp.float32))
+        assert tp.array_equal(plus, tp.ones((2, 2), dtype=tp.float32) * 3)
+        assert tp.array_equal(minus, tp.ones((2, 2), dtype=tp.float32))
 
     def test_incorrect_dtype_rejected(self):
         compiler = tp.Compiler(add)
@@ -288,10 +287,10 @@ class TestCompile:
         )
 
         out = compiled_add(tp.ones((2, 1), dtype=tp.float32), tp.ones((2, 1), dtype=tp.float32))
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 1), dtype=cp.float32) * 2)
+        assert tp.array_equal(out, tp.ones((2, 1), dtype=tp.float32) * 2)
 
         out = compiled_add(tp.ones((3, 1), dtype=tp.float32), tp.ones((3, 1), dtype=tp.float32))
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((3, 1), dtype=cp.float32) * 2)
+        assert tp.array_equal(out, tp.ones((3, 1), dtype=tp.float32) * 2)
 
 
 # TODO (#256): Remove these tests and replace with exhaustive integration testing
@@ -303,7 +302,7 @@ class TestCompiledOps:
         a = tp.ones((2, 2), dtype=tp.float32)
         out = compiled_cast(a)
 
-        assert cp.array_equal(cp.from_dlpack(out), cp.ones((2, 2), dtype=cp.int32))
+        assert tp.array_equal(out, tp.ones((2, 2), dtype=tp.int32))
 
     def test_linear(self):
         linear = tp.Linear(2, 3)
@@ -315,4 +314,4 @@ class TestCompiledOps:
 
         out = compiled_linear(a)
 
-        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+        assert tp.array_equal(out, linear(a))
