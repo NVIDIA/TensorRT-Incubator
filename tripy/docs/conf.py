@@ -201,7 +201,7 @@ def process_docstring(app, what, name, obj, options, lines):
                 if TYPE_VERIFICATION[unqual_name].dtype_exceptions != []:
                     # Add the dtype exceptions.
                     index += 1
-                    blocks.insert(index, "**Type Exceptions**:")
+                    blocks.insert(index, "**Unsupported Type Exceptions**:")
                     index += 1
                     output_text = ""
                     for exception_dict in TYPE_VERIFICATION[unqual_name].dtype_exceptions:
