@@ -1,0 +1,18 @@
+############
+Initializers
+############
+
+.. toctree::
+    :maxdepth: 1
+
+    arange
+    full
+    full_like
+    iota
+    iota_like
+    ones
+    ones_like
+    tril
+    triu
+    zeros
+    zeros_like

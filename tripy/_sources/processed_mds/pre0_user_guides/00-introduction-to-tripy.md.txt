@@ -1,0 +1,205 @@
+# An Introduction To Tripy
+
+```{contents} Table of Contents
+:depth: 3
+```
+
+## What Is Tripy?
+
+Tripy is a compiler that compiles deep learning models for inference using TensorRT as a backend.
+It aims to be fast, easy to debug, and provide an easy-to-use Pythonic interface.
+
+## Your First Tripy Program
+
+But enough talk; let's see some code:
+
+```py
+a = tp.arange(5)
+c = a + 1.5
+print(c)
+```
+
+Output:
+```
+tensor([1.5000, 2.5000, 3.5000, 4.5000, 5.5000], dtype=float32, loc=gpu:0, shape=(5,))
+```
+
+
+This should look familiar if you've used linear algebra or deep learning libraries like
+NumPy and PyTorch.
+
+
+### Lazy Evaluation: Putting Off Work
+
+One important point is that Tripy uses a lazy evaluation model; that is,
+no computation is performed until a value is actually needed.
+
+In the example above, that means that `c` will not be evaluated until it is used,
+such as when we print its values.
+
+In most cases, this is simply an implementation detail that you will not notice.
+One exception to this is when attempting to time code. Consider the following code:
+
+```py
+import time
+
+start = time.time()
+a = tp.arange(5)
+b = tp.arange(5)
+c = a + b + tp.tanh(a)
+end = time.time()
+
+print(f"Time to create 'c': {end - start:.3f} seconds.")
+```
+
+Output:
+```
+Time to create 'c': 0.140 seconds.
+```
+
+
+It looks like Tripy is very fast! While Tripy *execution* is very fast, compiling the program
+takes some time. The reason the time is so low relative to what we'd expect for initializing
+and running the compiler is that *we're not doing that yet*.
+
+The actual compilation and computation only happens when we evaluate `c`:
+
+```py
+start = time.time()
+print(c)
+end = time.time()
+
+print(f"Time to print 'c': {end - start:.3f} seconds.")
+```
+
+Output:
+```
+tensor([0.0000, 2.7616, 4.9640, 6.9951, 8.9993], dtype=float32, loc=gpu:0, shape=(5,))
+Time to print 'c': 0.546 seconds.
+```
+
+
+That is why the time to print `c` is so much higher than the time to create it.
+
+If we wanted to time individual parts of the model, we would insert calls to `.eval()`;
+for example, adding a `c.eval()` prior to checking the end time would tell us how
+long it took to compile and run the subgraph that computes `c`.
+
+
+## Organizing Code Using Modules
+
+The {class}`tripy.Module` API allows you to create reusable blocks that can be composed together
+to create models. Modules may be comprised of other modules, including modules predefined
+by Tripy, like {class}`tripy.Linear` and {class}`tripy.LayerNorm`.
+
+For example, we can define a Transfomer MLP block like so:
+
+```py
+class MLP(tp.Module):
+    def __init__(self, embedding_size, dtype=tp.float32):
+        super().__init__()
+        self.c_fc = tp.Linear(embedding_size, 4 * embedding_size, bias=True, dtype=dtype)
+        self.c_proj = tp.Linear(4 * embedding_size, embedding_size, bias=True, dtype=dtype)
+
+    def __call__(self, x):
+        x = self.c_fc(x)
+        x = tp.gelu(x)
+        x = self.c_proj(x)
+        return x
+```
+
+To use it, we just need to construct and call it:
+
+```py
+mlp = MLP(embedding_size=2)
+
+inp = tp.iota(shape=(1, 2), dim=1, dtype=tp.float32)
+out = mlp(inp)
+```
+
+
+```python
+>>> mlp.state_dict()
+{
+    c_fc.weight: tensor(
+        [[0.0000, 1.0000],
+         [2.0000, 3.0000],
+         [4.0000, 5.0000],
+         [6.0000, 7.0000],
+         [8.0000, 9.0000],
+         [10.0000, 11.0000],
+         [12.0000, 13.0000],
+         [14.0000, 15.0000]], 
+        dtype=float32, loc=gpu:0, shape=(8, 2)),
+    c_fc.bias: tensor([0.0000, 1.0000, 2.0000, 3.0000, 4.0000, 5.0000, 6.0000, 7.0000], dtype=float32, loc=gpu:0, shape=(8,)),
+    c_proj.weight: tensor(
+        [[0.0000, 1.0000, 2.0000, 3.0000, 4.0000, 5.0000, 6.0000, 7.0000],
+         [8.0000, 9.0000, 10.0000, 11.0000, 12.0000, 13.0000, 14.0000, 15.0000]], 
+        dtype=float32, loc=gpu:0, shape=(2, 8)),
+    c_proj.bias: tensor([0.0000, 1.0000], dtype=float32, loc=gpu:0, shape=(2,)),
+}
+>>> inp
+tensor(
+    [[0.0000, 1.0000]], 
+    dtype=float32, loc=gpu:0, shape=(1, 2))
+>>> out
+tensor(
+    [[447.9999, 1183.7289]], 
+    dtype=float32, loc=gpu:0, shape=(1, 2))
+```
+
+
+
+## To `compile` Or Not To `compile`
+
+All the code we've seen so far has been using Tripy's eager mode. It is also possible to compile
+functions or modules ahead of time, which can result in significantly better performance.
+
+*Note that the compiler imposes some requirements on the functions/modules it can compile.*
+*See {class}`tripy.Compiler` for details.*
+
+Let's compile the MLP module we defined above as an example:
+
+```py
+compiler = tp.Compiler(mlp)
+
+# When we compile, we need to indicate which parameters to the function should be runtime inputs.
+# In this case, MLP takes a single input tensor for which we can specify our desired shape and datatype.
+fast_mlp = compiler.compile(tp.InputInfo(shape=(1, 2), dtype=tp.float32))
+```
+
+It is also possible to compile for a range of possible input shapes.
+See {func}`tripy.Compiler.compile` for details.
+
+Now let's benchmark the compiled version against eager mode:
+```py
+ITERS = 10
+
+start = time.time()
+for _ in range(ITERS):
+    out = mlp(inp)
+    out.eval() # Recall that we need to evaluate in order to actually materialize `out`
+end = time.time()
+
+eager_time = (end - start) / ITERS
+print(f"Eager mode average time: {eager_time:.4f} seconds")
+
+start = time.time()
+for _ in range(ITERS):
+    out = fast_mlp(inp)
+    out.eval()
+end = time.time()
+
+compiled_time = (end - start) / ITERS
+print(f"Compiled mode average time: {(end - start) / ITERS:.4f} seconds")
+```
+
+Output:
+```
+Eager mode average time: 10.0665 seconds
+Compiled mode average time: 0.0054 seconds
+```
+
+
+As you can see, the compiled module is significantly faster than running the module
+in eager mode.

@@ -1,0 +1,646 @@
+
+
+<!DOCTYPE html>
+<html class="no-js" lang="en">
+  <head>
+    <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="docsearch:name" content="Tripy" />
+    <meta name="docsearch:package_type" content="" />
+    <meta name="docsearch:release" content="0.0.1" />
+    <meta name="docsearch:version" content="0.0.1" />
+    
+      <title>Quantization &mdash; Tripy 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/bootstrap-icons.css" type="text/css" />
+          <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=3d3fbe02" />
+          <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+          <link id="pygments_dark_css" media="(prefers-color-scheme: dark)" rel="stylesheet" type="text/css" href="../../_static/pygments_dark.css?v=b20cc3f5" />
+          <link rel="stylesheet" type="text/css" href="../../_static/colorsets/sphinx-nefertiti-green.min.css?v=6777ba13" />
+          <link rel="stylesheet" type="text/css" href="../../_static/fonts/nunito/stylesheet.css?v=0ed606bc" />
+          <link rel="stylesheet" type="text/css" href="../../_static/fonts/red-hat-mono/stylesheet.css?v=4eee5046" />
+          <link rel="stylesheet" type="text/css" href="../../_static/pygments_dark.css?v=b20cc3f5" />
+          <link rel="stylesheet" type="text/css" href="../../_static/style.css?v=270043a8" />
+        <link rel="index" title="Index" href="../../genindex.html" />
+        <link rel="search" title="Search" href="../../search.html" />
+        <link rel="top" title="Tripy 0.0.1 documentation" href="#" />
+    <style>
+      :root {
+        --nftt-body-font-family: "Nunito", var(--nftt-font-sans-serif) !important;
+        --nftt-font-monospace: "Red Hat Mono", var(--nftt-font-family-monospace) !important;
+        --nftt-project-name-font: var(--nftt-body-font-family);
+        --nftt-documentation-font: var(--nftt-body-font-family);
+        --nftt-doc-headers-font: "Georgia", var(--nftt-documentation-font);--nftt-documentation-font-size: 1.0rem;--nftt-monospace-font-size: 0.85rem;}
+      h1 *, h2 *, h3 *, h4 *, h5 *, h6 * { font-size: inherit; }
+    </style>
+  </head>
+  <body>
+    <header class="navbar navbar-expand-lg navbar-dark nftt-navbar flex-column fixed-top">
+      <div class="skip-links container-xxl visually-hidden-focusable overflow-hidden justify-content-start">
+        <div class="border-bottom mb-2 pb-2 w-100">
+          <a class="d-none d-md-inline-flex p-2 m-1" href="#sidebar-filter">Skip to docs navigation</a>
+          <a class="d-inline-flex p-2 m-1" href="#content">Skip to main content</a>
+        </div>
+      </div>
+      <nav class="container-xxl nftt-gutter flex-wrap flex-lg-nowrap" aria-label="Main navigation">
+        <div class="nftt-navbar-toggler">
+          <button class="navbar-toggler p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Toggle documentation navigation">
+            <i class="bi bi-list"></i>
+          </button>
+        </div>
+          <a href="../../index.html"
+              
+              class="navbar-brand p-0 me-0 md-lg-2"
+          ><span class="brand-text">Tripy</span></a>
+        
+        <div class="d-flex d-lg-none">
+          <button class="navbar-toggler p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#nfttSearch" aria-controls="nfttSearch" aria-label="Search">
+            <i class="bi bi-search"></i>
+          </button>
+          <button class="navbar-toggler p-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#nfttNavbar" aria-controls="nfttNavbar" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+        </div>
+        
+<div class="offcanvas-lg offcanvas-end flex-grow-1" tabindex="-1" id="nfttSearch" aria-labelledby="nfttSearchOffcanvasLabel" data-bs-scroll="true">
+  <div class="offcanvas-header px-4 pb-0">
+    <h5 class="offcanvas-title fw-bold" id="nfttSearchOffcanvasLabel">Search the documentation</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#nfttSearch"></button>
+  </div>
+  <div class="offcanvas-body p-4 pt-0 p-lg-0 px-lg-3">
+    <hr class="d-lg-none text-white-50">
+    <ul class="navbar-nav flex-row align-items-center flex-wrap ms-md-auto">
+      <li class="nav-item col-12 col-lg-auto">
+        <form id="nftt-search-form" action="../../search.html" method="get">
+          <div class="input-group">
+            <input type="text" name="q" class="form-control" placeholder="Search docs" aria-label="Search" aria-describedby="button-search">
+            <input type="hidden" name="check_keywords" value="yes" />
+            <input type="hidden" name="area" value="default" />
+            <button class="btn btn-primary" type="submit" id="button-search" aria-label="Search"><i class="bi bi-search"></i></button>
+          </div>
+        </form>
+      </li>
+    </ul>
+  </div>
+</div>
+
+        <div class="offcanvas-lg offcanvas-end" tabindex="-1" id="nfttNavbar" aria-labelledby="nfttNavbarOffcanvasLabel" data-bs-scroll="true">
+          <div class="offcanvas-header px-4 pb-0">
+            <div class="offcanvas-title text-white fw-bold" id="nfttNavbarOffcanvasLabel"><span class="brand-text">Nefertiti for Sphinx</span></div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#nfttNavbar"></button>
+          </div>
+          <div class="offcanvas-body p-4 pt-0 p-lg-0">
+            <hr class="d-lg-none text-white-50">
+            <ul class="navbar-nav flex-row align-items-center flex-wrap ms-md-auto">
+              
+              <li class="nav-item col-12 col-lg-auto">
+                <a class="nav-link py-2 py-lg-0 px-0 px-lg-2" href="https://github.com/NVIDIA/TensorRT-Incubator" target="_blank" rel="noopener">
+                  <div class="d-flex align-items-center">
+                    <div class="me-2">
+                      <i class="bi bi-git size-24"></i>
+                    </div>
+                    <div class="repo d-flex flex-column align-items-center" data-snftt-repo-url="https://github.com/NVIDIA/TensorRT-Incubator">
+                      Tripy
+                      <div class="d-flex justify-content-center" data-snftt-repo-metrics>
+                        <span class="pe-2 d-flex justify-content-center align-items-center">
+                          <i class="bi bi-tag size-14"></i>
+                          <span class="repo-metric" data-snftt-repo-tag></span>
+                        </span>
+                        <span class="pe-2 d-flex justify-content-center align-items-center">
+                          <i class="bi bi-star size-14"></i>
+                          <span class="repo-metric" data-snftt-repo-stars></span>
+                        </span>
+                        <span class="d-flex justify-content-center align-items-center">
+                          <i class="bi bi-diagram-2 size-14"></i>
+                          <span class="repo-metric" data-snftt-repo-forks></span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              </li>
+              <li class="nav-item col-12 col-lg-auto h-100" aria-hidden="true">
+                <div class="vr d-none d-lg-flex h-100 mx-lg-2 text-white"></div>
+                <hr class="d-lg-none text-white-50">
+              </li>
+              
+              <!-- version_dropdown.html -->
+
+              
+              <!-- colorscheme_dropdown.html -->
+<li class="nav-item dropdown">
+  <a class="nav-link d-flex py-2 px-0 px-lg-2 dropdown-toggle align-items-center" id="snftt-luz" href="#" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Toggle light/dark">
+    <i class="bi bi-circle-half" data-snftt-luz-icon-active></i>
+    <span id="snftt-luz-text" class="d-lg-none small ms-2">Toggle light/dark</span>
+  </a>
+  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="snftt-luz-text">
+    <li>
+      <h6 class="dropdown-header">Light/dark</h6>
+    </li>
+    <li>
+      <a class="dropdown-item d-flex align-items-center" data-snftt-luz="light" href="#" aria-pressed="false">
+        <span class="small">
+          <i class="bi bi-sun" data-snftt-luz-icon="light"></i>
+        </span>
+        <span class="small ms-3">Light</span>
+        <i class="bi bi-check ms-auto"></i>
+      </a>
+    </li>
+    <li>
+      <a class="dropdown-item d-flex align-items-center" data-snftt-luz="dark" href="#" aria-pressed="false">
+        <span class="small">
+          <i class="bi bi-moon-stars" data-snftt-luz-icon="dark"></i>
+        </span>
+        <span class="small ms-3">Dark</span>
+        <i class="bi bi-check ms-auto"></i>
+      </a>
+    </li>
+    <li>
+      <a class="dropdown-item current d-flex align-items-center" data-snftt-luz="default" href="#" aria-pressed="false">
+        <span class="small">
+          <i class="bi bi-circle-half" data-snftt-luz-icon="default"></i>
+        </span>
+        <span class="small ms-3">Default</span>
+        <i class="bi bi-check ms-auto"></i>
+      </a>
+    </li>
+  </ul>
+</li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <div class="container-xxl nftt-gutter nftt-layout">
+      <aside class="nftt-sidebar">
+        <div class="title d-none d-md-block">
+          <i class="bi bi-book"></i>&nbsp;&nbsp;<span>Table of contents</span>
+        </div>
+        <div id="sidebar" tabindex="-1" class="offcanvas-lg offcanvas-start" aria-labelledby="nfttSidebarOffcanvasLabel">
+            <!-- danirus sidebartemplate: "globaltoc.html" --><div class="offcanvas-header border-bottom">
+  <h5 class="offcanvas-title" id="nfttSidebarOffcanvasLabel">
+    Table of contents
+  </h5>
+  <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close" data-bs-target="#sidebar"></button>
+</div>
+
+<div class="offcanvas-body">
+  <nav class="toc" aria-label="Main menu">
+    <div class="mb-3 p-1 pt-3 pb-4 border-bottom">
+      <input id="sidebar-filter" type="text" name="filter" class="form-control form-control-sm" placeholder="filter" aria-label="filter">
+    </div>
+    <p class="caption" role="heading"><span class="caption-text">User Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../pre0_user_guides/00-introduction-to-tripy.html">An Introduction To Tripy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../pre0_user_guides/01-quantization.html">Quantization</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../compiler/index.html">Compiler</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../compiler/arg_info.html">ArgInfo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../compiler/executable.html">Executable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../compiler/input_info.html">InputInfo</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../config.html">config</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../datatype.html">dtype</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../device.html">device</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../exception/index.html">Exception</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../exception/tripy_exception.html">TripyException</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../logger.html">logger</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/index.html">Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../modules/parameter.html">Parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../operations/index.html">Operations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../operations/functions/index.html">Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/abs.html">abs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/all.html">all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/allclose.html">allclose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/any.html">any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/argmax.html">argmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/argmin.html">argmin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/cast.html">cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/concatenate.html">concatenate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/copy.html">copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/cos.html">cos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/exp.html">exp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/expand.html">expand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/flip.html">flip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/gather.html">gather</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/gelu.html">gelu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/log.html">log</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/masked_fill.html">masked_fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/max.html">max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/maximum.html">maximum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/minimum.html">minimum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/permute.html">permute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/plugin.html">plugin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/prod.html">prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/relu.html">relu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/reshape.html">reshape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/rsqrt.html">rsqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/sigmoid.html">sigmoid</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/silu.html">silu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/sin.html">sin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/softmax.html">softmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/split.html">split</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/sqrt.html">sqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/squeeze.html">squeeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/sum.html">sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/tanh.html">tanh</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/transpose.html">transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/unsqueeze.html">unsqueeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/var.html">var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/functions/where.html">where</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../operations/initializers/index.html">Initializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/arange.html">arange</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/full.html">full</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/full_like.html">full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/iota.html">iota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/iota_like.html">iota_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/ones.html">ones</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/ones_like.html">ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/tril.html">tril</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/triu.html">triu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/zeros.html">zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/initializers/zeros_like.html">zeros_like</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../operations/modules/index.html">Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/modules/conv.html">Conv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/modules/conv_transpose.html">ConvTranspose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/modules/embedding.html">Embedding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/modules/group_norm.html">GroupNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/modules/layer_norm.html">LayerNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/modules/linear.html">Linear</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../operations/quantization/index.html">Quantization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/quantization/dequantize.html">dequantize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../operations/quantization/quantize.html">quantize</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../shape.html">Shape</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tensor/index.html">Tensor</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Developer Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../post0_developer_guides/architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../post0_developer_guides/debugging.html">Debugging MLIR-TensorRT backend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../post0_developer_guides/design-decisions.html">Design Decisions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../post0_developer_guides/how-to-add-new-ops.html">Adding New Operators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../post0_developer_guides/mlir-dialect-python-apis.html">Using Python APIs of MLIR Dialects</a></li>
+</ul>
+
+  </nav>
+  <template data-toggle-item-template>
+    <button class="btn btn-sm btn-link toctree-expand" type="button">
+      <i class="bi bi-caret-right"></i>
+      <span class="visually-hidden">Toggle menu contents</span>
+    </button>
+  </template>
+</div>
+        </div>
+      </aside>
+      <main class="nftt-main">
+        <article id="content" class="nftt-content" role="main">
+    <section id="quantization">
+<h1><a class="toc-backref" href="#id1" role="doc-backlink">Quantization</a><a class="headerlink" href="#quantization" title="Link to this heading">¶</a></h1>
+<nav class="contents" id="table-of-contents">
+<p class="topic-title">Table of Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#quantization" id="id1">Quantization</a></p>
+<ul>
+<li><p><a class="reference internal" href="#using-quantized-modules" id="id2">Using Quantized Modules</a></p></li>
+<li><p><a class="reference internal" href="#running-quantized-models" id="id3">Running Quantized Models</a></p>
+<ul>
+<li><p><a class="reference internal" href="#calibration-with-model-optimizer" id="id4">Calibration With Model Optimizer</a></p></li>
+<li><p><a class="reference internal" href="#load-scales-into-the-tripy-model" id="id5">Load Scales Into The Tripy Model</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="using-quantized-modules">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Using Quantized Modules</a><a class="headerlink" href="#using-quantized-modules" title="Link to this heading">¶</a></h2>
+<p>Various modules predefined by Tripy support quantization. For example, the <a class="reference internal" href="../../operations/modules/linear.html#tripy.Linear" title="tripy.Linear"><code class="xref py py-class docutils literal notranslate"><span class="pre">tripy.Linear</span></code></a>
+module includes two arguments to configure the quantization mode. Let’s construct the following
+quantized linear module:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">quant_linear</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+<span class="linenos">2</span>    <span class="mi">4</span><span class="p">,</span>
+<span class="linenos">3</span>    <span class="mi">2</span><span class="p">,</span>
+<span class="linenos">4</span>    <span class="n">quant_dtype</span><span class="o">=</span><span class="n">tp</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+<span class="linenos">5</span>    <span class="n">weight_quant_dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="linenos">6</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quant_linear</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="go">{</span>
+<span class="go">    weight: tensor(</span>
+<span class="go">        [[0.0000, 1.0000, 2.0000, 3.0000],</span>
+<span class="go">         [4.0000, 5.0000, 6.0000, 7.0000]], </span>
+<span class="go">        dtype=float32, loc=gpu:0, shape=(2, 4)),</span>
+<span class="go">    bias: tensor([0.0000, 1.0000], dtype=float32, loc=gpu:0, shape=(2,)),</span>
+<span class="go">}</span>
+</pre></div>
+</div>
+<p>As described in <a class="reference internal" href="../../operations/modules/linear.html#tripy.Linear" title="tripy.Linear"><code class="xref py py-class docutils literal notranslate"><span class="pre">tripy.Linear</span></code></a>, the quantized linear module has
+2 additional <a class="reference internal" href="../../modules/parameter.html#tripy.Parameter" title="tripy.Parameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">tripy.Parameter</span></code></a>s compared to a normal linear layer:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">weight_scale</span></code>: The quantization scale for <code class="docutils literal notranslate"><span class="pre">weight</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">input_scale</span></code>: The quantization scale for the input.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">weight_scale</span></code> must always be provided while <code class="docutils literal notranslate"><span class="pre">input_scale</span></code> is optional. The input will be quantized
+only if <code class="docutils literal notranslate"><span class="pre">input_scale</span></code> is provided. For a <code class="docutils literal notranslate"><span class="pre">Linear</span></code> module in this example, only “per-tensor” quantization
+is allowed for the input. This is why there is no <code class="docutils literal notranslate"><span class="pre">input_quant_dim</span></code> argument.</p>
+<p>Let’s fill the scale parameters with dummy data:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">weight_scale</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="linenos">2</span><span class="n">quant_linear</span><span class="o">.</span><span class="n">input_scale</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">quant_linear</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="go">{</span>
+<span class="go">    weight: tensor(</span>
+<span class="go">        [[0.0000, 1.0000, 2.0000, 3.0000],</span>
+<span class="go">         [4.0000, 5.0000, 6.0000, 7.0000]], </span>
+<span class="go">        dtype=float32, loc=gpu:0, shape=(2, 4)),</span>
+<span class="go">    bias: tensor([0.0000, 1.0000], dtype=float32, loc=gpu:0, shape=(2,)),</span>
+<span class="go">    weight_scale: tensor(1.0, dtype=float32, loc=gpu:0, shape=()),</span>
+<span class="go">    input_scale: tensor(1.0, dtype=float32, loc=gpu:0, shape=()),</span>
+<span class="go">}</span>
+</pre></div>
+</div>
+<p>and run a forward pass to see the result:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="n">x</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">iota</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tp</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="linenos">2</span><span class="n">out</span> <span class="o">=</span> <span class="n">quant_linear</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span>
+<span class="go">tensor(</span>
+<span class="go">    [[0.0000, 0.0000, 0.0000, 0.0000],</span>
+<span class="go">     [1.0000, 1.0000, 1.0000, 1.0000],</span>
+<span class="go">     [2.0000, 2.0000, 2.0000, 2.0000]], </span>
+<span class="go">    dtype=float32, loc=gpu:0, shape=(3, 4))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">out</span>
+<span class="go">tensor(</span>
+<span class="go">    [[0.0000, 1.0000],</span>
+<span class="go">     [6.0000, 23.0000],</span>
+<span class="go">     [12.0000, 45.0000]], </span>
+<span class="go">    dtype=float32, loc=gpu:0, shape=(3, 2))</span>
+</pre></div>
+</div>
+<p>The result still has a data type of <a class="reference internal" href="../../datatype.html#tripy.float32" title="tripy.float32"><code class="xref py py-class docutils literal notranslate"><span class="pre">tripy.float32</span></code></a>, but internally, TensorRT quantized the
+input and weight, executed the linear layer with <a class="reference internal" href="../../datatype.html#tripy.int8" title="tripy.int8"><code class="xref py py-class docutils literal notranslate"><span class="pre">tripy.int8</span></code></a> precision, and finally dequantized
+the output back to the original precision.</p>
+</section>
+<section id="running-quantized-models">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Running Quantized Models</a><a class="headerlink" href="#running-quantized-models" title="Link to this heading">¶</a></h2>
+<p>Now that we have covered how quantization works in <a class="reference internal" href="../../operations/modules/linear.html#tripy.Linear" title="tripy.Linear"><code class="xref py py-class docutils literal notranslate"><span class="pre">tripy.Linear</span></code></a>, we will walk through
+the workflow of running a real-world quantized model: <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//examples/nanogpt/">nanoGPT</a>.</p>
+<section id="calibration-with-model-optimizer">
+<h3><a class="toc-backref" href="#id4" role="doc-backlink">Calibration With Model Optimizer</a><a class="headerlink" href="#calibration-with-model-optimizer" title="Link to this heading">¶</a></h3>
+<p>The quantization scales are not available unless the model was trained with QAT (quantization-aware training).
+We need to perform another step called calibration to compute the correct scales for each quantized layer.
+There are many ways to do calibration, one of which is using the <code class="docutils literal notranslate"><span class="pre">nvidia-modelopt</span></code> toolkit. To install it, run:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>--extra-index-url<span class="w"> </span>https://pypi.nvidia.com<span class="w"> </span>nvidia-modelopt<span class="o">==</span><span class="m">0</span>.11.0<span class="w"> </span>transformers<span class="w"> </span>datasets
+</pre></div>
+</div>
+<p>First, let’s get the pre-trained GPT model from hugging face:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">GPT2LMHeadModel</span>
+<span class="linenos">2</span>
+<span class="linenos">3</span><span class="n">model</span> <span class="o">=</span> <span class="n">GPT2LMHeadModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&quot;gpt2&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then, we perform int8 weight-only quantization:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span>
+<span class="linenos"> 2</span><span class="kn">import</span> <span class="nn">modelopt.torch.quantization</span> <span class="k">as</span> <span class="nn">mtq</span>
+<span class="linenos"> 3</span>
+<span class="linenos"> 4</span><span class="kn">from</span> <span class="nn">modelopt.torch.utils.dataset_utils</span> <span class="kn">import</span> <span class="n">create_forward_loop</span>
+<span class="linenos"> 5</span>
+<span class="linenos"> 6</span><span class="c1"># define the modelopt quant configs</span>
+<span class="linenos"> 7</span><span class="n">quant_cfg</span> <span class="o">=</span> <span class="n">mtq</span><span class="o">.</span><span class="n">INT8_DEFAULT_CFG</span>
+<span class="linenos"> 8</span><span class="c1"># disable input quantization for weight-only</span>
+<span class="linenos"> 9</span><span class="c1"># quantized linear modules</span>
+<span class="linenos">10</span><span class="n">quant_cfg</span><span class="p">[</span><span class="s2">&quot;quant_cfg&quot;</span><span class="p">][</span><span class="s2">&quot;*input_quantizer&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<span class="linenos">11</span>    <span class="s2">&quot;enable&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+<span class="linenos">12</span><span class="p">}</span>
+<span class="linenos">13</span>
+<span class="linenos">14</span><span class="c1"># define the forward loop for calibration</span>
+<span class="linenos">15</span><span class="n">MAX_SEQ_LEN</span> <span class="o">=</span> <span class="mi">512</span>
+<span class="linenos">16</span><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+<span class="linenos">17</span>    <span class="s2">&quot;gpt2&quot;</span><span class="p">,</span>
+<span class="linenos">18</span>    <span class="n">use_fast</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="linenos">19</span>    <span class="n">model_max_length</span><span class="o">=</span><span class="n">MAX_SEQ_LEN</span><span class="p">,</span>
+<span class="linenos">20</span>    <span class="n">padding_side</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
+<span class="linenos">21</span>    <span class="n">trust_remote_code</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="linenos">22</span><span class="p">)</span>
+<span class="linenos">23</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">eos_token</span>
+<span class="linenos">24</span>
+<span class="linenos">25</span><span class="n">forward_loop</span> <span class="o">=</span> <span class="n">create_forward_loop</span><span class="p">(</span>
+<span class="linenos">26</span>    <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+<span class="linenos">27</span>    <span class="n">dataset_name</span><span class="o">=</span><span class="s2">&quot;cnn_dailymail&quot;</span><span class="p">,</span>
+<span class="linenos">28</span>    <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
+<span class="linenos">29</span>    <span class="n">device</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+<span class="linenos">30</span>    <span class="n">num_samples</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+<span class="linenos">31</span><span class="p">)</span>
+<span class="linenos">32</span>
+<span class="linenos">33</span><span class="c1"># call the api for calibration</span>
+<span class="linenos">34</span><span class="n">mtq</span><span class="o">.</span><span class="n">quantize</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">quant_cfg</span><span class="p">,</span> <span class="n">forward_loop</span><span class="o">=</span><span class="n">forward_loop</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>/usr/local/lib/python3.10/dist-packages/transformers/tokenization_utils_base.py:1601: FutureWarning: `clean_up_tokenization_spaces` was not set. It will be set to `True` by default. This behavior will be depracted in transformers v4.45, and will be then set to `False` by default. For more details check this issue: https://github.com/huggingface/transformers/issues/31884
+  warnings.warn(
+Inserted 147 quantizers
+Warning: The following arguments will not be used in the forward loop:
+- Positional argument 0: GPT2LMHeadModel(
+  (transformer): GPT2Model(
+    (wte): Embedding(50257, 768)
+    (wpe): Embedding(1024, 768)
+    (drop): Dropout(p=0.1, inplace=False)
+    (h): ModuleList(
+      (0-11): 12 x GPT2Block(
+        (ln_1): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+        (attn): GPT2Attention(
+          (c_attn): QuantLinear(
+            in_features=768, out_features=2304, bias=True
+            (input_quantizer): TensorQuantizer(disabled)
+            (output_quantizer): TensorQuantizer(disabled)
+            (weight_quantizer): TensorQuantizer(8 bit fake axis=0 amax=dynamic calibrator=MaxCalibrator calib)
+          )
+          (c_proj): QuantLinear(
+            in_features=768, out_features=768, bias=True
+            (input_quantizer): TensorQuantizer(disabled)
+            (output_quantizer): TensorQuantizer(disabled)
+            (weight_quantizer): TensorQuantizer(8 bit fake axis=0 amax=dynamic calibrator=MaxCalibrator calib)
+          )
+          (attn_dropout): Dropout(p=0.1, inplace=False)
+          (resid_dropout): Dropout(p=0.1, inplace=False)
+        )
+        (ln_2): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+        (mlp): GPT2MLP(
+          (c_fc): QuantLinear(
+            in_features=768, out_features=3072, bias=True
+            (input_quantizer): TensorQuantizer(disabled)
+            (output_quantizer): TensorQuantizer(disabled)
+            (weight_quantizer): TensorQuantizer(8 bit fake axis=0 amax=dynamic calibrator=MaxCalibrator calib)
+          )
+          (c_proj): QuantLinear(
+            in_features=3072, out_features=768, bias=True
+            (input_quantizer): TensorQuantizer(disabled)
+            (output_quantizer): TensorQuantizer(disabled)
+            (weight_quantizer): TensorQuantizer(8 bit fake axis=0 amax=dynamic calibrator=MaxCalibrator calib)
+          )
+          (act): NewGELUActivation()
+          (dropout): Dropout(p=0.1, inplace=False)
+        )
+      )
+    )
+    (ln_f): LayerNorm((768,), eps=1e-05, elementwise_affine=True)
+  )
+  (lm_head): QuantLinear(
+    in_features=768, out_features=50257, bias=False
+    (input_quantizer): TensorQuantizer(disabled)
+    (output_quantizer): TensorQuantizer(disabled)
+    (weight_quantizer): TensorQuantizer(disabled)
+  )
+)
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">mtq.quantize</span></code> replaces all linear layers specified in <code class="docutils literal notranslate"><span class="pre">quant_cfg</span></code> with <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code>
+layers, which contain the calibrated parameters.</p>
+</section>
+<section id="load-scales-into-the-tripy-model">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Load Scales Into The Tripy Model</a><a class="headerlink" href="#load-scales-into-the-tripy-model" title="Link to this heading">¶</a></h3>
+<p>Let’s take a look at one of the <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> produced by model optimizer:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">transformer</span><span class="o">.</span><span class="n">h</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">attn</span><span class="o">.</span><span class="n">c_attn</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">QuantLinear</span><span class="p">(</span>
+  <span class="n">in_features</span><span class="o">=</span><span class="mi">768</span><span class="p">,</span> <span class="n">out_features</span><span class="o">=</span><span class="mi">2304</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span>
+  <span class="p">(</span><span class="n">input_quantizer</span><span class="p">):</span> <span class="n">TensorQuantizer</span><span class="p">(</span><span class="n">disabled</span><span class="p">)</span>
+  <span class="p">(</span><span class="n">output_quantizer</span><span class="p">):</span> <span class="n">TensorQuantizer</span><span class="p">(</span><span class="n">disabled</span><span class="p">)</span>
+  <span class="p">(</span><span class="n">weight_quantizer</span><span class="p">):</span> <span class="n">TensorQuantizer</span><span class="p">(</span><span class="mi">8</span> <span class="n">bit</span> <span class="n">fake</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span> <span class="n">amax</span><span class="o">=</span><span class="p">[</span><span class="mf">0.1202</span><span class="p">,</span> <span class="mf">2.8436</span><span class="p">](</span><span class="mi">2304</span><span class="p">)</span> <span class="n">calibrator</span><span class="o">=</span><span class="n">MaxCalibrator</span> <span class="n">quant</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">amax</span></code> attribute gives us the dynamic range of the tensor. Tripy requires scaling factors, so we can convert it like so:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="k">def</span> <span class="nf">convert_to_scale</span><span class="p">(</span><span class="n">amax</span><span class="p">,</span> <span class="n">maxbound</span><span class="p">):</span>
+<span class="linenos">2</span>    <span class="k">return</span> <span class="n">amax</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">/</span> <span class="n">maxbound</span>
+</pre></div>
+</div>
+<p>Let’s convert the <code class="docutils literal notranslate"><span class="pre">amax</span></code> to the scaling factor and load it to a compatible <a class="reference internal" href="../../operations/modules/linear.html#tripy.Linear" title="tripy.Linear"><code class="xref py py-class docutils literal notranslate"><span class="pre">tripy.Linear</span></code></a> module:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="n">weight_only_qlinear</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span>
+<span class="linenos"> 2</span>    <span class="mi">768</span><span class="p">,</span>
+<span class="linenos"> 3</span>    <span class="mi">2304</span><span class="p">,</span>
+<span class="linenos"> 4</span>    <span class="n">quant_dtype</span><span class="o">=</span><span class="n">tp</span><span class="o">.</span><span class="n">int8</span><span class="p">,</span>
+<span class="linenos"> 5</span>    <span class="n">weight_quant_dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<span class="linenos"> 6</span><span class="p">)</span>
+<span class="linenos"> 7</span><span class="n">quantizer</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">transformer</span><span class="o">.</span><span class="n">h</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">attn</span><span class="o">.</span><span class="n">c_attn</span><span class="o">.</span><span class="n">weight_quantizer</span>
+<span class="linenos"> 8</span><span class="n">scale</span> <span class="o">=</span> <span class="n">convert_to_scale</span><span class="p">(</span><span class="n">quantizer</span><span class="o">.</span><span class="n">export_amax</span><span class="p">(),</span> <span class="n">quantizer</span><span class="o">.</span><span class="n">maxbound</span><span class="p">)</span>
+<span class="linenos"> 9</span><span class="n">scale</span> <span class="o">=</span> <span class="n">scale</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+<span class="linenos">10</span><span class="n">weight_only_qlinear</span><span class="o">.</span><span class="n">weight_scale</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">weight_only_qlinear</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="go">{</span>
+<span class="go">    weight: tensor(</span>
+<span class="go">        [[0.0000, 1.0000, 2.0000,  ..., 765.0000, 766.0000, 767.0000],</span>
+<span class="go">         [768.0000, 769.0000, 770.0000,  ..., 1533.0000, 1534.0000, 1535.0000],</span>
+<span class="go">         [1536.0000, 1537.0000, 1538.0000,  ..., 2301.0000, 2302.0000, 2303.0000],</span>
+<span class="go">         ...,</span>
+<span class="go">         [1767168.0000, 1767169.0000, 1767170.0000,  ..., 1767933.0000, 1767934.0000, 1767935.0000],</span>
+<span class="go">         [1767936.0000, 1767937.0000, 1767938.0000,  ..., 1768701.0000, 1768702.0000, 1768703.0000],</span>
+<span class="go">         [1768704.0000, 1768705.0000, 1768706.0000,  ..., 1769469.0000, 1769470.0000, 1769471.0000]], </span>
+<span class="go">        dtype=float32, loc=gpu:0, shape=(2304, 768)),</span>
+<span class="go">    bias: tensor([0.0000, 1.0000, 2.0000,  ..., 2301.0000, 2302.0000, 2303.0000], dtype=float32, loc=gpu:0, shape=(2304,)),</span>
+<span class="go">    weight_scale: tensor([0.0073, 0.0070, 0.0067,  ..., 0.0026, 0.0016, 0.0021], dtype=float32, loc=cpu:0, shape=torch.Size([2304])),</span>
+<span class="go">}</span>
+</pre></div>
+</div>
+<p>For an example of how to load weights from a quantized model, refer to
+<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//examples/nanogpt/weight_loader.py">load_quant_weights_from_hf</a> from the nanoGPT example.</p>
+</section>
+</section>
+</section>
+
+</article>
+        
+          <aside class="nftt-toc">
+            <div class="mt-3 mb-1 my-lg-0 ps-xl-3 text-muted">
+              <button class="btn btn-link link-dark p-md-0 mb-2 mb-md-0 text-decoration-none nftt-toc-toggle d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#tocContents" aria-expanded="false" aria-controls="tocContents"
+              >On this page <i class="ms-2 bi bi-chevron-expand"></i></button>
+              <div class="title d-none d-md-block">
+                <i class="bi bi-file-earmark-text"></i>&nbsp;&nbsp;<span class="small">On this page</span>
+              </div>
+              <hr class="d-none d-md-block my-2">
+              <div class="collapse nftt-toc-collapse" id="tocContents">
+                <nav id="TableOfContents">
+                  <ul>
+<li><a class="reference internal" href="#">Quantization</a><ul>
+<li><a class="reference internal" href="#using-quantized-modules">Using Quantized Modules</a></li>
+<li><a class="reference internal" href="#running-quantized-models">Running Quantized Models</a><ul>
+<li><a class="reference internal" href="#calibration-with-model-optimizer">Calibration With Model Optimizer</a></li>
+<li><a class="reference internal" href="#load-scales-into-the-tripy-model">Load Scales Into The Tripy Model</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+                </nav>
+              </div>
+            </div>
+          </aside>
+        
+      </main>
+    </div>
+
+    <footer class="nftt-footer">
+      
+<nav id="paginator"></nav>
+
+      <div class="py-5 px-4 px-md-3">
+  <div class="container">
+    
+
+    <div class="row">
+      <div class="col-lg-12 text-center">
+        <a class="brand-text d-inline-flex align-items-center mb-2 text-decoration-none" href="/" aria-label="Nefertiti-for-Sphinx">
+          <span class="fs-6 fw-bold">Tripy</span>
+        </a>
+        
+          <ul class="list-unstyled small text-muted">
+            <li>2024, NVIDIA</li>
+          </ul>
+        
+        
+      </div>
+    </div>
+  </div>
+</div>
+    </footer>
+    <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+
+    <script type="text/javascript" src="../../_static/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx-nefertiti.min.js"></script>
+    
+  </body>
+</html>
