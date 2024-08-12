@@ -25,14 +25,19 @@
 #define MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CUBLAS_CUBLASMODULE_H
 
 #include "mlir-executor/Runtime/API/API.h"
+
 struct lua_State;
 
 namespace mlirtrt::runtime {
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
 
 /// Register various external functions with the given Lua state.
 void registerExecutorCuBLASModuleLuaRuntimeMethods(
     lua_State *state, AllocTracker *allocTracker,
     ResourceTracker *resourceTracker);
+
+#endif // MLIR_EXECUTOR_ENABLE_CUBLAS
 
 } // namespace mlirtrt::runtime
 

@@ -1,5 +1,9 @@
 include(CMakeParseArguments)
 
+if(NOT COMMAND CPMAddPackage)
+  include(../build_tools/cmake/CPM.cmake)
+endif()
+
 #-------------------------------------------------------------------------------------
 # Wrapper around CPMAddPackage This functions exactly like CPMAddPackage.
 # However, if the GROUP_CICD_TOKEN environment variable is set, then it will
@@ -60,6 +64,7 @@ function(mlir_executor_add_lua)
       -Wdisabled-optimization
       -Wdouble-promotion
       -Wmissing-declarations
+      "$<$<CXX_COMPILER_ID:GNU>:-Wno-pedantic>"
       # We enable -Wall by default globally. Suppress
       # some warnings that will appear in Lua C code.
       -Wno-gnu-label-as-value
@@ -149,9 +154,10 @@ function(mlir_executor_find_nccl)
     NAMES nccl.h
     REQUIRED)
   # libnccl_static.a for static
-  find_library(NcclLibPath NAMES nccl
-    REQUIRED
-  )
+  find_library(NcclLibPath NAMES nccl)
+  if(NcclLibPath STREQUAL "NcclLibPath-NOTFOUND")
+    return()
+  endif()
 
   message(STATUS "Found NCCL headers in ${nccl_header}")
   message(STATUS "Found NCCL libs in ${NcclLibPath}")
@@ -194,4 +200,23 @@ function(mlir_executor_find_and_patch_libnvptxcompiler target_name)
   set_property(TARGET ${target_name} PROPERTY IMPORTED_LOCATION "${dstPath}")
   target_include_directories(${target_name} SYSTEM INTERFACE
     "${CUDAToolkit_INCLUDE_DIRS}")
+endfunction()
+
+
+#-------------------------------------------------------------------------------------
+# Download and add DLPack to the build (header only)
+#-------------------------------------------------------------------------------------
+function(mlir_tensorrt_find_dlpack)
+  CPMAddPackage(
+    NAME dlpack
+    VERSION 1.0rc
+    URL https://github.com/dmlc/dlpack/archive/refs/tags/v1.0rc.tar.gz
+    DOWNLOAD_ONLY TRUE
+  )
+  if(NOT TARGET DLPackHeaderOnly)
+    add_library(DLPackHeaderOnly INTERFACE IMPORTED)
+    target_include_directories(DLPackHeaderOnly INTERFACE
+      $<BUILD_INTERFACE:${dlpack_SOURCE_DIR}/include>)
+    add_library(DLPack::Headers ALIAS DLPackHeaderOnly)
+  endif()
 endfunction()

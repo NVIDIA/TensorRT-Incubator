@@ -30,10 +30,14 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif // defined(__clang__)
+#include "NvInferVersion.h"
 #include <NvInfer.h>
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif // defined(__clang__)
+
+#define STR_IMPL(x) #x
+#define STR(x) STR_IMPL(x)
 
 extern "C" {
 
@@ -48,7 +52,8 @@ extern "C" {
   } while (false)
 
 #define LOAD_NVINFER_LIB_OR_RETURN(varName, errorReturnValue)                  \
-  LOAD_LIB_OR_RETURN(varName, errorReturnValue, "libnvinfer.so")
+  LOAD_LIB_OR_RETURN(varName, errorReturnValue,                                \
+                     "libnvinfer.so." STR(NV_TENSORRT_MAJOR))
 #define LOAD_NVINFER_LIB_OR_RETURN_NULLPTR(varName)                            \
   LOAD_NVINFER_LIB_OR_RETURN(varName, nullptr)
 

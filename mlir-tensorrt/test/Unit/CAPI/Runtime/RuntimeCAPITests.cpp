@@ -7,8 +7,8 @@
 /// Unit tests for the runtime C API implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-c/Common/Common.h"
-#include "mlir-tensorrt-c/Runtime/Runtime.h"
+#include "mlir-executor-c/Common/Common.h"
+#include "mlir-executor-c/Runtime/Runtime.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "gtest/gtest.h"
 #include <numeric>

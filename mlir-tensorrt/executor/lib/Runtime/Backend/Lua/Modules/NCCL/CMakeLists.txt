@@ -1,5 +1,4 @@
-
-add_mlir_library(MLIRTensorRTExecutorRuntimeNCCLModule
+add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeNCCLModule
   NCCLModule.cpp
 
   LINK_LIBS
@@ -12,7 +11,7 @@ add_mlir_library(MLIRTensorRTExecutorRuntimeNCCLModule
   lua::core
   CUDA::cudart
   CUDA::cuda_driver
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:MPI::MPI_C>
-  $<$<BOOL:${MLIR_TRT_ENABLE_NCCL}>:NCCL>
+  $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:MPI::MPI_C>
+  $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:NCCL>
   MLIRTensorRTExecutorRuntimeCommon
 )

@@ -2,6 +2,7 @@
 **/build/**
 *.log
 **/llvm-project/**
+**/llvm-project/
 
 # Docs build artifacts
 /public/

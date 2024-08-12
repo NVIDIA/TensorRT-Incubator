@@ -29,7 +29,7 @@
 #include "llvm/Support/Threading.h"
 #include <vector>
 
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
 #define OMPI_SKIP_MPICXX
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -40,7 +40,7 @@
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
-#endif //  MLIR_TRT_ENABLE_NCCL
+#endif //  MLIR_EXECUTOR_ENABLE_NCCL
 
 using namespace mlirtrt;
 namespace rt = mlirtrt::runtime;
@@ -291,7 +291,7 @@ std::unique_ptr<Executable> Executable::getCopy() const {
 
 StatusOr<RuntimeSessionOptions>
 RuntimeSessionOptions::createUsingSingleHostMpi() {
-#ifdef MLIR_TRT_ENABLE_NCCL
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
   auto getErrStatus = [](llvm::StringRef msg, int32_t errCode) {
     llvm::SmallString<MPI_MAX_ERROR_STRING> str;
     str.resize(MPI_MAX_ERROR_STRING);
@@ -339,10 +339,10 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
     return getErrStatus("MPI_Comm_rank failed", errCode);
 
   return RuntimeSessionOptions(size, rank, uniqueIdStr);
-#else  // MLIR_TRT_ENABLE_NCCL
+#else  // MLIR_EXECUTOR_ENABLE_NCCL
   return getInternalErrorStatus(
       "MLIR-TensorRT was not configured and built with MPI and NCCL support");
-#endif // MLIR_TRT_ENABLE_NCCL
+#endif // MLIR_EXECUTOR_ENABLE_NCCL
 }
 
 //===----------------------------------------------------------------------===//
