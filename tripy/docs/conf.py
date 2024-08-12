@@ -202,13 +202,13 @@ def process_docstring(app, what, name, obj, options, lines):
                     # Add the dtype exceptions.
                     index += 1
                     blocks.insert(index, "**Unsupported Type Exceptions**:")
-                    index += 1
-                    dtype_exception_text = ""
+                    dtype_exception_text = []
                     for exception_dict in TYPE_VERIFICATION[unqual_name].dtype_exceptions:
-                        for key, val in exception_dict.items():
-                            dtype_exception_text += f"{key}: :class:`{val}`, "
-                        dtype_exception_text = dtype_exception_text[:-2] + "; "
-                    dtype_exception_text = dtype_exception_text[:-2] + "\n"
+                        dtype_exception_text.append(
+                            ", ".join([f"{key}: :class:`{val}`" for key, val in exception_dict.items()])
+                        )
+                    dtype_exception_text = "; ".join(dtype_exception_text) + "\n"
+                    index += 1
                     blocks.insert(index, dtype_exception_text)
                 break
             if re.search(r":param \w+: ", block):

@@ -15,20 +15,20 @@
 # limitations under the License.
 #
 
-import numbers
 import tripy as tp
 
-from typing import Union, Tuple, List, Sequence
+from typing import Union, List
 from tripy.common import datatype
+
 
 def tensor_builder(input_values, namespace):
     init = input_values.init
     if init is None:
-        return tp.ones(dtype=namespace[input_values.dtype], shape=(3,2))
+        return tp.ones(dtype=namespace[input_values.dtype], shape=(3, 2))
     elif not isinstance(init, tp.Tensor):
         assert input_values.dtype == None
         return init
-    return tp.cast(init,dtype=namespace[input_values.dtype])
+    return tp.cast(init, dtype=namespace[input_values.dtype])
 
 
 def dtype_builder(input_values, namespace):
@@ -38,9 +38,9 @@ def dtype_builder(input_values, namespace):
 def tensor_list_builder(input_values, namespace):
     init = input_values.init
     if init is None:
-        return [tp.ones(shape=(3,2),dtype=namespace[input_values.dtype]) for _ in range(2)]
+        return [tp.ones(shape=(3, 2), dtype=namespace[input_values.dtype]) for _ in range(2)]
     else:
-        return [tp.cast(tens,dtype=namespace[input_values.dtype]) for tens in init]
+        return [tp.cast(tens, dtype=namespace[input_values.dtype]) for tens in init]
 
 
 def device_builder(input_values, namespace):
@@ -70,4 +70,3 @@ def create_obj(param_name, input_desc, namespace):
     if create_obj_func:
         namespace[param_name] = create_obj_func(input_desc[param_type], namespace)
         return namespace[param_name]
-    
