@@ -35,4 +35,6 @@ class TestUnsqueezeOp:
         inp = np.ones((4, 2, 2, 3), dtype=np.float32)
 
         out = compile_fixture(func, tp.Tensor(inp))
-        assert tp.allclose(out, tp.Tensor(np.expand_dims(inp, axis=axis)))
+        correct = tp.Tensor(np.expand_dims(inp, axis=axis))
+        assert out.shape == correct.shape
+        assert tp.allclose(out, correct)
