@@ -6,8 +6,8 @@
     :caption: User Guides
     :maxdepth: 1
 
-    pre0_user_guides/introduction-to-tripy
-    pre0_user_guides/quantization
+    pre0_user_guides/00-introduction-to-tripy
+    pre0_user_guides/01-quantization
 
 .. toctree::
     :caption: API Reference
@@ -20,9 +20,9 @@
     exception/index
     logger
     modules/index
+    operations/index
     shape
     tensor/index
-    tensor_operations/index
 
 
 .. toctree::

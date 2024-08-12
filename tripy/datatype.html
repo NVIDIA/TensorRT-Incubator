@@ -196,8 +196,8 @@
     </div>
     <p class="caption" role="heading"><span class="caption-text">User Guides</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/introduction-to-tripy.html">An Introduction To Tripy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/quantization.html">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/00-introduction-to-tripy.html">An Introduction To Tripy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/01-quantization.html">Quantization</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul class="current">
@@ -216,73 +216,85 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="logger.html">logger</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/index.html">Module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="modules/conv.html">Conv</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/conv_transpose.html">ConvTranspose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/embedding.html">Embedding</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/group_norm.html">GroupNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/layer_norm.html">LayerNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/linear.html">Linear</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/parameter.html">Parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="operations/index.html">Operations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="operations/functions/index.html">Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/abs.html">abs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/all.html">all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/allclose.html">allclose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/any.html">any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/argmax.html">argmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/argmin.html">argmin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/cast.html">cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/concatenate.html">concatenate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/copy.html">copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/cos.html">cos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/exp.html">exp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/expand.html">expand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/flip.html">flip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/gather.html">gather</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/gelu.html">gelu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/log.html">log</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/masked_fill.html">masked_fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/max.html">max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/maximum.html">maximum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/minimum.html">minimum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/permute.html">permute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/plugin.html">plugin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/prod.html">prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/relu.html">relu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/reshape.html">reshape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/rsqrt.html">rsqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sigmoid.html">sigmoid</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/silu.html">silu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sin.html">sin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/softmax.html">softmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/split.html">split</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sqrt.html">sqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/squeeze.html">squeeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sum.html">sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/tanh.html">tanh</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/transpose.html">transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/unsqueeze.html">unsqueeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/var.html">var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/where.html">where</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="operations/initializers/index.html">Initializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/arange.html">arange</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/full.html">full</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/full_like.html">full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/iota.html">iota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/iota_like.html">iota_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/ones.html">ones</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/ones_like.html">ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/tril.html">tril</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/triu.html">triu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/zeros.html">zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/zeros_like.html">zeros_like</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="operations/modules/index.html">Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/conv.html">Conv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/conv_transpose.html">ConvTranspose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/embedding.html">Embedding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/group_norm.html">GroupNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/layer_norm.html">LayerNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/linear.html">Linear</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="operations/quantization/index.html">Quantization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/quantization/dequantize.html">dequantize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/quantization/quantize.html">quantize</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="shape.html">Shape</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tensor/index.html">Tensor</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tensor_operations/index.html">Tensor Operations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/abs.html">abs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/all.html">all</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/allclose.html">allclose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/any.html">any</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/arange.html">arange</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/argmax.html">argmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/argmin.html">argmin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/cast.html">cast</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/concatenate.html">concatenate</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/copy.html">copy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/cos.html">cos</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/dequantize.html">dequantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/exp.html">exp</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/expand.html">expand</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/flip.html">flip</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/full.html">full</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/full_like.html">full_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/gather.html">gather</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/gelu.html">gelu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/iota.html">iota</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/iota_like.html">iota_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/log.html">log</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/masked_fill.html">masked_fill</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/max.html">max</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/maximum.html">maximum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/mean.html">mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/minimum.html">minimum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/ones.html">ones</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/ones_like.html">ones_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/permute.html">permute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/plugin.html">plugin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/prod.html">prod</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/quantize.html">quantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/relu.html">relu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/reshape.html">reshape</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/rsqrt.html">rsqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sigmoid.html">sigmoid</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/silu.html">silu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sin.html">sin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/softmax.html">softmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/split.html">split</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sqrt.html">sqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/squeeze.html">squeeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sum.html">sum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/tanh.html">tanh</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/transpose.html">transpose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/tril.html">tril</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/triu.html">triu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/unsqueeze.html">unsqueeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/var.html">var</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/where.html">where</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/zeros.html">zeros</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/zeros_like.html">zeros_like</a></li>
-</ul>
-</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Guides</span></p>
 <ul>

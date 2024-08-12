@@ -10,10 +10,4 @@ Module
     :maxdepth: 1
     :caption: See also:
 
-    conv
-    conv_transpose
-    embedding
-    group_norm
-    layer_norm
-    linear
     parameter

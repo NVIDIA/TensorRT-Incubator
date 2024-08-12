@@ -192,8 +192,8 @@
     </div>
     <p class="caption" role="heading"><span class="caption-text">User Guides</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/introduction-to-tripy.html">An Introduction To Tripy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/quantization.html">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/00-introduction-to-tripy.html">An Introduction To Tripy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pre0_user_guides/01-quantization.html">Quantization</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
@@ -212,73 +212,85 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="logger.html">logger</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules/index.html">Module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="modules/conv.html">Conv</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/conv_transpose.html">ConvTranspose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/embedding.html">Embedding</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/group_norm.html">GroupNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/layer_norm.html">LayerNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules/linear.html">Linear</a></li>
 <li class="toctree-l2"><a class="reference internal" href="modules/parameter.html">Parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="operations/index.html">Operations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="operations/functions/index.html">Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/abs.html">abs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/all.html">all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/allclose.html">allclose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/any.html">any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/argmax.html">argmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/argmin.html">argmin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/cast.html">cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/concatenate.html">concatenate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/copy.html">copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/cos.html">cos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/exp.html">exp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/expand.html">expand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/flip.html">flip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/gather.html">gather</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/gelu.html">gelu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/log.html">log</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/masked_fill.html">masked_fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/max.html">max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/maximum.html">maximum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/minimum.html">minimum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/permute.html">permute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/plugin.html">plugin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/prod.html">prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/relu.html">relu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/reshape.html">reshape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/rsqrt.html">rsqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sigmoid.html">sigmoid</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/silu.html">silu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sin.html">sin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/softmax.html">softmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/split.html">split</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sqrt.html">sqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/squeeze.html">squeeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/sum.html">sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/tanh.html">tanh</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/transpose.html">transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/unsqueeze.html">unsqueeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/var.html">var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/functions/where.html">where</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="operations/initializers/index.html">Initializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/arange.html">arange</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/full.html">full</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/full_like.html">full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/iota.html">iota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/iota_like.html">iota_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/ones.html">ones</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/ones_like.html">ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/tril.html">tril</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/triu.html">triu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/zeros.html">zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/initializers/zeros_like.html">zeros_like</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="operations/modules/index.html">Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/conv.html">Conv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/conv_transpose.html">ConvTranspose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/embedding.html">Embedding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/group_norm.html">GroupNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/layer_norm.html">LayerNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/modules/linear.html">Linear</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="operations/quantization/index.html">Quantization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="operations/quantization/dequantize.html">dequantize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="operations/quantization/quantize.html">quantize</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="shape.html">Shape</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tensor/index.html">Tensor</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tensor_operations/index.html">Tensor Operations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/abs.html">abs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/all.html">all</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/allclose.html">allclose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/any.html">any</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/arange.html">arange</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/argmax.html">argmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/argmin.html">argmin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/cast.html">cast</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/concatenate.html">concatenate</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/copy.html">copy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/cos.html">cos</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/dequantize.html">dequantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/exp.html">exp</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/expand.html">expand</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/flip.html">flip</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/full.html">full</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/full_like.html">full_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/gather.html">gather</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/gelu.html">gelu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/iota.html">iota</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/iota_like.html">iota_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/log.html">log</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/masked_fill.html">masked_fill</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/max.html">max</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/maximum.html">maximum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/mean.html">mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/minimum.html">minimum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/ones.html">ones</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/ones_like.html">ones_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/permute.html">permute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/plugin.html">plugin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/prod.html">prod</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/quantize.html">quantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/relu.html">relu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/reshape.html">reshape</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/rsqrt.html">rsqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sigmoid.html">sigmoid</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/silu.html">silu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sin.html">sin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/softmax.html">softmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/split.html">split</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sqrt.html">sqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/squeeze.html">squeeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/sum.html">sum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/tanh.html">tanh</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/transpose.html">transpose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/tril.html">tril</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/triu.html">triu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/unsqueeze.html">unsqueeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/var.html">var</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/where.html">where</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/zeros.html">zeros</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tensor_operations/zeros_like.html">zeros_like</a></li>
-</ul>
-</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Guides</span></p>
 <ul>
@@ -336,20 +348,20 @@
                                     <a href="tensor/index.html#tripy.Tensor.__add__">__add__() (tripy.Tensor method)</a>
 </li>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv.__call__">__call__() (tripy.Conv method)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv.__call__">__call__() (tripy.Conv method)</a>
 
                                         <ul>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.__call__">(tripy.ConvTranspose method)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.__call__">(tripy.ConvTranspose method)</a>
 </li>
-                                                <li><a href="modules/embedding.html#tripy.Embedding.__call__">(tripy.Embedding method)</a>
+                                                <li><a href="operations/modules/embedding.html#tripy.Embedding.__call__">(tripy.Embedding method)</a>
 </li>
                                                 <li><a href="compiler/executable.html#tripy.Executable.__call__">(tripy.Executable method)</a>
 </li>
-                                                <li><a href="modules/group_norm.html#tripy.GroupNorm.__call__">(tripy.GroupNorm method)</a>
+                                                <li><a href="operations/modules/group_norm.html#tripy.GroupNorm.__call__">(tripy.GroupNorm method)</a>
 </li>
-                                                <li><a href="modules/layer_norm.html#tripy.LayerNorm.__call__">(tripy.LayerNorm method)</a>
+                                                <li><a href="operations/modules/layer_norm.html#tripy.LayerNorm.__call__">(tripy.LayerNorm method)</a>
 </li>
-                                                <li><a href="modules/linear.html#tripy.Linear.__call__">(tripy.Linear method)</a>
+                                                <li><a href="operations/modules/linear.html#tripy.Linear.__call__">(tripy.Linear method)</a>
 </li>
                                         </ul></li>
                                 <li>
@@ -418,35 +430,35 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/abs.html#tripy.abs">abs() (in module tripy)</a>
+                                    <a href="operations/functions/abs.html#tripy.abs">abs() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="shape.html#tripy.Shape.add">add() (tripy.Shape method)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/all.html#tripy.all">all() (in module tripy)</a>
+                                    <a href="operations/functions/all.html#tripy.all">all() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/allclose.html#tripy.allclose">allclose() (in module tripy)</a>
+                                    <a href="operations/functions/allclose.html#tripy.allclose">allclose() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/any.html#tripy.any">any() (in module tripy)</a>
+                                    <a href="operations/functions/any.html#tripy.any">any() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/arange.html#tripy.arange">arange() (in module tripy)</a>
+                                    <a href="operations/initializers/arange.html#tripy.arange">arange() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="compiler/arg_info.html#tripy.ArgInfo">ArgInfo (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/argmax.html#tripy.argmax">argmax() (in module tripy)</a>
+                                    <a href="operations/functions/argmax.html#tripy.argmax">argmax() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/argmin.html#tripy.argmin">argmin() (in module tripy)</a>
+                                    <a href="operations/functions/argmin.html#tripy.argmin">argmin() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="shape.html#tripy.Shape.as_tensor">as_tensor() (tripy.Shape method)</a>
@@ -465,16 +477,16 @@
                                     <a href="datatype.html#tripy.bfloat16">bfloat16 (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv.bias">bias (tripy.Conv attribute)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv.bias">bias (tripy.Conv attribute)</a>
 
                                         <ul>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.bias">(tripy.ConvTranspose attribute)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.bias">(tripy.ConvTranspose attribute)</a>
 </li>
-                                                <li><a href="modules/group_norm.html#tripy.GroupNorm.bias">(tripy.GroupNorm attribute)</a>
+                                                <li><a href="operations/modules/group_norm.html#tripy.GroupNorm.bias">(tripy.GroupNorm attribute)</a>
 </li>
-                                                <li><a href="modules/layer_norm.html#tripy.LayerNorm.bias">(tripy.LayerNorm attribute)</a>
+                                                <li><a href="operations/modules/layer_norm.html#tripy.LayerNorm.bias">(tripy.LayerNorm attribute)</a>
 </li>
-                                                <li><a href="modules/linear.html#tripy.Linear.bias">(tripy.Linear attribute)</a>
+                                                <li><a href="operations/modules/linear.html#tripy.Linear.bias">(tripy.Linear attribute)</a>
 </li>
                                         </ul></li>
                         </ul>
@@ -495,7 +507,7 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/cast.html#tripy.cast">cast() (in module tripy)</a>
+                                    <a href="operations/functions/cast.html#tripy.cast">cast() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="compiler/index.html#tripy.Compiler.compile">compile() (tripy.Compiler method)</a>
@@ -504,23 +516,23 @@
                                     <a href="compiler/index.html#tripy.Compiler">Compiler (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/concatenate.html#tripy.concatenate">concatenate() (in module tripy)</a>
+                                    <a href="operations/functions/concatenate.html#tripy.concatenate">concatenate() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv">Conv (class in tripy)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv">Conv (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="modules/conv_transpose.html#tripy.ConvTranspose">ConvTranspose (class in tripy)</a>
+                                    <a href="operations/modules/conv_transpose.html#tripy.ConvTranspose">ConvTranspose (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/copy.html#tripy.copy">copy() (in module tripy)</a>
+                                    <a href="operations/functions/copy.html#tripy.copy">copy() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/cos.html#tripy.cos">cos() (in module tripy)</a>
+                                    <a href="operations/functions/cos.html#tripy.cos">cos() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -533,16 +545,16 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/dequantize.html#tripy.dequantize">dequantize() (in module tripy)</a>
+                                    <a href="operations/quantization/dequantize.html#tripy.dequantize">dequantize() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="device.html#tripy.device">device (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv.dilation">dilation (tripy.Conv attribute)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv.dilation">dilation (tripy.Conv attribute)</a>
 
                                         <ul>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.dilation">(tripy.ConvTranspose attribute)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.dilation">(tripy.ConvTranspose attribute)</a>
 </li>
                                         </ul></li>
                                 <li>
@@ -551,17 +563,17 @@
                                         <ul>
                                                 <li><a href="compiler/arg_info.html#tripy.ArgInfo.dtype">(tripy.ArgInfo attribute)</a>
 </li>
-                                                <li><a href="modules/conv.html#tripy.Conv.dtype">(tripy.Conv attribute)</a>
+                                                <li><a href="operations/modules/conv.html#tripy.Conv.dtype">(tripy.Conv attribute)</a>
 </li>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.dtype">(tripy.ConvTranspose attribute)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.dtype">(tripy.ConvTranspose attribute)</a>
 </li>
-                                                <li><a href="modules/embedding.html#tripy.Embedding.dtype">(tripy.Embedding attribute)</a>
+                                                <li><a href="operations/modules/embedding.html#tripy.Embedding.dtype">(tripy.Embedding attribute)</a>
 </li>
-                                                <li><a href="modules/group_norm.html#tripy.GroupNorm.dtype">(tripy.GroupNorm attribute)</a>
+                                                <li><a href="operations/modules/group_norm.html#tripy.GroupNorm.dtype">(tripy.GroupNorm attribute)</a>
 </li>
-                                                <li><a href="modules/layer_norm.html#tripy.LayerNorm.dtype">(tripy.LayerNorm attribute)</a>
+                                                <li><a href="operations/modules/layer_norm.html#tripy.LayerNorm.dtype">(tripy.LayerNorm attribute)</a>
 </li>
-                                                <li><a href="modules/linear.html#tripy.Linear.dtype">(tripy.Linear attribute)</a>
+                                                <li><a href="operations/modules/linear.html#tripy.Linear.dtype">(tripy.Linear attribute)</a>
 </li>
                                         </ul></li>
                         </ul>
@@ -575,13 +587,13 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/embedding.html#tripy.Embedding">Embedding (class in tripy)</a>
+                                    <a href="operations/modules/embedding.html#tripy.Embedding">Embedding (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="modules/group_norm.html#tripy.GroupNorm.eps">eps (tripy.GroupNorm attribute)</a>
+                                    <a href="operations/modules/group_norm.html#tripy.GroupNorm.eps">eps (tripy.GroupNorm attribute)</a>
 
                                         <ul>
-                                                <li><a href="modules/layer_norm.html#tripy.LayerNorm.eps">(tripy.LayerNorm attribute)</a>
+                                                <li><a href="operations/modules/layer_norm.html#tripy.LayerNorm.eps">(tripy.LayerNorm attribute)</a>
 </li>
                                         </ul></li>
                         </ul>
@@ -592,10 +604,10 @@
                                     <a href="compiler/executable.html#tripy.Executable">Executable (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/exp.html#tripy.exp">exp() (in module tripy)</a>
+                                    <a href="operations/functions/exp.html#tripy.exp">exp() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/expand.html#tripy.expand">expand() (in module tripy)</a>
+                                    <a href="operations/functions/expand.html#tripy.expand">expand() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -608,7 +620,7 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/flip.html#tripy.flip">flip() (in module tripy)</a>
+                                    <a href="operations/functions/flip.html#tripy.flip">flip() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="datatype.html#tripy.float16">float16 (class in tripy)</a>
@@ -624,10 +636,10 @@
                                     <a href="datatype.html#tripy.float8">float8 (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/full.html#tripy.full">full() (in module tripy)</a>
+                                    <a href="operations/initializers/full.html#tripy.full">full() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/full_like.html#tripy.full_like">full_like() (in module tripy)</a>
+                                    <a href="operations/initializers/full_like.html#tripy.full_like">full_like() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -640,10 +652,10 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/gather.html#tripy.gather">gather() (in module tripy)</a>
+                                    <a href="operations/functions/gather.html#tripy.gather">gather() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/gelu.html#tripy.gelu">gelu() (in module tripy)</a>
+                                    <a href="operations/functions/gelu.html#tripy.gelu">gelu() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="compiler/executable.html#tripy.Executable.get_input_info">get_input_info() (tripy.Executable method)</a>
@@ -656,13 +668,13 @@
                                     <a href="compiler/executable.html#tripy.Executable.get_output_info">get_output_info() (tripy.Executable method)</a>
 </li>
                                 <li>
-                                    <a href="modules/group_norm.html#tripy.GroupNorm">GroupNorm (class in tripy)</a>
+                                    <a href="operations/modules/group_norm.html#tripy.GroupNorm">GroupNorm (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv.groups">groups (tripy.Conv attribute)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv.groups">groups (tripy.Conv attribute)</a>
 
                                         <ul>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.groups">(tripy.ConvTranspose attribute)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.groups">(tripy.ConvTranspose attribute)</a>
 </li>
                                         </ul></li>
                         </ul>
@@ -676,7 +688,7 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/linear.html#tripy.Linear.input_scale">input_scale (tripy.Linear attribute)</a>
+                                    <a href="operations/modules/linear.html#tripy.Linear.input_scale">input_scale (tripy.Linear attribute)</a>
 </li>
                                 <li>
                                     <a href="compiler/input_info.html#tripy.InputInfo">InputInfo (class in tripy)</a>
@@ -698,10 +710,10 @@
                                     <a href="datatype.html#tripy.int8">int8 (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/iota.html#tripy.iota">iota() (in module tripy)</a>
+                                    <a href="operations/initializers/iota.html#tripy.iota">iota() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/iota_like.html#tripy.iota_like">iota_like() (in module tripy)</a>
+                                    <a href="operations/initializers/iota_like.html#tripy.iota_like">iota_like() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="datatype.html#tripy.dtype.itemsize">itemsize (tripy.dtype attribute)</a>
@@ -717,10 +729,10 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/layer_norm.html#tripy.LayerNorm">LayerNorm (class in tripy)</a>
+                                    <a href="operations/modules/layer_norm.html#tripy.LayerNorm">LayerNorm (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="modules/linear.html#tripy.Linear">Linear (class in tripy)</a>
+                                    <a href="operations/modules/linear.html#tripy.Linear">Linear (class in tripy)</a>
 </li>
                                 <li>
                                     <a href="compiler/executable.html#tripy.Executable.load">load() (tripy.Executable class method)</a>
@@ -733,7 +745,7 @@
                                     <a href="modules/index.html#tripy.Module.load_from_state_dict">load_from_state_dict() (tripy.Module method)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/log.html#tripy.log">log() (in module tripy)</a>
+                                    <a href="operations/functions/log.html#tripy.log">log() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="logger.html#tripy.logger">logger (in module tripy)</a>
@@ -749,23 +761,23 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/masked_fill.html#tripy.masked_fill">masked_fill() (in module tripy)</a>
+                                    <a href="operations/functions/masked_fill.html#tripy.masked_fill">masked_fill() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/max.html#tripy.max">max() (in module tripy)</a>
+                                    <a href="operations/functions/max.html#tripy.max">max() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/maximum.html#tripy.maximum">maximum() (in module tripy)</a>
+                                    <a href="operations/functions/maximum.html#tripy.maximum">maximum() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/mean.html#tripy.mean">mean() (in module tripy)</a>
+                                    <a href="operations/functions/mean.html#tripy.mean">mean() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/minimum.html#tripy.minimum">minimum() (in module tripy)</a>
+                                    <a href="operations/functions/minimum.html#tripy.minimum">minimum() (in module tripy)</a>
 </li>
                                 <li>
                                     
@@ -802,10 +814,10 @@
                                     <a href="modules/index.html#tripy.Module.named_parameters">named_parameters() (tripy.Module method)</a>
 </li>
                                 <li>
-                                    <a href="modules/group_norm.html#tripy.GroupNorm.num_channels">num_channels (tripy.GroupNorm attribute)</a>
+                                    <a href="operations/modules/group_norm.html#tripy.GroupNorm.num_channels">num_channels (tripy.GroupNorm attribute)</a>
 </li>
                                 <li>
-                                    <a href="modules/group_norm.html#tripy.GroupNorm.num_groups">num_groups (tripy.GroupNorm attribute)</a>
+                                    <a href="operations/modules/group_norm.html#tripy.GroupNorm.num_groups">num_groups (tripy.GroupNorm attribute)</a>
 </li>
                         </ul>
                     </td>
@@ -818,14 +830,14 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/ones.html#tripy.ones">ones() (in module tripy)</a>
+                                    <a href="operations/initializers/ones.html#tripy.ones">ones() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/ones_like.html#tripy.ones_like">ones_like() (in module tripy)</a>
+                                    <a href="operations/initializers/ones_like.html#tripy.ones_like">ones_like() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -838,10 +850,10 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv.padding">padding (tripy.Conv attribute)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv.padding">padding (tripy.Conv attribute)</a>
 
                                         <ul>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.padding">(tripy.ConvTranspose attribute)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.padding">(tripy.ConvTranspose attribute)</a>
 </li>
                                         </ul></li>
                                 <li>
@@ -852,13 +864,13 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/permute.html#tripy.permute">permute() (in module tripy)</a>
+                                    <a href="operations/functions/permute.html#tripy.permute">permute() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/plugin.html#tripy.plugin">plugin() (in module tripy)</a>
+                                    <a href="operations/functions/plugin.html#tripy.plugin">plugin() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/prod.html#tripy.prod">prod() (in module tripy)</a>
+                                    <a href="operations/functions/prod.html#tripy.prod">prod() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -871,14 +883,14 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/linear.html#tripy.Linear.quant_dtype">quant_dtype (tripy.Linear attribute)</a>
+                                    <a href="operations/modules/linear.html#tripy.Linear.quant_dtype">quant_dtype (tripy.Linear attribute)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/quantize.html#tripy.quantize">quantize() (in module tripy)</a>
+                                    <a href="operations/quantization/quantize.html#tripy.quantize">quantize() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -891,17 +903,17 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/relu.html#tripy.relu">relu() (in module tripy)</a>
+                                    <a href="operations/functions/relu.html#tripy.relu">relu() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/reshape.html#tripy.reshape">reshape() (in module tripy)</a>
+                                    <a href="operations/functions/reshape.html#tripy.reshape">reshape() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/rsqrt.html#tripy.rsqrt">rsqrt() (in module tripy)</a>
+                                    <a href="operations/functions/rsqrt.html#tripy.rsqrt">rsqrt() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -926,42 +938,42 @@
                                     <a href="compiler/arg_info.html#tripy.ArgInfo.shape_bounds">shape_bounds (tripy.ArgInfo attribute)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/sigmoid.html#tripy.sigmoid">sigmoid() (in module tripy)</a>
+                                    <a href="operations/functions/sigmoid.html#tripy.sigmoid">sigmoid() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/silu.html#tripy.silu">silu() (in module tripy)</a>
+                                    <a href="operations/functions/silu.html#tripy.silu">silu() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/sin.html#tripy.sin">sin() (in module tripy)</a>
+                                    <a href="operations/functions/sin.html#tripy.sin">sin() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/softmax.html#tripy.softmax">softmax() (in module tripy)</a>
+                                    <a href="operations/functions/softmax.html#tripy.softmax">softmax() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/split.html#tripy.split">split() (in module tripy)</a>
+                                    <a href="operations/functions/split.html#tripy.split">split() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/sqrt.html#tripy.sqrt">sqrt() (in module tripy)</a>
+                                    <a href="operations/functions/sqrt.html#tripy.sqrt">sqrt() (in module tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/squeeze.html#tripy.squeeze">squeeze() (in module tripy)</a>
+                                    <a href="operations/functions/squeeze.html#tripy.squeeze">squeeze() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="modules/index.html#tripy.Module.state_dict">state_dict() (tripy.Module method)</a>
 </li>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv.stride">stride (tripy.Conv attribute)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv.stride">stride (tripy.Conv attribute)</a>
 
                                         <ul>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.stride">(tripy.ConvTranspose attribute)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.stride">(tripy.ConvTranspose attribute)</a>
 </li>
                                         </ul></li>
                                 <li>
-                                    <a href="tensor_operations/sum.html#tripy.sum">sum() (in module tripy)</a>
+                                    <a href="operations/functions/sum.html#tripy.sum">sum() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -974,7 +986,7 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/tanh.html#tripy.tanh">tanh() (in module tripy)</a>
+                                    <a href="operations/functions/tanh.html#tripy.tanh">tanh() (in module tripy)</a>
 </li>
                                 <li>
                                     <a href="tensor/index.html#tripy.Tensor">Tensor (class in tripy)</a>
@@ -983,14 +995,14 @@
                                     <a href="config.html#tripy.config.timing_cache_file_path">timing_cache_file_path (in module tripy.config)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/transpose.html#tripy.transpose">transpose() (in module tripy)</a>
+                                    <a href="operations/functions/transpose.html#tripy.transpose">transpose() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/tril.html#tripy.tril">tril() (in module tripy)</a>
+                                    <a href="operations/initializers/tril.html#tripy.tril">tril() (in module tripy)</a>
 </li>
                                 <li>
                                     
@@ -1004,7 +1016,7 @@
                                     <a href="exception/tripy_exception.html#tripy.TripyException">TripyException (class in tripy)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/triu.html#tripy.triu">triu() (in module tripy)</a>
+                                    <a href="operations/initializers/triu.html#tripy.triu">triu() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -1017,7 +1029,7 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/unsqueeze.html#tripy.unsqueeze">unsqueeze() (in module tripy)</a>
+                                    <a href="operations/functions/unsqueeze.html#tripy.unsqueeze">unsqueeze() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -1030,7 +1042,7 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/var.html#tripy.var">var() (in module tripy)</a>
+                                    <a href="operations/functions/var.html#tripy.var">var() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -1043,18 +1055,18 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/conv.html#tripy.Conv.weight">weight (tripy.Conv attribute)</a>
+                                    <a href="operations/modules/conv.html#tripy.Conv.weight">weight (tripy.Conv attribute)</a>
 
                                         <ul>
-                                                <li><a href="modules/conv_transpose.html#tripy.ConvTranspose.weight">(tripy.ConvTranspose attribute)</a>
+                                                <li><a href="operations/modules/conv_transpose.html#tripy.ConvTranspose.weight">(tripy.ConvTranspose attribute)</a>
 </li>
-                                                <li><a href="modules/embedding.html#tripy.Embedding.weight">(tripy.Embedding attribute)</a>
+                                                <li><a href="operations/modules/embedding.html#tripy.Embedding.weight">(tripy.Embedding attribute)</a>
 </li>
-                                                <li><a href="modules/group_norm.html#tripy.GroupNorm.weight">(tripy.GroupNorm attribute)</a>
+                                                <li><a href="operations/modules/group_norm.html#tripy.GroupNorm.weight">(tripy.GroupNorm attribute)</a>
 </li>
-                                                <li><a href="modules/layer_norm.html#tripy.LayerNorm.weight">(tripy.LayerNorm attribute)</a>
+                                                <li><a href="operations/modules/layer_norm.html#tripy.LayerNorm.weight">(tripy.LayerNorm attribute)</a>
 </li>
-                                                <li><a href="modules/linear.html#tripy.Linear.weight">(tripy.Linear attribute)</a>
+                                                <li><a href="operations/modules/linear.html#tripy.Linear.weight">(tripy.Linear attribute)</a>
 </li>
                                         </ul></li>
                         </ul>
@@ -1062,13 +1074,13 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="modules/linear.html#tripy.Linear.weight_quant_dim">weight_quant_dim (tripy.Linear attribute)</a>
+                                    <a href="operations/modules/linear.html#tripy.Linear.weight_quant_dim">weight_quant_dim (tripy.Linear attribute)</a>
 </li>
                                 <li>
-                                    <a href="modules/linear.html#tripy.Linear.weight_scale">weight_scale (tripy.Linear attribute)</a>
+                                    <a href="operations/modules/linear.html#tripy.Linear.weight_scale">weight_scale (tripy.Linear attribute)</a>
 </li>
                                 <li>
-                                    <a href="tensor_operations/where.html#tripy.where">where() (in module tripy)</a>
+                                    <a href="operations/functions/where.html#tripy.where">where() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
@@ -1081,14 +1093,14 @@
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/zeros.html#tripy.zeros">zeros() (in module tripy)</a>
+                                    <a href="operations/initializers/zeros.html#tripy.zeros">zeros() (in module tripy)</a>
 </li>
                         </ul>
                     </td>
                     <td>
                         <ul>
                                 <li>
-                                    <a href="tensor_operations/zeros_like.html#tripy.zeros_like">zeros_like() (in module tripy)</a>
+                                    <a href="operations/initializers/zeros_like.html#tripy.zeros_like">zeros_like() (in module tripy)</a>
 </li>
                         </ul>
                     </td>

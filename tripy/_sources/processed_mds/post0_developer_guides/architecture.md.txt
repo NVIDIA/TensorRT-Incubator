@@ -145,11 +145,11 @@ Here's the textual representation for the `Trace` from our example:
 
 
 ```
-t0 = storage(data=[2, 3], shape=(2,), dtype=int32, device=gpu:0)
-t2 = fill(t0, value=0.5, output_rank=2, dtype=float32)
-t4 = unaryelementwise(t2, kind=Kind.TANH)
+t15 = storage(data=[2, 3], shape=(2,), dtype=int32, device=gpu:0)
+t17 = fill(t15, value=0.5, output_rank=2, dtype=float32)
+t19 = unaryelementwise(t17, kind=Kind.TANH)
 outputs:
-    t4: [rank=(2), dtype=(float32), loc=(gpu:0)]
+    t19: [rank=(2), dtype=(float32), loc=(gpu:0)]
 ```
 
 
@@ -191,12 +191,12 @@ now than we did in the trace:
 
 
 ```
-t0: [rank=(1), shape=((2,)), dtype=(int32), loc=(gpu:0)] = ConstantOp(data=[2, 3])
-t_inter3: [rank=(0), dtype=(float32), loc=(gpu:0)] = ConstantOp(data=0.5)
-t2: [rank=(2), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(t_inter3, t0, broadcast_dim=[])
-t4: [rank=(2), dtype=(float32), loc=(gpu:0)] = TanhOp(t2)
+t15: [rank=(1), shape=((2,)), dtype=(int32), loc=(gpu:0)] = ConstantOp(data=[2, 3])
+t_inter3: [rank=(0), shape=(()), dtype=(float32), loc=(gpu:0)] = ConstantOp(data=0.5)
+t17: [rank=(2), dtype=(float32), loc=(gpu:0)] = DynamicBroadcastOp(t_inter3, t15, broadcast_dim=[])
+t19: [rank=(2), dtype=(float32), loc=(gpu:0)] = TanhOp(t17)
 outputs:
-    t4: [rank=(2), dtype=(float32), loc=(gpu:0)]
+    t19: [rank=(2), dtype=(float32), loc=(gpu:0)]
 ```
 
 
@@ -218,7 +218,7 @@ There's not much more to explain here, so let's go right to the textual represen
 
 
 ```
-module @outs_t4_2 {
+module @outs_t19_4 {
   func.func @main() -> tensor<?x?xf32> {
     %c = stablehlo.constant dense<[2, 3]> : tensor<2xi32>
     %cst = stablehlo.constant dense<5.000000e-01> : tensor<f32>
