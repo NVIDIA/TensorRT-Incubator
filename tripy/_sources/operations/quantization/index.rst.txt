@@ -1,0 +1,9 @@
+############
+Quantization
+############
+
+.. toctree::
+    :maxdepth: 1
+
+    dequantize
+    quantize

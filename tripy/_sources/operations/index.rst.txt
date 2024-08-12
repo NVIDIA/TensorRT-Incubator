@@ -1,0 +1,11 @@
+##########
+Operations
+##########
+
+.. toctree::
+    :maxdepth: 1
+
+    functions/index
+    initializers/index
+    modules/index
+    quantization/index

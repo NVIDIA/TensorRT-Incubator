@@ -1,0 +1,47 @@
+#########
+Functions
+#########
+
+.. toctree::
+    :maxdepth: 1
+
+    abs
+    all
+    allclose
+    any
+    argmax
+    argmin
+    cast
+    concatenate
+    copy
+    cos
+    exp
+    expand
+    flip
+    gather
+    gelu
+    log
+    masked_fill
+    max
+    maximum
+    mean
+    minimum
+    permute
+    plugin
+    prod
+    relu
+    reshape
+    rsqrt
+    sigmoid
+    silu
+    sin
+    softmax
+    split
+    sqrt
+    squeeze
+    sum
+    tanh
+    transpose
+    unsqueeze
+    var
+    where

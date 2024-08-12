@@ -72,13 +72,13 @@ print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
 
 ```python
 >>> compiler
-<tripy.backend.compiler_api.Compiler object at 0x7f723ca3e770>
+<tripy.backend.compiler_api.Compiler object at 0x7efe3ff46b60>
 >>> a_info
 InputInfo(min=(1,), opt=(2,), max=(5,), dtype=float32)
 >>> b_info
 InputInfo(min=(1,), opt=(1,), max=(1,), dtype=float32)
 >>> compiled_add
-<tripy.backend.compiler_api.Executable object at 0x7f723c949750>
+<tripy.backend.compiler_api.Executable object at 0x7efe3fe61b40>
 ```
 
 
