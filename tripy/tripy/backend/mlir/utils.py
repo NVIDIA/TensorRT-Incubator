@@ -81,7 +81,11 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
 
 
 def get_mlir_scalar_attr(dtype: "tripy.dtype", value):
-    attr_func = ir.FloatAttr.get if "float" in dtype.name else ir.IntegerAttr.get
+    from tripy.common.datatype import floating
+
+    # MLIR represents float dtypes as FloatAttr
+    # and non-float dtypes as IntegerAttr
+    attr_func = ir.FloatAttr.get if issubclass(dtype, floating) else ir.IntegerAttr.get
     return attr_func(get_mlir_dtype(dtype), value)
 
 
