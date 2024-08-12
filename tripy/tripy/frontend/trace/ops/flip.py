@@ -36,7 +36,7 @@ class Flip(BaseTraceOp):
         FlipOp.build([inputs[0]], outputs, dims=self.dims)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None) -> "tripy.Tensor":
     r"""
     Return a new tensor with the same value as the `input` tensor, with the values in the

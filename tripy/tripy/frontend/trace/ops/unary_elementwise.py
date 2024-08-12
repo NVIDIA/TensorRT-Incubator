@@ -56,7 +56,7 @@ class UnaryElementwise(BaseTraceOp):
         OpType.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the elementwise exponential of the elements of the input tensor:
@@ -81,7 +81,7 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.EXP)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise hyperbolic tangent of the elements of the input tensor.
@@ -104,7 +104,7 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.TANH)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def sin(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise sine of the elements of the input tensor.
@@ -127,7 +127,7 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SINE)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def cos(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise cosine of the elements of the input tensor.
@@ -150,7 +150,7 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.COSINE)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise reciprocal square root of the elements of the input tensor.
@@ -173,7 +173,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.RSQRT)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise square root of the elements of the input tensor.
@@ -196,7 +196,7 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SQRT)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def log(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise natural logarithm (base e) of the elements of the input tensor.
@@ -219,7 +219,7 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.LOG)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def abs(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the elementwise absolute value of the elements of the input tensor.

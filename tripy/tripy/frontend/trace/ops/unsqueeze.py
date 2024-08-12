@@ -57,7 +57,7 @@ def unsqueeze_two_operand(input, result_shape, dim):
     return Unsqueeze.build([input, result_shape], dim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor with a

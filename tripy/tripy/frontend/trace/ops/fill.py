@@ -98,7 +98,7 @@ def full_impl(
     return Fill.build([shape], value, output_rank, dtype)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 def full(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
     value: numbers.Number,
@@ -127,7 +127,7 @@ def full(
     return full_impl(shape, value, dtype, output_rank)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tripy.dtype"] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with all values

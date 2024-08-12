@@ -66,7 +66,7 @@ def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int = None
     return Reshape.build([input, shape], output_rank)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
@@ -190,7 +190,7 @@ class Squeeze(BaseTraceOp):
         DynamicReshapeOp.build([inputs[0], output_shape], outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Tensor":
     """
     Returns a new tensor with all specified singleton dimensions of the input tensor removed.

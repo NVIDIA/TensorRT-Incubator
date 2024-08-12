@@ -18,7 +18,7 @@
 from tripy import export
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
     """
     Returns True if the following equation is elementwise True:

@@ -382,7 +382,7 @@ def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
@@ -410,7 +410,7 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MAXIMUM)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """

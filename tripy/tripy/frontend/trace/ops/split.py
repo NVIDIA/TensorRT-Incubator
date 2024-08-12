@@ -177,7 +177,7 @@ class Split(BaseTraceOp):
         return f"{outputs_string} = {self.__class__.__name__.lower()}({', '.join([inp.name for inp in self.inputs] + args)})"
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def split(
     input: "tripy.Tensor", indices_or_sections: Union[int, Sequence[int]], dim: int = 0
 ) -> Union["tripy.Tensor", Sequence["tripy.Tensor"]]:

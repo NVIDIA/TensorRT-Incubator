@@ -130,7 +130,7 @@ class Quantize(BaseTraceOp):
         ConvertOp.build([clamped_tensor], outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/quantization")
 @frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 def quantize(
     input: "tripy.Tensor",

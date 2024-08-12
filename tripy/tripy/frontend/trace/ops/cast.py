@@ -100,7 +100,7 @@ class Cast(BaseTraceOp):
 from tripy.common.datatype import DATA_TYPES
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @dtype_info.dtype_info(
     dtype_variables={
         "T": DATA_TYPES.keys(),

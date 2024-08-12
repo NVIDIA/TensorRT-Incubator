@@ -107,7 +107,7 @@ class ConvBase(Module):
         self.dtype = dtype
 
 
-@export.public_api(document_under="modules")
+@export.public_api(document_under="operations/modules")
 @dataclass
 class Conv(ConvBase):
     r"""
