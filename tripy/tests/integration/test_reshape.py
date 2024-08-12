@@ -33,25 +33,25 @@ class TestReshape:
             ((2, 4), (1, -1)),  # check negative dim
         ],
     )
-    def test_static_reshape(self, shape, new_shape):
+    def test_static_reshape(self, shape, new_shape, compile_fixture):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
-        b = tp.reshape(a, new_shape)
+        b = compile_fixture(tp.reshape, a, new_shape)
         if -1 in new_shape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
         assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(new_shape).get())
 
-    def test_invalid_neg_dim_reshape(self):
+    def test_invalid_neg_dim_reshape(self, compile_fixture):
         shape = (1, 30)
         new_shape = (-1, -1)
         with helper.raises(tp.TripyException, match="Reshape operation size operand can have only one dimension as -1"):
-            a = tp.reshape(tp.ones(shape), new_shape)
+            a = compile_fixture(tp.reshape, tp.ones(shape), new_shape)
             print(a)
 
-    def test_reshape_shape_tensor(self):
+    def test_reshape_shape_tensor(self, compile_fixture):
         a = tp.ones((2, 3, 4))
         b = tp.ones((2, 3, 2, 2))
-        out = tp.reshape(a, (a.shape[0], a.shape[1], b.shape[2], b.shape[3]))
+        out = compile_fixture(tp.reshape, a, (a.shape[0], a.shape[1], b.shape[2], b.shape[3]))
         assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
 
     def test_reshape_shape_with_unknown(self):

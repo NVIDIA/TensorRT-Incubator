@@ -36,12 +36,12 @@ class TestReduceOp:
             ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
-    def test_all(self, x_shape, axis, keepdim):
+    def test_all(self, x_shape, axis, keepdim, compile_fixture):
         x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
-        out = tp.all(a, dim=axis, keepdim=keepdim)
+        out = compile_fixture(tp.all, a, dim=axis, keepdim=keepdim)
         expected = tp.Tensor(np.array(x.all(axis=axis, keepdims=keepdim)))
-        #np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
+        # np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
         assert out.shape == expected.shape
         assert tp.allclose(out, expected)
 
@@ -57,18 +57,22 @@ class TestReduceOp:
             ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
-
-    def test_any(self, x_shape, axis, keepdim):
+    def test_any(self, x_shape, axis, keepdim, compile_fixture):
         x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
-        out = tp.any(a, dim=axis, keepdim=keepdim)
+        out = compile_fixture(tp.any, a, dim=axis, keepdim=keepdim)
         assert tp.allclose(out, tp.Tensor(np.array(x.any(axis=axis, keepdims=keepdim))))
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
         [
             ((2, 3), 1, True),
-            pytest.param((2, 3, 4), (1, 2), True, marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)")),
+            pytest.param(
+                (2, 3, 4),
+                (1, 2),
+                True,
+                marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)"),
+            ),
             ((2, 3), 1, False),
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
@@ -77,11 +81,11 @@ class TestReduceOp:
         ],
     )
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
-    def test_mean(self, x_shape, axis, keepdim: bool, dtype):
+    def test_mean(self, x_shape, axis, keepdim: bool, dtype, compile_fixture):
         np_dtype = np.float32 if dtype == tp.float32 else np.float16
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np_dtype)
         a = tp.Tensor(x, dtype=dtype)
-        out = tp.mean(a, dim=axis, keepdim=keepdim)
+        out = compile_fixture(tp.mean, a, dim=axis, keepdim=keepdim)
         expected = tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim)))
         assert out.shape == expected.shape
         assert tp.allclose(out, expected, rtol=1e-3, atol=1e-3)
@@ -98,10 +102,10 @@ class TestReduceOp:
             ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
-    def test_var(self, x_shape, axis, keepdim: bool):
+    def test_var(self, x_shape, axis, keepdim: bool, compile_fixture):
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
-        out = tp.var(a, dim=axis, keepdim=keepdim)
+        out = compile_fixture(tp.var, a, dim=axis, keepdim=keepdim)
         torch_tensor = torch.Tensor(x)
         expected = tp.Tensor(torch_tensor.var(dim=axis, keepdim=keepdim))
         assert out.shape == expected.shape
@@ -118,10 +122,10 @@ class TestReduceOp:
             ((2, 3, 4), None, True),
         ],
     )
-    def test_argmax(self, x_shape, axis, keepdim: bool):
+    def test_argmax(self, x_shape, axis, keepdim: bool, compile_fixture):
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
-        out = tp.argmax(a, dim=axis, keepdim=keepdim)
+        out = compile_fixture(tp.argmax, a, dim=axis, keepdim=keepdim)
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmax(axis=axis, keepdims=keepdim)))
 
     @pytest.mark.parametrize(
@@ -135,8 +139,8 @@ class TestReduceOp:
             ((2, 3, 4), None, True),
         ],
     )
-    def test_argmin(self, x_shape, axis, keepdim: bool):
+    def test_argmin(self, x_shape, axis, keepdim: bool, compile_fixture):
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
-        out = tp.argmin(a, dim=axis, keepdim=keepdim)
+        out = compile_fixture(tp.argmin, a, dim=axis, keepdim=keepdim)
         assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmin(axis=axis, keepdims=keepdim)))
