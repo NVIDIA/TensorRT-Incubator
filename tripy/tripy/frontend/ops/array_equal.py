@@ -34,13 +34,17 @@ def array_equal(a: "tripy.Tensor", b: "tripy.Tensor") -> bool:
         :linenos:
         :caption: Example
 
+        # doc: print-locals a, b, is_equal
+
         a = tp.ones((2,2))
         b = tp.Tensor([
             [1, 1],
             [1, 1]
         ])
-        assert tp.array_equal(a, b)
+        is_equal = tp.array_equal(a, b)
+        assert is_equal
     """
     from tripy.frontend.trace.ops.reduce import all
 
+    # `tp.Shape` overloads `__eq__`, therefore we can directly compare shapes here.
     return a.shape == b.shape and a.dtype == b.dtype and bool(all(a == b))
