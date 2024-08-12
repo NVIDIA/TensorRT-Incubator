@@ -80,7 +80,10 @@ class TestSliceOp:
         out = compile_fixture(func, a)
         assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())
 
-    def test_slice_as_gather(self):
+    def test_slice_as_gather(self, compile_fixture):
+        def func(x, y):
+            return y[x]
+
         x_data = [0, 1, 2]
         y_data = [3, 4, 5]
         x = tp.Tensor(x_data)
@@ -88,7 +91,8 @@ class TestSliceOp:
         x_cp = cp.array(x_data)
         y_cp = cp.array(y_data)
 
-        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())
+        out = compile_fixture(func, x, y)
+        assert np.array_equal(cp.from_dlpack(out).get(), y_cp[x_cp].get())
 
         x_shape = (2, 2)
         y_shape = (4, 3, 2)
@@ -99,4 +103,5 @@ class TestSliceOp:
         x_cp = cp.arange(x_vol, dtype=cp.int32).reshape(x_shape)
         y_cp = cp.arange(y_vol).reshape(y_shape)
 
-        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())
+        out = compile_fixture(func, x, y)
+        assert np.array_equal(cp.from_dlpack(out).get(), y_cp[x_cp].get())
