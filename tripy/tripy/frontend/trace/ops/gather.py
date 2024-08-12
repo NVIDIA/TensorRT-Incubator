@@ -92,7 +92,7 @@ class Gather(BaseTraceOp):
         DynamicGatherOp.build([inputs[0], inputs[1], slice_sizes], outputs, self.axis)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """
     Gather values from the input tensor along the specified axis based on the specified indices.

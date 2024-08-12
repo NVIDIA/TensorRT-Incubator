@@ -70,7 +70,7 @@ def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int):
     return Expand.build([input, shape], output_rank)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
     """
     Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.

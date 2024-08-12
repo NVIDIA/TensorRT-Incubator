@@ -18,7 +18,7 @@
 from tripy import export
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def sigmoid(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies a logistic sigmoid function to each element of the input tensor:

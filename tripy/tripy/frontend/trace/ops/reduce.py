@@ -61,8 +61,10 @@ class Reduce(BaseTraceOp):
         from tripy.flat_ir.ops import ConstantOp, ConvertOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.common.utils import get_element_type
+
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(
+            shape=(),
             rank=0,
             dtype=outputs[0].dtype,
             device=outputs[0].device,
@@ -70,21 +72,7 @@ class Reduce(BaseTraceOp):
                 f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation"
             ],
         )
-        if get_element_type(init_value) != outputs[0].dtype:
-            init_const_from_kind = FlatIRTensor.build(
-                rank=0,
-                dtype=get_element_type(init_value),
-                device=outputs[0].device,
-                reason_details=[
-                    f"create the constant value tensor (containing {init_value}) for the initial value of a '{self.kind.op}' operation with type {get_element_type(init_value)}"
-                ],
-            )
-            data = Array(init_value, shape=(), dtype=get_element_type(init_value), device=device("cpu"))
-            ConstantOp.build([], [init_const_from_kind], data=data)
-            ConvertOp.build([init_const_from_kind], [init_const])
-        else:
-            data = Array(init_value, shape=(), dtype=outputs[0].dtype, device=device("cpu"))
-            ConstantOp.build([], [init_const], data=data)
+        ConstantOp.build([], [init_const], data=init_value)
 
         ReduceOp.build([inputs[0], init_const], outputs, reduce_mode=self.kind.op, reduce_dims=self.dim)
 
@@ -125,16 +113,8 @@ class ArgMinMax(Reduce):
             ],
         )
 
-        ConstantOp.build(
-            [],
-            [init_val_const],
-            data=Array(0, shape=(), dtype=inputs[0].dtype, device=device("cpu")),
-        )
-        ConstantOp.build(
-            [],
-            [init_idx_const],
-            data=Array(0, shape=(), dtype=outputs[0].dtype, device=device("cpu")),
-        )
+        ConstantOp.build([], [init_val_const], data=0)
+        ConstantOp.build([], [init_idx_const], data=0)
 
         ArgMinMaxOp.build(
             [inputs[0], inputs[1], init_val_const, init_idx_const],
@@ -159,7 +139,7 @@ def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Seque
     return out
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def sum(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -188,7 +168,7 @@ def sum(
     return _reduce_impl(input, Reduce.Kind.SUM, dim, keepdim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def all(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -215,7 +195,7 @@ def all(
     return _reduce_impl(input, Reduce.Kind.AND, dim, keepdim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def any(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -242,7 +222,7 @@ def any(
     return _reduce_impl(input, Reduce.Kind.OR, dim, keepdim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def max(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -271,7 +251,7 @@ def max(
     return _reduce_impl(input, Reduce.Kind.MAX, dim, keepdim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def prod(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -322,7 +302,7 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     return sum_val / (cast(divisor, sum_val.dtype))
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def mean(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
 ) -> "tripy.Tensor":
@@ -351,7 +331,7 @@ def mean(
     return mean_impl(input, dim, keepdim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def var(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
 ) -> "tripy.Tensor":
@@ -411,7 +391,7 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, ke
     return out
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
     Returns a new tensor containing the indices of maximum values of the input tensor along the specified dimension.
@@ -439,7 +419,7 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
     return _arg_min_max_impl(input, ArgMinMax.Kind.ARG_MAX, dim, keepdim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
     Returns a new tensor containing the indices of minimum values of the input tensor along the specified dimension.

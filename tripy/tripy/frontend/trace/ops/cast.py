@@ -67,7 +67,7 @@ class Cast(BaseTraceOp):
                 device=convert_input.device,
                 reason_details=["Zero scalar for casting to bool"],
             )
-            ConstantOp.build([], [single_zero], data=Array(0, shape=(), dtype=zero_dtype, device=convert_input.device))
+            ConstantOp.build([], [single_zero], data=0)
             zeros_shape = op_utils.get_shape_of_tensor(convert_input)
             zeros = FlatIRTensor.build(
                 shape=convert_input.shape,
@@ -100,7 +100,7 @@ class Cast(BaseTraceOp):
 from tripy.common.datatype import DATA_TYPES
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @dtype_info.dtype_info(
     dtype_variables={
         "T": DATA_TYPES.keys(),

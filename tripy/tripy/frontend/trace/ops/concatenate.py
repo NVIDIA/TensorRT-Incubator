@@ -37,7 +37,7 @@ class Concatenate(BaseTraceOp):
         ConcatenateOp.build(inputs, outputs, dim=self.dim)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.

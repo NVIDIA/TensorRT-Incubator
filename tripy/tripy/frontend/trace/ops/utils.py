@@ -184,11 +184,9 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
         device=device,
         reason_details=[f"create constant rank 1 int32 tensor filled with {data}."],
     )
-    ConstantOp.build(
-        [],
-        [const_output_tensor],
-        data=Array(data, shape=[len(data)], dtype=int32, device=device("cpu")),
-    )
+    if not data:
+        data = Array(None, shape=(0,), dtype=int32, device=device("cpu"))
+    ConstantOp.build([], [const_output_tensor], data=data)
     return const_output_tensor
 
 
@@ -469,44 +467,8 @@ def get_clamp_min_max(element_dtype, quant_dtype):
         device=device("gpu"),
         reason_details=["Construct max value for clamp."],
     )
-    if element_dtype in (tp_dtype.float16, tp_dtype.bfloat16):
-        clamp_min_fp32 = FlatIRTensor.build(
-            shape=(),
-            rank=0,
-            dtype=tp_dtype.float32,
-            device=device("gpu"),
-            reason_details=["Construct min value in float32."],
-        )
-        clamp_max_fp32 = FlatIRTensor.build(
-            shape=(),
-            rank=0,
-            dtype=tp_dtype.float32,
-            device=device("gpu"),
-            reason_details=["Construct max value in float32."],
-        )
-        ConstantOp.build(
-            [],
-            [clamp_min_fp32],
-            data=Array(min_val, shape=(), dtype=tp_dtype.float32, device=device("cpu")),
-        )
-        ConstantOp.build(
-            [],
-            [clamp_max_fp32],
-            data=Array(max_val, shape=(), dtype=tp_dtype.float32, device=device("cpu")),
-        )
-        ConvertOp.build([clamp_min_fp32], [clamp_min])
-        ConvertOp.build([clamp_max_fp32], [clamp_max])
-    else:
-        ConstantOp.build(
-            [],
-            [clamp_min],
-            data=Array(min_val, shape=(), dtype=element_dtype, device=device("cpu")),
-        )
-        ConstantOp.build(
-            [],
-            [clamp_max],
-            data=Array(max_val, shape=(), dtype=element_dtype, device=device("cpu")),
-        )
+    ConstantOp.build([], [clamp_min], data=min_val)
+    ConstantOp.build([], [clamp_max], data=max_val)
     return clamp_min, clamp_max
 
 

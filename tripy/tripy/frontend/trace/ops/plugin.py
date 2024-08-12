@@ -44,7 +44,7 @@ class Plugin(BaseTraceOp):
         PluginOp.build(inputs, outputs, self.name, self.version, self.namespace, self.creator_params)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def plugin(
     name: str,
     inputs: Sequence["tripy.Tensor"],

@@ -18,7 +18,7 @@
 from tripy import export
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def silu(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies the Sigmoid Linear Unit (SiLU) function  to each element of the

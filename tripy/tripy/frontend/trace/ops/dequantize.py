@@ -110,7 +110,7 @@ class Dequantize(BaseTraceOp):
         MulOp.build([converted_tensor, broadcast_scale], outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/quantization")
 @frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 def dequantize(
     input: "tripy.Tensor",

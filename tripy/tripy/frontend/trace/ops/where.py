@@ -134,7 +134,7 @@ class Where(BaseTraceOp):
         SelectOp.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
@@ -167,7 +167,7 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
     return Where.build([condition, input, other])
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
     Returns a new tensor filled with ``value`` where ``mask`` is ``True`` and elements from
