@@ -9,9 +9,9 @@
 //===----------------------------------------------------------------------===//
 #include "../Utils.h"
 #include "dlpack/dlpack.h"
-#include "mlir-tensorrt-c/Common/Common.h"
-#include "mlir-tensorrt-c/Runtime/Runtime.h"
-#include "mlir-tensorrt-c/Support/Status.h"
+#include "mlir-executor-c/Common/Common.h"
+#include "mlir-executor-c/Runtime/Runtime.h"
+#include "mlir-executor-c/Support/Status.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
@@ -786,17 +786,7 @@ PYBIND11_MODULE(_api, m) {
              THROW_IF_MTRT_ERROR(s);
              return new PyRuntimeValue(value);
            }),
-           py::arg("scalar_int"))
-      .def(py::init<>([](uint64_t pointer, int64_t offset,
-                         std::vector<int64_t> shape,
-                         std::vector<int64_t> strides) {
-             MTRT_RuntimeValue value;
-             //  MTRT_Status s = mtrtRuntimeValueMemRefCreate(scalar, &value);
-             //  THROW_IF_MTRT_ERROR(s);
-             return new PyRuntimeValue(value);
-           }),
-           py::arg("pointer"), py::arg("offset"), py::arg("shape"),
-           py::arg("strides"));
+           py::arg("scalar_int"));
 
   py::class_<PyRuntimeSessionOptions>(m, "RuntimeSessionOptions",
                                       py::module_local())

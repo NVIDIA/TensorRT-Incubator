@@ -2,14 +2,8 @@ enable_testing()
 
 llvm_canonicalize_cmake_booleans(
   MLIR_ENABLE_BINDINGS_PYTHON
-  MLIR_TRT_ENABLE_PYTHON
-  MLIR_TRT_ENABLE_HLO
-  MLIR_TRT_ENABLE_NCCL
-  MLIR_TRT_TARGET_TENSORRT
-  MLIR_TRT_TARGET_CPP
-  MLIR_TRT_TARGET_LUA
-  MLIR_TRT_ENABLE_EXECUTOR
-  MLIR_TRT_WITH_ASAN
+  ENABLE_ASAN
+  ${MLIR_TRT_FEATURE_FLAGS}
   )
 
 # All the GTest-based unit tests are located under 'Unit' subfolder.

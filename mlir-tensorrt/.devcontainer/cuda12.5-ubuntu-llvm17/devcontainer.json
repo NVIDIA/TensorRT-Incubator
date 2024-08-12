@@ -1,17 +1,17 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the README at:
-// https://github.com/microsoft/vscode-dev-containers/tree/v0.245.2/containers/docker-existing-dockerfile
 {
+	"name": "cuda12.5-ubuntu-llvm17",
 	"build": {
 		"context": "${localWorkspaceFolder}",
 		"dockerfile": "${localWorkspaceFolder}/build_tools/docker/Dockerfile",
 		"args": {
-			"BASE_IMAGE": "nvcr.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04",
-			"USERNAME": "nvidia"
+			"BASE_IMAGE": "nvcr.io/nvidia/cuda:12.5.1-cudnn-devel-ubuntu22.04",
+			"USERNAME": "nvidia",
+			"LINUX_DISTRO": "ubuntu"
 		}
 	},
 	"runArgs": [
 		"--name",
-		"tensorrt-incubator-${localEnv:USER:nvidia}",
+		"${localEnv:USER:anon}-mlir-tensorrt-incubator-${localWorkspaceFolderBasename}-cuda12.5-ubuntu-llvm17",
 		"--cap-add=SYS_PTRACE",
 		"--security-opt",
 		"seccomp=unconfined",

@@ -36,16 +36,22 @@ include(Version.cmake)
 # -------------------------------------------------
 # Project Options / Configuration
 # -------------------------------------------------
-option(MLIR_TRT_ENABLE_HLO "Whether to include stablehlo features" ON)
-option(MLIR_TRT_ENABLE_ASSERTIONS "Enables assertions" ON)
-option(MLIR_TRT_TARGET_TENSORRT "Enable exporting TensorRT dialect IR to a TensorRT engine" ON)
-option(MLIR_TRT_TARGET_CPP "Enable exporting TensorRT dialect IR to C++ code that calls the TensorRT API" ON)
-option(MLIR_TRT_ENABLE_PYTHON "Enable building the mlir_tensorrt_compiler python package." ON)
-option(MLIR_TRT_ENABLE_NVTX "Enable NVTX tracing" ON)
-option(MLIR_TRT_ENABLE_TESTING "Enable building optional tests" ON)
-option(MLIR_TRT_TARGET_LUA "Enable translating MLIR to the Lua target" ON)
-option(MLIR_TRT_ENABLE_EXECUTOR "Build the Executor dialect and MLIR-TensorRT Execution Engine" ON)
-option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" ON)
+set(MLIR_TRT_FEATURE_FLAGS)
+macro(mtrt_option name)
+  option(${name} ${ARGN})
+  list(APPEND MLIR_TRT_FEATURE_FLAGS ${name})
+endmacro()
+
+mtrt_option(MLIR_TRT_ENABLE_HLO "Whether to include stablehlo features" ON)
+mtrt_option(MLIR_TRT_ENABLE_ASSERTIONS "Enables assertions" ON)
+mtrt_option(MLIR_TRT_TARGET_TENSORRT "Enable exporting TensorRT dialect IR to a TensorRT engine" ON)
+mtrt_option(MLIR_TRT_TARGET_CPP "Enable exporting TensorRT dialect IR to C++ code that calls the TensorRT API" ON)
+mtrt_option(MLIR_TRT_ENABLE_PYTHON "Enable building the mlir_tensorrt_compiler python package." ON)
+mtrt_option(MLIR_TRT_ENABLE_NVTX "Enable NVTX tracing" ON)
+mtrt_option(MLIR_TRT_ENABLE_TESTING "Enable building optional tests" ON)
+mtrt_option(MLIR_TRT_TARGET_LUA "Enable translating MLIR to the Lua target" ON)
+mtrt_option(MLIR_TRT_ENABLE_EXECUTOR "Build the Executor dialect and MLIR-TensorRT Execution Engine" ON)
+mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" ON)
 
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
 set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.0" CACHE STRING
@@ -56,6 +62,18 @@ set(MLIR_TRT_LLVM_COMMIT
   "99bb9a719cec9513e72ad275c1c0302b76b6c408"
   CACHE STRING
   "LLVM source archive commit for managed llvm-project build")
+
+# Configure dependent Executor options.
+set(MLIR_EXECUTOR_ENABLE_NCCL ${MLIR_TRT_ENABLE_NCCL} CACHE BOOL "" FORCE)
+set(MLIR_EXECUTOR_ENABLE_MPI ${MLIR_TRT_ENABLE_NCCL} CACHE BOOL "" FORCE)
+set(MLIR_EXECUTOR_ENABLE_CUBLAS ${MLIR_TRT_ENABLE_CUBLAS} CACHE BOOL "" FORCE)
+
+# List of dialects to embed in the Python package. This is different between internal
+# and public versions of the code.
+set(MLIR_TRT_PYTHON_UPSTREAM_DIALECTS_EMBED
+  affine arith bufferization builtin complex func math quant scf
+  tensor
+  )
 
 # -------------------------------------------------
 # Option validation
@@ -191,10 +209,17 @@ endif()
 # Target Directories
 # -------------------------------------------------
 
+set(MLIR_TRT_DEFINITIONS)
+foreach(feature_flag IN LISTS MLIR_TRT_FEATURE_FLAGS)
+  if(${feature_flag})
+    list(APPEND MLIR_TRT_DEFINITIONS "-D${feature_flag}")
+  endif()
+endforeach()
+
 include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${MLIR_INCLUDE_DIRS})
 link_directories(${LLVM_BUILD_LIBRARY_DIR})
-add_definitions(${LLVM_DEFINITIONS})
+add_definitions(${LLVM_DEFINITIONS} ${MLIR_TRT_DEFINITIONS})
 
 add_compile_options(-Wno-deprecated-declarations)
 
