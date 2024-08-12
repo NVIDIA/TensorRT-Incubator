@@ -39,7 +39,7 @@ case "${LINUX_DISTRO}" in
       protobuf-compiler autoconf automake libtool dnf-plugins-core cmake
     dnf config-manager --set-enabled powertools
     dnf -y install gcc-toolset-11-gcc gcc-toolset-11-gcc-c++
-    dny -y install ninja-build ccache
+    dnf -y install ninja-build ccache
     dnf clean all
     # Enable GCC11 toolset as default.
     echo -e ' \
