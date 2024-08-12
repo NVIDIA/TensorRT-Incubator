@@ -19,9 +19,11 @@ import pytest
 
 import tripy as tp
 
-@pytest.fixture(params=['compile', 'eager'])
+
+@pytest.fixture(params=["compile", "eager"])
 def mode(request):
     return request.param
+
 
 @pytest.fixture
 def compile_fixture(mode):
@@ -29,8 +31,8 @@ def compile_fixture(mode):
         def get_shape(x: tp.Tensor):
             x.eval()
             return tp.InputInfo(x.trace_tensor.shape, dtype=x.dtype)
-        
-        if mode == 'compile':
+
+        if mode == "compile":
             compiler = tp.Compiler(func)
             # Cast appropriate args / kwargs to use `tp.InputInfo`
             compile_args = tuple(map(lambda x: get_shape(x) if isinstance(x, tp.Tensor) else x, list(args)))
@@ -38,8 +40,9 @@ def compile_fixture(mode):
             compiled_func = compiler.compile(*compile_args, **compile_kwargs)
             # Remove baked in args, aka, only keep tp.Tensor's
             args = tuple(filter(lambda x: isinstance(x, tp.Tensor), args))
-            kwargs = dict(filter(lambda _, v: isinstance(v, tp.Tensor), kwargs.items()))
+            kwargs = dict(filter(lambda kv: isinstance(kv[1], tp.Tensor), kwargs.items()))
             return compiled_func(*args, **kwargs)
         elif mode == "eager":
             return func(*args, **kwargs)
+
     return wrapper
