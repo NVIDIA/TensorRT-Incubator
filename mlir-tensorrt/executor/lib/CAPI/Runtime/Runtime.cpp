@@ -21,13 +21,13 @@
 /// MLIR-TensorRT runtime C API implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-c/Runtime/Runtime.h"
+#include "mlir-executor-c/Runtime/Runtime.h"
+#include "mlir-executor-c/Common/Common.h"
+#include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Support/Status.h"
-#include "mlir-tensorrt-c/Common/Common.h"
-#include "mlir-tensorrt-c/Support/Status.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/ADT/SmallVectorExtras.h"
 #include <memory>
@@ -55,10 +55,8 @@ DEFINE_C_API_PTR_METHODS(MTRT_ScalarValue, ::mlirtrt::runtime::ScalarValue)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeClient, ::mlirtrt::runtime::RuntimeClient)
 DEFINE_C_API_PTR_METHODS(MTRT_MemRefValue, ::mlirtrt::runtime::MemRefValue)
 DEFINE_C_API_PTR_METHODS(MTRT_Device, ::mlirtrt::runtime::Device)
-#ifdef MLIR_TRT_ENABLE_PYTHON
 DEFINE_C_API_PTR_METHODS(MTRT_DLPackManagedTensor, DLManagedTensor)
 DEFINE_C_API_PTR_METHODS(MTRT_DLPackDevice, DLDevice)
-#endif // MLIR_TRT_ENABLE_PYTHON
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -309,8 +307,6 @@ MTRT_RuntimeClient mtrtMemRefGetClient(MTRT_MemRefValue memref) {
   return wrap(unwrap(memref)->getClient());
 }
 
-#ifdef MLIR_TRT_ENABLE_PYTHON
-
 static StatusOr<DLDeviceType> toDLPackDeviceType(PointerType address) {
   switch (address) {
   case PointerType::device:
@@ -358,7 +354,7 @@ static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
   return DLDataTypeCode::kDLFloat;
 }
 
-void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
+static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
   if (tensor) {
     delete[] tensor->dl_tensor.shape;
     delete[] tensor->dl_tensor.strides;
@@ -424,8 +420,6 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackDevice(
   *device_id = device;
   return mtrtStatusGetOk();
 }
-
-#endif // MLIR_TRT_ENABLE_PYTHON
 
 //===----------------------------------------------------------------------===//
 // Data Transfer

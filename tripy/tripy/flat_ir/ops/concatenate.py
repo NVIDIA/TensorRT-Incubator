@@ -33,6 +33,13 @@ class ConcatenateOp(BaseFlatIROp):
             value=self.dim,
         )
 
+        # Concatenation of a single operand is a no-op.
+        if len(operands) == 1:
+            return [operands[0]]
+
+        # TODO https://github.com/NVIDIA/TensorRT-Incubator/issues/70: if we could use numpy here, then we could implement the constant folding.
+        # Otherwise, implement a fold method in MLIR-TRT.
+
         output = stablehlo.concatenate(operands, dimension=concatenate_dim)
         # overwrite output type if its shape is inferred
         if self.outputs[0].shape is not None:

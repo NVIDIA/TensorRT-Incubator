@@ -3,15 +3,8 @@ mlir_executor_add_sol2()
 
 add_subdirectory(Modules)
 
-set(_MLIR_TENSORRT_RUNTIME_MODULES
-  MLIRTensorRTExecutorRuntimeCUDAModule
-  MLIRTensorRTExecutorRuntimeCoreModule
-  MLIRTensorRTExecutorRuntimeTensorRTModule
-  MLIRTensorRTExecutorRuntimeNCCLModule
-  MLIRTensorRTExecutorRuntimeCuBLASModule
-)
 
-add_mlir_library(MLIRTensorRTExecutionEngineLuaRuntime
+add_mlir_executor_runtime_library(MLIRTensorRTExecutionEngineLuaRuntime
   LuaRuntime.cpp
 
   LINK_LIBS PUBLIC
@@ -19,7 +12,7 @@ add_mlir_library(MLIRTensorRTExecutionEngineLuaRuntime
   CUDA::cudart
 
   LINK_LIBS PRIVATE
-  ${_MLIR_TENSORRT_RUNTIME_MODULES}
+  MLIRExecutorRuntimeCapabilities
   sol2::sol2
   lua::core
   nvtx3-cpp

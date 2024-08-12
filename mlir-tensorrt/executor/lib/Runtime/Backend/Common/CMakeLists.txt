@@ -1,10 +1,10 @@
-add_mlir_library(MLIRTensorRTExecutorRuntimeCommon
+add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeCommon
   CommonRuntime.cpp
   NvPtxCompilerUtils.cpp
 
   LINK_LIBS
 
-  PUBLIC  
+  PUBLIC
   MLIRTensorRTExecutorRuntimeAPI
   CUDA::cuda_driver
 

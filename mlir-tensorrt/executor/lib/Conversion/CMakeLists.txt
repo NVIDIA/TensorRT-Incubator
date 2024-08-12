@@ -1,6 +1,6 @@
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_mlir_library(MLIRTensorRTConvertToExecutorCommon
+add_mlir_executor_library(MLIRTensorRTConvertToExecutorCommon
   PARTIAL_SOURCES_INTENDED
   ConvertToExecutorCommon.cpp
 
@@ -20,7 +20,7 @@ add_mlir_pdll_library(MLIRExecutorStdToExectutorPatternsIncGen
   MathToExecutor.pdll.h.inc
   )
 
-add_mlir_library(MLIRTensorRTStdToExecutor
+add_mlir_executor_library(MLIRTensorRTStdToExecutor
   PARTIAL_SOURCES_INTENDED
   ExecutorToExecutor.cpp
   MemRefToExecutor.cpp

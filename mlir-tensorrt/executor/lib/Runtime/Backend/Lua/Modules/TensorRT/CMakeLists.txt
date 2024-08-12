@@ -1,4 +1,4 @@
-add_mlir_library(MLIRTensorRTExecutorRuntimeTensorRTModule
+add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeTensorRTModule
   TensorRTModule.cpp
 
   LINK_LIBS PUBLIC
