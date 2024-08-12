@@ -196,8 +196,8 @@
     </div>
     <p class="caption" role="heading"><span class="caption-text">User Guides</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/introduction-to-tripy.html">An Introduction To Tripy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/quantization.html">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/00-introduction-to-tripy.html">An Introduction To Tripy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/01-quantization.html">Quantization</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
@@ -216,73 +216,85 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../logger.html">logger</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../modules/conv.html">Conv</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/conv_transpose.html">ConvTranspose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/embedding.html">Embedding</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/group_norm.html">GroupNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/layer_norm.html">LayerNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/linear.html">Linear</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/parameter.html">Parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../operations/index.html">Operations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../operations/functions/index.html">Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/abs.html">abs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/all.html">all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/allclose.html">allclose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/any.html">any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/argmax.html">argmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/argmin.html">argmin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/cast.html">cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/concatenate.html">concatenate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/copy.html">copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/cos.html">cos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/exp.html">exp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/expand.html">expand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/flip.html">flip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/gather.html">gather</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/gelu.html">gelu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/log.html">log</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/masked_fill.html">masked_fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/max.html">max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/maximum.html">maximum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/minimum.html">minimum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/permute.html">permute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/plugin.html">plugin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/prod.html">prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/relu.html">relu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/reshape.html">reshape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/rsqrt.html">rsqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sigmoid.html">sigmoid</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/silu.html">silu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sin.html">sin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/softmax.html">softmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/split.html">split</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sqrt.html">sqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/squeeze.html">squeeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sum.html">sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/tanh.html">tanh</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/transpose.html">transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/unsqueeze.html">unsqueeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/var.html">var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/where.html">where</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../operations/initializers/index.html">Initializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/arange.html">arange</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/full.html">full</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/full_like.html">full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/iota.html">iota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/iota_like.html">iota_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/ones.html">ones</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/ones_like.html">ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/tril.html">tril</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/triu.html">triu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/zeros.html">zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/zeros_like.html">zeros_like</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../operations/modules/index.html">Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/conv.html">Conv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/conv_transpose.html">ConvTranspose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/embedding.html">Embedding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/group_norm.html">GroupNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/layer_norm.html">LayerNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/linear.html">Linear</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../operations/quantization/index.html">Quantization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/quantization/dequantize.html">dequantize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/quantization/quantize.html">quantize</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../shape.html">Shape</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tensor/index.html">Tensor</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tensor_operations/index.html">Tensor Operations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/abs.html">abs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/all.html">all</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/allclose.html">allclose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/any.html">any</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/arange.html">arange</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/argmax.html">argmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/argmin.html">argmin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/cast.html">cast</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/concatenate.html">concatenate</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/copy.html">copy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/cos.html">cos</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/dequantize.html">dequantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/exp.html">exp</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/expand.html">expand</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/flip.html">flip</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/full.html">full</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/full_like.html">full_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/gather.html">gather</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/gelu.html">gelu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/iota.html">iota</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/iota_like.html">iota_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/log.html">log</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/masked_fill.html">masked_fill</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/max.html">max</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/maximum.html">maximum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/mean.html">mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/minimum.html">minimum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/ones.html">ones</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/ones_like.html">ones_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/permute.html">permute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/plugin.html">plugin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/prod.html">prod</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/quantize.html">quantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/relu.html">relu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/reshape.html">reshape</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/rsqrt.html">rsqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sigmoid.html">sigmoid</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/silu.html">silu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sin.html">sin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/softmax.html">softmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/split.html">split</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sqrt.html">sqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/squeeze.html">squeeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sum.html">sum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/tanh.html">tanh</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/transpose.html">transpose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/tril.html">tril</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/triu.html">triu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/unsqueeze.html">unsqueeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/var.html">var</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/where.html">where</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/zeros.html">zeros</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/zeros_like.html">zeros_like</a></li>
-</ul>
-</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Guides</span></p>
 <ul class="current">
@@ -354,7 +366,7 @@ So that it doesn’t clash with Tripy’s actual <code class="docutils literal n
 <p>The <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> operator is usually the most challenging aspect of implementing operators
 in Tripy. The good news is that you might not even need to do this if the low-level operators
 you need already exist in the <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code>. And if you do, then it’ll only get easier after this!</p>
-<p>We’ll start by adding a new file under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/flat_ir/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/flat_ir/ops</span></code></a> called
+<p>We’ll start by adding a new file under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/flat_ir/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/flat_ir/ops</span></code></a> called
 <code class="docutils literal notranslate"><span class="pre">theta.py</span></code>; see the inline comments for explanations of what’s happening:</p>
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
 <span class="linenos"> 2</span>
@@ -397,7 +409,7 @@ within the <code class="docutils literal notranslate"><span class="pre">flat_ir.
 from the submodule.</p>
 <p>To make this possible, we need to import the <code class="docutils literal notranslate"><span class="pre">ThetaOp</span></code> into the <code class="docutils literal notranslate"><span class="pre">flat_ir.ops</span></code> submodule.
 We can do so by adding the following line into
-<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/flat_ir/ops/__init__.py"><code class="docutils literal notranslate"><span class="pre">tripy/flat_ir/ops/__init__.py</span></code></a>:</p>
+<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/flat_ir/ops/__init__.py"><code class="docutils literal notranslate"><span class="pre">tripy/flat_ir/ops/__init__.py</span></code></a>:</p>
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="kn">from</span> <span class="nn">tripy.flat_ir.ops.theta</span> <span class="kn">import</span> <span class="n">ThetaOp</span>
 </pre></div>
 </div>
@@ -407,7 +419,7 @@ We can do so by adding the following line into
 <h2><a class="toc-backref" href="#id6" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">Trace</span></code> Operator And The Public API</a><a class="headerlink" href="#trace-operator-and-the-public-api" title="Link to this heading">¶</a></h2>
 <p>Now that we have a <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> operator, we can implement a <code class="docutils literal notranslate"><span class="pre">Trace</span></code> operator that will use it
 along with a public API function. Let’s create a new file under
-<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/frontend/trace/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/frontend/trace/ops</span></code></a> called <code class="docutils literal notranslate"><span class="pre">theta.py</span></code>.</p>
+<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/frontend/trace/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/frontend/trace/ops</span></code></a> called <code class="docutils literal notranslate"><span class="pre">theta.py</span></code>.</p>
 <section id="trace-operator">
 <h3><a class="toc-backref" href="#id7" role="doc-backlink"><code class="docutils literal notranslate"><span class="pre">Trace</span></code> Operator</a><a class="headerlink" href="#trace-operator" title="Link to this heading">¶</a></h3>
 <p>First, we’ll implement the <code class="docutils literal notranslate"><span class="pre">Trace</span></code> operator itself:</p>
@@ -486,9 +498,9 @@ along with a public API function. Let’s create a new file under
 <p>Next, we can define the public interface. Since our public interface maps 1:1 with the <code class="docutils literal notranslate"><span class="pre">Trace</span></code>
 operator we just implemented and does not require weights, we’ll add it in the same file.</p>
 <p>If our API required a composition of multiple <code class="docutils literal notranslate"><span class="pre">Trace</span></code> operators, then we would instead implement
-it under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/frontend/ops"><code class="docutils literal notranslate"><span class="pre">frontend/ops/</span></code></a>.</p>
+it under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/frontend/ops"><code class="docutils literal notranslate"><span class="pre">frontend/ops/</span></code></a>.</p>
 <p>If it required weights (i.e. inputs that are expected to always be constant), then we would implement
-it as a <code class="docutils literal notranslate"><span class="pre">tripy.Module</span></code> under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/frontend/module"><code class="docutils literal notranslate"><span class="pre">frontend/module</span></code></a>.</p>
+it as a <code class="docutils literal notranslate"><span class="pre">tripy.Module</span></code> under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/frontend/module"><code class="docutils literal notranslate"><span class="pre">frontend/module</span></code></a>.</p>
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">from</span> <span class="nn">tripy</span> <span class="kn">import</span> <span class="n">export</span>
 <span class="linenos"> 2</span><span class="kn">import</span> <span class="nn">tripy.frontend.utils</span> <span class="k">as</span> <span class="nn">frontend_utils</span>
 <span class="linenos"> 3</span>
@@ -545,14 +557,14 @@ it as a <code class="docutils literal notranslate"><span class="pre">tripy.Modul
 </div>
 <p>Links:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//docs/README.md">Docs README</a></p></li>
+<li><p><a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//docs/README.md">Docs README</a></p></li>
 </ul>
 </section>
 <section id="id1">
 <h3><a class="toc-backref" href="#id9" role="doc-backlink">Exposing The Operator</a><a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
 <p>Similarly to the <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> operator, we need to import <code class="docutils literal notranslate"><span class="pre">Theta</span></code> into the
 <code class="docutils literal notranslate"><span class="pre">frontend.trace.ops</span></code> submodule. We can do so by adding the following line into
-<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/frontend/trace/ops/__init__.py"><code class="docutils literal notranslate"><span class="pre">tripy/frontend/trace/ops/__init__.py</span></code></a>:</p>
+<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/frontend/trace/ops/__init__.py"><code class="docutils literal notranslate"><span class="pre">tripy/frontend/trace/ops/__init__.py</span></code></a>:</p>
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="kn">from</span> <span class="nn">tripy.frontend.trace.ops.theta</span> <span class="kn">import</span> <span class="n">Theta</span><span class="p">,</span> <span class="n">theta</span>
 </pre></div>
 </div>
@@ -561,8 +573,8 @@ it as a <code class="docutils literal notranslate"><span class="pre">tripy.Modul
 <section id="testing">
 <h2><a class="toc-backref" href="#id10" role="doc-backlink">Testing</a><a class="headerlink" href="#testing" title="Link to this heading">¶</a></h2>
 <p>Now that we’ve implemented our operator, let’s write tests for it. The structure of the
-<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tests/"><code class="docutils literal notranslate"><span class="pre">tests/</span></code></a> directory mirrors that of the <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/"><code class="docutils literal notranslate"><span class="pre">tripy/</span></code></a> directory
-(you can read more about that <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tests/README.md">here</a>). We need to test both the <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code>
+<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tests/"><code class="docutils literal notranslate"><span class="pre">tests/</span></code></a> directory mirrors that of the <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/"><code class="docutils literal notranslate"><span class="pre">tripy/</span></code></a> directory
+(you can read more about that <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tests/README.md">here</a>). We need to test both the <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code>
 and <code class="docutils literal notranslate"><span class="pre">Trace</span></code> operators.</p>
 <section id="testing-the-flatir-operator">
 <h3><a class="toc-backref" href="#id11" role="doc-backlink">Testing The <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> Operator</a><a class="headerlink" href="#testing-the-flatir-operator" title="Link to this heading">¶</a></h3>
@@ -572,8 +584,8 @@ and <code class="docutils literal notranslate"><span class="pre">Trace</span></c
 is what will appear in the <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> dumps.</p></li>
 <li><p>Is the translation to MLIR correct?</p></li>
 </ol>
-<p>Since we implemented the <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> operator in <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/flat_ir/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/flat_ir/ops</span></code></a>, we’ll
-add the corresponding test under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tests/flat_ir/ops/"><code class="docutils literal notranslate"><span class="pre">tests/flat_ir/ops</span></code></a>. Create a new file
+<p>Since we implemented the <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> operator in <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/flat_ir/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/flat_ir/ops</span></code></a>, we’ll
+add the corresponding test under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tests/flat_ir/ops/"><code class="docutils literal notranslate"><span class="pre">tests/flat_ir/ops</span></code></a>. Create a new file
 there called <code class="docutils literal notranslate"><span class="pre">test_theta.py</span></code>.</p>
 <p>We’ll start by defining a pytest fixture that will generate a <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code> containing a <code class="docutils literal notranslate"><span class="pre">ThetaOp</span></code> for us.
 To do so, we can simply use the public API, generate a <code class="docutils literal notranslate"><span class="pre">Trace</span></code>, and convert to <code class="docutils literal notranslate"><span class="pre">FlatIR</span></code>:</p>
@@ -583,16 +595,15 @@ To do so, we can simply use the public API, generate a <code class="docutils lit
 <span class="linenos"> 4</span><span class="kn">import</span> <span class="nn">tripy</span> <span class="k">as</span> <span class="nn">tp</span>
 <span class="linenos"> 5</span><span class="kn">from</span> <span class="nn">tests</span> <span class="kn">import</span> <span class="n">helper</span>
 <span class="linenos"> 6</span><span class="kn">from</span> <span class="nn">tripy.frontend.trace</span> <span class="kn">import</span> <span class="n">Trace</span>
-<span class="linenos"> 7</span><span class="kn">from</span> <span class="nn">tripy.flat_ir.ops</span> <span class="kn">import</span> <span class="n">IotaOp</span>
+<span class="linenos"> 7</span>
 <span class="linenos"> 8</span>
-<span class="linenos"> 9</span>
-<span class="linenos">10</span><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
-<span class="linenos">11</span><span class="k">def</span> <span class="nf">flat_ir</span><span class="p">():</span>
-<span class="linenos">12</span>    <span class="n">out</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">theta</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<span class="linenos">13</span>    <span class="n">out</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;out&quot;</span>
-<span class="linenos">14</span>
-<span class="linenos">15</span>    <span class="n">trace</span> <span class="o">=</span> <span class="n">Trace</span><span class="p">([</span><span class="n">out</span><span class="p">])</span>
-<span class="linenos">16</span>    <span class="k">yield</span> <span class="n">trace</span><span class="o">.</span><span class="n">to_flat_ir</span><span class="p">()</span>
+<span class="linenos"> 9</span><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+<span class="linenos">10</span><span class="k">def</span> <span class="nf">flat_ir</span><span class="p">():</span>
+<span class="linenos">11</span>    <span class="n">out</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">theta</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="linenos">12</span>    <span class="n">out</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;out&quot;</span>
+<span class="linenos">13</span>
+<span class="linenos">14</span>    <span class="n">trace</span> <span class="o">=</span> <span class="n">Trace</span><span class="p">([</span><span class="n">out</span><span class="p">])</span>
+<span class="linenos">15</span>    <span class="k">yield</span> <span class="n">trace</span><span class="o">.</span><span class="n">to_flat_ir</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>Now we can create a test class with our two tests:</p>
@@ -631,8 +642,8 @@ To do so, we can simply use the public API, generate a <code class="docutils lit
 <section id="testing-the-trace-operator-and-public-api">
 <h3><a class="toc-backref" href="#id12" role="doc-backlink">Testing The Trace Operator And Public API</a><a class="headerlink" href="#testing-the-trace-operator-and-public-api" title="Link to this heading">¶</a></h3>
 <p>Since we implemented our <code class="docutils literal notranslate"><span class="pre">Trace</span></code> operator and public API in
-<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tripy/frontend/trace/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/frontend/trace/ops</span></code></a>, we’ll add the test under
-<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tests/frontend/trace/ops/"><code class="docutils literal notranslate"><span class="pre">tests/frontend/trace/ops</span></code></a>.
+<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tripy/frontend/trace/ops/"><code class="docutils literal notranslate"><span class="pre">tripy/frontend/trace/ops</span></code></a>, we’ll add the test under
+<a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tests/frontend/trace/ops/"><code class="docutils literal notranslate"><span class="pre">tests/frontend/trace/ops</span></code></a>.
 Create a new file there called <code class="docutils literal notranslate"><span class="pre">test_theta.py</span></code>:</p>
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span> <span class="nn">tripy</span> <span class="k">as</span> <span class="nn">tp</span>
 <span class="linenos"> 2</span><span class="kn">from</span> <span class="nn">tests</span> <span class="kn">import</span> <span class="n">helper</span>
@@ -652,7 +663,7 @@ Create a new file there called <code class="docutils literal notranslate"><span 
 <span class="linenos">16</span>    <span class="c1"># which ensures that we emit an error if the `dim` parameter is outside</span>
 <span class="linenos">17</span>    <span class="c1"># the allowed range.</span>
 <span class="linenos">18</span>    <span class="k">def</span> <span class="nf">test_invalid_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="linenos">19</span>        <span class="k">with</span> <span class="n">helper</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">TripyException</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;iota dimension cannot go beyond the output rank or be negative.&quot;</span><span class="p">):</span>
+<span class="linenos">19</span>        <span class="k">with</span> <span class="n">helper</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">TripyException</span><span class="p">,</span> <span class="n">match</span><span class="o">=</span><span class="s2">&quot;iota dimension cannot go beyond the output rank&quot;</span><span class="p">):</span>
 <span class="linenos">20</span>            <span class="n">tp</span><span class="o">.</span><span class="n">theta</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -662,7 +673,7 @@ Create a new file there called <code class="docutils literal notranslate"><span 
 <p>The code examples in the docstring of the public API serve as good sanity integration tests.
 However, you should still add separate integration tests to get better coverage.</p>
 <p>Our docstring covers the 1D case, so let’s add an integration test to cover the multidimensional case.
-Create a new file called <code class="docutils literal notranslate"><span class="pre">test_theta.py</span></code> under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tripy/-/blob/main//tests/integration/"><code class="docutils literal notranslate"><span class="pre">tests/integration</span></code></a>:</p>
+Create a new file called <code class="docutils literal notranslate"><span class="pre">test_theta.py</span></code> under <a class="reference external" href="https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy//tests/integration/"><code class="docutils literal notranslate"><span class="pre">tests/integration</span></code></a>:</p>
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="linenos"> 2</span><span class="kn">import</span> <span class="nn">cupy</span> <span class="k">as</span> <span class="nn">cp</span>
 <span class="linenos"> 3</span>

@@ -194,8 +194,8 @@
     </div>
     <p class="caption" role="heading"><span class="caption-text">User Guides</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/introduction-to-tripy.html">An Introduction To Tripy</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/quantization.html">Quantization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/00-introduction-to-tripy.html">An Introduction To Tripy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pre0_user_guides/01-quantization.html">Quantization</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
 <ul>
@@ -214,73 +214,85 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../logger.html">logger</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../modules/index.html">Module</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../modules/conv.html">Conv</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/conv_transpose.html">ConvTranspose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/embedding.html">Embedding</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/group_norm.html">GroupNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/layer_norm.html">LayerNorm</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../modules/linear.html">Linear</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../modules/parameter.html">Parameter</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../operations/index.html">Operations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../operations/functions/index.html">Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/abs.html">abs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/all.html">all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/allclose.html">allclose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/any.html">any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/argmax.html">argmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/argmin.html">argmin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/cast.html">cast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/concatenate.html">concatenate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/copy.html">copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/cos.html">cos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/exp.html">exp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/expand.html">expand</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/flip.html">flip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/gather.html">gather</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/gelu.html">gelu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/log.html">log</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/masked_fill.html">masked_fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/max.html">max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/maximum.html">maximum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/mean.html">mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/minimum.html">minimum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/permute.html">permute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/plugin.html">plugin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/prod.html">prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/relu.html">relu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/reshape.html">reshape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/rsqrt.html">rsqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sigmoid.html">sigmoid</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/silu.html">silu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sin.html">sin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/softmax.html">softmax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/split.html">split</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sqrt.html">sqrt</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/squeeze.html">squeeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/sum.html">sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/tanh.html">tanh</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/transpose.html">transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/unsqueeze.html">unsqueeze</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/var.html">var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/functions/where.html">where</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../operations/initializers/index.html">Initializers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/arange.html">arange</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/full.html">full</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/full_like.html">full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/iota.html">iota</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/iota_like.html">iota_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/ones.html">ones</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/ones_like.html">ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/tril.html">tril</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/triu.html">triu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/zeros.html">zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/initializers/zeros_like.html">zeros_like</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../operations/modules/index.html">Modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/conv.html">Conv</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/conv_transpose.html">ConvTranspose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/embedding.html">Embedding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/group_norm.html">GroupNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/layer_norm.html">LayerNorm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/modules/linear.html">Linear</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../operations/quantization/index.html">Quantization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../operations/quantization/dequantize.html">dequantize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../operations/quantization/quantize.html">quantize</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../shape.html">Shape</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tensor/index.html">Tensor</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tensor_operations/index.html">Tensor Operations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/abs.html">abs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/all.html">all</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/allclose.html">allclose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/any.html">any</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/arange.html">arange</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/argmax.html">argmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/argmin.html">argmin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/cast.html">cast</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/concatenate.html">concatenate</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/copy.html">copy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/cos.html">cos</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/dequantize.html">dequantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/exp.html">exp</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/expand.html">expand</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/flip.html">flip</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/full.html">full</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/full_like.html">full_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/gather.html">gather</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/gelu.html">gelu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/iota.html">iota</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/iota_like.html">iota_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/log.html">log</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/masked_fill.html">masked_fill</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/max.html">max</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/maximum.html">maximum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/mean.html">mean</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/minimum.html">minimum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/ones.html">ones</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/ones_like.html">ones_like</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/permute.html">permute</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/plugin.html">plugin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/prod.html">prod</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/quantize.html">quantize</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/relu.html">relu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/reshape.html">reshape</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/rsqrt.html">rsqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sigmoid.html">sigmoid</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/silu.html">silu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sin.html">sin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/softmax.html">softmax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/split.html">split</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sqrt.html">sqrt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/squeeze.html">squeeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/sum.html">sum</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/tanh.html">tanh</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/transpose.html">transpose</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/tril.html">tril</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/triu.html">triu</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/unsqueeze.html">unsqueeze</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/var.html">var</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/where.html">where</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/zeros.html">zeros</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../tensor_operations/zeros_like.html">zeros_like</a></li>
-</ul>
-</li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Developer Guides</span></p>
 <ul>
@@ -303,9 +315,10 @@
       </aside>
       <main class="nftt-main">
         <article id="content" class="nftt-content" role="main">
-    <section id="tripy-a-python-programming-model-for-tensorrt">
+    <p><a class="reference internal" href="#installation"><span class="xref myst"><strong>Installation</strong></span></a> | <a class="reference internal" href="#quickstart"><span class="xref myst"><strong>Quickstart</strong></span></a> | <a class="reference internal" href="#documentation"><span class="xref myst"><strong>Documentation</strong></span></a> | <a class="reference internal" href="#examples"><span class="xref myst"><strong>Examples</strong></span></a></p>
+<section id="tripy-a-python-programming-model-for-tensorrt">
 <h1>Tripy: A Python Programming Model For TensorRT<a class="headerlink" href="#tripy-a-python-programming-model-for-tensorrt" title="Link to this heading">¶</a></h1>
-<p>Tripy is a Python programming model for TensorRT that aims to provide an excellent
+<p>Tripy is a Python programming model for <a class="reference external" href="https://developer.nvidia.com/tensorrt">TensorRT</a> that aims to provide an excellent
 user experience without compromising performance. Some of the features of Tripy include:</p>
 <ul class="simple">
 <li><p><strong>Intuitive API</strong>: Tripy doesn’t reinvent the wheel: If you have used NumPy or
@@ -317,11 +330,67 @@ that caused it.</p></li>
 </ul>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
-<!-- TODO (#release): Include `pip install` instructions here -->
+<p>Due to how our package is currently set up, installation is more complicated than a simple <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code>.
+This should change in the near future, but for now, you can use Tripy by building the development container
+as specified in <a class="reference internal" href="#./CONTRIBUTING.md"><span class="xref myst">CONTRIBUTING.md</span></a>.</p>
 </section>
 <section id="quickstart">
 <h2>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">¶</a></h2>
-<!-- TODO (#release): Link to intro to tripy guide -->
+<p>In eager mode, Tripy works just like you’d expect:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="kn">import</span> <span class="nn">tripy</span> <span class="k">as</span> <span class="nn">tp</span>
+<span class="linenos">2</span>
+<span class="linenos">3</span><span class="n">a</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])</span>
+<span class="linenos">4</span><span class="nb">print</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="linenos">5</span>
+<span class="linenos">6</span><span class="c1"># tensor([2.0000, 3.0000], dtype=float32, loc=gpu:0, shape=(2,))</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span>
+<span class="go">tensor([1.0000, 2.0000], dtype=float32, loc=gpu:0, shape=(2,))</span>
+</pre></div>
+</div>
+<p>Output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tensor</span><span class="p">([</span><span class="mf">2.0000</span><span class="p">,</span> <span class="mf">3.0000</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">float32</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="n">gpu</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,))</span>
+</pre></div>
+</div>
+<p>Tripy can also compile functions to generate efficient machine code for faster execution:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="linenos"> 1</span><span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+<span class="linenos"> 2</span>    <span class="k">return</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+<span class="linenos"> 3</span>
+<span class="linenos"> 4</span><span class="n">compiler</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">Compiler</span><span class="p">(</span><span class="n">add</span><span class="p">)</span>
+<span class="linenos"> 5</span>
+<span class="linenos"> 6</span><span class="c1"># When compiling, we need to specify shape and data type constraints on the inputs:</span>
+<span class="linenos"> 7</span>
+<span class="linenos"> 8</span><span class="c1"># a is a 1D dynamic shape tensor of shape (d,), where `d` can range from 1 to 5.</span>
+<span class="linenos"> 9</span><span class="c1"># `[1, 2, 5]` indicates a range from 1 to 5, with optimization for `d = 2`.</span>
+<span class="linenos">10</span><span class="n">a_info</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">InputInfo</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">],),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tp</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="linenos">11</span>
+<span class="linenos">12</span><span class="c1"># `b` is a 1D tensor of shape (1,).</span>
+<span class="linenos">13</span><span class="n">b_info</span> <span class="o">=</span> <span class="n">tp</span><span class="o">.</span><span class="n">InputInfo</span><span class="p">((</span><span class="mi">1</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tp</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="linenos">14</span>
+<span class="linenos">15</span><span class="n">compiled_add</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">a_info</span><span class="p">,</span> <span class="n">b_info</span><span class="p">)</span>
+<span class="linenos">16</span>
+<span class="linenos">17</span><span class="nb">print</span><span class="p">(</span><span class="n">compiled_add</span><span class="p">(</span><span class="n">tp</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">,</span> <span class="mf">3.</span><span class="p">]),</span> <span class="n">tp</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([</span><span class="mf">3.</span><span class="p">])))</span>
+<span class="linenos">18</span><span class="c1"># tensor([4.0000, 5.0000, 6.0000], dtype=float32, loc=gpu:0, shape=(3,))</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">compiler</span>
+<span class="go">&lt;tripy.backend.compiler_api.Compiler object at 0x7f723ca3e770&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a_info</span>
+<span class="go">InputInfo(min=(1,), opt=(2,), max=(5,), dtype=float32)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b_info</span>
+<span class="go">InputInfo(min=(1,), opt=(1,), max=(1,), dtype=float32)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">compiled_add</span>
+<span class="go">&lt;tripy.backend.compiler_api.Executable object at 0x7f723c949750&gt;</span>
+</pre></div>
+</div>
+<p>Output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tensor</span><span class="p">([</span><span class="mf">4.0000</span><span class="p">,</span> <span class="mf">5.0000</span><span class="p">,</span> <span class="mf">6.0000</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">float32</span><span class="p">,</span> <span class="n">loc</span><span class="o">=</span><span class="n">gpu</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,))</span>
+</pre></div>
+</div>
+<p>For more details, see the
+<a class="reference external" href="https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/introduction-to-tripy.html">Introduction To Tripy</a>
+guide.</p>
 </section>
 </section>
 
