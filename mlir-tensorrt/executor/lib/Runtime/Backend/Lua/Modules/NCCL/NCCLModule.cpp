@@ -26,7 +26,6 @@
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 
-#ifdef MLIR_TRT_ENABLE_NCCL
 #define OMPI_SKIP_MPICXX
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -37,14 +36,11 @@
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
-#endif //  MLIR_TRT_ENABLE_NCCL
 
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
 
 using ExecPtr = uintptr_t;
-
-#ifdef MLIR_TRT_ENABLE_NCCL
 
 namespace {
 
@@ -271,27 +267,19 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
     SET_LUA_ERROR_IF_NCCL_ERROR(ncclGroupEnd(), state);
   };
 }
-#endif // MLIR_TRT_ENABLE_NCCL
 
 void mlirtrt::runtime::registerExecutorNCCLModuleLuaRuntimeMethods(
     lua_State *state, ResourceTracker *tracker) {
   sol::state_view lua(state);
-
-#ifdef MLIR_TRT_ENABLE_NCCL
   registerNcclOps(lua, tracker);
-#endif // MLIR_TRT_ENABLE_NCCL
 }
 
 StatusOr<std::string> mlirtrt::runtime::getCommunicatorUniqueId() {
-#ifdef MLIR_TRT_ENABLE_NCCL
   ncclUniqueId id;
   RETURN_ERROR_IF_NCCL_ERROR(ncclGetUniqueId(&id), nullptr);
   std::string asString = std::string(id.internal, NCCL_UNIQUE_ID_BYTES);
   MTRT_DBGF("NCCL unique id: %s", asString.c_str());
   return asString;
-#else
-  return std::string{};
-#endif // MLIR_TRT_ENABLE_NCCL
 }
 
 void mlirtrt::runtime::registerDeviceDependentNCCLMethods(
@@ -305,11 +293,9 @@ void mlirtrt::runtime::registerDeviceDependentNCCLMethods(
     return deviceIdx;
   };
 
-#ifdef MLIR_TRT_ENABLE_NCCL
   ncclUniqueId id;
   std::copy_n(ncclUuid.begin(), ncclUuid.size(), id.internal);
   lua["_get_nccl_unique_id"] = [id](sol::this_state state, int32_t rank) {
     return id;
   };
-#endif // MLIR_TRT_ENABLE_NCCL
 }

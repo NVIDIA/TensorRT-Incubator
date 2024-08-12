@@ -314,7 +314,6 @@ import re
 import tripy as tp
 from tests import helper
 from tripy.frontend.trace import Trace
-from tripy.flat_ir.ops import IotaOp
 
 
 @pytest.fixture

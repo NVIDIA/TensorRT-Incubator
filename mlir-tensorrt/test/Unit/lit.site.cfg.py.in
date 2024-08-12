@@ -6,7 +6,7 @@ config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
 config.llvm_build_mode = lit_config.substitute("@LLVM_BUILD_MODE@")
 config.mlir_tensorrt_obj_root = "@MLIR_TENSORRT_ROOT_BINARY_DIR@"
 
-config.enable_asan = @MLIR_TRT_WITH_ASAN@
+config.enable_asan = @ENABLE_ASAN@
 config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
 
 # Let the main config do the real work.

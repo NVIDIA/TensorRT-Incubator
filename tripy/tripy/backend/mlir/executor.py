@@ -36,55 +36,57 @@ class Executor:
         self.device = self.runtime_client.get_devices()[0]  # Assume a single device is available.
         self.signature = executable.get_signature("main")
 
-    def _get_inputs_shape_memref(self, inputs):
-        inputs_shape_memref = []
-        for input in inputs:
-            input_shape = Array(
-                input.trace_tensor.producer.data.shape,
-                shape=make_tuple(input.trace_tensor.rank),
-                dtype=datatype.int64,
-                device=device("cpu"),
-            )
-            inputs_shape_memref.append(input_shape.memref_value)
-        return inputs_shape_memref
+    def _create_shape_memref(self, shape):
+        from tripy.common.utils import convert_list_to_array
 
-    def _get_outputs_shape_memref(self):
+        shape = make_tuple(shape)
+        if len(shape) == 0:
+            # create an empty memref
+            return self.runtime_client.create_memref(
+                shape=(0,),
+                dtype=runtime.runtime.ScalarTypeCode.i64,
+            )
+        return self.runtime_client.create_memref(
+            convert_list_to_array(shape, datatype.int64),
+            shape=(len(shape),),
+            dtype=runtime.ScalarTypeCode.i64,
+        )
+
+    def _get_inputs_runtime_shape(self, inputs):
+        inputs_shape = []
+        for input in inputs:
+            inputs_shape.append(input.trace_tensor.producer.data.shape)
+        return inputs_shape
+
+    def _get_outputs_shape(self):
         offset = self.signature.get_num_input_args()
-        outputs_shape_memref = []
+        outputs_shape = []
+        all_outputs_known = True
         for output_index in range(self.signature.get_num_output_args()):
             arg_index = output_index + offset
             arg = self.signature.get_arg(arg_index)
             assert compiler.MemRefType.isinstance(arg)
             memref = runtime.MemRefType(arg)
             rank = len(memref.shape)
-            if len(memref.shape) > 0:
-                output_shape = Array(memref.shape, shape=make_tuple(rank), dtype=datatype.int64, device=device("cpu"))
-                outputs_shape_memref.append(output_shape.memref_value)
-            else:
-                outputs_shape_memref.append(None)
-        return outputs_shape_memref
 
-    def _execute_shape_inference(self, inputs_shape_memref, outputs_shape_memref):
+            outputs_shape.append(memref.shape)
+            if rank > 0:
+                all_outputs_known &= all(dim >= 0 for dim in memref.shape)
+        return outputs_shape, all_outputs_known
+
+    def _execute_shape_inference(self, inputs_shape, outputs_shape):
         # Only execute shape inference if shape function name is valid.
-        if not self.signature.get_shape_func_name():
-            for memref in outputs_shape_memref:
-                if memref is not None:
-                    assert (
-                        all(dim >= 0 for dim in memref.shape)
-                        and f"Output shape {memref.shape} must be statically known if shape inference function is missing. "
-                    )
-            return None
+        assert (
+            self.signature.get_shape_func_name()
+        ), f"Shape inference function is missing while output shapes are not known."
 
+        inputs_shape_memref = [self._create_shape_memref(inp_shape) for inp_shape in inputs_shape]
+        outputs_shape_memref = [self._create_shape_memref(out_shape) for out_shape in outputs_shape]
         self.session.execute_function(
             name=self.signature.get_shape_func_name(), in_args=inputs_shape_memref, out_args=outputs_shape_memref
         )
 
-        outputs_shapes_host = [
-            Array(memoryview(s).tolist(), shape=s.shape, dtype=datatype.int64, device=device("cpu"))
-            for s in outputs_shape_memref
-        ]
-
-        outputs_runtime_shape = [s.data() for s in outputs_shapes_host]
+        outputs_runtime_shape = [memoryview(s).tolist() for s in outputs_shape_memref]
         return outputs_runtime_shape
 
     def _get_output_tensor_info(self, outputs_runtime_shape, output_devices):
@@ -126,12 +128,11 @@ class Executor:
         return outputs_tensor_info
 
     def get_output_tensor_runtime_info(self, inputs, output_devices=List[device]):
-        inputs_shape_memref = self._get_inputs_shape_memref(
-            inputs
-        )  # Can we use executable signature inputs to retrieve this information?
-        outputs_shape_memref = self._get_outputs_shape_memref()
-        outputs_runtime_shape = self._execute_shape_inference(inputs_shape_memref, outputs_shape_memref)
-        output_tensor_info = self._get_output_tensor_info(outputs_runtime_shape, output_devices)
+        outputs_shape, all_outputs_known = self._get_outputs_shape()
+        if not all_outputs_known:
+            inputs_shape = self._get_inputs_runtime_shape(inputs)
+            outputs_shape = self._execute_shape_inference(inputs_shape, outputs_shape)
+        output_tensor_info = self._get_output_tensor_info(outputs_shape, output_devices)
         return output_tensor_info
 
     @log_time

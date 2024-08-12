@@ -32,30 +32,18 @@ include(CompilerPackageUtils.cmake)
 
 find_package(CUDAToolkit REQUIRED)
 
-# -------------------------------------------------
-# mlir_tensorrt_compiler package
-# -------------------------------------------------
+
 if(MLIR_TRT_ENABLE_PYTHON)
   # This is the directory under `llvm-project/mlir/python`.
   set(MLIR_MAIN_PYTHON_DIR "${MLIR_MAIN_SRC_DIR}/python")
   # This is the C++ source directory under `llvm-project/mlir/lib/Bindings/Python`.
   set(MLIR_MAIN_PYTHON_BINDINGS_DIR "${MLIR_MAIN_SRC_DIR}/lib/Bindings/Python")
 
-  mlir_tensorrt_declare_compiler_python_package(MLIRTensorRTPythonCompiler
-    SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_tensorrt_compiler/mlir_tensorrt/compiler"
-    OUT_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_compiler"
-    SETUP_PY ../../setup.py
-    WHEEL_TARGET_NAME "mlir-tensorrt-compiler-wheel"
-    WHEEL_OUTPUT_DIR ${WHEEL_OUTPUT_DIR}
-    MLIR_PYTHON_DIR "${MLIR_MAIN_PYTHON_DIR}"
-    MLIR_PYBIND_DIR "${MLIR_MAIN_PYTHON_BINDINGS_DIR}"
-    VERSION ${PKG_VERSION}
-    SOURCES
-      ../../README.md
-      ../../pyproject.toml
-      api.py
-      _mlir_libs/_api.pyi
-  )
+  # -------------------------------------------------
+  # mlir_tensorrt_compiler package
+  # -------------------------------------------------
+
+  include(CompilerPackage.cmake)
 
   # -------------------------------------------------
   # mlir_tensorrt_runtime package
@@ -85,7 +73,6 @@ if(MLIR_TRT_ENABLE_PYTHON)
       MLIRTensorRTCAPISupportStatus
       MLIRTensorRTCAPICommon
       MLIRTensorRTCAPIRuntime
-      DLPack::Headers
     )
 
   add_mlir_python_modules(MLIRTensorRTPythonRuntimeModules
