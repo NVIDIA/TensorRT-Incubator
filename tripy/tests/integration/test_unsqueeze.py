@@ -24,7 +24,7 @@ import tripy as tp
 
 class TestUnsqueezeOp:
     @pytest.mark.parametrize("axis", [0, 2, 3])
-    def test_unsqueeze_dynamic_op(self, axis):
+    def test_unsqueeze_dynamic_op(self, axis, compile_fixture):
         def func(a):
             return tp.unsqueeze(a, dim=axis)
 
@@ -34,5 +34,5 @@ class TestUnsqueezeOp:
 
         inp = np.ones((4, 2, 2, 3), dtype=np.float32)
 
-        out = func(tp.Tensor(inp))
+        out = compile_fixture(func, tp.Tensor(inp))
         assert tp.allclose(out, tp.Tensor(np.expand_dims(inp, axis=axis)))
