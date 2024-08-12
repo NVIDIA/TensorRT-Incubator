@@ -15,15 +15,15 @@
 # limitations under the License.
 #
 
+import pytest
 import tripy as tp
 
 from tripy.flat_ir.ops import DynamicGatherOp
 from tripy.frontend.trace import Trace
-import pytest
 
 class TestGatherOp:
     @pytest.mark.parametrize("axis", [0,1,2])
-    def test_gather_str_dim0(self, axis):
+    def test_gather_str(self, axis):
         data = tp.iota((3, 3, 2))
         data.name = "data"
         index = tp.Tensor([1], dtype=tp.int32, name="indices")
