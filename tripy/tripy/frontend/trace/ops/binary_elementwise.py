@@ -74,7 +74,7 @@ class BinaryElementwise(BaseTraceOp):
         # For the shape case, the result will be broadcast to the max of the input shapes
         input_lengths = []
         for inp in self.inputs:
-            shape = op_utils.get_op_input_shape(inp)
+            shape = op_utils.get_trace_shape(inp)
             if len(shape) != 0:
                 input_lengths.append(shape[0])
         return [max(input_lengths)]

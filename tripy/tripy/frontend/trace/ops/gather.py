@@ -34,7 +34,7 @@ class Gather(BaseTraceOp):
 
     def infer_len(self):
         # in the shape case, the resulting shape is comprised _only_ of the selected indices
-        return [op_utils.get_op_input_shape(self.inputs[1])[0]]
+        return [op_utils.get_trace_shape(self.inputs[1])[0]]
 
     def infer_dtypes(self):
         from tripy import int32

@@ -166,4 +166,4 @@ class Shape(Tensor):
     def __len__(self):
         from tripy.frontend.trace.ops import utils as op_utils
 
-        return op_utils.get_op_input_shape(self.trace_tensor)[0]
+        return op_utils.get_trace_shape(self.trace_tensor)[0]

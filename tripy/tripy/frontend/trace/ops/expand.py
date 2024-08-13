@@ -50,7 +50,7 @@ class Expand(BaseTraceOp):
 
     def infer_rank(self):
         if self.output_rank is None:
-            out_shape = op_utils.get_op_input_shape(self.inputs[1])
+            out_shape = op_utils.get_trace_shape(self.inputs[1])
             assert len(out_shape) == 1
             assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
             self.output_rank = out_shape[0]

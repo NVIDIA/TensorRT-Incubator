@@ -55,7 +55,7 @@ class Where(BaseTraceOp):
 
     def infer_len(self):
         # broadcast to the largest of the input lengths
-        return [max(map(lambda inp: op_utils.get_op_input_shape(inp)[0], self.inputs))]
+        return [max(map(lambda inp: op_utils.get_trace_shape(inp)[0], self.inputs))]
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"

@@ -46,7 +46,7 @@ class Fill(BaseTraceOp):
 
     def infer_rank(self):
         if self.output_rank is None:
-            input_shape = op_utils.get_op_input_shape(self.inputs[0])
+            input_shape = op_utils.get_trace_shape(self.inputs[0])
             assert len(input_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(input_shape)}"
             assert (
                 input_shape[0] >= 0

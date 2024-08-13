@@ -42,7 +42,7 @@ class Split(BaseTraceOp):
 
     def infer_len(self):
         # since this only runs in the shape case, this is rank 1
-        shape_len = op_utils.get_op_input_shape(self.inputs[0])[0]
+        shape_len = op_utils.get_trace_shape(self.inputs[0])[0]
         if isinstance(self.indices_or_sections, int):
             # Note: Important to use //, as if the result is a float, MLIR compilation will fail
             out_len = shape_len // self.indices_or_sections

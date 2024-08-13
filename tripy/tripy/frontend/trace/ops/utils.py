@@ -118,7 +118,7 @@ class ShapeOutputIdxPolicies:
 ##
 
 
-def get_op_input_shape(input: "TraceTensor") -> Sequence[int]:
+def get_trace_shape(input: "TraceTensor") -> Sequence[int]:
     """
     Given an operator input tensor, return its shape if it has already been given
     or get its shape from the shape context if it's needed.
@@ -133,7 +133,7 @@ def get_op_input_shape(input: "TraceTensor") -> Sequence[int]:
 
 class InferLenPolicies:
     def infer_same_as_first_input(self):
-        return [get_op_input_shape(self.inputs[0])[0]]
+        return [get_trace_shape(self.inputs[0])[0]]
 
 
 ##

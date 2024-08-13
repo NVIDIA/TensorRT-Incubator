@@ -52,7 +52,7 @@ class Reshape(BaseTraceOp):
 
     def infer_rank(self):
         if self.output_rank is None:
-            shape_of_shape_input = op_utils.get_op_input_shape(self.inputs[1])
+            shape_of_shape_input = op_utils.get_trace_shape(self.inputs[1])
             assert len(shape_of_shape_input) == 1
             assert shape_of_shape_input[0] >= 0, f"incorrect shape computation {shape_of_shape_input}"
             self.outputs[0].rank = shape_of_shape_input[0]
@@ -159,7 +159,7 @@ class Squeeze(BaseTraceOp):
         else:
             from tripy.backend.mlir.utils import ShapeContext
 
-            input_0_shape = op_utils.get_op_input_shape(self.inputs[0])
+            input_0_shape = op_utils.get_trace_shape(self.inputs[0])
 
             def squeeze_shape(shape, indices_to_squeeze):
                 # Convert shape to list if it's not already
