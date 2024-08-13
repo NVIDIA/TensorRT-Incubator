@@ -16,19 +16,19 @@
 #
 
 from textwrap import indent
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Sequence, Union
 
 # Import ops to populate the registry before we define our Tensor class
 import tripy.common.datatype
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
 from tripy import export, utils
-from tripy.common.array import Array
+from tripy.common import memref
 from tripy.common.exception import raise_error
-from tripy.common.utils import get_element_type, get_supported_array_type
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 
+import mlir_tensorrt.runtime.api as runtime
 
 class TensorMeta(type):
     def __new__(cls, name, bases, dct):
@@ -73,7 +73,6 @@ class Tensor(metaclass=TensorMeta):
     def __init__(
         self,
         data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        shape: Optional[Tuple[int]] = None,
         dtype: Optional["tripy.dtype"] = None,
         device: Optional["tripy.device"] = None,
         name: Optional[str] = None,
@@ -82,7 +81,6 @@ class Tensor(metaclass=TensorMeta):
         """
         Args:
             data: The data with which to initialize the tensor.
-            shape: The shape of the tensor.
             dtype: The data type of the tensor.
             device: The device on which to allocate the tensor.
             name: The name of the tensor. If provided, this must be a unique string.
@@ -106,52 +104,21 @@ class Tensor(metaclass=TensorMeta):
 
         name = name if name is not None else Tensor._get_unique_name()
 
-        # set device now so we don't get errors due to not having a device attribute at all
-        # in the case where data is None
-        self.device = None
-
-        self.trace_tensor = TraceTensor(name, stack_info, None, None, None, None, shape=shape)
-
-        if isinstance(data, (List, tuple, bool, int, float)) and dtype is not None:
-            from tripy.frontend.trace.ops.cast import cast
-
-            element_type = get_element_type(data)
-            if element_type != dtype:
-                if element_type is not None:
-                    self.trace_tensor = cast(Tensor(data, shape, element_type, device), dtype=dtype).trace_tensor
-                    return
-                else:
-                    # We need explicit casting only if dtype can not be implicitly represented using `array.array`
-                    if dtype not in get_supported_array_type():
-                        from tripy.common.datatype import floating, integer
-
-                        element_type = dtype
-                        if issubclass(dtype, integer):
-                            element_type = tripy.common.datatype.int32
-                        elif issubclass(dtype, floating):
-                            element_type = tripy.common.datatype.float32
-                        self.trace_tensor = cast(Tensor(data, shape, element_type, device), dtype=dtype).trace_tensor
-                        return
+        self.trace_tensor = TraceTensor(name, stack_info, None, None, None, None)
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
-        if data is not None:
-            if not isinstance(data, Array):
-                data = Array(data, shape, dtype, device)
-            else:
-                # Internal usage only
-                # Disallow duplicate dtype/device when using Array to initialize a Tensor
-                if shape is not None:
-                    assert len(data.shape) == len(
-                        shape
-                    ), f"Rank provided to the initializer of Tensor (rank = {len(shape)}) does not match Array rank (rank = {len(data.shape)})."
-                assert not any([dtype, device]), "Duplicate arguments are not allowed. Use `Tensor(data)` instead."
+        if data is None:
+            return
 
-            # Data is present now. Assign the underlying device type.
-            self.device = data.device
+        if not isinstance(data, (Sequence, bool, int, float, runtime.MemRefValue)):
+            data = memref.create_memref_view(data)
+        Storage.build_internal([], [self.trace_tensor], data, dtype=dtype, device=device)
 
-            Storage.build_internal([], [self.trace_tensor], data)
-            self.trace_tensor.shape = data.shape
+        # Storage should populate attrs of trace_tensor
+        assert all(
+            self.trace_tensor.shape, self.trace_tensor.dtype, self.trace_tensor.device, self.trace_tensor.producer
+        )
 
     def __getattr__(self, name: str):
         import tripy as tp
@@ -184,12 +151,12 @@ class Tensor(metaclass=TensorMeta):
     def rank(self):
         return self.trace_tensor.rank
 
-    def eval(self) -> Array:
+    def eval(self) -> runtime.MemRefValue:
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
 
-        if isinstance(self.trace_tensor.producer, Storage):
+        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
             return self.trace_tensor.producer.data
 
         trace = Trace([self])
@@ -205,27 +172,19 @@ class Tensor(metaclass=TensorMeta):
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
         # Data is present now. Assign the underlying device type.
-        self.device = data.device
+        self.device = flat_ir.outputs[0].device
 
-        Storage.build_internal([], [self.trace_tensor], data)
+        Storage.build_internal([], [self.trace_tensor], data, device=self.device)
         self.trace_tensor.shape = data.shape
         return data
-
-    def data(self) -> Array:
-        import tripy.common.datatype
-        from tripy.frontend.trace.ops.cast import cast
-
-        arr = self.eval()
-        if self.dtype in [tripy.common.datatype.float8, tripy.common.datatype.int4]:
-            arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
-        return arr
 
     def __iter__(self):
         raise TypeError("Iterating over tensors is not supported")
 
     def __repr__(self) -> str:
         # The Evaluation required before accessing self.trace_tensor.producer attributes.
-        arr = self.data()
+        arr = self.eval()
+        arr_str = memref.pretty_print_memref(arr)
         indentation = ""
         sep = ""
         if len(arr.shape) > 1 and any(dim > 1 for dim in arr.shape):
@@ -233,20 +192,20 @@ class Tensor(metaclass=TensorMeta):
             sep = "\n"
         return (
             f"tensor({sep}"
-            f"{indent(str(arr), prefix=indentation)}, {sep}"
-            f"{indent(f'dtype={arr.dtype}, loc={arr.device}, shape={arr.shape}', prefix=indentation)}"
+            f"{indent(arr_str, prefix=indentation)}, {sep}"
+            f"{indent(f'dtype={self.dtype}, loc={self.device}, shape={arr.shape}', prefix=indentation)}"
             f")"
         )
 
-    # Since the underlying data is an Array we reuse their __dlpack__() and __dlpack_device__() methods
+    # Since the underlying data is an MemRefValue we reuse their __dlpack__() and __dlpack_device__() methods
     def __dlpack__(self, stream: Any = None):
-        return self.eval().__dlpack__(stream=stream)
+        return self.eval().__dlpack__()
 
     def __dlpack_device__(self):
         return self.eval().__dlpack_device__()
 
     def __bool__(self):
-        data = self.data().data()
+        data = memref.tolist(self.eval())
         if any(dim != 1 for dim in self.trace_tensor.producer.shape):
             raise_error(
                 "Boolean value of a Tensor with more than one value is ambiguous",

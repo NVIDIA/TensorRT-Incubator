@@ -18,7 +18,6 @@
 from typing import Optional, Sequence, Union
 
 from tripy import export, utils
-from tripy.common.array import Array
 from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
@@ -37,7 +36,7 @@ class Shape(Tensor):
 
     def __init__(
         self,
-        data: Union[Sequence, Tensor, Array, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        data: Union[Sequence, Tensor, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
         name: Optional[str] = None,
     ) -> None:
         r"""
@@ -73,11 +72,7 @@ class Shape(Tensor):
                 raise_error(
                     f"Tensors used to represent shapes must be of rank 1, but given shape {shape} has rank {len(shape)}."
                 )
-            # for an array, duplicate fields are not allowed
-            if isinstance(data, Array):
-                super().__init__(data=data, shape=shape)
-            else:
-                super().__init__(data=data, shape=shape, dtype=int32, name=name, device=device)
+            super().__init__(data=data, shape=shape, dtype=int32, name=name, device=device)
 
     def as_tensor(self) -> Tensor:
         """

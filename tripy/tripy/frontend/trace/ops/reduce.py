@@ -55,12 +55,8 @@ class Reduce(BaseTraceOp):
             self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
 
     def to_flat_ir(self, inputs, outputs):
-
-        from tripy.common.array import Array
-        from tripy.common.device import device
-        from tripy.flat_ir.ops import ConstantOp, ConvertOp, ReduceOp
+        from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.utils import get_element_type
 
         init_value = self.kind.init_value
         init_const = FlatIRTensor.build(
@@ -90,9 +86,6 @@ class ArgMinMax(Reduce):
         self.outputs[0].dtype = datatype.int32
 
     def to_flat_ir(self, inputs, outputs):
-
-        from tripy.common.array import Array
-        from tripy.common.device import device
         from tripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
