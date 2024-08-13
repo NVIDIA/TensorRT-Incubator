@@ -21,22 +21,13 @@ import tripy as tp
 
 
 @pytest.fixture(params=["compile", "eager"])
-def mode(request):
-    # TODO: Fix dynamically adding markers for compile / eager testing
-    # if request.param == "compile":
-    #     request.node.add_marker("compile")
-    # elif request.param == "eager":
-    #     request.node.add_marker("eager")
-    return request.param
-
-
-@pytest.fixture
-def compile_fixture(mode):
+def compile_fixture(request):
     def wrapper(func, *args, **kwargs):
         def get_shape(x: tp.Tensor):
             x.eval()
             return tp.InputInfo(x.trace_tensor.shape, dtype=x.dtype)
 
+        mode = request.param
         if mode == "compile":
             compiler = tp.Compiler(func)
             # Cast appropriate args / kwargs to use `tp.InputInfo`
