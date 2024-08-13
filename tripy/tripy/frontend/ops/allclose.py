@@ -18,11 +18,9 @@
 from tripy import export, constraints
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"]
-    },
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"]},
     dtype_constraints={"a": "T1", "b": "T1"},
 )
 def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:

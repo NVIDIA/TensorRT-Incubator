@@ -66,7 +66,7 @@ def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int = None
     return Reshape.build([input, shape], output_rank)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
@@ -197,7 +197,7 @@ class Squeeze(BaseTraceOp):
         DynamicReshapeOp.build([inputs[0], output_shape], outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},

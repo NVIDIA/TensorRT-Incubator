@@ -134,7 +134,7 @@ class Where(BaseTraceOp):
         SelectOp.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
@@ -173,7 +173,7 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
     return Where.build([condition, input, other])
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],

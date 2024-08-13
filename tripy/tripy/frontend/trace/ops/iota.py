@@ -82,7 +82,7 @@ def iota_impl(
     return Iota.build([shape], dim, output_rank, dtype)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={"T1": ["int32"], "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "bool"]},
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
@@ -116,7 +116,7 @@ def iota(
     return iota_impl(shape, dim, dtype, output_rank)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],

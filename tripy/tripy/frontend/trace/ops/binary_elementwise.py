@@ -425,7 +425,7 @@ def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tr
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
@@ -456,7 +456,7 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MAXIMUM)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},

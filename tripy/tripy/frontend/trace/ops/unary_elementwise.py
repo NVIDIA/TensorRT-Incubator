@@ -55,7 +55,7 @@ class UnaryElementwise(BaseTraceOp):
         OpType.build(inputs, outputs)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
@@ -86,7 +86,7 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.EXP)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
@@ -115,7 +115,7 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.TANH)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
@@ -144,7 +144,7 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SINE)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
@@ -173,7 +173,7 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.COSINE)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8"],
@@ -202,7 +202,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.RSQRT)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8"],
@@ -231,7 +231,7 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.SQRT)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
@@ -260,7 +260,7 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
     return UnaryElementwise.build([input], UnaryElementwise.Kind.LOG)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32"],

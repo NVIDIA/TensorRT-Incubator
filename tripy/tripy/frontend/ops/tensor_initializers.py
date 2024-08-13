@@ -29,7 +29,7 @@ from tripy.frontend import utils as frontend_utils
 from tripy.common.datatype import DATA_TYPES
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
 @constraints.dtype_info(
     dtype_variables={
@@ -65,7 +65,7 @@ def ones(
     return full(shape, 1, dtype)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
 @constraints.dtype_info(
     dtype_variables={
@@ -101,7 +101,7 @@ def zeros(
     return full(shape, 0, dtype)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
@@ -134,7 +134,7 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
     return full_like(input, 1, dtype)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
@@ -168,7 +168,7 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
     return full_like(input, 0, dtype)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
@@ -226,7 +226,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     return where(tri_mask, tensor, zeros_tensor)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
@@ -284,7 +284,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     return where(tri_mask, tensor, zeros_tensor)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
@@ -338,7 +338,7 @@ def arange(
     return output
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],

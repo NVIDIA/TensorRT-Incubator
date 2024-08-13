@@ -92,7 +92,7 @@ class Gather(BaseTraceOp):
         DynamicGatherOp.build([inputs[0], inputs[1], slice_sizes], outputs, self.axis)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],

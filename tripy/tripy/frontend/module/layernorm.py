@@ -23,7 +23,7 @@ from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter, DefaultParameter
 
 
-@export.public_api(document_under="modules")
+@export.public_api(document_under="operations/modules")
 @dataclass
 @utils.constant_fields(["dtype"])
 class LayerNorm(Module):
@@ -52,7 +52,7 @@ class LayerNorm(Module):
         Args:
             normalized_shape: The size of the feature dimension of the input over which normalization is performed.
             dtype: The data type to use for the weight and bias parameters.
-            eps: :math:\epsilon value 
+            eps: :math:\epsilon value
 
         .. code-block:: python
             :linenos:

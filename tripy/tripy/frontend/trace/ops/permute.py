@@ -52,7 +52,7 @@ class Transpose(Permute):
         self.permutation = perm
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
@@ -82,7 +82,7 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     return Transpose.build([input], None, dim0, dim1)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},

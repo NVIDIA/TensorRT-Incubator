@@ -27,7 +27,7 @@ from tripy.frontend.module.parameter import Parameter, DefaultParameter
 from tripy.common.exception import raise_error
 
 
-@export.public_api(document_under="modules")
+@export.public_api(document_under="operations/modules")
 @dataclass
 class ConvTranspose(ConvBase):
     r"""
@@ -57,8 +57,8 @@ class ConvTranspose(ConvBase):
     A sequence of pairs of integers of length :math:`M` indicating the implicit zero padding
     applied along each spatial dimension before and after the dimension respectively,
     where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`. In particular,
-    :math:`\text{dilation} \times (\text{kernel_dims}_i - 1) - \text{padding}_i` will be added to or cropped from the input. 
-    This is set so that when this module is initialized with the same parameters as :class:`tripy.Conv`, 
+    :math:`\text{dilation} \times (\text{kernel_dims}_i - 1) - \text{padding}_i` will be added to or cropped from the input.
+    This is set so that when this module is initialized with the same parameters as :class:`tripy.Conv`,
     they are inverses with respect to the input/output shapes.
     """
 
@@ -66,7 +66,7 @@ class ConvTranspose(ConvBase):
     r"""
     A sequence of length :math:`M` indicating the stride of convolution across each spatial dimension,
     where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
-    For transposed convolution, this effectively controls the dilation of the input; for each dimension with 
+    For transposed convolution, this effectively controls the dilation of the input; for each dimension with
     value :math:`x`, :math:`x-1` zeros are inserted between input values.
     """
 
@@ -83,9 +83,9 @@ class ConvTranspose(ConvBase):
     dilation: Sequence[int]
     r"""
     A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
-    where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`. 
+    where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
     This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
-    For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights. 
+    For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
     """
 
     bias: Optional[Parameter]

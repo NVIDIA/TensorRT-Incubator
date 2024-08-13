@@ -18,7 +18,7 @@
 from tripy import export, constraints
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],

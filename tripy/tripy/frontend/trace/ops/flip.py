@@ -36,10 +36,10 @@ class Flip(BaseTraceOp):
         FlipOp.build([inputs[0]], outputs, dims=self.dims)
 
 
-@export.public_api(document_under="tensor_operations")
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16","int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
