@@ -54,9 +54,9 @@ class TestReshape:
         out = compile_fixture(tp.reshape, a, (a.shape[0], a.shape[1], b.shape[2], b.shape[3]))
         assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
 
-    def test_reshape_shape_with_unknown(self):
+    def test_reshape_shape_with_unknown(self, compile_fixture):
         a = tp.ones((2, 3, 4))
-        out = tp.reshape(a, (2, a.shape[1], a.shape[2] / 2, -1))
+        out = compile_fixture(tp.reshape, a, (2, a.shape[1], a.shape[2] / 2, -1))
         assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
 
 
