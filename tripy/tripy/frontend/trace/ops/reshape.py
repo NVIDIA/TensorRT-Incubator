@@ -29,7 +29,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Reshape(BaseTraceOp):
 
     output_rank: int
-    output_len: Optional[int]
+    output_len: Optional[int]  # only used to help with infer_len for a shape input
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
