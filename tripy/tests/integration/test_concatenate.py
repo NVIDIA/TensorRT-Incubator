@@ -35,7 +35,7 @@ class TestConcatenate:
     )
     def test_concat(self, tensor_shapes, dim, compile_fixture):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
-        out = tp.concatenate(tensors, dim=dim)
+        out = compile_fixture(tp.concatenate, tensors, dim=dim)
         assert np.array_equal(
             cp.from_dlpack(out).get(), np.concatenate([np.ones(shape) for shape in tensor_shapes], axis=dim)
         )
@@ -44,8 +44,8 @@ class TestConcatenate:
         "tensor_shapes, dim",
         [([(2, 3, 4), (2, 4, 4)], 0), ([(4, 5, 6), (4, 1, 6)], -1)],
     )
-    def test_negative_concat(self, tensor_shapes, dim):
+    def test_negative_concat(self, tensor_shapes, dim, compile_fixture):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
         with helper.raises(tp.TripyException, match=f"not compatible at non-concat index"):
-            out = tp.concatenate(tensors, dim=dim)
+            out = compile_fixture(tp.concatenate, tensors, dim=dim)
             print(out)
