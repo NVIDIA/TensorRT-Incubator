@@ -57,7 +57,7 @@ print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
 ```
 
 For more details, see the
-[Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/introduction-to-tripy.html)
+[Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/00-introduction-to-tripy.html)
 guide.
 
 
