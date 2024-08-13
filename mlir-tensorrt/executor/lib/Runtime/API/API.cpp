@@ -349,16 +349,17 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
 //===----------------------------------------------------------------------===//
 // RuntimeSession
 //===----------------------------------------------------------------------===//
-
 RuntimeSession::RuntimeSession(
     RuntimeSessionOptions options, ExecutableView exe, sol::state state,
     std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator,
     std::unique_ptr<AllocTracker> allocTracker,
-    std::unique_ptr<ResourceTracker> resourceTracker)
+    std::unique_ptr<ResourceTracker> resourceTracker,
+    GpuAllocator *gpuAllocator)
     : options(std::move(options)), executable(exe),
       pinnedMemoryAllocator(std::move(pinnedMemoryAllocator)),
       allocTracker(std::move(allocTracker)),
-      resourceTracker(std::move(resourceTracker)), state(std::move(state)) {}
+      resourceTracker(std::move(resourceTracker)), gpuAllocator(gpuAllocator),
+      state(std::move(state)) {}
 
 //===----------------------------------------------------------------------===//
 // AllocTracker

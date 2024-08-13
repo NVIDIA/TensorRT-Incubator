@@ -36,7 +36,7 @@ namespace mlirtrt::runtime {
 /// `main` function. It is assumed that `main` takes no arguments and returns an
 /// integer result (which is returned if the execution is successful).
 /// TODO: this should take a handle to a function for streaming output/errors.
-StatusOr<int64_t> runExecutorLuaScript(std::string_view luaScript);
+StatusOr<int64_t> runExecutorLuaScript(std::string_view luaScript, GpuAllocator* allocator);
 
 /// Synchronously run a serialized executor Executable one time. An `Executable`
 /// is essentially a Lua script packaged with metadata and serialized constants
@@ -48,12 +48,12 @@ StatusOr<int64_t> runExecutorLuaScript(std::string_view luaScript);
 /// execution is successful).
 /// TODO: this should take a handle to a function for
 /// streaming output/errors.
-StatusOr<int64_t> runExecutorExecutable(std::unique_ptr<Executable> executable);
+StatusOr<int64_t> runExecutorExecutable(std::unique_ptr<Executable> executable, GpuAllocator* allocator);
 
 /// Create an execution state. This will setup a Lua environment and invoke
 /// global initialization.
 StatusOr<std::unique_ptr<RuntimeSession>>
-createRuntimeSessionWithLuaBackend(ExecutableView executable,
+createRuntimeSessionWithLuaBackend(ExecutableView executable, GpuAllocator* allocator,
                                    const RuntimeSessionOptions &options);
 
 /// Set the primary stream for the loaded executable to use.

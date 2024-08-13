@@ -32,6 +32,79 @@ namespace mlirtrt {
 
 struct EventPool;
 
+// Abstract allocator to be implemented by consumers.
+using AllocatorFlags = uint32_t;
+
+class GpuAllocator {
+public:
+  GpuAllocator() = default;
+  virtual ~GpuAllocator() = default;
+
+  virtual StatusOr<void *> reallocate(void *baseAddr, uint64_t alignment,
+                                      uint64_t newSize,
+                                      std::optional<cudaStream_t> stream) = 0;
+
+  virtual StatusOr<void *> allocate(uint64_t const size,
+                                    uint64_t const alignment,
+                                    AllocatorFlags const flags,
+                                    std::optional<cudaStream_t> stream) = 0;
+
+  virtual StatusOr<bool> deallocate(void *const memory,
+                                    std::optional<cudaStream_t> stream) = 0;
+
+protected:
+  GpuAllocator(GpuAllocator const &) = delete;
+  GpuAllocator(GpuAllocator &&) = delete;
+  GpuAllocator &operator=(GpuAllocator const &) & = delete;
+  GpuAllocator &operator=(GpuAllocator &&) & = delete;
+};
+
+class StubAllocator : public GpuAllocator {
+public:
+  StubAllocator() = default;
+  ~StubAllocator() = default;
+
+  StatusOr<void *> reallocate(void *baseAddr, uint64_t alignment,
+                              uint64_t newSize,
+                              std::optional<cudaStream_t> stream) override {
+    return getStatusWithMsg(
+        StatusCode::InternalError,
+        "[StubAllocator][reallocate]: Must be overriden in Python");
+  }
+
+  StatusOr<void *> allocate(uint64_t const size, uint64_t const alignment,
+                            AllocatorFlags const flags,
+                            std::optional<cudaStream_t> stream) override {
+    return getStatusWithMsg(
+        StatusCode::InternalError,
+        "[StubAllocator][allocate]: Must be overriden in Python");
+  }
+
+  StatusOr<bool> deallocate(void *const memory,
+                            std::optional<cudaStream_t> stream) override {
+    return getStatusWithMsg(
+        StatusCode::InternalError,
+        "[StubAllocator][deallocate]: Must be overriden in Python");
+  }
+};
+
+class CustomTensorRTAllocator : public GpuAllocator {
+public:
+  CustomTensorRTAllocator() = default;
+  ~CustomTensorRTAllocator() = default;
+
+  StatusOr<void *> reallocate(void *baseAddr, uint64_t alignment,
+                              uint64_t newSize,
+                              std::optional<cudaStream_t> stream) override;
+
+  StatusOr<void *> allocate(uint64_t const size, uint64_t const alignment,
+                            AllocatorFlags const flags,
+                            std::optional<cudaStream_t> stream) override;
+
+  StatusOr<bool> deallocate(void *const memory,
+                            std::optional<cudaStream_t> stream) override;
+};
+
 //===----------------------------------------------------------------------===//
 // PoolTrackedCudaEvent
 //===----------------------------------------------------------------------===//

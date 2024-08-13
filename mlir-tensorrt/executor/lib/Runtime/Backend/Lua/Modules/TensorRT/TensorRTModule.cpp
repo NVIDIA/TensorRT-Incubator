@@ -64,6 +64,43 @@ protected:
   bool verbose;
 };
 
+//===----------------------------------------------------------------------===//
+// TensorRTCallBackAllocator
+//===----------------------------------------------------------------------===//
+
+class TensorRTCallBackAllocator final : public nvinfer1::IGpuAllocator {
+public:
+  TensorRTCallBackAllocator(GpuAllocator *gpuAllocator)
+      : nvinfer1::IGpuAllocator(), mGpuAllocatorCallBack(gpuAllocator) {}
+
+  void *allocate(uint64_t size, uint64_t alignment,
+                 nvinfer1::AllocatorFlags flags) noexcept final {
+    return allocateAsync(size, alignment, flags, nullptr);
+  }
+
+  bool deallocate(void *memory) noexcept final {
+    return deallocateAsync(memory, nullptr);
+  }
+
+  void *allocateAsync(uint64_t const size, uint64_t const alignment,
+                      uint32_t flags, cudaStream_t stream) noexcept final {
+    StatusOr<void *> status =
+        mGpuAllocatorCallBack->allocate(size, alignment, flags, stream);
+    assert(status.isOk());
+    return *status;
+  }
+
+  bool deallocateAsync(void *const memory,
+                       cudaStream_t stream) noexcept override {
+    StatusOr<bool> status = mGpuAllocatorCallBack->deallocate(memory, stream);
+    assert(status.isOk());
+    return *status;
+  }
+
+private:
+  GpuAllocator *mGpuAllocatorCallBack;
+};
+
 } // namespace
 
 static StdioLogger logger(/*verbose=*/false);
@@ -88,13 +125,38 @@ struct Signature {
   }
 };
 
+class NvInferRuntimeWrapper {
+public:
+  explicit NvInferRuntimeWrapper(GpuAllocator* gpuAllocator) {
+    runtime = std::shared_ptr<nvinfer1::IRuntime>(
+        nvinfer1::createInferRuntime(logger), [](nvinfer1::IRuntime *runtime) {
+          MTRT_DBGF("freeing tensorrt runtime at %lu",
+                    reinterpret_cast<uintptr_t>(runtime));
+          delete runtime;
+        });
+    // GpuAllocator is optional.
+    if (gpuAllocator) {
+      callbackAllocator = std::shared_ptr<nvinfer1::IGpuAllocator>(
+          new TensorRTCallBackAllocator(gpuAllocator));
+      runtime->setGpuAllocator(callbackAllocator.get());
+    }
+  }
+
+  nvinfer1::IRuntime *operator*() { return runtime.get(); }
+  nvinfer1::IRuntime *operator->() { return runtime.get(); }
+
+  std::shared_ptr<nvinfer1::IRuntime> runtime;
+  std::shared_ptr<nvinfer1::IGpuAllocator> callbackAllocator;
+};
+
 class NvInferEngineWrapper {
 public:
-  explicit NvInferEngineWrapper(std::shared_ptr<nvinfer1::IRuntime> &runtime,
+  explicit NvInferEngineWrapper(std::shared_ptr<NvInferRuntimeWrapper> runtime,
                                 uintptr_t pointer, size_t size)
       : runtime(runtime) {
     engine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(reinterpret_cast<void *>(pointer), size),
+        runtime->runtime->deserializeCudaEngine(
+            reinterpret_cast<void *>(pointer), size),
         [](nvinfer1::ICudaEngine *engine) {
           MTRT_DBGF("freeing cuda engine at %lu",
                     reinterpret_cast<uintptr_t>(engine));
@@ -105,7 +167,7 @@ public:
   nvinfer1::ICudaEngine *operator*() { return engine.get(); }
   nvinfer1::ICudaEngine *operator->() { return engine.get(); }
 
-  std::shared_ptr<nvinfer1::IRuntime> runtime;
+  std::shared_ptr<NvInferRuntimeWrapper> runtime;
   std::shared_ptr<nvinfer1::ICudaEngine> engine;
 };
 
@@ -375,19 +437,20 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
 //===----------------------------------------------------------------------===//
 void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker, GpuAllocator* allocator) {
   sol::state_view lua(luaState);
 
-  lua["_trtrt_create_runtime"] = [](sol::this_state state) {
+  lua["_trtrt_create_runtime"] =
+      [allocator](sol::this_state state) -> std::shared_ptr<NvInferRuntimeWrapper> {
     ADD_TENSORRT_MODULE_RANGE("trtrt_create_runtime");
     MTRT_DBGF("%s", "creating nvinfer runtime");
-    return std::shared_ptr<nvinfer1::IRuntime>(
-        nvinfer1::createInferRuntime(logger));
+    return std::make_shared<NvInferRuntimeWrapper>(allocator);
   };
 
   lua["_trtrt_load"] =
       [allocTracker](
-          sol::this_state state, std::shared_ptr<nvinfer1::IRuntime> &runtime,
+          sol::this_state state,
+          std::shared_ptr<NvInferRuntimeWrapper> &runtime,
           uintptr_t pointer) -> std::shared_ptr<NvInferEngineWrapper> {
     ADD_TENSORRT_MODULE_RANGE("trtrt_load");
     const AllocTracker &tracker = *allocTracker;

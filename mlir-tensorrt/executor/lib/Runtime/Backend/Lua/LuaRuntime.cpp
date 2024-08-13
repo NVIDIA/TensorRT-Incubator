@@ -72,7 +72,7 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
 
 static void registerLuaRuntimeMethodsCommon(
     lua_State *state, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker, GpuAllocator* allocator) {
   registerExecutorCoreModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
                                               allocTracker);
   registerExecutorCUDAModuleLuaRuntimeMethods(
@@ -84,15 +84,15 @@ static void registerLuaRuntimeMethodsCommon(
 #endif
 
   registerExecutorTensorRTModuleLuaRuntimeMethods(
-      state, pinnedMemoryAllocator, allocTracker, resourceTracker);
+      state, pinnedMemoryAllocator, allocTracker, resourceTracker, allocator);
 }
 
 void mlirtrt::runtime::registerLuaRuntimeMethods(
     lua_State *state, const RuntimeSessionOptions &options,
     PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
-    ResourceTracker *resourceTracker) {
+    ResourceTracker *resourceTracker, GpuAllocator* allocator) {
   registerLuaRuntimeMethodsCommon(state, pinnedMemoryAllocator, allocTracker,
-                                  resourceTracker);
+                                  resourceTracker, allocator);
 #ifdef MLIR_EXECUTOR_ENABLE_NCCL
   registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
   registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
@@ -108,7 +108,7 @@ void mlirtrt::runtime::registerLuaRuntimeMethods(
 }
 
 StatusOr<int64_t>
-mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript) {
+mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript, GpuAllocator* allocator) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
@@ -120,7 +120,7 @@ mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript) {
   registerLuaRuntimeMethods(lua.lua_state(), RuntimeSessionOptions(),
                             &(*client)->getPinnedMemorAllocator(),
                             &(*client)->getAllocTracker(),
-                            &(*client)->getResourceTracker());
+                            &(*client)->getResourceTracker(), allocator);
 
   sol::protected_function_result result = lua.script(luaScript);
   if (!result.valid()) {
@@ -171,7 +171,7 @@ static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
 /// global initialization.
 StatusOr<std::unique_ptr<RuntimeSession>>
 mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
-    ExecutableView executable, const RuntimeSessionOptions &options) {
+    ExecutableView executable, GpuAllocator* allocator, const RuntimeSessionOptions &options) {
   ADD_RUNTIME_MODULE_RANGE("runtime_loadExecutable");
 
   MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
@@ -184,7 +184,7 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   lua.open_libraries(sol::lib::base, sol::lib::string);
   registerLuaRuntimeMethods(lua.lua_state(), options,
                             pinnedMemoryAllocator.get(), allocTracker.get(),
-                            resourceTracker.get());
+                            resourceTracker.get(), allocator);
 
   // Load globals into the context.
   // TODO: eliminate this copy, we already own the executable.
@@ -225,11 +225,11 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   }
   return std::make_unique<RuntimeSession>(
       options, executable, std::move(lua), std::move(pinnedMemoryAllocator),
-      std::move(allocTracker), std::move(resourceTracker));
+      std::move(allocTracker), std::move(resourceTracker), allocator);
 }
 
 StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
-    std::unique_ptr<Executable> executable) {
+    std::unique_ptr<Executable> executable, GpuAllocator* allocator) {
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
@@ -245,7 +245,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
     return options.getStatus();
 
   StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(executable->getView(), *options);
+      createRuntimeSessionWithLuaBackend(executable->getView(), allocator, *options);
   if (!session.isOk())
     return session.getStatus();
 

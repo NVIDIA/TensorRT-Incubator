@@ -98,7 +98,12 @@ struct Options {
       cl::values(clEnumValN(Lua, "lua", "interpret the input as Lua code")),
       cl::values(clEnumValN(ExecutorRuntimeExecutable, "rtexe",
                             "load the input file as an Executor executable"))};
+
+  cl::opt<bool> useCustomAllocator{"use-custom-allocator",
+                                      cl::desc("Use custom allocator"),
+                                      cl::init(false)};                 
 };
+
 } // namespace
 
 LogicalResult
@@ -168,13 +173,19 @@ executor::ExecutorRunnerMain(int argc, char **argv,
   if (result != cudaSuccess)
     return emitError(loc) << "cudaFree failed: " << cudaGetErrorString(result);
 
+  std::unique_ptr<GpuAllocator> allocator{nullptr};
+  if (options.useCustomAllocator) {
+    // Create an optional runtime GPU allocator
+    allocator.reset(new CustomTensorRTAllocator());
+  }
+
   // Read the buffer as a Lua script and execute.
 
   if (options.inputType == Lua) {
     assert(!options.dumpFunctionSignature &&
            "Can not dump function signature for Lua input type.");
     mlirtrt::StatusOr<int64_t> result =
-        mlirtrt::runtime::runExecutorLuaScript(input->getBuffer());
+        mlirtrt::runtime::runExecutorLuaScript(input->getBuffer(), allocator.get());
     if (!result.isOk())
       return emitError(UnknownLoc::get(&context)) << result.getString();
     return success(*result == 0);
@@ -202,7 +213,7 @@ executor::ExecutorRunnerMain(int argc, char **argv,
   }
 
   mlirtrt::StatusOr<int64_t> executionResult =
-      mlirtrt::runtime::runExecutorExecutable(std::move(*executable));
+      mlirtrt::runtime::runExecutorExecutable(std::move(*executable), allocator.get());
   if (!executionResult.isOk())
     return emitError(UnknownLoc::get(&context))
            << "failed to load and run executable: "
