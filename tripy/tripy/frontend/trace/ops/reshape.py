@@ -36,7 +36,7 @@ class Reshape(BaseTraceOp):
 
     def infer_len(self):
         if self.output_len is not None:
-            return self.output_len
+            return [self.output_len]
         # skip inference for now because it requires obtaining the concrete _value_ of the second input,
         # not just its shape
         return [None]
