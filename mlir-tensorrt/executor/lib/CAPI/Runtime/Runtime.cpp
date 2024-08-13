@@ -27,6 +27,7 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
+#include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/ADT/SmallVectorExtras.h"
@@ -48,6 +49,8 @@ DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSession,
                          ::mlirtrt::runtime::RuntimeSession)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSessionOptions,
                          ::mlirtrt::runtime::RuntimeSessionOptions)
+DEFINE_C_API_PTR_METHODS(MTRT_GpuAllocator,
+                         ::mlirtrt::GpuAllocator)
 DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
 DEFINE_C_API_PTR_METHODS(MTRT_Stream, MTRT_StreamImpl)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeValue, ::mlirtrt::runtime::RuntimeValue)
@@ -601,6 +604,55 @@ MTRT_ScalarValue mtrtRuntimeValueDynCastToScalar(MTRT_RuntimeValue v) {
 }
 
 //===----------------------------------------------------------------------===//
+// MTRT_GpuAllocator
+//===----------------------------------------------------------------------===//
+
+bool mtrtGpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator) {
+  return !gpuAllocator.ptr;
+}
+
+MTRT_GpuAllocator mtrtGpuAllocatorGetNull() { return MTRT_GpuAllocator{nullptr}; }
+
+MTRT_Status mtrtGpuAllocatorDestroy(MTRT_GpuAllocator executable) {
+  delete unwrap(executable);
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtGpuAllocatorCreate(MTRT_GpuAllocator *allocator) {
+  *allocator = MTRT_GpuAllocator{/*ptr=*/new StubAllocator()};
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtGpuAllocatorAllocate(MTRT_GpuAllocator gpuAllocator,
+                                     uint64_t size, uint64_t alignment,
+                                     uint32_t flags, MTRT_Stream stream,
+                                     void **memory) {
+  GpuAllocator *cppGpuAllocator = unwrap(gpuAllocator);
+  StatusOr<void *> status = cppGpuAllocator->allocate(
+      size, alignment, flags,
+      !mtrtStreamIsNull(stream) ? std::optional(unwrap(stream)->getRawStream())
+                                : std::nullopt);
+  if (status.isOk()) {
+    *memory = *status;
+  }
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtGpuAllocatorDeallocate(MTRT_GpuAllocator gpuAllocator,
+                                       void *memory, MTRT_Stream stream,
+                                       bool *result) {
+  GpuAllocator *cppGpuAllocator = unwrap(gpuAllocator);
+  StatusOr<bool> status = cppGpuAllocator->deallocate(
+      memory, !mtrtStreamIsNull(stream)
+                  ? std::optional(unwrap(stream)->getRawStream())
+                  : std::nullopt);
+  if (status.isOk()) {
+    *result = *status;
+  }
+  return mtrtStatusGetOk();
+}
+
+//===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
 
@@ -627,12 +679,14 @@ mtrtRuntimeSessionOptionsDestroy(MTRT_RuntimeSessionOptions options) {
 
 MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
                                      MTRT_Executable executable,
+                                     MTRT_GpuAllocator gpuAllocator,
                                      MTRT_RuntimeSession *result) {
   RuntimeSessionOptions *cppOptions = unwrap(options);
   Executable *cppExecutable = unwrap(executable);
+  GpuAllocator *cppGpuAllocator = unwrap(gpuAllocator);
 
   StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(cppExecutable->getView(), *cppOptions);
+      createRuntimeSessionWithLuaBackend(cppExecutable->getView(), cppGpuAllocator, *cppOptions);
   if (session.isError())
     return wrap(session.getStatus());
 

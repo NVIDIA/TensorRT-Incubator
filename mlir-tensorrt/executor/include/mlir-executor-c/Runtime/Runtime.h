@@ -320,6 +320,38 @@ MLIR_CAPI_EXPORTED MTRT_Status
 mtrtScalarValueGetType(MTRT_ScalarValue scalar, MTRT_ScalarTypeCode *code);
 
 //===----------------------------------------------------------------------===//
+// MTRT_GpuAllocator
+//===----------------------------------------------------------------------===//
+
+typedef struct MTRT_GpuAllocator {
+  void *ptr;
+} MTRT_GpuAllocator;
+
+/// Checks nullity of `GpuAllocator`.
+MTRT_CAPI_EXPORTED bool mtrtGpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator);
+
+/// Returns null `GpuAllocator`.
+MTRT_CAPI_EXPORTED MTRT_GpuAllocator mtrtGpuAllocatorGetNull();
+
+MTRT_CAPI_EXPORTED MTRT_Status
+mtrtGpuAllocatorDestroy(MTRT_GpuAllocator executable);
+
+MTRT_CAPI_EXPORTED MTRT_Status
+mtrtGpuAllocatorCreate(MTRT_GpuAllocator *allocator);
+
+//===----------------------------------------------------------------------===//
+// MTRT_GpuAllocator
+//===----------------------------------------------------------------------===//
+
+MTRT_CAPI_EXPORTED MTRT_Status mtrtGpuAllocatorAllocate(
+    MTRT_GpuAllocator gpuAllocator, uint64_t size, uint64_t alignment,
+    uint32_t flags, MTRT_Stream stream, void **memory);
+
+MTRT_CAPI_EXPORTED MTRT_Status
+mtrtGpuAllocatorDeallocate(MTRT_GpuAllocator gpuAllocator, void *memory,
+                           MTRT_Stream stream, bool *result);
+
+//===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
 
@@ -359,7 +391,7 @@ typedef struct MTRT_RuntimeSession {
 /// that the session only has a read-only view in to the Executable for code and
 /// constant data. Therefore the Executable must outlive the RuntimeSession.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionCreate(
-    MTRT_RuntimeSessionOptions options, MTRT_Executable executable,
+    MTRT_RuntimeSessionOptions options, MTRT_Executable executable, MTRT_GpuAllocator allocator,
     MTRT_RuntimeSession *result);
 
 /// Destory the session. This does not destroy the associated Executable, which

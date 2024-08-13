@@ -23,7 +23,7 @@ We currently support only building on Linux x86 systems.
 We support building several different ways (only via CMake) depending on use-case.
 
 In each case, the LLVM-Project version that we are currently aligned to is
-given in `build_tools/cmake/LLVMCommit.txt`.
+given in `build_tools/cmake/LLVMCommit.cmake`.
 
 Note that currently we provide an LLVM patch which essentially cherry-picks the
 bug fixes from [this open MLIR PR](https://github.com/llvm/llvm-project/pull/91524).
@@ -82,7 +82,7 @@ git clone https://github.com/llvm/llvm-project.git llvm-project
 # Checkout the right commit. Of course, you may try
 # a newer commit or your own modified LLVM-Project.
 cd llvm-project
-git checkout $(cat build_tools/cmake/LLVMCommit.cmake | grep -Po '(?<=").*(?=")')
+git checkout $(cat ../build_tools/cmake/LLVMCommit.cmake | grep -Po '(?<=").*(?=")')
 
 # Apply patch from llvm-project PR 91524
 git apply ../build_tools/llvm-project.patch

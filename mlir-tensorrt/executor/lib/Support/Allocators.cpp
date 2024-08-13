@@ -23,11 +23,14 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
+#include "mlir-executor/Runtime/Support/Support.h"
+#include "cuda_runtime_api.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MathExtras.h"
+#include <cassert>
 #include <deque>
 #include <set>
 #include <sstream>
@@ -38,6 +41,57 @@ using namespace mlirtrt;
 #define ALLOC_DBGF(fmt, ...)                                                   \
   DEBUG_WITH_TYPE("allocators", fprintf(stderr, "%s:%d " fmt "\n", __FILE__,   \
                                         __LINE__, __VA_ARGS__))
+
+//===----------------------------------------------------------------------===//
+// CustomTensorRTAllocator
+//===----------------------------------------------------------------------===//
+
+StatusOr<void *>
+CustomTensorRTAllocator::allocate(uint64_t const size, uint64_t const alignment,
+                                  uint32_t /*flags*/,
+                                  std::optional<cudaStream_t> stream) {
+  uint8_t *memory;
+  assert(alignment > 0 && (alignment & (alignment - 1)) == 0 &&
+         "Memory alignment has to be power of 2");
+  if (stream && *stream != nullptr) {
+    RETURN_ERROR_IF_CUDART_ERROR(
+        cudaMallocAsync(reinterpret_cast<void **>(&memory), size, *stream));
+    MTRT_DBGF("[CustomTensorRTAllocator][allocate]: Asynchronously allocated %lx bytes at 0x%lx on stream %lx", size,
+              reinterpret_cast<uintptr_t>(memory),
+              reinterpret_cast<uintptr_t>(*stream));
+  } else {
+    RETURN_ERROR_IF_CUDART_ERROR(
+        cudaMalloc(reinterpret_cast<void **>(&memory), size));
+    MTRT_DBGF("[CustomTensorRTAllocator][allocate]: Synchronously allocated %lx bytes at 0x%lx", size,
+              reinterpret_cast<uintptr_t>(memory));
+  }
+  assert(reinterpret_cast<uintptr_t>(memory) % alignment == 0);
+  return memory;
+}
+
+StatusOr<bool>
+CustomTensorRTAllocator::deallocate(void *const memory,
+                                    std::optional<cudaStream_t> stream) {
+  if (stream && *stream != nullptr) {
+    MTRT_DBGF("[CustomTensorRTAllocator][deallocate]: Asynchronously freeing CUDA device memory 0x%lx on stream %lx",
+              reinterpret_cast<uintptr_t>(memory),
+              reinterpret_cast<uintptr_t>(*stream));
+    RETURN_ERROR_IF_CUDART_ERROR(cudaFreeAsync(memory, *stream));
+  } else {
+    MTRT_DBGF("[CustomTensorRTAllocator][deallocate]: Synchronously freeing CUDA device/pinned host memory 0x%lx ptr "
+              "on stream %lx",
+              reinterpret_cast<uintptr_t>(memory),
+              reinterpret_cast<uintptr_t>(*stream));
+    RETURN_ERROR_IF_CUDART_ERROR(cudaFree(memory));
+  }
+  return true;
+}
+
+StatusOr<void *> CustomTensorRTAllocator::reallocate(
+    void * /* baseAddr */, uint64_t /* alignment */, uint64_t /* newSize */,
+    std::optional<cudaStream_t> /* stream */) {
+  return nullptr;
+}
 
 //===----------------------------------------------------------------------===//
 // PoolTrackedCudaEvent

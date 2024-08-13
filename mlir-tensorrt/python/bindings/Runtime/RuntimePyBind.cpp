@@ -184,6 +184,16 @@ public:
       mtrtPythonCapsuleToRuntimeValue, mtrtPythonRuntimeValueToCapsule};
 };
 
+/// Python object type wrapper for `MTRT_GpuAllocator`.
+class PyGpuAllocator : public PyMTRTWrapper<PyGpuAllocator, MTRT_GpuAllocator> {
+public:
+  using Base::Base;
+  DECLARE_WRAPPER_CONSTRUCTORS(PyGpuAllocator);
+
+  static constexpr auto kMethodTable = CAPITable<MTRT_GpuAllocator>{
+      mtrtGpuAllocatorIsNull, mtrtGpuAllocatorDestroy};
+};
+
 /// Python object type wrapper for `MTRT_StableHLOToExecutableOptions`.
 class PyRuntimeSessionOptions
     : public PyMTRTWrapper<PyRuntimeSessionOptions,
@@ -901,14 +911,52 @@ PYBIND11_MODULE(_api, m) {
            py::arg("num_devices") = 1, py::arg("device_id") = 0,
            py::arg("nccl_uuid") = py::str(""));
 
+  py::class_<PyGpuAllocator>(m, "GpuAllocator", py::module_local())
+      .def(py::init<>([]() -> PyGpuAllocator * {
+        MTRT_GpuAllocator allocator;
+        MTRT_Status s = mtrtGpuAllocatorCreate(&allocator);
+        THROW_IF_MTRT_ERROR(s);
+        return new PyGpuAllocator(allocator);
+      }))
+      .def(
+          "allocate",
+          [](PyGpuAllocator &self, uint64_t size, uint64_t alignment,
+             std::optional<uint32_t> flags, std::optional<MTRT_Stream> stream) {
+            void *memory{nullptr};
+            MTRT_Status s = mtrtGpuAllocatorAllocate(
+                self, size, alignment, flags ? *flags : 0,
+                stream ? *stream : mtrtStreamGetNull(), &memory);
+            THROW_IF_MTRT_ERROR(s);
+            // Add changes to ensure memory is not released prematurely.
+            return memory;
+          },
+          py::arg("size"), py::arg("alignment"), py::arg("flags") = py::none(),
+          py::arg("stream") = py::none())
+      .def(
+          "deallocate",
+          [](PyGpuAllocator &self, void *memory,
+             std::optional<MTRT_Stream> stream) {
+            bool result;
+            MTRT_Status s = mtrtGpuAllocatorDeallocate(
+                self, memory, stream ? *stream : mtrtStreamGetNull(), &result);
+            THROW_IF_MTRT_ERROR(s);
+            // Add changes to ensure memory is not released prematurely.
+            return result;
+          },
+          py::arg("memory"), py::arg("stream") = py::none());
+
   py::class_<PyRuntimeSession>(m, "RuntimeSession", py::module_local())
-      .def(py::init<>([](PyRuntimeSessionOptions &options, PyExecutable &exe) {
+      .def(py::init<>([](PyRuntimeSessionOptions &options, PyExecutable &exe,
+                         std::optional<MTRT_GpuAllocator> allocator) {
              MTRT_RuntimeSession session;
-             MTRT_Status s = mtrtRuntimeSessionCreate(options, exe, &session);
+             MTRT_Status s = mtrtRuntimeSessionCreate(
+                 options, exe,
+                 allocator ? *allocator : mtrtGpuAllocatorGetNull(), &session);
              THROW_IF_MTRT_ERROR(s);
              return new PyRuntimeSession(session);
            }),
-           py::arg("options"), py::arg("executable"))
+           py::arg("options"), py::arg("executable"),
+           py::arg("gpu_allocator") = py::none())
       .def(
           "execute_function",
           [](PyRuntimeSession &self, std::string name,
