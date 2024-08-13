@@ -36,24 +36,25 @@ class TestFlip:
         f2 = compile_fixture(tp.flip, f, dims=dims)
         assert cp.array_equal(cp.from_dlpack(f2), cp_a)
 
-    def test_no_op(self):
+    def test_no_op(self, compile_fixture):
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
-        f = tp.flip(a, dims=[])
+        f = compile_fixture(tp.flip, a, dims=[])
         assert cp.array_equal(cp.from_dlpack(a), cp.from_dlpack(f))
 
-    def test_zero_rank(self):
+    def test_zero_rank(self, compile_fixture):
         t = tp.Tensor(1)
-        f = tp.flip(t)
+        f = compile_fixture(tp.flip, t)
         assert cp.array_equal(cp.from_dlpack(t), cp.from_dlpack(f))
 
     @pytest.mark.parametrize(
         "dims1, dims2",
         [(0, -2), (1, -1), ([0, 1], None), ([0, 1], [1, 0]), ([0, 1], [-2, -1])],
     )
-    def test_equivalences(self, dims1, dims2):
+    def test_equivalences(self, dims1, dims2, compile_fixture):
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
-        f1 = tp.flip(a, dims=dims1)
-        f2 = tp.flip(a, dims=dims2)
+
+        f1 = compile_fixture(tp.flip, a, dims=dims1)
+        f2 = compile_fixture(tp.flip, a, dims=dims2)
         assert cp.array_equal(cp.from_dlpack(f1), cp.from_dlpack(f2))
