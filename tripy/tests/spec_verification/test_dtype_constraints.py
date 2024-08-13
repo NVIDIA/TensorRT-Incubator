@@ -116,7 +116,7 @@ class InputValues:
     init = None
 
 
-# Add default_constraints to input_values within TYPE_VERIFICATION
+# Add default_constraints to input_values within TYPE_VERIFICATION and process dtype exceptions.
 for func_name, (
     func_obj,
     inputs_dict,
@@ -162,6 +162,7 @@ for func_name, (
         for key, val in dtype_exception.items():
             dtype_exceptions[i][key] = getattr(tp, val)
 
+# Create list of all test that will be run.
 func_list = []
 for func_name, (
     func_obj,

@@ -19,7 +19,7 @@ The `export.public_api()` decorator allows you to specify metadata for documenta
 generation, such as where in the documentation hierarchy the API should be documented.
 
 The `constraints.dtype_info()` decorator verifies the data types a function claims to support and generates 
-corresponding documentation. For more information, see [this guide](../tests/spec_verification/op_doc_guide.md).
+corresponding documentation. For more information, see [this guide](../tests/spec_verification/README.md).
 
 The `generate_rsts.py` script uses this information to automatically generate a directory
 structure and populate it with `.rst` files.
