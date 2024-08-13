@@ -20,8 +20,6 @@ import numpy as np
 
 import tripy as tp
 
-tp.logger.verbosity = "ir"
-
 
 class TestFull:
     def test_normal_shape(self, compile_fixture):
