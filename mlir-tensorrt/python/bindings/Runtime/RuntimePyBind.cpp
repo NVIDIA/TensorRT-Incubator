@@ -312,52 +312,6 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
   return std::make_unique<PyMemRefValue>(result);
 }
 
-static MTRT_ScalarTypeCode getScalarTypeCodeFromDLDataType(DLDataType dtype) {
-  switch (dtype.code) {
-    case kDLBool:
-      return MTRT_ScalarTypeCode_i1;
-    case kDLInt:
-      switch (dtype.bits) {
-        case 8: return MTRT_ScalarTypeCode_i8;
-        case 16: return MTRT_ScalarTypeCode_i16;
-        case 32: return MTRT_ScalarTypeCode_i32;
-        case 64: return MTRT_ScalarTypeCode_i64;
-      }
-    case kDLUInt:
-      switch (dtype.bits) {
-        case 8: return MTRT_ScalarTypeCode_ui8;
-      }
-    case kDLFloat:
-      switch (dtype.bits) {
-        case 8: return MTRT_ScalarTypeCode_f8e4m3fn;
-        case 16: return MTRT_ScalarTypeCode_f16;
-        case 32: return MTRT_ScalarTypeCode_f32;
-        case 64: return MTRT_ScalarTypeCode_f64;
-      }
-    case kDLBfloat:
-      return MTRT_ScalarTypeCode_bf16;
-    case kDLComplex:
-    case kDLOpaqueHandle:
-    default:
-      throw std::runtime_error("Unsupported DLPack data type.");
-  }
-}
-
-
-static MTRT_PointerType getPointerTypeFromDLDeviceType(DLDeviceType device) {
-  switch (device) {
-    case DLDeviceType::kDLCUDA:
-      return MTRT_PointerType_device;
-    case DLDeviceType::kDLCPU:
-      return MTRT_PointerType_host;
-    case DLDeviceType::kDLCUDAHost:
-      return MTRT_PointerType_pinned_host;
-    case DLDeviceType::kDLCUDAManaged:
-      return MTRT_PointerType_unified;
-    default:
-      throw std::runtime_error("Unsupported DLPack device type.");
-  }
-}
 
 
 static std::unique_ptr<PyMemRefValue>
