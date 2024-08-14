@@ -15,18 +15,20 @@
 # limitations under the License.
 #
 
+import pytest
 import tripy as tp
-from tripy import int32
 
 from tripy.flat_ir.ops import DynamicGatherOp
 from tripy.frontend.trace import Trace
 
 
 class TestGatherOp:
-    def test_gather_str(self):
-        data = tp.Tensor([3.0, 4.0], name="data")
-        index = tp.Tensor([0], dtype=int32, name="indices")
-        out = tp.gather(data, 0, index)
+    @pytest.mark.parametrize("axis", [0, 1, 2])
+    def test_gather_str(self, axis):
+        data = tp.iota((3, 3, 2))
+        data.name = "data"
+        index = tp.Tensor([1], dtype=tp.int32, name="indices")
+        out = tp.gather(data, axis, index)
         out.name = "out"
 
         trace = Trace([out])
@@ -34,10 +36,21 @@ class TestGatherOp:
 
         gather = flat_ir.ops[-1]
         reshape = flat_ir.ops[-2]
-
         print(str(reshape))
         assert isinstance(gather, DynamicGatherOp)
         assert (
             str(gather)
-            == "out: [rank=(1), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter3, axis=0)"
+            == f"out: [rank=(3), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter4, axis={axis})"
         )
+
+    @pytest.mark.parametrize("axis", [0, 1])
+    def test_gather_mlir(self, axis):
+        out = tp.gather(tp.Tensor([[1, 1, 1], [1, 1, 1]]), axis, tp.Tensor([0], dtype=tp.int32))
+        trace = Trace([out])
+        flat_ir = trace.to_flat_ir()
+        mlir_text = str(flat_ir.to_mlir())
+        if axis == 0:
+            target = '"stablehlo.dynamic_gather"(%c, %c_0, %2) <{dimension_numbers = #stablehlo.gather<offset_dims = [1], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>}> : (tensor<2x3xi32>, tensor<1xi32>, tensor<2xi32>) -> tensor<1x?xi32>'
+        else:
+            target = '"stablehlo.dynamic_gather"(%c, %c_0, %2) <{dimension_numbers = #stablehlo.gather<offset_dims = [0], collapsed_slice_dims = [1], start_index_map = [1], index_vector_dim = 1>}> : (tensor<2x3xi32>, tensor<1xi32>, tensor<2xi32>) -> tensor<?x1xi32>'
+        assert target in mlir_text, mlir_text
