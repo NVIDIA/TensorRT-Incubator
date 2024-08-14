@@ -260,6 +260,16 @@ class TestCompile:
             )
             compiled_add(a, a)
 
+    def test_incorrect_shape_rejected(self):
+        compiler = tp.Compiler(add)
+        a = tp.ones((1, 2), dtype=tp.float32)
+
+        with helper.raises(tp.TripyException, "Unexpected tensor shape.", has_stack_info_for=[a]):
+            compiled_add = compiler.compile(
+                tp.InputInfo((2, 2), dtype=tp.float32), tp.InputInfo((2, 2), dtype=tp.float32)
+            )
+            compiled_add(a, a)
+
     @pytest.mark.skip("TODO (#155): Re-enable once we no longer implicitly copy inputs to device")
     def test_incorrect_device_rejected(self):
         compiler = tp.Compiler(add)

@@ -222,6 +222,19 @@ class Executable:
                                 tensor,
                             ],
                         )
+            elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):
+                expected_input_shapes = [info.shape_bounds for info in self.get_input_info()]
+                for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
+                    shape = tensor.shape.data().data()
+                    for i in range(len(shape)):
+                        if shape[i] < expected_bounds[i][0] or shape[i] > expected_bounds[i][1]:
+                            raise_error(
+                                f"Unexpected tensor shape.",
+                                [
+                                    f"For parameter `{arg_name}`, expected the tensor shape `{tensor.shape}` to be within bounds for all dimensions. However, dimension {i} has a shape of {shape[i]}, which is not within the expected bounds of {expected_bounds[i]}. Note: The provided argument was: ",
+                                    tensor,
+                                ],
+                            )
             raise
 
         # TODO (#192): avoid get_stack_info in runtime
