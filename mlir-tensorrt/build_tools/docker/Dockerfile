@@ -39,7 +39,7 @@ case "${LINUX_DISTRO}" in
       protobuf-compiler autoconf automake libtool dnf-plugins-core cmake
     dnf config-manager --set-enabled powertools
     dnf -y install gcc-toolset-11-gcc gcc-toolset-11-gcc-c++
-    dny -y install ninja-build ccache
+    dnf -y install ninja-build ccache
     dnf clean all
     # Enable GCC11 toolset as default.
     echo -e ' \
@@ -87,7 +87,7 @@ case "${LINUX_DISTRO}" in
     pyenv update
     CPPFLAGS="-I/usr/include/openssl" LDFLAGS="-L/usr/lib" pyenv install --verbose 3.9 3.10 3.11 3.12
     pyenv global ${PYTHON_VERSION}
-    chmod -R 0744 /pyenv
+    chmod -R 0755 /pyenv
     ;;
   *)
     echo "Unsupported LINUX_DISTRO: ${LINUX_DISTRO}"

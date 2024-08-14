@@ -23,6 +23,8 @@ def get_uniform_devices() -> List[int]:
         handle = nvmlDeviceGetHandleByIndex(i)
         cc = nvmlDeviceGetCudaComputeCapability(handle)
         sm_versions.append(float(f"{cc[0]}.{cc[1]}"))
+    if len(sm_versions) == 0:
+        return []
     sm_versions = np.asarray(sm_versions)
     max_version = sm_versions.max()
     if not np.all(sm_versions == max_version):
@@ -75,6 +77,7 @@ def select_device(devices: List[int]) -> int:
     """Selects the device (that is among those with the highest SM version
     if SM versions are not uniform) that has the most available GPU memory.
     """
+    assert len(devices) > 0
     avail_mem_gb, _, _ = get_stats(devices)
 
     # All devices have same SM version.
@@ -89,6 +92,8 @@ def estimate_parallelism_from_memory(devices: List[int], required_mem: float) ->
     number of (single device) workloads that should be OK to run in parallel without
     exhausting the available memory.
     """
+    if len(devices) == 0:
+        return 1
     mem_gb, _, _ = get_stats(devices)
     avail_gb = sum(mem_gb)
     return int(avail_gb / required_mem)
@@ -107,6 +112,8 @@ def cli():
 @cli.command("pick-device")
 def pick_device():
     with nvml_context() as devices:
+        if len(devices) == 0:
+            return
         print(select_device(devices))
     return
 

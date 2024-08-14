@@ -586,6 +586,19 @@ func.func @compare_fold_float_negative() -> (tensor<5xi1>){
 
 // -----
 
+func.func @compare_fold_float_big_splat() -> (tensor<1024x1024xi1>){
+    %0 = stablehlo.constant dense<0.0> : tensor<1024x1024xf32>
+    %1 = stablehlo.constant dense<1.0> : tensor<1024x1024xf32>
+    %2 = stablehlo.compare LT, %0, %1 : (tensor<1024x1024xf32>, tensor<1024x1024xf32>) -> tensor<1024x1024xi1>
+    return %2 : tensor<1024x1024xi1>
+}
+
+// CHECK-LABEL: compare_fold_float_big_splat
+//  CHECK-NEXT: %[[c:.+]] = stablehlo.constant dense<true> : tensor<1024x1024xi1>
+//  CHECK-NEXT: return %[[c]]
+
+// -----
+
 func.func @canonicalize_iota() -> tensor<18x12xi32>{
     %0 = stablehlo.iota dim = 1 : tensor<18x12xi32>
     return %0 : tensor<18x12xi32>
@@ -955,4 +968,34 @@ func.func @fold_compare_dynamic_result() -> tensor<1xi32>{
 //       CHECK: stablehlo.compare
 //  CHECK-NEXT: stablehlo.get_dimension_size
 //  CHECK-NEXT: stablehlo.reshape
+//  CHECK-NEXT: return
+
+// -----
+
+func.func @simplify_reshape_broadcastindim_reshape(%arg0: tensor<1x1x1x256xf16>) -> tensor<1x1x8x256xf16> {
+  %0 = stablehlo.reshape %arg0 : (tensor<1x1x1x256xf16>) -> tensor<1x1x1x1x1x1x1x1x256xf16>
+  %1 = stablehlo.broadcast_in_dim %0, dims = [0, 1, 2, 3, 4, 5, 7, 8, 9] : (tensor<1x1x1x1x1x1x1x1x256xf16>) -> tensor<1x1x1x1x1x1x8x1x1x256xf16>
+  %2 = stablehlo.reshape %1 : (tensor<1x1x1x1x1x1x8x1x1x256xf16>) -> tensor<1x1x8x256xf16>
+  return %2 : tensor<1x1x8x256xf16>
+}
+
+// CHECK-LABEL: func.func @simplify_reshape_broadcastindim_reshape
+//       CHECK: stablehlo.broadcast_in_dim
+//  CHECK-SAME: dims = [0, 1, 2, 3]
+//  CHECK-SAME: (tensor<1x1x1x256xf16>) -> tensor<1x1x8x256xf16>
+//  CHECK-NEXT: return
+
+// -----
+
+func.func @simplify_reshape_broadcastindim_reshape2(%arg0: tensor<1x1xf32>) -> tensor<8x1xf32> {
+  %0 = stablehlo.reshape %arg0 : (tensor<1x1xf32>) -> tensor<1x1x1x1x1xf32>
+  %1 = stablehlo.broadcast_in_dim %0, dims = [0, 1, 3, 4, 5] : (tensor<1x1x1x1x1xf32>) -> tensor<1x1x8x1x1x1xf32>
+  %2 = stablehlo.reshape %1 : (tensor<1x1x8x1x1x1xf32>) -> tensor<8x1xf32>
+  return %2 : tensor<8x1xf32>
+}
+
+// CHECK-LABEL: func.func @simplify_reshape_broadcastindim_reshape2
+//       CHECK: stablehlo.broadcast_in_dim
+//  CHECK-SAME: dims = [0, 1]
+//  CHECK-SAME: (tensor<1x1xf32>) -> tensor<8x1xf32>
 //  CHECK-NEXT: return

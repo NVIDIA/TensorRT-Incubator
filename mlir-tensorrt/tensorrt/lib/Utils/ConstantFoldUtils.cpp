@@ -253,8 +253,8 @@ ElementsAttr mlir::constantFoldConvert(Type newElementType, ElementsAttr attr) {
   return nullptr;
 }
 
-template <typename T>
-static ElementsAttr stridedSliceImpl(ElementsAttr src, RankedTensorType dstType,
+template <typename T, typename AttrType>
+static ElementsAttr stridedSliceImpl(AttrType src, RankedTensorType dstType,
                                      ArrayRef<int64_t> offsets,
                                      ArrayRef<int64_t> limits,
                                      ArrayRef<int64_t> strides) {
@@ -265,7 +265,8 @@ static ElementsAttr stridedSliceImpl(ElementsAttr src, RankedTensorType dstType,
   // Handle edge case of rank-0 tensor.
   const int64_t rank = src.getShapedType().getRank();
   if (rank == 0)
-    return DenseElementsAttr::get(dstType, *src.getValues<T>().begin());
+    return DenseElementsAttr::get(dstType,
+                                  *src.template getValues<T>().begin());
 
   SmallVector<int64_t> srcStrides =
       mlir::computeSuffixProduct(src.getShapedType().getShape());
@@ -282,7 +283,7 @@ static ElementsAttr stridedSliceImpl(ElementsAttr src, RankedTensorType dstType,
          "mismatched src rank and offsets rank");
   int64_t readIndex = mlir::linearize(indices, srcStrides);
   while (true) {
-    result.push_back(src.getValues<T>()[readIndex]);
+    result.push_back(src.template getValues<T>()[readIndex]);
     assert(static_cast<int64_t>(result.size()) <= dstType.getNumElements());
     for (int64_t axis = rank - 1; axis >= 0; --axis) {
       int64_t newIndex = indices[axis] + strides[axis];
@@ -327,31 +328,64 @@ ElementsAttr mlir::constantFoldSliceOffsetLimitStride(
     return {};
 
   Type elementType = attr.getElementType();
-  if (auto intType = llvm::dyn_cast<IntegerType>(elementType)) {
+
+  if (auto integerElements = llvm::dyn_cast<DenseIntElementsAttr>(attr)) {
+    IntegerType intType =
+        llvm::cast<IntegerType>(integerElements.getElementType());
+
+    // We have to dispatch to two different sets of calls based on whether the
+    // integer is signed or unsigned. The iteratation routines of
+    // DenseIntElementsAttr assert that the signess of the value type matches
+    // the signess of the MLIR type.
+    if (intType.isUnsigned()) {
+      switch (intType.getWidth()) {
+      case 1:
+        return stridedSliceImpl<bool>(integerElements, outputType, offsets,
+                                      limits, strides);
+      case 8:
+        return stridedSliceImpl<uint8_t>(integerElements, outputType, offsets,
+                                         limits, strides);
+      case 16:
+        return stridedSliceImpl<uint16_t>(integerElements, outputType, offsets,
+                                          limits, strides);
+      case 32:
+        return stridedSliceImpl<uint32_t>(integerElements, outputType, offsets,
+                                          limits, strides);
+      case 64:
+        return stridedSliceImpl<uint64_t>(integerElements, outputType, offsets,
+                                          limits, strides);
+      default:
+        return stridedSliceImpl<APInt>(integerElements, outputType, offsets,
+                                       limits, strides);
+      }
+    }
+
     switch (intType.getWidth()) {
     case 1:
-      return stridedSliceImpl<bool>(attr, outputType, offsets, limits, strides);
+      return stridedSliceImpl<bool>(integerElements, outputType, offsets,
+                                    limits, strides);
     case 8:
-      return stridedSliceImpl<int8_t>(attr, outputType, offsets, limits,
-                                      strides);
+      return stridedSliceImpl<int8_t>(integerElements, outputType, offsets,
+                                      limits, strides);
     case 16:
-      return stridedSliceImpl<int16_t>(attr, outputType, offsets, limits,
-                                       strides);
+      return stridedSliceImpl<int16_t>(integerElements, outputType, offsets,
+                                       limits, strides);
     case 32:
-      return stridedSliceImpl<int32_t>(attr, outputType, offsets, limits,
-                                       strides);
+      return stridedSliceImpl<int32_t>(integerElements, outputType, offsets,
+                                       limits, strides);
     case 64:
-      return stridedSliceImpl<int64_t>(attr, outputType, offsets, limits,
-                                       strides);
+      return stridedSliceImpl<int64_t>(integerElements, outputType, offsets,
+                                       limits, strides);
     default:
-      return stridedSliceImpl<APInt>(attr, outputType, offsets, limits,
-                                     strides);
+      return stridedSliceImpl<APInt>(integerElements, outputType, offsets,
+                                     limits, strides);
     }
   }
 
   assert(isa<FloatType>(elementType) && "expected FloatType");
   if (elementType.isF32())
-    return stridedSliceImpl<float>(attr, outputType, offsets, limits, strides);
+    return stridedSliceImpl<float>(cast<DenseFPElementsAttr>(attr), outputType,
+                                   offsets, limits, strides);
 
   return stridedSliceImpl<APFloat>(attr, outputType, offsets, limits, strides);
 }

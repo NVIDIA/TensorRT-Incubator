@@ -6,6 +6,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
     CanonicalizeScatter.cpp
     CanonicalizeShapes.cpp
     ExpandTuples.cpp
+    LowerSpecialCustomCalls.cpp
 
     LINK_LIBS PUBLIC
     MLIRRewrite

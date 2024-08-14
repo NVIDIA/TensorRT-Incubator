@@ -1,6 +1,6 @@
-// RUN: mlir-tensorrt-opt %s -convert-executor-to-executor \
-// RUN:   | mlir-tensorrt-translate -mlir-to-lua \
-// RUN:   | mlir-tensorrt-runner -input-type=lua | FileCheck %s
+// RUN: executor-opt %s -convert-executor-to-executor \
+// RUN:   | executor-translate -mlir-to-lua \
+// RUN:   | executor-runner -input-type=lua | FileCheck %s
 
 func.func @main() -> i32 {
   %cst0 = executor.constant 123 : i32

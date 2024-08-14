@@ -51,8 +51,8 @@ func.func @memref_copy_offset(%arg0: memref<128x16xf32, strided<[16, 1], offset:
 //       CHECK:     %[[v2:.+]] = executor.getoffset[16] : () -> i32, f32
 //       CHECK:     %[[v3:.+]] = executor.getoffset[8] : () -> i32, f32
 //       CHECK:     %[[v4:.+]] = executor.getoffset[2048] : () -> i32, f32
-//       CHECK:     %[[v5:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v6:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v5:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v6:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
 //       CHECK:     executor.memcpy %[[v5]] + %[[v2]] to %[[v6]] + %[[v3]] size %[[v4]] : !executor.ptr<host>, i32, !executor.ptr<host>, i32, i32
 
 // -----
@@ -70,8 +70,8 @@ func.func @memref_copy_offset_f16(%arg0: memref<128x16xf16, strided<[16, 1], off
 //       CHECK:     %[[v2:.+]] = executor.getoffset[16] : () -> i32, f16
 //       CHECK:     %[[v3:.+]] = executor.getoffset[8] : () -> i32, f16
 //       CHECK:     %[[v4:.+]] = executor.getoffset[2048] : () -> i32, f16
-//       CHECK:     %[[v5:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
-//       CHECK:     %[[v6:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v5:.+]] = executor.table.get %[[v0]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
+//   CHECK-DAG:     %[[v6:.+]] = executor.table.get %[[v1]][1] : <!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
 //       CHECK:     executor.memcpy %[[v5]] + %[[v2]] to %[[v6]] + %[[v3]] size %[[v4]] : !executor.ptr<host>, i32, !executor.ptr<host>, i32, i32
 
 // -----
@@ -331,8 +331,8 @@ func.func @dynamic_copy(%arg0: memref<?x?xi32, #executor.memory_type<host>>, %ar
 //       CHECK:     %[[v3:.+]] = executor.table.get %[[v0]][4] :
 //       CHECK:     %[[v4:.+]] = executor.muli %[[v2]], %[[v3]] : i32
 //       CHECK:     %[[v5:.+]] = executor.getoffset[%[[v4]]] : (i32) -> i32, i32
-//       CHECK:     %[[v7:.+]] = executor.table.get %[[v0]][1] :
-//       CHECK:     %[[v8:.+]] = executor.table.get %[[v1]][1] :
+//   CHECK-DAG:     %[[v7:.+]] = executor.table.get %[[v0]][1] :
+//   CHECK-DAG:     %[[v8:.+]] = executor.table.get %[[v1]][1] :
 //       CHECK:     executor.memcpy
 //   CHECK-NOT:     cuda.stream.sync
 

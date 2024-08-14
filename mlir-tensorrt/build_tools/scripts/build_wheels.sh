@@ -3,6 +3,7 @@
 # Usage: build_wheels.sh 3.X
 set -e
 version=${1:-3.10}
+PATH=$PATH:/pyenv/bin
 
 mkdir -p .private.wheels || true
 

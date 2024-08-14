@@ -41,8 +41,11 @@ gpu_tools = load_gpu_tools_module()
 
 
 def estimate_paralllelism(mem_required: float) -> int:
-    with gpu_tools.nvml_context() as devices:
-        return gpu_tools.estimate_parallelism_from_memory(devices, mem_required)
+    try:
+        with gpu_tools.nvml_context() as devices:
+            return gpu_tools.estimate_parallelism_from_memory(devices, mem_required)
+    except:
+        return 2
 
 
 # test_exec_root: The root path where tests should be run.
@@ -168,13 +171,19 @@ llvm_config.with_environment(
 
 
 def get_num_cuda_devices() -> int:
-    with gpu_tools.nvml_context() as devices:
-        return len(devices)
+    try:
+        with gpu_tools.nvml_context() as devices:
+            return len(devices)
+    except:
+        return 0
 
 
 def all_gpus_have_fp8_support() -> bool:
-    with gpu_tools.nvml_context() as _:
-        return gpu_tools.has_fp8_support()
+    try:
+        with gpu_tools.nvml_context() as _:
+            return gpu_tools.has_fp8_support()
+    except:
+        return False
 
 
 # Add configuration features that depend on the host or flags defined with the
@@ -203,3 +212,10 @@ if trt_version_major >= 10:
     config.available_features.add("tensorrt-version-ge-10.0")
 if not config.enable_asan:
     config.available_features.add("no-asan")
+
+# Some of our tests utilize checks against debug output in order to verify
+# that flags were correctly propagated from e.g. Python all the way to the TensorRT
+# translation pass. This is a bit brittle, but until we replace with a better
+# solution, we can only run those tests when debug printing is available.
+if config.enable_assertions:
+    config.available_features.add("debug-print")

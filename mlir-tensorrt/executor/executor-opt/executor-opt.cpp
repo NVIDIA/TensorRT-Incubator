@@ -17,32 +17,15 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Conversion/Passes.h"
-#include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
-#include "mlir/Conversion/Passes.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlow.h"
-#include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
-#include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/IR/MLIRContext.h"
-#include "mlir/Support/FileUtilities.h"
+#include "mlir-executor/InitAllDialects.h"
+#include "mlir-executor/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
-#include "mlir/Transforms/Passes.h"
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
-  registry.insert<mlir::executor::ExecutorDialect, mlir::arith::ArithDialect,
-                  mlir::memref::MemRefDialect, mlir::func::FuncDialect,
-                  mlir::math::MathDialect, mlir::scf::SCFDialect,
-                  mlir::cf::ControlFlowDialect, mlir::DLTIDialect>();
-  mlir::func::registerInlinerExtension(registry);
-  mlir::executor::registerExecutorTransformsPasses();
-  mlir::registerTransformsPasses();
-  mlir::executor::registerMLIRExecutorConversionPasses();
-  mlir::registerSCFToControlFlow();
+
+  mlir::executor::registerAllRequiredDialects(registry);
+  mlir::executor::registerAllPasses();
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));
