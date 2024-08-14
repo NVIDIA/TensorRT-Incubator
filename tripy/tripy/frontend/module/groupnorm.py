@@ -79,9 +79,8 @@ class GroupNorm(Module):
             torch_tensor = torch.from_dlpack(input) # doc: omit
             torch_gn = torch.nn.GroupNorm(2, 4).to(torch.device("cuda")) # doc: omit
             torch_out = cp.from_dlpack(torch_gn(torch_tensor).detach()).get() # doc: omit
-            atol_ = 3e-2 # doc: omit
             assert np_out.shape == torch_out.shape # doc: omit
-            assert np.allclose(np_out, torch_out, atol=atol_) # doc: omit
+            assert np.allclose(np_out, torch_out) # doc: omit
         """
         super().__init__()
 
@@ -118,7 +117,7 @@ class GroupNorm(Module):
 
         x = reshape(x, (x.shape[0], self.num_groups, -1))
         mean_val = mean(x, dim=-1, keepdim=True)
-        var_val = var(x, dim=-1, keepdim=True) + self.eps
+        var_val = var(x, dim=-1, keepdim=True, correction=0) + self.eps
         x = (x - mean_val) * rsqrt(var_val)
         x = reshape(x, input_shape)
 
