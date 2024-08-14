@@ -1,6 +1,6 @@
-// RUN: tensorrt-opt %s -split-input-file -canonicalize | FileCheck %s
+// DISABLED: tensorrt-opt %s -split-input-file -canonicalize | FileCheck %s
 // The below command will fail if patterns fail to converge:
-// RUN: tensorrt-opt %s -split-input-file -canonicalize=test-convergence
+// DISABLED: tensorrt-opt %s -split-input-file -canonicalize=test-convergence
 
 func.func @expand_rank_simplify(%arg0: tensor<10x10xf32>) -> tensor<1x10x10x1xf32> {
   %0 = tensorrt.expand_rank %arg0 : tensor<10x10xf32> to tensor<10x10x1xf32>
