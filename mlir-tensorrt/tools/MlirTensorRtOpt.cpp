@@ -57,7 +57,6 @@ int main(int argc, char **argv) {
   mlir::tensorrt::registerTensorRTTranslationPasses();
 #endif
   mlir::tensorrt::registerAllMlirTensorRtPasses();
-  mlirtrt::compiler::registerStablehloClusteringPipelines();
 #ifdef MLIR_TRT_ENABLE_TESTING
   registerTestPasses();
 #endif
