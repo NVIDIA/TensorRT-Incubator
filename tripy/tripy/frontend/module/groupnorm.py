@@ -70,7 +70,7 @@ class GroupNorm(Module):
             group_norm.weight = tp.ones_like(group_norm.weight)
             group_norm.bias = tp.zeros_like(group_norm.bias)
 
-            input = tp.iota((1, 4, 2, 2))
+            input = tp.iota((1, 4, 2, 2), dim=1)
             output = group_norm(input)
 
             np_out = cp.from_dlpack(output).get() # doc: omit
@@ -78,7 +78,10 @@ class GroupNorm(Module):
 
             torch_tensor = torch.from_dlpack(input) # doc: omit
             torch_gn = torch.nn.GroupNorm(2, 4).to(torch.device("cuda")) # doc: omit
-            assert np.array_equal(np_out, cp.from_dlpack(torch_gn(torch_tensor).detach()).get())
+            torch_out = cp.from_dlpack(torch_gn(torch_tensor).detach()).get() # doc: omit
+            atol_ = 3e-2 # doc: omit
+            assert np_out.shape == torch_out.shape # doc: omit
+            assert np.allclose(np_out, torch_out, atol=atol_) # doc: omit
         """
         super().__init__()
 
@@ -108,18 +111,17 @@ class GroupNorm(Module):
         from tripy.frontend.trace.ops.reduce import mean, var
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
         from tripy.frontend.trace.ops.reshape import reshape
-        from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
-        # TODO #95 & #174 - Get integers out of TP Array
-        batch_size = int(x.shape[0].data().data())
-        spatial_shape = [int(s) for s in x.shape[2:].data().data()]
+        input_shape = x.shape
+        # TODO: #228 - WAR to prevent computing output rank in infer_rank for reshape
+        input_shape.trace_tensor.shape = (x.rank,)
 
-        x = reshape(x, (batch_size, self.num_groups, -1))
+        x = reshape(x, (x.shape[0], self.num_groups, -1))
         mean_val = mean(x, dim=-1, keepdim=True)
         var_val = var(x, dim=-1, keepdim=True) + self.eps
         x = (x - mean_val) * rsqrt(var_val)
-        x = reshape(x, (batch_size, self.num_channels, *spatial_shape))
+        x = reshape(x, input_shape)
 
-        shape_to_broadcast = (1,) + (self.num_channels,) + (1,) * (x.rank - 2)
+        shape_to_broadcast = (1, self.num_channels) + (1,) * (x.rank - 2)
 
         return reshape(self.weight, shape_to_broadcast) * x + reshape(self.bias, shape_to_broadcast)
