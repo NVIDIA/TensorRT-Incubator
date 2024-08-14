@@ -84,7 +84,7 @@ class TestConvolution:
             test_case.dilation = (1,)
 
         input_torch = torch.arange(40, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 4, 5))
-        input = tp.cast(tp.Tensor(input_torch), tp_dtype)
+        input = tp.cast(tp.Tensor(input_torch, device=tp.device("gpu")), tp_dtype)
 
         conv_layer_torch = torch.nn.Conv1d(
             4,
