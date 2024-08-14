@@ -1,4 +1,7 @@
-// RUN: executor-opt -executor-allocs-to-globals %s -split-input-file | FileCheck %s
+// REQUIRES: debug-print
+// RUN: executor-opt -executor-allocs-to-globals %s -split-input-file \
+// RUN:  -debug -debug-only=executor-allocs-to-globals 2>&1 \
+// RUN:  | FileCheck %s --check-prefix=DEBUG
 
 func.func @test_disjoint_allocations() {
   %cst0 = arith.constant 0.0 : f32
@@ -64,66 +67,6 @@ func.func @test_disjoint_index_allocations() {
 //       CHECK:     memref.store %[[c0]], %[[v0]][%[[c0]]] : memref<128xindex>
 //       CHECK:     %[[v1:.+]] = executor.get_global @workspace_0 : memref<128xindex>
 //       CHECK:     memref.store %[[c0]], %[[v1]][%[[c0]]] : memref<128xindex>
-
-// -----
-
-func.func @test_disjoint_allocations_live_range() {
-  %cst0 = arith.constant 0.0 : f32
-  %c0 = arith.constant 0 : index
-
-  %0 = memref.alloc() : memref<128xf32>
-  memref.store %cst0, %0[%c0] : memref<128xf32>
-
-  %4 = memref.alloc() : memref<128xf32>
-  memref.store %cst0, %4[%c0] : memref<128xf32>
-
-  memref.dealloc %0 : memref<128xf32>
-  memref.dealloc %4 : memref<128xf32>
-  return
-}
-
-//       CHECK:   executor.global @workspace_0 : memref<128xf32> {
-//  CHECK-NEXT:     %[[alloc:.+]] = memref.alloc() : memref<128xf32>
-//  CHECK-NEXT:     executor.return %[[alloc]] : memref<128xf32>
-// CHECK-LABEL: @test_disjoint_allocations_live_range
-//       CHECK:     %[[cst:.+]] = arith.constant 0.000000e+00 : f32
-//       CHECK:     %[[c0:.+]] = arith.constant 0 : index
-//       CHECK:     %[[v0:.+]] = executor.get_global @workspace_0 : memref<128xf32>
-//       CHECK:     memref.store %[[cst]], %[[v0]][%[[c0]]] : memref<128xf32>
-//       CHECK:     %[[v1:.+]] = executor.get_global @workspace_0 : memref<128xf32>
-//       CHECK:     memref.store %[[cst]], %[[v1]][%[[c0]]] : memref<128xf32>
-
-
-// -----
-
-func.func @test_non_disjoint_allocations() {
-  %cst0 = arith.constant 0.0 : f32
-  %c0 = arith.constant 0 : index
-
-  %0 = memref.alloc() : memref<128xf32>
-  %4 = memref.alloc() : memref<128xf32>
-
-  memref.store %cst0, %0[%c0] : memref<128xf32>
-  memref.store %cst0, %4[%c0] : memref<128xf32>
-
-  memref.dealloc %0 : memref<128xf32>
-  memref.dealloc %4 : memref<128xf32>
-  return
-}
-
-//       CHECK:   executor.global @{{.+}} : memref<128xf32> {
-//       CHECK:     %[[alloc:.+]] = memref.alloc() : memref<128xf32>
-//       CHECK:     executor.return %[[alloc]] : memref<128xf32>
-//       CHECK:   executor.global @{{.+}} : memref<128xf32> {
-//       CHECK:     %[[alloc:.+]] = memref.alloc() : memref<128xf32>
-//       CHECK:     executor.return %[[alloc]] : memref<128xf32>
-// CHECK-LABEL: @test_non_disjoint_allocations
-//       CHECK:     %[[cst:.+]] = arith.constant 0.000000e+00 : f32
-//       CHECK:     %[[c0:.+]] = arith.constant 0 : index
-//       CHECK:     %[[v0:.+]] = executor.get_global @{{.+}} : memref<128xf32>
-//       CHECK:     %[[v1:.+]] = executor.get_global @{{.+}} : memref<128xf32>
-//       CHECK:     memref.store %[[cst]], %[[v0]][%[[c0]]] : memref<128xf32>
-//       CHECK:     memref.store %[[cst]], %[[v1]][%[[c0]]] : memref<128xf32>
 
 // -----
 

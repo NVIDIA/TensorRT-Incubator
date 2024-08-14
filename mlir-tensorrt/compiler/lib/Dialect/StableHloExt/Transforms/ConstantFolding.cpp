@@ -58,6 +58,16 @@ using namespace mlir::stablehlo_ext;
 /// different levels to reflect this tradeoff.
 constexpr int64_t kFoldOpEltLimit = 65536;
 
+template <typename AttrType>
+static bool exceedsSizeLimit(AttrType attr) {
+  return !attr.isSplat() && attr.getNumElements() > kFoldOpEltLimit;
+}
+
+template <typename AttrType, typename... AttrTypes>
+static bool exceedsSizeLimit(AttrType attr, AttrTypes... other) {
+  return exceedsSizeLimit(attr) || exceedsSizeLimit(other...);
+}
+
 /// Replace `originalOp` with `v` if the types match. Otherwise, insert a
 /// `tensor.cast` of `v` if the types are "cast compatible", meaning that one
 /// type is a generalization of the other. Otherwise, return failure.
@@ -151,7 +161,8 @@ struct ConstFoldTranspose : OpRewritePattern<stablehlo::TransposeOp> {
 
     // Fold the input to a constant if possible, otherwise return.
     ElementsAttr inputConst;
-    if (!matchPattern(op.getOperand(), m_Constant(&inputConst)))
+    if (!matchPattern(op.getOperand(), m_Constant(&inputConst)) ||
+        exceedsSizeLimit(inputConst))
       return failure();
 
     auto permRange = op.getPermutation();
@@ -264,6 +275,57 @@ struct ConstFoldReshape : public OpRewritePattern<stablehlo::ReshapeOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// ReshapeOp -> BroadcastInDimOp -> ReshapeOp
+//===----------------------------------------------------------------------===//
+
+/// Replace the sequence of stablehlo.reshape, stablehlo.broadcast_in_dim, and
+/// stablehlo.reshape with stablehlo.broadcast_in_dim.
+struct SimplifyReshapeBroadcastInDimReshape
+    : public OpRewritePattern<stablehlo::ReshapeOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::ReshapeOp op,
+                                PatternRewriter &rewriter) const override {
+
+    auto outputType = op.getType();
+    if (!succeeded(tensorrt::isUnitDimRankReducing(op.getOperand().getType(),
+                                                   outputType)))
+      return failure();
+
+    auto broadcastInDimOp =
+        op.getOperand().getDefiningOp<stablehlo::BroadcastInDimOp>();
+    if (!broadcastInDimOp)
+      return failure();
+
+    auto reshapeOp =
+        broadcastInDimOp.getOperand().getDefiningOp<stablehlo::ReshapeOp>();
+    if (!reshapeOp)
+      return failure();
+    auto inputType = reshapeOp.getOperand().getType();
+    if (!succeeded(
+            tensorrt::isUnitDimRankExpanding(inputType, reshapeOp.getType())))
+      return failure();
+
+    auto isIncreasing = [](ArrayRef<int64_t> seq) {
+      for (size_t i = 1; i < seq.size(); ++i)
+        if (seq[i] <= seq[i - 1])
+          return false;
+      return true;
+    };
+
+    int64_t inputRank = inputType.getRank();
+    if (!isIncreasing(broadcastInDimOp.getBroadcastDimensions()) ||
+        !succeeded(tensorrt::checkLhsShapeBroadcastableToRhs(
+            inputType.getShape(), outputType.getShape())))
+      return failure();
+
+    rewriter.replaceOpWithNewOp<stablehlo::BroadcastInDimOp>(
+        op, outputType, reshapeOp.getOperand(),
+        llvm::to_vector(llvm::seq<int64_t>(0, inputRank)));
+    return success();
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // ConvertOp
 //===----------------------------------------------------------------------===//
 
@@ -273,11 +335,8 @@ struct ConstFoldConvert : public OpRewritePattern<stablehlo::ConvertOp> {
   LogicalResult matchAndRewrite(stablehlo::ConvertOp op,
                                 PatternRewriter &rewriter) const override {
     ElementsAttr operandValue{};
-    if (!matchPattern(op.getOperand(), m_Constant(&operandValue)))
-      return failure();
-
-    if (!operandValue.isSplat() &&
-        operandValue.getNumElements() > kFoldOpEltLimit)
+    if (!matchPattern(op.getOperand(), m_Constant(&operandValue)) ||
+        exceedsSizeLimit(operandValue))
       return failure();
 
     auto attr =
@@ -289,7 +348,7 @@ struct ConstFoldConvert : public OpRewritePattern<stablehlo::ConvertOp> {
   }
 };
 
-/// Rewrites two consecutive convert operatios with a single, whenever
+/// Rewrites two consecutive convert operations with a single, whenever
 /// possible. For replacement to happen, first conversion should happen to
 /// higher bit width data type.
 struct EliminateCascadedConverts
@@ -342,12 +401,8 @@ struct SqrtOpFolder : public OpRewritePattern<stablehlo::SqrtOp> {
 
     // Check for constant operand.
     ElementsAttr inpAttr{};
-    if (!matchPattern(op.getOperand(), m_Constant(&inpAttr)))
-      return failure();
-
-    // We always allow splat constant, otherwise don't fold if we're over the
-    // limit.
-    if (!inpAttr.isSplat() && inpAttr.getNumElements() > kFoldOpEltLimit)
+    if (!matchPattern(op.getOperand(), m_Constant(&inpAttr)) ||
+        exceedsSizeLimit(inpAttr))
       return failure();
 
     Attribute foldedResult =
@@ -384,12 +439,8 @@ struct RsqrtFolder : public OpRewritePattern<stablehlo::RsqrtOp> {
 
     // Check for constant operand.
     DenseElementsAttr attr{};
-    if (!matchPattern(op.getOperand(), m_Constant(&attr)))
-      return failure();
-
-    // We always allow splat constant, otherwise don't fold if we're over the
-    // limit.
-    if (!attr.isSplat() && attr.getNumElements() > kFoldOpEltLimit)
+    if (!matchPattern(op.getOperand(), m_Constant(&attr)) ||
+        exceedsSizeLimit(attr))
       return failure();
 
     Attribute foldedResult =
@@ -415,27 +466,27 @@ struct RsqrtFolder : public OpRewritePattern<stablehlo::RsqrtOp> {
 //===----------------------------------------------------------------------===//
 
 template <typename Convert>
-static ElementsAttr compareFolder(RankedTensorType sourceType,
-                                  RankedTensorType resultType,
+static ElementsAttr compareFolder(RankedTensorType resultType,
                                   ElementsAttr lhsAttr, ElementsAttr rhsAttr) {
   DenseElementsAttr lhs = dyn_cast<DenseElementsAttr>(lhsAttr);
   DenseElementsAttr rhs = dyn_cast<DenseElementsAttr>(rhsAttr);
   if (!lhs || !rhs)
     return nullptr;
+  assert(lhs.getType() == rhs.getType() && "expected equal type lhs/rhs");
 
-  if (!isa<FloatType>(sourceType.getElementType()))
+  if (!isa<FloatType>(lhs.getType().getElementType()))
     return nullptr;
 
-  // Prevent folding if the result is too large.
-  if (lhs.getNumElements() > kFoldOpEltLimit)
-    return nullptr;
+  if (lhs.isSplat() && rhs.isSplat())
+    return DenseElementsAttr::get(
+        resultType,
+        Convert()(lhs.getSplatValue<APFloat>(), rhs.getSplatValue<APFloat>()));
 
   SmallVector<bool> values;
   values.reserve(lhs.getNumElements());
   for (auto [lVal, rVal] :
-       llvm::zip(lhs.getValues<APFloat>(), rhs.getValues<APFloat>())) {
+       llvm::zip(lhs.getValues<APFloat>(), rhs.getValues<APFloat>()))
     values.push_back(Convert()(lVal, rVal));
-  }
   return DenseElementsAttr::get(cast<ShapedType>(resultType), values);
 }
 
@@ -449,30 +500,31 @@ struct ConstFoldCompare : public OpRewritePattern<stablehlo::CompareOp> {
         !isa<FloatType>(op.getRhs().getType().getElementType()))
       return rewriter.notifyMatchFailure(op->getLoc(),
                                          "lhs and rhs should be float");
-    if (!op.getType().hasStaticShape() ||
-        op.getType().getNumElements() > kFoldOpEltLimit)
-      return rewriter.notifyMatchFailure(
-          op->getLoc(), "result type must be static and number of "
-                        "elements less than `kFoldOpEltLimit`");
-    Value lhs = op.getLhs();
+    if (!op.getType().hasStaticShape())
+
+      return rewriter.notifyMatchFailure(op->getLoc(),
+                                         "result type must be static");
+
     ElementsAttr lhsAttr{};
-    if (!matchPattern(lhs, m_Constant(&lhsAttr)))
+    if (!matchPattern(op.getLhs(), m_Constant(&lhsAttr)))
       return rewriter.notifyMatchFailure(op->getLoc(),
                                          "lhs needs to be a constant");
-    Value rhs = op.getRhs();
     ElementsAttr rhsAttr{};
-    if (!matchPattern(rhs, m_Constant(&rhsAttr)))
+    if (!matchPattern(op.getRhs(), m_Constant(&rhsAttr)))
       return rewriter.notifyMatchFailure(op->getLoc(),
                                          "rhs needs to be a constant");
 
     ComparisonDirection direction = op.getComparisonDirection();
 
+    if (exceedsSizeLimit(lhsAttr, rhsAttr))
+      return failure();
+
 // Upstream StableHLO `StablehloAggresiveSimplification` pass has folders for
 // integer type.
 #define COMPARE_FOLDER(comparison, Func)                                       \
   if (direction == comparison) {                                               \
-    ElementsAttr resultFloat = compareFolder<Func<APFloat>>(                   \
-        op.getLhs().getType(), op.getType(), lhsAttr, rhsAttr);                \
+    ElementsAttr resultFloat =                                                 \
+        compareFolder<Func<APFloat>>(op.getType(), lhsAttr, rhsAttr);          \
     if (!resultFloat)                                                          \
       return failure();                                                        \
     return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(rewriter, op, \
@@ -557,6 +609,12 @@ struct FoldOrOp : public OpRewritePattern<stablehlo::OrOp> {
     // compute.
     if (!rhsAttr || !lhsAttr)
       return failure();
+
+    // We always allow splat constant, otherwise don't fold if we're over the
+    // limit.
+    if (exceedsSizeLimit(rhsAttr, lhsAttr))
+      return failure();
+
     // TODO: Handle DenseResourceElementsAttr
     if (dyn_cast<DenseResourceElementsAttr>(lhsAttr) ||
         dyn_cast<DenseResourceElementsAttr>(rhsAttr))
@@ -614,6 +672,12 @@ struct FoldAndOp : public OpRewritePattern<stablehlo::AndOp> {
     // compute.
     if (!rhsAttr || !lhsAttr)
       return failure();
+
+    // We always allow splat constant, otherwise don't fold if we're over the
+    // limit.
+    if (exceedsSizeLimit(lhsAttr, rhsAttr))
+      return failure();
+
     // TODO: Handle DenseResourceElementsAttr
     if (dyn_cast<DenseResourceElementsAttr>(lhsAttr) ||
         dyn_cast<DenseResourceElementsAttr>(rhsAttr))
@@ -657,8 +721,8 @@ struct ConstFoldStablehloSlice : public OpRewritePattern<stablehlo::SliceOp> {
     assert(resultTypeVec.size() == 1 && "expected one result type");
 
     auto newResultType = cast<RankedTensorType>(resultTypeVec.front());
-    if (!operandValue.isSplat() &&
-        operandValue.getNumElements() > kFoldOpEltLimit)
+    if (!operandValue.isSplat() && !op.getOperand().hasOneUse() &&
+        exceedsSizeLimit(operandValue))
       return rewriter.notifyMatchFailure(
           op, "result type num elements > fold limit");
 
@@ -850,6 +914,7 @@ public:
         ConstFoldConvert,
         ConcatDropEmptySegments,
         ConstFoldReshape,
+        SimplifyReshapeBroadcastInDimReshape,
         ConstFoldStablehloSlice,
         ConstFoldTranspose,
         EliminateCascadedConverts,

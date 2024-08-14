@@ -1,6 +1,11 @@
-// RUN: mlir-tensorrt-opt %s -executor-lowering-pipeline \
-// RUN:   | mlir-tensorrt-translate -mlir-to-lua \
-// RUN:   | mlir-tensorrt-runner -input-type=lua | FileCheck %s
+// RUN: rm %t.mlir || true
+// RUN: executor-opt %s -executor-lowering-pipeline -o %t.mlir
+
+// RUN: executor-translate -mlir-to-lua  %t.mlir \
+// RUN:   | executor-runner -input-type=lua | FileCheck %s
+
+// RUN: executor-translate -mlir-to-runtime-executable %t.mlir \
+// RUN:   | executor-runner -input-type=rtexe | FileCheck %s
 
 func.func @test_addi(%arg0: i64, %arg1: i64) {
   %0 = executor.addi %arg0, %arg1 : i64

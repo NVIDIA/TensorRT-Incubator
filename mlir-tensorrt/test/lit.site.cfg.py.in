@@ -10,6 +10,8 @@ config.host_cc = "@HOST_CC@"
 config.host_cxx = "@HOST_CXX@"
 config.host_arch = "@HOST_ARCH@"
 
+config.enable_assertions = @MLIR_TRT_ENABLE_ASSERTIONS@
+
 config.enable_bindings_python = @MLIR_TRT_ENABLE_PYTHON@
 config.python_executable = "@Python3_EXECUTABLE@"
 

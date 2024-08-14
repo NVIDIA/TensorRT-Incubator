@@ -55,11 +55,21 @@ def Plan_Dialect : Dialect {
     template<typename Attr>
     void addExtensionAttribute();
 
+    template<typename Op>
+    void addExtensionOperation();
+
     // Registers types specified as template parameters with the Plan
     /// dialect.
-    template <typename... TypeTys>
+    template <typename... Attributes>
     void addAttributesExt() {
-      (addExtensionAttribute<TypeTys>(), ...);
+      (addExtensionAttribute<Attributes>(), ...);
+    }
+
+    // Registers types specified as template parameters with the Plan
+    /// dialect.
+    template <typename... Ops>
+    void addExtensionOperations() {
+      (addExtensionOperation<Ops>(), ...);
     }
 
   private:

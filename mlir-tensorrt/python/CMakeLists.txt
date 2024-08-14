@@ -116,13 +116,4 @@ if(MLIR_TRT_ENABLE_PYTHON)
     DECLARED_SOURCES
       MLIRTensorRTPythonToolsSources
     )
-
-  add_mtrt_python_wheel(mlir-tensorrt-tools-wheel
-    DEPENDS MLIRTensorRTPythonToolsModules
-    PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/mlir_tensorrt_tools"
-    PACKAGE_BINARY_DIR "${MLIR_TENSORRT_ROOT_BINARY_DIR}/python_packages/mlir_tensorrt_tools"
-    OUTPUT_DIR "${WHEEL_OUTPUT_DIR}"
-    ADD_TO_PARENT mlir-tensorrt-all-wheels
-    VERSION "${PKG_VERSION}"
-    )
 endif()

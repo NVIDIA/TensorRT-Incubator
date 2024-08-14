@@ -1,4 +1,5 @@
 # RUN: %PYTHON %s 2>&1
+# REQUIRES: host-has-at-least-1-gpus
 import os
 import tempfile
 

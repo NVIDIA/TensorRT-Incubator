@@ -1,5 +1,5 @@
 // RUN: mlir-tensorrt-opt -split-input-file \
-// RUN:  -plan-segmentation-pipeline="disallow-host-tensors-in-tensorrt-clusters" -verify-diagnostics %s
+// RUN:  -post-clustering-validation -verify-diagnostics %s
 
 func.func @reduce_i64_not_divisible_by_32(%arg0: tensor<116xi64>) -> tensor<i64> {
   %c_0 = stablehlo.constant dense<0> : tensor<i64>

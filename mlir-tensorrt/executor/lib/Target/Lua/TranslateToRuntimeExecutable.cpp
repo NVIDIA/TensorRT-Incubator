@@ -330,12 +330,12 @@ translateTypeVariant(FBBuilder &fbBuilder, Type t) {
     auto stridesOffset = fbBuilder.serialize<int64_t>(strides);
 
     auto addressSpace = rt::PointerType::unknown;
-    if (memrefType.getMemorySpace()
-            .isa_and_nonnull<executor::MemoryTypeAttr>()) {
+    if (llvm::isa_and_nonnull<executor::MemoryTypeAttr>(
+            memrefType.getMemorySpace())) {
       auto memoryType =
           executor::PointerType::get(memrefType.getContext(),
-                                     memrefType.getMemorySpace()
-                                         .dyn_cast<executor::MemoryTypeAttr>()
+                                     llvm::dyn_cast<executor::MemoryTypeAttr>(
+                                         memrefType.getMemorySpace())
                                          .getValue())
               .getAddressSpace();
       addressSpace = *translateMemoryType(memoryType);
@@ -388,6 +388,9 @@ translateCallingConvention(executor::CallingConvention cconv) {
 static FailureOr<Offset<rt::impl::FunctionSignature>>
 translateSignature(FBBuilder &fbBuilder,
                    executor::FunctionMetadataAttr metadata) {
+  if (!metadata)
+    return rt::impl::CreateFunctionSignature(fbBuilder);
+
   // Union type must be encoded as variant type + data.
   SmallVector<rt::impl::Type> argVariantTypes, resultVariantTypes;
   SmallVector<Offset<void>> argOffsets, resultOffsets;
@@ -503,31 +506,18 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   for (auto func : module.getOps<func::FuncOp>()) {
     if (func.isPrivate())
       continue;
-    auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
-        executor::ExecutorDialect::kFunctionMetadataAttrName);
-    bool isTrivialFunc =
-        func.getNumArguments() == 0 || func.getNumResults() == 0;
-    if (!metaAttr && !isTrivialFunc)
-      return func->emitError(
-          "non-trivial functions must have a executor.function_metadata "
-          "attribute for translation");
-
     Offset<fb::String> funcNameOffset =
         fbBuilder.CreateString(func.getName().str());
 
-    // Encode the signature metadata if present.
-    Offset<rt::impl::FunctionSignature> sigOffset = 0;
-    if (metaAttr) {
-      FailureOr<Offset<rt::impl::FunctionSignature>> offt =
-          translateSignature(fbBuilder, metaAttr);
-      if (failed(offt))
-        return failure();
-      sigOffset = std::move(*offt);
-    } else {
-      sigOffset = rt::impl::CreateFunctionSignature(fbBuilder);
-    }
+    auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
+        executor::ExecutorDialect::kFunctionMetadataAttrName);
+    FailureOr<Offset<rt::impl::FunctionSignature>> offt =
+        translateSignature(fbBuilder, metaAttr);
+    if (failed(offt))
+      return failure();
+
     funcOffsets.push_back(
-        rt::impl::CreateFunction(fbBuilder, funcNameOffset, sigOffset));
+        rt::impl::CreateFunction(fbBuilder, funcNameOffset, *offt));
   }
 
   // Get the process grid by default we use a 2D process grid of shape (1, 1) if

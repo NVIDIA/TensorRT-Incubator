@@ -1474,6 +1474,89 @@ struct FoldConstExpandRank : public OpRewritePattern<OpType> {
     return failure();
   }
 };
+
+/// Pattern to collapse producer/consumer reshape ops that are both collapsing
+/// dimensions or are both expanding dimensions.
+template <typename ReshapeOpTy>
+struct ComposeTensorRTReassociativeReshapes
+    : public OpRewritePattern<ReshapeOpTy> {
+  using OpRewritePattern<ReshapeOpTy>::OpRewritePattern;
+  LogicalResult matchAndRewrite(ReshapeOpTy reshapeOp,
+                                PatternRewriter &rewriter) const override {
+    auto srcReshapeOp =
+        reshapeOp.getSrc().template getDefiningOp<ReshapeOpTy>();
+    if (!srcReshapeOp)
+      return failure();
+    RankedTensorType resultType = reshapeOp.getType();
+    std::optional<SmallVector<ReassociationIndices>> reassociationIndices =
+        composeReassociationIndices(srcReshapeOp.getReassociationIndices(),
+                                    reshapeOp.getReassociationIndices(),
+                                    rewriter.getContext());
+    if (!reassociationIndices)
+      return failure();
+    rewriter.replaceOpWithNewOp<ReshapeOpTy>(
+        reshapeOp, resultType, srcReshapeOp.getSrc(), *reassociationIndices);
+    return success();
+  }
+};
+
+struct TensorRTComposeCollapseOfExpandOp
+    : public OpRewritePattern<CollapseRankOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(CollapseRankOp collapseOp,
+                                PatternRewriter &rewriter) const override {
+    auto expandOp = collapseOp.getSrc().getDefiningOp<ExpandRankOp>();
+    if (!expandOp)
+      return failure();
+
+    RankedTensorType srcType = expandOp.getInput().getType();
+    RankedTensorType resultType = collapseOp.getType();
+
+    int64_t srcRank = srcType.getRank();
+    int64_t resultRank = resultType.getRank();
+    if (srcType == resultType)
+      return failure();
+
+    SmallVector<ReassociationIndices, 4> higherRankReassociation,
+        lowerRankReassociation;
+
+    if (srcRank > resultRank) {
+      higherRankReassociation = expandOp.getReassociationIndices();
+      lowerRankReassociation = collapseOp.getReassociationIndices();
+    } else {
+      higherRankReassociation = collapseOp.getReassociationIndices();
+      lowerRankReassociation = expandOp.getReassociationIndices();
+    }
+
+    size_t higherRankIndicesID = 0;
+    SmallVector<ReassociationIndices, 4> composedReassociation;
+    for (const auto &lowerRankIndices : lowerRankReassociation) {
+      ReassociationIndices composedIndices;
+      while (higherRankIndicesID < higherRankReassociation.size()) {
+        auto rightmostIndex =
+            higherRankReassociation[higherRankIndicesID].back();
+        if (rightmostIndex > lowerRankIndices.back())
+          return failure();
+        composedIndices.push_back(higherRankIndicesID++);
+        if (rightmostIndex == lowerRankIndices.back())
+          break;
+      }
+      composedReassociation.push_back(composedIndices);
+    }
+    if (srcRank > resultRank) {
+      rewriter.replaceOpWithNewOp<CollapseRankOp>(
+          collapseOp, resultType, expandOp.getSrc(), composedReassociation);
+      return success();
+    }
+    if (srcRank < resultRank) {
+      rewriter.replaceOpWithNewOp<ExpandRankOp>(
+          collapseOp, resultType, expandOp.getSrc(), composedReassociation);
+      return success();
+    }
+    return failure();
+  }
+};
+
 } // namespace
 
 SmallVector<int64_t>
@@ -1525,8 +1608,10 @@ tensorrt::CollapseRankOp::getReassociationIndices() {
 }
 
 void tensorrt::CollapseRankOp::getCanonicalizationPatterns(
-    ::mlir::RewritePatternSet &results, ::mlir::MLIRContext *context) {
-  results.insert<FoldConstExpandRank<CollapseRankOp>>(context);
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ComposeTensorRTReassociativeReshapes<CollapseRankOp>,
+                 FoldConstExpandRank<CollapseRankOp>,
+                 TensorRTComposeCollapseOfExpandOp>(context);
 }
 
 OpFoldResult tensorrt::CollapseRankOp::fold(FoldAdaptor adaptor) {
@@ -1554,9 +1639,50 @@ tensorrt::ExpandRankOp::getReassociationIndices() {
   return *reassociation;
 }
 
+struct TensorRTComposeExpandOfCollapseOp
+    : public OpRewritePattern<ExpandRankOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(ExpandRankOp expandOp,
+                                PatternRewriter &rewriter) const override {
+    auto collapseOp = expandOp.getSrc().getDefiningOp<CollapseRankOp>();
+    if (!collapseOp)
+      return failure();
+
+    RankedTensorType srcType = collapseOp.getInput().getType();
+    RankedTensorType resultType = expandOp.getType();
+
+    int64_t srcRank = srcType.getRank();
+    int64_t resultRank = resultType.getRank();
+    if (srcType == resultType)
+      return failure();
+
+    auto srcReassociation = collapseOp.getReassociationIndices();
+    auto resultReassociation = expandOp.getReassociationIndices();
+    if (srcRank > resultRank) {
+      auto composedReassociation = getReassociationIndicesForCollapse(
+          srcType.getShape(), resultType.getShape());
+      if (!composedReassociation)
+        return failure();
+      rewriter.replaceOpWithNewOp<CollapseRankOp>(
+          expandOp, resultType, collapseOp.getSrc(), *composedReassociation);
+      return success();
+    }
+
+    auto composedReassociation = getReassociationIndicesForCollapse(
+        resultType.getShape(), srcType.getShape());
+    if (!composedReassociation)
+      return failure();
+    rewriter.replaceOpWithNewOp<ExpandRankOp>(
+        expandOp, resultType, collapseOp.getSrc(), *composedReassociation);
+    return success();
+  }
+};
+
 void tensorrt::ExpandRankOp::getCanonicalizationPatterns(
-    ::mlir::RewritePatternSet &results, ::mlir::MLIRContext *context) {
-  results.insert<FoldConstExpandRank<ExpandRankOp>>(context);
+    RewritePatternSet &results, MLIRContext *context) {
+  results.insert<ComposeTensorRTReassociativeReshapes<ExpandRankOp>,
+                 TensorRTComposeExpandOfCollapseOp,
+                 FoldConstExpandRank<ExpandRankOp>>(context);
 }
 
 OpFoldResult tensorrt::ExpandRankOp::fold(FoldAdaptor adaptor) {

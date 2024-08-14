@@ -33,6 +33,7 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/OperationSupport.h"
 #include "mlir/Interfaces/CallInterfaces.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
@@ -40,6 +41,7 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
 #include "mlir/Pass/Pass.h"
+#include "llvm/Support/ErrorHandling.h"
 
 //===----------------------------------------------------------------------===//
 // Plan Dialect
@@ -56,6 +58,21 @@ void mlir::plan::PlanDialect::addExtensionAttribute() {
                                   cast<Attr>(attr).print(printer);
                                 });
   addAttributes<Attr>();
+}
+
+template <typename Op>
+void mlir::plan::PlanDialect::addExtensionOperation() {
+  StringRef name = Op::getOperationName();
+  MLIRContext *ctx = getContext();
+  if (std::optional<RegisteredOperationName> regName =
+          RegisteredOperationName::lookup(name, ctx)) {
+    if (regName->getTypeID() != TypeID::get<Op>()) {
+      llvm::report_fatal_error("PlanDialect attempted to register extension "
+                               "duplicate operation with differing TypeIDs");
+    }
+    return;
+  }
+  addOperations<Op>();
 }
 
 namespace mlir::plan {
@@ -78,8 +95,7 @@ public:
 
   StringRef getName() const { return ""; }
 
-  /// Extension constructor. The argument indicates whether to skip generated
-  /// dialects when applying the extension.
+  /// Extension constructor.
   explicit PlanDialectExtension() { static_cast<DerivedTy *>(this)->init(); }
 
   /// Extension application hook. Actually loads the dependent dialects and
@@ -87,8 +103,6 @@ public:
   void apply(MLIRContext *context, PlanDialect *planDialect,
              ExtraDialects *...) const final {
     for (const DialectLoader &loader : dialectLoaders)
-      loader(context);
-    for (const DialectLoader &loader : generatedDialectLoaders)
       loader(context);
     for (const Initializer &init : initializers)
       init(planDialect);
@@ -104,18 +118,19 @@ public:
     });
   }
 
+  template <typename... OpTypes>
+  void registerOps() {
+    initializers.push_back([](PlanDialect *planDialect) {
+      planDialect->addExtensionOperations<OpTypes...>();
+    });
+  }
+
 protected:
-  /// Callbacks performing extension initialization, e.g., registering ops,
-  /// types and defining the additional data.
+  /// Callbacks performing extension initialization.
   SmallVector<Initializer> initializers;
 
-  /// Callbacks loading the dependent dialects, i.e. the dialect needed for the
-  /// extension ops.
+  /// Callbacks loading the dependent dialects.
   SmallVector<DialectLoader> dialectLoaders;
-
-  /// Callbacks loading the generated dialects, i.e. the dialects produced when
-  /// applying the transformations.
-  SmallVector<DialectLoader> generatedDialectLoaders;
 };
 } // namespace mlir::plan
 

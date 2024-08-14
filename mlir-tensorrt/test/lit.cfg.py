@@ -203,3 +203,10 @@ if trt_version_major >= 10:
     config.available_features.add("tensorrt-version-ge-10.0")
 if not config.enable_asan:
     config.available_features.add("no-asan")
+
+# Some of our tests utilize checks against debug output in order to verify
+# that flags were correctly propagated from e.g. Python all the way to the TensorRT
+# translation pass. This is a bit brittle, but until we replace with a better
+# solution, we can only run those tests when debug printing is available.
+if config.enable_assertions:
+    config.available_features.add("debug-print")

@@ -2963,6 +2963,14 @@ static bool isCanonicalDeconvolution(ArrayRef<int64_t> lhsDilation,
           llvm::all_of(postPadding, [](const int64_t &v) { return v < 0; }));
 }
 
+static SmallVector<int64_t>
+canonicalizeDilation(std::optional<ArrayRef<int64_t>> dilation,
+                     unsigned numSpatialDims) {
+  if (!dilation || dilation->empty())
+    return SmallVector<int64_t>(numSpatialDims, 1);
+  return llvm::to_vector(*dilation);
+}
+
 /// Convert `stablehlo.convolution` to `tensorrt.convolution` or
 /// `tensorrt.deconvolution`.
 struct ConvolutionConverter
@@ -3015,12 +3023,10 @@ struct ConvolutionConverter
 
     // Default value: one for each of the
     // spatial dimension.
-    auto rhsDilationRef =
-        dyn_cast_or_null<DenseI64ArrayAttr>(op.getRhsDilationAttr())
-            .asArrayRef();
-    SmallVector<int64_t> dilation =
-        rhsDilationRef.empty() ? SmallVector<int64_t>(numSpatialDims, 1)
-                               : llvm::to_vector(rhsDilationRef);
+    SmallVector<int64_t> rhsDilation =
+        canonicalizeDilation(op.getRhsDilation(), numSpatialDims);
+    SmallVector<int64_t> lhsDilation =
+        canonicalizeDilation(op.getLhsDilation(), numSpatialDims);
 
     // TODO: we could support "all true" or
     // "all false", but right now just
@@ -3043,17 +3049,13 @@ struct ConvolutionConverter
     if (postPadding.empty())
       postPadding = SmallVector<int64_t>(numSpatialDims, 0);
 
-    auto lhsDilation =
-        dyn_cast_or_null<DenseI64ArrayAttr>(op.getLhsDilationAttr());
-    if (lhsDilation &&
-        isCanonicalDeconvolution(lhsDilation, prePadding, postPadding)) {
+    if (isCanonicalDeconvolution(lhsDilation, prePadding, postPadding)) {
       RankedTensorType kernelType = op.getRhs().getType();
       // LHS dilation is passed as stride.
-      ArrayRef<int64_t> lhsDilationVec = lhsDilation.asArrayRef();
       // Get paddings from flattened stable hlo conv op paddings.
       FailureOr<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>
           trtPadding = getEffectiveTensorRTPaddings(
-              prePadding, postPadding, dilation, kernelType, numSpatialDims);
+              prePadding, postPadding, rhsDilation, kernelType, numSpatialDims);
       if (failed(trtPadding))
         return rewriter.notifyMatchFailure(
             op,
@@ -3070,11 +3072,11 @@ struct ConvolutionConverter
           /*input=*/op.getLhs(),
           /*kernelWeights=*/updatedKernel,
           /*biasWeights=*/Value(),
-          /*stride=*/lhsDilationVec,
+          /*stride=*/lhsDilation,
           /*pre_padding=*/(*trtPadding).first,
           /*post_padding=*/(*trtPadding).second,
           /*num_groups=*/numGroups,
-          /*dilation=*/dilation);
+          /*dilation=*/rhsDilation);
 
       return success();
     }
@@ -3088,7 +3090,7 @@ struct ConvolutionConverter
         /*pre_padding=*/prePadding,
         /*post_padding=*/postPadding,
         /*num_groups=*/numGroups,
-        /*dilation=*/dilation);
+        /*dilation=*/rhsDilation);
     return success();
   }
 };
