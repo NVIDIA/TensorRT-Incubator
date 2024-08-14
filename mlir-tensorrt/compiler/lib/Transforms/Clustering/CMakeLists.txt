@@ -9,4 +9,5 @@ add_mlir_tensorrt_library(MLIRTensorRTGenericClustering
   MLIRIR
   MLIRPass
   MLIRSCFDialect
+  MLIRTensorRTCommonUtils
 )

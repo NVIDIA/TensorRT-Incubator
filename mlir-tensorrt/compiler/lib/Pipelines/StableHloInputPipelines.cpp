@@ -44,7 +44,8 @@ static void buildStableHloSimplificationPipeline(OpPassManager &pm,
   // until after `canonicalize-shapes` has run at least once. This reduces the
   // likelihood of generating `shape` dialect ops.
   if (legalizeChlo)
-    pm.addPass(stablehlo::createChloLegalizeToStablehloPass());
+    pm.addNestedPass<func::FuncOp>(
+        stablehlo::createChloLegalizeToStablehloPass());
 
   pm.addPass(stablehlo_ext::createCanonicalizeDotGeneralPass());
   pm.addPass(stablehlo_ext::createConstantFoldingPass());
@@ -60,6 +61,7 @@ void mlir::buildStablehloPreProcessingPipeline(
     OpPassManager &pm, const StableHloInputOptions &opts) {
   if (!opts.disableInliner)
     pm.addPass(createInlinerPass());
+  pm.addPass(stablehlo_ext::createLowerSpecialCustomCalls());
 
   // Simplify StableHLO graph
   buildStableHloSimplificationPipeline(pm, opts.convertChloToStablehlo);

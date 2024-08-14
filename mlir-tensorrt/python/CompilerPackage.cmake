@@ -88,6 +88,7 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.Dialects.tensorrt.PyBin
     bindings/Compiler/Dialects/DialectTensorRT.cpp
   EMBED_CAPI_LINK_LIBS
     MLIRTensorRTCAPITensorRTDialect
+    MLIRCAPITransforms
   PRIVATE_LINK_LIBS
     LLVMSupport
   )
@@ -100,7 +101,6 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.SiteInitializer.PyBind
     bindings/Compiler/SiteInitializer.cpp
   EMBED_CAPI_LINK_LIBS
     MLIRTensorRTCAPIRegisterAllDialects
-    MLIRCAPITransforms
   PRIVATE_LINK_LIBS
     LLVMSupport
   )
@@ -165,6 +165,7 @@ add_mlir_python_modules("MLIRTensorRTPythonCompilerModules"
 # The name of the library is created programatically by MLIR's cmake utilities,
 # which is why it looks a bit strange here.
 _mtrt_set_target_compile_defs(MLIRTensorRTPythonCompilerModules.extension._api.dso)
+
 ################################################################################
 # Wheel assembly target
 # This produces a target that generates a `.whl` file under the output

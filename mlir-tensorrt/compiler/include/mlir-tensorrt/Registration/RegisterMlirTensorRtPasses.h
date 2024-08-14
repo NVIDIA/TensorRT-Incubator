@@ -22,16 +22,14 @@
 #ifndef REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
 #define REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
 
-#include "mlir-executor/Conversion/Passes.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
-#include "mlir-tensorrt/Conversion/Patterns.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/Passes.h"
-#include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Transforms/Passes.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
+#include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
@@ -39,10 +37,8 @@
 #endif // MLIR_TRT_ENABLE_HLO
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
-#include "mlir-executor/Executor/Transforms/Passes.h"
-#include "mlir/Dialect/Arith/Transforms/Passes.h"
+#include "mlir-executor/InitAllPasses.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
-#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #endif // MLIR_TRT_ENABLE_EXECUTOR
 
 namespace mlir {
@@ -57,6 +53,7 @@ inline void registerAllMlirTensorRtPasses() {
   mlir::registerConvertPDLToPDLInterp();
 
 #ifdef MLIR_TRT_ENABLE_HLO
+  mlirtrt::compiler::registerStablehloClusteringPipelines();
   registerStableHloInputPipelines();
   stablehlo_ext::registerStableHloExtPasses();
   stablehlo::registerPasses();
@@ -65,15 +62,9 @@ inline void registerAllMlirTensorRtPasses() {
 #endif // MLIR_TRT_ENABLE_HLO
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
-  func::registerDuplicateFunctionEliminationPass();
-  executor::registerExecutorPassPipelines();
-  executor::registerExecutorTransformsPasses();
   registerConvertCUDAToExecutorPass();
-  memref::registerMemRefPasses();
-  mlir::arith::registerArithPasses();
-  mlir::registerSCFToControlFlowPass();
   bufferization::registerBufferizationPasses();
-  executor::registerMLIRExecutorConversionPasses();
+  executor::registerAllPasses();
 #endif // MLIR_TRT_ENABLE_EXECUTOR
 }
 

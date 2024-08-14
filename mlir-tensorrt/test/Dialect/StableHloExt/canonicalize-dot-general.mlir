@@ -129,9 +129,9 @@ func.func @dot_general_to_mul3(%arg0: tensor<12x10x10x10xf32>, %arg1: tensor<12x
 
 // CHECK-LABEL: func.func @dot_general_to_mul3
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<12x10x10x10xf32>, %[[arg1:.+]]: tensor<12x10x1x1xf32>) -> tensor<12x10x10x10x1x1xf32> {
-//       CHECK:     %[[v0:.+]] = stablehlo.broadcast_in_dim %[[arg0]], dims = [0, 1, 2, 3] : (tensor<12x10x10x10xf32>) -> tensor<12x10x10x10x1x1xf32>
-//       CHECK:     %[[v1:.+]] = stablehlo.broadcast_in_dim %[[arg1]], dims = [0, 1, 4, 5] : (tensor<12x10x1x1xf32>) -> tensor<12x10x10x10x1x1xf32>
-//       CHECK:     %[[v2:.+]] = stablehlo.multiply %[[v0]], %[[v1]] : tensor<12x10x10x10x1x1xf32>
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.broadcast_in_dim %[[arg0]], dims = [0, 1, 2, 3] : (tensor<12x10x10x10xf32>) -> tensor<12x10x10x10x1x1xf32>
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.broadcast_in_dim %[[arg1]], dims = [0, 1, 4, 5] : (tensor<12x10x1x1xf32>) -> tensor<12x10x10x10x1x1xf32>
+//   CHECK-DAG:     %[[v2:.+]] = stablehlo.multiply %[[v0]], %[[v1]] : tensor<12x10x10x10x1x1xf32>
 //       CHECK:     return %[[v2]] : tensor<12x10x10x10x1x1xf32>
 
 // -----
@@ -143,10 +143,10 @@ func.func @dot_general_to_mul4(%arg0: tensor<12x10x10x10xf32>, %arg1: tensor<10x
 
 // CHECK-LABEL: func.func @dot_general_to_mul4
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<12x10x10x10xf32>, %[[arg1:.+]]: tensor<10x12x1x1xf32>) -> tensor<12x10x10x10x1x1xf32> {
-//       CHECK:     %[[v0:.+]] = stablehlo.transpose %[[arg1]], dims = [1, 0, 2, 3] : (tensor<10x12x1x1xf32>) -> tensor<12x10x1x1xf32>
-//       CHECK:     %[[v1:.+]] = stablehlo.broadcast_in_dim %[[arg0]], dims = [0, 1, 2, 3] : (tensor<12x10x10x10xf32>) -> tensor<12x10x10x10x1x1xf32>
-//       CHECK:     %[[v2:.+]] = stablehlo.broadcast_in_dim %[[v0]], dims = [0, 1, 4, 5] : (tensor<12x10x1x1xf32>) -> tensor<12x10x10x10x1x1xf32>
-//       CHECK:     %[[v3:.+]] = stablehlo.multiply %[[v1]], %[[v2]] : tensor<12x10x10x10x1x1xf32>
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.transpose %[[arg1]], dims = [1, 0, 2, 3] : (tensor<10x12x1x1xf32>) -> tensor<12x10x1x1xf32>
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.broadcast_in_dim %[[arg0]], dims = [0, 1, 2, 3] : (tensor<12x10x10x10xf32>) -> tensor<12x10x10x10x1x1xf32>
+//   CHECK-DAG:     %[[v2:.+]] = stablehlo.broadcast_in_dim %[[v0]], dims = [0, 1, 4, 5] : (tensor<12x10x1x1xf32>) -> tensor<12x10x10x10x1x1xf32>
+//   CHECK-DAG:     %[[v3:.+]] = stablehlo.multiply %[[v1]], %[[v2]] : tensor<12x10x10x10x1x1xf32>
 //       CHECK:     return %[[v3]] : tensor<12x10x10x10x1x1xf32>
 
 // -----

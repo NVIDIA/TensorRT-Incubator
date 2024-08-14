@@ -77,7 +77,6 @@ struct StablehloRewriteTrivialLogicalRightShift
     return failure();
   }
 };
-
 } // namespace
 
 static Value makeSplatF32TensorConstantLike(OpBuilder &b, Location loc,

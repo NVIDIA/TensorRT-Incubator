@@ -39,6 +39,7 @@
 #include "mlir-tensorrt/Dialect/StableHloExt/IR/StableHloExt.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
+#include "stablehlo/dialect/VhloOps.h"
 #endif
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR
@@ -76,10 +77,6 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
   bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
       registry);
-  linalg::registerBufferizableOpInterfaceExternalModels(registry);
-  linalg::registerTilingInterfaceExternalModels(registry);
-  linalg::registerSubsetOpInterfaceExternalModels(registry);
-  linalg::registerValueBoundsOpInterfaceExternalModels(registry);
   memref::registerAllocationOpInterfaceExternalModels(registry);
   tensor::registerBufferizableOpInterfaceExternalModels(registry);
   tensor::registerInferTypeOpInterfaceExternalModels(registry);
@@ -102,7 +99,7 @@ inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
 
 #ifdef MLIR_TRT_ENABLE_HLO
   registry.insert<mlir::stablehlo::StablehloDialect, mlir::chlo::ChloDialect,
-                  scf::SCFDialect>();
+                  scf::SCFDialect, vhlo::VhloDialect>();
   stablehlo::registerTensorKindOpInterfaceExternalModels(registry);
 #endif // MLIR_TRT_ENABLE_HLO
 

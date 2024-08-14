@@ -1,4 +1,6 @@
 # RUN: %PYTHON %s | FileCheck %s
+# REQUIRES: host-has-at-least-1-gpus
+
 from typing import Callable
 
 import mlir_tensorrt.runtime.api as runtime
