@@ -35,46 +35,26 @@ bug fixes from [this open MLIR PR](https://github.com/llvm/llvm-project/pull/915
 
 Here we only show how to do Option 2.
 
-1. Build MLIR
-
-```sh
-# Clone llvm-project
-git clone https://github.com/llvm/llvm-project.git llvm-project
-
-# Checkout the right commit
-cd llvm-project
-git checkout $(cat ../build_tools/llvm_commit.txt)
-
-# Apply patch from llvm-project PR 91524
-git apply ../build_tools/llvm-project.patch
-
-# Do the build
-cd ..
-./build_tools/scripts/build_mlir.sh llvm-project build/llvm-project
-```
-
-2. Build the project and run all tests
-
 ```bash
-cmake -B ./build/mlir-tensorrt -S . -G Ninja \
+cmake -B build -S . -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DMLIR_TRT_USE_LINKER=lld \
     -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
-    -DMLIR_DIR=build/llvm-project/lib/cmake/mlir \
     -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON
-ninja -C build/mlir-tensorrt all
-ninja -C build/mlir-tensorrt check-mlir-executor
-ninja -C build/mlir-tensorrt check-mlir-tensorrt-dialect
-ninja -C build/mlir-tensorrt check-mlir-tensorrt
+    
+ninja -C build all
+ninja -C build check-mlir-executor
+ninja -C build check-mlir-tensorrt-dialect
+ninja -C build check-mlir-tensorrt
 ```
 
 3. Build Python binding wheels
 
-This will produce wheels under `build/mlir-tensorrt/wheels`:
+This will produce wheels under `build/wheels`:
 
 ```
-ninja -C build/mlir-tensorrt mlir-tensorrt-all-wheels
+ninja -C build mlir-tensorrt-all-wheels
 ```
 
 
