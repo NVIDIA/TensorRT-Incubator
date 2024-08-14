@@ -236,6 +236,38 @@ class TestShape:
         assert isinstance(dims.trace_tensor.producer, Slice)
         assert cp.from_dlpack(dims).get().tolist() == values[1:]
 
+    @pytest.mark.parametrize(
+        "slice_value",
+        [
+            slice(0, 2),
+            slice(0, 1),
+            slice(1, 3),
+            slice(0, 3, 2),
+            slice(1, 3, 2),
+            slice(1, 4, 2),
+            slice(1, 4, 3),  # should select only one
+            slice(1, None, 200),  # selects only start point
+            # some with negative strides
+            slice(None, None, -1),
+            slice(None, None, -2),
+            slice(4, 0, -1),
+            slice(2, 0, -1),
+            slice(2, 1, -1),
+            # check the clamping behavior
+            slice(-10, 20),
+            slice(10, -20, -1),
+            # invalid bounds (length 0 result)
+            slice(0, 4, -1),
+            slice(4, 0),
+            slice(2, 2),
+        ],
+    )
+    def test_slice_len(self, slice_value):
+        # checking consistency against Python list
+        values = [1, 2, 3, 4]
+        s1 = tp.Shape(values)
+        assert len(s1[slice_value]) == len(values[slice_value])
+
     def test_reduce(self, values):
         from tripy.frontend.trace.ops.reduce import Reduce
 
