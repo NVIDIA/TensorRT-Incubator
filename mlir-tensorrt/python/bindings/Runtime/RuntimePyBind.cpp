@@ -336,8 +336,7 @@ createMemRefViewFromDLPack(PyRuntimeClient &client,
   int64_t* strides = managedTensor->dl_tensor.strides;
   std::vector<int64_t> stridesArray;
   if (!strides) {
-    // Create a unit stride array in the event that the dlpack's stride array is set to null
-
+    // Create a suffix product stride array in the event that the DLPack object's stride array is set to `null`
     auto ndim = managedTensor->dl_tensor.ndim;
     stridesArray.resize(ndim);
     if (ndim > 0) {
@@ -355,22 +354,18 @@ createMemRefViewFromDLPack(PyRuntimeClient &client,
   DLDeviceType device_type = managedTensor->dl_tensor.device.device_type;
   int device_id = managedTensor->dl_tensor.device.device_id;
 
-  MTRT_ScalarTypeCode elementType = getScalarTypeCodeFromDLDataType(dtype);
-  if (elementType == MTRT_ScalarTypeCode_unknown) {
-      throw std::invalid_argument("unknown DLPack datatype: code = " +
-            std::to_string(dtype.code) + " bits = " + std::to_string(dtype.bits)
-      );
-  }
+  MTRT_ScalarTypeCode elementType;
+  MTRT_Status s;
+  s = getScalarTypeCodeFromDLDataType(dtype, &elementType);
+  THROW_IF_MTRT_ERROR(s);
 
   int64_t bytesPerElement = llvm::divideCeil(dtype.bits, 8);
 
-  MTRT_PointerType addressSpace = getPointerTypeFromDLDeviceType(device_type);
-  if (addressSpace == MTRT_PointerType_unknown) {
-      throw std::invalid_argument("unknown pointer type for DL device: device_type = " + std::to_string(device_type));
-  }
+  MTRT_PointerType addressSpace;
+  s = getPointerTypeFromDLDeviceType(device_type, &addressSpace);
+  THROW_IF_MTRT_ERROR(s);
 
   MTRT_Device device{nullptr};
-  MTRT_Status s;
   if (addressSpace == MTRT_PointerType_device) {
     s = mtrtRuntimeClientGetDevice(client, device_id, &device);
     THROW_IF_MTRT_ERROR(s);

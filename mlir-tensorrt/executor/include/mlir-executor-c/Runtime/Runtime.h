@@ -389,11 +389,11 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionExecuteFunction(
 
 /// Converts a DLDeviceType to MTRT_PointerType. This function will throw a runtime
 /// error if the device type is invalid.
-static MTRT_PointerType getPointerTypeFromDLDeviceType(DLDeviceType device);
+MLIR_CAPI_EXPORTED MTRT_Status getPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_PointerType* result);
 
 /// Converts a DLDataType to MTRT_ScalarTypeCode. This function will throw a runtime
 /// error if the data type is invalid.
-static MTRT_ScalarTypeCode getScalarTypeCodeFromDLDataType(DLDataType dtype);
+MLIR_CAPI_EXPORTED MTRT_Status getScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTypeCode* result);
 
 #ifdef __cplusplus
 }
