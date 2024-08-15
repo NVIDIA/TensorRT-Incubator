@@ -60,7 +60,7 @@ class LayerNorm(Module):
 
             layer_norm = tp.LayerNorm(3)
 
-            input = tp.iota((2, 3))
+            input = tp.iota((2, 3), dim=1)
             output = layer_norm(input)
 
             np_out = cp.from_dlpack(output).get() # doc: omit
@@ -95,6 +95,6 @@ class LayerNorm(Module):
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
 
         mean_val = mean(x, dim=-1, keepdim=True)
-        var_val = var(x, dim=-1, keepdim=True) + self.eps
+        var_val = var(x, dim=-1, keepdim=True, correction=0) + self.eps
         x = (x - mean_val) * rsqrt(var_val)
         return self.weight * x + self.bias
