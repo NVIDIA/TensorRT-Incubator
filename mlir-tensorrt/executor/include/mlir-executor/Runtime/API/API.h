@@ -35,6 +35,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -772,8 +773,34 @@ public:
   /// Return true if the tracker's map contains `ptr`.
   bool contains(uintptr_t ptr) const;
 
+  /// Increment external reference count. Assume ptr is already being tracked.
+  void incrementExternalCount(uintptr_t ptr);
+
+  /// Decrement reference count. Also, deallocates ptr when count goes to zero
+  /// and `releasedInternally` is true.
+  void decrementExternalCount(uintptr_t ptr);
+
+  /// Returns external reference count for the ptr.
+  int32_t getExternalReferenceCount(uintptr_t ptr) const;
+
+  /// Set released internally metadata to true so that ptr can be freed when
+  /// external reference count goes to zero.
+  void markReleasedInternally(uintptr_t ptr);
+
+  /// Returns true if the ptr is released internally.
+  bool isReleasedInternally(uintptr_t ptr) const;
+
 private:
-  llvm::DenseMap<uintptr_t, PointerInfo> map;
+  struct Metadata {
+    std::atomic<int32_t> externalReferenceCount = {0};
+    // whether we free'd/released this buffer internally.
+    // if this is true then it should be truelly released and untracked
+    // when decrementExternalCount causes count to go to zero
+    bool releasedInternally{false};
+    PointerInfo info;
+  };
+
+  llvm::DenseMap<uintptr_t, std::unique_ptr<Metadata>> map;
 };
 
 /// A helper that allocates buffers based on the provided pointer type. The
