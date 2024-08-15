@@ -23,17 +23,55 @@ We currently support only building on Linux x86 systems.
 We support building several different ways (only via CMake) depending on use-case.
 
 In each case, the LLVM-Project version that we are currently aligned to is
-given in `build_tools/llvm_commit.txt`.
+given in `build_tools/cmake/LLVMCommit.txt`.
 
 Note that currently we provide an LLVM patch which essentially cherry-picks the
 bug fixes from [this open MLIR PR](https://github.com/llvm/llvm-project/pull/91524).
 
-1. Build as a Standalone Project with LLVM provided
-2. Build as a Standalone Project with LLVM downloaded by CMake
+1. Build as a Standalone Project with LLVM downloaded by CMake
+2. Build as a Standalone Project with LLVM provided by User
 3. Build as a sub-project of a larger build (e.g. `add_subdirectory`)
 4. Build via LLVM-External-Projects mechanism
 
-Here we only show how to do Option 2.
+Here we only show how to do Option 1 and Option 2.
+
+## Option 1: Build as a Standalone Project with LLVM downloaded by CMake
+
+This is the simplest way to get started and incurs low download overhead
+since we download LLVM-Project as a zip archive directly from GitHub
+at our pinned commit.
+
+```sh
+# Note: we use clang and lld here. These are recommended.
+# However, GNU toolchains will also work,
+# clang toolchain is optional.
+cmake -B ./build -S . -G Ninja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
+    -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
+    -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
+    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+    -DMLIR_TRT_USE_LINKER=lld
+
+# Example build commands:
+
+# Build everything
+ninja -C build all
+
+# Build and run tests
+ninja -C build/mlir-tensorrt check-mlir-executor
+ninja -C build/mlir-tensorrt check-mlir-tensorrt-dialect
+ninja -C build/mlir-tensorrt check-mlir-tensorrt
+
+# Build wheels (output in `build/wheels`)
+ninja -C build mlir-tensorrt-all-wheels
+```
+
+## Option 2: Build as a Standalone Project with LLVM provided by User
+
+This is more complex but lets you "bring your own LLVM-Project" source
+code or binary.
+
 
 1. Build MLIR
 
@@ -41,9 +79,10 @@ Here we only show how to do Option 2.
 # Clone llvm-project
 git clone https://github.com/llvm/llvm-project.git llvm-project
 
-# Checkout the right commit
+# Checkout the right commit. Of course, you may try
+# a newer commit or your own modified LLVM-Project.
 cd llvm-project
-git checkout $(cat ../build_tools/llvm_commit.txt)
+git checkout $(cat build_tools/cmake/LLVMCommit.cmake | grep -Po '(?<=").*(?=")')
 
 # Apply patch from llvm-project PR 91524
 git apply ../build_tools/llvm-project.patch

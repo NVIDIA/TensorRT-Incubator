@@ -23,7 +23,6 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
 #include "mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h"
 #include "mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"

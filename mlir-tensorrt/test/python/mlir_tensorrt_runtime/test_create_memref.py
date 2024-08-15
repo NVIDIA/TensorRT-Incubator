@@ -239,3 +239,56 @@ test_memref_view_from_cupy()
 #  CHECK-NEXT: Cupy Array (float32):  [1. 2. 3.]
 #  CHECK-NEXT: Array: [1. 2. 3.] dtype=float64
 #  CHECK-NEXT: Cupy Array (float64):  [1. 2. 3.]
+
+
+def test_memref_allocations():
+    # External cpu allocation and cpu view
+    data = np.ones((1000,), dtype=np.int32)
+    memref = client.create_host_memref_view(
+        data.ctypes.data,
+        shape=list(data.shape),
+        dtype=NUMPY_TO_MLIR_TRT[data.dtype.type],
+    )
+    assert data.ctypes.data == memref.ptr
+
+    # External cpu allocation and gpu view, does not throw an exception and defer usage to memref user.
+    data = np.ones((1000,), dtype=np.int32)
+    memref = client.create_device_memref_view(
+        data.ctypes.data,
+        shape=list(data.shape),
+        dtype=NUMPY_TO_MLIR_TRT[data.dtype.type],
+        device=devices[0],
+    )
+    assert data.ctypes.data == memref.ptr
+
+    # External gpu allocation and gpu view
+    data = cp.ones((1000,), dtype=cp.int32)
+    memref = client.create_device_memref_view(
+        data.data.ptr,
+        shape=list(data.shape),
+        dtype=NUMPY_TO_MLIR_TRT[data.dtype.type],
+        device=devices[0],
+    )
+    assert data.data.ptr == memref.ptr
+
+    # External gpu allocation and cpu view, does not throw an exception and defer usage to memref user.
+    data = cp.ones((1000,), dtype=cp.int32)
+    memref = client.create_host_memref_view(
+        data.data.ptr, shape=list(data.shape), dtype=NUMPY_TO_MLIR_TRT[data.dtype.type]
+    )
+    assert data.data.ptr == memref.ptr
+
+    # Internal allocation and host to host copy
+    data = array.array("i", [1] * 1000)
+    memref = client.create_memref(data, dtype=runtime.ScalarTypeCode.i32)
+    assert data.buffer_info()[0] != memref.ptr
+
+    # Internal allocation and host to device copy
+    data = array.array("i", [1] * 1000)
+    memref = client.create_memref(
+        data, dtype=runtime.ScalarTypeCode.i32, device=devices[0]
+    )
+    assert data.buffer_info()[0] != memref.ptr
+
+
+test_memref_allocations()

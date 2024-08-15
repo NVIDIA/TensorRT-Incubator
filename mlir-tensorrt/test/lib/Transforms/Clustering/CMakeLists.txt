@@ -10,6 +10,7 @@ add_mlir_tensorrt_test_library(MLIRTensorRTTestClustering
 
   LINK_LIBS PUBLIC
   MLIRTensorRTGenericClustering
+  MLIRTensorRTPlanDialect
   MLIRPass
 
   PRIVATE
