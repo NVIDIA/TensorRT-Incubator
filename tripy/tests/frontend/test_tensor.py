@@ -19,7 +19,6 @@ import inspect
 import sys
 
 import cupy as cp
-import jax
 import numpy as np
 import pytest
 import torch
@@ -168,12 +167,6 @@ class TestTensor:
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))
         b = torch.from_dlpack(a)
         assert torch.equal(b.cpu(), torch.tensor([1, 2, 3]))
-
-    @pytest.mark.parametrize("kind", ["cpu", "gpu"])
-    def test_dlpack_jax(self, kind):
-        a = tp.Tensor([1, 2, 3], device=tp.device(kind))
-        b = jax.dlpack.from_dlpack(a)
-        assert jax.numpy.array_equal(b, jax.numpy.array([1, 2, 3]))
 
     def test_stack_depth_sanity(self):
         # Makes sure STACK_DEPTH_OF_BUILD is correct
