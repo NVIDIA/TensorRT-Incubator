@@ -3,7 +3,7 @@ set -ex
 set -o pipefail
 
 REPO_ROOT=$(pwd)
-BUILD_DIR="${BUILD_DIR:=${REPO_ROOT}/build/mlir-tensorrt}"
+BUILD_DIR="${BUILD_DIR:=${REPO_ROOT}/build}"
 
 ENABLE_NCCL=${ENABLE_NCCL:OFF}
 RUN_LONG_TESTS=${RUN_LONG_TESTS:-False}
@@ -23,7 +23,6 @@ cmake -GNinja -B "${BUILD_DIR}" -S "${REPO_ROOT}" \
   -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION="$DOWNLOAD_TENSORRT_VERSION" \
   -DLLVM_LIT_ARGS="${LLVM_LIT_ARGS}" \
   -DENABLE_ASAN="${ENABLE_ASAN}" \
-  -DMLIR_DIR=${REPO_ROOT}/build/llvm-project/lib/cmake/mlir \
   -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON
 
 echo "==== Running Build ==="

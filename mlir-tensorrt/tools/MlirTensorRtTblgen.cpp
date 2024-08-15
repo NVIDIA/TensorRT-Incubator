@@ -218,8 +218,8 @@ static void emitOperandReplacement(FmtContext &ctx, raw_indented_ostream &os,
                                    const tblgen::Operator &op,
                                    const tblgen::NamedTypeConstraint &operand) {
   StringRef name = operand.name;
-  if (operand.constraint.getCPPClassName() == "::mlir::TensorType" ||
-      operand.constraint.getCPPClassName() == "::mlir::RankedTensorType") {
+  if (operand.constraint.getCppType() == "::mlir::TensorType" ||
+      operand.constraint.getCppType() == "::mlir::RankedTensorType") {
     std::string getter = strfmt("op.{0}()", op.getGetterName(operand.name));
     ctx.addSubst(operand.name, name);
     if (!operand.isVariadic() && !operand.isOptional()) {
