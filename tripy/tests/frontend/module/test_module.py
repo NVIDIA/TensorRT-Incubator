@@ -234,6 +234,32 @@ class TestModuleWithDict:
         assert tripy_params["new_params.param0"] is param0
         assert tripy_params["new_params.param1"] is param1
 
+class TestMixedModule:
+    def test_basic_structure(self, mixed_network):
+        module = mixed_network
+        assert hasattr(module, "mixed_list")
+        assert hasattr(module, "mixed_dict")
+        assert isinstance(module.mixed_list, list)
+        assert isinstance(module.mixed_dict, dict)
+        assert all(isinstance(list_module, tp.Module) for list_module in module.mixed_list)
+        assert all(isinstance(dict_module, tp.Module) for dict_module in module.mixed_dict.values())
+    
+    def test_state_dict(self, mixed_network):
+        module = mixed_network
+        print(module.state_dict())
+        tensor = tp.ones((2,))
+        external_state_dict = {
+            "mixed_list.0.nested.param": tensor,
+            "mixed_list.1.param": tensor,
+            "mixed_dict.dummy.nested.param": tensor,
+            "mixed_dict.dummy_nested.param": tensor,
+        }
+        module.load_from_state_dict(external_state_dict)
+        assert module.mixed_list[0].nested.param is tensor
+        assert module.mixed_list[1].param is tensor
+        assert module.mixed_dict["dummy"].nested.param is tensor
+        assert module.mixed_dict["dummy_nested"].param is tensor
+
 
 class TestComplexModule:
     def test_basic_structure(self, complex_network):
