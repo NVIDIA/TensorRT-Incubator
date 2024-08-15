@@ -16,7 +16,6 @@
 #
 
 import cupy as cp
-import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch

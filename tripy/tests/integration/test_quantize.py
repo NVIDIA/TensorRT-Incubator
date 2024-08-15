@@ -16,15 +16,12 @@
 #
 
 import cupy as cp
-import jax.numpy as jnp
-import jaxlib
 import numpy as np
 import pytest
 import re
 import torch
 
 import tripy as tp
-from tripy import TripyException
 from tests.helper import raises, TORCH_DTYPES
 from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 
@@ -68,13 +65,9 @@ class TestQuantize:
         expected = (input / scale).to(dtype=torch.float32)
         with raises(
             Exception,
-            match=re.escape(
-                "UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"
-            ),
+            match=re.escape("UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"),
         ):
-            assert torch.equal(
-                expected, torch.from_dlpack(jnp.from_dlpack(quantized)).to(dtype=torch.float32).to("cpu")
-            )
+            assert torch.equal(expected, torch.from_dlpack(quantized).to(dtype=torch.float32).to("cpu"))
         assert torch.equal(expected, torch.from_dlpack(tp.cast(quantized, dtype=tp.float32)).to("cpu"))
 
     @pytest.mark.parametrize(
@@ -91,13 +84,9 @@ class TestQuantize:
         expected = (input / scale.reshape(2, 1)).to(dtype=torch.float32)
         with raises(
             Exception,
-            match=re.escape(
-                "UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"
-            ),
+            match=re.escape("UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"),
         ):
-            assert torch.equal(
-                expected, torch.from_dlpack(jnp.from_dlpack(quantized)).to(dtype=torch.float32).to("cpu")
-            )
+            assert torch.equal(expected, torch.from_dlpack(quantized).to(dtype=torch.float32).to("cpu"))
         assert torch.equal(expected, torch.from_dlpack(tp.cast(quantized, dtype=tp.float32)).to("cpu"))
 
     @pytest.mark.parametrize(
