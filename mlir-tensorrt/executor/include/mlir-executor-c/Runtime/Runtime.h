@@ -177,6 +177,12 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
 MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackDevice(
     MTRT_MemRefValue memrefValue, int32_t *device_type, int32_t *device_id);
 
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefReferenceCount(
+    MTRT_RuntimeClient client, uintptr_t ptr, int32_t *externalRefCount);
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefIsReleasedInternally(
+    MTRT_RuntimeClient client, uintptr_t ptr, bool *isReleasedInternally);
+
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeClient
 //===----------------------------------------------------------------------===//

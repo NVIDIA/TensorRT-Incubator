@@ -358,6 +358,10 @@ static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
   if (tensor) {
     delete[] tensor->dl_tensor.shape;
     delete[] tensor->dl_tensor.strides;
+    static_cast<RuntimeClient *>(tensor->manager_ctx)
+        ->getAllocTracker()
+        .decrementExternalCount(
+            reinterpret_cast<uintptr_t>(tensor->dl_tensor.data));
     delete tensor;
   }
 }
@@ -398,8 +402,12 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
     managedTensor->dl_tensor.strides[i] = memref.getStrides()[i];
   }
   managedTensor->dl_tensor.byte_offset = memref.getOffset();
-  managedTensor->manager_ctx = memrefValue.ptr;
+  managedTensor->manager_ctx = memref.getClient();
   managedTensor->deleter = dlpackManagedTensorDeleter;
+
+  // Increment reference count to ensure memory is not released prematurely.
+  memref.getClient()->getAllocTracker().incrementExternalCount(
+      memref.getMemory());
 
   *outTensor = wrap(managedTensor.release());
   return mtrtStatusGetOk();
@@ -418,6 +426,21 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackDevice(
     return wrap(deviceType.getStatus());
   *device_type = *deviceType;
   *device_id = device;
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtMemRefReferenceCount(MTRT_RuntimeClient client, uintptr_t ptr,
+                                     int32_t *externalRefCount) {
+  *externalRefCount =
+      unwrap(client)->getAllocTracker().getExternalReferenceCount(ptr);
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtMemRefIsReleasedInternally(MTRT_RuntimeClient client,
+                                           uintptr_t ptr,
+                                           bool *isReleasedInternally) {
+  *isReleasedInternally =
+      unwrap(client)->getAllocTracker().isReleasedInternally(ptr);
   return mtrtStatusGetOk();
 }
 

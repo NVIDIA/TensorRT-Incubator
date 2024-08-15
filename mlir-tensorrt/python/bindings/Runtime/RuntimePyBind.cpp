@@ -783,7 +783,22 @@ PYBIND11_MODULE(_api, m) {
             THROW_IF_MTRT_ERROR(s);
           },
           py::arg("device_memref"), py::arg("existing_host_memref"),
-          py::arg("stream") = py::none());
+          py::arg("stream") = py::none())
+      .def("external_reference_count",
+           [](PyRuntimeClient &self, uintptr_t ptr) {
+             int32_t externalRefCount;
+             MTRT_Status s =
+                 mtrtMemRefReferenceCount(self, ptr, &externalRefCount);
+             THROW_IF_MTRT_ERROR(s);
+             return externalRefCount;
+           })
+      .def("is_released_internally", [](PyRuntimeClient &self, uintptr_t ptr) {
+        bool isReleasedInternally;
+        MTRT_Status s =
+            mtrtMemRefIsReleasedInternally(self, ptr, &isReleasedInternally);
+        THROW_IF_MTRT_ERROR(s);
+        return isReleasedInternally;
+      });
 
   py::class_<PyRuntimeValue>(m, "RuntimeValue", py::module_local())
       .def_property_readonly(MTRT_PYTHON_CAPI_PTR_ATTR,
