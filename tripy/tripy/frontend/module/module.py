@@ -40,8 +40,8 @@ def _check_param_compatible(original_param, new_param, param_name):
         )
 
 
-def _is_homogeneous_container(container: Sequence, types: List[T]):
-    return any(all(isinstance(op, typ) for op in container) for typ in types)
+def _is_homogeneous_container(container: Sequence, typ: T):
+    return all(isinstance(op, typ) for op in container)
 
 
 def _contains_types(container: Sequence, types: type):
@@ -106,7 +106,7 @@ class Module:
 
         if isinstance(value, List) or isinstance(value, Dict):
             container = value if isinstance(value, List) else value.values()
-            if _contains_types(container, [Parameter, Module]) and not _is_homogeneous_container(container, [Module, Parameter]):
+            if _contains_types(container, [Parameter, Module]) and not _is_homogeneous_container(container, Parameter):
                 logger.warning("A container of mixed types will not be registered with this module's state_dict().")
 
     def state_dict(self) -> Dict[str, Parameter]:
@@ -276,13 +276,13 @@ class Module:
         for name, value in vars(self).items():
             if isinstance(value, typ):
                 yield name, value
-            elif isinstance(value, List) and _contains_types(value, [typ]) and _is_homogeneous_container(value, [Module, Parameter]):
+            elif isinstance(value, List) and _contains_types(value, [typ]) and _is_homogeneous_container(value, typ):
                 for i, obj in enumerate(value):
                     yield f"{name}.{i}", obj
             elif (
                 isinstance(value, Dict)
                 and _contains_types(value.values(), [typ])
-                and _is_homogeneous_container(value.values(), [Module, Parameter])
+                and _is_homogeneous_container(value.values(), typ)
             ):
                 for key, obj in value.items():
                     yield f"{name}.{key}", obj
