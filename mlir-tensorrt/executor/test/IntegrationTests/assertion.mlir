@@ -1,6 +1,6 @@
-// RUN: mlir-tensorrt-opt %s -executor-lowering-pipeline \
-// RUN:   | mlir-tensorrt-translate -mlir-to-lua \
-// RUN:   | not mlir-tensorrt-runner -input-type=lua 2>&1 | FileCheck %s
+// RUN: executor-opt %s -executor-lowering-pipeline \
+// RUN:   | executor-translate -mlir-to-lua \
+// RUN:   | not executor-runner -input-type=lua 2>&1 | FileCheck %s
 
 func.func @main() -> i32 {
   %c0 = executor.constant 0 : i32

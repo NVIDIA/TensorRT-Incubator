@@ -21,8 +21,6 @@ from collections import ChainMap
 from textwrap import dedent
 
 import cupy as cp
-import numpy as np
-import jax.numpy as jnp
 import torch
 
 import tripy.common.datatype
@@ -88,18 +86,7 @@ def test_convert_frontend_dtype_to_tripy_dtype():
         torch.float32: tripy.common.datatype.float32,
     }
 
-    JAX_TO_TRIPY = {
-        jnp.bool_: tripy.common.datatype.bool,
-        jnp.int8: tripy.common.datatype.int8,
-        jnp.int32: tripy.common.datatype.int32,
-        jnp.int64: tripy.common.datatype.int64,
-        jnp.float8_e4m3fn: tripy.common.datatype.float8,
-        jnp.float16: tripy.common.datatype.float16,
-        jnp.bfloat16: tripy.common.datatype.bfloat16,
-        jnp.float32: tripy.common.datatype.float32,
-    }
-
-    FRONTEND_TO_TRIPY = dict(ChainMap(PYTHON_NATIVE_TO_TRIPY, NUMPY_TO_TRIPY, TORCH_TO_TRIPY, JAX_TO_TRIPY))
+    FRONTEND_TO_TRIPY = dict(ChainMap(PYTHON_NATIVE_TO_TRIPY, NUMPY_TO_TRIPY, TORCH_TO_TRIPY))
 
     for frontend_type, tripy_type in FRONTEND_TO_TRIPY.items():
         assert convert_frontend_dtype_to_tripy_dtype(frontend_type) == tripy_type
@@ -118,12 +105,6 @@ def test_convert_frontend_dtype_to_tripy_dtype():
         cp.float64,
         torch.int16,
         torch.float64,
-        jnp.int4,
-        jnp.int16,
-        jnp.uint16,
-        jnp.uint32,
-        jnp.uint64,
-        jnp.float64,
     ]:
         with helper.raises(
             TripyException,

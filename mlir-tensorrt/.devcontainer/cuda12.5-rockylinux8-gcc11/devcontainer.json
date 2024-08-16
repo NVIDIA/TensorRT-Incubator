@@ -70,9 +70,6 @@
 			"installOhMyZsh": true,
 			"configureZshAsDefaultShell": false,
 			"upgradePackages": false
-		},
-		"ghcr.io/devcontainers/features/git:1": {
-			"version": "latest"
 		}
 	}
 }

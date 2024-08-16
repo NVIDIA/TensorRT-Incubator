@@ -74,6 +74,9 @@ endif()
 if(MLIR_TRT_ENABLE_HLO)
   list(APPEND MLIR_TENSORRT_UPSTREAM_DEPENDENCIES
     StablehloPasses
+    VhloOps
+    VhloTypes
+    ChloOps
   )
 endif()
 

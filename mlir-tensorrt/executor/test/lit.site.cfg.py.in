@@ -10,6 +10,7 @@ config.enable_asan = @ENABLE_ASAN@
 config.enable_cublas = @MLIR_EXECUTOR_ENABLE_CUBLAS@
 config.enable_nccl = @MLIR_EXECUTOR_ENABLE_NCCL@
 config.enable_mpi = @MLIR_EXECUTOR_ENABLE_MPI@
+config.enable_assertions = @LLVM_ENABLE_ASSERTIONS@
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)

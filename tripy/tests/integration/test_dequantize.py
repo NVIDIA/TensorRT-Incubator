@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+import cupy as cp
+import numpy as np
 import pytest
 import torch
 

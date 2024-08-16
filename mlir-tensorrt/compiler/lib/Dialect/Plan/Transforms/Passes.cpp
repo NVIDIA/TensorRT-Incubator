@@ -48,8 +48,8 @@ void plan::buildPlanSegmentationPipeline(
   pm.addPass(plan::createOutlineClustersPass());
   pm.addPass(mlir::createFuncExtDuplicateFunctionEliminationPass());
   pm.addPass(plan::createEliminateShapeOpsPass());
-  pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
 }
+
 void plan::buildPlanBufferizationPipeline(OpPassManager &pm) {
   pm.addPass(createInlinerPass());
   pm.addPass(bufferization::createEmptyTensorEliminationPass());

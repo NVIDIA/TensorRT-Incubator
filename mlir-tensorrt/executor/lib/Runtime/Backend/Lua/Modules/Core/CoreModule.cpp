@@ -168,12 +168,15 @@ void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
 
   lua["__check_for_function"] = [](sol::this_state state,
                                    const std::string &name) {
-    if (!sol::state_view(state)[name])
-      luaL_error(state, llvm::formatv("expected runtime to provide function "
+    sol::state_view lua(state);
+    sol::protected_function func = lua[name];
+    if (!func.valid()) {
+      std::string err = llvm::formatv("expected runtime to provide function "
                                       "\"{0}\", but it was not found",
-                                      name)
-                            .str()
-                            .c_str());
+                                      name);
+      luaL_error(state, err.c_str());
+      return;
+    }
   };
 
   //===----------------------------------------------------------------------===//

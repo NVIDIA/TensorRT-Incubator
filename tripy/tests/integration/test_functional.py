@@ -16,8 +16,6 @@
 #
 
 import cupy as cp
-import jax
-import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch
@@ -87,15 +85,8 @@ class TestFunctional:
         else:
             b = tp.Tensor(torch.tensor(data), device=device)
 
-        if device.kind == "gpu":
-            if isinstance(data, cp.ndarray):
-                data = data.get()
-            c = tp.Tensor(jax.device_put(jnp.array(data), jax.devices("gpu")[0]), device=device)
-        else:
-            c = tp.Tensor(jax.device_put(jnp.array(data), jax.devices("cpu")[0]), device=device)
-
-        out = a + b + c
-        assert (cp.from_dlpack(out).get() == np.array([3.0, 3.0], dtype=np.float32)).all()
+        out = a + b
+        assert (cp.from_dlpack(out).get() == np.array([2.0, 2.0], dtype=np.float32)).all()
 
     def test_cpu_and_gpu_framework_interoperability(self):
         self._test_framework_interoperability(np.ones(2, np.float32), device=tp.device("cpu"))
@@ -125,16 +116,6 @@ class TestFunctional:
         # Below fails as we do allocate a new np array from Torch tensor data.
         # assert torch_data_round_tripped.data_ptr == torch_data.data_ptr
 
-        # Assert round-tripping for Jax data
-        if device.kind == "gpu":
-            if isinstance(data, cp.ndarray):
-                data = data.get()
-            jax_orig = jax.device_put(jnp.array(data), jax.devices("gpu")[0])
-            jax_round_tripped = jnp.array(cp.from_dlpack(tp.Tensor(jax_orig, device=device)).get())
-        else:
-            jax_orig = jax.device_put(jnp.array(data), jax.devices("cpu")[0])
-            jax_round_tripped = jnp.array(np.from_dlpack(tp.Tensor(jax_orig, device=device)))
-        assert jnp.array_equal(jax_round_tripped, jax_orig)
         # (39): Remove explicit CPU to GPU copies. Add memory pointer checks.
         # Figure out how to compare two Jax data memory pointers.
 

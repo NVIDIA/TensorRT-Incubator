@@ -31,6 +31,7 @@ include(build_tools/cmake/CompilationOptions.cmake)
 include(build_tools/cmake/Targets.cmake)
 include(build_tools/cmake/Dependencies.cmake)
 include(build_tools/cmake/ManagedLLVM.cmake)
+include(build_tools/cmake/LLVMCommit.cmake)
 include(Version.cmake)
 
 # -------------------------------------------------
@@ -59,7 +60,7 @@ set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.0" CACHE STRING
 set(MLIR_TRT_PACKAGE_CACHE_DIR "" CACHE STRING "Directory where to cache downloaded C++ packages")
 set(MLIR_TRT_USE_LINKER "" CACHE STRING "Specify a linker to use (e.g. LLD); this is just an alias for LLVM_USE_LINKER")
 set(MLIR_TRT_LLVM_COMMIT
-  "99bb9a719cec9513e72ad275c1c0302b76b6c408"
+  "${LLVM_COMMIT}"
   CACHE STRING
   "LLVM source archive commit for managed llvm-project build")
 
@@ -121,7 +122,21 @@ if(PROJECT_IS_TOP_LEVEL)
     set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
     set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
   elseif(MLIR_TRT_LLVM_COMMIT)
-    mtrt_llvm_project()
+    mtrt_llvm_project(
+      NAME llvm_project
+      VERSION 0.0.20240812
+      URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
+      EXCLUDE_FROM_ALL TRUE
+      SOURCE_SUBDIR "llvm"
+      PATCHES "${CMAKE_SOURCE_DIR}/build_tools/llvm-project.patch"
+
+      OPTIONS
+        "LLVM_ENABLE_PROJECTS mlir"
+        "MLIR_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
+        "LLVM_TARGETS_TO_BUILD host"
+        "LLVM_ENABLE_ASSERTIONS ${MLIR_TRT_ENABLE_ASSERTIONS}"
+        "LLVM_USE_LINKER ${MLIR_TRT_USE_LINKER}"
+    )
   endif()
 
   # For whatever reason, StableHLO uses this CMake variable to decide whether to build
@@ -162,12 +177,13 @@ include(HandleLLVMOptions)
 # Dependencies
 # -------------------------------------------------
 
-if(MLIR_TRT_ENABLE_HLO)
+# Download Stablehlo if it isn't provided by a parent project.
+if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
   mtrt_add_stablehlo(
     # We don't tag versions vX.Y.Z in stablehlo, so use the upgrade
     # year-month-day as a tag for CPM caching.
-    VERSION 0.0.20240624
-    GIT_TAG fb18ee251b81a43fd9a0f45f2f34770389e916d0
+    VERSION 1.5.2
+    GIT_TAG 24d1807a9a3e0df81103a0be9be7ad28ee34c85a
     GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
     PATCHES "${MLIR_TENSORRT_ROOT_DIR}/build_tools/stablehlo.patch"
     OPTIONS

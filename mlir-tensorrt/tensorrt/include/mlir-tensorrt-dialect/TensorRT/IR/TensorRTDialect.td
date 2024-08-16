@@ -121,13 +121,13 @@ def TensorRT_ShapeTensor: TensorOf<[I32],
       "1D static i32 tensor representing a shape">;
 
 def TensorRT_QuantizedI8 : Type<
-      And<[CPred<"$_self.isa<mlir::quant::UniformQuantizedType>()">,
-           CPred<"$_self.cast<mlir::quant::UniformQuantizedType>().getStorageType().isSignlessInteger(8)">,
+      And<[CPred<"llvm::isa<mlir::quant::UniformQuantizedType>($_self)">,
+           CPred<"llvm::cast<mlir::quant::UniformQuantizedType>($_self).getStorageType().isSignlessInteger(8)">,
            Or<[
-            CPred<"$_self.cast<mlir::quant::UniformQuantizedType>().getExpressedType().isF32()">,
-            CPred<"$_self.cast<mlir::quant::UniformQuantizedType>().getExpressedType().isF16()">
+            CPred<"llvm::cast<mlir::quant::UniformQuantizedType>($_self).getExpressedType().isF32()">,
+            CPred<"llvm::cast<mlir::quant::UniformQuantizedType>($_self).getExpressedType().isF16()">
            ]>,
-           CPred<"$_self.cast<mlir::quant::UniformQuantizedType>().getZeroPoint() == 0">
+           CPred<"llvm::cast<mlir::quant::UniformQuantizedType>($_self).getZeroPoint() == 0">
       ]>,
       "i8 approximation of f16 or f32"> {
 }

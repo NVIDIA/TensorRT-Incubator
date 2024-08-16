@@ -30,7 +30,6 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif // defined(__clang__)
-#include "NvInferVersion.h"
 #include <NvInfer.h>
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop

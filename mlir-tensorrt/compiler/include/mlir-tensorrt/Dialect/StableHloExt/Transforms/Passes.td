@@ -159,4 +159,34 @@ def CanonicalizeScatterPass : Pass<"stablehlo-ext-canonicalize-scatter", "func::
   let dependentDialects = ["stablehlo::StablehloDialect", "tensor::TensorDialect"];
 }
 
+//===----------------------------------------------------------------------===//
+// LowerSpecialCustomCalls
+//===----------------------------------------------------------------------===//
+
+def LowerSpecialCustomCalls : Pass<"stablehlo-ext-lower-special-custom-calls"> {
+  let summary = "Rewrites special `stablehlo.custom_call` operations that are emitted "
+    "by frontends like JAX.";
+  let description = [{
+
+    Certain frontends like JAX emit special custom calls in order to:
+
+    1. To represent CHLO operations. The StableHLO/VHLO dialects don't encompass CHLO.
+       Therefore, an ad-hoc method is used by JAX where a CHLO opeation is serialized
+       as a `stablehlo.custom_call`. These can get lowered directly to corresponding
+       CHLO operations. Note that this breaks portability.
+
+    2. For inserting sharding annotations, JAX emits `stablehlo.custom_call @Sharding`
+       and attaches an attribute containing the string representation of the XLA
+       sharding attribute. At the point in the pipeline where this pass is being
+       invoked, we can't handle such annotations unless they are no-ops/identity shardings,
+       which are sometimes inserted by JAX even for single-gpu programs.
+       This pass looks for these and operations and eliminates them if they represent
+       no-ops, otherwise it will fail. A different pass upstream in the
+       pipeline would have to perform partitioning of the program to handle other
+       cases.
+  }];
+  let dependentDialects = ["::mlir::chlo::ChloDialect"];
+}
+
+
 #endif // MLIR_TENSORRT_DIALECT_STABLEHLOEXT_TRANSFORMS_PASSES

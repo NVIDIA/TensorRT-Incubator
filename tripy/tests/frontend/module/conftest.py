@@ -49,7 +49,7 @@ class Network(tp.Module):
 
     def __call__(self):
         return self.param + self.dummy1() + self.dummy2()
-
+    
 
 class ListNetwork(tp.Module):
     def __init__(self):
@@ -78,6 +78,16 @@ class DictNetwork(tp.Module):
         for op_name in self.dummy_dict:
             out = out + self.dummy_dict[op_name]
         return out
+
+
+class MixedNetwork(tp.Module):
+    def __init__(self):
+        super().__init__()
+        self.mixed_list = [DummyOp(tp.zeros((2,), dtype=tp.float32)), DummyNestedOp(tp.ones((2,), dtype=tp.float32))]
+        self.mixed_dict = {"dummy": DummyOp(tp.zeros((2,), dtype=tp.float32)), "dummy_nested": DummyNestedOp(tp.ones((2,), dtype=tp.float32))}
+
+    def __call__(self):
+        return self.mixed_list[0]() + self.mixed_list[1]() + self.mixed_dict["dummy"]() + self.mixed_dict["dummy_nested"]()
 
 
 class ComplexNetwork(tp.Module):
@@ -114,6 +124,10 @@ def list_network():
 @pytest.fixture
 def dict_network():
     yield DictNetwork()
+
+@pytest.fixture
+def mixed_network():
+    yield MixedNetwork()    
 
 
 @pytest.fixture

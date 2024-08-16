@@ -1,10 +1,34 @@
+diff --git a/stablehlo/integrations/c/CMakeLists.txt b/stablehlo/integrations/c/CMakeLists.txt
+index 014a1a8d..1e0bcfb4 100644
+--- a/stablehlo/integrations/c/CMakeLists.txt
++++ b/stablehlo/integrations/c/CMakeLists.txt
+@@ -28,7 +28,6 @@ add_mlir_public_c_api_library(ChloCAPI
+
+   LINK_LIBS PUBLIC
+   ChloOps
+-  LLVMSupport
+ )
+
+ add_mlir_public_c_api_library(StablehloCAPI
+diff --git a/stablehlo/reference/CMakeLists.txt b/stablehlo/reference/CMakeLists.txt
+index b3a406b0..af6c38da 100644
+--- a/stablehlo/reference/CMakeLists.txt
++++ b/stablehlo/reference/CMakeLists.txt
+@@ -169,7 +169,6 @@ add_mlir_library(StablehloReferenceProcessGrid
+   ProcessGrid.cpp
+
+   LINK_LIBS PUBLIC
+-  LLVMSupport
+   MLIRIR
+   MLIRSupport
+   StablehloReferenceTensor
 diff --git a/stablehlo/transforms/StablehloAggressiveSimplification.cpp b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
-index 8e9332f3..2bfdf34f 100644
+index 6445f72d..cc6c542d 100644
 --- a/stablehlo/transforms/StablehloAggressiveSimplification.cpp
 +++ b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
-@@ -39,6 +39,40 @@ namespace stablehlo {
+@@ -58,6 +58,40 @@ namespace stablehlo {
  #include "stablehlo/transforms/Passes.h.inc"
- 
+
  namespace {
 +
 +/// Does the same as PatternRewriter::replaceOpWithNewOp, but with a twist.
@@ -43,7 +67,7 @@ index 8e9332f3..2bfdf34f 100644
  // This is an upper limit on how many elements canonicalization patterns are
  // allowed to materialize as new constants.
  constexpr int64_t kFoldOpEltLimit = 65536;
-@@ -119,7 +153,7 @@ struct AddOpCanon final : OpRewritePattern<mlir::stablehlo::AddOp> {
+@@ -138,7 +172,7 @@ struct AddOpCanon final : OpRewritePattern<mlir::stablehlo::AddOp> {
      if (TypedAttr res;
          lhsAttr && rhsAttr &&
          (res = foldBinaryOpIntOrFloat(lhsAttr, rhsAttr, std::plus<>{}))) {
@@ -51,8 +75,8 @@ index 8e9332f3..2bfdf34f 100644
 +      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
        return success();
      }
- 
-@@ -157,7 +191,7 @@ struct SubtractOpCanon final : OpRewritePattern<mlir::stablehlo::SubtractOp> {
+
+@@ -176,7 +210,7 @@ struct SubtractOpCanon final : OpRewritePattern<mlir::stablehlo::SubtractOp> {
      if (TypedAttr res;
          lhsAttr && rhsAttr &&
          (res = foldBinaryOpIntOrFloat(lhsAttr, rhsAttr, std::minus<>{}))) {
@@ -60,8 +84,8 @@ index 8e9332f3..2bfdf34f 100644
 +      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
        return success();
      }
- 
-@@ -208,7 +242,7 @@ struct MulOpCanon final : OpRewritePattern<mlir::stablehlo::MulOp> {
+
+@@ -227,7 +261,7 @@ struct MulOpCanon final : OpRewritePattern<mlir::stablehlo::MulOp> {
      if (TypedAttr res;
          lhsAttr && rhsAttr &&
          (res = foldBinaryOpIntOrFloat(lhsAttr, rhsAttr, std::multiplies<>{}))) {
@@ -69,8 +93,8 @@ index 8e9332f3..2bfdf34f 100644
 +      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
        return success();
      }
- 
-@@ -299,15 +333,16 @@ struct CompareOpCanon final : OpRewritePattern<mlir::stablehlo::CompareOp> {
+
+@@ -318,15 +352,16 @@ struct CompareOpCanon final : OpRewritePattern<mlir::stablehlo::CompareOp> {
          case ComparisonDirection::EQ:
          case ComparisonDirection::GE:
          case ComparisonDirection::LE: {
@@ -91,7 +115,7 @@ index 8e9332f3..2bfdf34f 100644
            return success();
          }
        }
-@@ -336,7 +371,7 @@ struct CompareOpCanon final : OpRewritePattern<mlir::stablehlo::CompareOp> {
+@@ -355,7 +390,7 @@ struct CompareOpCanon final : OpRewritePattern<mlir::stablehlo::CompareOp> {
               [direction, kind = *compType](const APInt &a, const APInt &b) {
                 return calculateComp(kind, direction, a, b);
               }))) {
@@ -99,41 +123,19 @@ index 8e9332f3..2bfdf34f 100644
 +      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
        return success();
      }
- 
-@@ -349,8 +384,6 @@ struct SelectOpCanon final : OpRewritePattern<mlir::stablehlo::SelectOp> {
- 
-   LogicalResult matchAndRewrite(mlir::stablehlo::SelectOp op,
-                                 PatternRewriter &rewriter) const override {
--    RankedTensorType type = op.getType();
--
-     Value trueVal = op.getOnTrue();
-     Value falseVal = op.getOnFalse();
- 
-@@ -373,7 +406,9 @@ struct SelectOpCanon final : OpRewritePattern<mlir::stablehlo::SelectOp> {
- 
-     // Handle elementwise selection when both outcomes are also constants. This
-     // will create a new, likely non-splat constant.
--    if (cond.getNumElements() > kFoldOpEltLimit) return failure();
-+    if (!cond.getShapedType().hasStaticShape() ||
-+        cond.getNumElements() > kFoldOpEltLimit)
-+      return failure();
- 
-     ElementsAttr trueAttr;
-     if (!matchPattern(trueVal, m_Constant(&trueAttr))) return failure();
-@@ -389,8 +424,10 @@ struct SelectOpCanon final : OpRewritePattern<mlir::stablehlo::SelectOp> {
+
+@@ -408,8 +443,8 @@ struct SelectOpCanon final : OpRewritePattern<mlir::stablehlo::SelectOp> {
        newValues.push_back(condElem ? trueElem : falseElem);
      }
- 
+
 -    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
 -        op, DenseElementsAttr::get(type, newValues));
 +    refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+        rewriter, op,
-+        DenseElementsAttr::get(cast<RankedTensorType>(trueVal.getType()),
-+                               newValues));
++        rewriter, op, DenseElementsAttr::get(type, newValues));
      return success();
    }
  };
-@@ -465,9 +502,10 @@ struct BroadcastInDimOpCanon final
+@@ -484,9 +519,10 @@ struct BroadcastInDimOpCanon final
      // Handle splat broadcasts.
      if (SplatElementsAttr cstAttr;
          matchPattern(operand, m_Constant(&cstAttr))) {
@@ -146,10 +148,10 @@ index 8e9332f3..2bfdf34f 100644
 +                                 cstAttr.getSplatValue<Attribute>()));
        return success();
      }
- 
-@@ -538,8 +576,8 @@ struct ConcatenateOpCanon final
+
+@@ -557,8 +593,8 @@ struct ConcatenateOpCanon final
      }
- 
+
      assert(newElems.size() == numElems);
 -    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
 -        op, DenseElementsAttr::get(op.getType(), newElems));
@@ -158,10 +160,10 @@ index 8e9332f3..2bfdf34f 100644
      return success();
    }
  };
-@@ -557,39 +595,6 @@ struct ConvertOpCanon final : OpRewritePattern<mlir::stablehlo::ConvertOp> {
+@@ -576,39 +612,6 @@ struct ConvertOpCanon final : OpRewritePattern<mlir::stablehlo::ConvertOp> {
    }
  };
- 
+
 -/// Does the same as PatternRewriter::replaceOpWithNewOp, but with a twist.
 -///
 -/// Sometimes, we want to replace an op with a new op and simultaneously refine
@@ -198,8 +200,8 @@ index 8e9332f3..2bfdf34f 100644
  /// If a DynamicBroadCastInDimOp is not actually dynamic, use an ordinary
  /// BroadcastInDimOp.
  struct DynamicBroadcastInDimOpNotActuallyDynamic final
-@@ -924,8 +929,8 @@ struct GetDimensionSizeOpCanon final
- 
+@@ -943,8 +946,8 @@ struct GetDimensionSizeOpCanon final
+
      auto elemTy = cast<IntegerType>(op.getType().getElementType());
      IntegerAttr elemVal = rewriter.getIntegerAttr(elemTy, dimSize);
 -    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
@@ -209,9 +211,9 @@ index 8e9332f3..2bfdf34f 100644
      return success();
    }
  };
-@@ -1017,16 +1022,17 @@ struct ReshapeOpCanon final : OpRewritePattern<mlir::stablehlo::ReshapeOp> {
+@@ -1036,16 +1039,17 @@ struct ReshapeOpCanon final : OpRewritePattern<mlir::stablehlo::ReshapeOp> {
      if (!matchPattern(op.getOperand(), m_Constant(&cstAttr))) return failure();
- 
+
      if (auto splat = dyn_cast<SplatElementsAttr>(cstAttr)) {
 -      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
 -          op, SplatElementsAttr::get(op.getType(),
@@ -222,7 +224,7 @@ index 8e9332f3..2bfdf34f 100644
 +                                 splat.getSplatValue<Attribute>()));
        return success();
      }
- 
+
      auto elements =
          llvm::to_vector_of<Attribute>(cstAttr.getValues<Attribute>());
 -    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
@@ -232,3 +234,15 @@ index 8e9332f3..2bfdf34f 100644
      return success();
    }
  };
+diff --git a/stablehlo/transforms/StablehloRefineShapes.cpp b/stablehlo/transforms/StablehloRefineShapes.cpp
+index e5120133..7118a9e7 100644
+--- a/stablehlo/transforms/StablehloRefineShapes.cpp
++++ b/stablehlo/transforms/StablehloRefineShapes.cpp
+@@ -151,7 +151,7 @@ LogicalResult refineReturnTypes(PatternRewriter& rewriter, Operation* op,
+   // upstream API to achieve this directly, but if it's introduced in the
+   // future, we could use it here.
+   rewriter.replaceOpUsesWithIf(op, op->getResults(),
+-                               [](OpOperand& use) { return false; });
++                               [](OpOperand& use) { return true; });
+   return success();
+ }

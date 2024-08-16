@@ -5,14 +5,10 @@ if(NOT COMMAND CPMAddPackage)
 endif()
 
 #-------------------------------------------------------------------------------------
-# Wrapper around CPMAddPackage This functions exactly like CPMAddPackage.
-# However, if the GROUP_CICD_TOKEN environment variable is set, then it will
-# rewrite ssh:// URIs to https and use the token as auth.
+# Wrapper around CPMAddPackage
 #-------------------------------------------------------------------------------------
 macro(mlir_executor_add_package)
-  CPMAddPackage(
-    ${ARGN}
-  )
+  mlir_tensorrt_add_package(${ARGN})
 endmacro()
 
 #-------------------------------------------------------------------------------------

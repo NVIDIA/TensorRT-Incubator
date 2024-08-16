@@ -15,7 +15,8 @@
 # limitations under the License.
 #
 
-import jax.numpy as jnp
+import cupy as cp
+import numpy as np
 import pytest
 import re
 import torch
@@ -64,13 +65,9 @@ class TestQuantize:
         expected = (input / scale).to(dtype=torch.float32)
         with raises(
             Exception,
-            match=re.escape(
-                "UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"
-            ),
+            match=re.escape("Unsupported kFloat bits 8"),
         ):
-            assert torch.equal(
-                expected, torch.from_dlpack(jnp.from_dlpack(quantized)).to(dtype=torch.float32).to("cpu")
-            )
+            assert torch.equal(expected, torch.from_dlpack(quantized).to(dtype=torch.float32).to("cpu"))
         assert torch.equal(expected, torch.from_dlpack(tp.cast(quantized, dtype=tp.float32)).to("cpu"))
 
     @pytest.mark.parametrize(
@@ -87,13 +84,9 @@ class TestQuantize:
         expected = (input / scale.reshape(2, 1)).to(dtype=torch.float32)
         with raises(
             Exception,
-            match=re.escape(
-                "UNIMPLEMENTED: Invalid or unsupported DLPack float width: 8 bits"
-            ),
+            match=re.escape("Unsupported kFloat bits 8"),
         ):
-            assert torch.equal(
-                expected, torch.from_dlpack(jnp.from_dlpack(quantized)).to(dtype=torch.float32).to("cpu")
-            )
+            assert torch.equal(expected, torch.from_dlpack(quantized).to(dtype=torch.float32).to("cpu"))
         assert torch.equal(expected, torch.from_dlpack(tp.cast(quantized, dtype=tp.float32)).to("cpu"))
 
     @pytest.mark.parametrize(

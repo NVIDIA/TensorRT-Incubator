@@ -298,16 +298,18 @@ void StableHloToExecutableTask::buildStablehloClusteringPipeline(
   clusteringOpts.entrypoint = opts.entrypoint;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
-  populateExtensionPasses(pm, opts, Phase::PostClustering);
-
-  pm.addPass(createCanonicalizerPass());
-
   // Compile outlined funcs marked with `cluster.host`. The HLO in these
   // functions should be scalarized.
   pm.addNestedPass<func::FuncOp>(
       std::make_unique<HloToArithDynamicPipelinePass>());
 
   pm.addNestedPass<func::FuncOp>(std::make_unique<HloToStdPass>());
+
+  populateExtensionPasses(pm, opts, Phase::PostClustering);
+
+  pm.addNestedPass<func::FuncOp>(plan::createPostClusteringValidationPass());
+
+  pm.addPass(createCanonicalizerPass());
 
   pm.addPass(createInlinerPass());
   pm.addNestedPass<func::FuncOp>(createCSEPass());

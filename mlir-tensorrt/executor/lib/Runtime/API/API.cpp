@@ -25,6 +25,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Threading.h"
 #include <vector>
@@ -367,11 +368,12 @@ AllocTracker::~AllocTracker() {
   MTRT_DBGF("checking %u allocations", map.size());
   llvm::SmallVector<PointerInfo> ptrsToFree;
   ptrsToFree.reserve(map.size());
-  for (const auto &[ptrVal, ptrInfo] : map) {
-    if (ptrInfo.isInternallyManaged()) {
+  for (const auto &[ptrVal, metadata] : map) {
+    if (metadata->info.isInternallyManaged() &&
+        metadata->externalReferenceCount.load() == 0) {
       MTRT_DBGF("still live: 0x%lx type %d size %lu", ptrVal,
-                static_cast<int>(ptrInfo.type), ptrInfo.size);
-      ptrsToFree.push_back(ptrInfo);
+                static_cast<int>(metadata->info.type), metadata->info.size);
+      ptrsToFree.push_back(metadata->info);
     }
   }
 
@@ -385,6 +387,56 @@ AllocTracker::~AllocTracker() {
   }
   if (totalSize > 0)
     MTRT_DBGF("freed %zu bytes of unfreed memory", totalSize);
+}
+
+void AllocTracker::markReleasedInternally(uintptr_t ptr) {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  metadata->releasedInternally = true;
+}
+
+bool AllocTracker::isReleasedInternally(uintptr_t ptr) const {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  return metadata->releasedInternally;
+}
+
+void AllocTracker::incrementExternalCount(uintptr_t ptr) {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  int32_t ref = ++metadata->externalReferenceCount;
+  MTRT_DBG("Incremented external reference for pointer %d to %d", ptr, ref);
+}
+
+void AllocTracker::decrementExternalCount(uintptr_t ptr) {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  int32_t ref = --metadata->externalReferenceCount;
+  assert(ref >= 0 &&
+         llvm::formatv("External reference count cannot be negative: {0}", ref)
+             .str()
+             .c_str());
+  MTRT_DBG("Decremented external reference for pointer %d to %d", ptr, ref);
+  if (ref == 0 && metadata->releasedInternally) {
+    MTRT_DBG("External reference to an internally released pointer %d is 0, "
+             "try deallocating pointer memory of size %lu",
+             ptr, ref, metadata->info.size);
+    Status s = safeDeallocate(*this, metadata->info.ptr);
+    if (!s.isOk())
+      MTRT_DBGF("error while deallocating dangling memory: %s",
+                s.getString().c_str());
+  }
+}
+
+int32_t AllocTracker::getExternalReferenceCount(uintptr_t ptr) const {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  return metadata->externalReferenceCount.load();
 }
 
 void AllocTracker::track(PointerInfo info) {
@@ -401,16 +453,21 @@ void AllocTracker::track(PointerInfo info) {
   MTRT_DBGF("AllocTracker is now tracking 0x%lx size=%lu space=%s ownership=%s",
             info.ptr, info.size, runtime::impl::EnumNamePointerType(info.type),
             runtime::impl::EnumNamePointerOwner(info.owner));
+  auto value = std::make_unique<Metadata>();
+  value->externalReferenceCount.store(0);
+  value->releasedInternally = false;
+  value->info = info;
   if (!contains(info.ptr)) {
-    map.insert(std::make_pair(info.ptr, info));
+    map.insert(std::make_pair(info.ptr, std::move(value)));
     return;
   }
   untrack(info.ptr);
-  map.insert(std::make_pair(info.ptr, info));
+  map.insert(std::make_pair(info.ptr, std::move(value)));
 }
 
 void AllocTracker::untrack(uintptr_t ptr) {
-  assert(llvm::is_contained(map, ptr));
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   map.erase(map.find(ptr));
 }
 
@@ -419,14 +476,14 @@ bool AllocTracker::contains(uintptr_t ptr) const { return map.contains(ptr); }
 const PointerInfo &AllocTracker::get(uintptr_t ptr) const {
   auto it = map.find(ptr);
   assert(it != map.end() && "expected valid pointer info");
-  return map.at(ptr);
+  return map.at(ptr)->info;
 }
 
 PointerInfo AllocTracker::lookupOrDefault(uintptr_t ptr) const {
   if (!contains(ptr))
     return PointerInfo{ptr, PointerInfo::kUnknownSize, PointerType::unknown,
                        PointerOwner::unknown};
-  return map.at(ptr);
+  return map.at(ptr)->info;
 }
 
 StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
@@ -491,9 +548,21 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
 mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
                                         std::optional<cudaStream_t> stream) {
   if (!tracker.contains(ptr)) {
-    MTRT_DBGF("ignoring ptr 0x%lx because it was either already freed or is "
-              "externally managed",
+    MTRT_DBGF("ignoring ptr 0x%lx because it was either already freed, "
+              "externally managed, or has an external reference",
               ptr);
+    return mlirtrt::Status::getOk();
+  }
+
+  if (tracker.getExternalReferenceCount(ptr) > 0) {
+    // Destructor for external reference should truly free or delete this.
+    // Defer safeDeallocate call until then.
+    MTRT_DBGF("Defer freeing ptr 0x%lx and mark it as released internally as "
+              "ir has an external reference. "
+              "It is responsibility of the external reference counting "
+              "mechanism to ensure safeDellaocate is called.",
+              ptr);
+    tracker.markReleasedInternally(ptr);
     return mlirtrt::Status::getOk();
   }
 

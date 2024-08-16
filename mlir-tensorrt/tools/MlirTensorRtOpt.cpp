@@ -23,7 +23,6 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
 #include "mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h"
 #include "mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
@@ -57,7 +56,6 @@ int main(int argc, char **argv) {
   mlir::tensorrt::registerTensorRTTranslationPasses();
 #endif
   mlir::tensorrt::registerAllMlirTensorRtPasses();
-  mlirtrt::compiler::registerStablehloClusteringPipelines();
 #ifdef MLIR_TRT_ENABLE_TESTING
   registerTestPasses();
 #endif

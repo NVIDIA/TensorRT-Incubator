@@ -15,9 +15,8 @@
 # limitations under the License.
 #
 
+
 import cupy as cp
-import jax
-import jax.numpy as jnp
 import numpy as np
 import pytest
 import torch
@@ -47,12 +46,6 @@ data_list.extend([torch.tensor(data) for data in filter(torch_type_supported, np
 
 # Extend the data list for Torch GPU tensors
 data_list.extend([torch.tensor(data).to(torch.device("cuda")) for data in filter(torch_type_supported, np_data)])
-
-# Extend the data list for Jax CPU arrays
-data_list.extend([jax.device_put(jnp.array(data), jax.devices("cpu")[0]) for data in np_data])
-
-# Extend the data list for Jax GPU arrays
-data_list.extend([jax.device_put(jnp.array(data), jax.devices("cuda")[0]) for data in np_data])
 
 
 class TestArray:

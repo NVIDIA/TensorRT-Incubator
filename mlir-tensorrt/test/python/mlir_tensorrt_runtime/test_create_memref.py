@@ -1,4 +1,7 @@
 # RUN: %PYTHON %s 2>&1 | FileCheck %s
+# REQUIRES: host-has-at-least-1-gpus
+
+import gc
 
 import array
 import cupy as cp
@@ -291,3 +294,157 @@ def test_memref_allocations():
 
 
 test_memref_allocations()
+
+
+def create_host_memref_external_owner_with_external_reference(arr):
+    # memref ptr is owned externally, should not get deleted until np holds memref ptr
+    memref = client.create_host_memref_view(
+        int(arr.ctypes.data), shape=[3], dtype=runtime.ScalarTypeCode.f64
+    )
+    return np.from_dlpack(memref)
+
+
+def create_device_memref_external_owner_with_external_reference(arr):
+    # memref ptr is owned externally, should not get deleted until np holds memref ptr
+    memref = client.create_device_memref_view(
+        int(arr.data.ptr),
+        shape=[3],
+        dtype=runtime.ScalarTypeCode.f64,
+        device=devices[0],
+    )
+    return cp.from_dlpack(memref)
+
+
+def create_host_memref_internal_owner_with_external_reference():
+    # memref is owned internally, should not get deleted until np holds memref ptr
+    arr = array.array("f", [5.0, 4.0, 2.0])
+    memref = client.create_memref(arr)
+    return np.from_dlpack(memref)
+
+
+def create_device_memref_internal_owner_with_external_reference():
+    # memref is owned internally, should not get deleted until np holds memref ptr
+    arr = array.array("f", [5.0, 4.0, 2.0])
+    memref = client.create_memref(arr, device=devices[0])
+    return cp.from_dlpack(memref)
+
+
+def test_memref_external_reference():
+    np_arr = np.array([5.0, 4.0, 2.0])
+    cp_arr = cp.array([5.0, 4.0, 2.0])
+    print(
+        f"Test externally owned Array -> client.host_memref_view -> externally referenced numpy.from_dlpack"
+    )
+    print(
+        f"Numpy Array: ",
+        create_host_memref_external_owner_with_external_reference(np_arr),
+    )
+    print(
+        f"Test externally owned Array -> client.device_memref_view -> externally referenced cupy.from_dlpack"
+    )
+    print(
+        f"Cupy Array: ",
+        create_device_memref_external_owner_with_external_reference(cp_arr),
+    )
+    print(
+        f"Test internally owned Array -> client.host_memref -> externally referenced numpy.from_dlpack"
+    )
+    print(f"Numpy Array: ", create_host_memref_internal_owner_with_external_reference())
+    print(
+        f"Test internally owned Array -> client.device_memref-> externally referenced cupy.from_dlpack"
+    )
+    print(
+        f"Cupy Array: ", create_device_memref_internal_owner_with_external_reference()
+    )
+
+
+print("Test memref external reference counting")
+test_memref_external_reference()
+
+# CHECK-LABEL: Test memref external reference counting
+# CHECK-NEXT: Test externally owned Array -> client.host_memref_view -> externally referenced numpy.from_dlpack
+# CHECK-NEXT: Numpy Array:  [5. 4. 2.]
+# CHECK-NEXT: Test externally owned Array -> client.device_memref_view -> externally referenced cupy.from_dlpack
+# CHECK-NEXT: Cupy Array:  [5. 4. 2.]
+# CHECK-NEXT: Test internally owned Array -> client.host_memref -> externally referenced numpy.from_dlpack
+# CHECK-NEXT: Numpy Array:  [5. 4. 2.]
+# CHECK-NEXT: Test internally owned Array -> client.device_memref-> externally referenced cupy.from_dlpack
+# CHECK-NEXT: Cupy Array:  [5. 4. 2.]
+
+
+def test_num_external_references():
+    arr = np.array([5.0, 4.0, 2.0])
+    memref = client.create_host_memref_view(
+        int(arr.ctypes.data), shape=[3], dtype=runtime.ScalarTypeCode.f64
+    )
+    num_ref_count = 10
+    arrays = []
+    for i in range(num_ref_count):
+        arrays.append(np.from_dlpack(memref))
+    print(
+        "Number of External reference count: ",
+        client.external_reference_count(arr.ctypes.data),
+    )
+
+
+print("Test memref number of external reference counts")
+test_num_external_references()
+
+# CHECK-LABEL: Test memref number of external reference counts
+# CHECK-NEXT: Number of External reference count:  10
+
+
+def test_released_internally():
+    arr = np.array([5.0, 4.0, 2.0])
+
+    def memref_alloc():
+        memref = client.create_host_memref_view(
+            int(arr.ctypes.data), shape=[3], dtype=runtime.ScalarTypeCode.f64
+        )
+        return np.from_dlpack(
+            memref
+        )  # Ensure we have an externally reference to the pointer.
+
+    _ = memref_alloc()
+    print(
+        "Memref released internally: ", client.is_released_internally(arr.ctypes.data)
+    )
+
+
+print("Test memref is released internally with an external reference")
+test_released_internally()
+
+# CHECK-LABEL: Test memref is released internally with an external reference
+# CHECK-NEXT: Memref released internally:  True
+
+
+def test_memref_lifetime():
+    def memref_alloc():
+        # allocate internally owned array
+        arr_in = array.array("f", [5.0, 4.0, 2.0])
+        memref = client.create_memref(arr_in)
+        # create an external reference
+        arr_out = np.from_dlpack(memref)
+        # memref goes out of scope
+        return arr_out
+
+    arr_out = memref_alloc()
+    gc.collect()  # Ensure memref is GC'ed.
+    print(
+        "Memref released internally: ",
+        client.is_released_internally(arr_out.ctypes.data),
+    )
+    print(
+        "Number of External reference count: ",
+        client.external_reference_count(arr_out.ctypes.data),
+    )
+    print("Numpy Array: ", arr_out)
+
+
+print("Test memref lifetime")
+test_memref_lifetime()
+
+# CHECK-LABEL: Test memref lifetime
+# CHECK-NEXT: Memref released internally:  True
+# CHECK-NEXT: Number of External reference count:  1
+# CHECK-NEXT: Numpy Array:  [5. 4. 2.]

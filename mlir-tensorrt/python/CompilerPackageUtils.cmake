@@ -2,7 +2,6 @@
 # Declare bindings for upstream packages.
 # ------------------------------------------------------------------------------
 
-
 # ------------------------------------------------------------------------------
 # Extracts the name for a python package by reading the given pyproject.toml
 # file and extracting the metadata.

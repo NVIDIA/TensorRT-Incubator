@@ -50,10 +50,9 @@ if config.enable_asan:
 llvm_config.with_environment("PATH", config.llvm_tools_dir, append_path=True)
 
 tool_dirs = [config.executor_tools_dir, config.llvm_tools_dir]
-tools = [
-    "executor-opt",
-    "executor-translate",
-    "executor-runner"
-]
+tools = ["executor-opt", "executor-translate", "executor-runner"]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)
+
+if config.enable_assertions:
+    config.available_features.add("debug-print")
