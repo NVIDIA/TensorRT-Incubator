@@ -326,7 +326,7 @@ static StatusOr<DLDeviceType> toDLPackDeviceType(PointerType address) {
   return DLDeviceType::kDLCPU;
 }
 
-MTRT_Status getPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_PointerType* result) {
+MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_PointerType* result) {
   #define RETURN_OK(v) *result = v; return mtrtStatusGetOk();
   switch (device) {
     case DLDeviceType::kDLCUDA: RETURN_OK(MTRT_PointerType_device)
@@ -370,7 +370,7 @@ static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
   return DLDataTypeCode::kDLFloat;
 }
 
-MTRT_Status getScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTypeCode* result) {
+MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTypeCode* result) {
   #define RETURN_OK(v) *result = v; return mtrtStatusGetOk();
   switch (dtype.code) {
     case kDLBool: RETURN_OK(MTRT_ScalarTypeCode_i1)

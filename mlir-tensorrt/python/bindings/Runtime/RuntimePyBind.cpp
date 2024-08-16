@@ -355,13 +355,13 @@ createMemRefViewFromDLPack(PyRuntimeClient &client,
 
   MTRT_ScalarTypeCode elementType;
   MTRT_Status s;
-  s = getScalarTypeCodeFromDLDataType(dtype, &elementType);
+  s = mtrtGetScalarTypeCodeFromDLDataType(dtype, &elementType);
   THROW_IF_MTRT_ERROR(s);
 
   int64_t bytesPerElement = llvm::divideCeil(dtype.bits, 8);
 
   MTRT_PointerType addressSpace;
-  s = getPointerTypeFromDLDeviceType(device_type, &addressSpace);
+  s = mtrtGetPointerTypeFromDLDeviceType(device_type, &addressSpace);
   THROW_IF_MTRT_ERROR(s);
 
   MTRT_Device device{nullptr};
