@@ -337,7 +337,7 @@ MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_Pointer
       return wrap(getStatusWithMsg(
         StatusCode::InvalidArgument, "DLDeviceType [",
         // device,
-        "] conversion to MTRT_PointerType is not supported.").getStatus());
+        "] conversion to MTRT_PointerType is not supported."));
   }
   #undef RETURN_OK
 }
@@ -400,7 +400,7 @@ MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTyp
         StatusCode::InvalidArgument, "DLDataType [",
         // "code: ", dtype.code,
         // "bits: ", dtype.bits,
-        "] conversion to MTRT_ScalarTypeCode is not supported.").getStatus());
+        "] conversion to MTRT_ScalarTypeCode is not supported."));
   }
   #undef RETURN_OK
 }
