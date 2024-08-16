@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Union, Optional, get_origin, get_args, ForwardRef
+
 import inspect
 from typing import List
 from tripy.common.datatype import DATA_TYPES
@@ -59,67 +59,11 @@ def _method_handler(func_name, kwargs, func_obj, api_call_locals):
     print("API call: ", func_name, ", with parameters: ", kwargs)
 
 
-"""
-default_constraints_all: This dictionary helps set specific constraints and values for parameters. These constraints correspond to the type hint of each parameter.
-Some type have default values, so you might not need to pass other_constraints for every operation.
-If there is no default, you must specify an initialization value, or the testcase may fail.
-The dictionary's keys must be the name of the function that they are constraining and the value must be what the parameter should be initialized to.
-Here is the list of parameter types that have defaults or work differently from other types:
-    - tensor - default: tp.ones(shape=(3,2)). If init is passed then value must be in the form of a list. Example: "scale": tp.Tensor([1,1,1]) or "scale": tp.ones((3,3))
-    - dtype - default: no default. Dtype parameters will be set using dtype_constraints input so using default_constraints_all will not change anything.
-    - list/sequence of tensors - default: [tp.ones((3,2)),tp.ones((3,2))]. Example: "dim": [tp.ones((2,4)),tp.ones((1,2))].
-        This will create a list/sequence of tensors of size count and each tensor will follow the init and shape value similar to tensor parameters.
-    - device - default: tp.device("gpu"). Example: {"device": tp.device("cpu")}.
-All other types do not have defaults and must be passed to the verifier using default_constraints_all.
-"""
-default_constraints_all = {
-    "__rtruediv__": {"self": 1},
-    "__rsub__": {"self": 1},
-    "__radd__": {"self": 1},
-    "__rpow__": {"self": 1},
-    "__rmul__": {"self": 1},
-    "softmax": {"dim": 1},
-    "concatenate": {"dim": 0},
-    "expand": {"sizes": tp.Tensor([3, 4]), "input": tp.ones((3, 1))},
-    "full": {"shape": tp.Tensor([3]), "value": 1},
-    "full_like": {"value": 1},
-    "flip": {"dim": 1},
-    "gather": {"dim": 0, "index": tp.Tensor([1])},
-    "iota": {"shape": tp.Tensor([3])},
-    "__matmul__": {"self": tp.ones((2, 3))},
-    "transpose": {"dim0": 0, "dim1": 1},
-    "permute": {"perm": [1, 0]},
-    "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
-    "sum": {"dim": 0},
-    "all": {"dim": 0},
-    "any": {"dim": 0},
-    "max": {"dim": 0},
-    "prod": {"dim": 0},
-    "mean": {"dim": 0},
-    "var": {"dim": 0},
-    "argmax": {"dim": 0},
-    "argmin": {"dim": 0},
-    "reshape": {"shape": tp.Tensor([6])},
-    "squeeze": {"input": tp.ones((3, 1)), "dims": (1)},
-    "__getitem__": {"index": 2},
-    "split": {"indices_or_sections": 2},
-    "unsqueeze": {"dim": 1},
-    "masked_fill": {"value": 1},
-    "ones": {"shape": tp.Tensor([3, 2])},
-    "zeros": {"shape": tp.Tensor([3, 2])},
-    "arange": {"start": 0, "stop": 5},
-}
-
-
-class InputValues:
-    dtype: str = None
-    init = None
-
-
-# Add default_constraints to input_values within TYPE_VERIFICATION and process dtype exceptions.
+# Create list of all test that will be run.
+func_list = []
 for func_name, (
     func_obj,
-    inputs_dict,
+    inputs,
     dtype_exceptions,
     return_dtype,
     dtype_variables,
@@ -129,52 +73,19 @@ for func_name, (
     # Get names and type hints for each param.
     func_sig = inspect.signature(func_obj)
     param_dict = func_sig.parameters
-    # Construct inputs_dict.
-    for param_name, param_type in param_dict.items():
-        input_values = InputValues()
-        # If parameter had a default then use it otherwise skip.
-        if param_type.default is not param_type.empty:
-            # Checking if not equal to None since we want to enter if default is 0 or similar.
-            if param_type.default != None:
-                input_values.init = param_type.default
-        param_type = param_type.annotation
-        # If type is an optional or union get the first type.
-        while get_origin(param_type) in [Union, Optional]:
-            param_type = get_args(param_type)[0]
-            # ForwardRef refers to any case where type hint is a string.
-            if isinstance(param_type, ForwardRef):
-                param_type = param_type.__forward_arg__
+    # Construct inputs.
+    for param_name in param_dict.keys():
         # Check if there are any provided constraints and add them to the constraint dict.
-        input_values.dtype = dtype_constraints.get(param_name, None)
-        inputs_dict[param_name] = {param_type: input_values}
-
-    # Apply default_constraints_all.
-    default_constraints = default_constraints_all.get(func_name, None)
-    if default_constraints != None:
-        for param_name, input_info in inputs_dict.items():
-            input_values = list(inputs_dict[param_name].values())[0]
-            other_constraint = default_constraints.get(param_name, None)
-            if other_constraint is not None:
-                input_values.init = other_constraint
-
+        inputs[param_name] = dtype_constraints.get(param_name, None)
     # Update dtype_exceptions from string to tripy dtype.
     for i, dtype_exception in enumerate(dtype_exceptions):
         for key, val in dtype_exception.items():
             dtype_exceptions[i][key] = getattr(tp, val)
 
-# Create list of all test that will be run.
-func_list = []
-for func_name, (
-    func_obj,
-    inputs,
-    dtype_exceptions,
-    return_dtype,
-    types,
-    types_assignments,
-) in TYPE_VERIFICATION.items():
+    # Create test case list.
     positive_test_dtypes = {}
     negative_test_dtypes = {}
-    for name, dt in types.items():
+    for name, dt in dtype_variables.items():
         # Get all of the dtypes for positive test case by excluding types_to_exclude.
         pos_dtypes = set(dt)
         positive_test_dtypes[name] = list(pos_dtypes)
@@ -228,8 +139,8 @@ def _run_dtype_constraints_subtest(test_data):
     func_name, func_obj, inputs, _, namespace, _, _ = test_data
     kwargs = {}
     # Create all input objects using object_builders.create_obj.
-    for param_name, input_desc in inputs.items():
-        kwargs[param_name] = create_obj(param_name, input_desc, namespace)
+    for param_name, param_type in inputs.items():
+        kwargs[param_name] = create_obj(func_obj, func_name, param_name, param_type, namespace)
     # Run api call through _method_handler and setup namespace (api_call_locals).
     api_call_locals = {"kwargs": kwargs}
     _method_handler(func_name, kwargs, func_obj, api_call_locals)
