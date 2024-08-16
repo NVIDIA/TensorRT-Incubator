@@ -318,8 +318,7 @@ static std::unique_ptr<PyMemRefValue>
 createMemRefViewFromDLPack(PyRuntimeClient &client,
                        py::capsule capsule) {
   DLManagedTensor *managedTensor =
-      (DLManagedTensor *)PyCapsule_GetPointer(capsule.ptr(),
-      "dltensor");
+      static_cast<DLManagedTensor*>(PyCapsule_GetPointer(capsule.ptr(), "dltensor"));
 
   if (managedTensor == nullptr) {
       Py_DECREF(capsule);
