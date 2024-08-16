@@ -326,7 +326,6 @@ createMemRefViewFromDLPack(PyRuntimeClient &client,
   }
 
   MTRT_MemRefValue result{nullptr};
-  assert(managedTensor != nullptr && "DLManagedTensor should not be null");
 
   // Extract the necessary information from the DLManagedTensor
   void *data = managedTensor->dl_tensor.data;
