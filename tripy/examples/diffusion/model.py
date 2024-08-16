@@ -11,6 +11,19 @@ from typing import List, Callable, Optional, Union
 
 import numpy as np
 import tripy as tp
+from dataclasses import dataclass
+
+# @dataclass
+# class StableDiffusion15Config:
+#     block_size: int = 1024
+#     vocab_size: int = 50257
+#     num_layers: int = 12
+#     num_heads: int = 12
+#     embedding_size: int = 768
+#     bias: bool = True
+#     seq_len: int = 1
+#     batch_size: int = 1
+#     dtype: "tripy.datatype" = tp.float32
 
 # convenience methods adapted from tinygrad/tensor.py (https://docs.tinygrad.org/tensor/ops/)
 def scaled_dot_product_attention(
@@ -46,9 +59,6 @@ def sequential(input: tp.Tensor, ll: List[Callable[[tp.Tensor], tp.Tensor]]):
     """
     return reduce(lambda x, f: f(x), ll, input)
 
-
-# convenience for dynamic reshapes
-one_shape = tp.Shape(tp.ones((1,), dtype=tp.int32))
 
 # TODO: change to linear layers?
 class AttnBlock(tp.Module):
@@ -209,7 +219,7 @@ class ResBlock(tp.Module):
     def __call__(self, x, emb):
         h = self.conv1(self.nonlinearity(self.norm1(x)))
         emb_out = self.time_emb_proj(self.nonlinearity(emb))
-        target_shape = tp.concatenate([emb_out.shape, one_shape, one_shape], dim=0)
+        target_shape = emb_out.shape + (1, 1)
         # TODO: #228: WAR to prevent computing output rank in infer_rank for reshape
         target_shape.trace_tensor.shape = (emb_out.rank + 2,)
         h = h + tp.reshape(emb_out, target_shape)
@@ -262,7 +272,7 @@ class FeedForward(tp.Module):
     def __init__(self, dim, mult=4):
         self.net = [
             GEGLU(dim, dim * mult),
-            Dummy(),  # needed for weights loading code to work
+            Dummy(),  # Accounts for Dropout layer, needed for weight loading
             tp.Linear(dim * mult, dim),
         ]
 
@@ -727,7 +737,7 @@ def clamp(tensor: tp.Tensor, min: int, max: int):
 
 class StableDiffusion(tp.Module):
     def __init__(self):
-        self.alphas_cumprod = get_alphas_cumprod()
+        self.alphas_cumprod = get_alphas_cumprod().eval()
         self.model = namedtuple("DiffusionModel", ["diffusion_model"])(diffusion_model=UNetModel())
         self.first_stage_model = AutoencoderKL()
         self.cond_stage_model = namedtuple("CondStageModel", ["transformer"])(
