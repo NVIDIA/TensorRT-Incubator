@@ -448,3 +448,68 @@ test_memref_lifetime()
 # CHECK-NEXT: Memref released internally:  True
 # CHECK-NEXT: Number of External reference count:  1
 # CHECK-NEXT: Numpy Array:  [5. 4. 2.]
+
+
+def create_memref_from_dlpack(arr, module):
+    print(f"Array: {arr}")
+    memref = client.create_memref_view_from_dlpack(arr.__dlpack__())
+    print(f"-- Memref shape: {memref.shape}")
+    print(f"-- Memref dtype: {memref.dtype}")
+    print(f"-- {module.__name__}.from_dlpack(): {module.from_dlpack(memref)}")
+
+print(f"Test np.array -> client.create_memref_from_dlpack")
+create_memref_from_dlpack(np.array([1, 2, 3, 4], dtype=np.int32), np)
+create_memref_from_dlpack(np.ones((1, 2, 3), dtype=np.float32), np)
+create_memref_from_dlpack(np.ones(0, dtype=np.int8), np)
+print(f"Test cp.array -> client.create_memref_from_dlpack")
+create_memref_from_dlpack(cp.array([1, 2, 3, 4], dtype=cp.int32), cp)
+create_memref_from_dlpack(cp.ones((1, 2, 3), dtype=cp.float32), cp)
+create_memref_from_dlpack(cp.ones(0, dtype=cp.int8), cp)
+
+
+# CHECK-LABEL: Test np.array -> client.create_memref_from_dlpack
+# CHECK-NEXT: Array: [1 2 3 4]
+# CHECK-NEXT: -- Memref shape: [4]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i32
+# CHECK-NEXT: -- numpy.from_dlpack(): [1 2 3 4]
+# CHECK-NEXT: Array: {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
+# CHECK-NEXT: -- Memref shape: [1, 2, 3]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.f32
+# CHECK-NEXT: -- numpy.from_dlpack(): {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
+# CHECK-NEXT: Array: []
+# CHECK-NEXT: -- Memref shape: [0]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i8
+# CHECK-NEXT: -- numpy.from_dlpack(): []
+# CHECK-LABEL: Test cp.array -> client.create_memref_from_dlpack
+# CHECK-NEXT: Array: [1 2 3 4]
+# CHECK-NEXT: -- Memref shape: [4]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i32
+# CHECK-NEXT: -- cupy.from_dlpack(): [1 2 3 4]
+# CHECK-NEXT: Array: {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
+# CHECK-NEXT: -- Memref shape: [1, 2, 3]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.f32
+# CHECK-NEXT: -- cupy.from_dlpack(): {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
+# CHECK-NEXT: Array: []
+# CHECK-NEXT: -- Memref shape: [0]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i8
+# CHECK-NEXT: -- cupy.from_dlpack(): []
+
+
+def create_dangling_memref():
+    array = np.array([1, 2])
+    dlpack_capsule = array.__dlpack__()
+    memref = client.create_memref_view_from_dlpack(dlpack_capsule)
+    print("-- Inner scope: np.from_dlpack(): ", np.from_dlpack(memref))
+    return memref
+
+
+print("Test memref maintains data's lifetime")
+memref = create_dangling_memref()
+# Declare a new array to overwrite the old memory
+b = np.array([10, 10])
+print("-- Outer scope: np.from_dlpack(): ", np.from_dlpack(memref))
+
+
+# CHECK-LABEL: Test memref maintains data's lifetime
+# CHECK-NEXT: -- Inner scope: np.from_dlpack(): [1 2]
+# CHECK-NEXT: -- Outer scope: np.from_dlpack(): [1 2]
