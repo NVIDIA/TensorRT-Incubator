@@ -312,6 +312,76 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
   return std::make_unique<PyMemRefValue>(result);
 }
 
+
+
+static std::unique_ptr<PyMemRefValue>
+createMemRefViewFromDLPack(PyRuntimeClient &client,
+                       py::capsule capsule) {
+  DLManagedTensor *managedTensor =
+      static_cast<DLManagedTensor*>(PyCapsule_GetPointer(capsule.ptr(), "dltensor"));
+
+  if (managedTensor == nullptr) {
+      Py_DECREF(capsule);
+      return nullptr;
+  }
+
+  MTRT_MemRefValue result{nullptr};
+
+  // Extract the necessary information from the DLManagedTensor
+  void *data = managedTensor->dl_tensor.data;
+  int64_t *shape = managedTensor->dl_tensor.shape;
+
+  int64_t* strides = managedTensor->dl_tensor.strides;
+  std::vector<int64_t> stridesArray;
+  if (!strides) {
+    // Create a suffix product stride array in the event that the DLPack object's stride array is set to `null`
+    auto ndim = managedTensor->dl_tensor.ndim;
+    stridesArray.resize(ndim);
+    if (ndim > 0) {
+      stridesArray[ndim - 1] = 1;
+      for (int i = ndim - 2; i >= 0; i--) {
+        stridesArray[i] = shape[i+1] * stridesArray[i+1]; 
+      }
+    }
+    strides = stridesArray.data();
+  }
+
+  int64_t offset = managedTensor->dl_tensor.byte_offset;
+  int rank = managedTensor->dl_tensor.ndim;
+  DLDataType dtype = managedTensor->dl_tensor.dtype;
+  DLDeviceType device_type = managedTensor->dl_tensor.device.device_type;
+  int device_id = managedTensor->dl_tensor.device.device_id;
+
+  MTRT_ScalarTypeCode elementType;
+  MTRT_Status s;
+  s = mtrtGetScalarTypeCodeFromDLDataType(dtype, &elementType);
+  THROW_IF_MTRT_ERROR(s);
+
+  int64_t bytesPerElement = llvm::divideCeil(dtype.bits, 8);
+
+  MTRT_PointerType addressSpace;
+  s = mtrtGetPointerTypeFromDLDeviceType(device_type, &addressSpace);
+  THROW_IF_MTRT_ERROR(s);
+
+  MTRT_Device device{nullptr};
+  if (addressSpace == MTRT_PointerType_device) {
+    s = mtrtRuntimeClientGetDevice(client, device_id, &device);
+    THROW_IF_MTRT_ERROR(s);
+  }
+
+  if (data) {
+    s = mtrtMemRefCreateExternal(client, addressSpace, bytesPerElement * 8,
+                             reinterpret_cast<uintptr_t>(data), offset, rank,
+                             shape, strides, device, elementType, &result);
+  } else {
+    s = mtrtMemRefCreate(client, addressSpace, bytesPerElement * 8, rank, 
+                              shape, strides, device, mtrtStreamGetNull(), elementType, &result);
+  }
+
+  THROW_IF_MTRT_ERROR(s);
+  return std::make_unique<PyMemRefValue>(result);
+}
+
 static std::unique_ptr<PyMemRefValue> getMemRefFromHostBufferProtocol(
     PyRuntimeClient &client, py::buffer array,
     std::optional<std::vector<int64_t>> explicitShape,
@@ -716,6 +786,12 @@ PYBIND11_MODULE(_api, m) {
           py::arg("shape"), py::arg("dtype"), py::arg("device") = py::none(),
           py::arg("stream") = py::none(), py::keep_alive<0, 1>(),
           "returns a new memref and allocates uninitialized backing storage")
+      .def(
+          "create_memref_view_from_dlpack",
+          [](PyRuntimeClient &self, py::capsule capsule) {
+            return createMemRefViewFromDLPack(self, capsule).release();
+          },
+          py::arg("dltensor") = py::none(), py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
       .def(
           "create_device_memref_view",
           [](PyRuntimeClient &self, uintptr_t ptr, std::vector<int64_t> shape,

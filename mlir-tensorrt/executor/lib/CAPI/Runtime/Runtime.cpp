@@ -326,6 +326,22 @@ static StatusOr<DLDeviceType> toDLPackDeviceType(PointerType address) {
   return DLDeviceType::kDLCPU;
 }
 
+MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_PointerType* result) {
+  #define RETURN_OK(v) *result = v; return mtrtStatusGetOk();
+  switch (device) {
+    case DLDeviceType::kDLCUDA: RETURN_OK(MTRT_PointerType_device)
+    case DLDeviceType::kDLCPU: RETURN_OK(MTRT_PointerType_host)
+    case DLDeviceType::kDLCUDAHost: RETURN_OK(MTRT_PointerType_host)
+    case DLDeviceType::kDLCUDAManaged: RETURN_OK(MTRT_PointerType_unified)
+    default:
+      return wrap(getStatusWithMsg(
+        StatusCode::InvalidArgument, "DLDeviceType [",
+        // device,
+        "] conversion to MTRT_PointerType is not supported."));
+  }
+  #undef RETURN_OK
+}
+
 static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
   switch (type) {
   case ScalarTypeCode::i1:
@@ -347,11 +363,41 @@ static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
     return DLDataTypeCode::kDLBfloat;
   default:
     return getStatusWithMsg(
-        StatusCode::InvalidArgument, "Scalar type code [",
-        EnumNameScalarTypeCode(type),
-        "] conversion to DLPackDataTypeCode is not supported.");
+        StatusCode::InvalidArgument, "Scalar type code conversion to DLPackDataTypeCode is not supported.");
   }
   return DLDataTypeCode::kDLFloat;
+}
+
+MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTypeCode* result) {
+  #define RETURN_OK(v) *result = v; return mtrtStatusGetOk();
+  switch (dtype.code) {
+    case kDLBool: RETURN_OK(MTRT_ScalarTypeCode_i1)
+    case kDLInt:
+      switch (dtype.bits) {
+        case 8: RETURN_OK(MTRT_ScalarTypeCode_i8)
+        case 16: RETURN_OK(MTRT_ScalarTypeCode_i16)
+        case 32: RETURN_OK(MTRT_ScalarTypeCode_i32)
+        case 64: RETURN_OK(MTRT_ScalarTypeCode_i64)
+      }
+    case kDLUInt:
+      switch (dtype.bits) {
+        case 8: RETURN_OK(MTRT_ScalarTypeCode_ui8);
+      }
+    case kDLFloat:
+      switch (dtype.bits) {
+        case 8: RETURN_OK(MTRT_ScalarTypeCode_f8e4m3fn)
+        case 16: RETURN_OK(MTRT_ScalarTypeCode_f16)
+        case 32: RETURN_OK(MTRT_ScalarTypeCode_f32)
+        case 64: RETURN_OK(MTRT_ScalarTypeCode_f64)
+      }
+    case kDLBfloat: RETURN_OK(MTRT_ScalarTypeCode_bf16)
+    case kDLComplex:
+    case kDLOpaqueHandle:
+    default:
+      return wrap(getStatusWithMsg(
+        StatusCode::InvalidArgument, "DLDataType conversion to MTRT_ScalarTypeCode is not supported."));
+  }
+  #undef RETURN_OK
 }
 
 static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {

@@ -25,6 +25,7 @@
 #ifndef MLIR_EXECUTOR_C_RUNTIME_RUNTIME
 #define MLIR_EXECUTOR_C_RUNTIME_RUNTIME
 
+#include "dlpack/dlpack.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
@@ -381,6 +382,18 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
     const MTRT_RuntimeValue *outArgs, size_t numOutArgs, MTRT_Stream stream);
+
+//===----------------------------------------------------------------------===//
+// DLPack
+//===----------------------------------------------------------------------===//
+
+/// Converts a DLDeviceType to MTRT_PointerType. This function will throw a runtime
+/// error if the device type is invalid.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_PointerType* result);
+
+/// Converts a DLDataType to MTRT_ScalarTypeCode. This function will throw a runtime
+/// error if the data type is invalid.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTypeCode* result);
 
 #ifdef __cplusplus
 }
