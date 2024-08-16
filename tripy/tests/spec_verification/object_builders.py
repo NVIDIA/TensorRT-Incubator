@@ -120,18 +120,18 @@ def create_obj(func_obj, func_name, param_name, param_dtype, namespace):
     param_dict = func_sig.parameters
     param_type_annot = param_dict[param_name]
     init = None
-    # If parameter had a default then use it otherwise skip.
-    if param_type_annot.default is not param_type_annot.empty:
-        # Checking if not equal to None since we want to enter if default is 0 or similar.
-        if param_type_annot.default != None:
-            init = param_type_annot.default
-    param_type = param_type_annot.annotation
     # Check if there is a value in default_constraints_all for func_name and param_name and use it.
     default_constraints = default_constraints_all.get(func_name, None)
     if default_constraints != None:
         other_constraint = default_constraints.get(param_name, None)
         if other_constraint is not None:
             init = other_constraint
+    # If parameter had a default then use it otherwise skip.
+    if init is None and param_type_annot.default is not param_type_annot.empty:
+        # Checking if not equal to None since default can be 0 or similar.
+        if param_type_annot.default != None:
+            init = param_type_annot.default
+    param_type = param_type_annot.annotation
     while get_origin(param_type) in [Union, Optional]:
         param_type = get_args(param_type)[0]
         # ForwardRef refers to any case where type hint is a string.
