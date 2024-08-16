@@ -363,9 +363,7 @@ static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
     return DLDataTypeCode::kDLBfloat;
   default:
     return getStatusWithMsg(
-        StatusCode::InvalidArgument, "Scalar type code [",
-        EnumNameScalarTypeCode(type),
-        "] conversion to DLPackDataTypeCode is not supported.");
+        StatusCode::InvalidArgument, "Scalar type code conversion to DLPackDataTypeCode is not supported.");
   }
   return DLDataTypeCode::kDLFloat;
 }
@@ -397,10 +395,7 @@ MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTyp
     case kDLOpaqueHandle:
     default:
       return wrap(getStatusWithMsg(
-        StatusCode::InvalidArgument, "DLDataType [",
-        // "code: ", dtype.code,
-        // "bits: ", dtype.bits,
-        "] conversion to MTRT_ScalarTypeCode is not supported."));
+        StatusCode::InvalidArgument, "DLDataType conversion to MTRT_ScalarTypeCode is not supported."));
   }
   #undef RETURN_OK
 }
