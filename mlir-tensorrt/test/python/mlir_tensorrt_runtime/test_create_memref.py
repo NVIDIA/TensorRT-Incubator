@@ -455,7 +455,7 @@ def create_memref_from_dlpack(arr, module):
     memref = client.create_memref_view_from_dlpack(arr.__dlpack__())
     print(f"-- Memref shape: {memref.shape}")
     print(f"-- Memref dtype: {memref.dtype}")
-    print(f"-- {module}.from_dlpack(): {module.from_dlpack(memref)}")
+    print(f"-- {module.__name__}.from_dlpack(): {module.from_dlpack(memref)}")
 
 print(f"Test np.array -> client.create_memref_from_dlpack")
 create_memref_from_dlpack(np.array([1, 2, 3, 4], dtype=np.int32), np)
@@ -471,28 +471,28 @@ create_memref_from_dlpack(cp.ones(0, dtype=cp.int8), cp)
 # CHECK-NEXT: Array: [1 2 3 4]
 # CHECK-NEXT: -- Memref shape: [4]
 # CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i32
-# CHECK-NEXT: -- np.from_dlpack(): [1 2 3 4]
+# CHECK-NEXT: -- numpy.from_dlpack(): [1 2 3 4]
 # CHECK-NEXT: Array: {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
 # CHECK-NEXT: -- Memref shape: [1, 2, 3]
 # CHECK-NEXT: -- Memref dtype: ScalarTypeCode.f32
-# CHECK-NEXT: -- np.from_dlpack(): {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
+# CHECK-NEXT: -- numpy.from_dlpack(): {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
 # CHECK-NEXT: Array: []
 # CHECK-NEXT: -- Memref shape: [0]
 # CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i8
-# CHECK-NEXT: -- np.from_dlpack(): []
+# CHECK-NEXT: -- numpy.from_dlpack(): []
 # CHECK-LABEL: Test cp.array -> client.create_memref_from_dlpack
 # CHECK-NEXT: Array: [1 2 3 4]
 # CHECK-NEXT: -- Memref shape: [4]
 # CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i32
-# CHECK-NEXT: -- cp.from_dlpack(): [1 2 3 4]
+# CHECK-NEXT: -- cupy.from_dlpack(): [1 2 3 4]
 # CHECK-NEXT: Array: {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
 # CHECK-NEXT: -- Memref shape: [1, 2, 3]
 # CHECK-NEXT: -- Memref dtype: ScalarTypeCode.f32
-# CHECK-NEXT: -- cp.from_dlpack(): {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
+# CHECK-NEXT: -- cupy.from_dlpack(): {{\[\[\[1. 1. 1.\][[:space:]]*\[1. 1. 1.\]\]\]}}
 # CHECK-NEXT: Array: []
 # CHECK-NEXT: -- Memref shape: [0]
 # CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i8
-# CHECK-NEXT: -- cp.from_dlpack(): []
+# CHECK-NEXT: -- cupy.from_dlpack(): []
 
 
 def create_dangling_memref():
