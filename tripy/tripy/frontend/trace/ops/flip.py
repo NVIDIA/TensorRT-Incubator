@@ -70,6 +70,10 @@ def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None
         output = tp.flip(input, dims=-1)
         assert cp.array_equal(cp.from_dlpack(output), cp.array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
     """
+    from tripy.common.datatype import int64
+
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Flip currently does not work with int64 inputs.")
     rank = input.rank
     if dims is None:
         dims = [d for d in range(rank)]
