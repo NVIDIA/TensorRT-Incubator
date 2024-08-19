@@ -220,6 +220,9 @@ class Tensor(metaclass=TensorMeta):
             arr = cast(Tensor(arr), tripy.common.datatype.float32).eval()
         return arr
 
+    def tolist(self) -> List:
+        return self.data().data()
+
     def __iter__(self):
         raise TypeError("Iterating over tensors is not supported")
 
