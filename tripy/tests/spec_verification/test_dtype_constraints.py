@@ -115,7 +115,6 @@ for func_name, (
                     if positive_case and namespace == dtype_exception:
                         exception = True
                         positive_case = False
-
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
                 if positive_case:
                     pos_func_list.append(
