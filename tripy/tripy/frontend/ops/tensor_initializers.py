@@ -184,6 +184,10 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
     """
+    from tripy.common.datatype import int64
+
+    if tensor.dtype == int64:
+        raise_error("Known issue with i64. tril currently does not work with int64 inputs.")
     tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) >= iota_like(
         tensor, -1, datatype.int32
     )
