@@ -323,33 +323,23 @@ mtrtScalarValueGetType(MTRT_ScalarValue scalar, MTRT_ScalarTypeCode *code);
 // MTRT_GpuAllocator
 //===----------------------------------------------------------------------===//
 
+
+// Function pointer types for the allocate and deallocate callbacks
+typedef void* (*AllocateFunc)(void* self, uint64_t size);
+typedef bool (*DeallocateFunc)(void* self, void* memory);
+
+// The MTRT_GpuAllocator struct
 typedef struct MTRT_GpuAllocator {
-  void *ptr;
+    void* ptr;              // Pointer to the implementation (PyGpuAllocatorTrampoline in our case)
+    AllocateFunc allocate;  // Function pointer for allocation
+    DeallocateFunc deallocate;  // Function pointer for deallocation
 } MTRT_GpuAllocator;
 
 /// Checks nullity of `GpuAllocator`.
-MTRT_CAPI_EXPORTED bool mtrtGpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator);
-
-/// Returns null `GpuAllocator`.
-MTRT_CAPI_EXPORTED MTRT_GpuAllocator mtrtGpuAllocatorGetNull();
+MTRT_CAPI_EXPORTED bool GpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator);
 
 MTRT_CAPI_EXPORTED MTRT_Status
-mtrtGpuAllocatorDestroy(MTRT_GpuAllocator executable);
-
-MTRT_CAPI_EXPORTED MTRT_Status
-mtrtGpuAllocatorCreate(MTRT_GpuAllocator *allocator);
-
-//===----------------------------------------------------------------------===//
-// MTRT_GpuAllocator
-//===----------------------------------------------------------------------===//
-
-MTRT_CAPI_EXPORTED MTRT_Status mtrtGpuAllocatorAllocate(
-    MTRT_GpuAllocator gpuAllocator, uint64_t size, uint64_t alignment,
-    uint32_t flags, MTRT_Stream stream, void **memory);
-
-MTRT_CAPI_EXPORTED MTRT_Status
-mtrtGpuAllocatorDeallocate(MTRT_GpuAllocator gpuAllocator, void *memory,
-                           MTRT_Stream stream, bool *result);
+GpuAllocatorDestroy(MTRT_GpuAllocator executable);
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions

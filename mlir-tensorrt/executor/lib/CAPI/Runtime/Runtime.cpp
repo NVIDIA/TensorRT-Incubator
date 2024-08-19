@@ -49,8 +49,6 @@ DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSession,
                          ::mlirtrt::runtime::RuntimeSession)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeSessionOptions,
                          ::mlirtrt::runtime::RuntimeSessionOptions)
-DEFINE_C_API_PTR_METHODS(MTRT_GpuAllocator,
-                         ::mlirtrt::GpuAllocator)
 DEFINE_C_API_PTR_METHODS(MTRT_Executable, ::mlirtrt::runtime::Executable)
 DEFINE_C_API_PTR_METHODS(MTRT_Stream, MTRT_StreamImpl)
 DEFINE_C_API_PTR_METHODS(MTRT_RuntimeValue, ::mlirtrt::runtime::RuntimeValue)
@@ -607,50 +605,24 @@ MTRT_ScalarValue mtrtRuntimeValueDynCastToScalar(MTRT_RuntimeValue v) {
 // MTRT_GpuAllocator
 //===----------------------------------------------------------------------===//
 
-bool mtrtGpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator) {
+bool GpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator) {
   return !gpuAllocator.ptr;
 }
 
-MTRT_GpuAllocator mtrtGpuAllocatorGetNull() { return MTRT_GpuAllocator{nullptr}; }
-
-MTRT_Status mtrtGpuAllocatorDestroy(MTRT_GpuAllocator executable) {
-  delete unwrap(executable);
+MTRT_Status GpuAllocatorDestroy(MTRT_GpuAllocator gpuAllocator) {
+  // delete unwrap(gpuAllocator);
   return mtrtStatusGetOk();
 }
 
-MTRT_Status mtrtGpuAllocatorCreate(MTRT_GpuAllocator *allocator) {
-  *allocator = MTRT_GpuAllocator{/*ptr=*/new StubAllocator()};
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status mtrtGpuAllocatorAllocate(MTRT_GpuAllocator gpuAllocator,
-                                     uint64_t size, uint64_t alignment,
-                                     uint32_t flags, MTRT_Stream stream,
-                                     void **memory) {
-  GpuAllocator *cppGpuAllocator = unwrap(gpuAllocator);
-  StatusOr<void *> status = cppGpuAllocator->allocate(
-      size, alignment, flags,
-      !mtrtStreamIsNull(stream) ? std::optional(unwrap(stream)->getRawStream())
-                                : std::nullopt);
-  if (status.isOk()) {
-    *memory = *status;
-  }
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status mtrtGpuAllocatorDeallocate(MTRT_GpuAllocator gpuAllocator,
-                                       void *memory, MTRT_Stream stream,
-                                       bool *result) {
-  GpuAllocator *cppGpuAllocator = unwrap(gpuAllocator);
-  StatusOr<bool> status = cppGpuAllocator->deallocate(
-      memory, !mtrtStreamIsNull(stream)
-                  ? std::optional(unwrap(stream)->getRawStream())
-                  : std::nullopt);
-  if (status.isOk()) {
-    *result = *status;
-  }
-  return mtrtStatusGetOk();
-}
+// TODO: Implement destroy method to release resources.
+// void mtrtGpuAllocatorDestroy(MTRT_GpuAllocator* allocator) {
+//     if (allocator && allocator->ptr) {
+//         delete static_cast<PyGpuAllocatorTrampoline*>(allocator->ptr);
+//         allocator->ptr = nullptr;
+//         allocator->allocate = nullptr;
+//         allocator->deallocate = nullptr;
+//     }
+// }
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions
@@ -677,16 +649,44 @@ mtrtRuntimeSessionOptionsDestroy(MTRT_RuntimeSessionOptions options) {
 // MTRT_RuntimeSession
 //===----------------------------------------------------------------------===//
 
+// A wrapper class for MTRT_GpuAllocator implementing the GpuAllocator
+// interface. It encapsulates GPU memory allocation and deallocation operations,
+// ensuring correct routing of callbacks from C++ to Python.
+class GpuAllocatorWrapper : public GpuAllocator {
+private:
+  MTRT_GpuAllocator mPyGpuAllocator;
+
+public:
+  GpuAllocatorWrapper(MTRT_GpuAllocator gpuAllocator)
+      : mPyGpuAllocator(gpuAllocator) {}
+
+  void *allocate(uint64_t size) override {
+    return mPyGpuAllocator.allocate(mPyGpuAllocator.ptr, size);
+  }
+
+  bool deallocate(void *ptr) override {
+    return mPyGpuAllocator.deallocate(mPyGpuAllocator.ptr, ptr);
+  }
+
+  // Static method to create a GpuAllocator from MTRT_GpuAllocator
+  static std::unique_ptr<GpuAllocator> create(MTRT_GpuAllocator gpuAllocator) {
+    return std::make_unique<GpuAllocatorWrapper>(gpuAllocator);
+  }
+};
+
 MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
                                      MTRT_Executable executable,
                                      MTRT_GpuAllocator gpuAllocator,
                                      MTRT_RuntimeSession *result) {
   RuntimeSessionOptions *cppOptions = unwrap(options);
   Executable *cppExecutable = unwrap(executable);
-  GpuAllocator *cppGpuAllocator = unwrap(gpuAllocator);
+
+  std::unique_ptr<GpuAllocator> allocator =
+      gpuAllocator.ptr ? GpuAllocatorWrapper::create(gpuAllocator) : nullptr;
 
   StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(cppExecutable->getView(), cppGpuAllocator, *cppOptions);
+      createRuntimeSessionWithLuaBackend(cppExecutable->getView(),
+                                         std::move(allocator), *cppOptions);
   if (session.isError())
     return wrap(session.getStatus());
 

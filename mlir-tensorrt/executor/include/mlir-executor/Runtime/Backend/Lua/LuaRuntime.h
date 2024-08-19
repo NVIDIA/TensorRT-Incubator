@@ -48,12 +48,12 @@ StatusOr<int64_t> runExecutorLuaScript(std::string_view luaScript, GpuAllocator*
 /// execution is successful).
 /// TODO: this should take a handle to a function for
 /// streaming output/errors.
-StatusOr<int64_t> runExecutorExecutable(std::unique_ptr<Executable> executable, GpuAllocator* allocator);
+StatusOr<int64_t> runExecutorExecutable(std::unique_ptr<Executable> executable, std::unique_ptr<GpuAllocator> allocator);
 
 /// Create an execution state. This will setup a Lua environment and invoke
 /// global initialization.
 StatusOr<std::unique_ptr<RuntimeSession>>
-createRuntimeSessionWithLuaBackend(ExecutableView executable, GpuAllocator* allocator,
+createRuntimeSessionWithLuaBackend(ExecutableView executable, std::unique_ptr<GpuAllocator> allocator,
                                    const RuntimeSessionOptions &options);
 
 /// Set the primary stream for the loaded executable to use.
