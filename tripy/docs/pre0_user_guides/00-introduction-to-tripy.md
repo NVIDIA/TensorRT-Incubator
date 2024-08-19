@@ -128,17 +128,15 @@ See {func}`tripy.Compiler.compile` for details.
 Now let's benchmark the compiled version against eager mode:
 ```py
 # doc: no-print-locals
-ITERS = 10
-
 start = time.time()
-for _ in range(ITERS):
-    out = mlp(inp)
-    out.eval() # Recall that we need to evaluate in order to actually materialize `out`
+out = mlp(inp)
+out.eval() # Recall that we need to evaluate in order to actually materialize `out`
 end = time.time()
 
-eager_time = (end - start) / ITERS
-print(f"Eager mode average time: {eager_time:.4f} seconds")
+eager_time = (end - start)
+print(f"Eager mode time: {eager_time:.4f} seconds")
 
+ITERS = 10
 start = time.time()
 for _ in range(ITERS):
     out = fast_mlp(inp)
