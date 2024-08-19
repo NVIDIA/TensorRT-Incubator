@@ -162,6 +162,7 @@ def _run_dtype_constraints_subtest(test_data):
     return api_call_locals, namespace
 
 
+# Only run positive test cases for L0 testing.
 @pytest.mark.parametrize("test_data", pos_func_list, ids=lambda val: val[5])
 def test_pos_dtype_constraints(test_data):
     _, _, _, return_dtype, _, _ = test_data
@@ -170,6 +171,7 @@ def test_pos_dtype_constraints(test_data):
         assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
 
 
+# Run xfail test cases only during L1 testing.
 @pytest.mark.l1
 @pytest.mark.parametrize("test_data", neg_func_list, ids=lambda val: val[5])
 def test_neg_dtype_constraints(test_data):
