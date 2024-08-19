@@ -53,17 +53,19 @@ def test_python_code_snippets(code_blocks):
         not any(block.has_marker("test: use_pytest") for block in code_blocks) or all_pytest
     ), f"This test does not currently support mixing blocks meant to be run with PyTest with blocks meant to be run by themselves!"
 
-    # We concatenate all the code together because most documentation includes code
-    # that is continued from previous code blocks.
-    # TODO: We can instead run the blocks individually and propagate the evaluated local variables like `generate_rsts.py` does.
-    code = "\n\n".join(map(str, code_blocks))
-    print(f"Checking code:\n{code}")
-
     if all_pytest:
+        code = "\n\n".join(map(str, code_blocks))
         f = tempfile.NamedTemporaryFile(mode="w+", suffix=".py")
         f.write(code)
         f.flush()
-
         assert pytest.main([f.name, "-vv", "-s"]) == 0
     else:
-        helper.exec_code(code)
+        code_locals = {}
+        for block in code_blocks:
+            print(f"Checking code block:\n{str(block)}")
+            try:
+                new_locals = helper.exec_code(str(block), code_locals)
+                # Update code_locals with new variables
+                code_locals.update(new_locals)
+            except Exception as e:
+                raise AssertionError(f"Error while executing code block: {str(e)}") from e

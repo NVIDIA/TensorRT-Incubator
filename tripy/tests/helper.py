@@ -455,13 +455,15 @@ def process_code_block_for_outputs_and_locals(
     NO_EVAL = "# doc: no-eval"
     NO_PRINT_LOCALS = "# doc: no-print-locals"
     PRINT_LOCALS = "# doc: print-locals"
-    REMOVE_TAGS = [NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL]
+    ALLOW_EXCEPTION = "# doc: allow-exception"
+    REMOVE_TAGS = [NO_PRINT_LOCALS, PRINT_LOCALS, NO_EVAL, ALLOW_EXCEPTION]
     if strip_assertions:
         REMOVE_TAGS.append("assert ")
     OMIT_COMMENT = "# doc: omit"
 
     should_append_locals = True
     should_eval = True
+    allow_exception = False
 
     # By default, we print all local variables. If `print_vars` it not empty,
     # then we'll only print those that appear in it.
@@ -486,6 +488,9 @@ def process_code_block_for_outputs_and_locals(
         if block_line.strip() == NO_EVAL:
             should_eval = False
 
+        if block_line.strip() == ALLOW_EXCEPTION:
+            allow_exception = True
+
         if block_line.strip().startswith(PRINT_LOCALS):
             _, _, names = block_line.strip().partition(PRINT_LOCALS)
             print_vars.update(names.strip().split(" "))
@@ -499,14 +504,16 @@ def process_code_block_for_outputs_and_locals(
         return code_block_lines, local_var_lines, output_lines, local_vars
 
     code = dedent(code)
-    try:
-        with capture_output() as outfile:
+
+    with capture_output() as outfile:
+        try:
             code_locals = exec_code(code, local_vars)
-    except:
-        print(err_msg)
-        print(f"Note: Code example was:\n{code}")
-        print(outfile.read())
-        raise
+        except Exception as e:
+            if allow_exception:
+                print(f"Exception occurred: {str(e)}")
+                code_locals = local_vars
+            else:
+                raise
 
     new_locals = {
         key: value for key, value in code_locals.items() if key not in local_vars or value is not local_vars[key]
