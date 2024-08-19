@@ -60,7 +60,8 @@ def _method_handler(func_name, kwargs, func_obj, api_call_locals):
 
 
 # Create list of all test that will be run.
-func_list = []
+pos_func_list = []
+neg_func_list = []
 for func_name, (
     func_obj,
     inputs,
@@ -95,7 +96,6 @@ for func_name, (
     for positive_case in [True, False]:
         if positive_case:
             dtype_lists_list = [positive_test_dtypes]
-            case_name = "valid: "
         else:
             dtype_lists_list = []
             # Create a list of dictionary lists and then go over each dictionary.
@@ -106,7 +106,6 @@ for func_name, (
                     if name_temp != name_not_equal:
                         temp_dict[name_not_equal] = total_dtypes
                 dtype_lists_list.append(temp_dict)
-            case_name = "invalid: "
         for dtype_lists in dtype_lists_list:
             for combination in itertools.product(*(dtype_lists.values())):
                 # Create a tuple with keys and corresponding elements.
@@ -116,27 +115,36 @@ for func_name, (
                     if positive_case and namespace == dtype_exception:
                         exception = True
                         positive_case = False
-                        case_name = "invalid: "
 
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
-                func_list.append(
-                    (
-                        func_name,
-                        func_obj,
-                        inputs,
-                        return_dtype,
-                        namespace,
-                        positive_case,
-                        func_name + "_" + case_name + ", ".join(ids),
+                if positive_case:
+                    pos_func_list.append(
+                        (
+                            func_name,
+                            func_obj,
+                            inputs,
+                            return_dtype,
+                            namespace,
+                            func_name + "_valid: " + ", ".join(ids),
+                        )
                     )
-                )
+                else:
+                    neg_func_list.append(
+                        (
+                            func_name,
+                            func_obj,
+                            inputs,
+                            return_dtype,
+                            namespace,
+                            func_name + "_invalid: " + ", ".join(ids),
+                        )
+                    )
                 if exception:
                     positive_case = True
-                    case_name = "valid: "
 
 
 def _run_dtype_constraints_subtest(test_data):
-    func_name, func_obj, inputs, _, namespace, _, _ = test_data
+    func_name, func_obj, inputs, _, namespace, _ = test_data
     kwargs = {}
     # Create all input objects using object_builders.create_obj.
     for param_name, param_type in inputs.items():
@@ -155,12 +163,19 @@ def _run_dtype_constraints_subtest(test_data):
     return api_call_locals, namespace
 
 
-@pytest.mark.parametrize("test_data", func_list, ids=lambda val: val[6])
-def test_dtype_constraints(test_data):
-    _, _, _, return_dtype, _, positive_case, _ = test_data
-    with ExitStack() as stack:
-        if not positive_case:
-            stack.enter_context(pytest.raises(Exception))
+@pytest.mark.parametrize("test_data", pos_func_list, ids=lambda val: val[5])
+def test_pos_dtype_constraints(test_data):
+    _, _, _, return_dtype, _, _ = test_data
+    api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
+    if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
+        assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
+
+
+@pytest.mark.l1
+@pytest.mark.parametrize("test_data", neg_func_list, ids=lambda val: val[5])
+def test_neg_dtype_constraints(test_data):
+    _, _, _, return_dtype, _, _ = test_data
+    with pytest.raises(Exception):
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
         if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
             assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
