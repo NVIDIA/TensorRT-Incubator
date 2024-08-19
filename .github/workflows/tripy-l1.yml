@@ -29,21 +29,23 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     container:
       image: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
+      volumes:
+        - ${{ github.workspace }}/tripy:/tripy
       options: --gpus all
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/configure-pages@v5
+    # - uses: actions/configure-pages@v5
     - name: build-docs
       run: |
-        cd tripy/
+        pwd
         python3 docs/generate_rsts.py
         sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
-    - uses: actions/upload-pages-artifact@v3
-      with:
-        path: "tripy/build/docs"
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+    # - uses: actions/upload-pages-artifact@v3
+    #   with:
+    #     path: "tripy/build/docs"
+    # - name: Deploy to GitHub Pages
+    #   id: deployment
+    #   uses: actions/deploy-pages@v4
     - name: l1-test
       run: |
         pytest tests/ -v --durations=-1
