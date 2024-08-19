@@ -37,7 +37,7 @@ jobs:
     # - uses: actions/configure-pages@v5
     - name: build-docs
       run: |
-        pwd
+        cd /tripy/
         python3 docs/generate_rsts.py
         sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
     # - uses: actions/upload-pages-artifact@v3
@@ -48,4 +48,5 @@ jobs:
     #   uses: actions/deploy-pages@v4
     - name: l1-test
       run: |
+        cd /tripy/
         pytest tests/ -v --durations=-1
