@@ -28,8 +28,8 @@ from tests import helper
 class TestIota:
     DTYPE_PARAMS = [
         (("float32", tp.common.datatype.float32)),
-        (("int32", tp.common.datatype.float32)),
-        (("float16", tp.common.datatype.float32)),
+        (("float16", tp.common.datatype.float16)),
+        (("int32", tp.common.datatype.int32)),
     ]
 
     def _compute_ref_iota(self, dtype, shape, dim):
