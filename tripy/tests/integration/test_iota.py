@@ -26,6 +26,12 @@ from tests import helper
 
 
 class TestIota:
+    DTYPE_PARAMS = [
+        (("float32", tp.common.datatype.float32)),
+        (("int32", tp.common.datatype.float32)),
+        (("float16", tp.common.datatype.float32)),
+    ]
+
     def _compute_ref_iota(self, dtype, shape, dim):
         if dim is None:
             dim = 0
@@ -38,7 +44,7 @@ class TestIota:
         expected = np.broadcast_to(expected, shape)
         return expected
 
-    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+    @pytest.mark.parametrize("dtype", DTYPE_PARAMS)
     @pytest.mark.parametrize(
         "shape, dim",
         [
@@ -50,12 +56,13 @@ class TestIota:
     )
     def test_iota(self, dtype, shape, dim):
         if dim:
-            output = tp.iota(shape, dim, dtype)
+            output = tp.iota(shape, dim, dtype[1])
         else:
-            output = tp.iota(shape, dtype=dtype)
-        # TODO: Actually test something here
+            output = tp.iota(shape, dtype=dtype[1])
 
-    @pytest.mark.parametrize("dtype", DATA_TYPES.values())
+        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype[0], shape, dim))
+
+    @pytest.mark.parametrize("dtype", DTYPE_PARAMS)
     @pytest.mark.parametrize(
         "shape, dim",
         [
@@ -67,10 +74,11 @@ class TestIota:
     )
     def test_iota_like(self, dtype, shape, dim):
         if dim:
-            output = tp.iota_like(tp.ones(shape), dim, dtype)
+            output = tp.iota_like(tp.ones(shape), dim, dtype[1])
         else:
-            output = tp.iota_like(tp.ones(shape), dtype=dtype)
-        # TODO: Actually test something here
+            output = tp.iota_like(tp.ones(shape), dtype=dtype[1])
+
+        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype[0], shape, dim))
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_negative_no_casting(self, dtype):
