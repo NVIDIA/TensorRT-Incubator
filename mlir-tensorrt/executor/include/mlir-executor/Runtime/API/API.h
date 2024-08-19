@@ -868,7 +868,7 @@ public:
                  std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator,
                  std::unique_ptr<AllocTracker> allocTracker,
                  std::unique_ptr<ResourceTracker> resourceTracker,
-                 GpuAllocator* gpuAllocator);
+                 std::unique_ptr<GpuAllocator> gpuAllocator);
 
   ExecutableView getExecutable() const { return executable; }
 
@@ -882,7 +882,7 @@ public:
 
   ResourceTracker &getResourceTracker() { return *resourceTracker; }
 
-  GpuAllocator* getGpuAllocator() { return gpuAllocator; }
+  GpuAllocator &getGpuAllocator() { return *gpuAllocator; }
 
 private:
   RuntimeSessionOptions options;
@@ -891,7 +891,7 @@ private:
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
-  GpuAllocator* gpuAllocator;
+  std::unique_ptr<GpuAllocator> gpuAllocator;
   sol::state state;
 };
 

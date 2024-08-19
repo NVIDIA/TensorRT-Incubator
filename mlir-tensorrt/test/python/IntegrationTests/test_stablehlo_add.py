@@ -5,6 +5,7 @@ import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
+import cupy as cp
 
 ASM = """
 func.func @main(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
@@ -12,6 +13,31 @@ func.func @main(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
   func.return %1 : tensor<2x3x4xf32>
 }
 """
+
+
+class AppGpuAllocator(runtime.GpuAllocator):
+    def __init__(self):
+        # Initialize the base class
+        super().__init__()
+
+    def allocate(self, size, alignment, flags=None, stream=None):
+        # Implement memory allocation using CuPy
+        # Allocate memory on the GPU
+        import pdb
+
+        pdb.set_trace()
+        memory = cp.empty(size, dtype=cp.uint8)
+        print(
+            f"Allocated memory: {memory.data.ptr}"
+        )  # Print pointer to allocated GPU memory
+        return memory  # Return the CuPy array
+
+    def deallocate(self, memory, stream=None):
+        # Deallocate memory in CuPy
+        # CuPy handles memory automatically, so explicit deallocation is not necessary
+        print(f"Deallocating memory: {memory}")
+        del memory  # Explicitly delete the CuPy array if needed
+        return True
 
 
 def stablehlo_add():
@@ -36,8 +62,10 @@ def stablehlo_add():
     if len(devices) == 0:
         return
 
+    allocator = AppGpuAllocator()
+
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(session_options, exe, gpu_allocator=allocator)
 
     arg0 = client.create_memref(
         np.arange(0.0, 24.0, dtype=np.float32).reshape(2, 3, 4).data,

@@ -46,51 +46,15 @@ using namespace mlirtrt;
 // CustomTensorRTAllocator
 //===----------------------------------------------------------------------===//
 
-StatusOr<void *>
-CustomTensorRTAllocator::allocate(uint64_t const size, uint64_t const alignment,
-                                  uint32_t /*flags*/,
-                                  std::optional<cudaStream_t> stream) {
+void *CustomTensorRTAllocator::allocate(uint64_t const size) {
   uint8_t *memory;
-  assert(alignment > 0 && (alignment & (alignment - 1)) == 0 &&
-         "Memory alignment has to be power of 2");
-  if (stream && *stream != nullptr) {
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMallocAsync(reinterpret_cast<void **>(&memory), size, *stream));
-    MTRT_DBGF("[CustomTensorRTAllocator][allocate]: Asynchronously allocated %lx bytes at 0x%lx on stream %lx", size,
-              reinterpret_cast<uintptr_t>(memory),
-              reinterpret_cast<uintptr_t>(*stream));
-  } else {
-    RETURN_ERROR_IF_CUDART_ERROR(
-        cudaMalloc(reinterpret_cast<void **>(&memory), size));
-    MTRT_DBGF("[CustomTensorRTAllocator][allocate]: Synchronously allocated %lx bytes at 0x%lx", size,
-              reinterpret_cast<uintptr_t>(memory));
-  }
-  assert(reinterpret_cast<uintptr_t>(memory) % alignment == 0);
+  cudaMalloc(reinterpret_cast<void **>(&memory), size);
   return memory;
 }
 
-StatusOr<bool>
-CustomTensorRTAllocator::deallocate(void *const memory,
-                                    std::optional<cudaStream_t> stream) {
-  if (stream && *stream != nullptr) {
-    MTRT_DBGF("[CustomTensorRTAllocator][deallocate]: Asynchronously freeing CUDA device memory 0x%lx on stream %lx",
-              reinterpret_cast<uintptr_t>(memory),
-              reinterpret_cast<uintptr_t>(*stream));
-    RETURN_ERROR_IF_CUDART_ERROR(cudaFreeAsync(memory, *stream));
-  } else {
-    MTRT_DBGF("[CustomTensorRTAllocator][deallocate]: Synchronously freeing CUDA device/pinned host memory 0x%lx ptr "
-              "on stream %lx",
-              reinterpret_cast<uintptr_t>(memory),
-              reinterpret_cast<uintptr_t>(*stream));
-    RETURN_ERROR_IF_CUDART_ERROR(cudaFree(memory));
-  }
+bool CustomTensorRTAllocator::deallocate(void *const memory) {
+  cudaFree(memory);
   return true;
-}
-
-StatusOr<void *> CustomTensorRTAllocator::reallocate(
-    void * /* baseAddr */, uint64_t /* alignment */, uint64_t /* newSize */,
-    std::optional<cudaStream_t> /* stream */) {
-  return nullptr;
 }
 
 //===----------------------------------------------------------------------===//

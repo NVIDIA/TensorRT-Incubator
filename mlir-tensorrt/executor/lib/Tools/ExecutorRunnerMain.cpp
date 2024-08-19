@@ -213,7 +213,7 @@ executor::ExecutorRunnerMain(int argc, char **argv,
   }
 
   mlirtrt::StatusOr<int64_t> executionResult =
-      mlirtrt::runtime::runExecutorExecutable(std::move(*executable), allocator.get());
+      mlirtrt::runtime::runExecutorExecutable(std::move(*executable), std::move(allocator));
   if (!executionResult.isOk())
     return emitError(UnknownLoc::get(&context))
            << "failed to load and run executable: "

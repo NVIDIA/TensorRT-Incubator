@@ -82,19 +82,16 @@ public:
     return deallocateAsync(memory, nullptr);
   }
 
-  void *allocateAsync(uint64_t const size, uint64_t const alignment,
-                      uint32_t flags, cudaStream_t stream) noexcept final {
-    StatusOr<void *> status =
-        mGpuAllocatorCallBack->allocate(size, alignment, flags, stream);
-    assert(status.isOk());
-    return *status;
+  void *allocateAsync(uint64_t const size, uint64_t const /*alignment*/,
+                      uint32_t /*flags*/, cudaStream_t /*stream*/) noexcept final {
+    void* result = mGpuAllocatorCallBack->allocate(size);
+    return result;
   }
 
   bool deallocateAsync(void *const memory,
-                       cudaStream_t stream) noexcept override {
-    StatusOr<bool> status = mGpuAllocatorCallBack->deallocate(memory, stream);
-    assert(status.isOk());
-    return *status;
+                       cudaStream_t /*stream*/) noexcept override {
+    bool result = mGpuAllocatorCallBack->deallocate(memory);
+    return result;
   }
 
 private:

@@ -171,7 +171,7 @@ static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
 /// global initialization.
 StatusOr<std::unique_ptr<RuntimeSession>>
 mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
-    ExecutableView executable, GpuAllocator* allocator, const RuntimeSessionOptions &options) {
+    ExecutableView executable, std::unique_ptr<GpuAllocator> allocator, const RuntimeSessionOptions &options) {
   ADD_RUNTIME_MODULE_RANGE("runtime_loadExecutable");
 
   MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
@@ -184,7 +184,7 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   lua.open_libraries(sol::lib::base, sol::lib::string);
   registerLuaRuntimeMethods(lua.lua_state(), options,
                             pinnedMemoryAllocator.get(), allocTracker.get(),
-                            resourceTracker.get(), allocator);
+                            resourceTracker.get(), allocator.get());
 
   // Load globals into the context.
   // TODO: eliminate this copy, we already own the executable.
@@ -225,11 +225,11 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   }
   return std::make_unique<RuntimeSession>(
       options, executable, std::move(lua), std::move(pinnedMemoryAllocator),
-      std::move(allocTracker), std::move(resourceTracker), allocator);
+      std::move(allocTracker), std::move(resourceTracker), std::move(allocator));
 }
 
 StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
-    std::unique_ptr<Executable> executable, GpuAllocator* allocator) {
+    std::unique_ptr<Executable> executable, std::unique_ptr<GpuAllocator> allocator) {
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
@@ -245,7 +245,7 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
     return options.getStatus();
 
   StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(executable->getView(), allocator, *options);
+      createRuntimeSessionWithLuaBackend(executable->getView(), std::move(allocator), *options);
   if (!session.isOk())
     return session.getStatus();
 

@@ -31,6 +31,8 @@
 #include <stdexcept>
 #include <string_view>
 
+#include "cuda_runtime.h"
+
 namespace py = pybind11;
 using namespace mlirtrt;
 
@@ -184,14 +186,69 @@ public:
       mtrtPythonCapsuleToRuntimeValue, mtrtPythonRuntimeValueToCapsule};
 };
 
-/// Python object type wrapper for `MTRT_GpuAllocator`.
-class PyGpuAllocator : public PyMTRTWrapper<PyGpuAllocator, MTRT_GpuAllocator> {
+// Abstract base class for Python-implemented GPU allocators.
+// Provides a C++ interface for Python classes and handles C-style callback
+// routing.
+class PyGpuAllocator {
 public:
-  using Base::Base;
-  DECLARE_WRAPPER_CONSTRUCTORS(PyGpuAllocator);
+  virtual ~PyGpuAllocator() = default;
+  virtual std::uintptr_t allocate(uint64_t size) = 0;
+  virtual bool deallocate(std::uintptr_t ptr) = 0;
 
-  static constexpr auto kMethodTable = CAPITable<MTRT_GpuAllocator>{
-      mtrtGpuAllocatorIsNull, mtrtGpuAllocatorDestroy};
+  // Creates a C-compatible struct for interfacing with lower-level APIs.
+  MTRT_GpuAllocator getCApiObject() { return createWithPythonCallbacks(this); }
+
+private:
+  // Trampoline function: Routes C-style allocation calls to C++ virtual method.
+  static void *pyGpuAllocatorAllocate(void *self, uint64_t size) {
+    auto *allocator = static_cast<PyGpuAllocator *>(self);
+    std::uintptr_t ptr = allocator->allocate(size);
+    return reinterpret_cast<void *>(ptr);
+  }
+
+  // Trampoline function: Routes C-style deallocation calls to C++ virtual
+  // method.
+  static bool pyGpuAllocatorDeallocate(void *self, void *memory) {
+    auto *allocator = static_cast<PyGpuAllocator *>(self);
+    return allocator->deallocate(reinterpret_cast<std::uintptr_t>(memory));
+  }
+
+  // Constructs MTRT_GpuAllocator with this instance's methods as callbacks.
+  static MTRT_GpuAllocator
+  createWithPythonCallbacks(PyGpuAllocator *allocator) {
+    MTRT_GpuAllocator capi_allocator;
+    capi_allocator.ptr = allocator;
+    capi_allocator.allocate = pyGpuAllocatorAllocate;
+    capi_allocator.deallocate = pyGpuAllocatorDeallocate;
+    return capi_allocator;
+  }
+};
+
+// Pybind11 trampoline class for PyGpuAllocator.
+// Enables Python subclasses to override virtual methods of PyGpuAllocator.
+class PyGpuAllocatorTrampoline : public PyGpuAllocator {
+public:
+  using PyGpuAllocator::PyGpuAllocator; // Inherit constructors
+
+  // Trampoline for allocate: Dispatches call to Python implementation if
+  // overridden.
+  uintptr_t allocate(uint64_t size) override {
+    PYBIND11_OVERRIDE_PURE(uintptr_t,      // Return type
+                           PyGpuAllocator, // Parent class
+                           allocate,       // Name of function in C++
+                           size            // Arguments
+    );
+  }
+
+  // Trampoline for deallocate: Dispatches call to Python implementation if
+  // overridden.
+  bool deallocate(uintptr_t ptr) override {
+    PYBIND11_OVERRIDE_PURE(bool,           // Return type
+                           PyGpuAllocator, // Parent class
+                           deallocate,     // Name of function in C++
+                           ptr             // Arguments
+    );
+  }
 };
 
 /// Python object type wrapper for `MTRT_StableHLOToExecutableOptions`.
@@ -911,47 +968,34 @@ PYBIND11_MODULE(_api, m) {
            py::arg("num_devices") = 1, py::arg("device_id") = 0,
            py::arg("nccl_uuid") = py::str(""));
 
-  py::class_<PyGpuAllocator>(m, "GpuAllocator", py::module_local())
-      .def(py::init<>([]() -> PyGpuAllocator * {
-        MTRT_GpuAllocator allocator;
-        MTRT_Status s = mtrtGpuAllocatorCreate(&allocator);
-        THROW_IF_MTRT_ERROR(s);
-        return new PyGpuAllocator(allocator);
-      }))
-      .def(
-          "allocate",
-          [](PyGpuAllocator &self, uint64_t size, uint64_t alignment,
-             std::optional<uint32_t> flags, std::optional<MTRT_Stream> stream) {
-            void *memory{nullptr};
-            MTRT_Status s = mtrtGpuAllocatorAllocate(
-                self, size, alignment, flags ? *flags : 0,
-                stream ? *stream : mtrtStreamGetNull(), &memory);
-            THROW_IF_MTRT_ERROR(s);
-            // Add changes to ensure memory is not released prematurely.
-            return memory;
-          },
-          py::arg("size"), py::arg("alignment"), py::arg("flags") = py::none(),
-          py::arg("stream") = py::none())
-      .def(
-          "deallocate",
-          [](PyGpuAllocator &self, void *memory,
-             std::optional<MTRT_Stream> stream) {
-            bool result;
-            MTRT_Status s = mtrtGpuAllocatorDeallocate(
-                self, memory, stream ? *stream : mtrtStreamGetNull(), &result);
-            THROW_IF_MTRT_ERROR(s);
-            // Add changes to ensure memory is not released prematurely.
-            return result;
-          },
-          py::arg("memory"), py::arg("stream") = py::none());
+  py::class_<PyGpuAllocator, PyGpuAllocatorTrampoline>(m, "GpuAllocator")
+      .def(py::init<>())
+      .def("allocate", &PyGpuAllocator::allocate)
+      .def("deallocate", &PyGpuAllocator::deallocate)
+      .def("get_capi_object", &PyGpuAllocator::getCApiObject);
 
   py::class_<PyRuntimeSession>(m, "RuntimeSession", py::module_local())
       .def(py::init<>([](PyRuntimeSessionOptions &options, PyExecutable &exe,
-                         std::optional<MTRT_GpuAllocator> allocator) {
+                         py::object gpu_allocator = py::none()) {
              MTRT_RuntimeSession session;
-             MTRT_Status s = mtrtRuntimeSessionCreate(
-                 options, exe,
-                 allocator ? *allocator : mtrtGpuAllocatorGetNull(), &session);
+             MTRT_Status s;
+
+             if (gpu_allocator.is_none()) {
+               // Create session without custom allocator
+               s = mtrtRuntimeSessionCreate(
+                   options, exe, MTRT_GpuAllocator{nullptr}, &session);
+             } else {
+               try {
+                 PyGpuAllocator &allocator =
+                     gpu_allocator.cast<PyGpuAllocator &>();
+                 MTRT_GpuAllocator capi_allocator = allocator.getCApiObject();
+                 s = mtrtRuntimeSessionCreate(options, exe, capi_allocator,
+                                              &session);
+               } catch (const py::cast_error &) {
+                 throw py::type_error(
+                     "gpu_allocator must be a GpuAllocator object or None");
+               }
+             }
              THROW_IF_MTRT_ERROR(s);
              return new PyRuntimeSession(session);
            }),
