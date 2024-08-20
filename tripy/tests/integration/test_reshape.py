@@ -39,7 +39,7 @@ class TestReshape:
         b = tp.reshape(a, new_shape)
         if -1 in new_shape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
-        assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(new_shape).get())
+        assert tp.array_equal(b, tp.Tensor(cp_a.reshape(new_shape).get()))
 
     def test_invalid_neg_dim_reshape(self):
         shape = (1, 30)
@@ -52,7 +52,7 @@ class TestReshape:
         a = tp.ones((2, 3, 4))
         b = tp.ones((2, 3, 2, 2))
         out = tp.reshape(a, (a.shape[0], a.shape[1], b.shape[2], b.shape[3]))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
+        assert tp.array_equal(out, tp.ones((2, 3, 2, 2), dtype=tp.float32))
 
     def test_reshape_shape_with_unknown(self):
         a = tp.ones((2, 3, 4))

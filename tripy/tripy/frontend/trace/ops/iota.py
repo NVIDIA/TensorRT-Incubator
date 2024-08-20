@@ -110,7 +110,7 @@ def iota(
 
         output = tp.iota((3,), dim=-1)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.arange(0, 3, dtype=np.float32)))
     """
     from tripy.common.datatype import int64
 
@@ -149,7 +149,7 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtyp
         input = tp.Tensor([1, 2, 3])
         output = tp.iota_like(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.arange(0, 3, dtype=np.float32)))
     """
     from tripy.common.datatype import int64
 

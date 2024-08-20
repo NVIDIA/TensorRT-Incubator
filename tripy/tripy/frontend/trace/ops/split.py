@@ -234,8 +234,8 @@ def split(
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, 2, dim=0)
-        assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:2, :]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[2:, :]).get())
+        assert tp.array_equal(outputs[0], input[:2, :])
+        assert tp.array_equal(outputs[1], input[2:, :])
 
     .. code-block:: python
         :linenos:
@@ -243,8 +243,8 @@ def split(
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, 2, dim=1)
-        assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:, :2]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[:, 2:]).get())
+        assert tp.array_equal(outputs[0], input[:, :2])
+        assert tp.array_equal(outputs[1], input[:, 2:])
 
     .. code-block:: python
         :linenos:
@@ -252,9 +252,9 @@ def split(
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (4, 4))
         outputs = tp.split(input, [1, 2])
-        assert np.array_equal(cp.from_dlpack(outputs[0]).get(), cp.from_dlpack(input[:1, :]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[1]).get(), cp.from_dlpack(input[1:2, :]).get())
-        assert np.array_equal(cp.from_dlpack(outputs[2]).get(), cp.from_dlpack(input[2:, :]).get())
+        assert tp.array_equal(outputs[0], input[:1, :])
+        assert tp.array_equal(outputs[1], input[1:2, :])
+        assert tp.array_equal(outputs[2], input[2:, :])
     """
     if dim < 0 or dim >= input.rank:
         raise_error(f"Invalid split dimension {dim}", details=[input])

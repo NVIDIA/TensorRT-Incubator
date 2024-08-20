@@ -86,7 +86,7 @@ class Shape(Tensor):
             s = tp.Shape([1, 2, 3])
             t = s.as_tensor()
             assert isinstance(t, tp.Tensor) and not isinstance(t, tp.Shape)
-            assert np.array_equal(cp.from_dlpack(s).get(), cp.from_dlpack(t).get())
+            assert s == t
         """
         ret = Tensor(data=None, dtype=int32, name=self.name, device=self.device)
         ret.trace_tensor = self.trace_tensor

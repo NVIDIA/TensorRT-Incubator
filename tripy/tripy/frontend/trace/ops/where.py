@@ -172,7 +172,7 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
         other = tp.zeros([2, 2], dtype=tp.float32)
         output = tp.where(condition, input, other)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[1, 0], [1, 1]], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor([[1, 0], [1, 1]], dtype=tp.float32))
     """
     return Where.build([condition, input, other])
 
@@ -206,7 +206,7 @@ def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numb
         input = tp.zeros([2, 2])
         output = tp.masked_fill(input, mask, -1.0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[-1, 0], [-1, -1]], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor([[-1, 0], [-1, -1]], dtype=tp.float32))
     """
     from tripy.frontend.trace.ops.fill import full_like
 

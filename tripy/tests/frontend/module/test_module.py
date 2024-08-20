@@ -29,8 +29,8 @@ class TestModule:
         assert len(dict(test_net.named_parameters())) == 1
         assert len(dict(test_net.named_children())) == 2
 
-        result = np.array([1.0, 2.0]) + np.full(2, sum(call_args), dtype=np.float32)
-        assert np.array_equal(cp.from_dlpack(test_net(*inputs)).get(), result)
+        result = tp.Tensor(np.array([1.0, 2.0], dtype=np.float32) + np.full(2, sum(call_args), dtype=np.float32))
+        assert tp.array_equal(test_net(*inputs), result)
 
     def test_get_set_attr(self, network):
         network.new_attr = True

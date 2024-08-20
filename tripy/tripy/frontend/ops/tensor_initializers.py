@@ -58,7 +58,7 @@ def ones(
 
         output = tp.ones([2, 3])
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.ones([2, 3], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.ones([2, 3], dtype=np.float32)))
 
     .. seealso:: :func:`ones_like`, :func:`full`
     """
@@ -94,7 +94,7 @@ def zeros(
 
         output = tp.zeros([2, 3])
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.zeros([2, 3], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.zeros([2, 3], dtype=np.float32)))
 
     .. seealso:: :func:`zeros_like`, :func:`full`
     """
@@ -127,7 +127,7 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
         input = tp.zeros([2, 3], dtype=tp.float32)
         output = tp.ones_like(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.ones([2, 3], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.ones([2, 3], dtype=np.float32)))
 
     .. seealso:: :func:`ones`, :func:`full_like`
     """
@@ -160,7 +160,7 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
         input = tp.iota([2, 3], dtype=tp.float32)
         output = tp.zeros_like(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.zeros([2, 3], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.zeros([2, 3], dtype=np.float32)))
 
     .. seealso:: :func:`zeros`, :func:`full_like`
     """
@@ -199,7 +199,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((2, 1, 3, 3), dim=2) + 1.
         output = tp.tril(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get()))
+        assert tp.array_equal(output, tp.Tensor(np.tril(cp.from_dlpack(input).get())))
 
     .. code-block:: python
         :linenos:
@@ -208,7 +208,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.tril(input, diagonal=2)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), 2))
+        assert tp.array_equal(output, tp.Tensor(np.tril(cp.from_dlpack(input).get(), 2)))
 
     .. code-block:: python
         :linenos:
@@ -217,7 +217,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.tril(input, diagonal=-1)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
+        assert tp.array_equal(output, tp.Tensor(np.tril(cp.from_dlpack(input).get(), -1)))
     """
     from tripy.common.datatype import int64
 
@@ -261,7 +261,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((2, 1, 3, 3), dim=2) + 1.
         output = tp.triu(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get()))
+        assert tp.array_equal(output, tp.Tensor(np.triu(cp.from_dlpack(input).get())))
 
     .. code-block:: python
         :linenos:
@@ -270,7 +270,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.triu(input, diagonal=2)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get(), 2))
+        assert tp.array_equal(output, tp.Tensor(np.triu(cp.from_dlpack(input).get(), 2)))
 
     .. code-block:: python
         :linenos:
@@ -279,7 +279,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
         input = tp.iota((5, 5)) + 1. # doc: omit
         output = tp.triu(input, diagonal=-1)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get(), -1))
+        assert tp.array_equal(output, tp.Tensor(np.triu(cp.from_dlpack(input).get(), -1)))
     """
     from tripy.common.datatype import int64
 
@@ -321,7 +321,7 @@ def arange(
 
         output = tp.arange(0.5, 2.5)
 
-        assert (cp.from_dlpack(output).get() == np.arange(0.5, 2.5, dtype=np.float32)).all()
+        assert tp.array_equal(output, tp.Tensor(np.arange(0.5, 2.5, dtype=np.float32)))
 
     .. code-block:: python
         :linenos:
@@ -376,7 +376,7 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
 
         output = tp.arange(5)
 
-        assert (cp.from_dlpack(output).get() == np.arange(5, dtype=np.float32)).all()
+        assert tp.array_equal(output, tp.Tensor(np.arange(5, dtype=np.float32)))
     """
     from tripy.common.datatype import int64
 

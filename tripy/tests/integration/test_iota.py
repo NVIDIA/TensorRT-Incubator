@@ -103,9 +103,9 @@ class TestIota:
     def test_iota_from_shape_tensor(self):
         a = tp.ones((2, 2))
         output = tp.iota(a.shape)
-        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota("float32", (2, 2), 0))
+        assert tp.array_equal(output, tp.Tensor(self._compute_ref_iota("float32", (2, 2), 0)))
 
-    def test_iota_from_mixed_seqence(self):
+    def test_iota_from_mixed_sequence(self):
         a = tp.ones((2, 2))
         output = tp.iota((3, a.shape[0]))
-        assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota("float32", (3, 2), 0))
+        assert tp.array_equal(output, tp.Tensor(self._compute_ref_iota("float32", (3, 2), 0)))

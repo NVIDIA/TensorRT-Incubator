@@ -165,7 +165,7 @@ def sum(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.sum(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        assert tp.array_equal(output, tp.Tensor(np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0)))
     """
     from tripy.common.datatype import int64
 
@@ -202,7 +202,7 @@ def all(
         :caption: Example
 
         input = tp.Tensor([True, True], dtype=tp.bool)
-        assert tp.all(input) == tp.Tensor([True], dtype=tp.bool)
+        assert tp.all(input)
     """
     return _reduce_impl(input, Reduce.Kind.AND, dim, keepdim)
 
@@ -235,7 +235,7 @@ def any(
         :caption: Example
 
         input = tp.Tensor([True, False], dtype=tp.bool)
-        assert tp.any(input) == tp.Tensor([True], dtype=tp.bool)
+        assert tp.any(input)
     """
     return _reduce_impl(input, Reduce.Kind.OR, dim, keepdim)
 
@@ -270,7 +270,7 @@ def max(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.max(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        assert tp.array_equal(output, tp.Tensor(np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0)))
     """
     from tripy.common.datatype import int64
 
@@ -309,7 +309,7 @@ def prod(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.prod(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        assert tp.array_equal(output, tp.Tensor(np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0)))
     """
     from tripy.common.datatype import int64
 
@@ -370,7 +370,7 @@ def mean(
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.mean(input, dim=1, keepdim=True)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
+        assert tp.array_equal(output, tp.Tensor(np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True)))
     """
     from tripy.common.datatype import int64
 
@@ -418,7 +418,7 @@ def var(
         output = tp.var(input, dim=1, keepdim=True)
 
         torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
-        assert np.array_equal(cp.from_dlpack(output).get(), np.from_dlpack(torch_input.var(dim=1, keepdim=True)))
+        assert tp.array_equal(output, tp.Tensor(np.from_dlpack(torch_input.var(dim=1, keepdim=True))))
     """
     from tripy.frontend.trace.ops.binary_elementwise import maximum
 
@@ -474,7 +474,7 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.argmax(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.argmax(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        assert tp.array_equal(output, tp.Tensor(np.argmax(np.arange(6, dtype=np.float32).reshape((2, 3)), 0)))
     """
     return _arg_min_max_impl(input, ArgMinMax.Kind.ARG_MAX, dim, keepdim)
 
@@ -508,6 +508,6 @@ def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.argmin(input, 0)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.argmin(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
+        assert tp.array_equal(output, tp.Tensor(np.argmin(np.arange(6, dtype=np.float32).reshape((2, 3)), 0)))
     """
     return _arg_min_max_impl(input, ArgMinMax.Kind.ARG_MIN, dim, keepdim)

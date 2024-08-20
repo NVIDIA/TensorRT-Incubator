@@ -103,7 +103,7 @@ def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int
         input = tp.iota((2, 1), dtype=tp.float32)
         output = tp.expand(input, (-1, 4))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (2, 4)))
+        assert tp.array_equal(output, tp.Tensor(np.broadcast_to(cp.from_dlpack(input).get(), (2, 4))))
 
     .. code-block:: python
         :linenos:
@@ -112,7 +112,7 @@ def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int
         input = tp.iota((1, 1), dtype=tp.float32)
         output = tp.expand(input, (3, -1, -1))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
+        assert tp.array_equal(output, tp.Tensor(np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1))))
     """
     from tripy.frontend.tensor import Tensor
 

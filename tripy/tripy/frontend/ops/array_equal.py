@@ -36,7 +36,7 @@ def array_equal(a: "tripy.Tensor", b: "tripy.Tensor") -> bool:
 
         # doc: print-locals a, b, is_equal
 
-        a = tp.ones((2,2))
+        a = tp.ones((2,2), dtype=tp.int32)
         b = tp.Tensor([
             [1, 1],
             [1, 1]
@@ -45,6 +45,13 @@ def array_equal(a: "tripy.Tensor", b: "tripy.Tensor") -> bool:
         assert is_equal
     """
     from tripy.frontend.trace.ops.reduce import all
+    from tripy.frontend.trace.ops.cast import cast
 
-    # `tp.Shape` overloads `__eq__`, therefore we can directly compare shapes here.
-    return a.shape == b.shape and a.dtype == b.dtype and bool(all(a == b))
+    # `tp.Shape` overloads `__ne__`, therefore we can directly compare shapes here.
+    if a.shape != b.shape:
+        return False
+
+    if a.dtype != b.dtype:
+        b = cast(b, a.dtype)
+
+    return bool(all(a == b))

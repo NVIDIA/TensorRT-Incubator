@@ -232,7 +232,7 @@ def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.floa
 
         output = tp.theta([3])
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.arange(0, 3, dtype=np.float32)))
     """
 
     # Next we build the trace operator. The `build()` function is also responsible for constructing
@@ -410,9 +410,9 @@ import tripy as tp
 
 def test_multi_dimensional():
     output = tp.theta([2, 3], dim=1)
-    expected = np.broadcast_to(np.arange(0, 3, dtype=np.float32), (2, 3))
+    expected = tp.Tensor(np.broadcast_to(np.arange(0, 3, dtype=np.float32), (2, 3)))
 
-    assert np.array_equal(cp.from_dlpack(output).get(), expected)
+    assert tp.array_equal(output, expected)
 
 ```
 

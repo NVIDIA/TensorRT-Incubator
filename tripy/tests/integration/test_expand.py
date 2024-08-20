@@ -25,21 +25,21 @@ class TestExpand:
     def test_int_sizes(self):
         input = tp.ones((2, 1))
         out = tp.expand(input, (-1, 2))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 2), dtype=np.float32))
+        assert tp.array_equal(out, tp.Tensor(np.ones((2, 2), dtype=np.float32)))
 
     def test_shape_sizes(self):
         input = tp.ones((2, 1))
         a = tp.ones((2, 4))
         out = tp.expand(input, a.shape)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 4), dtype=np.float32))
+        assert tp.array_equal(out, tp.Tensor(np.ones((2, 4), dtype=np.float32)))
 
     def test_extra_dims(self):
         input = tp.ones((2, 1))
         out = tp.expand(input, (1, -1, 2))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((1, 2, 2), dtype=np.float32))
+        assert tp.array_equal(out, tp.Tensor(np.ones((1, 2, 2), dtype=np.float32)))
 
     def test_mixed_sizes(self):
         input = tp.ones((2, 1, 1))
         a = tp.ones((4, 4))
         out = tp.expand(input, (-1, a.shape[0], a.shape[1]))
-        assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 4, 4), dtype=np.float32))
+        assert tp.array_equal(out, tp.Tensor(np.ones((2, 4, 4), dtype=np.float32)))

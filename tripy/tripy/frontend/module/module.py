@@ -92,7 +92,7 @@ class Module:
         input = tp.Tensor([1.0, 1.0], dtype=tp.float32)
         output = add_bias(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
+        assert tp.array_equal(output, tp.Tensor([2.0, 2.0]))
     """
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -178,7 +178,7 @@ class Module:
 
             print(f"After: {module.param}")
 
-            assert np.array_equal(cp.from_dlpack(module.state_dict()["param"]).get(), np.array(np.zeros((2,), dtype=np.float32)))
+            assert tp.array_equal(module.state_dict()["param"], tp.Tensor(np.zeros((2,), dtype=np.float32)))
 
         .. seealso:: :func:`state_dict`
         """

@@ -36,9 +36,7 @@ class TestConcatenate:
     def test_concat(self, tensor_shapes, dim):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
         out = tp.concatenate(tensors, dim=dim)
-        assert np.array_equal(
-            cp.from_dlpack(out).get(), np.concatenate([np.ones(shape) for shape in tensor_shapes], axis=dim)
-        )
+        assert tp.array_equal(out, tp.Tensor(np.concatenate([np.ones(shape, dtype=np.float32) for shape in tensor_shapes], axis=dim)))
 
     @pytest.mark.parametrize(
         "tensor_shapes, dim",

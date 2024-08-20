@@ -127,7 +127,7 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
         indices = tp.Tensor([0, 2], dtype=tp.int32)
         output = tp.gather(data, 1, indices)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
+        assert tp.array_equal(output, tp.Tensor(np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1)))
     """
     from tripy.common.datatype import int64
 

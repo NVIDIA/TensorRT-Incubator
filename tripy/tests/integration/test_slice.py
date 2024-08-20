@@ -78,7 +78,7 @@ class TestSliceOp:
             return slice_func(a)
 
         out = func(a)
-        assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())
+        assert tp.array_equal(out, tp.Tensor(slice_func(a_cp).get()))
 
     def test_slice_as_gather(self):
         x_data = [0, 1, 2]
@@ -88,7 +88,7 @@ class TestSliceOp:
         x_cp = cp.array(x_data)
         y_cp = cp.array(y_data)
 
-        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())
+        assert tp.array_equal(y[x], tp.Tensor(y_cp[x_cp].get()))
 
         x_shape = (2, 2)
         y_shape = (4, 3, 2)
@@ -99,4 +99,4 @@ class TestSliceOp:
         x_cp = cp.arange(x_vol, dtype=cp.int32).reshape(x_shape)
         y_cp = cp.arange(y_vol).reshape(y_shape)
 
-        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())
+        assert tp.array_equal(y[x], tp.Tensor(y_cp[x_cp].get()))

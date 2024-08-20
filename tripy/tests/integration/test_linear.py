@@ -132,4 +132,4 @@ class TestQuantLinear:
 
         np_out = cp_input.get() @ (np_weight.transpose()) + np_bias
 
-        assert np.array_equal(cp.from_dlpack(out).get(), np_out)
+        assert tp.array_equal(out, tp.Tensor(np_out))

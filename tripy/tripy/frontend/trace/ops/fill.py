@@ -115,7 +115,7 @@ def full(
 
         output = tp.full(shape=[2, 3], value=2)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.full([2, 3], 2, dtype=np.float32)))
     """
     output_rank = len(shape) if isinstance(shape, Sequence) else None
     return full_impl(shape, value, dtype, output_rank)
@@ -149,6 +149,6 @@ def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tri
         input = tp.Tensor([[1, 2], [3, 4]])
         output = tp.full_like(input, value=2)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.array([[2, 2], [2, 2]], dtype=np.float32)))
     """
     return full_impl(input.shape, value, utils.default(dtype, input.dtype), input.rank)

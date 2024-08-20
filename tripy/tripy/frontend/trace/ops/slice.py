@@ -195,16 +195,15 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (1, 2, 3, 1))
         output = input[:, 1:2, :-1, 0]
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0])
+        assert tp.array_equal(output, tp.Tensor(np.arange(6, dtype=np.float32).reshape((1, 2, 3, 1))[:, 1:2, :-1, 0]))
 
     .. code-block:: python
         :linenos:
         :caption: Negative step size
 
-        input = tp.arange(10)
+        input = tp.arange(10, dtype=tp.int32)
         output = input[8:2:-1]
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
-
+        assert tp.array_equal(output, tp.Tensor(np.arange(10, dtype=np.int32)[8:2:-1]))
     """
     from tripy.frontend.shape import Shape
     from tripy.frontend.tensor import Tensor
