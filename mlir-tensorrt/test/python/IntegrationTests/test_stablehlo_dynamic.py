@@ -115,7 +115,7 @@ def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
         return
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-    session = runtime.RuntimeSession(session_options, exe)
+    session = runtime.RuntimeSession(session_options, exe, gpu_allocator=None)
 
     arg0 = client.create_memref(
         np.ones(input_shape, dtype=np.float32).data,

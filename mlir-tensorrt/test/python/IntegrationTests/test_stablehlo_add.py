@@ -15,29 +15,26 @@ func.func @main(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 """
 
 
-class AppGpuAllocator(runtime.GpuAllocator):
+class CupyGPUAllocator(runtime.GpuAllocator):
     def __init__(self):
-        # Initialize the base class
         super().__init__()
+        self.allocations = {}  # Keep track of allocations
 
-    def allocate(self, size, alignment, flags=None, stream=None):
-        # Implement memory allocation using CuPy
-        # Allocate memory on the GPU
-        import pdb
+    def allocate(self, size):
+        # Allocate memory on the GPU using CuPy
+        mem = cp.cuda.alloc(size)
+        ptr = int(mem.ptr)  # Convert to integer
+        # Store the CuPy memory object
+        self.allocations[ptr] = mem
+        return ptr
 
-        pdb.set_trace()
-        memory = cp.empty(size, dtype=cp.uint8)
-        print(
-            f"Allocated memory: {memory.data.ptr}"
-        )  # Print pointer to allocated GPU memory
-        return memory  # Return the CuPy array
-
-    def deallocate(self, memory, stream=None):
-        # Deallocate memory in CuPy
-        # CuPy handles memory automatically, so explicit deallocation is not necessary
-        print(f"Deallocating memory: {memory}")
-        del memory  # Explicitly delete the CuPy array if needed
-        return True
+    def deallocate(self, ptr):
+        if ptr in self.allocations:
+            # Remove the reference to the CuPy memory object
+            # This will trigger deallocation if there are no other references
+            del self.allocations[ptr]
+            return True
+        return False
 
 
 def stablehlo_add():
@@ -62,7 +59,8 @@ def stablehlo_add():
     if len(devices) == 0:
         return
 
-    allocator = AppGpuAllocator()
+    # Create an instance of the custom allocator
+    allocator = CupyGPUAllocator()
 
     session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
     session = runtime.RuntimeSession(session_options, exe, gpu_allocator=allocator)

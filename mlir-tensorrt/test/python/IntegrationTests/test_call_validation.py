@@ -62,7 +62,7 @@ class Test:
         return self.client.create_scalar(value, runtime.ScalarTypeCode.i64)
 
     def execute(self, arg: runtime.RuntimeValue):
-        session = runtime.RuntimeSession(self.session_options, self.exe)
+        session = runtime.RuntimeSession(self.session_options, self.exe, None)
         try:
             session.execute_function(
                 "main", in_args=[arg], out_args=[arg], stream=self.stream
