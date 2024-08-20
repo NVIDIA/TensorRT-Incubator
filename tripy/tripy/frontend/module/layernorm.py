@@ -16,6 +16,7 @@
 #
 
 from dataclasses import dataclass
+from typing import Union, Tuple
 
 from tripy import export, utils
 from tripy.common import datatype
@@ -33,10 +34,16 @@ class LayerNorm(Module):
     :math:`\text{LayerNorm}(x) = \Large \frac{x - \bar{x}}{ \sqrt{\sigma^2 + \epsilon}} \normalsize * \gamma + \beta`
 
     where :math:`\bar{x}` is the mean and :math:`\sigma^2` is the variance.
+
+    The mean the standard deviation are calculated over the last :math:`D`
+    dimensions, where :math:`D` is the dimension of `normalized_shape`.
     """
 
     dtype: datatype.dtype
     r"""The data type used to perform the operation."""
+
+    normalized_shape: Tuple[int]
+    r"""Defines the shape of the input tensor that is to be normalized over."""
 
     weight: Parameter
     r"""The :math:`\gamma` parameter of shape :math:`[\text{normalized_shape}]`."""
@@ -47,7 +54,7 @@ class LayerNorm(Module):
     eps: float
     """A value added to the denominator to prevent division by zero."""
 
-    def __init__(self, normalized_shape: int, dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:
+    def __init__(self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:
         """
         Args:
             normalized_shape: The size of the feature dimension of the input over which normalization is performed.
@@ -77,9 +84,14 @@ class LayerNorm(Module):
         self.dtype = dtype
 
         # Replace with random weights when #74 is completed.
-        self.weight = DefaultParameter((normalized_shape,), dtype=dtype)
+        if isinstance(normalized_shape, int):
+            normalized_shape = (normalized_shape,)
 
-        self.bias = DefaultParameter((normalized_shape,), dtype=dtype)
+        self.normalized_shape = normalized_shape
+
+        self.weight = DefaultParameter(normalized_shape, dtype=dtype)
+
+        self.bias = DefaultParameter(normalized_shape, dtype=dtype)
 
         self.eps = eps
 
@@ -93,8 +105,16 @@ class LayerNorm(Module):
         """
         from tripy.frontend.trace.ops.reduce import mean, var
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
+        from tripy.common.exception import raise_error
+        import tripy as tp
 
-        mean_val = mean(x, dim=-1, keepdim=True)
-        var_val = var(x, dim=-1, keepdim=True, correction=0) + self.eps
+        # The mean and the variance are computed over the last D dimensions
+        D = len(self.normalized_shape)
+
+        if x[-D:].shape != tp.Shape(self.normalized_shape):
+            raise_error(f"The input's last {D} dimensions must have a shape of {self.normalized_shape}")
+
+        mean_val = mean(x, dim=-D, keepdim=True)
+        var_val = var(x, dim=-D, keepdim=True, correction=0) + self.eps
         x = (x - mean_val) * rsqrt(var_val)
         return self.weight * x + self.bias
