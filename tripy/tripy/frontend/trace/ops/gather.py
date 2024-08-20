@@ -121,5 +121,5 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
     from tripy.common.datatype import int64
 
     if input.dtype == int64:
-        raise_error("Known issue with i64. Gather currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. Gather currently does not work with int64 inputs. Issue #116")
     return Gather.build([input, index], dim)

@@ -242,5 +242,5 @@ def __matmul__(self, other: "tripy.Tensor") -> "tripy.Tensor":
     from tripy.common.datatype import int64
 
     if other.dtype == int64:
-        raise_error("Known issue with i64. __matmul__ currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. __matmul__ currently does not work with int64 inputs. Issue #116")
     return MatrixMultiplication.build([self, other])

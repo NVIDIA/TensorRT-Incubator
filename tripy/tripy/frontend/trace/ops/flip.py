@@ -73,7 +73,7 @@ def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None
     from tripy.common.datatype import int64
 
     if input.dtype == int64:
-        raise_error("Known issue with i64. Flip currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. Flip currently does not work with int64 inputs. Issue #116")
     rank = input.rank
     if dims is None:
         dims = [d for d in range(rank)]

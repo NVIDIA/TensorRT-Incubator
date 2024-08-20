@@ -328,5 +328,5 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
     from tripy.common.datatype import int64
 
     if dtype == int64:
-        raise_error("Known issue with i64. Arange currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. Arange currently does not work with int64 inputs. Issue #116")
     return arange(0, stop, dtype=dtype)

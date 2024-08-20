@@ -111,7 +111,7 @@ def iota(
     from tripy.common.datatype import int64
 
     if dtype == int64:
-        raise_error("Known issue with i64. Iota currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. Iota currently does not work with int64 inputs. Issue #116")
     output_rank = len(shape) if isinstance(shape, Sequence) else None
     return iota_impl(shape, dim, dtype, output_rank)
 
@@ -143,5 +143,5 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtyp
     from tripy.common.datatype import int64
 
     if dtype == int64:
-        raise_error("Known issue with i64. Iota_like currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. Iota_like currently does not work with int64 inputs. Issue #116")
     return iota_impl(input.shape, dim, utils.default(dtype, input.dtype), input.rank)

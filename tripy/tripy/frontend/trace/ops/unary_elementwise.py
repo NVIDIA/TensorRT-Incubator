@@ -243,5 +243,5 @@ def abs(input: "tripy.Tensor") -> "tripy.Tensor":
     from tripy.common.datatype import int64
 
     if input.dtype == int64:
-        raise_error("Known issue with i64. Abs currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. Abs currently does not work with int64 inputs. Issue #116")
     return UnaryElementwise.build([input], UnaryElementwise.Kind.ABS)

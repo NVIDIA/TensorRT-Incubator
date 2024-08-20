@@ -47,7 +47,7 @@ def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: fl
     from tripy.common.datatype import int64, bool as tp_bool
 
     if a.dtype == int64:
-        raise_error("Known issue with i64. Allclose currently does not work with int64 inputs.")
+        raise_error("Known issue with i64. Allclose currently does not work with int64 inputs. Issue #116")
     if a.dtype == tp_bool and b.dtype == tp_bool:
         compare = a == b
     else:
