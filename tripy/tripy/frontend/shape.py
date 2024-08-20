@@ -162,7 +162,7 @@ class Shape(Tensor):
 
         # `.shape` will contain a single int. To avoid endlessly calling
         # Shape.__eq__, we can compare the int's directly using `.data()`
-        if self.shape.data() != other.shape.data():
+        if len(self.shape) != len(other.shape):
             return False 
 
         return bool(all(self.as_tensor() == other.as_tensor()))
