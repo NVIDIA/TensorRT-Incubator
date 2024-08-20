@@ -191,6 +191,9 @@ public:
 // routing.
 class PyGpuAllocator {
 public:
+  py::object pySelf;
+  PyGpuAllocator(py::object self) : pySelf(self) {}
+
   virtual ~PyGpuAllocator() = default;
   virtual std::uintptr_t allocate(uint64_t size) = 0;
   virtual bool deallocate(std::uintptr_t ptr) = 0;
@@ -201,6 +204,7 @@ public:
 private:
   // Trampoline function: Routes C-style allocation calls to C++ virtual method.
   static void *pyGpuAllocatorAllocate(void *self, uint64_t size) {
+    py::gil_scoped_acquire acquire;
     auto *allocator = static_cast<PyGpuAllocator *>(self);
     std::uintptr_t ptr = allocator->allocate(size);
     return reinterpret_cast<void *>(ptr);
@@ -209,6 +213,7 @@ private:
   // Trampoline function: Routes C-style deallocation calls to C++ virtual
   // method.
   static bool pyGpuAllocatorDeallocate(void *self, void *memory) {
+    py::gil_scoped_acquire acquire;
     auto *allocator = static_cast<PyGpuAllocator *>(self);
     return allocator->deallocate(reinterpret_cast<std::uintptr_t>(memory));
   }
@@ -969,7 +974,8 @@ PYBIND11_MODULE(_api, m) {
            py::arg("nccl_uuid") = py::str(""));
 
   py::class_<PyGpuAllocator, PyGpuAllocatorTrampoline>(m, "GpuAllocator")
-      .def(py::init<>())
+      .def(py::init<>(
+          [](py::object self) { return new PyGpuAllocatorTrampoline(self); }))
       .def("allocate", &PyGpuAllocator::allocate)
       .def("deallocate", &PyGpuAllocator::deallocate)
       .def("get_capi_object", &PyGpuAllocator::getCApiObject);
@@ -983,7 +989,8 @@ PYBIND11_MODULE(_api, m) {
              if (gpu_allocator.is_none()) {
                // Create session without custom allocator
                s = mtrtRuntimeSessionCreate(
-                   options, exe, MTRT_GpuAllocator{nullptr}, &session);
+                   options, exe, MTRT_GpuAllocator{nullptr, nullptr, nullptr},
+                   &session);
              } else {
                try {
                  PyGpuAllocator &allocator =
