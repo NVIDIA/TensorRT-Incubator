@@ -457,6 +457,7 @@ def create_memref_from_dlpack(arr, module):
     print(f"-- Memref dtype: {memref.dtype}")
     print(f"-- {module.__name__}.from_dlpack(): {module.from_dlpack(memref)}")
 
+
 print(f"Test np.array -> client.create_memref_from_dlpack")
 create_memref_from_dlpack(np.array([1, 2, 3, 4], dtype=np.int32), np)
 create_memref_from_dlpack(np.ones((1, 2, 3), dtype=np.float32), np)
