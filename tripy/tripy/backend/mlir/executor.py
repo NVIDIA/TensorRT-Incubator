@@ -20,9 +20,9 @@ from typing import List
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.runtime.api as runtime
 
+from tripy.backend.mlir.memref import create_empty_memref
 from tripy.backend.utils import TensorInfo
 from tripy.common import datatype, device
-from tripy.common.memref import create_empty_memref
 from tripy.common.exception import raise_error
 from tripy.utils import log_time, make_tuple
 
@@ -143,7 +143,7 @@ class Executor:
         in_args = []
         for inp in inputs:
             assert isinstance(inp.trace_tensor.producer, Storage) and inp.trace_tensor.producer.has_memref
-            memref = inp.trace_tensor.producer.data.memref_value
+            memref = inp.trace_tensor.producer.data
             # HACK (#155): MLIR-TensorRT requires inputs to be on device.
             # Remove explicit copy to device once #155 is addressed.
             if memref.address_space != runtime.PointerType.device:
@@ -168,7 +168,7 @@ class Executor:
 
         out_args = []
         for out in outputs:
-            memref = out.memref_value
+            memref = out
             # HACK (#155): MLIR-TensorRT requires inputs to be on device.
             # Remove explicit copy to device once #155 is addressed.
             if memref.address_space != runtime.PointerType.device:
@@ -189,7 +189,7 @@ class Executor:
             if out_info.device.kind != "gpu":
                 self.runtime_client.copy_to_host(
                     device_memref=out_args[idx],
-                    existing_host_memref=outputs[idx].memref_value,
+                    existing_host_memref=outputs[idx],
                     stream=None,
                 )
 

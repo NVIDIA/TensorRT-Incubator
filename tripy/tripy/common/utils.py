@@ -18,14 +18,10 @@
 import array
 import re
 import struct
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Sequence
 
 from tripy.common.exception import raise_error
-from tripy.logging import logger
-from tripy.common.datatype import float32, int32, int64
-from tripy.common.datatype import bool as tp_bool
 import tripy.common.datatype
-from tripy.common.datatype import DATA_TYPES
 
 
 def get_supported_array_type() -> List["tripy.common.datatype"]:
@@ -66,7 +62,6 @@ def get_element_type(elements):
             ],
         )
 
-    assert dtype is None or dtype in get_supported_array_type()
     return dtype
 
 
@@ -136,6 +131,14 @@ def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
         raise ValueError(f"Unsupported type: {dtype}")
 
     return array.array(TYPE_TO_FORMAT[dtype], values)
+
+
+def has_no_contents(data: Sequence) -> bool:
+    while isinstance(data, Sequence):
+        if len(data) == 0:
+            return True
+        data = data[0]
+    return False
 
 
 class Float16MemoryView:

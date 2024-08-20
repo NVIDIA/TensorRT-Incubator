@@ -59,9 +59,7 @@ class Shape(Tensor):
                 )
 
             # the shape of data should correspond to the given rank
-            super().__init__(data=None, shape=None, dtype=int32, name=name, device=data.device)
-            # the device field is not set by the superclass constructor if the data field is not passed
-            self.device = data.device
+            super().__init__(data=None, dtype=int32, name=name, device=data.device)
             # share the underlying data
             self.trace_tensor = data.trace_tensor
             self.stack_info = data.stack_info
@@ -72,7 +70,7 @@ class Shape(Tensor):
                 raise_error(
                     f"Tensors used to represent shapes must be of rank 1, but given shape {shape} has rank {len(shape)}."
                 )
-            super().__init__(data=data, shape=shape, dtype=int32, name=name, device=device)
+            super().__init__(data=data, dtype=int32, name=name, device=device)
 
     def as_tensor(self) -> Tensor:
         """
@@ -90,7 +88,7 @@ class Shape(Tensor):
             assert isinstance(t, tp.Tensor) and not isinstance(t, tp.Shape)
             assert np.array_equal(cp.from_dlpack(s).get(), cp.from_dlpack(t).get())
         """
-        ret = Tensor(data=None, shape=(self.rank,), dtype=int32, name=self.name, device=self.device)
+        ret = Tensor(data=None, dtype=int32, name=self.name, device=self.device)
         ret.trace_tensor = self.trace_tensor
         ret.stack_info = self.stack_info
         return ret
@@ -125,7 +123,7 @@ class Shape(Tensor):
         return "shape" + tensor_repr[6:]
 
     def __str__(self) -> str:
-        return "shape" + "(" + ", ".join(map(str, self.data().data())) + ")"
+        return "shape" + "(" + ", ".join(map(str, self.tolist())) + ")"
 
     # addition for shapes is concatenation, not tensor addition
 

@@ -35,7 +35,7 @@ class TestReshape:
     )
     def test_static_reshape(self, shape, new_shape):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
-        a = tp.Tensor(cp_a, shape=shape, device=tp.device("gpu"))
+        a = tp.Tensor(cp_a, device=tp.device("gpu"))
         b = tp.reshape(a, new_shape)
         if -1 in new_shape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)

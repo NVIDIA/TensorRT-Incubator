@@ -61,7 +61,7 @@ class Parameter(Tensor):
     def _is_compatible(self, other: "Parameter") -> Result:
         # Determines whether another parameter has the same shape and
         # data type as this one.
-        return self._is_compatible_helper(self.shape.eval(), other.shape.eval(), self.dtype, other.dtype)
+        return self._is_compatible_helper(self.shape.tolist(), other.shape.tolist(), self.dtype, other.dtype)
 
 
 class DefaultParameter(Parameter):
@@ -81,6 +81,4 @@ class DefaultParameter(Parameter):
         self._dtype = dtype
 
     def _is_compatible(self, other: "Parameter") -> Result:
-        return self._is_compatible_helper(
-            tuple(self._shape), tuple(other.shape.eval().data()), self._dtype, other.dtype
-        )
+        return self._is_compatible_helper(tuple(self._shape), tuple(other.shape.tolist()), self._dtype, other.dtype)

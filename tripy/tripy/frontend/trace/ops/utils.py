@@ -138,8 +138,8 @@ def get_dim_size_1d_tensor(tensor: "FlatIRTensor", dim: int):
 
 
 def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
+    from tripy.backend.mlir.memref import create_empty_memref
     from tripy.common.datatype import int32
-    from tripy.common.memref import create_empty_memref
     from tripy.flat_ir.ops import ConstantOp
     from tripy.flat_ir.tensor import FlatIRTensor
 
@@ -171,9 +171,9 @@ def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
 
 
 def add_constant_tensor_from_list(data: list, device: "tripy.device"):
+    from tripy.backend.mlir.memref import create_empty_memref
     from tripy.common.datatype import int32
     from tripy.common.device import device
-    from tripy.common.memref import create_empty_memref
     from tripy.flat_ir.ops import ConstantOp
     from tripy.flat_ir.tensor import FlatIRTensor
 

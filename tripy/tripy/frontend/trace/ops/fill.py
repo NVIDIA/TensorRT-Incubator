@@ -135,7 +135,7 @@ def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tri
         :linenos:
         :caption: Example
 
-        input = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
+        input = tp.Tensor([[1, 2], [3, 4]])
         output = tp.full_like(input, value=2)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))

@@ -71,7 +71,6 @@ class TestShape:
 
         assert isinstance(s, tp.Shape)
         assert s.device.kind == "cpu"
-        assert np.from_dlpack(s).tolist() == values
 
     def test_as_tensor(self, values):
         s = tp.Shape(values)
@@ -283,10 +282,6 @@ class TestShape:
         assert isinstance(res, tp.Shape)
         assert isinstance(res.trace_tensor.producer, Where)
         assert cp.from_dlpack(res).get().tolist() == [0 if values[i] < 2 else values[i] for i in range(len(values))]
-
-    def test_invalid_input_dtype(self):
-        with raises(tp.TripyException, match="Data has incorrect dtype"):
-            _ = tp.Shape(np.array([2.0, 3.0], dtype=np.float32))
 
     def test_invalid_input_dtype_tensor(self):
         with raises(

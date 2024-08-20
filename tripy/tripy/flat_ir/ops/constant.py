@@ -54,6 +54,7 @@ class ConstantOp(BaseFlatIROp):
                     stream=None,
                 )
 
+            # TODO: we can further drop the cast by tolist(memref) -> mlir
             # Workaround (#208): bools are represented as i1 in MLIR-TRT but they cannot be used for DenseElementsAttr
             # so we have to represent them as ints and then cast the result
             if self.outputs[0].dtype == datatype.bool:
