@@ -670,6 +670,11 @@ public:
 
   // Static method to create a GpuAllocator from MTRT_GpuAllocator
   static std::unique_ptr<GpuAllocator> create(MTRT_GpuAllocator gpuAllocator) {
+    if (!gpuAllocator.ptr || !gpuAllocator.allocate ||
+        !gpuAllocator.deallocate) {
+      llvm::errs() << "Invalid MTRT_GpuAllocator passed to create()";
+      return nullptr;
+    }
     return std::make_unique<GpuAllocatorWrapper>(gpuAllocator);
   }
 };
@@ -681,8 +686,10 @@ MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
   RuntimeSessionOptions *cppOptions = unwrap(options);
   Executable *cppExecutable = unwrap(executable);
 
-  std::unique_ptr<GpuAllocator> allocator =
-      gpuAllocator.ptr ? GpuAllocatorWrapper::create(gpuAllocator) : nullptr;
+  std::unique_ptr<GpuAllocator> allocator;
+  if (gpuAllocator.ptr) {
+    allocator.reset(GpuAllocatorWrapper::create(gpuAllocator).release());
+  }
 
   StatusOr<std::unique_ptr<RuntimeSession>> session =
       createRuntimeSessionWithLuaBackend(cppExecutable->getView(),

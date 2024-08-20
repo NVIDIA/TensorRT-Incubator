@@ -17,7 +17,7 @@ func.func @main(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 
 class CupyGPUAllocator(runtime.GpuAllocator):
     def __init__(self):
-        super().__init__()
+        super().__init__(self)
         self.allocations = {}  # Keep track of allocations
 
     def allocate(self, size):
