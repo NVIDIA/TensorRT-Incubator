@@ -46,14 +46,46 @@ using namespace mlirtrt;
 // CustomTensorRTAllocator
 //===----------------------------------------------------------------------===//
 
-void *CustomTensorRTAllocator::allocate(uint64_t const size) {
+
+void*
+CustomTensorRTAllocator::allocate(uint64_t const size, uint64_t const alignment,
+                                  uint32_t /*flags*/,
+                                  cudaStream_t* stream) {
   uint8_t *memory;
-  cudaMalloc(reinterpret_cast<void **>(&memory), size);
+  assert(alignment > 0 && (alignment & (alignment - 1)) == 0 &&
+         "Memory alignment has to be power of 2");
+  if (stream && *stream != nullptr) {
+    auto status = cudaMallocAsync(reinterpret_cast<void **>(&memory), size, *stream);
+    assert(status == cudaSuccess);
+    MTRT_DBGF("[CustomTensorRTAllocator][allocate]: Asynchronously allocated %lx bytes at 0x%lx on stream %lx", size,
+              reinterpret_cast<uintptr_t>(memory),
+              reinterpret_cast<uintptr_t>(*stream));
+  } else {
+    auto status = cudaMalloc(reinterpret_cast<void **>(&memory), size);
+    assert(status == cudaSuccess);
+    MTRT_DBGF("[CustomTensorRTAllocator][allocate]: Synchronously allocated %lx bytes at 0x%lx", size,
+              reinterpret_cast<uintptr_t>(memory));
+  }
+  assert(reinterpret_cast<uintptr_t>(memory) % alignment == 0);
   return memory;
 }
 
-bool CustomTensorRTAllocator::deallocate(void *const memory) {
-  cudaFree(memory);
+bool CustomTensorRTAllocator::deallocate(void *const memory,
+                                    cudaStream_t* stream) {
+  if (stream && *stream != nullptr) {
+    MTRT_DBGF("[CustomTensorRTAllocator][deallocate]: Asynchronously freeing CUDA device memory 0x%lx on stream %lx",
+              reinterpret_cast<uintptr_t>(memory),
+              reinterpret_cast<uintptr_t>(*stream));
+    cudaError_t status = cudaFreeAsync(memory, *stream);
+    assert(status == cudaSuccess);
+  } else {
+    MTRT_DBGF("[CustomTensorRTAllocator][deallocate]: Synchronously freeing CUDA device/pinned host memory 0x%lx ptr "
+              "on stream %lx",
+              reinterpret_cast<uintptr_t>(memory),
+              reinterpret_cast<uintptr_t>(*stream));
+    cudaError_t status = cudaFree(memory);
+    assert(status == cudaSuccess);
+  }
   return true;
 }
 

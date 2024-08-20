@@ -20,7 +20,7 @@ class CupyGPUAllocator(runtime.GpuAllocator):
         super().__init__(self)
         self.allocations = {}  # Keep track of allocations
 
-    def allocate(self, size):
+    def allocate(self, size, alignment, flags):
         # Allocate memory on the GPU using CuPy
         mem = cp.cuda.alloc(size)
         ptr = int(mem.ptr)  # Convert to integer

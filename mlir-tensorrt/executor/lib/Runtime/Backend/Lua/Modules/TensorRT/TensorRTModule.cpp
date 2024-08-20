@@ -68,29 +68,21 @@ protected:
 // TensorRTCallBackAllocator
 //===----------------------------------------------------------------------===//
 
-class TensorRTCallBackAllocator final : public nvinfer1::IGpuAllocator {
+class TensorRTCallBackAllocator final : public nvinfer1::IGpuAsyncAllocator {
 public:
   TensorRTCallBackAllocator(GpuAllocator *gpuAllocator)
-      : nvinfer1::IGpuAllocator(), mGpuAllocatorCallBack(gpuAllocator) {}
+      : nvinfer1::IGpuAsyncAllocator(), mGpuAllocatorCallBack(gpuAllocator) {}
 
-  void *allocate(uint64_t size, uint64_t alignment,
-                 nvinfer1::AllocatorFlags flags) noexcept final {
-    return allocateAsync(size, alignment, flags, nullptr);
-  }
-
-  bool deallocate(void *memory) noexcept final {
-    return deallocateAsync(memory, nullptr);
-  }
-
-  void *allocateAsync(uint64_t const size, uint64_t const /*alignment*/,
-                      uint32_t /*flags*/, cudaStream_t /*stream*/) noexcept final {
-    void* result = mGpuAllocatorCallBack->allocate(size);
+  void *allocateAsync(uint64_t const size, uint64_t const alignment,
+                      uint32_t flags, cudaStream_t stream) noexcept final {
+    void *result =
+        mGpuAllocatorCallBack->allocate(size, alignment, flags, &stream);
     return result;
   }
 
   bool deallocateAsync(void *const memory,
-                       cudaStream_t /*stream*/) noexcept override {
-    bool result = mGpuAllocatorCallBack->deallocate(memory);
+                       cudaStream_t stream) noexcept override {
+    bool result = mGpuAllocatorCallBack->deallocate(memory, &stream);
     return result;
   }
 

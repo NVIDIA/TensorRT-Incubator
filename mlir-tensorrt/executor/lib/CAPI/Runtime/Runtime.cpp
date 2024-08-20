@@ -600,29 +600,6 @@ MTRT_ScalarValue mtrtRuntimeValueDynCastToScalar(MTRT_RuntimeValue v) {
 }
 
 //===----------------------------------------------------------------------===//
-// MTRT_GpuAllocator
-//===----------------------------------------------------------------------===//
-
-bool GpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator) {
-  return !gpuAllocator.ptr;
-}
-
-MTRT_Status GpuAllocatorDestroy(MTRT_GpuAllocator gpuAllocator) {
-  // delete unwrap(gpuAllocator);
-  return mtrtStatusGetOk();
-}
-
-// TODO: Implement destroy method to release resources.
-// void mtrtGpuAllocatorDestroy(MTRT_GpuAllocator* allocator) {
-//     if (allocator && allocator->ptr) {
-//         delete static_cast<PyGpuAllocatorTrampoline*>(allocator->ptr);
-//         allocator->ptr = nullptr;
-//         allocator->allocate = nullptr;
-//         allocator->deallocate = nullptr;
-//     }
-// }
-
-//===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
 
@@ -658,12 +635,12 @@ public:
   GpuAllocatorWrapper(MTRT_GpuAllocator gpuAllocator)
       : mPyGpuAllocator(gpuAllocator) {}
 
-  void *allocate(uint64_t size) override {
-    return mPyGpuAllocator.allocate(mPyGpuAllocator.ptr, size);
+  void *allocate(uint64_t size, uint64_t alignment, uint32_t flags, cudaStream_t* stream) override {
+    return mPyGpuAllocator.allocate(mPyGpuAllocator.ptr, size, alignment, flags, stream);
   }
 
-  bool deallocate(void *ptr) override {
-    return mPyGpuAllocator.deallocate(mPyGpuAllocator.ptr, ptr);
+  bool deallocate(void *ptr, cudaStream_t* stream) override {
+    return mPyGpuAllocator.deallocate(mPyGpuAllocator.ptr, ptr, stream);
   }
 
   // Static method to create a GpuAllocator from MTRT_GpuAllocator
