@@ -161,3 +161,9 @@ class Shape(Tensor):
         from tripy.frontend.trace.ops.reduce import all
 
         return bool(all(self.as_tensor() == other.as_tensor()))
+
+    # __len__ for shapes gives the number of dims in the shape, i.e., the first dimension of the shape's shape
+    def __len__(self):
+        from tripy.frontend.trace.ops import utils as op_utils
+
+        return op_utils.get_trace_shape(self.trace_tensor)[0]

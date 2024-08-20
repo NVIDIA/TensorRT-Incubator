@@ -40,6 +40,25 @@ class Split(BaseTraceOp):
     # we only care about the data input
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
 
+    def infer_len(self):
+        # since this only runs in the shape case, this is rank 1
+        shape_len = op_utils.get_trace_shape(self.inputs[0])[0]
+        if isinstance(self.indices_or_sections, int):
+            # Note: Important to use //, as if the result is a float, MLIR compilation will fail
+            out_len = shape_len // self.indices_or_sections
+            ret = [out_len] * self.indices_or_sections
+            return ret
+
+        out_lengths = []
+        start_idx = 0
+        for idx in self.indices_or_sections:
+            out_len = idx - start_idx
+            start_idx = idx
+            out_lengths.append(out_len)
+        # final slice
+        out_lengths.append(shape_len - start_idx)
+        return out_lengths
+
     def infer_devices(self):
         for i in range(self.num_outputs()):
             self.outputs[i].device = self.inputs[0].device
