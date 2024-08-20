@@ -36,16 +36,24 @@ class GpuAllocator {
 public:
   GpuAllocator() = default;
   virtual ~GpuAllocator() = default;
-  virtual void* allocate(uint64_t const size) { return nullptr; }
-  virtual bool deallocate(void *const memory) { return false; }
+  virtual void *allocate(uint64_t const size, uint64_t const alignment,
+                         uint32_t flags, cudaStream_t* stream) {
+    return nullptr;
+  }
+  virtual bool deallocate(void *const memory,
+                          cudaStream_t* stream) {
+    return false;
+  }
 };
 
 class CustomTensorRTAllocator : public GpuAllocator {
 public:
   CustomTensorRTAllocator() = default;
   ~CustomTensorRTAllocator() = default;
-  void* allocate(uint64_t const size) override;
-  bool deallocate(void *const memory) override;
+  void *allocate(uint64_t const size, uint64_t const alignment, uint32_t flags,
+                 cudaStream_t* stream) override;
+  bool deallocate(void *const memory,
+                  cudaStream_t* stream) override;
 };
 
 //===----------------------------------------------------------------------===//

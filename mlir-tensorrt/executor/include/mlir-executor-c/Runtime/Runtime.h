@@ -32,6 +32,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "cuda_runtime.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -323,23 +325,16 @@ mtrtScalarValueGetType(MTRT_ScalarValue scalar, MTRT_ScalarTypeCode *code);
 // MTRT_GpuAllocator
 //===----------------------------------------------------------------------===//
 
+// Function pointer types for the allocate and deallocate callbacks.
+typedef void *(*AllocateFunc)(void *self, uint64_t size, uint64_t alignment, uint32_t flags, cudaStream_t* stream);
+typedef bool (*DeallocateFunc)(void *self, void *memory, cudaStream_t* stream);
 
-// Function pointer types for the allocate and deallocate callbacks
-typedef void* (*AllocateFunc)(void* self, uint64_t size);
-typedef bool (*DeallocateFunc)(void* self, void* memory);
-
-// The MTRT_GpuAllocator struct
 typedef struct MTRT_GpuAllocator {
-    void* ptr;              // Pointer to the implementation (PyGpuAllocatorTrampoline in our case)
-    AllocateFunc allocate;  // Function pointer for allocation
-    DeallocateFunc deallocate;  // Function pointer for deallocation
+  void *ptr; // Pointer to the implementation (PyGpuAllocatorTrampoline in our
+             // case.)
+  AllocateFunc allocate;     // Function pointer for allocation
+  DeallocateFunc deallocate; // Function pointer for deallocation
 } MTRT_GpuAllocator;
-
-/// Checks nullity of `GpuAllocator`.
-MTRT_CAPI_EXPORTED bool GpuAllocatorIsNull(MTRT_GpuAllocator gpuAllocator);
-
-MTRT_CAPI_EXPORTED MTRT_Status
-GpuAllocatorDestroy(MTRT_GpuAllocator executable);
 
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions

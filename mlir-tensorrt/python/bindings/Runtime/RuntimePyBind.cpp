@@ -128,6 +128,7 @@ class PyStream : public PyMTRTWrapper<PyStream, MTRT_Stream> {
 public:
   using Base::Base;
   DECLARE_WRAPPER_CONSTRUCTORS(PyStream);
+
   static constexpr auto kMethodTable = CAPITable<MTRT_Stream>{
       mtrtStreamIsNull, mtrtStreamDestroy, mtrtPythonCapsuleToStream,
       mtrtPythonStreamToCapsule};
@@ -195,7 +196,8 @@ public:
   PyGpuAllocator(py::object self) : pySelf(self) {}
 
   virtual ~PyGpuAllocator() = default;
-  virtual std::uintptr_t allocate(uint64_t size) = 0;
+  virtual std::uintptr_t allocate(uint64_t size, uint64_t alignment,
+                                  uint32_t flags) = 0;
   virtual bool deallocate(std::uintptr_t ptr) = 0;
 
   // Creates a C-compatible struct for interfacing with lower-level APIs.
@@ -203,16 +205,19 @@ public:
 
 private:
   // Trampoline function: Routes C-style allocation calls to C++ virtual method.
-  static void *pyGpuAllocatorAllocate(void *self, uint64_t size) {
+  static void *pyGpuAllocatorAllocate(void *self, uint64_t size,
+                                      uint64_t alignment, uint32_t flags,
+                                      cudaStream_t* /*stream*/) {
     py::gil_scoped_acquire acquire;
     auto *allocator = static_cast<PyGpuAllocator *>(self);
-    std::uintptr_t ptr = allocator->allocate(size);
+    std::uintptr_t ptr = allocator->allocate(size, alignment, flags);
     return reinterpret_cast<void *>(ptr);
   }
 
   // Trampoline function: Routes C-style deallocation calls to C++ virtual
   // method.
-  static bool pyGpuAllocatorDeallocate(void *self, void *memory) {
+  static bool pyGpuAllocatorDeallocate(void *self, void *memory,
+                                       cudaStream_t* /*stream*/) {
     py::gil_scoped_acquire acquire;
     auto *allocator = static_cast<PyGpuAllocator *>(self);
     return allocator->deallocate(reinterpret_cast<std::uintptr_t>(memory));
@@ -237,12 +242,12 @@ public:
 
   // Trampoline for allocate: Dispatches call to Python implementation if
   // overridden.
-  uintptr_t allocate(uint64_t size) override {
+  uintptr_t allocate(uint64_t size, uint64_t alignment, uint32_t flags) override {
     PYBIND11_OVERRIDE_PURE(uintptr_t,      // Return type
                            PyGpuAllocator, // Parent class
                            allocate,       // Name of function in C++
-                           size            // Arguments
-    );
+                           size,           // Arguments
+                           alignment, flags);
   }
 
   // Trampoline for deallocate: Dispatches call to Python implementation if
@@ -251,8 +256,7 @@ public:
     PYBIND11_OVERRIDE_PURE(bool,           // Return type
                            PyGpuAllocator, // Parent class
                            deallocate,     // Name of function in C++
-                           ptr             // Arguments
-    );
+                           ptr);            // Arguments
   }
 };
 
