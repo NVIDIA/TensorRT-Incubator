@@ -3,7 +3,7 @@
 // RUN: stablehlo-clustering-pipeline, \
 // RUN: post-clustering-pipeline, \
 // RUN: executor-lowering-pipeline)" \
-// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect |  mlir-tensorrt-runner -input-type=rtexe
+// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect |  mlir-tensorrt-runner -input-type=rtexe --use-custom-allocator
 
 #profile = #tensorrt.shape_profile<min = [2], opt = [4], max = [6]>
 #profile1 = #tensorrt.shape_profile<min = [1], opt = [3], max = [5]>
