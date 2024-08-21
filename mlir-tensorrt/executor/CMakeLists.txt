@@ -13,6 +13,7 @@ endmacro()
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_CUBLAS "Enable use of CUBLAS in the runtime" ON)
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_NCCL "Enable use of NCCL in the runtime" ON)
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_MPI "Enable use of MPI in the runtime" ON)
+mlir_executor_option(MLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS "Enable integration tests that require GPU" ON)
 
 #-------------------------------------------------------------------------------
 # Project Setup
