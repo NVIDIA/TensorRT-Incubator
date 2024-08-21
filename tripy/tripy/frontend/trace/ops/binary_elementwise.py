@@ -70,6 +70,15 @@ class BinaryElementwise(BaseTraceOp):
         else:
             return Result.ok([])
 
+    def infer_len(self):
+        # For the shape case, the result will be broadcast to the max of the input shapes
+        input_lengths = []
+        for inp in self.inputs:
+            shape = op_utils.get_trace_shape(inp)
+            if len(shape) != 0:
+                input_lengths.append(shape[0])
+        return [max(input_lengths)]
+
     def infer_dtypes(self):
         op_utils.check_input_dtypes_match(self, self.kind.strip())
         self.outputs[0].dtype = self.inputs[0].dtype

@@ -222,3 +222,16 @@ class TestTensor:
         a = tp.Tensor(a_np, dtype=tp.float16, device=tp.device("gpu"))
         assert a.dtype == tp.float16
         assert a.device.kind == "gpu"
+
+    @pytest.mark.parametrize(
+        "tensor, expected",
+        [
+            (tp.Tensor([0]), [0]),
+            (tp.zeros((1, 1, 1)), [[[0]]]),
+            (tp.Tensor([[[0.1]]]), [[[0.1]]]),
+            (tp.Tensor([True]), [True]),
+            (tp.ones((1, 2), dtype=tp.float16), [[1.0, 1.0]]),
+        ],
+    )
+    def test_tolist(self, tensor, expected):
+        assert np.allclose(tensor.tolist(), expected)

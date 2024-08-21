@@ -45,6 +45,7 @@ class TestShape:
         s = tp.Shape(values)
 
         assert isinstance(s, tp.Shape)
+        assert len(s) == len(values)
         assert s.trace_tensor.producer.inputs == []
         assert cp.from_dlpack(s).get().tolist() == values
 
@@ -52,6 +53,7 @@ class TestShape:
         s = tp.Shape([])
 
         assert isinstance(s, tp.Shape)
+        assert len(s) == 0
         assert s.trace_tensor.producer.inputs == []
         assert cp.from_dlpack(s).get().tolist() == []
 
@@ -60,6 +62,7 @@ class TestShape:
         s = tp.Shape(t)
 
         assert isinstance(s, tp.Shape)
+        assert len(s) == len(values)
         assert s.trace_tensor.producer.inputs == []
         # they should be the same underlying value
         assert s.trace_tensor == t.trace_tensor
@@ -99,6 +102,12 @@ class TestShape:
         assert isinstance(new_shape.trace_tensor.producer, Concatenate)
         assert cp.from_dlpack(new_shape).get().tolist() == values + appended
 
+    def test_len_concatenation(self, values):
+        s = tp.Shape(values)
+        # we are testing that the length is *inferred*, so do not execute the concatenation
+        c = s + s
+        assert len(c) == 2 * len(values)
+
     def test_explicit_addition(self, values):
         from tripy.frontend.trace.ops.binary_elementwise import BinaryElementwise
 
@@ -108,6 +117,14 @@ class TestShape:
         assert isinstance(res.trace_tensor.producer, BinaryElementwise)
         assert res.trace_tensor.producer.kind == BinaryElementwise.Kind.SUM
         assert cp.from_dlpack(res).get().tolist() == [2 * v for v in values]
+
+    def test_len_binary_op(self, values):
+        s = tp.Shape(values)
+        res = s.add(tp.Shape(values))
+        assert len(res) == len(values)
+
+        res = s * 2
+        assert len(res) == len(values)
 
     def test_shape_op(self, values):
         from tripy.frontend.trace.ops.shape import Shape
@@ -119,6 +136,11 @@ class TestShape:
         assert isinstance(s.trace_tensor.producer, Shape)
         assert cp.from_dlpack(s).get().tolist() == [len(values)]
 
+    def test_len_shape_op(self, values):
+        t = tp.Tensor(values)
+        s = t.shape
+        assert len(s) == 1
+
     def test_flip(self, values):
         from tripy.frontend.trace.ops.flip import Flip
 
@@ -128,6 +150,11 @@ class TestShape:
         assert isinstance(flipped_shape, tp.Shape)
         assert isinstance(flipped_shape.trace_tensor.producer, Flip)
         assert cp.from_dlpack(flipped_shape).get().tolist() == values[::-1]
+
+    def test_len_flip(self, values):
+        s = tp.Shape(values)
+        flipped = tp.flip(s, dims=0)
+        assert len(flipped) == len(values)
 
     def test_expand(self):
         from tripy.frontend.trace.ops.expand import Expand
@@ -140,6 +167,11 @@ class TestShape:
         assert isinstance(expanded.trace_tensor.producer, Expand)
         assert cp.from_dlpack(expanded).get().tolist() == [1, 1, 1]
 
+    def test_len_expand(self):
+        s = tp.Shape([1])
+        expanded = tp.expand(s, (3,))
+        assert len(expanded) == 3
+
     def test_gather(self, values):
         from tripy.frontend.trace.ops.gather import Gather
 
@@ -148,6 +180,11 @@ class TestShape:
         assert isinstance(s2, tp.Shape)
         assert isinstance(s2.trace_tensor.producer, Gather)
         assert cp.from_dlpack(s2).get().tolist() == [values[0], values[-1]]
+
+    def test_len_gather(self, values):
+        s = tp.Shape(values)
+        gathered = tp.gather(s, 0, tp.Tensor([0, len(values) - 1]))
+        assert len(gathered) == 2
 
     def test_matmul(self, values):
         s1 = tp.Shape(values)
@@ -197,6 +234,38 @@ class TestShape:
         assert isinstance(dims, tp.Shape)
         assert isinstance(dims.trace_tensor.producer, Slice)
         assert cp.from_dlpack(dims).get().tolist() == values[1:]
+
+    @pytest.mark.parametrize(
+        "slice_value",
+        [
+            slice(0, 2),
+            slice(0, 1),
+            slice(1, 3),
+            slice(0, 3, 2),
+            slice(1, 3, 2),
+            slice(1, 4, 2),
+            slice(1, 4, 3),  # should select only one
+            slice(1, None, 200),  # selects only start point
+            # some with negative strides
+            slice(None, None, -1),
+            slice(None, None, -2),
+            slice(4, 0, -1),
+            slice(2, 0, -1),
+            slice(2, 1, -1),
+            # check the clamping behavior
+            slice(-10, 20),
+            slice(10, -20, -1),
+            # invalid bounds (length 0 result)
+            slice(0, 4, -1),
+            slice(4, 0),
+            slice(2, 2),
+        ],
+    )
+    def test_slice_len(self, slice_value):
+        # checking consistency against Python list
+        values = [1, 2, 3, 4]
+        s1 = tp.Shape(values)
+        assert len(s1[slice_value]) == len(values[slice_value])
 
     def test_reduce(self, values):
         from tripy.frontend.trace.ops.reduce import Reduce
@@ -262,6 +331,11 @@ class TestShape:
         assert not isinstance(e, tp.Shape)
         assert cp.from_dlpack(e).get().tolist() == [[1] for _ in range(3)]
 
+    def test_cast_len(self, values):
+        s = tp.Shape(values)
+        cast = tp.cast(s, tp.int32)
+        assert len(cast) == len(values)
+
     def test_split(self, values):
         s = tp.Shape(values)
         outputs = tp.split(s, len(values))
@@ -269,6 +343,19 @@ class TestShape:
         for i, output in enumerate(outputs):
             assert isinstance(output, tp.Shape)
             assert cp.from_dlpack(output).get().tolist() == [values[i]]
+
+    def test_split_len(self, values):
+        s = tp.Shape(values)
+        outputs = tp.split(s, len(values))
+        for output in outputs:
+            assert len(output) == 1
+
+    def test_split_len_intervals(self):
+        s = tp.Shape([1, 2, 3, 4, 5])
+        outputs = tp.split(s, [1, 4])
+        assert len(outputs[0]) == 1  # 0:1
+        assert len(outputs[1]) == 3  # 1:4
+        assert len(outputs[2]) == 1  # 4:5
 
     def test_where(self, values):
         from tripy.frontend.trace.ops.where import Where
@@ -282,6 +369,13 @@ class TestShape:
         assert isinstance(res, tp.Shape)
         assert isinstance(res.trace_tensor.producer, Where)
         assert cp.from_dlpack(res).get().tolist() == [0 if values[i] < 2 else values[i] for i in range(len(values))]
+
+    def test_where_len(self, values):
+        s1 = tp.Shape(values)
+        s2 = tp.Shape([0 for _ in values])
+        cond = tp.Tensor([i >= 1 for i in range(len(values))], dtype=tp.bool)
+        res = tp.where(cond, s1, s2)
+        assert len(res) == len(values)
 
     def test_invalid_input_dtype_tensor(self):
         with raises(
@@ -338,9 +432,7 @@ class TestShape:
         v = tp.exp(tp.Shape(values))
         with raises(
             tp.TripyException,
-            match=(
-                "'stablehlo.exponential' op operand #0 must be ranked tensor of"
-            ),
+            match=("'stablehlo.exponential' op operand #0 must be ranked tensor of"),
         ):
             v.eval()
 
@@ -349,3 +441,14 @@ class TestShape:
         if isinstance(other_values, np.ndarray):
             pytest.skip("numpy array cannot be implicitly cast to Shape type")
         assert isinstance(a == other_values, bool)
+
+    def test_shape_inequality(self):
+        a = tp.Shape([1, 2, 3])
+        b = tp.Shape([1, 4, 5])
+        assert a != b
+
+    def test_shape_inequality_different_ranks(self):
+        a = tp.Shape([1])
+        b = tp.Shape([1, 2])
+        assert a != b
+ 
