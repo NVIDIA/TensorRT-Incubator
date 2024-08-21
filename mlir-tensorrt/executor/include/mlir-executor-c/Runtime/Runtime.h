@@ -96,6 +96,50 @@ static inline bool mtrtDeviceIsNull(MTRT_Device device) { return !device.ptr; }
 static inline MTRT_Device mtrtDeviceGetNull() { return MTRT_Device{nullptr}; }
 
 //===----------------------------------------------------------------------===//
+// MTRT_GpuAllocator
+//===----------------------------------------------------------------------===//
+
+// Function pointer types for the allocate and deallocate callbacks.
+typedef void *(*AllocateFunc)(void *self, uint64_t size, uint64_t alignment, uint32_t flags, cudaStream_t* stream);
+typedef bool (*DeallocateFunc)(void *self, void *memory, cudaStream_t* stream);
+
+typedef struct MTRT_GpuAllocator {
+  void *ptr; // Pointer to the implementation (PyGpuAllocatorTrampoline in our
+             // case.)
+  // Function pointers to methods.
+  AllocateFunc allocate;
+  DeallocateFunc deallocate;
+} MTRT_GpuAllocator;
+
+//===----------------------------------------------------------------------===//
+// MTRT_OutputAllocator
+//===----------------------------------------------------------------------===//
+
+// Function pointer types for the allocate and deallocate callbacks.
+typedef void (*SetGpuAllocator)(void *self, MTRT_GpuAllocator gpuAllocator);
+typedef void (*SetTensorName)(void *self, const char *tensorName);
+typedef void (*SetCurrentMemory)(void *self, void *currentMemory);
+typedef void (*SetOutputSize)(void *self, const int64_t outputSize);
+typedef void *(*ReallocateOutputAsync)(void *self, char const *tensorName,
+                                       void *currentMemory, uint64_t size,
+                                       uint64_t alignment,
+                                       cudaStream_t *stream);
+typedef void (*NotifyShape)(void *self, char const *tensorName, const int64_t *dims,
+                            int64_t nbDims);
+
+typedef struct MTRT_OutputAllocator {
+  void *ptr; // Pointer to the implementation (PyOutputAllocatorTrampoline in
+             // our case.)
+  // Function pointers to methods.
+  SetGpuAllocator setGpuAllocator;
+  SetTensorName setTensorName;
+  SetCurrentMemory setCurrentMemory;
+  SetOutputSize setOutputSize;
+  ReallocateOutputAsync reallocateOutputAsync;
+  NotifyShape notifyShape;
+} MTRT_OutputAllocator;
+
+//===----------------------------------------------------------------------===//
 // MTRT_MemRefValue
 //===----------------------------------------------------------------------===//
 
@@ -171,6 +215,9 @@ typedef struct MTRT_MemRefValueInfo {
 /// Retrieve metadata for the provided memref.
 MLIR_CAPI_EXPORTED MTRT_Status
 mtrtMemRefValueGetInfo(MTRT_MemRefValue memref, MTRT_MemRefValueInfo *info);
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueSetOutputAllocator(
+    MTRT_MemRefValue memrefValue, MTRT_OutputAllocator pyOutputAllocator);
 
 /// Create DL Managed tensor from MemRefValue.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
@@ -322,21 +369,6 @@ MLIR_CAPI_EXPORTED MTRT_Status
 mtrtScalarValueGetType(MTRT_ScalarValue scalar, MTRT_ScalarTypeCode *code);
 
 //===----------------------------------------------------------------------===//
-// MTRT_GpuAllocator
-//===----------------------------------------------------------------------===//
-
-// Function pointer types for the allocate and deallocate callbacks.
-typedef void *(*AllocateFunc)(void *self, uint64_t size, uint64_t alignment, uint32_t flags, cudaStream_t* stream);
-typedef bool (*DeallocateFunc)(void *self, void *memory, cudaStream_t* stream);
-
-typedef struct MTRT_GpuAllocator {
-  void *ptr; // Pointer to the implementation (PyGpuAllocatorTrampoline in our
-             // case.)
-  AllocateFunc allocate;     // Function pointer for allocation
-  DeallocateFunc deallocate; // Function pointer for deallocation
-} MTRT_GpuAllocator;
-
-//===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
 
@@ -376,8 +408,8 @@ typedef struct MTRT_RuntimeSession {
 /// that the session only has a read-only view in to the Executable for code and
 /// constant data. Therefore the Executable must outlive the RuntimeSession.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionCreate(
-    MTRT_RuntimeSessionOptions options, MTRT_Executable executable, MTRT_GpuAllocator allocator,
-    MTRT_RuntimeSession *result);
+    MTRT_RuntimeSessionOptions options, MTRT_Executable executable,
+    MTRT_GpuAllocator allocator, MTRT_RuntimeSession *result);
 
 /// Destory the session. This does not destroy the associated Executable, which
 /// may be shared among many sessions.
@@ -388,6 +420,10 @@ mtrtRuntimeSessionDestroy(MTRT_RuntimeSession session);
 static inline bool mtrtRuntimeSessionIsNull(MTRT_RuntimeSession session) {
   return !session.ptr;
 }
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtAddMemRefOutputAllocatorSessionRegistry(
+    MTRT_MemRefValue memrefValue,
+    MTRT_OutputAllocator pyOutputAllocator);
 
 /// Using `session`, execute the pubic function with the specified name.
 /// The `inArgs` and `outArgs` are arrays for input arguments and destination

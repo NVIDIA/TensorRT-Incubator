@@ -179,8 +179,6 @@ executor::ExecutorRunnerMain(int argc, char **argv,
     allocator.reset(new CustomTensorRTAllocator());
   }
 
-  // Read the buffer as a Lua script and execute.
-
   if (options.inputType == Lua) {
     assert(!options.dumpFunctionSignature &&
            "Can not dump function signature for Lua input type.");
@@ -213,7 +211,8 @@ executor::ExecutorRunnerMain(int argc, char **argv,
   }
 
   mlirtrt::StatusOr<int64_t> executionResult =
-      mlirtrt::runtime::runExecutorExecutable(std::move(*executable), std::move(allocator));
+      mlirtrt::runtime::runExecutorExecutable(std::move(*executable),
+                                              std::move(allocator));
   if (!executionResult.isOk())
     return emitError(UnknownLoc::get(&context))
            << "failed to load and run executable: "

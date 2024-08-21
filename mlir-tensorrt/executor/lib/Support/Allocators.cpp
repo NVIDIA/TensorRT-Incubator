@@ -43,6 +43,73 @@ using namespace mlirtrt;
                                         __LINE__, __VA_ARGS__))
 
 //===----------------------------------------------------------------------===//
+// CustomTensorRTOutputAllocator
+//===----------------------------------------------------------------------===//
+
+inline uint64_t roundUp(uint64_t m, uint64_t n) {
+  return ((m + n - 1) / n) * n;
+}
+
+void *CustomTensorRTOuputAllocator::reallocateOutputAsync(
+    char const *tensorName, void *currentMemory, uint64_t size,
+    uint64_t alignment, cudaStream_t *stream) {
+
+  assert(currentMemory == mCurrentMemory && "output buffer mismatch");
+  assert(strcmp(tensorName, mTensorName) == 0 && "tensor name mismatch");
+  assert(!mReallocateOutputCalled && "duplicate call to reallocateOutput");
+  mReallocateOutputCalled = true;
+  // Some memory allocators return nullptr when allocating zero bytes, but
+  // TensorRT requires a non-null ptr even for empty tensors, so allocate a
+  // dummy byte.
+  size = std::max(size, static_cast<uint64_t>(1));
+
+  // Check if reallocation is required.
+  if (size > mOutputSize) {
+    size = roundUp(size, alignment);
+
+    if (mOutputPtr) {
+      if (mGpuAllocator) {
+        // Use registeted call back GPU allocator for output allocations.
+        mGpuAllocator->deallocate(mOutputPtr, stream);
+      } else {
+        // Fall-back to local memory management.
+        cudaFree(mOutputPtr);
+      }
+    }
+
+    mOutputPtr = nullptr;
+    mOutputSize = 0;
+
+    void *memory;
+    if (mGpuAllocator) {
+      // Use registeted call back GPU allocator for output allocations.
+      memory = mGpuAllocator->allocate(size, alignment, 0 /* flags */, stream);
+    } else {
+      // Fall-back to local memory management.
+      cudaMalloc(&memory, size);
+    }
+    mOutputPtr = memory;
+    if (mOutputPtr != nullptr) {
+      mOutputSize = size;
+    }
+    return mOutputPtr;
+  }
+  return mCurrentMemory;
+}
+
+void CustomTensorRTOuputAllocator::notifyShape(char const *tensorName,
+                                               const int64_t *dims, int64_t nbDims) {
+  assert(mReallocateOutputCalled &&
+         "TensorRT must invoke reallocateOutput first");
+  assert(!mNotifyShapeCalled && "duplicate call to notifyShape");
+  assert(tensorName == mTensorName);
+
+  mNotifyShapeCalled = true;
+  mOutputDims.resize(nbDims);
+  std::copy_n(dims, nbDims, mOutputDims.begin());
+}
+
+//===----------------------------------------------------------------------===//
 // CustomTensorRTAllocator
 //===----------------------------------------------------------------------===//
 

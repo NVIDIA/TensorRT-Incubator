@@ -37,6 +37,35 @@ class CupyGPUAllocator(runtime.GpuAllocator):
         return False
 
 
+class CupyOutputAllocator(runtime.OutputAllocator):
+    def __init__(self):
+        super().__init__(self)
+
+    def set_tensor_name(self, tensor_name):
+        self.tensor_name = tensor_name
+
+    def set_current_memory(self, memory):
+        self.memory = memory
+
+    def set_output_size(self, size):
+        self.size = size
+
+    def reallocate_output(self, tensor_name, memory, size, alignment):
+        assert self.tensor_name == tensor_name
+        assert self.memory == memory
+
+        if size > self.size:
+            # For now just fail if reallocation is required.
+            assert 0
+
+        return self.memory
+
+    def notify_shape(self, tensor_name, dims, nb_dims):
+        assert self.tensor_name == tensor_name
+        self.dims = dims
+        self.nb_dims = nb_dims
+
+
 def stablehlo_add():
     # Build/parse the main function.
     with ir.Context() as context:
@@ -75,6 +104,10 @@ def stablehlo_add():
         device=devices[0],
         stream=stream,
     )
+
+    output_allocator = CupyOutputAllocator()
+    arg1.set_output_allocator(output_allocator)
+
     session.execute_function("main", in_args=[arg0], out_args=[arg1], stream=stream)
 
     data = np.asarray(client.copy_to_host(arg1, stream=stream))
@@ -88,12 +121,12 @@ def stablehlo_add():
     start_time = time.time()
     for _ in range(0, num_iter):
         session.execute_function("main", in_args=[arg0], out_args=[arg0], stream=stream)
-    data = np.asarray(client.copy_to_host(arg1, stream=stream))
+    data = np.asarray(client.copy_to_host(arg0, stream=stream))
     stream.sync()
     end_time = time.time()
     elapsed = end_time - start_time
 
-    print(np.asarray(client.copy_to_host(arg0)))
+    print(np.asarray(data))
     print(f"1000 iterations avg { (elapsed/num_iter)/1000.0} msec per iteration")
 
 

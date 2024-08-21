@@ -415,7 +415,64 @@ static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
   }
 }
 
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
+
+class OutputAllocatorWrapper : public OutputAllocator {
+private:
+  MTRT_OutputAllocator mPyOutputAllocator;
+
+public:
+  OutputAllocatorWrapper(MTRT_OutputAllocator outputAllocator)
+      : mPyOutputAllocator(outputAllocator) {}
+
+  void setGpuAllocator(GpuAllocator *gpuAllocator) override {
+    return mPyOutputAllocator.setGpuAllocator(
+        mPyOutputAllocator.ptr,
+        MTRT_GpuAllocator{gpuAllocator, nullptr, nullptr});
+  }
+
+  void setTensorName(const char *tensorName) override {
+    return mPyOutputAllocator.setTensorName(mPyOutputAllocator.ptr, tensorName);
+  }
+
+  void setCurrentMemory(void *currentMemory) override {
+    return mPyOutputAllocator.setCurrentMemory(mPyOutputAllocator.ptr,
+                                               currentMemory);
+  }
+
+  void setOutputSize(const int64_t outputSize) override {
+    return mPyOutputAllocator.setOutputSize(mPyOutputAllocator.ptr, outputSize);
+  }
+
+  void *reallocateOutputAsync(char const *tensorName, void *currentMemory,
+                              uint64_t size, uint64_t alignment,
+                              cudaStream_t *stream) override {
+    return mPyOutputAllocator.reallocateOutputAsync(mPyOutputAllocator.ptr,
+                                                    tensorName, currentMemory,
+                                                    size, alignment, stream);
+  }
+
+  void notifyShape(char const *tensorName, const int64_t *dims,
+                   int64_t nbDims) override {
+    return mPyOutputAllocator.notifyShape(mPyOutputAllocator.ptr, tensorName,
+                                          dims, nbDims);
+  }
+
+  // Static method to create a OutputAllocator from MTRT_OutputAllocator
+  static std::unique_ptr<OutputAllocator>
+  create(MTRT_OutputAllocator outputAllocator) {
+    if (!outputAllocator.ptr || !outputAllocator.setGpuAllocator ||
+        !outputAllocator.setTensorName || !outputAllocator.setCurrentMemory ||
+        !outputAllocator.setOutputSize ||
+        !outputAllocator.reallocateOutputAsync ||
+        !outputAllocator.notifyShape) {
+      llvm::errs() << "Invalid MTRT_OutputAllocator passed to create()";
+      return nullptr;
+    }
+    return std::make_unique<OutputAllocatorWrapper>(outputAllocator);
+  }
+};
+
+MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
     MTRT_MemRefValue memrefValue, MTRT_DLPackManagedTensor *outTensor) {
   MemRefValue memref = *unwrap(memrefValue);
 
@@ -462,7 +519,7 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
   return mtrtStatusGetOk();
 }
 
-MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackDevice(
+MTRT_Status mtrtMemRefValueGetDLPackDevice(
     MTRT_MemRefValue memrefValue, int32_t *device_type, int32_t *device_id) {
   MemRefValue memref = *unwrap(memrefValue);
   int device = memref.getDevice().has_value()
@@ -626,6 +683,25 @@ mtrtRuntimeSessionOptionsDestroy(MTRT_RuntimeSessionOptions options) {
 // MTRT_RuntimeSession
 //===----------------------------------------------------------------------===//
 
+MTRT_Status mtrtAddMemRefOutputAllocatorSessionRegistry(
+    MTRT_MemRefValue memrefValue, MTRT_OutputAllocator pyOutputAllocator) {
+  auto memref = unwrap(memrefValue);
+
+  std::unique_ptr<OutputAllocator> outputAllocator;
+  if (pyOutputAllocator.ptr) {
+    outputAllocator.reset(
+        OutputAllocatorWrapper::create(pyOutputAllocator).release());
+  }
+
+  // Client should own the output allocator.
+  memref->getClient()->addOutputAllocator(std::move(outputAllocator));
+
+  // Store the output allocator reference.
+  memref->setOutputAllocator(memref->getClient()->getLastOutputAllocator());
+
+  return mtrtStatusGetOk();
+}
+
 // A wrapper class for MTRT_GpuAllocator implementing the GpuAllocator
 // interface. It encapsulates GPU memory allocation and deallocation operations,
 // ensuring correct routing of callbacks from C++ to Python.
@@ -656,10 +732,11 @@ public:
   }
 };
 
-MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
-                                     MTRT_Executable executable,
-                                     MTRT_GpuAllocator gpuAllocator,
-                                     MTRT_RuntimeSession *result) {
+MTRT_Status
+mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
+                         MTRT_Executable executable,
+                         MTRT_GpuAllocator gpuAllocator,
+                         MTRT_RuntimeSession *result) {
   RuntimeSessionOptions *cppOptions = unwrap(options);
   Executable *cppExecutable = unwrap(executable);
 

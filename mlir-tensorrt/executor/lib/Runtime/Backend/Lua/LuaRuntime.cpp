@@ -72,7 +72,8 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
 
 static void registerLuaRuntimeMethodsCommon(
     lua_State *state, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker, GpuAllocator* allocator) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker,
+    GpuAllocator *allocator, OutputAllocatorTracker *outputAllocatorTracker) {
   registerExecutorCoreModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
                                               allocTracker);
   registerExecutorCUDAModuleLuaRuntimeMethods(
@@ -84,15 +85,15 @@ static void registerLuaRuntimeMethodsCommon(
 #endif
 
   registerExecutorTensorRTModuleLuaRuntimeMethods(
-      state, pinnedMemoryAllocator, allocTracker, resourceTracker, allocator);
+      state, pinnedMemoryAllocator, allocTracker, resourceTracker, outputAllocatorTracker, allocator);
 }
 
 void mlirtrt::runtime::registerLuaRuntimeMethods(
     lua_State *state, const RuntimeSessionOptions &options,
     PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
-    ResourceTracker *resourceTracker, GpuAllocator* allocator) {
+    ResourceTracker *resourceTracker,  OutputAllocatorTracker* outputAllocatorTracker, GpuAllocator* allocator) {
   registerLuaRuntimeMethodsCommon(state, pinnedMemoryAllocator, allocTracker,
-                                  resourceTracker, allocator);
+                                  resourceTracker, allocator, outputAllocatorTracker);
 #ifdef MLIR_EXECUTOR_ENABLE_NCCL
   registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
   registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
@@ -107,8 +108,8 @@ void mlirtrt::runtime::registerLuaRuntimeMethods(
 #endif
 }
 
-StatusOr<int64_t>
-mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript, GpuAllocator* allocator) {
+StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
+    std::string_view luaScript, GpuAllocator *allocator) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
@@ -117,10 +118,11 @@ mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript, GpuAllocator*
 
   sol::state lua;
   lua.open_libraries(sol::lib::base, sol::lib::string);
-  registerLuaRuntimeMethods(lua.lua_state(), RuntimeSessionOptions(),
-                            &(*client)->getPinnedMemorAllocator(),
-                            &(*client)->getAllocTracker(),
-                            &(*client)->getResourceTracker(), allocator);
+  registerLuaRuntimeMethods(
+      lua.lua_state(), RuntimeSessionOptions(),
+      &(*client)->getPinnedMemorAllocator(), &(*client)->getAllocTracker(),
+      &(*client)->getResourceTracker(), nullptr /* Output allocator */,
+      allocator /* can this be nullptr as well */);
 
   sol::protected_function_result result = lua.script(luaScript);
   if (!result.valid()) {
@@ -171,7 +173,8 @@ static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
 /// global initialization.
 StatusOr<std::unique_ptr<RuntimeSession>>
 mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
-    ExecutableView executable, std::unique_ptr<GpuAllocator> allocator, const RuntimeSessionOptions &options) {
+    ExecutableView executable, std::unique_ptr<GpuAllocator> allocator,
+    const RuntimeSessionOptions &options) {
   ADD_RUNTIME_MODULE_RANGE("runtime_loadExecutable");
 
   MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
@@ -179,12 +182,13 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   auto pinnedMemoryAllocator = std::make_unique<PinnedMemoryAllocator>();
   auto allocTracker = std::make_unique<AllocTracker>();
   auto resourceTracker = std::make_unique<ResourceTracker>();
+  auto outputAllocatorTracker = std::make_unique<OutputAllocatorTracker>();
 
   sol::state lua;
   lua.open_libraries(sol::lib::base, sol::lib::string);
-  registerLuaRuntimeMethods(lua.lua_state(), options,
-                            pinnedMemoryAllocator.get(), allocTracker.get(),
-                            resourceTracker.get(), allocator.get());
+  registerLuaRuntimeMethods(
+      lua.lua_state(), options, pinnedMemoryAllocator.get(), allocTracker.get(),
+      resourceTracker.get(), outputAllocatorTracker.get(), allocator.get());
 
   // Load globals into the context.
   // TODO: eliminate this copy, we already own the executable.
@@ -225,11 +229,13 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   }
   return std::make_unique<RuntimeSession>(
       options, executable, std::move(lua), std::move(pinnedMemoryAllocator),
-      std::move(allocTracker), std::move(resourceTracker), std::move(allocator));
+      std::move(allocTracker), std::move(resourceTracker),
+      std::move(outputAllocatorTracker), std::move(allocator));
 }
 
 StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
-    std::unique_ptr<Executable> executable, std::unique_ptr<GpuAllocator> allocator) {
+    std::unique_ptr<Executable> executable,
+    std::unique_ptr<GpuAllocator> allocator) {
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
@@ -245,7 +251,8 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
     return options.getStatus();
 
   StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(executable->getView(), std::move(allocator), *options);
+      createRuntimeSessionWithLuaBackend(executable->getView(),
+                                         std::move(allocator), *options);
   if (!session.isOk())
     return session.getStatus();
 
@@ -465,6 +472,8 @@ runtime::executeFunctionWithLuaBackend(
   // Call the main function, if present.
   sol::state_view lua(session.getLuaState());
   AllocTracker &tracker = session.getAllocTracker();
+  OutputAllocatorTracker &outputAllocatorTracker = session.getOutputAllocatorTracker();
+
   sol::protected_function funcObj = lua[name];
   if (funcObj.get_type() != sol::type::function)
     return getStatusWithMsg(StatusCode::InternalError, "no function named \"",
@@ -523,6 +532,12 @@ runtime::executeFunctionWithLuaBackend(
   for (auto [idx, rv] : llvm::enumerate(outputArgs)) {
     if (MemRefValue *memref = llvm::dyn_cast<MemRefValue>(rv)) {
       MTRT_RETURN_IF_ERROR(pushMemRefTableArg(lua, tracker, args, *memref));
+
+      // Creating a mapping from memref pointer to output allocator tracker.
+      if (memref->getOutputAllocator()) {
+        outputAllocatorTracker.addAllocator(memref->getVoidPtr(), memref->getOutputAllocator());
+      }
+
       continue;
     }
     return getInvalidArgStatus("output (destination) argument #{0} to function "

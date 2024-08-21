@@ -358,12 +358,14 @@ RuntimeSession::RuntimeSession(
     std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator,
     std::unique_ptr<AllocTracker> allocTracker,
     std::unique_ptr<ResourceTracker> resourceTracker,
+    std::unique_ptr<OutputAllocatorTracker> outputAllocatorTracker,
     std::unique_ptr<GpuAllocator> gpuAllocator)
     : options(std::move(options)), executable(exe),
       pinnedMemoryAllocator(std::move(pinnedMemoryAllocator)),
       allocTracker(std::move(allocTracker)),
-      resourceTracker(std::move(resourceTracker)), gpuAllocator(std::move(gpuAllocator)),
-      state(std::move(state)) {}
+      resourceTracker(std::move(resourceTracker)),
+      outputAllocatorTracker(std::move(outputAllocatorTracker)),
+      gpuAllocator(std::move(gpuAllocator)), state(std::move(state)) {}
 
 //===----------------------------------------------------------------------===//
 // AllocTracker

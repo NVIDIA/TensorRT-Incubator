@@ -32,6 +32,10 @@ namespace mlirtrt {
 
 struct EventPool;
 
+//===----------------------------------------------------------------------===//
+// GpuAllocator and CustomTensorRTAllocator
+//===----------------------------------------------------------------------===//
+
 class GpuAllocator {
 public:
   GpuAllocator() = default;
@@ -54,6 +58,111 @@ public:
                  cudaStream_t* stream) override;
   bool deallocate(void *const memory,
                   cudaStream_t* stream) override;
+};
+
+//===----------------------------------------------------------------------===//
+// OutputAllocator and CustomTensorRTOuputAllocator
+//===----------------------------------------------------------------------===//
+
+//!
+//! Class to allocate memory for outputs with data-dependent shapes. The sizes
+//! of those are unknown so pre-allocation is not possible.
+//!
+class OutputAllocator {
+public:
+  virtual ~OutputAllocator() = default;
+  virtual void setGpuAllocator(GpuAllocator* gpuAllocator) = 0;
+  virtual void setTensorName(const char *tensorName) = 0;
+  virtual void setCurrentMemory(void *currentMemory) = 0;
+  virtual void setOutputSize(const int64_t outputSize) = 0;
+  virtual void *reallocateOutputAsync(char const *tensorName,
+                                      void *currentMemory, uint64_t size,
+                                      uint64_t alignment,
+                                      cudaStream_t * /*stream*/) = 0;
+  virtual void notifyShape(char const *tensorName, const int64_t *dims,
+                           int64_t nbDims) = 0;
+};
+
+class CustomTensorRTOuputAllocator : public OutputAllocator {
+public:
+  CustomTensorRTOuputAllocator() = default;
+  ~CustomTensorRTOuputAllocator() {
+    if (mOutputPtr != nullptr) {
+      cudaFree(mOutputPtr);
+    }
+  }
+
+  void setGpuAllocator(GpuAllocator* gpuAllocator) override {
+    mGpuAllocator = gpuAllocator;
+  }
+
+  //! Methods are called just after construction. TODO: can they be called
+  //! during construction?
+  void setTensorName(const char *tensorName) override {
+    mTensorName = tensorName;
+  }
+
+  void setCurrentMemory(void *currentMemory) override {
+    mCurrentMemory = currentMemory;
+  }
+  
+  void setOutputSize(int64_t outputSize) override { mOutputSize = outputSize; }
+
+  void *reallocateOutputAsync(char const *tensorName, void *currentMemory,
+                              uint64_t size, uint64_t alignment,
+                              cudaStream_t * /*stream*/) override;
+
+  void notifyShape(char const *tensorName, const int64_t *dims,
+                           int64_t nbDims) override;
+
+  //! nullptr if memory could not be allocated
+  void *mOutputPtr{nullptr};
+
+  //! Size of allocation pointed to by output.
+  uint64_t mOutputSize{0};
+
+  bool mReallocateOutputCalled{false};
+
+  bool mNotifyShapeCalled{false};
+
+  //! Dimensions of tensor.
+  std::vector<int64_t> mOutputDims;
+
+private:
+  GpuAllocator* mGpuAllocator;
+  const char *mTensorName;
+  void *mCurrentMemory;
+};
+
+class OutputAllocatorTracker {
+public:
+  OutputAllocatorTracker() = default;
+  ~OutputAllocatorTracker() = default;
+
+  OutputAllocatorTracker(const OutputAllocatorTracker &) = delete;
+  OutputAllocatorTracker &operator=(const OutputAllocatorTracker &) = delete;
+  OutputAllocatorTracker(OutputAllocatorTracker &&) = default;
+  OutputAllocatorTracker &operator=(OutputAllocatorTracker &&) = default;
+
+  // Add a new OutputAllocator
+  void addAllocator(void *ptr, OutputAllocator *allocator) {
+    mOutputAllocatorRegistry.emplace_back(std::make_pair(ptr, allocator));
+  }
+
+  // Get a reference to an OutputAllocator
+  OutputAllocator *getAllocator(void *ptr) {
+    auto it = std::find_if(
+        mOutputAllocatorRegistry.begin(), mOutputAllocatorRegistry.end(),
+        [ptr](const auto &pair) { return pair.first == ptr; });
+
+    if (it != mOutputAllocatorRegistry.end()) {
+      return it->second;
+    }
+    return nullptr;
+  }
+
+private:
+  std::vector<std::pair<void *, OutputAllocator *>> mOutputAllocatorRegistry;
 };
 
 //===----------------------------------------------------------------------===//

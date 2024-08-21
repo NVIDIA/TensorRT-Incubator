@@ -86,6 +86,35 @@ def infer_output_shape(client, session, exe, input_shape):
     return output_shape
 
 
+class CupyOutputAllocator(runtime.OutputAllocator):
+    def __init__(self):
+        super().__init__(self)
+
+    def set_tensor_name(self, tensor_name):
+        self.tensor_name = tensor_name
+
+    def set_current_memory(self, memory):
+        self.memory = memory
+
+    def set_output_size(self, size):
+        self.size = size
+
+    def reallocate_output(self, tensor_name, memory, size, alignment):
+        assert self.tensor_name == tensor_name
+        assert self.memory == memory
+
+        if size > self.size:
+            # For now just fail if reallocation is required.
+            assert 0
+
+        return self.memory
+
+    def notify_shape(self, tensor_name, dims, nb_dims):
+        assert self.tensor_name == tensor_name
+        self.dims = dims
+        self.nb_dims = nb_dims
+
+
 def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
     # Build/parse the main function.
     with ir.Context() as context:
@@ -133,6 +162,15 @@ def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
         device=devices[0],
         stream=stream,
     )
+
+    # # Preallocate dummy memory for 1 element.
+    # arg2 = client.create_memref(
+    #     np.zeros((1, 1, 1), dtype=np.float32).data,
+    #     device=devices[0],
+    #     stream=stream,
+    # )
+    # output_allocator = CupyOutputAllocator()
+    # arg1.set_output_allocator(output_allocator)
 
     session.execute_function(
         "main", in_args=[arg0, arg1], out_args=[arg2], stream=stream

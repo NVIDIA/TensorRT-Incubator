@@ -667,6 +667,12 @@ public:
     return v->getKind() == Kind::MemRef;
   }
 
+  void setOutputAllocator(OutputAllocator* _outputAllocator) {
+    outputAllocator = _outputAllocator;
+  }
+
+  OutputAllocator *getOutputAllocator() { return outputAllocator; }
+
   const std::optional<ScalarType> &getScalarType() const { return scalarType; }
 
   RuntimeClient *getClient() { return client; }
@@ -691,6 +697,7 @@ private:
   /// address.
   std::optional<const Device *> device;
   std::optional<ScalarType> scalarType{};
+  OutputAllocator *outputAllocator{nullptr};
 };
 
 //===----------------------------------------------------------------------===//
@@ -868,6 +875,7 @@ public:
                  std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator,
                  std::unique_ptr<AllocTracker> allocTracker,
                  std::unique_ptr<ResourceTracker> resourceTracker,
+                 std::unique_ptr<OutputAllocatorTracker> outputAllocatorTracker,
                  std::unique_ptr<GpuAllocator> gpuAllocator);
 
   ExecutableView getExecutable() const { return executable; }
@@ -882,6 +890,10 @@ public:
 
   ResourceTracker &getResourceTracker() { return *resourceTracker; }
 
+  OutputAllocatorTracker &getOutputAllocatorTracker() {
+    return *outputAllocatorTracker;
+  }
+
   GpuAllocator &getGpuAllocator() { return *gpuAllocator; }
 
 private:
@@ -891,6 +903,7 @@ private:
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
+  std::unique_ptr<OutputAllocatorTracker> outputAllocatorTracker;
   std::unique_ptr<GpuAllocator> gpuAllocator;
   sol::state state;
 };
@@ -973,6 +986,14 @@ public:
     return pinnedMemoryAllocator;
   }
 
+  void addOutputAllocator(std::unique_ptr<OutputAllocator> outputAllocator) {
+    outputAllocators.emplace_back(std::move(outputAllocator));
+  }
+
+  OutputAllocator* getLastOutputAllocator() {
+    return outputAllocators.back().get();
+  }
+
 private:
   RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
       : devices(std::move(devices)) {}
@@ -981,6 +1002,7 @@ private:
   PinnedMemoryAllocator pinnedMemoryAllocator;
   AllocTracker allocTracker;
   ResourceTracker resourceTracker;
+  std::vector<std::unique_ptr<OutputAllocator>> outputAllocators;
 };
 
 //===----------------------------------------------------------------------===//

@@ -37,6 +37,8 @@ void registerLuaRuntimeMethods(lua_State *state,
                                const RuntimeSessionOptions &options,
                                PinnedMemoryAllocator *pinnedMemoryAllocator,
                                AllocTracker *allocTracker,
-                               ResourceTracker *resourceTracker, GpuAllocator* allocator);
+                               ResourceTracker *resourceTracker,
+                               OutputAllocatorTracker *outputAllocatorTracker,
+                               GpuAllocator *allocator);
 
 } // namespace mlirtrt::runtime
