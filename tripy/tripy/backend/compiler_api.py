@@ -34,6 +34,97 @@ from tripy.utils import json as json_utils
 
 
 @export.public_api(document_under="compiler")
+class Stream:
+    """
+    Represents CUDA streams that can be used to manage concurrent operations.
+
+    This class is a wrapper around the underlying stream object, allowing management of CUDA streams.
+
+    Args:
+        create_new (bool): If True, creates a new stream. If False, uses the default stream.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Create new streams
+
+        streamA = tp.Stream()
+        streamB = tp.Stream()
+        defaultStream = tp.Stream(create_new=False)
+        assert streamA != streamB
+        assert defaultStream != streamB
+
+    .. code-block:: python
+        :linenos:
+        :caption: Use streams in execution
+
+        linear = tp.Linear(2, 3)
+        compiler = tp.Compiler(linear)
+
+        compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
+
+        a = tp.ones((2, 2), dtype=tp.float32)
+
+        compiled_linear.stream = tp.Stream()
+        out = compiled_linear(a)
+        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+    """
+
+    _default_stream = None
+    _all_streams = set()
+
+    def __init__(self, create_new=True):
+        if create_new:
+            from tripy.backend.mlir.utils import MLIRRuntimeClient
+
+            self._stream = MLIRRuntimeClient().create_stream()
+            Stream._all_streams.add(self)
+        else:
+            # Use the existing default stream
+            default_stream = self.get_default_stream()
+            self._stream = default_stream._stream
+
+    @classmethod
+    def get_default_stream(cls):
+        """Get the default stream, create it if it doesn't exist."""
+        if cls._default_stream is None:
+            cls._default_stream = cls(create_new=True)
+        return cls._default_stream
+
+    def synchronize(self):
+        """Synchronize the stream, blocking until all operations in this stream are complete."""
+        self._stream.sync()
+
+    @classmethod
+    def synchronize_all(cls):
+        """Synchronize all streams, blocking until all operations in all streams are complete."""
+        for stream in cls._all_streams:
+            stream.synchronize()
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+    @classmethod
+    def get_all_streams(cls):
+        """Get a list of all streams that have been created."""
+        return list(cls._all_streams)
+
+    def __del__(self):
+        Stream._all_streams.discard(self)
+        del self._stream
+
+    def __eq__(self, other):
+        if not isinstance(other, Stream):
+            return False
+        return self._stream == other._stream
+
+    def __repr__(self):
+        return f"<Stream(id={id(self._stream)})>"
+
+    def __hash__(self):
+        return hash(id(self._stream))
+
+
+@export.public_api(document_under="compiler")
 class InputInfo:
     """
     Captures information about an input to a compiled function.
@@ -127,7 +218,8 @@ class Executable:
     # TODO(#155): output_devices is not needed after they can be queried from executable
     def __init__(self, executable, arg_names, output_devices):
         self._executable = executable
-        self._executor = Executor(self._executable)
+        self._stream = Stream(create_new=False)
+        self._executor = Executor(self._executable, self._stream)
         self._arg_names = arg_names
         self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
@@ -140,6 +232,15 @@ class Executable:
         return_annotation = Tensor if self._executable_signature.get_num_output_args() == 1 else Sequence[Tensor]
 
         self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
+
+    @property
+    def stream(self):
+        return self._stream
+
+    @stream.setter
+    def stream(self, stream):
+        self._stream = stream
+        self._executor.stream = self._stream
 
     def __call__(self, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         """

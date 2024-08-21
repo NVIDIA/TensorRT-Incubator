@@ -188,6 +188,7 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
+        from tripy.backend.compiler_api import Stream
 
         if isinstance(self.trace_tensor.producer, Storage):
             return self.trace_tensor.producer.data
@@ -198,10 +199,12 @@ class Tensor(metaclass=TensorMeta):
 
         compiler = Compiler(trt_builder_opt_level=0)
         executable = compiler.compile(mlir, flat_ir=flat_ir)
-        executor = Executor(executable)
+        stream = Stream(create_new=False)
+        executor = Executor(executable, stream)
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
         data = executor.execute([out.device for out in flat_ir.outputs])
+        stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
         # Data is present now. Assign the underlying device type.
