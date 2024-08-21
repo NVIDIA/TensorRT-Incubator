@@ -133,7 +133,9 @@ def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Seque
         if dim is None:
             out = reshape(out, (1,) * input.rank)
         else:
-            for d in sorted(make_list(dim)):
+            # Custom comparison function ensures negatives are sorted in decreasing order, otherwise increasing.
+            # e.g, [-2, 0, -1, 2] is sorted as [-1, -2, 0, 2].
+            for d in sorted(make_list(dim), key=lambda x: (0, -x) if x < 0 else (1, x)):
                 out = unsqueeze(out, d)
 
     return out
