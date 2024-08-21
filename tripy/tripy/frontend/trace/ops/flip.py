@@ -21,6 +21,7 @@ from typing import Optional, Sequence, Union
 from tripy import export, utils
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.frontend.trace.ops import utils as op_utils
 
 
 @dataclass(repr=False)
@@ -29,6 +30,8 @@ class Flip(BaseTraceOp):
 
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank
+
+    infer_len = op_utils.InferLenPolicies.infer_same_as_first_input
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import FlipOp

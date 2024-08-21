@@ -30,6 +30,8 @@ class Permute(BaseTraceOp):
     # note that permuting a shape would not do anything
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
 
+    infer_len = op_utils.InferLenPolicies.infer_same_as_first_input
+
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import TransposeOp
 
