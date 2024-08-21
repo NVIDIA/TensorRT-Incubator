@@ -25,7 +25,7 @@ import torch
 
 import tripy as tp
 from tests.conftest import DATA_TYPE_TEST_CASES
-from tests.helper import NUMPY_TYPES
+from tests.helper import NUMPY_TYPES, np_to_tripy_dtype
 from tripy.utils.stack_info import SourceInfo
 from tripy.common.utils import get_element_type
 
@@ -54,11 +54,10 @@ class TestTensor:
 
     @pytest.mark.parametrize("dtype", NUMPY_TYPES)
     def test_dtype_from_numpy(self, dtype):
-        from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype
 
         np_array = np.array([1, 2, 3], dtype=dtype)
         tensor = tp.Tensor(np_array)
-        tp_dtype = convert_frontend_dtype_to_tripy_dtype(dtype)
+        tp_dtype = np_to_tripy_dtype(dtype)
         assert tensor.dtype == tp_dtype
 
     def test_bool_tensor(self):
@@ -151,9 +150,10 @@ class TestTensor:
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_torch(self, kind):
-        a = tp.Tensor([1, 2, 3], device=tp.device(kind))
-        b = torch.from_dlpack(a)
-        assert torch.equal(b.cpu(), torch.tensor([1, 2, 3]))
+        a_torch = torch.ones((2, 2), dtype=torch.float32)
+        if kind == "gpu":
+            a_torch = a_torch.to("cuda")
+        assert torch.equal(a_torch, torch.from_dlpack(tp.Tensor(a_torch)))
 
     def test_stack_depth_sanity(self):
         # Makes sure STACK_DEPTH_OF_BUILD is correct

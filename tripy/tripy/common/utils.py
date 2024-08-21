@@ -16,21 +16,11 @@
 #
 
 import array
-import re
 import struct
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Sequence
 
 from tripy.common.exception import raise_error
 import tripy.common.datatype
-
-
-def get_supported_array_type() -> List["tripy.common.datatype"]:
-    return [
-        tripy.common.datatype.bool,
-        tripy.common.datatype.int32,
-        tripy.common.datatype.int64,
-        tripy.common.datatype.float32,
-    ]
 
 
 def is_int32(data):
@@ -63,60 +53,6 @@ def get_element_type(elements):
         )
 
     return dtype
-
-
-def convert_frontend_dtype_to_tripy_dtype(dtype: Any) -> Optional["tripy.common.datatype.dtype"]:
-    """
-    Get the tripy.common.datatype equivalent of the data type.
-    """
-    import tripy.common.datatype
-
-    if isinstance(dtype, tripy.common.datatype.dtype):
-        return dtype
-
-    try:
-        dtype_name = dtype.name
-    except AttributeError:
-
-        def _convert_class_string(class_string):
-            pattern = r"<class '([\w.]+)'>$"
-            match = re.match(pattern, class_string)
-            return match.group(1) if match else class_string
-
-        def _extract_type_name(type_string):
-            pattern = r"(?:.*\.)?(\w+)$"
-            match = re.match(pattern, type_string)
-            return match.group(1) if match else type_string
-
-        dtype_name = _extract_type_name(_convert_class_string(str(dtype)))
-
-    DTYPE_NAME_TO_TRIPY = {
-        # Native python types.
-        "int": tripy.common.datatype.int32,
-        "float": tripy.common.datatype.float32,
-        "bool": tripy.common.datatype.bool,
-        # Framework types.
-        "bool_": tripy.common.datatype.bool,
-        "int8": tripy.common.datatype.int8,
-        "int32": tripy.common.datatype.int32,
-        "int64": tripy.common.datatype.int64,
-        "float8_e4m3fn": tripy.common.datatype.float8,
-        "float16": tripy.common.datatype.float16,
-        "bfloat16": tripy.common.datatype.bfloat16,
-        "float32": tripy.common.datatype.float32,
-    }
-
-    converted_type = DTYPE_NAME_TO_TRIPY.get(dtype_name, None)
-    if not converted_type:
-        raise_error(
-            f"Unsupported data type: '{dtype}'.",
-            [
-                f"Tripy tensors can be constructed with one of the following data types: {', '.join(DTYPE_NAME_TO_TRIPY.keys())}."
-            ],
-        )
-
-    return converted_type
-
 
 def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
     """Convert a list of values to a byte buffer based on the specified dtype."""
