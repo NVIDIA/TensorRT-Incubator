@@ -65,6 +65,53 @@ protected:
 };
 
 //===----------------------------------------------------------------------===//
+// TensorRTCallBackOutputAllocator
+//===----------------------------------------------------------------------===//
+
+class TensorRTCallBackOutputAllocator final
+    : public nvinfer1::IOutputAllocator {
+public:
+  TensorRTCallBackOutputAllocator(OutputAllocator *outputAllocator)
+      : nvinfer1::IOutputAllocator(),
+        mOutputAllocatorCallBack(outputAllocator) {}
+
+  void setOutputBuffer(std::unique_ptr<OutputBuffer> buffer) {
+    mOutputAllocatorCallBack->setOutputBuffer(std::move(buffer));
+  }
+
+  void *reallocateOutput(char const *tensorName, void *currentMemory,
+                         uint64_t size, uint64_t alignment) noexcept override {
+    return mOutputAllocatorCallBack->reallocateOutput(tensorName, currentMemory,
+                                                      size, alignment);
+  }
+
+  //! IMirroredBuffer does not implement Async allocation, hence this is just a
+  //! wrap around
+  void *reallocateOutputAsync(char const *tensorName, void *currentMemory,
+                              uint64_t size, uint64_t alignment,
+                              cudaStream_t /*stream*/) noexcept override {
+
+    return mOutputAllocatorCallBack->reallocateOutput(tensorName, currentMemory,
+                                                      size, alignment);
+  }
+
+  void notifyShape(char const *tensorName,
+                   nvinfer1::Dims const &dims) noexcept override {
+    std::vector<int64_t> dimsVec(dims.nbDims);
+    for (int32_t i = 0; i < dims.nbDims; ++i) {
+      dimsVec[i] = dims.d[i];
+    }
+    return mOutputAllocatorCallBack->notifyShape(tensorName, dimsVec);
+  }
+
+  ~TensorRTCallBackOutputAllocator() override {}
+
+private:
+  OutputAllocator *mOutputAllocatorCallBack;
+  std::unique_ptr<OutputBuffer> mBuffer;
+};
+
+//===----------------------------------------------------------------------===//
 // TensorRTCallBackAllocator
 //===----------------------------------------------------------------------===//
 
@@ -167,14 +214,15 @@ private:
       std::unique_ptr<nvinfer1::IExecutionContext,
                       void (*)(nvinfer1::IExecutionContext *)>
           context,
-      std::vector<PinnedMemoryBlock> inputHostBuffers)
+      std::vector<PinnedMemoryBlock> inputHostBuffers,
+      std::vector<std::unique_ptr<TensorRTCallBackOutputAllocator>>& outputAllocators)
       : engine(std::move(engine)), context(std::move(context)),
         signature(**this->engine), hostIOBuffers(std::move(inputHostBuffers)) {}
 
 public:
   static StatusOr<std::shared_ptr<NvInferExecContextWrapper>>
   create(std::shared_ptr<NvInferEngineWrapper> engine,
-         PinnedMemoryAllocator *pinnedMemoryAllocator) {
+         PinnedMemoryAllocator *pinnedMemoryAllocator, std::vector<std::unique_ptr<TensorRTCallBackOutputAllocator>>& outputAllocators) {
     auto context = std::unique_ptr<nvinfer1::IExecutionContext,
                                    void (*)(nvinfer1::IExecutionContext *)>(
         (*engine)->createExecutionContext(),
@@ -224,7 +272,7 @@ public:
 
     return std::shared_ptr<NvInferExecContextWrapper>(
         new NvInferExecContextWrapper(std::move(engine), std::move(context),
-                                      std::move(hostIOBuffers)));
+                                      std::move(hostIOBuffers), outputAllocators));
   }
 
   nvinfer1::IExecutionContext *operator*() { return context.get(); }
@@ -233,6 +281,11 @@ public:
 
   /// Returned the pre-allocated host staging buffers.
   std::vector<PinnedMemoryBlock> &getHostIOBuffers() { return hostIOBuffers; }
+
+  /// Returned the output allocators.
+  std::vector<std::unique_ptr<TensorRTCallBackOutputAllocator>> &getOutputAllocators() {
+    return outputAllocators;
+  }
 
 private:
   // We keep a reference to the cuda engine to keep it from going out of scope.
@@ -247,6 +300,7 @@ private:
   /// A set of pinned host buffers one per input host buffer (shape tensor) to
   /// the TRT network.
   std::vector<PinnedMemoryBlock> hostIOBuffers;
+  std::vector<std::unique_ptr<TensorRTCallBackOutputAllocator>> outputAllocators;
 };
 } // namespace
 
@@ -398,6 +452,15 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to prepare buffers: ", buffers.getString());
 
+  // Register output allocator for all outputs.
+  for (size_t i = 0; i < buffers->size(); ++i) {
+    context.getOutputAllocators()[i]->setOutputBuffer(
+        std::make_unique<OutputBuffer>());
+    context->setOutputAllocator(std::get<0>(buffers->at(i)).c_str(),
+                                static_cast<nvinfer1::IOutputAllocator *>(
+                                    context.getOutputAllocators()[i].get()));
+  }
+
   MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
 
   // Create an event that we can wait on for releasing any host-pinned staging
@@ -426,7 +489,8 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
 //===----------------------------------------------------------------------===//
 void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker, GpuAllocator* allocator) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker,
+    GpuAllocator *allocator) {
   sol::state_view lua(luaState);
 
   lua["_trtrt_create_runtime"] =
@@ -455,8 +519,22 @@ void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
     ADD_TENSORRT_MODULE_RANGE("trtrt_create_context");
     sol::state_view luaState(state);
     assert(engine != nullptr);
+    std::vector<std::unique_ptr<TensorRTCallBackOutputAllocator>>
+        trtOutputAllocators;
+    for (int32_t i = 0; i < engine->engine->getNbIOTensors(); ++i) {
+      auto name = engine->engine->getIOTensorName(i);
+      if (engine->engine->getTensorIOMode(name) ==
+          nvinfer1::TensorIOMode::kOUTPUT) {
+        if (engine->engine->getTensorLocation(name) ==
+            nvinfer1::TensorLocation::kDEVICE) {
+          trtOutputAllocators.emplace_back(
+              new TensorRTCallBackOutputAllocator(new OutputAllocator()));
+        }
+      }
+    }
+
     StatusOr<std::shared_ptr<NvInferExecContextWrapper>> ctx =
-        NvInferExecContextWrapper::create(engine, pinnedMemoryAllocator);
+        NvInferExecContextWrapper::create(engine, pinnedMemoryAllocator, trtOutputAllocators);
     SET_LUA_ERROR_AND_RETURN_IF_ERROR(ctx, state, nullptr);
     assert(*ctx && "expected valid context");
     return *ctx;

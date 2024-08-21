@@ -32,6 +32,72 @@ namespace mlirtrt {
 
 struct EventPool;
 
+/// Output Allocators
+
+
+//===----------------------------------------------------------------------===//
+// TensorRTOutputAllocator
+//===----------------------------------------------------------------------===//
+
+class OutputBuffer {
+public:
+  void allocate(uint64_t size) {
+    cudaMalloc(reinterpret_cast<void **>(&mMemory), size);
+  }
+  void *getMemoryPtr() { return reinterpret_cast<void *>(mMemory); }
+  ~OutputBuffer() { cudaFree(mMemory); }
+
+private:
+  uint8_t *mMemory;
+};
+
+inline uint64_t roundUp(uint64_t m, uint64_t n) {
+  return ((m + n - 1) / n) * n;
+}
+
+//!
+//! Class to allocate memory for outputs with data-dependent shapes. The sizes
+//! of those are unknown so pre-allocation is not possible.
+//!
+class OutputAllocator {
+public:
+  OutputAllocator() {}
+
+  void setOutputBuffer(std::unique_ptr<OutputBuffer> buffer) {
+    mBuffer = std::move(buffer);
+  }
+
+  void *reallocateOutput(char const *tensorName, void *currentMemory,
+                         uint64_t size, uint64_t alignment) {
+    // Some memory allocators return nullptr when allocating zero bytes, but
+    // TensorRT requires a non-null ptr even for empty tensors, so allocate a
+    // dummy byte.
+    size = std::max(size, static_cast<uint64_t>(1));
+    if (size > mSize) {
+      mBuffer->allocate(roundUp(size, alignment));
+      mSize = size;
+    }
+    return mBuffer->getMemoryPtr();
+  }
+  //! IMirroredBuffer does not implement Async allocation, hence this is just a
+  //! wrap around
+  void *reallocateOutputAsync(char const *tensorName, void *currentMemory,
+                              uint64_t size, uint64_t alignment,
+                              cudaStream_t /*stream*/) {
+    return reallocateOutput(tensorName, currentMemory, size, alignment);
+  }
+
+  void notifyShape(char const *tensorName, std::vector<int64_t> &dims) {}
+
+  ~OutputAllocator() {}
+
+private:
+  std::unique_ptr<OutputBuffer> mBuffer;
+  uint64_t mSize{};
+};
+
+/// GPU Allocators
+
 class GpuAllocator {
 public:
   GpuAllocator() = default;

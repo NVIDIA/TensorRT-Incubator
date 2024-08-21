@@ -72,7 +72,8 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
 
 static void registerLuaRuntimeMethodsCommon(
     lua_State *state, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker, GpuAllocator* allocator) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker,
+    GpuAllocator *allocator) {
   registerExecutorCoreModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
                                               allocTracker);
   registerExecutorCUDAModuleLuaRuntimeMethods(
@@ -107,8 +108,8 @@ void mlirtrt::runtime::registerLuaRuntimeMethods(
 #endif
 }
 
-StatusOr<int64_t>
-mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript, GpuAllocator* allocator) {
+StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
+    std::string_view luaScript, GpuAllocator *allocator) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
@@ -171,7 +172,8 @@ static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
 /// global initialization.
 StatusOr<std::unique_ptr<RuntimeSession>>
 mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
-    ExecutableView executable, std::unique_ptr<GpuAllocator> allocator, const RuntimeSessionOptions &options) {
+    ExecutableView executable, std::unique_ptr<GpuAllocator> allocator,
+    const RuntimeSessionOptions &options) {
   ADD_RUNTIME_MODULE_RANGE("runtime_loadExecutable");
 
   MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
@@ -225,11 +227,13 @@ mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
   }
   return std::make_unique<RuntimeSession>(
       options, executable, std::move(lua), std::move(pinnedMemoryAllocator),
-      std::move(allocTracker), std::move(resourceTracker), std::move(allocator));
+      std::move(allocTracker), std::move(resourceTracker),
+      std::move(allocator));
 }
 
 StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
-    std::unique_ptr<Executable> executable, std::unique_ptr<GpuAllocator> allocator) {
+    std::unique_ptr<Executable> executable,
+    std::unique_ptr<GpuAllocator> allocator) {
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
@@ -245,7 +249,8 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
     return options.getStatus();
 
   StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(executable->getView(), std::move(allocator), *options);
+      createRuntimeSessionWithLuaBackend(executable->getView(),
+                                         std::move(allocator), *options);
   if (!session.isOk())
     return session.getStatus();
 
