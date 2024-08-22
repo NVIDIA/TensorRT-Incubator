@@ -26,7 +26,7 @@ from tripy.frontend.module.parameter import Parameter, DefaultParameter
 
 @export.public_api(document_under="operations/modules")
 @dataclass
-@utils.constant_fields(["dtype"])
+@utils.constant_fields(["dtype", "normalized_shape"])
 class LayerNorm(Module):
     r"""
     Applies layer normalization over the input tensor:
@@ -54,10 +54,7 @@ class LayerNorm(Module):
     eps: float
     """A value added to the denominator to prevent division by zero."""
 
-    correction: int
-    """Difference between the sample size and the degrees of freedom."""
-
-    def __init__(self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5, correction: int = 0) -> None:
+    def __init__(self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:
         """
         Args:
             normalized_shape: The size of the feature dimension of the input over which normalization is performed.
@@ -98,8 +95,6 @@ class LayerNorm(Module):
 
         self.eps = eps
 
-        self.correction = correction
-
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
         Args:
@@ -121,6 +116,6 @@ class LayerNorm(Module):
 
         reduce_dims = tuple(-i for i in range(D, 0, -1))
         mean_val = mean(x, dim=reduce_dims, keepdim=True)
-        var_val = var(x, dim=reduce_dims, keepdim=True, correction=self.correction) + self.eps
+        var_val = var(x, dim=reduce_dims, keepdim=True, correction=0) + self.eps
         x = (x - mean_val) * rsqrt(var_val)
         return self.weight * x + self.bias
