@@ -1,7 +1,6 @@
 from __future__ import annotations
-
+import numpy as np
 import typing
-
 import typing_extensions
 
 __all__ = [
@@ -82,7 +81,7 @@ class MemRefType(Type):
     def strides(self) -> list[int]: ...
 
 class MemRefValue:
-    def __dlpack__(self, stream: int = 0) -> capsule: ...
+    def __dlpack__(self, stream: int = 0) -> object: ...
     def __dlpack_device__(self) -> tuple: ...
     @property
     def _CAPIPtr(self) -> typing.Any: ...
@@ -188,13 +187,13 @@ class RuntimeClient:
         self,
         shape: list[int],
         dtype: ScalarTypeCode,
-        device: MTRT_Device | None = None,
-        stream: MTRT_Stream | None = None,
+        device: Device | None = None,
+        stream: Stream | None = None,
     ) -> MemRefValue: ...
     @typing.overload
     def create_memref(
         self,
-        array: typing_extensions.Buffer,
+        array: typing_extensions.Buffer | np.ndarray,
         shape: list[int] | None = None,
         dtype: ScalarTypeCode | None = None,
         device: Device | None = None,

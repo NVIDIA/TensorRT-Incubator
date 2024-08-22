@@ -380,6 +380,16 @@ static LogicalResult printExecutorBinaryInfixOperation(LuaEmitter &emitter,
   return success();
 }
 
+static LogicalResult printRuntimeBuiltinUnaryOp(LuaEmitter &emitter,
+                                                Operation *op,
+                                                StringRef opName) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "_" << opName << "_" << op->getResultTypes().front() << "("
+          << emitter.getVariableName(op->getOperands().front()) << ");\n";
+  return success();
+}
+
 static LogicalResult printOperation(LuaEmitter &emitter,
                                     executor::CreateTableOp op) {
   if (failed(emitter.emitAssignPrefix(op)))
@@ -692,10 +702,15 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
 
   if (isa<executor::ExecutorOpInterface>(op)) {
     return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
-        .Case<executor::FuncOp, executor::CallOp>(
+        .Case<executor::FuncOp, executor::CallOp, executor::ConstantOp>(
             [&](auto op) { return printOperation(*this, op); })
-        .Case<executor::ConstantOp>(
-            [&](executor::ConstantOp op) { return printOperation(*this, op); })
+        .Case<executor::AbsFOp>([&](auto op) {
+          return printRuntimeBuiltinUnaryOp(*this, op.getOperation(), "absf");
+        })
+        .Case<executor::CopysignOp>([&](auto op) {
+          return printRuntimeBuiltinUnaryOp(*this, op.getOperation(),
+                                            "copysign");
+        })
         .Case<executor::MulIOp, executor::MulFOp, executor::SFloorDivIOp,
               executor::AddIOp, executor::AddFOp, executor::SubIOp,
               executor::SubFOp, executor::SRemIOp>([&](auto op) {

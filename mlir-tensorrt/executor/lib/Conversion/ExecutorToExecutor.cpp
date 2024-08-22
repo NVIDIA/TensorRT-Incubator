@@ -160,115 +160,6 @@ struct LegalizeExecutorOperands
   }
 };
 
-/// Convert operations that are 'lowerable to runtime builtin' to an
-/// `executor.call` operation while also creating the `executor.func`
-/// declaration if it does not already exist. This function assumes that the
-/// desired function name is `executor_[op mnemonic]_[type1]_..._[typeN]` where
-/// all types are simple scalar types.
-struct LowerOpToBuiltin
-    : public OpInterfaceConversionPattern<RuntimeBuiltinInterface> {
-
-  LowerOpToBuiltin(ExecutorTypeConverter &typeConverter, MLIRContext *ctx,
-                   PatternBenefit benefit = 1)
-      : OpInterfaceConversionPattern(typeConverter, ctx, benefit),
-        executorTypeConverter(typeConverter) {}
-
-  LogicalResult
-  matchAndRewrite(RuntimeBuiltinInterface op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const override {
-    mlir::ModuleOp moduleOp = op->getParentOfType<mlir::ModuleOp>();
-    FailureOr<CallOpInterface> callOp =
-        op.lowerToCall(operands, rewriter, moduleOp, *typeConverter,
-                       executorTypeConverter.getDataLayout());
-    if (failed(callOp))
-      return failure();
-    rewriter.replaceOp(op, *callOp);
-    return success();
-  }
-
-  const ExecutorTypeConverter &executorTypeConverter;
-};
-
-/// Replace any op with `LowerToFuncCallTrait` with a `func.call` operation.
-struct LowerToFuncCallTraitPattern
-    : OpTraitConversionPattern<LowerToFuncCallTrait> {
-  using OpTraitConversionPattern::OpTraitConversionPattern;
-
-  LogicalResult
-  matchAndRewrite(Operation *op, ArrayRef<Value> adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    auto moduleOp = op->getParentOfType<ModuleOp>();
-    if (!moduleOp)
-      return failure();
-    // For now just do simple substitution to get the name.
-    std::string funcName =
-        llvm::join(llvm::split(op->getName().getStringRef(), "."), "_");
-
-    // Insert the declaration.
-    SmallVector<Type> resultTypes;
-    if (failed(getTypeConverter()->convertTypes(op->getResultTypes(),
-                                                resultTypes)))
-      return failure();
-
-    mlir::SymbolRefAttr ref = [&] {
-      auto *context = moduleOp.getContext();
-      if (moduleOp.lookupSymbol<executor::FuncOp>(funcName))
-        return SymbolRefAttr::get(context, funcName);
-
-      // Insert the private function declaration into the body of the parent
-      // module.
-      OpBuilder::InsertionGuard g(rewriter);
-      rewriter.setInsertionPointToStart(moduleOp.getBody());
-      auto funcOp = rewriter.create<FuncOp>(
-          op->getLoc(), funcName,
-          ExecutorFunctionType::get(context,
-                                    llvm::to_vector(TypeRange(adaptor)),
-                                    resultTypes, UnitAttr{}));
-      funcOp.setSymVisibility("private");
-      return SymbolRefAttr::get(context, funcName);
-    }();
-    // Replace with call.
-    rewriter.replaceOpWithNewOp<executor::CallOp>(
-        op, resultTypes, ref.getLeafReference(), adaptor);
-    return success();
-  }
-};
-
-/// Loads of tables aren't converted to builtin calls. We must lower to a series
-/// of loads and table creation.
-struct LoadTableToTableCreate
-    : public ConvertOpToExecutorPattern<executor::LoadOp> {
-  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
-
-  LogicalResult
-  matchAndRewrite(executor::LoadOp op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-    auto type = dyn_cast<TableType>(op.getType());
-    if (!type)
-      return failure();
-    std::optional<uint64_t> bitWidth =
-        getUniformWidthOfTableElements(type, getDataLayout());
-    if (!bitWidth)
-      return failure();
-
-    SmallVector<Value> elements;
-    elements.reserve(type.getBody().size());
-    for (auto [idx, t] : llvm::enumerate(type.getBody())) {
-      Value constant = rewriter.create<executor::ConstantOp>(
-          op.getLoc(), rewriter.getIntegerAttr(adaptor.getOffset().getType(),
-                                               (*bitWidth / 8) * idx));
-      Value offset = rewriter.create<executor::AddIOp>(
-          op.getLoc(), adaptor.getOffset(), constant);
-      // constexpr uint64_t kBitsInByte = 8;
-      Value integer = rewriter.create<executor::LoadOp>(
-          op.getLoc(), t, adaptor.getPtr(), offset);
-      elements.push_back(integer);
-    }
-    rewriter.replaceOpWithNewOp<CreateTableOp>(op, op.getType(), elements);
-    return success();
-  }
-};
-
 /// Handle conversion of ConstantResource attribute initializer values. This
 /// should really only be invoked when the initializer value has "index" element
 /// type , which needs to be converted to the target index type for
@@ -281,8 +172,7 @@ struct ConstantResourceConversionPattern
   matchAndRewrite(executor::ConstantResourceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
     auto attr = dyn_cast<DenseIntElementsAttr>(op.getValue());
-    if (!attr ||
-        typeConverter->isLegal(mlir::getElementTypeOrSelf(attr.getType())))
+    if (!attr || attr.getElementType() != rewriter.getIndexType())
       return failure();
 
     Type srcType = attr.getType().getElementType();
@@ -315,14 +205,8 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
           return typeConverter.isLegal(globalOp.getType());
 
         if (auto constantResourceOp = dyn_cast<ConstantResourceOp>(op))
-          return typeConverter.isLegal(mlir::getElementTypeOrSelf(
-              constantResourceOp.getValue().getType()));
-
-        if (isa<RuntimeBuiltinInterface>(op))
-          return false;
-
-        if (op->hasTrait<executor::LowerToFuncCallTrait>())
-          return false;
+          return constantResourceOp.getValueAttr().getElementType() !=
+                 IndexType::get(op->getContext());
 
         return typeConverter.isLegal(op->getOperandTypes()) &&
                typeConverter.isLegal(op->getResultTypes());
@@ -333,8 +217,6 @@ void executor::populateExecutorStructuralConversionPatternsAndLegality(
                ConvertExecutorGlobalOp, ConvertExecutorFunc,
                ConvertExecutorCall, ConstantResourceConversionPattern>(
       typeConverter, patterns.getContext());
-  patterns.add<LowerOpToBuiltin, LowerToFuncCallTraitPattern,
-               LoadTableToTableCreate>(typeConverter, patterns.getContext());
 }
 
 static LogicalResult convertExecutorFunctionMetadataAttrs(

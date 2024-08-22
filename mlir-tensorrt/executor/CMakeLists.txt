@@ -105,10 +105,11 @@ add_definitions(${LLVM_DEFINITIONS} ${MLIR_EXECUTOR_DEFINITIONS})
 add_subdirectory(executor-tblgen)
 add_subdirectory(include/mlir-executor)
 add_subdirectory(lib)
+add_subdirectory(test)
+
 add_subdirectory(executor-opt)
 add_subdirectory(executor-translate)
 add_subdirectory(executor-runner)
-add_subdirectory(test)
 
 get_property(MLIR_EXECUTOR_LIBS GLOBAL PROPERTY MLIR_EXECUTOR_LIBS)
 add_library(MLIRTensorRTExecutorLibraries INTERFACE)

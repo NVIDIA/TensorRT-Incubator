@@ -1,14 +1,21 @@
 # -*- Python -*-
+# pyright: reportAttributeAccessIssue=false
 import importlib.util
 import os
 import shutil
 import sys
 from pathlib import Path
+from typing import Dict, Any
 
 import lit.formats
 import lit.util
 from lit.llvm import llvm_config
 from lit.llvm.subst import ToolSubst
+from lit.LitConfig import LitConfig
+from lit.TestingConfig import TestingConfig
+
+config: TestingConfig = config  # type: ignore
+lit_config: LitConfig = lit_config  # type: ignore
 
 # Configuration file for the 'lit' test runner.
 
@@ -18,7 +25,7 @@ config.name = "MLIR_TENSORRT"
 config.test_format = lit.formats.ShTest(not llvm_config.use_lit_shell)
 
 # suffixes: A list of file extensions to treat as test files.
-config.suffixes = [".mlir", ".py", ".test"]
+config.suffixes = {".mlir", ".py", ".test"}
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = os.path.dirname(__file__)
@@ -73,7 +80,7 @@ llvm_config.use_default_substitutions()
 # excludes: A list of directories to exclude from the testsuite. The 'Inputs'
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
-config.excludes = [
+config.excludes = {
     "Inputs",
     "CMakeLists.txt",
     "README.txt",
@@ -81,7 +88,7 @@ config.excludes = [
     "lit.cfg.py",
     "test_utils.py",
     "models",
-]
+}
 
 
 # Tweak the PATH to include the tools dir.

@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Support/Allocators.h"
+#include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -236,7 +237,9 @@ StatusOr<PinnedMemoryBlock> PinnedMemoryAllocator::allocate(size_t size) {
 
 // Free the given block.
 Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, cudaStream_t stream) {
-  assert(ptr && "expected valid ptr");
+  if (ptr == 0)
+    return getOkStatus();
+
   Block *block = blockTracker->pointerToBlock.lookup(ptr);
   assert(block && "expected valid block");
   // If this block is associated with a stream, then we create an event to track

@@ -124,14 +124,24 @@ ExecutorTypeConverter::ExecutorTypeConverter(
           isa<IndexType>(options.indexType)) &&
          "expected indexType to be an integer type");
 
+  FloatType f32Type = Float32Type::get(ctx);
+  FloatType f64Type = Float64Type::get(ctx);
+
   // Add conversions for supported POD types.
-  addConversion([&](IndexType t) { return getIndexType(); });
-  addConversion([&](IntegerType t) -> std::optional<Type> {
+  addConversion(
+      [indexType = getIndexType()](IndexType t) { return indexType; });
+  addConversion([](IntegerType t) -> std::optional<Type> {
     if (t.isSignless())
       return t;
     return IntegerType::get(t.getContext(), t.getWidth());
   });
-  addConversion([&](FloatType t) -> std::optional<Type> {
+  addConversion([f32Type, f64Type](ComplexType t) -> std::optional<Type> {
+    if (t == ComplexType::get(f32Type) || t == ComplexType::get(f64Type))
+      return executor::TableType::get(t.getContext(),
+                                      {t.getElementType(), t.getElementType()});
+    return {};
+  });
+  addConversion([](FloatType t) -> std::optional<Type> {
     int64_t bitwidth = t.getWidth();
     if (bitwidth == 32 || bitwidth == 16 || bitwidth == 64 || bitwidth == 8 ||
         bitwidth == 4)
@@ -139,7 +149,7 @@ ExecutorTypeConverter::ExecutorTypeConverter(
     return std::nullopt;
   });
 
-  addConversion([&](Type t) -> std::optional<Type> {
+  addConversion([](Type t) -> std::optional<Type> {
     if (isa<executor::PointerType, executor::StrLiteralType,
             executor::ExecutorOpaqueType>(t))
       return t;

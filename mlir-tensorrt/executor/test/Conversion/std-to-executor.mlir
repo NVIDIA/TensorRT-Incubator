@@ -51,9 +51,6 @@ func.func @main() -> index {
   return %c0 : index
 }
 
-//   CHECK-DAG: executor.func private @executor_alloc(i32, i32) -> !executor.ptr<host>
-//   CHECK-DAG: executor.func private @_load_f32
-//   CHECK-DAG: executor.func private @_store_f32
 // CHECK-LABEL: @alloc
 //  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: i32) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32> {
 //   CHECK-DAG:     %[[c0_i32:.+]] = executor.constant 0 : i32
@@ -62,14 +59,14 @@ func.func @main() -> index {
 //   CHECK-DAG:     %[[c1_i32:.+]] = executor.constant 1 : i32
 //       CHECK:     %[[v0:.+]] = executor.muli %[[arg1]], %[[arg0]] : i32
 //       CHECK:     %[[v1:.+]] = executor.muli %[[v0]], %[[c4_i32]] : i32
-//       CHECK:     %[[v4:.+]] = executor.call @executor_alloc(%[[v1]], %[[c16_i32]]) : (i32, i32) -> !executor.ptr<host>
+//       CHECK:     %[[v4:.+]] = executor.alloc %[[v1]] bytes
 //       CHECK:     %[[v5:.+]] = executor.table.create(%[[v4]], %[[v4]], %[[c0_i32]], %[[arg0]], %[[arg1]], %[[arg1]], %[[c1_i32]]
 //       CHECK:     return %[[v5]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32, i32, i32>
 
 // CHECK-LABEL: @subview_load
 //  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32, %[[arg5:.+]]: i32, %[[arg6:.+]]: i32) -> f32 {
 //       CHECK:     %[[c8_i32:.+]] = executor.constant 8 : i32
-//       CHECK:     %[[v0:.+]] = executor.call @_load_f32(%[[arg1]], %[[c8_i32]]) : (!executor.ptr<host>, i32) -> f32
+//       CHECK:     %[[v0:.+]] = executor.load %[[arg1]] + %[[c8_i32]]
 //       CHECK:     return %[[v0]] : f32
 
 // CHECK-LABEL: @load_strided
@@ -80,7 +77,7 @@ func.func @main() -> index {
 //       CHECK:     %[[v2:.+]] = executor.muli %[[arg8]], %[[arg6]] : i32
 //       CHECK:     %[[v3:.+]] = executor.addi %[[v1]], %[[v2]] : i32
 //       CHECK:     %[[v4:.+]] = executor.muli %[[v3]], %[[c4_i32]] : i32
-//       CHECK:     %[[v5:.+]] = executor.call @_load_f32(%[[arg1]], %[[v4]]) : (!executor.ptr<host>, i32) -> f32
+//       CHECK:     %[[v5:.+]] = executor.load %[[arg1]] + %[[v4]]
 //       CHECK:     return %[[v5]] : f32
 // CHECK-LABEL: @copy
 //  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: !executor.ptr<host>, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32, %[[arg5:.+]]: i32, %[[arg6:.+]]: i32, %[[arg7:.+]]: !executor.ptr<host>, %[[arg8:.+]]: !executor.ptr<host>, %[[arg9:.+]]: i32, %[[arg10:.+]]: i32, %[[arg11:.+]]: i32, %[[arg12:.+]]: i32, %[[arg13:.+]]: i32) {
@@ -99,15 +96,15 @@ func.func @main() -> index {
 //       CHECK:     %[[v4:.+]] = executor.muli %[[v0]], %[[arg12]] : i32
 //       CHECK:     %[[v5:.+]] = executor.addi %[[v4]], %[[v2]] : i32
 //       CHECK:     %[[v6:.+]] = executor.muli %[[v5]], %[[c4_i32]] : i32
-//       CHECK:     executor.call @_store_f32(%[[arg8]], %[[v6]], %[[fill]]) : (!executor.ptr<host>, i32, f32) -> ()
+//       CHECK:     executor.store %[[fill]] to %[[arg8]] + %[[v6]]
 //       CHECK:     %[[v7:.+]] = executor.muli %[[v0]], %[[arg12]] : i32
 //       CHECK:     %[[v8:.+]] = executor.addi %[[v7]], %[[v2]] : i32
 //       CHECK:     %[[v9:.+]] = executor.muli %[[v8]], %[[c4_i32]] : i32
-//       CHECK:     %[[v10:.+]] = executor.call @_load_f32(%[[arg8]], %[[v9]]) : (!executor.ptr<host>, i32) -> f32
+//       CHECK:     %[[v10:.+]] = executor.load %[[arg8]] + %[[v9]]
 //       CHECK:     %[[v11:.+]] = executor.muli %[[v0]], %[[arg5]] : i32
 //       CHECK:     %[[v12:.+]] = executor.addi %[[v11]], %[[v2]] : i32
 //       CHECK:     %[[v13:.+]] = executor.muli %[[v12]], %[[c4_i32]] : i32
-//       CHECK:     executor.call @_store_f32(%[[arg1]], %[[v13]], %[[v10]]) : (!executor.ptr<host>, i32, f32) -> ()
+//       CHECK:     executor.store %[[v10]] to %[[arg1]] + %[[v13]]
 //       CHECK:     %[[v14:.+]] = executor.addi %[[v2]], %[[c1_i32]] : i32
 //       CHECK:     cf.br ^bb2(%[[v14]] : i32)
 //       CHECK:   ^bb4:  // pred: ^bb2

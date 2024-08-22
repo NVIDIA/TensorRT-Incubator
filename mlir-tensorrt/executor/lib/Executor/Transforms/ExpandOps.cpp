@@ -124,6 +124,9 @@ static FailureOr<Value> lowerGetOffset(RewriterBase &rewriter,
         offset = rewriter.create<AlignToOp>(loc, offset, alignment);
         offset = rewriter.create<AddIOp>(loc, offset, getIndexConst(typeSize));
       }
+      IntegerAttr alignment = rewriter.getUI32IntegerAttr(
+          layout.getTypeABIAlignment(body[indexStatic.getInt()]));
+      offset = rewriter.create<AlignToOp>(loc, offset, alignment);
       currentType = body[indexStatic.getInt()];
       continue;
     }
