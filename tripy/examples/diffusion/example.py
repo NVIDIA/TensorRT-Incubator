@@ -1,6 +1,22 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import argparse, os
 from tqdm import tqdm
-from pathlib import Path
 from PIL import Image
 import time
 
@@ -15,7 +31,8 @@ import tripy as tp
 
 def compile_model(model, inputs, verbose=False):
     if verbose:
-        print(f"Compiling {model.__class__.__name__}...", end=' ')
+        name = model.__class__.__name__ if isinstance(model, tp.Module) else model.__name__
+        print(f"[I] Compiling {name}...", end=' ', flush=True)
         compile_start_time = time.perf_counter()
 
     compiler = tp.Compiler(model)
@@ -54,57 +71,14 @@ def compile_vae(model, verbose=False):
     return compile_model(model, inputs, verbose=verbose)
 
 
-# def compile_CLIP(model, verbose=False):
-#     if verbose:
-#         print("Compiling CLIP model...")
-#         clip_compile_start_time = time.perf_counter()
-
-#     clip_compiler = tp.Compiler(model)
-#     compiled_clip = clip_compiler.compile(tp.InputInfo((1, 77), dtype=tp.int32))
-
-#     if verbose:
-#         clip_compile_end_time = time.perf_counter()
-#         print(f"Compilation of CLIP took {clip_compile_end_time - clip_compile_start_time} seconds.")
-
-#     return compiled_clip
-
-
-# def compile_unet(model, verbose=False):
-#     if verbose:
-#         print("Compiling UNet...")
-#         unet_compile_start_time = time.perf_counter()
-
-#     compiler = tp.Compiler(model)
-#     unconditional_context_shape = (1, 77, 768)
-#     conditional_context_shape = (1, 77, 768)
-#     latent_shape = (1, 4, 64, 64)
-#     compiled_model = compiler.compile(
-#         tp.InputInfo(unconditional_context_shape, dtype=tp.float32),
-#         tp.InputInfo(conditional_context_shape, dtype=tp.float32),
-#         tp.InputInfo(latent_shape, dtype=tp.float32),
-#         tp.InputInfo((1,), dtype=tp.float32),
-#         tp.InputInfo((1,), dtype=tp.float32),
-#         tp.InputInfo((1,), dtype=tp.float32),
-#         tp.InputInfo((1,), dtype=tp.float32),
-#     )
-
-#     if verbose:
-#         unet_compile_end_time = time.perf_counter()
-#         print(f"Compilation of UNet took {unet_compile_end_time - unet_compile_start_time} seconds.")
-
-#     return compiled_model
-
-
 def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance):
-    timesteps = list(range(1, 1000, 1000 // steps))[::-1]
-    # print(f"t: {timesteps}")
+    timesteps = list(range(1, 1000, 1000 // steps))
+    print(f"[I] Running diffusion for {timesteps} timesteps...")
     alphas = get_alphas_cumprod()[tp.Tensor(timesteps)]
     alphas_prev = tp.concatenate([tp.Tensor([1.0]), alphas[:-1]], dim=0)
-    # print(f"a: {alphas}")
-    # print(f"aP: {alphas_prev}")
 
-    # unet_run_start = time.perf_counter()
-    for index, timestep in enumerate(timesteps):
+    for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
+        t.set_description("idx: %1d, timestep: %3d" % (index, timestep))
         tid = tp.Tensor([index])
         latent = model(
             unconditional_context,
@@ -115,141 +89,82 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
             alphas_prev[tid],
             tp.Tensor([guidance]),
         )
-    # unet_run_end = time.perf_counter()
-    # print(f"Finished running diffusion. Inference took {unet_run_end - unet_run_start} seconds.")
     return latent
 
 
 def tripy_diffusion(args):
-    model = StableDiffusion()
-    load_from_diffusers(model, tp.float32, debug=True)
-
     run_start_time = time.perf_counter()
 
     # if os.path.isdir("engines"):
-    #     compiled_clip = tp.Executable.load(os.path.join("engines", "clip_executable.json"))
-    #     compiled_unet = tp.Executable.load(os.path.join("engines", "unet_executable.json"))
-    #     compiled_vae = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
+    #     print("[I] Loading cached engines from disk...")
+    #     clip_compiled = tp.Executable.load(os.path.join("engines", "clip_executable.json"))
+    #     unet_compiled = tp.Executable.load(os.path.join("engines", "unet_executable.json"))
+    #     vae_compiled = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
     # else:
-    compiled_clip = compile_clip(model.cond_stage_model.transformer.text_model, verbose=True)
-    compiled_unet = compile_unet(model, verbose=True)
-    compiled_vae = compile_vae(model.decode, verbose=True)
-    
+    model = StableDiffusion()
+    load_from_diffusers(model, tp.float32, debug=True)
+    clip_compiled = compile_clip(model.cond_stage_model.transformer.text_model, verbose=True)
+    unet_compiled = compile_unet(model, verbose=True)
+    vae_compiled = compile_vae(model.decode, verbose=True)
+        
     # os.mkdir("engines")
-    # compiled_clip.save(os.path.join("engines", "clip_executable.json"))
-    # compiled_unet.save(os.path.join("engines", "unet_executable.json"))
-    # compiled_vae.save(os.path.join("engines", "vae_executable.json"))
+    # print("[I] Saving engines to disk...")
+    # clip_compiled.save(os.path.join("engines", "clip_executable.json"))
+    # unet_compiled.save(os.path.join("engines", "unet_executable.json"))
+    # vae_compiled.save(os.path.join("engines", "vae_executable.json"))
 
-    # Run through CLIP to get context
+    # Run through CLIP to get context from prompt
     tokenizer = ClipTokenizer()
     prompt = tp.Tensor([tokenizer.encode(args.prompt)])
-    print(f"Got tokenized prompt.")
+    print(f"[I] Got tokenized prompt.")
     unconditional_prompt = tp.Tensor([tokenizer.encode("")])
-    print(f"Got unconditional tokenized prompt.")
+    print(f"[I] Got unconditional tokenized prompt.")
 
-    print("Getting CLIP conditional and unconditional context...", end=' ')
+    print("[I] Getting CLIP conditional and unconditional context...", end=" ")
     clip_run_start = time.perf_counter()
-    context = compiled_clip(prompt)
-    unconditional_context = compiled_clip(unconditional_prompt)
+    context = clip_compiled(prompt)
+    unconditional_context = clip_compiled(unconditional_prompt)
     clip_run_end = time.perf_counter()
     print(f"took {clip_run_end - clip_run_start} seconds.")
 
     # Backbone of diffusion - the UNet
-    
-    # start with random noise
     if args.seed is not None:
         torch.manual_seed(args.seed)
     torch_latent = torch.randn((1, 4, 64, 64)).to("cuda")
     latent = tp.Tensor(torch_latent)
 
-    print(f"Running diffusion loop for {args.steps} steps...", end=' ')
-
-    # compiler = tp.Compiler(run_diffusion_loop)
-    # unconditional_context_shape = (1, 77, 768)
-    # conditional_context_shape = (1, 77, 768)
-    # latent_shape = (1, 4, 64, 64)
-    # compiled_diffusion_loop = compiler.compile(
-    #     model,
-    #     tp.InputInfo(unconditional_context_shape, dtype=tp.float32),
-    #     tp.InputInfo(conditional_context_shape, dtype=tp.float32),
-    #     tp.InputInfo(latent_shape, dtype=tp.float32),
-    #     args.steps, 
-    #     args.guidance,
-    # )
-
-    timesteps = list(range(1, 1000, 1000 // args.steps))[::-1]
-    alphas = get_alphas_cumprod()[tp.Tensor(timesteps)]
-    alphas_prev = tp.concatenate([tp.Tensor([1.0]), alphas[:-1]], dim=0)
-    tid = tp.Tensor([0])
     diffusion_run_start = time.perf_counter()
-    # latent = run_diffusion_loop(compiled_unet, unconditional_context, context, latent, args.steps, args.guidance)
-    latent = compiled_unet(
-            unconditional_context,
-            context,
-            latent,
-            tp.cast(tp.Tensor([timesteps[0]]), tp.float32),
-            alphas[tid],
-            alphas_prev[tid],
-            tp.Tensor([args.guidance]),
-        )
+    latent = run_diffusion_loop(unet_compiled, unconditional_context, context, latent, args.steps, args.guidance)
     diffusion_run_end = time.perf_counter()
-    print(f"took {diffusion_run_end - diffusion_run_start} seconds.")
-
-    #latent = run_diffusion_loop(compiled_unet, unconditional_context, context, latent, args.steps, args.guidance)
-
-    # timesteps = list(range(1, 1000, 1000 // args.steps))
-    # print(f"Running for {timesteps} timesteps.")
-    # alphas = model.alphas_cumprod[tp.Tensor(timesteps)]
-    # alphas_prev = tp.concatenate([tp.Tensor([1.0]), alphas[:-1]], dim=0)
-
-    # def run(model, unconditional_context, context, latent, timestep, alphas, alphas_prev, guidance):
-    #     return model(unconditional_context, context, latent, timestep, alphas, alphas_prev, guidance)
-
-    # # This is diffusion
-    # print("Running diffusion...")
-    # unet_run_start = time.perf_counter()
-    # for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
-    #     t.set_description("idx: %1d, timestep: %3d" % (index, timestep))
-    #     tid = tp.Tensor([index])
-    #     latent = run(
-    #         compiled_unet,
-    #         unconditional_context,
-    #         context,
-    #         latent,
-    #         tp.cast(tp.Tensor([timestep]), tp.float32),
-    #         alphas[tid],
-    #         alphas_prev[tid],
-    #         tp.Tensor([args.guidance]),
-    #     )
-    # unet_run_end = time.perf_counter()
-    # print(f"Finished running diffusion. Inference took {unet_run_end - unet_run_start} seconds.")
+    print(f"[I] Finished diffusion denoising. Inference took {diffusion_run_end - diffusion_run_start} seconds.")
 
     # Upsample latent space to image with autoencoder
-
-    print(f"Decoding latent...", end=' ')
+    print(f"[I] Decoding latent...", end=" ")
     vae_run_start = time.perf_counter()
-    x = compiled_vae(latent)
-    # x = model.decode(latent)
+    x = vae_compiled(latent)
     vae_run_end = time.perf_counter()
     print(f"took {vae_run_end - vae_run_start} seconds.")
 
-    run_end_time = time.perf_counter()
+    # Evaluate output
     x.eval()
-    print(f"Full pipeline took {run_end_time - run_start_time} seconds.")
+    run_end_time = time.perf_counter()
+    print(f"[I] Full script took {run_end_time - run_start_time} seconds.")
 
     # save image
     im = Image.fromarray(cp.from_dlpack(x).get().astype(np.uint8, copy=False))
-    print(f"saving {args.out}")
+    print(f"[I] Saving {args.out}")
     if not os.path.isdir("output"):
+        print("[I] Creating 'output' directory.")
         os.mkdir("output")
     im.save(args.out)
 
     return im, [clip_run_start, clip_run_end, diffusion_run_start, diffusion_run_end, vae_run_start, vae_run_end]
 
+
 def hf_diffusion(args):
     from diffusers import StableDiffusionPipeline, UNet2DConditionModel, LMSDiscreteScheduler, AutoencoderKL
 
-    model_id = "runwayml/stable-diffusion-v1-5"  # "CompVis/stable-diffusion-v1-4"
+    model_id = "runwayml/stable-diffusion-v1-5"
     pipe = StableDiffusionPipeline.from_pretrained(model_id, dtype=torch.float32)
     pipe = pipe.to("cuda")
     hf_tokenizer = pipe.tokenizer
@@ -260,7 +175,7 @@ def hf_diffusion(args):
     
     run_start_time = time.perf_counter()
 
-    print("Starting tokenization and running clip...", end=" ")
+    print("[I] Starting tokenization and running clip...", end=" ")
     clip_run_start = time.perf_counter()
     text_input = hf_tokenizer(args.prompt, padding="max_length", max_length=hf_tokenizer.model_max_length, truncation=True, return_tensors="pt").to("cuda")
     max_length = text_input.input_ids.shape[-1] # 77
@@ -312,6 +227,8 @@ def print_summary(denoising_steps, times):
     print('Throughput: {:.2f} image/s'.format(1000. / total_ms))
 
 
+# TODO: Add torch compilation modes
+# TODO: Add fp16
 def main():
     default_prompt = "a horse sized cat eating a bagel"
     parser = argparse.ArgumentParser(
@@ -329,7 +246,8 @@ def main():
     args = parser.parse_args()
 
     if args.torch_inference:
-        hf_diffusion(args)
+        _, times = hf_diffusion(args)
+        print_summary(args.steps, times)
     else:
         _, times = tripy_diffusion(args)
         print_summary(args.steps, times)
