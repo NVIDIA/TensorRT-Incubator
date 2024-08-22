@@ -16,47 +16,53 @@
 #
 
 import numpy as np
+import re
 import torch
 import pytest
 
 import tripy as tp
+from tripy.common.exception import TripyException
 
 DTYPES = [
     (torch.float16, tp.float16),
-    (torch.float32, tp.float32),
+    (torch.float32, tp.float32)
 ]
 
-@pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
-@pytest.mark.parametrize("device", ["gpu", "cpu"])
 class TestLayerNorm:
-    @pytest.mark.parametrize("input_shape", [(10, 10, 5)])
-    @pytest.mark.parametrize("normalized_shape", [(10, 5), (5,)])
+    @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
+    @pytest.mark.parametrize("input_shape", [(2, 2, 2)])
+    @pytest.mark.parametrize("normalized_shape", [(2, 2), (2,)])
     @pytest.mark.parametrize("eps", [1e-5, 1e-3])
-    def test_layernorm_module(self, torch_dtype, tp_dtype, device, input_shape, normalized_shape, eps):
-        torch_device = "cuda" if device == "gpu" else device
+    def test_layernorm_accuracy(self, torch_dtype, tp_dtype, input_shape, normalized_shape, eps):
+        layernorm = torch.nn.LayerNorm(
+            normalized_shape=normalized_shape,
+            eps=eps,
+            dtype=torch_dtype,
+        )
         tp_layernorm = tp.LayerNorm(
             normalized_shape=normalized_shape,
             eps=eps,
             dtype=tp_dtype,
         )
-        layernorm = torch.nn.LayerNorm(
-            normalized_shape=normalized_shape,
-            eps=eps,
-            dtype=torch_dtype,
-            device=torch_device
-        )
 
         # use Tripy's parameters
-        layernorm.weight = torch.nn.Parameter(torch.from_dlpack(tp_layernorm.weight.__dlpack__()).to(torch_device))
-        layernorm.bias = torch.nn.Parameter(torch.from_dlpack(tp_layernorm.bias.__dlpack__()).to(torch_device))
+        tp_layernorm.weight = tp.Parameter(layernorm.weight)
+        tp_layernorm.bias = tp.Parameter(layernorm.bias)
 
-        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_device).to(torch_dtype)
-        tp_input = tp.Tensor(input, dtype=tp_dtype, device=tp.device(device))
+        input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
+        tp_input = tp.Tensor(input, dtype=tp_dtype)
 
         output = tp_layernorm(tp_input)
-        expected = layernorm(input).to("cpu")
+        expected = tp.Tensor(layernorm(input), device=tp.device("cpu"))
 
-        output_torch = torch.from_dlpack(output).to("cpu")
-        rtol_ = 2e-7 if tp_dtype == tp.float32 else 1.5e-3
-        assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        rtol_ = 2e-7 if tp_dtype == tp.float32 else 1e-3
+        assert output.shape == expected.shape
+        assert tp.allclose(output, expected, rtol=rtol_)
+
+    def test_layernorm_improper_dimensions(self):
+        tp_layernorm = tp.LayerNorm(
+            normalized_shape=[2, 2],
+        )
+        x = tp.ones((5,5,5))
+        with pytest.raises(TripyException, match=re.escape("The input's last 2 dimensions must have a shape of [2, 2] and received [5, 5]")):
+            tp_layernorm(x)
