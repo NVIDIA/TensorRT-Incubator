@@ -33,22 +33,24 @@ import cupy as cp
 
 
 def test_default_stream_creation():
-    default_stream1 = tp.Stream(create_new=False)
-    default_stream2 = tp.Stream(create_new=False)
+    default_stream1 = tp.Stream.default_stream()
+    default_stream2 = tp.Stream.default_stream()
     assert default_stream1 == default_stream2
 
 
-def test_get_all_streams():
-    tp.Stream._all_streams.clear()
-    stream1 = tp.Stream()
-    stream2 = tp.Stream()
-    all_streams = tp.Stream.get_all_streams()
-    assert len(all_streams) == 2
-    assert stream1 in all_streams
-    assert stream2 in all_streams
+def test_active_stream():
+    assert tp.Stream.get_current_stream() == tp.Stream.default_stream()
+    with tp.Stream.default_stream():
+        assert tp.Stream.get_current_stream() == tp.Stream.default_stream()
+        with tp.Stream() as s:
+            assert tp.Stream.get_current_stream() == s
+        assert tp.Stream.get_current_stream() == tp.Stream.default_stream()
+
+    assert tp.Stream.get_current_stream() == tp.Stream.default_stream()
 
 
 def test_enqueue_work_on_stream():
+
     linear = tp.Linear(25, 30)
     compiler = tp.Compiler(linear)
 
@@ -56,9 +58,8 @@ def test_enqueue_work_on_stream():
 
     a = tp.ones((2, 25), dtype=tp.float32)
 
-    stream = tp.Stream()
-    compiled_linear.stream = stream
-    out = compiled_linear(a)
-    # stream sync below is not required since from_dlpack method will eval() the tensor which will call stream sync anyway.
-    compiled_linear.stream.synchronize()
+    with tp.Stream():
+        with tp.Stream.default_stream():
+            out = compiled_linear(a)
+
     assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
