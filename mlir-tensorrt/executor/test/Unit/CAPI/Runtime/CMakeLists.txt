@@ -1,6 +1,4 @@
-add_mlir_tensorrt_unittest(RuntimeCAPITests
-  RuntimeCAPITests.cpp)
-
+add_mlir_executor_unittest(RuntimeCAPITests RuntimeCAPITests.cpp)
 target_link_libraries(RuntimeCAPITests PUBLIC
   MLIRTensorRTCAPIRuntime
-)
+  )

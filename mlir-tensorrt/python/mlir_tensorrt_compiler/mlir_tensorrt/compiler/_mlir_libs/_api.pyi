@@ -280,9 +280,7 @@ class ScalarTypeCode:
     def value(self) -> int: ...
 
 class StableHLOToExecutableOptions:
-    def __init__(
-        self, tensorrt_builder_opt_level: int, tensorrt_strongly_typed: bool
-    ) -> None: ...
+    def __init__(self, client: CompilerClient, args: typing.Sequence[str]) -> None: ...
     def set_debug_options(
         self,
         enabled: bool,

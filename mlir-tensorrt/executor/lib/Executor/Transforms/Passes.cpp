@@ -20,6 +20,7 @@
 #include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
+#include "mlir/Conversion/ComplexToStandard/ComplexToStandard.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Dialect/Affine/Passes.h"
@@ -32,14 +33,14 @@ using namespace mlir;
 using namespace mlir::executor;
 
 static void addCleanupPasses(OpPassManager &pm) {
-  pm.addPass(mlir::createCanonicalizerPass());
   pm.addPass(mlir::createCSEPass());
+  pm.addPass(mlir::createCanonicalizerPass());
 }
 
 void executor::buildExecutorLoweringPipeline(
     OpPassManager &pm,
     const ConvertStdToExecutorPassOptions &stdToExecutorOpts) {
-
+  pm.addPass(createConvertComplexToStandardPass());
   pm.addPass(createConvertSCFToCFPass());
   pm.addPass(memref::createFoldMemRefAliasOpsPass());
   pm.addPass(memref::createExpandOpsPass());
@@ -53,8 +54,6 @@ void executor::buildExecutorLoweringPipeline(
           stdToExecutorOpts.indexBitwidth,
           stdToExecutorOpts.usePackedMemRefCConv}));
   addCleanupPasses(pm);
-  pm.addPass(createExecutorExpandOpsPass());
-  addCleanupPasses(pm);
   pm.addPass(createConvertStdToExecutorPass(stdToExecutorOpts));
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
@@ -63,10 +62,11 @@ void executor::buildExecutorLoweringPipeline(
       createConvertExecutorToExecutorPass(ConvertExecutorToExecutorPassOptions{
           stdToExecutorOpts.indexBitwidth,
           stdToExecutorOpts.usePackedMemRefCConv}));
-  pm.addPass(createCSEPass());
-  pm.addPass(createCanonicalizerPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
+  pm.addPass(createExecutorDecomposeAggregateLoadsAndStoresPass());
+  pm.addPass(createExecutorExpandOpsPass());
   addCleanupPasses(pm);
+  pm.addPass(createExecutorLowerToRuntimeBuiltinsPass());
   pm.addPass(createExecutorPackArgumentsPass());
 }
 

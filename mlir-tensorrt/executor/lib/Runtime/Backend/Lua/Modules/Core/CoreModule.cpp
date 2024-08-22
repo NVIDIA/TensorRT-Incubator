@@ -106,23 +106,6 @@ ResultType integerTruncate(InputType input) {
       ShiftSize);
 }
 
-/// A method for copying tables containing all elements of uniform type into a
-/// buffer.
-template <typename TableElementType>
-mlirtrt::Status copyMemRefTableIntoBuffer(sol::this_state state, uintptr_t dest,
-                                          const sol::table &table) {
-  unsigned numElements = table.size();
-  TableElementType *ptr = reinterpret_cast<TableElementType *>(dest);
-  for (unsigned i = 1; i <= numElements; i++) {
-    std::optional<TableElementType> val = table.get<TableElementType>(i);
-    if (!val)
-      return getInternalErrorStatus(
-          "table value must be integer-representable");
-    *(ptr + i - 1) = *val;
-  }
-  return Status::getOk();
-}
-
 template <typename IntType>
 static IntType alignToImpl(IntType arg, uint32_t alignment) {
   typename std::make_unsigned<IntType>::type bump =
@@ -258,6 +241,18 @@ void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
 
   lua.new_usertype<nv_int4>(
       "i4", sol::constructors<nv_int4(float), nv_int4(double)>(),
+      sol::meta_function::addition,
+      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
+        return lhs + rhs;
+      },
+      sol::meta_function::subtraction,
+      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
+        return lhs - rhs;
+      },
+      sol::meta_function::multiplication,
+      [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
+        return lhs * rhs;
+      },
       sol::meta_function::division,
       [](const nv_int4 &lhs, const nv_int4 &rhs) -> nv_int4 {
         return lhs / rhs;
@@ -747,29 +742,6 @@ void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
     table[pos] = value;
     return table;
   };
-
-  /// We allow `executor.store` to store tables composed of integers/pointers of
-  /// uniform bit width.
-  lua["_store_table_64"] = [](sol::this_state state, uintptr_t pointer,
-                              size_t offset, const sol::table &table) {
-    MTRT_DBGF("store table (element bitwidth 64) to %lx + %lu", pointer,
-              offset);
-    SET_LUA_ERROR_AND_RETURN_IF_ERROR(
-        copyMemRefTableIntoBuffer<int64_t>(state, pointer + offset, table),
-        state, );
-  };
-  lua["_store_table_32"] = [](sol::this_state state, uintptr_t pointer,
-                              size_t offset, const sol::table &table) {
-    MTRT_DBGF("store table (element bitwidth 32) to %lx + %lu", pointer,
-              offset);
-    SET_LUA_ERROR_AND_RETURN_IF_ERROR(
-        copyMemRefTableIntoBuffer<int32_t>(state, pointer + offset, table),
-        state, );
-  };
-
-  /// Note: "load_table" is not implemented since the compiler lowers
-  /// executor.store into a sequence of `executor.load` or the elements plus
-  /// `executor.create_table`.
 
   //===----------------------------------------------------------------------===//
   // Pointer cast operations

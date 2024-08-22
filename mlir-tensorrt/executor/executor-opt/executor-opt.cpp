@@ -19,13 +19,41 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/InitAllDialects.h"
 #include "mlir-executor/InitAllPasses.h"
+#include "mlir/Conversion/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/BufferDeallocationOpInterfaceImpl.h"
+#include "mlir/Dialect/Arith/Transforms/BufferViewFlowOpInterfaceImpl.h"
+#include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Complex/IR/Complex.h"
+#include "mlir/Dialect/SCF/Transforms/BufferDeallocationOpInterfaceImpl.h"
+#include "mlir/Dialect/SCF/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+
+namespace mlir::executor {
+void registerTestExecutorBufferizePass();
+}
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
 
   mlir::executor::registerAllRequiredDialects(registry);
   mlir::executor::registerAllPasses();
+  mlir::executor::registerTestExecutorBufferizePass();
+
+  // Bufferization-related dialects/interfaces only required for tests.
+  registry.insert<mlir::bufferization::BufferizationDialect,
+                  mlir::complex::ComplexDialect, mlir::memref::MemRefDialect>();
+  mlir::bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
+      registry);
+  mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
+  mlir::arith::registerBufferViewFlowOpInterfaceExternalModels(registry);
+  mlir::scf::registerBufferDeallocationOpInterfaceExternalModels(registry);
+  mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::scf::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::registerConvertComplexToStandardPass();
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));

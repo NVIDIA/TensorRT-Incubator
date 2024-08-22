@@ -1,4 +1,4 @@
-// RUN: executor-opt %s -convert-executor-to-executor \
+// RUN: executor-opt %s -executor-lower-to-runtime-builtins  \
 // RUN:   | executor-translate -mlir-to-lua \
 // RUN:   | executor-runner -input-type=lua | FileCheck %s
 
