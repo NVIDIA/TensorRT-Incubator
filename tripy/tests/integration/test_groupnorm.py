@@ -29,9 +29,9 @@ DTYPES = [
 
 class TestGroupNorm:
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
-    @pytest.mark.parametrize("input_shape", [(2, 2, 2)])
-    @pytest.mark.parametrize("num_groups", [2, 4])
-    @pytest.mark.parametrize("num_channels", [2])
+    @pytest.mark.parametrize("input_shape", [(1, 10, 2)])
+    @pytest.mark.parametrize("num_groups", [2, 5])
+    @pytest.mark.parametrize("num_channels", [10])
     @pytest.mark.parametrize("eps", [1e-5, 1e-3])
     def test_groupnorm_accuracy(self, torch_dtype, tp_dtype, input_shape, num_groups, num_channels, eps):
         groupnorm = torch.nn.GroupNorm(
