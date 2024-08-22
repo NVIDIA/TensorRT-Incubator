@@ -1,3 +1,20 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 # https://arxiv.org/pdf/2112.10752.pdf
 # https://github.com/ekagra-ranjan/huggingface-blog/blob/main/stable_diffusion.md
 # Adapted from https://github.com/tinygrad/tinygrad/blob/master/examples/stable_diffusion.py
@@ -13,17 +30,33 @@ import numpy as np
 import tripy as tp
 from dataclasses import dataclass
 
-# @dataclass
-# class StableDiffusion15Config:
-#     block_size: int = 1024
-#     vocab_size: int = 50257
-#     num_layers: int = 12
-#     num_heads: int = 12
-#     embedding_size: int = 768
-#     bias: bool = True
-#     seq_len: int = 1
-#     batch_size: int = 1
-#     dtype: "tripy.datatype" = tp.float32
+@dataclass
+class CLIPConfig:
+    vocab_size: int = 49408
+    embedding_size: int = 768
+    num_heads: int = 12
+    max_seq_len: int = 77
+    num_hidden_layers: int = 12
+    dtype: "tripy.datatype" = tp.float32
+
+@dataclass
+class StableDiffusion15UNetConfig:
+    io_channels: int = 4
+    model_channels: int = 320
+    channel_mult: List[int] = [1, 2, 4, 4]
+    attention_resolutions: List[int] = [4, 2, 1]
+    num_heads: int = 8
+    context_dim: int = 768
+    dtype: "tripy.datatype" = tp.float32
+
+@dataclass
+class StableDiffusionVAEConfig:
+    io_channels: int = 3
+    latent_channels: int = 4
+    model_channel: int = 128
+    resolution: int = 256
+    channel_mult: List[int] = [1, 2, 4, 4]
+    dtype: "tripy.datatype" = tp.float32
 
 # convenience methods adapted from tinygrad/tensor.py (https://docs.tinygrad.org/tensor/ops/)
 def scaled_dot_product_attention(
@@ -219,7 +252,9 @@ class ResBlock(tp.Module):
     def __call__(self, x, emb):
         h = self.conv1(self.nonlinearity(self.norm1(x)))
         emb_out = self.time_emb_proj(self.nonlinearity(emb))
-        target_shape = emb_out.shape + (1, 1)
+        one_shape = tp.Shape(tp.ones((1,), dtype=tp.int32))
+        target_shape = tp.concatenate([emb_out.shape, one_shape, one_shape], dim=0)
+        # target_shape = emb_out.shape + (1, 1)
         # TODO: #228: WAR to prevent computing output rank in infer_rank for reshape
         target_shape.trace_tensor.shape = (emb_out.rank + 2,)
         h = h + tp.reshape(emb_out, target_shape)
@@ -383,12 +418,9 @@ class UpBlock2D(tp.Module):
         self.upsamplers = [Upsample(out_channels)]
 
     def __call__(self, x, emb, saved_inputs):
-        x = tp.concatenate([x, saved_inputs.pop()], dim=1)
-        x = self.resnets[0](x, emb)
-        x = tp.concatenate([x, saved_inputs.pop()], dim=1)
-        x = self.resnets[1](x, emb)
-        x = tp.concatenate([x, saved_inputs.pop()], dim=1)
-        x = self.resnets[2](x, emb)
+        for resblock in self.resnets:
+            x = tp.concatenate([x, saved_inputs.pop()], dim=1)
+            x = resblock(x, emb)
         return self.upsamplers[0](x)
 
 
@@ -418,15 +450,10 @@ class CrossAttnUpBlock2D(tp.Module):
             self.upsamplers = [Upsample(channels)]
 
     def __call__(self, x, emb, context, saved_inputs):
-        x = tp.concatenate([x, saved_inputs.pop()], dim=1)
-        x = self.resnets[0](x, emb)
-        x = self.attentions[0](x, context)
-        x = tp.concatenate([x, saved_inputs.pop()], dim=1)
-        x = self.resnets[1](x, emb)
-        x = self.attentions[1](x, context)
-        x = tp.concatenate([x, saved_inputs.pop()], dim=1)
-        x = self.resnets[2](x, emb)
-        x = self.attentions[2](x, context)
+        for i in range(len(self.attentions)):
+            x = tp.concatenate([x, saved_inputs.pop()], dim=1)
+            x = self.resnets[i](x, emb)
+            x = self.attentions[i](x, context)
         if hasattr(self, "upsamplers"):
             x = self.upsamplers[0](x)
         return x
@@ -737,7 +764,7 @@ def clamp(tensor: tp.Tensor, min: int, max: int):
 
 class StableDiffusion(tp.Module):
     def __init__(self):
-        self.alphas_cumprod = get_alphas_cumprod().eval()
+        self.alphas_cumprod = get_alphas_cumprod()
         self.model = namedtuple("DiffusionModel", ["diffusion_model"])(diffusion_model=UNetModel())
         self.first_stage_model = AutoencoderKL()
         self.cond_stage_model = namedtuple("CondStageModel", ["transformer"])(
