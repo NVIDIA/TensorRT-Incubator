@@ -109,14 +109,14 @@ class LayerNorm(Module):
             A tensor of the same shape as the input.
         """
         from tripy.frontend.trace.ops.reduce import mean, var
+        from tripy.frontend.shape import Shape
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
         from tripy.common.exception import raise_error
-        import tripy as tp
 
         # The mean and the variance are computed over the last D dimensions
         D = len(self.normalized_shape)
 
-        if x.shape[-D:] != tp.Shape(self.normalized_shape):
+        if x.shape[-D:] != Shape(self.normalized_shape):
             raise_error(f"The input's last {D} dimensions must have a shape of {self.normalized_shape} and received {x.shape[-D:].as_tensor().data()}")
 
         reduce_dims = tuple(-i for i in range(D, 0, -1))
