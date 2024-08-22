@@ -36,6 +36,7 @@ class TestFunctional:
 
         c = a + b
         out = c + c
+        assert False
         assert (cp.from_dlpack(out).get() == np.array([6.0, 8.0], dtype=np.float32)).all()
 
     @pytest.mark.parametrize(
