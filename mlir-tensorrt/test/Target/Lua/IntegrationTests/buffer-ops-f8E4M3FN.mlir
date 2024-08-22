@@ -1,3 +1,5 @@
+// REQUIRES: host-has-at-least-1-gpus
+// REQUIRES: all-gpus-support-fp8
 // RUN: mlir-tensorrt-opt %s -convert-memref-to-cuda -convert-plan-to-executor -convert-cuda-to-executor -executor-lowering-pipeline \
 // RUN:   | mlir-tensorrt-translate -mlir-to-runtime-executable \
 // RUN:   | mlir-tensorrt-runner -input-type=rtexe | FileCheck %s

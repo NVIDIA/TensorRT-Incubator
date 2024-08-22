@@ -1,3 +1,4 @@
+// REQUIRES: host-has-at-least-1-gpus
 // RUN:  executor-opt %s -split-input-file -convert-executor-to-executor | \
 // RUN:  executor-translate -mlir-to-runtime-executable | executor-runner -dump-function-signature -input-type=rtexe | FileCheck %s
 
