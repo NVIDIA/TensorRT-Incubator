@@ -54,7 +54,10 @@ class LayerNorm(Module):
     eps: float
     """A value added to the denominator to prevent division by zero."""
 
-    def __init__(self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:
+    correction: int
+    """Difference between the sample size and the degrees of freedom."""
+
+    def __init__(self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5, correction: int = 0) -> None:
         """
         Args:
             normalized_shape: The size of the feature dimension of the input over which normalization is performed.
@@ -95,6 +98,8 @@ class LayerNorm(Module):
 
         self.eps = eps
 
+        self.correction = correction
+
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
         Args:
@@ -111,10 +116,11 @@ class LayerNorm(Module):
         # The mean and the variance are computed over the last D dimensions
         D = len(self.normalized_shape)
 
-        if x[-D:].shape != tp.Shape(self.normalized_shape):
-            raise_error(f"The input's last {D} dimensions must have a shape of {self.normalized_shape}")
+        if x.shape[-D:] != tp.Shape(self.normalized_shape):
+            raise_error(f"The input's last {D} dimensions must have a shape of {self.normalized_shape} and received {x.shape[-D:].as_tensor().data()}")
 
-        mean_val = mean(x, dim=-D, keepdim=True)
-        var_val = var(x, dim=-D, keepdim=True, correction=0) + self.eps
+        reduce_dims = tuple(-i for i in range(D, 0, -1))
+        mean_val = mean(x, dim=reduce_dims, keepdim=True)
+        var_val = var(x, dim=reduce_dims, keepdim=True, correction=self.correction) + self.eps
         x = (x - mean_val) * rsqrt(var_val)
         return self.weight * x + self.bias
