@@ -43,9 +43,9 @@ jobs:
     - uses: actions/upload-pages-artifact@v3
       with:
         path: "/tripy/build/docs"
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+    # - name: Deploy to GitHub Pages
+    #   id: deployment
+    #   uses: actions/deploy-pages@v4
     - name: l1-test
       run: |
         cd /tripy/
