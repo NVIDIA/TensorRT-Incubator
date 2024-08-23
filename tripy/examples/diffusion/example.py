@@ -25,8 +25,8 @@ import cupy as cp
 import numpy as np
 
 from transformers import CLIPTokenizer
-from model import CLIPConfig, StableDiffusion, get_alphas_cumprod
-from weight_loader import load_from_diffusers
+from examples.diffusion.model import CLIPConfig, StableDiffusion, get_alphas_cumprod
+from examples.diffusion.weight_loader import load_from_diffusers
 import tripy as tp
 
 
@@ -266,7 +266,8 @@ def print_summary(denoising_steps, times):
 
 
 # TODO: Add torch compilation modes
-# TODO: Add fp16
+# TODO: Add fp16 support
+# TODO: Add Timing context
 def main():
     default_prompt = "a horse sized cat eating a bagel"
     parser = argparse.ArgumentParser(
@@ -275,7 +276,6 @@ def main():
     parser.add_argument("--steps", type=int, default=10, help="Number of denoising steps in diffusion")
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Phrase to render")
     parser.add_argument("--out", type=str, default=os.path.join("output", "rendered.png"), help="Output filename")
-    parser.add_argument("--noshow", action="store_true", help="Don't show the image")
     parser.add_argument("--fp16", action="store_true", help="Cast the weights to float16")
     parser.add_argument("--timing", action="store_true", help="Print timing per step")
     parser.add_argument("--seed", type=int, help="Set the random latent seed")
