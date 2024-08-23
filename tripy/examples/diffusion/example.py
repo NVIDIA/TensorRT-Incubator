@@ -24,7 +24,8 @@ import torch
 import cupy as cp
 import numpy as np
 
-from model import ClipTokenizer, StableDiffusion, get_alphas_cumprod
+from transformers import CLIPTokenizer
+from model import CLIPConfig, StableDiffusion, get_alphas_cumprod
 from weight_loader import load_from_diffusers
 import tripy as tp
 
@@ -102,6 +103,7 @@ def tripy_diffusion(args):
     #     vae_compiled = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
     # else:
     model = StableDiffusion()
+    print("[I] Loading model weights...", flush=True)
     load_from_diffusers(model, tp.float32, debug=True)
     clip_compiled = compile_clip(model.cond_stage_model.transformer.text_model, verbose=True)
     unet_compiled = compile_unet(model, verbose=True)
@@ -114,10 +116,12 @@ def tripy_diffusion(args):
     # vae_compiled.save(os.path.join("engines", "vae_executable.json"))
 
     # Run through CLIP to get context from prompt
-    tokenizer = ClipTokenizer()
-    prompt = tp.Tensor([tokenizer.encode(args.prompt)])
+    tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+    torch_prompt = tokenizer(args.prompt, padding="max_length", max_length=CLIPConfig.max_seq_len, truncation=True, return_tensors="pt")
+    prompt = tp.Tensor(torch_prompt.input_ids.to(torch.int32).to("cuda"))
     print(f"[I] Got tokenized prompt.")
-    unconditional_prompt = tp.Tensor([tokenizer.encode("")])
+    torch_unconditional_prompt = tokenizer([""], padding="max_length", max_length=CLIPConfig.max_seq_len, return_tensors="pt")
+    unconditional_prompt = tp.Tensor(torch_unconditional_prompt.input_ids.to(torch.int32).to("cuda"))
     print(f"[I] Got unconditional tokenized prompt.")
 
     print("[I] Getting CLIP conditional and unconditional context...", end=" ")
@@ -150,31 +154,36 @@ def tripy_diffusion(args):
     run_end_time = time.perf_counter()
     print(f"[I] Full script took {run_end_time - run_start_time} seconds.")
 
-    # save image
-    im = Image.fromarray(cp.from_dlpack(x).get().astype(np.uint8, copy=False))
+    # Save image
+    image = Image.fromarray(cp.from_dlpack(x).get().astype(np.uint8, copy=False))
     print(f"[I] Saving {args.out}")
     if not os.path.isdir("output"):
         print("[I] Creating 'output' directory.")
         os.mkdir("output")
-    im.save(args.out)
+    image.save(args.out)
 
-    return im, [clip_run_start, clip_run_end, diffusion_run_start, diffusion_run_end, vae_run_start, vae_run_end]
+    return image, [clip_run_start, clip_run_end, diffusion_run_start, diffusion_run_end, vae_run_start, vae_run_end]
 
-
+# referenced from https://huggingface.co/blog/stable_diffusion
 def hf_diffusion(args):
-    from diffusers import StableDiffusionPipeline, UNet2DConditionModel, LMSDiscreteScheduler, AutoencoderKL
+    from transformers import CLIPTextModel, CLIPTokenizer
+    from diffusers import AutoencoderKL, UNet2DConditionModel, LMSDiscreteScheduler
+    from tqdm.auto import tqdm
 
-    model_id = "runwayml/stable-diffusion-v1-5"
-    pipe = StableDiffusionPipeline.from_pretrained(model_id, dtype=torch.float32)
-    pipe = pipe.to("cuda")
-    hf_tokenizer = pipe.tokenizer
-    hf_encoder = pipe.text_encoder.to("cuda")
-    unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet").to("cuda")
-    scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-    vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae").to("cuda")
-    
     run_start_time = time.perf_counter()
 
+    # Initialize models
+    model_id = "runwayml/stable-diffusion-v1-5"
+    clip_id = "openai/clip-vit-large-patch14"
+    
+    print("[I] Loading models...")
+    hf_tokenizer = CLIPTokenizer.from_pretrained(clip_id)
+    hf_encoder = CLIPTextModel.from_pretrained(clip_id).to("cuda")
+    unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet").to("cuda")
+    vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae").to("cuda")
+    scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+
+    # Run through CLIP to get context from prompt
     print("[I] Starting tokenization and running clip...", end=" ")
     clip_run_start = time.perf_counter()
     text_input = hf_tokenizer(args.prompt, padding="max_length", max_length=hf_tokenizer.model_max_length, truncation=True, return_tensors="pt").to("cuda")
@@ -182,35 +191,64 @@ def hf_diffusion(args):
     uncond_input = hf_tokenizer([""], padding="max_length", max_length=max_length, return_tensors="pt").to("cuda")
     text_embeddings = hf_encoder(text_input.input_ids, output_hidden_states=True)[0]
     uncond_embeddings = hf_encoder(uncond_input.input_ids)[0]
+    text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
     clip_run_end = time.perf_counter()
     print(f"took {clip_run_end - clip_run_start} seconds.")
 
-    # Diffusion loop with UNet
+    # Backbone of diffusion - the UNet
     if args.seed is not None:
         torch.manual_seed(args.seed)
     torch_latent = torch.randn((1, 4, 64, 64)).to("cuda")
-    text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
+    torch_latent *= scheduler.init_noise_sigma
+    
     scheduler.set_timesteps(args.steps)
 
-    # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
-    latent_model_input = torch.cat([torch_latent] * 2)
+    diffusion_run_start = time.perf_counter()
+    for t in tqdm(scheduler.timesteps):
+        # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
+        latent_model_input = torch.cat([torch_latent] * 2)
+        latent_model_input = scheduler.scale_model_input(latent_model_input, timestep=t)
 
-    latent_model_input = scheduler.scale_model_input(latent_model_input, timestep=999)
+        # predict the noise residual
+        with torch.no_grad():
+            noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
 
-    # predict the noise residual
-    with torch.no_grad():
-        noise_pred = unet(latent_model_input, 999, encoder_hidden_states=text_embeddings).sample
+        # perform guidance
+        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+        noise_pred = noise_pred_uncond + args.guidance * (noise_pred_text - noise_pred_uncond)
 
-    # perform guidance
-    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-    noise_pred = noise_pred_uncond + args.guidance * (noise_pred_text - noise_pred_uncond)
+        # compute the previous noisy sample x_t -> x_t-1
+        torch_latent = scheduler.step(noise_pred, t, torch_latent).prev_sample
 
-    # compute the previous noisy sample x_t -> x_t-1
-    latents = scheduler.step(noise_pred, 999, torch_latent).prev_sample
+    diffusion_run_end = time.perf_counter()
+    print(f"[I] Finished diffusion denoising. Inference took {diffusion_run_end - diffusion_run_start} seconds.")
 
+    # Upsample latent space to image with autoencoder
+    print(f"[I] Decoding latent...", end=" ")
+    vae_run_start = time.perf_counter()
     torch_latent = 1 / 0.18215 * torch_latent
-    decoder_out = vae.decode(torch_latent)
+    with torch.no_grad():
+        image = vae.decode(torch_latent).sample
+    vae_run_end = time.perf_counter()
+    print(f"took {vae_run_end - vae_run_start} seconds.")
 
+    # Evaluate Output
+    image = (image / 2 + 0.5).clamp(0, 1)
+    image = image.detach().cpu().permute(0, 2, 3, 1).numpy()
+    images = (image * 255).round().astype("uint8")
+    pil_images = [Image.fromarray(image) for image in images]
+    image = pil_images[0]
+
+    run_end_time = time.perf_counter()
+    print(f"[I] Full script took {run_end_time - run_start_time} seconds.")
+
+    # Save image
+    print(f"[I] Saving {args.out}")
+    if not os.path.isdir("output"):
+        print("[I] Creating 'output' directory.")
+        os.mkdir("output")
+    image.save(args.out)
+    return image, [clip_run_start, clip_run_end, diffusion_run_start, diffusion_run_end, vae_run_start, vae_run_end]
 
 def print_summary(denoising_steps, times):
     stages_ms = [1000 * (times[i+1] - times[i]) for i in range(0, 6, 2)]
