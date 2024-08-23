@@ -35,7 +35,7 @@ class LayerNorm(Module):
 
     where :math:`\bar{x}` is the mean and :math:`\sigma^2` is the variance.
 
-    The mean the standard deviation are calculated over the last :math:`D`
+    The mean and standard deviation are calculated over the last :math:`D`
     dimensions, where :math:`D` is the dimension of `normalized_shape`.
     """
 
@@ -111,7 +111,7 @@ class LayerNorm(Module):
         # The mean and the variance are computed over the last D dimensions
         D = len(self.normalized_shape)
 
-        if x.shape[-D:] != Shape(self.normalized_shape):
+        if x.shape[-D:] != self.normalized_shape:
             raise_error(f"The input's last {D} dimensions must have a shape of {self.normalized_shape} and received {x.shape[-D:].as_tensor().data()}")
 
         reduce_dims = tuple(-i for i in range(D, 0, -1))
