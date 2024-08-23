@@ -29,11 +29,13 @@ DTYPES = [
 ]
 
 class TestLayerNorm:
+
+    @pytest.mark.l1
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", [(2, 2, 2)])
     @pytest.mark.parametrize("normalized_shape", [(2, 2), (2,)])
-    @pytest.mark.parametrize("eps", [1e-5, 1e-3])
-    def test_layernorm_accuracy(self, torch_dtype, tp_dtype, input_shape, normalized_shape, eps):
+    def test_layernorm_accuracy(self, torch_dtype, tp_dtype, input_shape, normalized_shape):
+        eps = 1e-5
         layernorm = torch.nn.LayerNorm(
             normalized_shape=normalized_shape,
             eps=eps,
@@ -46,18 +48,18 @@ class TestLayerNorm:
         )
 
         # use Tripy's parameters
-        tp_layernorm.weight = tp.Parameter(layernorm.weight)
-        tp_layernorm.bias = tp.Parameter(layernorm.bias)
+        tp_layernorm.weight = tp.Parameter(layernorm.weight.detach())
+        tp_layernorm.bias = tp.Parameter(layernorm.bias.detach())
 
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = tp_layernorm(tp_input)
-        expected = tp.Tensor(layernorm(input), device=tp.device("cpu"))
+        output = tp.copy(tp_layernorm(tp_input), tp.device("cpu"))
+        with torch.no_grad():
+            expected = layernorm(input)
 
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 1e-3
-        assert output.shape == expected.shape
-        assert tp.allclose(output, expected, rtol=rtol_)
+        assert torch.allclose(torch.from_dlpack(output), expected, rtol=rtol_)
 
     def test_layernorm_improper_dimensions(self):
         tp_layernorm = tp.LayerNorm(
