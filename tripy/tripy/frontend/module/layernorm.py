@@ -112,7 +112,9 @@ class LayerNorm(Module):
         D = len(self.normalized_shape)
 
         if x.shape[-D:] != self.normalized_shape:
-            raise_error(f"The input's last {D} dimensions must have a shape of {self.normalized_shape} and received {x.shape[-D:].as_tensor().data()}")
+            raise_error("Unexpected input shape",
+                [f"The input's last {D} dimensions must have a shape of {self.normalized_shape} and received {x.shape[-D:].data()}"]
+            )
 
         reduce_dims = tuple(-i for i in range(D, 0, -1))
         mean_val = mean(x, dim=reduce_dims, keepdim=True)
