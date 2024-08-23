@@ -24,7 +24,7 @@ import urllib.request
 from functools import lru_cache, reduce
 from tqdm import tqdm
 from collections import namedtuple
-from typing import List, Callable, Optional, Union
+from typing import List, Tuple, Callable, Optional, Union
 
 import numpy as np
 import tripy as tp
@@ -43,8 +43,8 @@ class CLIPConfig:
 class StableDiffusion15UNetConfig:
     io_channels: int = 4
     model_channels: int = 320
-    channel_mult: List[int] = [1, 2, 4, 4]
-    attention_resolutions: List[int] = [4, 2, 1]
+    channel_mult: Tuple[int] = (1, 2, 4, 4)
+    attention_resolutions: Tuple[int] = (4, 2, 1)
     num_heads: int = 8
     context_dim: int = 768
     dtype: "tripy.datatype" = tp.float32
@@ -55,7 +55,7 @@ class StableDiffusionVAEConfig:
     latent_channels: int = 4
     model_channel: int = 128
     resolution: int = 256
-    channel_mult: List[int] = [1, 2, 4, 4]
+    channel_mult: Tuple[int] = (1, 2, 4, 4)
     dtype: "tripy.datatype" = tp.float32
 
 # convenience methods adapted from tinygrad/tensor.py (https://docs.tinygrad.org/tensor/ops/)
@@ -601,154 +601,6 @@ class CLIPTextTransformer(tp.Module):
         x = self.encoder(x, tp.triu(tp.full((1, 1, 77, 77), float("-inf")), 1))
         return self.final_layer_norm(x)
 
-
-# Clip tokenizer, taken from https://github.com/openai/CLIP/blob/main/clip/simple_tokenizer.py (MIT license)
-@lru_cache()
-def default_bpe():
-    return fetch(
-        "https://github.com/openai/CLIP/raw/main/clip/bpe_simple_vocab_16e6.txt.gz", "bpe_simple_vocab_16e6.txt.gz"
-    )
-
-
-@lru_cache(maxsize=None)
-def getenv(key: str, default=0):
-    return type(default)(os.getenv(key, default))
-
-
-OSX = platform.system() == "Darwin"
-_cache_dir: str = getenv("XDG_CACHE_HOME", os.path.expanduser("~/Library/Caches" if OSX else "~/.cache"))
-
-
-def fetch(
-    url: str, name: Optional[Union[pathlib.Path, str]] = None, allow_caching=not getenv("DISABLE_HTTP_CACHE")
-) -> pathlib.Path:
-    if url.startswith(("/", ".")):
-        return pathlib.Path(url)
-    fp = (
-        pathlib.Path(name)
-        if name is not None and (isinstance(name, pathlib.Path) or "/" in name)
-        else pathlib.Path(_cache_dir)
-        / "tinygrad"
-        / "downloads"
-        / (name if name else hashlib.md5(url.encode("utf-8")).hexdigest())
-    )  # noqa: E501
-    if not fp.is_file() or not allow_caching:
-        with urllib.request.urlopen(url, timeout=10) as r:
-            assert r.status == 200
-            total_length = int(r.headers.get("content-length", 0))
-            progress_bar = tqdm(total=total_length, unit="B", unit_scale=True, desc=url)
-            (path := fp.parent).mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(dir=path, delete=False) as f:
-                while chunk := r.read(16384):
-                    progress_bar.update(f.write(chunk))
-                f.close()
-                if (file_size := os.stat(f.name).st_size) < total_length:
-                    raise RuntimeError(f"fetch size incomplete, {file_size} < {total_length}")
-                pathlib.Path(f.name).rename(fp)
-    return fp
-
-
-def get_pairs(word):
-    """Return set of symbol pairs in a word.
-    Word is represented as tuple of symbols (symbols being variable-length strings).
-    """
-    return set(zip(word, word[1:]))
-
-
-def whitespace_clean(text):
-    text = re.sub(r"\s+", " ", text)
-    text = text.strip()
-    return text
-
-
-def bytes_to_unicode():
-    """
-    Returns list of utf-8 byte and a corresponding list of unicode strings.
-    The reversible bpe codes work on unicode strings.
-    This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
-    When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
-    This is a significant percentage of your normal, say, 32K bpe vocab.
-    To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
-    And avoids mapping to whitespace/control characters the bpe code barfs on.
-    """
-    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
-    cs = bs[:]
-    n = 0
-    for b in range(2**8):
-        if b not in bs:
-            bs.append(b)
-            cs.append(2**8 + n)
-            n += 1
-    cs = [chr(n) for n in cs]
-    return dict(zip(bs, cs))
-
-
-class ClipTokenizer:
-    def __init__(self, bpe_path: str = default_bpe()):
-        self.byte_encoder = bytes_to_unicode()
-        merges = gzip.open(bpe_path).read().decode("utf-8").split("\n")
-        merges = merges[1 : 49152 - 256 - 2 + 1]
-        merges = [tuple(merge.split()) for merge in merges]
-        vocab = list(bytes_to_unicode().values())
-        vocab = vocab + [v + "</w>" for v in vocab]
-        for merge in merges:
-            vocab.append("".join(merge))
-        vocab.extend(["<|startoftext|>", "<|endoftext|>"])
-        self.encoder = dict(zip(vocab, range(len(vocab))))
-        self.bpe_ranks = dict(zip(merges, range(len(merges))))
-        self.cache = {"<|startoftext|>": "<|startoftext|>", "<|endoftext|>": "<|endoftext|>"}
-        self.pat = re.compile(r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s]+""", re.IGNORECASE)
-
-    def bpe(self, token):
-        if token in self.cache:
-            return self.cache[token]
-        word = tuple(token[:-1]) + (token[-1] + "</w>",)
-        pairs = get_pairs(word)
-
-        if not pairs:
-            return token + "</w>"
-
-        while True:
-            bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair, float("inf")))
-            if bigram not in self.bpe_ranks:
-                break
-            first, second = bigram
-            new_word = []
-            i = 0
-            while i < len(word):
-                try:
-                    j = word.index(first, i)
-                    new_word.extend(word[i:j])
-                    i = j
-                except Exception:
-                    new_word.extend(word[i:])
-                    break
-
-                if word[i] == first and i < len(word) - 1 and word[i + 1] == second:
-                    new_word.append(first + second)
-                    i += 2
-                else:
-                    new_word.append(word[i])
-                    i += 1
-            new_word = tuple(new_word)
-            word = new_word
-            if len(word) == 1:
-                break
-            pairs = get_pairs(word)
-        word = " ".join(word)
-        self.cache[token] = word
-        return word
-
-    def encode(self, text):
-        bpe_tokens = []
-        text = whitespace_clean(text.strip()).lower()
-        for token in re.findall(self.pat, text):
-            token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
-            bpe_tokens.extend(self.encoder[bpe_token] for bpe_token in self.bpe(token).split(" "))
-        # Truncation, keeping two slots for start and end tokens.
-        if len(bpe_tokens) > 75:
-            bpe_tokens = bpe_tokens[:75]
-        return [49406] + bpe_tokens + [49407] * (77 - len(bpe_tokens) - 1)
 
 # equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
 def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000):
