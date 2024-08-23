@@ -143,9 +143,14 @@ class BaseTraceOp(abc.ABC):
         """
         Infers dtypes for the operation and updates output tensor dtypes accordingly.
         """
+        assert self.inputs, "Default implementation cannot handle cases where there are no inputs. Please override."
         assert (
-            self.inputs and len(self.outputs) == 1 and all(inp.dtype == self.inputs[0].dtype for inp in self.inputs)
-        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different data types. Please override."
+            len(self.outputs) == 1
+        ), f"Default implementation expects exactly one output, but got {len(self.outputs)}. Please override."
+        assert all(
+            inp.dtype == self.inputs[0].dtype for inp in self.inputs
+        ), f"Default implementation cannot handle cases where inputs have different dtypes, but got {[inp.dtype for inp in self.inputs]}. Please override."
+
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_rank(self):
