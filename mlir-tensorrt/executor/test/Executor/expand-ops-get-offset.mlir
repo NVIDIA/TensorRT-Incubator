@@ -126,3 +126,22 @@ builtin.module attributes {
   }
 }
 
+// -----
+
+!el_type = !executor.table<i8, !executor.table<f32, f32>>
+
+builtin.module attributes {
+  dlti.dl_spec = #dlti.dl_spec<
+    #dlti.dl_entry<index, 64 : i64>
+  >
+} {
+  func.func @lower_gep_aggregate() -> i64 {
+    %0 = executor.getoffset[0, 1] : () -> i64, !el_type
+    return %0 : i64
+  }
+}
+
+// CHECK-LABEL: func.func @lower_gep_aggregate
+//  CHECK-SAME: () -> i64 {
+//       CHECK:     %[[c4_i64:.+]] = executor.constant 4 : i64
+//       CHECK:     return %[[c4_i64]] : i64

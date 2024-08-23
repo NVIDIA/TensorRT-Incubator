@@ -13,6 +13,7 @@ endmacro()
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_CUBLAS "Enable use of CUBLAS in the runtime" ON)
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_NCCL "Enable use of NCCL in the runtime" ON)
 mlir_executor_option(MLIR_EXECUTOR_ENABLE_MPI "Enable use of MPI in the runtime" ON)
+mlir_executor_option(MLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS "Enable integration tests that require GPU" ON)
 
 #-------------------------------------------------------------------------------
 # Project Setup
@@ -105,10 +106,11 @@ add_definitions(${LLVM_DEFINITIONS} ${MLIR_EXECUTOR_DEFINITIONS})
 add_subdirectory(executor-tblgen)
 add_subdirectory(include/mlir-executor)
 add_subdirectory(lib)
+add_subdirectory(test)
+
 add_subdirectory(executor-opt)
 add_subdirectory(executor-translate)
 add_subdirectory(executor-runner)
-add_subdirectory(test)
 
 get_property(MLIR_EXECUTOR_LIBS GLOBAL PROPERTY MLIR_EXECUTOR_LIBS)
 add_library(MLIRTensorRTExecutorLibraries INTERFACE)

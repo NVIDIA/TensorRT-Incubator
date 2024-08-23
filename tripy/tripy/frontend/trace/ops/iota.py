@@ -23,6 +23,7 @@ from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -107,6 +108,10 @@ def iota(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
+    from tripy.common.datatype import int64
+
+    if dtype == int64:
+        raise_error("Known issue with i64. Iota currently does not work with int64 inputs. Issue #116")
     output_rank = len(shape) if isinstance(shape, Sequence) else None
     return iota_impl(shape, dim, dtype, output_rank)
 
@@ -135,4 +140,8 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtyp
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
+    from tripy.common.datatype import int64
+
+    if dtype == int64:
+        raise_error("Known issue with i64. Iota_like currently does not work with int64 inputs. Issue #116")
     return iota_impl(input.shape, dim, utils.default(dtype, input.dtype), input.rank)

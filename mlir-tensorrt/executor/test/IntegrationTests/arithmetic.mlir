@@ -657,10 +657,7 @@ func.func @test_bf16(){
 
 // Test i4
 
-func.func @test_base_i4(){
-  %arg0 = executor.constant 4 : i4
-  %arg1 = executor.constant 3 : i4
-  %arg2 = executor.constant -5 : i4
+func.func @test_base_i4(%arg0: i4, %arg1: i4, %arg2: i4){
   %0 = executor.addi %arg0, %arg1 : i4
   executor.print"%s addi %s = %s"(%arg0, %arg1, %0: i4, i4, i4)
   %1 = executor.subi %arg0, %arg1 : i4
@@ -678,11 +675,9 @@ func.func @test_base_i4(){
   return
 }
 
-func.func @test_compare_i4(){
+func.func @test_compare_i4(%lhs: i4, %rhs: i4){
   %c1 = arith.constant 1 : i1
   %ic0 = arith.constant 0 : i1
-  %lhs = executor.constant 3: i4
-  %rhs = executor.constant -4: i4
   %condEq = executor.icmp <eq> %lhs, %rhs: i4
   %eq = scf.if %condEq -> i1{
     scf.yield %c1 : i1
@@ -749,9 +744,7 @@ func.func @test_compare_i4(){
   return
 }
 
-func.func @test_bitwise_i4(){
-  %arg0 = executor.constant 7: i4
-  %arg1 = executor.constant 2 : i4
+func.func @test_bitwise_i4(%arg0: i4, %arg1: i4){
   %0 = executor.bitwise_andi %arg0, %arg1 : i4
   executor.print "%s bitwise_and %s = %s"(%arg0, %arg1, %0 : i4, i4, i4)
   %1 = executor.bitwise_ori %arg0, %arg1 : i4
@@ -761,9 +754,7 @@ func.func @test_bitwise_i4(){
   return
 }
 
-func.func @test_shift_i4(){
-  %arg0 = executor.constant -3 : i4
-  %arg1 = executor.constant 2 : i4
+func.func @test_shift_i4(%arg0: i4, %arg1: i4) {
   %0 = executor.shift_lefti %arg0, %arg1 : i4
   executor.print "%s shift_left %s = %s"(%arg0, %arg1, %0 : i4, i4, i4)
   %1 = executor.shift_right_logicali %arg0, %arg1 : i4
@@ -773,8 +764,7 @@ func.func @test_shift_i4(){
   return
 }
 
-func.func @test_sitofp_i4() {
-  %arg0= executor.constant -4: i4
+func.func @test_sitofp_i4(%arg0: i4) {
   %0 = executor.sitofp %arg0 : i4 to f64
   executor.print "sitofp i4 to f64 of %s = %f"(%arg0, %0 : i4, f64)
   %1 = executor.sitofp %arg0 : i4 to f32
@@ -788,12 +778,7 @@ func.func @test_sitofp_i4() {
   return
 }
 
-func.func @test_fptosi_i4() {
-  %c_f8 = executor.constant 4.35 : f8E4M3FN
-  %c_f16 = executor.constant 4.456 : f16
-  %c_bf16 = executor.constant 4.34567 : bf16
-  %c_f32 = executor.constant 5.897 : f32
-  %c_f64 = executor.constant 1.34567 : f64
+func.func @test_fptosi_i4(%c_f8: f8E4M3FN, %c_f16: f16, %c_bf16: bf16, %c_f32: f32, %c_f64: f64) {
   %0 = executor.fptosi %c_f8 : f8E4M3FN to i4
   executor.print "fptosi f8 to i4 of %s = %s"(%c_f8, %0 : f8E4M3FN, i4)
   %1 = executor.fptosi %c_f16 : f16 to i4
@@ -827,9 +812,7 @@ func.func @test_sext_i4(%arg0: i4){
   return
 }
 
-func.func @test_ext_i4(){
-  %pos_i4 = executor.constant 3 : i4
-  %neg_i4 = executor.constant -3 : i4
+func.func @test_ext_i4(%pos_i4: i4, %neg_i4 : i4){
   func.call @test_zext_i4(%pos_i4):(i4)->()
   func.call @test_zext_i4(%neg_i4):(i4)->()
   func.call @test_sext_i4(%pos_i4):(i4)->()
@@ -838,13 +821,31 @@ func.func @test_ext_i4(){
 }
 
 func.func @test_i4(){
-  func.call @test_base_i4():()->()
-  func.call @test_compare_i4():()->()
-  func.call @test_bitwise_i4():()->()
-  func.call @test_shift_i4():()->()
-  func.call @test_sitofp_i4():()->()
-  func.call @test_fptosi_i4():()->()
-  func.call @test_ext_i4():()->()
+  %c4 = executor.constant 4 : i4
+  %c3 = executor.constant 3 : i4
+  %cn5 = executor.constant -5 : i4
+  func.call @test_base_i4(%c4, %c3, %cn5) : (i4, i4, i4)->()
+
+  %cn4 = executor.constant -4: i4
+  func.call @test_compare_i4(%c3, %cn4) : (i4, i4) -> ()
+
+  %c7 = executor.constant 7: i4
+  %c2 = executor.constant 2 : i4
+  func.call @test_bitwise_i4(%c7, %c2) : (i4, i4) -> ()
+
+  %cn3 = executor.constant -3 : i4
+  func.call @test_shift_i4(%cn3, %c2) : (i4, i4) -> ()
+
+  func.call @test_sitofp_i4(%cn4) : (i4) -> ()
+
+  %c_f8 = executor.constant 4.35 : f8E4M3FN
+  %c_f16 = executor.constant 4.456 : f16
+  %c_bf16 = executor.constant 4.34567 : bf16
+  %c_f32 = executor.constant 5.897 : f32
+  %c_f64 = executor.constant 1.34567 : f64
+  func.call @test_fptosi_i4(%c_f8, %c_f16, %c_bf16, %c_f32, %c_f64) : (f8E4M3FN, f16, bf16, f32, f64) -> ()
+
+  func.call @test_ext_i4(%c3, %cn3) : (i4, i4) -> ()
   return
 }
 

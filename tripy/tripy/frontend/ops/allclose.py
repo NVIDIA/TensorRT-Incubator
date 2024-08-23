@@ -16,6 +16,7 @@
 #
 
 from tripy import export
+from tripy.common.exception import raise_error
 
 
 @export.public_api(document_under="operations/functions")
@@ -43,8 +44,10 @@ def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: fl
     """
     from tripy.frontend.trace.ops.unary_elementwise import abs
     from tripy.frontend.trace.ops.reduce import all
-    from tripy.common.datatype import bool as tp_bool
+    from tripy.common.datatype import int64, bool as tp_bool
 
+    if a.dtype == int64:
+        raise_error("Known issue with i64. Allclose currently does not work with int64 inputs. Issue #116")
     if a.dtype == tp_bool and b.dtype == tp_bool:
         compare = a == b
     else:

@@ -1,4 +1,4 @@
-// RUN: executor-opt %s -split-input-file -convert-executor-to-executor | FileCheck %s
+// RUN: executor-opt %s -split-input-file -executor-lower-to-runtime-builtins | FileCheck %s
 
 func.func @pointer_cast_lowering() -> (i32, i64) {
   %cst0 = executor.constant 123 : i32
@@ -10,10 +10,10 @@ func.func @pointer_cast_lowering() -> (i32, i64) {
   %int1 = executor.ptrtoint %ptr1 : (!executor.ptr<host>) -> i64
   return %int0, %int1 : i32, i64
 }
-//       CHECK:   executor.func private @_ptrtoint_i64_i64(!executor.ptr<host>) -> i64
-//       CHECK:   executor.func private @_inttoptr_i64_i64(i64) -> !executor.ptr<host>
-//       CHECK:   executor.func private @_ptrtoint_i64_i32(!executor.ptr<host>) -> i32
-//       CHECK:   executor.func private @_inttoptr_i64_i32(i32) -> !executor.ptr<host>
+//   CHECK-DAG:   executor.func private @_ptrtoint_i64_i64(!executor.ptr<host>) -> i64
+//   CHECK-DAG:   executor.func private @_inttoptr_i64_i64(i64) -> !executor.ptr<host>
+//   CHECK-DAG:   executor.func private @_ptrtoint_i64_i32(!executor.ptr<host>) -> i32
+//   CHECK-DAG:   executor.func private @_inttoptr_i64_i32(i32) -> !executor.ptr<host>
 // CHECK-LABEL: func.func @pointer_cast_lowering
 //  CHECK-SAME: () -> (i32, i64) {
 //       CHECK:     %[[c123_i32:.+]] = executor.constant 123 : i32

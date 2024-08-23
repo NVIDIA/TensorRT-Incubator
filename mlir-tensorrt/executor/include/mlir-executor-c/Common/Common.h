@@ -62,8 +62,10 @@ typedef enum MTRT_ScalarTypeCode {
   MTRT_ScalarTypeCode_i64 = 10,
   MTRT_ScalarTypeCode_bf16 = 11,
   MTRT_ScalarTypeCode_i4 = 12,
+  MTRT_ScalarTypeCode_complex32 = 13,
+  MTRT_ScalarTypeCode_complex64 = 14,
   MTRT_ScalarTypeCode_MIN = MTRT_ScalarTypeCode_unknown,
-  MTRT_ScalarTypeCode_MAX = MTRT_ScalarTypeCode_i4
+  MTRT_ScalarTypeCode_MAX = MTRT_ScalarTypeCode_complex64
 } MTRT_ScalarTypeCode;
 
 typedef enum MTRT_PointerType {

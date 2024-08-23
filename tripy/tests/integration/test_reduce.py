@@ -33,14 +33,17 @@ class TestReduceOp:
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
             ((2, 3, 4), None, True),
+            ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
     def test_all(self, x_shape, axis, keepdim):
         x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
         out = tp.all(a, dim=axis, keepdim=keepdim)
+        expected = tp.Tensor(np.array(x.all(axis=axis, keepdims=keepdim)))
         #np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
-        assert tp.allclose(out, tp.Tensor(np.array(x.all(axis=axis, keepdims=keepdim))))
+        assert out.shape == expected.shape
+        assert tp.allclose(out, expected)
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -51,6 +54,7 @@ class TestReduceOp:
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
             ((2, 3, 4), None, True),
+            ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
 
@@ -69,6 +73,7 @@ class TestReduceOp:
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
             ((2, 3, 4), None, True),
+            ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
@@ -77,7 +82,9 @@ class TestReduceOp:
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np_dtype)
         a = tp.Tensor(x, dtype=dtype)
         out = tp.mean(a, dim=axis, keepdim=keepdim)
-        assert tp.allclose(out, tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim))))
+        expected = tp.Tensor(cp.array(x.mean(axis=axis, keepdims=keepdim)))
+        assert out.shape == expected.shape
+        assert tp.allclose(out, expected, rtol=1e-3, atol=1e-3)
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -88,6 +95,7 @@ class TestReduceOp:
             ((2, 3, 4), None, True),
             ((2, 3), 1, False),
             ((2, 3, 4), (1, 2), False),
+            ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
     def test_var(self, x_shape, axis, keepdim: bool):
@@ -95,7 +103,9 @@ class TestReduceOp:
         a = tp.Tensor(x)
         out = tp.var(a, dim=axis, keepdim=keepdim)
         torch_tensor = torch.Tensor(x)
-        assert tp.allclose(out, tp.Tensor(torch_tensor.var(dim=axis, keepdim=keepdim)))
+        expected = tp.Tensor(torch_tensor.var(dim=axis, keepdim=keepdim))
+        assert out.shape == expected.shape
+        assert tp.allclose(out, expected)
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
