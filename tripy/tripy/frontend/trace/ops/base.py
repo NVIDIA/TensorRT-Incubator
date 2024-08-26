@@ -17,7 +17,7 @@
 
 import abc
 from dataclasses import dataclass
-from typing import List, Set, Union
+from typing import List, Set, Union, Optional
 
 from tripy import utils
 from tripy.utils import Result

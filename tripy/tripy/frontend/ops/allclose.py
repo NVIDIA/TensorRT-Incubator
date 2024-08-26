@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from tripy import export
+from tripy import export, constraints
 from tripy.common.exception import raise_error
 
 
