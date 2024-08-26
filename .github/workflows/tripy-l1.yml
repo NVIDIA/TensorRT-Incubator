@@ -1,4 +1,4 @@
-# Perform L1 test, build and deploy docs
+# Perform L1 test, build docs
 name: Tripy L1
 
 on:
@@ -8,18 +8,6 @@ on:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   l1-test:
@@ -40,12 +28,6 @@ jobs:
         cd /tripy/
         python3 docs/generate_rsts.py
         sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
-    - uses: actions/upload-pages-artifact@v3
-      with:
-        path: "/tripy/build/docs"
-    # - name: Deploy to GitHub Pages
-    #   id: deployment
-    #   uses: actions/deploy-pages@v4
     - name: l1-test
       run: |
         cd /tripy/
