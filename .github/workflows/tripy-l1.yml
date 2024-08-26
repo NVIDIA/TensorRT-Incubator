@@ -19,10 +19,10 @@ jobs:
       options: --gpus all
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/configure-pages@v5
     - name: build-docs
       run: |
         cd /tripy/
+        nvidia-smi
         python3 docs/generate_rsts.py
         sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
     - name: l1-test
