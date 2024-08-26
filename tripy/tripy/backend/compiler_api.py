@@ -60,24 +60,56 @@ class Stream:
     _active_stream = None
     _default_stream = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._stream = MLIRRuntimeClient().create_stream()
 
     @classmethod
-    def default_stream(cls):
-        """Get the default stream, create it if it doesn't exist."""
+    def default_stream(cls) -> "tripy.Stream":
+        """
+        Get the default stream, create it if it doesn't exist.
+
+        Returns:
+          The default tripy stream.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            s = tp.Stream.default_stream()
+        """
         if cls._default_stream is None:
             cls._default_stream = cls.__new__(cls)
             cls._default_stream._stream = MLIRRuntimeClient().create_stream()
 
         return cls._default_stream
 
-    def synchronize(self):
-        """Synchronize the stream, blocking until all operations in this stream are complete."""
+    def synchronize(self) -> None:
+        """
+        Synchronize the stream, blocking until all operations in this stream are complete.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            s = tp.Stream.default_stream()
+            s.synchronize()
+        """
         self._stream.sync()
 
     @classmethod
-    def get_current_stream(cls):
+    def get_current_stream(cls) -> "tripy.Stream":
+        """
+        Returns the current stream.
+
+        Returns:
+          The current tripy stream.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            s = tp.Stream.get_current_stream()
+        """
         return Stream._active_stream if Stream._active_stream is not None else Stream._default_stream
 
     def __enter__(self):
@@ -103,7 +135,7 @@ class Stream:
         return f"<Stream(id={id(self)}, default={self == Stream._default_stream})>"
 
     @classmethod
-    def cleanup_default_stream(cls):
+    def _cleanup_default_stream(cls) -> None:
         if cls._default_stream:
             # TODO: expose methods from mlir-tensorrt python bindings to destroy stream
             cls._default_stream = None
@@ -112,7 +144,7 @@ class Stream:
 
 Stream.default_stream()
 # Register the cleanup_default_stream method to be called at program exit
-atexit.register(Stream.cleanup_default_stream)
+atexit.register(Stream._cleanup_default_stream)
 
 
 @export.public_api(document_under="compiler")
