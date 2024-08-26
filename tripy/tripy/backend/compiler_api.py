@@ -319,8 +319,9 @@ class Executable:
                             )
             raise
 
-        # TODO (#192): avoid get_stack_info in runtime
-        output_tensors = [Tensor(output) for output in executor_outputs]
+        from tripy.utils.stack_info import StackInfo
+
+        output_tensors = [Tensor(output, stack_info=StackInfo([])) for output in executor_outputs]
         if len(output_tensors) == 1:
             output_tensors = output_tensors[0]
         return output_tensors
