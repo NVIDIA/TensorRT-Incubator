@@ -59,7 +59,7 @@ class LayerNorm(Module):
         Args:
             normalized_shape: The size of the feature dimension of the input over which normalization is performed.
             dtype: The data type to use for the weight and bias parameters.
-            eps: :math:\epsilon value
+            eps: :math:\epsilon value to prevent division by zero.
 
         .. code-block:: python
             :linenos:

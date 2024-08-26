@@ -61,6 +61,7 @@ class GroupNorm(Module):
             num_groups: The number of groups to split the channels into.
             num_channels: The number of channels expected in the input.
             dtype: The data type to use for the weight and bias parameters.
+            eps: :math:\epsilon value to prevent division by zero.
 
         .. code-block:: python
             :linenos:

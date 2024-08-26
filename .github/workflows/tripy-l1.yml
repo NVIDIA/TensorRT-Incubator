@@ -39,13 +39,13 @@ jobs:
       run: |
         cd /tripy/
         python3 docs/generate_rsts.py
-        sphinx-build build/doc_sources build/docs -c docs/ -j 6 -W
+        sphinx-build build/doc_sources build/docs -c docs/ -j 1 -W
     - uses: actions/upload-pages-artifact@v3
       with:
         path: "/tripy/build/docs"
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+    # - name: Deploy to GitHub Pages
+    #   id: deployment
+    #   uses: actions/deploy-pages@v4
     - name: l1-test
       run: |
         cd /tripy/
