@@ -22,16 +22,14 @@ from tripy.common import utils as common_utils
 
 import mlir_tensorrt.runtime.api as runtime
 
-RUNTIME_CLIENT = mlir_utils.MLIRRuntimeClient()
-
 
 def create_empty_memref(shape, dtype, device=tp_device("gpu")):
     """
     Creates an empty memref, used for allocating memory.
     """
-    mlirtrt_device = RUNTIME_CLIENT.get_devices()[0] if device == tp_device("gpu") else None
+    mlirtrt_device = mlir_utils.MLIRRuntimeClient().get_devices()[0] if device == tp_device("gpu") else None
     mlir_dtype = mlir_utils.convert_tripy_dtype_to_runtime_dtype(dtype)
-    return RUNTIME_CLIENT.create_memref(
+    return mlir_utils.MLIRRuntimeClient().create_memref(
         shape=list(shape),
         dtype=mlir_dtype,
         device=mlirtrt_device,
@@ -43,17 +41,17 @@ def create_memref_view(data):
     Creates a memref view of an array object that implements the dlpack interface.
     """
 
-    return RUNTIME_CLIENT.create_memref_view_from_dlpack(data.__dlpack__())
+    return mlir_utils.MLIRRuntimeClient().create_memref_view_from_dlpack(data.__dlpack__())
 
 
-# TODO: Consider move below functions to MLIR py bindings
+# TODO(#134): Consider move below functions to MLIR py bindings
 def tolist(memref):
     """
     Converts memref values into a python list.
     """
     memref_value = memref
     if memref.address_space == runtime.PointerType.device:
-        memref_value = RUNTIME_CLIENT.copy_to_host(
+        memref_value = mlir_utils.MLIRRuntimeClient().copy_to_host(
             device_memref=memref,
         )
     try:

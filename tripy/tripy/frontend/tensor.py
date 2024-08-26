@@ -198,7 +198,14 @@ class Tensor(metaclass=TensorMeta):
 
     def tolist(self):
         data_memref = self.eval()
-        if self.dtype in (datatype.float8, datatype.int4):
+        if self.dtype not in (
+            datatype.float16,
+            datatype.float32,
+            datatype.int8,
+            datatype.int32,
+            datatype.int64,
+            datatype.bool,
+        ):
             from tripy.frontend.trace.ops.cast import cast
 
             data_memref = cast(Tensor(data_memref), datatype.float32).eval()

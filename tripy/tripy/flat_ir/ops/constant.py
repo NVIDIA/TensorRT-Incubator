@@ -47,10 +47,10 @@ class ConstantOp(BaseFlatIROp):
         # TODO(#189): Remove explicit copy to host for constants
         if isinstance(self.data, runtime.MemRefValue):
             runtime_client = mlir_utils.MLIRRuntimeClient()
-            memref_value = self.data
-            if memref_value.address_space == runtime.PointerType.device:
-                memref_value = runtime_client.copy_to_host(
-                    device_memref=memref_value,
+            data_memref = self.data
+            if data_memref.address_space == runtime.PointerType.device:
+                data_memref = runtime_client.copy_to_host(
+                    device_memref=data_memref,
                     stream=None,
                 )
 
@@ -60,20 +60,20 @@ class ConstantOp(BaseFlatIROp):
             if self.outputs[0].dtype == datatype.bool:
                 # need to use memoryview.cast to ensure that the view will be flattened
                 int_memref = runtime_client.create_memref(
-                    array.array("i", memoryview(memref_value).cast("b").tolist()),
+                    array.array("i", memoryview(data_memref).cast("b").tolist()),
                     shape=self.data.shape,
                     dtype=mlir_utils.convert_tripy_dtype_to_runtime_dtype(datatype.int32),
                     device=None,
                 )
                 attr = ir.DenseElementsAttr.get(
-                    array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=memref_value.shape
+                    array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape
                 )
-                cast_output = mlir_utils.make_mlir_tensor(datatype.bool, memref_value.shape)
+                cast_output = mlir_utils.make_mlir_tensor(datatype.bool, data_memref.shape)
                 constant_op = stablehlo.ConstantOp(attr)
                 return [stablehlo.ConvertOp(result=cast_output, operand=constant_op)]
 
             attr = ir.DenseElementsAttr.get(
-                array=memref_value, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=memref_value.shape
+                array=data_memref, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=data_memref.shape
             )
         else:
             out_dtype = self.outputs[0].dtype

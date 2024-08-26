@@ -115,7 +115,7 @@ class LayerNorm(Module):
             raise_error(
                 "Unexpected input shape",
                 [
-                    f"The input's last {D} dimensions must have a shape of {self.normalized_shape} and received {x.shape[-D:].tolist()}"
+                    f"The input's last {D} dimensions must be: {self.normalized_shape} but received: {x.shape[-D:].tolist()}"
                 ],
             )
 

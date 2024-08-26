@@ -202,6 +202,14 @@ class TestTensor:
         a = tp.Tensor(data, dtype=tp.float16)
         assert a.dtype == tp.float16
 
+    def test_no_explicit_cast(self):
+        from tripy.frontend.trace.ops import Storage
+
+        a_np = np.ones((2, 2), dtype=np.float32)
+        a = tp.Tensor(a_np, dtype=tp.float32)
+        assert a.dtype == tp.float32
+        assert isinstance(a.trace_tensor.producer, Storage)
+
     @pytest.mark.parametrize(
         "devices",
         [
@@ -216,6 +224,23 @@ class TestTensor:
             a_torch = a_torch.to("cuda")
         a = tp.Tensor(a_torch, device=tp.device(devices[1]))
         assert a.device.kind == devices[1]
+
+    @pytest.mark.parametrize(
+        "devices",
+        [
+            ("cpu", "cpu"),
+            ("gpu", "gpu"),
+        ],
+    )
+    def test_no_explicit_copy(self, devices):
+        from tripy.frontend.trace.ops import Storage
+
+        a_torch = torch.ones((2, 2), dtype=torch.float32)
+        if devices[0] == "gpu":
+            a_torch = a_torch.to("cuda")
+        a = tp.Tensor(a_torch, device=tp.device(devices[1]))
+        assert a.device.kind == devices[1]
+        assert isinstance(a.trace_tensor.producer, Storage)
 
     def test_explicit_cast_copy(self):
         a_np = np.ones((2, 2), dtype=np.float32)

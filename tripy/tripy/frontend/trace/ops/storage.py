@@ -55,7 +55,7 @@ class Storage(BaseTraceOp):
             self.shape = tuple(data.shape)
             self.device = tp_device("gpu") if data.address_space == runtime.PointerType.device else tp_device("cpu")
             self.has_memref = True
-        elif common_utils.has_no_contents(data):
+        elif common_utils.is_empty(data):
             # special case: empty tensor
             self.dtype = utils.default(dtype, datatype.float32)
             self.shape = tuple(utils.get_shape(data))

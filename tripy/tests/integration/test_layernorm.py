@@ -66,5 +66,7 @@ class TestLayerNorm:
             normalized_shape=[2, 2],
         )
         x = tp.ones((5,5,5))
-        with pytest.raises(TripyException, match=re.escape("The input's last 2 dimensions must have a shape of [2, 2] and received [5, 5]")):
+        with pytest.raises(
+            TripyException, match=re.escape("The input's last 2 dimensions must be: [2, 2] but received: [5, 5]")
+        ):
             tp_layernorm(x)
