@@ -21,6 +21,7 @@ from typing import Optional, Sequence, Union
 from tripy import export, utils, constraints
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.frontend.trace.ops import utils as op_utils
 
 
 @dataclass(repr=False)
@@ -29,6 +30,8 @@ class Flip(BaseTraceOp):
 
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank
+
+    infer_len = op_utils.InferLenPolicies.infer_same_as_first_input
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import FlipOp
@@ -76,6 +79,10 @@ def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None
         output = tp.flip(input, dims=-1)
         assert cp.array_equal(cp.from_dlpack(output), cp.array([[4, 3, 2, 1, 0], [9, 8, 7, 6, 5]]))
     """
+    from tripy.common.datatype import int64
+
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Flip currently does not work with int64 inputs. Issue #116")
     rank = input.rank
     if dims is None:
         dims = [d for d in range(rank)]

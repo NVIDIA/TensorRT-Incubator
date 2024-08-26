@@ -292,23 +292,6 @@ Attribute executor::getFuncResultBounds(func::FuncOp func, int64_t argIdx) {
 // RuntimeBuiltinInterface
 //===----------------------------------------------------------------------===//
 
-std::optional<uint64_t>
-executor::getUniformWidthOfTableElements(TableType t,
-                                         const mlir::DataLayout &dataLayout) {
-  std::optional<uint64_t> uniformWidth{};
-  for (Type bodyType : t.getBody()) {
-    llvm::TypeSize typeSize = dataLayout.getTypeSizeInBits(bodyType);
-    if (typeSize.isScalable())
-      return {};
-    uint64_t value = typeSize.getFixedValue();
-    if (uniformWidth && value != *uniformWidth)
-      return {};
-    if (!uniformWidth)
-      uniformWidth = value;
-  }
-  return uniformWidth;
-}
-
 LogicalResult
 executor::detail::verifyRuntimeBuiltinInterface(Operation *op,
                                                 const DataLayout &dataLayout) {
@@ -316,13 +299,7 @@ executor::detail::verifyRuntimeBuiltinInterface(Operation *op,
   if (!llvm::all_of(interfaceOp.getTypesForNameSuffix(), [&](Type t) {
         if (auto ptrType = dyn_cast<PointerType>(t))
           return true;
-        if (auto tableType = dyn_cast<TableType>(t)) {
-          std::optional<uint64_t> bitWidth =
-              getUniformWidthOfTableElements(tableType, dataLayout);
-          return bitWidth && (*bitWidth == 32 || *bitWidth == 64);
-        }
-        return t.isSignlessIntOrIndexOrFloat() ||
-               isa<PointerType, TableType>(t);
+        return t.isSignlessIntOrIndexOrFloat() || isa<TableType>(t);
       }))
     return op->emitOpError("types for external function name suffix encoding "
                            "should be scalars or tables with elements with "
@@ -351,16 +328,7 @@ FailureOr<std::string> executor::detail::getRuntimeBuiltinFunctionNameImpl(
                << executor::stringifyMemoryType(ptr.getAddressSpace());
             return;
           }
-          if (auto tableType = dyn_cast<TableType>(t)) {
-            std::optional<int64_t> uniformBitWidth =
-                getUniformWidthOfTableElements(tableType, dataLayout);
-            if (!uniformBitWidth) {
-              error = true;
-              return;
-            }
-            ss << "table_" << *uniformBitWidth;
-            return;
-          }
+
           error = true;
         },
         "_");
@@ -704,10 +672,23 @@ LogicalResult ConstantResourceLoadOp::verifySymbolUses(
 // AlignToOp
 //===----------------------------------------------------------------------===//
 
+template <typename IntType>
+static IntType alignToImpl(IntType arg, uint32_t alignment) {
+  typename std::make_unsigned<IntType>::type bump =
+      static_cast<typename std::make_unsigned<IntType>::type>(arg) + alignment -
+      1;
+  return static_cast<IntType>(bump - bump % alignment);
+}
+
 OpFoldResult AlignToOp::fold(FoldAdaptor adaptor) {
   // Align to 1 byte is no-op:
   if (getAlignment() == 1)
     return getArg();
+
+  if (IntegerAttr arg =
+          llvm::dyn_cast_if_present<IntegerAttr>(adaptor.getArg()))
+    return IntegerAttr::get(arg.getType(),
+                            alignToImpl<int64_t>(arg.getInt(), getAlignment()));
 
   // Replace `y` by `x` in the case of redundant alignment operations.
   // ---

@@ -6,9 +6,6 @@ llvm_canonicalize_cmake_booleans(
   ${MLIR_TRT_FEATURE_FLAGS}
   )
 
-# All the GTest-based unit tests are located under 'Unit' subfolder.
-add_subdirectory(Unit)
-
 # Add test libraries.
 add_subdirectory(lib)
 
@@ -22,23 +19,10 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
 )
 
-# Add the LIT test suite configuration for discovering all the GTest based
-# executables located under the `Unit` folder.
-configure_lit_site_cfg(
-  ${CMAKE_CURRENT_SOURCE_DIR}/Unit/lit.site.cfg.py.in
-  ${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg.py
-  MAIN_CONFIG
-  ${CMAKE_CURRENT_SOURCE_DIR}/Unit/lit.cfg.py
-)
-
 set(MLIR_TENSORRT_TEST_DEPENDS_
   FileCheck count not
   mlir-tensorrt-opt
   mlir-tensorrt-translate
-
-  # This is defined under `Unit` and ensures that LIT will find all the built
-  # GTest executables.
-  MLIRTensorRTUnitTests
   ${MLIR_TENSORRT_TEST_LIBS}
 )
 

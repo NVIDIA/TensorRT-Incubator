@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.datatype import DATA_TYPES
+from tripy.frontend.trace.ops.utils import InferLenPolicies
 
 
 @dataclass(repr=False)
@@ -35,6 +35,8 @@ class Cast(BaseTraceOp):
             if self.dtype == int32:
                 return Result.ok([0])
         return Result.ok([])
+
+    infer_len = InferLenPolicies.infer_same_as_first_input
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype

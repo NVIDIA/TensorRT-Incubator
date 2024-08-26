@@ -44,7 +44,6 @@
 namespace mlir {
 namespace executor {
 namespace detail {
-/// Verify an operation that has RuntimeBuiltinInterface attached.
 LogicalResult verifyRuntimeBuiltinInterface(Operation *op,
                                             const DataLayout &dataLayout);
 
@@ -124,10 +123,6 @@ namespace mlir::executor {
 SymbolRefAttr getOrInsertFuncDeclaration(OpBuilder &rewriter, Location loc,
                                          ModuleOp module, StringRef name,
                                          ExecutorFunctionType sig);
-
-std::optional<uint64_t>
-getUniformWidthOfTableElements(executor::TableType t,
-                               const mlir::DataLayout &dataLayout);
 
 /// Return the process grid shape as specified by the attribute attached to the
 /// module operation.

@@ -86,8 +86,13 @@ class BaseTraceOp(abc.ABC):
             raise_error(
                 f"Error processing shape inputs in operator {cls.__name__}{custom_err}\n(Shape input indices: {shape_arg_msg}.)"
             )
+        # for shape outputs, we infer the length
+        if len(res.value) != 0:
+            inferred_lengths = op.infer_len()
         for idx in res.value:
             outputs[idx] = Shape(outputs[idx])
+            if inferred_lengths[idx] is not None:
+                out_trace_tensors[idx].shape = [inferred_lengths[idx]]
 
         if num_outputs == 1:
             return outputs[0]
@@ -124,20 +129,28 @@ class BaseTraceOp(abc.ABC):
             return Result.err(["Either all inputs must be tp.Shape or all must be tp.Tensor."])
         return Result.ok([])
 
-    def infer_shapes(self):
+    def infer_len(self) -> List[Optional[int]]:
         """
-        Infers shapes for the operation and updates output tensor shapes accordingly.
+        Infers the length of all `tp.Shape` outputs. This is, essentially, the "shape" of the shape.
+        Returns `None` for outputs that are not `tp.Shape`s or whose length (shape) cannot be inferred.
+
+        Returns:
+            A list of inferred lengths for outputs that are `tp.Shape`s.
         """
-        # Default implementation of infer_shapes fills dynamic dim for all elements.
-        self.outputs[0].shape = [-1] * self.outputs[0].rank
+        return [None for _ in self.outputs]
 
     def infer_dtypes(self):
         """
         Infers dtypes for the operation and updates output tensor dtypes accordingly.
         """
+        assert self.inputs, "Default implementation cannot handle cases where there are no inputs. Please override."
         assert (
-            self.inputs and len(self.outputs) == 1 and all(inp.dtype == self.inputs[0].dtype for inp in self.inputs)
-        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs, or multiple inputs with different data types. Please override."
+            len(self.outputs) == 1
+        ), f"Default implementation expects exactly one output, but got {len(self.outputs)}. Please override."
+        assert all(
+            inp.dtype == self.inputs[0].dtype for inp in self.inputs
+        ), f"Default implementation cannot handle cases where inputs have different dtypes, but got {[inp.dtype for inp in self.inputs]}. Please override."
+
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_rank(self):

@@ -1,0 +1,1 @@
+add_mlir_executor_unittest(Int4Tests Int4Tests.cpp)

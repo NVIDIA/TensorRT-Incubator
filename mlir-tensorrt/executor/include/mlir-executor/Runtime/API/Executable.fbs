@@ -13,7 +13,9 @@ enum ScalarTypeCode : byte {
   i32 = 9,
   i64 = 10,
   bf16 = 11,
-  i4 = 12
+  i4 = 12,
+  complex32 = 13,
+  complex64 = 14
 }
 
 enum PointerType : byte {

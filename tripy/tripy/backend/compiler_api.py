@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import atexit
 import base64
 import inspect
 import numbers
@@ -31,6 +32,87 @@ from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
 from tripy.frontend import Tensor, Trace
 from tripy.utils import json as json_utils
+from tripy.backend.mlir.utils import MLIRRuntimeClient
+
+
+@export.public_api(document_under="compiler")
+class Stream:
+    """
+    Represents a CUDA stream that can be used to manage concurrent operations.
+
+    This class is a wrapper around the underlying stream object, allowing management of CUDA streams.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Use streams in execution
+
+        linear = tp.Linear(2, 3)
+        compiler = tp.Compiler(linear)
+
+        compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
+        with tp.Stream():
+            a = tp.ones((2, 2), dtype=tp.float32)
+            out = compiled_linear(a)
+
+        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+    """
+
+    _active_stream = None
+    _default_stream = None
+
+    def __init__(self):
+        self._stream = MLIRRuntimeClient().create_stream()
+
+    @classmethod
+    def default_stream(cls):
+        """Get the default stream, create it if it doesn't exist."""
+        if cls._default_stream is None:
+            cls._default_stream = cls.__new__(cls)
+            cls._default_stream._stream = MLIRRuntimeClient().create_stream()
+
+        return cls._default_stream
+
+    def synchronize(self):
+        """Synchronize the stream, blocking until all operations in this stream are complete."""
+        self._stream.sync()
+
+    @classmethod
+    def get_current_stream(cls):
+        return Stream._active_stream if Stream._active_stream is not None else Stream._default_stream
+
+    def __enter__(self):
+        Stream._active_stream = self
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.synchronize()
+        # TODO: expose methods from mlir-tensorrt python bindings to destroy stream
+        if self == Stream._active_stream:
+            Stream._active_stream = Stream._default_stream
+
+    def __eq__(self, other):
+        if not isinstance(other, Stream):
+            return False
+
+        if not (hasattr(self, "_stream") and hasattr(other, "_stream")):
+            return False
+
+        return self._stream == other._stream
+
+    def __repr__(self):
+        return f"<Stream(id={id(self)}, default={self == Stream._default_stream})>"
+
+    @classmethod
+    def cleanup_default_stream(cls):
+        if cls._default_stream:
+            # TODO: expose methods from mlir-tensorrt python bindings to destroy stream
+            cls._default_stream = None
+        cls._active_stream = None
+
+
+Stream.default_stream()
+# Register the cleanup_default_stream method to be called at program exit
+atexit.register(Stream.cleanup_default_stream)
 
 
 @export.public_api(document_under="compiler")
@@ -237,8 +319,9 @@ class Executable:
                             )
             raise
 
-        # TODO (#192): avoid get_stack_info in runtime
-        output_tensors = [Tensor(output) for output in executor_outputs]
+        from tripy.utils.stack_info import StackInfo
+
+        output_tensors = [Tensor(output, stack_info=StackInfo([])) for output in executor_outputs]
         if len(output_tensors) == 1:
             output_tensors = output_tensors[0]
         return output_tensors

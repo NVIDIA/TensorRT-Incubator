@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import export, utils, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -31,6 +32,10 @@ class Gather(BaseTraceOp):
 
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
+
+    def infer_len(self):
+        # in the shape case, the resulting shape is comprised _only_ of the selected indices
+        return [op_utils.get_trace_shape(self.inputs[1])[0]]
 
     def infer_dtypes(self):
         from tripy import int32
@@ -124,4 +129,8 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
     """
+    from tripy.common.datatype import int64
+
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Gather currently does not work with int64 inputs. Issue #116")
     return Gather.build([input, index], dim)

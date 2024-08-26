@@ -30,6 +30,9 @@ class Shape(BaseTraceOp):
     def infer_shape_output_idxs(self, inputs) -> Result:
         return Result.ok([0])
 
+    def infer_len(self):
+        return [self.inputs[0].rank]
+
     def infer_rank(self):
         assert len(self.inputs) == 1, "ShapeOf operation should have exactly one input!"
         self.outputs[0].rank = 1

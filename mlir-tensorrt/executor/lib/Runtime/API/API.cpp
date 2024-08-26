@@ -84,6 +84,10 @@ int64_t rt::getBitsPerElement(ScalarTypeCode elType) {
   // We treat i1 types as having byte-level storage currently.
   case ScalarTypeCode::i1:
     return 8;
+  case ScalarTypeCode::complex32:
+    return 64;
+  case ScalarTypeCode::complex64:
+    return 128;
   default:
     llvm_unreachable("unhandled element type bit width conversion");
   }

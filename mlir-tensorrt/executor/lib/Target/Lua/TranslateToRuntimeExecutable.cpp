@@ -39,6 +39,8 @@
 using namespace mlir;
 namespace rt = mlirtrt::runtime;
 
+static size_t constexpr kBitsPerByte = 8;
+
 namespace {
 namespace fb = ::flatbuffers;
 
@@ -72,7 +74,7 @@ public:
 
   template <typename T>
   auto serialize(mlir::SmallVector<T> span) {
-    return this->serialize(ArrayRef(span));
+    return this->serialize(ArrayRef<T>(span));
   }
 
   template <typename T>
@@ -132,17 +134,52 @@ static FailureOr<rt::ScalarTypeCode> translateScalarType(Type t) {
     return rt::ScalarTypeCode::i1;
   if (t.isInteger(4))
     return rt::ScalarTypeCode::i4;
+  if (t == ComplexType::get(Float32Type::get(t.getContext())))
+    return rt::ScalarTypeCode::complex32;
+  if (t == ComplexType::get(Float64Type::get(t.getContext())))
+    return rt::ScalarTypeCode::complex64;
   return failure();
+}
+
+/// Serialize `elAttr` to `output` if `elAttr` is a splat-type attribute.
+static FailureOr<Offset64<fb::Vector64<int8_t>>>
+serializeDenseSplatElementsAttr(FBBuilder &fbBuilder,
+                                SplatElementsAttr elAttr) {
+
+  if (elAttr.getElementType().isInteger(1))
+    return fbBuilder.CreateVector64(std::vector<int8_t>(
+        elAttr.getNumElements(), elAttr.getSplatValue<bool>() ? 1 : 0));
+
+  if (elAttr.getElementType().isInteger(4))
+    return fbBuilder.CreateVector64(std::vector<int8_t>(
+        elAttr.getNumElements(),
+        static_cast<int8_t>(elAttr.getSplatValue<APInt>().getSExtValue())));
+
+  auto data = elAttr.getRawData();
+  std::vector<int8_t> output;
+  output.reserve(data.size() * elAttr.getNumElements());
+  for (int64_t i = 0; i < elAttr.getNumElements(); i++)
+    llvm::append_range(output, data);
+  return fbBuilder.CreateVector64(output);
 }
 
 /// Serialize `elAttr` to `output` if `elAttr` is not a splat-type attribute.
 static FailureOr<Offset64<fb::Vector64<int8_t>>>
 serializeDenseElementsAttr(FBBuilder &fbBuilder,
                            DenseIntOrFPElementsAttr elAttr) {
-  assert(!elAttr.isSplat() && "expected non-splat attr");
-  unsigned elementBitWidth = elAttr.getElementType().getIntOrFloatBitWidth();
-  if (elementBitWidth % 8 == 0)
+  if (elAttr.isSplat())
+    return serializeDenseSplatElementsAttr(fbBuilder,
+                                           cast<SplatElementsAttr>(elAttr));
+
+  if (auto complexType = dyn_cast<ComplexType>(elAttr.getElementType())) {
+    if (!complexType.getElementType().isF32() &&
+        !complexType.getElementType().isF64())
+      return emitError(UnknownLoc::get(elAttr.getContext()))
+             << "requested serialization of " << elAttr.getType()
+             << ", but for complex element types, only "
+                "complex<f32> and complex<f64> are supported";
     return fbBuilder.serialize64(elAttr.getRawData());
+  }
 
   if (elAttr.getElementType().isInteger(1)) {
     auto range = llvm::map_range(elAttr.getValues<bool>(), [](bool inp) {
@@ -158,34 +195,38 @@ serializeDenseElementsAttr(FBBuilder &fbBuilder,
     return fbBuilder.CreateVector64(
         std::vector<int8_t>(range.begin(), range.end()));
   }
-  return failure();
+  if (elAttr.getElementType().getIntOrFloatBitWidth() % kBitsPerByte != 0)
+    return failure();
+
+  return fbBuilder.serialize64(elAttr.getRawData());
 }
 
-/// Serialize `elAttr` to `output` if `elAttr` is a splat-type attribute.
-static FailureOr<Offset64<fb::Vector64<int8_t>>>
-serializeDenseSplatElementsAttr(FBBuilder &fbBuilder,
-                                DenseIntOrFPElementsAttr elAttr) {
-  assert(elAttr.isSplat() && "expected non-splat attr");
-  unsigned elementBitWidth = elAttr.getElementType().getIntOrFloatBitWidth();
-  if (elementBitWidth % 8 == 0) {
-    auto data = elAttr.getRawData();
-    unsigned numBytes = data.size() * elAttr.getNumElements();
-    std::vector<int8_t> output;
-    output.reserve(numBytes);
-    for (int64_t i = 0; i < elAttr.getNumElements(); i++)
-      llvm::append_range(output, data);
-    return fbBuilder.CreateVector64(output);
+/// Return the number of bits required per element of `t` for MLIR
+/// serialization.
+static unsigned getSerializationBitWidth(Type t) {
+  if (t.isIntOrIndexOrFloat()) {
+    assert(!isa<IndexType>(t) && "unexpected IndexType");
+    // MLIR only packs i1. For the rest of the types, round up to the nearest
+    // byte.
+    unsigned bitWidth = t.getIntOrFloatBitWidth();
+    if (t == IntegerType::get(t.getContext(), 1))
+      return bitWidth;
+    return llvm::divideCeil(bitWidth, kBitsPerByte) * bitWidth;
   }
-  if (elAttr.getElementType().isInteger(1))
-    return fbBuilder.CreateVector64(std::vector<int8_t>(
-        elAttr.getNumElements(), elAttr.getSplatValue<bool>() ? 1 : 0));
-  if (elAttr.getElementType().isInteger(4)) {
-    APInt elAttrValue = elAttr.getSplatValue<APInt>();
-    return fbBuilder.CreateVector64(
-        std::vector<int8_t>(elAttr.getNumElements(),
-                            static_cast<int8_t>(elAttrValue.getSExtValue())));
+  auto complexType = cast<ComplexType>(t);
+  return getSerializationBitWidth(complexType.getElementType()) * 2;
+}
+
+// Calculate the expected size after serialization.
+static size_t getExpectedSerializedSize(Type type) {
+  if (ShapedType shapedType = dyn_cast<ShapedType>(type)) {
+    assert(shapedType.hasStaticShape() && "expected static shape");
+    return llvm::divideCeil(
+        getSerializationBitWidth(shapedType.getElementType()) *
+            shapedType.getNumElements(),
+        kBitsPerByte);
   }
-  return failure();
+  return getSerializationBitWidth(type);
 }
 
 /// Return the serialized bytes of the given `attr` and `symbolName`. Note that
@@ -196,8 +237,6 @@ serializeDenseSplatElementsAttr(FBBuilder &fbBuilder,
 static FailureOr<Offset64Pair<fb::String, fb::Vector64<int8_t>>>
 serializeElementsAttr(FBBuilder &fbBuilder, StringRef symbolName,
                       ElementsAttr attr) {
-  // auto serializedConstant = std::make_unique<rt::SerializedConstant>();
-  // serializedConstant->name = symbolName;
   auto name = fbBuilder.CreateString<Offset64>(symbolName.str());
   auto retError = [&](StringRef msg) {
     return emitError(UnknownLoc::get(attr.getContext())) << msg;
@@ -207,46 +246,25 @@ serializeElementsAttr(FBBuilder &fbBuilder, StringRef symbolName,
   if (!typedAttr)
     return retError("can only serialized typed attributes");
 
-  // Calculate serialization size and allocate buffer.
-  Type type = typedAttr.getType();
-  unsigned expectedSerializationSize = 0;
-  constexpr unsigned kBitsPerByte = 8;
-  if (ShapedType shapedType = dyn_cast<ShapedType>(type)) {
-    assert(shapedType.hasStaticShape() && "expected static shape");
-    expectedSerializationSize = llvm::divideCeil(
-        shapedType.getNumElements() * shapedType.getElementTypeBitWidth(),
-        kBitsPerByte);
-  } else if (type.isIntOrFloat()) {
-    expectedSerializationSize =
-        llvm::divideCeil(type.getIntOrFloatBitWidth(), kBitsPerByte);
-  } else {
-    return retError("unhandled attribute type for serialization");
-  }
-
   // Encode resource elements attrs.
   if (auto resourceAttr = dyn_cast<DenseResourceElementsAttr>(attr)) {
-    if (resourceAttr.getElementType().getIntOrFloatBitWidth() % 8 != 0)
+    if (getSerializationBitWidth(resourceAttr.getElementType()) % 8 != 0)
       return retError("unhandled resource serialization case");
     DenseResourceElementsHandle handle = resourceAttr.getRawHandle();
     ArrayRef<char> data = handle.getResource()->getBlob()->getData();
-    if (data.size() != expectedSerializationSize)
+    if (data.size() != getExpectedSerializedSize(typedAttr.getType()))
       return retError("unexpected serialization size");
     return std::make_pair(name, fbBuilder.serialize64(data));
   }
 
   // Encode dense elements attrs.
   if (auto elAttr = dyn_cast<DenseIntOrFPElementsAttr>(attr)) {
-    if (!elAttr.isSplat()) {
-      auto result = serializeDenseElementsAttr(fbBuilder, elAttr);
-      if (failed(result))
-        return failure();
-      return std::make_pair(name, *result);
-    }
-    auto result = serializeDenseSplatElementsAttr(fbBuilder, elAttr);
+    auto result = serializeDenseElementsAttr(fbBuilder, elAttr);
     if (failed(result))
       return failure();
     return std::make_pair(name, *result);
   }
+
   return retError("unhandled serialization case");
 }
 
@@ -388,8 +406,7 @@ translateCallingConvention(executor::CallingConvention cconv) {
 static FailureOr<Offset<rt::impl::FunctionSignature>>
 translateSignature(FBBuilder &fbBuilder,
                    executor::FunctionMetadataAttr metadata) {
-  if (!metadata)
-    return rt::impl::CreateFunctionSignature(fbBuilder);
+  assert(metadata && "expected valid FunctionMetadataAttr");
 
   // Union type must be encoded as variant type + data.
   SmallVector<rt::impl::Type> argVariantTypes, resultVariantTypes;
@@ -455,6 +472,14 @@ translateSignature(FBBuilder &fbBuilder,
       translateCallingConvention(metadata.getCconv()));
 }
 
+/// Return a sanitized version of a symbol name by replacing special characters
+/// with underscores.
+static std::string sanitizeName(StringRef name) {
+  SmallVector<StringRef> segments;
+  llvm::SplitString(name, segments, "<>\t\n\v\f\r;.!@#$%^&*()-+=");
+  return llvm::join(segments, "_");
+}
+
 FailureOr<std::unique_ptr<mlirtrt::runtime::ExecutableStorage>>
 mlir::translateToRuntimeExecutable(Operation *op) {
 
@@ -462,6 +487,22 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   auto module = dyn_cast<ModuleOp>(op);
   if (!module)
     return failure();
+
+  // Do rename of symbols to sanitize.
+  SymbolTable symbolTable(module);
+  for (Operation &op : module.getOps()) {
+    auto nameAttr =
+        op.getAttrOfType<StringAttr>(mlir::SymbolTable::getSymbolAttrName());
+    if (!nameAttr)
+      continue;
+
+    std::string sanitized = sanitizeName(nameAttr.strref());
+    if (sanitized == nameAttr.strref())
+      continue;
+    if (failed(symbolTable.rename(&op, sanitized)))
+      return emitError(op.getLoc()) << "failed to rename symbol "
+                                    << op.getName() << " to sanitized version";
+  }
 
   //===----------------------------------------------------------------------===//
   // 64 bit section
@@ -511,8 +552,10 @@ mlir::translateToRuntimeExecutable(Operation *op) {
 
     auto metaAttr = func->getAttrOfType<executor::FunctionMetadataAttr>(
         executor::ExecutorDialect::kFunctionMetadataAttrName);
+
     FailureOr<Offset<rt::impl::FunctionSignature>> offt =
-        translateSignature(fbBuilder, metaAttr);
+        metaAttr ? translateSignature(fbBuilder, metaAttr)
+                 : Offset<rt::impl::FunctionSignature>(0);
     if (failed(offt))
       return failure();
 
@@ -547,6 +590,14 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   fbBuilder.Finish(exeBuilder.Finish());
 
   flatbuffers::DetachedBuffer detached = fbBuilder.Release();
+
+  // Validate the created buffer.
+  {
+    flatbuffers::Verifier verifier(detached.data(), detached.size());
+    if (!rt::impl::VerifyExecutableBuffer(verifier))
+      return emitError(op->getLoc())
+             << "failed to create a valid Executable buffer";
+  }
 
   std::unique_ptr<mlirtrt::runtime::ExecutableStorage> result =
       std::make_unique<ExecutableStorageFlatbuffer>(std::move(detached));

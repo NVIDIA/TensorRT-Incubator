@@ -1,7 +1,7 @@
-// RUN:  executor-opt %s -split-input-file -convert-executor-to-executor | \
+// RUN:  executor-opt %s -split-input-file -executor-lower-to-runtime-builtins | \
 // RUN:   executor-translate -mlir-to-lua | FileCheck %s
 
-// RUN:  executor-opt %s -split-input-file -convert-executor-to-executor | \
+// RUN:  executor-opt %s -split-input-file -executor-lower-to-runtime-builtins | \
 // RUN:   executor-translate -mlir-to-runtime-executable
 
 func.func @exec_addi(%arg0: i64, %arg1: i64) -> i64

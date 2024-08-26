@@ -58,40 +58,6 @@ func.func @exec_add_index(%arg0: index, %arg1: index) -> index {
 
 // -----
 
-
-func.func @memref_load(%arg0: !executor.ptr<host>, %arg1: i64) {
-  %8 = executor.load %arg0 + %arg1 : (!executor.ptr<host>, i64) -> !executor.table<!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-  %9 = executor.table.get %8[0] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-  executor.dealloc %9 : <host>
-  return
-}
-
-//   CHECK-DAG:   executor.func private @_dealloc(...)
-//   CHECK-DAG:   executor.func private @_load_i64(...) -> i64
-//   CHECK-DAG:   executor.func private @_load_ptr_host(...) -> !executor.ptr<host>
-// CHECK-LABEL: @memref_load
-//  CHECK-SAME: (%[[arg0:.+]]: !executor.ptr<host>, %[[arg1:.+]]: i64) {
-//       CHECK:     %[[c0_i64:.+]] = executor.constant 0 : i64
-//       CHECK:     %[[v0:.+]] = executor.addi %[[arg1]], %[[c0_i64]] : i64
-//       CHECK:     %[[v1:.+]] = executor.call @_load_ptr_host(%[[arg0]], %[[v0]]) : (!executor.ptr<host>, i64) -> !executor.ptr<host>
-//       CHECK:     %[[c8_i64:.+]] = executor.constant 8 : i64
-//       CHECK:     %[[v2:.+]] = executor.addi %[[arg1]], %[[c8_i64]] : i64
-//       CHECK:     %[[v3:.+]] = executor.call @_load_ptr_host(%[[arg0]], %[[v2]]) : (!executor.ptr<host>, i64) -> !executor.ptr<host>
-//       CHECK:     %[[c16_i64:.+]] = executor.constant 16 : i64
-//       CHECK:     %[[v4:.+]] = executor.addi %[[arg1]], %[[c16_i64]] : i64
-//       CHECK:     %[[v5:.+]] = executor.call @_load_i64(%[[arg0]], %[[v4]]) : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[c24_i64:.+]] = executor.constant 24 : i64
-//       CHECK:     %[[v6:.+]] = executor.addi %[[arg1]], %[[c24_i64]] : i64
-//       CHECK:     %[[v7:.+]] = executor.call @_load_i64(%[[arg0]], %[[v6]]) : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[c32_i64:.+]] = executor.constant 32 : i64
-//       CHECK:     %[[v8:.+]] = executor.addi %[[arg1]], %[[c32_i64]] : i64
-//       CHECK:     %[[v9:.+]] = executor.call @_load_i64(%[[arg0]], %[[v8]]) : (!executor.ptr<host>, i64) -> i64
-//       CHECK:     %[[v10:.+]] = executor.table.create(%[[v1]], %[[v3]], %[[v5]], %[[v7]], %[[v9]] :
-//       CHECK:     %[[v11:.+]] = executor.table.get %[[v10]][0] : <!executor.ptr<host>, !executor.ptr<host>, i64, i64, i64>
-//       CHECK:     executor.call @_dealloc(%[[v11]]) :
-
-// -----
-
 func.func @metadata_conversion(%arg0: i32)  attributes {
   executor.function_metadata = #executor.func_meta<[
       index

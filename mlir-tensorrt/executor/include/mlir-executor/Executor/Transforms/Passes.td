@@ -89,10 +89,56 @@ def ExecutorPackArgumentsPass : Pass<"executor-pack-arguments",
   ];
 }
 
+//===----------------------------------------------------------------------===//
+// ExecutorDecomposeAggregateLoadsAndStoresPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorDecomposeAggregateLoadsAndStoresPass :
+  Pass<"executor-decompose-aggregate-loads-and-stores",
+      "::mlir::ModuleOp"> {
+  let summary = "lowers load/store of aggregates into more primitive ops";
+
+  let description = [{
+    This pass replaces 'executor.load|store' operations on aggregates with
+    more primitive operations.
+  }];
+
+  let options = [
+    Option<"target", "target", "std::string", "\"lua\"",
+      "a target which helps identify which ops must be lowered to calls">
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// ExecutorLowerToRuntimeBuiltinsPass
+//===----------------------------------------------------------------------===//
+
+def ExecutorLowerToRuntimeBuiltinsPass : Pass<"executor-lower-to-runtime-builtins",
+      "::mlir::ModuleOp"> {
+  let summary = "lowers some primitive operations to runtime builtin calls";
+
+  let description = [{
+    This pass replaces executor operations which must be converted to a call to
+    a runtime-provieded function. The determination of which operations must
+    be lowered to a call is based on the target.
+  }];
+
+  let options = [
+    Option<"target", "target", "std::string", "\"lua\"",
+      "a target which helps identify which ops must be lowered to calls">,
+    Option<"indexBitwidth", "index-bitwidth", "int64_t", "64",
+      "all index types will be converted to signless integers of this bitwidth">,
+    Option<"usePackedMemRefCConv", "use-packed-memref-cconv",
+      "bool", "true",
+      "convert memref arguments in functions to table/struct rather than to "
+      "an unpacked list of scalars">
+  ];
+}
 
 //===----------------------------------------------------------------------===//
 // ExecutorLowerGlobalsPass
 //===----------------------------------------------------------------------===//
+
 def ExecutorLowerGlobalsPass : Pass<"executor-lower-globals", "::mlir::ModuleOp"> {
   let summary = "Lower globals to their final form before translation";
 

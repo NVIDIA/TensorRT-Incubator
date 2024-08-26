@@ -20,6 +20,7 @@
 // PDLL rewrites for Math dialect to Executor dialect.
 //===----------------------------------------------------------------------===//
 #include "mlir/Dialect/Math/IR/MathOps.td"
+#include "mlir/Dialect/Complex/IR/ComplexOps.td"
 #include "mlir-executor/Executor/IR/ExecutorOps.td"
 #include "mlir/Transforms/DialectConversion.pdll"
 
@@ -149,3 +150,34 @@ Pattern =>
 Pattern =>
   replace op<arith.remsi>(args: ValueRange) -> (results: TypeRange)
     with op<executor.sremi>(convertValues(args)) -> (convertTypes(results));
+
+Pattern =>
+  replace op<arith.remsi>(args: ValueRange) -> (results: TypeRange)
+    with op<executor.sremi>(convertValues(args)) -> (convertTypes(results));
+
+Pattern {
+  let root = op<complex.constant>() -> (result: Type);
+  rewrite root with {
+    let re: Value = op<complex.re>(root);
+    let im: Value = op<complex.im>(root);
+    let operands: ValueRange = (re, im);
+    let table = op<executor.table.create>(operands) -> (convertType(result));
+    replace root with table;
+  };
+}
+
+Pattern {
+  let root = op<complex.create>(operands: ValueRange) -> (result: Type);
+  rewrite root with {
+    let table = op<executor.table.create>(operands) -> (convertType(result));
+    replace root with table;
+  };
+}
+
+Pattern =>
+  replace op<complex.re>(arg: Value) -> (result: Type)
+    with op<executor.table.get>(convertValue(arg)) {index = attr<"0 : i64">} -> (convertType(result));
+
+Pattern =>
+  replace op<complex.im>(arg: Value) -> (result: Type)
+    with op<executor.table.get>(convertValue(arg)) {index = attr<"1 : i64">} -> (convertType(result));

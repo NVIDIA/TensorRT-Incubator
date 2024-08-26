@@ -20,6 +20,7 @@ from dataclasses import dataclass
 
 from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -287,5 +288,8 @@ def abs(input: "tripy.Tensor") -> "tripy.Tensor":
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))
     """
     from tripy.frontend import Tensor
+    from tripy.common.datatype import int64
 
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Abs currently does not work with int64 inputs. Issue #116")
     return UnaryElementwise.build([input], UnaryElementwise.Kind.ABS)

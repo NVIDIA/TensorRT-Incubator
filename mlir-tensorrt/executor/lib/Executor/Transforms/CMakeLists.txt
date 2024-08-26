@@ -1,7 +1,9 @@
 add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   AllocsToGlobals.cpp
+  DecomposeAggregateLoadsAndStores.cpp
   ExpandOps.cpp
   LowerGlobals.cpp
+  LowerToRuntimeBuiltins.cpp
   Passes.cpp
   PackArguments.cpp
   PopulateFunctionMetadata.cpp
@@ -10,16 +12,16 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   MLIRTensorRTExecutorTransformsPassIncGen
 
   LINK_LIBS PUBLIC
+  MLIRAffineToStandard
   MLIRBufferizationDialect
   MLIRBufferizationTransforms
+  MLIRComplexToStandard
+  MLIRFuncDialect
   MLIRIR
   MLIRPass
-  MLIRFuncDialect
+  MLIRReconcileUnrealizedCasts
+  MLIRTensorRTConvertToExecutorCommon
   MLIRTensorRTExecutorDialect
   MLIRTensorRTExecutorUtils
-  MLIRLinalgTransforms
-  MLIRTensorRTConvertToExecutorCommon
   MLIRTensorRTStdToExecutor
-  MLIRAffineToStandard
-  MLIRReconcileUnrealizedCasts
 )

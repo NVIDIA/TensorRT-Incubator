@@ -24,6 +24,7 @@ from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy.utils import make_list
+from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -133,7 +134,9 @@ def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Seque
         if dim is None:
             out = reshape(out, (1,) * input.rank)
         else:
-            for d in sorted(make_list(dim)):
+            # Custom comparison function ensures negatives are sorted in decreasing order, otherwise increasing.
+            # e.g, [-2, 0, -1, 2] is sorted as [-1, -2, 0, 2].
+            for d in sorted(make_list(dim), key=lambda x: (0, -x) if x < 0 else (1, x)):
                 out = unsqueeze(out, d)
 
     return out
@@ -171,6 +174,10 @@ def sum(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
+    from tripy.common.datatype import int64
+
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Sum currently does not work with int64 inputs. Issue #116")
     return _reduce_impl(input, Reduce.Kind.SUM, dim, keepdim)
 
 
@@ -272,6 +279,10 @@ def max(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
+    from tripy.common.datatype import int64
+
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Max currently does not work with int64 inputs. Issue #116")
     return _reduce_impl(input, Reduce.Kind.MAX, dim, keepdim)
 
 
@@ -307,6 +318,10 @@ def prod(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
+    from tripy.common.datatype import int64
+
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Prod currently does not work with int64 inputs. Issue #116")
     return _reduce_impl(input, Reduce.Kind.MUL, dim, keepdim)
 
 
@@ -364,6 +379,10 @@ def mean(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
     """
+    from tripy.common.datatype import int64
+
+    if input.dtype == int64:
+        raise_error("Known issue with i64. Mean currently does not work with int64 inputs. Issue #116")
     return mean_impl(input, dim, keepdim)
 
 

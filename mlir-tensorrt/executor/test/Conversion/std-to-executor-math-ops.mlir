@@ -1,6 +1,6 @@
 
 // RUN: executor-opt %s -split-input-file -convert-std-to-executor | FileCheck %s
-// RUN: executor-opt %s -split-input-file -convert-std-to-executor -convert-executor-to-executor | FileCheck %s --check-prefix=EXEC
+// RUN: executor-opt %s -split-input-file -convert-std-to-executor -executor-lower-to-runtime-builtins | FileCheck %s --check-prefix=EXEC
 
 
 func.func @test_absf_f16(%arg0: f16) -> f16 {
