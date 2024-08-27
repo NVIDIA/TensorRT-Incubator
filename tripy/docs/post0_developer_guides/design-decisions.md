@@ -3,9 +3,7 @@
 This document outlines some of the design decisions we've made and explains why they
 were chosen over alternatives.
 
-```{contents} Table of Contents
-:depth: 3
-```
+
 
 ## No API Redundancy
 

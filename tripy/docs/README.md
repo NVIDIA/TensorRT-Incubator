@@ -41,7 +41,7 @@ For all public facing docstrings, we have several requirements:
 ### Guides
 
 In addition to the API reference, we also include various guides in subdirectories
-of [docs](/docs).
+of [docs](.).
 
 Each such subdirectory must start with a `pre<N>_` or `post<N>_` prefix, which indicates
 the ordering of each set of guides in the index/side bar. Specifically, `pre` indicates
@@ -64,11 +64,7 @@ The markdown files there are included in `.rst` files and parsed by the Myst par
 This means we need to make some special considerations:
 
 1. We cannot use the `[[TOC]]` directive to automatically generate tables of contents.
-    Instead, use:
-
-        ```{contents} Table of Contents
-        :depth: 3
-        ```
+    Our Sphinx theme will automatically generate tables of contents, so you can omit these entirely.
 
 2. All links to files in the repository must be absolute and start with `source:` so that
     Myst can replace them with URLs to our remote repository. Otherwise, the links will
@@ -95,7 +91,7 @@ This means we need to make some special considerations:
     `<api_kind>` can take on any value that is a valid role provided by
     [Sphinx's Python domain](https://www.sphinx-doc.org/en/master/usage/domains/python.html).
 
-Guides may use the markers specified in [tests/helper.py](/tests/helper.py) to customize
+Guides may use the markers specified in [tests/helper.py](../tests/helper.py) to customize
 how the documentation is interpreted (see `AVAILABLE_MARKERS` in that file).
 
 

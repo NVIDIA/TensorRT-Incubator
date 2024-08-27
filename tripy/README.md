@@ -1,4 +1,6 @@
+<!-- Tripy: DOC: OMIT Start -->
 [**Installation**](#installation) | [**Quickstart**](#quickstart) | [**Documentation**](#documentation) | [**Examples**](#examples)
+<!-- Tripy: DOC: OMIT End -->
 
 # Tripy: A Python Programming Model For TensorRT
 
@@ -21,24 +23,26 @@ python3 -m pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator
 python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
 ```
 
+<!-- Tripy: DOC: OMIT Start -->
 If you want to build from source, please follow the instructions in [CONTRIBUTING.md](./CONTRIBUTING.md).
+<!-- Tripy: DOC: OMIT End -->
 
 ## Quickstart
 
 In eager mode, Tripy works just like you'd expect:
 
 ```py
+# doc: no-print-locals
 import tripy as tp
 
 a = tp.Tensor([1.0, 2.0])
 print(a + 1)
-
-# tensor([2.0000, 3.0000], dtype=float32, loc=gpu:0, shape=(2,))
 ```
 
 Tripy can also compile functions to generate efficient machine code for faster execution:
 
 ```py
+# doc: no-print-locals
 def add(a, b):
     return a + b
 
@@ -56,7 +60,6 @@ b_info = tp.InputInfo((1,), dtype=tp.float32)
 compiled_add = compiler.compile(a_info, b_info)
 
 print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
-# tensor([4.0000, 5.0000, 6.0000], dtype=float32, loc=gpu:0, shape=(3,))
 ```
 
 For more details, see the

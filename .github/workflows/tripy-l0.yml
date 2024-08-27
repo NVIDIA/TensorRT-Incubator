@@ -10,7 +10,7 @@ on:
 env:
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
   NEW_TEST_IMAGE: test-image:latest
-    
+
 
 jobs:
   tripy-l0:
@@ -50,8 +50,8 @@ jobs:
           #!/bin/bash
 
           python3 docs/generate_rsts.py
-          sphinx-build build/doc_sources build/docs -c docs/ -j 1 -W
-          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l0 or not l1" --durations=15
+          sphinx-build build/doc_sources build/docs -c docs/ -j auto -W
+          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" --durations=15
           EOF
 
           bash build_docs_and_test.sh

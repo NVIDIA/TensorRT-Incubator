@@ -11,9 +11,7 @@ Let's take a look at an example of how you might add an `Iota` operator to Tripy
 So that it doesn't clash with Tripy's actual `Iota` implementation, we'll call it
 `Theta` instead.
 
-```{contents} Table of Contents
-:depth: 3
-```
+
 
 <!-- Use the TEST: USE_PYTEST marker since we'll be defining unit tests as part of the guide.
     With this marker, those tests can actually be run under pytest. -->
