@@ -161,7 +161,7 @@ def get_dim_size_1d_tensor(tensor: "FlatIRTensor", dim: int):
 
 
 def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
-    from tripy.common.array import Array
+    from tripy.backend.mlir.memref import create_empty_memref
     from tripy.common.datatype import int32
     from tripy.flat_ir.ops import ConstantOp
     from tripy.flat_ir.tensor import FlatIRTensor
@@ -188,13 +188,13 @@ def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
         ConstantOp.build(
             [],
             [shape_output_tensor],
-            data=Array(None, shape=(0,), dtype=int32, device=tensor.device),
+            data=create_empty_memref(shape=(0,), dtype=int32, device=tensor.device),
         )
     return shape_output_tensor
 
 
 def add_constant_tensor_from_list(data: list, device: "tripy.device"):
-    from tripy.common.array import Array
+    from tripy.backend.mlir.memref import create_empty_memref
     from tripy.common.datatype import int32
     from tripy.common.device import device
     from tripy.flat_ir.ops import ConstantOp
@@ -208,7 +208,7 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
         reason_details=[f"create constant rank 1 int32 tensor filled with {data}."],
     )
     if not data:
-        data = Array(None, shape=(0,), dtype=int32, device=device("cpu"))
+        data = create_empty_memref(shape=(0,), dtype=int32)
     ConstantOp.build([], [const_output_tensor], data=data)
     return const_output_tensor
 
@@ -465,10 +465,9 @@ def is_quantizable_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
 
 
 def get_clamp_min_max(element_dtype, quant_dtype):
-    from tripy.common.array import Array
     from tripy.common.device import device
     from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ConstantOp, ConvertOp
+    from tripy.flat_ir.ops import ConstantOp
 
     QUANT_CLAMP_MIN_MAX = {
         tp_dtype.int8: (-128.0, 127.0),

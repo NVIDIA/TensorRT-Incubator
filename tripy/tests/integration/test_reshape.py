@@ -35,7 +35,7 @@ class TestReshape:
     )
     def test_static_reshape(self, shape, new_shape):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
-        a = tp.Tensor(cp_a, shape=shape, device=tp.device("gpu"))
+        a = tp.Tensor(cp_a, device=tp.device("gpu"))
         b = tp.reshape(a, new_shape)
         if -1 in new_shape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
@@ -73,7 +73,7 @@ class TestFlatten:
     )
     def test_flatten(self, shape, start_dim, end_dim, expected_shape):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
-        a = tp.Tensor(cp_a, shape=shape, device=tp.device("gpu"))
+        a = tp.Tensor(cp_a)
         b = tp.flatten(a, start_dim=start_dim, end_dim=end_dim)
         assert b.shape == expected_shape
         assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(expected_shape).get())

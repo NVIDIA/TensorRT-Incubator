@@ -52,7 +52,7 @@ def flip_params(request):
 def flat_ir(flip_params):
     shape, dims, _ = flip_params
     np_a = np.arange(np.prod(shape)).reshape(shape).astype(np.float32)
-    a = tp.Tensor(np_a, shape=shape, dtype=tp.float32, name="a")
+    a = tp.Tensor(np_a, dtype=tp.float32, name="a")
     out = tp.flip(a, dims=dims)
     out.name = "out"
     trace = Trace([out])

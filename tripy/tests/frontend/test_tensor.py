@@ -25,7 +25,7 @@ import torch
 
 import tripy as tp
 from tests.conftest import DATA_TYPE_TEST_CASES
-from tests.helper import NUMPY_TYPES
+from tests.helper import NUMPY_TYPES, np_to_tripy_dtype
 from tripy.utils.stack_info import SourceInfo
 from tripy.common.utils import get_element_type
 
@@ -54,14 +54,11 @@ class TestTensor:
 
     @pytest.mark.parametrize("dtype", NUMPY_TYPES)
     def test_dtype_from_numpy(self, dtype):
-        from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype
 
         np_array = np.array([1, 2, 3], dtype=dtype)
         tensor = tp.Tensor(np_array)
-        tp_dtype = convert_frontend_dtype_to_tripy_dtype(dtype)
-        assert tensor.trace_tensor.producer.dtype == tp_dtype
-        assert tensor.trace_tensor.producer.data.dtype.name == tp_dtype.name
-        assert tensor.trace_tensor.producer.data.dtype.itemsize == tp_dtype.itemsize
+        tp_dtype = np_to_tripy_dtype(dtype)
+        assert tensor.dtype == tp_dtype
 
     def test_bool_tensor(self):
         bool_values = [True, False, True]
@@ -75,24 +72,13 @@ class TestTensor:
     def test_dtype_from_list(self, input_data, dtype):
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
-        # Error: input.dtype must be one of (float32, float16, bfloat16), Got dtype=bool
-        if (get_element_type(input_data) in [tp.int32, tp.bool]) and dtype == tp.float8:
-            pytest.skip(
-                f"Input data {input_data} with {get_element_type(input_data)} type can not be implicitly converted to {dtype}"
-            )
         # Error: 'plan.inline_closed_group' op input operand #0 of type 'tensor<0xf32>' does not have a TensorKind associated with it
         if len(input_data) == 0 and dtype == tp.float8:
             pytest.skip(
                 f"Input data {input_data} with {get_element_type(input_data)} type can not be implicitly converted to {dtype}"
             )
         tensor = tp.Tensor(input_data, dtype=dtype)
-        assert tensor.trace_tensor.producer.dtype == dtype
-        if dtype == tp.float8:
-            assert tensor.data().dtype == tp.float32
-        else:
-            assert tensor.data().dtype == dtype
-        assert tensor.trace_tensor.producer.data.dtype.name == dtype.name
-        assert tensor.trace_tensor.producer.data.dtype.itemsize == dtype.itemsize
+        assert tensor.dtype == dtype
 
     @pytest.mark.parametrize("dtype", DATA_TYPE_TEST_CASES)
     def test_dtype_printing(self, dtype):
@@ -164,9 +150,10 @@ class TestTensor:
 
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_dlpack_torch(self, kind):
-        a = tp.Tensor([1, 2, 3], device=tp.device(kind))
-        b = torch.from_dlpack(a)
-        assert torch.equal(b.cpu(), torch.tensor([1, 2, 3]))
+        a_torch = torch.ones((2, 2), dtype=torch.float32)
+        if kind == "gpu":
+            a_torch = a_torch.to("cuda")
+        assert torch.equal(a_torch, torch.from_dlpack(tp.Tensor(a_torch)))
 
     def test_stack_depth_sanity(self):
         # Makes sure STACK_DEPTH_OF_BUILD is correct
@@ -203,6 +190,63 @@ class TestTensor:
 
         with pytest.raises(tp.TripyException):
             bool(tensor)
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            [[1, 2], [3, 4]],  # from python list
+            np.ones((2, 2), dtype=np.float32),  # from ext tensor
+        ],
+    )
+    def test_explicit_cast(self, data):
+        a = tp.Tensor(data, dtype=tp.float16)
+        assert a.dtype == tp.float16
+
+    def test_no_explicit_cast(self):
+        from tripy.frontend.trace.ops import Storage
+
+        a_np = np.ones((2, 2), dtype=np.float32)
+        a = tp.Tensor(a_np, dtype=tp.float32)
+        assert a.dtype == tp.float32
+        assert isinstance(a.trace_tensor.producer, Storage)
+
+    @pytest.mark.parametrize(
+        "devices",
+        [
+            ("cpu", "gpu"),
+            # TODO(#155)
+            # ("gpu", "cpu"),
+        ],
+    )
+    def test_explicit_copy(self, devices):
+        a_torch = torch.ones((2, 2), dtype=torch.float32)
+        if devices[0] == "gpu":
+            a_torch = a_torch.to("cuda")
+        a = tp.Tensor(a_torch, device=tp.device(devices[1]))
+        assert a.device.kind == devices[1]
+
+    @pytest.mark.parametrize(
+        "devices",
+        [
+            ("cpu", "cpu"),
+            ("gpu", "gpu"),
+        ],
+    )
+    def test_no_explicit_copy(self, devices):
+        from tripy.frontend.trace.ops import Storage
+
+        a_torch = torch.ones((2, 2), dtype=torch.float32)
+        if devices[0] == "gpu":
+            a_torch = a_torch.to("cuda")
+        a = tp.Tensor(a_torch, device=tp.device(devices[1]))
+        assert a.device.kind == devices[1]
+        assert isinstance(a.trace_tensor.producer, Storage)
+
+    def test_explicit_cast_copy(self):
+        a_np = np.ones((2, 2), dtype=np.float32)
+        a = tp.Tensor(a_np, dtype=tp.float16, device=tp.device("gpu"))
+        assert a.dtype == tp.float16
+        assert a.device.kind == "gpu"
 
     @pytest.mark.parametrize(
         "tensor, expected",

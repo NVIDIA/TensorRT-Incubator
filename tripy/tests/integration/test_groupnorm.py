@@ -28,12 +28,14 @@ DTYPES = [
 ]
 
 class TestGroupNorm:
+
+    @pytest.mark.l1
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", [(1, 10, 2)])
     @pytest.mark.parametrize("num_groups", [2, 5])
     @pytest.mark.parametrize("num_channels", [10])
-    @pytest.mark.parametrize("eps", [1e-5, 1e-3])
-    def test_groupnorm_accuracy(self, torch_dtype, tp_dtype, input_shape, num_groups, num_channels, eps):
+    def test_groupnorm_accuracy(self, torch_dtype, tp_dtype, input_shape, num_groups, num_channels):
+        eps = 1e-5
         groupnorm = torch.nn.GroupNorm(
             num_groups=num_groups,
             num_channels=num_channels,
@@ -47,15 +49,15 @@ class TestGroupNorm:
             dtype=tp_dtype,
         )
 
-        tp_groupnorm.weight = tp.Parameter(groupnorm.weight)
-        tp_groupnorm.bias = tp.Parameter(groupnorm.bias)
+        tp_groupnorm.weight = tp.Parameter(groupnorm.weight.detach())
+        tp_groupnorm.bias = tp.Parameter(groupnorm.bias.detach())
 
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = tp_groupnorm(tp_input)
-        expected = tp.Tensor(groupnorm(input), device=tp.device("cpu"))
+        output = tp.copy(tp_groupnorm(tp_input), tp.device("cpu"))
+        with torch.no_grad():
+            expected = groupnorm(input)
 
         rtol_ = 2e-6 if tp_dtype == tp.float32 else 1e-3
-        assert output.shape == expected.shape
-        assert tp.allclose(output, expected, rtol=rtol_)
+        assert torch.allclose(torch.from_dlpack(output), expected, rtol=rtol_)

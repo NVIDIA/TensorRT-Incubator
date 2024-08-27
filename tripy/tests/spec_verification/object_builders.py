@@ -28,7 +28,7 @@ def tensor_builder(func_obj, input_values, namespace):
 
 def shape_tensor_builder(func_obj, input_values, namespace):
     follow_tensor = input_values.get("follow_tensor", None)
-    return (math.prod((namespace[follow_tensor]).shape.data().data()),)
+    return (math.prod((namespace[follow_tensor]).shape.tolist()),)
 
 
 def dtype_builder(func_obj, input_values, namespace):

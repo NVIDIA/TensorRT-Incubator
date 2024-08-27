@@ -23,7 +23,6 @@ from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy import utils
-from tripy.common.array import Array
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
 import mlir_tensorrt.runtime.api as runtime
@@ -32,10 +31,10 @@ import mlir_tensorrt.runtime.api as runtime
 @dataclass(repr=False)
 class ConstantOp(BaseFlatIROp):
 
-    data: Union[Array, Sequence]
+    data: Union[runtime.MemRefValue, Sequence]
 
     def str_skip_fields(self) -> Set[str]:
-        data_shape = self.data.shape if isinstance(self.data, Array) else self.outputs[0].shape
+        data_shape = self.data.shape if isinstance(self.data, runtime.MemRefValue) else self.outputs[0].shape
         if utils.should_omit_constant_in_str(data_shape):
             return {"data"}
         return set()
@@ -46,34 +45,35 @@ class ConstantOp(BaseFlatIROp):
         from tripy.backend.mlir import utils as mlir_utils
 
         # TODO(#189): Remove explicit copy to host for constants
-        if isinstance(self.data, Array):
-            assert self.data.dtype == self.outputs[0].dtype
-            memref_value = self.data.memref_value
-            if self.data.device.kind == "gpu":
-                memref_value = mlir_utils.MLIRRuntimeClient().copy_to_host(
-                    device_memref=memref_value,
+        if isinstance(self.data, runtime.MemRefValue):
+            runtime_client = mlir_utils.MLIRRuntimeClient()
+            data_memref = self.data
+            if data_memref.address_space == runtime.PointerType.device:
+                data_memref = runtime_client.copy_to_host(
+                    device_memref=data_memref,
                     stream=None,
                 )
 
+            # TODO: we can further drop the cast by tolist(memref) -> mlir
             # Workaround (#208): bools are represented as i1 in MLIR-TRT but they cannot be used for DenseElementsAttr
             # so we have to represent them as ints and then cast the result
             if self.outputs[0].dtype == datatype.bool:
                 # need to use memoryview.cast to ensure that the view will be flattened
-                int_memref = self.data.runtime_client.create_memref(
-                    array.array("i", memoryview(memref_value).cast("b").tolist()),
+                int_memref = runtime_client.create_memref(
+                    array.array("i", memoryview(data_memref).cast("b").tolist()),
                     shape=self.data.shape,
                     dtype=mlir_utils.convert_tripy_dtype_to_runtime_dtype(datatype.int32),
                     device=None,
                 )
                 attr = ir.DenseElementsAttr.get(
-                    array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=self.data.shape
+                    array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape
                 )
-                cast_output = mlir_utils.make_mlir_tensor(datatype.bool, self.data.shape)
+                cast_output = mlir_utils.make_mlir_tensor(datatype.bool, data_memref.shape)
                 constant_op = stablehlo.ConstantOp(attr)
                 return [stablehlo.ConvertOp(result=cast_output, operand=constant_op)]
 
             attr = ir.DenseElementsAttr.get(
-                array=memref_value, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=self.data.shape
+                array=data_memref, type=mlir_utils.get_mlir_dtype(self.outputs[0].dtype), shape=data_memref.shape
             )
         else:
             out_dtype = self.outputs[0].dtype

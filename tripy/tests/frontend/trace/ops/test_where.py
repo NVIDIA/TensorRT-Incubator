@@ -24,8 +24,8 @@ from tripy.frontend.trace.ops import Where
 
 class TestWhere:
     def test_op_func(self):
-        a = tp.Tensor([[0, 1], [0, 1]], shape=(2, 2))
-        b = tp.Tensor([[0, 0], [1, 1]], shape=(2, 2))
+        a = tp.Tensor([[0, 1], [0, 1]])
+        b = tp.Tensor([[0, 0], [1, 1]])
         condition = a >= b
         a = tp.where(condition, a, b)
         assert isinstance(a, tp.Tensor)
@@ -33,8 +33,8 @@ class TestWhere:
 
     def test_bool_condition(self):
         cond = tp.Tensor([False, True, False], dtype=tp.bool)
-        a = tp.Tensor([1, 2, 3], shape=(3,), dtype=tp.int32)
-        b = tp.Tensor([4, 5, 6], shape=(3,), dtype=tp.int32)
+        a = tp.Tensor([1, 2, 3], dtype=tp.int32)
+        b = tp.Tensor([4, 5, 6], dtype=tp.int32)
         w = tp.where(cond, a, b)
         assert isinstance(w, tp.Tensor)
         assert isinstance(w.trace_tensor.producer, Where)
@@ -71,8 +71,8 @@ class TestWhere:
             c = tp.where(cond, a, b)
 
     def test_infer_rank(self):
-        a = tp.Tensor([[0, 1], [0, 1]], shape=(2, 2))
-        b = tp.Tensor([[0, 0], [1, 1]], shape=(2, 2))
+        a = tp.Tensor([[0, 1], [0, 1]])
+        b = tp.Tensor([[0, 0], [1, 1]])
         condition = a >= b
         a = tp.where(condition, a, b)
         assert a.trace_tensor.rank == 2

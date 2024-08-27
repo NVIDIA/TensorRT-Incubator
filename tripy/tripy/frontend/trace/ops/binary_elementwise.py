@@ -468,9 +468,8 @@ def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
         output = b < a
-        # TODO(#26): replace with cp.from_dlpack(output).get() after MLIR-TRT can handle i1 dtype's allocation
 
-        assert output.eval().data() == [True, False]
+        assert output.tolist() == [True, False]
     """
     return Comparison.build([self, other], Comparison.Kind.LESS)
 
@@ -497,7 +496,7 @@ def __le__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2, 5])
         output = b <= a
 
-        assert output.eval().data() == [True, False]
+        assert output.tolist() == [True, False]
     """
     return Comparison.build([self, other], Comparison.Kind.LESS_EQUAL)
 
@@ -524,7 +523,7 @@ def __eq__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2, 5])
         output = b == a
 
-        assert output.eval().data() == [True, False]
+        assert output.tolist() == [True, False]
     """
     return Comparison.build([self, other], Comparison.Kind.EQUAL)
 
@@ -551,7 +550,7 @@ def __ne__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([1, 3])
         output = b != a
 
-        assert output.eval().data() == [True, False]
+        assert output.tolist() == [True, False]
     """
     return Comparison.build([self, other], Comparison.Kind.NOT_EQUAL)
 
@@ -578,7 +577,7 @@ def __ge__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([2, 1])
         output = b >= a
 
-        assert output.eval().data() == [True, False]
+        assert output.tolist() == [True, False]
     """
     return Comparison.build([self, other], Comparison.Kind.GREATER_EQUAL)
 
@@ -605,6 +604,6 @@ def __gt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
         b = tp.Tensor([3, 1])
         output = b > a
 
-        assert output.eval().data() == [True, False]
+        assert output.tolist() == [True, False]
     """
     return Comparison.build([self, other], Comparison.Kind.GREATER)

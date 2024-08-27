@@ -21,6 +21,7 @@ import pytest
 
 import tripy as tp
 from tests.conftest import skip_if_older_than_sm89
+from tests.helper import np_to_tripy_dtype
 
 
 class TestCast:
@@ -49,10 +50,8 @@ class TestCast:
         ],
     )
     def test_cast(self, input_dtype, target_dtype):
-        from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype
-
-        tp_input_dtype = convert_frontend_dtype_to_tripy_dtype(input_dtype)
-        tp_target_dtype = convert_frontend_dtype_to_tripy_dtype(target_dtype)
+        tp_input_dtype = np_to_tripy_dtype(input_dtype)
+        tp_target_dtype = np_to_tripy_dtype(target_dtype)
 
         # TODO(#222): Integer casts with negative numbers fail in many cases
         input_tensor = tp.Tensor([0, 1, 2], dtype=tp_input_dtype)
@@ -72,9 +71,7 @@ class TestCast:
 
     @pytest.mark.parametrize("target_dtype", [np.float32, np.int32, np.int64, np.int8])
     def test_cast_from_bool(self, target_dtype):
-        from tripy.common.utils import convert_frontend_dtype_to_tripy_dtype
-
-        tp_target_dtype = convert_frontend_dtype_to_tripy_dtype(target_dtype)
+        tp_target_dtype = np_to_tripy_dtype(target_dtype)
 
         # in principle, it is not important what *specific* values we convert to,
         # so long as false is mapped to 0 and true to nonzero
