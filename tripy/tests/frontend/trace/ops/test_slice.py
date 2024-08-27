@@ -34,7 +34,7 @@ class TestSlice:
             tp.TripyException,
             match=r"Input tensor has a rank of 2 but was attempted to be sliced with 3 indices",
         ) as exc:
-            a = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
+            a = tp.Tensor([[1, 2], [3, 4]])
             b = a[:, :, 0:1]
             b.eval()
 

@@ -336,9 +336,6 @@ class ShapeContext:
             id_graph_nodes = [id(n) for n in graph_nodes]
             return [t for op in graph_nodes for t in op.inputs if id(t.producer) not in id_graph_nodes]
 
-        from tripy.common.device import device
-
-        trace_tensor.device = device("cpu")
         subgraph = FlatIR()
         visited_tensors = {}
         visited_producers = {}

@@ -18,7 +18,6 @@
 from typing import Optional, Sequence, Union
 
 from tripy import export, utils
-from tripy.common.array import Array
 from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
@@ -37,7 +36,7 @@ class Shape(Tensor):
 
     def __init__(
         self,
-        data: Union[Sequence, Tensor, Array, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        data: Union[Sequence, Tensor, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
         name: Optional[str] = None,
     ) -> None:
         r"""
@@ -60,9 +59,7 @@ class Shape(Tensor):
                 )
 
             # the shape of data should correspond to the given rank
-            super().__init__(data=None, shape=None, dtype=int32, name=name, device=data.device)
-            # the device field is not set by the superclass constructor if the data field is not passed
-            self.device = data.device
+            super().__init__(data=None, dtype=int32, name=name, device=data.device)
             # share the underlying data
             self.trace_tensor = data.trace_tensor
             self.stack_info = data.stack_info
@@ -73,11 +70,7 @@ class Shape(Tensor):
                 raise_error(
                     f"Tensors used to represent shapes must be of rank 1, but given shape {shape} has rank {len(shape)}."
                 )
-            # for an array, duplicate fields are not allowed
-            if isinstance(data, Array):
-                super().__init__(data=data, shape=shape)
-            else:
-                super().__init__(data=data, shape=shape, dtype=int32, name=name, device=device)
+            super().__init__(data=data, dtype=int32, name=name, device=device)
 
     def as_tensor(self) -> Tensor:
         """
@@ -95,7 +88,7 @@ class Shape(Tensor):
             assert isinstance(t, tp.Tensor) and not isinstance(t, tp.Shape)
             assert np.array_equal(cp.from_dlpack(s).get(), cp.from_dlpack(t).get())
         """
-        ret = Tensor(data=None, shape=(self.rank,), dtype=int32, name=self.name, device=self.device)
+        ret = Tensor(data=None, dtype=int32, name=self.name, device=self.device)
         ret.trace_tensor = self.trace_tensor
         ret.stack_info = self.stack_info
         return ret
@@ -130,7 +123,7 @@ class Shape(Tensor):
         return "shape" + tensor_repr[6:]
 
     def __str__(self) -> str:
-        return "shape" + "(" + ", ".join(map(str, self.data().data())) + ")"
+        return "shape" + "(" + ", ".join(map(str, self.tolist())) + ")"
 
     # addition for shapes is concatenation, not tensor addition
 
@@ -163,7 +156,7 @@ class Shape(Tensor):
         # `.shape` will contain a single int. To avoid endlessly calling
         # Shape.__eq__, we can compare the int's directly using `.data()`
         if len(self.shape) != len(other.shape):
-            return False 
+            return False
 
         return bool(all(self.as_tensor() == other.as_tensor()))
 
@@ -175,3 +168,24 @@ class Shape(Tensor):
         from tripy.frontend.trace.ops import utils as op_utils
 
         return op_utils.get_trace_shape(self.trace_tensor)[0]
+
+    class ShapeIter:
+        """
+        Since it is generally simple to get the length of a shape, we can define
+        iteration for Shapes even if we don't permit it for other tensors.
+        """
+
+        def __init__(self, shape):
+            self.shape = shape
+            self.idx = 0
+
+        def __next__(self):
+            if self.idx >= len(self.shape):
+                raise StopIteration
+
+            ret = self.shape[self.idx]
+            self.idx += 1
+            return ret
+
+    def __iter__(self):
+        return Shape.ShapeIter(self)

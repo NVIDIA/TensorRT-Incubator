@@ -97,6 +97,17 @@ NUMPY_TYPES = [
 ]
 
 
+def np_to_tripy_dtype(dtype):
+    return {
+        bool: tp.bool,
+        np.int8: tp.int8,
+        np.int32: tp.int32,
+        np.int64: tp.int64,
+        np.float16: tp.float16,
+        np.float32: tp.float32,
+    }[dtype]
+
+
 def torch_type_supported(data: np.ndarray):
     unsupported_dtypes = [np.int16, np.uint16, np.uint32, np.uint64]
     return data.dtype not in unsupported_dtypes

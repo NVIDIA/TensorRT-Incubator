@@ -50,6 +50,7 @@ class BaseTraceOp(abc.ABC):
 
         op.infer_dtypes()
         op.infer_rank()
+        op.infer_devices()
         return op
 
     @classmethod

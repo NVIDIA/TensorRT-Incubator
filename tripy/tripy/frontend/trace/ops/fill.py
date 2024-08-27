@@ -55,12 +55,8 @@ class Fill(BaseTraceOp):
         self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.common.array import Array
-        from tripy.common.device import device
         from tripy.flat_ir.ops import ConstantOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.frontend.tensor import Tensor
-        from tripy.frontend.trace.ops.cast import cast
 
         const_val_tensor = FlatIRTensor.build(
             shape=(),
@@ -135,7 +131,7 @@ def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tri
         :linenos:
         :caption: Example
 
-        input = tp.Tensor([[1, 2], [3, 4]], shape=(2, 2))
+        input = tp.Tensor([[1, 2], [3, 4]])
         output = tp.full_like(input, value=2)
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
