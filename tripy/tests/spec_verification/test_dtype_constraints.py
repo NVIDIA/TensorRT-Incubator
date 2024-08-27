@@ -162,7 +162,7 @@ def _run_dtype_constraints_subtest(test_data):
     return api_call_locals, namespace
 
 
-# Positive dtype testing are run during L1 testing.
+# Positive dtype testing is run during L1 testing.
 @pytest.mark.l1
 @pytest.mark.parametrize("test_data", pos_func_list, ids=lambda val: val[5])
 def test_pos_dtype_constraints(test_data):
