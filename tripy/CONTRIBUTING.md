@@ -28,10 +28,8 @@ Thank you for considering contributing to Tripy!
         Next, pull and launch the container. From the [`tripy` root directory](.), run:
 
         ```bash
-        docker run --gpus all -it -v $(pwd):/tripy/ --rm ghcr.io/nvidia/tensorrt-incubator/tripy
+        docker run --pull always --gpus all -it -v $(pwd):/tripy/ --rm ghcr.io/nvidia/tensorrt-incubator/tripy
         ```
-
-        If you have pulled the image in the past and need to update it, you should add `--pull=always` to the above command or separately call `docker pull ghcr.io/nvidia/tensorrt-incubator/tripy`.
 
     - Otherwise, you can build the container locally and launch it.
         From the [`tripy` root directory](.), run:
