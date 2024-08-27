@@ -268,6 +268,11 @@ class TestShape:
         s1 = tp.Shape(values)
         assert len(s1[slice_value]) == len(values[slice_value])
 
+    def test_iteration(self, values):
+        s = tp.Shape(values)
+        for i, v in enumerate(s):
+            assert cp.from_dlpack(v).get() == values[i]
+
     def test_reduce(self, values):
         from tripy.frontend.trace.ops.reduce import Reduce
 
@@ -456,4 +461,3 @@ class TestShape:
         a = tp.Shape([1])
         b = tp.Shape([1, 2])
         assert a != b
- 
