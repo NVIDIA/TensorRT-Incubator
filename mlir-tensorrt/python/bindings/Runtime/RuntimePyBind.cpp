@@ -31,6 +31,8 @@
 #include <stdexcept>
 #include <string_view>
 
+#include "cuda_runtime.h"
+
 namespace py = pybind11;
 using namespace mlirtrt;
 
@@ -126,6 +128,7 @@ class PyStream : public PyMTRTWrapper<PyStream, MTRT_Stream> {
 public:
   using Base::Base;
   DECLARE_WRAPPER_CONSTRUCTORS(PyStream);
+
   static constexpr auto kMethodTable = CAPITable<MTRT_Stream>{
       mtrtStreamIsNull, mtrtStreamDestroy, mtrtPythonCapsuleToStream,
       mtrtPythonStreamToCapsule};
@@ -182,6 +185,201 @@ public:
   static constexpr auto kMethodTable = CAPITable<MTRT_RuntimeValue>{
       mtrtRuntimeValueIsNull, mtrtRuntimeValueDestroy,
       mtrtPythonCapsuleToRuntimeValue, mtrtPythonRuntimeValueToCapsule};
+};
+
+// Abstract base class for Python-implemented GPU allocators.
+// Provides a C++ interface for Python classes and handles C-style callback
+// routing.
+class PyGpuAllocator {
+public:
+  py::object pySelf;
+  // This ensure that PyGpuAllocator is not deallocated before corresponding Python object lives.
+  PyGpuAllocator(py::object self) : pySelf(self) {}
+
+  virtual ~PyGpuAllocator() = default;
+  virtual std::uintptr_t allocate(uint64_t size, uint64_t alignment,
+                                  uint32_t flags) = 0;
+  virtual bool deallocate(std::uintptr_t ptr) = 0;
+
+  // Creates a C-compatible struct for interfacing with lower-level APIs.
+  MTRT_GpuAllocator getCApiObject() { return createWithPythonCallbacks(this); }
+
+private:
+  // Trampoline function: Routes C-style allocation calls to C++ virtual method.
+  static void *pyGpuAllocatorAllocate(void *self, uint64_t size,
+                                      uint64_t alignment, uint32_t flags,
+                                      cudaStream_t* /*stream*/) {
+    py::gil_scoped_acquire acquire;
+    auto *allocator = static_cast<PyGpuAllocator *>(self);
+    std::uintptr_t ptr = allocator->allocate(size, alignment, flags);
+    return reinterpret_cast<void *>(ptr);
+  }
+
+  // Trampoline function: Routes C-style deallocation calls to C++ virtual
+  // method.
+  static bool pyGpuAllocatorDeallocate(void *self, void *memory,
+                                       cudaStream_t* /*stream*/) {
+    py::gil_scoped_acquire acquire;
+    auto *allocator = static_cast<PyGpuAllocator *>(self);
+    return allocator->deallocate(reinterpret_cast<std::uintptr_t>(memory));
+  }
+
+  // Constructs MTRT_GpuAllocator with this instance's methods as callbacks.
+  static MTRT_GpuAllocator
+  createWithPythonCallbacks(PyGpuAllocator *allocator) {
+    MTRT_GpuAllocator capi_allocator;
+    capi_allocator.ptr = allocator;
+    capi_allocator.allocate = pyGpuAllocatorAllocate;
+    capi_allocator.deallocate = pyGpuAllocatorDeallocate;
+    return capi_allocator;
+  }
+};
+
+// Pybind11 trampoline class for PyGpuAllocator.
+// Enables Python subclasses to override virtual methods of PyGpuAllocator.
+class PyGpuAllocatorTrampoline : public PyGpuAllocator {
+public:
+  using PyGpuAllocator::PyGpuAllocator; // Inherit constructors
+
+  // Trampoline for allocate: Dispatches call to Python implementation if
+  // overridden.
+  uintptr_t allocate(uint64_t size, uint64_t alignment, uint32_t flags) override {
+    PYBIND11_OVERRIDE_PURE(uintptr_t,      // Return type
+                           PyGpuAllocator, // Parent class
+                           allocate,       // Name of function in C++
+                           size,           // Arguments
+                           alignment, flags);
+  }
+
+  // Trampoline for deallocate: Dispatches call to Python implementation if
+  // overridden.
+  bool deallocate(uintptr_t ptr) override {
+    PYBIND11_OVERRIDE_PURE(bool,           // Return type
+                           PyGpuAllocator, // Parent class
+                           deallocate,     // Name of function in C++
+                           ptr);            // Arguments
+  }
+};
+
+class PyOutputAllocator {
+public:
+  py::object pySelf;
+  // This ensure that PyOutputAllocator is not deallocated before corresponding
+  // Python object lives.
+  PyOutputAllocator(py::object self) : pySelf(self) {}
+
+  virtual ~PyOutputAllocator() = default;
+  virtual void setTensorName(const char *tensorName) = 0;
+  virtual void setCurrentMemory(uintptr_t currentMemory) = 0;
+  virtual void setOutputSize(const int64_t outputSize) = 0;
+  virtual uintptr_t reallocateOutputAsync(char const *tensorName,
+                                      uintptr_t currentMemory, uint64_t size,
+                                      uint64_t alignment) = 0;
+  virtual void notifyShape(char const *tensorName, const int64_t *dims,
+                           int64_t nbDims) = 0;
+  // Creates a C-compatible struct for interfacing with lower-level APIs.
+  MTRT_OutputAllocator getCApiObject() { return createWithPythonCallbacks(this); }
+
+private:
+  static void PySetGpuAllocator(void *self, MTRT_GpuAllocator gpuAllocator) {
+    // Let user use the default available gpu allocator for now.
+  }
+
+  static void PySetTensorName(void *self, const char *tensorName) {
+    py::gil_scoped_acquire acquire;
+    auto *allocator = static_cast<PyOutputAllocator *>(self);
+    return allocator->setTensorName(tensorName);
+  }
+
+  static void PySetCurrentMemory(void *self, void *currentMemory) {
+    py::gil_scoped_acquire acquire;
+    auto *allocator = static_cast<PyOutputAllocator *>(self);
+    return allocator->setCurrentMemory(
+        reinterpret_cast<uintptr_t>(currentMemory));
+  }
+
+  static void PySetOutputSize(void *self, const int64_t outputSize) {
+    py::gil_scoped_acquire acquire;
+    auto *allocator = static_cast<PyOutputAllocator *>(self);
+    return allocator->setOutputSize(outputSize);
+  }
+
+  static void *PyReallocateOutputAsync(void *self, char const *tensorName,
+                                       void *currentMemory, uint64_t size,
+                                       uint64_t alignment,
+                                       cudaStream_t * /*stream*/) {
+    py::gil_scoped_acquire acquire;
+    auto *allocator = static_cast<PyOutputAllocator *>(self);
+    return reinterpret_cast<void *>(allocator->reallocateOutputAsync(
+        tensorName, reinterpret_cast<uintptr_t>(currentMemory), size,
+        alignment));
+  }
+
+  static void PyNotifyShape(void *self, char const *tensorName, const int64_t *dims,
+                             int64_t nbDims) {
+    py::gil_scoped_acquire acquire;
+    auto *allocator = static_cast<PyOutputAllocator *>(self);
+    return allocator->notifyShape(tensorName, dims, nbDims);
+  }
+
+  // Constructs MTRT_GpuAllocator with this instance's methods as callbacks.
+  static MTRT_OutputAllocator
+  createWithPythonCallbacks(PyOutputAllocator *allocator) {
+    MTRT_OutputAllocator capi_allocator;
+    capi_allocator.ptr = allocator;
+    capi_allocator.setGpuAllocator = PySetGpuAllocator;
+    capi_allocator.setTensorName = PySetTensorName;
+    capi_allocator.setCurrentMemory = PySetCurrentMemory;
+    capi_allocator.setOutputSize = PySetOutputSize;
+    capi_allocator.reallocateOutputAsync = PyReallocateOutputAsync;
+    capi_allocator.notifyShape = PyNotifyShape;
+    return capi_allocator;
+  }
+};
+
+// Pybind11 trampoline class for PyOutputAllocator.
+// Enables Python subclasses to override virtual methods of PyOutputAllocator.
+class PyOutputAllocatorTrampoline : public PyOutputAllocator {
+public:
+  using PyOutputAllocator::PyOutputAllocator; // Inherit constructors
+
+  // Trampoline for setTensorName: Dispatches call to Python implementation if
+  // overridden.
+  void setTensorName(const char *tensorName) override {
+    PYBIND11_OVERRIDE_PURE(void,              // Return type
+                           PyOutputAllocator, // Parent class
+                           set_tensor_name,   // Name of function in Python
+                           tensorName);       // Arguments
+  }
+  void setCurrentMemory(uintptr_t currentMemory) override {
+    PYBIND11_OVERRIDE_PURE(void,              // Return type
+                           PyOutputAllocator, // Parent class
+                           set_current_memory,// Name of function in Python
+                           currentMemory);    // Arguments
+  }
+  void setOutputSize(const int64_t outputSize) override {
+    PYBIND11_OVERRIDE_PURE(void,              // Return type
+                           PyOutputAllocator, // Parent class
+                           set_output_size,   // Name of function in Python
+                           outputSize);       // Arguments
+  }
+  uintptr_t reallocateOutputAsync(char const *tensorName,
+                                  uintptr_t currentMemory, uint64_t size,
+                                  uint64_t alignment) override {
+    PYBIND11_OVERRIDE_PURE(uintptr_t,             // Return type
+                           PyOutputAllocator,     // Parent class
+                           reallocate_output,     // Name of function in Python
+                           tensorName,            // Arguments
+                           currentMemory, size, alignment);
+  }
+  void notifyShape(char const *tensorName, const int64_t *dims,
+                   int64_t nbDims) override {
+    PYBIND11_OVERRIDE_PURE(void,              // Return type
+                           PyOutputAllocator, // Parent class
+                           notify_shape,      // Name of function in C++
+                           tensorName,        // Arguments
+                           dims, nbDims);
+  }
 };
 
 /// Python object type wrapper for `MTRT_StableHLOToExecutableOptions`.
@@ -633,6 +831,14 @@ PYBIND11_MODULE(_api, m) {
                                return info.addressSpace;
                              })
       .def(
+          "set_output_allocator",
+          [](PyMemRefValue &self,
+             PyOutputAllocator &outputAllocator) {
+            MTRT_Status s = mtrtAddMemRefOutputAllocatorSessionRegistry(self, outputAllocator.getCApiObject());
+            THROW_IF_MTRT_ERROR(s);
+          },
+          py::arg("allocator"))
+      .def(
           "__dlpack__",
           [](PyMemRefValue &self, int32_t /*stream*/) {
             MTRT_DLPackManagedTensor tensor;
@@ -753,7 +959,6 @@ PYBIND11_MODULE(_api, m) {
           "explicit type "
           "may be provided, otherwise defaults to i64 for Python integers and "
           "f32 for Python floats")
-
       .def(
           "create_memref",
           [](PyRuntimeClient &self, py::buffer array,
@@ -868,6 +1073,8 @@ PYBIND11_MODULE(_api, m) {
              THROW_IF_MTRT_ERROR(s);
              return externalRefCount;
            })
+
+
       .def("is_released_internally", [](PyRuntimeClient &self, uintptr_t ptr) {
         bool isReleasedInternally;
         MTRT_Status s =
@@ -901,14 +1108,52 @@ PYBIND11_MODULE(_api, m) {
            py::arg("num_devices") = 1, py::arg("device_id") = 0,
            py::arg("nccl_uuid") = py::str(""));
 
+  py::class_<PyGpuAllocator, PyGpuAllocatorTrampoline>(m, "GpuAllocator")
+      .def(py::init<>(
+          [](py::object self) { return new PyGpuAllocatorTrampoline(self); }))
+      .def("allocate", &PyGpuAllocator::allocate)
+      .def("deallocate", &PyGpuAllocator::deallocate)
+      .def("get_capi_object", &PyGpuAllocator::getCApiObject);
+
+  py::class_<PyOutputAllocator, PyOutputAllocatorTrampoline>(m,
+                                                             "OutputAllocator")
+      .def(py::init<>(
+          [](py::object self) { return new PyOutputAllocatorTrampoline(self); }))
+      .def("set_tensor_name", &PyOutputAllocator::setTensorName)
+      .def("set_current_memory", &PyOutputAllocator::setCurrentMemory)
+      .def("set_output_size", &PyOutputAllocator::setOutputSize)
+      .def("rellocate_output_async", &PyOutputAllocator::reallocateOutputAsync)
+      .def("notify_shape", &PyOutputAllocator::notifyShape)
+      .def("get_capi_object", &PyOutputAllocator::getCApiObject);
+
   py::class_<PyRuntimeSession>(m, "RuntimeSession", py::module_local())
-      .def(py::init<>([](PyRuntimeSessionOptions &options, PyExecutable &exe) {
+      .def(py::init<>([](PyRuntimeSessionOptions &options, PyExecutable &exe,
+                         py::object gpu_allocator = py::none()) {
              MTRT_RuntimeSession session;
-             MTRT_Status s = mtrtRuntimeSessionCreate(options, exe, &session);
+             MTRT_Status s;
+
+             if (gpu_allocator.is_none()) {
+               // Create session without custom allocator
+               s = mtrtRuntimeSessionCreate(
+                   options, exe, MTRT_GpuAllocator{nullptr, nullptr, nullptr},
+                   &session);
+             } else {
+               try {
+                 PyGpuAllocator &allocator =
+                     gpu_allocator.cast<PyGpuAllocator &>();
+                 MTRT_GpuAllocator capi_allocator = allocator.getCApiObject();
+                 s = mtrtRuntimeSessionCreate(options, exe, capi_allocator,
+                                              &session);
+               } catch (const py::cast_error &) {
+                 throw py::type_error(
+                     "gpu_allocator must be a GpuAllocator object or None");
+               }
+             }
              THROW_IF_MTRT_ERROR(s);
              return new PyRuntimeSession(session);
            }),
-           py::arg("options"), py::arg("executable"))
+           py::arg("options"), py::arg("executable"),
+           py::arg("gpu_allocator") = py::none())
       .def(
           "execute_function",
           [](PyRuntimeSession &self, std::string name,

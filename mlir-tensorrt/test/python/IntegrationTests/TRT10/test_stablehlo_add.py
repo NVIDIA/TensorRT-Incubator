@@ -33,7 +33,7 @@ def test_stablehlo_add(
             exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
 
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
-        session = runtime.RuntimeSession(session_options, exe)
+        session = runtime.RuntimeSession(session_options, exe, None)
 
         session.execute_function(
             "main", in_args=test.in_args, out_args=test.out_args, stream=stream

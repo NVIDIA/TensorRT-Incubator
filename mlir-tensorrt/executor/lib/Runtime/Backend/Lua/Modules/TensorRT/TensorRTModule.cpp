@@ -64,6 +64,131 @@ protected:
   bool verbose;
 };
 
+//===----------------------------------------------------------------------===//
+// TensorRTCallBackOutputAllocator
+//===----------------------------------------------------------------------===//
+
+static bool isSubByte(nvinfer1::DataType t) {
+  return t == nvinfer1::DataType::kINT4;
+}
+
+static int32_t elementSizeInBits(nvinfer1::DataType t) {
+  switch (t) {
+  case nvinfer1::DataType::kINT64:
+    return 64;
+  case nvinfer1::DataType::kINT32:
+    return 32;
+  case nvinfer1::DataType::kFLOAT:
+    return 32;
+  case nvinfer1::DataType::kHALF:
+    return 16;
+  case nvinfer1::DataType::kBF16:
+    return 16;
+  case nvinfer1::DataType::kINT8:
+    return 8;
+  case nvinfer1::DataType::kBOOL:
+    return 8;
+  case nvinfer1::DataType::kUINT8:
+    return 8;
+  case nvinfer1::DataType::kFP8:
+    return 8;
+  case nvinfer1::DataType::kINT4:
+    return 4;
+  }
+  return 0;
+}
+
+static int32_t elementeSizeInBytes(nvinfer1::DataType dtype) {
+  if (!isSubByte(dtype)) {
+    auto bits = elementSizeInBits(dtype);
+    assert(bits % 8 == 0);
+    return bits / 8;
+  }
+  if (dtype == nvinfer1::DataType::kINT4) {
+    return 1;
+  }
+  return -1;
+}
+
+static int64_t volume(nvinfer1::Dims64 const& d)
+{
+    int64_t v = 1;
+    for (int64_t i = 0; i < d.nbDims; i++)
+    {
+        v *= d.d[i];
+    }
+    return v;
+}
+
+class TensorRTCallBackOutputAllocator final
+    : public nvinfer1::IOutputAllocator {
+public:
+  TensorRTCallBackOutputAllocator(GpuAllocator* gpuAllocator, OutputAllocator *outputAllocator,
+                                  const char *tensorName, void *currentMemory,
+                                  nvinfer1::Dims64 dims,
+                                  nvinfer1::DataType dtype)
+      : nvinfer1::IOutputAllocator(),
+        mOutputAllocatorCallBack(outputAllocator) {
+    mOutputAllocatorCallBack->setGpuAllocator(gpuAllocator);
+    mOutputAllocatorCallBack->setTensorName(tensorName);
+    mOutputAllocatorCallBack->setCurrentMemory(currentMemory);
+    mOutputAllocatorCallBack->setOutputSize(volume(dims) *
+                                            elementeSizeInBytes(dtype));
+  }
+
+  void *reallocateOutput(char const *tensorName, void *currentMemory,
+                         uint64_t size, uint64_t alignment) noexcept override {
+    return mOutputAllocatorCallBack->reallocateOutputAsync(
+        tensorName, currentMemory, size, alignment, nullptr);
+  }
+
+  //! IMirroredBuffer does not implement Async allocation, hence this is just a
+  //! wrap around
+  void *reallocateOutputAsync(char const *tensorName, void *currentMemory,
+                              uint64_t size, uint64_t alignment,
+                              cudaStream_t stream) noexcept override {
+
+    return mOutputAllocatorCallBack->reallocateOutputAsync(
+        tensorName, currentMemory, size, alignment, &stream);
+  }
+
+  void notifyShape(char const *tensorName,
+                   nvinfer1::Dims const &dims) noexcept override {
+    return mOutputAllocatorCallBack->notifyShape(tensorName, &dims.d[0], dims.nbDims);
+  }
+
+  ~TensorRTCallBackOutputAllocator() override {}
+
+private:
+  OutputAllocator *mOutputAllocatorCallBack;
+};
+
+//===----------------------------------------------------------------------===//
+// TensorRTCallBackAllocator
+//===----------------------------------------------------------------------===//
+
+class TensorRTCallBackAllocator final : public nvinfer1::IGpuAsyncAllocator {
+public:
+  TensorRTCallBackAllocator(GpuAllocator *gpuAllocator)
+      : nvinfer1::IGpuAsyncAllocator(), mGpuAllocatorCallBack(gpuAllocator) {}
+
+  void *allocateAsync(uint64_t const size, uint64_t const alignment,
+                      uint32_t flags, cudaStream_t stream) noexcept final {
+    void *result =
+        mGpuAllocatorCallBack->allocate(size, alignment, flags, &stream);
+    return result;
+  }
+
+  bool deallocateAsync(void *const memory,
+                       cudaStream_t stream) noexcept override {
+    bool result = mGpuAllocatorCallBack->deallocate(memory, &stream);
+    return result;
+  }
+
+private:
+  GpuAllocator *mGpuAllocatorCallBack;
+};
+
 } // namespace
 
 static StdioLogger logger(/*verbose=*/false);
@@ -88,13 +213,40 @@ struct Signature {
   }
 };
 
+class NvInferRuntimeWrapper {
+public:
+  explicit NvInferRuntimeWrapper(GpuAllocator* gpuAllocator) {
+    runtime = std::shared_ptr<nvinfer1::IRuntime>(
+        nvinfer1::createInferRuntime(logger), [](nvinfer1::IRuntime *runtime) {
+          MTRT_DBGF("freeing tensorrt runtime at %lu",
+                    reinterpret_cast<uintptr_t>(runtime));
+          delete runtime;
+        });
+    // GpuAllocator is optional.
+    if (gpuAllocator) {
+      callbackAllocatorPair =
+          std::make_pair(std::shared_ptr<nvinfer1::IGpuAsyncAllocator>(
+                             new TensorRTCallBackAllocator(gpuAllocator)),
+                         gpuAllocator);
+      runtime->setGpuAllocator(callbackAllocatorPair.first.get());
+    }
+  }
+
+  nvinfer1::IRuntime *operator*() { return runtime.get(); }
+  nvinfer1::IRuntime *operator->() { return runtime.get(); }
+
+  std::shared_ptr<nvinfer1::IRuntime> runtime;
+  std::pair<std::shared_ptr<nvinfer1::IGpuAsyncAllocator>, GpuAllocator*> callbackAllocatorPair;
+};
+
 class NvInferEngineWrapper {
 public:
-  explicit NvInferEngineWrapper(std::shared_ptr<nvinfer1::IRuntime> &runtime,
+  explicit NvInferEngineWrapper(std::shared_ptr<NvInferRuntimeWrapper> runtime,
                                 uintptr_t pointer, size_t size)
       : runtime(runtime) {
     engine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(reinterpret_cast<void *>(pointer), size),
+        runtime->runtime->deserializeCudaEngine(
+            reinterpret_cast<void *>(pointer), size),
         [](nvinfer1::ICudaEngine *engine) {
           MTRT_DBGF("freeing cuda engine at %lu",
                     reinterpret_cast<uintptr_t>(engine));
@@ -105,7 +257,7 @@ public:
   nvinfer1::ICudaEngine *operator*() { return engine.get(); }
   nvinfer1::ICudaEngine *operator->() { return engine.get(); }
 
-  std::shared_ptr<nvinfer1::IRuntime> runtime;
+  std::shared_ptr<NvInferRuntimeWrapper> runtime;
   std::shared_ptr<nvinfer1::ICudaEngine> engine;
 };
 
@@ -183,6 +335,22 @@ public:
   /// Returned the pre-allocated host staging buffers.
   std::vector<PinnedMemoryBlock> &getHostIOBuffers() { return hostIOBuffers; }
 
+  /// Add a call back output allocator.
+  void addCallBackAllocators(
+      std::unique_ptr<TensorRTCallBackOutputAllocator> allocator) {
+    outputAllocators.emplace_back(std::move(allocator));
+  }
+
+  /// Return the last call back output allocator pointer.
+  TensorRTCallBackOutputAllocator *getLastCallBackAllocatorPtr() {
+    return outputAllocators.back().get();
+  }
+
+  /// Return registered callback gpu allocator.
+  GpuAllocator *getGpuAllocator() {
+    return engine->runtime->callbackAllocatorPair.second;
+  }
+
 private:
   // We keep a reference to the cuda engine to keep it from going out of scope.
   // The standard TensorRTRuntime-to-Executor lowering only creates globals for
@@ -196,13 +364,14 @@ private:
   /// A set of pinned host buffers one per input host buffer (shape tensor) to
   /// the TRT network.
   std::vector<PinnedMemoryBlock> hostIOBuffers;
+  std::vector<std::unique_ptr<TensorRTCallBackOutputAllocator>> outputAllocators;
 };
 } // namespace
 
-static Status setTensorAddressesOrReport(
+static Status setTensorAddressesAndOutputAllocatorsOrReport(
     NvInferExecContextWrapper &context,
     const std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>
-        &buffers) {
+        &buffers, OutputAllocatorTracker &outputAllocatorTracker) {
   ADD_TENSORRT_MODULE_RANGE("set_tensor_addresses");
   unsigned idx = 0;
   for (auto &[name, ptr, dims] : buffers) {
@@ -215,9 +384,10 @@ static Status setTensorAddressesOrReport(
     bool result =
         context->setTensorAddress(name.c_str(), reinterpret_cast<void *>(ptr));
 
+    const nvinfer1::ICudaEngine &engine = context->getEngine();
+
     if (!result) {
       std::stringstream ss;
-      const nvinfer1::ICudaEngine &engine = context->getEngine();
       ss << "Failed to set tensor address for IO tensor: " << name
          << " at position " << idx << "; the IO tensors are:\n";
       for (int64_t i = 0; i < engine.getNbIOTensors(); i++) {
@@ -236,6 +406,37 @@ static Status setTensorAddressesOrReport(
       result = context->setInputShape(name.c_str(), dims);
       if (!result)
         return getInternalErrorStatus("failed to set input shape");
+    }
+
+    // Set output allocators
+    if (engine.getTensorIOMode(name.c_str()) ==
+            nvinfer1::TensorIOMode::kOUTPUT and
+        engine.getTensorLocation(name.c_str()) ==
+            nvinfer1::TensorLocation::kDEVICE) {
+
+      // Since setting output allocator is optional.
+      if (outputAllocatorTracker.getAllocator(reinterpret_cast<void *>(ptr)) !=
+          nullptr) {
+        context.addCallBackAllocators(
+            std::make_unique<TensorRTCallBackOutputAllocator>(
+                context.getGpuAllocator(),
+                outputAllocatorTracker.getAllocator(
+                    reinterpret_cast<void *>(ptr)),
+                name.c_str(), reinterpret_cast<void *>(ptr), dims,
+                engine.getTensorDataType(name.c_str())));
+        context->setOutputAllocator(name.c_str(),
+                                    static_cast<nvinfer1::IOutputAllocator *>(
+                                        context.getLastCallBackAllocatorPtr()));
+      } else {
+        // It is possible that previous call with same output name and different
+        // memref pointer would have set output allocator. Due to "hacky" naming
+        // scheme, outputs are always named as "result0", "result1", .... If not
+        // tracker is found for a given pointer, let's unset the output
+        // allocator.
+        if (context->getOutputAllocator(name.c_str())) {
+          context->setOutputAllocator(name.c_str(), nullptr);
+        }
+      }
     }
 
     MTRT_DBGF("Set tensor address [%d] = %lu", idx, ptr);
@@ -339,6 +540,7 @@ prepareBuffers(const AllocTracker &allocTracker,
 
 static Status enqueueV3Wrapper(AllocTracker &tracker,
                                ResourceTracker &resourceTracker,
+                               OutputAllocatorTracker &outputAllocatorTracker,
                                NvInferExecContextWrapper &context,
                                CudaStreamPtr stream, sol::table &va) {
   StatusOr<std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>>>
@@ -347,8 +549,8 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to prepare buffers: ", buffers.getString());
 
-  MTRT_RETURN_IF_ERROR(setTensorAddressesOrReport(context, *buffers));
 
+  MTRT_RETURN_IF_ERROR(setTensorAddressesAndOutputAllocatorsOrReport(context, *buffers, outputAllocatorTracker));
   // Create an event that we can wait on for releasing any host-pinned staging
   // allocations we made.
   MTRT_ASSIGN_OR_RETURN(CudaEventPtr inputConsumedEvent,
@@ -375,19 +577,21 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
 //===----------------------------------------------------------------------===//
 void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker,
+    OutputAllocatorTracker *outputAllocatorTracker, GpuAllocator *allocator) {
   sol::state_view lua(luaState);
 
-  lua["_trtrt_create_runtime"] = [](sol::this_state state) {
+  lua["_trtrt_create_runtime"] =
+      [allocator](sol::this_state state) -> std::shared_ptr<NvInferRuntimeWrapper> {
     ADD_TENSORRT_MODULE_RANGE("trtrt_create_runtime");
     MTRT_DBGF("%s", "creating nvinfer runtime");
-    return std::shared_ptr<nvinfer1::IRuntime>(
-        nvinfer1::createInferRuntime(logger));
+    return std::make_shared<NvInferRuntimeWrapper>(allocator);
   };
 
   lua["_trtrt_load"] =
       [allocTracker](
-          sol::this_state state, std::shared_ptr<nvinfer1::IRuntime> &runtime,
+          sol::this_state state,
+          std::shared_ptr<NvInferRuntimeWrapper> &runtime,
           uintptr_t pointer) -> std::shared_ptr<NvInferEngineWrapper> {
     ADD_TENSORRT_MODULE_RANGE("trtrt_load");
     const AllocTracker &tracker = *allocTracker;
@@ -411,16 +615,17 @@ void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
   };
 
   lua["_trtrt_enqueue"] =
-      [allocTracker,
-       resourceTracker](sol::this_state state,
-                        std::shared_ptr<NvInferExecContextWrapper> context,
-                        CudaStreamPtr stream, sol::table va) {
+      [allocTracker, resourceTracker, outputAllocatorTracker](
+          sol::this_state state,
+          std::shared_ptr<NvInferExecContextWrapper> context,
+          CudaStreamPtr stream, sol::table va) {
         ADD_TENSORRT_MODULE_RANGE("trtrt_enqueue");
         sol::state_view luaState(state);
         assert(context != nullptr);
         assert(stream != nullptr && "expected valid stream");
-        Status result = enqueueV3Wrapper(*allocTracker, *resourceTracker,
-                                         *context, stream, va);
+        Status result =
+            enqueueV3Wrapper(*allocTracker, *resourceTracker,
+                             *outputAllocatorTracker, *context, stream, va);
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
 }
