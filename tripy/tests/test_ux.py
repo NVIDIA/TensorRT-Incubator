@@ -103,6 +103,7 @@ DOCSTRING_TEST_CASES, DOCSTRING_IDS = helper.get_all_docstrings_with_examples()
 
 
 class TestDocstrings:
+    @pytest.mark.manual  # This is already tested during doc generation.
     @pytest.mark.parametrize("example_code", DOCSTRING_TEST_CASES, ids=DOCSTRING_IDS)
     def test_examples_in_docstrings(self, example_code):
         assert example_code, "Example code is empty! Is the formatting correct? Refer to `tests/README.md`."

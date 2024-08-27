@@ -228,10 +228,13 @@ class Executable:
                     shape = tensor.shape.data().data()
                     for i in range(len(shape)):
                         if shape[i] < expected_bounds[i][0] or shape[i] > expected_bounds[i][1]:
+                            min_shape, max_shape = zip(*expected_bounds)
                             raise_error(
                                 f"Unexpected tensor shape.",
                                 [
-                                    f"For parameter `{arg_name}`, expected the tensor shape `{tensor.shape}` to be within bounds for all dimensions. However, dimension {i} has a shape of {shape[i]}, which is not within the expected bounds of {expected_bounds[i]}. Note: The provided argument was: ",
+                                    f"For tensor: `{arg_name}`, expected a shape within the bounds: min={min_shape}, max={max_shape}, but got: {shape}.\n"
+                                    f"Dimension {i} has a shape of {shape[i]}, which is not within the expected bounds of {list(expected_bounds[i])}.\n"
+                                    f"Note: The provided argument was: ",
                                     tensor,
                                 ],
                             )

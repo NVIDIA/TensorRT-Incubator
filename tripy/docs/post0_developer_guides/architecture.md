@@ -2,9 +2,7 @@
 
 This document explains the overall architecture of Tripy.
 
-```{contents} Table of Contents
-:depth: 3
-```
+
 
 ## Overview
 

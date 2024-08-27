@@ -39,7 +39,7 @@ jobs:
       run: |
         cd /tripy/
         python3 docs/generate_rsts.py
-        sphinx-build build/doc_sources build/docs -c docs/ -j 1 -W
+        sphinx-build build/doc_sources build/docs -c docs/ -j auto -W
     - uses: actions/upload-pages-artifact@v3
       with:
         path: "/tripy/build/docs"
@@ -49,4 +49,4 @@ jobs:
     - name: l1-test
       run: |
         cd /tripy/
-        pytest tests/ -v --durations=-1
+        pytest tests/ -v --durations=-1 -m "not manual"
