@@ -181,7 +181,7 @@ class Comparison(BinaryElementwise):
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
     function_name="__radd__",
 )
@@ -244,7 +244,7 @@ def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
 @TENSOR_METHOD_REGISTRY("__rsub__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "float8", "int32", "int64"]},
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
@@ -343,7 +343,7 @@ def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     function_name="__mul__",
 )
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
     function_name="__rmul__",
 )
