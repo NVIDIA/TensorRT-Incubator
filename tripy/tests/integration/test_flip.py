@@ -30,12 +30,12 @@ class TestFlip:
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
         f = tp.flip(a, dims=dims)
-        cp_a_f = np.flip(cp_a.get(), axis=dims)
-        assert tp.array_equal(f, tp.Tensor(cp_a_f))
+        #TODO(129): The tensor we get from np.flip will have negative strides. We cannot currently construct a tensor with negatives strides
+        assert np.array_equal(cp.from_dlpack(f).get(), np.flip(cp_a.get(), axis=dims))
 
         # also ensure that flipping a second time restores the original value
         f2 = tp.flip(f, dims=dims)
-        assert tp.array_equal(f2, tp.Tensor(cp_a))
+        assert np.array_equal(cp.from_dlpack(f2).get(), cp_a.get())
 
     def test_no_op(self):
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
