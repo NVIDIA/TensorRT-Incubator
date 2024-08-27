@@ -51,7 +51,7 @@ class TestReadme:
                 continue
 
             if link.startswith("../mlir-tensorrt"):
-                pytest.skip("Cannot validate links in MLIR-TRT since it's not mounted in the Tripy container")
+                continue
 
             if link.startswith("https://"):
                 assert requests.get(link).status_code == 200
