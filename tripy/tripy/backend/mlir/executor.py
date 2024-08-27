@@ -30,8 +30,8 @@ from tripy.utils import log_time, make_tuple
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
         from tripy.backend.mlir.utils import MLIRRuntimeClient
-
         self.runtime_client = MLIRRuntimeClient()
+        self.stream = self.runtime_client.create_stream()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
         self.session = runtime.RuntimeSession(session_options, executable)
         self.device = self.runtime_client.get_devices()[0]  # Assume a single device is available.
@@ -139,7 +139,6 @@ class Executor:
     @log_time
     def execute(self, output_devices=List[device], inputs: List["Tensor"] = []) -> List[runtime.MemRefValue]:
         from tripy.frontend.trace.ops import Storage
-        from tripy.backend.compiler_api import Stream
 
         in_args = []
         for inp in inputs:
@@ -182,9 +181,8 @@ class Executor:
             out_args.append(memref)
 
         # Execute and populate device pointers.
-        self.session.execute_function(
-            "main", in_args=in_args, out_args=out_args, stream=Stream.get_current_stream()._stream
-        )
+        self.session.execute_function("main", in_args=in_args, out_args=out_args, stream=self.stream)
+        self.stream.sync()
         # For outputs that were on the host, do the copy back
         # TODO(#155): MLIR-TensorRT should allow output tensor placements on host.
         for idx, out_info in enumerate(out_tensor_info):

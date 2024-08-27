@@ -1,9 +1,5 @@
 # An Introduction To Tripy
 
-```{contents} Table of Contents
-:depth: 3
-```
-
 ## What Is Tripy?
 
 Tripy is a compiler that compiles deep learning models for inference using TensorRT as a backend.

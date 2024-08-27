@@ -18,7 +18,7 @@ You can also provide marker arguments to only run specific test cadences
 L0 tests, use:
 
 ```bash
-pytest tests/ -v -m "l0 or not l1"
+pytest tests/ -v -m "not l1 and not manual"
 ```
 
 ## Coverage Reports
@@ -71,13 +71,7 @@ def test_really_slow_things():
 
 <!-- Tripy: TEST: IGNORE End -->
 
-The markers we currently support are:
-
-- `l0`: Indicates that the test should be run in each merge request.
-        This marker is applied by default if no other markers are present.
-
-- `l1`: Indicates that the test should be run at a nightly cadence.
-
+Supported markers are documented in [pyproject.toml](../pyproject.toml).
 
 ### Docstring Tests
 

@@ -23,6 +23,7 @@ import inspect
 import io
 import os
 import pkgutil
+import re
 from textwrap import dedent, indent
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
@@ -37,7 +38,6 @@ from tripy.backend.mlir.utils import remove_sym_attr
 from tripy.common.exception import _make_stack_info_message
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
-
 
 TAB_SIZE = 4
 
@@ -449,6 +449,8 @@ def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBloc
 ## Evaluating code to show local and output variables
 ##
 
+ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
 
 def process_code_block_for_outputs_and_locals(
     block: str,
@@ -597,6 +599,8 @@ def process_code_block_for_outputs_and_locals(
     stdout = outfile.read() or ""
 
     if stdout:
+        # Strip out ANSI control sequences from output:
+        stdout = ANSI_ESCAPE.sub("", stdout)
         output_lines = split_block_lines("Output:", stdout, lang="")
 
     return code_block_lines, local_var_lines, output_lines, code_locals

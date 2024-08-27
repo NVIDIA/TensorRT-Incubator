@@ -51,7 +51,7 @@ class TestReadme:
                 continue
 
             if link.startswith("../mlir-tensorrt"):
-                pytest.skip("Cannot validate links in MLIR-TRT since it's not mounted in the Tripy container")
+                continue
 
             if link.startswith("https://"):
                 assert requests.get(link).status_code == 200
@@ -103,6 +103,7 @@ DOCSTRING_TEST_CASES, DOCSTRING_IDS = helper.get_all_docstrings_with_examples()
 
 
 class TestDocstrings:
+    @pytest.mark.manual  # This is already tested during doc generation.
     @pytest.mark.parametrize("example_code", DOCSTRING_TEST_CASES, ids=DOCSTRING_IDS)
     def test_examples_in_docstrings(self, example_code):
         assert example_code, "Example code is empty! Is the formatting correct? Refer to `tests/README.md`."

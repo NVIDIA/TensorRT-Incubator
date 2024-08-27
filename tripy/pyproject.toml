@@ -37,7 +37,7 @@ doc_test_common = [
 ]
 docs = [
   "sphinx==7.2.6",
-  "sphinx-nefertiti==0.2.1",
+  "furo==2024.8.6",
   "sphinx-copybutton==0.5.2",
   "sphinx-toolbox==3.5.0",
   "docutils==0.20.1",
@@ -71,6 +71,6 @@ testpaths = [
 ]
 addopts = "--strict-markers"
 markers = [
-    "l0: Marks tests to run on each merge request.",
-    "l1: Marks tests to run at a nightly cadence.",
+    "l1: Indicates that the test should only be run in nightlies.",
+    "manual: Disables tests in automation",
 ]
