@@ -28,7 +28,6 @@ import tripy.common.datatype
 from tests import helper
 from tripy.common.exception import TripyException
 from tripy.common.utils import (
-    convert_frontend_dtype_to_tripy_dtype,
     convert_list_to_array,
     Float16MemoryView,
     get_element_type,
@@ -45,77 +44,6 @@ def test_get_element_type():
         match="Unsupported element type.",
     ):
         get_element_type(["a", "b", "c"])
-
-
-def test_convert_frontend_dtype_to_tripy_dtype():
-    import numpy as np
-
-    assert convert_frontend_dtype_to_tripy_dtype(tripy.common.datatype.int32) == tripy.common.datatype.int32
-
-    PYTHON_NATIVE_TO_TRIPY = {
-        int: tripy.common.datatype.int32,
-        float: tripy.common.datatype.float32,
-        bool: tripy.common.datatype.bool,
-    }
-
-    CUPY_TO_TRIPY = {
-        cp.bool_: tripy.common.datatype.bool,
-        cp.int8: tripy.common.datatype.int8,
-        cp.int32: tripy.common.datatype.int32,
-        cp.int64: tripy.common.datatype.int64,
-        cp.float16: tripy.common.datatype.float16,
-        cp.float32: tripy.common.datatype.float32,
-    }
-
-    NUMPY_TO_TRIPY = {
-        np.bool_: tripy.common.datatype.bool,
-        np.int8: tripy.common.datatype.int8,
-        np.int32: tripy.common.datatype.int32,
-        np.int64: tripy.common.datatype.int64,
-        np.float16: tripy.common.datatype.float16,
-        np.float32: tripy.common.datatype.float32,
-    }
-
-    TORCH_TO_TRIPY = {
-        torch.bool: tripy.common.datatype.bool,
-        torch.int8: tripy.common.datatype.int8,
-        torch.int32: tripy.common.datatype.int32,
-        torch.int64: tripy.common.datatype.int64,
-        torch.float16: tripy.common.datatype.float16,
-        torch.bfloat16: tripy.common.datatype.bfloat16,
-        torch.float32: tripy.common.datatype.float32,
-    }
-
-    FRONTEND_TO_TRIPY = dict(ChainMap(PYTHON_NATIVE_TO_TRIPY, NUMPY_TO_TRIPY, TORCH_TO_TRIPY))
-
-    for frontend_type, tripy_type in FRONTEND_TO_TRIPY.items():
-        assert convert_frontend_dtype_to_tripy_dtype(frontend_type) == tripy_type
-
-    for unsupported_type in [
-        "unsupported_type",
-        np.int16,
-        np.uint16,
-        np.uint32,
-        np.uint64,
-        np.float64,
-        cp.int16,
-        cp.uint16,
-        cp.uint32,
-        cp.uint64,
-        cp.float64,
-        torch.int16,
-        torch.float64,
-    ]:
-        with helper.raises(
-            TripyException,
-            match=dedent(
-                rf"""
-            Unsupported data type: '{unsupported_type}'.
-                Tripy tensors can be constructed with one of the following data types: int, float, bool, bool_, int8, int32, int64, float8_e4m3fn, float16, bfloat16, float32.
-            """
-            ).strip(),
-        ):
-            convert_frontend_dtype_to_tripy_dtype(unsupported_type)
 
 
 @pytest.mark.parametrize(

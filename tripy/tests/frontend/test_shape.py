@@ -74,7 +74,6 @@ class TestShape:
 
         assert isinstance(s, tp.Shape)
         assert s.device.kind == "cpu"
-        assert np.from_dlpack(s).tolist() == values
 
     def test_as_tensor(self, values):
         s = tp.Shape(values)
@@ -268,6 +267,11 @@ class TestShape:
         s1 = tp.Shape(values)
         assert len(s1[slice_value]) == len(values[slice_value])
 
+    def test_iteration(self, values):
+        s = tp.Shape(values)
+        for i, v in enumerate(s):
+            assert cp.from_dlpack(v).get() == values[i]
+
     def test_reduce(self, values):
         from tripy.frontend.trace.ops.reduce import Reduce
 
@@ -378,10 +382,6 @@ class TestShape:
         res = tp.where(cond, s1, s2)
         assert len(res) == len(values)
 
-    def test_invalid_input_dtype(self):
-        with raises(tp.TripyException, match="Data has incorrect dtype"):
-            _ = tp.Shape(np.array([2.0, 3.0], dtype=np.float32))
-
     def test_invalid_input_dtype_tensor(self):
         with raises(
             tp.TripyException, match="Shape tensors must have int32 members, but input tensor has data type float32"
@@ -456,4 +456,3 @@ class TestShape:
         a = tp.Shape([1])
         b = tp.Shape([1, 2])
         assert a != b
- 

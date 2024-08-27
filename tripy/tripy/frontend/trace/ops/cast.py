@@ -42,7 +42,6 @@ class Cast(BaseTraceOp):
         self.outputs[0].dtype = self.dtype
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.common.array import Array
         from tripy.common.datatype import int32, int64, float32, bool as tp_bool
         from tripy.flat_ir.ops import CompareOp, ConvertOp, ConstantOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor

@@ -339,7 +339,7 @@ class Executable:
             elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):
                 expected_input_shapes = [info.shape_bounds for info in self.get_input_info()]
                 for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
-                    shape = tensor.shape.data().data()
+                    shape = tensor.shape.tolist()
                     for i in range(len(shape)):
                         if shape[i] < expected_bounds[i][0] or shape[i] > expected_bounds[i][1]:
                             raise_error(
