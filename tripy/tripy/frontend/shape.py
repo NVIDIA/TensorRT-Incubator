@@ -156,7 +156,7 @@ class Shape(Tensor):
         # `.shape` will contain a single int. To avoid endlessly calling
         # Shape.__eq__, we can compare the int's directly using `.data()`
         if len(self.shape) != len(other.shape):
-            return False 
+            return False
 
         return bool(all(self.as_tensor() == other.as_tensor()))
 
@@ -168,3 +168,24 @@ class Shape(Tensor):
         from tripy.frontend.trace.ops import utils as op_utils
 
         return op_utils.get_trace_shape(self.trace_tensor)[0]
+
+    class ShapeIter:
+        """
+        Since it is generally simple to get the length of a shape, we can define
+        iteration for Shapes even if we don't permit it for other tensors.
+        """
+
+        def __init__(self, shape):
+            self.shape = shape
+            self.idx = 0
+
+        def __next__(self):
+            if self.idx >= len(self.shape):
+                raise StopIteration
+
+            ret = self.shape[self.idx]
+            self.idx += 1
+            return ret
+
+    def __iter__(self):
+        return Shape.ShapeIter(self)
