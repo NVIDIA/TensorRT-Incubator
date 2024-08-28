@@ -21,6 +21,36 @@ L0 tests, use:
 pytest tests/ -v -m "not l1 and not manual"
 ```
 
+
+## Profiling
+
+You can profile test runtimes in the development container using the
+`--profile` option, which will generate `pstats` files for each test
+in a `prof/` directory, along with a `combined.prof` file for all the
+tests together.
+
+For example, to profile L0 tests, run:
+
+```bash
+pytest tests/ -v -m "not l1 and not manual" --profile
+```
+
+You can visualize the results using `snakeviz`.
+
+*NOTE: Ensure that you launched the development container with port forwarding,*
+*i.e. the `-p 8080:8080` option.*
+
+For example:
+
+```bash
+snakeviz prof/combined.prof -s --hostname 0.0.0.0
+```
+
+Then, in a browser, navigate to:
+http://localhost:8080/snakeviz/%2Ftripy%2Fprof%2Fcombined.prof
+
+
+
 ## Coverage Reports
 
 You can generate code coverage reports locally by running:
