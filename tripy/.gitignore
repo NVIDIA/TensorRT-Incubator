@@ -85,3 +85,6 @@ core*
 
 # IDEs
 .vscode
+
+# PyTest profiling results
+*.prof

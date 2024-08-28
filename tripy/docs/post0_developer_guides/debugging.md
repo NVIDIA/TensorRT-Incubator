@@ -19,6 +19,6 @@ In order to use `lldb` in tripy container, launch the container with extra secur
 ```bash
 docker run --gpus all --cap-add=SYS_PTRACE \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
-	-v $(pwd):/tripy/ -it --rm tripy:latest
+	-p 8080:8080 -v $(pwd):/tripy/ -it --rm tripy:latest
 ```
 See https://forums.swift.org/t/debugging-using-lldb/18046 for more details.
