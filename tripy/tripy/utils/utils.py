@@ -142,6 +142,18 @@ def make_tuple(obj):
     return obj
 
 
+def list_to_tuple(nested_list):
+    """
+    Recursively converts a nested list structure into a nested tuple structure.
+    """
+    if isinstance(nested_list, list):
+        # Recursively apply the conversion to each element in the list
+        return tuple(list_to_tuple(item) for item in nested_list)
+    else:
+        # Return the item as it is if it's not a list
+        return nested_list
+
+
 ##
 ## Dims
 ##

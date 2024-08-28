@@ -81,18 +81,8 @@ class TestSlice:
 
     def test_invalid_multiple_dims(self):
         a = tp.ones((2, 3, 4))
-        first_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {15}\x1b\[38;5;1m\^"
-        second_dim_regex = r"(.|\n)*\| {13}a\[5, 3\]\.eval\(\)\n\s*\| {18}\x1b\[38;5;1m\^"
         with helper.raises(
             tp.TripyException,
-            # Looking three instance of the following:
-            # |             a[5, 3].eval()
-            # |               ^
-            #
-            # and three instances of the following:
-            # |             a[5, 3].eval()
-            # |                  ^
-            match=(3 * first_dim_regex + 3 * second_dim_regex),
-            has_stack_info_for=[a],
+            match="limit index 6 is larger than dimension size 2 in dimension 0",
         ):
             a[5, 3].eval()

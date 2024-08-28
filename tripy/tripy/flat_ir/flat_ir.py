@@ -22,10 +22,25 @@ from tripy import utils
 from tripy.common.shape_bounds import ShapeBounds
 
 
+class FlatIRPass:
+    """Base class for all FlatIR passes."""
+
+    @classmethod
+    def attach(cls, flat_ir_class):
+        """Attach this pass to a FlatIR class."""
+        flat_ir_class._passes.append(cls)
+
+    def run(self, flat_ir):
+        """Run the pass on the given FlatIR instance."""
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
 class FlatIR:
     """
     A flattened low level representation of a computation graph which maps directly with StableHLO dialect.
     """
+
+    _passes = []
 
     def __init__(self, shapes: Sequence[ShapeBounds] = None):
         self.inputs: List["FlatIRTensor"] = []
@@ -47,6 +62,21 @@ class FlatIR:
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
+
+    def optimize(self):
+        """
+        Runs all optimization passes attached to this FlatIR class.
+        """
+        for pass_class in self._passes:
+            pass_instance = pass_class()
+            pass_instance.run(self)
+
+    @classmethod
+    def attach_pass(cls, pass_class):
+        """
+        Attaches a pass to this FlatIR class.
+        """
+        pass_class.attach(cls)
 
     def to_mlir(self):
         def to_mlir_impl():
@@ -114,9 +144,10 @@ class FlatIR:
                                 arg_attrs.append(ir.DictAttr.get({}))
                             else:
                                 arg_attrs.append(
-                                    ir.DictAttr.get({
-                                        "tensorrt.shape_profile": ir.Attribute.parse(
-                                            f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                    ir.DictAttr.get(
+                                        {
+                                            "tensorrt.shape_profile": ir.Attribute.parse(
+                                                f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
                                             )
                                         }
                                     )

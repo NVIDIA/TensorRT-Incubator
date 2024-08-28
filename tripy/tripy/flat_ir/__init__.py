@@ -16,3 +16,4 @@
 #
 
 from tripy.flat_ir.flat_ir import FlatIR
+from tripy.flat_ir.passes.constant_deduplicate import ConstantDeduplicationPass
