@@ -32,17 +32,27 @@ class TestIota:
         (("int32", tp.common.datatype.int32)),
     ]
 
-    def _compute_ref_iota(self, dtype, shape, dim):
+    def _compute_ref_iota(self, dtype, shape, dim): 
         if dim is None:
             dim = 0
         elif dim < 0:
             dim += len(shape)
+    
         expected = np.arange(0, shape[dim], dtype=dtype)
+    
         if dim < len(shape) - 1:
             expand_dims = [1 + i for i in range(len(shape) - 1 - dim)]
             expected = np.expand_dims(expected, expand_dims)
-        expected = np.broadcast_to(expected, shape)
+    
+        repeats = [1] * len(shape)
+        for i in range(len(shape)):
+            if i != dim:
+                repeats[i] = shape[i]
+    
+        expected = np.tile(expected, repeats)
+    
         return expected
+
 
     @pytest.mark.parametrize("dtype", DTYPE_PARAMS)
     @pytest.mark.parametrize(
