@@ -78,8 +78,9 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.transpose(input, 0, 1)
+        expected = tp.Tensor(np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
 
-        assert tp.array_equal(output, tp.Tensor(np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0))))
+        assert tp.array_equal(output, expected)
     """
     return Transpose.build([input], None, dim0, dim1)
 

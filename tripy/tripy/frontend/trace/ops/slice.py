@@ -203,7 +203,8 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
 
         input = tp.arange(10, dtype=tp.int32)
         output = input[8:2:-1]
-        assert tp.array_equal(output, tp.Tensor(np.arange(10, dtype=np.int32)[8:2:-1]))
+        expected = tp.Tensor([8, 7, 6, 5, 4, 3]) # doc: omit
+        assert tp.array_equal(output, expected)
     """
     from tripy.frontend.shape import Shape
     from tripy.frontend.tensor import Tensor

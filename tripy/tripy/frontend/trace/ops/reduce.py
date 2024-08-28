@@ -418,7 +418,8 @@ def var(
         output = tp.var(input, dim=1, keepdim=True)
 
         torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
-        assert tp.array_equal(output, tp.Tensor(np.from_dlpack(torch_input.var(dim=1, keepdim=True))))
+        expected = tp.Tensor(torch_input.var(dim=1, keepdim=True)) # doc: omit
+        assert tp.array_equal(output, expected)
     """
     from tripy.frontend.trace.ops.binary_elementwise import maximum
 
