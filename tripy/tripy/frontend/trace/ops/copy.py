@@ -63,7 +63,7 @@ def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
         input = tp.Tensor([1, 2], device=tp.device("gpu"))
         output = tp.copy(input, tp.device("cpu"))
 
-        assert tp.array_equal(output, tp.Tensor([1, 2], dtype=tp.float32))
+        assert output.tolist() == [1, 2]
         assert output.trace_tensor.producer.device.kind == "cpu"
     """
 
