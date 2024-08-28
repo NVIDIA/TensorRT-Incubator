@@ -18,7 +18,7 @@
 import enum
 from dataclasses import dataclass
 
-from tripy import export
+from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.exception import raise_error
 
@@ -57,6 +57,12 @@ class UnaryElementwise(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the elementwise exponential of the elements of the input tensor:
@@ -67,7 +73,7 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -82,6 +88,12 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise hyperbolic tangent of the elements of the input tensor.
@@ -90,7 +102,7 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -105,6 +117,12 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def sin(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise sine of the elements of the input tensor.
@@ -113,7 +131,7 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor of the same shape as the input tensor.
 
     .. code-block:: python
         :linenos:
@@ -128,6 +146,12 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def cos(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise cosine of the elements of the input tensor.
@@ -136,7 +160,7 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor of the same shape as the input tensor.
 
     .. code-block:: python
         :linenos:
@@ -151,6 +175,12 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise reciprocal square root of the elements of the input tensor.
@@ -159,7 +189,7 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor of the same shape as the input tensor.
 
     .. code-block:: python
         :linenos:
@@ -174,6 +204,12 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise square root of the elements of the input tensor.
@@ -182,7 +218,7 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor of the same shape as the input tensor.
 
     .. code-block:: python
         :linenos:
@@ -197,6 +233,12 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def log(input: "tripy.Tensor") -> "tripy.Tensor":
     """
     Computes the elementwise natural logarithm (base e) of the elements of the input tensor.
@@ -205,7 +247,7 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor of the same shape as the input tensor.
 
     .. code-block:: python
         :linenos:
@@ -220,6 +262,12 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def abs(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the elementwise absolute value of the elements of the input tensor.

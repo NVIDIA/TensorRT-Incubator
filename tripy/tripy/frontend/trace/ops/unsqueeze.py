@@ -17,10 +17,10 @@
 
 from dataclasses import dataclass
 
-from tripy import export, utils
-from tripy.common.datatype import int32
+from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
+from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -58,6 +58,10 @@ def unsqueeze_two_operand(input, result_shape, dim):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor with a
@@ -68,7 +72,7 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
         dim: index to insert the singleton dimension.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:

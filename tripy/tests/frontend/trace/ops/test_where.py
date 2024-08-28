@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import pytest
 import re
 import tripy as tp
 from tests import helper

@@ -17,8 +17,8 @@
 
 from typing import List, Union
 from dataclasses import dataclass
-
-from tripy import export
+from tripy.common.datatype import DATA_TYPES
+from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -45,6 +45,12 @@ class Concatenate(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"tensors": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.

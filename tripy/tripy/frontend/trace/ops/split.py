@@ -15,11 +15,9 @@
 # limitations under the License.
 #
 
-import math
 from dataclasses import dataclass
 from typing import Sequence, Union
-from tripy import export
-from tripy import utils
+from tripy import export, utils, constraints
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.exception import raise_error
@@ -197,6 +195,12 @@ class Split(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def split(
     input: "tripy.Tensor", indices_or_sections: Union[int, Sequence[int]], dim: int = 0
 ) -> Union["tripy.Tensor", Sequence["tripy.Tensor"]]:

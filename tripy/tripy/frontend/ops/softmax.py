@@ -15,10 +15,16 @@
 # limitations under the License.
 #
 
-from tripy import export
+from tripy import export, constraints
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
     r"""
     Applies the softmax function to the input tensor:
@@ -37,7 +43,7 @@ def softmax(input: "tripy.Tensor", dim: int = None) -> "tripy.Tensor":
             If this is ``None``, softmax is applied over the whole input array.
 
     Returns:
-        A tensor of the same shape and data type as the input.
+        A tensor of the same shape as the input.
 
     .. code-block:: python
         :linenos:

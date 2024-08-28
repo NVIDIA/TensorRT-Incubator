@@ -16,10 +16,16 @@
 #
 
 import tripy as tp
-from tripy import export
+from tripy import export, constraints
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool", "int8"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def relu(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Applies Rectified Linear Unit (RELU) function
@@ -31,7 +37,7 @@ def relu(input: "tripy.Tensor") -> "tripy.Tensor":
         input: The input tensor.
 
     Returns:
-        A tensor of the same shape and data type as the input.
+        A tensor of the same shape as the input.
 
     .. code-block:: python
         :linenos:

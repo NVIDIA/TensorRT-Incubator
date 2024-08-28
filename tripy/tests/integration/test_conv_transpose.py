@@ -18,12 +18,10 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-import cupy as cp
 import pytest
 import torch
 
 import tripy as tp
-from tests import helper
 
 DTYPES = [
     (torch.float16, tp.float16),

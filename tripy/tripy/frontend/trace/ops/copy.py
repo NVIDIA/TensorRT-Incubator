@@ -17,7 +17,7 @@
 
 from dataclasses import dataclass
 
-from tripy import export
+from tripy import export, constraints
 from tripy.common.device import device
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.trace.ops.utils import InferLenPolicies
@@ -39,16 +39,22 @@ class Copy(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def copy(input: "tripy.Tensor", device: "tripy.device") -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.
 
     Args:
-        input:
+        input: Tensor that will be copied
         device: The target device.
 
     Returns:
-        A copy of this tensor on target device.
+        A copy of input tensor on target device.
 
     .. code-block:: python
         :linenos:

@@ -15,16 +15,14 @@
 # limitations under the License.
 #
 
-import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
-from tripy import utils
+from tripy import utils, constraints
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_tuple
-from tripy.frontend.trace.ops.binary_elementwise import Comparison
 from tripy.common.exception import raise_error
 
 
@@ -176,11 +174,16 @@ class Slice(BaseTraceOp):
 
 
 @TENSOR_METHOD_REGISTRY("__getitem__")
-def __getitem__(self, index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"self_dtype": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
+)
+def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "tripy.Tensor":
     """
     Returns a tensor containing a slice of this tensor.
 
     Args:
+        self: Tensor that will be sliced.
         index: The index (as an int or Tripy tensor) or slice.
 
     Returns:

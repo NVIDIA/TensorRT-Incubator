@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-from tripy import export
+from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.trace.ops import utils as op_utils
 
@@ -55,6 +55,10 @@ class Transpose(Permute):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     """
     Returns a new tensor that is a transposed version of the input tensor where
@@ -66,7 +70,7 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
         dim1: The second dimension to be transposed.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:
@@ -81,6 +85,10 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
     """
     Returns a tensor with its dimensions permuted.
@@ -92,7 +100,7 @@ def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
               where :math:`N` is the rank of the input tensor.
 
     Returns:
-        A new tensor of the same data type as the input tensor.
+        A new tensor.
 
     .. code-block:: python
         :linenos:

@@ -17,10 +17,10 @@
 
 from dataclasses import dataclass
 from typing import Any, Union
-
+import numbers
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
-from tripy import export, utils
+from tripy import export, constraints
 from tripy.common import datatype
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -176,17 +176,26 @@ class Comparison(BinaryElementwise):
 @TENSOR_METHOD_REGISTRY("__add__")
 @TENSOR_METHOD_REGISTRY("__radd__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __add__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+    function_name="__radd__",
+)
+def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
 
     Args:
+        self: Tensor to be added to other.
         other: The tensor to add to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -203,17 +212,21 @@ def __add__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__sub__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __sub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
     Args:
+        self: Tensor to be subtracted by other.
         other: The tensor to subtract from this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -230,17 +243,21 @@ def __sub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__rsub__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __rsub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "float8", "int32", "int64"]},
+    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
     Args:
+        self: Tensor to be subtracted by other.
         other: The tensor to be subtracted from this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -257,17 +274,21 @@ def __rsub__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__pow__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __pow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __pow__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
     Args:
+        self: Tensor to be exponentiated by other.
         other: The tensor by which to exponentiate this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -284,17 +305,21 @@ def __pow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__rpow__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __rpow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
+    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
     Args:
+        self: Tensor to be exponentiated by other.
         other: The tensor to be exponentiated by this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -312,17 +337,27 @@ def __rpow__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 @TENSOR_METHOD_REGISTRY("__mul__")
 @TENSOR_METHOD_REGISTRY("__rmul__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __mul__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    function_name="__mul__",
+)
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+    function_name="__rmul__",
+)
+def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
 
     Args:
+        self: Tensor to be multiplied by other.
         other: The tensor by which to multiply this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -339,17 +374,21 @@ def __mul__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__truediv__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __truediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __truediv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
     Args:
+        self: Tensor to be divided by other.
         other: The tensor by which to divide this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -366,17 +405,21 @@ def __truediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__rtruediv__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
     Args:
+        self: Tensor to be subtracted by other.
         other: The tensor to be divided by this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -393,6 +436,10 @@ def __rtruediv__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @export.public_api(document_under="operations/functions")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise maximum.
@@ -400,11 +447,10 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     Args:
         lhs: The first input tensor.
         rhs: The second input tensor.
-            It must have the same data type as the first input
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -421,6 +467,10 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
 
 @export.public_api(document_under="operations/functions")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+    dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an elementwise minimum.
@@ -428,11 +478,10 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     Args:
         lhs: The first input tensor.
         rhs: The second input tensor.
-            It must have the same data type as the first input
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and of the same data type as the inputs.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -449,17 +498,24 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
 
 @TENSOR_METHOD_REGISTRY("__lt__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+)
+def __lt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -476,17 +532,24 @@ def __lt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__le__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __le__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+)
+def __le__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -503,17 +566,24 @@ def __le__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__eq__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __eq__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+)
+def __eq__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -530,17 +600,24 @@ def __eq__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__ne__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __ne__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+)
+def __ne__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -557,17 +634,24 @@ def __ne__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__ge__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __ge__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+)
+def __ge__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:
@@ -584,17 +668,24 @@ def __ge__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
 
 @TENSOR_METHOD_REGISTRY("__gt__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-def __gt__(self, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+)
+def __gt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.
 
     Args:
+        self: Tensor to be compared with other.
         other: The tensor to be compared to this one.
-            It must have the same data type as this tensor
-            and should be broadcast-compatible.
+            It should be broadcast-compatible.
 
     Returns:
-        A new tensor with the broadcasted shape and datatype :class:`tripy.bool`.
+        A new tensor with the broadcasted shape.
 
     .. code-block:: python
         :linenos:

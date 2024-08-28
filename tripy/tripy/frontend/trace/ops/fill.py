@@ -21,11 +21,12 @@ from typing import Optional, Sequence, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
-from tripy import export, utils
+from tripy import export, utils, constraints
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -85,6 +86,13 @@ def full_impl(
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["int32"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+)
 def full(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
     value: numbers.Number,
@@ -99,7 +107,7 @@ def full(
         dtype: The desired data type.
 
     Returns:
-        A tensor of shape ``shape`` and data type ``dtype``.
+        A tensor of shape ``shape``.
 
     .. code-block:: python
         :linenos:
@@ -114,6 +122,13 @@ def full(
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+)
 def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tripy.dtype"] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with all values

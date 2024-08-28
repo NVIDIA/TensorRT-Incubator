@@ -19,17 +19,25 @@ import math
 import numbers
 from typing import Optional, Sequence, Union
 
-from tripy import export
+from tripy import export, constraints
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.fill import full, full_like
 from tripy.frontend.trace.ops.iota import iota, iota_like
 from tripy.frontend.trace.ops.where import where
 from tripy.frontend import utils as frontend_utils
+from tripy.common.datatype import DATA_TYPES
 
 
 @export.public_api(document_under="operations/initializers")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["int32"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+)
 def ones(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
     dtype: datatype.dtype = datatype.float32,
@@ -59,6 +67,13 @@ def ones(
 
 @export.public_api(document_under="operations/initializers")
 @frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["int32"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+)
 def zeros(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
     dtype: datatype.dtype = datatype.float32,
@@ -87,6 +102,13 @@ def zeros(
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+)
 def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Creates a tensor with all elements set to 1 of the same shape as the input tensor.
@@ -113,6 +135,13 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+    },
+    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+)
 def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Creates a Tensor with all elements set to 0 of the same shape as the input tensor.
@@ -140,6 +169,12 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
+    },
+    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     r"""
     Returns the lower triangular part of each :math:`[M, N]` matrix in the tensor, with all other elements set to 0.
@@ -155,7 +190,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
             while negative values indicate one which is below.
 
     Returns:
-        A tensor of the same shape and datatype as this tensor.
+        A tensor of the same shape as this tensor.
 
     .. code-block:: python
         :linenos:
@@ -196,6 +231,12 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
+    },
+    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     r"""
     Returns the upper triangular part of each :math:`[M, N]` matrix in the tensor, with all other elements set to 0.
@@ -211,7 +252,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
             while negative values indicate one which is below.
 
     Returns:
-        A tensor of the same shape and datatype as this tensor.
+        A tensor of the same shape as this tensor.
 
     .. code-block:: python
         :linenos:
@@ -252,6 +293,12 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
+    },
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def arange(
     start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
 ) -> "tripy.Tensor":
@@ -304,6 +351,12 @@ def arange(
 
 
 @export.public_api(document_under="operations/initializers")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
+    },
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval

@@ -18,11 +18,11 @@
 import numbers
 from dataclasses import dataclass
 
-from tripy import utils
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import export
+from tripy import export, constraints, utils
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -139,20 +139,26 @@ class Where(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Returns a new tensor of elements selected from either ``input`` or ``other``, depending on ``condition``.
 
     Args:
-        condition: The condition tensor. This must have data type :class:`tripy.bool`.
+        condition: The condition tensor.
             Where this is ``True``, elements are selected from ``input``.
             Otherwise, elements are selected from ``other``.
         input: Tensor of values selected at indices where condition is ``True``.
         other: Tensor values selected at indices where condition is ``False``.
-            This must have the same datatype as ``input``.
 
     Returns:
-        A new tensor with the broadcasted shape and the same data type as ``input`` and ``other``.
+        A new tensor with the broadcasted shape.
 
     Constraints:
         All three parameters must be broadcast-compatible with each other.
@@ -172,6 +178,13 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["bool"],
+    },
+    dtype_constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},
+)
 def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""
     Returns a new tensor filled with ``value`` where ``mask`` is ``True`` and elements from
@@ -179,11 +192,11 @@ def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Numb
 
     Args:
         input: The input tensor.
-        mask: The mask tensor. This should have data type :class:`tripy.bool`.
+        mask: The mask tensor.
         value: the value to fill with. This will be casted to match the data type of the input tensor.
 
     Returns:
-        A new tensor of the same shape and data type as the input tensor.
+        A new tensor of the same shape as the input tensor.
 
     .. code-block:: python
         :linenos:

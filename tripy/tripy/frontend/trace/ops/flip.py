@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-from tripy import export, utils
+from tripy import export, utils, constraints
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.trace.ops import utils as op_utils
@@ -40,6 +40,12 @@ class Flip(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
+    },
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+)
 def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None) -> "tripy.Tensor":
     r"""
     Return a new tensor with the same value as the `input` tensor, with the values in the
@@ -55,7 +61,7 @@ def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None
             If a given dimension is negative, it will be counted backwards from the last dimension.
 
     Returns:
-        A new tensor with the same datatype and values as `input`, with the specified dimensions reversed.
+        A new tensor with the same values as `input`, with the specified dimensions reversed.
 
     .. code-block:: python
         :linenos:
