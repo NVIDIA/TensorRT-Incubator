@@ -37,7 +37,7 @@ class GetDimensionSizeOp(BaseFlatIROp):
         inp = get_op_result_or_value(operands[0])
 
         inp_type = ir.RankedTensorType(inp.type)
-        assert self.dim < inp_type.rank, "expected dim to be less than rank"
+        assert self.dim < inp_type.rank, f"expected dim ({self.dim}) to be less than rank ({inp_type.rank})"
         dim_int_type = ir.IntegerType.get_signless(DIM_TENSOR_BITWIDTH)
 
         # If we can view the type of the tensor and the dimension is static,

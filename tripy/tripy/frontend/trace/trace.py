@@ -139,6 +139,5 @@ class Trace:
             op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
             flat_ir.integrate_subgraph(inputs, outputs)
 
-        flat_ir.optimize()
         logger.flat_ir(lambda: f"{flat_ir}\n")
         return flat_ir
