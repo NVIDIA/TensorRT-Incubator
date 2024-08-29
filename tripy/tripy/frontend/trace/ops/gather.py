@@ -126,9 +126,15 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
         data = tp.iota((3, 3, 2))
         indices = tp.Tensor([0, 2], dtype=tp.int32)
         output = tp.gather(data, 1, indices)
-        expected = tp.Tensor(np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1)) # doc: omit
-
-        assert tp.array_equal(output, expected)
+        expected = [
+            [[0.0000, 0.0000],
+             [0.0000, 0.0000]],
+            [[1.0000, 1.0000],
+             [1.0000, 1.0000]],
+            [[2.0000, 2.0000],
+             [2.0000, 2.0000]]
+        ]
+        assert output.tolist() == expected
     """
     from tripy.common.datatype import int64
 

@@ -410,7 +410,10 @@ import tripy as tp
 
 def test_multi_dimensional():
     output = tp.theta([2, 3], dim=1)
-    expected = tp.Tensor(np.broadcast_to(np.arange(0, 3, dtype=np.float32), (2, 3)))
+    expected = tp.Tensor([
+        [0., 1., 2.],
+        [0., 1., 2.]
+    ], dtype=tp.float32)
 
     assert tp.array_equal(output, expected)
 
