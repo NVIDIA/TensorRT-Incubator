@@ -23,11 +23,12 @@ import time
 import torch
 import cupy as cp
 import numpy as np
+import tripy as tp
 
 from transformers import CLIPTokenizer
-from examples.diffusion.model import CLIPConfig, StableDiffusion, get_alphas_cumprod
+from examples.diffusion.clip_model import CLIPConfig
+from examples.diffusion.model import StableDiffusion, StableDiffusionConfig, get_alphas_cumprod
 from examples.diffusion.weight_loader import load_from_diffusers
-import tripy as tp
 
 
 def compile_model(model, inputs, verbose=False):
@@ -96,24 +97,24 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
 def tripy_diffusion(args):
     run_start_time = time.perf_counter()
 
-    # if os.path.isdir("engines"):
-    #     print("[I] Loading cached engines from disk...")
-    #     clip_compiled = tp.Executable.load(os.path.join("engines", "clip_executable.json"))
-    #     unet_compiled = tp.Executable.load(os.path.join("engines", "unet_executable.json"))
-    #     vae_compiled = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
-    # else:
-    model = StableDiffusion()
-    print("[I] Loading model weights...", flush=True)
-    load_from_diffusers(model, tp.float32, debug=True)
-    clip_compiled = compile_clip(model.cond_stage_model.transformer.text_model, verbose=True)
-    unet_compiled = compile_unet(model, verbose=True)
-    vae_compiled = compile_vae(model.decode, verbose=True)
+    if os.path.isdir("engines"):
+        print("[I] Loading cached engines from disk...")
+        clip_compiled = tp.Executable.load(os.path.join("engines", "clip_executable.json"))
+        unet_compiled = tp.Executable.load(os.path.join("engines", "unet_executable.json"))
+        vae_compiled = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
+    else:
+        model = StableDiffusion(StableDiffusionConfig)
+        print("[I] Loading model weights...", flush=True)
+        load_from_diffusers(model, tp.float32, debug=True)
+        clip_compiled = compile_clip(model.cond_stage_model.transformer.text_model, verbose=True)
+        unet_compiled = compile_unet(model, verbose=True)
+        vae_compiled = compile_vae(model.decode, verbose=True)
         
-    # os.mkdir("engines")
-    # print("[I] Saving engines to disk...")
-    # clip_compiled.save(os.path.join("engines", "clip_executable.json"))
-    # unet_compiled.save(os.path.join("engines", "unet_executable.json"))
-    # vae_compiled.save(os.path.join("engines", "vae_executable.json"))
+        os.mkdir("engines")
+        print("[I] Saving engines to disk...")
+        clip_compiled.save(os.path.join("engines", "clip_executable.json"))
+        unet_compiled.save(os.path.join("engines", "unet_executable.json"))
+        vae_compiled.save(os.path.join("engines", "vae_executable.json"))
 
     # Run through CLIP to get context from prompt
     tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
