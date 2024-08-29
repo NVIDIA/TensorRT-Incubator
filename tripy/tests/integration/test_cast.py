@@ -49,7 +49,7 @@ class TestCast:
             # (np.int8, bool),
         ],
     )
-    def test_cast(self, input_dtype, target_dtype):
+    def test_cast(self, input_dtype, target_dtype, compile_fixture):
         tp_input_dtype = np_to_tripy_dtype(input_dtype)
         tp_target_dtype = np_to_tripy_dtype(target_dtype)
 
