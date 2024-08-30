@@ -191,11 +191,7 @@ func_exceptions = ["plugin", "dequantize"]
 # Check if there are any operations that are not included (Currently does not test any __<op>__ functions)
 @pytest.mark.parametrize("func_qualname", operations, ids=lambda val: f"is_{val}_verified")
 def test_all_ops_verified(func_qualname):
-    if func_qualname in FUNC_W_DOC_VERIF:
-        return
-    elif func_qualname.startswith("_") or func_qualname in func_exceptions:
-        return
+    if not func_qualname.startswith("_") and func_qualname not in func_exceptions:
+        assert func_qualname in FUNC_W_DOC_VERIF, f"function {func_qualname}'s data types have not been verified. Please add data type verification by following the guide within tripy/tests/spec_verification or exclude it from this test."
     else:
-        pytest.fail(
-            f"function {func_qualname}'s data types have not been verified. Please add data type verification by following the guide within tripy/tests/spec_verification or exclude it from this test."
-        )
+        pytest.skip("Data type constraints are not required for this API")
