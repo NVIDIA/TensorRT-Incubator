@@ -16,13 +16,13 @@
 #
 
 import functools
-import inspect
-from typing import List, Optional, Sequence, Tuple, Union
 from collections import deque
+from typing import List, Optional, Sequence, Tuple, Union
 
 from tripy import utils
-from tripy.frontend.trace.ops import BaseTraceOp
+from tripy.common.exception import raise_error
 from tripy.flat_ir.ops import BaseFlatIROp
+from tripy.frontend.trace.ops import BaseTraceOp
 
 
 # Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
@@ -297,3 +297,35 @@ def topological_sort(ops: List[Union[BaseTraceOp, BaseFlatIROp]]) -> List[Union[
 
     assert len(ops) == len(result), f"Num original ops {len(ops)}, got num {len(result)}"
     return result
+
+
+# Processes a `dim` (i.e. axis) argument related to a tensor.
+# If the dimension is negative, this will convert it to the corresponding positive index.
+#
+# NOTE: This is currently an extremely specialized decorator that expects an `input` tensor
+# argument and a `dim` argument for the axis.
+# In the future, we can generalize this and use it more broadly.
+def process_dim(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        input = utils.get_arg_by_name("input", func, *args, **kwargs)
+
+        def process_dim(dim: int) -> int:
+            new_dim = dim
+            if dim < 0:
+                new_dim = input.rank + dim
+
+            if new_dim < 0 or new_dim >= input.rank:
+                raise_error(
+                    "Dimension argument is out of bounds.",
+                    [
+                        f"Note: provided dimension was: {dim}, while the tensor has a rank of: {input.rank}.\n"
+                        f"Dimension should be in the half-open interval: [{-input.rank}, {input.rank})."
+                    ],
+                )
+            return new_dim
+
+        args, kwargs = utils.modify_arg("dim", process_dim, func, *args, **kwargs)
+        return func(*args, **kwargs)
+
+    return wrapper

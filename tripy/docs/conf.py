@@ -27,7 +27,8 @@ from textwrap import indent
 from tests import helper
 
 import tripy as tp
-from tripy.constraints import TYPE_VERIFICATION, FUNC_W_DOC_VERIF
+from tripy.common.datatype import DATA_TYPES
+from tripy.constraints import FUNC_W_DOC_VERIF, TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -206,7 +207,17 @@ def process_docstring(app, what, name, obj, options, lines):
                 for type_name, dt in type_dict.items():
                     blocks.insert(
                         index,
-                        f"    - **{type_name}**: :class:`" + "`, :class:`".join(set(dt)) + "`",
+                        f"    - **{type_name}**: :class:`"
+                        + "`, :class:`".join(
+                            sorted(
+                                set(dt),
+                                key=lambda dtype: (
+                                    tuple(typ.__name__ for typ in DATA_TYPES[dtype].__bases__),
+                                    DATA_TYPES[dtype].itemsize,
+                                ),
+                            )
+                        )
+                        + "`",
                     )
                     index += 1
                 blocks.insert(index, "\n")

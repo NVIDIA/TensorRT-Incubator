@@ -110,6 +110,7 @@ default_constraints_all = {
     "ones": {"shape": tp.Tensor([3, 2])},
     "zeros": {"shape": tp.Tensor([3, 2])},
     "arange": {"start": 0, "stop": 5},
+    "repeat": {"repeats": 2, "dim": 0},
 }
 
 

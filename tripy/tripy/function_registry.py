@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import copy
 import functools
 import inspect
 from collections import OrderedDict, defaultdict
@@ -44,13 +43,20 @@ class FuncOverload:
     def __str__(self) -> str:
         from tripy.utils.utils import code_pretty_str
 
-        _, lineno = inspect.getsourcelines(self.func)
-        # For long source code, just keep the first few lines.
-        source_lines = inspect.getsource(self.func).splitlines()
-        CONTEXT_LEN = 3
-        if len(source_lines) > CONTEXT_LEN + 1:  # + 1 for the '...' line we add
-            source_lines = source_lines[:CONTEXT_LEN] + ["    ..."]
-        source_code = "\n".join(source_lines)
+        lines, lineno = inspect.getsourcelines(self.func)
+
+        func_def_start_index = 0
+        func_def_end_index = 0
+        for index, line in enumerate(lines):
+            if line.strip().startswith("def"):
+                func_def_start_index = index
+            if "):" in line or ") ->" in line:
+                func_def_end_index = index
+                break
+
+        func_def_end_index = max(func_def_start_index, func_def_end_index)
+        lines = lines[func_def_start_index : func_def_end_index + 1] + ["    ..."]
+        source_code = "\n".join(map(lambda line: line.rstrip(), lines))
         pretty_code = code_pretty_str(source_code, inspect.getsourcefile(self.func), lineno, self.func.__name__)
         return pretty_code + "\n"
 

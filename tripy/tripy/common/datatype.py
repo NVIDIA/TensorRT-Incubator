@@ -53,23 +53,28 @@ class BaseDtype(metaclass=dtype):
     The base class for all data types supported by tripy.
     """
 
-    pass
+    name = "BaseDtype"
+    itemsize = -1
 
 
+@export.public_api(document_under="datatype.rst", autodoc_options=[":no-show-inheritance:"])
 class integer(BaseDtype):
     """
     The base class for all integer data types.
     """
 
-    pass
+    name = "integer"
+    itemsize = -1
 
 
+@export.public_api(document_under="datatype.rst", autodoc_options=[":no-show-inheritance:"])
 class floating(BaseDtype):
     """
     The base class for all floating-point data types.
     """
 
-    pass
+    name = "floating"
+    itemsize = -1
 
 
 # We use `__all__` to control what is exported from this file. `import *` will only pull in objects that are in `__all__`.
