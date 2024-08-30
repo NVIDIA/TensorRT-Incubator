@@ -180,10 +180,10 @@ class Shape(Tensor):
     # multiplication for shapes is tiling, not elementwise multiplication
 
     def __mul__(self, other):
+        from tripy.frontend.trace.ops.binary_elementwise import maximum
         from tripy.frontend.trace.ops.expand import expand
         from tripy.frontend.trace.ops.reshape import flatten
         from tripy.frontend.trace.ops.unsqueeze import unsqueeze
-        from tripy.frontend.trace.ops.where import where
 
         # We unsqueeze self into shape [1, len(self)], so giving [other, len(self)] as
         # the argument to expand will result in a shape of [other, len(self)] by
@@ -198,7 +198,7 @@ class Shape(Tensor):
             )
         # note: in Python, if a list is multiplied by a negative number, this is the same as multiplying by 0,
         # so we should clamp the argument
-        other = where(other >= 0, other, Tensor(0))
+        other = maximum(other, 0)
 
         unsqueezed = unsqueeze(self, 0)
         tiled = expand(unsqueezed, [other, len(self)])
