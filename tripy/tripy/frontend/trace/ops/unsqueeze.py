@@ -65,11 +65,12 @@ def unsqueeze_two_operand(input, result_shape, dim):
 def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor with a
-    singleton dimension inserted at the specified position.
+    singleton dimension inserted before the specified axis.
 
     Args:
         input: The input tensor.
-        dim: index to insert the singleton dimension.
+        dim: index before which to insert the singleton dimension.
+            A negative dimension will be converted to ``dim = dim + input.rank + 1``.
 
     Returns:
         A new tensor.
@@ -85,7 +86,7 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     from tripy.frontend.trace.ops.concatenate import concatenate
 
-    from tripy.frontend import Shape, Tensor
+    from tripy.frontend import Shape
 
     if dim < 0:
         dim = dim + input.rank + 1
