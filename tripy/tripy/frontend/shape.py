@@ -153,9 +153,7 @@ class Shape(Tensor):
     def __eq__(self, other):
         from tripy.frontend.trace.ops.reduce import all
 
-        # `.shape` will contain a single int. To avoid endlessly calling
-        # Shape.__eq__, we can compare the int's directly using `.data()`
-        if len(self.shape) != len(other.shape):
+        if len(self) != len(other):
             return False
 
         return bool(all(self.as_tensor() == other.as_tensor()))
