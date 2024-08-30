@@ -22,7 +22,7 @@ from tripy.common.datatype import DATA_TYPES
 import itertools
 import pytest
 from tests.spec_verification.object_builders import create_obj
-from tripy.constraints import TYPE_VERIFICATION, RETURN_VALUE
+from tripy.constraints import TYPE_VERIFICATION, RETURN_VALUE, FUNC_W_DOC_VERIF
 import tripy as tp
 from contextlib import ExitStack
 
@@ -181,3 +181,21 @@ def test_neg_dtype_constraints(test_data):
         api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
         if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
             assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
+
+
+operations = [obj.__qualname__ for _, obj in inspect.getmembers(tp) if inspect.isfunction(obj)]
+# add any function that you do not want to be verified:
+func_exceptions = ["plugin", "dequantize"]
+
+
+# Check if there are any operations that are not included (Currently does not test any __<op>__ functions)
+@pytest.mark.parametrize("func_qualname", operations, ids=lambda val: f"is_{val}_verified")
+def test_all_ops_verified(func_qualname):
+    if func_qualname in FUNC_W_DOC_VERIF:
+        return
+    elif func_qualname.startswith("_") or func_qualname in func_exceptions:
+        return
+    else:
+        pytest.fail(
+            f"function {func_qualname}'s data types have not been verified. Please add data type verification by following the guide within tripy/tests/spec_verification or exclude it from this test."
+        )
