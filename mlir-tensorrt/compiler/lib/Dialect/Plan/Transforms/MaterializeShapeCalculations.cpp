@@ -72,7 +72,7 @@ static WithShapeOp createWithShapeOp(RewriterBase &rewriter, Location loc,
         loc, v, rewriter.create<arith::ConstantIndexOp>(loc, i));
     dims.push_back(dimOp);
   }
-  return rewriter.create<plan::WithShapeOp>(loc, v, dims);
+  return rewriter.create<plan::WithShapeOp>(loc, v.getType(), v, dims);
 }
 
 /// If `v` is dynamically shaped, replace uses with `plan.with_shape` of `v`.
@@ -112,7 +112,7 @@ createWithValuesOp(RewriterBase &rewriter, Location loc, Value v,
     newUsers.insert(extractOp);
     elements.push_back(extractOp);
   }
-  return rewriter.create<plan::WithValuesOp>(loc, v, elements);
+  return rewriter.create<plan::WithValuesOp>(loc, v.getType(), v, elements);
 }
 
 /// For each tensor-typed value, create a `plan.with_shape` operation and

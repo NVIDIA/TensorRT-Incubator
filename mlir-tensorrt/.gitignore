@@ -32,6 +32,8 @@ compile_commands.json
 **/*.private.*
 *.private
 **/tmp/**
+**/tmp**
+**/tripy/**
 
 # TRT Timing Cache artifacts
 *.timing-cache

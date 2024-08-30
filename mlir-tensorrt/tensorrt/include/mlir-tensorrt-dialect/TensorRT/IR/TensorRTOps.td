@@ -3,7 +3,6 @@
 
 include "mlir/Interfaces/CallInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
-include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/LoopLikeInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/IR/OpAsmInterface.td"
@@ -85,14 +84,11 @@ def TensorRT_TensorRTModuleOp : TensorRT_Op<"module", [
 
 def TensorRT_CallOp : TensorRT_Op<"call", [
   DeclareOpInterfaceMethods<SymbolUserOpInterface>,
-  DestinationStyleOpInterface,
-  AttrSizedOperandSegments,
   CallOpInterface
 ]> {
   let summary = "calls a TensorRT engine defined in a `tensorrt.module`";
 
   let arguments = (ins Variadic<AnyTypeOf<[AnyShaped, AnySignlessIntegerOrIndex]>>:$inputs,
-                       Variadic<AnyShaped>:$outputs,
                        SymbolRefAttr:$callee);
   let results = (outs Variadic<AnyShaped>:$results);
 
@@ -100,14 +96,11 @@ def TensorRT_CallOp : TensorRT_Op<"call", [
     /// Return the function representing the TRT engine that is being called.
     func::FuncOp getFuncCallee(SymbolTableCollection &symbolTable);
 
-    // Declare the outputs as inits/outs to DestinationStyleOpInterface.
-    MutableOperandRange getDpsInitsMutable() { return getOutputsMutable(); }
-
     //===------------------------------------------------------------------===//
     // CallOpInterface
     //===------------------------------------------------------------------===//
     operand_range getArgOperands() {
-      return getOperation()->getOperands();
+      return getInputs();
     }
     CallInterfaceCallable getCallableForCallee() {
       return (*this)->getAttrOfType<SymbolRefAttr>("callee");
@@ -118,13 +111,12 @@ def TensorRT_CallOp : TensorRT_Op<"call", [
     }
 
     MutableOperandRange getArgOperandsMutable() {
-      return MutableOperandRange(getOperation());
+      return getInputsMutable();
     }
   }];
 
   let assemblyFormat = [{
     $callee `(` ($inputs^ `:` type($inputs))? `)`
-    `outs` `(` $outputs `:` type($outputs) `)`
     attr-dict (`->` type($results)^)?
   }];
 }

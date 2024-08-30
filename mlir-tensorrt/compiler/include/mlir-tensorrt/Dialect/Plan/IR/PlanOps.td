@@ -7,7 +7,6 @@ include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/DestinationStyleOpInterface.td"
-include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/IR/OpAsmInterface.td"
 
 class Plan_NativeOpTrait<string name,
@@ -136,8 +135,6 @@ def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
 
 def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
   IsolatedFromAbove,
-  AttrSizedOperandSegments,
-  DestinationStyleOpInterface,
   SingleBlockImplicitTerminator<"plan::YieldOp">,
   DeclareOpInterfaceMethods<RegionBranchOpInterface,
     ["getEntrySuccessorOperands"]>,
@@ -199,9 +196,7 @@ def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
 
   }];
   let arguments = (ins Variadic<AnyTypeOf<[AnyRankedTensor, AnySignlessIntegerOrIndex]>>:$inputs,
-                       Variadic<AnyRankedTensor>:$outs,
                        BoundsAttrArray:$input_attrs,
-                       BoundsAttrArray:$res_attrs,
                        AnyAttr:$target);
 
   let results = (outs Variadic<AnyType>:$results);
@@ -209,9 +204,8 @@ def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
   let assemblyFormat = [{
     `target` `(` $target `)` `\n`
     `inputs` `(` ( $inputs^ `:` type($inputs) `)` ) : ( `)` ) ?  `\n`
-    `outs` `(` $outs `:` type($outs) `)` `\n`
     `in_attrs` $input_attrs `\n`
-    `res_attrs` $res_attrs attr-dict-with-keyword `->` type($results)
+     attr-dict-with-keyword `->` type($results)
      $body
   }];
 
@@ -220,17 +214,13 @@ def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
   let skipDefaultBuilders = 1;
 
   let builders = [
-    OpBuilder<(ins "Attribute":$target,
-                   "ValueRange":$inputs, "ValueRange":$outs,
-                   CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs,
-                   CArg<"ArrayRef<BoundsAttr>", "{}">:$res_attrs)>
+    OpBuilder<(ins "TypeRange":$results,
+                   "Attribute":$target,
+                   "ValueRange":$inputs,
+                   CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs)>
   ];
 
   let extraClassDeclaration = baseExtraClassDeclaration # [{
-
-    MutableOperandRange getDpsInitsMutable() {
-      return getOutsMutable();
-    }
 
     /// Returns true if the `i-th` input argument has a tensor type.
     bool argHasTensorType(unsigned inputIdx) {
@@ -244,17 +234,6 @@ def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
       return cast<BoundsAttr>(getInputAttrs()[inputIdx]);
     }
 
-    ArrayRef<BlockArgument> getRegionOutArgs() {
-      return getBody().getArguments().take_back(getOuts().size());
-    }
-
-    /// Populate the `res_attrs` from an array of BoundsAttrs.
-    void setResAttrsAttr(ArrayRef<BoundsAttr> boundsAttrs) {
-      setResAttrsAttr(::mlir::ArrayAttr::get(
-        getOperation()->getContext(),
-        ArrayRef<Attribute>(boundsAttrs.begin(), boundsAttrs.end())
-      ));
-    }
 
     /// Populate the `input_attrs` from an array of BoundsAttrs.
     void setInputAttrsAttr(ArrayRef<BoundsAttr> boundsAttrs) {

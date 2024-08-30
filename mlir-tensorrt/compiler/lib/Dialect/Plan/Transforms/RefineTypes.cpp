@@ -255,7 +255,7 @@ struct WithShapeAbsorbCastPattern : public OpRewritePattern<WithShapeOp> {
     }
 
     auto newWithShapeOp = rewriter.create<WithShapeOp>(
-        op.getLoc(), castOp.getOperand(), op.getShape());
+        op.getLoc(), castOp->getResultTypes(), castOp.getOperand(), op.getShape());
     rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(),
                                                 newWithShapeOp);
     return success();

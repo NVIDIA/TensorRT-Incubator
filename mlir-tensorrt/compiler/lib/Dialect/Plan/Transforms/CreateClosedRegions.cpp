@@ -120,10 +120,8 @@ enum class DestinationOperandMaterializationStrategy {
 };
 
 struct DestinationOperandMaterializationResult {
-  DestinationOperandMaterializationStrategy strategy;
   Value destinationOperand;
   /// The exact shape of the output.
-  std::optional<SmallVector<OpFoldResult>> exactShape = {};
   SmallVector<int64_t> constantShapeUpperBound;
   SmallVector<int64_t> constantShapeLowerBound;
 };
@@ -181,132 +179,6 @@ getShapeAndVerifyDefinedAbove(RewriterBase &rewriter,
   return result;
 }
 
-static FailureOr<DestinationOperandMaterializationResult>
-materializeDestinationOperand(RewriterBase &rewriter, Location loc,
-                              plan::InlineGroupOp op, unsigned resultIdx,
-                              DataFlowSolver &solver) {
-  OpBuilder::InsertionGuard g(rewriter);
-  rewriter.setInsertionPoint(op);
-  op->getParentOfType<ModuleOp>();
-  auto rtt = dyn_cast<RankedTensorType>(op.getResultTypes()[resultIdx]);
-
-  if (rtt.hasStaticShape()) {
-    DestinationOperandMaterializationResult result;
-    result.strategy = DestinationOperandMaterializationStrategy::ExactShape,
-    result.destinationOperand =
-        rewriter
-            .create<tensor::EmptyOp>(loc, rtt.getShape(), rtt.getElementType())
-            .getResult();
-    result.constantShapeLowerBound = llvm::to_vector(rtt.getShape());
-    result.constantShapeUpperBound = llvm::to_vector(rtt.getShape());
-    return result;
-  };
-
-  // Any time the result has dynamic shape, we should be yielding a
-  // `plan.with_shape` result.
-  auto withShapeOp =
-      op.getYieldedValueForResult(resultIdx).getDefiningOp<plan::WithShapeOp>();
-  if (!withShapeOp)
-    return emitError(op.getLoc()) << "expected cluster to yield the result of "
-                                     "a 'plan.with_shape' operation but got "
-                                  << op.getYieldedValueForResult(resultIdx);
-
-  // Check that all dimensions are constants or defined above:
-  FailureOr<SmallVector<OpFoldResult>> exactShape =
-      getShapeAndVerifyDefinedAbove(rewriter, op, withShapeOp);
-  if (failed(exactShape))
-    return op->emitOpError()
-           << "expected the shape calculation to be materialized above the "
-              "cluster region but some dynamic dimension "
-              " extent value is defined within the cluster region; this "
-              "indicates that the result shape is in the so-called "
-              "'data-dependent dynamic shapes' regime, "
-              "which is currently not supported for TensorRT cluster regions";
-
-  DestinationOperandMaterializationResult result;
-  result.destinationOperand = Value{};
-  result.exactShape = std::move(*exactShape);
-
-  FailureOr<SmallVector<int64_t>> minShape =
-      getShapeBoundsForValue(op.getYieldedValueForResult(resultIdx),
-                             presburger::BoundType::LB, solver);
-  if (succeeded(minShape)) {
-    result.constantShapeLowerBound = *minShape;
-  } else {
-    LLVM_DEBUG(
-        DBGS() << "failed to derive shape lower bound, filling with zeros\n");
-    result.constantShapeLowerBound = SmallVector<int64_t>(rtt.getRank(), 0);
-  }
-
-  // If there are not static shapes, then first we can try to query the
-  // value bounds analysis for the max shape.
-  FailureOr<SmallVector<int64_t>> maxShape =
-      getShapeBoundsForValue(op.getYieldedValueForResult(resultIdx),
-                             presburger::BoundType::UB, solver);
-
-  if (failed(maxShape))
-    // TODO: try materializing non-static upper bound
-    return failure();
-
-  int64_t shapeProduct = mlir::computeProduct(*maxShape);
-
-  LLVM_DEBUG(DBGS() << llvm::formatv(
-                 "computed max shape = {0:$[, ]}; product={1}\n",
-                 llvm::make_range(maxShape->begin(), maxShape->end()),
-                 shapeProduct));
-
-  // Any shaped type that is < 0 is invalid as it indicates an
-  // overflow from signed integer arithmetic.
-  if (llvm::any_of(*maxShape, [](int64_t dim) { return dim < 0; }) ||
-      shapeProduct < 0)
-    return op->emitOpError() << llvm::formatv(
-               "failed to calculate upper bound for cluster result #{0}; got "
-               "max shape {1:$[, ]} which has linear size {2}",
-               resultIdx, llvm::make_range(maxShape->begin(), maxShape->end()),
-               shapeProduct);
-
-  // We allocate a linearized buffer since the output of dynamic regions
-  // will create a dynamic tensor with a packed layout.
-  {
-    Value maxEmptyLinearValue = rewriter.create<tensor::EmptyOp>(
-        loc, ArrayRef<int64_t>{shapeProduct}, rtt.getElementType());
-
-    // materialize the linearized size.
-    SmallVector<AffineExpr> shape;
-    shape.reserve(maxShape->size());
-    for (unsigned symbolIdx = 0; symbolIdx < maxShape->size(); symbolIdx++)
-      shape.push_back(rewriter.getAffineSymbolExpr(symbolIdx));
-
-    OpFoldResult linearizedActualSize = affine::makeComposedFoldedAffineApply(
-        rewriter, loc, mlir::computeProduct(rewriter.getContext(), shape),
-        *result.exactShape);
-
-    auto sliceOp = rewriter.create<tensor::ExtractSliceOp>(
-        loc, maxEmptyLinearValue,
-        /*offsets=*/
-        ArrayRef<OpFoldResult>{rewriter.getIndexAttr(0)},
-        /*sizes=*/ArrayRef<OpFoldResult>{linearizedActualSize},
-        /*strides=*/
-        ArrayRef<OpFoldResult>{rewriter.getIndexAttr(1)});
-    if (sliceOp.getType() == op->getResultTypes()[resultIdx]) {
-      result.destinationOperand = sliceOp.getResult();
-    } else {
-      SmallVector<Value> shapeElements =
-          getValueOrCreateConstantIndexOp(rewriter, loc, *result.exactShape);
-      Value shapeValue =
-          rewriter.create<tensor::FromElementsOp>(loc, shapeElements);
-      result.destinationOperand = rewriter.create<tensor::ReshapeOp>(
-          loc, op.getResultTypes()[resultIdx], sliceOp.getResult(), shapeValue);
-    }
-  }
-
-  result.constantShapeUpperBound = *maxShape;
-  // Cast back to a dynamic shape so that it matches the originally required
-  // type.
-  result.strategy = DestinationOperandMaterializationStrategy::UpperBound;
-  return result;
-}
-
 /// Determines whether a cluster being outlined should clone a constant or
 /// pass constant by value.
 static bool shouldCloneProducer(Operation *producer, Region &cluster) {
@@ -338,38 +210,11 @@ static void remapLatticeState(DataFlowSolver &solver, Value original,
   }
 }
 
-/// Remap relevant analysis states from `originals` to `replacements`.
-static void remapAnalysisState(DataFlowSolver &solver, ValueRange originals,
-                               ValueRange replacements) {
-  for (auto [original, replacement] :
-       llvm::zip_equal(originals, replacements)) {
-    remapLatticeState<TensorKindLattice>(solver, original, replacement);
-    remapLatticeState<ShapeBoundsLattice>(solver, original, replacement);
-    remapLatticeState<IntegerValueRangeLattice>(solver, original, replacement);
-    remapLatticeState<Lattice<ConstantValue>>(solver, original, replacement);
-    remapLatticeState<TensorValueBoundsLattice>(solver, original, replacement);
-  }
-}
-
 static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
                                          plan::InlineGroupOp op,
                                          DataFlowSolver &solver) {
   OpBuilder::InsertionGuard g(rewriter);
   Location loc = op.getLoc();
-
-  // Materialize the destination operands.
-  SmallVector<DestinationOperandMaterializationResult> destinationOperands;
-  destinationOperands.reserve(op.getNumResults());
-  for (OpResult res : op->getOpResults()) {
-    FailureOr<DestinationOperandMaterializationResult> destResult =
-        materializeDestinationOperand(rewriter, res.getLoc(), op,
-                                      res.getResultNumber(), solver);
-    if (failed(destResult))
-      return emitError(res.getLoc())
-             << "failed to materialize destination operand of type "
-             << res.getType();
-    destinationOperands.push_back(*destResult);
-  }
 
   // Make the region isolated from above. This captures the input operands.
   SmallVector<Value> inputs = makeRegionIsolatedFromAbove(
@@ -378,12 +223,11 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
       });
 
   rewriter.setInsertionPoint(op);
+
+  // Create a new closed group op and move blocks into it.
   auto closedGroupOp = rewriter.create<InlineClosedGroupOp>(
-      op.getLoc(), /*target=*/op.getTarget(),
-      /*inputs=*/inputs,
-      /*outs=*/
-      llvm::map_to_vector(destinationOperands,
-                          [](const auto &x) { return x.destinationOperand; }));
+      op.getLoc(), /*result type*/ op->getResultTypes(), /*target=*/op.getTarget(),
+      /*inputs=*/inputs);
 
   rewriter.inlineBlockBefore(
       &op.getRegion().front(), &closedGroupOp.getRegion().front(),
@@ -391,29 +235,10 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
       closedGroupOp.getRegion().getArguments().take_front(
           op.getRegion().getNumArguments()));
 
-  SmallVector<Value> replacements;
-  replacements.reserve(destinationOperands.size());
-  for (auto [newResult, destOperand, originalType] :
-       llvm::zip(closedGroupOp->getResults(), destinationOperands,
-                 op->getResultTypes())) {
-    if (destOperand.strategy ==
-        DestinationOperandMaterializationStrategy::ExactShape) {
-      replacements.push_back(newResult);
-      continue;
-    }
+  DBGS() << "Number of inline op results: " << op->getNumResults() << "\n"; 
+  DBGS() << "Number of closed group op results: " << closedGroupOp->getNumResults() << "\n"; 
 
-    assert(destOperand.exactShape &&
-           "expected materialized shape values to be provided for "
-           "this materialization strategy");
-
-    replacements.push_back(newResult);
-  }
-
-  // Since we are about to replace values that may be inputs to other regions
-  // ops, we need to update the solver to populate the replacement TensorKind
-  // information.
-  remapAnalysisState(solver, op->getResults(), replacements);
-  rewriter.replaceOp(op, replacements);
+  rewriter.replaceOp(op, closedGroupOp->getResults());
 
   SmallVector<TensorKindInfo> inputTensorKinds;
   inputTensorKinds.reserve(inputs.size());
@@ -430,20 +255,6 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
              << " does not have a TensorKind associated with it";
     inputTensorKinds.push_back(tensorKindLattice->getValue());
   }
-
-  // Create the closed region result profile attrs.
-  SmallVector<BoundsAttr> resultAttrs;
-  for (const DestinationOperandMaterializationResult &dest :
-       destinationOperands) {
-    auto boundsAttr = BoundsAttr::getChecked(
-        mlir::detail::getDefaultDiagnosticEmitFn(loc), rewriter.getContext(),
-        BoundsKind::Shape, ArrayRef(dest.constantShapeLowerBound),
-        ArrayRef(dest.constantShapeUpperBound));
-    if (!boundsAttr)
-      return failure();
-    resultAttrs.push_back(boundsAttr);
-  }
-  closedGroupOp.setResAttrsAttr(resultAttrs);
 
   // Create the shape profile attributes for the inputs.
   SmallVector<BoundsAttr> inputAttrs;

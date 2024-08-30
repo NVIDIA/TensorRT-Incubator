@@ -37,23 +37,6 @@ using namespace mlir::trtrt;
 // EnqueueOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult EnqueueOp::inferReturnTypes(
-    MLIRContext *context, std::optional<Location> location, ValueRange operands,
-    DictionaryAttr attributes, OpaqueProperties properties, RegionRange regions,
-    SmallVectorImpl<Type> &inferredReturnTypes) {
-  EnqueueOp::Adaptor adaptor(operands, attributes, properties, regions);
-
-  // If the `outs` operands are tensor types, then we shoudl return those as
-  // results. Otherwise, for memref outs, we do not return results.
-  for (Type t : TypeRange(adaptor.getOuts())) {
-    auto tensorType = dyn_cast<TensorType>(t);
-    if (!tensorType)
-      continue;
-    inferredReturnTypes.push_back(tensorType);
-  }
-  return success();
-}
-
 LogicalResult EnqueueOp::verify() {
   if (std::optional<ArrayRef<int64_t>> hostTensorIndices =
           getHostTensorArgs()) {
@@ -101,14 +84,6 @@ void EnqueueOp::getEffects(
     if (!llvm::isa<MemRefType>(operand.get().getType()))
       continue;
     effects.emplace_back(MemoryEffects::Read::get(), &operand,
-                         SideEffects::DefaultResource::get());
-  }
-  for (OpOperand &operand : getOutsMutable()) {
-    if (!llvm::isa<MemRefType>(operand.get().getType()))
-      continue;
-    effects.emplace_back(MemoryEffects::Read::get(), &operand,
-                         SideEffects::DefaultResource::get());
-    effects.emplace_back(MemoryEffects::Write::get(), &operand,
                          SideEffects::DefaultResource::get());
   }
 }

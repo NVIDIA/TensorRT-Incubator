@@ -387,21 +387,6 @@ LogicalResult InlineClosedGroupOp::verify() {
       return failure();
   }
 
-  SmallVector<BoundsAttr> resAttrs =
-      llvm::to_vector(getResAttrs().getAsRange<BoundsAttr>());
-  if (resAttrs.size() != getNumResults())
-    return emitOpError("expected number of results (")
-           << getNumResults()
-           << ") to equal the number of res_attrs BoundsAttrs ("
-           << resAttrs.size() << ")";
-
-  for (auto [idx, type] : llvm::enumerate(getResultTypes())) {
-    BoundsAttr boundsAttr = resAttrs[idx];
-    if (failed(verifyBoundsAttr("result", idx, type, boundsAttr,
-                                [&]() { return emitOpError(); })))
-      return failure();
-  }
-
   return success();
 }
 
@@ -424,33 +409,22 @@ InlineClosedGroupOp::getEntrySuccessorOperands(RegionBranchPoint point) {
 
 void InlineClosedGroupOp::getAsmBlockArgumentNames(
     Region &region, OpAsmSetValueNameFn setNameFn) {
-  assert(region.front().getNumArguments() ==
-             getInputs().size() + getOuts().size() &&
-         "expected one block arg for each input and destination argument");
-  unsigned numInputs = getInputs().size();
+  assert(region.front().getNumArguments() == getInputs().size() &&
+         "expected one block arg for each input argument");
   for (BlockArgument arg : region.front().getArguments()) {
-    StringRef name = arg.getArgNumber() < numInputs ? "in" : "out";
-    setNameFn(arg, name);
+    setNameFn(arg, "in");
   }
 }
 
 void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
-                                Attribute target, ValueRange inputs,
-                                ValueRange outs,
-                                ArrayRef<BoundsAttr> input_attrs,
-                                ArrayRef<BoundsAttr> result_attrs) {
+                                TypeRange resultTypes, Attribute target,
+                                ValueRange inputs,
+                                ArrayRef<BoundsAttr> input_attrs) {
+  state.addTypes(resultTypes);
   state.addOperands(inputs);
-  state.addOperands(outs);
   state.getOrAddProperties<Properties>().target = target;
   state.getOrAddProperties<Properties>().setInputAttrs(b.getArrayAttr(
       SmallVector<Attribute>(input_attrs.begin(), input_attrs.end())));
-  state.getOrAddProperties<Properties>().setResAttrs(b.getArrayAttr(
-      SmallVector<Attribute>(result_attrs.begin(), result_attrs.end())));
-
-  llvm::copy(
-      ArrayRef<int32_t>{static_cast<int32_t>(inputs.size()),
-                        static_cast<int32_t>(outs.size())},
-      state.getOrAddProperties<Properties>().operandSegmentSizes.begin());
   Region *body = state.addRegion();
   auto getLocs = [](ValueRange r) {
     SmallVector<Location> locs;
@@ -461,8 +435,6 @@ void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
   };
   (void)body->emplaceBlock();
   body->addArguments(TypeRange(inputs), getLocs(inputs));
-  body->addArguments(TypeRange(outs), getLocs(outs));
-  state.addTypes(TypeRange(outs));
 }
 
 //===----------------------------------------------------------------------===//

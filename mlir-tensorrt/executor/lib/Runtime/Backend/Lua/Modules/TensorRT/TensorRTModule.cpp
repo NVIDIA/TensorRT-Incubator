@@ -419,6 +419,14 @@ void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
         sol::state_view luaState(state);
         assert(context != nullptr);
         assert(stream != nullptr && "expected valid stream");
+
+        // Allocate output buffers lazily i.e.
+        // a) Register a nullptr for output memory address and register a IOutputAllocator.
+        // b) TRT call back will reallocate memory, register name, and populate output dims.
+        // c) Ensure that reallocated memory is owned by the RuntimeClient.
+        // Return a tuple of string, pointer and dims.
+        std::vector<std::tuple<std::string, uintptr_t, nvinfer1::Dims>> outputs;
+
         Status result = enqueueV3Wrapper(*allocTracker, *resourceTracker,
                                          *context, stream, va);
         SET_LUA_ERROR_IF_ERROR(result, state);
