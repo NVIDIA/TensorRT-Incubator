@@ -202,7 +202,8 @@ def all(
         :caption: Example
 
         input = tp.Tensor([True, True], dtype=tp.bool)
-        assert tp.all(input) == tp.Tensor([True], dtype=tp.bool)
+        out = tp.all(input)
+        assert bool(out)
     """
     return _reduce_impl(input, Reduce.Kind.AND, dim, keepdim)
 
@@ -235,7 +236,8 @@ def any(
         :caption: Example
 
         input = tp.Tensor([True, False], dtype=tp.bool)
-        assert tp.any(input) == tp.Tensor([True], dtype=tp.bool)
+        out = tp.any(input)
+        assert bool(out)
     """
     return _reduce_impl(input, Reduce.Kind.OR, dim, keepdim)
 
@@ -427,7 +429,7 @@ def var(
     return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: maximum(x - correction, 0))
 
 
-def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: int, keepdim: bool):
+def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optional[int], keepdim: bool):
     from tripy.frontend.trace.ops.iota import iota_like
     from tripy.frontend.trace.ops.reshape import reshape
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
