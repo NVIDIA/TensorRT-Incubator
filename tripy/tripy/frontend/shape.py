@@ -30,7 +30,7 @@ class Shape(Tensor):
     A Shape is a tensor used to represent a tensor shape.
     Shapes are vectors (rank 1) of non-negative integers (using int32 as the datatype).
 
-    Note that Shapes are intended to used in many cases like Python lists, hence `+` acts as concatenation
+    Note that Shapes are intended to be used in many cases like Python lists; hence `+` acts as concatenation
     on Shapes rather than elementwise addition and `*` acts as tiling rather than elementwise multiplication;
     the methods `add` and `multiply` can be used for elementwise addition and multiplication, respectively.
     Additionally, `len` can be used to get the length of a shape.
