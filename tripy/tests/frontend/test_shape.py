@@ -445,14 +445,20 @@ class TestShape:
         a = tp.Shape([4, 5])
         if isinstance(other_values, np.ndarray):
             pytest.skip("numpy array cannot be implicitly cast to Shape type")
-        assert isinstance(a == other_values, bool)
+        eq = a == other_values
+        assert isinstance(eq, bool)
+        assert eq
 
     def test_shape_inequality(self):
         a = tp.Shape([1, 2, 3])
         b = tp.Shape([1, 4, 5])
         assert a != b
 
-    def test_shape_inequality_different_ranks(self):
+    def test_shape_inequality_different_lengths(self):
         a = tp.Shape([1])
         b = tp.Shape([1, 2])
         assert a != b
+
+        c = tp.Shape([1, 2, 3])
+        assert a != c
+        assert b != c
