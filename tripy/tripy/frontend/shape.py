@@ -29,6 +29,11 @@ class Shape(Tensor):
     """
     A Shape is a tensor used to represent a tensor shape.
     Shapes are vectors (rank 1) of non-negative integers (using int32 as the datatype).
+
+    Note that Shapes are intended to used in many cases like Python lists, hence `+` acts as concatenation
+    on Shapes rather than elementwise addition and `*` acts as tiling rather than elementwise multiplication;
+    the methods `add` and `multiply` can be used for elementwise addition and multiplication, respectively.
+    Additionally, `len` can be used to get the length of a shape.
     """
 
     # set to higher than tensor's so adding a shape to a tensor will use shape's overload (and give an error)
@@ -116,6 +121,29 @@ class Shape(Tensor):
         """
         return super().__add__(other)
 
+    def multiply(self, other: Union["tripy.Shape", Tensor]) -> "tripy.Shape":
+        """
+        The * operator for shapes is tiling. This method is exposed to allow for elementwise multiplication,
+        should it be necessary.
+
+        Args:
+            other: Another :class:`Shape` or :class:`Tensor` .
+
+        Returns:
+            The result of elementwise multiplication of this :class:`Shape` and `other`, returned as a :class:`Shape` .
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            s1 = tp.Shape([1, 2, 3])
+            s2 = tp.Shape([4, 5, 6])
+            res = s1.multiply(s2)
+            assert isinstance(res, tp.Shape)
+            assert cp.from_dlpack(res).get().tolist() == [4, 10, 18]
+        """
+        return super().__mul__(other)
+
     def __repr__(self) -> str:
         # denote the representation as a shape rather than a tensor
         tensor_repr = super().__repr__()
@@ -148,6 +176,38 @@ class Shape(Tensor):
         elif not isinstance(other, Shape):
             other = Shape(other)
         return concatenate([other, self], 0)
+
+    # multiplication for shapes is tiling, not elementwise multiplication
+
+    def __mul__(self, other):
+        from tripy.frontend.trace.ops.expand import expand
+        from tripy.frontend.trace.ops.reshape import flatten
+        from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+        from tripy.frontend.trace.ops.where import where
+
+        # We unsqueeze self into shape [1, len(self)], so giving [other, len(self)] as
+        # the argument to expand will result in a shape of [other, len(self)] by
+        # copying self the correct number of times.
+
+        # Only defined with a scalar argument
+        if not isinstance(other, Tensor):
+            other = Tensor(other, dtype=int32)
+        if other.rank >= 1:
+            raise_error(
+                "Attempting to multiply a Tripy Shape by a tensor of rank >= 1, which is undefined", details=[other]
+            )
+        # note: in Python, if a list is multiplied by a negative number, this is the same as multiplying by 0,
+        # so we should clamp the argument
+        other = where(other >= 0, other, Tensor(0))
+
+        unsqueezed = unsqueeze(self, 0)
+        tiled = expand(unsqueezed, [other, len(self)])
+        # flatten the result so we get back to a rank-1 shape
+        ret = flatten(tiled)
+        return Shape(ret)
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
 
     @convert_inputs_to_tensors(shape_argument=["other"])
     def __eq__(self, other):
