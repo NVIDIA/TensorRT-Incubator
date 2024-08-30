@@ -21,39 +21,46 @@ from tripy.common.exception import raise_error
 
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "bool"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
     dtype_constraints={"a": "T1", "b": "T1"},
 )
 def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
-    """
-    Returns True if the following equation is elementwise True:
-    absolute(a - b) <= (atol + rtol * absolute(b))
+    r"""
+    Returns true if the following equation is true for every element in ``a`` and ``b`` :
+
+    :math:`|a_i - b_i| <= (\text{atol} + \text{rtol} * |b_i|)`
 
     Args:
-        a: The LHS tensor.
-        b: The RHS tensor.
-        rtol: The relative tolerance
-        atol: The absolute tolerance
+        a: First tensor to compare.
+        b: Second tensor to compare.
+        rtol: The relative tolerance.
+        atol: The absolute tolerance.
 
     Returns:
-        A boolean value
+        ``True`` if the tensors were within the specified tolerances and ``False`` otherwise.
 
     .. code-block:: python
         :linenos:
-        :caption: Example
+        :caption: Within Tolerance
 
-        a = tp.Tensor([1e10,1e-7])
-        b = tp.Tensor([1e10,1e-7])
-        assert tp.allclose(a, b) == True
+        # doc: print-locals out
+        out = tp.allclose(tp.Tensor([1e-7]), tp.Tensor([1.1e-7]))
+        assert out
+
+    .. code-block:: python
+        :linenos:
+        :caption: Outside Tolerance
+
+        # doc: print-locals out
+        out = tp.allclose(tp.Tensor([1e-7]), tp.Tensor([1.2e-7]))
+        assert not out
     """
     from tripy.frontend.trace.ops.unary_elementwise import abs
     from tripy.frontend.trace.ops.reduce import all
-    from tripy.common.datatype import int64, bool as tp_bool
+    from tripy.common.datatype import int64
 
     if a.dtype == int64:
         raise_error("Known issue with i64. Allclose currently does not work with int64 inputs. Issue #116")
-    if a.dtype == tp_bool and b.dtype == tp_bool:
-        compare = a == b
-    else:
-        compare = abs(a - b) <= (atol + rtol * abs(b))
+
+    compare = abs(a - b) <= (atol + rtol * abs(b))
     return bool(all(compare))

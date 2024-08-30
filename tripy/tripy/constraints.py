@@ -45,7 +45,7 @@ def dtype_info(
     """
 
     def decorator(func_obj):
-        return_dtype = dtype_constraints.get(RETURN_VALUE, -1)
+        return_dtype = dtype_constraints.get(RETURN_VALUE, None)
         func_name = func_obj.__qualname__ if not function_name else function_name
         VerifInfo = namedtuple(
             "VerifInfo", ["obj", "inputs", "dtype_exceptions", "return_dtype", "dtypes", "dtype_constraints"]
