@@ -28,14 +28,17 @@ from tripy.frontend.trace import Trace
 
 class TestFunctional:
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
-    def test_add_two_tensors(self, kind):
+    def test_add_two_tensors(self, kind, compile_fixture):
         module = cp if kind == "gpu" else np
         arr = module.array([2, 3], dtype=np.float32)
         a = tp.Tensor(arr, device=tp.device(kind))
         b = tp.Tensor(module.ones(2, dtype=module.float32), device=tp.device(kind))
 
-        c = a + b
-        out = c + c
+        def func(a, b):
+            c = a + b
+            return c + c
+
+        out = compile_fixture(func, a, b)
         assert (cp.from_dlpack(out).get() == np.array([6.0, 8.0], dtype=np.float32)).all()
 
     @pytest.mark.parametrize(
@@ -47,7 +50,7 @@ class TestFunctional:
             ((1, 3, 7), (4, 3, 1)),  # broadcast at differnt dim of both operand
         ],
     )
-    def test_static_broadcast_add_two_tensors(self, dim_a, dim_b):
+    def test_static_broadcast_add_two_tensors(self, dim_a, dim_b, compile_fixture):
         cp_a = cp.arange(np.prod(dim_a)).reshape(dim_a).astype(np.float32)
         cp_b = cp.arange(np.prod(dim_b)).reshape(dim_b).astype(np.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
@@ -57,7 +60,7 @@ class TestFunctional:
             c = a + b
             return c
 
-        out = func(a, b)
+        out = compile_fixture(func, a, b)
         assert (cp.from_dlpack(out) == cp.array(cp_a + cp_b)).all()
 
     def test_multi_output_trace(self):
@@ -111,23 +114,23 @@ class TestFunctional:
 class TestCopyFunctional:
     @pytest.mark.parametrize("src", ["cpu", "gpu"])
     @pytest.mark.parametrize("dst", ["cpu", "gpu"])
-    def test_single_copy(self, src, dst):
+    def test_single_copy(self, src, dst, compile_fixture):
         a = tp.Tensor([1, 2], device=tp.device(src))
-        out = tp.copy(a, tp.device(dst))
+        out = compile_fixture(tp.copy, a, tp.device(dst))
         assert out.tolist() == [1, 2]
         assert out.device.kind == dst
 
-    def test_multiple_copy_1(self):
+    def test_multiple_copy_1(self, compile_fixture):
         a = tp.Tensor([1, 2])
-        a = tp.copy(a, tp.device("gpu"))
-        out = tp.copy(a, tp.device("cpu"))
+        a = compile_fixture(tp.copy, a, tp.device("gpu"))
+        out = compile_fixture(tp.copy, a, tp.device("cpu"))
         assert out.tolist() == [1, 2]
         assert out.device.kind == "cpu"
 
-    def test_multiple_copy_2(self):
+    def test_multiple_copy_2(self, compile_fixture):
         a = tp.Tensor([1, 2])
-        a = tp.copy(a, tp.device("cpu"))
-        out = tp.copy(a, tp.device("gpu"))
+        a = compile_fixture(tp.copy, a, tp.device("cpu"))
+        out = compile_fixture(tp.copy, a, tp.device("gpu"))
         assert out.tolist() == [1, 2]
         assert out.device.kind == "gpu"
 

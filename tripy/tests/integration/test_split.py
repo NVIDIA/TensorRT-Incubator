@@ -46,13 +46,13 @@ class TestSplitOp:
             ((3, 0), (5, 1), lambda t: (t[:, :0], t[:, 0:0], t[:, 0:0], t[:, 0:0], t[:, 0:0])),
         ],
     )
-    def test_split_static(self, dims_a, split_params, reference_slices):
+    def test_split_static(self, dims_a, split_params, reference_slices, compile_fixture):
         a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(cp.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(t):
             return tp.split(t, split_params[0], split_params[1])
 
-        out = func(a)
+        out = compile_fixture(func, a)
         reference_out = reference_slices(a_cp)
         compare_split_results(out, reference_out)

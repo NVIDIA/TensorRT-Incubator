@@ -36,6 +36,8 @@ class TestAllClose:
     )
     def test_all_close_float32(self, tensor_a, tensor_b, rtol, atol):
         np_result = torch.allclose(torch.FloatTensor(tensor_a), torch.FloatTensor(tensor_b), rtol=rtol, atol=atol)
+        # Cannot use `compile_fixture` here since `tp.Compiler` only works if the output of the function is a Tensor
+        # and the output of `tp.allclose` is a bool.
         tp_result = tp.allclose(
             tp.Tensor(tensor_a, dtype=tp.float32), tp.Tensor(tensor_b, dtype=tp.float32), rtol=rtol, atol=atol
         )

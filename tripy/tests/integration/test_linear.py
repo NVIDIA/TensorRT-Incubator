@@ -25,7 +25,7 @@ from tests.conftest import skip_if_older_than_sm89
 
 
 class TestLinear:
-    def test_linear_module(self):
+    def test_linear_module(self, compile_fixture):
         class Network(tp.Module):
             def __init__(self):
                 super().__init__()
@@ -41,7 +41,7 @@ class TestLinear:
         cp_a1 = cp.ones((3, 4), dtype=cp.float32)
         a1 = tp.Tensor(cp_a1, device=tp.device("gpu"))
 
-        out = net(a1)
+        out = compile_fixture(net, a1)
 
         np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
@@ -84,7 +84,7 @@ class TestQuantLinear:
     @pytest.mark.parametrize("use_input_scale", [False, True])
     @pytest.mark.parametrize("quant_dtype", [tp.int8, pytest.param(tp.float8, marks=skip_if_older_than_sm89)])
     @pytest.mark.parametrize("weight_quant_dim", [None, 0, 1])
-    def test_quant_linear(self, use_input_scale, quant_dtype, weight_quant_dim):
+    def test_quant_linear(self, use_input_scale, quant_dtype, weight_quant_dim, compile_fixture):
         net = self._create_network(use_input_scale, quant_dtype, weight_quant_dim)
         np_weight = cp.from_dlpack(net.linear.weight).get()
         np_bias = cp.from_dlpack(net.linear.bias).get()
@@ -96,9 +96,9 @@ class TestQuantLinear:
                 tp.TripyException,
                 match="Unsupported quantization parameters for Linear module.",
             ):
-                out = net(a1)
+                out = compile_fixture(net, a1)
         else:
-            out = net(a1)
+            out = compile_fixture(net, a1)
 
             np_out = cp_a1.get() @ (np_weight.transpose()) + np_bias
 
@@ -114,7 +114,7 @@ class TestQuantLinear:
         ],
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )
-    def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale):
+    def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale, compile_fixture):
         scale = tp.Parameter(scale)
 
         linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
@@ -128,7 +128,7 @@ class TestQuantLinear:
 
         cp_input = cp.ones((4, 4), dtype=np.float32)
         input = tp.Tensor(cp_input, device=tp.device("gpu"))
-        out = linear(input)
+        out = compile_fixture(linear, input)
 
         np_out = cp_input.get() @ (np_weight.transpose()) + np_bias
 

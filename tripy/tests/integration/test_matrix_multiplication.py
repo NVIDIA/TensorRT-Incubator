@@ -23,23 +23,29 @@ import tripy as tp
 import tripy.common.datatype
 
 
+# Provided since we cannot perform something like `compile_fixture(@, a, b)` or `compile_fixture(__matmul__, a, b)`
+def matmul(a, b):
+    return a @ b
+
+
 class TestMatrixMultiplication:
-    def test_2d_tensors(self):
+
+    def test_2d_tensors(self, compile_fixture):
         a_np = np.arange(6).reshape((2, 3)).astype(np.float32)
         b_np = np.arange(6).reshape((3, 2)).astype(np.float32)
         a = tp.Tensor(a_np)
         b = tp.Tensor(b_np)
 
-        out = a @ b
+        out = compile_fixture(matmul, a, b)
         assert tp.allclose(out, tp.Tensor(a_np @ b_np))
 
-    def test_1d_tensors(self):
+    def test_1d_tensors(self, compile_fixture):
         a_np = np.arange(64).astype(np.float32)  # 1D Tensor
         b_np = np.arange(64).astype(np.float32)  # 1D Tensor
         a = tripy.Tensor(cp.asanyarray(a_np))
         b = tripy.Tensor(cp.asanyarray(b_np))
 
-        out = a @ b
+        out = compile_fixture(matmul, a, b)
         assert tp.allclose(out, tp.Tensor(cp.array(a_np @ b_np)), atol=1e-2)
 
     @pytest.mark.parametrize(
@@ -53,11 +59,11 @@ class TestMatrixMultiplication:
             ((1, 2, 3), (0, 0, 3, 2)),  # Broadcasting batch dims with 0
         ],
     )
-    def test_broadcast_gemm(self, shape_a, shape_b):
+    def test_broadcast_gemm(self, shape_a, shape_b, compile_fixture):
         a_np = np.arange(np.prod(shape_a)).reshape(shape_a).astype(np.float32)
         b_np = np.arange(np.prod(shape_b)).reshape(shape_b).astype(np.float32)
         a = tp.Tensor(a_np)
         b = tp.Tensor(b_np)
 
-        out = a @ b
+        out = compile_fixture(matmul, a, b)
         assert tp.allclose(out, tp.Tensor(a_np @ b_np))
