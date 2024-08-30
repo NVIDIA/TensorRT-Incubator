@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import tripy as tp
 from tripy import export, constraints
 
 
@@ -50,5 +49,8 @@ def relu(input: "tripy.Tensor") -> "tripy.Tensor":
         assert tp.allclose(output, tp.Tensor(torch.nn.functional.relu(t)))
 
     """
-    zeros = tp.zeros((1,), dtype=input.dtype)
-    return tp.maximum(zeros, input)
+    from tripy.frontend.ops import zeros
+    from tripy.frontend.trace.ops.binary_elementwise import maximum
+
+    mask = zeros((1,), dtype=input.dtype)
+    return maximum(mask, input)

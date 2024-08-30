@@ -16,16 +16,14 @@
 #
 
 import array
-from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Sequence
 
+from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
-from mlir_tensorrt.compiler import ir
 
+from tripy.backend.mlir.utils import get_constant_value, is_any_dim_dynamic
 from tripy.flat_ir.ops.base import BaseFlatIROp
-from tripy.backend.mlir.utils import is_any_dim_dynamic, get_constant_value
-import tripy.utils.utils as utils
 
 
 def _do_static_reshape(arg, new_shape: Sequence[int]):
@@ -48,10 +46,12 @@ class DynamicReshapeOp(BaseFlatIROp):
     def to_mlir(self, operands):
         if is_any_dim_dynamic(operands[1]):
             # Tripy frontend does not have shape inference and stablehlo does not allow shape operand to be of dynamic shape.
-            # Since DynamicReshapeOp was created internally by Tripy, we know the expected output rank. For dynamic_reshape operator, the shape of shape tensor is the same as output rank.
+            # Since DynamicReshapeOp was created internally by Tripy, we know the expected output rank.
+            # For dynamic_reshape operator, the shape of shape tensor is the same as output rank.
             new_shape = [self.outputs[0].rank]
             self.inputs[1].shape = new_shape
-            operands[1].set_type(ir.RankedTensorType.get(new_shape, operands[1].type.element_type))
+            rhs = get_op_result_or_value(operands[1])
+            rhs.set_type(ir.RankedTensorType.get(new_shape, rhs.type.element_type))
 
         # If the shape is a constant, then we can just do static reshape.
         const_shape_value = get_constant_value(operands[1])

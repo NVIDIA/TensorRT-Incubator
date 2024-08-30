@@ -25,5 +25,4 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 @dataclass(repr=False)
 class AddOp(BaseFlatIROp):
     def to_mlir(self, operands):
-        add_out = stablehlo.AddOp(*operands)
-        return [add_out]
+        return [stablehlo.AddOp(*operands)]

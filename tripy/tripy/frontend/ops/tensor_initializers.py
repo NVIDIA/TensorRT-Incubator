@@ -26,7 +26,6 @@ from tripy.frontend.trace.ops.fill import full, full_like
 from tripy.frontend.trace.ops.iota import iota, iota_like
 from tripy.frontend.trace.ops.where import where
 from tripy.frontend import utils as frontend_utils
-from tripy.common.datatype import DATA_TYPES
 
 
 @export.public_api(document_under="operations/initializers")
