@@ -124,7 +124,9 @@ class Trace:
         if self.shapes:
             for input, shape_bounds in zip(self.inputs, self.shapes):
                 if shape_bounds.is_static() and input.shape is None:
-                    assert all(s >= 0 for s in shape_bounds.min), f"shape bounds expected to be >= 0, got {shape_bounds.min}"
+                    assert all(
+                        s >= 0 for s in shape_bounds.min
+                    ), f"shape bounds expected to be >= 0, got {shape_bounds.min}"
                     input.shape = shape_bounds.min
 
         flat_ir.inputs = [flat_ir.register_tensor(inp.to_flat_ir()) for inp in self.inputs]

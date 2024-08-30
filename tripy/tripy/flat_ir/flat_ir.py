@@ -20,6 +20,7 @@ from typing import Dict, List, Sequence, Set
 from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 from tripy import utils
 from tripy.common.shape_bounds import ShapeBounds
+from tripy.flat_ir.ops import ConstantOp
 
 
 class FlatIR:
@@ -34,6 +35,9 @@ class FlatIR:
 
         self.shapes = shapes
         self.tensor_map: Dict[str] = {}
+
+        self.tensor_replacements: Dict[int, "FlatIRTensor"] = {}
+        self.constant_map = {}
 
     def __str__(self):
         layer_strs: List[str] = []
@@ -114,9 +118,10 @@ class FlatIR:
                                 arg_attrs.append(ir.DictAttr.get({}))
                             else:
                                 arg_attrs.append(
-                                    ir.DictAttr.get({
-                                        "tensorrt.shape_profile": ir.Attribute.parse(
-                                            f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                    ir.DictAttr.get(
+                                        {
+                                            "tensorrt.shape_profile": ir.Attribute.parse(
+                                                f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
                                             )
                                         }
                                     )
@@ -167,12 +172,35 @@ class FlatIR:
         self.tensor_map[tensor.name] = tensor
         return tensor
 
+    def _get_constant_key(self, op):
+        from mlir_tensorrt.runtime._mlir_libs._api import MemRefValue
+        from tripy.utils.utils import list_to_tuple, volume
+
+        if isinstance(op.data, MemRefValue):
+            from tripy.backend.mlir.memref import tolist
+
+            VOLUME_THRESHOLD_FOR_MEMREF = 50
+            if volume(op.data.shape) < VOLUME_THRESHOLD_FOR_MEMREF:
+                l = tolist(op.data)
+            else:
+                l = [op.data.ptr]
+            data = list_to_tuple(l if isinstance(l, List) else [l])
+        elif isinstance(op.data, int) or isinstance(op.data, float) or isinstance(op.data, bool):
+            data = list_to_tuple(
+                op.data,
+            )
+        else:
+            data = list_to_tuple(op.data)
+
+        # Create a unique key for the constant based on its data and type
+        return (data, op.outputs[0].dtype, list_to_tuple(op.outputs[0].shape))
+
     def integrate_subgraph(self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
         """
         Integrates a subgraph delineated by the given inputs and outputs into this FlatIR.
         """
         seen_tensors: Set[int] = set()
-        ops = []
+        new_ops: List["BaseFlatIROp"] = []
 
         # Implements dfs search
         def register_tensor_and_collect_ops(tensor, seen_tensors):
@@ -186,20 +214,35 @@ class FlatIR:
                     op is not None
                 ), f"Tensor: {tensor} has no producer set. Did you use the constructor instead of the `build()` function?"
 
-                for inp in op.inputs:
-                    if inp not in inputs:
-                        register_tensor_and_collect_ops(inp, seen_tensors)
-
-                ops.append(op)
+                # If a constant is already been declared in the flatIR, reuse that constant instead of redefining the constant.
+                if isinstance(op, ConstantOp):
+                    constant_key = self._get_constant_key(op)
+                    if constant_key in self.constant_map:
+                        # Reuse existing constant
+                        existing_tensor = self.constant_map[constant_key]
+                        self.tensor_replacements[tensor.name] = existing_tensor
+                    else:
+                        # New unique constant, add to map
+                        self.constant_map[constant_key] = op.outputs[0]
+                        new_ops.append(op)
+                else:
+                    for inp in op.inputs:
+                        if inp not in inputs:
+                            register_tensor_and_collect_ops(inp, seen_tensors)
+                    new_ops.append(op)
 
         for start_tensor in outputs:
             register_tensor_and_collect_ops(start_tensor, seen_tensors)
 
+        # Apply tensor replacements
+        for op in new_ops:
+            op.inputs = [self.tensor_replacements.get(inp.name, inp) for inp in op.inputs]
+
         # Rebind the ops to tensors from this FlatIR
-        for op in ops:
+        for op in new_ops:
             op.inputs = [self.register_tensor(inp) for inp in op.inputs]
             op.outputs = [self.register_tensor(out) for out in op.outputs]
             op.trace_input_names = [inp.name for inp in inputs]
             op.trace_output_names = [out.name for out in outputs]
 
-        self.ops.extend(ops)
+        self.ops.extend(new_ops)
