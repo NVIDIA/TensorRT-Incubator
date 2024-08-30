@@ -24,7 +24,7 @@ import pytest
 from tests.spec_verification.object_builders import create_obj
 from tripy.constraints import TYPE_VERIFICATION, RETURN_VALUE, FUNC_W_DOC_VERIF
 import tripy as tp
-from contextlib import ExitStack
+import tests.helper
 
 
 def _method_handler(func_name, kwargs, func_obj, api_call_locals):
@@ -183,15 +183,61 @@ def test_neg_dtype_constraints(test_data):
             assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
 
 
-operations = [obj.__qualname__ for _, obj in inspect.getmembers(tp) if inspect.isfunction(obj)]
+def get_all_possible_verif_ops():
+    qualnames = set()
+    tripy_interfaces = tests.helper.get_all_tripy_interfaces()
+    for obj in tripy_interfaces:
+        if not obj.__doc__:
+            continue
+
+        blocks = [
+            (block.code())
+            for block in tests.helper.consolidate_code_blocks(obj.__doc__)
+            if isinstance(block, tests.helper.DocstringCodeBlock)
+        ]
+        if blocks is None:
+            continue
+
+        if (
+            isinstance(obj, property)
+            or "." in obj.__qualname__
+            or obj.__qualname__[0].isupper()
+            or obj in DATA_TYPES.values()
+            or (not obj.__qualname__.startswith("__") and "_" in obj.__qualname__)
+        ):
+            continue
+
+        qualnames.add(obj.__qualname__)
+
+    return qualnames
+
+
+operations = get_all_possible_verif_ops()
 # add any function that you do not want to be verified:
-func_exceptions = ["plugin", "dequantize"]
+func_exceptions = [
+    "plugin",
+    "dequantize",
+    "default",
+    "dtype",
+    "function",
+    "type",
+    "tolist",
+    "md5",
+    "integer",
+    "volume",
+    "save",
+    "floating",
+    "load",
+    "device",
+]
 
 
 # Check if there are any operations that are not included (Currently does not test any __<op>__ functions)
 @pytest.mark.parametrize("func_qualname", operations, ids=lambda val: f"is_{val}_verified")
 def test_all_ops_verified(func_qualname):
     if not func_qualname.startswith("_") and func_qualname not in func_exceptions:
-        assert func_qualname in FUNC_W_DOC_VERIF, f"function {func_qualname}'s data types have not been verified. Please add data type verification by following the guide within tripy/tests/spec_verification or exclude it from this test."
+        assert (
+            func_qualname in FUNC_W_DOC_VERIF
+        ), f"function {func_qualname}'s data types have not been verified. Please add data type verification by following the guide within tripy/tests/spec_verification or exclude it from this test."
     else:
         pytest.skip("Data type constraints are not required for this API")
