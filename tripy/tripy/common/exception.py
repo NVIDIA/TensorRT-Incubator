@@ -124,6 +124,8 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
 
     frame_strs = []
     num_frames_printed = 0
+
+    stack_info.fetch_source_code()
     for index, source_info in enumerate(stack_info):
         if source_info.code is None:
             continue
@@ -175,6 +177,7 @@ def raise_error(summary: str, details: List[Any] = []):
     stack_info = utils.get_stack_info()
     user_frame_index = stack_info.get_first_user_frame_index()
     if user_frame_index is not None:
+        stack_info.fetch_source_code()
         pre_summary = str_from_source_info(stack_info[user_frame_index])
 
     detail_msg = ""

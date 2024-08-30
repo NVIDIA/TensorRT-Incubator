@@ -107,6 +107,7 @@ class TestTensor:
     )
     def test_stack_info_is_populated(self, build_func, expected_line_number):
         a = build_func()
+        a.stack_info.fetch_source_code()
 
         assert a.stack_info[0] == SourceInfo(
             inspect.getmodule(tp.Tensor).__name__,
@@ -158,6 +159,7 @@ class TestTensor:
     def test_stack_depth_sanity(self):
         # Makes sure STACK_DEPTH_OF_BUILD is correct
         a = tp.ones((2, 3))
+        a.stack_info.fetch_source_code()
 
         def find_frame(func_name):
             for frame in a.stack_info:

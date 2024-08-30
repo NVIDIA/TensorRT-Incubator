@@ -174,12 +174,16 @@ class FlatIR:
 
     def _get_constant_key(self, op):
         from mlir_tensorrt.runtime._mlir_libs._api import MemRefValue
-        from tripy.utils.utils import list_to_tuple
+        from tripy.utils.utils import list_to_tuple, volume
 
         if isinstance(op.data, MemRefValue):
             from tripy.backend.mlir.memref import tolist
 
-            l = tolist(op.data)
+            VOLUME_THRESHOLD_FOR_MEMREF = 50
+            if volume(op.data.shape) < VOLUME_THRESHOLD_FOR_MEMREF:
+                l = tolist(op.data)
+            else:
+                l = [op.data.ptr]
             data = list_to_tuple(l if isinstance(l, List) else [l])
         elif isinstance(op.data, int) or isinstance(op.data, float) or isinstance(op.data, bool):
             data = list_to_tuple(
@@ -189,7 +193,7 @@ class FlatIR:
             data = list_to_tuple(op.data)
 
         # Create a unique key for the constant based on its data and type
-        return (data, op.outputs[0].dtype, op.outputs[0].rank)
+        return (data, op.outputs[0].dtype, list_to_tuple(op.outputs[0].shape))
 
     def integrate_subgraph(self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
         """

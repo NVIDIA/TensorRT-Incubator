@@ -79,6 +79,7 @@ def convert_inputs_to_tensors(
             def add_column_info_for_non_tensor(arg, arg_index, is_kwarg, dtype, list_index=None):
                 assert not isinstance(arg, Tensor)
                 arg = Tensor(arg, dtype=dtype)
+                arg.stack_info.fetch_source_code()
 
                 # This is the stack depth in arg.stack_info where we find the function
                 # that's decorated with `convert_inputs_to_tensors()`.

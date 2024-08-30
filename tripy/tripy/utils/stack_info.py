@@ -15,7 +15,9 @@
 # limitations under the License.
 #
 
-import inspect
+# NOTE: We avoid using `inspect` functions as much as possible because they are much slower than
+# working directly with the frame.
+import sys
 from dataclasses import dataclass
 from typing import Tuple, Optional
 
@@ -49,6 +51,31 @@ class SourceInfo:
 
 
 class StackInfo(list):
+    def __init__(self, lst, include_code_index: Optional[int] = None):
+        super().__init__(lst)
+        self.include_code_index = include_code_index
+
+    def fetch_source_code(self):
+        first_user_frame_found = False
+        for index, source_info in enumerate(self):
+
+            def add_code():
+                # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
+                # In that case we just leave it empty.
+                try:
+                    lines = open(source_info.file, "r").readlines()
+                except OSError:
+                    return
+
+                source_info.code = lines[source_info.line - 1].rstrip()
+
+            if not first_user_frame_found:
+                if source_info.is_user_frame():
+                    add_code()
+                    first_user_frame_found = True
+                elif self.include_code_index is not None and index >= self.include_code_index:
+                    add_code()
+
     def get_first_user_frame_index(self) -> int:
         for index, source_info in enumerate(self):
             if source_info.is_user_frame():
@@ -59,60 +86,41 @@ class StackInfo(list):
 
 
 def get_stack_info(include_code_index: int = None) -> StackInfo:
-    """
-    Returns stack information for the current call stack.
-
-    Args:
-        include_code_index: The index of a frame after which to include code.
-                Code is only included up to the first user frame.
-                If this index is past the first user frame, then code is only included for the user frame.
-
-    Returns:
-        Stack information for the current call stack.
-    """
     import tripy.function_registry
 
-    stack_info = StackInfo([])
+    stack_info = StackInfo([], include_code_index)
+
     # Exclude the current stack frame since we don't care about the get_stack_info() function itself.
-    stack = inspect.stack()[1:]
+    frame = sys._getframe().f_back
 
-    first_user_frame_found = False
-
-    for index, frame in enumerate(stack):
-        module = inspect.getmodule(frame.frame)
+    MAX_STACK_DEPTH = 100
+    for _ in range(MAX_STACK_DEPTH):
+        if not frame:
+            break
 
         source_info = SourceInfo(
-            module=module.__name__ if module else None,
-            file=frame.filename,
-            line=frame.lineno,
-            function=frame.function,
+            module=frame.f_globals.get("__name__"),
+            file=frame.f_code.co_filename,
+            line=frame.f_lineno,
+            function=frame.f_code.co_name,
             code=None,
             _dispatch_target="",
             column_range=None,
         )
         if source_info.module == tripy.function_registry.__name__ and source_info.function == "wrapper":
-            source_info._dispatch_target = frame.frame.f_locals.get("key", "")
+            source_info._dispatch_target = frame.f_locals.get("key", "")
 
-        def add_code():
-            # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
-            # In that case we just leave it empty.
-            source_info.code = frame.code_context[0].rstrip() if frame.code_context else ""
-
-            try:
-                # In Python 3.11, frames contain column offset information.
-                frame.positions
-            except AttributeError:
-                pass
-            else:
-                source_info.column_range = (frame.positions.col_offset, frame.positions.end_col_offset)
-
-        if not first_user_frame_found:
-            if source_info.is_user_frame():
-                add_code()
-                first_user_frame_found = True
-            elif include_code_index is not None and index >= include_code_index:
-                add_code()
+        try:
+            # In Python 3.11, frames contain column offset information.
+            frame.f_code.co_positions
+        except AttributeError:
+            pass
+        else:
+            # There are twice as many instructions as co_positions()
+            _, _, start, end = frame.f_code.co_positions()[frame.f_lasti // 2]
+            source_info.column_range = (start, end)
 
         stack_info.append(source_info)
+        frame = frame.f_back
 
     return stack_info
