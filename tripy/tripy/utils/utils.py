@@ -468,3 +468,33 @@ def merge_function_arguments(func, *args, **kwargs):
     all_args = get_positional_arg_names(func, *args)
     all_args.extend(kwargs.items())
     return all_args
+
+
+def get_arg_by_name(name, func, *args, **kwargs):
+    if name in kwargs:
+        return kwargs[name]
+
+    args = dict(get_positional_arg_names(func, *args))
+    if name in args:
+        return args[name]
+
+    assert False, f"No such argument: {name}"
+
+
+def modify_arg(name, modify_func, func, *args, **kwargs):
+    """
+    Modifies an argument corresponding to the provided name.
+    `modify_func` should be a function that accepts the argument and returns the modified argument.
+    """
+    if name in kwargs:
+        kwargs[name] = modify_func(kwargs[name])
+        return args, kwargs
+
+    all_args = get_positional_arg_names(func, *args)
+    args = list(args)
+    for index, (arg_name, _) in enumerate(all_args):
+        if name == arg_name:
+            args[index] = modify_func(args[index])
+            return args, kwargs
+
+    assert False, f"No such argument: {name}"
