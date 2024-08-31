@@ -17,7 +17,7 @@
 
 
 import inspect
-from typing import List
+from typing import List, Union, Optional, get_origin, get_args, ForwardRef, get_type_hints
 from tripy.common.datatype import DATA_TYPES
 import itertools
 import pytest
@@ -198,19 +198,33 @@ def get_all_possible_verif_ops():
         if blocks is None:
             continue
 
-        if (
-            isinstance(obj, property)
-            or "." in obj.__qualname__
-            or obj.__qualname__[0].isupper()
-            or obj in DATA_TYPES.values()
-            or (not obj.__qualname__.startswith("__") and "_" in obj.__qualname__)
-        ):
+        if isinstance(obj, property):
+            continue
+
+        func_sig = inspect.signature(func_obj)
+        param_dict = func_sig.parameters
+        contains_tensor_input = False
+        for type_hint in param_dict.values():
+            type_hint = type_hint.annotation
+            while get_origin(type_hint) in [Union, Optional, list] and not contains_tensor_input:
+                type_hint = get_args(type_hint)[0]
+                # ForwardRef refers to any case where type hint is a string.
+                if isinstance(type_hint, ForwardRef):
+                    type_hint = type_hint.__forward_arg__
+                    if type_hint == "tripy.Tensor":
+                        print(type_hint)
+                        contains_tensor_input = True
+
+        if not contains_tensor_input:
             continue
 
         qualnames.add(obj.__qualname__)
 
     return qualnames
 
+
+print(get_all_possible_verif_ops())
+print(len(get_all_possible_verif_ops()))
 
 operations = get_all_possible_verif_ops()
 # add any function that you do not want to be verified:
