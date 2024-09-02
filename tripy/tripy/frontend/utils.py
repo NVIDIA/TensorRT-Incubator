@@ -457,6 +457,77 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
 
     return impl
 
+def wraps_to_flat_ir_to_func(cls):
+    """
+    Decorator that wraps the to_flat_ir method of a class.
+
+    This decorator creates a FlatIRFunction corresponding to the captured FlatIR operations
+    in the to_flat_ir method. Inputs/outputs to the FlatIRFunction are cloned version of original tensors
+    and maintains a caller and callee relationship to help integrate Function IR subgraph with overall FlatIR.
+
+    Args:
+        cls: The class being decorated.
+
+    Returns:
+        The decorated class with a modified to_flat_ir method.
+    """
+    original_to_flat_ir = cls.to_flat_ir
+
+    @functools.wraps(original_to_flat_ir)
+    def wrapped_to_flat_ir(
+        self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], flat_ir: "FlatIR"
+    ) -> None:
+        from tripy.flat_ir.ops.base import BaseFlatIROp, FlatIRFunction
+
+        callee_inputs = [
+            input_tensor.clone(reason_details=f"Function input cloned from {input_tensor}") for input_tensor in inputs
+        ]
+        callee_outputs = [
+            output_tensor.clone(reason_details=f"Function output cloned from {output_tensor}")
+            for output_tensor in outputs
+        ]
+
+        flat_ir_function = FlatIRFunction(self.__class__.__name__, callee_inputs, callee_outputs)
+        flat_ir.add_function(flat_ir_function)
+
+        for callee, caller in zip(callee_inputs + callee_outputs, inputs + outputs):
+            setattr(callee, "caller_tensor", caller)
+
+        def add_op_to_function(operation: BaseFlatIROp) -> BaseFlatIROp:
+            """Add an operation to the FlatIRFunction and return it."""
+            flat_ir_function.add_op(operation)
+            return operation
+
+        def get_all_subclasses(cls):
+            subclasses = set()
+            for subclass in cls.__subclasses__():
+                subclasses.add(subclass)
+                subclasses.update(get_all_subclasses(subclass))
+            return subclasses
+
+        original_builds = {}
+        for op_class in get_all_subclasses(BaseFlatIROp):
+            original_builds[op_class.__name__] = op_class.build
+
+            @classmethod
+            def make_build_func(cls, inputs_internal, outputs_internal, *args, **kwargs) -> BaseFlatIROp:
+                operation = original_builds[cls.__name__](inputs_internal, outputs_internal, *args, **kwargs)
+                return add_op_to_function(operation)
+
+            op_class.build = make_build_func
+
+        original_to_flat_ir(self, callee_inputs, callee_outputs)
+
+        for op_class in get_all_subclasses(BaseFlatIROp):
+            op_class.build = classmethod(original_builds[op_class.__name__])
+
+        for output_tensor in outputs:
+            output_tensor.producer = flat_ir_function
+
+    cls.to_flat_ir = wrapped_to_flat_ir
+    cls.is_to_flat_ir_wrapped = True
+    return cls
+
 
 def topological_sort(ops: List[Union[BaseTraceOp, BaseFlatIROp]]) -> List[Union[BaseTraceOp, BaseFlatIROp]]:
     """

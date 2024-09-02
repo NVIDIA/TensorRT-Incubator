@@ -101,3 +101,81 @@ class BaseFlatIROp(abc.ABC):
             The name of this operation.
         """
         return self.__class__.__name__
+
+
+class FlatIRFunction(abc.ABC):
+    """
+    Represents a function in the Flat IR.
+
+    This class encapsulates a function with its inputs, outputs, and operations.
+    """
+
+    def __init__(self, name: str, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+        """
+        Initialize a FlatIRFunction.
+
+        Args:
+            name (str): The name of the function.
+            inputs (List[FlatIRTensor]): List of input tensors.
+            outputs (List[FlatIRTensor]): List of output tensors.
+        """
+        self.name = name
+        self.inputs = inputs
+        self.outputs = outputs
+        self.ops: List[BaseFlatIROp] = []
+        # Should set trace input names and outputs while integrating subgraph.
+        self.trace_input_names = None
+        self.trace_output_names = None
+
+    def get_caller_inputs(self) -> List["FlatIRTensor"]:
+        """Return the list of caller input tensors."""
+        inputs = []
+        for inp in self.inputs:
+            inputs.append(getattr(inp, "caller_tensor"))
+        return inputs
+
+    def get_caller_outputs(self) -> List["FlatIRTensor"]:
+        """Return the list of caller output tensors."""
+        outputs = []
+        for out in self.outputs:
+            outputs.append(getattr(out, "caller_tensor"))
+        return outputs
+
+    def add_op(self, op: BaseFlatIROp) -> None:
+        """
+        Add an operation to the function.
+
+        Args:
+            op (BaseFlatIROp): The operation to add.
+        """
+        self.ops.append(op)
+
+    def __str__(self) -> str:
+        """
+        Generate a string representation of the function.
+
+        Returns:
+            str: A formatted string representing the function.
+        """
+        function_signature = [
+            f"function {self.name}(",
+            *[f"    {inp}" for inp in self.inputs],
+            ") -> (",
+            *[f"    {out}" for out in self.outputs],
+            ") {",
+        ]
+
+        function_body = [f"    {op}" for op in self.ops]
+
+        function_return = [f"    return {', '.join(out.name for out in self.outputs)}", "}"]
+
+        return "\n".join(function_signature + function_body + function_return)
+
+    def __repr__(self) -> str:
+        """
+        Generate a concise string representation of the function.
+
+        Returns:
+            str: A concise representation of the function.
+        """
+        return f"<FlatIRFunction '{self.name}' with {len(self.inputs)} inputs, {len(self.outputs)} outputs, and {len(self.ops)} ops>"

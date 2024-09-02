@@ -18,12 +18,14 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 from tripy import export, utils, constraints
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Split(BaseTraceOp):
     indices_or_sections: Union[int, Sequence[int]]
     dim: int

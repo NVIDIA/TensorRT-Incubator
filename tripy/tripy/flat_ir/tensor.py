@@ -84,6 +84,22 @@ class FlatIRTensor:
             reason_context=copy.copy(_BUILD_CONTEXT),
         )
 
+    def clone(self, reason_details) -> "FlatIRTensor":
+        """
+        Create a clone of the FlatIRTensor with an optional new name.
+        """
+        return FlatIRTensor(
+            name=None,
+            stack_info=self.stack_info,
+            dtype=self.dtype,
+            device=self.device,
+            rank=self.rank,
+            producer=None,  # Reset producer for the cloned tensor
+            shape=copy.deepcopy(self.shape),
+            reason_details=copy.deepcopy(reason_details),
+            reason_context=copy.copy(_BUILD_CONTEXT),
+        )
+
     def __str__(self) -> str:
         return (
             f"{self.name}: [rank=({self.rank}), "

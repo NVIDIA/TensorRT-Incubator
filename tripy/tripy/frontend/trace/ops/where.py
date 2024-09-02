@@ -20,10 +20,12 @@ from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import constraints, export
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Where(BaseTraceOp):
 
     def infer_shape_output_idxs(self, inputs):
@@ -72,21 +74,21 @@ class Where(BaseTraceOp):
 
         output_rank = max(a_rank, b_rank, cond_rank)
         with FlatIRTensor.context(["make rank of cond, a and b the same."]):
-            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], output_rank - cond_rank)
-            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], output_rank - a_rank)
-            inputs[2] = op_utils.expand_rank_of_tensor(inputs[2], output_rank - b_rank)
+            broadcasted_input_0 = op_utils.expand_rank_of_tensor(inputs[0], output_rank - cond_rank)
+            broadcasted_input_1 = op_utils.expand_rank_of_tensor(inputs[1], output_rank - a_rank)
+            broadcasted_input_2 = op_utils.expand_rank_of_tensor(inputs[2], output_rank - b_rank)
 
         with FlatIRTensor.context(["compute element-wise max of input shapes to get the desired output shape."]):
             bcast_cond_and_input = op_utils.compute_shape_of_broadcast(
-                op_utils.get_shape_of_tensor(inputs[0]),
-                op_utils.get_shape_of_tensor(inputs[1]),
+                op_utils.get_shape_of_tensor(broadcasted_input_0),
+                op_utils.get_shape_of_tensor(broadcasted_input_1),
                 output_rank,
                 shape1_name="the 'condition' tensor",
                 shape2_name="the 'input' tensor",
             )
             bcast_input_and_other = op_utils.compute_shape_of_broadcast(
-                op_utils.get_shape_of_tensor(inputs[1]),
-                op_utils.get_shape_of_tensor(inputs[2]),
+                op_utils.get_shape_of_tensor(broadcasted_input_1),
+                op_utils.get_shape_of_tensor(broadcasted_input_2),
                 output_rank,
                 shape1_name="the 'input' tensor",
                 shape2_name="the 'other' tensor",
@@ -99,26 +101,26 @@ class Where(BaseTraceOp):
                 shape2_name="the previously computed broadcast of the 'input' and 'other' tensors",
             )
 
-            inputs[0] = op_utils.insert_broadcast(
-                inputs[0],
+            broadcasted_input_0 = op_utils.insert_broadcast(
+                broadcasted_input_0,
                 outputs[0].rank,
                 shape_of_target_tensor=computed_output_shape,
                 tensor_details=f"first input of 'where' ('condition')",
             )
-            inputs[1] = op_utils.insert_broadcast(
-                inputs[1],
+            broadcasted_input_1 = op_utils.insert_broadcast(
+                broadcasted_input_1,
                 outputs[0].rank,
                 shape_of_target_tensor=computed_output_shape,
                 tensor_details="second input of 'where' ('input')",
             )
-            inputs[2] = op_utils.insert_broadcast(
-                inputs[2],
+            broadcasted_input_2 = op_utils.insert_broadcast(
+                broadcasted_input_2,
                 outputs[0].rank,
                 shape_of_target_tensor=computed_output_shape,
                 tensor_details="third input of 'where' ('other')",
             )
 
-        SelectOp.build(inputs, outputs)
+        SelectOp.build([broadcasted_input_0, broadcasted_input_1, broadcasted_input_2], outputs)
 
 
 @export.public_api(document_under="operations/functions")

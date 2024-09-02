@@ -17,11 +17,13 @@
 
 from dataclasses import dataclass
 from tripy import export, constraints
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.trace.ops.utils import InferLenPolicies
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Cast(BaseTraceOp):
     dtype: "tripy.common.dtype"
 

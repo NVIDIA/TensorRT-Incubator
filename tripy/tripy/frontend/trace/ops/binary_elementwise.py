@@ -28,6 +28,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class BinaryElementwise(BaseTraceOp):
     class Kind:
         SUM = " + "
@@ -93,12 +94,12 @@ class BinaryElementwise(BaseTraceOp):
 
         rank = max(inputs[0].rank, inputs[1].rank)
         with FlatIRTensor.context([f"expand the inputs of '{self.kind.strip()}' to have the same rank"]):
-            inputs[0] = op_utils.expand_rank_of_tensor(inputs[0], rank - inputs[0].rank)
-            inputs[1] = op_utils.expand_rank_of_tensor(inputs[1], rank - inputs[1].rank)
+            broadcasted_input_0 = op_utils.expand_rank_of_tensor(inputs[0], rank - inputs[0].rank)
+            broadcasted_input_1 = op_utils.expand_rank_of_tensor(inputs[1], rank - inputs[1].rank)
 
         with FlatIRTensor.context([f"broadcast the inputs of '{self.kind.strip()}' to compatible shapes"]):
-            shape_of_input0 = op_utils.get_shape_of_tensor(inputs[0])
-            shape_of_input1 = op_utils.get_shape_of_tensor(inputs[1])
+            shape_of_input0 = op_utils.get_shape_of_tensor(broadcasted_input_0)
+            shape_of_input1 = op_utils.get_shape_of_tensor(broadcasted_input_1)
 
             # Compute element-wise max of input shapes to get the desired output shape.
             output_shape_tensor = op_utils.compute_shape_of_broadcast(
@@ -110,27 +111,27 @@ class BinaryElementwise(BaseTraceOp):
             )
 
             with FlatIRTensor.context([f"broadcasting the inputs of '{self.kind.strip()}'"]):
-                inputs[0] = op_utils.insert_broadcast(
-                    inputs[0],
+                broadcasted_input_0 = op_utils.insert_broadcast(
+                    broadcasted_input_0,
                     out_rank=rank,
                     shape_of_target_tensor=output_shape_tensor,
                     tensor_details=f"left operand",
                 )
 
-                inputs[1] = op_utils.insert_broadcast(
-                    inputs[1],
+                broadcasted_input_1 = op_utils.insert_broadcast(
+                    broadcasted_input_1,
                     out_rank=rank,
                     shape_of_target_tensor=output_shape_tensor,
                     tensor_details=f"right operand",
                 )
 
-        return inputs
+        return [broadcasted_input_0, broadcasted_input_1]
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import AddOp, DivideOp, FloorOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
-        inputs = self.broadcast_inputs(inputs)
+        broadcasted_inputs = self.broadcast_inputs(inputs)
 
         if self.kind == BinaryElementwise.Kind.FLOOR_DIV:
             # First apply DivideOp
@@ -141,7 +142,7 @@ class BinaryElementwise(BaseTraceOp):
                 device=outputs[0].device,
                 reason_details=["Intermediate output of division operator for FLOOR_DIV operation."],
             )
-            DivideOp.build(inputs, [divide_out])
+            DivideOp.build(broadcasted_inputs, [divide_out])
             # Then apply FloorOp to the result of the division
             FloorOp.build([divide_out], outputs)
         elif self.kind == BinaryElementwise.Kind.MOD:
@@ -153,7 +154,7 @@ class BinaryElementwise(BaseTraceOp):
                 device=outputs[0].device,
                 reason_details=["Intermediate output of division operator for MOD operation."],
             )
-            DivideOp.build(inputs, [divide_out])
+            DivideOp.build(broadcasted_inputs, [divide_out])
 
             # Step 2: Apply FloorOp
             floor_out = FlatIRTensor.build(
@@ -173,10 +174,10 @@ class BinaryElementwise(BaseTraceOp):
                 device=outputs[0].device,
                 reason_details=["Intermediate output of Multiply operation for MOD operation."],
             )
-            MulOp.build([inputs[1], floor_out], [multiply_out])
+            MulOp.build([broadcasted_inputs[1], floor_out], [multiply_out])
 
-            # Step 4: Subtract result from dividend (inputs[0]) to get modulus
-            SubtractOp.build([inputs[0], multiply_out], outputs)
+            # Step 4: Subtract result from dividend (broadcasted_inputs[0]) to get modulus
+            SubtractOp.build([broadcasted_inputs[0], multiply_out], outputs)
         else:
             OpType = {
                 BinaryElementwise.Kind.SUM: AddOp,
@@ -188,10 +189,11 @@ class BinaryElementwise(BaseTraceOp):
                 BinaryElementwise.Kind.MINIMUM: MinOp,
                 BinaryElementwise.Kind.FLOOR_DIV: DivideOp,
             }[self.kind]
-            OpType.build(inputs, outputs)
+            OpType.build(broadcasted_inputs, outputs)
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Comparison(BinaryElementwise):
     class Kind:
         class KindElem(str):

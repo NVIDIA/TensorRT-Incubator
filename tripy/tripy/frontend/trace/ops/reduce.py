@@ -22,12 +22,15 @@ from typing import Optional, Sequence, Union
 
 from tripy import export, constraints
 from tripy.common import datatype
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
 from tripy.utils import make_list
+
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Reduce(BaseTraceOp):
     class Kind(enum.Enum):
         def __init__(self, op, init_value):
@@ -75,6 +78,7 @@ class Reduce(BaseTraceOp):
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class ArgMinMax(Reduce):
     class Kind:
         ARG_MAX = "argmax"

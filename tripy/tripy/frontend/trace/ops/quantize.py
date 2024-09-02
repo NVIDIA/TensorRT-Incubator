@@ -27,6 +27,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Quantize(BaseTraceOp):
 
     dtype: datatype.dtype
