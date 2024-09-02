@@ -28,6 +28,7 @@ from tripy.utils import make_tuple
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Slice(BaseTraceOp):
     shape_slice: Optional[slice] = None  # only used for inferring the length of a shape result
 

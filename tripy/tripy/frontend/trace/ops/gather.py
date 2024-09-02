@@ -19,11 +19,13 @@ from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import export, utils, constraints
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Gather(BaseTraceOp):
     axis: int
 

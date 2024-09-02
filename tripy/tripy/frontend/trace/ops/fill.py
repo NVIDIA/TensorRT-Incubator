@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
-import tripy.frontend.utils as frontend_utils
 from tripy import export, utils, constraints
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
@@ -30,6 +29,7 @@ from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Fill(BaseTraceOp):
     value: float
     output_rank: int

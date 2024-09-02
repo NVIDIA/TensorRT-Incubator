@@ -19,6 +19,7 @@ import re
 import tripy as tp
 from tripy.frontend.trace import Trace
 from tripy.flat_ir.ops import SubtractOp
+from tripy.flat_ir.ops.base import FlatIRFunction
 
 
 class TestSubtractOp:
@@ -31,21 +32,24 @@ class TestSubtractOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        sub = flat_ir.ops[-1]
-        broadcast_a = flat_ir.ops[-3]
-        broadcast_b = flat_ir.ops[-2]
+        func_sub = flat_ir.ops[-1]
+        assert isinstance(func_sub, FlatIRFunction)
+
+        sub = func_sub.ops[-1]
+        broadcast_a = func_sub.ops[-3]
+        broadcast_b = func_sub.ops[-2]
 
         assert isinstance(sub, SubtractOp)
 
         assert re.match(
-            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(a, t_inter[0-9]+, broadcast_dim=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[0\]\)",
             str(broadcast_a),
         )
         assert re.match(
-            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(b, t_inter[0-9]+, broadcast_dim=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[0\]\)",
             str(broadcast_b),
         )
         assert re.match(
-            r"out: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = SubtractOp\(t_inter[0-9]+, t_inter[0-9]+\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = SubtractOp\(t_inter[0-9]+, t_inter[0-9]+\)",
             str(sub),
         )

@@ -25,11 +25,21 @@ from tripy.utils import Result
 
 @dataclass(repr=False)
 class BaseTraceOp(abc.ABC):
+    """
+    Abstract base class for trace operations in the computational graph.
+
+    This class represents a node in the trace graph, with inputs and outputs
+    as TraceTensor objects.
+    """
+
     inputs: List["TraceTensor"]
-    """The inputs of this layer"""
+    """The input tensors of this operation"""
 
     outputs: List["TraceTensor"]
-    """The outputs of this layer"""
+    """The output tensors of this operation"""
+
+    is_to_flat_ir_wrapped = False
+    """Flag indicating whether the to_flat_ir method has been wrapped"""
 
     @classmethod
     def build_internal(
@@ -193,6 +203,25 @@ class BaseTraceOp(abc.ABC):
             outputs: The outputs of the subgraph.
         """
         ...
+
+    def convert_to_flat_ir(
+        self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], flat_ir: Optional["FlatIR"] = None
+    ) -> None:
+        """
+        Convert the trace operation to Flat IR representation.
+
+        This method decides whether to call the wrapped or unwrapped version
+        of to_flat_ir based on the is_flat_ir_conversion_wrapped flag.
+
+        Args:
+            inputs: List of input FlatIRTensor objects
+            outputs: List of output FlatIRTensor objects
+            flat_ir: Optional FlatIR object for the wrapped version
+        """
+        if self.is_to_flat_ir_wrapped:
+            self.to_flat_ir(inputs, outputs, flat_ir)
+        else:
+            self.to_flat_ir(inputs, outputs)
 
     def str_skip_fields(self) -> Set[str]:
         """

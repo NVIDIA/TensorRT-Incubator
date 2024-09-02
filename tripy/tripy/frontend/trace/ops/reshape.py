@@ -25,6 +25,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Reshape(BaseTraceOp):
 
     output_rank: int
@@ -145,6 +146,7 @@ def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Ten
 
 
 @dataclass(repr=False)
+@frontend_utils.wraps_to_flat_ir_to_func
 class Squeeze(BaseTraceOp):
 
     dims: Tuple[int]

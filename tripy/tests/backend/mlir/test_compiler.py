@@ -57,10 +57,11 @@ class TestErrorMapping:
                 b = tp.ones((1,))
                 trace = Trace([a + b])
                 flat_ir = trace.to_flat_ir()
-                producer = flat_ir.outputs[0].producer.inputs[0]
+                func_binary = flat_ir.outputs[0].producer
+                producer = func_binary.ops[-1].inputs[0]
                 flat_ir_inputs = ",".join(map(lambda i: i.name, producer.producer.inputs))
-                trace_inputs = ",".join(producer.producer.trace_input_names)
-                trace_output = producer.producer.trace_output_names[0]
+                trace_inputs = ",".join(func_binary.trace_input_names)
+                trace_output = func_binary.trace_output_names[0]
                 err_str = f'loc("{flat_ir_inputs};;<out>;;{producer.name};;<trace_in>;;{trace_inputs};;<trace_out>;;{trace_output}"): Test error'
 
                 with pytest.raises(

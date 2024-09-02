@@ -18,6 +18,7 @@
 import tripy as tp
 from tripy.frontend.trace import Trace
 from tripy.flat_ir.ops import ArgMinMaxOp, ConvertOp, DivideOp, DynamicBroadcastOp, MulOp, ReduceOp
+from tripy.flat_ir.ops.base import FlatIRFunction
 import re
 
 
@@ -30,10 +31,11 @@ class TestReduceOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        reduce = flat_ir.ops[-1]
+        func_reduce = flat_ir.ops[-1]
+        reduce = func_reduce.ops[-1]
         assert isinstance(reduce, ReduceOp)
         assert re.match(
-            r"out: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode='sum', reduce_dims=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(t_inter[0-9]+, t_inter[0-9]+, reduce_mode='sum', reduce_dims=\[0\]\)",
             str(reduce),
         )
 
@@ -45,11 +47,11 @@ class TestReduceOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        reduce = flat_ir.ops[-1]
+        func_reduce = flat_ir.ops[-1]
+        reduce = func_reduce.ops[-1]
         assert isinstance(reduce, ReduceOp)
-
         assert re.match(
-            r"out: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode='max', reduce_dims=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ReduceOp\(t_inter[0-9]+, t_inter[0-9]+, reduce_mode='max', reduce_dims=\[0\]\)",
             str(reduce),
         )
 
@@ -61,30 +63,43 @@ class TestReduceOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        div = flat_ir.ops[-1]
+        func_div = flat_ir.ops[-1]
+        div = func_div.ops[-1]
+        broadcast_a = func_div.ops[-3]
+        broadcast_b = func_div.ops[-2]
         assert isinstance(div, DivideOp)
         assert re.match(
-            r"out: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DivideOp\(t_inter[0-9]+, t_inter[0-9]+\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DivideOp\(t_inter[0-9]+, t_inter[0-9]+\)",
             str(div),
         )
 
-        broadcast = flat_ir.ops[-2]
-        assert isinstance(broadcast, DynamicBroadcastOp)
+        assert isinstance(broadcast_a, DynamicBroadcastOp)
         assert re.match(
             r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[[0-9]*\]\)",
-            str(broadcast),
+            str(broadcast_a),
         )
 
-        mul = flat_ir.ops[-15]
+        assert isinstance(broadcast_b, DynamicBroadcastOp)
+        assert re.match(
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[[0-9]*\]\)",
+            str(broadcast_b),
+        )
+
+        mul = flat_ir.ops[-3].ops[-1]
         assert isinstance(mul, MulOp)
         assert re.match(
-            r"t[0-9]+: \[rank=\(0\), dtype=\(int32\), loc=\(gpu:0\)\] = MulOp\(t_inter[0-9]+, t_inter[0-9]+\)",
+            r"t_inter[0-9]+: \[rank=\(0\), dtype=\(int32\), loc=\(gpu:0\)\] = MulOp\(t_inter[0-9]+, t_inter[0-9]+\)",
             str(mul),
         )
-        reduce = flat_ir.ops[2]
+
+        func_reduce = flat_ir.ops[1]
+        assert isinstance(func_reduce, FlatIRFunction)
+
+        reduce = func_reduce.ops[-1]
         assert isinstance(reduce, ReduceOp)
+
         assert re.match(
-            r"t[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = ReduceOp\(inp, t_inter[0-9]+, reduce_mode='sum', reduce_dims=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = ReduceOp\(t_inter[0-9]+, t_inter[0-9]+, reduce_mode='sum', reduce_dims=\[0\]\)",
             str(reduce),
         )
 
@@ -96,11 +111,14 @@ class TestReduceOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        reduce = flat_ir.ops[-1]
-        assert isinstance(reduce, ArgMinMaxOp)
+        func_argminmax = flat_ir.ops[-1]
+        assert isinstance(func_argminmax, FlatIRFunction)
+
+        argminmax = func_argminmax.ops[-1]
+        assert isinstance(argminmax, ArgMinMaxOp)
         assert re.match(
-            r"out: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode='argmax', reduce_dims=\[0\]\)",
-            str(reduce),
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(t_inter[0-9]+, t_inter[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode='argmax', reduce_dims=\[0\]\)",
+            str(argminmax),
         )
 
     def test_argmin_str(self):
@@ -111,9 +129,12 @@ class TestReduceOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        reduce = flat_ir.ops[-1]
-        assert isinstance(reduce, ArgMinMaxOp)
+        func_argminmax = flat_ir.ops[-1]
+        assert isinstance(func_argminmax, FlatIRFunction)
+
+        argminmax = func_argminmax.ops[-1]
+        assert isinstance(argminmax, ArgMinMaxOp)
         assert re.match(
-            r"out: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(inp, t[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode='argmin', reduce_dims=\[0\]\)",
-            str(reduce),
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(int32\), loc=\(gpu:0\)\] = ArgMinMaxOp\(t_inter[0-9]+, t_inter[0-9]+, t_inter[0-9]+, t_inter[0-9]+, reduce_mode='argmin', reduce_dims=\[0\]\)",
+            str(argminmax),
         )
