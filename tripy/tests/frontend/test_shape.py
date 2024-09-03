@@ -102,6 +102,25 @@ class TestShape:
         assert isinstance(new_shape.trace_tensor.producer, Concatenate)
         assert cp.from_dlpack(new_shape).get().tolist() == values + appended
 
+    @pytest.mark.parametrize("constructor", [lambda x: x, tp.Tensor, np.array])
+    @pytest.mark.parametrize("factor", [-1, 0, 1, 2])
+    def test_mul_override(self, values, constructor, factor):
+        s = tp.Shape(values)
+        f = constructor(factor)
+        new_shape = s * f
+        rmul = f * s
+        expected = values * factor
+        assert cp.from_dlpack(new_shape).get().tolist() == expected
+        assert cp.from_dlpack(rmul).get().tolist() == expected
+
+    @pytest.mark.parametrize("constructor", [lambda x: x, tp.Tensor, np.array])
+    @pytest.mark.parametrize("factor", [-1, 0, 1, 2])
+    def test_mul_empty_shape(self, constructor, factor):
+        s = tp.Shape([])
+        for factor in range(3):
+            new_shape = s * constructor(factor)
+            assert cp.from_dlpack(new_shape).get().tolist() == []
+
     def test_len_concatenation(self, values):
         s = tp.Shape(values)
         # we are testing that the length is *inferred*, so do not execute the concatenation
@@ -123,7 +142,7 @@ class TestShape:
         res = s.add(tp.Shape(values))
         assert len(res) == len(values)
 
-        res = s * 2
+        res = s.multiply(2)
         assert len(res) == len(values)
 
     def test_shape_op(self, values):
@@ -199,7 +218,7 @@ class TestShape:
 
         # binary elementwise ops are overridden to accept one shape
         s = tp.Shape(values)
-        doubled = 2 * s
+        doubled = s.multiply(2)
 
         assert isinstance(doubled, tp.Shape)
         assert isinstance(doubled.trace_tensor.producer, BinaryElementwise)
@@ -399,6 +418,13 @@ class TestShape:
         with raises(tp.TripyException, match="Shape tensors must be of rank 1, but input tensor is rank 2"):
             _ = tp.Shape(tp.ones((3, 2), dtype=tp.int32))
 
+    def test_invalid_mul_rank(self, values):
+        s = tp.Shape(values)
+        with raises(
+            tp.TripyException, match="Attempting to multiply a Tripy Shape by a tensor of rank >= 1, which is undefined"
+        ):
+            _ = s * values
+
     def test_invalid_plus_type(self, values):
         s = tp.Shape(values)
         t = tp.Tensor(values, dtype=tp.int32)
@@ -431,7 +457,7 @@ class TestShape:
         with raises(
             tp.TripyException, match="For binary elementwise operators on Shapes, all inputs must be of rank at most 1"
         ):
-            tp.Shape(values) * tp.Tensor([values, values])
+            tp.Shape(values).multiply(tp.Tensor([values, values]))
 
     def test_unary_elementwise_fails_at_run_time(self, values):
         v = tp.exp(tp.Shape(values))
