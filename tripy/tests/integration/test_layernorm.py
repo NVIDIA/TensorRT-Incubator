@@ -21,7 +21,7 @@ import torch
 import pytest
 
 import tripy as tp
-from tripy.common.exception import TripyException
+from tests import helper
 
 DTYPES = [
     (torch.float16, tp.float16),
@@ -66,7 +66,8 @@ class TestLayerNorm:
             normalized_shape=[2, 2],
         )
         x = tp.ones((5,5,5))
-        with pytest.raises(
-            TripyException, match=re.escape("The input's last 2 dimensions must be: [2, 2] but received: [5, 5]")
+        with helper.raises(
+            tp.TripyException,
+            match=re.escape("size of operand dimension 1 (5) is not compatible with size of result dimension 1 (2)"),
         ):
-            tp_layernorm(x)
+            tp_layernorm(x).eval()
