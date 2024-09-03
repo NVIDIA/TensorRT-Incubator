@@ -100,7 +100,7 @@ def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[in
         input = tp.iota((2, 3), dtype=tp.float32)
         output = tp.reshape(input, (1, 6))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
+        assert tp.array_equal(output, tp.Tensor(np.reshape(cp.from_dlpack(input).get(), (1, 6))))
     """
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.shape import Shape
@@ -235,7 +235,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, dims=(0, 2))
-        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get()))
+        assert tp.array_equal(output, tp.Tensor(np.squeeze(cp.from_dlpack(input).get())))
 
 
     .. code-block:: python
@@ -244,7 +244,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, 0)
-        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), 0))
+        assert tp.array_equal(output, tp.Tensor(np.squeeze(cp.from_dlpack(input).get(), 0)))
 
     .. code-block:: python
         :linenos:
@@ -253,7 +253,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
         input = tp.iota((1, 2, 1), dtype=tp.float32)
         output = tp.squeeze(input, (0, 2))
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), (0, 2)))
+        assert tp.array_equal(output, tp.Tensor(np.squeeze(cp.from_dlpack(input).get(), (0, 2))))
     """
 
     if isinstance(dims, int):

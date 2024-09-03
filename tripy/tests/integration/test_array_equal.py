@@ -15,23 +15,23 @@
 # limitations under the License.
 #
 
-import cupy as cp
+import pytest
 import numpy as np
+import torch
 
 import tripy as tp
 
 
-class TestFull:
-    def test_normal_shape(self):
-        out = tp.full((2, 2), 5.0, tp.float32)
-        assert tp.array_equal(out, tp.Tensor(np.full((2, 2), 5.0, np.float32)))
-
-    def test_shape_tensor(self):
-        a = tp.ones((2, 3))
-        out = tp.full(a.shape, 5.0, tp.float32)
-        assert tp.array_equal(out, tp.Tensor(np.full((2, 3), 5.0, np.float32)))
-
-    def test_mixed_shape(self):
-        a = tp.ones((2, 3))
-        out = tp.full((a.shape[0], 4), 5.0, tp.float32)
-        assert tp.array_equal(out, tp.Tensor(np.full((2, 4), 5.0, np.float32)))
+class TestArrayEqual:
+    @pytest.mark.parametrize(
+        "a, b",
+        [
+            (tp.Tensor([1, 2], dtype=tp.float32), tp.Tensor([1, 2], dtype=tp.float32)),
+            (tp.ones((2, 2), dtype=tp.int32), tp.Tensor([[1, 1], [1, 1]], dtype=tp.int32)),
+            (tp.ones((1, 4)), tp.ones((4, 1))),
+        ],
+    )
+    def test_array_equal(self, a, b):
+        torch_result = torch.equal(torch.from_dlpack(a), torch.from_dlpack(b))
+        tp_result = tp.array_equal(a, b)
+        assert torch_result == tp_result

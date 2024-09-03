@@ -210,7 +210,7 @@ def quantize(
         quant = tp.quantize(input, scale, tp.int4)
         output = tp.dequantize(quant, scale, tp.float32)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([[0, 1], [2, 3]], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor([[0, 1], [2, 3]], dtype=tp.float32))
 
     .. seealso:: :func:`dequantize`
     """

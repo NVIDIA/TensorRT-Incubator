@@ -131,7 +131,7 @@ def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
         input = tp.Tensor([1, 2], dtype=tp.int32)
         output = tp.cast(input, tp.float32)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor([1, 2], dtype=tp.float32))
 
     .. seealso:: :func:`quantize`, :func:`dequantize`
     """

@@ -285,7 +285,7 @@ def abs(input: "tripy.Tensor") -> "tripy.Tensor":
         input = tp.Tensor([-1, -2], dtype=tp.int32)
         output = tp.abs(input)
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1, 2], dtype=np.float32))
+        assert tp.array_equal(output, tp.Tensor(np.array([1, 2], dtype=np.float32)))
     """
     from tripy.frontend import Tensor
     from tripy.common.datatype import int64

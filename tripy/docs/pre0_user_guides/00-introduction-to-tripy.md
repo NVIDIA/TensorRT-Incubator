@@ -14,7 +14,7 @@ But enough talk; let's see some code:
 a = tp.arange(5)
 c = a + 1.5
 print(c)
-assert np.array_equal(cp.from_dlpack(c).get(), np.arange(5, dtype=np.float32) + 1.5) # doc: omit
+assert tp.array_equal(c, tp.Tensor(np.arange(5, dtype=np.float32) + 1.5)) # doc: omit
 ```
 
 This should look familiar if you've used linear algebra or deep learning libraries like

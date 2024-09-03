@@ -42,8 +42,7 @@ class TestReduceOp:
         out = tp.all(a, dim=axis, keepdim=keepdim)
         expected = tp.Tensor(np.array(x.all(axis=axis, keepdims=keepdim)))
         #np.array is necessary to deal with case where x.all returns a numpy scalar (5th case)
-        assert out.shape == expected.shape
-        assert tp.allclose(out, expected)
+        assert tp.array_equal(out, expected)
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -57,7 +56,6 @@ class TestReduceOp:
             ((2, 3, 4, 5), (-2, -1), True),
         ],
     )
-
     def test_any(self, x_shape, axis, keepdim):
         x = np.array([i % 2 == 0 for i in np.arange(np.prod(x_shape))]).reshape(x_shape)
         a = tp.Tensor(x)
@@ -68,7 +66,12 @@ class TestReduceOp:
         "x_shape, axis, keepdim",
         [
             ((2, 3), 1, True),
-            pytest.param((2, 3, 4), (1, 2), True, marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)")),
+            pytest.param(
+                (2, 3, 4),
+                (1, 2),
+                True,
+                marks=pytest.mark.skip(reason="For this test case without out.eval() tp.allclose fails. (Issue #)"),
+            ),
             ((2, 3), 1, False),
             ((2, 3, 4), (1, 2), False),
             ((2, 3, 4), None, False),
@@ -122,7 +125,7 @@ class TestReduceOp:
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
         out = tp.argmax(a, dim=axis, keepdim=keepdim)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmax(axis=axis, keepdims=keepdim)))
+        assert tp.array_equal(out, tp.Tensor(np.array(x.argmax(axis=axis, keepdims=keepdim))))
 
     @pytest.mark.parametrize(
         "x_shape, axis, keepdim",
@@ -139,4 +142,4 @@ class TestReduceOp:
         x = np.arange(np.prod(x_shape)).reshape(x_shape).astype(np.float32)
         a = tp.Tensor(x)
         out = tp.argmin(a, dim=axis, keepdim=keepdim)
-        assert np.array_equal(cp.from_dlpack(out).get(), np.array(x.argmin(axis=axis, keepdims=keepdim)))
+        assert tp.array_equal(out, tp.Tensor(np.array(x.argmin(axis=axis, keepdims=keepdim))))

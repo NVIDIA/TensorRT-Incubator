@@ -36,11 +36,11 @@ class TestParameter:
         tensor = tp.Tensor([1, 2, 3])
         param = tp.Parameter(tensor)
 
-        assert np.array_equal(cp.from_dlpack(param).get(), cp.from_dlpack(tensor).get())
+        assert tp.array_equal(param, tensor)
 
     def test_can_construct_from_non_tensor(self):
         param = tp.Parameter([1, 2, 3])
-        assert np.array_equal(cp.from_dlpack(param).get(), np.array([1, 2, 3], dtype=np.int32))
+        assert tp.array_equal(param, tp.Tensor(np.array([1, 2, 3], dtype=np.int32)))
 
     @pytest.mark.parametrize(
         "other,is_compatible",
@@ -83,4 +83,4 @@ class TestDefaultParameter:
 
     def test_data_can_be_materialized(self):
         param = DefaultParameter((1, 2), dtype=tp.float32)
-        assert np.array_equal(cp.from_dlpack(param).get(), np.array([[0, 1]], dtype=np.float32))
+        assert tp.array_equal(param, tp.Tensor(np.array([[0, 1]], dtype=np.float32)))

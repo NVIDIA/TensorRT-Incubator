@@ -72,16 +72,15 @@ class GroupNorm(Module):
             group_norm.bias = tp.zeros_like(group_norm.bias)
 
             input = tp.iota((1, 4, 2, 2), dim=1)
-            output = group_norm(input)
+            tp_out = group_norm(input)
 
-            np_out = cp.from_dlpack(output).get() # doc: omit
-            assert np_out.shape == (1, 4, 2, 2)
+            assert tp_out.shape == tp.Shape([1, 4, 2, 2]) # doc: omit
 
             torch_tensor = torch.from_dlpack(input) # doc: omit
             torch_gn = torch.nn.GroupNorm(2, 4).to(torch.device("cuda")) # doc: omit
             torch_out = cp.from_dlpack(torch_gn(torch_tensor).detach()).get() # doc: omit
-            assert np_out.shape == torch_out.shape # doc: omit
-            assert np.allclose(np_out, torch_out) # doc: omit
+            assert tp_out.shape == torch_out.shape # doc: omit
+            assert tp.allclose(tp_out, tp.Tensor(torch_out)) # doc: omit
         """
         super().__init__()
 
