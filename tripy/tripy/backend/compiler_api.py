@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import atexit
 import base64
 import inspect
 import numbers
@@ -31,6 +32,100 @@ from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
 from tripy.frontend import Tensor, Trace
 from tripy.utils import json as json_utils
+
+
+@export.public_api(document_under="compiler")
+class Stream:
+    """
+    Represents a CUDA stream that can be used to manage concurrent operations.
+
+    This class is a wrapper around the underlying stream object, allowing management of CUDA streams.
+
+    Args:
+        priority (int): Assign priority for the new stream. Lower number signifies higher priority.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Create new streams
+
+        streamA = tp.Stream()
+        streamB = tp.Stream()
+        defaultStream = tp.Stream.get_default_stream()
+        assert streamA != streamB
+        assert defaultStream != streamB
+
+    .. code-block:: python
+        :linenos:
+        :caption: Use streams in execution
+
+        linear = tp.Linear(2, 3)
+        compiler = tp.Compiler(linear)
+
+        compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
+
+        a = tp.ones((2, 2), dtype=tp.float32)
+
+        compiled_linear.stream = tp.Stream()
+        out = compiled_linear(a)
+        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+    """
+
+    _default_stream = None  # class variable
+
+    _active_cuda_stream = None
+
+    def __init__(self, priority=0):
+        if priority != 0:
+            raise_error(
+                "Incorrect stream priority",
+                [f"Stream priority can only be 0 until #172 is fixed, got priority={priority}."],
+            )
+        from tripy.backend.mlir.utils import MLIRRuntimeClient
+
+        self._active_cuda_stream = MLIRRuntimeClient().create_stream()
+
+    @classmethod
+    def get_default_stream(cls):
+        """Get the default stream, create it if it doesn't exist."""
+        if cls._default_stream is None:
+            cls._default_stream = cls()
+        return cls._default_stream
+
+    def synchronize(self):
+        """Synchronize the stream, blocking until all operations in this stream are complete."""
+        self._active_cuda_stream.sync()
+
+    def __del__(self):
+        del self._active_cuda_stream
+
+    def __eq__(self, other):
+        if not isinstance(other, Stream):
+            return False
+
+        if not (hasattr(self, "_active_cuda_stream") and hasattr(other, "_active_cuda_stream")):
+            return False
+
+        return self._active_cuda_stream == other._active_cuda_stream
+
+    def __repr__(self):
+        return f"<Stream(id={id(self)}, default={self == Stream._default_stream})>"
+
+    def __hash__(self):
+        return hash(id(self))
+
+    @classmethod
+    def cleanup_default_stream(cls):
+        if cls._default_stream:
+            # TODO: expose methods from mlir-tensorrt python bindings to destroy stream
+            cls._default_stream = None
+        cls._active_stream = None
+
+
+# Create default stream.
+Stream.get_default_stream()
+
+# Register the cleanup_default_stream method to be called at program exit
+atexit.register(Stream.cleanup_default_stream)
 
 
 @export.public_api(document_under="compiler")
@@ -131,6 +226,7 @@ class Executable:
         self._arg_names = arg_names
         self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
+        self._stream = Stream().get_default_stream()
 
         # Build a signature so the executable works with `inspect.signature`
         params = []
@@ -140,6 +236,15 @@ class Executable:
         return_annotation = Tensor if self._executable_signature.get_num_output_args() == 1 else Sequence[Tensor]
 
         self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
+
+    @property
+    def stream(self):
+        return self._stream
+
+    @stream.setter
+    def stream(self, stream):
+        self._stream = stream
+        self._executor.stream = self._stream
 
     def __call__(self, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         """
