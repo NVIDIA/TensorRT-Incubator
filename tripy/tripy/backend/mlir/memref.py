@@ -23,7 +23,7 @@ from tripy.common import utils as common_utils
 import mlir_tensorrt.runtime.api as runtime
 
 
-def create_empty_memref(shape, dtype, device=tp_device("gpu")):
+def create_empty_memref(shape, dtype, device=tp_device("gpu"), stream=None):
     """
     Creates an empty memref, used for allocating memory.
     """
@@ -33,6 +33,7 @@ def create_empty_memref(shape, dtype, device=tp_device("gpu")):
         shape=list(shape),
         dtype=mlir_dtype,
         device=mlirtrt_device,
+        stream=stream,
     )
 
 
@@ -51,9 +52,7 @@ def tolist(memref):
     """
     memref_value = memref
     if memref.address_space == runtime.PointerType.device:
-        memref_value = mlir_utils.MLIRRuntimeClient().copy_to_host(
-            device_memref=memref,
-        )
+        memref_value = mlir_utils.MLIRRuntimeClient().copy_to_host(device_memref=memref)
     try:
         return memoryview(memref_value).tolist()
     except NotImplementedError as e:
