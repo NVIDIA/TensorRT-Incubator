@@ -30,12 +30,14 @@ from tripy.utils import log_time, make_tuple
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
         from tripy.backend.mlir.utils import MLIRRuntimeClient
+        from tripy.backend.compiler_api import default_stream
+
         self.runtime_client = MLIRRuntimeClient()
-        self.stream = self.runtime_client.create_stream()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
         self.session = runtime.RuntimeSession(session_options, executable)
         self.device = self.runtime_client.get_devices()[0]  # Assume a single device is available.
         self.signature = executable.get_signature("main")
+        self.stream = default_stream()
 
     def _create_shape_memref(self, shape):
         from tripy.common.utils import convert_list_to_array
@@ -44,13 +46,13 @@ class Executor:
         if len(shape) == 0:
             # create an empty memref
             return self.runtime_client.create_memref(
-                shape=(0,),
-                dtype=runtime.runtime.ScalarTypeCode.i64,
+                shape=(0,), dtype=runtime.runtime.ScalarTypeCode.i64, stream=self.stream._active_cuda_stream
             )
         return self.runtime_client.create_memref(
             convert_list_to_array(shape, datatype.int64),
             shape=(len(shape),),
             dtype=runtime.ScalarTypeCode.i64,
+            stream=self.stream._active_cuda_stream,
         )
 
     def _get_inputs_runtime_shape(self, inputs):
@@ -136,6 +138,14 @@ class Executor:
         output_tensor_info = self._get_output_tensor_info(outputs_shape, output_devices)
         return output_tensor_info
 
+    @property
+    def stream(self):
+        return self._stream
+
+    @stream.setter
+    def stream(self, stream):
+        self._stream = stream
+
     @log_time
     def execute(self, output_devices=List[device], inputs: List["Tensor"] = []) -> List[runtime.MemRefValue]:
         from tripy.frontend.trace.ops import Storage
@@ -163,7 +173,10 @@ class Executor:
 
         # Allocate output memory and store buffer pointers.
         outputs = [
-            create_empty_memref(shape=info.shape, dtype=info.dtype, device=info.device) for info in out_tensor_info
+            create_empty_memref(
+                shape=info.shape, dtype=info.dtype, device=info.device, stream=self.stream._active_cuda_stream
+            )
+            for info in out_tensor_info
         ]
 
         out_args = []
@@ -175,14 +188,17 @@ class Executor:
                 memref = self.runtime_client.copy_to_device(
                     host_memref=memref,
                     device=self.runtime_client.get_devices()[0],
+                    stream=self.stream._active_cuda_stream,
                 )
             if not memref:
                 raise_error("Could not allocate output memref", details=memref.error_details)
             out_args.append(memref)
 
         # Execute and populate device pointers.
-        self.session.execute_function("main", in_args=in_args, out_args=out_args, stream=self.stream)
-        self.stream.sync()
+        self.session.execute_function(
+            "main", in_args=in_args, out_args=out_args, stream=self.stream._active_cuda_stream
+        )
+
         # For outputs that were on the host, do the copy back
         # TODO(#155): MLIR-TensorRT should allow output tensor placements on host.
         for idx, out_info in enumerate(out_tensor_info):
@@ -190,7 +206,7 @@ class Executor:
                 self.runtime_client.copy_to_host(
                     device_memref=out_args[idx],
                     existing_host_memref=outputs[idx],
-                    stream=None,
+                    stream=self.stream._active_cuda_stream,
                 )
 
         return outputs

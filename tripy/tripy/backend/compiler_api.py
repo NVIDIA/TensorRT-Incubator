@@ -31,6 +31,137 @@ from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
 from tripy.frontend import Tensor, Trace
 from tripy.utils import json as json_utils
+from tripy.common.device import device as Device
+
+
+# Global variable to store instances
+_default_stream_instances = {}
+
+
+@export.public_api(document_under="compiler")
+def default_stream(device: Device = Device("gpu")) -> "tripy.Stream":
+    """
+    Provides access to the default CUDA stream for a given device.
+    This function implements singleton pattern to ensure a single default stream instance per device.
+
+    Args:
+        device: The device for which to get the default stream.
+
+    Returns:
+        The default Stream object for the specified device.
+
+    Raises:
+        ValueError: If the device is not of type 'gpu' or if the device index is not 0.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Creation of default_stream
+
+        default = default_stream()  # Returns the default Stream object for the current device
+
+    Note:
+        Calling default_stream() with the same device always returns the same Stream instance for that device.
+    """
+    global _default_stream_instances
+
+    if device.kind != "gpu":
+        raise_error(f"default_stream creation requires device to be of type gpu, got device={device}.")
+
+    if device.index != 0:
+        raise_error(f"Tripy stream only works with device index 0, got device={device}")
+
+    if device.index not in _default_stream_instances:
+        _default_stream_instances[device.index] = Stream()
+
+    return _default_stream_instances[device.index]
+
+
+@export.public_api(document_under="compiler")
+class Stream:
+    """
+    Represents a CUDA stream that can be used to manage concurrent operations.
+
+    This class is a wrapper around the underlying stream object, allowing management of CUDA streams.
+    """
+
+    def __init__(self, priority=0):
+        """
+        Args:
+            priority : Assign priority for the new stream. Lower number signifies higher priority.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Creating new streams
+
+            streamA = tp.Stream()
+            streamB = tp.Stream()
+            defaultStream = tp.default_stream()
+            assert streamA != streamB
+            assert defaultStream != streamB
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            linear = tp.Linear(2, 3)
+            compiler = tp.Compiler(linear)
+
+            compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
+
+            a = tp.ones((2, 2), dtype=tp.float32)
+
+            compiled_linear.stream = tp.Stream()
+            out = compiled_linear(a)
+            assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+        """
+        if priority != 0:
+            raise_error(
+                "Incorrect stream priority",
+                [f"Stream priority can only be 0 until #172 is fixed, got priority={priority}."],
+            )
+        from tripy.backend.mlir.utils import MLIRRuntimeClient
+
+        self._active_cuda_stream = MLIRRuntimeClient().create_stream()
+
+    def synchronize(self) -> None:
+        """Synchronize the stream, blocking until all operations in this stream are complete.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Use streams in execution
+
+            import time
+            linear = tp.Linear(2, 3)
+            compiler = tp.Compiler(linear)
+
+            compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
+
+            a = tp.ones((2, 2), dtype=tp.float32)
+            compiled_linear.stream = tp.Stream()
+            n_iterations = 20
+            start_time = time.perf_counter()
+            for _ in range(n_iterations):
+                out = compiled_linear(a)
+            compiled_linear.stream.synchronize()
+            time = (time.perf_counter() - start_time) / n_iterations
+            print(f"Execution took f{time}ms")
+        """
+        self._active_cuda_stream.sync()
+
+    def __eq__(self, other):
+        if not isinstance(other, Stream):
+            return False
+
+        if not (hasattr(self, "_active_cuda_stream") and hasattr(other, "_active_cuda_stream")):
+            return False
+
+        return self._active_cuda_stream == other._active_cuda_stream
+
+    def __str__(self):
+        return f"<Stream(id={id(self)})>"
+
+    def __hash__(self):
+        return hash(id(self))
 
 
 @export.public_api(document_under="compiler")
@@ -131,6 +262,7 @@ class Executable:
         self._arg_names = arg_names
         self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
+        self._stream = default_stream()
 
         # Build a signature so the executable works with `inspect.signature`
         params = []
@@ -140,6 +272,15 @@ class Executable:
         return_annotation = Tensor if self._executable_signature.get_num_output_args() == 1 else Sequence[Tensor]
 
         self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
+
+    @property
+    def stream(self):
+        return self._stream
+
+    @stream.setter
+    def stream(self, stream):
+        self._stream = stream
+        self._executor.stream = self._stream
 
     def __call__(self, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         """
