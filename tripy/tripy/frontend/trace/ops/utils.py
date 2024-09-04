@@ -344,9 +344,8 @@ def get_broadcast_in_dim(input_rank: int, output_rank: int) -> List[int]:
 def insert_broadcast(
     input_tensor: "FlatIRTensor",
     out_rank: int,
+    shape_of_target_tensor: "FlatIRTensor",
     tensor_details: str,
-    use_dynamic_variant: bool = False,
-    shape_of_target_tensor: "FlatIRTensor" = None,
 ):
     from tripy.flat_ir.ops import DynamicBroadcastOp
     from tripy.flat_ir.tensor import FlatIRTensor
@@ -363,22 +362,12 @@ def insert_broadcast(
         ],
     )
 
-    if use_dynamic_variant:
+    DynamicBroadcastOp.build(
+        [input_tensor, shape_of_target_tensor],
+        [output_tensor],
+        broadcast_dim=get_broadcast_in_dim(input_tensor.rank, out_rank),
+    )
 
-        assert shape_of_target_tensor, "shape_of_target_tensor is required for dynamic variant of the broadcast op."
-
-        DynamicBroadcastOp.build(
-            [input_tensor, shape_of_target_tensor],
-            [output_tensor],
-            broadcast_dim=get_broadcast_in_dim(input_tensor.rank, out_rank),
-        )
-
-    else:
-        BroadcastOp.build(
-            [input_tensor],
-            [output_tensor],
-            broadcast_dim=get_broadcast_in_dim(input_tensor.rank, out_rank),
-        )
     return output_tensor
 
 
@@ -414,7 +403,6 @@ def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
     return insert_broadcast(
         input,
         out_rank=output_rank,
-        use_dynamic_variant=True,
         shape_of_target_tensor=concat_output_tensor,
         tensor_details="",
     )

@@ -110,7 +110,6 @@ class BinaryElementwise(BaseTraceOp):
                 inputs[0] = op_utils.insert_broadcast(
                     inputs[0],
                     out_rank=rank,
-                    use_dynamic_variant=True,
                     shape_of_target_tensor=output_shape_tensor,
                     tensor_details=f"left operand",
                 )
@@ -118,7 +117,6 @@ class BinaryElementwise(BaseTraceOp):
                 inputs[1] = op_utils.insert_broadcast(
                     inputs[1],
                     out_rank=rank,
-                    use_dynamic_variant=True,
                     shape_of_target_tensor=output_shape_tensor,
                     tensor_details=f"right operand",
                 )

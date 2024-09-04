@@ -21,8 +21,8 @@ from typing import List
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.backend.mlir.utils import is_any_dim_dynamic
+from tripy.flat_ir.ops.base import BaseFlatIROp
 
 
 @dataclass(repr=False)

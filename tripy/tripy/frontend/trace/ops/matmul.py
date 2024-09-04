@@ -197,14 +197,12 @@ class MatrixMultiplication(BaseTraceOp):
                 inputs[0] = op_utils.insert_broadcast(
                     inputs[0],
                     out_rank=nb_result_batch_dims + a_rank - nb_a_batch_dims,
-                    use_dynamic_variant=True,
                     shape_of_target_tensor=a_dims,
                     tensor_details=["left operand of DotOp"],
                 )
                 inputs[1] = op_utils.insert_broadcast(
                     inputs[1],
                     out_rank=nb_result_batch_dims + b_rank - nb_b_batch_dims,
-                    use_dynamic_variant=True,
                     shape_of_target_tensor=b_dims,
                     tensor_details=["right operand of DotOp"],
                 )

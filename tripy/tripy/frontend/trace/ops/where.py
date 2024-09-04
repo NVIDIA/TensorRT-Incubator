@@ -116,21 +116,18 @@ class Where(BaseTraceOp):
             inputs[0] = op_utils.insert_broadcast(
                 inputs[0],
                 outputs[0].rank,
-                use_dynamic_variant=True,
                 shape_of_target_tensor=computed_output_shape,
                 tensor_details=f"first input of 'where' ('condition')",
             )
             inputs[1] = op_utils.insert_broadcast(
                 inputs[1],
                 outputs[0].rank,
-                use_dynamic_variant=True,
                 shape_of_target_tensor=computed_output_shape,
                 tensor_details="second input of 'where' ('input')",
             )
             inputs[2] = op_utils.insert_broadcast(
                 inputs[2],
                 outputs[0].rank,
-                use_dynamic_variant=True,
                 shape_of_target_tensor=computed_output_shape,
                 tensor_details="third input of 'where' ('other')",
             )
