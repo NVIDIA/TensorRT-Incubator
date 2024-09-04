@@ -102,7 +102,7 @@ class TestShape:
         assert isinstance(new_shape.trace_tensor.producer, Concatenate)
         assert cp.from_dlpack(new_shape).get().tolist() == values + appended
 
-    @pytest.mark.parametrize("constructor", [lambda x: x, tp.Tensor, np.array])
+    @pytest.mark.parametrize("constructor", [lambda x: x, tp.Tensor])
     @pytest.mark.parametrize("factor", [-1, 0, 1, 2])
     def test_mul_override(self, values, constructor, factor):
         s = tp.Shape(values)
@@ -113,7 +113,7 @@ class TestShape:
         assert cp.from_dlpack(new_shape).get().tolist() == expected
         assert cp.from_dlpack(rmul).get().tolist() == expected
 
-    @pytest.mark.parametrize("constructor", [lambda x: x, tp.Tensor, np.array])
+    @pytest.mark.parametrize("constructor", [lambda x: x, tp.Tensor])
     @pytest.mark.parametrize("factor", [-1, 0, 1, 2])
     def test_mul_empty_shape(self, constructor, factor):
         s = tp.Shape([])

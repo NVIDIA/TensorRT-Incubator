@@ -16,12 +16,12 @@
 #
 
 from dataclasses import dataclass
-from typing import Union, Tuple
+from typing import Tuple, Union
 
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter, DefaultParameter
+from tripy.frontend.module.parameter import DefaultParameter, Parameter
 
 
 @export.public_api(document_under="operations/modules")
@@ -36,7 +36,7 @@ class LayerNorm(Module):
     where :math:`\bar{x}` is the mean and :math:`\sigma^2` is the variance.
 
     The mean and standard deviation are calculated over the last :math:`D`
-    dimensions, where :math:`D` is the dimension of `normalized_shape`.
+    dimensions, where :math:`D` is the dimension of :math:`\text{normalized_shape}`.
     """
 
     dtype: datatype.dtype
@@ -46,20 +46,23 @@ class LayerNorm(Module):
     r"""Defines the shape of the input tensor that is to be normalized over."""
 
     weight: Parameter
-    r"""The :math:`\gamma` parameter of shape :math:`[\text{normalized_shape}]`."""
+    r"""The :math:`\gamma` parameter of shape :math:`\text{normalized_shape}`."""
 
     bias: Parameter
-    r"""The :math:`\beta` parameter of shape :math:`[\text{normalized_shape}]`."""
+    r"""The :math:`\beta` parameter of shape :math:`\text{normalized_shape}`."""
 
     eps: float
     """A value added to the denominator to prevent division by zero."""
 
-    def __init__(self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:
-        """
+    def __init__(
+        self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5
+    ) -> None:
+        r"""
         Args:
             normalized_shape: The size of the feature dimension of the input over which normalization is performed.
+                If a single integer is provided, it will be unsqueezed to a 1 dimensional shape.
             dtype: The data type to use for the weight and bias parameters.
-            eps: :math:\epsilon value to prevent division by zero.
+            eps: :math:`\epsilon` value to prevent division by zero.
 
         .. code-block:: python
             :linenos:
