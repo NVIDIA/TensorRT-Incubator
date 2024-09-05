@@ -39,7 +39,7 @@ _default_stream_instances = {}
 
 
 @export.public_api(document_under="compiler")
-def default_stream(device: Device = Device("gpu")):
+def default_stream(device: Device = Device("gpu")) -> "tripy.Stream":
     """
     Provides access to the default CUDA stream for a given device.
     This function implements singleton pattern to ensure a single default stream instance per device.
