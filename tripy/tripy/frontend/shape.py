@@ -155,25 +155,30 @@ class Shape(Tensor):
 
     # addition for shapes is concatenation, not tensor addition
 
+    def _validate_add_argument(self, other):
+        if isinstance(other, Shape):
+            return
+        if not isinstance(other, Sequence) or (len(other) != 0 and not isinstance(other[0], int)):
+            raise_error(
+                "Invalid types for addition with a Tripy Shape: "
+                "Implicit conversions are done only for sequences of Python ints. "
+                "Consider calling tp.Shape for an explicit conversion.",
+                details=[other],
+            )
+
     def __add__(self, other):
         from tripy.frontend.trace.ops.concatenate import concatenate
 
-        if not isinstance(other, Shape) and isinstance(other, Tensor):
-            raise_error(
-                "Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly"
-            )
-        elif not isinstance(other, Shape):
+        self._validate_add_argument(other)
+        if not isinstance(other, Shape):
             other = Shape(other)
         return concatenate([self, other], 0)
 
     def __radd__(self, other):
         from tripy.frontend.trace.ops.concatenate import concatenate
 
-        if not isinstance(other, Shape) and isinstance(other, Tensor):
-            raise_error(
-                "Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly"
-            )
-        elif not isinstance(other, Shape):
+        self._validate_add_argument(other)
+        if not isinstance(other, Shape):
             other = Shape(other)
         return concatenate([other, self], 0)
 
@@ -191,6 +196,15 @@ class Shape(Tensor):
 
         # Only defined with a scalar argument
         if not isinstance(other, Tensor):
+            # note: Python does not accept floats as arguments for list multiplication either
+            if isinstance(other, Sequence):
+                raise_error("Attempting to multiply a Tripy Shape by a sequence, which is undefined", details=[other])
+            if not isinstance(other, int):
+                raise_error(
+                    "Attempting to multiply an invalid datatype with a Tripy Shape. "
+                    "Implicit conversions are done only for Python ints. Consider calling tp.Shape explicitly.",
+                    details=[other],
+                )
             other = Tensor(other, dtype=int32)
         if other.rank >= 1:
             raise_error(

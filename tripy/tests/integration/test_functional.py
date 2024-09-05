@@ -158,8 +158,8 @@ class TestConversionToTripyType:
         if isinstance(input1, torch.Tensor):
             input1 = input1.to("cuda")
         if reverse_direction:
-            out = input1 * a
+            out = tp.Tensor(input1) * a
             input0, input1 = input1, input0
         else:
-            out = a * input1
+            out = a * tp.Tensor(input1)
         assert cp.array_equal(cp.from_dlpack(out), cp.array(input0) * cp.array(input1))

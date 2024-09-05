@@ -25,7 +25,7 @@ from tripy.flat_ir.ops import BaseFlatIROp
 from tripy.frontend.trace.ops import BaseTraceOp
 
 
-# Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
+# Decorator to preprocess inputs of a function and convert Python numbers to tripy tensors.
 def convert_inputs_to_tensors(
     sync_arg_types: Optional[List[Tuple[str]]] = None,
     exclude: Optional[List[str]] = None,
@@ -34,8 +34,9 @@ def convert_inputs_to_tensors(
     skip_num_stack_entries: int = 0,
 ):
     """
-    Decorator that converts all arguments to `Tensor`s before passing them along
-    to the decorated function.
+    Decorator that converts all arguments to `Tensor`s or `Shape`s before passing them along
+    to the decorated function. Converts only Python numbers or lists of Python numbers;
+    inputs like `numpy` arrays should be handled manually.
 
     Args:
         sync_arg_types: A list of tuples of strings indicating the parameter indices for parameters
@@ -193,6 +194,20 @@ def convert_inputs_to_tensors(
                     return None
 
                 def convert_nontensor_arg(arg, list_index=None):
+                    def is_valid_sequence(seq_arg: Sequence) -> bool:
+                        if len(seq_arg) == 0:
+                            return True
+                        if isinstance(seq_arg[0], Sequence):
+                            return is_valid_sequence(seq_arg[0])
+                        return isinstance(seq_arg[0], (int, float))
+
+                    if not isinstance(arg, (int, float)) and not (isinstance(arg, Sequence) and is_valid_sequence(arg)):
+                        raise_error(
+                            "convert_inputs_to_tensors decorator supports conversion only"
+                            f" for Python numbers or sequences thereof. Given argument of type {type(arg)}",
+                            [arg],
+                        )
+
                     cast_dtype = find_sync_target_dtype(name)
                     return add_column_info_for_non_tensor(
                         arg, index, is_kwarg=name in kwargs, dtype=cast_dtype, list_index=list_index
