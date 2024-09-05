@@ -55,8 +55,7 @@ def stack(tensors: List[Union["tripy.Tensor"]], dim: int = 0) -> "tripy.Tensor":
         raise_error(f"tp.stack expects a non-empty list of tensors, got {tensors}")
 
     # Check if all tensors have the same rank
-    first_rank = tensors[0].rank
-    if not all(tensor.rank == first_rank for tensor in tensors):
+    if len(set(tensor.rank for tensor in tensors)) > 1:
         ranks = ", ".join(str(tensor.rank) for tensor in tensors)
         raise_error(f"tp.stack expects all input tensors to have the same rank, got tensors of rank {ranks}")
 
