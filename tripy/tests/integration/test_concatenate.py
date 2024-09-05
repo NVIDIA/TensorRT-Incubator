@@ -21,6 +21,7 @@ import pytest
 import tripy as tp
 
 from tests import helper
+from tests.helper import raises
 
 
 class TestConcatenate:

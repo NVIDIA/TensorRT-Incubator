@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from tripy.common.datatype import DATA_TYPES
 from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
