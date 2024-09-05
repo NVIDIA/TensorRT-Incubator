@@ -57,10 +57,10 @@ def default_stream(device: Device = Device("gpu")) -> "tripy.Stream":
         :linenos:
         :caption: Creation of default_stream
 
-        default = default_stream()  # Returns the default Stream object for the current device
+        default = tp.default_stream()  # Returns the default Stream object for the current device
 
     Note:
-        Calling default_stream() with the same device always returns the same Stream instance for that device.
+        Calling tp.default_stream() with the same device always returns the same Stream instance for that device.
     """
     global _default_stream_instances
 
