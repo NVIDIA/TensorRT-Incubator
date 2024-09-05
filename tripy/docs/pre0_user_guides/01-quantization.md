@@ -144,7 +144,7 @@ weight_only_qlinear = tp.Linear(
 quantizer = model.transformer.h[0].attn.c_attn.weight_quantizer
 scale = convert_to_scale(quantizer.export_amax(), quantizer.maxbound)
 scale = scale.squeeze().contiguous()
-weight_only_qlinear.weight_scale = tp.Parameter(scale)
+weight_only_qlinear.weight_scale = tp.Parameter(tp.Tensor(scale))
 ```
 
 For an example of how to load weights from a quantized model, refer to
