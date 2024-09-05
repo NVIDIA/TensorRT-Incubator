@@ -84,7 +84,7 @@ class Stream:
     This class is a wrapper around the underlying stream object, allowing management of CUDA streams.
     """
 
-    def __init__(self, priority=0):
+    def __init__(self, priority: int = 0) -> None:
         """
         Args:
             priority : Assign priority for the new stream. Lower number signifies higher priority.
