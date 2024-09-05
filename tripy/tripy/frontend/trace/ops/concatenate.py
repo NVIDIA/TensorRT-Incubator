@@ -17,7 +17,6 @@
 
 from typing import List, Union
 from dataclasses import dataclass
-from tripy.common.datatype import DATA_TYPES
 from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
