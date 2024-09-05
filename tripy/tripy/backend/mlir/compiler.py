@@ -54,18 +54,20 @@ class Compiler:
         self.trt_builder_opt_level = trt_builder_opt_level
 
     def _make_mlir_opts(self, trt_builder_opt_level):
-        opts = compiler.StableHLOToExecutableOptions(self.compiler_client,
-                                                     [f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
-                                                      f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
-                                                      "--tensorrt-strongly-typed=True"])
+        opts = [
+            f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
+            f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
+            "--tensorrt-strongly-typed=True",
+        ]
         if config.enable_mlir_debug or config.enable_tensorrt_debug:
-            opts.set_debug_options(
-                config.enable_mlir_debug,
-                config.mlir_debug_types if config.enable_mlir_debug else [],
-                config.mlir_debug_tree_path if config.enable_mlir_debug else None,
-                config.tensorrt_debug_path if config.enable_tensorrt_debug else None,
-            )
-        return opts
+            opts.append("--debug=true")
+            if config.enable_mlir_debug:
+                opts.append(f"--debug-only={config.mlir_debug_types}")
+                opts.append(f"--mlir-print-ir-tree-dir={config.mlir_debug_tree_path}")
+            if config.enable_tensorrt_debug:
+                opts.append(f"--tensorrt-layer-info-dir={config.tensorrt_debug_path}")
+                opts.append(f"--tensorrt-engines-dir={config.tensorrt_debug_path}")
+        return compiler.StableHLOToExecutableOptions(self.compiler_client, opts)
 
     def compile_stabehlo_program(self, code: str) -> compiler.Executable:
         with self.mlir_context:
