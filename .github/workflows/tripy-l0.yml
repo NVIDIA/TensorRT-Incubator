@@ -46,12 +46,7 @@ jobs:
         image: ${{ env.l0_image }}
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
-          cat > build_docs_and_test.sh <<EOF
-          #!/bin/bash
-
           python3 docs/generate_rsts.py
           sphinx-build build/doc_sources build/docs -c docs/ -j auto -W
+        run: |
           pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" --durations=15
-          EOF
-
-          bash build_docs_and_test.sh
