@@ -28,17 +28,19 @@ for expected accuracy.
     python3 example.py --input-text "What is the answer to life, the universe, and everything?"
     ```
 
-3. **[Optional]** You also use a fixed seed to ensure predictable outputs each time:
+3. **[Optional]** You could use `--topk` to set the number of most likely tokens and `--seed` to set the random seed for generation. For example, to perform a greedy generation:
 
     ```bash
-    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --topk=1 --max-new-tokens=20
     ```
 
     <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
     ```
     (?s).*?
-    What is the answer to life, the universe, and everything\? The answer to Aquinas, the most important thinker
+    What is the answer to life, the universe, and everything?
+
+    The answer to life, the universe, and everything is that we are all connected.
     ```
      -->
     <!-- Tripy: TEST: EXPECTED_STDOUT End -->
