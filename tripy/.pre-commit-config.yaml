@@ -22,3 +22,5 @@ repos:
         language: python
         stages: [pre-commit]
         files: \.py$
+        verbose: true
+        require_serial: true
