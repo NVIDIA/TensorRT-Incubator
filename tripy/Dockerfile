@@ -27,7 +27,8 @@ COPY pyproject.toml /tripy/pyproject.toml
 
 RUN pip install build .[docs,dev,test] \
     -f https://nvidia.github.io/TensorRT-Incubator/packages.html \
-    --extra-index-url https://download.pytorch.org/whl
+    --extra-index-url https://download.pytorch.org/whl \
+    --extra-index-url https://pypi.nvidia.com
 
 # Installl lldb for debugging purposes in Tripy container.
 # The LLVM version should correspond on LLVM_VERSION specified in https://github.com/NVIDIA/TensorRT-Incubator/blob/main/mlir-tensorrt/build_tools/docker/Dockerfile#L30.

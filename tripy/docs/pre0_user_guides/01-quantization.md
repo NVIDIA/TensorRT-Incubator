@@ -62,7 +62,7 @@ We need to perform another step called calibration to compute the correct scales
 There are many ways to do calibration, one of which is using the `nvidia-modelopt` toolkit. To install it, run:
 
 ```sh
-python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt==0.11.0 transformers datasets
+python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt==0.11.0 transformers==4.44.2 datasets==2.21.0
 ```
 
 First, let's get the pre-trained GPT model from hugging face:
