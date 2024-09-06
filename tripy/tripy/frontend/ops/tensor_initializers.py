@@ -299,7 +299,10 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def arange(
-    start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
+    start: Union[numbers.Number, "tripy.Tensor"],
+    stop: Union[numbers.Number, "tripy.Tensor"],
+    step: Union[numbers.Number, "tripy.Tensor"] = 1,
+    dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
@@ -330,21 +333,32 @@ def arange(
 
         assert tp.allclose(output, tp.Tensor(np.arange(2.3, 0.8, -0.2, dtype=np.float32)))
     """
-    from tripy.common.datatype import int64
+    from tripy.common.datatype import int32, int64
+    from tripy.frontend.tensor import Tensor
 
     if dtype == int64:
         raise_error("Known issue with i64. Arange currently does not work with int64 inputs.")
-    if step == 0:
+
+    if isinstance(step, numbers.Number) and step == 0:
         raise_error("Step in arange cannot be 0.", [])
 
-    size = math.ceil((stop - start) / step)
-    if size <= 0:
+    # math.ceil(a / b) is same as -(-a // b). Don't use math.ceil as start, stop or step can be Tensor.
+    size = 0 - ((start - stop) // step)
+    if isinstance(size, numbers.Number) and size <= 0:
         raise_error(
             "Arange tensor is empty.",
             details=[
                 f"start={start}, stop={stop}, step={step}",
             ],
         )
+
+    if isinstance(size, Tensor):
+        from tripy.frontend.trace.ops.cast import cast
+
+        size = cast(size, int32)
+    else:
+        size = int(size)
+
     output = iota((size,), 0, dtype) * full((size,), step, dtype) + full((size,), start, dtype)
     return output
 
@@ -378,6 +392,7 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
         assert (cp.from_dlpack(output).get() == np.arange(5, dtype=np.float32)).all()
     """
     from tripy.common.datatype import int64
+    from tripy.frontend.tensor import Tensor
 
     if dtype == int64:
         raise_error("Known issue with i64. Arange currently does not work with int64 inputs. Issue #116")

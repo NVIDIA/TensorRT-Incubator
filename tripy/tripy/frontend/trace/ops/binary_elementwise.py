@@ -412,7 +412,7 @@ def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tr
     Performs an elementwise division.
 
     Args:
-        self: Tensor to be subtracted by other.
+        self: Tensor to be divided by other.
         other: The tensor to be divided by this one.
             It should be broadcast-compatible.
 
@@ -430,6 +430,74 @@ def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tr
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([3.0, 2.0]))
     """
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
+
+
+@TENSOR_METHOD_REGISTRY("__floordiv__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise floor division.
+
+    Args:
+        self: Tensor to be divided by other.
+        other: The tensor by which to divide this one.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([4.0, 6.0])
+        b = tp.Tensor([3.0, 4.0])
+        output = a // b
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 1.0]))
+    """
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.common.datatype import int32
+
+    return cast(cast(BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV), int32), self.dtype)
+
+
+@TENSOR_METHOD_REGISTRY("__rfloordiv__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise floor division.
+
+    Args:
+        self: Tensor to be divided by other.
+        other: The tensor to be divided by this one.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = 2
+        b = tp.Tensor([2.0, 3.0])
+        output = a // b
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 0.0]))
+    """
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.common.datatype import int32
+
+    return cast(cast(BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV), int32), self.dtype)
 
 
 @export.public_api(document_under="operations/functions")
