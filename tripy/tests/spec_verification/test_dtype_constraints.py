@@ -22,6 +22,7 @@ from typing import List
 
 import pytest
 from tests import helper
+from tests.conftest import skip_if_older_than_sm89
 from tests.spec_verification.object_builders import create_obj
 
 import tripy as tp
@@ -118,16 +119,24 @@ for func_name, (
                     if positive_case and namespace == dtype_exception:
                         exception = True
                         positive_case = False
+
                 ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
+
                 DTYPE_CONSTRAINT_CASES.append(
-                    (
-                        func_name,
-                        func_obj,
-                        inputs,
-                        return_dtype,
-                        namespace,
-                        positive_case,
-                        func_name + ("-valid" if positive_case else "-invalid") + ":" + ",".join(ids),
+                    pytest.param(
+                        (
+                            func_name,
+                            func_obj,
+                            inputs,
+                            return_dtype,
+                            namespace,
+                            positive_case,
+                            func_name + ("-valid" if positive_case else "-invalid") + ":" + ",".join(ids),
+                        ),
+                        # float8 is not supported before SM 89
+                        marks=(
+                            skip_if_older_than_sm89 if any(dtype is tp.float8 for dtype in namespace.values()) else []
+                        ),
                     )
                 )
 
@@ -138,18 +147,23 @@ for func_name, (
 def _run_dtype_constraints_subtest(test_data):
     func_name, func_obj, inputs, _, namespace, _, _ = test_data
     kwargs = {}
+
     # Create all input objects using object_builders.create_obj.
     for param_name, param_type in inputs.items():
         kwargs[param_name] = create_obj(func_obj, func_name, param_name, param_type, namespace)
+
     # Run api call through _method_handler and setup namespace (api_call_locals).
     api_call_locals = {"kwargs": kwargs}
     _method_handler(func_name, kwargs, func_obj, api_call_locals)
+
     # If output does not have dtype skip .eval().
     if isinstance(api_call_locals[RETURN_VALUE], int):
         return api_call_locals, namespace
+
     # If output is a list then checking the return the first element in the list. (Assumes list of Tensors)
     if isinstance(api_call_locals[RETURN_VALUE], List):
         api_call_locals[RETURN_VALUE] = api_call_locals[RETURN_VALUE][0]
+
     # Run eval to check for any backend errors.
     api_call_locals[RETURN_VALUE].eval()
     return api_call_locals, namespace
@@ -167,3 +181,5 @@ def test_dtype_constraints(test_data):
     else:
         with helper.raises(Exception):
             api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
+            if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
+                assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
