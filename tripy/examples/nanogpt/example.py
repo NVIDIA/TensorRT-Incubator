@@ -1,4 +1,3 @@
-
 #
 # SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -68,6 +67,7 @@ def main():
         choices=["gpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"],
     )
     parser.add_argument("--max-new-tokens", type=int, help="The maximum number of new tokens to generate", default=10)
+    parser.add_argument("--topk", type=int, help="The number of most likely tokens.", default=200)
     parser.add_argument("--seed", type=int, help="The seed to use for psuedo-random number generation.", default=None)
     parser.add_argument(
         "--quant-mode",
@@ -83,7 +83,7 @@ def main():
     input_ids = encoder.encode(args.input_text, allowed_special={"<|endoftext|>"})
 
     TEMPERATURE = 0.8
-    TOP_K = 200
+    TOP_K = args.topk
 
     padded_seq_len = len(input_ids) + args.max_new_tokens
 
