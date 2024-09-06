@@ -19,7 +19,9 @@ import functools
 import inspect
 from collections import OrderedDict, defaultdict
 from textwrap import dedent
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, ForwardRef
+from typing import get_origin, get_args, Union
+
 
 from dataclasses import dataclass
 
@@ -102,14 +104,23 @@ class FuncOverload:
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
             # eval it here.
-            if isinstance(annotation, str):
+            import importlib
+
+            if isinstance(annotation, (str, ForwardRef)):
+                if isinstance(annotation, ForwardRef):
+                    annotation = annotation.__forward_arg__
                 try:
-                    annotation = eval(annotation)
+                    module_name, class_name = annotation.rsplit(".", 1)
+                    module = importlib.import_module(module_name)
+                    resolved_type = getattr(module, class_name)
+                    return matches_type(name, resolved_type, arg)
                 except Exception as e:
-                    raise NameError(
-                        f"Error while evaluating type annotation: '{annotation}' for parameter: '{name}' of function: '{self.func.__name__}'."
-                        f"\nNote: Error was: {e}"
-                    )
+                    print(f"Warning: Could not resolve type '{annotation}'. Assuming it matches. Error: {e}")
+                    return True
+
+            # Handle Union types
+            if get_origin(annotation) is Union:
+                return any(matches_type(name, t, arg) for t in get_args(annotation))
 
             try:
                 return isinstance(arg, annotation)
