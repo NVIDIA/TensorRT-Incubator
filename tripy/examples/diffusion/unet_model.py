@@ -25,26 +25,27 @@ from examples.diffusion.helper import scaled_dot_product_attention, sequential
 from examples.diffusion.vae_model import Upsample, Downsample
 
 @dataclass
-class UNet15Config:
+class UNetConfig:
     io_channels: int = 4
     model_channels: int = 320
-    channel_mult: Tuple[int] = (1, 2, 4, 4)
-    attention_resolutions: Tuple[int] = (4, 2, 1)
+    channel_mult: Tuple[int] = (1, 1, 2, 4, 4)
+    attention_resolutions: Tuple[int] = (8, 8, 6, 4, 3, 2, 2)
     num_heads: int = 8
     context_dim: int = 768
     emb_channels: int = 1280
+    dtype: tp.dtype = tp.float16
 
 
 # Used for UNet, not to be confused with ResnetBlock, called ResnetBlock2D in HF diffusers
 class ResBlock(tp.Module):
-    def __init__(self, channels, emb_channels, out_channels):
-        self.norm1 = tp.GroupNorm(32, channels)
-        self.conv1 = tp.Conv(channels, out_channels, (3, 3), padding=((1, 1), (1, 1)))
-        self.time_emb_proj = tp.Linear(emb_channels, out_channels)
-        self.norm2 = tp.GroupNorm(32, out_channels)
-        self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)))
+    def __init__(self, config: UNetConfig, channels, emb_channels, out_channels):
+        self.norm1 = tp.GroupNorm(32, channels, dtype=config.dtype)
+        self.conv1 = tp.Conv(channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.time_emb_proj = tp.Linear(emb_channels, out_channels, dtype=config.dtype)
+        self.norm2 = tp.GroupNorm(32, out_channels, dtype=config.dtype)
+        self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.nonlinearity = tp.silu
-        self.conv_shortcut = tp.Conv(channels, out_channels, (1, 1)) if channels != out_channels else lambda x: x
+        self.conv_shortcut = tp.Conv(channels, out_channels, (1, 1), dtype=config.dtype) if channels != out_channels else lambda x: x
 
     def __call__(self, x, emb):
         h = self.conv1(self.nonlinearity(self.norm1(x)))
@@ -59,13 +60,13 @@ class ResBlock(tp.Module):
 
 
 class CrossAttention(tp.Module):
-    def __init__(self, query_dim, context_dim, n_heads, d_head):
-        self.to_q = tp.Linear(query_dim, n_heads * d_head, bias=False)
-        self.to_k = tp.Linear(context_dim, n_heads * d_head, bias=False)
-        self.to_v = tp.Linear(context_dim, n_heads * d_head, bias=False)
+    def __init__(self, config: UNetConfig, query_dim, context_dim, n_heads, d_head):
+        self.to_q = tp.Linear(query_dim, n_heads * d_head, bias=False, dtype=config.dtype)
+        self.to_k = tp.Linear(context_dim, n_heads * d_head, bias=False, dtype=config.dtype)
+        self.to_v = tp.Linear(context_dim, n_heads * d_head, bias=False, dtype=config.dtype)
         self.num_heads = n_heads
         self.head_size = d_head
-        self.to_out = [tp.Linear(n_heads * d_head, query_dim)]
+        self.to_out = [tp.Linear(n_heads * d_head, query_dim, dtype=config.dtype)]
 
     def __call__(self, x, context=None):
         context = x if context is None else context
@@ -80,8 +81,8 @@ class CrossAttention(tp.Module):
 
 
 class GEGLU(tp.Module):
-    def __init__(self, dim_in, dim_out):
-        self.proj = tp.Linear(dim_in, dim_out * 2)
+    def __init__(self, config: UNetConfig, dim_in, dim_out):
+        self.proj = tp.Linear(dim_in, dim_out * 2, dtype=config.dtype)
         self.dim_out = dim_out
 
     def __call__(self, x):
@@ -99,11 +100,11 @@ class Dummy(tp.Module):
 
 
 class FeedForward(tp.Module):
-    def __init__(self, dim, mult=4):
+    def __init__(self, config: UNetConfig, dim, mult=4):
         self.net = [
-            GEGLU(dim, dim * mult),
+            GEGLU(config, dim, dim * mult),
             Dummy(),  # Accounts for Dropout layer, needed for weight loading
-            tp.Linear(dim * mult, dim),
+            tp.Linear(dim * mult, dim, dtype=config.dtype),
         ]
 
     def __call__(self, x):
@@ -111,13 +112,13 @@ class FeedForward(tp.Module):
 
 
 class BasicTransformerBlock(tp.Module):
-    def __init__(self, dim, context_dim, n_heads, d_head):
-        self.attn1 = CrossAttention(dim, dim, n_heads, d_head)
-        self.ff = FeedForward(dim)
-        self.attn2 = CrossAttention(dim, context_dim, n_heads, d_head)
-        self.norm1 = tp.LayerNorm(dim)
-        self.norm2 = tp.LayerNorm(dim)
-        self.norm3 = tp.LayerNorm(dim)
+    def __init__(self, config, dim, context_dim, n_heads, d_head):
+        self.attn1 = CrossAttention(config, dim, dim, n_heads, d_head)
+        self.ff = FeedForward(config, dim)
+        self.attn2 = CrossAttention(config, dim, context_dim, n_heads, d_head)
+        self.norm1 = tp.LayerNorm(dim, dtype=config.dtype)
+        self.norm2 = tp.LayerNorm(dim, dtype=config.dtype)
+        self.norm3 = tp.LayerNorm(dim, dtype=config.dtype)
 
     def __call__(self, x, context=None):
         x = self.attn1(self.norm1(x)) + x
@@ -127,12 +128,12 @@ class BasicTransformerBlock(tp.Module):
 
 
 class SpatialTransformer(tp.Module):  # Transformer2dModel in HF diffusers
-    def __init__(self, channels, context_dim, n_heads, d_head):
-        self.norm = tp.GroupNorm(32, channels)
+    def __init__(self, config: UNetConfig, channels, context_dim, n_heads, d_head):
+        self.norm = tp.GroupNorm(32, channels, dtype=config.dtype)
         assert channels == n_heads * d_head
-        self.proj_in = tp.Conv(channels, n_heads * d_head, (1, 1))
-        self.transformer_blocks = [BasicTransformerBlock(channels, context_dim, n_heads, d_head)]
-        self.proj_out = tp.Conv(n_heads * d_head, channels, (1, 1))
+        self.proj_in = tp.Conv(channels, n_heads * d_head, (1, 1), dtype=config.dtype)
+        self.transformer_blocks = [BasicTransformerBlock(config, channels, context_dim, n_heads, d_head)]
+        self.proj_out = tp.Conv(n_heads * d_head, channels, (1, 1), dtype=config.dtype)
 
     def __call__(self, x, context=None):
         b, c, h, w = x.shape
@@ -146,31 +147,31 @@ class SpatialTransformer(tp.Module):  # Transformer2dModel in HF diffusers
         ret = self.proj_out(x) + x_in
         return ret
 
-def timestep_embedding(timesteps, dim, max_period=10000):
+def timestep_embedding(timesteps, dim, dtype, max_period=10000):
     half = dim // 2
-    freqs = tp.exp(-math.log(max_period) * tp.arange(half) / half)
+    freqs = tp.exp(-math.log(max_period) * tp.arange(half, dtype=dtype) / half)
     args = timesteps * freqs
     return tp.reshape(tp.concatenate([tp.cos(args), tp.sin(args)], dim=0), (1, -1))
 
 
 class TimestepEmbedding(tp.Module):
-    def __init__(self, in_channels: int, time_embed_dim: int):
-        self.linear_1 = tp.Linear(in_channels, time_embed_dim)
+    def __init__(self, config: UNetConfig):
+        self.linear_1 = tp.Linear(config.model_channels, config.emb_channels, dtype=config.dtype)
         self.act = tp.silu
-        self.linear_2 = tp.Linear(time_embed_dim, time_embed_dim)
+        self.linear_2 = tp.Linear(config.emb_channels, config.emb_channels, dtype=config.dtype)
 
     def __call__(self, x):
         return self.linear_2(self.act(self.linear_1(x)))
 
 
 class CrossAttnDownBlock2D(tp.Module):
-    def __init__(self, start_channels, channels, n_heads, d_head, context_dim=768, emb_channels=1280):
+    def __init__(self, config: UNetConfig, start_channels, channels):
         self.attentions = [
-            SpatialTransformer(channels, context_dim, n_heads, d_head),
-            SpatialTransformer(channels, context_dim, n_heads, d_head),
+            SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads),
+            SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads),
         ]
-        self.resnets = [ResBlock(start_channels, emb_channels, channels), ResBlock(channels, emb_channels, channels)]
-        self.downsamplers = [Downsample(channels)]
+        self.resnets = [ResBlock(config, start_channels, config.emb_channels, channels), ResBlock(config, channels, config.emb_channels, channels)]
+        self.downsamplers = [Downsample(config, channels)]
 
     def __call__(self, x, emb, context):
         one = self.resnets[0](x, emb)
@@ -182,8 +183,8 @@ class CrossAttnDownBlock2D(tp.Module):
 
 
 class DownBlock2D(tp.Module):
-    def __init__(self, channels, emb_channels=1280):
-        self.resnets = [ResBlock(channels, emb_channels, channels), ResBlock(channels, emb_channels, channels)]
+    def __init__(self, config: UNetConfig, channels):
+        self.resnets = [ResBlock(config, channels, config.emb_channels, channels), ResBlock(config, channels, config.emb_channels, channels)]
 
     def __call__(self, x, emb):
         temp = self.resnets[0](x, emb)
@@ -192,9 +193,9 @@ class DownBlock2D(tp.Module):
 
 
 class UNetMidBlock2DCrossAttn(tp.Module):
-    def __init__(self, channels, n_heads, d_head, context_dim=768, emb_channels=1280):
-        self.attentions = [SpatialTransformer(channels, context_dim, n_heads, d_head)]
-        self.resnets = [ResBlock(channels, emb_channels, channels), ResBlock(channels, emb_channels, channels)]
+    def __init__(self, config: UNetConfig, channels):
+        self.attentions = [SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads)]
+        self.resnets = [ResBlock(config, channels, config.emb_channels, channels), ResBlock(config, channels, config.emb_channels, channels)]
 
     def __call__(self, x, emb, context):
         x = self.resnets[0](x, emb)
@@ -204,13 +205,13 @@ class UNetMidBlock2DCrossAttn(tp.Module):
 
 
 class UpBlock2D(tp.Module):
-    def __init__(self, channels, out_channels, emb_channels=1280):
+    def __init__(self, config: UNetConfig, channels, out_channels):
         self.resnets = [
-            ResBlock(channels, emb_channels, out_channels),
-            ResBlock(channels, emb_channels, out_channels),
-            ResBlock(channels, emb_channels, out_channels),
+            ResBlock(config, channels, config.emb_channels, out_channels),
+            ResBlock(config, channels, config.emb_channels, out_channels),
+            ResBlock(config, channels, config.emb_channels, out_channels),
         ]
-        self.upsamplers = [Upsample(out_channels)]
+        self.upsamplers = [Upsample(config, out_channels)]
 
     def __call__(self, x, emb, saved_inputs):
         for resblock in self.resnets:
@@ -222,27 +223,24 @@ class UpBlock2D(tp.Module):
 class CrossAttnUpBlock2D(tp.Module):
     def __init__(
         self,
+        config: UNetConfig,
         start_channels: List[int],
         channels,
-        n_heads,
-        d_head,
-        context_dim=768,
-        emb_channels=1280,
         use_upsampler=True,
     ):
         assert len(start_channels) == 3, "Must pass in the start channels for all three resblocks separately"
         self.attentions = [
-            SpatialTransformer(channels, context_dim, n_heads, d_head),
-            SpatialTransformer(channels, context_dim, n_heads, d_head),
-            SpatialTransformer(channels, context_dim, n_heads, d_head),
+            SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads),
+            SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads),
+            SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads),
         ]
         self.resnets = [
-            ResBlock(start_channels[0], emb_channels, channels),
-            ResBlock(start_channels[1], emb_channels, channels),
-            ResBlock(start_channels[2], emb_channels, channels),
+            ResBlock(config, start_channels[0], config.emb_channels, channels),
+            ResBlock(config, start_channels[1], config.emb_channels, channels),
+            ResBlock(config, start_channels[2], config.emb_channels, channels),
         ]
         if use_upsampler:
-            self.upsamplers = [Upsample(channels)]
+            self.upsamplers = [Upsample(config, channels)]
 
     def __call__(self, x, emb, context, saved_inputs):
         for i in range(len(self.attentions)):
@@ -255,29 +253,32 @@ class CrossAttnUpBlock2D(tp.Module):
 
 
 class UNetModel(tp.Module):
-    def __init__(self, config: UNet15Config):
-        self.conv_in = tp.Conv(4, 320, (3, 3), padding=((1, 1), (1, 1)))
-        self.time_embedding = TimestepEmbedding(320, 1280)
+    def __init__(self, config: UNetConfig):
+        self.config = config
+        self.conv_in = tp.Conv(config.io_channels, config.model_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.time_embedding = TimestepEmbedding(config)
+        down_channels = [config.model_channels * mult for mult in config.channel_mult]
         self.down_blocks = [
-            CrossAttnDownBlock2D(320, 320, 8, 40),
-            CrossAttnDownBlock2D(320, 640, 8, 80),
-            CrossAttnDownBlock2D(640, 1280, 8, 160),
-            DownBlock2D(1280),
+            CrossAttnDownBlock2D(config, down_channels[0], down_channels[1]),
+            CrossAttnDownBlock2D(config, down_channels[1], down_channels[2]),
+            CrossAttnDownBlock2D(config, down_channels[2], down_channels[3]),
+            DownBlock2D(config, down_channels[4]),
         ]
-        self.mid_block = UNetMidBlock2DCrossAttn(1280, 8, 160)
+        self.mid_block = UNetMidBlock2DCrossAttn(config, down_channels[4])
+        up_channels = [config.model_channels * res for res in config.attention_resolutions]
         self.up_blocks = [
-            UpBlock2D(2560, 1280),
-            CrossAttnUpBlock2D([2560, 2560, 1920], 1280, 8, 160),
-            CrossAttnUpBlock2D([1920, 1280, 960], 640, 8, 80),
-            CrossAttnUpBlock2D([960, 640, 640], 320, 8, 40, use_upsampler=False),
+            UpBlock2D(config, up_channels[0], up_channels[0] // 2),
+            CrossAttnUpBlock2D(config, up_channels[0:3], down_channels[3]),
+            CrossAttnUpBlock2D(config, up_channels[2:5], down_channels[2]),
+            CrossAttnUpBlock2D(config, up_channels[4:7], down_channels[1], use_upsampler=False),
         ]
-        self.conv_norm_out = tp.GroupNorm(32, 320)
+        self.conv_norm_out = tp.GroupNorm(32, config.model_channels, dtype=config.dtype)
         self.conv_act = tp.silu
-        self.conv_out = tp.Conv(320, 4, (3, 3), padding=((1, 1), (1, 1)))
+        self.conv_out = tp.Conv(config.model_channels, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
 
     def __call__(self, x, timesteps=None, context=None):
         # TODO: real time embedding
-        t_emb = timestep_embedding(timesteps, 320)
+        t_emb = timestep_embedding(timesteps, self.config.model_channels, self.config.dtype)
         emb = self.time_embedding(t_emb)
 
         x = self.conv_in(x)
