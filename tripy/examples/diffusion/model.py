@@ -23,18 +23,25 @@ from collections import namedtuple
 
 import numpy as np
 import tripy as tp
-from dataclasses import dataclass
+from typing import Optional
+from dataclasses import dataclass, field
 
 from examples.diffusion.clip_model import CLIPTextTransformer, CLIPConfig
-from examples.diffusion.unet_model import UNetModel, UNet15Config
+from examples.diffusion.unet_model import UNetModel, UNetConfig
 from examples.diffusion.vae_model import AutoencoderKL, VAEConfig
 from examples.diffusion.helper import clamp
 
 @dataclass
 class StableDiffusionConfig:
-    clip_config: CLIPConfig = CLIPConfig()
-    unet_config: UNet15Config = UNet15Config()
-    vae_config: VAEConfig = VAEConfig()
+    dtype: tp.dtype = tp.float16
+    clip_config: Optional[CLIPConfig] = field(default=None, init=False)
+    unet_config: Optional[UNetConfig] = field(default=None, init=False)
+    vae_config: Optional[VAEConfig] = field(default=None, init=False)
+
+    def __post_init__(self):
+        self.clip_config = CLIPConfig(dtype=self.dtype)
+        self.unet_config = UNetConfig(dtype=self.dtype)
+        self.vae_config = VAEConfig(dtype=self.dtype)
 
 # equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
 def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000):

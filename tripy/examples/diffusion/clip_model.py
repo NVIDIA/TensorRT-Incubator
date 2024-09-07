@@ -29,11 +29,12 @@ class CLIPConfig:
     num_heads: int = 12
     max_seq_len: int = 77
     num_hidden_layers: int = 12
+    dtype: tp.dtype = tp.float16
 
 class CLIPMLP(tp.Module):
     def __init__(self, config: CLIPConfig):
-        self.fc1 = tp.Linear(config.embedding_size, config.embedding_size * 4)
-        self.fc2 = tp.Linear(config.embedding_size * 4, config.embedding_size)
+        self.fc1 = tp.Linear(config.embedding_size, config.embedding_size * 4, dtype=config.dtype)
+        self.fc2 = tp.Linear(config.embedding_size * 4, config.embedding_size, dtype=config.dtype)
 
     def __call__(self, hidden_states):
         hidden_states = self.fc1(hidden_states)
@@ -47,10 +48,10 @@ class CLIPAttention(tp.Module):
         self.embed_dim = config.embedding_size
         self.num_heads = config.num_heads
         self.head_dim = self.embed_dim // self.num_heads
-        self.k_proj = tp.Linear(self.embed_dim, self.embed_dim)
-        self.v_proj = tp.Linear(self.embed_dim, self.embed_dim)
-        self.q_proj = tp.Linear(self.embed_dim, self.embed_dim)
-        self.out_proj = tp.Linear(self.embed_dim, self.embed_dim)
+        self.k_proj = tp.Linear(self.embed_dim, self.embed_dim, dtype=config.dtype)
+        self.v_proj = tp.Linear(self.embed_dim, self.embed_dim, dtype=config.dtype)
+        self.q_proj = tp.Linear(self.embed_dim, self.embed_dim, dtype=config.dtype)
+        self.out_proj = tp.Linear(self.embed_dim, self.embed_dim, dtype=config.dtype)
 
     def __call__(self, hidden_states, causal_attention_mask):
         bsz, tgt_len, embed_dim = hidden_states.shape[0], hidden_states.shape[1], hidden_states.shape[2]
@@ -73,9 +74,9 @@ class CLIPAttention(tp.Module):
 class CLIPEncoderLayer(tp.Module):
     def __init__(self, config: CLIPConfig):
         self.self_attn = CLIPAttention(config)
-        self.layer_norm1 = tp.LayerNorm(config.embedding_size)
+        self.layer_norm1 = tp.LayerNorm(config.embedding_size, dtype=config.dtype)
         self.mlp = CLIPMLP(config)
-        self.layer_norm2 = tp.LayerNorm(config.embedding_size)
+        self.layer_norm2 = tp.LayerNorm(config.embedding_size, dtype=config.dtype)
 
     def __call__(self, hidden_states, causal_attention_mask):
         residual = hidden_states
@@ -103,8 +104,8 @@ class CLIPEncoder(tp.Module):
 
 class CLIPTextEmbeddings(tp.Module):
     def __init__(self, config: CLIPConfig):
-        self.token_embedding = tp.Embedding(config.vocab_size, config.embedding_size)
-        self.position_embedding = tp.Embedding(config.max_seq_len, config.embedding_size)
+        self.token_embedding = tp.Embedding(config.vocab_size, config.embedding_size, dtype=config.dtype)
+        self.position_embedding = tp.Embedding(config.max_seq_len, config.embedding_size, dtype=config.dtype)
 
     def __call__(self, input_ids, position_ids):
         return self.token_embedding(input_ids) + self.position_embedding(position_ids)
@@ -114,7 +115,7 @@ class CLIPTextTransformer(tp.Module):
     def __init__(self, config: CLIPConfig):
         self.embeddings = CLIPTextEmbeddings(config)
         self.encoder = CLIPEncoder(config)
-        self.final_layer_norm = tp.LayerNorm(config.embedding_size)
+        self.final_layer_norm = tp.LayerNorm(config.embedding_size, dtype=config.dtype)
         self.max_seq_len = config.max_seq_len
 
     def __call__(self, input_ids):
