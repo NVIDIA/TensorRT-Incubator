@@ -47,29 +47,29 @@ def compile_model(model, inputs, verbose=False):
     return compiled_model
 
 
-def compile_clip(model, verbose=False):
-    inputs = (tp.InputInfo((1, 77), dtype=tp.int32),)
+def compile_clip(model, dtype=tp.int32, verbose=False):
+    inputs = (tp.InputInfo((1, 77), dtype=dtype),)
     return compile_model(model, inputs, verbose=verbose)
 
 
-def compile_unet(model, verbose=False):
+def compile_unet(model, dtype=tp.float16, verbose=False):
     unconditional_context_shape = (1, 77, 768)
     conditional_context_shape = (1, 77, 768)
     latent_shape = (1, 4, 64, 64)
     inputs = (
-        tp.InputInfo(unconditional_context_shape, dtype=tp.float32),
-        tp.InputInfo(conditional_context_shape, dtype=tp.float32),
-        tp.InputInfo(latent_shape, dtype=tp.float32),
-        tp.InputInfo((1,), dtype=tp.float32),
-        tp.InputInfo((1,), dtype=tp.float32),
-        tp.InputInfo((1,), dtype=tp.float32),
-        tp.InputInfo((1,), dtype=tp.float32),
+        tp.InputInfo(unconditional_context_shape, dtype=dtype),
+        tp.InputInfo(conditional_context_shape, dtype=dtype),
+        tp.InputInfo(latent_shape, dtype=dtype),
+        tp.InputInfo((1,), dtype=dtype),
+        tp.InputInfo((1,), dtype=dtype),
+        tp.InputInfo((1,), dtype=dtype),
+        tp.InputInfo((1,), dtype=dtype),
     )
     return compile_model(model, inputs, verbose=verbose)
 
 
-def compile_vae(model, verbose=False):
-    inputs = (tp.InputInfo((1, 4, 64, 64), dtype=tp.float32),)
+def compile_vae(model, dtype=tp.float16, verbose=False):
+    inputs = (tp.InputInfo((1, 4, 64, 64), dtype=dtype),)
     return compile_model(model, inputs, verbose=verbose)
 
 
@@ -103,9 +103,9 @@ def tripy_diffusion(args):
         unet_compiled = tp.Executable.load(os.path.join("engines", "unet_executable.json"))
         vae_compiled = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
     else:
-        model = StableDiffusion(StableDiffusionConfig)
+        model = StableDiffusion(StableDiffusionConfig(dtype=tp.float16))
         print("[I] Loading model weights...", flush=True)
-        load_from_diffusers(model, tp.float32, debug=True)
+        load_from_diffusers(model, tp.float16, debug=True)
         clip_compiled = compile_clip(model.cond_stage_model.transformer.text_model, verbose=True)
         unet_compiled = compile_unet(model, verbose=True)
         vae_compiled = compile_vae(model.decode, verbose=True)
@@ -174,7 +174,7 @@ def hf_diffusion(args):
     run_start_time = time.perf_counter()
 
     # Initialize models
-    model_id = "runwayml/stable-diffusion-v1-5"
+    model_id = "CompVis/stable-diffusion-v1-4" #"benjamin-paine/stable-diffusion-v1-5" #"runwayml/stable-diffusion-v1-5" 
     clip_id = "openai/clip-vit-large-patch14"
     
     print("[I] Loading models...")

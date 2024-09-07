@@ -27,17 +27,18 @@ class VAEConfig:
     io_channels: int = 3
     latent_channels: int = 4
     model_channel: int = 128
-    resolution: int = 256
-    channel_mult: Tuple[int] = (1, 2, 4, 4)
+    channel_mult_encode: Tuple[int] = (1, 1, 2, 4, 4)
+    channel_mult_decode: Tuple[int] = (4, 4, 4, 2, 1)
+    dtype: tp.dtype = tp.float16
 
 
 class AttnBlock(tp.Module):
-    def __init__(self, in_channels):
-        self.group_norm = tp.GroupNorm(32, in_channels)
-        self.to_q = tp.Linear(in_channels, in_channels)
-        self.to_k = tp.Linear(in_channels, in_channels)
-        self.to_v = tp.Linear(in_channels, in_channels)
-        self.to_out = [tp.Linear(in_channels, in_channels)]
+    def __init__(self, config: VAEConfig, in_channels):
+        self.group_norm = tp.GroupNorm(32, in_channels, dtype=config.dtype)
+        self.to_q = tp.Linear(in_channels, in_channels, dtype=config.dtype)
+        self.to_k = tp.Linear(in_channels, in_channels, dtype=config.dtype)
+        self.to_v = tp.Linear(in_channels, in_channels, dtype=config.dtype)
+        self.to_out = [tp.Linear(in_channels, in_channels, dtype=config.dtype)]
         self.in_channels = in_channels
 
     # adapted from AttnBlock in ldm repo
@@ -58,13 +59,13 @@ class AttnBlock(tp.Module):
 
 # Not to be confused with ResBlock. Called ResnetBlock2D in HF diffusers
 class ResnetBlock(tp.Module):
-    def __init__(self, in_channels, out_channels=None):
-        self.norm1 = tp.GroupNorm(32, in_channels)
-        self.conv1 = tp.Conv(in_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)))
-        self.norm2 = tp.GroupNorm(32, out_channels)
-        self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)))
+    def __init__(self, config: VAEConfig, in_channels, out_channels=None):
+        self.norm1 = tp.GroupNorm(32, in_channels, dtype=config.dtype)
+        self.conv1 = tp.Conv(in_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.norm2 = tp.GroupNorm(32, out_channels, dtype=config.dtype)
+        self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.nonlinearity = tp.silu
-        self.conv_shortcut = tp.Conv(in_channels, out_channels, (1, 1)) if in_channels != out_channels else lambda x: x
+        self.conv_shortcut = tp.Conv(in_channels, out_channels, (1, 1), dtype=config.dtype) if in_channels != out_channels else lambda x: x
 
     def __call__(self, x):
         h = self.conv1(self.nonlinearity(self.norm1(x)))
@@ -72,16 +73,16 @@ class ResnetBlock(tp.Module):
         return self.conv_shortcut(x) + h
     
 class Downsample(tp.Module):
-    def __init__(self, channels):
-        self.conv = tp.Conv(channels, channels, (3, 3), stride=(2, 2), padding=((1, 1), (1, 1)))
+    def __init__(self, config, channels):
+        self.conv = tp.Conv(channels, channels, (3, 3), stride=(2, 2), padding=((1, 1), (1, 1)), dtype=config.dtype)
 
     def __call__(self, x):
         return self.conv(x)
 
 
 class Upsample(tp.Module):
-    def __init__(self, channels):
-        self.conv = tp.Conv(channels, channels, (3, 3), padding=((1, 1), (1, 1)))
+    def __init__(self, config, channels):
+        self.conv = tp.Conv(channels, channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
 
     def __call__(self, x):
         bs, c, py, px = x.shape
@@ -89,10 +90,10 @@ class Upsample(tp.Module):
         return self.conv(x)
 
 class UpDecoderBlock2D(tp.Module):
-    def __init__(self, start_channels, channels, use_upsampler=True):
-        self.resnets = [ResnetBlock(start_channels, channels), ResnetBlock(channels, channels), ResnetBlock(channels, channels)]
+    def __init__(self, config: VAEConfig, start_channels, channels, use_upsampler=True):
+        self.resnets = [ResnetBlock(config, start_channels, channels), ResnetBlock(config, channels, channels), ResnetBlock(config, channels, channels)]
         if use_upsampler:
-            self.upsamplers = [Upsample(channels)]
+            self.upsamplers = [Upsample(config, channels)]
 
     def __call__(self, x):
         for resnet in self.resnets: 
@@ -102,9 +103,9 @@ class UpDecoderBlock2D(tp.Module):
         return x
 
 class Mid(tp.Module):
-    def __init__(self, block_in):
-        self.attentions = [AttnBlock(block_in)]
-        self.resnets = [ResnetBlock(block_in, block_in), ResnetBlock(block_in, block_in)]
+    def __init__(self, config: VAEConfig, block_in):
+        self.attentions = [AttnBlock(config, block_in)]
+        self.resnets = [ResnetBlock(config, block_in, block_in), ResnetBlock(config, block_in, block_in)]
 
     def __call__(self, x):
         x = self.resnets[0](x)
@@ -113,13 +114,17 @@ class Mid(tp.Module):
 
 
 class Decoder(tp.Module):
-    def __init__(self):
-        self.conv_in = tp.Conv(4, 512, (3, 3), padding=((1, 1), (1, 1)))
-        self.up_blocks = [UpDecoderBlock2D(512, 512), UpDecoderBlock2D(512, 512), UpDecoderBlock2D(512, 256), UpDecoderBlock2D(256, 128, use_upsampler=False)]
-        self.mid_block = Mid(512)
-        self.conv_norm_out = tp.GroupNorm(32, 128)
+    def __init__(self, config: VAEConfig):
+        up_channels = [config.model_channel * mult for mult in config.channel_mult_decode]
+        num_resolutions = len(up_channels) - 1
+        upsamplers = [True] * (num_resolutions - 1) + [False]
+    
+        self.conv_in = tp.Conv(config.latent_channels, config.model_channel * config.channel_mult_decode[0], (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.up_blocks = [UpDecoderBlock2D(config, up_channels[i], up_channels[i+1], use_upsampler=upsamplers[i]) for i in range(num_resolutions)]
+        self.mid_block = Mid(config, up_channels[0])
+        self.conv_norm_out = tp.GroupNorm(32, config.model_channel, dtype=config.dtype)
         self.conv_act = tp.silu
-        self.conv_out = tp.Conv(128, 3, (3, 3), padding=((1, 1), (1, 1)))
+        self.conv_out = tp.Conv(config.model_channel, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
 
     def __call__(self, x):
         x = self.conv_in(x)
@@ -130,10 +135,10 @@ class Decoder(tp.Module):
         return self.conv_out(self.conv_act(self.conv_norm_out(x)))
 
 class DownEncoderBlock2D(tp.Module):
-    def __init__(self, start_channels, channels, use_downsampler=True):
-        self.resnets = [ResnetBlock(start_channels, channels), ResnetBlock(channels, channels)]
+    def __init__(self, config: VAEConfig, start_channels, channels, use_downsampler=True):
+        self.resnets = [ResnetBlock(config, start_channels, channels), ResnetBlock(config, channels, channels)]
         if use_downsampler:
-            self.downsamplers = [Downsample(channels)]
+            self.downsamplers = [Downsample(config, channels)]
 
     def __call__(self, x):
         for i in range(len(self.resnets)):
@@ -143,13 +148,17 @@ class DownEncoderBlock2D(tp.Module):
         return x
 
 class Encoder(tp.Module):
-    def __init__(self):
-        self.conv_in = tp.Conv(3, 128, (3, 3), padding=((1, 1), (1, 1)))
-        self.down_blocks = [DownEncoderBlock2D(128, 128), DownEncoderBlock2D(128, 256), DownEncoderBlock2D(256, 512), DownEncoderBlock2D(512, 512, use_downsampler=False)]
-        self.mid_block = Mid(512)
-        self.conv_norm_out = tp.GroupNorm(32, 512)
+    def __init__(self, config: VAEConfig):
+        down_channels = [config.model_channel * mult for mult in config.channel_mult_encode]
+        num_resolutions = len(down_channels) - 1
+        downsamplers = [True] * (num_resolutions - 1) + [False]
+    
+        self.conv_in = tp.Conv(config.io_channels, config.model_channel, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.down_blocks = [DownEncoderBlock2D(config, down_channels[i], down_channels[i+1], use_downsampler=downsamplers[i]) for i in range(num_resolutions)]
+        self.mid_block = Mid(config, down_channels[-1])
+        self.conv_norm_out = tp.GroupNorm(32, down_channels[-1], dtype=config.dtype)
         self.conv_act = tp.silu
-        self.conv_out = tp.Conv(512, 8, (3, 3), padding=((1, 1), (1, 1)))
+        self.conv_out = tp.Conv(down_channels[-1], 8, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
 
     def __call__(self, x):
         x = self.conv_in(x)
@@ -161,10 +170,10 @@ class Encoder(tp.Module):
 
 class AutoencoderKL(tp.Module):
     def __init__(self, config: VAEConfig):
-        self.encoder = Encoder()
-        self.decoder = Decoder()
-        self.quant_conv = tp.Conv(8, 8, (1, 1))
-        self.post_quant_conv = tp.Conv(4, 4, (1, 1))
+        self.encoder = Encoder(config)
+        self.decoder = Decoder(config)
+        self.quant_conv = tp.Conv(8, 8, (1, 1), dtype=config.dtype)
+        self.post_quant_conv = tp.Conv(4, 4, (1, 1), dtype=config.dtype)
 
     def __call__(self, x):
         latent = self.encoder(x)
