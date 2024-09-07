@@ -20,17 +20,21 @@ def load_weights_from_hf(model, hf_model, dtype, debug=False):
     torch_dtype = getattr(torch, dtype.name)
     for key in hf_keys:
         weight = hf_state_dict[key]
-        param = tp.Parameter(weight)
-        if "ln" not in key:
-            weight = weight.to(torch_dtype)
+        # print(weight.dtype)
+        # if "ln" in key or "gn" in key or "norm" in key:
+        #     print(f"{key}: {weight.dtype}")
+        # if "norm" not in key:
+        #     weight = weight.to(torch_dtype)
+        # print(f"{key}: {weight.dtype}")
         param = tp.Parameter(weight)
         tripy_state_dict[key.removeprefix("text_model.")] = param
 
     model.load_from_state_dict(tripy_state_dict)
 
 def load_from_diffusers(model, dtype, debug=False):
-    model_id = "runwayml/stable-diffusion-v1-5"  # "CompVis/stable-diffusion-v1-4"
-    pipe = StableDiffusionPipeline.from_pretrained(model_id)
+    model_id = "CompVis/stable-diffusion-v1-4" #"benjamin-paine/stable-diffusion-v1-5"  #"runwayml/stable-diffusion-v1-5"
+    model_opts = {'variant': 'fp16', 'torch_dtype': torch.float16} if dtype == tp.float16 else {} 
+    pipe = StableDiffusionPipeline.from_pretrained(model_id, **model_opts)
 
     load_weights_from_hf(model.cond_stage_model.transformer.text_model, pipe.text_encoder, dtype, debug=debug)
     load_weights_from_hf(model.model.diffusion_model, pipe.unet, dtype, debug=debug)
