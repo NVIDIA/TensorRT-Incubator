@@ -293,16 +293,14 @@ class TestConvertInputsToTensors:
         ):
             x, y, z = sync_arg_types(3.0, 3, 4)
 
-    def test_invalid_argument_type(self):
-        with helper.raises(
-            tp.TripyException,
-            match=r"convert_inputs_to_tensors decorator supports conversion only for Python numbers or sequences thereof",
-        ):
-            _ = func(np.array([1, 2, 3]))
+    def test_invalid_argument_type_not_converted(self):
+        a = np.array([1, 2, 3])
+        b = func(np.array([1, 2, 3]))
+        assert (a == b).all()
 
-    def test_invalid_argument_type_in_sequence(self):
-        with helper.raises(
-            tp.TripyException,
-            match=r"convert_inputs_to_tensors decorator supports conversion only for Python numbers or sequences thereof",
-        ):
-            _ = func([np.array([1, 2, 3]), np.array([4, 5, 6])])
+    def test_invalid_argument_type_in_sequence_not_converted(self):
+        a = np.array([1, 2, 3])
+        b = np.array([4, 5, 6])
+        c, d = func([np.array([1, 2, 3]), np.array([4, 5, 6])])
+        assert (c == a).all()
+        assert (d == b).all()

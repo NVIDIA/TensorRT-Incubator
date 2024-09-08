@@ -17,7 +17,7 @@
 
 import inspect
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence, Union
 
 import pytest
 
@@ -270,3 +270,238 @@ class TestFunctionRegistry:
             return sum(kwargs.values())
 
         assert registry["test"](a=1.0, b=2.0, c=3.0) == 6.0
+
+    def test_sequence_check(self, registry):
+        @registry("test")
+        def func(int_seq: Sequence[int]) -> int:
+            return sum(int_seq)
+
+        assert registry["test"]([1, 2, 3]) == 6
+        # empty should work too
+        assert registry["test"]([]) == 0
+
+    def test_sequence_no_arg_check(self, registry):
+        @registry("test")
+        def func(seq: Sequence) -> int:
+            return len(seq)
+
+        assert registry["test"]([1, 2, 3]) == 3
+        assert registry["test"](["a", "b"]) == 2
+        assert registry["test"]([]) == 0
+
+    def test_union_check(self, registry):
+        @registry("test")
+        def func(n: Union[int, Sequence[int]]) -> int:
+            if isinstance(n, int):
+                return n
+            return sum(n)
+
+        assert registry["test"]([1, 2, 3]) == 6
+        assert registry["test"](6) == 6
+
+    def test_nested_sequence_check(self, registry):
+        @registry("test")
+        def func(n: Sequence[Sequence[int]]) -> int:
+            if n and n[0]:
+                return n[0][0]
+            return -1
+
+        assert registry["test"]([[1, 2, 3], [4, 5, 6]]) == 1
+
+    def test_nested_union_and_sequence_check(self, registry):
+        @registry("test")
+        def func(n: Sequence[Union[int, Sequence[int]]]) -> int:
+            if len(n) == 0:
+                return 0
+            if isinstance(n[0], Sequence):
+                return len(n) * len(n[0])
+            return len(n)
+
+        assert registry["test"]([]) == 0
+        assert registry["test"]([1, 2, 3]) == 3
+        assert registry["test"]([[1, 2], [3, 4], [5, 6]]) == 6
+
+    def test_tensor_literal(self, registry):
+        @registry("test")
+        def func(n: "tripy.TensorLiteral"):
+            return n
+
+        assert registry["test"](1) == 1
+        assert registry["test"](2.0) == 2.0
+        assert registry["test"]([1, 2, 3]) == [1, 2, 3]
+        assert registry["test"]([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]) == [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]
+
+    def test_error_sequence(self, registry):
+        @registry("test")
+        def func(n: Sequence[int]) -> int:
+            return sum(n)
+
+        with pytest.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Note: Argument types were: \[list\].
+                Candidate overloads were:
+
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         def func\(n: Sequence\[int\]\) \-> int:
+                 [0-9]+ |     ...
+                    |
+
+                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[int\]: expected int but got float
+            """
+            ).strip(),
+        ):
+            registry["test"]([1.0, 2.0, 3.0])
+
+    def test_error_union(self, registry):
+        @registry("test")
+        def func(n: Union[int, float]) -> int:
+            return 0
+
+        with pytest.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Note: Argument types were: \[str\].
+                Candidate overloads were:
+
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         def func\(n: Union\[int, float\]\) \-> int:
+                 [0-9]+ |     \.\.\.
+                    |
+
+                Not a valid overload because: For parameter: 'n', encountered errors while checking possibilities for typing.Union\[int, float\]: On choice int, expected int but got str; On choice float, expected float but got str
+            """
+            ).strip(),
+        ):
+            registry["test"](["hi"])
+
+    def test_error_not_sequence(self, registry):
+        @registry("test")
+        def func(n: Sequence[Sequence[int]]) -> int:
+            return sum(sum(n))
+
+        with pytest.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Note: Argument types were: \[list\].
+                Candidate overloads were:
+
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         def func(n: Sequence\[int\]) \-> int:
+                 [0-9]+ |     \.\.\.
+                    |
+
+                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[typing.Sequence\[int\]\]: expected a sequence but got int
+            """
+            ).strip(),
+        ):
+            registry["test"]([1, 2, 3])
+
+    def test_error_nested_sequence(self, registry):
+        @registry("test")
+        def func(n: Sequence[Sequence[int]]) -> int:
+            return sum(sum(n))
+
+        with pytest.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Note: Argument types were: \[list\].
+                Candidate overloads were:
+
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         def func(n: Sequence\[Sequence\[int\]\]) \-> int:
+                 [0-9]+ |     \.\.\.
+                    |
+
+                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[typing.Sequence\[int\]\]: encountered error while checking member of typing.Sequence\[int\]: expected int but got float
+            """
+            ).strip(),
+        ):
+            registry["test"]([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+
+    def test_error_nested_union_and_sequence(self, registry):
+        @registry("test")
+        def func(n: Sequence[Union[int, float]]) -> int:
+            return sum(n)
+
+        with pytest.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Note: Argument types were: \[list\].
+                Candidate overloads were:
+
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         def func(n: Sequence\[Union\[int, float\]\]) \-> int:
+                 [0-9]+ |     \.\.\.
+                    |
+
+                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[typing.Union\[int, float\]\]: encountered errors while checking possibilities for typing.Union\[int, float\]: On choice int, expected int but got str; On choice float, expected float but got str
+            """
+            ).strip(),
+        ):
+            registry["test"](["a", "b", "c"])
+
+    def test_error_tensor_literal_not_sequence(self, registry):
+        @registry("test")
+        def func(n: "tripy.TensorLiteral"):
+            return n
+
+        with pytest.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Note: Argument types were: \[str\].
+                Candidate overloads were:
+
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         def func\(n: "tripy.TensorLiteral"\):
+                 [0-9]+ |     \.\.\.
+                    |
+
+                Not a valid overload because: For parameter: 'n', expected a number or a sequence of tensor literals but got str
+            """
+            ).strip(),
+        ):
+            registry["test"]("hi")
+
+    def test_error_tensor_literal_not_sequence_of_numbers(self, registry):
+        @registry("test")
+        def func(n: "tripy.TensorLiteral"):
+            return n
+
+        with pytest.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Note: Argument types were: \[str\].
+                Candidate overloads were:
+
+                --> {__file__}:[0-9]+
+                    |
+                 [0-9]+ |         def func\(n: "tripy.TensorLiteral"\):
+                 [0-9]+ |     \.\.\.
+                    |
+
+                Not a valid overload because: For parameter: 'n', encountered an error while checking a member of a tensor literal: encountered an error while checking a member of a tensor literal: expected a number or a sequence of tensor literals but got str
+            """
+            ).strip(),
+        ):
+            registry["test"]([["a"], ["b"], ["c"]])

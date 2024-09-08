@@ -201,12 +201,9 @@ def convert_inputs_to_tensors(
                             return is_valid_sequence(seq_arg[0])
                         return isinstance(seq_arg[0], (int, float))
 
+                    # simply do not convert in these cases and let the registry give an error instead
                     if not isinstance(arg, (int, float)) and not (isinstance(arg, Sequence) and is_valid_sequence(arg)):
-                        raise_error(
-                            "convert_inputs_to_tensors decorator supports conversion only"
-                            f" for Python numbers or sequences thereof. Given argument of type {type(arg)}",
-                            [arg],
-                        )
+                        return arg
 
                     cast_dtype = find_sync_target_dtype(name)
                     return add_column_info_for_non_tensor(

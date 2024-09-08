@@ -16,12 +16,13 @@
 #
 
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Sequence, Union
 import numbers
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
 from tripy import export, constraints
 from tripy.common import datatype
+from tripy.common.utils import TensorLiteral
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -183,7 +184,9 @@ class Comparison(BinaryElementwise):
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
     function_name="__radd__",
 )
-def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __add__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
 
@@ -214,7 +217,9 @@ def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __sub__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -245,7 +250,7 @@ def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "float8", "int32", "int64"]},
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rsub__(self: "tripy.TensorLiteral", other: Union["tripy.Tensor", "tripy.TensorLiteral"]) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -276,7 +281,9 @@ def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __pow__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __pow__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
@@ -345,7 +352,9 @@ def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
     function_name="__rmul__",
 )
-def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __mul__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
 
@@ -376,7 +385,9 @@ def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __truediv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __truediv__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
@@ -407,7 +418,7 @@ def __truediv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", A
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", "tripy.TensorLiteral"]) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
@@ -438,7 +449,9 @@ def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tr
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def maximum(
+    lhs: Union["tripy.Tensor", "tripy.TensorLiteral"], rhs: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an elementwise maximum.
 
@@ -469,7 +482,9 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def minimum(
+    lhs: Union["tripy.Tensor", "tripy.TensorLiteral"], rhs: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an elementwise minimum.
 
@@ -503,7 +518,9 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __lt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __lt__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
 
@@ -537,7 +554,9 @@ def __lt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __le__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __le__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
 
@@ -571,7 +590,9 @@ def __le__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __eq__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __eq__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
 
@@ -605,7 +626,7 @@ def __eq__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __ne__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __ne__(self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
 
@@ -639,7 +660,9 @@ def __ne__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __ge__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __ge__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
 
@@ -673,7 +696,9 @@ def __ge__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __gt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __gt__(
+    self: Union["tripy.Tensor", "tripy.TensorLiteral"], other: Union["tripy.Tensor", "tripy.TensorLiteral"]
+) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.
 

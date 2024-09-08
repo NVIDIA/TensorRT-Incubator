@@ -21,6 +21,19 @@ from typing import Any, List, Sequence
 
 from tripy.common.exception import raise_error
 import tripy.common.datatype
+from tripy import export
+
+
+# This is a WAR to avoid implementing general support for recursive type annotations in the registry
+@export.public_api()
+class TensorLiteral:
+    """
+    This class is a type annotation for tensor literals.
+    A tensor literal can be a Python number or a sequence of tensor literals
+    (i.e., a sequence of numbers of any depth).
+    """
+
+    pass
 
 
 def is_int32(data):
