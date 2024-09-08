@@ -46,8 +46,8 @@ class TestLayerNorm:
         )
 
         # use Tripy's parameters
-        tp_layernorm.weight = tp.Parameter(tp.Tensor(layernorm.weight.detach()))
-        tp_layernorm.bias = tp.Parameter(tp.Tensor(layernorm.bias.detach()))
+        tp_layernorm.weight = tp.Parameter(layernorm.weight.detach())
+        tp_layernorm.bias = tp.Parameter(layernorm.bias.detach())
 
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
         tp_input = tp.Tensor(input, dtype=tp_dtype)

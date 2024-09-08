@@ -115,7 +115,7 @@ class TestQuantLinear:
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )
     def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale):
-        scale = tp.Parameter(tp.Tensor(scale))
+        scale = tp.Parameter(scale)
 
         linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
         linear.weight_scale = scale

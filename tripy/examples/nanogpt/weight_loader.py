@@ -49,7 +49,7 @@ def load_weights_from_hf(model, model_type, dtype):
                 weight = hf_state_dict[key].t().contiguous()
         if "ln" not in key:
             weight = weight.to(torch_dtype)
-        param = tp.Parameter(tp.Tensor(weight))
+        param = tp.Parameter(weight)
         tripy_state_dict[key] = param
 
     model.load_from_state_dict(tripy_state_dict)
@@ -109,7 +109,7 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
 
         if "ln" not in key:
             weight = weight.to(torch_dtype)
-        param = tp.Parameter(tp.Tensor(weight.contiguous()))
+        param = tp.Parameter(weight.contiguous())
         tripy_state_dict[key] = param
 
     model.load_from_state_dict(tripy_state_dict)
