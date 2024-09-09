@@ -106,11 +106,11 @@ public:
     auto key = std::make_pair(mlir::TypeID::get<CompilationTaskType>(),
                               options.getHash());
     auto it = cachedPassManagers.find(key);
-    if (it == cachedPassManagers.end()) {
+    if (it == cachedPassManagers.end() || options.shouldInvalidateCache()) {
       auto pm = std::make_unique<CompilationTaskType>(context, options);
       setupPassManagerLogging(*pm, options.debugOptions);
       auto *ptr = pm.get();
-      cachedPassManagers.insert(std::make_pair(key, std::move(pm)));
+      cachedPassManagers[key] = std::move(pm);
       return *ptr;
     }
     return *it->second;

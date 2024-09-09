@@ -384,11 +384,11 @@ static LogicalResult maybeSetStronglyTypedOption(
 #endif
 }
 
-FailureOr<TensorRTEngineResult>
-tensorrt::buildFunction(mlir::FunctionOpInterface op,
-                        TensorRTBuilderContext &builderContext,
-                        TensorRTSerializedTimingCache &serializedTimingCache,
-                        const TensorRTTranslationOptions &opts) {
+FailureOr<TensorRTEngineResult> tensorrt::buildFunction(
+    mlir::FunctionOpInterface op, TensorRTBuilderContext &builderContext,
+    TensorRTSerializedTimingCache &serializedTimingCache,
+    const TensorRTTranslationOptions &opts,
+    std::function<std::string(Operation *)> layerMetadataCallback) {
   assert(builderContext.getBuilder() && "expected valid builder context");
   std::unique_ptr<nvinfer1::IBuilder> &builder = builderContext.getBuilder();
 
@@ -409,9 +409,9 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
   nvinfer1::IOptimizationProfile *optimProfile =
       builder->createOptimizationProfile();
 
-  NvInferNetworkEncoder encoder(network.get(), optimProfile,
-                                builderContext.getTensorRTVersion(),
-                                opts.enableStronglyTyped);
+  NvInferNetworkEncoder encoder(
+      network.get(), optimProfile, builderContext.getTensorRTVersion(),
+      opts.enableStronglyTyped, layerMetadataCallback);
 
   // Currently we only support single-block functions with unique return
   // terminator ops.
@@ -733,9 +733,10 @@ public:
 
   explicit TranslateToTensorRTEnginePass(
       std::shared_ptr<TensorRTBuilderContext> builderContext,
-      TensorRTTranslationOptions options)
-      : builderContext(builderContext), translationOptions(std::move(options)) {
-  }
+      TensorRTTranslationOptions options,
+      std::function<std::string(Operation *)> metadataCallback)
+      : builderContext(builderContext), translationOptions(std::move(options)),
+        layerMetadataCallback(std::move(metadataCallback)) {}
 
   LogicalResult initialize(MLIRContext *context) final {
     if (!this->builderContext) {
@@ -802,8 +803,9 @@ public:
         continue;
       }
 
-      FailureOr<TensorRTEngineResult> engineResult = buildFunction(
-          func, *builderContext, *timingCache, translationOptions);
+      FailureOr<TensorRTEngineResult> engineResult =
+          buildFunction(func, *builderContext, *timingCache, translationOptions,
+                        layerMetadataCallback);
       if (failed(engineResult) || !engineResult->serializedEngine) {
         func.emitError() << "failed to translate function '" << func.getName()
                          << "' to a TensorRT engine";
@@ -880,11 +882,15 @@ private:
 
   /// Options affecting TensorRT translation.
   TensorRTTranslationOptions translationOptions;
+
+  std::function<std::string(Operation *)> layerMetadataCallback;
 };
 } // namespace
 
 std::unique_ptr<mlir::Pass> tensorrt::createTranslateTensorRTPass(
     std::shared_ptr<tensorrt::TensorRTBuilderContext> context,
+    std::function<std::string(Operation *)> layerMetadataCallback,
     TensorRTTranslationOptions options) {
-  return std::make_unique<TranslateToTensorRTEnginePass>(context, options);
+  return std::make_unique<TranslateToTensorRTEnginePass>(context, options,
+                                                         layerMetadataCallback);
 }
