@@ -72,6 +72,19 @@ def raises(ExcType: type, match: Optional[str] = None, has_stack_info_for: Seque
         assert expected_stack_info in error_msg, f"Missing stack information for tensor:\n{expected_stack_info}"
 
 
+@contextlib.contextmanager
+def config(name: str, value: Any):
+    """
+    Temporarily changes a configuration option.
+    """
+    old_value = getattr(tp.config, name)
+    try:
+        setattr(tp.config, name, value)
+        yield
+    finally:
+        setattr(tp.config, name, old_value)
+
+
 def check_mlir(mlir, expected):
     # Checks a given MLIR module against a string of the expected program.
     # MLIR indents with 2 spaces; we'll replace it with 4 spaces so that it's

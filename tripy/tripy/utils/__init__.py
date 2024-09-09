@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from tripy.utils.stack_info import StackInfo, get_stack_info
+from tripy.utils.stack_info import StackInfo, get_stack_info, get_module_names_to_exclude_from_stack_info
 from tripy.utils.utils import *
 from tripy.utils.ast import *
 from tripy.utils.result import Result

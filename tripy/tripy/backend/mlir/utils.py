@@ -256,6 +256,7 @@ def redirect_stderr() -> BinaryIO:
 
 
 TRIPY_DTYPE_TO_MLIR_TRT = {
+    datatype.int4: runtime.ScalarTypeCode.i4,
     datatype.int8: runtime.ScalarTypeCode.i8,
     datatype.int32: runtime.ScalarTypeCode.i32,
     datatype.int64: runtime.ScalarTypeCode.i64,

@@ -33,7 +33,7 @@ class TestEmbedding:
 
         with helper.raises(
             tp.TripyException,
-            match="Index tensor for gather operation should be of int32 type.",
+            match="Unsupported data type for 'gather'.",
             has_stack_info_for=[a],
         ):
             out = linear(a)

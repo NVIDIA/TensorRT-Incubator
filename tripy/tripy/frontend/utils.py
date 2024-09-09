@@ -99,7 +99,7 @@ def convert_inputs_to_tensors(
                     import tripy.function_registry
 
                     dispatch_target = source_info._dispatch_target or dispatch_target
-                    if source_info.module != tripy.function_registry.__name__:
+                    if source_info.module not in utils.get_module_names_to_exclude_from_stack_info():
                         frame_index = idx + WRAPPER_STACK_DEPTH + skip_num_stack_entries
                         break
                 else:

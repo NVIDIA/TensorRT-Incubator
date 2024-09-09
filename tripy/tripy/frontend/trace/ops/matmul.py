@@ -61,7 +61,6 @@ class MatrixMultiplication(BaseTraceOp):
 
         if a_rank == 1 and b_rank == 1:
             # case 1: both operands are 1-D
-            op_utils.check_input_shapes_match(self, "@")
             self.batching_dim = {"lhs": [], "rhs": []}
             self.contracting_dim = {"lhs": [0], "rhs": [0]}
             self.outputs[0].rank = 0
@@ -107,10 +106,6 @@ class MatrixMultiplication(BaseTraceOp):
             }
 
             self.outputs[0].rank = output_rank
-
-    def infer_dtypes(self):
-        op_utils.check_input_dtypes_match(self, "@")
-        self.outputs[0].dtype = self.inputs[0].dtype
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32

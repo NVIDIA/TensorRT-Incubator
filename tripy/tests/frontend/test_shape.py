@@ -459,14 +459,6 @@ class TestShape:
         ):
             tp.Shape(values).multiply(tp.Tensor([values, values]))
 
-    def test_unary_elementwise_fails_at_run_time(self, values):
-        v = tp.exp(tp.Shape(values))
-        with raises(
-            tp.TripyException,
-            match=("'stablehlo.exponential' op operand #0 must be ranked tensor of"),
-        ):
-            v.eval()
-
     def test_shape_equality(self, other_values):
         a = tp.Shape([4, 5])
         if isinstance(other_values, np.ndarray):

@@ -21,7 +21,7 @@ from tripy import export, constraints
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool", "int8"],
+        "T1": ["float32", "float16", "bfloat16", "int4", "int32", "int64", "bool", "int8"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )

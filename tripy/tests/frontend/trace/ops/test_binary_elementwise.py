@@ -104,7 +104,7 @@ class TestBinaryElementwise:
         with helper.raises(
             tp.TripyException,
             # Keep the entire error message here so we'll know if the display becomes horribly corrupted.
-            match=r"For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].",
+            match=r"Mismatched data types for '__add__'.",
             has_stack_info_for=[a, b],
         ):
             c = a + b

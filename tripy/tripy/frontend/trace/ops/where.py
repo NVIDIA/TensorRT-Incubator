@@ -19,10 +19,8 @@ import numbers
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import export, constraints, utils
-from tripy.common import datatype
+from tripy import constraints, export
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -59,26 +57,14 @@ class Where(BaseTraceOp):
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
-        if self.inputs[0].dtype != datatype.bool:
-            utils.raise_error_io_info(
-                self,
-                "Condition input must have boolean type.",
-                details=[
-                    f"Condition input (input 0) for operation: 'where' must have boolean type, but got: ",
-                    self.inputs[0].dtype,
-                ],
-            )
-
-        op_utils.check_input_dtypes_match(self, op_details="where", start_index=1)
         self.outputs[0].dtype = self.inputs[1].dtype
 
     def to_flat_ir(self, inputs, outputs):
+        from tripy.common.datatype import bool as tp_bool
+        from tripy.common.datatype import int32
+        from tripy.flat_ir.ops import CompareOp, MaxOp, SelectOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import bool as tp_bool, int32
         from tripy.frontend.trace.ops.binary_elementwise import Comparison
-        from tripy.flat_ir.ops import CompareOp
-        from tripy.flat_ir.ops import SelectOp
-        from tripy.flat_ir.ops import MaxOp
 
         # Unconditionally insert broadcast for all operands
         assert len(inputs) == 3, f"Where op expects 3 inputs but got {len(inputs)}."
@@ -138,7 +124,7 @@ class Where(BaseTraceOp):
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
     dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -177,7 +163,7 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
     dtype_constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},

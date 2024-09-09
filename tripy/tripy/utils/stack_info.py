@@ -124,3 +124,14 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
         frame = frame.f_back
 
     return stack_info
+
+
+def get_module_names_to_exclude_from_stack_info():
+    """
+    Returns a set of module names to exclude from stack information when displaying exceptions
+    or trying to retrieve column information from code.
+    """
+    import tripy.function_registry
+    import tripy.constraints
+
+    return {mod.__name__ for mod in [tripy.function_registry, tripy.constraints]}

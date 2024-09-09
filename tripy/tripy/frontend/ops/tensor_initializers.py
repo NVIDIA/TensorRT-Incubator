@@ -33,7 +33,7 @@ from tripy.frontend import utils as frontend_utils
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
@@ -69,7 +69,7 @@ def ones(
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
@@ -103,8 +103,8 @@ def zeros(
 @export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
@@ -136,8 +136,8 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
 @export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )

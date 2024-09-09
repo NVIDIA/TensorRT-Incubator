@@ -46,7 +46,9 @@ class TestMatMul:
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float16)
 
-        with helper.raises(tp.TripyException, match="Incompatible input data types.", has_stack_info_for=[a, b]):
+        with helper.raises(
+            tp.TripyException, match="Mismatched data types for '__matmul__'.", has_stack_info_for=[a, b]
+        ):
             c = a @ b
 
     def test_incompatible_1d_shapes_fails(self):

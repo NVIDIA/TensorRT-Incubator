@@ -35,13 +35,13 @@ class TestReduce:
         assert isinstance(a.trace_tensor.producer, Reduce)
 
     def test_all(self):
-        a = tp.ones((2, 3))
+        a = tp.ones((2, 3), dtype=tp.bool)
         a = tp.all(a)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Reduce)
 
     def test_any(self):
-        a = tp.ones((2, 3))
+        a = tp.ones((2, 3), dtype=tp.bool)
         a = tp.any(a)
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Reduce)
