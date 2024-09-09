@@ -33,7 +33,6 @@
 
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Support/Status.h"
-#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/Options.h"
@@ -106,6 +105,15 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Get the mutable DebugOptions.
   DebugOptions &getDebugOptions() { return debugOptions; }
 
+  llvm::hash_code getHash() const override;
+
+  bool shouldInvalidateCache() const override {
+    // If a callback is provided, we have no way of verifying whether it is
+    // equivalent to a callback from another set of options. Therefore, we are
+    // forced to invalidate the cache entry if it is present at all.
+    return static_cast<bool>(layerMetadataCallback);
+  }
+
   /// The host index bit-width.
   int64_t executorIndexBitwidth{64};
 
@@ -125,10 +133,12 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Whether to disallow host tensors in TensorRT clusters.
   bool disallowHostTensorsInTensorRTClusters = false;
 
-  /// Entrypiont function name.
+  /// Entrypoint function name.
   std::string entrypoint = "main";
 
   DebugOptions debugOptions;
+
+  std::function<std::string(mlir::Operation *)> layerMetadataCallback{nullptr};
 
   /// Base class for extensions associated with StableHloToExecutableTask.
   class ExtensionBase : public TaskExtensionBase {

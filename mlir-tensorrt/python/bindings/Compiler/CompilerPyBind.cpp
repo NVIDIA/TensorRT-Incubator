@@ -19,7 +19,9 @@
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "pybind11/pybind11.h"
 #include "llvm/Support/DynamicLibrary.h"
+#include "llvm/Support/raw_ostream.h"
 #include <pybind11/attr.h>
+#include <pybind11/functional.h>
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"
@@ -66,6 +68,11 @@ public:
           mtrtStableHloToExecutableOptionsDestroy,
           mtrtPythonCapsuleToStableHLOToExecutableOptions,
           mtrtPythonStableHLOToExecutableOptionsToCapsule};
+
+  // We need this member so we can keep the Python callback alive long enough.
+  std::function<std::string(MlirOperation)> callback;
+
+  ~PyStableHLOToExecutableOptions() { callback = nullptr; }
 };
 } // namespace
 
@@ -270,7 +277,43 @@ PYBIND11_MODULE(_api, m) {
           py::arg("enabled"),
           py::arg("debug_types") = std::vector<std::string>{},
           py::arg("dump_ir_tree_dir") = py::none(),
-          py::arg("dump_tensorrt_dir") = py::none());
+          py::arg("dump_tensorrt_dir") = py::none())
+
+#ifdef MLIR_TRT_TARGET_TENSORRT
+      .def(
+          "set_tensorrt_translation_metadata_callback",
+          [](PyStableHLOToExecutableOptions &self,
+             std::function<std::string(MlirOperation)> pyCallback) {
+            // Since we're constructing a C callback, our closures must not
+            // capture. We can pass in the Python callback via the userData
+            // argument.
+            auto callback = [](MlirOperation op, MlirStringCallback append,
+                               void *appendCtx, void *userDataVoid) {
+              auto &pyCallback =
+                  *static_cast<std::function<std::string(MlirOperation)> *>(
+                      userDataVoid);
+
+              if (!pyCallback)
+                return;
+
+              std::string result;
+              try {
+                result = pyCallback(op);
+              } catch (const std::exception &e) {
+                llvm::errs() << e.what() << '\n';
+              }
+
+              append(MlirStringRef{result.data(), result.size()}, appendCtx);
+            };
+
+            self.callback = pyCallback;
+            THROW_IF_MTRT_ERROR(
+                mtrtStableHloToExecutableOptionsSetTensorRTTranslationMetadataCallback(
+                    self, callback, reinterpret_cast<void *>(&self.callback)));
+          },
+          py::arg("callback"), py::keep_alive<1, 2>{})
+#endif
+      ;
 
   m.def(
       "compiler_stablehlo_to_executable",

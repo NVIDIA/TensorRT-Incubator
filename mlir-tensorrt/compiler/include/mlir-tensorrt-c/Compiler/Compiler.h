@@ -60,6 +60,10 @@ typedef struct MTRT_StableHLOToExecutableOptions {
   void *ptr;
 } MTRT_StableHLOToExecutableOptions;
 
+typedef void (*MTRT_MetadataCallback)(MlirOperation op,
+                                      MlirStringCallback append,
+                                      void *appendCtx, void *userData);
+
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsCreate(
     MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions *options,
     int32_t tensorRTBuilderOptLevel, bool tensorRTStronglyTyped);
@@ -76,6 +80,11 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     MTRT_StableHLOToExecutableOptions options, bool enableDebugging,
     const char **debugTypes, size_t debugTypeSizes,
     const char *dumpIrTreeDir = nullptr, const char *dumpTensorRTDir = nullptr);
+
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtStableHloToExecutableOptionsSetTensorRTTranslationMetadataCallback(
+    MTRT_StableHLOToExecutableOptions options, MTRT_MetadataCallback callback,
+    void *userData);
 
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
     MTRT_StableHLOToExecutableOptions options);

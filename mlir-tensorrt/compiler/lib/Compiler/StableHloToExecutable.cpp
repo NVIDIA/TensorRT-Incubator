@@ -271,6 +271,13 @@ Status StableHLOToExecutableOptions::inferDeviceOptionsFromHost() {
   return Status::getOk();
 }
 
+llvm::hash_code StableHLOToExecutableOptions::getHash() const {
+  llvm::hash_code hash = OptionsContext::getHash();
+  if (layerMetadataCallback)
+    return llvm::hash_combine(hash, &layerMetadataCallback);
+  return hash;
+}
+
 //===----------------------------------------------------------------------===//
 // StableHloToExecutableTask
 //===----------------------------------------------------------------------===//

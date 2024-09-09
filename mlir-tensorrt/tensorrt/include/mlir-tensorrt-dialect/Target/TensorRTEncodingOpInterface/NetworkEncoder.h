@@ -74,11 +74,14 @@ static constexpr nvinfer1::Weights kNullWeights =
 
 class NvInferNetworkEncoder {
 public:
-  NvInferNetworkEncoder(nvinfer1::INetworkDefinition *network,
-                        nvinfer1::IOptimizationProfile *profile,
-                        TensorRTVersion version, bool usesStronglyTyped)
+  NvInferNetworkEncoder(
+      nvinfer1::INetworkDefinition *network,
+      nvinfer1::IOptimizationProfile *profile, TensorRTVersion version,
+      bool usesStronglyTyped,
+      std::function<std::string(Operation *)> metadataCallback)
       : network(network), profile(profile), version(std::move(version)),
-        usesStronglyTyped(usesStronglyTyped) {}
+        usesStronglyTyped(usesStronglyTyped),
+        layerMetadataCallback(std::move(metadataCallback)) {}
 
   /// Lookup the TRT ITensor* equivalent of a Value.
   nvinfer1::ITensor *lookup(Value v) const;
@@ -86,12 +89,15 @@ public:
   /// Lookup the TRT ITensor* equivalents of a ValueRange.
   SmallVector<nvinfer1::ITensor *> lookupValues(ValueRange values);
 
-  /// Add a map from a Value to a TRT ITEnsor*.
+  /// Add a map from a Value to a TRT ITensor*.
   void map(Value from, nvinfer1::ITensor *to);
 
   /// Remap values in `from` to each layer in `to` using the output at index 0
   /// for each layer.
   void map(ValueRange from, ArrayRef<nvinfer1::ILayer *> to);
+
+  // Add a map from an Operation to a TRT ILayer*
+  void map(Operation *op, nvinfer1::ILayer *layer);
 
   /// Check whether the value map contains `v`.
   size_t contains(Value v) { return valueMap.count(v); }
@@ -133,6 +139,10 @@ public:
   /// and other temporary buffers.
   using WeightsMap = llvm::DenseMap<mlir::Attribute, std::vector<int8_t>>;
 
+  // Tracks the mapping of mlir::Operations to layers. Note that one operation
+  // may map to multiple layers.
+  using LayerMap = llvm::DenseMap<Operation *, std::vector<nvinfer1::ILayer *>>;
+
   using NamesSet = llvm::StringSet<>;
 
   TensorMap &getTensorMap() { return valueMap; }
@@ -142,7 +152,7 @@ public:
 
   /// Set the name of the `trtLayer` to a unique string that contains the op
   /// name and location information from `sourceOp`.
-  void setName(nvinfer1::ILayer *layer, Operation *sourceOp);
+  void setMetadata(nvinfer1::ILayer *layer, Operation *sourceOp);
 
   // Check if network uses fp16 types.
   bool hasFp16Usage() const { return usesFp16; }
@@ -208,6 +218,9 @@ private:
   // build ends.
   SmallVector<NvInferPluginPtr> pluginReferences;
 
+  // Tracks the mapping between mlir::Operations and TensorRT ILayers.
+  LayerMap layerMap;
+
   /// Holds the set of strings currently assigned as names to TensorRT ILayers.
   /// This is required because we must make new names unique. The TensorRT API
   /// does not have a set object to query names.
@@ -239,6 +252,8 @@ private:
   bool hasQDQOps{false};
 
   PluginManager pluginMgr;
+
+  std::function<std::string(Operation *)> layerMetadataCallback;
 };
 
 //===----------------------------------------------------------------------===//
