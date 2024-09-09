@@ -854,10 +854,10 @@ public:
 
     // First rewrite public functions to conform to DPS style.
     IRRewriter rewriter(ctx);
-    if (failed(rewriteNotPrivateFuncsToDPS(rewriter, op))) {
-      op->emitError("Failed to convert non-private functions to DPS");
-      return signalPassFailure();
-    }
+    // if (failed(rewriteNotPrivateFuncsToDPS(rewriter, op))) {
+    //   op->emitError("Failed to convert non-private functions to DPS");
+    //   return signalPassFailure();
+    // }
 
     // Rewrite SCF for and while loop bodies for better bufferization results,
     // if possible.

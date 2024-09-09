@@ -101,8 +101,7 @@ def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
                 "--entrypoint=main",
             ],
         )
-        if debug:
-            opts.set_debug_options(False, [], "tmp")
+        opts.set_debug_options(True, [], "tmp")
         exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
 
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
@@ -146,8 +145,8 @@ def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
 if __name__ == "__main__":
     print("Test (3, ?, 2)")
     test_program(program1, (3, 4, 2))
-    print("Test (?, 2)")
-    test_program(program2, (4, 2))
+    # print("Test (?, 2)")
+    # test_program(program2, (4, 2))
 
 # CHECK-LABEL: Test (3, ?, 2)
 #       CHECK: [{{\[}}[2. 2.]

@@ -25,6 +25,7 @@
 #include "mlir-tensorrt/Dialect/CUDA/IR/CUDADialect.h"
 #include "mlir-tensorrt/Dialect/TensorRTRuntime/IR/TensorRTRuntime.h"
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -41,6 +42,9 @@ using namespace mlir;
 using namespace mlir::executor;
 using namespace mlir::cuda;
 
+static ExecutorOpaqueType getTrtOutputsOpaqueType(MLIRContext *ctx) {
+  return ExecutorOpaqueType::get(ctx, "trtrt_outputs");
+}
 static ExecutorOpaqueType getTrtRuntimeOpaqueType(MLIRContext *ctx) {
   return ExecutorOpaqueType::get(ctx, "trtrt_runtime");
 }
@@ -184,8 +188,6 @@ struct ConvertEnqueueToCall
     std::string funcName;
     funcName =
         "_" + llvm::join(llvm::split(op->getName().getStringRef(), "."), "_");
-    if (op->getNumResults() > 0)
-      return failure();
 
     SmallVector<Value> newOperands = {adaptor.getExecutionContext(),
                                       adaptor.getStream()};
@@ -217,10 +219,6 @@ struct ConvertEnqueueToCall
       if (failed(createMemRefAndExractPtr(oldVal, newVal)))
         return failure();
     }
-    for (auto [oldVal, newVal] : llvm::zip(op.getOuts(), adaptor.getOuts())) {
-      if (failed(createMemRefAndExractPtr(oldVal, newVal)))
-        return failure();
-    }
 
     // Create the table containing the pointer/offset args and append it to the
     // arguments for the call op.
@@ -230,17 +228,35 @@ struct ConvertEnqueueToCall
         argTablePack);
     newOperands.push_back(args);
 
+    SmallVector<Type, 4> resultTypes(op->getResultTypes().begin(), op->getResultTypes().end());
+
     auto parentModule = op->getParentOfType<ModuleOp>();
     auto enqueueFunc = getOrInsertFuncDeclaration(
         rewriter, op.getLoc(), parentModule, funcName,
         ExecutorFunctionType::get(rewriter.getContext(),
                                   {adaptor.getExecutionContext().getType(),
                                    adaptor.getStream().getType()},
-                                  {}, rewriter.getUnitAttr()));
+                                  resultTypes, rewriter.getUnitAttr()));
 
     rewriter.replaceOpWithNewOp<CallOp>(
-        op, TypeRange{}, enqueueFunc.getLeafReference(), newOperands);
+        op, op->getResultTypes(), enqueueFunc.getLeafReference(), newOperands);
 
+    return success();
+  }
+};
+
+class RemoveBufferizationClonePattern : public OpRewritePattern<bufferization::CloneOp> {
+public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(bufferization::CloneOp op,
+                                PatternRewriter &rewriter) const override {
+    // Replace all uses of the clone op with its input
+    rewriter.replaceAllUsesWith(op.getResult(), op.getInput());
+    
+    // Erase the clone op
+    rewriter.eraseOp(op);
+    
     return success();
   }
 };
@@ -282,6 +298,11 @@ struct ConvertTrtrtOpToCall : public ConvertToExecutorPattern {
   }
 };
 
+void populateRemoveBufferizationClonePatterns(RewritePatternSet &patterns) {
+  patterns.add<RemoveBufferizationClonePattern>(patterns.getContext());
+}
+
+
 } // namespace
 
 namespace {
@@ -320,6 +341,7 @@ public:
     typeConverter.addConversion([](cuda::StreamType t) {
       return getCudaStreamOpaqueType(t.getContext());
     });
+
     // Convert `trtrt.compile` to globals that create execution context from
     // serialized TensorRT engine data.
     {
@@ -331,6 +353,15 @@ public:
       RewritePatternSet patterns(&getContext());
       patterns.add<ConvertCompile>(typeConverter, ctx);
       if (failed(applyPartialConversion(getOperation(), target,
+                                        std::move(patterns))))
+        return signalPassFailure();
+    }
+
+    {
+      RewritePatternSet patterns(&getContext());
+      populateRemoveBufferizationClonePatterns(patterns);
+
+      if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                         std::move(patterns))))
         return signalPassFailure();
     }

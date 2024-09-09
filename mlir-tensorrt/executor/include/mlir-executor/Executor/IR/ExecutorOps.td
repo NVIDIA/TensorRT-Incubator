@@ -438,13 +438,15 @@ def Executor_FuncOp : Executor_Op<"func", [IsolatedFromAbove,
 def Executor_CallOp : Executor_Op<"call", [
     CallOpInterface,
     DeclareOpInterfaceMethods<SymbolUserOpInterface>]> {
-  let summary = "call to an Executor IR function";
+  let summary = "call to an Executor IR function that returns outputs without mutating inputs";
 
   let description = [{
     The `executor.call` operation represents a procedure call to an externally
     defined function given by the `callee` symbol name. The procedure is invoked
     by passing `args` as well as immediate operands (attribute values) given
     by `immediate_args`. The `immediate_args` attribute is optional.
+
+    This operation does not mutate its input arguments and produces new outputs.
 
     If `immediate_args` is not specified, then the values in `args` are
     passed to `callee` in the order that they are listed.
@@ -455,7 +457,7 @@ def Executor_CallOp : Executor_Op<"call", [
     Currently, `immediate_args` values are restricted to be integers
     attributes.
 
-    The function definition is currently not checked the verify that passing
+    The function definition is currently not checked to verify that passing
     immediate args makes sense. It is only verified against the types of
     `args` and `results`.
   }];
@@ -493,6 +495,8 @@ def Executor_CallOp : Executor_Op<"call", [
       (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
     }
 
+    // Note: This method is provided for compile-time IR transformations
+    // and does not imply that the operation mutates its inputs during execution.
     MutableOperandRange getArgOperandsMutable() {
       return getArgsMutable();
     }

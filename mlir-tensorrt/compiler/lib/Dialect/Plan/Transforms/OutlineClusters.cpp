@@ -173,7 +173,7 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
 
   rewriter.setInsertionPoint(op);
   auto callOp = rewriter.create<tensorrt::CallOp>(
-      op.getLoc(), op.getResultTypes(), op.getInputs(), op.getOuts(),
+      op.getLoc(), op.getResultTypes(), op.getInputs(),
       SymbolRefAttr::get(trtModuleOp.getNameAttr(),
                          {FlatSymbolRefAttr::get(*func)}));
 
@@ -203,31 +203,6 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
     func->setArgAttr(i, mlir::getHostTensorArgAttrName(),
                      rewriter.getUnitAttr());
   }
-  // Populate the function result attributes.
-  for (unsigned i = 0; i < (*func).getNumResults(); i++) {
-    BoundsAttr srcAttr = cast<BoundsAttr>(op.getResAttrs()[i]);
-    if (srcAttr.isNone())
-      continue;
-    FailureOr<tensorrt::ShapeProfileAttr> boundsAttr =
-        getTensorRTShapeProfile(srcAttr, op.getResults()[i]);
-    if (failed(boundsAttr))
-      return op->emitOpError("failed to create TensorRT shape profile "
-                             "attribute from Plan BoundsAttr for result #")
-             << i << " (" << srcAttr << ")";
-    if (srcAttr.isShapeBound()) {
-      func->setResultAttr(
-          i, tensorrt::TensorRTDialect::getShapeProfileArgAttrName(),
-          *boundsAttr);
-      continue;
-    }
-    assert(srcAttr.isValueBound() && "expected value bound or shape bound");
-    func->setResultAttr(
-        i, tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName(),
-        *boundsAttr);
-    func->setResultAttr(i, mlir::getHostTensorArgAttrName(),
-                        rewriter.getUnitAttr());
-  }
-
   // Populate the function entry block.
   rewriter.eraseBlock(&func->getFunctionBody().front());
 
@@ -254,14 +229,6 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   rewriter.setInsertionPoint(regionYieldOp);
   rewriter.replaceOpWithNewOp<func::ReturnOp>(regionYieldOp,
                                               regionYieldOp->getOperands());
-
-  // Erase the DPS arugments, which now should be unused.
-  if (llvm::any_of(func->getArguments().take_back(op.getOuts().size()),
-                   [](BlockArgument arg) { return !arg.use_empty(); }))
-    return failure();
-  func->getFunctionBody().front().eraseArguments(op.getInputs().size(),
-                                                 op.getOuts().size());
-
   // replace the original region results.
   rewriter.replaceOp(op, callOp);
   return success();

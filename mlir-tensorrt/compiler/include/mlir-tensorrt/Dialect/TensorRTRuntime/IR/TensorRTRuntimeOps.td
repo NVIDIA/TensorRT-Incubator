@@ -7,9 +7,10 @@ include "mlir-tensorrt/Dialect/CUDA/IR/CUDATypes.td"
 include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td"
 include "mlir/IR/SymbolInterfaces.td"
 include "mlir/IR/RegionKindInterface.td"
-include "mlir/Interfaces/DestinationStyleOpInterface.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.td"
+
 
 
 def TensorRTRuntime_TensorRTRuntimeOpTrait: NativeOpTrait<"TensorRTRuntimeOpTrait"> {
@@ -61,11 +62,8 @@ def TensorRTRuntime_CompileOp : TensorRTRuntime_Op<"compile", [Pure]> {
 //===----------------------------------------------------------------------===//
 
 def TensorRTRuntime_EnqueueOp : TensorRTRuntime_Op<"enqueue", [
-    DeclareOpInterfaceMethods<InferTypeOpInterface>,
     DeclareOpInterfaceMethods<TensorKindOpInterface>,
     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
-    AttrSizedOperandSegments,
-    DestinationStyleOpInterface
 ]> {
   let description = [{
 
@@ -88,23 +86,19 @@ def TensorRTRuntime_EnqueueOp : TensorRTRuntime_Op<"enqueue", [
   let arguments = (ins TensorRTRuntime_Context:$execution_context,
                        CUDA_Stream:$stream,
                        Variadic<AnyShaped>:$inputs,
-                       Variadic<AnyShaped>:$outs,
                        OptionalAttr<DenseI64ArrayAttr>:$host_tensor_args);
   let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
     $execution_context `stream` `(` $stream `)` ` `
     (`host_tensor_args` $host_tensor_args^ ` ` )?
-    `(` $inputs `)` `outs` `(` $outs `)`
-    attr-dict `:` functional-type($inputs, $outs)
+    `(` $inputs `)`
+    attr-dict `:` functional-type($inputs, $results)
   }];
 
   let hasVerifier = 1;
 
   let extraClassDeclaration = [{
-    // Declare the outs as inits/outs to DestinationStyleOpInterface.
-    MutableOperandRange getDpsInitsMutable() { return getOutsMutable(); }
-
     /// Return true if the operand at the specified index is a host tensor
     /// argument.
     bool isOperandOnHost(int64_t operandIdx) {

@@ -35,6 +35,11 @@
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
+#include "llvm/Support/Debug.h"
+
+#define DEBUG_TYPE "tensorrt-to-tensorrt-runtime"
+#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "] ")
+
 namespace mlir {
 #define GEN_PASS_DEF_CONVERTTENSORRTTOTENSORRTRUNTIMEPASS
 #include "mlir-tensorrt/Conversion/Passes.h.inc"
@@ -123,12 +128,15 @@ class ConvertTensorRTToRuntimePass
                    {FlatSymbolRefAttr::get(trtFunc)}));
       Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
       auto enqueueOp = rewriter.create<trtrt::EnqueueOp>(
-          loc, executionContext, stream, callOp.getInputs(),
-          callOp.getOutputs(),
+          loc, callOp->getResultTypes(), executionContext, stream, callOp.getInputs(),
           /*host_tensors_args=*/hostTensorArgs.empty()
               ? DenseI64ArrayAttr{}
               : DenseI64ArrayAttr::get(ctx, hostTensorArgs));
       rewriter.setInsertionPointAfter(enqueueOp);
+
+      DBGS() << "Number of call op results: " << callOp->getNumResults() << "\n"; 
+      DBGS() << "Number of enqueue op results: " << enqueueOp->getNumResults() << "\n"; 
+
       rewriter.replaceOp(callOp, enqueueOp->getResults());
     }
   }
