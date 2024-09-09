@@ -18,6 +18,7 @@
 
 import inspect
 import itertools
+from textwrap import dedent
 from typing import List
 
 import pytest
@@ -27,40 +28,7 @@ from tests.spec_verification.object_builders import create_obj
 
 import tripy as tp
 from tripy.common.datatype import DATA_TYPES
-from tripy.constraints import RETURN_VALUE, TYPE_VERIFICATION
-
-
-def _method_handler(func_name, kwargs, func_obj, api_call_locals):
-    _METHOD_OPS = {
-        "__add__": (lambda self, other: self + other),
-        "__sub__": (lambda self, other: self - other),
-        "__rsub__": (lambda self, other: self - other),
-        "__pow__": (lambda self, other: self**other),
-        "__rpow__": (lambda self, other: self**other),
-        "__mul__": (lambda self, other: self * other),
-        "__rmul__": (lambda self, other: self * other),
-        "__truediv__": (lambda self, other: self / other),
-        "__rtruediv__": (lambda self, other: self / other),
-        "__lt__": (lambda self, other: self < other),
-        "__le__": (lambda self, other: self <= other),
-        "__eq__": (lambda self, other: self == other),
-        "__ne__": (lambda self, other: self != other),
-        "__ge__": (lambda self, other: self >= other),
-        "__gt__": (lambda self, other: self > other),
-        "__matmul__": (lambda self, other: self @ other),
-        "shape": (lambda self: self.shape),
-        "__getitem__": (lambda self, index: self[index]),
-    }
-    if func_obj.__name__ in _METHOD_OPS.keys():
-        # Function needs to be executed in a specific way
-        rtn_builder = _METHOD_OPS.get(func_obj.__name__, None)
-        api_call_locals[RETURN_VALUE] = rtn_builder(**kwargs)
-    else:
-        # Execute API call normally.
-        exec(f"{RETURN_VALUE} = " + f"tp.{func_obj.__name__}(**kwargs)", globals(), api_call_locals)
-    # Print out debugging info.
-    print("API call: ", func_name, ", with parameters: ", kwargs)
-
+from tripy.constraints import TYPE_VERIFICATION
 
 DTYPE_CONSTRAINT_CASES = []
 
@@ -152,34 +120,72 @@ def _run_dtype_constraints_subtest(test_data):
     for param_name, param_type in inputs.items():
         kwargs[param_name] = create_obj(func_obj, func_name, param_name, param_type, namespace)
 
-    # Run api call through _method_handler and setup namespace (api_call_locals).
-    api_call_locals = {"kwargs": kwargs}
-    _method_handler(func_name, kwargs, func_obj, api_call_locals)
+    args = []
+
+    # Passing "self" as a keyword argument does not work with wrappers like `FuncOverload`.
+    if "self" in kwargs:
+        args = [kwargs["self"]]
+        del kwargs["self"]
+
+    SPECIAL_FUNCS = {
+        "__radd__": (lambda self, other: self + other),
+        "__rsub__": (lambda self, other: self - other),
+        "__rpow__": (lambda self, other: self**other),
+        "__rmul__": (lambda self, other: self * other),
+        "__rtruediv__": (lambda self, other: self / other),
+        "shape": (lambda self: self.shape),
+    }
+
+    if func_name in SPECIAL_FUNCS:
+        ret_val = SPECIAL_FUNCS[func_name](*args, **kwargs)
+    else:
+        all_locals = locals()
+        exec(
+            dedent(
+                # We can't call `func_obj` directly because there may be other decorators
+                # applied after the dtype constraints one. By importing it like this, we
+                # get the final version of the function.
+                f"""
+                from {func_obj.__module__} import {func_obj.__qualname__}
+
+                if {func_name} == "shape":
+                    ret_val = args[0].shape
+                else:
+                    ret_val = {func_obj.__qualname__}(*args, **kwargs)
+                """
+            ),
+            globals(),
+            all_locals,
+        )
+        ret_val = all_locals["ret_val"]
 
     # If output does not have dtype skip .eval().
-    if isinstance(api_call_locals[RETURN_VALUE], int):
-        return api_call_locals, namespace
+    if isinstance(ret_val, int):
+        return ret_val, namespace
 
     # If output is a list then checking the return the first element in the list. (Assumes list of Tensors)
-    if isinstance(api_call_locals[RETURN_VALUE], List):
-        api_call_locals[RETURN_VALUE] = api_call_locals[RETURN_VALUE][0]
+    if isinstance(ret_val, List):
+        ret_val = ret_val[0]
 
     # Run eval to check for any backend errors.
-    api_call_locals[RETURN_VALUE].eval()
-    return api_call_locals, namespace
+    ret_val.eval()
+    return ret_val, namespace
 
 
 # Positive dtype testing is run during L1 testing.
 @pytest.mark.l1
 @pytest.mark.parametrize("test_data", DTYPE_CONSTRAINT_CASES, ids=lambda val: val[-1])
 def test_dtype_constraints(test_data):
-    _, _, _, return_dtype, _, positive_case, _ = test_data
-    if positive_case:
-        api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-        if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
-            assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
-    else:
-        with helper.raises(Exception):
-            api_call_locals, namespace = _run_dtype_constraints_subtest(test_data)
-            if isinstance(api_call_locals[RETURN_VALUE], tp.Tensor):
-                assert api_call_locals[RETURN_VALUE].dtype == namespace[return_dtype]
+    # If data type checking is enabled, negative tests will trivially pass (we will throw an
+    # error before even trying to call the function).
+    with helper.config("enable_dtype_checking", False):
+        _, _, _, return_dtype, _, positive_case, _ = test_data
+        if positive_case:
+            ret_val, namespace = _run_dtype_constraints_subtest(test_data)
+            if isinstance(ret_val, tp.Tensor):
+                assert ret_val.dtype == namespace[return_dtype]
+        else:
+            with helper.raises(Exception):
+                ret_val, namespace = _run_dtype_constraints_subtest(test_data)
+                if isinstance(ret_val, tp.Tensor):
+                    assert ret_val.dtype == namespace[return_dtype]

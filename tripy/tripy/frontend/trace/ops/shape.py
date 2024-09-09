@@ -52,7 +52,7 @@ class Shape(BaseTraceOp):
 @property
 @constraints.dtype_info(
     dtype_variables={
-        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["int32"],
     },
     dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "T2"},

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@ from tests import helper
 
 import tripy as tp
 from tripy.common.datatype import DATA_TYPES
-from tripy.constraints import FUNC_W_DOC_VERIF, TYPE_VERIFICATION
+from tripy.constraints import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -145,6 +145,8 @@ seen_classes = set()
 def process_docstring(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
+    unqual_name = name.split(".")[-1]
+
     # Check signature for functions/methods and class constructors.
     if what in {"function", "method"} or (what == "class" and name in seen_classes):
         signature = inspect.signature(obj)
@@ -162,7 +164,8 @@ def process_docstring(app, what, name, obj, options, lines):
                 elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                     pname = "*" + pname
 
-                if pname != "self" or obj.__qualname__ in FUNC_W_DOC_VERIF:
+                # Type annotations are optional for the `self` parameter unless the API has to be type-verified.
+                if pname != "self" or unqual_name in TYPE_VERIFICATION:
                     assert (
                         pname in documented_args
                     ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args} {doc}"
@@ -178,10 +181,6 @@ def process_docstring(app, what, name, obj, options, lines):
                     assert not inspect.ismodule(
                         param.annotation
                     ), f"Type annotation cannot be a module, but got: '{param.annotation}' for parameter: '{pname}' in: '{obj}'. Please specify a type!"
-                else:
-                    assert (
-                        param.annotation == signature.empty
-                    ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation! Note: Documented parameters were: {documented_args} {doc}"
 
             assert signature.return_annotation != signature.empty, (
                 f"Missing return type annotation for: '{obj}'. "
@@ -193,10 +192,7 @@ def process_docstring(app, what, name, obj, options, lines):
                     ":returns:" in doc
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
 
-    # New docstring logic:
-    # First figure out if object is using the @constraints.dtype_info decorator.
-    unqual_name = name.split(".")[-1]
-    if unqual_name in TYPE_VERIFICATION.keys():
+    if unqual_name in TYPE_VERIFICATION:
         add_text_index = -1
         for index, block in enumerate(blocks):
             if re.search(r".. code-block::", block):
@@ -234,6 +230,7 @@ def process_docstring(app, what, name, obj, options, lines):
                     index += 1
                     blocks.insert(index, dtype_exception_text)
                 break
+
             if re.search(r":param \w+: ", block):
                 param_name = re.match(r":param (\w+): ", block).group(1)
                 # Add dtype constraint to start of each parameter description.
@@ -242,6 +239,7 @@ def process_docstring(app, what, name, obj, options, lines):
                     blocks[index] = (
                         f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[unqual_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
                     )
+
             if TYPE_VERIFICATION[unqual_name].return_dtype is not None and re.search(r":returns:", block):
                 add_text_index = re.search(r":returns:", block).span()[1] + 1
                 # Add dtype constraint to start of returns description.

@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Any, Union
 
-from tripy import export
+from tripy import constraints, export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
@@ -36,17 +36,17 @@ class Dequantize(BaseTraceOp):
         self.outputs[0].dtype = self.dtype
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import (
-            ConvertOp,
             ConcatenateOp,
             ConstantOp,
+            ConvertOp,
             DivideOp,
             DynamicBroadcastOp,
             DynamicReshapeOp,
             MulOp,
         )
-        from tripy.common.datatype import int32
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         # Represent quantize as convert(input, dtype) * scale
         converted_tensor = FlatIRTensor.build(
@@ -109,6 +109,10 @@ class Dequantize(BaseTraceOp):
 
 @export.public_api(document_under="operations/quantization")
 @frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["int4", "int8", "float8"], "T2": ["float32", "float16", "bfloat16"]},
+    dtype_constraints={"input": "T1", "scale": "T2", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+)
 def dequantize(
     input: "tripy.Tensor",
     scale: Union["tripy.Tensor", Any],

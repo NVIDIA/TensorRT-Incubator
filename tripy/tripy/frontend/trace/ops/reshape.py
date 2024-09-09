@@ -75,7 +75,7 @@ def reshape_impl(
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["int8", "int32", "int64"],
     },
     dtype_constraints={"input": "T1", "shape": "T2", constraints.RETURN_VALUE: "T1"},
@@ -265,7 +265,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )

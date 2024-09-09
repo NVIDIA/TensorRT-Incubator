@@ -37,7 +37,7 @@ class TestQuantize:
         a = tp.Tensor([1, 2], dtype=tp.int32)
         with helper.raises(
             tp.TripyException,
-            match="Input does not have a valid dtype in quantize op.",
+            match="Unsupported data type for 'quantize'.",
         ):
             a = tp.quantize(a, 0.9, tp.int8)
 
@@ -45,7 +45,7 @@ class TestQuantize:
         a = tp.Tensor([1.0, 2.0])
         with helper.raises(
             tp.TripyException,
-            match="Unsupported dtype in quantize op.",
+            match="Unsupported data type for 'quantize'.",
         ):
             a = tp.quantize(a, 0.9, tp.float16)
 

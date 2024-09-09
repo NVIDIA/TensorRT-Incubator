@@ -56,7 +56,7 @@ class TestWhere:
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float16)
 
-        with helper.raises(tp.TripyException, match="Incompatible input data types.", has_stack_info_for=[a, b, cond]):
+        with helper.raises(tp.TripyException, match="Mismatched data types for 'where'.", has_stack_info_for=[a, b]):
             c = tp.where(cond, a, b)
 
     def test_condition_is_not_bool(self):
@@ -64,9 +64,7 @@ class TestWhere:
         a = tp.ones((2,), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float32)
 
-        with helper.raises(
-            tp.TripyException, match="Condition input must have boolean type.", has_stack_info_for=[a, b, cond]
-        ):
+        with helper.raises(tp.TripyException, match="Unsupported data type for 'where'.", has_stack_info_for=[cond]):
             c = tp.where(cond, a, b)
 
     def test_infer_rank(self):
@@ -91,7 +89,7 @@ class TestMaskedFill:
         mask = tp.Tensor([1.0, 2.0, 3.0, 4.0])
 
         with helper.raises(
-            tp.TripyException, match="Condition input must have boolean type.", has_stack_info_for=[a, mask]
+            tp.TripyException, match="Unsupported data type for 'masked_fill'.", has_stack_info_for=[mask]
         ):
             b = tp.masked_fill(a, mask, -1)
 

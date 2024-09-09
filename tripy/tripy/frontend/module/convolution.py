@@ -280,11 +280,12 @@ class Conv(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = \large \left\lfloor \frac{D_{k_{\text{in}}} + \text{padding}_{k_0} + \text{padding}_{k_1} - \text{dilation}_k \times (\text{kernel_dims}_k - 1) - 1}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
-        from tripy.frontend.trace.ops.convolution import Convolution
+        from tripy.frontend.trace.ops.convolution import convolution
         from tripy.frontend.trace.ops.reshape import reshape
 
-        x = Convolution.build(
-            [input, self.weight],
+        x = convolution(
+            input,
+            self.weight,
             self.padding,
             self.stride,
             self.groups,

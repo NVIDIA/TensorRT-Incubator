@@ -102,11 +102,16 @@ class Cast(BaseTraceOp):
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    dtype_exceptions=[{"T1": "float8", "T2": "int8"}, {"T1": "float8", "T2": "int64"}],
+    dtype_exceptions=[
+        {"T1": "float8", "T2": "int8"},
+        {"T1": "float8", "T2": "int64"},
+        {"T1": "int4", "T2": "int8"},
+        {"T1": "int4", "T2": "int64"},
+    ],
 )
 def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""
