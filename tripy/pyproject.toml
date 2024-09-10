@@ -54,6 +54,7 @@ test = [
   "pytest-virtualenv==1.7.0",
   "pytest-profiling==1.7.0",
   "pytest-cov==4.1.0",
+  "pytest-xdist==3.6.1",
   "snakeviz==2.2.0",
   "coverage==7.4.1",
   "vulture==2.11",

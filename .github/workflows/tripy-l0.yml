@@ -48,11 +48,11 @@ jobs:
         run: |
           python3 docs/generate_rsts.py
           sphinx-build build/doc_sources build/docs -c docs/ -j auto -W
-  
+
     - name: run-test
       uses: addnab/docker-run-action@v3
       with:
         image: ${{ env.l0_image }}
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
-          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" --durations=15
+          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" -n 4 --durations=15

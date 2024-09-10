@@ -84,7 +84,7 @@ class ConvTranspose(ConvBase):
     r"""
     A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
     where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
-    This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+    This is known as the a trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
     For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
     """
 
@@ -128,7 +128,7 @@ class ConvTranspose(ConvBase):
                 Note that `in_channels` and `out_channels` must both be divisible by ``groups``. Defaults to 1 (standard convolution).
             dilation: A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
                 where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
-                This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+                This is known as the a trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
                 For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
             bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{out_channels},)`.
             dtype: The data type to use for the convolution weights.
