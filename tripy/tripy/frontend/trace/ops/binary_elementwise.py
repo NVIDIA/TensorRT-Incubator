@@ -16,13 +16,12 @@
 #
 
 from dataclasses import dataclass
-from typing import Any, Sequence, Union
+from typing import Any, Union
 import numbers
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
 from tripy import export, constraints
 from tripy.common import datatype
-from tripy.common.utils import TensorLiteral
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
