@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,10 +22,8 @@ import pytest
 import tripy as tp
 from tripy.common.exception import TripyException
 
-DTYPES = [
-    (torch.float16, tp.float16),
-    (torch.float32, tp.float32)
-]
+DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
+
 
 class TestGroupNorm:
 
