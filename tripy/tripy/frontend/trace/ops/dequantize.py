@@ -111,7 +111,7 @@ class Dequantize(BaseTraceOp):
 @frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 def dequantize(
     input: "tripy.Tensor",
-    scale: Union["tripy.Tensor", "tripy.TensorLiteral"],
+    scale: Union["tripy.Tensor", "tripy.TensorLiteral.sig"],
     dtype: datatype.dtype,
     dim: Union[int, Any] = None,
 ) -> "tripy.Tensor":
