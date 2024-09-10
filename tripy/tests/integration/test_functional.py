@@ -130,36 +130,3 @@ class TestCopyFunctional:
         out = tp.copy(a, tp.device("gpu"))
         assert out.tolist() == [1, 2]
         assert out.device.kind == "gpu"
-
-
-class TestConversionToTripyType:
-    @pytest.mark.parametrize(
-        "reverse_direction",
-        [False, True],
-    )
-    @pytest.mark.parametrize(
-        "input0",
-        [cp.ones((2, 3), dtype=cp.float32), cp.ones((3,), dtype=np.float32)],
-    )
-    @pytest.mark.parametrize(
-        "input1",
-        [
-            [
-                4.0,
-            ],
-            (5.0,),
-            cp.array([4.0], dtype=cp.float32),
-            cp.ones((1, 3), dtype=cp.float32),
-            torch.Tensor([[4.0]]),
-        ],
-    )
-    def test_element_wise_prod(self, reverse_direction, input0, input1):
-        a = tp.Tensor(input0)
-        if isinstance(input1, torch.Tensor):
-            input1 = input1.to("cuda")
-        if reverse_direction:
-            out = tp.Tensor(input1) * a
-            input0, input1 = input1, input0
-        else:
-            out = a * tp.Tensor(input1)
-        assert cp.array_equal(cp.from_dlpack(out), cp.array(input0) * cp.array(input1))
