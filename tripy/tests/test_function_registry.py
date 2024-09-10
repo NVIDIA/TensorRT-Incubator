@@ -21,6 +21,8 @@ from typing import Any, Dict, List, Sequence, Union
 
 import pytest
 
+from tests import helper
+
 from tripy import TripyException
 from tripy.function_registry import AnnotationInfo, FunctionRegistry
 
@@ -62,12 +64,11 @@ class TestFunctionRegistry:
 
     def test_error_on_missing_overload(self, int_float_registry):
         # Note presence of ANSI color codes. Also note that the last | has a space after it
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'transform'\.
-                Note: Argument types were: \[str\]\.
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mtransform_int\(\)\x1b\[0m
@@ -95,12 +96,11 @@ class TestFunctionRegistry:
         def func(a: int, b: int, c: int):
             return a + b + c
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[int, b=int, c=float\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -120,7 +120,7 @@ class TestFunctionRegistry:
         def func(a: "not_a_real_type"):
             pass
 
-        with pytest.raises(
+        with helper.raises(
             NameError,
             match="Error while evaluating type annotation: 'not_a_real_type' for parameter: 'a' of function: 'func'."
             "\nNote: Error was: name 'not_a_real_type' is not defined",
@@ -160,12 +160,11 @@ class TestFunctionRegistry:
         def func(b: int):
             return b - 1
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
                 Ambiguous overload for function: 'test'.
-                    Note: Argument types were: \[int\].
                     Candidate overloads were:
 
                     --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -189,7 +188,7 @@ class TestFunctionRegistry:
         def func(a: int, b: int):
             return a + b
 
-        with pytest.raises(TripyException, match="Some required arguments were not provided: \['a'\]"):
+        with helper.raises(TripyException, match="Some required arguments were not provided: \['a'\]"):
             registry["test"](b=0)
 
     def test_func_overload_caches_signature(self, registry):
@@ -332,12 +331,11 @@ class TestFunctionRegistry:
         def func(n: Sequence[int]) -> int:
             return sum(n)
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'\.
-                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -357,12 +355,11 @@ class TestFunctionRegistry:
         def func(n: Union[int, float]) -> int:
             return 0
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -382,12 +379,11 @@ class TestFunctionRegistry:
         def func(n: Sequence[Sequence[int]]) -> int:
             return sum(sum(n))
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -407,12 +403,11 @@ class TestFunctionRegistry:
         def func(n: Sequence[Sequence[int]]) -> int:
             return sum(sum(n))
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -432,12 +427,11 @@ class TestFunctionRegistry:
         def func(n: Sequence[Union[int, float]]) -> int:
             return sum(n)
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -457,12 +451,11 @@ class TestFunctionRegistry:
         def func(n: "tripy.TensorLiteral.sig"):
             return n
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[str\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
@@ -482,12 +475,11 @@ class TestFunctionRegistry:
         def func(n: "tripy.TensorLiteral.sig"):
             return n
 
-        with pytest.raises(
+        with helper.raises(
             TripyException,
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'\.
-                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m

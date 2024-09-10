@@ -267,7 +267,7 @@ class FunctionRegistry(dict):
             raise_error(
                 f"{msg} for function: '{key}'.",
                 details=[
-                    f"Note: Argument types were: [{', '.join(arg_type_strs)}].\nCandidate overloads were:\n\n",
+                    f"Candidate overloads were:\n\n",
                     *overloads_error,
                     extra_info,
                 ],
