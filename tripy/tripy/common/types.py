@@ -18,14 +18,14 @@
 from tripy import export
 
 
-@export.public_api()
+@export.public_api(document_under="types.rst")
 class TensorLiteral:
     """
     This class is a type annotation for tensor literals.
     A tensor literal can be a Python number or a sequence of tensor literals
     (i.e., a sequence of numbers of any depth).
 
-    Equivalent to this recursive type definition:
+    Equivalent to this recursive type definition in Python's notation:
     ```
     TensorLiteral = Union[numbers.Number, Sequence["TensorLiteral"]]
     ```
