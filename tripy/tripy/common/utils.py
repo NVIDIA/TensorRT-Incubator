@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,6 +53,7 @@ def get_element_type(elements):
         )
 
     return dtype
+
 
 def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
     """Convert a list of values to a byte buffer based on the specified dtype."""

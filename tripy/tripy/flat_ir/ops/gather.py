@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +24,7 @@ from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
+
 @dataclass(repr=False)
 class DynamicGatherOp(BaseFlatIROp):
 
@@ -41,10 +42,14 @@ class DynamicGatherOp(BaseFlatIROp):
             # The set of dimensions in the output shape that offset into an array sliced from operand.
             offset_dims=offset_dims,
             # The set of dimensions in each slice that are collapsed away. These dimensions must have size 1.
-            collapsed_slice_dims=[self.axis,],
+            collapsed_slice_dims=[
+                self.axis,
+            ],
             operand_batching_dims=[],
             # A map that describes how to map indices in start_indices to legal indices into operand.
-            start_index_map=[self.axis,],
+            start_index_map=[
+                self.axis,
+            ],
             # The dimension in start_indices that "contains" the starting indices.
             index_vector_dim=index_vector_dim,
             start_indices_batching_dims=[],
