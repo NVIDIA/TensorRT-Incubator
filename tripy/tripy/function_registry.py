@@ -99,12 +99,28 @@ class FuncOverload:
         from tripy.utils.result import Result
 
         def sanitize_name(annotation):
+            from tripy.common.utils import TensorLiteral
+
+            if annotation is TensorLiteral:
+                return "TensorLiteral (Union[numbers.Number, Sequence[TensorLiteral]])"
             # typing module annotations are likely to be better when pretty-printed due to including subscripts
             return annotation if annotation.__module__ == "typing" else annotation.__qualname__
 
-        def matches_type(name: str, annotation: type, arg: Any, error_details: Optional[List[str]] = None) -> "Result":
+        def render_arg_type(arg: Any) -> str:
+            # it is more useful to report more detailed types for sequences/tuples in error messages
+            from typing import List, Tuple
+
+            if isinstance(arg, List):
+                if len(arg) == 0:
+                    return "List"
+                return f"List[{render_arg_type(arg[0])}]"
+            if isinstance(arg, Tuple):
+                return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
+            return type(arg).__qualname__
+
+        def matches_type(name: str, annotation: type, arg: Any) -> bool:
             from collections.abc import Sequence as ABCSequence
-            from typing import get_args, get_origin, Sequence, Union, ForwardRef
+            from typing import get_args, get_origin, Sequence, Union
             from tripy.common.utils import TensorLiteral
 
             # In cases where a type is not available at the time of function definition, the type
@@ -119,90 +135,39 @@ class FuncOverload:
                         f"\nNote: Error was: {e}"
                     )
 
-            details_prefix = [] if error_details is None else error_details
-
             # can add more cases, prioritizing the common ones
             if get_origin(annotation) is Union:
-                member_error_details = []
-                first_error = True
-                for type_arg in get_args(annotation):
-                    match_result = matches_type(
-                        name, type_arg, arg, error_details=f"On choice {sanitize_name(type_arg)}, "
-                    )
-                    if match_result:
-                        return Result.ok()
-                    if not match_result and match_result.error_details is not None:
-                        if not first_error:
-                            member_error_details.append("; ")
-                        member_error_details.extend(match_result.error_details)
-                        if first_error:
-                            first_error = False
-
-                if member_error_details is None:
-                    return Result.err([*details_prefix, "Could not match any possibilities for {annotation}"])
-                return Result.err(
-                    [
-                        *details_prefix,
-                        f"encountered errors while checking possibilities for {annotation}: ",
-                        *member_error_details,
-                    ]
-                    if member_error_details
-                    else None
-                )
+                return any(map(lambda type_arg: matches_type(name, type_arg, arg), get_args(annotation)))
 
             # note: get_origin for typing.Sequence normalizes it into collections.abc.Sequence, see spec for get_origin
             if get_origin(annotation) is ABCSequence:
                 # in the context of Tripy, it does not make sense to consider strings as sequences
                 if not isinstance(arg, Sequence) or isinstance(arg, str):
-                    return Result.err([*details_prefix, f"expected a sequence but got {sanitize_name(type(arg))}"])
+                    return False
                 seq_arg = get_args(annotation)
                 if seq_arg and len(arg) > 0:
                     assert len(seq_arg) == 1
                     # We could check every member of the arg but this would result in much more iteration, especially if nested
-                    return matches_type(
-                        name,
-                        seq_arg[0],
-                        arg[0],
-                        error_details=[*details_prefix, f"encountered error while checking member of {annotation}: "],
-                    )
-                return Result.ok()
+                    return matches_type(name, seq_arg[0], arg[0])
+                return True
 
             # WAR to avoid general support for recursive annotations. We treat TensorLiteral as Union[numbers.Number, Sequence[TensorLiteral]]
             if annotation is TensorLiteral:
                 import numbers
 
                 if isinstance(arg, numbers.Number):
-                    return Result.ok()
+                    return True
                 if not isinstance(arg, Sequence) or isinstance(arg, str):
-                    return Result.err(
-                        [
-                            *details_prefix,
-                            f"expected a number or a sequence of tensor literals but got {sanitize_name(type(arg))}",
-                        ]
-                    )
+                    return False
                 if len(arg) == 0:
-                    return Result.ok()
-                return matches_type(
-                    name,
-                    annotation,
-                    arg[0],
-                    error_details=[
-                        *details_prefix,
-                        "encountered an error while checking a member of a tensor literal: ",
-                    ],
-                )
+                    return True
+                return matches_type(name, annotation, arg[0])
 
             try:
-                if isinstance(arg, annotation):
-                    return Result.ok()
-                if error_details is not None:
-                    return Result.err(
-                        [*error_details, f"expected {sanitize_name(annotation)} but got {sanitize_name(type(arg))}"]
-                    )
-                return Result.err(None)
+                return isinstance(arg, annotation)
             except TypeError:
-                # When the type annotation includes a subscripted generic (e.g. Tuple[int]), isinstance does not work
-                return Result.ok()
+                # When the type annotation includes a subscripted generic that we do not handle above, isinstance does not work
+                return True
 
         annotations = self._get_annotations()
 
@@ -215,32 +180,24 @@ class FuncOverload:
             )
 
         for (name, annotation), arg in zip(annotations.items(), args):
-            match_result = matches_type(name, annotation.type_info, arg)
-            if not match_result:
-                error_details = [f"For parameter: '{name}', "]
-                if match_result.error_details is None:
-                    error_details.append(
-                        "expected an instance of type: "
-                        f"'{sanitize_name(annotation.type_info)}' but got argument of type: '{type(arg).__qualname__}'."
-                    )
-                else:
-                    error_details.extend(match_result.error_details)
-                return Result.err(error_details)
+            if not matches_type(name, annotation.type_info, arg):
+                return Result.err(
+                    [
+                        f"For parameter: '{name}', expected an instance of type: '{sanitize_name(annotation.type_info)}' "
+                        f"but got argument of type: '{render_arg_type(arg)}'."
+                    ]
+                )
 
         for name, arg in kwargs.items():
             if name in annotations:
                 typ = annotations[name].type_info
-                match_result = matches_type(name, typ, arg)
-                if not match_result:
-                    error_details = [f"For parameter: '{name}', "]
-                    if match_result.error_details is None:
-                        error_details.append(
-                            "expected an instance of type: "
-                            f"'{sanitize_name(typ)}' but got argument of type: '{type(arg).__qualname__}'."
-                        )
-                    else:
-                        error_details.extend(match_result.error_details)
-                    return Result.err(error_details)
+                if not matches_type(name, typ, arg):
+                    return Result.err(
+                        [
+                            f"For parameter: '{name}', expected an instance of type: '{sanitize_name(typ)}' "
+                            f"but got argument of type: '{render_arg_type(arg)}'."
+                        ]
+                    )
             elif not any(annotation.kind == inspect.Parameter.VAR_KEYWORD for annotation in annotations.values()):
                 # We can only validate the names of arguments if the function does not accept variadic kwargs
                 return Result.err(

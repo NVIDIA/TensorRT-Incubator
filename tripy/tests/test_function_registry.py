@@ -61,31 +61,30 @@ class TestFunctionRegistry:
         assert int_float_registry["transform"](1.0) == 0.0
 
     def test_error_on_missing_overload(self, int_float_registry):
+        # Note presence of ANSI color codes. Also note that the last | has a space after it
         with pytest.raises(
             TripyException,
             match=dedent(
                 rf"""
-            Could not find an implementation for function: 'transform'.
-                Note: Argument types were: \[str\].
+            Could not find an implementation for function: 'transform'\.
+                Note: Argument types were: \[str\]\.
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |     \@registry\("transform"\)
-                 [0-9]+ |     def transform_int\(a: "int"\):
-                 [0-9]+ |         return a \+ 1
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mtransform_int\(\)\x1b\[0m
+                      \|
+                   [0-9]+ \|     def transform_int\(a: \"int\"\):
+                   [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'a', expected an instance of type: 'int' but got argument of type: 'str'.
+                Not a valid overload because: For parameter: 'a', expected an instance of type: 'int' but got argument of type: 'str'\.
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |     \@registry\("transform"\)
-                 [0-9]+ |     def transform_float\(a: "float"\):
-                 [0-9]+ |         return a \- 1
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mtransform_float\(\)\x1b\[0m
+                      \|
+                   [0-9]+ \|     def transform_float\(a: "float"\):
+                   [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'a', expected an instance of type: 'float' but got argument of type: 'str'.
+                Not a valid overload because: For parameter: 'a', expected an instance of type: 'float' but got argument of type: 'str'\.
             """
             ).strip(),
         ):
@@ -104,14 +103,13 @@ class TestFunctionRegistry:
                 Note: Argument types were: \[int, b=int, c=float\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         \@registry\("test"\)
-                 [0-9]+ |         def func\(a: int, b: int, c: int\):
-                 [0-9]+ |             return a \+ b \+ c
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                   [0-9]+ \|         def func\(a: int, b: int, c: int\):
+                   [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'c', expected an instance of type: 'int' but got argument of type: 'float'.
+                Not a valid overload because: For parameter: 'c', expected an instance of type: 'int' but got argument of type: 'float'\.
                 """
             ).strip(),
         ):
@@ -170,19 +168,17 @@ class TestFunctionRegistry:
                     Note: Argument types were: \[int\].
                     Candidate overloads were:
 
-                    --> {__file__}:[0-9]+
-                        |
-                    [0-9]+ |         \@registry\("test"\)
-                    [0-9]+ |         def func\(a: int\):
-                    [0-9]+ |             return a \+ 1
-                        |
+                    --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                          \|
+                      [0-9]+ \|         def func\(a: int\):
+                      [0-9]+ \|     \.\.\.
+                          \|\s
 
-                    --> {__file__}:[0-9]+
-                        |
-                    [0-9]+ |         \@registry\("test"\)
-                    [0-9]+ |         def func\(b: int\):
-                    [0-9]+ |             return b \- 1
-                        |
+                    --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                          \|
+                      [0-9]+ \|         def func\(b: int\):
+                      [0-9]+ \|     \.\.\.
+                          \|\s
                 """
             ).strip(),
         ):
@@ -340,17 +336,17 @@ class TestFunctionRegistry:
             TripyException,
             match=dedent(
                 rf"""
-            Could not find an implementation for function: 'test'.
+            Could not find an implementation for function: 'test'\.
                 Note: Argument types were: \[list\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         def func\(n: Sequence\[int\]\) \-> int:
-                 [0-9]+ |     ...
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: Sequence\[int\]\) \-> int:
+                  [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[int\]: expected int but got float
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[int\]' but got argument of type: 'List\[float\]'\.
             """
             ).strip(),
         ):
@@ -366,16 +362,16 @@ class TestFunctionRegistry:
             match=dedent(
                 rf"""
             Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[str\].
+                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         def func\(n: Union\[int, float\]\) \-> int:
-                 [0-9]+ |     \.\.\.
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: Union\[int, float\]\) \-> int:
+                  [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'n', encountered errors while checking possibilities for typing.Union\[int, float\]: On choice int, expected int but got str; On choice float, expected float but got str
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[int, float\]' but got argument of type: 'List\[str\]'\.
             """
             ).strip(),
         ):
@@ -394,13 +390,13 @@ class TestFunctionRegistry:
                 Note: Argument types were: \[list\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         def func(n: Sequence\[int\]) \-> int:
-                 [0-9]+ |     \.\.\.
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: Sequence\[Sequence\[int\]\]\) \-> int:
+                  [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[typing.Sequence\[int\]\]: expected a sequence but got int
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[typing\.Sequence\[int\]\]' but got argument of type: 'List\[int\]'\.
             """
             ).strip(),
         ):
@@ -419,13 +415,13 @@ class TestFunctionRegistry:
                 Note: Argument types were: \[list\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         def func(n: Sequence\[Sequence\[int\]\]) \-> int:
-                 [0-9]+ |     \.\.\.
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: Sequence\[Sequence\[int\]\]\) \-> int:
+                  [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[typing.Sequence\[int\]\]: encountered error while checking member of typing.Sequence\[int\]: expected int but got float
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[typing\.Sequence\[int\]\]' but got argument of type: 'List\[List\[float\]\]'\.
             """
             ).strip(),
         ):
@@ -444,13 +440,13 @@ class TestFunctionRegistry:
                 Note: Argument types were: \[list\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         def func(n: Sequence\[Union\[int, float\]\]) \-> int:
-                 [0-9]+ |     \.\.\.
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: Sequence\[Union\[int, float\]\]\) \-> int:
+                  [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'n', encountered error while checking member of typing.Sequence\[typing.Union\[int, float\]\]: encountered errors while checking possibilities for typing.Union\[int, float\]: On choice int, expected int but got str; On choice float, expected float but got str
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[typing\.Union\[int, float\]\]' but got argument of type: 'List\[str\]'\.
             """
             ).strip(),
         ):
@@ -469,13 +465,13 @@ class TestFunctionRegistry:
                 Note: Argument types were: \[str\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         def func\(n: "tripy.TensorLiteral"\):
-                 [0-9]+ |     \.\.\.
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: \"tripy\.TensorLiteral\"\):
+                  [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'n', expected a number or a sequence of tensor literals but got str
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'TensorLiteral \(Union\[numbers\.Number, Sequence\[TensorLiteral\]\]\)' but got argument of type: 'str'\.
             """
             ).strip(),
         ):
@@ -490,17 +486,17 @@ class TestFunctionRegistry:
             TripyException,
             match=dedent(
                 rf"""
-            Could not find an implementation for function: 'test'.
-                Note: Argument types were: \[str\].
+            Could not find an implementation for function: 'test'\.
+                Note: Argument types were: \[list\].
                 Candidate overloads were:
 
-                --> {__file__}:[0-9]+
-                    |
-                 [0-9]+ |         def func\(n: "tripy.TensorLiteral"\):
-                 [0-9]+ |     \.\.\.
-                    |
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: \"tripy\.TensorLiteral\"\):
+                  [0-9]+ \|     \.\.\.
+                      \|\s
 
-                Not a valid overload because: For parameter: 'n', encountered an error while checking a member of a tensor literal: encountered an error while checking a member of a tensor literal: expected a number or a sequence of tensor literals but got str
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'TensorLiteral \(Union\[numbers\.Number, Sequence\[TensorLiteral\]\]\)' but got argument of type: 'List\[List\[str\]\]'
             """
             ).strip(),
         ):
