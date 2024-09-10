@@ -464,7 +464,7 @@ def process_code_block_for_outputs_and_locals(
     local_vars = utils.default(local_vars, {})
 
     TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
-    # Add back the code block after removing assertions.
+    # Special tags are documented under docs/README.md.
     NO_EVAL = "# doc: no-eval"
     NO_PRINT_LOCALS = "# doc: no-print-locals"
     PRINT_LOCALS = "# doc: print-locals"

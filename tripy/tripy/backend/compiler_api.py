@@ -27,12 +27,11 @@ from tripy import export, utils
 from tripy.backend.mlir import Compiler as MLIRCompiler
 from tripy.backend.mlir import Executor
 from tripy.backend.mlir import utils as mlir_utils
+from tripy.common.device import device as Device
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
 from tripy.frontend import Tensor, Trace
 from tripy.utils import json as json_utils
-from tripy.common.device import device as Device
-
 
 # Global variable to store instances
 _default_stream_instances = {}
@@ -42,25 +41,26 @@ _default_stream_instances = {}
 def default_stream(device: Device = Device("gpu")) -> "tripy.Stream":
     """
     Provides access to the default CUDA stream for a given device.
-    This function implements singleton pattern to ensure a single default stream instance per device.
+    There is only one default stream instance per device.
 
     Args:
         device: The device for which to get the default stream.
 
     Returns:
-        The default Stream object for the specified device.
+        The default stream for the specified device.
 
     Raises:
-        ValueError: If the device is not of type 'gpu' or if the device index is not 0.
+        :class:`tripy.TripyException`: If the device is not of type 'gpu' or if the device index is not 0.
+
+    Note:
+        Calling :func:`default_stream` with the same device always returns the same :class:`Stream` instance for that device.
 
     .. code-block:: python
         :linenos:
-        :caption: Creation of default_stream
+        :caption: Retrieving The Default Stream
 
-        default = tp.default_stream()  # Returns the default Stream object for the current device
-
-    Note:
-        Calling tp.default_stream() with the same device always returns the same Stream instance for that device.
+        # Get the default stream for the current device.
+        default = tp.default_stream()
     """
     global _default_stream_instances
 
@@ -91,28 +91,31 @@ class Stream:
 
         .. code-block:: python
             :linenos:
-            :caption: Creating new streams
+            :caption: Creating New Streams
 
-            streamA = tp.Stream()
-            streamB = tp.Stream()
-            defaultStream = tp.default_stream()
-            assert streamA != streamB
-            assert defaultStream != streamB
+            stream_a = tp.Stream()
+            stream_b = tp.Stream()
+
+            assert stream_a != stream_b
 
         .. code-block:: python
             :linenos:
-            :caption: Example
+            :caption: Using Streams With Compiled Functions
 
+            # doc: no-print-locals compiler compiled_linear
             linear = tp.Linear(2, 3)
-            compiler = tp.Compiler(linear)
 
+            compiler = tp.Compiler(linear)
             compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
 
-            a = tp.ones((2, 2), dtype=tp.float32)
+            # Run the compiled linear function on a custom stream:
+            stream = tp.Stream()
+            compiled_linear.stream = stream
 
-            compiled_linear.stream = tp.Stream()
-            out = compiled_linear(a)
-            assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+            input = tp.ones((2, 2), dtype=tp.float32)
+            output = compiled_linear(input)
+
+            assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(linear(input)))
         """
         if priority != 0:
             raise_error(
@@ -124,27 +127,33 @@ class Stream:
         self._active_cuda_stream = MLIRRuntimeClient().create_stream()
 
     def synchronize(self) -> None:
-        """Synchronize the stream, blocking until all operations in this stream are complete.
+        """
+        Synchronize the stream, blocking until all operations in this stream are complete.
 
         .. code-block:: python
             :linenos:
-            :caption: Use streams in execution
+            :caption: Using Synchronize For Benchmarking
 
+            # doc: no-print-locals
             import time
+
             linear = tp.Linear(2, 3)
             compiler = tp.Compiler(linear)
-
             compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
 
-            a = tp.ones((2, 2), dtype=tp.float32)
+            input = tp.ones((2, 2), dtype=tp.float32)
+
             compiled_linear.stream = tp.Stream()
-            n_iterations = 20
+
+            num_iters = 10
             start_time = time.perf_counter()
-            for _ in range(n_iterations):
-                out = compiled_linear(a)
+            for _ in range(num_iters):
+                _ = compiled_linear(input)
             compiled_linear.stream.synchronize()
-            time = (time.perf_counter() - start_time) / n_iterations
-            print(f"Execution took f{time}ms")
+            end_time = time.perf_counter()
+
+            time = (end_time - start_time) / num_iters
+            print(f"Execution took {time * 1000} ms")
         """
         self._active_cuda_stream.sync()
 
