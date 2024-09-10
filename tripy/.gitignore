@@ -88,3 +88,6 @@ core*
 
 # PyTest profiling results
 *.prof
+
+# For SAM2 dev only
+segment-anything-2/
