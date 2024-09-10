@@ -17,6 +17,7 @@
 
 import functools
 from collections import deque
+import numbers
 from typing import List, Optional, Sequence, Tuple, Union
 
 from tripy import utils
@@ -199,10 +200,12 @@ def convert_inputs_to_tensors(
                             return True
                         if isinstance(seq_arg[0], Sequence):
                             return is_valid_sequence(seq_arg[0])
-                        return isinstance(seq_arg[0], (int, float))
+                        return isinstance(seq_arg[0], numbers.Number)
 
                     # simply do not convert in these cases and let the registry give an error instead
-                    if not isinstance(arg, (int, float)) and not (isinstance(arg, Sequence) and is_valid_sequence(arg)):
+                    if not isinstance(arg, numbers.Number) and not (
+                        isinstance(arg, Sequence) and is_valid_sequence(arg)
+                    ):
                         return arg
 
                     cast_dtype = find_sync_target_dtype(name)
