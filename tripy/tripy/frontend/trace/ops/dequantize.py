@@ -48,9 +48,6 @@ class Dequantize(BaseTraceOp):
         )
         from tripy.common.datatype import int32
 
-        if not isinstance(inputs[1].producer, ConstantOp):
-            raise_error("Scale must be a constant tensor in dequantize op.")
-
         # Represent quantize as convert(input, dtype) * scale
         converted_tensor = FlatIRTensor.build(
             shape=inputs[0].shape,

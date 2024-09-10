@@ -113,12 +113,9 @@ class TestQuantize:
         dequantized = tp.dequantize(quantized, scale_tp, dtype, dim)
         assert torch.equal(input, torch.from_dlpack(dequantized).to("cpu"))
 
-    def test_negative_non_constant_scale(self):
+    def test_non_constant_scale(self):
         input = tp.ones((4, 4))
         scale = tp.ones((4,))
         quantized = tp.quantize(input, scale, tp.int8, dim=0)
-        with raises(
-            tp.TripyException,
-            match="Scale must be a constant tensor in quantize op",
-        ):
-            print(quantized)
+
+        assert bool(tp.all(quantized == tp.ones((4, 4), dtype=tp.int8)))
