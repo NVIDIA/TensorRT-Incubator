@@ -293,14 +293,28 @@ class TestConvertInputsToTensors:
         ):
             x, y, z = sync_arg_types(3.0, 3, 4)
 
+    def test_seq_arg_invalid(self):
+        with helper.raises(
+            tp.TripyException,
+            match=r"Encountered non-number of type str in sequence: hello",
+        ):
+            _ = func([1, 2, "hello"])
+
+    def test_nested_seq_inconsistent_len(self):
+        with helper.raises(
+            tp.TripyException,
+            match=r"Expected a sequence of length 3 but got length 4: \[7, 8, 9, 10\]",
+        ):
+            _ = func([[1, 2, 3], [4, 5, 6], [7, 8, 9, 10]])
+
+    def test_nested_seq_inconsistent_types(self):
+        with helper.raises(
+            tp.TripyException,
+            match=r"Expected a sequence but got str: hi",
+        ):
+            _ = func([[1, 2, 3], [4, 5, 6], "hi"])
+
     def test_invalid_argument_type_not_converted(self):
         a = np.array([1, 2, 3])
         b = func(np.array([1, 2, 3]))
         assert (a == b).all()
-
-    def test_invalid_argument_type_in_sequence_not_converted(self):
-        a = np.array([1, 2, 3])
-        b = np.array([4, 5, 6])
-        c, d = func([np.array([1, 2, 3]), np.array([4, 5, 6])])
-        assert (c == a).all()
-        assert (d == b).all()

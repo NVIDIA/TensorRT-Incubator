@@ -195,18 +195,49 @@ def convert_inputs_to_tensors(
                     return None
 
                 def convert_nontensor_arg(arg, list_index=None):
-                    def is_valid_sequence(seq_arg: Sequence) -> bool:
+                    from tripy.utils import Result
+
+                    def is_valid_sequence(seq_arg: Sequence) -> Result:
                         if len(seq_arg) == 0:
-                            return True
-                        if isinstance(seq_arg[0], Sequence):
-                            return is_valid_sequence(seq_arg[0])
-                        return isinstance(seq_arg[0], numbers.Number)
+                            return Result.ok()
+                        # If one is a sequence, all must be sequences of the same length. Do not accept strings.
+                        if isinstance(seq_arg[0], Sequence) and not isinstance(seq_arg[0], str):
+                            target_len = len(seq_arg[0])
+                            for inner_arg in seq_arg[1:]:
+                                if not isinstance(inner_arg, Sequence) or isinstance(inner_arg, str):
+                                    return Result.err(
+                                        [f"Expected a sequence but got {type(inner_arg).__qualname__}: {inner_arg}"]
+                                    )
+                                if len(inner_arg) != target_len:
+                                    return Result.err(
+                                        [
+                                            f"Expected a sequence of length {target_len} but got length {len(inner_arg)}: {inner_arg}"
+                                        ]
+                                    )
+                                valid_inner = is_valid_sequence(inner_arg)
+                                if not valid_inner:
+                                    return valid_inner
+                            return Result.ok()
+                        # Otherwise check for numbers.
+                        for inner_arg in seq_arg:
+                            if not isinstance(inner_arg, numbers.Number):
+                                return Result.err(
+                                    [
+                                        f"Encountered non-number of type {type(inner_arg).__qualname__} in sequence: {inner_arg}"
+                                    ]
+                                )
+                        return Result.ok()
 
                     # simply do not convert in these cases and let the registry give an error instead
-                    if not isinstance(arg, numbers.Number) and not (
-                        isinstance(arg, Sequence) and is_valid_sequence(arg)
-                    ):
+                    if not isinstance(arg, numbers.Number) and not isinstance(arg, Sequence):
                         return arg
+
+                    if isinstance(arg, Sequence):
+                        valid_sequence = is_valid_sequence(arg)
+                        if not valid_sequence:
+                            raise_error(
+                                f"Encountered invalid sequence argument: {arg}", details=valid_sequence.error_details
+                            )
 
                     cast_dtype = find_sync_target_dtype(name)
                     return add_column_info_for_non_tensor(
