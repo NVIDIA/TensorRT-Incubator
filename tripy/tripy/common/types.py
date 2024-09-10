@@ -15,23 +15,18 @@
 # limitations under the License.
 #
 
+import numbers
+from typing import Union, Sequence
+
 from tripy import export
 
 
 @export.public_api(document_under="types.rst")
 class TensorLiteral:
     """
-    This class is a type annotation for tensor literals.
+    The `sig` member of this class can be used as a type annotation for tensor literals.
     A tensor literal can be a Python number or a sequence of tensor literals
     (i.e., a sequence of numbers of any depth).
-
-    Equivalent to this recursive type definition in Python's notation:
-    ```
-    TensorLiteral = Union[numbers.Number, Sequence["TensorLiteral"]]
-    ```
     """
 
-    # This is a WAR to avoid implementing general support for recursive type annotations in the registry.
-    # In the above example, the "TensorLiteral" would be parsed as typing.ForwardRef and would be more challenging
-    # to handle correctly in the registry, so this workaround is likely preferable.
-    pass
+    sig = Union[numbers.Number, Sequence["tripy.TensorLiteral.sig"]]

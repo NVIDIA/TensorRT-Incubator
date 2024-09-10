@@ -97,11 +97,8 @@ class FuncOverload:
 
     def matches_arg_types(self, args, kwargs) -> "Result":
         from tripy.utils.result import Result
-        from tripy.common.types import TensorLiteral
 
         def sanitize_name(annotation):
-            if annotation is TensorLiteral:
-                return "TensorLiteral (Union[numbers.Number, Sequence[TensorLiteral]])"
             # typing module annotations are likely to be better when pretty-printed due to including subscripts
             return annotation if annotation.__module__ == "typing" else annotation.__qualname__
 
@@ -119,7 +116,7 @@ class FuncOverload:
 
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
             from collections.abc import Sequence as ABCSequence
-            from typing import get_args, get_origin, Sequence, Union
+            from typing import ForwardRef, get_args, get_origin, Sequence, Union
 
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
@@ -149,17 +146,12 @@ class FuncOverload:
                     return matches_type(name, seq_arg[0], arg[0])
                 return True
 
-            # WAR to avoid general support for recursive annotations. We treat TensorLiteral as Union[numbers.Number, Sequence[TensorLiteral]]
-            if annotation is TensorLiteral:
-                import numbers
+            # Forward references can be used for recursive type definitions. Warning: Has the potential for infinite looping if there is no base case!
+            if isinstance(annotation, ForwardRef):
+                # need this import in case the annotation references tripy
+                import tripy
 
-                if isinstance(arg, numbers.Number):
-                    return True
-                if not isinstance(arg, Sequence) or isinstance(arg, str):
-                    return False
-                if len(arg) == 0:
-                    return True
-                return matches_type(name, annotation, arg[0])
+                return matches_type(name, eval(annotation.__forward_arg__), arg)
 
             try:
                 return isinstance(arg, annotation)
