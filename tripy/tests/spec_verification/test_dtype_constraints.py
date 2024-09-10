@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -71,7 +71,7 @@ for func_name, (
     return_dtype,
     dtype_variables,
     dtype_constraints,
-) in TYPE_VERIFICATION.items():
+) in sorted(TYPE_VERIFICATION.items()):
     # Complete the rest of the processing for TEST_VERIFICATION:
     # Get names and type hints for each param.
     func_sig = inspect.signature(func_obj)
@@ -88,13 +88,13 @@ for func_name, (
     # Create test case list.
     positive_test_dtypes = {}
     negative_test_dtypes = {}
-    for name, dt in dtype_variables.items():
+    for name, dt in sorted(dtype_variables.items()):
         # Get all of the dtypes for positive test case by excluding types_to_exclude.
         pos_dtypes = set(dt)
-        positive_test_dtypes[name] = list(pos_dtypes)
+        positive_test_dtypes[name] = list(sorted(pos_dtypes))
         # Get all dtypes for negative test case.
         total_dtypes = set(map(str, DATA_TYPES.values()))
-        negative_test_dtypes[name] = list(total_dtypes - pos_dtypes)
+        negative_test_dtypes[name] = list(sorted(total_dtypes - pos_dtypes))
 
     for positive_case in [True, False]:
         if positive_case:
@@ -102,7 +102,7 @@ for func_name, (
         else:
             dtype_lists_list = []
             # Create a list of dictionary lists and then go over each dictionary.
-            for name_temp, dt in negative_test_dtypes.items():
+            for name_temp, dt in sorted(negative_test_dtypes.items()):
                 temp_dict = {name_temp: dt}
                 # Iterate through and leave one dtype set to negative and the rest is all dtypes.
                 for name_not_equal in negative_test_dtypes.keys():
@@ -111,7 +111,7 @@ for func_name, (
                 dtype_lists_list.append(temp_dict)
 
         for dtype_lists in dtype_lists_list:
-            for combination in itertools.product(*(dtype_lists.values())):
+            for combination in sorted(itertools.product(*(dtype_lists.values()))):
                 # Create a tuple with keys and corresponding elements.
                 namespace = dict(zip(dtype_lists.keys(), map(lambda val: getattr(tp, val), combination)))
                 exception = False
