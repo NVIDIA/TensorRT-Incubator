@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Sequence, Union
+from typing import Any, Sequence
 
 import tripy.frontend.utils as frontend_utils
 from tripy import export, utils
@@ -31,12 +31,12 @@ class Parameter(Tensor):
     """
 
     @frontend_utils.convert_inputs_to_tensors()
-    def __init__(
-        self, tensor: Union["tripy.Tensor", "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"]
-    ) -> None:
+    def __init__(self, tensor: Any) -> None:
         """
         Args:
-            tensor: The tensor value for this parameter.
+            tensor:
+                The tensor value for this parameter. If provided as an external data format (e.g., a Numpy array),
+                it will be converted into a Tripy Tensor.
 
         .. code-block:: python
             :linenos:

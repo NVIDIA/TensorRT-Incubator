@@ -97,10 +97,9 @@ class FuncOverload:
 
     def matches_arg_types(self, args, kwargs) -> "Result":
         from tripy.utils.result import Result
+        from tripy.common.types import TensorLiteral
 
         def sanitize_name(annotation):
-            from tripy.common.utils import TensorLiteral
-
             if annotation is TensorLiteral:
                 return "TensorLiteral (Union[numbers.Number, Sequence[TensorLiteral]])"
             # typing module annotations are likely to be better when pretty-printed due to including subscripts
@@ -121,7 +120,6 @@ class FuncOverload:
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
             from collections.abc import Sequence as ABCSequence
             from typing import get_args, get_origin, Sequence, Union
-            from tripy.common.utils import TensorLiteral
 
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
