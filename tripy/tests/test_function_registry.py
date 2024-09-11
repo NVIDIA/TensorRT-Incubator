@@ -392,7 +392,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[int\]' but got argument of type: 'List\[Union\[int, str\]\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[int\]' but got argument of type: 'List\[Union\[(int, str)|(str, int)\]\]'\.
             """
             ).strip(),
         ):
