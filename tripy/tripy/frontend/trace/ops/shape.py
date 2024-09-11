@@ -28,7 +28,7 @@ class Shape(BaseTraceOp):
 
     # always return a shape
     def infer_shape_output_idxs(self, inputs) -> Result:
-        return Result.ok([0])
+        return Result.ok({"shape": [0]})
 
     def infer_len(self):
         return [self.inputs[0].rank]
