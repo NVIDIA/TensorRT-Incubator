@@ -27,14 +27,25 @@ from tripy import export
 
 export.public_api()(sys.modules[__name__])
 
-tensor_literal = export.public_api(
+NumberArray = export.public_api(
     document_under="types.rst",
     autodoc_options=[":no-index:"],
     module=sys.modules[__name__],
-    symbol="tensor_literal",
-)(Union[numbers.Number, Sequence["tripy.types.tensor_literal"]])
+    symbol="NumberArray",
+)(Union[numbers.Number, Sequence["tripy.types.NumberArray"]])
 
-tensor_literal.__doc__ = """Denotes the recursive type annotation for tensor literals.
-A tensor literal can be a Python number or a sequence of tensor literals
-(i.e., a sequence of numbers of any depth).
+NumberArray.__doc__ = """
+Denotes the recursive type annotation for sequences of Python numbers, possibly nested to an arbitrary depth.
+Tripy often automatically converts these sequences to `tp.Tensor`.
+"""
+
+ConvertibleToTensor = export.public_api(
+    document_under="types.rst",
+    autodoc_options=[":no-index:"],
+    module=sys.modules[__name__],
+    symbol="ConvertibleToTensor",
+)(Union["tripy.Tensor", "tripy.types.NumberArray"])
+
+ConvertibleToTensor.__doc__ = """
+Type annotation for a parameter that is either a Tripy `Tensor` or a Python sequence that can be automatically converted into one.
 """

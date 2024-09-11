@@ -316,9 +316,9 @@ class TestFunctionRegistry:
         assert registry["test"]([1, 2, 3]) == 3
         assert registry["test"]([[1, 2], [3, 4], [5, 6]]) == 6
 
-    def test_tensor_literal(self, registry):
+    def test_number_array(self, registry):
         @registry("test")
-        def func(n: "tripy.types.tensor_literal"):
+        def func(n: "tripy.types.NumberArray"):
             return n
 
         assert registry["test"](1) == 1
@@ -470,9 +470,9 @@ class TestFunctionRegistry:
         ):
             registry["test"](["a", "b", "c"])
 
-    def test_error_tensor_literal_not_sequence(self, registry):
+    def test_error_number_array_not_sequence(self, registry):
         @registry("test")
-        def func(n: "tripy.types.tensor_literal"):
+        def func(n: "tripy.types.NumberArray"):
             return n
 
         with helper.raises(
@@ -484,19 +484,19 @@ class TestFunctionRegistry:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
                       \|
-                  [0-9]+ \|         def func\(n: \"tripy\.types\.tensor_literal\"\):
+                  [0-9]+ \|         def func\(n: \"tripy\.types\.NumberArray\"\):
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[numbers\.Number, typing\.Sequence\[ForwardRef\('tripy\.types\.tensor_literal'\)\]\]' but got argument of type: 'str'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[numbers\.Number, typing\.Sequence\[ForwardRef\('tripy\.types\.NumberArray'\)\]\]' but got argument of type: 'str'\.
             """
             ).strip(),
         ):
             registry["test"]("hi")
 
-    def test_error_tensor_literal_not_sequence_of_numbers(self, registry):
+    def test_error_number_array_not_sequence_of_numbers(self, registry):
         @registry("test")
-        def func(n: "tripy.types.tensor_literal"):
+        def func(n: "tripy.types.NumberArray"):
             return n
 
         with helper.raises(
@@ -508,11 +508,11 @@ class TestFunctionRegistry:
 
                 --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
                       \|
-                  [0-9]+ \|         def func\(n: \"tripy\.types\.tensor_literal\"\):
+                  [0-9]+ \|         def func\(n: \"tripy\.types\.NumberArray\"\):
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[numbers\.Number, typing\.Sequence\[ForwardRef\('tripy\.types\.tensor_literal'\)\]\]' but got argument of type: 'List\[List\[str\]\]'
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[numbers\.Number, typing\.Sequence\[ForwardRef\('tripy\.types\.NumberArray'\)\]\]' but got argument of type: 'List\[List\[str\]\]'
             """
             ).strip(),
         ):

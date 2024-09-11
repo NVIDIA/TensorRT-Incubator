@@ -135,7 +135,7 @@ class Quantize(BaseTraceOp):
 )
 def quantize(
     input: "tripy.Tensor",
-    scale: Union["tripy.Tensor", "tripy.types.tensor_literal"],
+    scale: "tripy.types.ConvertibleToTensor",
     dtype: datatype.dtype,
     dim: Union[int, Any] = None,
 ) -> "tripy.Tensor":
