@@ -27,25 +27,25 @@ from tripy import export
 
 export.public_api()(sys.modules[__name__])
 
-NumberArray = export.public_api(
+NestedNumberSequence = export.public_api(
     document_under="types.rst",
     autodoc_options=[":no-index:"],
     module=sys.modules[__name__],
-    symbol="NumberArray",
-)(Union[numbers.Number, Sequence["tripy.types.NumberArray"]])
+    symbol="NestedNumberSequence",
+)(Union[numbers.Number, Sequence["tripy.types.NestedNumberSequence"]])
 
-NumberArray.__doc__ = """
+NestedNumberSequence.__doc__ = """
 Denotes the recursive type annotation for sequences of Python numbers, possibly nested to an arbitrary depth.
 Tripy often automatically converts these sequences to `tp.Tensor`.
 """
 
-ConvertibleToTensor = export.public_api(
+TensorLike = export.public_api(
     document_under="types.rst",
     autodoc_options=[":no-index:"],
     module=sys.modules[__name__],
-    symbol="ConvertibleToTensor",
-)(Union["tripy.Tensor", "tripy.types.NumberArray"])
+    symbol="TensorLike",
+)(Union["tripy.Tensor", "tripy.types.NestedNumberSequence"])
 
-ConvertibleToTensor.__doc__ = """
+TensorLike.__doc__ = """
 Type annotation for a parameter that is either a Tripy `Tensor` or a Python sequence that can be automatically converted into one.
 """
