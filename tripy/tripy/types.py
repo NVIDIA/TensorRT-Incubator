@@ -15,6 +15,10 @@
 # limitations under the License.
 #
 
+"""
+Special type annotations used in Tripy.
+"""
+
 import numbers
 import sys
 from typing import Union, Sequence
@@ -29,8 +33,8 @@ tensor_literal = export.public_api(
     module=sys.modules[__name__],
     symbol="tensor_literal",
 )(Union[numbers.Number, Sequence["tripy.types.tensor_literal"]])
-"""
-Denotes the recursive type annotation for tensor literals.
+
+tensor_literal.__doc__ = """Denotes the recursive type annotation for tensor literals.
 A tensor literal can be a Python number or a sequence of tensor literals
 (i.e., a sequence of numbers of any depth).
 """
