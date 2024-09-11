@@ -25,6 +25,7 @@ export.public_api()(sys.modules[__name__])
 
 tensor_literal = export.public_api(
     document_under="types.rst",
+    autodoc_options=[":no-index:"],
     module=sys.modules[__name__],
     symbol="tensor_literal",
 )(Union[numbers.Number, Sequence["tripy.types.tensor_literal"]])
