@@ -109,7 +109,11 @@ class FuncOverload:
             if isinstance(arg, List):
                 if len(arg) == 0:
                     return "List"
-                return f"List[{render_arg_type(arg[0])}]"
+                # catch inconsistencies this way
+                arg_types = {render_arg_type(member) for member in arg}
+                if len(arg_types) == 1:
+                    return f"List[{list(arg_types)[0]}]"
+                return f"List[Union[{', '.join(arg_types)}]]"
             if isinstance(arg, Tuple):
                 return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
             return type(arg).__qualname__
@@ -142,8 +146,7 @@ class FuncOverload:
                 seq_arg = get_args(annotation)
                 if seq_arg and len(arg) > 0:
                     assert len(seq_arg) == 1
-                    # We could check every member of the arg but this would result in much more iteration, especially if nested
-                    return matches_type(name, seq_arg[0], arg[0])
+                    return all(map(lambda member: matches_type(name, seq_arg[0], member), arg))
                 return True
 
             # Forward references can be used for recursive type definitions. Warning: Has the potential for infinite looping if there is no base case!

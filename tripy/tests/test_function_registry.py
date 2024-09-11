@@ -374,6 +374,30 @@ class TestFunctionRegistry:
         ):
             registry["test"](["hi"])
 
+    def test_error_inconsistent_sequence(self, registry):
+        @registry("test")
+        def func(n: Sequence[int]) -> int:
+            return sum(n)
+
+        with helper.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Candidate overloads were:
+
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(n: Sequence\[int\]\) \-> int:
+                  [0-9]+ \|     \.\.\.
+                      \|\s
+
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[int\]' but got argument of type: 'List\[Union\[int, str\]\]'\.
+            """
+            ).strip(),
+        ):
+            registry["test"]([1, 2, "a"])
+
     def test_error_not_sequence(self, registry):
         @registry("test")
         def func(n: Sequence[Sequence[int]]) -> int:
