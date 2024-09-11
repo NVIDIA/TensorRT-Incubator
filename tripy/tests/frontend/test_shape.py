@@ -436,8 +436,8 @@ class TestShape:
         with raises(
             tp.TripyException,
             match=(
-                "Invalid types for addition with a Tripy Shape: "
-                "Implicit conversions are done only for sequences of Python ints. "
+                "Invalid types for addition with a Tripy Shape."
+                r"\s*Implicit conversions are done only for sequences of Python ints. "
                 "Consider calling tp.Shape for an explicit conversion."
             ),
         ):
@@ -449,8 +449,8 @@ class TestShape:
         with raises(
             tp.TripyException,
             match=(
-                "Invalid types for addition with a Tripy Shape: "
-                "Implicit conversions are done only for sequences of Python ints. "
+                "Invalid types for addition with a Tripy Shape."
+                r"\s*Implicit conversions are done only for sequences of Python ints. "
                 "Consider calling tp.Shape for an explicit conversion."
             ),
         ):
