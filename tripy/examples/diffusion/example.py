@@ -52,7 +52,7 @@ def compile_clip(model, dtype=tp.int32, verbose=False):
     return compile_model(model, inputs, verbose=verbose)
 
 
-def compile_unet(model, dtype=tp.float16, verbose=False):
+def compile_unet(model, dtype, verbose=False):
     unconditional_context_shape = (1, 77, 768)
     conditional_context_shape = (1, 77, 768)
     latent_shape = (1, 4, 64, 64)
@@ -68,16 +68,16 @@ def compile_unet(model, dtype=tp.float16, verbose=False):
     return compile_model(model, inputs, verbose=verbose)
 
 
-def compile_vae(model, dtype=tp.float16, verbose=False):
+def compile_vae(model, dtype, verbose=False):
     inputs = (tp.InputInfo((1, 4, 64, 64), dtype=dtype),)
     return compile_model(model, inputs, verbose=verbose)
 
 
-def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance):
+def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance, dtype):
     timesteps = list(range(1, 1000, 1000 // steps))
-    print(f"[I] Running diffusion for {timesteps} timesteps...")
-    alphas = get_alphas_cumprod()[tp.Tensor(timesteps)]
-    alphas_prev = tp.concatenate([tp.Tensor([1.0]), alphas[:-1]], dim=0)
+    print(f"[I] Running diffusion for {steps} timesteps...")
+    alphas = get_alphas_cumprod(dtype=dtype)[tp.Tensor(timesteps)]
+    alphas_prev = tp.concatenate([tp.Tensor([1.0], dtype=dtype), alphas[:-1]], dim=0)
 
     for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
         t.set_description("idx: %1d, timestep: %3d" % (index, timestep))
@@ -86,10 +86,10 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
             unconditional_context,
             context,
             latent,
-            tp.cast(tp.Tensor([timestep]), tp.float32),
+            tp.Tensor([timestep], dtype=dtype),
             alphas[tid],
             alphas_prev[tid],
-            tp.Tensor([guidance]),
+            tp.Tensor([guidance], dtype=dtype),
         )
     return latent
 
@@ -97,21 +97,23 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
 def tripy_diffusion(args):
     run_start_time = time.perf_counter()
 
-    if os.path.isdir("engines"):
+    dtype, torch_dtype = (tp.float16, torch.float16) if args.fp16 else (tp.float32, torch.float32)
+
+    if os.path.isdir(args.engine_dir):
         print("[I] Loading cached engines from disk...")
         clip_compiled = tp.Executable.load(os.path.join("engines", "clip_executable.json"))
         unet_compiled = tp.Executable.load(os.path.join("engines", "unet_executable.json"))
         vae_compiled = tp.Executable.load(os.path.join("engines", "vae_executable.json"))
     else:
-        model = StableDiffusion(StableDiffusionConfig(dtype=tp.float16))
+        model = StableDiffusion(StableDiffusionConfig(dtype=dtype))
         print("[I] Loading model weights...", flush=True)
-        load_from_diffusers(model, tp.float16, debug=True)
+        load_from_diffusers(model, dtype, args.hf_token, debug=True)
         clip_compiled = compile_clip(model.cond_stage_model.transformer.text_model, verbose=True)
-        unet_compiled = compile_unet(model, verbose=True)
-        vae_compiled = compile_vae(model.decode, verbose=True)
+        unet_compiled = compile_unet(model, dtype, verbose=True)
+        vae_compiled = compile_vae(model.decode, dtype, verbose=True)
         
-        os.mkdir("engines")
-        print("[I] Saving engines to disk...")
+        os.mkdir(args.engine_dir)
+        print(f"[I] Saving engines to {args.engine_dir}...")
         clip_compiled.save(os.path.join("engines", "clip_executable.json"))
         unet_compiled.save(os.path.join("engines", "unet_executable.json"))
         vae_compiled.save(os.path.join("engines", "vae_executable.json"))
@@ -135,11 +137,11 @@ def tripy_diffusion(args):
     # Backbone of diffusion - the UNet
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    torch_latent = torch.randn((1, 4, 64, 64)).to("cuda")
+    torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype).to("cuda")
     latent = tp.Tensor(torch_latent)
 
     diffusion_run_start = time.perf_counter()
-    latent = run_diffusion_loop(unet_compiled, unconditional_context, context, latent, args.steps, args.guidance)
+    latent = run_diffusion_loop(unet_compiled, unconditional_context, context, latent, args.steps, args.guidance, dtype)
     diffusion_run_end = time.perf_counter()
     print(f"[I] Finished diffusion denoising. Inference took {diffusion_run_end - diffusion_run_start} seconds.")
 
@@ -173,15 +175,17 @@ def hf_diffusion(args):
 
     run_start_time = time.perf_counter()
 
+    dtype = torch.float16 if args.fp16 else torch.float32
+    model_opts = {'variant': 'fp16', 'torch_dtype': torch.float16} if args.fp16 else {} 
+
     # Initialize models
-    model_id = "CompVis/stable-diffusion-v1-4" #"benjamin-paine/stable-diffusion-v1-5" #"runwayml/stable-diffusion-v1-5" 
-    clip_id = "openai/clip-vit-large-patch14"
+    model_id = "KiwiXR/stable-diffusion-v1-5" 
     
     print("[I] Loading models...")
-    hf_tokenizer = CLIPTokenizer.from_pretrained(clip_id)
-    hf_encoder = CLIPTextModel.from_pretrained(clip_id).to("cuda")
-    unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet").to("cuda")
-    vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae").to("cuda")
+    hf_tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
+    hf_encoder = CLIPTextModel.from_pretrained(model_id, subfolder="text_encoder").to("cuda")
+    unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", use_auth_token=args.hf_token, **model_opts).to("cuda")
+    vae = AutoencoderKL.from_pretrained(model_id, subfolder="vae", use_auth_token=args.hf_token, **model_opts).to("cuda")
     scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
 
     # Run through CLIP to get context from prompt
@@ -192,19 +196,20 @@ def hf_diffusion(args):
     uncond_input = hf_tokenizer([""], padding="max_length", max_length=max_length, return_tensors="pt").to("cuda")
     text_embeddings = hf_encoder(text_input.input_ids, output_hidden_states=True)[0]
     uncond_embeddings = hf_encoder(uncond_input.input_ids)[0]
-    text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
+    text_embeddings = torch.cat([uncond_embeddings, text_embeddings]).to(dtype)
     clip_run_end = time.perf_counter()
     print(f"took {clip_run_end - clip_run_start} seconds.")
 
     # Backbone of diffusion - the UNet
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    torch_latent = torch.randn((1, 4, 64, 64)).to("cuda")
+    torch_latent = torch.randn((1, 4, 64, 64), dtype=dtype).to("cuda")
     torch_latent *= scheduler.init_noise_sigma
     
     scheduler.set_timesteps(args.steps)
 
     diffusion_run_start = time.perf_counter()
+    print(f"[I] Running diffusion for {args.steps} timesteps...")
     for t in tqdm(scheduler.timesteps):
         # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
         latent_model_input = torch.cat([torch_latent] * 2)
@@ -267,7 +272,6 @@ def print_summary(denoising_steps, times):
 
 
 # TODO: Add torch compilation modes
-# TODO: Add fp16 support
 # TODO: Add Timing context
 def main():
     default_prompt = "a horse sized cat eating a bagel"
@@ -282,6 +286,8 @@ def main():
     parser.add_argument("--seed", type=int, help="Set the random latent seed")
     parser.add_argument("--guidance", type=float, default=7.5, help="Prompt strength")
     parser.add_argument('--torch-inference', action='store_true', help="Run inference with PyTorch (eager mode) instead of TensorRT.")
+    parser.add_argument('--hf-token', type=str, default='', help="HuggingFace API access token for downloading model checkpoints")
+    parser.add_argument('--engine-dir', type=str, default='engines', help="Output directory for TensorRT engines")
     args = parser.parse_args()
 
     if args.torch_inference:
