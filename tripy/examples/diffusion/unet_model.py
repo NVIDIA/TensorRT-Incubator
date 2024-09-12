@@ -18,6 +18,7 @@
 import math
 from typing import List, Tuple
 
+import torch
 import tripy as tp
 from dataclasses import dataclass
 
@@ -33,28 +34,30 @@ class UNetConfig:
     num_heads: int = 8
     context_dim: int = 768
     emb_channels: int = 1280
-    dtype: tp.dtype = tp.float16
+    dtype: tp.dtype = tp.float32
 
 
 # Used for UNet, not to be confused with ResnetBlock, called ResnetBlock2D in HF diffusers
 class ResBlock(tp.Module):
     def __init__(self, config: UNetConfig, channels, emb_channels, out_channels):
-        self.norm1 = tp.GroupNorm(32, channels, dtype=config.dtype)
+        self.norm1 = tp.GroupNorm(32, channels, dtype=tp.float32)
         self.conv1 = tp.Conv(channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.time_emb_proj = tp.Linear(emb_channels, out_channels, dtype=config.dtype)
-        self.norm2 = tp.GroupNorm(32, out_channels, dtype=config.dtype)
+        self.norm2 = tp.GroupNorm(32, out_channels, dtype=tp.float32)
         self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.nonlinearity = tp.silu
         self.conv_shortcut = tp.Conv(channels, out_channels, (1, 1), dtype=config.dtype) if channels != out_channels else lambda x: x
 
     def __call__(self, x, emb):
-        h = self.conv1(self.nonlinearity(self.norm1(x)))
+        h = tp.cast(self.norm1(tp.cast(x, self.norm1.dtype)), x.dtype)
+        h = self.conv1(self.nonlinearity(h))
         emb_out = self.time_emb_proj(self.nonlinearity(emb))
         target_shape = emb_out.shape + (1, 1)
         # TODO: #228: WAR to prevent computing output rank in infer_rank for reshape
         target_shape.trace_tensor.shape = (emb_out.rank + 2,)
         h = h + tp.reshape(emb_out, target_shape)
-        h = self.conv2(self.nonlinearity(self.norm2(h)))
+        h = tp.cast(self.norm2(tp.cast(h, self.norm2.dtype)), h.dtype)
+        h = self.conv2(self.nonlinearity(h))
         ret = self.conv_shortcut(x) + h
         return ret
 
@@ -67,6 +70,7 @@ class CrossAttention(tp.Module):
         self.num_heads = n_heads
         self.head_size = d_head
         self.to_out = [tp.Linear(n_heads * d_head, query_dim, dtype=config.dtype)]
+        self.dtype = config.dtype
 
     def __call__(self, x, context=None):
         context = x if context is None else context
@@ -74,7 +78,7 @@ class CrossAttention(tp.Module):
         q, k, v = [
             tp.transpose(tp.reshape(y, (x.shape[0], -1, self.num_heads, self.head_size)), 1, 2) for y in (q, k, v)
         ]
-        attention = tp.transpose(scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size), 1, 2)
+        attention = tp.transpose(scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size, dtype=self.dtype), 1, 2)
         h_ = tp.reshape(attention, (x.shape[0], -1, self.num_heads * self.head_size))
         out = sequential(h_, self.to_out)
         return out
@@ -116,20 +120,20 @@ class BasicTransformerBlock(tp.Module):
         self.attn1 = CrossAttention(config, dim, dim, n_heads, d_head)
         self.ff = FeedForward(config, dim)
         self.attn2 = CrossAttention(config, dim, context_dim, n_heads, d_head)
-        self.norm1 = tp.LayerNorm(dim, dtype=config.dtype)
-        self.norm2 = tp.LayerNorm(dim, dtype=config.dtype)
-        self.norm3 = tp.LayerNorm(dim, dtype=config.dtype)
+        self.norm1 = tp.LayerNorm(dim, dtype=tp.float32)
+        self.norm2 = tp.LayerNorm(dim, dtype=tp.float32)
+        self.norm3 = tp.LayerNorm(dim, dtype=tp.float32)
 
     def __call__(self, x, context=None):
-        x = self.attn1(self.norm1(x)) + x
-        x = self.attn2(self.norm2(x), context=context) + x
-        x = self.ff(self.norm3(x)) + x
+        x = self.attn1(tp.cast(self.norm1(tp.cast(x, self.norm1.dtype)), x.dtype)) + x
+        x = self.attn2(tp.cast(self.norm2(tp.cast(x, self.norm2.dtype)), x.dtype), context=context) + x
+        x = self.ff(tp.cast(self.norm3(tp.cast(x, self.norm3.dtype)), x.dtype)) + x
         return x
 
 
 class SpatialTransformer(tp.Module):  # Transformer2dModel in HF diffusers
     def __init__(self, config: UNetConfig, channels, context_dim, n_heads, d_head):
-        self.norm = tp.GroupNorm(32, channels, dtype=config.dtype)
+        self.norm = tp.GroupNorm(32, channels, dtype=tp.float32)
         assert channels == n_heads * d_head
         self.proj_in = tp.Conv(channels, n_heads * d_head, (1, 1), dtype=config.dtype)
         self.transformer_blocks = [BasicTransformerBlock(config, channels, context_dim, n_heads, d_head)]
@@ -138,7 +142,7 @@ class SpatialTransformer(tp.Module):  # Transformer2dModel in HF diffusers
     def __call__(self, x, context=None):
         b, c, h, w = x.shape
         x_in = x
-        x = self.norm(x)
+        x = tp.cast(self.norm(tp.cast(x, self.norm.dtype)), x.dtype)
         x = self.proj_in(x)
         x = tp.permute(tp.reshape(x, (b, c, h * w)), (0, 2, 1))
         for block in self.transformer_blocks:
@@ -272,7 +276,7 @@ class UNetModel(tp.Module):
             CrossAttnUpBlock2D(config, up_channels[2:5], down_channels[2]),
             CrossAttnUpBlock2D(config, up_channels[4:7], down_channels[1], use_upsampler=False),
         ]
-        self.conv_norm_out = tp.GroupNorm(32, config.model_channels, dtype=config.dtype)
+        self.conv_norm_out = tp.GroupNorm(32, config.model_channels, dtype=tp.float32)
         self.conv_act = tp.silu
         self.conv_out = tp.Conv(config.model_channels, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
 
@@ -280,7 +284,6 @@ class UNetModel(tp.Module):
         # TODO: real time embedding
         t_emb = timestep_embedding(timesteps, self.config.model_channels, self.config.dtype)
         emb = self.time_embedding(t_emb)
-
         x = self.conv_in(x)
         saved_inputs = [x]
 
@@ -301,6 +304,7 @@ class UNetModel(tp.Module):
             else:
                 x = block(x, emb, context, partial_inputs)
 
-        act = self.conv_out(self.conv_act(self.conv_norm_out(x)))
+        act = tp.cast(self.conv_norm_out(tp.cast(x, self.conv_norm_out.dtype)), x.dtype)
+        act = self.conv_out(self.conv_act(act))
         return act
 
