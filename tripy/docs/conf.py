@@ -237,14 +237,14 @@ def process_docstring(app, what, name, obj, options, lines):
                 if TYPE_VERIFICATION[unqual_name].dtype_constraints.get(param_name, None):
                     add_text_index = re.search(r":param \w+: ", block).span()[1]
                     blocks[index] = (
-                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[unqual_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
+                        f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[unqual_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
                     )
 
             if TYPE_VERIFICATION[unqual_name].return_dtype is not None and re.search(r":returns:", block):
                 add_text_index = re.search(r":returns:", block).span()[1] + 1
                 # Add dtype constraint to start of returns description.
                 blocks[index] = (
-                    f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[unqual_name].return_dtype}**\ ] {block[add_text_index:]}"
+                    f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[unqual_name].return_dtype}**\ ] {block[add_text_index:]}"
                 )
 
     seen_classes.add(name)
