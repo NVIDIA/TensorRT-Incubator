@@ -129,8 +129,4 @@ def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Ten
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.take(cp.from_dlpack(data).get(), cp.from_dlpack(indices).get(), axis=1))
     """
-    from tripy.common.datatype import int64
-
-    if input.dtype == int64:
-        raise_error("Known issue with i64. Gather currently does not work with int64 inputs. Issue #116")
     return Gather.build([input, index], dim)
