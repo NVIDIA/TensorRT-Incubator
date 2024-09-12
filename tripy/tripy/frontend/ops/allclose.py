@@ -57,10 +57,6 @@ def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: fl
     """
     from tripy.frontend.trace.ops.unary_elementwise import abs
     from tripy.frontend.trace.ops.reduce import all
-    from tripy.common.datatype import int64
-
-    if a.dtype == int64:
-        raise_error("Known issue with i64. Allclose currently does not work with int64 inputs. Issue #116")
 
     compare = abs(a - b) <= (atol + rtol * abs(b))
     return bool(all(compare))
