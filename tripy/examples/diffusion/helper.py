@@ -12,7 +12,7 @@ def scaled_dot_product_attention(
     embedding_dim: Optional[int] = None,
     attn_mask: Optional[tp.Tensor] = None,
     is_causal: bool = False,
-    dtype: tp.dtype = tp.float16
+    dtype: tp.dtype = tp.float32
 ) -> tp.Tensor:
     """
     Computes scaled dot-product attention.
