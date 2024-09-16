@@ -195,14 +195,19 @@ def process_docstring(app, what, name, obj, options, lines):
     if unqual_name in TYPE_VERIFICATION:
         add_text_index = -1
         for index, block in enumerate(blocks):
+
+            def insert_block(text):
+                nonlocal index
+
+                blocks.insert(index, text)
+                index += 1
+
             if re.search(r".. code-block::", block):
                 type_dict = TYPE_VERIFICATION[unqual_name].dtypes
-                blocks.insert(index, "Type Constraints:")
-                index += 1
+                insert_block("TYPE CONSTRAINTS:")
                 # Add the dtype constraint name and the dtypes that correlate.
                 for type_name, dt in type_dict.items():
-                    blocks.insert(
-                        index,
+                    insert_block(
                         f"    - **{type_name}**: :class:`"
                         + "`, :class:`".join(
                             sorted(
@@ -215,20 +220,17 @@ def process_docstring(app, what, name, obj, options, lines):
                         )
                         + "`",
                     )
-                    index += 1
-                blocks.insert(index, "\n")
-                if TYPE_VERIFICATION[unqual_name].dtype_exceptions != []:
+                insert_block("\n")
+
+                if TYPE_VERIFICATION[unqual_name].dtype_exceptions:
                     # Add the dtype exceptions.
-                    index += 1
-                    blocks.insert(index, "**Unsupported Type Combinations**:")
-                    dtype_exception_text = []
+                    insert_block("UNSUPPORTED TYPE COMBINATIONS:")
                     for exception_dict in TYPE_VERIFICATION[unqual_name].dtype_exceptions:
-                        dtype_exception_text.append(
-                            ", ".join([f"{key}: :class:`{val}`" for key, val in exception_dict.items()])
+                        insert_block(
+                            "    - "
+                            + ", ".join([f"**{key}**\ =\ :class:`{val}`" for key, val in exception_dict.items()]),
                         )
-                    dtype_exception_text = "; ".join(dtype_exception_text) + "\n"
-                    index += 1
-                    blocks.insert(index, dtype_exception_text)
+                    insert_block("\n")
                 break
 
             if re.search(r":param \w+: ", block):
@@ -237,14 +239,14 @@ def process_docstring(app, what, name, obj, options, lines):
                 if TYPE_VERIFICATION[unqual_name].dtype_constraints.get(param_name, None):
                     add_text_index = re.search(r":param \w+: ", block).span()[1]
                     blocks[index] = (
-                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[unqual_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
+                        f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[unqual_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
                     )
 
             if TYPE_VERIFICATION[unqual_name].return_dtype is not None and re.search(r":returns:", block):
                 add_text_index = re.search(r":returns:", block).span()[1] + 1
                 # Add dtype constraint to start of returns description.
                 blocks[index] = (
-                    f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[unqual_name].return_dtype}**\ ] {block[add_text_index:]}"
+                    f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[unqual_name].return_dtype}**\ ] {block[add_text_index:]}"
                 )
 
     seen_classes.add(name)

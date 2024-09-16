@@ -33,8 +33,8 @@ class Cast(BaseTraceOp):
         if isinstance(inputs[0], Shape):
             # Only still a valid shape if it remains int32
             if self.dtype == int32:
-                return Result.ok([0])
-        return Result.ok([])
+                return Result.ok({"shape": [0]})
+        return Result.ok({})
 
     infer_len = InferLenPolicies.infer_same_as_first_input
 
