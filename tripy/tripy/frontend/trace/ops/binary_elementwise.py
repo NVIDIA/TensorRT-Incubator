@@ -48,7 +48,7 @@ class BinaryElementwise(BaseTraceOp):
 
     def infer_shape_output_idxs(self, inputs):
         # permit one input to be a shape but require the output to be a shape
-        from tripy.frontend.shape import Shape
+        from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
         if any(map(lambda t: isinstance(t, Shape), inputs)):
@@ -66,9 +66,12 @@ class BinaryElementwise(BaseTraceOp):
                         f"The following inputs have invalid ranks: {invalid_indices_message}",
                     ]
                 )
-            return Result.ok([0])
+            return Result.ok({"shape": [0]})
+        elif all(map(lambda t: isinstance(t, ShapeScalar), inputs)):
+            # Binary operation on ShapeScalar should yield another ShapeScalar.
+            return Result.ok({"scalar": [0]})
         else:
-            return Result.ok([])
+            return Result.ok({})
 
     def infer_len(self):
         # For the shape case, the result will be broadcast to the max of the input shapes

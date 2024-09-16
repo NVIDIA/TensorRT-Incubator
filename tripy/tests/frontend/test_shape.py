@@ -40,6 +40,30 @@ def other_values(request):
     return request.param
 
 
+class TestShapeScalar:
+    @pytest.mark.parametrize("value", [1, tp.Tensor(1), np.array(2)])
+    def test_scalar_shape(self, value):
+        s = tp.ShapeScalar(values)
+
+        assert isinstance(s, tp.ShapeScalar)
+        assert s.trace_tensor.producer.inputs == []
+
+    def test_scalar_slice(self):
+        a = tp.iota((3, 3))
+        assert isinstance(a.shape[0], tp.ShapeScalar)
+
+        s = a.shape[0] * a.shape[1]
+        b = tp.reshape(a, tp.reshape(s, (1,)))
+        assert tp.allclose(tp.flatten(a), b)
+
+    def test_scalar_scalar_op(self):
+        a = tp.iota((3, 4))
+        s1 = a.shape[0]
+        s2 = a.shape[1]
+        s = s1 + s2
+        assert isinstance(s, tp.ShapeScalar)
+
+
 class TestShape:
     def test_shape(self, values):
         s = tp.Shape(values)
