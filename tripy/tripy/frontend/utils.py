@@ -157,7 +157,7 @@ def convert_inputs_to_tensors(
 
                 assert (
                     False
-                ), "Cannot retrieve unnamed argument. This could be because the argument is a variadic argument."
+                ), f"Cannot retrieve unnamed argument. This could be because the argument ({name}) is a variadic argument."
 
             new_args = []
             new_kwargs = {}

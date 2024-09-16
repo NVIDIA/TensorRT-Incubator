@@ -52,7 +52,7 @@ class TestShapeScalar:
         assert isinstance(a.shape[0], tp.ShapeScalar)
 
         s = a.shape[0] * a.shape[1]
-        b = tp.reshape(a, tp.reshape(s, (1,)))
+        b = tp.reshape(a, (s,))
         assert tp.allclose(tp.flatten(a), b)
 
     def test_scalar_scalar_op(self):
