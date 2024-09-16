@@ -17,6 +17,7 @@
 
 import functools
 from collections import deque
+import numbers
 from typing import List, Optional, Sequence, Tuple, Union
 
 from tripy import utils
@@ -25,7 +26,7 @@ from tripy.flat_ir.ops import BaseFlatIROp
 from tripy.frontend.trace.ops import BaseTraceOp
 
 
-# Decorator to preprocess inputs of a function and convert numpy, python types to tripy tensors.
+# Decorator to preprocess inputs of a function and convert Python numbers to tripy tensors.
 def convert_inputs_to_tensors(
     sync_arg_types: Optional[List[Tuple[str]]] = None,
     exclude: Optional[List[str]] = None,
@@ -34,8 +35,9 @@ def convert_inputs_to_tensors(
     skip_num_stack_entries: int = 0,
 ):
     """
-    Decorator that converts all arguments to `Tensor`s before passing them along
-    to the decorated function.
+    Decorator that converts all arguments to `Tensor`s or `Shape`s before passing them along
+    to the decorated function. Converts only Python numbers or lists of Python numbers;
+    inputs like `numpy` arrays should be handled manually.
 
     Args:
         sync_arg_types: A list of tuples of strings indicating the parameter indices for parameters
@@ -193,6 +195,50 @@ def convert_inputs_to_tensors(
                     return None
 
                 def convert_nontensor_arg(arg, list_index=None):
+                    from tripy.utils import Result
+
+                    def is_valid_sequence(seq_arg: Sequence) -> Result:
+                        if len(seq_arg) == 0:
+                            return Result.ok()
+                        # If one is a sequence, all must be sequences of the same length. Do not accept strings.
+                        if isinstance(seq_arg[0], Sequence) and not isinstance(seq_arg[0], str):
+                            target_len = len(seq_arg[0])
+                            for inner_arg in seq_arg[1:]:
+                                if not isinstance(inner_arg, Sequence) or isinstance(inner_arg, str):
+                                    return Result.err(
+                                        [f"Expected a sequence but got {type(inner_arg).__qualname__}: {inner_arg}"]
+                                    )
+                                if len(inner_arg) != target_len:
+                                    return Result.err(
+                                        [
+                                            f"Expected a sequence of length {target_len} but got length {len(inner_arg)}: {inner_arg}"
+                                        ]
+                                    )
+                                valid_inner = is_valid_sequence(inner_arg)
+                                if not valid_inner:
+                                    return valid_inner
+                            return Result.ok()
+                        # Otherwise check for numbers.
+                        for inner_arg in seq_arg:
+                            if not isinstance(inner_arg, numbers.Number):
+                                return Result.err(
+                                    [
+                                        f"Encountered non-number of type {type(inner_arg).__qualname__} in sequence: {inner_arg}"
+                                    ]
+                                )
+                        return Result.ok()
+
+                    # simply do not convert in these cases and let the registry give an error instead
+                    if not isinstance(arg, numbers.Number) and not isinstance(arg, Sequence):
+                        return arg
+
+                    if isinstance(arg, Sequence):
+                        valid_sequence = is_valid_sequence(arg)
+                        if not valid_sequence:
+                            raise_error(
+                                f"Encountered invalid sequence argument: {arg}", details=valid_sequence.error_details
+                            )
+
                     cast_dtype = find_sync_target_dtype(name)
                     return add_column_info_for_non_tensor(
                         arg, index, is_kwarg=name in kwargs, dtype=cast_dtype, list_index=list_index
