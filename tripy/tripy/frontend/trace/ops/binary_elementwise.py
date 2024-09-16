@@ -35,6 +35,7 @@ class BinaryElementwise(BaseTraceOp):
         MUL = " * "
         DIV = " / "
         FLOOR_DIV = " // "
+        MOD = " % "
         MAXIMUM = "maximum"
         MINIMUM = "minimum"
 
@@ -144,6 +145,39 @@ class BinaryElementwise(BaseTraceOp):
             DivideOp.build(inputs, [divide_out])
             # Then apply FloorOp to the result of the division
             FloorOp.build([divide_out], outputs)
+        elif self.kind == BinaryElementwise.Kind.MOD:
+            # Step 1: Perform DivideOp
+            divide_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of division operator for MOD operation."],
+            )
+            DivideOp.build(inputs, [divide_out])
+
+            # Step 2: Apply FloorOp
+            floor_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of Floor operation for MOD operation."],
+            )
+            FloorOp.build([divide_out], [floor_out])
+
+            # Step 3: Multiply divisor with floored division result (FloorOp output)
+            multiply_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of Multiply operation for MOD operation."],
+            )
+            MulOp.build([inputs[1], floor_out], [multiply_out])
+
+            # Step 4: Subtract result from dividend (inputs[0]) to get modulus
+            SubtractOp.build([inputs[0], multiply_out], outputs)
         else:
             OpType = {
                 BinaryElementwise.Kind.SUM: AddOp,
@@ -526,6 +560,67 @@ def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor",
     return cast(cast(BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV), int32), self.dtype)
     # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
     # return BinaryElementwise.build([other, self], BinaryElementwise.Kind.FLOOR_DIV)
+
+
+@TENSOR_METHOD_REGISTRY("__mod__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __mod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs a modulo operation.
+
+    Args:
+        self: The tensor to be divided by `other`.
+        other: The tensor by which to divide `self`.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape containing the result of the modulo operation.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([4.0, 6.0])
+        b = tp.Tensor([3.0, 4.0])
+        output = a % b
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 2.0]))
+    """
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MOD)
+
+
+@TENSOR_METHOD_REGISTRY("__rmod__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __rmod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs a modulo operation.
+
+    Args:
+        self: The tensor to be divided by `other`.
+        other: The tensor by which to divide `self`.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape containing the result of the modulo operation.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([4.0, 6.0])
+        output = 2 % a
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
+    """
+    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.MOD)
 
 
 @export.public_api(document_under="operations/functions")
