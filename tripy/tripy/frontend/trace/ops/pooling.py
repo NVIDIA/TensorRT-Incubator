@@ -18,9 +18,10 @@
 import enum
 from dataclasses import dataclass
 from typing import Sequence, Tuple
-from tripy import constraints
 
-import tripy.frontend.trace.ops.utils as op_utils
+from tripy import export, constraints
+from tripy.common.exception import raise_error
+from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -79,16 +80,79 @@ class Pooling(BaseTraceOp):
         )
 
 
+@export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8"],
+        "T1": ["float32", "float16"],
     },
-    dtype_constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def maxpool(
     input: "tripy.Tensor",
     kernel_dims: Sequence[int],
-    stride: Sequence[int],
-    padding: Sequence[Tuple[int]],
+    stride: Sequence[int] = None,
+    padding: Sequence[Tuple[int]] = None,
 ):
+    r"""
+    Applies a max pooling over the input tensor.
+
+    The output's non-spatial dimensions are the same as input. For each input spatial dimension
+    :math:`D_{\text{in}}`, the corresponding output dimension will be:
+
+    .. math::
+        D_{out} = \left\lfloor\frac{D_{in} + \text{padding\_before} + \text{padding\_after} -
+                \text{kernel\_size[0]}}{\text{stride[0]}} + 1\right\rfloor
+
+    Args:
+        input: The input tensor.
+        kernel_dims: The spatial shape of the pooling window. Only 2-D or 3-D kernel_dims are supported.
+        stride: A sequence of length :math:`M` indicating the stride of pooling across each spatial dimension,
+            where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
+            Defaults to all 1.
+        padding: A sequence of pairs of integers of length :math:`M` indicating the zero padding
+            to apply to the input along each spatial dimension before and after the dimension respectively,
+            where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
+            Defaults to all 0.
+
+    Returns:
+        The result tensor after the pooling operation.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
+        output = tp.maxpool(input, kernel_dims=(2, 2))
+
+        pool_torch = torch.nn.MaxPool2d((2, 2)) # doc: omit
+        expected = pool_torch(torch.from_dlpack(input)) # doc: omit
+
+        assert torch.allclose(torch.from_dlpack(output), expected)
+    """
+
+    spatial_dims = len(kernel_dims)
+    if spatial_dims != 2 or spatial_dims != 3:
+        raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
+    if stride is not None:
+        if len(stride) != spatial_dims:
+            raise_error(
+                "Stride must have the same length as kernel_dims.",
+                [f"Got stride={stride}, ", f"kernel_dims={kernel_dims}"],
+            )
+    else:
+        stride = [1] * spatial_dims
+    if padding is not None:
+        if len(padding) != spatial_dims:
+            raise_error(
+                "Padding must have the same length as kernel_dims.",
+                [f"Got padding={padding}, ", f"kernel_dims={kernel_dims}"],
+            )
+        if any(len(pad_size) != 2 for pad_size in padding):
+            raise_error(
+                f"Padding must be provided as a sequence of pairs of integers.",
+                details=[f"Supplied padding attribute: {padding} contains sequences that are not of length 2."],
+            )
+    else:
+        padding = [(0, 0)] * spatial_dims
+
     return Pooling.build([input], Pooling.Kind.MAX, kernel_dims, stride, padding)

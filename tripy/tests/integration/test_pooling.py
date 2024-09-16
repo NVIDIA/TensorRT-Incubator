@@ -15,22 +15,43 @@
 # limitations under the License.
 #
 
+import pytest
 import torch
 
 import tripy as tp
 
 
 class TestPooling:
-    pass
 
+    @pytest.mark.parametrize(
+        "kernel_dims, stride, padding",
+        [
+            ((3, 3), (1, 1), ((0, 0), (0, 0))),
+            ((4, 4), (2, 2), ((1, 1), (2, 2))),
+        ],
+    )
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    def test_maxpool_2d(self, kernel_dims, stride, padding, dtype):
+        inp_tp = tp.reshape(tp.arange(64, dtype=dtype), (1, 1, 8, 8))
+        out = tp.maxpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
 
-from tripy.logging import logger
+        torch_padding = (padding[0][0], padding[1][0])
+        pool_torch = torch.nn.MaxPool2d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
+        expected = pool_torch(torch.from_dlpack(inp_tp).to("cpu"))
+        assert torch.allclose(expected, torch.from_dlpack(out).to("cpu"))
 
-logger.verbosity = "ir"
+    @pytest.mark.parametrize(
+        "kernel_dims, stride, padding",
+        [
+            ((2, 2, 2), (2, 2, 2), ((0, 0), (1, 1), (1, 1))),
+        ],
+    )
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    def test_maxpool_3d(self, kernel_dims, stride, padding, dtype):
+        inp_tp = tp.reshape(tp.arange(512, dtype=dtype), (1, 1, 8, 8, 8))
+        out = tp.maxpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
 
-tp_pool = tp.MaxPool((2, 2), (1, 1), ((1, 1), (1, 1)))
-
-inp_torch = torch.arange(9, dtype=torch.float32).reshape((1, 1, 3, 3))
-inp = tp.Tensor(inp_torch)
-out = tp_pool(inp)
-print(out)
+        torch_padding = (padding[0][0], padding[1][0], padding[2][0])
+        pool_torch = torch.nn.MaxPool3d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
+        expected = pool_torch(torch.from_dlpack(inp_tp).to("cpu"))
+        assert torch.allclose(expected, torch.from_dlpack(out).to("cpu"))

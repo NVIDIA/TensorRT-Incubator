@@ -77,15 +77,9 @@ class ConstantOp(BaseFlatIROp):
             )
         else:
             out_dtype = self.outputs[0].dtype
-
-            def to_attrs(data):
-                if isinstance(data, numbers.Number):
-                    return [mlir_utils.get_mlir_scalar_attr(out_dtype, data)]
-                attrs = []
-                for element in data:
-                    attrs.extend(to_attrs(element))
-                return attrs
-
-            attr = ir.DenseElementsAttr.get(attrs=to_attrs(self.data), type=self.outputs[0].to_mlir())
+            attr = ir.DenseElementsAttr.get(
+                attrs=mlir_utils.list_to_dense_attr(self.data, mlir_utils.get_mlir_dtype(out_dtype)),
+                type=self.outputs[0].to_mlir(),
+            )
 
         return [stablehlo.ConstantOp(attr)]

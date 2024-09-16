@@ -47,10 +47,11 @@ class ReduceWindowOp(BaseFlatIROp):
         window_strides_attr = ir.DenseI64ArrayAttr.get(self.window_strides)
         padding_attr_type = ir.RankedTensorType.get(
             [len(self.padding), 2],
-            mlir_utils.get_mlir_dtype(input_dtype),
+            ir.IntegerType.get_signless(64),
         )
         padding_attr = ir.DenseElementsAttr.get(
-            attrs=mlir_utils.list_to_dense_attr(self.padding, input_dtype), type=padding_attr_type
+            attrs=mlir_utils.list_to_dense_attr(self.padding, ir.IntegerType.get_signless(64)),
+            type=padding_attr_type,
         )
 
         reduce = stablehlo.ReduceWindowOp(
