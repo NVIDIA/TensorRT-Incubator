@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,9 +48,6 @@ class Quantize(BaseTraceOp):
             RoundNearestEvenOp,
         )
         from tripy.common.datatype import int32
-
-        if not isinstance(inputs[1].producer, ConstantOp):
-            raise_error("Scale must be a constant tensor in quantize op.")
 
         # Represent quantize as clamp(round((input / scale))) + convert(dtype)
         scaled_tensor = FlatIRTensor.build(
@@ -133,7 +130,7 @@ class Quantize(BaseTraceOp):
 @export.public_api(document_under="operations/quantization")
 @frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int8", "float8"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int4", "int8", "float8"]},
     dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def quantize(

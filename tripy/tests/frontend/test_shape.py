@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -458,14 +458,6 @@ class TestShape:
             tp.TripyException, match="For binary elementwise operators on Shapes, all inputs must be of rank at most 1"
         ):
             tp.Shape(values).multiply(tp.Tensor([values, values]))
-
-    def test_unary_elementwise_fails_at_run_time(self, values):
-        v = tp.exp(tp.Shape(values))
-        with raises(
-            tp.TripyException,
-            match=("'stablehlo.exponential' op operand #0 must be ranked tensor of"),
-        ):
-            v.eval()
 
     def test_shape_equality(self, other_values):
         a = tp.Shape([4, 5])

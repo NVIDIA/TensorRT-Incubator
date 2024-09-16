@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,10 +23,8 @@ import pytest
 import tripy as tp
 from tests import helper
 
-DTYPES = [
-    (torch.float16, tp.float16),
-    (torch.float32, tp.float32)
-]
+DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
+
 
 class TestLayerNorm:
 
@@ -65,7 +63,7 @@ class TestLayerNorm:
         tp_layernorm = tp.LayerNorm(
             normalized_shape=[2, 2],
         )
-        x = tp.ones((5,5,5))
+        x = tp.ones((5, 5, 5))
         with helper.raises(
             tp.TripyException,
             match=re.escape("size of operand dimension 1 (5) is not compatible with size of result dimension 1 (2)"),

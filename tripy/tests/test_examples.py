@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -86,7 +86,7 @@ EXAMPLES = [Example(["nanogpt"])]
 @pytest.mark.l1
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
 def test_examples(example, sandboxed_install_run):
-    with open(example.readme, "r") as f:
+    with open(example.readme, "r", encoding="utf-8") as f:
         contents = f.read()
         # Check that the README has all the expected sections.
         assert "## Introduction" in contents, "All example READMEs should have an 'Introduction' section!"

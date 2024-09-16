@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -111,7 +111,7 @@ def full_impl(
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
@@ -146,8 +146,8 @@ def full(
 @export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )

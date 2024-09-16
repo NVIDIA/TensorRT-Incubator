@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -105,7 +105,6 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
 
 
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
-    import tripy.function_registry
     from tripy.frontend.utils import convert_inputs_to_tensors
 
     EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors]
@@ -130,7 +129,8 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
         if source_info.code is None:
             continue
 
-        if source_info.module == tripy.function_registry.__name__:
+        # Exclude frames from some modules that are not very useful to users:
+        if source_info.module in utils.get_module_names_to_exclude_from_stack_info():
             continue
 
         if should_exclude(source_info):

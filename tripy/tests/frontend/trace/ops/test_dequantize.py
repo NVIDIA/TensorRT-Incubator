@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,7 +39,7 @@ class TestDequantize:
         a = tp.Tensor([1.0, 2.0])
         with helper.raises(
             tp.TripyException,
-            match="Input does not have a valid dtype in dequantize op",
+            match="Unsupported data type for 'dequantize'.",
         ):
             a = tp.dequantize(a, 0.9, tp.float32)
 
@@ -47,7 +47,7 @@ class TestDequantize:
         a = tp.Tensor([2, 4], dtype=tp.int8)
         with helper.raises(
             tp.TripyException,
-            match="Unsupported dtype in dequantize op.",
+            match="Unsupported data type for 'dequantize'.",
         ):
             a = tp.dequantize(a, 0.9, tp.int32)
 

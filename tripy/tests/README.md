@@ -18,7 +18,7 @@ You can also provide marker arguments to only run specific test cadences
 L0 tests, use:
 
 ```bash
-pytest tests/ -v -m "not l1 and not manual"
+pytest tests/ -v -m "not l1 and not manual" -n 4
 ```
 
 
@@ -56,7 +56,7 @@ http://localhost:8080/snakeviz/%2Ftripy%2Fprof%2Fcombined.prof
 You can generate code coverage reports locally by running:
 
 ```bash
-pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
+pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -n 4 -v
 ```
 
 To view the report, open the `htmlcov/index.html` file from the root directory in a browser.

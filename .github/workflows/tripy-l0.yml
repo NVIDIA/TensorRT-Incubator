@@ -8,6 +8,7 @@ on:
     paths: ['tripy/**']
 
 env:
+  REGISTRY: ghcr.io
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
   NEW_TEST_IMAGE: test-image:latest
 
@@ -23,22 +24,35 @@ jobs:
       id: filter
       with:
         filters: |
-          new_container:
+          local_container:
             - 'tripy/Dockerfile'
             - 'tripy/pyproject.toml'
 
-    - if: steps.filter.outputs.new_container == 'true'
+    - if: steps.filter.outputs.local_container == 'true'
       run: echo "l0_image=${{ env.NEW_TEST_IMAGE }}" >> "$GITHUB_ENV"
-    - if: steps.filter.outputs.new_container != 'true'
+    - if: steps.filter.outputs.local_container != 'true'
       run: echo "l0_image=${{ env.DEFAULT_IMAGE }}" >> "$GITHUB_ENV"
 
+    # Login against a Docker registry
+    # https://github.com/docker/login-action
+    - name: Log into registry ${{ env.REGISTRY }}
+      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
     - name: build-new-container
-      if: steps.filter.outputs.new_container == 'true'
+      if: steps.filter.outputs.local_container == 'true'
       uses: docker/build-push-action@v6
       with:
         context: tripy/
         tags: ${{ env.NEW_TEST_IMAGE }}
         push: false
+
+    - name: pull-latest-container
+      if: steps.filter.outputs.local_container != 'true'
+      run: docker pull ${{ env.l0_image }}
 
     - name: build-docs
       uses: addnab/docker-run-action@v3
@@ -47,12 +61,12 @@ jobs:
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
           python3 docs/generate_rsts.py
-          sphinx-build build/doc_sources build/docs -c docs/ -j auto -W
-  
+          sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W
+
     - name: run-test
       uses: addnab/docker-run-action@v3
       with:
         image: ${{ env.l0_image }}
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
-          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" --durations=15
+          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" -n 4 --durations=15

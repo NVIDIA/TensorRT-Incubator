@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -104,7 +104,7 @@ class TestBinaryElementwise:
         with helper.raises(
             tp.TripyException,
             # Keep the entire error message here so we'll know if the display becomes horribly corrupted.
-            match=r"For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].",
+            match=r"Mismatched data types for '__add__'.",
             has_stack_info_for=[a, b],
         ):
             c = a + b

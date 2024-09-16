@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +49,7 @@ class Network(tp.Module):
 
     def __call__(self):
         return self.param + self.dummy1() + self.dummy2()
-    
+
 
 class ListNetwork(tp.Module):
     def __init__(self):
@@ -84,10 +84,15 @@ class MixedNetwork(tp.Module):
     def __init__(self):
         super().__init__()
         self.mixed_list = [DummyOp(tp.zeros((2,), dtype=tp.float32)), DummyNestedOp(tp.ones((2,), dtype=tp.float32))]
-        self.mixed_dict = {"dummy": DummyOp(tp.zeros((2,), dtype=tp.float32)), "dummy_nested": DummyNestedOp(tp.ones((2,), dtype=tp.float32))}
+        self.mixed_dict = {
+            "dummy": DummyOp(tp.zeros((2,), dtype=tp.float32)),
+            "dummy_nested": DummyNestedOp(tp.ones((2,), dtype=tp.float32)),
+        }
 
     def __call__(self):
-        return self.mixed_list[0]() + self.mixed_list[1]() + self.mixed_dict["dummy"]() + self.mixed_dict["dummy_nested"]()
+        return (
+            self.mixed_list[0]() + self.mixed_list[1]() + self.mixed_dict["dummy"]() + self.mixed_dict["dummy_nested"]()
+        )
 
 
 class ComplexNetwork(tp.Module):
@@ -125,9 +130,10 @@ def list_network():
 def dict_network():
     yield DictNetwork()
 
+
 @pytest.fixture
 def mixed_network():
-    yield MixedNetwork()    
+    yield MixedNetwork()
 
 
 @pytest.fixture

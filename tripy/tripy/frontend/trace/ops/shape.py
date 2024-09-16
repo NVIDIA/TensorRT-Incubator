@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +52,7 @@ class Shape(BaseTraceOp):
 @property
 @constraints.dtype_info(
     dtype_variables={
-        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["int32"],
     },
     dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "T2"},

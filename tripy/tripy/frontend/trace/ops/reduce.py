@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -449,10 +449,8 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optiona
 
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
-    dtype_variables={
-        "T1": ["int32"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
 )
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
@@ -483,10 +481,8 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
 
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
-    dtype_variables={
-        "T1": ["int32"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
 )
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """

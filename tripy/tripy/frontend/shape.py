@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,7 @@ from tripy import export, utils
 from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
-from tripy.frontend.utils import convert_inputs_to_tensors
+import tripy.frontend.utils as frontend_utils
 
 
 @export.public_api()
@@ -209,7 +209,7 @@ class Shape(Tensor):
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    @convert_inputs_to_tensors(shape_argument=["other"])
+    @frontend_utils.convert_inputs_to_tensors(shape_argument=["other"])
     def __eq__(self, other):
         from tripy.frontend.trace.ops.reduce import all
 

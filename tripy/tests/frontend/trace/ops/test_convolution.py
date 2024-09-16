@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,7 +38,7 @@ class TestConvolution:
 
         with helper.raises(
             tp.TripyException,
-            match=r"For operation: 'convolution', data types for all inputs must match, but got: \[float32, float16\].",
+            match=r"Mismatched data types for 'convolution'.",
             has_stack_info_for=[input],
         ):
             output = conv_layer(input)

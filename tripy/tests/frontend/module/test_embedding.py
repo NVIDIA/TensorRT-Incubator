@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ class TestEmbedding:
 
         with helper.raises(
             tp.TripyException,
-            match="Index tensor for gather operation should be of int32 type.",
+            match="Unsupported data type for 'gather'.",
             has_stack_info_for=[a],
         ):
             out = linear(a)

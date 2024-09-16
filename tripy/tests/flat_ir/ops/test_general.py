@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,7 +23,10 @@ import pytest
 from tests import helper
 from tripy.flat_ir.ops import BaseFlatIROp
 
-OP_TYPES = {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, BaseFlatIROp)}
+OP_TYPES = sorted(
+    {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, BaseFlatIROp)},
+    key=lambda cls: cls.__name__,
+)
 
 
 @pytest.mark.parametrize("OpType", OP_TYPES)

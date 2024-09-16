@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,11 +24,14 @@ import inspect
 
 def tensor_builder(init, dtype, namespace):
     if init is None:
-        return tp.ones(dtype=namespace[dtype], shape=(3, 2))
+        out = tp.ones(dtype=namespace[dtype], shape=(3, 2))
+        out.eval()
+        return out
     elif not isinstance(init, tp.Tensor):
-        assert dtype == None
         return init
-    return tp.cast(init, dtype=namespace[dtype])
+    out = tp.cast(init, dtype=namespace[dtype])
+    out.eval()
+    return out
 
 
 def dtype_builder(init, dtype, namespace):
@@ -37,9 +40,12 @@ def dtype_builder(init, dtype, namespace):
 
 def tensor_list_builder(init, dtype, namespace):
     if init is None:
-        return [tp.ones(shape=(3, 2), dtype=namespace[dtype]) for _ in range(2)]
+        out = [tp.ones(shape=(3, 2), dtype=namespace[dtype]) for _ in range(2)]
     else:
-        return [tp.cast(tens, dtype=namespace[dtype]) for tens in init]
+        out = [tp.cast(tens, dtype=namespace[dtype]) for tens in init]
+    for t in out:
+        t.eval()
+    return out
 
 
 def device_builder(init, dtype, namespace):
@@ -87,11 +93,12 @@ default_constraints_all = {
     "full_like": {"value": 1},
     "flip": {"dim": 1},
     "gather": {"dim": 0, "index": tp.Tensor([1])},
-    "iota": {"shape": tp.Tensor([3])},
+    "iota": {"shape": tp.Tensor([4])},
     "__matmul__": {"self": tp.ones((2, 3))},
     "transpose": {"dim0": 0, "dim1": 1},
     "permute": {"perm": [1, 0]},
     "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
+    "dequantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
     "sum": {"dim": 0},
     "all": {"dim": 0},
     "any": {"dim": 0},
@@ -111,6 +118,15 @@ default_constraints_all = {
     "zeros": {"shape": tp.Tensor([3, 2])},
     "arange": {"start": 0, "stop": 5},
     "repeat": {"repeats": 2, "dim": 0},
+    "convolution": {
+        "input": tp.ones((1, 3, 5, 5)),
+        "weight": tp.ones((1, 3, 3, 3)),
+        "padding": ((0, 0), (0, 0)),
+        "stride": [1, 1],
+        "groups": 1,
+        "lhs_dilation": [1, 1],
+        "rhs_dilation": [1, 1],
+    },
 }
 
 

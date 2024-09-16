@@ -1,6 +1,5 @@
-
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,31 +15,34 @@
 # limitations under the License.
 #
 
+import argparse
 import os
 import re
 import subprocess
-import sys
 from datetime import datetime
 
 current_year = str(datetime.now().year)
 
+
 def get_license_header():
-    for license_path in ['LICENSE', 'tripy/LICENSE']:
+    for license_path in ["LICENSE", "tripy/LICENSE"]:
         if os.path.exists(license_path):
-            with open(license_path, 'r', encoding='utf-8') as license_file:
+            with open(license_path, "r") as license_file:
                 return license_file.read().strip()
-    raise FileNotFoundError('LICENSE file not found in the current directory or tripy folder')
+    raise FileNotFoundError("LICENSE file not found in the current directory or tripy folder")
+
 
 license_text = get_license_header()
 
+
 def update_file(file_path):
-    with open(file_path, 'r+', encoding='utf-8') as file:
+    with open(file_path, "r+") as file:
         content = file.read()
-        copyright_pattern = r"Copyright \(c\) 1993-\d{4}"
+        copyright_pattern = r"Copyright \(c\) \d{4}"
         if re.search(copyright_pattern, content):
-            updated_content = re.sub(copyright_pattern, f'Copyright (c) 1993-{current_year}', content)
+            updated_content = re.sub(copyright_pattern, f"Copyright (c) {current_year}", content)
         else:
-            updated_content = license_text + '\n' + content
+            updated_content = license_text + "\n" + content
 
         if content != updated_content:
             file.seek(0)
@@ -49,27 +51,29 @@ def update_file(file_path):
             return True
     return False
 
-def get_files(mode):
-    if mode == 'new':
-        command = ['git', 'diff', '--cached', '--name-only', '--diff-filter=A']
-    elif mode == 'all':
-        command = ['git', 'ls-files']
+
+def get_files(args):
+    if args.files:
+        result = args.files
     else:
-        raise ValueError("Invalid mode. Use 'new' or 'all'.")
-    
-    result = subprocess.run(command, capture_output=True, text=True)
-    return [f for f in result.stdout.splitlines() if f.endswith('.py') and f.startswith('tripy/')]
+        command = ["git", "ls-files"]
+        result = subprocess.run(command, capture_output=True, text=True).stdout.splitlines()
+    return [f for f in result if f.endswith(".py") and f.startswith("tripy/")]
 
-def main(mode):
-    files = get_files(mode)
+
+def main():
+    parser = argparse.ArgumentParser(description="Adds copyright headers to source files")
+    parser.add_argument("files", nargs="*")
+
+    args, _ = parser.parse_known_args()
+    files = get_files(args)
     updated_files = [f for f in files if update_file(f)]
-    
-    if mode == 'new' and updated_files:
-        subprocess.run(['git', 'add'] + updated_files)
-    
-    print(f"Updated {len(updated_files)} out of {len(files)} Python files in '{mode}' mode.")
 
-if __name__ == '__main__':
-    import sys
-    mode = 'all' if len(sys.argv) > 1 and sys.argv[1] == 'all' else 'new'
-    main(mode)
+    if updated_files:
+        subprocess.run(["git", "add"] + updated_files)
+
+    print(f"Updated {len(updated_files)} out of {len(files)} Python files.")
+
+
+if __name__ == "__main__":
+    main()

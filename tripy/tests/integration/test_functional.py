@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -130,6 +130,7 @@ class TestCopyFunctional:
         out = tp.copy(a, tp.device("gpu"))
         assert out.tolist() == [1, 2]
         assert out.device.kind == "gpu"
+
 
 class TestConversionToTripyType:
     @pytest.mark.parametrize(
