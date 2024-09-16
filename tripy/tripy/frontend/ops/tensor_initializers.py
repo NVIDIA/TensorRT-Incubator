@@ -300,10 +300,10 @@ def arange(
     :math:`[0, \text{stop})` incrementing by :math:`\text{step}`.
 
     Args:
-        start: The inclusive lower bound of the values to generate.
-        stop: The exclusive upper bound of the values to generate.
-        step: The spacing between values.
-        dtype: The desired datatype of the tensor.
+        start: The inclusive lower bound of the values to generate. If a tensor is provided, it must be a scalar tensor.
+        stop: The exclusive upper bound of the values to generate. If a tensor is provided, it must be a scalar tensor.
+        step: The spacing between values. If a tensor is provided, it must be a scalar tensor.
+        dtype: The desired data type of the tensor.
 
     Returns:
         A tensor of shape :math:`[\frac{\text{stop}-\text{start}}{\text{step}}]`.

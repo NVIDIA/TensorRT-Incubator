@@ -19,9 +19,7 @@ import functools
 import inspect
 from collections import OrderedDict, defaultdict
 from textwrap import dedent
-from typing import Any, Callable, Dict, List, ForwardRef
-from typing import get_origin, get_args, Union
-
+from typing import Any, Callable, Dict, List, Optional
 
 from dataclasses import dataclass
 
@@ -100,34 +98,68 @@ class FuncOverload:
     def matches_arg_types(self, args, kwargs) -> "Result":
         from tripy.utils.result import Result
 
-        def matches_type(name: str, annotation: type, arg: Any):
+        def sanitize_name(annotation):
+            # typing module annotations are likely to be better when pretty-printed due to including subscripts
+            return annotation if annotation.__module__ == "typing" else annotation.__qualname__
+
+        def render_arg_type(arg: Any) -> str:
+            # it is more useful to report more detailed types for sequences/tuples in error messages
+            from typing import List, Tuple
+
+            if isinstance(arg, List):
+                if len(arg) == 0:
+                    return "List"
+                # catch inconsistencies this way
+                arg_types = {render_arg_type(member) for member in arg}
+                if len(arg_types) == 1:
+                    return f"List[{list(arg_types)[0]}]"
+                return f"List[Union[{', '.join(arg_types)}]]"
+            if isinstance(arg, Tuple):
+                return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
+            return type(arg).__qualname__
+
+        def matches_type(name: str, annotation: type, arg: Any) -> bool:
+            from collections.abc import Sequence as ABCSequence
+            from typing import ForwardRef, get_args, get_origin, Sequence, Union
+
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
             # eval it here.
-            import importlib
-
-            if isinstance(annotation, (str, ForwardRef)):
-                if isinstance(annotation, ForwardRef):
-                    annotation = annotation.__forward_arg__
+            if isinstance(annotation, str):
                 try:
-                    module_name, class_name = annotation.rsplit(".", 1)
-                    module = importlib.import_module(module_name)
-                    resolved_type = getattr(module, class_name)
-                    return matches_type(name, resolved_type, arg)
+                    annotation = eval(annotation)
                 except Exception as e:
-                    print(f"Warning: Could not resolve type '{annotation}'. Assuming it matches. Error: {e}")
-                    return True
+                    raise NameError(
+                        f"Error while evaluating type annotation: '{annotation}' for parameter: '{name}' of function: '{self.func.__name__}'."
+                        f"\nNote: Error was: {e}"
+                    )
 
-            # Handle Union types
+            # can add more cases, prioritizing the common ones
             if get_origin(annotation) is Union:
-                return any(matches_type(name, t, arg) for t in get_args(annotation))
+                return any(map(lambda type_arg: matches_type(name, type_arg, arg), get_args(annotation)))
+
+            # note: get_origin for typing.Sequence normalizes it into collections.abc.Sequence, see spec for get_origin
+            if get_origin(annotation) is ABCSequence:
+                # in the context of Tripy, it does not make sense to consider strings as sequences
+                if not isinstance(arg, Sequence) or isinstance(arg, str):
+                    return False
+                seq_arg = get_args(annotation)
+                if seq_arg and len(arg) > 0:
+                    assert len(seq_arg) == 1
+                    return all(map(lambda member: matches_type(name, seq_arg[0], member), arg))
+                return True
+
+            # Forward references can be used for recursive type definitions. Warning: Has the potential for infinite looping if there is no base case!
+            if isinstance(annotation, ForwardRef):
+                # need this import in case the annotation references tripy
+                import tripy
+
+                return matches_type(name, eval(annotation.__forward_arg__), arg)
 
             try:
                 return isinstance(arg, annotation)
             except TypeError:
-                # When the type annotation includes a subscripted generic (e.g. Tuple[int]), isinstance
-                # does not work. We could introduce more advanced type checking using `typing.get_origin` and `typing.get_args`
-                # but for now, we don't support overloading on generic types.
+                # When the type annotation includes a subscripted generic that we do not handle above, isinstance does not work
                 return True
 
         annotations = self._get_annotations()
@@ -144,9 +176,9 @@ class FuncOverload:
             if not matches_type(name, annotation.type_info, arg):
                 return Result.err(
                     [
-                        f"For parameter: '{name}', expected an instance of type: "
-                        f"'{annotation.type_info.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
-                    ],
+                        f"For parameter: '{name}', expected an instance of type: '{sanitize_name(annotation.type_info)}' "
+                        f"but got argument of type: '{render_arg_type(arg)}'."
+                    ]
                 )
 
         for name, arg in kwargs.items():
@@ -155,9 +187,9 @@ class FuncOverload:
                 if not matches_type(name, typ, arg):
                     return Result.err(
                         [
-                            f"For parameter: '{name}', expected an instance of type: "
-                            f"'{typ.__qualname__}' but got argument of type: '{type(arg).__qualname__}'."
-                        ],
+                            f"For parameter: '{name}', expected an instance of type: '{sanitize_name(typ)}' "
+                            f"but got argument of type: '{render_arg_type(arg)}'."
+                        ]
                     )
             elif not any(annotation.kind == inspect.Parameter.VAR_KEYWORD for annotation in annotations.values()):
                 # We can only validate the names of arguments if the function does not accept variadic kwargs
@@ -238,7 +270,7 @@ class FunctionRegistry(dict):
             raise_error(
                 f"{msg} for function: '{key}'.",
                 details=[
-                    f"Note: Argument types were: [{', '.join(arg_type_strs)}].\nCandidate overloads were:\n\n",
+                    f"Candidate overloads were:\n\n",
                     *overloads_error,
                     extra_info,
                 ],
