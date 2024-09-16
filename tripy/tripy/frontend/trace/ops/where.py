@@ -40,9 +40,9 @@ class Where(BaseTraceOp):
                         f" the Boolean input must be rank 1, but given rank {inputs[0].rank}",
                     ]
                 )
-            return Result.ok([0])
+            return Result.ok({"shape": [0]})
         elif not isinstance(inputs[1], Shape) and not isinstance(inputs[2], Shape):
-            return Result.ok([])
+            return Result.ok({})
         else:
             return Result.err(
                 [

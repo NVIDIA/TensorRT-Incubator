@@ -61,14 +61,14 @@ class ShapeOutputIdxPolicies:
         from tripy.frontend.shape import Shape
 
         if isinstance(inputs[0], Shape):
-            return Result.ok(list(range(len(self.outputs))))
-        return Result.ok([])
+            return Result.ok({"shape": list(range(len(self.outputs)))})
+        return Result.ok({})
 
     def never_return_shape(self, inputs):
         """
         Accepts shapes but the result is always no shape indices
         """
-        return Result.ok([])
+        return Result.ok({})
 
 
 ##
