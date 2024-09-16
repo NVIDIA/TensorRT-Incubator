@@ -115,7 +115,7 @@ class Dequantize(BaseTraceOp):
 )
 def dequantize(
     input: "tripy.Tensor",
-    scale: Union["tripy.Tensor", Any],
+    scale: "tripy.types.TensorLike",
     dtype: datatype.dtype,
     dim: Union[int, Any] = None,
 ) -> "tripy.Tensor":

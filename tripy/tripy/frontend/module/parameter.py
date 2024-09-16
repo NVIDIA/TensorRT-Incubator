@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Sequence
+from typing import Any, Sequence
 
 import tripy.frontend.utils as frontend_utils
 from tripy import export, utils
@@ -31,10 +31,12 @@ class Parameter(Tensor):
     """
 
     @frontend_utils.convert_inputs_to_tensors()
-    def __init__(self, tensor: "tripy.Tensor") -> None:
+    def __init__(self, tensor: Any) -> None:
         """
         Args:
-            tensor: The tensor value for this parameter.
+            tensor:
+                The tensor value for this parameter. If provided as an external data format (e.g., a Numpy array),
+                it will be converted into a Tripy Tensor.
 
         .. code-block:: python
             :linenos:
@@ -45,7 +47,11 @@ class Parameter(Tensor):
             assert isinstance(parameter, tp.Parameter)
             assert isinstance(parameter, tp.Tensor)
         """
-        self.__dict__ = tensor.__dict__
+        t = tensor
+        # for convenience, this will convert other dlpack-supporting representations too
+        if not isinstance(t, Tensor):
+            t = Tensor(t)
+        self.__dict__ = t.__dict__
 
     def _is_compatible_helper(self, original_shape, other_shape, original_dtype, other_dtype) -> Result:
         if original_shape != other_shape:

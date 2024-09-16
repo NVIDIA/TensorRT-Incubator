@@ -92,16 +92,16 @@ def maxpool(
     kernel_dims: Sequence[int],
     stride: Sequence[int] = None,
     padding: Sequence[Tuple[int]] = None,
-):
+) -> "tripy.Tensor":
     r"""
     Applies a max pooling over the input tensor.
 
     The output's non-spatial dimensions are the same as input. For each input spatial dimension
-    :math:`D_{\text{in}}`, the corresponding output dimension will be:
+    :math:`D_{i}`, the corresponding output dimension will be:
 
     .. math::
-        D_{out} = \left\lfloor\frac{D_{in} + \text{padding\_before} + \text{padding\_after} -
-                \text{kernel\_size[0]}}{\text{stride[0]}} + 1\right\rfloor
+        D_{out_i} = \left\lfloor\frac{D_{i} + \text{padding_before[i]} + \text{padding_after[i]} -
+                \text{kernel_dims[i]}}{\text{stride[i]}} + 1\right\rfloor
 
     Args:
         input: The input tensor.
@@ -124,14 +124,13 @@ def maxpool(
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
         output = tp.maxpool(input, kernel_dims=(2, 2))
 
-        pool_torch = torch.nn.MaxPool2d((2, 2)) # doc: omit
-        expected = pool_torch(torch.from_dlpack(input)) # doc: omit
+        pool_torch = torch.nn.MaxPool2d((2, 2), stride=1) # doc: omit
+        expected = pool_torch(torch.from_dlpack(input).to("cpu")) # doc: omit
 
-        assert torch.allclose(torch.from_dlpack(output), expected)
+        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
-
     spatial_dims = len(kernel_dims)
-    if spatial_dims != 2 or spatial_dims != 3:
+    if spatial_dims != 2 and spatial_dims != 3:
         raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
     if stride is not None:
         if len(stride) != spatial_dims:

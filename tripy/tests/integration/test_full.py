@@ -35,3 +35,8 @@ class TestFull:
         a = tp.ones((2, 3))
         out = tp.full((a.shape[0], 4), 5.0, tp.float32)
         assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 4), 5.0, np.float32))
+
+    def test_value_as_tensor(self):
+        a = tp.ones((2, 3))
+        out = tp.full((a.shape[0], 4), tp.Tensor(8.0), tp.float32)
+        assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 4), 8.0, np.float32))
