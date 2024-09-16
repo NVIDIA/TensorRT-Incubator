@@ -48,9 +48,7 @@ class TestArange:
         ):
             tp.arange(0, 5, 0)
 
-    def test_tensor_inputs(self):
-        start = tp.Tensor(1.0)
-        stop = tp.Tensor(5.0)
-        step = tp.Tensor(0.5)
-        out = tp.arange(start, stop, step)
-        assert np.allclose(cp.from_dlpack(out).get(), np.arange(1.0, 5.0, 0.5, dtype=np.float32))
+    def test_shapescalar_inputs(self):
+        a = tp.ones((1, 5, 1))
+        out = tp.arange(a.shape[0], a.shape[1] + 1, a.shape[2])
+        assert np.allclose(cp.from_dlpack(out).get(), np.arange(1.0, 6.0, 1.0, dtype=np.float32))

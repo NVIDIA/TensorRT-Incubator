@@ -94,7 +94,7 @@ class Fill(BaseTraceOp):
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
 def full_impl(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     value: Union[numbers.Number, "tripy.Tensor"],
     dtype: "tripy.dtype",
     output_rank: int,
@@ -116,7 +116,7 @@ def full_impl(
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def full(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     value: Union[numbers.Number, "tripy.Tensor"],
     dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":

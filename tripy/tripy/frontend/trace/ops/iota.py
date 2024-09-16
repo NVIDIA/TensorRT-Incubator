@@ -91,7 +91,7 @@ def iota_impl(
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def iota(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     dim: int = 0,
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":

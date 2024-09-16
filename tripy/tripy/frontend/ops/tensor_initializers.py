@@ -37,7 +37,7 @@ from tripy.frontend import utils as frontend_utils
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def ones(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":
     """
@@ -73,7 +73,7 @@ def ones(
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def zeros(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":
     """
@@ -290,9 +290,9 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def arange(
-    start: Union[numbers.Number, "tripy.Tensor"],
-    stop: Union[numbers.Number, "tripy.Tensor"],
-    step: Union[numbers.Number, "tripy.Tensor"] = 1,
+    start: Union[numbers.Number, "tripy.ShapeScalar"],
+    stop: Union[numbers.Number, "tripy.ShapeScalar"],
+    step: Union[numbers.Number, "tripy.ShapeScalar"] = 1,
     dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":
     r"""
@@ -326,6 +326,7 @@ def arange(
     """
     from tripy.frontend import Tensor
     from tripy.common.datatype import int32
+    from tripy.frontend.shape import ShapeScalar
 
     if isinstance(step, numbers.Number) and step == 0:
         raise_error("Step in arange cannot be 0.", [])
@@ -340,14 +341,11 @@ def arange(
             ],
         )
 
-    if isinstance(size, Tensor):
-        from tripy.frontend.trace.ops.cast import cast
-
-        size = cast(size, int32)
-    else:
+    if not isinstance(size, ShapeScalar):
         size = int(size)
+    size = (size,)
 
-    output = iota((size,), 0, dtype) * full((size,), step, dtype) + full((size,), start, dtype)
+    output = iota(size, 0, dtype) * full(size, step, dtype) + full(size, start, dtype)
     return output
 
 

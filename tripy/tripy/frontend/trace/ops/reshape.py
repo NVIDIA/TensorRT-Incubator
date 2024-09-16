@@ -80,7 +80,9 @@ def reshape_impl(
     },
     dtype_constraints={"input": "T1", "shape": "T2", constraints.RETURN_VALUE: "T1"},
 )
-def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
+def reshape(
+    input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]]
+) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
 
