@@ -217,10 +217,6 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
     """
-    from tripy.common.datatype import int64
-
-    if tensor.dtype == int64:
-        raise_error("Known issue with i64. Tril currently does not work with int64 inputs.")
     tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) >= iota_like(
         tensor, -1, datatype.int32
     )
@@ -279,10 +275,6 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get(), -1))
     """
-    from tripy.common.datatype import int64
-
-    if tensor.dtype == int64:
-        raise_error("Known issue with i64. Triu currently does not work with int64 inputs.")
     tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) <= iota_like(
         tensor, -1, datatype.int32
     )
@@ -332,11 +324,8 @@ def arange(
 
         assert tp.allclose(output, tp.Tensor(np.arange(2.3, 0.8, -0.2, dtype=np.float32)))
     """
-    from tripy.common.datatype import int32, int64
-    from tripy.frontend.tensor import Tensor
-
-    if dtype == int64:
-        raise_error("Known issue with i64. Arange currently does not work with int64 inputs.")
+    from tripy.frontend import Tensor
+    from tripy.common.datatype import int32
 
     if isinstance(step, numbers.Number) and step == 0:
         raise_error("Step in arange cannot be 0.", [])
@@ -390,8 +379,4 @@ def arange(stop: Union[numbers.Number, "tripy.Tensor"], dtype: "tripy.dtype" = d
 
         assert (cp.from_dlpack(output).get() == np.arange(5, dtype=np.float32)).all()
     """
-    from tripy.common.datatype import int64
-
-    if dtype == int64:
-        raise_error("Known issue with i64. Arange currently does not work with int64 inputs. Issue #116")
     return arange(0, stop, dtype=dtype)

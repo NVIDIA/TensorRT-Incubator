@@ -237,8 +237,4 @@ def __matmul__(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         output = a @ b
         assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
     """
-    from tripy.common.datatype import int64
-
-    if other.dtype == int64:
-        raise_error("Known issue with i64. __matmul__ currently does not work with int64 inputs. Issue #116")
     return MatrixMultiplication.build([self, other])

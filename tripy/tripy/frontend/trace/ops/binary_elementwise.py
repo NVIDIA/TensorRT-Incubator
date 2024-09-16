@@ -34,6 +34,7 @@ class BinaryElementwise(BaseTraceOp):
         POW = " ** "
         MUL = " * "
         DIV = " / "
+        FLOOR_DIV = " // "
         MAXIMUM = "maximum"
         MINIMUM = "minimum"
 
@@ -126,19 +127,35 @@ class BinaryElementwise(BaseTraceOp):
         return inputs
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import AddOp, DivideOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
+        from tripy.flat_ir.ops import AddOp, DivideOp, FloorOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         inputs = self.broadcast_inputs(inputs, outputs)
-        OpType = {
-            BinaryElementwise.Kind.SUM: AddOp,
-            BinaryElementwise.Kind.POW: PowOp,
-            BinaryElementwise.Kind.MUL: MulOp,
-            BinaryElementwise.Kind.SUB: SubtractOp,
-            BinaryElementwise.Kind.DIV: DivideOp,
-            BinaryElementwise.Kind.MAXIMUM: MaxOp,
-            BinaryElementwise.Kind.MINIMUM: MinOp,
-        }[self.kind]
-        OpType.build(inputs, outputs)
+
+        if self.kind == BinaryElementwise.Kind.FLOOR_DIV:
+            # First apply DivideOp
+            divide_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of division operator for FLOOR_DIV operation."],
+            )
+            DivideOp.build(inputs, [divide_out])
+            # Then apply FloorOp to the result of the division
+            FloorOp.build([divide_out], outputs)
+        else:
+            OpType = {
+                BinaryElementwise.Kind.SUM: AddOp,
+                BinaryElementwise.Kind.POW: PowOp,
+                BinaryElementwise.Kind.MUL: MulOp,
+                BinaryElementwise.Kind.SUB: SubtractOp,
+                BinaryElementwise.Kind.DIV: DivideOp,
+                BinaryElementwise.Kind.MAXIMUM: MaxOp,
+                BinaryElementwise.Kind.MINIMUM: MinOp,
+                BinaryElementwise.Kind.FLOOR_DIV: DivideOp,
+            }[self.kind]
+            OpType.build(inputs, outputs)
 
 
 @dataclass(repr=False)
@@ -435,8 +452,8 @@ def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", 
     Performs an elementwise floor division.
 
     Args:
-        self: Tensor to be divided by other.
-        other: The tensor by which to divide this one.
+        self: Tensor to be floor-divided by other.
+        other: The tensor by which to floor-divide this one.
             It should be broadcast-compatible.
 
     Returns:
@@ -456,6 +473,8 @@ def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", 
     from tripy.common.datatype import int32
 
     return cast(cast(BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV), int32), self.dtype)
+    # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
+    # return BinaryElementwise.build([self, other], BinaryElementwise.Kind.FLOOR_DIV)
 
 
 @TENSOR_METHOD_REGISTRY("__rfloordiv__")
@@ -469,8 +488,8 @@ def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor",
     Performs an elementwise floor division.
 
     Args:
-        self: Tensor to be divided by other.
-        other: The tensor to be divided by this one.
+        self: Tensor to be floor-divided by other.
+        other: The tensor to be floor-divided by this one.
             It should be broadcast-compatible.
 
     Returns:
@@ -490,6 +509,8 @@ def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor",
     from tripy.common.datatype import int32
 
     return cast(cast(BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV), int32), self.dtype)
+    # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
+    # return BinaryElementwise.build([other, self], BinaryElementwise.Kind.FLOOR_DIV)
 
 
 @export.public_api(document_under="operations/functions")

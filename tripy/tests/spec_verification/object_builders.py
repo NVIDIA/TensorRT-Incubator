@@ -81,43 +81,19 @@ Here is the list of parameter types that have defaults or work differently from 
 All other types do not have defaults and must be passed to the verifier using default_constraints_all.
 """
 default_constraints_all = {
-    "__rtruediv__": {"self": 1},
-    "__rsub__": {"self": 1},
-    "__radd__": {"self": 1},
-    "__rpow__": {"self": 1},
-    "__rmul__": {"self": 1},
-    "softmax": {"dim": 1},
-    "concatenate": {"dim": 0},
-    "expand": {"sizes": tp.Tensor([3, 4]), "input": tp.ones((3, 1))},
-    "full": {"shape": tp.Tensor([3]), "value": 1},
-    "full_like": {"value": 1},
-    "flip": {"dim": 1},
-    "gather": {"dim": 0, "index": tp.Tensor([1])},
-    "iota": {"shape": tp.Tensor([4])},
+    "__getitem__": {"index": 2},
     "__matmul__": {"self": tp.ones((2, 3))},
-    "transpose": {"dim0": 0, "dim1": 1},
-    "permute": {"perm": [1, 0]},
-    "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
-    "dequantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
-    "sum": {"dim": 0},
+    "__radd__": {"self": 1},
+    "__rmul__": {"self": 1},
+    "__rpow__": {"self": 1},
+    "__rsub__": {"self": 1},
+    "__rtruediv__": {"self": 1},
     "all": {"dim": 0},
     "any": {"dim": 0},
-    "max": {"dim": 0},
-    "prod": {"dim": 0},
-    "mean": {"dim": 0},
-    "var": {"dim": 0},
+    "arange": {"start": 0, "stop": 5},
     "argmax": {"dim": 0},
     "argmin": {"dim": 0},
-    "reshape": {"shape": tp.Tensor([6])},
-    "squeeze": {"input": tp.ones((3, 1)), "dims": (1)},
-    "__getitem__": {"index": 2},
-    "split": {"indices_or_sections": 2},
-    "unsqueeze": {"dim": 1},
-    "masked_fill": {"value": 1},
-    "ones": {"shape": tp.Tensor([3, 2])},
-    "zeros": {"shape": tp.Tensor([3, 2])},
-    "arange": {"start": 0, "stop": 5},
-    "repeat": {"repeats": 2, "dim": 0},
+    "concatenate": {"dim": 0},
     "convolution": {
         "input": tp.ones((1, 3, 5, 5)),
         "weight": tp.ones((1, 3, 3, 3)),
@@ -127,6 +103,31 @@ default_constraints_all = {
         "lhs_dilation": [1, 1],
         "rhs_dilation": [1, 1],
     },
+    "cumsum": {"dim": 0},
+    "dequantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
+    "expand": {"sizes": tp.Tensor([3, 4]), "input": tp.ones((3, 1))},
+    "flip": {"dim": 1},
+    "full_like": {"value": 1},
+    "full": {"shape": tp.Tensor([3]), "value": 1},
+    "gather": {"dim": 0, "index": tp.Tensor([1])},
+    "iota": {"shape": tp.Tensor([4])},
+    "masked_fill": {"value": 1},
+    "max": {"dim": 0},
+    "mean": {"dim": 0},
+    "ones": {"shape": tp.Tensor([3, 2])},
+    "permute": {"perm": [1, 0]},
+    "prod": {"dim": 0},
+    "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
+    "repeat": {"repeats": 2, "dim": 0},
+    "reshape": {"shape": tp.Tensor([6])},
+    "softmax": {"dim": 1},
+    "split": {"indices_or_sections": 2},
+    "squeeze": {"input": tp.ones((3, 1)), "dims": (1)},
+    "sum": {"dim": 0},
+    "transpose": {"dim0": 0, "dim1": 1},
+    "unsqueeze": {"dim": 1},
+    "var": {"dim": 0},
+    "zeros": {"shape": tp.Tensor([3, 2])},
 }
 
 
@@ -137,24 +138,30 @@ def create_obj(func_obj, func_name, param_name, param_dtype, namespace):
     param_dict = func_sig.parameters
     param_type_annot = param_dict[param_name]
     init = None
+
     # Check if there is a value in default_constraints_all for func_name and param_name and use it.
     default_constraints = default_constraints_all.get(func_name, None)
     if default_constraints != None:
         other_constraint = default_constraints.get(param_name, None)
         if other_constraint is not None:
             init = other_constraint
+
     # If parameter had a default then use it otherwise skip.
     if init is None and param_type_annot.default is not param_type_annot.empty:
         # Checking if not equal to None since default can be 0 or similar.
         if param_type_annot.default != None:
             init = param_type_annot.default
+
     param_type = param_type_annot.annotation
     while get_origin(param_type) in [Union, Optional]:
         param_type = get_args(param_type)[0]
         # ForwardRef refers to any case where type hint is a string.
         if isinstance(param_type, ForwardRef):
             param_type = param_type.__forward_arg__
+
     create_obj_func = find_func.get(param_type, default_builder)
     if create_obj_func:
         namespace[param_name] = create_obj_func(init, param_dtype, namespace)
         return namespace[param_name]
+
+    assert False, f"Could not create parameter: {param_name}"
