@@ -17,6 +17,7 @@ from typing import Optional
 
 import math
 import tripy as tp
+from tripy.common.datatype import float32
 
 
 def scaled_dot_product_attention(
@@ -71,4 +72,23 @@ class MLP(tp.Module):
             x = self.act(layer(x)) if i < self.num_layers - 1 else layer(x)
         if self.sigmoid_output:
             x = tp.sigmoid(x)
+        return x
+
+
+class LayerNorm2d(tp.Module):
+    def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
+        super().__init__()
+        from tripy.frontend.module.parameter import DefaultParameter
+
+        self.weight = DefaultParameter((num_channels,), float32)
+        self.bias = DefaultParameter((num_channels,), float32)
+        self.eps = eps
+
+    def forward(self, x: tp.Tensor) -> tp.Tensor:
+        u = tp.mean(x, dim=1, keepdim=True)
+        s = tp.mean((x - u) ** 2, dim=1, keepdim=True)
+        x = (x - u) / tp.sqrt(s + self.eps)
+        w = tp.unsqueeze(tp.unsqueeze(self.weight, 1), 2)
+        b = tp.unsqueeze(tp.unsqueeze(self.bias, 1), 2)
+        x = w * x + b
         return x
