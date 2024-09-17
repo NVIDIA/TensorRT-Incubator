@@ -242,7 +242,7 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
             if isinstance(index, int):
                 return index if index >= 0 else index + t_shape[i]
             else:
-                return where(index >= 0, index, reshape(t_shape[i], (1,)) + index)
+                return where(index >= 0, index, t_shape[i] + index)
 
         # when dealing with a slice (not a single index), we clamp the start and end bounds to [0, t_shape[i]]
         # because out of bounds indices for a *slice* mean that the dim should be empty, not an error

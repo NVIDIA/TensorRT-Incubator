@@ -50,6 +50,7 @@ class BinaryElementwise(BaseTraceOp):
 
     def infer_shape_output_idxs(self, inputs):
         # permit one input to be a shape but require the output to be a shape
+        from tripy.frontend.tensor import Tensor
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
@@ -69,7 +70,9 @@ class BinaryElementwise(BaseTraceOp):
                     ]
                 )
             return Result.ok({"shape": [0]})
-        elif all(map(lambda t: isinstance(t, ShapeScalar), inputs)):
+        elif any(
+            map(lambda t: isinstance(t, ShapeScalar) or (isinstance(t, int) and not isinstance(t, Tensor)), inputs)
+        ):
             # Binary operation on ShapeScalar should yield another ShapeScalar.
             return Result.ok({"scalar": [0]})
         else:
