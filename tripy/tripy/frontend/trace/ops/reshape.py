@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,8 +47,8 @@ class Reshape(BaseTraceOp):
 
         # Only wrap the reshaped output if the result is rank 1, otherwise don't wrap
         if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok([0])
-        return Result.ok([])
+            return Result.ok({"shape": [0]})
+        return Result.ok({})
 
     def infer_rank(self):
         if self.output_rank is None:
@@ -75,12 +75,14 @@ def reshape_impl(
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["int8", "int32", "int64"],
     },
     dtype_constraints={"input": "T1", "shape": "T2", constraints.RETURN_VALUE: "T1"},
 )
-def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
+def reshape(
+    input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]]
+) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
 
@@ -265,7 +267,7 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )

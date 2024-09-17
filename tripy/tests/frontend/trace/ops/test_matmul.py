@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -46,7 +46,9 @@ class TestMatMul:
         a = tp.ones((2, 3), dtype=tp.float32)
         b = tp.ones((3, 2), dtype=tp.float16)
 
-        with helper.raises(tp.TripyException, match="Incompatible input data types.", has_stack_info_for=[a, b]):
+        with helper.raises(
+            tp.TripyException, match="Mismatched data types for '__matmul__'.", has_stack_info_for=[a, b]
+        ):
             c = a @ b
 
     def test_incompatible_1d_shapes_fails(self):
@@ -54,7 +56,9 @@ class TestMatMul:
         b = tp.ones((3,), dtype=tp.float32)
         c = a @ b
 
-        with helper.raises(tp.TripyException, match="contracting dimension sizes must match for lhs/rhs", has_stack_info_for=[a, b, c]):
+        with helper.raises(
+            tp.TripyException, match="contracting dimension sizes must match for lhs/rhs", has_stack_info_for=[a, b, c]
+        ):
             c.eval()
 
     def test_incompatible_2d_shapes_fails(self):

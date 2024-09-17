@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from tripy import constraints
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils
@@ -66,7 +67,6 @@ class Convolution(BaseTraceOp):
         self.outputs[0].rank = self.inputs[0].rank
 
     def infer_dtypes(self):
-        op_utils.check_input_dtypes_match(self, "convolution")
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def to_flat_ir(self, inputs, outputs):
@@ -81,3 +81,21 @@ class Convolution(BaseTraceOp):
             lhs_dilation=self.lhs_dilation,
             rhs_dilation=self.rhs_dilation,
         )
+
+
+@constraints.dtype_info(
+    dtype_variables={
+        "T1": ["float32", "float16", "bfloat16", "float8"],
+    },
+    dtype_constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def convolution(
+    input: "tripy.Tensor",
+    weight: "tripy.Tensor",
+    padding: Sequence[Sequence[int]],
+    stride: Sequence[int],
+    groups: int,
+    lhs_dilation: Sequence[int],
+    rhs_dilation: Sequence[int],
+):
+    return Convolution.build([input, weight], padding, stride, groups, lhs_dilation, rhs_dilation)

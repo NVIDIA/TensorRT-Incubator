@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,6 +32,7 @@ from tripy.common import datatype
 from tripy.common.exception import OmitStackInfo, raise_error
 from tripy.logging import logger
 
+
 # MLIR context needs to be shared across the Module op and CompilerClient
 class MLIRContext:
     _instance = None
@@ -41,6 +42,7 @@ class MLIRContext:
             cls._instance = super().__new__(cls)
             cls._instance.context = ir.Context()
         return cls._instance.context
+
 
 # MLIR runtime needs to be initialized once.
 class MLIRRuntimeClient:
@@ -56,12 +58,14 @@ class MLIRRuntimeClient:
 def get_max_upper_bounds():
     return sys.maxsize
 
+
 def make_ir_context() -> ir.Context:
     ctx = MLIRContext()
     ctx.enable_multithreading(False)
     # Allow unregistered dialects to assign trt shape_profile attribute to stablehlo program.
     ctx.allow_unregistered_dialects = True
     return ctx
+
 
 def get_mlir_dtype(dtype: "tripy.dtype"):
     """
@@ -138,6 +142,7 @@ def make_mlir_tensor(
         get_mlir_dtype(dtype),
     )
 
+
 def get_constant_value(arg) -> Optional[ir.DenseElementsAttr]:
     from mlir_tensorrt.compiler.dialects import stablehlo
 
@@ -151,6 +156,7 @@ def get_constant_value(arg) -> Optional[ir.DenseElementsAttr]:
         return arg.value
 
     return None
+
 
 def remove_sym_attr(mlir_text: str) -> str:
     return re.sub(r"module @\S+ {", "module {", mlir_text)
@@ -250,6 +256,7 @@ def redirect_stderr() -> BinaryIO:
 
 
 TRIPY_DTYPE_TO_MLIR_TRT = {
+    datatype.int4: runtime.ScalarTypeCode.i4,
     datatype.int8: runtime.ScalarTypeCode.i8,
     datatype.int32: runtime.ScalarTypeCode.i32,
     datatype.int64: runtime.ScalarTypeCode.i64,
@@ -280,6 +287,7 @@ def is_any_dim_dynamic(mlir_tensor):
     Returns true if any of the dimension in a mlir tensor is dynamic.
     """
     from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
+
     type = get_op_result_or_value(mlir_tensor).type
     return any([type.is_dynamic_dim(i) for i in range(type.rank)])
 

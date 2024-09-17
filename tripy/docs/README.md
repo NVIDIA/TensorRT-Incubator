@@ -7,7 +7,7 @@ This directory includes all the source files for the public API documentation.
 You can build the documentation locally in the development container by running:
 ```bash
 python3 docs/generate_rsts.py
-sphinx-build build/doc_sources build/docs -c docs/ -j auto -W
+sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W
 ```
 To view the documentation, you can open `build/docs/index.html` in a browser.
 
@@ -18,7 +18,7 @@ To view the documentation, you can open `build/docs/index.html` in a browser.
 The `export.public_api()` decorator allows you to specify metadata for documentation
 generation, such as where in the documentation hierarchy the API should be documented.
 
-The `constraints.dtype_info()` decorator verifies the data types a function claims to support and generates 
+The `constraints.dtype_info()` decorator verifies the data types a function claims to support and generates
 corresponding documentation. For more information, see [this guide](../tests/spec_verification/README.md).
 
 The `generate_rsts.py` script uses this information to automatically generate a directory
@@ -122,6 +122,9 @@ documentation is generated. Specifically:
 - In docstrings, but not guides, any `assert` statements are stripped out.
 
 - Any lines that end with `# doc: omit` are stripped out.
+
+- By default, documentation generation will fail if an exception is thrown by a code snippet.
+    In order to allow exceptions, add `# doc: allow-exception`.
 
 To avoid running code entirely, you can add `# doc: no-eval` in the docstring. Note that this will
 not prevent the code block from being executed in the tests.

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,10 +59,8 @@ class TestBinaryElementwise:
         "lhs, rhs, left_side_is_non_tensor",
         [
             (tp.Tensor([1.0]), tp.Tensor([2.0]), False),
-            (tp.Tensor([1.0]), np.array([2.0], dtype=np.float32), False),
             # shape of (0,) is broadcastable with (1,)
             (tp.Tensor([], dtype=tp.float32), tp.Tensor([1.0], dtype=tp.float32), False),
-            (np.array([1.0], dtype=np.float32), tp.Tensor([2.0]), True),
             (tp.Tensor([1.0]), 2.0, False),
             (1.0, tp.Tensor([2.0]), True),
         ],
@@ -86,8 +84,6 @@ class TestBinaryElementwise:
         "lhs, rhs, expected_rank",
         [
             (tp.Tensor([1.0]), tp.Tensor([2.0]), 1),
-            (tp.Tensor([1.0]), np.array([2.0], dtype=np.float32), 1),
-            (np.array([1.0], dtype=np.float32), tp.Tensor([2.0]), 1),
             (tp.Tensor([1.0]), 2.0, 1),
             (1.0, tp.Tensor([2.0]), 1),
             (tp.ones((2, 3)), 2.0, 2),
@@ -104,7 +100,7 @@ class TestBinaryElementwise:
         with helper.raises(
             tp.TripyException,
             # Keep the entire error message here so we'll know if the display becomes horribly corrupted.
-            match=r"For operation: '\+', data types for all inputs must match, but got: \[float32, float16\].",
+            match=r"Mismatched data types for '__add__'.",
             has_stack_info_for=[a, b],
         ):
             c = a + b

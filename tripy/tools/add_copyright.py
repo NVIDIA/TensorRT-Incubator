@@ -27,7 +27,7 @@ current_year = str(datetime.now().year)
 def get_license_header():
     for license_path in ["LICENSE", "tripy/LICENSE"]:
         if os.path.exists(license_path):
-            with open(license_path, "r", encoding="utf-8") as license_file:
+            with open(license_path, "r") as license_file:
                 return license_file.read().strip()
     raise FileNotFoundError("LICENSE file not found in the current directory or tripy folder")
 
@@ -36,7 +36,7 @@ license_text = get_license_header()
 
 
 def update_file(file_path):
-    with open(file_path, "r+", encoding="utf-8") as file:
+    with open(file_path, "r+") as file:
         content = file.read()
         copyright_pattern = r"Copyright \(c\) \d{4}"
         if re.search(copyright_pattern, content):

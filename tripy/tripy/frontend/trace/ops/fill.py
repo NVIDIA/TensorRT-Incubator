@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,18 +56,35 @@ class Fill(BaseTraceOp):
         self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ConstantOp, DynamicBroadcastOp
+        from tripy.flat_ir.ops import ConstantOp, ConvertOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
-        const_val_tensor = FlatIRTensor.build(
-            shape=(),
-            rank=0,
-            dtype=outputs[0].dtype,
-            device=outputs[0].device,
-            reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
-        )
-        ConstantOp.build([], [const_val_tensor], data=self.value)
+        const_val_tensor = None
+        if self.value is not None:
+            const_val_tensor = FlatIRTensor.build(
+                shape=(),
+                rank=0,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=[f"create the constant value tensor (containing {self.value}) for a fill operation"],
+            )
+            ConstantOp.build([], [const_val_tensor], data=self.value)
+        else:
+            assert (
+                len(inputs) == 2
+            ), f"Expected value of Fill to be provided as input. Expected 2 inputs, got {len(inputs)}."
+            const_val_tensor = inputs[1]
+            if inputs[1].dtype != outputs[0].dtype:
+                out = FlatIRTensor.build(
+                    shape=(),
+                    rank=0,
+                    dtype=outputs[0].dtype,
+                    device=outputs[0].device,
+                    reason_details=[f"create the constant value tensor for a fill operation"],
+                )
 
+                ConvertOp.build([const_val_tensor], [out])
+                const_val_tensor = out
         DynamicBroadcastOp.build(
             [const_val_tensor, inputs[0]],
             outputs,
@@ -77,11 +94,16 @@ class Fill(BaseTraceOp):
 
 @frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
 def full_impl(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
-    value: numbers.Number,
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
+    value: Union[numbers.Number, "tripy.Tensor"],
     dtype: "tripy.dtype",
     output_rank: int,
 ) -> "tripy.Tensor":
+    from tripy.frontend.tensor import Tensor
+
+    if isinstance(value, Tensor):
+        return Fill.build([shape, value], None, output_rank, dtype)
+
     return Fill.build([shape], value, output_rank, dtype)
 
 
@@ -89,13 +111,13 @@ def full_impl(
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def full(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
-    value: numbers.Number,
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
+    value: Union[numbers.Number, "tripy.Tensor"],
     dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":
     """
@@ -124,8 +146,8 @@ def full(
 @export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )

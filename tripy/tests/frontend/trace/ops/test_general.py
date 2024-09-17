@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,10 @@ import dataclasses
 from tests import helper
 from tripy.frontend.trace.ops import BaseTraceOp
 
-OP_TYPES = {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, BaseTraceOp)}
+OP_TYPES = sorted(
+    {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, BaseTraceOp)},
+    key=lambda cls: cls.__name__,
+)
 
 
 @pytest.mark.parametrize("OpType", OP_TYPES)

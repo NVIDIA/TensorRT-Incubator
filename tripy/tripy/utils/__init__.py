@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from tripy.utils.stack_info import StackInfo, get_stack_info
+from tripy.utils.stack_info import StackInfo, get_stack_info, get_module_names_to_exclude_from_stack_info
 from tripy.utils.utils import *
 from tripy.utils.ast import *
 from tripy.utils.result import Result

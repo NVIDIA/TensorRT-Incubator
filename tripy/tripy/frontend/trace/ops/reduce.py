@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -167,10 +167,6 @@ def sum(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.sum(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
-    from tripy.common.datatype import int64
-
-    if input.dtype == int64:
-        raise_error("Known issue with i64. Sum currently does not work with int64 inputs. Issue #116")
     return _reduce_impl(input, Reduce.Kind.SUM, dim, keepdim)
 
 
@@ -274,10 +270,6 @@ def max(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.max(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
-    from tripy.common.datatype import int64
-
-    if input.dtype == int64:
-        raise_error("Known issue with i64. Max currently does not work with int64 inputs. Issue #116")
     return _reduce_impl(input, Reduce.Kind.MAX, dim, keepdim)
 
 
@@ -313,10 +305,6 @@ def prod(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.prod(np.arange(6, dtype=np.float32).reshape((2, 3)), 0))
     """
-    from tripy.common.datatype import int64
-
-    if input.dtype == int64:
-        raise_error("Known issue with i64. Prod currently does not work with int64 inputs. Issue #116")
     return _reduce_impl(input, Reduce.Kind.MUL, dim, keepdim)
 
 
@@ -374,10 +362,6 @@ def mean(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.mean(np.arange(6, dtype=np.float32).reshape((2, 3)), axis=1, keepdims=True))
     """
-    from tripy.common.datatype import int64
-
-    if input.dtype == int64:
-        raise_error("Known issue with i64. Mean currently does not work with int64 inputs. Issue #116")
     return mean_impl(input, dim, keepdim)
 
 
@@ -449,10 +433,8 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optiona
 
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
-    dtype_variables={
-        "T1": ["int32"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
 )
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
@@ -483,10 +465,8 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
 
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
-    dtype_variables={
-        "T1": ["int32"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
 )
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """

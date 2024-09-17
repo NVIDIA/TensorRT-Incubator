@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -70,6 +70,19 @@ def raises(ExcType: type, match: Optional[str] = None, has_stack_info_for: Seque
         # Stack info is indented since it's part of the `details` block in `raise_error`
         expected_stack_info = indent(_make_stack_info_message(tensor.stack_info).strip(), " " * 4)
         assert expected_stack_info in error_msg, f"Missing stack information for tensor:\n{expected_stack_info}"
+
+
+@contextlib.contextmanager
+def config(name: str, value: Any):
+    """
+    Temporarily changes a configuration option.
+    """
+    old_value = getattr(tp.config, name)
+    try:
+        setattr(tp.config, name, value)
+        yield
+    finally:
+        setattr(tp.config, name, old_value)
 
 
 def check_mlir(mlir, expected):
@@ -464,7 +477,7 @@ def process_code_block_for_outputs_and_locals(
     local_vars = utils.default(local_vars, {})
 
     TRIPY_CLASSES = [tripy_obj for tripy_obj in discover_tripy_objects() if inspect.isclass(tripy_obj)]
-    # Add back the code block after removing assertions.
+    # Special tags are documented under docs/README.md.
     NO_EVAL = "# doc: no-eval"
     NO_PRINT_LOCALS = "# doc: no-print-locals"
     PRINT_LOCALS = "# doc: print-locals"

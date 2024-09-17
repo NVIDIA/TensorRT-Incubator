@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -161,7 +161,7 @@ class Conv(ConvBase):
     r"""
     A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
     where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
-    This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+    This is known as the a trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
     For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
     """
 
@@ -202,7 +202,7 @@ class Conv(ConvBase):
                 Note that `in_channels` and `out_channels` must both be divisible by ``groups``. Defaults to 1 (standard convolution).
             dilation: A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
                 where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
-                This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+                This is known as the a trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
                 For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
             bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{out_channels},)`.
             dtype: The data type to use for the convolution weights.
@@ -252,7 +252,7 @@ class Conv(ConvBase):
 
         .. code-block:: python
             :linenos:
-            :caption: Dilated Convolution (à trous algorithm)
+            :caption: Dilated Convolution (a trous algorithm)
 
             input = tp.reshape(tp.arange(9, dtype=tp.float32), (1, 1, 3, 3))
             conv = tp.Conv(1, 1, (2, 2), dilation=(2, 2), bias=False, dtype=tp.float32)
@@ -280,11 +280,12 @@ class Conv(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = \large \left\lfloor \frac{D_{k_{\text{in}}} + \text{padding}_{k_0} + \text{padding}_{k_1} - \text{dilation}_k \times (\text{kernel_dims}_k - 1) - 1}{\text{stride}_k} \right\rfloor + \normalsize 1`
         """
-        from tripy.frontend.trace.ops.convolution import Convolution
+        from tripy.frontend.trace.ops.convolution import convolution
         from tripy.frontend.trace.ops.reshape import reshape
 
-        x = Convolution.build(
-            [input, self.weight],
+        x = convolution(
+            input,
+            self.weight,
             self.padding,
             self.stride,
             self.groups,

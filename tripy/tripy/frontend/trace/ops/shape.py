@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@ class Shape(BaseTraceOp):
 
     # always return a shape
     def infer_shape_output_idxs(self, inputs) -> Result:
-        return Result.ok([0])
+        return Result.ok({"shape": [0]})
 
     def infer_len(self):
         return [self.inputs[0].rank]
@@ -52,7 +52,7 @@ class Shape(BaseTraceOp):
 @property
 @constraints.dtype_info(
     dtype_variables={
-        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["int32"],
     },
     dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "T2"},

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -88,13 +88,10 @@ class TestDequantize:
         output = torch.from_dlpack(dequantized).to(dtype=torch.float32)
         assert torch.allclose(expected, output.to("cpu"))
 
-    def test_negative_non_constant_scale(self):
+    def test_non_constant_scale(self):
         data = [[4, 8], [4, 8]]
         input = tp.Tensor(data, dtype=tp.int8)
         scale = tp.ones((2,))
         dequantized = tp.dequantize(input, scale, tp.float32, dim=0)
-        with raises(
-            tp.TripyException,
-            match="Scale must be a constant tensor in dequantize op",
-        ):
-            print(dequantized)
+
+        assert tp.allclose(dequantized, tp.Tensor(data, dtype=tp.float32))

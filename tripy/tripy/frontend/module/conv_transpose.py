@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,16 +15,14 @@
 # limitations under the License.
 #
 
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Optional
 
-from tripy import export, utils
+from tripy import export
 from tripy.common import datatype
 from tripy.frontend.module.convolution import ConvBase
-from tripy.frontend.module.parameter import Parameter, DefaultParameter
-
-from tripy.common.exception import raise_error
+from tripy.frontend.module.parameter import DefaultParameter, Parameter
 
 
 @export.public_api(document_under="operations/modules")
@@ -84,7 +82,7 @@ class ConvTranspose(ConvBase):
     r"""
     A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
     where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
-    This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+    This is known as the a trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
     For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
     """
 
@@ -128,7 +126,7 @@ class ConvTranspose(ConvBase):
                 Note that `in_channels` and `out_channels` must both be divisible by ``groups``. Defaults to 1 (standard convolution).
             dilation: A sequence of length :math:`M` indicating the number of zeros to insert between kernel weights across each spatial dimension,
                 where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
-                This is known as the à trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
+                This is known as the a trous algorithm and further downsamples the output by increasing the receptive field of the kernel.
                 For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
             bias: Whether to add a bias term to the output or not. The bias has a shape of :math:`(\text{out_channels},)`.
             dtype: The data type to use for the convolution weights.
@@ -213,10 +211,10 @@ class ConvTranspose(ConvBase):
             :math:`(N, \text{out_channels}, D_{0_{\text{out}}},\ldots,D_{n_{\text{out}}})`
             where :math:`D_{k_{\text{out}}} = (D_{k_{\text{in}}} - 1) \times \text{stride}_k - \text{padding}_{k_0} - \text{padding}_{k_1} + \text{dilation}_k \times (\text{kernel_dims}_k - 1) + 1`
         """
-        from tripy.frontend.trace.ops.convolution import Convolution
-        from tripy.frontend.trace.ops.reshape import reshape
-        from tripy.frontend.trace.ops.permute import transpose
+        from tripy.frontend.trace.ops.convolution import convolution
         from tripy.frontend.trace.ops.flip import flip
+        from tripy.frontend.trace.ops.permute import transpose
+        from tripy.frontend.trace.ops.reshape import reshape
 
         # SHLO expects kernel shape in (out_channels, in_channels / feature_groups, ...) format
         # whereas typically transpose conv uses (in_channels, out_channels / feature_groups, ...) e.g. in Torch.
@@ -231,8 +229,9 @@ class ConvTranspose(ConvBase):
             weight = transpose(weight, 1, 2)
             weight = reshape(weight, self._kernel_hlo_final_shape)
 
-        x = Convolution.build(
-            [input, weight],
+        x = convolution(
+            input,
+            weight,
             self._transpose_padding,
             self._dummy_stride,
             self.groups,

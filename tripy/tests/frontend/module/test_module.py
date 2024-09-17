@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -234,6 +234,7 @@ class TestModuleWithDict:
         assert tripy_params["new_params.param0"] is param0
         assert tripy_params["new_params.param1"] is param1
 
+
 class TestMixedModule:
     def test_basic_structure(self, mixed_network):
         module = mixed_network
@@ -243,7 +244,7 @@ class TestMixedModule:
         assert isinstance(module.mixed_dict, dict)
         assert all(isinstance(list_module, tp.Module) for list_module in module.mixed_list)
         assert all(isinstance(dict_module, tp.Module) for dict_module in module.mixed_dict.values())
-    
+
     def test_state_dict(self, mixed_network):
         module = mixed_network
         print(module.state_dict())

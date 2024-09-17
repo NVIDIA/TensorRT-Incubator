@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,8 +33,8 @@ class Cast(BaseTraceOp):
         if isinstance(inputs[0], Shape):
             # Only still a valid shape if it remains int32
             if self.dtype == int32:
-                return Result.ok([0])
-        return Result.ok([])
+                return Result.ok({"shape": [0]})
+        return Result.ok({})
 
     infer_len = InferLenPolicies.infer_same_as_first_input
 
@@ -102,11 +102,16 @@ class Cast(BaseTraceOp):
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
     dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    dtype_exceptions=[{"T1": "float8", "T2": "int8"}, {"T1": "float8", "T2": "int64"}],
+    dtype_exceptions=[
+        {"T1": "float8", "T2": "int8"},
+        {"T1": "float8", "T2": "int64"},
+        {"T1": "int4", "T2": "int8"},
+        {"T1": "int4", "T2": "int64"},
+    ],
 )
 def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
     r"""

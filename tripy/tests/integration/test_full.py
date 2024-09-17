@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,3 +35,8 @@ class TestFull:
         a = tp.ones((2, 3))
         out = tp.full((a.shape[0], 4), 5.0, tp.float32)
         assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 4), 5.0, np.float32))
+
+    def test_value_as_tensor(self):
+        a = tp.ones((2, 3))
+        out = tp.full((a.shape[0], 4), tp.Tensor(8.0), tp.float32)
+        assert np.array_equal(cp.from_dlpack(out).get(), np.full((2, 4), 8.0, np.float32))

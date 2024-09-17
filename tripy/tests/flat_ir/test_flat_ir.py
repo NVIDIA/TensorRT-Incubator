@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,7 @@ class TestFlatIR:
         # When we build up a FlatIR with multiple layers, the tensors/ops
         # should be connected to each other - i.e. the producer/inputs fields
         # should let you walk through the entire FlatIR.
-        inp = tp.Tensor([0])
+        inp = tp.Tensor([0], dtype=tp.float32)
 
         b = tp.tanh(inp)
         out = tp.tanh(b)

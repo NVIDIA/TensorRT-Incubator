@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +28,7 @@ from tests import helper
 
 import tripy as tp
 from tripy.common.datatype import DATA_TYPES
-from tripy.constraints import FUNC_W_DOC_VERIF, TYPE_VERIFICATION
+from tripy.constraints import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -145,6 +145,8 @@ seen_classes = set()
 def process_docstring(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
+    unqual_name = name.split(".")[-1]
+
     # Check signature for functions/methods and class constructors.
     if what in {"function", "method"} or (what == "class" and name in seen_classes):
         signature = inspect.signature(obj)
@@ -162,7 +164,8 @@ def process_docstring(app, what, name, obj, options, lines):
                 elif param.kind == inspect.Parameter.VAR_POSITIONAL:
                     pname = "*" + pname
 
-                if pname != "self" or obj.__qualname__ in FUNC_W_DOC_VERIF:
+                # Type annotations are optional for the `self` parameter unless the API has to be type-verified.
+                if pname != "self" or unqual_name in TYPE_VERIFICATION:
                     assert (
                         pname in documented_args
                     ), f"Missing documentation for parameter: '{pname}' in: '{obj}'. Please ensure you've included this in the `Args:` section. Note: Documented parameters were: {documented_args} {doc}"
@@ -178,10 +181,6 @@ def process_docstring(app, what, name, obj, options, lines):
                     assert not inspect.ismodule(
                         param.annotation
                     ), f"Type annotation cannot be a module, but got: '{param.annotation}' for parameter: '{pname}' in: '{obj}'. Please specify a type!"
-                else:
-                    assert (
-                        param.annotation == signature.empty
-                    ), f"Avoid using type annotations for the `self` parameter since this will corrupt the rendered documentation! Note: Documented parameters were: {documented_args} {doc}"
 
             assert signature.return_annotation != signature.empty, (
                 f"Missing return type annotation for: '{obj}'. "
@@ -193,20 +192,22 @@ def process_docstring(app, what, name, obj, options, lines):
                     ":returns:" in doc
                 ), f"For: {obj}, return value is not documented. Please ensure you've included a `Returns:` section"
 
-    # New docstring logic:
-    # First figure out if object is using the @constraints.dtype_info decorator.
-    unqual_name = name.split(".")[-1]
-    if unqual_name in TYPE_VERIFICATION.keys():
+    if unqual_name in TYPE_VERIFICATION:
         add_text_index = -1
         for index, block in enumerate(blocks):
+
+            def insert_block(text):
+                nonlocal index
+
+                blocks.insert(index, text)
+                index += 1
+
             if re.search(r".. code-block::", block):
                 type_dict = TYPE_VERIFICATION[unqual_name].dtypes
-                blocks.insert(index, "Type Constraints:")
-                index += 1
+                insert_block("TYPE CONSTRAINTS:")
                 # Add the dtype constraint name and the dtypes that correlate.
                 for type_name, dt in type_dict.items():
-                    blocks.insert(
-                        index,
+                    insert_block(
                         f"    - **{type_name}**: :class:`"
                         + "`, :class:`".join(
                             sorted(
@@ -219,34 +220,33 @@ def process_docstring(app, what, name, obj, options, lines):
                         )
                         + "`",
                     )
-                    index += 1
-                blocks.insert(index, "\n")
-                if TYPE_VERIFICATION[unqual_name].dtype_exceptions != []:
+                insert_block("\n")
+
+                if TYPE_VERIFICATION[unqual_name].dtype_exceptions:
                     # Add the dtype exceptions.
-                    index += 1
-                    blocks.insert(index, "**Unsupported Type Combinations**:")
-                    dtype_exception_text = []
+                    insert_block("UNSUPPORTED TYPE COMBINATIONS:")
                     for exception_dict in TYPE_VERIFICATION[unqual_name].dtype_exceptions:
-                        dtype_exception_text.append(
-                            ", ".join([f"{key}: :class:`{val}`" for key, val in exception_dict.items()])
+                        insert_block(
+                            "    - "
+                            + ", ".join([f"**{key}**\ =\ :class:`{val}`" for key, val in exception_dict.items()]),
                         )
-                    dtype_exception_text = "; ".join(dtype_exception_text) + "\n"
-                    index += 1
-                    blocks.insert(index, dtype_exception_text)
+                    insert_block("\n")
                 break
+
             if re.search(r":param \w+: ", block):
                 param_name = re.match(r":param (\w+): ", block).group(1)
                 # Add dtype constraint to start of each parameter description.
                 if TYPE_VERIFICATION[unqual_name].dtype_constraints.get(param_name, None):
                     add_text_index = re.search(r":param \w+: ", block).span()[1]
                     blocks[index] = (
-                        f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[unqual_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
+                        f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[unqual_name].dtype_constraints[param_name]}**\ ] {block[add_text_index:]}"
                     )
+
             if TYPE_VERIFICATION[unqual_name].return_dtype is not None and re.search(r":returns:", block):
                 add_text_index = re.search(r":returns:", block).span()[1] + 1
                 # Add dtype constraint to start of returns description.
                 blocks[index] = (
-                    f"{block[0:add_text_index]}[dtype=\ **{TYPE_VERIFICATION[unqual_name].return_dtype}**\ ] {block[add_text_index:]}"
+                    f"{block[0:add_text_index]}[*dtype=*\ **{TYPE_VERIFICATION[unqual_name].return_dtype}**\ ] {block[add_text_index:]}"
                 )
 
     seen_classes.add(name)

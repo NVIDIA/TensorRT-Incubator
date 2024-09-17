@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,39 +22,6 @@ from tripy.utils import Result
 import tripy.common.datatype as tp_dtype
 
 
-def _check_input_attr_matches(
-    op: "BaseTraceOp", op_details: str, attr: str, attr_name: str, start_index: int = None, stop_index: int = None
-):
-    assert len(op.inputs), "This function must not be called for operations without inputs!"
-
-    start = utils.default(start_index, 0)
-    stop = utils.default(stop_index, len(op.inputs))
-
-    inp_range_str = "all inputs"
-    if start_index is not None or stop_index is not None:
-        inp_range_str = f"inputs [{start}-{stop - 1}]"
-
-    assert start < len(op.inputs), "Start index cannot be larger than number of inputs!"
-
-    inputs = op.inputs[start:stop]
-
-    if any(getattr(inp, attr) != getattr(inputs[0], attr) for inp in inputs):
-        dtypes = []
-        for index, inp in enumerate(inputs):
-            dtypes.extend([", " if index > 0 else "", getattr(inp, attr)])
-
-        utils.raise_error_io_info(
-            op,
-            f"Incompatible input {attr_name}s.",
-            details=[
-                f"For operation: '{op_details}', " if op_details else "For this operation, ",
-                f"{attr_name}s for {inp_range_str}" " must match, but got: [",
-                *dtypes,
-                "]",
-            ],
-        )
-
-
 # Utility for error messages in wrap_shape_inputs
 def write_shape_input_indices_message(inputs: List["tripy.Tensor"]) -> str:
     from tripy.frontend.shape import Shape
@@ -65,15 +32,6 @@ def write_shape_input_indices_message(inputs: List["tripy.Tensor"]) -> str:
     if len(shape_indices) == 1:
         return f"input with index {shape_indices[0]} is tp.Shape"
     return f"inputs with indices {', '.join(shape_indices)} are tp.Shape"
-
-
-# Checks whether properties of the inputs match. Optional index parameters can be provided in case not all inputs should be considered.
-def check_input_dtypes_match(op: "BaseTraceOp", op_details: str = "", start_index: int = None, stop_index: int = None):
-    return _check_input_attr_matches(op, op_details, "dtype", "data type", start_index, stop_index)
-
-
-def check_input_shapes_match(op: "BaseTraceOp", op_details: str = "", start_index: int = None, stop_index: int = None):
-    return _check_input_attr_matches(op, op_details, "shape", "shape", start_index, stop_index)
 
 
 def get_broadcast_dim(dim1, dim2):
@@ -103,14 +61,14 @@ class ShapeOutputIdxPolicies:
         from tripy.frontend.shape import Shape
 
         if isinstance(inputs[0], Shape):
-            return Result.ok(list(range(len(self.outputs))))
-        return Result.ok([])
+            return Result.ok({"shape": list(range(len(self.outputs)))})
+        return Result.ok({})
 
     def never_return_shape(self, inputs):
         """
         Accepts shapes but the result is always no shape indices
         """
-        return Result.ok([])
+        return Result.ok({})
 
 
 ##
@@ -510,7 +468,7 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
     quantizable_dtype, quantized_dtype = (input.dtype, dtype) if is_quantize else (dtype, input.dtype)
     if scale.dtype != quantizable_dtype:
         raise_error(
-            f"Scale dtype does not match input dtype in {op_str}.",
+            f"Scale dtype does not match expected dtype in {op_str}.",
             [f"scale should have dtype={quantizable_dtype}, got {scale.dtype}"],
         )
 

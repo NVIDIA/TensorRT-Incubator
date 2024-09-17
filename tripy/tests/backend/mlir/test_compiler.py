@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,8 +53,8 @@ class TestErrorMapping:
         with FlatIRTensor.context(["This is the first level of context"]):
             with FlatIRTensor.context(["This is the second level of context"]):
                 # We need to emit an error from one of the internally created `FlatIRTensor`s to see the context
-                a = tp.ones(1)
-                b = tp.ones(1)
+                a = tp.ones((1,))
+                b = tp.ones((1,))
                 trace = Trace([a + b])
                 flat_ir = trace.to_flat_ir()
                 producer = flat_ir.outputs[0].producer.inputs[0]
