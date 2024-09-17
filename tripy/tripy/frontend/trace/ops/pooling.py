@@ -130,9 +130,16 @@ def maxpool(
 
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
+    from tripy.common.datatype import int8
+
     spatial_dims = len(kernel_dims)
     if spatial_dims != 2 and spatial_dims != 3:
         raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
+    if input.dtype == int8 and spatial_dims != 2:
+        raise_error(
+            "Unsupported kernel_dims for int8 dtype.",
+            [f"Only 2D kernel_dims is supported for int8, got {kernel_dims}."],
+        )
 
     op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
     stride = utils.default(stride, [1] * spatial_dims)

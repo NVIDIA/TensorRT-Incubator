@@ -66,7 +66,7 @@ class TestConvolution:
     @pytest.mark.parametrize(
         "padding, err, expect_input_stack_info",
         [
-            (((2, 2),), r"expects padding-entries to have same dimension-size as size of window dimensions", True),
+            (((2, 2),), r"Padding must have the same length as kernel_dims.", False),
             (((2, 2, 2), (2, 2, 2)), r"Padding must be provided as a sequence of pairs of integers.", False),
             (((1, 2), (-3, 1)), r"Negative padding is not supported.", False),
         ],
@@ -84,7 +84,7 @@ class TestConvolution:
         "stride, err, expect_input_stack_info",
         [
             ((-1, 0), r"Non-positive stride is not supported.", False),
-            ((2, 2, 2), r"expects window-strides to have same dimension-size as size of window dimensions", True),
+            ((2, 2, 2), r"Stride must have the same length as kernel_dims.", False),
         ],
     )
     def test_invalid_stride(self, conv_func, stride, err, expect_input_stack_info):
@@ -136,11 +136,7 @@ class TestConvolution:
         "dilation, err, expect_input_stack_info",
         [
             ((-1, 0), r"Non-positive dilation is not supported.", False),
-            (
-                (2, 2, 2),
-                r"expects window-dilation factors to have same dimension-size as size of window dimensions.",
-                True,
-            ),
+            ((2, 2, 2), r"Dilation must have the same length as kernel_dims.", False),
         ],
     )
     def test_invalid_rhs_dilation(self, conv_func, dilation, err, expect_input_stack_info):

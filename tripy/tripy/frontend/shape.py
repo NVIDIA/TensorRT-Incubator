@@ -244,7 +244,7 @@ class Shape(Tensor):
     def __mul__(self, other):
         from tripy.frontend.trace.ops.binary_elementwise import maximum
         from tripy.frontend.trace.ops.expand import expand
-        from tripy.frontend.trace.ops.reshape import flatten
+        from tripy.frontend.trace.ops.reshape import reshape, flatten
         from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
         # We unsqueeze self into shape [1, len(self)], so giving [other, len(self)] as
@@ -276,10 +276,12 @@ class Shape(Tensor):
             )
         # note: in Python, if a list is multiplied by a negative number, this is the same as multiplying by 0,
         # so we should clamp the argument
-        other = maximum(other, 0)
+        if other.rank == 0:
+            other = reshape(other, (1,))
+        other = Shape(maximum(other, 0)) + [len(self)]
 
         unsqueezed = unsqueeze(self, 0)
-        tiled = expand(unsqueezed, [other, len(self)])
+        tiled = expand(unsqueezed, other)
         # flatten the result so we get back to a rank-1 shape
         ret = flatten(tiled)
         return Shape(ret)

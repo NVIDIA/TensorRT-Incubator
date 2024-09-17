@@ -37,3 +37,11 @@ class TestPooling:
         a = tp.ones((1, 1, 4, 4))
         with helper.raises(tp.TripyException, "Padding must be provided as a sequence of pairs of integers."):
             tp.maxpool(a, (2, 2), padding=((1, 1, 1), (1, 1, 1)))
+
+    def test_unsupported_int8(self):
+        a = tp.ones((1, 1, 4, 4, 4), dtype=tp.int8)
+        with helper.raises(
+            tp.TripyException,
+            "Unsupported kernel_dims for int8 dtype.",
+        ):
+            tp.maxpool(a, (2, 2, 2))
