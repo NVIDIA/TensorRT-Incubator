@@ -60,10 +60,14 @@ class PositionEmbeddingSine(tp.Module):
         dim_t = tp.arange(self.num_pos_feats, dtype=tp.float32)
         dim_t = self.temperature ** (2 * (dim_t // 2) / self.num_pos_feats)
 
-        pos_x = x_embed[:, :, :, None] / dim_t
-        pos_y = y_embed[:, :, :, None] / dim_t
-        pos_x = tp.stack((pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
-        pos_y = tp.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        pos_x = tp.unsqueeze(x_embed, 3)[:, :, :] / dim_t
+        pos_y = tp.unsqueeze(y_embed, 3)[:, :, :] / dim_t
+        pos_x = tp.flatten(tp.stack([tp.sin(pos_x[:, :, :, 0::2]), tp.cos(pos_x[:, :, :, 1::2])], dim=4), 3)
+        pos_y = tp.flatten(tp.stack([tp.sin(pos_y[:, :, :, 0::2]), tp.cos(pos_y[:, :, :, 1::2])], dim=4), 3)
         pos = tp.concatenate((pos_y, pos_x), dim=3)
         pos = tp.permute(pos, (0, 3, 1, 2))
         return pos
+
+
+# p = PositionEmbeddingSine(1024)
+# print(p.forward(tp.ones((1, 128, 128))))
