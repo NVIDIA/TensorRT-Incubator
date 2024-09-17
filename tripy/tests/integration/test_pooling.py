@@ -30,7 +30,7 @@ class TestPooling:
             ((4, 4), (2, 2), ((1, 1), (2, 2))),
         ],
     )
-    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
+    @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.int8])
     def test_maxpool_2d(self, kernel_dims, stride, padding, dtype):
         inp_tp = tp.reshape(tp.arange(64, dtype=dtype), (1, 1, 8, 8))
         out = tp.maxpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)

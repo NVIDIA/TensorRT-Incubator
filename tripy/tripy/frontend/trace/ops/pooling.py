@@ -19,7 +19,7 @@ import enum
 from dataclasses import dataclass
 from typing import Sequence, Tuple
 
-from tripy import export, constraints
+from tripy import export, constraints, utils
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -83,7 +83,7 @@ class Pooling(BaseTraceOp):
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16"],
+        "T1": ["float32", "float16", "int8"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
@@ -105,7 +105,8 @@ def maxpool(
 
     Args:
         input: The input tensor.
-        kernel_dims: The spatial shape of the pooling window. Only 2-D or 3-D kernel_dims are supported.
+        kernel_dims: The spatial shape of the pooling window. Only 2-D or 3-D ``kernel_dims`` are supported.
+            If the input has ``int8`` datatype, ``kernel_dims`` can only be 2-D.
         stride: A sequence of length :math:`M` indicating the stride of pooling across each spatial dimension,
             where :math:`M` is the number of spatial dimensions, i.e. :math:`M = \text{rank(input)} - 2`.
             Defaults to all 1.
@@ -132,26 +133,9 @@ def maxpool(
     spatial_dims = len(kernel_dims)
     if spatial_dims != 2 and spatial_dims != 3:
         raise_error("Unsupported kernel_dims, must be 2D or 3D.", [f"Got kernel_dims={kernel_dims}"])
-    if stride is not None:
-        if len(stride) != spatial_dims:
-            raise_error(
-                "Stride must have the same length as kernel_dims.",
-                [f"Got stride={stride}, ", f"kernel_dims={kernel_dims}"],
-            )
-    else:
-        stride = [1] * spatial_dims
-    if padding is not None:
-        if len(padding) != spatial_dims:
-            raise_error(
-                "Padding must have the same length as kernel_dims.",
-                [f"Got padding={padding}, ", f"kernel_dims={kernel_dims}"],
-            )
-        if any(len(pad_size) != 2 for pad_size in padding):
-            raise_error(
-                f"Padding must be provided as a sequence of pairs of integers.",
-                details=[f"Supplied padding attribute: {padding} contains sequences that are not of length 2."],
-            )
-    else:
-        padding = [(0, 0)] * spatial_dims
+
+    op_utils.check_conv_pooling_args(kernel_dims, stride, padding)
+    stride = utils.default(stride, [1] * spatial_dims)
+    padding = utils.default(padding, [(0, 0)] * spatial_dims)
 
     return Pooling.build([input], Pooling.Kind.MAX, kernel_dims, stride, padding)

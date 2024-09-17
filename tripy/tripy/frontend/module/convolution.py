@@ -23,6 +23,7 @@ from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import Parameter, DefaultParameter
+from tripy.frontend.trace.ops import utils as op_utils
 
 from tripy.common.exception import raise_error
 
@@ -70,36 +71,11 @@ class ConvBase(Module):
                 ],
             )
 
+        op_utils.check_conv_pooling_args(kernel_dims, stride, padding, dilation)
         rank = len(kernel_dims) + 2
         self.padding = utils.default(padding, tuple(((0, 0) for _ in range(rank - 2))))
-
-        if not all(len(pad) == 2 for pad in self.padding):
-            raise_error(
-                f"Padding must be provided as a sequence of pairs of integers.",
-                details=[f"Supplied padding attribute: {self.padding} contains sequences that are not of length 2."],
-            )
-
-        if not all(p1 >= 0 and p2 >= 0 for p1, p2 in self.padding):
-            raise_error(
-                "Negative padding is not supported.",
-                details=[f"Got padding: {self.padding} but all values must be non-negative integers."],
-            )
-
         self.stride = utils.default(stride, (1,) * (rank - 2))
-
-        if not all(s > 0 for s in self.stride):
-            raise_error(
-                "Non-positive stride is not supported.",
-                details=[f"Got stride: {self.stride} but all values must be integers greater than 0."],
-            )
-
         self.dilation = utils.default(dilation, (1,) * (rank - 2))
-
-        if not all(isinstance(d, int) and d > 0 for d in self.dilation):
-            raise_error(
-                "Non-positive dilation is not supported.",
-                details=[f"Got dilation: {self.dilation} but all values must be integers greater than 0."],
-            )
 
         if bias:
             self.bias = DefaultParameter((out_channels,), dtype=dtype)
