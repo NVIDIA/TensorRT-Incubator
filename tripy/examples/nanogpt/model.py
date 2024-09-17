@@ -76,7 +76,7 @@ class CausalSelfAttention(tp.Module):
         self.zeros = tp.zeros((1, 1, self.seq_len, self.seq_len), dtype=config.dtype)
 
     def __call__(self, x: tp.Tensor):
-        B, T, C = tp.reshape(x.shape[0], (1,)), tp.reshape(x.shape[1], (1,)), tp.reshape(x.shape[2], (1,))
+        B, T, C = x.shape
         qkv = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
 
         # WAR for better accuracy and avoid TRT compilation error in fp16

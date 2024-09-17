@@ -106,7 +106,7 @@ class Module:
 
         if isinstance(value, List) or isinstance(value, Dict):
             container = value if isinstance(value, List) else value.values()
-            if _contains_types(container, [Parameter, Module]) and not _is_homogeneous_container(container, Parameter):
+            if _contains_types(container, [Parameter, Module]) and not (_is_homogeneous_container(container, Parameter) or _is_homogeneous_container(container, Module)):
                 logger.warning("A container of mixed types will not be registered with this module's state_dict().")
 
     def state_dict(self) -> Dict[str, Parameter]:
