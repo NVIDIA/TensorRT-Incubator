@@ -174,7 +174,11 @@ class Executor:
         # Allocate output memory and store buffer pointers.
         outputs = [
             create_empty_memref(
-                shape=info.shape, dtype=info.dtype, device=info.device, stream=self.stream._active_cuda_stream
+                shape=info.shape,
+                dtype=info.dtype,
+                device=info.device,
+                stream=self.stream._active_cuda_stream,
+                use_cache=False,
             )
             for info in out_tensor_info
         ]

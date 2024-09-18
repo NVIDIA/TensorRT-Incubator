@@ -55,7 +55,7 @@ class TestGatherOp:
         flat_ir = trace.to_flat_ir()
         mlir_text = str(flat_ir.to_mlir())
         if axis == 0:
-            target = '"stablehlo.dynamic_gather"(%arg0, %arg1, %2) <{dimension_numbers = #stablehlo.gather<offset_dims = [1], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>}> : (tensor<2x3xi32>, tensor<1xi32>, tensor<2xi32>) -> tensor<1x?xi32>'
+            target = '"stablehlo.dynamic_gather"(%arg0, %arg1, %6) <{dimension_numbers = #stablehlo.gather<offset_dims = [1], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>}> : (tensor<?x?xi32>, tensor<?xi32>, tensor<2xi32>) -> tensor<?x?xi32>'
         else:
-            target = '"stablehlo.dynamic_gather"(%arg0, %arg1, %2) <{dimension_numbers = #stablehlo.gather<offset_dims = [0], collapsed_slice_dims = [1], start_index_map = [1], index_vector_dim = 1>}> : (tensor<2x3xi32>, tensor<1xi32>, tensor<2xi32>) -> tensor<?x1xi32>'
+            target = '"stablehlo.dynamic_gather"(%arg0, %arg1, %6) <{dimension_numbers = #stablehlo.gather<offset_dims = [0], collapsed_slice_dims = [1], start_index_map = [1], index_vector_dim = 1>}> : (tensor<?x?xi32>, tensor<?xi32>, tensor<2xi32>) -> tensor<?x?xi32>'
         assert target in mlir_text, mlir_text

@@ -457,6 +457,7 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
 
     return impl
 
+
 def wraps_to_flat_ir_to_func(cls):
     """
     Decorator that wraps the to_flat_ir method of a class.
@@ -488,7 +489,6 @@ def wraps_to_flat_ir_to_func(cls):
         ]
 
         flat_ir_function = FlatIRFunction(self.__class__.__name__, callee_inputs, callee_outputs)
-        flat_ir.add_function(flat_ir_function)
 
         for callee, caller in zip(callee_inputs + callee_outputs, inputs + outputs):
             setattr(callee, "caller_tensor", caller)
@@ -499,27 +499,53 @@ def wraps_to_flat_ir_to_func(cls):
             return operation
 
         def get_all_subclasses(cls):
-            subclasses = set()
-            for subclass in cls.__subclasses__():
-                subclasses.add(subclass)
-                subclasses.update(get_all_subclasses(subclass))
-            return subclasses
+            """
+            Get all subclasses of a given class, sorted by inheritance depth.
 
-        original_builds = {}
-        for op_class in get_all_subclasses(BaseFlatIROp):
-            original_builds[op_class.__name__] = op_class.build
+            This function returns a list of all subclasses (direct and indirect) of the given class,
+            sorted in descending order of inheritance depth. This ensures that derived classes
+            come before their base classes, which is crucial for properly overriding methods
+            like 'build' in a class hierarchy.
+            """
 
-            @classmethod
-            def make_build_func(cls, inputs_internal, outputs_internal, *args, **kwargs) -> BaseFlatIROp:
-                operation = original_builds[cls.__name__](inputs_internal, outputs_internal, *args, **kwargs)
-                return add_op_to_function(operation)
+            def get_inheritance_depth(c):
+                return len(c.mro()) - 1  # Subtract 1 to exclude the class itself
 
-            op_class.build = make_build_func
+            def collect_subclasses(c):
+                direct_subclasses = c.__subclasses__()
+                all_subclasses = set(direct_subclasses)
+                for subclass in direct_subclasses:
+                    all_subclasses.update(collect_subclasses(subclass))
+                return all_subclasses
 
-        original_to_flat_ir(self, callee_inputs, callee_outputs)
+            subclasses = collect_subclasses(cls)
 
-        for op_class in get_all_subclasses(BaseFlatIROp):
-            op_class.build = classmethod(original_builds[op_class.__name__])
+            # Sort subclasses by inheritance depth in descending order
+            # This ensures derived classes come before base classes
+            return sorted(subclasses, key=get_inheritance_depth, reverse=True)
+
+            subclasses = collect_subclasses(cls)
+            # This is required to ensure all derived classes comes before base classes to ensure proper overriding the build methods.
+            return sorted(subclasses, key=get_inheritance_depth, reverse=True)
+
+        def make_build_func(cls, inputs_internal, outputs_internal, *args, **kwargs):
+            operation = cls._original_build(inputs_internal, outputs_internal, *args, **kwargs)
+            return add_op_to_function(operation)
+
+        all_subclasses = get_all_subclasses(BaseFlatIROp)
+        for op_class in all_subclasses:
+            if not hasattr(op_class, "_original_build"):
+                op_class._original_build = op_class.build
+                op_class.build = classmethod(make_build_func)
+
+        try:
+            original_to_flat_ir(self, callee_inputs, callee_outputs)
+        finally:
+            # Restore original build methods
+            for op_class in all_subclasses:
+                if hasattr(op_class, "_original_build"):
+                    op_class.build = op_class._original_build
+                    delattr(op_class, "_original_build")
 
         for output_tensor in outputs:
             output_tensor.producer = flat_ir_function

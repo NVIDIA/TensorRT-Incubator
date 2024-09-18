@@ -38,6 +38,9 @@ class FlatIR:
         self.shapes = shapes
         self.tensor_map: Dict[str] = {}
 
+        self.tensor_replacements: Dict[int, "FlatIRTensor"] = {}
+        self.constant_map = {}
+
     def __str__(self) -> str:
         """Generate a string representation of the FlatIR."""
         from tripy.flat_ir.ops.base import FlatIRFunction, BaseFlatIROp
@@ -57,7 +60,7 @@ class FlatIR:
 
         for op in self.ops:
             if isinstance(op, FlatIRFunction):
-                output_names = ", ".join(output.name for output in op.get_caller_outputs())
+                output_names = ", ".join(output.__str__() for output in op.get_caller_outputs())
                 input_names = ", ".join(input.name for input in op.get_caller_inputs())
                 ir.append(f"{output_names} = function {op.name}({input_names})")
             elif isinstance(op, BaseFlatIROp):
@@ -72,9 +75,6 @@ class FlatIR:
     def add_function(self, function: "FlatIRFunction") -> None:
         """
         Add a function to the FlatIR, ensuring unique function names.
-
-        Args:
-            function (FlatIRFunction): The function to be added to the FlatIR.
         """
         base_function_name = function.name
         name_counter = 1
@@ -119,97 +119,135 @@ class FlatIR:
                 for mlir_output, flat_ir_output in zip(op_outputs, op.outputs):
                     mlir_tensor_map[flat_ir_output.name] = mlir_output
 
-        def _fix_up_function_inputs(func, inputs, mlir_tensor_map):
-            callee_types = []
-            caller_types = []
-            for calle_inp, caller_inp in zip(func.inputs, func.get_caller_inputs()):
-                callee_types.append(mlir_tensor_map[calle_inp.name])
-                caller_types.append(mlir_tensor_map[caller_inp.name])
-
-            for input in inputs:
-                if input in callee_types:
-                    # Use calle index to index into caller function types.
-                    calle_index = callee_types.index(input)
-                    type = get_op_result_or_value(input).type
-                    if get_op_result_or_value(caller_types[calle_index]).type != type:
-                        # Update func output type for caller.
-                        caller_input = get_op_result_or_value(caller_types[calle_index])
-                        caller_input.set_type(type)
-
-        def _func_op_to_mlir(insertion_point, func, mlir_tensor_map, func_map):
+        def _func_op_to_mlir(
+            insertion_point: ir.InsertionPoint,
+            func: FlatIRFunction,
+            mlir_tensor_map: Dict[str, ir.Value],
+            mlir_func_map: Dict[str, ir.Operation],
+        ) -> None:
+            """
+            Convert a FlatIRFunction to MLIR representation.
+            """
             with make_tensor_location(
                 [inp.name for inp in func.inputs],
                 [out.name for out in func.outputs],
                 func.trace_input_names,
                 func.trace_output_names,
             ):
-                func_input_types = [
-                    get_op_result_or_value(mlir_tensor_map[input_tensor.name]).type
-                    for input_tensor in func.get_caller_inputs()
+                if func.name not in mlir_func_map:
+                    func_output_types = _create_new_function(insertion_point, func, mlir_tensor_map, mlir_func_map)
+                else:
+                    func_output_types = mlir_func_map[func.name].type.results
+
+                _create_function_call(func, mlir_tensor_map, mlir_func_map, func_output_types)
+
+        def _convert_to_dynamic_tensor(tensor) -> ir.RankedTensorType:
+            from tripy.backend.mlir import utils as mlir_utils
+
+            dynamic_shape = [ir.ShapedType.get_dynamic_size()] * tensor.rank
+            return ir.RankedTensorType.get(dynamic_shape, mlir_utils.get_mlir_dtype(tensor.dtype))
+
+        def _create_new_function(
+            insertion_point: ir.InsertionPoint,
+            func: FlatIRFunction,
+            mlir_tensor_map: Dict[str, ir.Value],
+            mlir_func_map: Dict[str, ir.Operation],
+        ) -> [ir.Type]:
+            """Create a new MLIR function for a FlatIRFunction."""
+            func_input_types = _get_function_input_types(func, mlir_tensor_map)
+            func_output_types = [_convert_to_dynamic_tensor(out_tensor) for out_tensor in func.get_caller_outputs()]
+            func_type = ir.FunctionType.get(func_input_types, func_output_types)
+            func_op = func_dialect.FuncOp(func.name, func_type, ip=insertion_point, visibility="private")
+
+            with ir.InsertionPoint(func_op.add_entry_block()):
+                _process_function_body(func, func_op, mlir_tensor_map)
+
+            func_new_output_types = [get_op_result_or_value(mlir_tensor_map[o.name]).type for o in func.outputs]
+            func_type = ir.FunctionType.get(func_input_types, func_new_output_types)
+            func_op.attributes["function_type"] = ir.TypeAttr.get(func_type)
+
+            mlir_func_map[func.name] = func_op
+
+            return func_new_output_types
+
+        def _get_function_input_types(func: FlatIRFunction, mlir_tensor_map: Dict[str, ir.Value]) -> List[ir.Type]:
+            """Get the input types for a function, converting to dynamic tensors if necessary."""
+
+            def convert_to_dynamic_tensor(rtt: ir.RankedTensorType) -> ir.RankedTensorType:
+                dynamic_shape = [ir.ShapedType.get_dynamic_size()] * rtt.rank
+                return ir.RankedTensorType.get(dynamic_shape, rtt.element_type)
+
+            # Skip converting to dynamic tensor for Quantize/Dequantize scale operation.
+            if "Quantize" in func.name or "Dequantize" in func.name:
+                return [
+                    _convert_to_dynamic_tensor(func.get_caller_inputs()[0]),
+                    get_op_result_or_value(mlir_tensor_map[func.get_caller_inputs()[1].name]).type,
                 ]
-                # Use unknown types as function outputs are not yet materialized.
-                func_output_types = [ir.UnrankedTensorType.get(ir.F32Type.get()) for _ in func.get_caller_outputs()]
-                func_type = ir.FunctionType.get(func_input_types, func_output_types)
-                func_op = func_dialect.FuncOp(func.name, func_type, ip=insertion_point, visibility="private")
-                with ir.InsertionPoint(func_op.add_entry_block()):
-                    # Map function inputs to MLIR tensor map
-                    for index, input_tensor in enumerate(func.inputs):
-                        mlir_tensor_map[input_tensor.name] = func_op.arguments[index]
+            else:
+                return [_convert_to_dynamic_tensor(input_tensor) for input_tensor in func.get_caller_inputs()]
 
-                    # Process each operation in the function
-                    for op in func.ops:
-                        op_inputs = [mlir_tensor_map[input_tensor.name] for input_tensor in op.inputs]
+        def _process_function_body(
+            func: FlatIRFunction, func_op: func_dialect.FuncOp, mlir_tensor_map: Dict[str, ir.Value]
+        ) -> None:
+            """Process the body of a function, converting each operation to MLIR."""
+            for index, input_tensor in enumerate(func.inputs):
+                mlir_tensor_map[input_tensor.name] = func_op.arguments[index]
 
-                        op_outputs = op.to_mlir(op_inputs)
+            for op in func.ops:
+                op_inputs = _get_op_inputs(op, mlir_tensor_map)
+                op_outputs = op.to_mlir(op_inputs)
 
-                        # It is possible that `op.to_mlir` could update the operation input types.
-                        # e.g. It could resolve shape tensors types to be static.
-                        # Ensure we fix up caller input types.
-                        _fix_up_function_inputs(func, op_inputs, mlir_tensor_map)
+                for mlir_output, flat_ir_output in zip(op_outputs, op.outputs):
+                    mlir_tensor_map[flat_ir_output.name] = mlir_output
 
-                        # Map function inputs to MLIR tensor map
-                        for mlir_output, flat_ir_output in zip(op_outputs, op.outputs):
-                            mlir_tensor_map[flat_ir_output.name] = mlir_output
+            func_dialect.ReturnOp([mlir_tensor_map[output_tensor.name] for output_tensor in func.outputs])
 
-                    # Add return operation for the function
-                    func_dialect.ReturnOp([mlir_tensor_map[output_tensor.name] for output_tensor in func.outputs])
+        def _get_op_inputs(op: ir.Operation, mlir_tensor_map: Dict[str, ir.Value]) -> List[ir.Value]:
+            """Get the inputs for an operation, casting to dynamic tensors if necessary."""
+            from tripy.backend.mlir.utils import is_any_dim_dynamic, cast_to_dynamic_ranked_tensor
+            from tripy.flat_ir.ops import DynamicBroadcastOp, DynamicReshapeOp
 
-                func_new_input_types = [get_op_result_or_value(mlir_tensor_map[o.name]).type for o in func.inputs]
-                func_new_output_types = [get_op_result_or_value(mlir_tensor_map[o.name]).type for o in func.outputs]
-                func_type = ir.FunctionType.get(func_new_input_types, func_new_output_types)
-                func_op.attributes["function_type"] = ir.TypeAttr.get(func_type)
+            op_inputs = []
+            for index, op_input in enumerate(op.inputs):
+                # Insert a cast operation between function input and reshape/broadcast op shape input.abs
+                # `op.to_mlir` operation for such op, convert dynamic input to static due to stablehlo constraints.
+                # Addition `cast` operation ensure that we decouple function input type with corresponding op input type.
+                if (
+                    (isinstance(op, (DynamicReshapeOp, DynamicBroadcastOp)))
+                    and index == 1
+                    and is_any_dim_dynamic(mlir_tensor_map[op_input.name])
+                ):
+                    op_inputs.append(
+                        cast_to_dynamic_ranked_tensor(mlir_tensor_map[op_input.name], always_insert_cast=True)
+                    )
+                else:
+                    op_inputs.append(mlir_tensor_map[op_input.name])
+            return op_inputs
 
-                func_inputs = [mlir_tensor_map[input_tensor.name] for input_tensor in func.get_caller_inputs()]
-                func_call_op = func_dialect.CallOp(
-                    func_new_output_types, ir.FlatSymbolRefAttr.get(func.name), func_inputs
-                )
-                # Create a map from function name to its call op and func op.
-                func_map[func.name] = [func_call_op, func_op]
+        def _create_function_call(
+            func: FlatIRFunction,
+            mlir_tensor_map: Dict[str, ir.Value],
+            mlir_func_map: Dict[str, ir.Operation],
+            func_output_types: List[ir.Type],
+        ) -> None:
+            """Create a function call operation in MLIR."""
+            from tripy.backend.mlir.utils import cast_to_dynamic_ranked_tensor
 
-                for index, output_tensor in enumerate(func.get_caller_outputs()):
-                    mlir_tensor_map[output_tensor.name] = func_call_op.results[index]
+            func_inputs = [mlir_tensor_map[input_tensor.name] for input_tensor in func.get_caller_inputs()]
 
-        def _fix_up_function_results(ops, mlir_tensor_map, func_map):
-            # Iterate over all func ops and fix up its results based on func call op results types
-            for func in ops:
-                if not isinstance(func, FlatIRFunction):
-                    continue
-                call_op, func_op = func_map[func.name]
-                assert len(call_op.results) == len(func.outputs)
-                for call_op_res, func_output in zip(call_op.results, func.outputs):
-                    # If there is mismatch between call op result type and corresponding caller result type,
-                    # fix the call op result type and corresponding function type. `caller result type`
-                    # could an input another function which could have its input type updated e.g. in `op.to_mlir`.
-                    func_res = get_op_result_or_value(mlir_tensor_map[func_output.name])
-                    if call_op_res.type != func_res.type:
-                        # Update func result type.
-                        func_res.set_type(call_op_res.type)
-                        # Update function signature type.
-                        res_index = func.outputs.index(func_output)
-                        func_output_types = func_op.type.results
-                        func_output_types[res_index] = func_res.type
-                        new_func_type = ir.FunctionType.get(func_op.type.inputs, func_output_types)
-                        func_op.attributes["function_type"] = ir.TypeAttr.get(new_func_type)
+            # Convert function input to dynamic so that it can be reused.
+            # Skip converting to dynamic tensor for Quantize/Dequantize scale operation.
+            if ("Quantize" in func.name or "Dequantize" in func.name) and len(func_inputs) > 1:
+                dynamic_func_inputs = [cast_to_dynamic_ranked_tensor(func_inputs[0]), func_inputs[1]]
+            else:
+                dynamic_func_inputs = [cast_to_dynamic_ranked_tensor(input) for input in func_inputs]
+
+            func_call_op = func_dialect.CallOp(
+                func_output_types, ir.FlatSymbolRefAttr.get(func.name), dynamic_func_inputs
+            )
+
+            for index, output_tensor in enumerate(func.get_caller_outputs()):
+                mlir_tensor_map[output_tensor.name] = func_call_op.results[index]
 
         def _update_main_function_signature(main_func_op, outputs, mlir_tensor_map, main_input_types):
             # After lowering the complete graph to stablehlo, there can be mismatch between Tripy created function signature and the ReturnOp due to shapes that resolved while lowering into Stablehlo.
@@ -249,7 +287,7 @@ class FlatIR:
                     main_func_type = ir.FunctionType.get(main_input_types, main_output_types)
                     main_func_op = func_dialect.FuncOp("main", main_func_type, ip=insertion_point)
 
-                    func_map: Dict[str, [func_dialect.callOp, func_dialect.FuncOp]] = {}
+                    mlir_func_map: Dict[str, func_dialect.FuncOp] = {}
 
                     with ir.InsertionPoint(main_func_op.add_entry_block()):
                         # Map main function inputs to MLIR tensor map
@@ -259,17 +297,12 @@ class FlatIR:
                         # Process each op in the main flow
                         for op in self.ops:
                             if isinstance(op, FlatIRFunction):
-                                _func_op_to_mlir(insertion_point, op, mlir_tensor_map, func_map)
+                                _func_op_to_mlir(insertion_point, op, mlir_tensor_map, mlir_func_map)
                             elif isinstance(op, BaseFlatIROp):
                                 _base_op_to_mlir(op, mlir_tensor_map)
 
                         # Add return operation for the main function
                         func_dialect.ReturnOp([mlir_tensor_map[output_tensor.name] for output_tensor in self.outputs])
-
-                    # Fix up function results based on func caller op results types.
-                    # Caller op result could have been updated while calling `op.to_mlir`.
-                    # Ensure that we fix up the function signature which produced the result.
-                    _fix_up_function_results(self.ops, mlir_tensor_map, func_map)
 
                     # Update main function signature if necessary
                     _update_main_function_signature(main_func_op, self.outputs, mlir_tensor_map, main_input_types)
@@ -309,9 +342,6 @@ class FlatIR:
     def register_tensor(self, tensor: "FlatIRTensor") -> "FlatIRTensor":
         """
         Registers a tensor with this FlatIR instance. If the tensor has no name, a name unique to this FlatIR will be assigned.
-
-        Args:
-            tensor: The tensor to register.
         """
         tensor.name = utils.default(tensor.name, f"t_inter{len(self.tensor_map)}")
         if tensor.name in self.tensor_map:
@@ -345,121 +375,233 @@ class FlatIR:
     def integrate_subgraph(self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]) -> None:
         """
         Integrate a subgraph delineated by the given inputs and outputs into this FlatIR.
-
-        Args:
-            inputs (List[FlatIRTensor]): The input tensors for the subgraph.
-            outputs (List[FlatIRTensor]): The output tensors for the subgraph.
         """
         from tripy.flat_ir.ops.base import BaseFlatIROp, FlatIRFunction
+        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.flat_ir.ops import ConstantOp
 
         seen_tensors: Set[int] = set()
+        dedup_func_op_map: Dict[int, List[FlatIRFunction]] = {}
 
-        # Ensure no constant duplication within a function.
-        tensor_replacements: Dict[int, "FlatIRTensor"] = {}
-        constant_map = {}
-
-        def register_tensor_and_collect_ops(
-            tensor: "FlatIRTensor",
+        def _register_tensor_and_collect_ops(
+            tensor: FlatIRTensor,
             seen_tensors: Set[int],
             new_ops: List[Union[BaseFlatIROp, FlatIRFunction]],
-            tensor_replacements,
-            constant_map,
+            tensor_replacements: Dict[str, FlatIRTensor],
+            constant_map: Dict[str, FlatIRTensor],
         ) -> None:
             """
             Register a tensor and collect its producers using depth-first search.
-
-            Args:
-                tensor (FlatIRTensor): The tensor to register.
-                seen_tensors (Set[int]): A set of seen tensor IDs to avoid cycles.
             """
+            if id(tensor) in seen_tensors:
+                return
 
-            if id(tensor) not in seen_tensors:
-                seen_tensors.add(id(tensor))
-                self.register_tensor(tensor)
+            seen_tensors.add(id(tensor))
+            self.register_tensor(tensor)
+            op = tensor.producer
+            assert (
+                op
+            ), f"Tensor: {tensor} has no producer set. Did you use the constructor instead of the `build()` function?"
 
-                op = tensor.producer
+            if isinstance(op, FlatIRFunction):
+                _process_function_op(op, new_ops, seen_tensors, inputs)
+            else:
+                _process_regular_op(op, new_ops, tensor, seen_tensors, inputs, tensor_replacements, constant_map)
 
-                assert (
-                    op is not None
-                ), f"Tensor: {tensor} has no producer set. Did you use the constructor instead of the `build()` function?"
+        def _process_function_op(
+            op: FlatIRFunction,
+            new_ops: List[Union[BaseFlatIROp, FlatIRFunction]],
+            seen_tensors: Set[int],
+            inputs: List[FlatIRTensor],
+        ) -> None:
+            """
+            Process a FlatIRFunction operation.
+            """
+            dedup_op = _find_duplicate_func_op(op)
 
-                if isinstance(op, FlatIRFunction) and not any(id(op) == id(existing_op) for existing_op in new_ops):
-                    # Store nested function ops.
-                    func_ops: List[BaseFlatIROp] = []
+            # Return early if an op or its dedup op is seen already.
+            if not _is_first_visit(op, new_ops) or not _is_first_visit(dedup_op, new_ops):
+                return
 
-                    # Ensure no constant duplication within a function.
-                    tensor_replacements: Dict[int, "FlatIRTensor"] = {}
-                    constant_map = {}
+            # If a dedup op is seen for the first time, append to new ops and stop backward pass.
+            if dedup_op:
+                new_ops.append(dedup_op)
+                return
 
-                    for inp in op.inputs:
-                        seen_tensors.add(id(inp))
-                        self.register_tensor(inp)
+            func_ops: List[BaseFlatIROp] = []
+            func_tensor_replacements: Dict[str, FlatIRTensor] = {}
+            func_constant_map: Dict[str, FlatIRTensor] = {}
 
-                    # Register all tensors and collect nested ops from function outputs.
-                    for start_tensor in op.outputs:
-                        if start_tensor not in inputs:
-                            register_tensor_and_collect_ops(
-                                start_tensor, seen_tensors, func_ops, tensor_replacements, constant_map
-                            )
+            for inp in op.inputs:
+                seen_tensors.add(id(inp))
+                self.register_tensor(inp)
 
-                    # Apply tensor replacements in a nested function.
-                    for nested_op in func_ops:
-                        nested_op.inputs = [tensor_replacements.get(inp.name, inp) for inp in nested_op.inputs]
+            for start_tensor in op.outputs:
+                if start_tensor not in inputs:
+                    _register_tensor_and_collect_ops(
+                        start_tensor, seen_tensors, func_ops, func_tensor_replacements, func_constant_map
+                    )
 
-                    # Update ops to only relevant function ops i.e. ops reachable from the outputs.
-                    op.ops = func_ops
+            _apply_tensor_replacements(func_ops, func_tensor_replacements)
+            op.ops = func_ops
+            new_ops.append(op)
 
-                    # Update op list with a nested function op.
-                    new_ops.append(op)
+        def _process_regular_op(
+            op: BaseFlatIROp,
+            new_ops: List[Union[BaseFlatIROp, FlatIRFunction]],
+            tensor: FlatIRTensor,
+            seen_tensors: Set[int],
+            inputs: List[FlatIRTensor],
+            tensor_replacements: Dict[str, FlatIRTensor],
+            constant_map: Dict[str, FlatIRTensor],
+        ) -> None:
+            """
+            Process a regular (non-function) operation.
+            """
+            # If a constant is already been declared in the flatIR, reuse that constant instead of redefining the constant.
+            if isinstance(op, ConstantOp):
+                constant_key = self._get_constant_key(op)
+                if constant_key in constant_map:
+                    # Reuse existing constant
+                    existing_tensor = constant_map[constant_key]
+                    tensor_replacements[tensor.name] = existing_tensor
                 else:
-                    # If a constant is already been declared in the flatIR, reuse that constant instead of redefining the constant.
-                    if isinstance(op, ConstantOp):
-                        constant_key = self._get_constant_key(op)
-                        if constant_key in constant_map:
-                            # Reuse existing constant
-                            existing_tensor = constant_map[constant_key]
-                            tensor_replacements[tensor.name] = existing_tensor
-                        else:
-                            # New unique constant, add to map
-                            constant_map[constant_key] = op.outputs[0]
-                            new_ops.append(op)
-                    else:
-                        for input_tensor in op.inputs:
-                            if input_tensor not in inputs:
-                                register_tensor_and_collect_ops(
-                                    input_tensor, seen_tensors, new_ops, tensor_replacements, constant_map
-                                )
-                        # Update op list with a "new" and "unique" op.
-                        new_ops.append(op)
+                    # New unique constant, add to map
+                    constant_map[constant_key] = op.outputs[0]
+                    new_ops.append(op)
+            else:
+                for input_tensor in op.inputs:
+                    if input_tensor not in inputs:
+                        _register_tensor_and_collect_ops(
+                            input_tensor, seen_tensors, new_ops, tensor_replacements, constant_map
+                        )
+                # Update op list with a "new" and "unique" op.
+                new_ops.append(op)
 
-        # Main op set
+        def _find_duplicate_func_op(op: FlatIRFunction) -> Union[FlatIRFunction, None]:
+            """
+            Find a structurally equivalent FlatIRFunction in the existing ops.
+            """
+            for existing_op in self.ops:
+                if isinstance(existing_op, FlatIRFunction) and existing_op.is_structurally_equivalent(op):
+                    dedup_func_op_map.setdefault(id(existing_op), []).append(op)
+                    return existing_op
+            return None
+
+        def _is_first_visit(op: FlatIRFunction, new_ops: List[FlatIRFunction]) -> bool:
+            """
+            Check if this is the first visit to the operation.
+            """
+            return op is None or not any(id(op) == id(existing_op) for existing_op in new_ops)
+
+        def _apply_tensor_replacements(
+            ops: List[Union[BaseFlatIROp, FlatIRFunction]],
+            replacements: Dict[str, FlatIRTensor],
+        ) -> None:
+            """
+            Apply tensor replacements to the given operations.
+            """
+            for op in ops:
+                if isinstance(op, FlatIRFunction):
+                    op.set_caller_inputs(
+                        [self.tensor_replacements.get(inp.name, inp) for inp in op.get_caller_inputs()]
+                    )
+                    # Perform replacements for all operation deduped by current op
+                    if id(op) in dedup_func_op_map:
+                        ops = dedup_func_op_map[id(op)]
+                        for dop in ops:
+                            dop.set_caller_inputs([replacements.get(inp.name, inp) for inp in dop.get_caller_inputs()])
+                else:
+                    op.inputs = [replacements.get(inp.name, inp) for inp in op.inputs]
+
+        def _rebind_producers(
+            inputs,
+            outputs,
+            ops: List[Union[BaseFlatIROp, FlatIRFunction]],
+            dedup_func_op_map: Dict[int, List[FlatIRFunction]],
+        ) -> None:
+            """
+            Rebind the producers to tensors from this FlatIR.
+            """
+            for op in ops:
+                if isinstance(op, FlatIRFunction):
+                    # If an existing op is replacing other ops, we need to rebind its mapping.
+                    func_op = op
+
+                    if id(op) in dedup_func_op_map:
+                        # Dedup ops are inserted in backward iteration order. Pop from the left.
+                        func_op = list(reversed(dedup_func_op_map[id(op)])).pop()
+
+                        # Create a mapping from a common callee op to original inputs and outputs
+                        caller_map = {
+                            "caller_inputs": func_op.get_caller_inputs(),
+                            "caller_outputs": func_op.get_caller_outputs(),
+                        }
+                        if op.caller_replacements:
+                            op.caller_replacements.append(caller_map)
+                        else:
+                            op.caller_replacements = [caller_map]
+
+                    for tensor in func_op.get_caller_inputs() + func_op.get_caller_outputs():
+                        self.register_tensor(tensor)
+
+                    # Since the common callee op now represent several ops, ensure we trace all such tensors.
+                    op.trace_input_names = (op.trace_input_names or []) + [input_tensor.name for input_tensor in inputs]
+                    op.trace_output_names = (op.trace_output_names or []) + [
+                        output_tensor.name for output_tensor in outputs
+                    ]
+                else:
+                    op.inputs = [self.register_tensor(input_tensor) for input_tensor in op.inputs]
+                    op.outputs = [self.register_tensor(output_tensor) for output_tensor in op.outputs]
+                    op.trace_input_names = [input_tensor.name for input_tensor in inputs]
+                    op.trace_output_names = [output_tensor.name for output_tensor in outputs]
+
+        def _process_main_ops(
+            ops: List[Union[BaseFlatIROp, FlatIRFunction]]
+        ) -> List[Union[BaseFlatIROp, FlatIRFunction]]:
+            """
+            Process the main operations, handling function replacements.
+            """
+            processed_ops = []
+            for op in ops:
+                if isinstance(op, FlatIRFunction):
+                    if op.caller_replacements:
+                        processed_ops.append(_process_function_replacements(op))
+                    else:
+                        processed_ops.append(op)
+                        self.add_function(op)
+                else:
+                    processed_ops.append(op)
+            return processed_ops
+
+        def _process_function_replacements(op: FlatIRFunction) -> FlatIRFunction:
+            """
+            Process replacements for a FlatIRFunction.
+            """
+            caller_map = op.caller_replacements.pop()
+            op_inputs = [
+                input_tensor.clone(reason_details=f"Function input cloned from {input_tensor}", name=input_tensor.name)
+                for input_tensor in op.inputs
+            ]
+            op_outputs = [
+                output_tensor.clone(
+                    reason_details=f"Function output cloned from {output_tensor}", name=output_tensor.name
+                )
+                for output_tensor in op.outputs
+            ]
+            for callee_input, caller_input in zip(op_inputs, caller_map["caller_inputs"]):
+                callee_input.caller_tensor = caller_input
+            for callee_output, caller_output in zip(op_outputs, caller_map["caller_outputs"]):
+                callee_output.caller_tensor = caller_output
+            return op.clone_with_new_io(op_inputs, op_outputs)
+
+        # Main execution
         main_ops: List[Union[BaseFlatIROp, FlatIRFunction]] = []
         for start_tensor in outputs:
-            register_tensor_and_collect_ops(start_tensor, seen_tensors, main_ops, tensor_replacements, constant_map)
+            _register_tensor_and_collect_ops(
+                start_tensor, seen_tensors, main_ops, self.tensor_replacements, self.constant_map
+            )
 
-        # Apply tensor replacements in main function.new_ops
-        for op in main_ops:
-            op.inputs = [tensor_replacements.get(inp.name, inp) for inp in op.inputs]
-
-        # Rebind the producers to tensors from this FlatIR
-        for op in main_ops:
-            if isinstance(op, FlatIRFunction):
-                # Rebind the caller tensors to the callee tensors for a function.
-                def rebind(caller, callee):
-                    inputs = []
-                    for caller_tensor, calle_tensor in zip(caller, callee):
-                        inputs.append(self.register_tensor(caller_tensor))
-                        setattr(calle_tensor, "caller_tensor", inputs[-1])
-                    return inputs
-
-                inputs = rebind(op.get_caller_inputs(), op.inputs)
-                outputs = rebind(op.get_caller_outputs(), op.outputs)
-                op.trace_input_names = [input_tensor.name for input_tensor in inputs]
-                op.trace_output_names = [output_tensor.name for output_tensor in outputs]
-            else:
-                op.inputs = [self.register_tensor(input_tensor) for input_tensor in op.inputs]
-                op.outputs = [self.register_tensor(output_tensor) for output_tensor in op.outputs]
-                op.trace_input_names = [input_tensor.name for input_tensor in inputs]
-                op.trace_output_names = [output_tensor.name for output_tensor in outputs]
-
-        self.ops.extend(main_ops)
+        _apply_tensor_replacements(main_ops, self.tensor_replacements)
+        _rebind_producers(inputs, outputs, main_ops, dedup_func_op_map)
+        self.ops.extend(_process_main_ops(main_ops))
