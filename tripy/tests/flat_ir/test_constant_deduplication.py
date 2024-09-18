@@ -92,3 +92,10 @@ def test_integrate_subgraph_constant_deduplication(config):
     mock_op = [op for op in ops if isinstance(op, MockOp)][0]
     assert mock_op.inputs[0] is mock_op.inputs[1], "The mock op should use the same tensor for its first two inputs"
     assert mock_op.inputs[0] is not mock_op.inputs[2], "The mock op should still have a different third input"
+
+    if config == "main":
+        # Verify that tensor replacements were applied
+        assert len(flat_ir.tensor_replacements) > 0, "There should be tensor replacements after integration"
+
+        # Verify that the constant map has the correct number of entries
+        assert len(flat_ir.constant_map) == 2, "Constant map should have 2 entries"

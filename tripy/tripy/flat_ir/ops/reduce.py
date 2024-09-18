@@ -71,13 +71,10 @@ class ReduceOp(BaseFlatIROp):
 
 
 @dataclass(repr=False)
-class ArgMinMaxOp(BaseFlatIROp):
+class ArgMinMaxOp(ReduceOp):
     """
     Operation for argmin and argmax.
     """
-
-    reduce_mode: str
-    reduce_dims: List[int]
 
     # TODO: wrap the reducer in a func.call
     def _reducer(self, args):

@@ -17,7 +17,8 @@
 
 import abc
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Tuple
+
 
 from tripy import utils
 
@@ -87,7 +88,7 @@ class BaseFlatIROp(abc.ABC):
             for field in utils.get_dataclass_fields(self, BaseFlatIROp)
             if field.name not in skip_fields
         ]
-        return f"{outputs_str} = {self._op_name()}({', '.join([inp.name for inp in self.inputs] + args)})"
+        return f"{outputs_str} = {self._op_name()}({', '.join([str(inp.name) for inp in self.inputs] + args)})"
 
     def __repr__(self) -> str:
         # This is a hack to prevent printing the entire stack info when we print this.
@@ -104,59 +105,50 @@ class BaseFlatIROp(abc.ABC):
 
 
 class FlatIRFunction(abc.ABC):
-    """
-    Represents a function in the Flat IR.
-
-    This class encapsulates a function with its inputs, outputs, and operations.
-    """
+    """Represents a function in the Flat IR."""
 
     def __init__(self, name: str, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
-        """
-        Initialize a FlatIRFunction.
-
-        Args:
-            name (str): The name of the function.
-            inputs (List[FlatIRTensor]): List of input tensors.
-            outputs (List[FlatIRTensor]): List of output tensors.
-        """
+        """Initialize a FlatIRFunction."""
         self.name = name
         self.inputs = inputs
         self.outputs = outputs
         self.ops: List[BaseFlatIROp] = []
-        # Should set trace input names and outputs while integrating subgraph.
+        self.traced_ir_ops: List[BaseFlatIROp] = []  # Used for flat ir function deduplication
         self.trace_input_names = None
         self.trace_output_names = None
+        self.caller_replacements = []
+
+    def clone_with_new_io(
+        self, new_inputs: List["FlatIRTensor"], new_outputs: List["FlatIRTensor"]
+    ) -> "FlatIRFunction":
+        """
+        Create a clone of the function with new inputs and outputs.
+        """
+        new_func = FlatIRFunction(self.name, new_inputs, new_outputs)
+        new_func.ops = self.ops
+        new_func.trace_input_names = self.trace_input_names
+        new_func.trace_output_names = self.trace_output_names
+        return new_func
+
+    def set_caller_inputs(self, inputs: List["FlatIRTensor"]) -> None:
+        for callee_input, caller_input in zip(self.inputs, inputs):
+            callee_input.caller_tensor = caller_input
 
     def get_caller_inputs(self) -> List["FlatIRTensor"]:
-        """Return the list of caller input tensors."""
-        inputs = []
-        for inp in self.inputs:
-            inputs.append(getattr(inp, "caller_tensor"))
-        return inputs
+        return [getattr(inp, "caller_tensor") for inp in self.inputs]
 
     def get_caller_outputs(self) -> List["FlatIRTensor"]:
-        """Return the list of caller output tensors."""
-        outputs = []
-        for out in self.outputs:
-            outputs.append(getattr(out, "caller_tensor"))
-        return outputs
+        return [getattr(out, "caller_tensor") for out in self.outputs]
 
     def add_op(self, op: BaseFlatIROp) -> None:
         """
-        Add an operation to the function.
-
-        Args:
-            op (BaseFlatIROp): The operation to add.
+        Add an operation to the function ops. `trace_ir_ops` are used only for function deduplication.
         """
         self.ops.append(op)
+        self.traced_ir_ops.append(op)
 
     def __str__(self) -> str:
-        """
-        Generate a string representation of the function.
-
-        Returns:
-            str: A formatted string representing the function.
-        """
+        """Generate a string representation of the function."""
         function_signature = [
             f"function {self.name}(",
             *[f"    {inp}" for inp in self.inputs],
@@ -164,18 +156,48 @@ class FlatIRFunction(abc.ABC):
             *[f"    {out}" for out in self.outputs],
             ") {",
         ]
-
         function_body = [f"    {op}" for op in self.ops]
-
         function_return = [f"    return {', '.join(out.name for out in self.outputs)}", "}"]
-
         return "\n".join(function_signature + function_body + function_return)
 
     def __repr__(self) -> str:
-        """
-        Generate a concise string representation of the function.
-
-        Returns:
-            str: A concise representation of the function.
-        """
+        """Generate a concise string representation of the function."""
         return f"<FlatIRFunction '{self.name}' with {len(self.inputs)} inputs, {len(self.outputs)} outputs, and {len(self.ops)} ops>"
+
+    def is_structurally_equivalent(self, other: "FlatIRFunction") -> bool:
+        """Check if two FlatIRFunction objects are structurally equivalent."""
+
+        def tensor_signature(tensor: "FlatIRTensor") -> tuple:
+            return (tensor.shape, tensor.dtype, tensor.rank, tensor.device)
+
+        def op_signature(op: "BaseFlatIROp") -> tuple:
+            from tripy.flat_ir.ops import ConstantOp
+
+            return (
+                type(op),
+                [tensor_signature(t) for t in op.inputs],
+                [tensor_signature(t) for t in op.outputs],
+                tuple(
+                    getattr(op, field.name)
+                    for field in utils.get_dataclass_fields(op, BaseFlatIROp)
+                    if field.name not in ("inputs", "outputs")
+                ),
+            )
+
+        # Check high-level structure
+        if (
+            len(self.inputs) != len(other.inputs)
+            or len(self.outputs) != len(other.outputs)
+            or len(self.traced_ir_ops) != len(other.traced_ir_ops)
+        ):
+            return False
+
+        # Check input and output signatures
+        if any(
+            tensor_signature(t1) != tensor_signature(t2)
+            for t1, t2 in zip(self.inputs + self.outputs, other.inputs + other.outputs)
+        ):
+            return False
+
+        # Check ops and its input and output signatures
+        return all(op_signature(op1) == op_signature(op2) for op1, op2 in zip(self.traced_ir_ops, other.traced_ir_ops))

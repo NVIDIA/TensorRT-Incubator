@@ -84,13 +84,15 @@ class FlatIRTensor:
             reason_context=copy.copy(_BUILD_CONTEXT),
         )
 
-    def clone(self, reason_details) -> "FlatIRTensor":
+    def clone(self, reason_details, name=None) -> "FlatIRTensor":
         """
         Create a clone of the FlatIRTensor with an optional new name.
         """
         return FlatIRTensor(
-            name=None,
-            stack_info=self.stack_info,
+            name=name,
+            # Include code from the caller of this function up, and not just user code
+            # since this is an intermediate tensor created within tripy.
+            stack_info=utils.get_stack_info(include_code_index=1),
             dtype=self.dtype,
             device=self.device,
             rank=self.rank,
