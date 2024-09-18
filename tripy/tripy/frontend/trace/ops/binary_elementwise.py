@@ -204,6 +204,10 @@ class Comparison(BinaryElementwise):
                 instance.compare_direction = compare_direction
                 return instance
 
+            def __deepcopy__(self, memo):
+                # Create a new instance with the same content and compare_direction
+                return type(self)(str(self), self.compare_direction)
+
         LESS = KindElem(" < ", "LT")
         LESS_EQUAL = KindElem(" <= ", "LE")
         EQUAL = KindElem(" == ", "EQ")
