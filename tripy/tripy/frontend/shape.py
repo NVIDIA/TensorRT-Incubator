@@ -77,7 +77,9 @@ class ShapeScalar(Tensor):
         return "shape_scalar" + tensor_repr[6:]
 
     def __str__(self) -> str:
-        return "shape_scalar" + "(" + ", ".join(map(str, self.tolist())) + ")"
+        val = self.tolist()
+        assert isinstance(val, int)
+        return f"shape_scalar({val})"
 
 
 @export.public_api()
