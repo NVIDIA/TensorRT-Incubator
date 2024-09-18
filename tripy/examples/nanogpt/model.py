@@ -1,4 +1,3 @@
-
 #
 # SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -76,7 +75,7 @@ class CausalSelfAttention(tp.Module):
         self.zeros = tp.zeros((1, 1, self.seq_len, self.seq_len), dtype=config.dtype)
 
     def __call__(self, x: tp.Tensor):
-        B, T, C = tp.reshape(x.shape[0], (1,)), tp.reshape(x.shape[1], (1,)), tp.reshape(x.shape[2], (1,))
+        B, T = x.shape[0:2]
         qkv = self.c_attn(x)  # (batch_size, seq_len, 3 * embedding_size)
 
         # WAR for better accuracy and avoid TRT compilation error in fp16
@@ -84,11 +83,7 @@ class CausalSelfAttention(tp.Module):
             qkv = tp.cast(qkv, tp.float32)
 
         q, k, v = tp.split(qkv, 3, dim=2)
-        multi_head_output_shape = tp.concatenate(
-            [B, T, tp.Tensor([self.num_heads]), tp.Tensor([self.embedding_size // self.num_heads])], dim=0
-        )
-        # WAR to prevent computing output rank in infer_rank for reshape, will be addressed by #228
-        multi_head_output_shape.trace_tensor.shape = (4,)
+        multi_head_output_shape = [B, T, self.num_heads, self.embedding_size // self.num_heads]
         multi_heads = lambda x: tp.transpose(tp.reshape(x, multi_head_output_shape), 1, 2)
 
         q = multi_heads(q)
@@ -108,10 +103,7 @@ class CausalSelfAttention(tp.Module):
         # (batch_size, num_heads, seq_len, seq_len) @ (batch_size, num_heads, seq_len, head_size) -> (batch_size, num_heads, seq_len, head_size)
         out = att @ v
         out = tp.cast(out, x.dtype)
-        out_shape = tp.concatenate([B, T, tp.Tensor([self.embedding_size])], dim=0)
-        # WAR to prevent computing output rank in infer_rank for reshape, will be addressed by #228
-        out_shape.trace_tensor.shape = (3,)
-        out = tp.reshape(tp.transpose(out, 1, 2), out_shape)
+        out = tp.reshape(tp.transpose(out, 1, 2), [B, T, self.embedding_size])
         out = self.c_proj(out)  # (batch_size, seq_len, embedding_size)
         return out
 
