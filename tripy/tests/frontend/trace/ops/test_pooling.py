@@ -28,12 +28,12 @@ class TestPooling:
         with helper.raises(tp.TripyException, "Stride must have the same length as kernel_dims."):
             tp.maxpool(a, (2, 2), stride=(1,))
 
-    def test_invalid_padding_1(self):
+    def test_invalid_padding_length(self):
         a = tp.ones((1, 1, 4, 4))
         with helper.raises(tp.TripyException, "Padding must have the same length as kernel_dims."):
             tp.maxpool(a, (2, 2), padding=((1, 1),))
 
-    def test_invalid_padding_2(self):
+    def test_invalid_padding_contents(self):
         a = tp.ones((1, 1, 4, 4))
         with helper.raises(tp.TripyException, "Padding must be provided as a sequence of pairs of integers."):
             tp.maxpool(a, (2, 2), padding=((1, 1, 1), (1, 1, 1)))
