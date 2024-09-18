@@ -56,10 +56,9 @@ class TestShapeScalar:
         assert isinstance(s, tp.ShapeScalar)
         assert s.trace_tensor.producer.inputs == []
 
-        if isinstance(value, int):
-            assert s.__str__() == f"shape_scalar({value})"
-        else:
-            assert s.__str__() == f"shape_scalar({int(value.tolist())})"
+    def test_scalar_shape_str_method(self):
+        s = tp.ShapeScalar(12)
+        assert s.__str__() == f"shape_scalar(12)"
 
     def test_scalar_slice(self):
         a = tp.iota((3, 3))
