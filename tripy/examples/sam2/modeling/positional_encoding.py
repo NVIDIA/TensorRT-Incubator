@@ -19,9 +19,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import tripy as tp
+import numpy as np
 
 
 class PositionEmbeddingSine(tp.Module):
@@ -71,3 +72,52 @@ class PositionEmbeddingSine(tp.Module):
 
 # p = PositionEmbeddingSine(1024)
 # print(p.forward(tp.ones((1, 128, 128))))
+
+
+class PositionEmbeddingRandom(tp.Module):
+    """
+    Positional encoding using random spatial frequencies.
+    """
+
+    def __init__(self, num_pos_feats: int = 64, scale: Optional[float] = None) -> None:
+        super().__init__()
+        if scale is None or scale <= 0.0:
+            scale = 1.0
+        self.positional_encoding_gaussian_matrix = tp.Parameter(
+            tp.Tensor(scale * np.random.randn(2, num_pos_feats).astype(np.float32), dtype=tp.float32)
+        )
+
+    def _pe_encoding(self, coords: tp.Tensor) -> tp.Tensor:
+        """Positionally encode points that are normalized to [0,1]."""
+        # assuming coords are in [0, 1]^2 square and have d_1 x ... x d_n x 2 shape
+        coords = 2 * coords - 1
+        coords = coords @ self.positional_encoding_gaussian_matrix
+        coords = 2 * np.pi * coords
+        # outputs d_1 x ... x d_n x C shape
+        return tp.concatenate([tp.sin(coords), tp.cos(coords)], dim=-1)
+
+    def forward(self, size: Tuple[int, int]) -> tp.Tensor:
+        """Generate positional encoding for a grid of the specified size."""
+        h, w = size
+        grid = tp.ones((h, w), dtype=tp.float32)
+        y_embed = tp.cumsum(grid, dim=0) - 0.5
+        x_embed = tp.cumsum(grid, dim=1) - 0.5
+        y_embed = y_embed / h
+        x_embed = x_embed / w
+
+        pe = self._pe_encoding(tp.stack([x_embed, y_embed], dim=-1))
+        return tp.permute(pe, (2, 0, 1))  # C x H x W
+
+    def forward_with_coords(self, coords_input: tp.Tensor, image_size: Tuple[int, int]) -> tp.Tensor:
+        """Positionally encode points that are not normalized to [0,1]."""
+        new_x_coords = coords_input[:, :, 0] / image_size[1]
+        new_y_coords = coords_input[:, :, 1] / image_size[0]
+
+        # Combine the updated x and y coordinates into a new tensor
+        new_coords = tp.stack([new_x_coords, new_y_coords], dim=-1)
+        return self._pe_encoding(tp.cast(new_coords, tp.float32))  # B x N x C
+
+
+# p = PositionEmbeddingRandom()
+# print(p.forward((10,20)))
+# print(p.forward_with_coords(tp.ones((1,100,100)), (10,10)))
