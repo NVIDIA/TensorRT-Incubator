@@ -24,7 +24,7 @@ def scaled_dot_product_attention(
     query: tp.Tensor,
     key: tp.Tensor,
     value: tp.Tensor,
-    embedding_dim: Optional[int] = None,
+    embedding_dim=None,
     attn_mask: Optional[tp.Tensor] = None,
     is_causal: bool = False,
 ) -> tp.Tensor:
@@ -43,7 +43,7 @@ def scaled_dot_product_attention(
         attn_mask = tp.cast(tp.tril(tp.ones(target_shape)), tp.bool)
     if attn_mask is not None and attn_mask.dtype == tp.bool:
         attn_mask = tp.where((attn_mask == 0), tp.ones_like(attn_mask) * -float("inf"), tp.zeros_like(attn_mask))
-    qk = query @ tp.transpose(key, -2, -1) / math.sqrt(embedding_dim)
+    qk = query @ tp.transpose(key, -2, -1) / tp.sqrt(tp.cast(embedding_dim, key.dtype))
     return tp.cast(tp.softmax((qk + attn_mask) if attn_mask is not None else qk, -1), query.dtype) @ value
 
 

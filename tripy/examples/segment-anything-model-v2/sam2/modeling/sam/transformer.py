@@ -221,25 +221,20 @@ class Attention(tp.Module):
         self.dropout_p = dropout
 
     def _separate_heads(self, x: Tensor, num_heads: int) -> Tensor:
-        b, n, c = tp.reshape(x.shape[0], (1,)), tp.reshape(x.shape[1], (1,)), tp.reshape(x.shape[2], (1,))
-        out_shape = tp.concatenate([b, n, tp.Tensor([num_heads]), c / num_heads], dim=0)
-        out_shape.trace_tensor.shape = (4,)
-        x = tp.reshape(x, out_shape)
+        b, n, c = x.shape[0], x.shape[1], x.shape[2]
+        x = tp.reshape(x, [b, n, tp.Tensor([num_heads]), c // num_heads])
         return tp.transpose(x, 1, 2)  # B x N_heads x N_tokens x C_per_head
 
     def _recombine_heads(self, x: Tensor) -> Tensor:
         b, n_head, n_token, c_per_head = (
-            tp.reshape(x.shape[0], (1,)),
-            tp.reshape(x.shape[1], (1,)),
-            tp.reshape(x.shape[2], (1,)),
-            tp.reshape(x.shape[3], (1,)),
+            x.shape[0],
+            x.shape[1],
+            x.shape[2],
+            x.shape[3],
         )
         # b, n_heads, n_tokens, c_per_head = x.shape
         x = tp.transpose(x, 1, 2)
-        out_shape = tp.concatenate([b, n_token, n_head * c_per_head], dim=0)
-        out_shape.trace_tensor.shape = (3,)
-        return tp.reshape(x, out_shape)
-        # return tp.reshape(x, (b, n_tokens, n_heads * c_per_head))  # B x N_tokens x C
+        return tp.reshape(x, [b, n_token, n_head * c_per_head])
 
     def __call__(self, q: Tensor, k: Tensor, v: Tensor) -> Tensor:
         return self.forward(q, k, v)
@@ -256,7 +251,7 @@ class Attention(tp.Module):
         v = self._separate_heads(v, self.num_heads)
 
         # Attention
-        out = scaled_dot_product_attention(q, k, v, embedding_dim=self.embedding_dim)
+        out = scaled_dot_product_attention(q, k, v, embedding_dim=k.shape[-1])
         out = self._recombine_heads(out)
         out = self.out_proj(out)
 
