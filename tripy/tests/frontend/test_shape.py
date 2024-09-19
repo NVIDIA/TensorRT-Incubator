@@ -40,12 +40,25 @@ def other_values(request):
 
 
 class TestShapeScalar:
-    @pytest.mark.parametrize("value", [1, tp.Tensor(1), np.array(2)])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            1,
+            tp.Tensor(1),
+            # Note: if we don't specify the dtype, the tensor constructor will insert a cast
+            # and the assert below about the trace_tensor's producer will fail.
+            np.array(2, dtype=np.int32),
+        ],
+    )
     def test_scalar_shape(self, value):
-        s = tp.ShapeScalar(values)
+        s = tp.ShapeScalar(value)
 
         assert isinstance(s, tp.ShapeScalar)
         assert s.trace_tensor.producer.inputs == []
+
+    def test_scalar_shape_str_method(self):
+        s = tp.ShapeScalar(12)
+        assert s.__str__() == f"shape_scalar(12)"
 
     def test_scalar_slice(self):
         a = tp.iota((3, 3))
