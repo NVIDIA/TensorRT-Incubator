@@ -34,6 +34,8 @@ class BinaryElementwise(BaseTraceOp):
         POW = " ** "
         MUL = " * "
         DIV = " / "
+        FLOOR_DIV = " // "
+        MOD = " % "
         MAXIMUM = "maximum"
         MINIMUM = "minimum"
 
@@ -48,7 +50,8 @@ class BinaryElementwise(BaseTraceOp):
 
     def infer_shape_output_idxs(self, inputs):
         # permit one input to be a shape but require the output to be a shape
-        from tripy.frontend.shape import Shape
+        from tripy.frontend.tensor import Tensor
+        from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
         if any(map(lambda t: isinstance(t, Shape), inputs)):
@@ -66,9 +69,14 @@ class BinaryElementwise(BaseTraceOp):
                         f"The following inputs have invalid ranks: {invalid_indices_message}",
                     ]
                 )
-            return Result.ok([0])
+            return Result.ok({"shape": [0]})
+        elif any(
+            map(lambda t: isinstance(t, ShapeScalar) or (isinstance(t, int) and not isinstance(t, Tensor)), inputs)
+        ):
+            # Binary operation on ShapeScalar should yield another ShapeScalar.
+            return Result.ok({"scalar": [0]})
         else:
-            return Result.ok([])
+            return Result.ok({})
 
     def infer_len(self):
         # For the shape case, the result will be broadcast to the max of the input shapes
@@ -123,19 +131,68 @@ class BinaryElementwise(BaseTraceOp):
         return inputs
 
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import AddOp, DivideOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
+        from tripy.flat_ir.ops import AddOp, DivideOp, FloorOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         inputs = self.broadcast_inputs(inputs, outputs)
-        OpType = {
-            BinaryElementwise.Kind.SUM: AddOp,
-            BinaryElementwise.Kind.POW: PowOp,
-            BinaryElementwise.Kind.MUL: MulOp,
-            BinaryElementwise.Kind.SUB: SubtractOp,
-            BinaryElementwise.Kind.DIV: DivideOp,
-            BinaryElementwise.Kind.MAXIMUM: MaxOp,
-            BinaryElementwise.Kind.MINIMUM: MinOp,
-        }[self.kind]
-        OpType.build(inputs, outputs)
+
+        if self.kind == BinaryElementwise.Kind.FLOOR_DIV:
+            # First apply DivideOp
+            divide_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of division operator for FLOOR_DIV operation."],
+            )
+            DivideOp.build(inputs, [divide_out])
+            # Then apply FloorOp to the result of the division
+            FloorOp.build([divide_out], outputs)
+        elif self.kind == BinaryElementwise.Kind.MOD:
+            # Step 1: Perform DivideOp
+            divide_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of division operator for MOD operation."],
+            )
+            DivideOp.build(inputs, [divide_out])
+
+            # Step 2: Apply FloorOp
+            floor_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of Floor operation for MOD operation."],
+            )
+            FloorOp.build([divide_out], [floor_out])
+
+            # Step 3: Multiply divisor with floored division result (FloorOp output)
+            multiply_out = FlatIRTensor.build(
+                shape=outputs[0].shape,
+                rank=outputs[0].rank,
+                dtype=outputs[0].dtype,
+                device=outputs[0].device,
+                reason_details=["Intermediate output of Multiply operation for MOD operation."],
+            )
+            MulOp.build([inputs[1], floor_out], [multiply_out])
+
+            # Step 4: Subtract result from dividend (inputs[0]) to get modulus
+            SubtractOp.build([inputs[0], multiply_out], outputs)
+        else:
+            OpType = {
+                BinaryElementwise.Kind.SUM: AddOp,
+                BinaryElementwise.Kind.POW: PowOp,
+                BinaryElementwise.Kind.MUL: MulOp,
+                BinaryElementwise.Kind.SUB: SubtractOp,
+                BinaryElementwise.Kind.DIV: DivideOp,
+                BinaryElementwise.Kind.MAXIMUM: MaxOp,
+                BinaryElementwise.Kind.MINIMUM: MinOp,
+                BinaryElementwise.Kind.FLOOR_DIV: DivideOp,
+            }[self.kind]
+            OpType.build(inputs, outputs)
 
 
 @dataclass(repr=False)
@@ -177,7 +234,10 @@ class Comparison(BinaryElementwise):
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
     aliases=["__radd__"],
 )
-def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __add__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
 
@@ -208,7 +268,10 @@ def __add__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __sub__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -239,7 +302,7 @@ def __sub__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int4", "float8", "int32", "int64"]},
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rsub__(self: "tripy.types.NestedNumberSequence", other: "tripy.types.TensorLike") -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -270,7 +333,10 @@ def __rsub__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __pow__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __pow__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
@@ -334,7 +400,10 @@ def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
     aliases=["__rmul__"],
 )
-def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __mul__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
 
@@ -365,7 +434,10 @@ def __mul__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __truediv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __truediv__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
@@ -396,12 +468,12 @@ def __truediv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", A
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64"]},
     dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rtruediv__(self: numbers.Number, other: "tripy.types.TensorLike") -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
     Args:
-        self: Tensor to be subtracted by other.
+        self: Tensor to be divided by other.
         other: The tensor to be divided by this one.
             It should be broadcast-compatible.
 
@@ -421,13 +493,146 @@ def __rtruediv__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tr
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
 
 
+@TENSOR_METHOD_REGISTRY("__floordiv__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise floor division.
+
+    Args:
+        self: Tensor to be floor-divided by other.
+        other: The tensor by which to floor-divide this one.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([4.0, 6.0])
+        b = tp.Tensor([3.0, 4.0])
+        output = a // b
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 1.0]))
+    """
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.common.datatype import int32
+
+    return cast(cast(BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV), int32), self.dtype)
+    # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
+    # return BinaryElementwise.build([self, other], BinaryElementwise.Kind.FLOOR_DIV)
+
+
+@TENSOR_METHOD_REGISTRY("__rfloordiv__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs an elementwise floor division.
+
+    Args:
+        self: Tensor to be floor-divided by other.
+        other: The tensor to be floor-divided by this one.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = 2
+        b = tp.Tensor([2.0, 3.0])
+        output = a // b
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 0.0]))
+    """
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.common.datatype import int32
+
+    return cast(cast(BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV), int32), self.dtype)
+    # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
+    # return BinaryElementwise.build([other, self], BinaryElementwise.Kind.FLOOR_DIV)
+
+
+@TENSOR_METHOD_REGISTRY("__mod__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __mod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs a modulo operation.
+
+    Args:
+        self: The tensor to be divided by `other`.
+        other: The tensor by which to divide `self`.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape containing the result of the modulo operation.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([4.0, 6.0])
+        b = tp.Tensor([3.0, 4.0])
+        output = a % b
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([1.0, 2.0]))
+    """
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MOD)
+
+
+@TENSOR_METHOD_REGISTRY("__rmod__")
+@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
+@constraints.dtype_info(
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+)
+def __rmod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+    """
+    Performs a modulo operation.
+
+    Args:
+        self: The tensor to be divided by `other`.
+        other: The tensor by which to divide `self`.
+            It should be broadcast-compatible.
+
+    Returns:
+        A new tensor with the broadcasted shape containing the result of the modulo operation.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        a = tp.Tensor([4.0, 6.0])
+        output = 2 % a
+
+        assert np.array_equal(cp.from_dlpack(output).get(), np.array([2.0, 2.0]))
+    """
+    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.MOD)
+
+
 @export.public_api(document_under="operations/functions")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def maximum(lhs: "tripy.types.TensorLike", rhs: "tripy.types.TensorLike") -> "tripy.Tensor":
     """
     Performs an elementwise maximum.
 
@@ -458,7 +663,7 @@ def maximum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def minimum(lhs: "tripy.types.TensorLike", rhs: "tripy.types.TensorLike") -> "tripy.Tensor":
     """
     Performs an elementwise minimum.
 
@@ -492,7 +697,10 @@ def minimum(lhs: Union["tripy.Tensor", Any], rhs: Union["tripy.Tensor", Any]) ->
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __lt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __lt__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
 
@@ -526,7 +734,10 @@ def __lt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __le__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __le__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
 
@@ -560,7 +771,10 @@ def __le__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __eq__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __eq__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
 
@@ -594,7 +808,7 @@ def __eq__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __ne__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __ne__(self: "tripy.types.TensorLike", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
 
@@ -628,7 +842,10 @@ def __ne__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __ge__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __ge__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
 
@@ -662,7 +879,10 @@ def __ge__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) 
     },
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __gt__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __gt__(
+    self: "tripy.types.TensorLike",
+    other: "tripy.types.TensorLike",
+) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.
 

@@ -39,8 +39,8 @@ class Expand(BaseTraceOp):
 
         # wrap if the first input is a shape and the output is rank-1
         if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok([0])
-        return Result.ok([])
+            return Result.ok({"shape": [0]})
+        return Result.ok({})
 
     def infer_len(self):
         if self.output_len is not None:
@@ -82,7 +82,9 @@ def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int, output
     },
     dtype_constraints={"input": "T1", "sizes": "T2", constraints.RETURN_VALUE: "T1"},
 )
-def expand(input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
+def expand(
+    input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]]
+) -> "tripy.Tensor":
     """
     Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.
 

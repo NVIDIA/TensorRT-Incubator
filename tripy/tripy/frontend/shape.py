@@ -25,6 +25,64 @@ import tripy.frontend.utils as frontend_utils
 
 
 @export.public_api()
+class ShapeScalar(Tensor):
+    """
+    Scalar shape is a tensor used to represent a scalar value extracted from a shape tensor.
+    ShapeScalars are scalars (rank 0) of non-negative integer (using int32 as the datatype).
+    """
+
+    def __init__(
+        self,
+        data: Union[Sequence, Tensor, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        name: Optional[str] = None,
+    ) -> None:
+        r"""
+        Args:
+            data: The value of the ShapeScalar, which should be a scalar integer.
+            name: An optional name
+        """
+
+        from tripy.common.exception import raise_error
+
+        if isinstance(data, Tensor):
+            # these fields can be None in the case of an uninitialized tensor (like Tensor(None))
+            if data.trace_tensor.rank is not None and data.trace_tensor.rank != 0:
+                raise_error(
+                    f"Scalar shape tensors must be of rank 0, but input tensor is rank {data.rank}", details=[data]
+                )
+            if data.dtype is not None and data.dtype != int32:
+                raise_error(
+                    f"Scalar shape tensor must have int32 member, but input tensor has data type {data.dtype}",
+                    details=[data],
+                )
+
+            # the shape of data should correspond to the given rank
+            super().__init__(data=None, dtype=int32, name=name, device=data.device)
+            # share the underlying data
+            self.trace_tensor = data.trace_tensor
+            self.stack_info = data.stack_info
+        else:
+            shape = data.shape if hasattr(data, "shape") else utils.get_shape(data)
+            device = data.device if hasattr(data, "device") else None
+            if len(shape) != 0:
+                raise_error(
+                    f"Tensors used to represent scalar shapes must be of rank 0, but given shape {shape} has rank {len(shape)}."
+                )
+            super().__init__(data=data, dtype=int32, name=name, device=device)
+
+    def __repr__(self) -> str:
+        # denote the representation as a shape rather than a tensor
+        tensor_repr = super().__repr__()
+        assert tensor_repr[:6] == "tensor"
+        return "shape_scalar" + tensor_repr[6:]
+
+    def __str__(self) -> str:
+        val = self.tolist()
+        assert isinstance(val, int)
+        return f"shape_scalar({val})"
+
+
+@export.public_api()
 class Shape(Tensor):
     """
     A Shape is a tensor used to represent a tensor shape.
@@ -47,7 +105,6 @@ class Shape(Tensor):
         r"""
         Args:
             data: The value of the shape, which should be a 1D array of integers (the dimensions).
-            num_dims: The number of dimensions in the shape (its rank), which should correspond to the number of elements in data
             name: An optional name
         """
 
@@ -155,25 +212,32 @@ class Shape(Tensor):
 
     # addition for shapes is concatenation, not tensor addition
 
+    def _validate_add_argument(self, other):
+        if isinstance(other, Shape):
+            return
+        if not isinstance(other, Sequence) or (len(other) != 0 and not isinstance(other[0], int)):
+            raise_error(
+                "Invalid types for addition with a Tripy Shape.",
+                details=[
+                    "Implicit conversions are done only for sequences of Python ints. ",
+                    "Consider calling tp.Shape for an explicit conversion. ",
+                    f"Note: argument was {other}.",
+                ],
+            )
+
     def __add__(self, other):
         from tripy.frontend.trace.ops.concatenate import concatenate
 
-        if not isinstance(other, Shape) and isinstance(other, Tensor):
-            raise_error(
-                "Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly"
-            )
-        elif not isinstance(other, Shape):
+        self._validate_add_argument(other)
+        if not isinstance(other, Shape):
             other = Shape(other)
         return concatenate([self, other], 0)
 
     def __radd__(self, other):
         from tripy.frontend.trace.ops.concatenate import concatenate
 
-        if not isinstance(other, Shape) and isinstance(other, Tensor):
-            raise_error(
-                "Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly"
-            )
-        elif not isinstance(other, Shape):
+        self._validate_add_argument(other)
+        if not isinstance(other, Shape):
             other = Shape(other)
         return concatenate([other, self], 0)
 
@@ -182,7 +246,7 @@ class Shape(Tensor):
     def __mul__(self, other):
         from tripy.frontend.trace.ops.binary_elementwise import maximum
         from tripy.frontend.trace.ops.expand import expand
-        from tripy.frontend.trace.ops.reshape import flatten
+        from tripy.frontend.trace.ops.reshape import reshape, flatten
         from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
         # We unsqueeze self into shape [1, len(self)], so giving [other, len(self)] as
@@ -191,17 +255,35 @@ class Shape(Tensor):
 
         # Only defined with a scalar argument
         if not isinstance(other, Tensor):
+            # note: Python does not accept floats as arguments for list multiplication either
+            if isinstance(other, Sequence):
+                raise_error(
+                    "Attempting to multiply a Tripy Shape by a sequence, which is undefined",
+                    details=[f"Note: argument was {other}."],
+                )
+            if not isinstance(other, int):
+                raise_error(
+                    "Invalid types for multplication with a Tripy Shape.",
+                    details=[
+                        "Implicit conversions are done only for Python ints. ",
+                        "Consider calling tp.Shape for an explicit conversion. ",
+                        f"Note: argument was: {other}.",
+                    ],
+                )
             other = Tensor(other, dtype=int32)
         if other.rank >= 1:
             raise_error(
-                "Attempting to multiply a Tripy Shape by a tensor of rank >= 1, which is undefined", details=[other]
+                "Attempting to multiply a Tripy Shape by a tensor of rank >= 1, which is undefined",
+                details=[f"Note: argument was {other}."],
             )
         # note: in Python, if a list is multiplied by a negative number, this is the same as multiplying by 0,
         # so we should clamp the argument
-        other = maximum(other, 0)
+        if other.rank == 0:
+            other = reshape(other, (1,))
+        other = Shape(maximum(other, 0)) + [len(self)]
 
         unsqueezed = unsqueeze(self, 0)
-        tiled = expand(unsqueezed, [other, len(self)])
+        tiled = expand(unsqueezed, other)
         # flatten the result so we get back to a rank-1 shape
         ret = flatten(tiled)
         return Shape(ret)

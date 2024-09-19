@@ -47,8 +47,8 @@ class Reshape(BaseTraceOp):
 
         # Only wrap the reshaped output if the result is rank 1, otherwise don't wrap
         if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok([0])
-        return Result.ok([])
+            return Result.ok({"shape": [0]})
+        return Result.ok({})
 
     def infer_rank(self):
         if self.output_rank is None:
@@ -80,7 +80,9 @@ def reshape_impl(
     },
     dtype_constraints={"input": "T1", "shape": "T2", constraints.RETURN_VALUE: "T1"},
 )
-def reshape(input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]]) -> "tripy.Tensor":
+def reshape(
+    input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]]
+) -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
 

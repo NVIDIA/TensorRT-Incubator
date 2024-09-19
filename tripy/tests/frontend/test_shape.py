@@ -29,15 +29,51 @@ def values(request):
 
 
 @pytest.fixture(
-    params=[[4, 5], tp.Tensor([4, 5], dtype=tp.int32), np.array([4, 5], dtype=np.int32)],
+    params=[[4, 5], tp.Tensor([4, 5], dtype=tp.int32)],
     ids=[
         "python_list",
         "tripy_tensor",
-        "numpy_array",
     ],
 )
 def other_values(request):
     return request.param
+
+
+class TestShapeScalar:
+    @pytest.mark.parametrize(
+        "value",
+        [
+            1,
+            tp.Tensor(1),
+            # Note: if we don't specify the dtype, the tensor constructor will insert a cast
+            # and the assert below about the trace_tensor's producer will fail.
+            np.array(2, dtype=np.int32),
+        ],
+    )
+    def test_scalar_shape(self, value):
+        s = tp.ShapeScalar(value)
+
+        assert isinstance(s, tp.ShapeScalar)
+        assert s.trace_tensor.producer.inputs == []
+
+    def test_scalar_shape_str_method(self):
+        s = tp.ShapeScalar(12)
+        assert s.__str__() == f"shape_scalar(12)"
+
+    def test_scalar_slice(self):
+        a = tp.iota((3, 3))
+        assert isinstance(a.shape[0], tp.ShapeScalar)
+
+        s = a.shape[0] * a.shape[1]
+        b = tp.reshape(a, (s,))
+        assert tp.allclose(tp.flatten(a), b)
+
+    def test_scalar_scalar_op(self):
+        a = tp.iota((3, 4))
+        s1 = a.shape[0]
+        s2 = a.shape[1]
+        s = s1 + s2
+        assert isinstance(s, tp.ShapeScalar)
 
 
 class TestShape:
@@ -95,7 +131,7 @@ class TestShape:
         appended = [4, 5]
         s = tp.Shape(values)
 
-        # conversion is implicit except for tp.Tensor
+        # conversion must be explicit for tp.Tensor
         lhs_shape = other_values if not isinstance(other_values, tp.Tensor) else tp.Shape(other_values)
         new_shape = s + lhs_shape
         assert isinstance(new_shape, tp.Shape)
@@ -308,7 +344,7 @@ class TestShape:
         appended = [4, 5]
         s = tp.Shape(values)
 
-        # conversion is implicit except for tp.Tensor
+        # conversion must be explicit for tp.Tensor
         rhs_shape = other_values if not isinstance(other_values, tp.Tensor) else tp.Shape(other_values)
 
         new_shape = rhs_shape + s
@@ -418,19 +454,29 @@ class TestShape:
         with raises(tp.TripyException, match="Shape tensors must be of rank 1, but input tensor is rank 2"):
             _ = tp.Shape(tp.ones((3, 2), dtype=tp.int32))
 
+    def test_invalid_mul_sequence(self, values):
+        s = tp.Shape(values)
+        with raises(tp.TripyException, match="Attempting to multiply a Tripy Shape by a sequence, which is undefined"):
+            _ = s * values
+
     def test_invalid_mul_rank(self, values):
         s = tp.Shape(values)
+        t = tp.Tensor(values)
         with raises(
             tp.TripyException, match="Attempting to multiply a Tripy Shape by a tensor of rank >= 1, which is undefined"
         ):
-            _ = s * values
+            _ = s * t
 
     def test_invalid_plus_type(self, values):
         s = tp.Shape(values)
         t = tp.Tensor(values, dtype=tp.int32)
         with raises(
             tp.TripyException,
-            match="Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly",
+            match=(
+                "Invalid types for addition with a Tripy Shape."
+                r"\s*Implicit conversions are done only for sequences of Python ints. "
+                "Consider calling tp.Shape for an explicit conversion."
+            ),
         ):
             s + t
 
@@ -439,7 +485,11 @@ class TestShape:
         t = tp.Tensor(values, dtype=tp.int32)
         with raises(
             tp.TripyException,
-            match="Attempting to add a Tripy Tensor to a Tripy Shape, which is not allowed. Consider calling tp.Shape explicitly",
+            match=(
+                "Invalid types for addition with a Tripy Shape."
+                r"\s*Implicit conversions are done only for sequences of Python ints. "
+                "Consider calling tp.Shape for an explicit conversion."
+            ),
         ):
             t + s
 
@@ -461,8 +511,6 @@ class TestShape:
 
     def test_shape_equality(self, other_values):
         a = tp.Shape([4, 5])
-        if isinstance(other_values, np.ndarray):
-            pytest.skip("numpy array cannot be implicitly cast to Shape type")
         eq = a == other_values
         assert isinstance(eq, bool)
         assert eq

@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import math
 import numbers
 from typing import Optional, Sequence, Union
 
@@ -38,7 +37,7 @@ from tripy.frontend import utils as frontend_utils
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def ones(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":
     """
@@ -74,7 +73,7 @@ def ones(
     dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def zeros(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.Tensor"]]],
+    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":
     """
@@ -218,10 +217,6 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.tril(cp.from_dlpack(input).get(), -1))
     """
-    from tripy.common.datatype import int64
-
-    if tensor.dtype == int64:
-        raise_error("Known issue with i64. Tril currently does not work with int64 inputs.")
     tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) >= iota_like(
         tensor, -1, datatype.int32
     )
@@ -280,10 +275,6 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.triu(cp.from_dlpack(input).get(), -1))
     """
-    from tripy.common.datatype import int64
-
-    if tensor.dtype == int64:
-        raise_error("Known issue with i64. Triu currently does not work with int64 inputs.")
     tri_mask = (iota_like(tensor, -2, datatype.int32) + full_like(tensor, diagonal, datatype.int32)) <= iota_like(
         tensor, -1, datatype.int32
     )
@@ -299,17 +290,20 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def arange(
-    start: numbers.Number, stop: numbers.Number, step: numbers.Number = 1, dtype: "tripy.dtype" = datatype.float32
+    start: Union[numbers.Number, "tripy.ShapeScalar"],
+    stop: Union[numbers.Number, "tripy.ShapeScalar"],
+    step: Union[numbers.Number, "tripy.ShapeScalar"] = 1,
+    dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
     :math:`[0, \text{stop})` incrementing by :math:`\text{step}`.
 
     Args:
-        start: The inclusive lower bound of the values to generate.
-        stop: The exclusive upper bound of the values to generate.
-        step: The spacing between values.
-        dtype: The desired datatype of the tensor.
+        start: The inclusive lower bound of the values to generate. If a tensor is provided, it must be a scalar tensor.
+        stop: The exclusive upper bound of the values to generate. If a tensor is provided, it must be a scalar tensor.
+        step: The spacing between values. If a tensor is provided, it must be a scalar tensor.
+        dtype: The desired data type of the tensor.
 
     Returns:
         A tensor of shape :math:`[\frac{\text{stop}-\text{start}}{\text{step}}]`.
@@ -330,22 +324,28 @@ def arange(
 
         assert tp.allclose(output, tp.Tensor(np.arange(2.3, 0.8, -0.2, dtype=np.float32)))
     """
-    from tripy.common.datatype import int64
+    from tripy.frontend import Tensor
+    from tripy.common.datatype import int32
+    from tripy.frontend.shape import ShapeScalar
 
-    if dtype == int64:
-        raise_error("Known issue with i64. Arange currently does not work with int64 inputs.")
-    if step == 0:
+    if isinstance(step, numbers.Number) and step == 0:
         raise_error("Step in arange cannot be 0.", [])
 
-    size = math.ceil((stop - start) / step)
-    if size <= 0:
+    # math.ceil(a / b) is same as -(-a // b). Don't use math.ceil as start, stop or step can be Tensor.
+    size = 0 - ((start - stop) // step)
+    if isinstance(size, numbers.Number) and size <= 0:
         raise_error(
             "Arange tensor is empty.",
             details=[
                 f"start={start}, stop={stop}, step={step}",
             ],
         )
-    output = iota((size,), 0, dtype) * full((size,), step, dtype) + full((size,), start, dtype)
+
+    if not isinstance(size, ShapeScalar):
+        size = int(size)
+    size = (size,)
+
+    output = iota(size, 0, dtype) * full(size, step, dtype) + full(size, start, dtype)
     return output
 
 
@@ -356,7 +356,7 @@ def arange(
     },
     dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
+def arange(stop: Union[numbers.Number, "tripy.Tensor"], dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
     :math:`[0, \text{stop})` incrementing by 1.
@@ -377,8 +377,4 @@ def arange(stop: numbers.Number, dtype: "tripy.dtype" = datatype.float32) -> "tr
 
         assert (cp.from_dlpack(output).get() == np.arange(5, dtype=np.float32)).all()
     """
-    from tripy.common.datatype import int64
-
-    if dtype == int64:
-        raise_error("Known issue with i64. Arange currently does not work with int64 inputs. Issue #116")
     return arange(0, stop, dtype=dtype)

@@ -208,7 +208,7 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
 
     """
-    from tripy.frontend.shape import Shape
+    from tripy.frontend.shape import ShapeScalar, Shape
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.reshape import reshape, squeeze
@@ -242,7 +242,7 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
             if isinstance(index, int):
                 return index if index >= 0 else index + t_shape[i]
             else:
-                return where(index >= 0, index, reshape(t_shape[i], (1,)) + index)
+                return where(index >= 0, index, t_shape[i] + index)
 
         # when dealing with a slice (not a single index), we clamp the start and end bounds to [0, t_shape[i]]
         # because out of bounds indices for a *slice* mean that the dim should be empty, not an error
@@ -297,7 +297,7 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
     if squeeze_dims:
         out = squeeze(out, make_tuple(squeeze_dims))
 
-    return out
+    return ShapeScalar(out) if isinstance(self, Shape) and out.rank == 0 else out
 
 
 # Conveniently converts the inputs to tensors. The decorator also fills in column info for the converted tensors.

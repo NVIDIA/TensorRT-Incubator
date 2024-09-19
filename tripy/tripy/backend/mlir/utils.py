@@ -16,6 +16,7 @@
 #
 
 import contextlib
+import numbers
 import os
 import re
 import sys
@@ -84,13 +85,20 @@ def get_mlir_dtype(dtype: "tripy.dtype"):
     }[dtype.name]
 
 
-def get_mlir_scalar_attr(dtype: "tripy.dtype", value):
-    from tripy.common.datatype import floating
-
+def get_mlir_scalar_attr(mlir_dtype, value):
     # MLIR represents float dtypes as FloatAttr
     # and non-float dtypes as IntegerAttr
-    attr_func = ir.FloatAttr.get if issubclass(dtype, floating) else ir.IntegerAttr.get
-    return attr_func(get_mlir_dtype(dtype), value)
+    attr_func = ir.IntegerAttr.get if isinstance(mlir_dtype, ir.IntegerType) else ir.FloatAttr.get
+    return attr_func(mlir_dtype, value)
+
+
+def list_to_dense_attr(data: List, mlir_dtype):
+    if isinstance(data, numbers.Number):
+        return [get_mlir_scalar_attr(mlir_dtype, data)]
+    attrs = []
+    for element in data:
+        attrs.extend(list_to_dense_attr(element, mlir_dtype))
+    return attrs
 
 
 def get_mlir_quant_dtype(

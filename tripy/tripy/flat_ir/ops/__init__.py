@@ -31,6 +31,7 @@ from tripy.flat_ir.ops.divide import DivideOp
 from tripy.flat_ir.ops.dot import DotOp
 from tripy.flat_ir.ops.exponential import ExpOp
 from tripy.flat_ir.ops.flip import FlipOp
+from tripy.flat_ir.ops.floor import FloorOp
 from tripy.flat_ir.ops.gather import DynamicGatherOp
 from tripy.flat_ir.ops.get_dimension_size import GetDimensionSizeOp
 from tripy.flat_ir.ops.iota import DynamicIotaOp
@@ -42,6 +43,7 @@ from tripy.flat_ir.ops.pad import DynamicPadOp
 from tripy.flat_ir.ops.plugin import PluginOp
 from tripy.flat_ir.ops.pow import PowOp
 from tripy.flat_ir.ops.reduce import ArgMinMaxOp, ReduceOp
+from tripy.flat_ir.ops.reduce_window import ReduceWindowOp
 from tripy.flat_ir.ops.reshape import DynamicReshapeOp
 from tripy.flat_ir.ops.round_nearest_even import RoundNearestEvenOp
 from tripy.flat_ir.ops.rsqrt import RsqrtOp
