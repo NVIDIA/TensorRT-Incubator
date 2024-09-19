@@ -20,15 +20,14 @@ import tripy.frontend.utils as frontend_utils
 
 
 @export.public_api(document_under="operations/functions")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("vec1", "vec2")])
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"vec1": "T1", "vec2": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    dtype_constraints={"vec1": "T1", "vec2": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def outer(vec1: "tripy.Tensor", vec2: "tripy.Tensor") -> "tripy.Tensor":
     r"""
-    Computes the outer product of 1-d vectors `vec1` and `vec2`, such that the
-    output dimension is (m x n) if the inputs are of size m and n respectively.
+    Computes the outer product of 1-d vectors ``vec1`` and ``vec2``, such that the
+    output dimension is :math:`(m \times n)` if the inputs are of size :math:`m` and :math:`n` respectively.
 
     Args:
         vec1: The first 1d input vector.
@@ -50,5 +49,12 @@ def outer(vec1: "tripy.Tensor", vec2: "tripy.Tensor") -> "tripy.Tensor":
         assert tp.allclose(output, tp.Tensor(torch.outer(t1, t2)))
     """
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.common.exception import raise_error
 
-    return unsqueeze(vec1, -1) * unsqueeze(vec2, 0)
+    if vec1.rank != 1 or vec2.rank != 1:
+        raise_error(
+            "Expected input vectors to be 1-d.",
+            [f"Got vec1.rank={vec1.rank}, ", f"vec2.rank={vec2.rank}"],
+        )
+
+    return unsqueeze(vec1, -1) @ unsqueeze(vec2, 0)
