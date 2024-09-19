@@ -27,11 +27,11 @@ import tripy.frontend.utils as frontend_utils
 def outer(vec1: "tripy.Tensor", vec2: "tripy.Tensor") -> "tripy.Tensor":
     r"""
     Computes the outer product of 1-d vectors ``vec1`` and ``vec2``, such that the
-    output dimension is :math:`(m \times n)` if the inputs are of size :math:`m` and :math:`n` respectively.
+    output shape is :math:`(m, n)` if the inputs are of size :math:`(m,)` and :math:`(n,)` respectively.
 
     Args:
         vec1: The first 1d input vector.
-        vec2: The second 1d input vector
+        vec2: The second 1d input vector.
 
     Returns:
         The outer product of the input vectors.
@@ -46,7 +46,9 @@ def outer(vec1: "tripy.Tensor", vec2: "tripy.Tensor") -> "tripy.Tensor":
 
         t1 = torch.arange(5, dtype=torch.float32) # doc: omit
         t2 = torch.arange(4, dtype=torch.float32) # doc: omit
-        assert tp.allclose(output, tp.Tensor(torch.outer(t1, t2)))
+        torch_out = torch.outer(t1, t2) # doc: omit
+        assert tp.allclose(output, tp.Tensor(torch_out))
+        assert output.shape == torch_out.shape
     """
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
     from tripy.common.exception import raise_error
