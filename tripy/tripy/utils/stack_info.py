@@ -54,8 +54,12 @@ class StackInfo(list):
     def __init__(self, lst, include_code_index: Optional[int] = None):
         super().__init__(lst)
         self.include_code_index = include_code_index
+        self.code_fetched = False
 
     def fetch_source_code(self):
+        if self.code_fetched:
+            return
+
         first_user_frame_found = False
         for index, source_info in enumerate(self):
 
@@ -75,6 +79,8 @@ class StackInfo(list):
                     first_user_frame_found = True
                 elif self.include_code_index is not None and index >= self.include_code_index:
                     add_code()
+
+        self.code_fetched = True
 
     def get_first_user_frame_index(self) -> int:
         for index, source_info in enumerate(self):

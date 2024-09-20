@@ -26,8 +26,12 @@ from tripy.backend.mlir.utils import (
     make_ir_context,
     map_error_to_user_code_and_raise,
     redirect_stderr,
+    parse_tensor_names_from_location,
+    UNKNOWN_LOC,
 )
 from tripy.logging import logger
+from tripy.common.exception import _make_stack_info_message
+
 
 G_COMPILER_CLIENT = None
 G_TIMING_CACHE_FILE = cfg.timing_cache_file_path
@@ -53,7 +57,7 @@ class Compiler:
         self.mlir_context, self.compiler_client = _get_compiler_objects()
         self.trt_builder_opt_level = trt_builder_opt_level
 
-    def _make_mlir_opts(self, trt_builder_opt_level):
+    def _make_mlir_opts(self, trt_builder_opt_level, layer_metadata_callback=None):
         opts = [
             f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
             f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
@@ -67,13 +71,22 @@ class Compiler:
             if config.enable_tensorrt_debug:
                 opts.append(f"--tensorrt-layer-info-dir={config.tensorrt_debug_path}")
                 opts.append(f"--tensorrt-engines-dir={config.tensorrt_debug_path}")
-        return compiler.StableHLOToExecutableOptions(self.compiler_client, opts)
+
+        opts = compiler.StableHLOToExecutableOptions(self.compiler_client, opts)
+
+        if layer_metadata_callback is not None:
+            opts.set_tensorrt_translation_metadata_callback(layer_metadata_callback)
+
+        return opts
 
     def compile_stabehlo_program(self, code: str) -> compiler.Executable:
         with self.mlir_context:
             module = ir.Module.parse(code)
             opts = self._make_mlir_opts(self.trt_builder_opt_level)
-            return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
+            out = compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
+            # TODO: Debug:
+            print(opts)
+            return out
 
     @utils.log_time
     def infer_shapes(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None):
@@ -95,13 +108,43 @@ class Compiler:
     @utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
         logger.mlir(lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n")
-        opts = self._make_mlir_opts(self.trt_builder_opt_level)
+
+        def layer_metadata_callback(op):
+            if UNKNOWN_LOC in str(op.location):
+                return str(op.name)
+
+            _, _, _, trace_outputs, _ = parse_tensor_names_from_location(str(op.location))
+
+            for name in trace_outputs:
+                if name in flat_ir.tensor_map:
+                    tensor = flat_ir.tensor_map[name]
+                    # TODO: Decide what to use here:
+                    # return _make_stack_info_message(tensor.stack_info, enable_color=False)
+                    return ""
+                    user_frame_index = tensor.stack_info.get_first_user_frame_index()
+                    last_tp_frame = tensor.stack_info[user_frame_index - 1]
+                    return (
+                        last_tp_frame._dispatch_target
+                        or f"{last_tp_frame.file}:{last_tp_frame.line} in {last_tp_frame.function}"
+                    ) + "()"
+
+            return str(op.name)
+
+        # TODO: Remove this debug code:
+        def _layer_meta_callback(op):
+            out = layer_metadata_callback(op)
+            # print(out)
+            return out
+
+        opts = self._make_mlir_opts(self.trt_builder_opt_level, _layer_meta_callback)
 
         try:
             with redirect_stderr() as outfile:
                 executable = compiler.compiler_stablehlo_to_executable(
                     self.compiler_client, mlir_module.operation, opts
                 )
+            # TODO: Debug:
+            print(opts)
         except Exception as exc:
             outfile.flush()
             outfile.seek(0)
