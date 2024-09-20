@@ -49,40 +49,42 @@ class SourceInfo:
         module = self.module or ""
         return "tripy" not in module.split(".")
 
+    def fetch_source_code(self):
+        if self.code is not None:
+            return
+
+        # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
+        # In that case we just leave it empty.
+        try:
+            lines = open(self.file, "r").readlines()
+        except OSError:
+            self.code = ""
+        else:
+            self.code = lines[self.line - 1].rstrip()
+
 
 class StackInfo(list):
     def __init__(self, lst, include_code_index: Optional[int] = None):
         super().__init__(lst)
         self.include_code_index = include_code_index
-        self.code_fetched = False
+        self._code_fetched = False
 
     def fetch_source_code(self):
-        if self.code_fetched:
+        if self._code_fetched:
             return
 
         first_user_frame_found = False
         for index, source_info in enumerate(self):
-
-            def add_code():
-                # Note that in some cases, e.g. when code is being provided via the interactive shell, we may not be able to retrieve it.
-                # In that case we just leave it empty.
-                try:
-                    lines = open(source_info.file, "r").readlines()
-                except OSError:
-                    return
-
-                source_info.code = lines[source_info.line - 1].rstrip()
-
             if not first_user_frame_found:
                 if source_info.is_user_frame():
-                    add_code()
+                    source_info.fetch_source_code()
                     first_user_frame_found = True
                 elif self.include_code_index is not None and index >= self.include_code_index:
-                    add_code()
+                    source_info.fetch_source_code()
 
-        self.code_fetched = True
+        self._code_fetched = True
 
-    def get_first_user_frame_index(self) -> int:
+    def get_first_user_frame_index(self) -> Optional[int]:
         for index, source_info in enumerate(self):
             if source_info.is_user_frame():
                 return index

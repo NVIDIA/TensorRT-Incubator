@@ -119,7 +119,7 @@ class Compiler:
                 if name in flat_ir.tensor_map:
                     tensor = flat_ir.tensor_map[name]
                     # TODO: Decide what to use here:
-                    # return _make_stack_info_message(tensor.stack_info, enable_color=False)
+                    return _make_stack_info_message(tensor.stack_info, enable_color=False)
                     return ""
                     user_frame_index = tensor.stack_info.get_first_user_frame_index()
                     last_tp_frame = tensor.stack_info[user_frame_index - 1]
@@ -136,7 +136,10 @@ class Compiler:
             # print(out)
             return out
 
-        opts = self._make_mlir_opts(self.trt_builder_opt_level, _layer_meta_callback)
+        # opts = self._make_mlir_opts(self.trt_builder_opt_level, _layer_meta_callback)
+        opts = self._make_mlir_opts(self.trt_builder_opt_level, layer_metadata_callback)
+        # ================= 1764 passed, 53 skipped, 2842 deselected in 71.40s (0:01:11) =================
+        # opts = self._make_mlir_opts(self.trt_builder_opt_level)
 
         try:
             with redirect_stderr() as outfile:
