@@ -200,10 +200,10 @@ import tripy.frontend.utils as frontend_utils
 # If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
 
-# The `convert_inputs_to_tensors` decorator converts function arguments to Tensors.
-# This is what makes it possible for the user to use Python numbers in Tripy functions (e.g. `tensor + 1`)
-# In this case, we want `shape` to turn into a `tripy.Shape` instead of a regular `Tensor`.
-@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dim", "dtype"])
+# The `convert_shape_inputs` decorator converts the specified function arguments into `tripy.Shape`s rather than Tensors,
+# which would allow for using Python numbers and sequences. The `convert_inputs_to_tensors` decorator more generally converts
+# function arguments into Tripy tensors and is also commonly used in the codebase.
+@frontend_utils.convert_shape_inputs(["shape"])
 def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here

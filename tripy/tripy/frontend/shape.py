@@ -291,7 +291,7 @@ class Shape(Tensor):
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    @frontend_utils.convert_inputs_to_tensors(shape_argument=["other"])
+    @frontend_utils.convert_shape_inputs(["other"])
     def __eq__(self, other):
         from tripy.frontend.trace.ops.reduce import all
 
