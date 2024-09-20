@@ -79,7 +79,8 @@ def _add_column_info_for_non_tensor(
     else:
         # Fallback path is just to look at the user code
         frame_index = arg.stack_info.get_first_user_frame_index()
-        dispatch_target = arg.stack_info[frame_index - 1]._dispatch_target
+        if frame_index is not None:
+            dispatch_target = arg.stack_info[frame_index - 1]._dispatch_target
 
     source_info = arg.stack_info[frame_index]
 
