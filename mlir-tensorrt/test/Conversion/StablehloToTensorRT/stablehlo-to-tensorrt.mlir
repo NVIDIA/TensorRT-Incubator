@@ -1124,6 +1124,23 @@ func.func @hlo_pad_static(%arg0: tensor<10x48x48x32xf32>) -> tensor<10x48x48x48x
 
 // -----
 
+func.func @hlo_pad_static_low_high(%arg0: tensor<10x48x48x32xf32>) -> tensor<10x48x48x64xf32> {
+  %0 = "stablehlo.constant"() {value = dense<0.0> : tensor<f32>} : () -> tensor<f32>
+  %1 = "stablehlo.pad"(%arg0, %0) {
+    edge_padding_high = array<i64: 0, 0, 0, 16>,
+    edge_padding_low = array<i64: 0, 0, 0, 16>,
+    interior_padding = array<i64: 0, 0, 0, 0>
+  } : (tensor<10x48x48x32xf32>, tensor<f32>) -> tensor<10x48x48x64xf32>
+  func.return %1 : tensor<10x48x48x64xf32>
+}
+
+// CHECK-LABEL: @hlo_pad_static
+//  CHECK-SAME:  (%[[arg0:.+]]: tensor<10x48x48x32xf32>
+//       CHECK:  %[[fill:.+]] = tensorrt.constant dense<0.0{{.*}}> : tensor<f32>
+//       CHECK:  tensorrt.slice %[[arg0]][0, 0, 0, -16][10, 48, 48, 64][1, 1, 1, 1] fill(%[[fill]] : tensor<f32>) {mode = #tensorrt.slice_mode<kFILL>} : tensor<10x48x48x32xf32> to tensor<10x48x48x64xf32>
+
+// -----
+
 func.func @hlo_pad_dynamic_non_sliced_dim(%arg0: tensor<?x48x48x32xf32>) -> tensor<?x48x48x48xf32> {
   %0 = "stablehlo.constant"() {value = dense<0.0> : tensor<f32>} : () -> tensor<f32>
   %1 = "stablehlo.pad"(%arg0, %0) {
