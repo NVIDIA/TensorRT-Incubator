@@ -17,52 +17,34 @@
 
 import re
 
-from functools import lru_cache
-from typing import Sequence
-
-from tripy.utils import raise_error
-from tripy.backend.mlir import utils as mlir_utils
-from tripy.common import device as tp_device
-from tripy.common import utils as common_utils
-
 import mlir_tensorrt.runtime.api as runtime
 
+from tripy.backend.mlir import utils as mlir_utils
+from tripy.common import device as tp_device
+from tripy.utils import raise_error
 
-@lru_cache(maxsize=None)
-def _cached_create_empty_memref(shape: Sequence[int], dtype: str, device_kind: str, stream):
-    mlirtrt_device = mlir_utils.MLIRRuntimeClient().get_devices()[0] if device_kind == "gpu" else None
-    mlirtrt_stream = stream if device_kind == "gpu" else None
+
+def create_memref(shape, dtype, device=tp_device("gpu"), stream=None, array=None):
+    """
+    Creates a memref. If array is provided, it will be populated by the values
+    from the array. Otherwise, an empty memref is created.
+    """
     mlir_dtype = mlir_utils.convert_tripy_dtype_to_runtime_dtype(dtype)
-    return mlir_utils.MLIRRuntimeClient().create_memref(
-        shape=list(shape),
-        dtype=mlir_dtype,
-        device=mlirtrt_device,
-        stream=mlirtrt_stream,
-    )
 
+    args = []
 
-def create_empty_memref(
-    shape: Sequence[int],
-    dtype: str,
-    device: tp_device = tp_device(("gpu", 0)),
-    stream=None,
-    use_cache: bool = True,
-):
-    """
-    Creates an empty memref, used for allocating memory.
-    Caches the result for subsequent calls with the same parameters.
+    # "array" is marked as a positional-only argument
+    if array is not None:
+        args.append(array)
 
-    Args:
-        use_cache (bool, optional): Whether to use cached results for repeated calls with the same parameters.
-                                    If True, returns cached results if available. If False, always creates a new memref.
-                                    Defaults to True. This ensures we reuse empty memref across functions.
+    kwargs = {"shape": shape, "dtype": mlir_dtype}
 
-    """
-    if use_cache:
-        assert common_utils.is_shape_empty(shape)
-        return _cached_create_empty_memref(tuple(shape), dtype, device.kind, stream)
-    else:
-        return _cached_create_empty_memref.__wrapped__(tuple(shape), dtype, device.kind, stream)
+    if device.kind == "gpu":
+        kwargs["device"] = mlir_utils.MLIRRuntimeClient().get_devices()[device.index]
+        # Streams are only allowed for GPU allocations.
+        kwargs["stream"] = stream
+
+    return mlir_utils.MLIRRuntimeClient().create_memref(*args, **kwargs)
 
 
 def create_memref_view(data):

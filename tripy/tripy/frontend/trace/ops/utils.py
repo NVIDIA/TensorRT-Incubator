@@ -17,9 +17,24 @@
 
 from typing import Any, List, Optional, Sequence
 
-from tripy import utils
-from tripy.utils import Result
 import tripy.common.datatype as tp_dtype
+from tripy import utils
+from tripy.backend.mlir.memref import create_memref
+from tripy.common.datatype import bool as tp_bool
+from tripy.common.datatype import int32
+from tripy.common.device import device
+from tripy.common.exception import raise_error
+from tripy.flat_ir.ops import (
+    CompareOp,
+    ConcatenateOp,
+    ConstantOp,
+    DynamicReshapeOp,
+    DynamicSliceOp,
+    GetDimensionSizeOp,
+    SelectOp,
+)
+from tripy.flat_ir.tensor import FlatIRTensor
+from tripy.utils import Result
 
 
 # Utility for error messages in wrap_shape_inputs
@@ -100,10 +115,6 @@ class InferLenPolicies:
 
 
 def get_dim_size_1d_tensor(tensor: "FlatIRTensor", dim: int):
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import GetDimensionSizeOp
-    from tripy.flat_ir.tensor import FlatIRTensor
-
     # GetDimensionSizeOp returns a scalar
     dim_scalar = FlatIRTensor.build(
         shape=(),
@@ -119,11 +130,6 @@ def get_dim_size_1d_tensor(tensor: "FlatIRTensor", dim: int):
 
 
 def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
-    from tripy.backend.mlir.memref import create_empty_memref
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import ConstantOp
-    from tripy.flat_ir.tensor import FlatIRTensor
-
     if tensor.rank > 0:
         inp_rank = tensor.rank
         dim_sizes = [None] * inp_rank
@@ -146,18 +152,12 @@ def get_shape_of_tensor(tensor: "FlatIRTensor", out: "FlatIRTensor" = None):
         ConstantOp.build(
             [],
             [shape_output_tensor],
-            data=create_empty_memref(shape=(0,), dtype=int32, device=tensor.device),
+            data=create_memref(shape=(0,), dtype=int32, device=tensor.device),
         )
     return shape_output_tensor
 
 
 def add_constant_tensor_from_list(data: list, device: "tripy.device"):
-    from tripy.backend.mlir.memref import create_empty_memref
-    from tripy.common.datatype import int32
-    from tripy.common.device import device
-    from tripy.flat_ir.ops import ConstantOp
-    from tripy.flat_ir.tensor import FlatIRTensor
-
     const_output_tensor = FlatIRTensor.build(
         shape=[len(data)],
         rank=1,
@@ -166,16 +166,12 @@ def add_constant_tensor_from_list(data: list, device: "tripy.device"):
         reason_details=[f"create constant rank 1 int32 tensor filled with {data}."],
     )
     if not data:
-        data = create_empty_memref(shape=(0,), dtype=int32)
+        data = create_memref(shape=(0,), dtype=int32)
     ConstantOp.build([], [const_output_tensor], data=data)
     return const_output_tensor
 
 
-def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int, out: "FlatIRTensor" = None):
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import ConcatenateOp
-    from tripy.flat_ir.tensor import FlatIRTensor
-
+def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int, out: Optional["FlatIRTensor"] = None):
     if out is None:
         out = FlatIRTensor.build(
             rank=1,
@@ -192,10 +188,6 @@ def concatenate_tensors(inputs: List["FlatIRTensor"], dim: int, out: "FlatIRTens
 
 
 def reshape_scalar_to_1d(input: "FlatIRTensor"):
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import DynamicReshapeOp
-    from tripy.flat_ir.tensor import FlatIRTensor
-
     shape_1d = add_constant_tensor_from_list([1], input.device)
     out = FlatIRTensor.build(
         shape=(1,),
@@ -241,10 +233,6 @@ def is_broadcast_compatible(shape1, shape2) -> Result:
 def compute_shape_of_broadcast(
     shape1, shape2, output_rank: int, shape1_name: Optional[str] = None, shape2_name: Optional[str] = None
 ):
-    from tripy.common.datatype import bool as tp_bool
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import CompareOp, SelectOp
-    from tripy.flat_ir.tensor import FlatIRTensor
     from tripy.frontend.trace.ops.binary_elementwise import Comparison
 
     shape1_name = utils.default(shape1_name, "a tensor")
@@ -331,10 +319,6 @@ def insert_broadcast(
 
 # Expands rank of a tensor via prepending extra dims provided by nb_extra_dims.
 def expand_rank_of_tensor(input: "FlatIRTensor", nb_extra_dims: int):
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import ConcatenateOp
-    from tripy.flat_ir.tensor import FlatIRTensor
-
     if nb_extra_dims == 0:
         return input
 
@@ -376,9 +360,6 @@ def slice_rank1_tensor(rank1_tensor: "FlatIRTensor", slice_index: int, reason_de
     Slice a rank 1 tensor tensor along a certain index.
     Ex: tensor [1,2,3,4,5,6] sliced at slice_index 2 will return 3.
     """
-    from tripy.common.datatype import int32
-    from tripy.flat_ir.ops import DynamicSliceOp
-    from tripy.flat_ir.tensor import FlatIRTensor
 
     device = rank1_tensor.device
     start_idx = add_constant_tensor_from_list([slice_index], device)
@@ -411,10 +392,6 @@ def is_quantizable_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
 
 
 def get_clamp_min_max(element_dtype, quant_dtype):
-    from tripy.common.device import device
-    from tripy.flat_ir.tensor import FlatIRTensor
-    from tripy.flat_ir.ops import ConstantOp
-
     QUANT_CLAMP_MIN_MAX = {
         tp_dtype.int8: (-128.0, 127.0),
         tp_dtype.int4: (-8.0, 7.0),
@@ -441,8 +418,6 @@ def get_clamp_min_max(element_dtype, quant_dtype):
 
 
 def check_qdq_args(input, scale, dtype, dim, is_quantize):
-    from tripy.common.exception import raise_error
-
     valid_input_dtypes = QUANTIZABLE_DTYPES if is_quantize else QUANTIZED_DTYPES
     valid_target_dtypes = QUANTIZED_DTYPES if is_quantize else QUANTIZABLE_DTYPES
     op_str = "quantize op" if is_quantize else "dequantize op"
@@ -503,8 +478,6 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
 ## Conv & Pooling
 ##
 def check_conv_pooling_args(kernel_dims, stride, padding, dilation=None):
-    from tripy.common.exception import raise_error
-
     spatial_dims = len(kernel_dims)
 
     if stride is not None:
