@@ -19,7 +19,7 @@ import cupy as cp
 import numpy as np
 
 import tripy as tp
-from tripy.frontend.utils import convert_inputs_to_tensors
+from tripy.frontend.utils import convert_inputs_to_tensors, convert_shape_inputs
 from tests import helper
 
 
@@ -78,9 +78,14 @@ def sync_list_types(xs, ys):
     return xs, ys
 
 
-@convert_inputs_to_tensors(shape_argument=["s"])
+@convert_shape_inputs(["s"])
 def convert_shape(s):
     return s
+
+
+@convert_shape_inputs(["s"])
+def ignore_not_named(s, t):
+    return (s, t)
 
 
 class TestConvertInputsToTensors:
@@ -170,6 +175,12 @@ class TestConvertInputsToTensors:
         s = convert_shape([t1, t2])
         assert isinstance(s, tp.Shape)
         assert cp.from_dlpack(s).get().tolist() == [1, 2]
+
+    def test_convert_only_named_argument_to_shape(self):
+        t1 = tp.Tensor([1, 2, 3], dtype=tp.int32)
+        s, t2 = ignore_not_named(t1, [4, 5, 6])
+        assert isinstance(s, tp.Shape)
+        assert t2 == [4, 5, 6]
 
     # When we convert arguments to tensors, we should preserve the column range
     # of the original non-Tensor argument.

@@ -92,7 +92,7 @@ class Fill(BaseTraceOp):
         )
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
+@frontend_utils.convert_shape_inputs(["shape"])
 def full_impl(
     shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
     value: Union[numbers.Number, "tripy.Tensor"],

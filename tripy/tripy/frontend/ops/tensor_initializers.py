@@ -28,7 +28,7 @@ from tripy.frontend import utils as frontend_utils
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
+@frontend_utils.convert_shape_inputs(["shape"])
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
@@ -64,7 +64,7 @@ def ones(
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
+@frontend_utils.convert_shape_inputs(["shape"])
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["int32"],
