@@ -21,7 +21,7 @@
 from typing import Optional, Tuple, Type
 
 import tripy as tp
-from sam2.modeling.positional_encoding import PositionEmbeddingRandom
+from sam2.modeling.position_encoding import PositionEmbeddingRandom
 from sam2.modeling.sam2_utils import LayerNorm2d
 
 
@@ -149,7 +149,8 @@ class PromptEncoder(tp.Module):
 
     def forward(
         self,
-        points: Optional[Tuple[tp.Tensor, tp.Tensor]],
+        points_x: Optional[tp.Tensor],
+        points_y: Optional[tp.Tensor],
         boxes: Optional[tp.Tensor],
         masks: Optional[tp.Tensor],
     ) -> Tuple[tp.Tensor, tp.Tensor]:
@@ -170,6 +171,7 @@ class PromptEncoder(tp.Module):
           tp.Tensor: dense embeddings for the masks, in the shape
             Bx(embed_dim)x(embed_H)x(embed_W)
         """
+        points = (points_x, points_y)
         bs = self._get_batch_size(points, boxes, masks)
         sparse_embeddings = tp.zeros((bs, 0, self.embed_dim))
         if points is not None:

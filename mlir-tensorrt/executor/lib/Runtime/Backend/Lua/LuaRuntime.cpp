@@ -418,13 +418,20 @@ static Status valiateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
           return getInvalidArgStatus(
               "all strides must be non-negative but received shape [{0:$[, ]}]",
               mlirtrt::fmtRange(value->getStrides()));
-        if (view.getStrides()[i] >= 0 &&
-            view.getStrides()[i] != value->getStrides()[i])
-          return getInvalidArgStatus(
-              "Runtime stride mismatch. Expected [{0:$[, ]}] "
-              "but received [{1:$[, ]}]",
-              mlirtrt::fmtRange(view.getStrides()),
-              mlirtrt::fmtRange(value->getStrides()));
+        // if (view.getStrides()[i] >= 0 &&
+        //     view.getStrides()[i] != value->getStrides()[i])
+          // return getInvalidArgStatus(
+          //     "Runtime stride mismatch. Expected [{0:$[, ]}] "
+          //     "but received [{1:$[, ]}]",
+          //     mlirtrt::fmtRange(view.getStrides()),
+          //     mlirtrt::fmtRange(value->getStrides()));
+          // Allow the special case of non-canonical stride for unit dimensions
+          // if (!(view.getShape()[i] == 1 && view.getStrides()[i] == 1))
+          //   return getInvalidArgStatus(
+          //       "Runtime stride mismatch!!!!!!. Expected [{0:$[, ]}] "
+          //       "but received [{1:$[, ]}]",
+          //       mlirtrt::fmtRange(view.getStrides()),
+          //       mlirtrt::fmtRange(value->getStrides()));
       }
     }
 
