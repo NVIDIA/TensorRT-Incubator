@@ -3463,7 +3463,8 @@ def TensorRT_ReshapeOp : TensorRT_Op<"reshape",
 //===----------------------------------------------------------------------===//
 
 def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
- TensorRTPartiallyInferTensorResultTypes]>{
+        TensorRTPartiallyInferTensorResultTypes,
+        DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>]>{
   let summary = "TensorRT Resize(IResizeLayer with NEAREST mode) operation";
   let description = [{
 
@@ -3541,7 +3542,8 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
 //===----------------------------------------------------------------------===//
 
 def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
- TensorRTPartiallyInferTensorResultTypes]>{
+        TensorRTPartiallyInferTensorResultTypes,
+        DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>]>{
   let summary = "TensorRT Resize(IResizeLayer with LINEAR mode) operation";
   let description = [{
 
@@ -3608,7 +3610,8 @@ def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
 //===----------------------------------------------------------------------===//
 
 def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
- TensorRTPartiallyInferTensorResultTypes]>{
+        TensorRTPartiallyInferTensorResultTypes,
+        DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>]>{
   let summary = "TensorRT Resize(IResizeLayer with CUBIC mode) operation";
   let description = [{
 
