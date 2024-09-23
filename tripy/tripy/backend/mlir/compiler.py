@@ -83,10 +83,7 @@ class Compiler:
         with self.mlir_context:
             module = ir.Module.parse(code)
             opts = self._make_mlir_opts(self.trt_builder_opt_level)
-            out = compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
-            # TODO: Debug:
-            print(opts)
-            return out
+            return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
 
     @utils.log_time
     def infer_shapes(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None):
@@ -118,36 +115,17 @@ class Compiler:
             for name in trace_outputs:
                 if name in flat_ir.tensor_map:
                     tensor = flat_ir.tensor_map[name]
-                    # TODO: Decide what to use here:
                     return _make_stack_info_message(tensor.stack_info, enable_color=False)
-                    return ""
-                    user_frame_index = tensor.stack_info.get_first_user_frame_index()
-                    last_tp_frame = tensor.stack_info[user_frame_index - 1]
-                    return (
-                        last_tp_frame._dispatch_target
-                        or f"{last_tp_frame.file}:{last_tp_frame.line} in {last_tp_frame.function}"
-                    ) + "()"
 
             return str(op.name)
 
-        # TODO: Remove this debug code:
-        def _layer_meta_callback(op):
-            out = layer_metadata_callback(op)
-            # print(out)
-            return out
-
-        # opts = self._make_mlir_opts(self.trt_builder_opt_level, _layer_meta_callback)
         opts = self._make_mlir_opts(self.trt_builder_opt_level, layer_metadata_callback)
-        # ================= 1764 passed, 53 skipped, 2842 deselected in 71.40s (0:01:11) =================
-        # opts = self._make_mlir_opts(self.trt_builder_opt_level)
 
         try:
             with redirect_stderr() as outfile:
                 executable = compiler.compiler_stablehlo_to_executable(
                     self.compiler_client, mlir_module.operation, opts
                 )
-            # TODO: Debug:
-            print(opts)
         except Exception as exc:
             outfile.flush()
             outfile.seek(0)
