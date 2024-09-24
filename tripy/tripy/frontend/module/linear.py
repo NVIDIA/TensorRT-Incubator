@@ -92,14 +92,14 @@ class Linear(Module):
         # Replace with random weights when #74 is completed.
         self.weight = DefaultParameter((out_features, in_features), dtype=dtype)
 
+        self.bias = None
         if bias:
             self.bias = DefaultParameter((out_features,), dtype=dtype)
 
         self.quant_dtype = quant_dtype
         self.weight_quant_dim = weight_quant_dim
-        if quant_dtype is not None:
-            self.weight_scale = None
-            self.input_scale = None
+        self.weight_scale = None
+        self.input_scale = None
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
@@ -136,7 +136,7 @@ class Linear(Module):
             weight = self.weight
 
         out = x @ (transpose(weight, 1, 0))
-        if hasattr(self, "bias"):
+        if self.bias is not None:
             out = out + unsqueeze(self.bias, 0)
 
         return out

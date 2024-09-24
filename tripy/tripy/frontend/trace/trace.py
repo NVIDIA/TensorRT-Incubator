@@ -20,7 +20,6 @@ from typing import List, Sequence, Set
 
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
-from tripy.frontend.trace.ops import BaseTraceOp
 from tripy.frontend.trace.tensor import TraceTensor
 from tripy.frontend.utils import topological_sort
 from tripy.logging import logger
@@ -56,7 +55,7 @@ class Trace:
             shapes: The shape profile, consisting of min, opt, and max shapes for each input tensors.
                     Must be in the same order as `inputs`.
         """
-        self.ops: List[BaseTraceOp] = []
+        self.ops: List["BaseTraceOp"] = []
         self.inputs: List[TraceTensor] = [inp.trace_tensor for inp in inputs]
         self.outputs: List[TraceTensor] = [tensor.trace_tensor for tensor in tensors]
         self.shapes = shapes

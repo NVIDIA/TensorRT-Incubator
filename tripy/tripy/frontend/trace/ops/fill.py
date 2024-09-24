@@ -20,12 +20,11 @@ from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import export, utils, constraints
+import tripy.frontend.utils as frontend_utils
+from tripy import constraints, export, utils
 from tripy.common import datatype
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
