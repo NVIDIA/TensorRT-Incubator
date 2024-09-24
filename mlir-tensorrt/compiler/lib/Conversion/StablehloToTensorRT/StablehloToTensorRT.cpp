@@ -2248,7 +2248,7 @@ struct PadConverter : public ConvertHloOpToTensorRTPattern<stablehlo::PadOp> {
       rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
           op,
           /*input=*/adaptor.getOperand(),
-          /*offset=*/*edgePaddingLow,
+          /*offset=*/sliceOffset,
           /*size=*/size,
           /*stride=*/stride,
           /*slice_mode=*/tensorrt::SliceMode::kFILL,
