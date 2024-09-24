@@ -31,6 +31,7 @@ from tripy.frontend.trace.ops.permute import Permute, Transpose
 from tripy.frontend.trace.ops.plugin import Plugin
 from tripy.frontend.trace.ops.quantize import Quantize
 from tripy.frontend.trace.ops.reduce import ArgMinMax, Reduce
+from tripy.frontend.trace.ops.resize import Resize
 from tripy.frontend.trace.ops.reshape import Reshape, Squeeze
 from tripy.frontend.trace.ops.shape import Shape
 from tripy.frontend.trace.ops.slice import Slice
