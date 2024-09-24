@@ -20,10 +20,48 @@ import torch
 
 import tripy as tp
 
+
+class TestResize:
+
+    @pytest.mark.parametrize("mode", ["nearest", "linear", "cubic"])
+    def test_scales(self, mode):
+        inp_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4))
+        inp_tp = tp.Tensor(inp_torch)
+        out_tp = tp.resize(inp_tp, mode, scales=(1, 1, 2, 2))
+        torch_mode = {
+            "nearest": "nearest",
+            "linear": "bilinear",
+            "cubic": "bicubic",
+        }[mode]
+        expected = torch.nn.functional.interpolate(inp_torch, scale_factor=2, mode=torch_mode)
+        out_torch = torch.from_dlpack(out_tp).to("cpu")
+        assert expected.shape == out_tp.shape
+        assert torch.allclose(out_torch, expected)
+
+    @pytest.mark.parametrize("mode", ["nearest", "linear", "cubic"])
+    def test_output_shape(self, mode):
+        inp_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4))
+        inp_tp = tp.Tensor(inp_torch)
+        out_tp = tp.resize(inp_tp, mode, output_shape=[1, 1, 8, 8])
+        torch_mode = {
+            "nearest": "nearest",
+            "linear": "bilinear",
+            "cubic": "bicubic",
+        }[mode]
+        expected = torch.nn.functional.interpolate(inp_torch, size=[8, 8], mode=torch_mode)
+        out_torch = torch.from_dlpack(out_tp).to("cpu")
+        assert expected.shape == out_tp.shape
+        assert torch.allclose(out_torch, expected)
+
+
 from tripy.logging import logger
 
 logger.verbosity = "ir"
 
-inp_tp = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
-out = tp.resize(inp_tp, "nearest", [1, 1, 2, 2])
+inp_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4))
+inp_tp = tp.Tensor(inp_torch)
+ones = tp.ones((1, 1, 8, 8))
+out = tp.resize(inp_tp, "linear", output_shape=ones.shape)
+# out = tp.resize(inp_tp, "linear", scales=[1, 1, 2, 2])
+out = out + out
 print(out)

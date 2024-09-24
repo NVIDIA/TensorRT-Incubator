@@ -20,6 +20,7 @@ from typing import Sequence, Union
 
 from tripy import export, constraints
 from tripy.common.exception import raise_error
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -42,12 +43,16 @@ class Resize(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ResizeCubicOp, ResizeLinearOp, ResizeNearestOp
 
+        # set output_shape's shape
+        # because MLIR requires a static shaped operand
+        inputs[1].shape = (inputs[0].rank,)
+
         if self.mode == "nearest":
-            ResizeNearestOp.build(inputs, outputs, self.scales)
+            ResizeNearestOp.build(inputs, outputs)
         elif self.mode == "cubic":
-            ResizeCubicOp.build(inputs, outputs, self.scales, self.align_corners)
+            ResizeCubicOp.build(inputs, outputs, self.align_corners, -0.75)
         else:
-            ResizeLinearOp.build(inputs, outputs, self.scales, self.align_corners)
+            ResizeLinearOp.build(inputs, outputs, self.align_corners)
 
 
 @export.public_api(document_under="operations/functions")
@@ -57,10 +62,12 @@ class Resize(BaseTraceOp):
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
+@frontend_utils.convert_shape_inputs(["output_shape"])
 def resize(
     input: "tripy.Tensor",
     mode: str,
-    scales: Sequence[Union[int, float]],
+    output_shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]] = None,
+    scales: Sequence[Union[int, float]] = None,
     align_corners: bool = False,
 ) -> "tripy.Tensor":
     r"""
@@ -69,8 +76,10 @@ def resize(
     Args:
         input: The input tensor.
         mode: The resize operation's algorithm. Must be one of "cubic, linear, nearest".
+        output_shape: The output shape of the resize operation.
         scales: A sequence of scale factors for each dimension. Must have
-            the same length as input tensor's rank.
+            the same length as input tensor's rank. Will be ignored if ``output_shape`` is
+            given.
         align_corners: If set to ``True``, the input and output tensors are aligned by the
             center points of their corner pixels, preserving the values at the corner pixels.
             If set to ``False``, the input and output tensors are aligned by the corner points of
@@ -91,10 +100,24 @@ def resize(
 
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
+    from tripy.common.datatype import int32, float32
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.frontend.tensor import Tensor
+
     supported_modes = ("cubic", "linear", "nearest")
     if mode not in supported_modes:
         raise_error(
             "Unsupported resize mode.",
             [f"Supported modes are {supported_modes}, but got {mode}."],
         )
-    return Resize.build([input], mode, scales, align_corners)
+    if output_shape is None and scales is None:
+        raise_error("One of `output_shape` and `scale` must be given.")
+
+    inputs = [input]
+    if output_shape is None:
+        # construct output_shape using scales
+        input_shape = input.shape
+        scales_tensor = Tensor(scales, dtype=float32)
+        output_shape = cast(cast(input_shape, float32) * scales_tensor, int32)
+    inputs.append(output_shape)
+    return Resize.build(inputs, mode, scales, align_corners)

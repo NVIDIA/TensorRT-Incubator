@@ -175,7 +175,7 @@ The Tripy container includes a build of MLIR-TensorRT, but in some cases, you ma
 
     For example, to install Python 3.10.12 wheels compatible with TensorRT 10.1+, run:
     ```bash
-    python3 -m pip install --force-reinstall /mlir-tensorrt/build/mlir-tensorrt/wheels/python3.10.12/trt101/**/*.whl
+    python3 -m pip install --force-reinstall /mlir-tensorrt/build/wheels/python3.10.12/trt102/**/*.whl
     ```
 
 4. Verify everything works:

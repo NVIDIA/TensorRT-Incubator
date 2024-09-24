@@ -27,11 +27,8 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 @dataclass(repr=False)
 class ResizeNearestOp(BaseFlatIROp):
 
-    scales: Sequence[int]
-
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
-        scales_attr = ir.DenseF32ArrayAttr.get(self.scales)
         coord_trans_attr = tensorrt.ResizeCoordinateTransformationAttr.get("kASYMMETRIC")
         rounding_mode_attr = tensorrt.ResizeRoundModeAttr.get("kFLOOR")
         selector_attr = tensorrt.ResizeSelectorAttr.get("kFORMULA")
@@ -42,7 +39,7 @@ class ResizeNearestOp(BaseFlatIROp):
                 coord_trans_attr,
                 rounding_mode_attr,
                 selector_attr,
-                scales=scales_attr,
+                output_shape=operands[1],
             )
         ]
 
@@ -50,12 +47,10 @@ class ResizeNearestOp(BaseFlatIROp):
 @dataclass(repr=False)
 class ResizeLinearOp(BaseFlatIROp):
 
-    scales: Sequence[int]
     align_corners: bool
 
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
-        scales_attr = ir.DenseF32ArrayAttr.get(self.scales)
         coord_trans = "kALIGN_CORNERS" if self.align_corners else "kHALF_PIXEL"
         coord_trans_attr = tensorrt.ResizeCoordinateTransformationAttr.get(coord_trans)
         selector_attr = tensorrt.ResizeSelectorAttr.get("kFORMULA")
@@ -65,7 +60,7 @@ class ResizeLinearOp(BaseFlatIROp):
                 operands[0],
                 coord_trans_attr,
                 selector_attr,
-                scales=scales_attr,
+                output_shape=operands[1],
             )
         ]
 
@@ -73,16 +68,15 @@ class ResizeLinearOp(BaseFlatIROp):
 @dataclass(repr=False)
 class ResizeCubicOp(BaseFlatIROp):
 
-    scales: Sequence[int]
     align_corners: bool
+    cubic_coeff: float
 
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
-        scales_attr = ir.DenseF32ArrayAttr.get(self.scales)
         coord_trans = "kALIGN_CORNERS" if self.align_corners else "kHALF_PIXEL"
         coord_trans_attr = tensorrt.ResizeCoordinateTransformationAttr.get(coord_trans)
         selector_attr = tensorrt.ResizeSelectorAttr.get("kFORMULA")
-        cubic_coeff_attr = ir.FloatAttr.get(ir.F32Type.get(), -0.75)
+        cubic_coeff_attr = ir.FloatAttr.get(ir.F32Type.get(), self.cubic_coeff)
         return [
             tensorrt.resize_cubic(
                 out_type,
@@ -90,6 +84,6 @@ class ResizeCubicOp(BaseFlatIROp):
                 coord_trans_attr,
                 selector_attr,
                 cubic_coeff_attr,
-                scales=scales_attr,
+                output_shape=operands[1],
             )
         ]
