@@ -24,13 +24,13 @@ from tripy.backend.mlir.memref import create_empty_memref
 from tripy.backend.utils import TensorInfo
 from tripy.common import datatype, device
 from tripy.common.exception import raise_error
-from tripy.utils import log_time, make_tuple
+from tripy.utils import make_tuple
 
 
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
-        from tripy.backend.mlir.utils import MLIRRuntimeClient
         from tripy.backend.api.stream import default_stream
+        from tripy.backend.mlir.utils import MLIRRuntimeClient
 
         self.runtime_client = MLIRRuntimeClient()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
@@ -138,21 +138,9 @@ class Executor:
         output_tensor_info = self._get_output_tensor_info(outputs_shape, output_devices)
         return output_tensor_info
 
-    @property
-    def stream(self):
-        return self._stream
-
-    @stream.setter
-    def stream(self, stream):
-        self._stream = stream
-
-    @log_time
-    def execute(self, output_devices=List[device], inputs: List["Tensor"] = []) -> List[runtime.MemRefValue]:
-        from tripy.frontend.trace.ops import Storage
-
+    def execute(self, output_devices: List[device], inputs: List["Tensor"] = []) -> List[runtime.MemRefValue]:
         in_args = []
         for inp in inputs:
-            assert isinstance(inp.trace_tensor.producer, Storage) and inp.trace_tensor.producer.has_memref
             memref = inp.trace_tensor.producer.data
             # HACK (#155): MLIR-TensorRT requires inputs to be on device.
             # Remove explicit copy to device once #155 is addressed.

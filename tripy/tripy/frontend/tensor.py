@@ -191,7 +191,7 @@ class Tensor(metaclass=TensorMeta):
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
         data = executor.execute([out.device for out in flat_ir.outputs])
-        executor._stream.synchronize()
+        executor.stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
         # Data is present now. Assign the underlying device type.

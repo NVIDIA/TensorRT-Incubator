@@ -10,15 +10,20 @@ The `tests/integration` directory captures the latter group of tests.
 
 You can run all tests locally in the development container by running:
 ```bash
-pytest tests/ -v
+pytest tests/ -v -n 4 --dist worksteal --ignore tests/performance
+pytest tests/performance -v
 ```
+
+Performance tests are run separately because they must run serially to ensure
+accurate measurements.
 
 You can also provide marker arguments to only run specific test cadences
 (see [the test cadence section](#test-cadence) below). For example, to run only
 L0 tests, use:
 
 ```bash
-pytest tests/ -v -m "not l1 and not manual" -n 4
+pytest tests/ -v -m "not l1 and not manual" -n 4 --dist worksteal --ignore tests/performance
+pytest tests/performance -v -m "not l1 and not manual"
 ```
 
 
@@ -56,7 +61,7 @@ http://localhost:8080/snakeviz/%2Ftripy%2Fprof%2Fcombined.prof
 You can generate code coverage reports locally by running:
 
 ```bash
-pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -n 4 -v
+pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
 ```
 
 To view the report, open the `htmlcov/index.html` file from the root directory in a browser.

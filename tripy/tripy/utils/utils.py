@@ -69,9 +69,10 @@ def log_time(func):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        start_time = time.time()
+        start = time.perf_counter()
         result = func(*args, **kwargs)
-        logger.timing(f"{func.__name__} executed in {time.time() - start_time:.4f} seconds")
+        end = time.perf_counter()
+        logger.timing(f"{func.__name__} executed in {end - start:.4f} seconds")
         return result
 
     return wrapper

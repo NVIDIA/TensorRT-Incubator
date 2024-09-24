@@ -12,8 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from tripy.backend.api.stream import default_stream
-from tripy.backend.api.input_info import ArgInfo
 import base64
 import inspect
 from typing import Sequence, Union
@@ -21,6 +19,7 @@ from typing import Sequence, Union
 import mlir_tensorrt.runtime.api as runtime
 
 from tripy import export
+from tripy.backend.api.input_info import ArgInfo
 from tripy.backend.mlir import Executor
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.exception import raise_error
@@ -44,7 +43,6 @@ class Executable:
         self._arg_names = arg_names
         self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
-        self._stream = default_stream()
 
         # Build a signature so the executable works with `inspect.signature`
         params = []
@@ -57,12 +55,11 @@ class Executable:
 
     @property
     def stream(self):
-        return self._stream
+        return self._executor.stream
 
     @stream.setter
     def stream(self, stream):
-        self._stream = stream
-        self._executor.stream = self._stream
+        self._executor.stream = stream
 
     def __call__(self, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         """
@@ -94,7 +91,6 @@ class Executable:
         NUM_ARGS = len(args) + len(kwargs)
 
         input_tensors = []
-
         input_tensors.extend(args)
         # Need to get arguments in the order of self._arg_names, which may be different from kwargs ordering.
         expected_kwargs = self._arg_names[len(args) :]

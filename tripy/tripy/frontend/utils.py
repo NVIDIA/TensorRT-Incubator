@@ -23,9 +23,8 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 from tripy import utils
 from tripy.common.exception import raise_error
-from tripy.flat_ir.ops import BaseFlatIROp
 from tripy.flat_ir.function import FlatIRFunction
-from tripy.frontend.trace.ops import BaseTraceOp
+from tripy.flat_ir.ops import BaseFlatIROp
 
 
 # Try to include correct column offsets for non-tensor arguments.
@@ -40,8 +39,8 @@ def _add_column_info_for_non_tensor(
     list_index=None,
     TensorType=None,
 ):
-    from tripy.frontend.tensor import Tensor
     from tripy.frontend.shape import Shape
+    from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.cast import cast
 
     TensorType = utils.default(TensorType, Tensor)
@@ -241,8 +240,8 @@ def convert_inputs_to_tensors(
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            from tripy.frontend.tensor import Tensor
             from tripy.frontend.shape import Shape, ShapeScalar
+            from tripy.frontend.tensor import Tensor
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
 
@@ -464,6 +463,7 @@ def make_function(func):
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
         from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.frontend.trace.ops.base import BaseTraceOp
 
         # Determine if this is a method or a free function.
         is_method = inspect.ismethod(func) or (inspect.isfunction(func) and args and isinstance(args[0], BaseTraceOp))
@@ -565,7 +565,7 @@ def make_function(func):
     return wrapped
 
 
-def topological_sort(ops: List[Union[BaseTraceOp, BaseFlatIROp]]) -> List[Union[BaseTraceOp, BaseFlatIROp]]:
+def topological_sort(ops: List[Union["BaseTraceOp", BaseFlatIROp]]) -> List[Union["BaseTraceOp", BaseFlatIROp]]:
     """
     This utility to topologically sort a graph that can be a Trace or a FlatIR graph.
     """

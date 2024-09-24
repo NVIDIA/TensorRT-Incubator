@@ -105,10 +105,6 @@ class Stream:
     def __eq__(self, other):
         if not isinstance(other, Stream):
             return False
-
-        if not (hasattr(self, "_active_cuda_stream") and hasattr(other, "_active_cuda_stream")):
-            return False
-
         return self._active_cuda_stream == other._active_cuda_stream
 
     def __str__(self):

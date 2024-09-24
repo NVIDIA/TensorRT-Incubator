@@ -28,9 +28,7 @@ class InputInfo:
     Captures information about an input to a compiled function.
     """
 
-    def __init__(
-        self, shape: Sequence[Union[int, Tuple[int], Tuple[int, int], Tuple[int, int, int]]], dtype: "tripy.dtype"
-    ) -> None:
+    def __init__(self, shape: Sequence[Union[int, Tuple[int, int, int]]], dtype: "tripy.dtype") -> None:
         """
         Args:
             shape: The shape of the input.

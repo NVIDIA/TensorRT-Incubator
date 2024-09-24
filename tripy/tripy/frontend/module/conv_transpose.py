@@ -238,7 +238,7 @@ class ConvTranspose(ConvBase):
             self.stride,  # effectively lhs_dilation for StableHLO
             self.dilation,
         )
-        if hasattr(self, "bias"):
+        if self.bias is not None:
             bias_shape_to_broadcast = (1, weight.shape[0]) + (1,) * (rank - 2)
             x += reshape(self.bias, bias_shape_to_broadcast)
         return x
