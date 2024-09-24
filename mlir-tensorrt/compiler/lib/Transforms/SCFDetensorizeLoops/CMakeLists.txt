@@ -3,7 +3,9 @@ add_mlir_tensorrt_library(MLIRTensorRTSCFDetensorizeLoops
 
   LINK_LIBS PUBLIC
   MLIRIR
+  MLIRPass
   MLIRSCFDialect
   MLIRTensorDialect
   MLIRTensorRTAnalysis
+  MLIRTransformUtils
 )

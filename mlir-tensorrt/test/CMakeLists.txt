@@ -55,3 +55,8 @@ add_lit_testsuites(MLIR_TENSORRT ${CMAKE_CURRENT_SOURCE_DIR} DEPENDS ${MLIR_TENS
 add_custom_target(check-mlir-tensorrt-build-only
   DEPENDS ${MLIR_TENSORRT_TEST_DEPENDS_}
 )
+
+if(TARGET check-all-mlir-tensorrt)
+  add_dependencies(check-all-mlir-tensorrt check-mlir-tensorrt)
+  add_dependencies(check-all-mlir-tensorrt-build-only check-mlir-tensorrt-build-only)
+endif()

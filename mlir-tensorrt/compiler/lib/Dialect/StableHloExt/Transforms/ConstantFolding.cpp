@@ -542,6 +542,79 @@ struct ConstFoldCompare : public OpRewritePattern<stablehlo::CompareOp> {
   }
 };
 
+/// Perform constant folding for 'stablehlo.div'. Note that this only handles
+/// floating-point element types since the upstream folder handles integer
+/// element types.
+struct ConstFoldDiv : public OpRewritePattern<stablehlo::DivOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(stablehlo::DivOp op,
+                                PatternRewriter &rewriter) const override {
+    DenseFPElementsAttr lhsAttr{}, rhsAttr{};
+    if (!matchPattern(op.getLhs(), m_Constant(&lhsAttr)) ||
+        !matchPattern(op.getRhs(), m_Constant(&rhsAttr)) ||
+        exceedsSizeLimit(lhsAttr, rhsAttr))
+      return failure();
+
+    DenseFPElementsAttr result = llvm::dyn_cast_if_present<DenseFPElementsAttr>(
+        constFoldBinaryOp<FloatAttr>(
+            {lhsAttr, rhsAttr},
+            [](const APFloat &a, const APFloat &b) { return a / b; }));
+    if (!result)
+      return failure();
+    return replaceOpWithNewOpAndMaybeCast<ConstantOp>(rewriter, op, result);
+  }
+};
+
+/// Perform constant folding for 'stablehlo.floor' (round toward negative
+/// infinity).
+struct ConstFoldFloor : public OpRewritePattern<stablehlo::FloorOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(stablehlo::FloorOp op,
+                                PatternRewriter &rewriter) const override {
+    DenseFPElementsAttr operandAttr{};
+    if (!matchPattern(op.getOperand(), m_Constant(&operandAttr)) ||
+        exceedsSizeLimit(operandAttr))
+      return failure();
+
+    DenseFPElementsAttr result = llvm::dyn_cast_if_present<DenseFPElementsAttr>(
+        constFoldUnaryOp<FloatAttr>({operandAttr}, [](const APFloat &a) {
+          APFloat result(a);
+          result.roundToIntegral(llvm::RoundingMode::TowardNegative);
+          return result;
+        }));
+    if (!result)
+      return failure();
+
+    return replaceOpWithNewOpAndMaybeCast<ConstantOp>(rewriter, op, result);
+  }
+};
+
+/// Perform constant folding for 'stablehlo.sub'. Note that this only handles
+/// floating-point element types since the upstream folder handles integer
+/// element types.
+struct ConstFoldSub : public OpRewritePattern<stablehlo::SubtractOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(stablehlo::SubtractOp op,
+                                PatternRewriter &rewriter) const override {
+    DenseFPElementsAttr lhsAttr{}, rhsAttr{};
+    if (!matchPattern(op.getLhs(), m_Constant(&lhsAttr)) ||
+        !matchPattern(op.getRhs(), m_Constant(&rhsAttr)) ||
+        exceedsSizeLimit(lhsAttr, rhsAttr))
+      return failure();
+
+    DenseFPElementsAttr result = llvm::dyn_cast_if_present<DenseFPElementsAttr>(
+        constFoldBinaryOp<FloatAttr>(
+            {lhsAttr, rhsAttr},
+            [](const APFloat &a, const APFloat &b) { return a - b; }));
+    if (!result)
+      return failure();
+    return replaceOpWithNewOpAndMaybeCast<ConstantOp>(rewriter, op, result);
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // IotaOp
 //===----------------------------------------------------------------------===//
@@ -907,14 +980,16 @@ public:
     patterns.insert<
         AbsorbTensorCastProducer<ConcatenateOp>,
         BroadcastInDimOpCanon,
-        CombineConsecutiveTranspose,
         CanonicalizeIotaToUnitRank,
+        CombineConsecutiveTranspose,
+        ConcatDropEmptySegments,
         ConcatSingleSegment,
         ConstFoldCompare,
         ConstFoldConvert,
-        ConcatDropEmptySegments,
+        ConstFoldDiv,
+        ConstFoldFloor,
         ConstFoldReshape,
-        SimplifyReshapeBroadcastInDimReshape,
+        ConstFoldSub,
         ConstFoldStablehloSlice,
         ConstFoldTranspose,
         EliminateCascadedConverts,
@@ -922,6 +997,7 @@ public:
         FoldAndOp,
         FoldOrOp,
         RsqrtFolder,
+        SimplifyReshapeBroadcastInDimReshape,
         SimplifyTrivialMinOrTrivalMax<MaxOp>,
         SimplifyTrivialMinOrTrivalMax<MinOp>,
         SimplifyTrivialSlice,

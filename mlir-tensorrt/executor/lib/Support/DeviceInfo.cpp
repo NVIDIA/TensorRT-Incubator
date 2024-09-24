@@ -18,11 +18,13 @@
 //
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Support/DeviceInfo.h"
-#include "cuda_runtime_api.h"
+#include "mlir-executor/Support/CUDAWrappers.h"
+#include "mlir-executor/Support/Status.h"
 
 using namespace mlirtrt;
 
 StatusOr<DeviceInfo> mlirtrt::getDeviceInformationFromHost() {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   cudaDeviceProp properties;
   cudaError_t err = cudaGetDeviceProperties(&properties, 0);
   if (err != cudaSuccess)
@@ -48,4 +50,8 @@ StatusOr<DeviceInfo> mlirtrt::getDeviceInformationFromHost() {
   info.computeCapability = smVersion;
   info.maxSharedMemoryPerBlockKb = properties.sharedMemPerBlock / 1024;
   return info;
+#else
+  return getInternalErrorStatus(
+      "MLIR-Executor was not built with CUDA support");
+#endif
 }

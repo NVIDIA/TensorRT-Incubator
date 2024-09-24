@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Lua/Modules/NCCL/NcclModule.h"
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 

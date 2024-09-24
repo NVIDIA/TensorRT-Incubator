@@ -23,7 +23,6 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Conversion/StablehloScalarToArith/StablehloScalarToArith.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/IRMapping.h"
@@ -32,7 +31,6 @@
 #include "mlir/Transforms/OneToNTypeConversion.h"
 #include "stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h"
 #include "stablehlo/dialect/StablehloOps.h"
-#include "stablehlo/reference/Api.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_CONVERTSTABLEHLOSCALARTOARITHPASS
@@ -50,23 +48,23 @@ struct StablehloScalarToArith : public OneToNOpConversionPattern<OpTy> {
   matchAndRewrite(OpTy op,
                   typename OneToNOpConversionPattern<OpTy>::OpAdaptor adaptor,
                   OneToNPatternRewriter &rewriter) const override {
+    // This pattern is only valid for specific operations that have a single
+    // result value.
+    assert(op->getNumResults() == 1 && "expected single-result operation");
+
     ShapedType resultTy = cast<ShapedType>(op->getResultTypes().front());
     SmallVector<Value> replacements;
-    const OneToNTypeMapping &operandMapping = adaptor.getOperandMapping();
-    SmallVector<ValueRange, 4> valueRanges;
-    for (unsigned j = 0; j < op->getNumOperands(); j++)
-      valueRanges.push_back(
-          operandMapping.getConvertedValues(adaptor.getFlatOperands(), j));
+    Type targetType = adaptor.getResultMapping().getConvertedTypes(0).front();
     for (unsigned i = 0, e = resultTy.getNumElements(); i < e; i++) {
       SmallVector<Value, 4> operands;
-      for (ValueRange range : valueRanges) {
+      for (ValueRange range : adaptor.getOperands()) {
         assert((range.size() == 1 || range.size() == e) &&
                "expected remapped values to be of size 1 or equal to "
                "number of elements");
         operands.push_back(range.size() > 1 ? range[i] : range[0]);
       }
       Value scalarResult = stablehlo::StablehloOpToStdScalarOp::mapOp(
-          op, resultTy.getElementType(), operands, &rewriter);
+          op, targetType, operands, &rewriter);
       if (!scalarResult)
         return failure();
       replacements.push_back(scalarResult);
@@ -284,7 +282,7 @@ struct StablehloRewriteReduce
 static Value extractScalarFromTensor(OpBuilder &rewriter, Location loc,
                                      Value src, int64_t linearIndex) {
   auto vt = dyn_cast<RankedTensorType>(src.getType());
-  assert(vt && "expected `src` to have RankedTensorrType");
+  assert(vt && "expected `src` to have RankedTensorType");
 
   auto getIndexConst = [&](int64_t idx) -> Value {
     return rewriter.create<arith::ConstantIndexOp>(loc, idx);
@@ -324,22 +322,39 @@ OneToNTypeConverter stablehlo_ext::getScalarizationTypeConverter() {
   // `tensor<1xdtype>` to `dtype` and back.
   OneToNTypeConverter typeConverter;
   typeConverter.addConversion([](Type t) -> std::optional<Type> { return t; });
-  typeConverter.addConversion(
-      [&](Type t,
-          SmallVectorImpl<Type> &result) -> std::optional<LogicalResult> {
-        auto rtt = dyn_cast<RankedTensorType>(t);
-        if (!rtt)
-          return std::nullopt;
-        if (!stablehlo_ext::isScalarizableType(rtt))
-          return std::nullopt;
-        result.append(rtt.getNumElements(), rtt.getElementType());
-        return success();
-      });
+  typeConverter.addConversion([&](Type t, SmallVectorImpl<Type> &result)
+                                  -> std::optional<LogicalResult> {
+    auto rtt = dyn_cast<RankedTensorType>(t);
+    if (!rtt)
+      return std::nullopt;
+    if (!stablehlo_ext::isScalarizableType(rtt))
+      return std::nullopt;
+    Type elType = rtt.getElementType();
+    if (isa<IntegerType>(elType) && !elType.isSignlessInteger())
+      elType =
+          IntegerType::get(elType.getContext(), elType.getIntOrFloatBitWidth());
+    result.append(rtt.getNumElements(), elType);
+    return success();
+  });
   typeConverter.addTargetMaterialization(
       [](OpBuilder &builder, TypeRange resultTypes, Value input,
          Location loc) -> std::optional<SmallVector<Value>> {
         if (!isScalarizableType(input.getType()))
           return std::nullopt;
+        RankedTensorType intermediateTensorType =
+            cast<RankedTensorType>(input.getType());
+        Type elType = intermediateTensorType.getElementType();
+        if (isa<IntegerType>(elType) && !elType.isSignlessInteger()) {
+          input =
+              builder
+                  .create<UnrealizedConversionCastOp>(
+                      loc,
+                      intermediateTensorType.clone(IntegerType::get(
+                          elType.getContext(), elType.getIntOrFloatBitWidth())),
+                      input)
+                  .getResult(0);
+        }
+
         SmallVector<Value> scalars;
         for (unsigned i = 0; i < resultTypes.size(); i++)
           scalars.push_back(extractScalarFromTensor(builder, loc, input, i));
@@ -348,8 +363,24 @@ OneToNTypeConverter stablehlo_ext::getScalarizationTypeConverter() {
   typeConverter.addSourceMaterialization(
       [](OpBuilder &builder, Type resultType, ValueRange inputs,
          Location loc) -> std::optional<Value> {
-        return builder.create<tensor::FromElementsOp>(loc, resultType, inputs)
-            .getResult();
+        RankedTensorType intermediateTensorType =
+            cast<RankedTensorType>(resultType);
+
+        // If we are converting back to a sign-full type, then make sure we
+        // create the 'from_elements' type using the signless type.
+        Type elType = intermediateTensorType.getElementType();
+        if (isa<IntegerType>(elType) && !elType.isSignlessInteger()) {
+          intermediateTensorType =
+              intermediateTensorType.clone(IntegerType::get(
+                  elType.getContext(), elType.getIntOrFloatBitWidth()));
+        }
+        Value fromElements = builder.create<tensor::FromElementsOp>(
+            loc, intermediateTensorType, inputs);
+        if (fromElements.getType() == resultType)
+          return fromElements;
+        return builder
+            .create<UnrealizedConversionCastOp>(loc, resultType, fromElements)
+            .getResult(0);
       });
   return typeConverter;
 }

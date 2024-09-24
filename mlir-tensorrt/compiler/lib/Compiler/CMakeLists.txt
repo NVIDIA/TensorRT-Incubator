@@ -12,10 +12,11 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
     StablehloLinalgTransforms
 )
 
-add_subdirectory(TensorRTExtension)
-
 add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     StableHloToExecutable.cpp
+    # TODO: TensorRTExtension should be an independent library.
+    TensorRTExtension/TensorRTExtension.cpp
+
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS PUBLIC
@@ -26,5 +27,4 @@ add_mlir_tensorrt_library(MLIRTensorRTCompilerStableHloToExecutable
     MLIRTensorRTTargetTensorRT
     StablehloLinalgTransforms
     MLIRTensorRTCompilerClient
-    MLIRTensorRTCompilerTensorRTExtension
-)
+    )

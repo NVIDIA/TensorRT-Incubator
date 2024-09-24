@@ -24,6 +24,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_TRANSFORMS_PASSES_H
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_TRANSFORMS_PASSES_H
 
+#include "mlir-executor/Utils/ModuleLikePass.h"
 #include "mlir/Pass/Pass.h"
 #include <memory>
 

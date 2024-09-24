@@ -33,14 +33,14 @@
 #include <climits>
 #include <type_traits>
 
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 #include "cuda_bf16.h"
 #include "cuda_fp16.h"
 #include "cuda_fp8.h"
-#if defined(__clang__) || defined(__GNUC__)
+#if defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
@@ -800,11 +800,13 @@ void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
     AllocTracker &tracker = *allocTracker;
     if (tracker.contains(src)) {
       const PointerInfo &srcInfo = tracker.get(src);
-      assert(srcInfo.isHostVisible() && "expected host visible src pointer");
+      assert(srcInfo.ptr && srcInfo.isHostVisible() &&
+             "expected host visible src pointer");
     }
     if (tracker.contains(dst)) {
       const PointerInfo &dstInfo = tracker.get(dst);
-      assert(dstInfo.isHostVisible() && "expected host visible dst pointer");
+      assert(dstInfo.ptr && dstInfo.isHostVisible() &&
+             "expected host visible dst pointer");
     }
     MTRT_DBGF("executor_memcpy host-host %lu bytes src %lx + %lu dst %lx + %lu",
               numBytes, src, srcOffset, dst, destOffset);

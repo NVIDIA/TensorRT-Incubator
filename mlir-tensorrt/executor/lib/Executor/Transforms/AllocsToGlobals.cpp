@@ -271,12 +271,18 @@ public:
   using Base::Base;
 
   void runOnOperation() override {
-    ModuleOp op = getOperation();
-    MLIRContext *ctx = &getContext();
+    Operation *op = getOperation();
+    if (failed(checkIsModuleLike(op)))
+      return signalPassFailure();
 
+    StringAttr moduleName = op->hasAttr(SymbolTable::getSymbolAttrName())
+                                ? SymbolTable::getSymbolName(op)
+                                : nullptr;
+
+    MLIRContext *ctx = &getContext();
     IRRewriter rewriter(ctx);
     SmallVector<Block *> blocks;
-    for (func::FuncOp func : op.getOps<func::FuncOp>()) {
+    for (func::FuncOp func : op->getRegion(0).getOps<func::FuncOp>()) {
       if (func.isPrivate() || func.isExternal())
         continue;
       func.walk([&](Block *block) { blocks.push_back(block); });
@@ -286,11 +292,10 @@ public:
       BlockAllocLiveIntervals intervals = getAllocIntervals(block);
       LLVM_DEBUG({
         if (!intervals.allocRanges.empty()) {
-          std::optional<StringRef> moduleName = op.getSymName();
           Operation *parent = block->getParentOp();
           if (auto funcOp = dyn_cast<func::FuncOp>(parent)) {
             DBGS() << "Diagram for func "
-                   << (moduleName ? *moduleName : StringRef(""))
+                   << (moduleName ? moduleName.strref() : StringRef(""))
                    << "::" << funcOp.getName() << ":\n";
             printLiveRanges(llvm::dbgs(), intervals);
           }
@@ -299,7 +304,7 @@ public:
 
       llvm::DenseMap<memref::AllocOp, executor::GlobalOp> assignment;
       if (failed(assignBlocks(rewriter, intervals, assignment))) {
-        emitError(op.getLoc())
+        emitError(op->getLoc())
             << "failed to analyze block in " << getArgument();
         return signalPassFailure();
       }

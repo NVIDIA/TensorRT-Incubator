@@ -24,19 +24,59 @@
 #ifndef MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
 #define MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H
 
-#include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Support/Status.h"
+#include <functional>
 #include <string_view>
 
 struct lua_State;
 
 namespace mlirtrt::runtime {
+
+/// Implementation of the LuaRuntimeSession.
+class LuaRuntimeSession : public RuntimeSession {
+public:
+  /// Type of function for callbacks that register extra Lua modules.
+  using LuaModuleRegistrationFunc =
+      std::function<void(lua_State *, AllocTracker *, ResourceTracker *)>;
+
+  /// Create a new LuaRuntimeSession using the provided options and executable.
+  /// The optional `registerExtraLuaFunctions` allows registered additional
+  /// backend modules besides the builtin ones (everything supported by the
+  /// build settings is immediately registered).
+  /// This will setup a Lua environment and invoke
+  /// global initialization.
+  /// TODO: add capabilities options to 'options' so that only modules
+  /// specifically required are registered.
+  static StatusOr<std::unique_ptr<LuaRuntimeSession>>
+  create(RuntimeSessionOptions options, ExecutableView executable,
+         LuaModuleRegistrationFunc registerExtraLuaFunctions = {});
+
+  /// Return a reference to the Lua state. Note that `sol::state` or any other
+  /// modification to Lua state is not thread-safe, see
+  /// https://sol2.readthedocs.io/en/latest/threading.html.
+  sol::state &getLuaState() { return state; }
+
+  /// Set the primary stream for the loaded executable to use.
+  Status setCudaStream(CudaStream stream);
+
+  /// Get the primary stream for the loaded executable to use.
+  CudaStream getCudaStream();
+
+private:
+  using RuntimeSession::RuntimeSession;
+
+  /// The main Lua environment state.
+  sol::state state;
+};
+
 /// Convenience method that loads the given Lua script and then executes the
 /// `main` function. It is assumed that `main` takes no arguments and returns an
 /// integer result (which is returned if the execution is successful).
 /// TODO: this should take a handle to a function for streaming output/errors.
-StatusOr<int64_t> runExecutorLuaScript(std::string_view luaScript);
+StatusOr<int64_t> runExecutorLuaScript(
+    std::string_view luaScript,
+    LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs = {});
 
 /// Synchronously run a serialized executor Executable one time. An `Executable`
 /// is essentially a Lua script packaged with metadata and serialized constants
@@ -48,28 +88,17 @@ StatusOr<int64_t> runExecutorLuaScript(std::string_view luaScript);
 /// execution is successful).
 /// TODO: this should take a handle to a function for
 /// streaming output/errors.
-StatusOr<int64_t> runExecutorExecutable(std::unique_ptr<Executable> executable);
-
-/// Create an execution state. This will setup a Lua environment and invoke
-/// global initialization.
-StatusOr<std::unique_ptr<RuntimeSession>>
-createRuntimeSessionWithLuaBackend(ExecutableView executable,
-                                   const RuntimeSessionOptions &options);
-
-/// Set the primary stream for the loaded executable to use.
-Status setRuntimeSessionCudaStream(RuntimeSession &session,
-                                   cudaStream_t stream);
-
-/// Get the primary stream for the loaded executable to use.
-cudaStream_t getRuntimeSessionCudaStream(RuntimeSession &session);
+StatusOr<int64_t> runExecutorExecutable(
+    std::unique_ptr<Executable> executable,
+    LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs = {});
 
 /// Execute a named function in the session with the specified input args and
 /// output (destination args). Returns any results.
 StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-executeFunctionWithLuaBackend(RuntimeSession &session, std::string_view name,
+executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
                               llvm::ArrayRef<RuntimeValue *> inputArgs,
                               llvm::ArrayRef<RuntimeValue *> outputArgs,
-                              std::optional<cudaStream_t> stream = {});
+                              std::optional<CudaStream> stream = {});
 
 } // namespace mlirtrt::runtime
 

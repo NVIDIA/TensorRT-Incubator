@@ -4,5 +4,7 @@ add_mlir_tensorrt_library(MLIRTensorRTMemRefCastElimination
   LINK_LIBS PUBLIC
   MLIRIR
   MLIRMemRefDialect
+  MLIRPass
   MLIRSCFDialect
+  MLIRTransformUtils
 )

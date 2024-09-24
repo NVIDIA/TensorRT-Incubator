@@ -37,3 +37,8 @@ add_lit_testsuites(MLIR_EXECUTOR ${CMAKE_CURRENT_SOURCE_DIR} DEPENDS ${MLIR_EXEC
 add_custom_target(check-mlir-executor-build-only
   DEPENDS ${MLIR_EXECUTOR_TEST_DEPENDS}
 )
+
+if(TARGET check-all-mlir-tensorrt)
+  add_dependencies(check-all-mlir-tensorrt check-mlir-executor)
+  add_dependencies(check-all-mlir-tensorrt-build-only check-mlir-executor-build-only)
+endif()

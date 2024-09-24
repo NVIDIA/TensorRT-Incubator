@@ -77,7 +77,11 @@ def compile_asm(ASM):
         client = api.CompilerClient(context)
         opts = api.StableHLOToExecutableOptions(
             client,
-            ["--tensorrt-builder-opt-level=3", "--tensorrt-strongly-typed=false"],
+            [
+                "--tensorrt-builder-opt-level=3",
+                "--tensorrt-strongly-typed=false",
+                "--tensorrt-workspace-memory-pool-limit=1gb",
+            ],
         )
 
         # Check that different argument combinations are all valid.
@@ -103,7 +107,12 @@ def compile_asm(ASM):
 
         # Changing the options should cause new pipeline to be generated, creating new builder.
         opts = api.StableHLOToExecutableOptions(
-            client, ["--tensorrt-builder-opt-level=1", "--tensorrt-strongly-typed=true"]
+            client,
+            [
+                "--tensorrt-builder-opt-level=1",
+                "--tensorrt-strongly-typed=true",
+                "--tensorrt-workspace-memory-pool-limit=1024kiB",
+            ],
         )
         opts.set_debug_options(True, ["translate-to-tensorrt"])
         try:
@@ -123,6 +132,7 @@ compile_asm(STATIC_ASM)
 # CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
 # CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
 # CHECK: [translate-to-tensorrt] Setting builder optimization level to 3
+# CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1073741824 bytes
 # CHECK-LABEL: running compilation (2)
 # CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
 # CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
@@ -151,6 +161,7 @@ compile_asm(STATIC_ASM)
 # CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
 # CHECK: [translate-to-tensorrt] enabling 'strongly-typed' mode in TensorRT translation
 # CHECK: [translate-to-tensorrt] Setting builder optimization level to 1
+# CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1048576 bytes
 
 
 print("Compiling dynamic asm")
@@ -160,6 +171,7 @@ compile_asm(DYNAMIC_ASM)
 # CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
 # CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
 # CHECK: [translate-to-tensorrt] Setting builder optimization level to 3
+# CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1073741824 bytes
 # CHECK: running compilation (2)
 # CHECK-NOT: {{.*}} generating a new TensorRT builder {{.*}}
 # CHECK-NOT: {{.*}} timing cache path was not specified {{.*}}
@@ -190,3 +202,4 @@ compile_asm(DYNAMIC_ASM)
 # CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
 # CHECK: [translate-to-tensorrt] enabling 'strongly-typed' mode in TensorRT translation
 # CHECK: [translate-to-tensorrt] Setting builder optimization level to 1
+# CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1048576 bytes
