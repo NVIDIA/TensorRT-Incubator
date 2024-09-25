@@ -54,9 +54,8 @@ def build_sam2(
     model = instantiate(cfg.model, _recursive_=True)
     _load_checkpoint(model, ckpt_path, cfg)
 
-    start = time.time()
-
     if cfg["model"].use_tripy_transformer:
+        start = time.time()
         tp_transformer = model.sam_mask_decoder.transformer
         compiler = tp.Compiler(tp_transformer)
         compiled_transformer = compiler.compile(
@@ -68,16 +67,24 @@ def build_sam2(
         model.sam_mask_decoder.transformer = compiled_transformer
 
     if cfg["model"].use_tripy_prompt_encoder:
+        start = time.time()
         tp_prompt_encoder = model.sam_prompt_encoder
         compiler = tp.Compiler(tp_prompt_encoder)
         compiled_prompt_encoder = compiler.compile(
             tp.InputInfo((1, 1, 2), dtype=tp.float32),
-            tp.InputInfo((1, 1), dtype=tp.float32),
+            tp.InputInfo((1, 1), dtype=tp.int32),
             None,
             None,
         )
         print(f"Compile took {time.time() - start}s")
+
+        start = time.time()
+        tp_dense_pe = model.sam_prompt_encoder.get_dense_pe
+        compiler = tp.Compiler(tp_dense_pe)
+        compiled_get_dense_pe = compiler.compile()
+        print(f"Compile took {time.time() - start}s")
         model.sam_prompt_encoder = compiled_prompt_encoder
+        setattr(model.sam_prompt_encoder, "get_dense_pe", compiled_get_dense_pe)
 
     model = model.to(device)
     if mode == "eval":
@@ -155,9 +162,7 @@ def build_sam2_video_predictor_hf(model_id, **kwargs):
     }
     config_name, checkpoint_name = model_id_to_filenames[model_id]
     ckpt_path = hf_hub_download(repo_id=model_id, filename=checkpoint_name)
-    return build_sam2_video_predictor(
-        config_file=config_name, ckpt_path=ckpt_path, **kwargs
-    )
+    return build_sam2_video_predictor(config_file=config_name, ckpt_path=ckpt_path, **kwargs)
 
 
 def _load_checkpoint(model, ckpt_path, cfg=None):
@@ -174,9 +179,7 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
         tp_prompt_encoder = model.sam_prompt_encoder
         tp_prompt_encoder_state_dict = tp_prompt_encoder.state_dict()
 
-        print(
-            f"Tripy transformer state_dict has {len(tp_transformer_state_dict.keys())} keys."
-        )
+        print(f"Tripy transformer state_dict has {len(tp_transformer_state_dict.keys())} keys.")
         nb_keys = 0
         nb_prompt_keys = 0
 
@@ -198,15 +201,11 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
                 tp_prompt_encoder_state_dict[new_key] = param
 
         if use_tripy_transformer:
-            print(
-                f"expected keys {len(tp_transformer_state_dict.keys())}, got {nb_keys}"
-            )
+            print(f"expected keys {len(tp_transformer_state_dict.keys())}, got {nb_keys}")
             tp_transformer.load_from_state_dict(tp_transformer_state_dict)
 
         if use_tripy_prompt_encoder:
-            print(
-                f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}"
-            )
+            print(f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}")
             tp_prompt_encoder.load_from_state_dict(tp_prompt_encoder_state_dict)
 
         if missing_keys:

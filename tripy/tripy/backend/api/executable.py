@@ -93,15 +93,16 @@ class Executable:
             out = compiled_add(a, b)
         """
         input_tensors = []
-
         input_tensors.extend(args)
+        num_args = len(args) + len(kwargs)
+
         # Need to get arguments in the order of self._arg_names, which may be different from kwargs ordering.
         expected_kwargs = self._arg_names[len(args) :]
         for name in expected_kwargs:
             if name not in kwargs:
                 raise_error(f"Missing argument: {name}", [f"Expected the following arguments: {self._arg_names}"])
 
-            input_tensors.extend(kwargs[name])
+            input_tensors.append(kwargs[name])
             del kwargs[name]
 
         if kwargs:
@@ -114,8 +115,6 @@ class Executable:
             )
 
         # We do this after kwarg checks since those will be more informative (we can explain which arguments are missing/extra).
-        num_args = len(args) + len(kwargs)
-
         if num_args != len(self._arg_names):
             raise_error(
                 "Incorrect number of arguments.",
