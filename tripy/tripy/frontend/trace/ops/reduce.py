@@ -406,11 +406,14 @@ def var(
         torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
         assert np.array_equal(cp.from_dlpack(output).get(), np.from_dlpack(torch_input.var(dim=1, keepdim=True)))
     """
+    from tripy.frontend import Tensor
     from tripy.frontend.trace.ops.binary_elementwise import maximum
 
     mean_val = mean(input, dim=dim, keepdim=dim is not None)
     sub = (input - mean_val) ** 2.0
-    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: maximum(x - correction, 0))
+    return mean_impl(
+        sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: maximum(x - Tensor(correction), Tensor(0))
+    )
 
 
 def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optional[int], keepdim: bool):

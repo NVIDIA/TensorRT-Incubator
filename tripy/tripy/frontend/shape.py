@@ -280,7 +280,7 @@ class Shape(Tensor):
         # so we should clamp the argument
         if other.rank == 0:
             other = reshape(other, (1,))
-        other = Shape(maximum(other, 0)) + [len(self)]
+        other = Shape(maximum(other, Tensor(0, int32))) + [len(self)]
 
         unsqueezed = unsqueeze(self, 0)
         tiled = expand(unsqueezed, other)

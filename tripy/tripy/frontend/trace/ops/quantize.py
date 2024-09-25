@@ -128,7 +128,6 @@ class Quantize(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/quantization")
-@frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int4", "int8", "float8"]},
     dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
@@ -211,6 +210,11 @@ def quantize(
 
     .. seealso:: :func:`dequantize`
     """
+    from tripy.frontend import Tensor
+
+    if not isinstance(scale, Tensor):
+        scale = Tensor(scale)
+
     op_utils.check_qdq_args(input, scale, dtype, dim, True)
 
     return Quantize.build([input, scale], dtype, dim)
