@@ -1,5 +1,7 @@
 <!-- Tripy: DOC: OMIT Start -->
 [**Installation**](#installation) | [**Quickstart**](#quickstart) | [**Documentation**](#documentation) | [**Examples**](#examples)
+
+[![Tripy L1](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml/badge.svg)](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml)
 <!-- Tripy: DOC: OMIT End -->
 
 # Tripy: A Python Programming Model For TensorRT
