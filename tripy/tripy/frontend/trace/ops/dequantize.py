@@ -188,4 +188,5 @@ def dequantize(
     """
     op_utils.check_qdq_args(input, scale, dtype, dim, False)
 
+    # See the note in quantize.py on why we don't just use frontend ops here.
     return Dequantize.build([input, scale], dtype, dim)

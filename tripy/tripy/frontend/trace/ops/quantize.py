@@ -40,7 +40,6 @@ class Quantize(BaseTraceOp):
         from tripy.flat_ir.ops import (
             ClampOp,
             ConvertOp,
-            ConstantOp,
             ConcatenateOp,
             DynamicBroadcastOp,
             DynamicReshapeOp,
@@ -213,4 +212,7 @@ def quantize(
     """
     op_utils.check_qdq_args(input, scale, dtype, dim, True)
 
+    # This is implemented using a special trace op instead of a combination of frontend ops
+    # so that it shows up in the trace and can more easily be pattern matched (by defining our
+    # own trace op, we have finer control over the generated MLIR).
     return Quantize.build([input, scale], dtype, dim)
