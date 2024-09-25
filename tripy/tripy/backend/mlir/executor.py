@@ -30,7 +30,7 @@ from tripy.utils import log_time, make_tuple
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
         from tripy.backend.mlir.utils import MLIRRuntimeClient
-        from tripy.backend.compiler_api import default_stream
+        from tripy.backend.api.stream import default_stream
 
         self.runtime_client = MLIRRuntimeClient()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
