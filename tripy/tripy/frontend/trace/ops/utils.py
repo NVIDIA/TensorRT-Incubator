@@ -497,3 +497,57 @@ def check_qdq_args(input, scale, dtype, dim, is_quantize):
             f"Scale must be a scalar tensor in per-tensor {op_str}.",
             [f"scale has rank={scale.rank}."],
         )
+
+
+##
+## Conv & Pooling
+##
+def check_conv_pooling_args(kernel_dims, stride, padding, dilation=None):
+    from tripy.common.exception import raise_error
+
+    spatial_dims = len(kernel_dims)
+
+    if stride is not None:
+        if len(stride) != spatial_dims:
+            raise_error(
+                "Stride must have the same length as kernel_dims.",
+                [f"Got stride={stride}, ", f"kernel_dims={kernel_dims}"],
+            )
+
+        if not all(s > 0 for s in stride):
+            raise_error(
+                "Non-positive stride is not supported.",
+                details=[f"Got stride: {stride} but all values must be integers greater than 0."],
+            )
+
+    if padding is not None:
+        if len(padding) != spatial_dims:
+            raise_error(
+                "Padding must have the same length as kernel_dims.",
+                [f"Got padding={padding}, ", f"kernel_dims={kernel_dims}"],
+            )
+
+        if not all(len(pad) == 2 for pad in padding):
+            raise_error(
+                f"Padding must be provided as a sequence of pairs of integers.",
+                details=[f"Supplied padding attribute: {padding} contains sequences that are not of length 2."],
+            )
+
+        if not all(p1 >= 0 and p2 >= 0 for p1, p2 in padding):
+            raise_error(
+                "Negative padding is not supported.",
+                details=[f"Got padding: {padding} but all values must be non-negative integers."],
+            )
+
+    if dilation is not None:
+        if len(dilation) != spatial_dims:
+            raise_error(
+                "Dilation must have the same length as kernel_dims.",
+                [f"Got dilation={dilation}, ", f"kernel_dims={kernel_dims}"],
+            )
+
+        if not all(isinstance(d, int) and d > 0 for d in dilation):
+            raise_error(
+                "Non-positive dilation is not supported.",
+                details=[f"Got dilation: {dilation} but all values must be integers greater than 0."],
+            )
