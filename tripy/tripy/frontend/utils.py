@@ -148,6 +148,15 @@ def _convert_nontensor_arg(
     )
 
 
+"""
+Non-magic methods that are allowed to be decorated with convert_inputs_to_tensors.
+We should generally avoid exceptions.
+"""
+CONVERT_TENSOR_EXCEPTIONS = {
+    "slice_helper",  # We use it to convert inputs to __getitem__ but need to handle slices before converting
+}
+
+
 # Decorator to preprocess inputs of a function and convert Python numbers to tripy tensors.
 def convert_inputs_to_tensors(
     sync_arg_types: Optional[List[Tuple[str]]] = None,
@@ -159,6 +168,9 @@ def convert_inputs_to_tensors(
     Decorator that converts all arguments to `Tensor`s before passing them along
     to the decorated function. Converts only Python numbers or lists of Python numbers;
     inputs like `numpy` arrays will be left unchanged and should be handled manually.
+
+    This decorator is intended mainly to be used with overloads of Python operators; for other
+    cases, we recommend that users explicitly convert non-Tripy inputs.
 
     Args:
         sync_arg_types: A list of tuples of strings indicating the parameter indices for parameters
@@ -187,9 +199,18 @@ def convert_inputs_to_tensors(
     unpack_argument = utils.default(unpack_argument, [])
 
     def impl(func):
+
+        func_name = func.__name__
+        # only checking __ at the start and end; in principle, we could add an exhaustive list of magic methods
+        if (
+            not func_name.startswith("__") or not func_name.endswith("__")
+        ) and func_name not in CONVERT_TENSOR_EXCEPTIONS:
+            raise_error(
+                f"convert_inputs_to_tensors decorator is only permitted for magic methods. Decorated function: {func_name}"
+            )
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            from tripy.common.exception import raise_error
             from tripy.frontend.tensor import Tensor
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)

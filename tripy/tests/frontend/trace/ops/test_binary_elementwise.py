@@ -41,6 +41,9 @@ _COMPARISON_OPS = [
     (Comparison.Kind.GREATER, lambda a, b: a > b),
 ]
 
+# Ops that do not automatically convert data types
+_NON_CONVERTING_OPS = {BinaryElementwise.Kind.MAXIMUM, BinaryElementwise.Kind.MINIMUM}
+
 # Ops that are flipped instead of calling a right-side version.
 _FLIP_OPS = {}
 for key, val in {
@@ -68,6 +71,12 @@ class TestBinaryElementwise:
     )
     @pytest.mark.parametrize("kind, func", _BINARY_OPS + _COMPARISON_OPS)
     def test_op_funcs(self, kind, func, lhs, rhs, left_side_is_non_tensor):
+        if kind in _NON_CONVERTING_OPS:
+            if not isinstance(lhs, tp.Tensor):
+                lhs = tp.Tensor(lhs)
+            if not isinstance(rhs, tp.Tensor):
+                rhs = tp.Tensor(rhs)
+
         out = func(lhs, rhs)
         assert isinstance(out, tp.Tensor)
         assert isinstance(out.trace_tensor.producer, BinaryElementwise)
