@@ -120,7 +120,7 @@ class FuncOverload:
 
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
             from collections.abc import Sequence as ABCSequence
-            from typing import ForwardRef, get_args, get_origin, Sequence, Union
+            from typing import ForwardRef, get_args, get_origin, Sequence, Union, Optional
 
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
@@ -148,6 +148,9 @@ class FuncOverload:
                     assert len(seq_arg) == 1
                     return all(map(lambda member: matches_type(name, seq_arg[0], member), arg))
                 return True
+
+            if get_origin(annotation) is Optional:
+                return arg is None or matches_type(arg, get_args(annotation)[0])
 
             # Forward references can be used for recursive type definitions. Warning: Has the potential for infinite looping if there is no base case!
             if isinstance(annotation, ForwardRef):

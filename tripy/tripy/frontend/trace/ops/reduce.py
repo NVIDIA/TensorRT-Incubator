@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import math
 import enum
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
@@ -24,7 +25,6 @@ from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy.utils import make_list
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -312,22 +312,14 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     from tripy.frontend.trace.ops.cast import cast
 
     sum_val = sum(tensor, dim=dim, keepdim=keepdim)
-    # compute number of elements in the array and divide by number of elements in dims
-    input_shape = tensor.shape
-    nb_elements = prod(input_shape, dim=0, keepdim=True)
-    nb_elements_in_mean_dim = 1
 
-    if dim is not None:
-        for d in make_list(dim):
-            nb_elements_in_mean_dim = input_shape[d] * nb_elements_in_mean_dim
-        divisor = nb_elements_in_mean_dim
-    else:
-        divisor = nb_elements[0]
+    # compute number of elements in the array and divide by number of elements in dims
+    num_elements = math.prod(tensor.shape if dim is None else [tensor.shape[d] for d in make_list(dim)])
 
     if apply_to_divisor:
-        divisor = apply_to_divisor(divisor)
+        num_elements = apply_to_divisor(num_elements)
 
-    return sum_val / (cast(divisor, sum_val.dtype))
+    return sum_val / (cast(num_elements, sum_val.dtype))
 
 
 @export.public_api(document_under="operations/functions")

@@ -25,27 +25,36 @@ from typing import Union, Sequence
 
 from tripy import export
 
-export.public_api()(sys.modules[__name__])
+export.public_api(autodoc_options=[":no-members:", ":no-special-members:"])(sys.modules[__name__])
 
 NestedNumberSequence = export.public_api(
     document_under="types.rst",
     autodoc_options=[":no-index:"],
     module=sys.modules[__name__],
     symbol="NestedNumberSequence",
+    doc="""
+        Denotes the recursive type annotation for sequences of Python numbers, possibly nested to an arbitrary depth.
+        Tripy often automatically converts these sequences to `tp.Tensor`.
+        """,
 )(Union[numbers.Number, Sequence["tripy.types.NestedNumberSequence"]])
-
-NestedNumberSequence.__doc__ = """
-Denotes the recursive type annotation for sequences of Python numbers, possibly nested to an arbitrary depth.
-Tripy often automatically converts these sequences to `tp.Tensor`.
-"""
 
 TensorLike = export.public_api(
     document_under="types.rst",
     autodoc_options=[":no-index:"],
     module=sys.modules[__name__],
     symbol="TensorLike",
+    doc="""
+        Type annotation for a parameter that is either a Tripy `Tensor` or a Python sequence that can be automatically converted into one.
+        """,
 )(Union["tripy.Tensor", "tripy.types.NestedNumberSequence"])
 
-TensorLike.__doc__ = """
-Type annotation for a parameter that is either a Tripy `Tensor` or a Python sequence that can be automatically converted into one.
-"""
+
+ShapeLike = export.public_api(
+    document_under="types.rst",
+    autodoc_options=[":no-index:"],
+    module=sys.modules[__name__],
+    symbol="ShapeLike",
+    doc="""
+        Type annotation for a parameter that is either a Tripy `Shape` or Python sequence that can be automatically converted into one.
+        """,
+)(Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]])

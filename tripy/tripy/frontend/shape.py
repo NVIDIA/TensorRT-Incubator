@@ -125,11 +125,7 @@ class Shape(Tensor):
             # share the underlying data
             self.trace_tensor = data.trace_tensor
             self.stack_info = data.stack_info
-        elif (
-            isinstance(data, Sequence)
-            and len(data) > 0
-            and all(map(lambda e: isinstance(e, int) or isinstance(e, ShapeScalar), data))
-        ):
+        elif isinstance(data, Sequence) and len(data) > 0 and any(map(lambda e: isinstance(e, ShapeScalar), data)):
             # Handle the case where data is a list of mixed int and ShapeScalar elements
             # Example: [1, a.shape[0]]
             # We convert this to a tensor to avoid expensive evaluation of ShapeScalar elements (like a.shape[0])

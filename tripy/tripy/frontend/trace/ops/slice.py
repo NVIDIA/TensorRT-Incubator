@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
+from typing import Optional, Sequence, Union
 
 from tripy import constraints, utils
 from tripy.common.exception import raise_error
@@ -182,7 +182,9 @@ class Slice(BaseTraceOp):
     },
     dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
 )
-def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "tripy.Tensor":
+def __getitem__(
+    self: "tripy.Tensor", index: Union[slice, int, "tripy.Tensor", Sequence[Union[slice, int, "tripy.Tensor"]]]
+) -> "tripy.Tensor":
     """
     Returns a tensor containing a slice of this tensor.
 
@@ -214,7 +216,7 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.gather import gather
-    from tripy.frontend.trace.ops.reshape import reshape, squeeze
+    from tripy.frontend.trace.ops.reshape import squeeze
     from tripy.frontend.trace.ops.where import where
 
     # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
@@ -305,6 +307,6 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
 # Conveniently converts the inputs to tensors. The decorator also fills in column info for the converted tensors.
 # Because the helper is called inside another function, we need to skip one entry in the call stack to find
 # the original call to user code.
-@frontend_utils.convert_inputs_to_tensors(exclude=["shape_slice"], skip_num_stack_entries=1)
+@frontend_utils.convert_inputs_to_tensors(exclude=["tensor", "shape_slice"], skip_num_stack_entries=1)
 def slice_helper(tensor, *slice_params, shape_slice: Optional[slice] = None):
     return Slice.build(inputs=[tensor, *slice_params], shape_slice=shape_slice)

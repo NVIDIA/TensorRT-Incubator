@@ -97,9 +97,6 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
         frame_info += " " * start + apply_color("^" * (size), Fore.red)
         if not is_first_frame:
             frame_info += " --- required from here"
-    else:
-        if not is_first_frame:
-            frame_info = "Required from:\n" + frame_info
     frame_info += "\n\n"
     return frame_info
 

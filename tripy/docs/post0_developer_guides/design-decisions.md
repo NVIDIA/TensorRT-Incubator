@@ -100,7 +100,7 @@ to MLIR if needed or return the newly created ones.
 
 ## Why Not Build On [JAX](https://github.com/google/jax)?
 
-Tripy’s architecture looks very similar to JAX's, where python code is staged out and
+Tripy's architecture looks very similar to JAX's, where python code is staged out and
 lowered into a custom IR and eventually to MLIR.
 
 Then why not build on top of JAX? There are a couple reasons:
