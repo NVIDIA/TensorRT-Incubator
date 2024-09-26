@@ -21,6 +21,7 @@ import glob
 import hashlib
 import inspect
 import os
+import math
 import time
 import typing
 from typing import Any, List, Sequence, Union
@@ -160,23 +161,6 @@ def list_to_tuple(nested_list):
 ##
 
 
-def volume(shape):
-    """
-    Computes volume of a tensor shape.
-
-    Args:
-        shape: The shape of a tensor
-
-    Returns:
-        Volume of tensor (float)
-    """
-
-    volume = 1
-    for s in shape:
-        volume *= s
-    return volume
-
-
 def flatten_list(data):
     """
     Flattens a nested list into a single list.
@@ -216,7 +200,7 @@ def get_shape(data):
 
 
 def should_omit_constant_in_str(shape):
-    return volume(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
+    return math.prod(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
 
 
 def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:

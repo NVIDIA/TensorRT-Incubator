@@ -18,10 +18,11 @@
 from typing import Dict, List, Sequence, Set, Union
 
 from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
+from mlir_tensorrt.runtime.api import MemRefValue
+
 from tripy import utils
 from tripy.common.shape_bounds import ShapeBounds
-
-from tripy.flat_ir.ops import ConstantOp
+from tripy.utils.utils import list_to_tuple
 
 
 class FlatIR:
@@ -96,6 +97,7 @@ class FlatIR:
         """
         from mlir_tensorrt.compiler import ir
         from mlir_tensorrt.compiler.dialects import func as func_dialect
+
         from tripy.backend.mlir.utils import make_ir_context, make_tensor_location
         from tripy.flat_ir.function import FlatIRFunction
         from tripy.flat_ir.ops.base import BaseFlatIROp
@@ -206,7 +208,7 @@ class FlatIR:
 
         def _get_op_inputs(op: ir.Operation, mlir_tensor_map: Dict[str, ir.Value]) -> List[ir.Value]:
             """Get the inputs for an operation, casting to dynamic tensors if necessary."""
-            from tripy.backend.mlir.utils import is_any_dim_dynamic, cast_to_dynamic_ranked_tensor
+            from tripy.backend.mlir.utils import cast_to_dynamic_ranked_tensor, is_any_dim_dynamic
             from tripy.flat_ir.ops import DynamicBroadcastOp, DynamicReshapeOp
 
             op_inputs = []
@@ -352,9 +354,6 @@ class FlatIR:
         return tensor
 
     def _get_constant_key(self, op):
-        from mlir_tensorrt.runtime.api import MemRefValue
-        from tripy.utils.utils import list_to_tuple
-
         if isinstance(op.data, MemRefValue):
             # use data pointer as key when data is a memref,
             # usually come from users, no need to deduplicate
@@ -372,9 +371,9 @@ class FlatIR:
         Integrate a subgraph delineated by the given inputs and outputs into this FlatIR.
         """
         from tripy.flat_ir.function import FlatIRFunction
+        from tripy.flat_ir.ops import ConstantOp
         from tripy.flat_ir.ops.base import BaseFlatIROp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.flat_ir.ops import ConstantOp
 
         seen_tensors: Set[int] = set()
         dedup_func_op_map: Dict[int, List[FlatIRFunction]] = {}
