@@ -17,11 +17,11 @@
 
 from typing import Any, Optional, Sequence, Union
 
+import tripy.frontend.utils as frontend_utils
 from tripy import export, utils
 from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
-import tripy.frontend.utils as frontend_utils
 
 
 @export.public_api(document_under="shape/index.rst")
@@ -203,13 +203,12 @@ class Shape(Tensor):
     def __mul__(self, other):
         from tripy.frontend.trace.ops.binary_elementwise import maximum
         from tripy.frontend.trace.ops.expand import expand
-        from tripy.frontend.trace.ops.reshape import reshape, flatten
+        from tripy.frontend.trace.ops.reshape import flatten, reshape
         from tripy.frontend.trace.ops.unsqueeze import unsqueeze
 
         # We unsqueeze self into shape [1, len(self)], so giving [other, len(self)] as
         # the argument to expand will result in a shape of [other, len(self)] by
         # copying self the correct number of times.
-
         # Only defined with a scalar argument
         if not isinstance(other, Tensor):
             # note: Python does not accept floats as arguments for list multiplication either
@@ -333,6 +332,9 @@ class ShapeScalar(Tensor):
                     f"Tensors used to represent scalar shapes must be of rank 0, but given shape {shape} has rank {len(shape)}."
                 )
             super().__init__(data=data, dtype=int32, name=name, device=device)
+
+    def __int__(self) -> int:
+        return self.tolist()
 
     def __repr__(self) -> str:
         # denote the representation as a shape rather than a tensor
