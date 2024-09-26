@@ -179,7 +179,7 @@ class TestConvertInputsToTensors:
         assert isinstance(s, tp.Shape)
         assert cp.from_dlpack(s).get().tolist() == [1, 2]
 
-    def test_convert_only_named_argument_to_shape(self):
+    def test_convert_only_specified_argument_to_shape(self):
         t1 = tp.Tensor([1, 2, 3], dtype=tp.int32)
         s, t2 = ignore_not_named(t1, [4, 5, 6])
         assert isinstance(s, tp.Shape)
