@@ -43,7 +43,8 @@
 using namespace mlir;
 using namespace mlir::tensorrt;
 
-nvinfer1::DataType tensorrt::getNvInferDataType(Type t) {
+FailureOr<nvinfer1::DataType> tensorrt::getNvInferDataType(Location loc,
+                                                           Type t) {
   Type elType = mlir::getElementTypeOrSelf(t);
   if (elType.isF32())
     return nvinfer1::DataType::kFLOAT;
@@ -72,8 +73,8 @@ nvinfer1::DataType tensorrt::getNvInferDataType(Type t) {
     return nvinfer1::DataType::kINT4;
 #endif
 
-  llvm_unreachable("invalid MLIR -> TRT type conversion for the given TensorRT "
-                   "version. ");
+  return emitError(loc) << "MLIR Type " << t
+                        << " can't be converted to TensorRT type";
 }
 
 Type tensorrt::getNvInferDataTypeAsMlirType(MLIRContext *ctx,
@@ -148,7 +149,11 @@ static LogicalResult sanityCheckTypes(nvinfer1::ITensor *trtTensor,
     return diagnostic;
   };
 
-  if (getNvInferDataType(type.getElementType()) != trtTensor->getType())
+  FailureOr<nvinfer1::DataType> trtTypeFromMlirTensorType =
+      getNvInferDataType(loc, type.getElementType());
+  if (failed(trtTypeFromMlirTensorType))
+    return failure();
+  if (trtTypeFromMlirTensorType.value() != trtTensor->getType())
     return emitTypeDiagnostic(/*isError=*/true);
 
   for (int64_t i = 0, e = type.getRank(); i < e; i++) {
@@ -554,7 +559,7 @@ static void serializeSplatElements(DenseIntOrFPElementsAttr values,
                    "TensorRT weights!");
 }
 
-nvinfer1::Weights
+FailureOr<nvinfer1::Weights>
 NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
   if (llvm::endianness::native == llvm::endianness::big)
     llvm_unreachable("big endian system currently not implemented");
@@ -565,7 +570,11 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
 
   nvinfer1::Weights weights;
   weights.count = rtt.getNumElements();
-  weights.type = getNvInferDataType(rtt.getElementType());
+  FailureOr<nvinfer1::DataType> tensorrtType = getNvInferDataType(
+      UnknownLoc::get(values.getContext()), rtt.getElementType());
+  if (failed(tensorrtType))
+    return failure();
+  weights.type = *tensorrtType;
 
   // Since Attributes are uniqued in the MLIR context, there should be no
   // duplicate attributes. If this attribute is already present in the map, then
@@ -643,7 +652,7 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
   return weights;
 }
 
-nvinfer1::Weights
+FailureOr<nvinfer1::Weights>
 NvInferNetworkEncoder::getNvInferWeights(std::optional<ElementsAttr> attr) {
   if (!attr)
     return kNullWeights;
@@ -759,8 +768,10 @@ static LogicalResult encodeFuncTerminator(NvInferNetworkEncoder &encoder,
     assert(encoder.contains(returnedVal) != 0 &&
            "all values should be mapped to tensors");
     nvinfer1::ITensor *outputTensor = encoder.lookup(returnedVal);
-    nvinfer1::DataType returnDataType =
-        getNvInferDataType(returnedVal.getType());
+    FailureOr<nvinfer1::DataType> returnDataType =
+        getNvInferDataType(terminator->getLoc(), returnedVal.getType());
+    if (failed(returnDataType))
+      return failure();
     // As a convention, we cannot have the same tensor alias multiple results.
     // Therefore, we need to insert an identity layer to differentiate.
     if (outputsSet.contains(outputTensor)) {
@@ -770,7 +781,7 @@ static LogicalResult encodeFuncTerminator(NvInferNetworkEncoder &encoder,
         // as MLIR type
         nvinfer1::ICastLayer *castOutputLayer =
             encoder.getNetworkDefinition()->addCast(*outputTensor,
-                                                    returnDataType);
+                                                    *returnDataType);
         outputTensor = castOutputLayer->getOutput(0);
       } else {
         // Still need an identity layer to support returning input arguments
@@ -785,8 +796,7 @@ static LogicalResult encodeFuncTerminator(NvInferNetworkEncoder &encoder,
       encoder.map(returnedVal, outputTensor);
     }
     encoder.getNetworkDefinition()->markOutput(*outputTensor);
-    encoder.getNetworkDefinition()->getOutput(idx)->setType(
-        getNvInferDataType(returnedVal.getType()));
+    encoder.getNetworkDefinition()->getOutput(idx)->setType(*returnDataType);
     outputsSet.insert(outputTensor);
     outputTensor->setName(names[idx].c_str());
   }
@@ -828,9 +838,12 @@ LogicalResult NvInferNetworkEncoder::encodeFunc(FunctionOpInterface func) {
     // Add the argument as an input.
     std::string name = "arg" + std::to_string(idx++);
     nvinfer1::Dims trtShape = getNvInferDims(argType.getShape());
-    nvinfer1::DataType dtype = getNvInferDataType(argType);
+    FailureOr<nvinfer1::DataType> dtype =
+        getNvInferDataType(func->getLoc(), argType);
+    if (failed(dtype))
+      return failure();
     nvinfer1::ITensor *inputTensor =
-        getNetworkDefinition()->addInput(name.c_str(), dtype, trtShape);
+        getNetworkDefinition()->addInput(name.c_str(), *dtype, trtShape);
     if (!usesStronglyTyped && dtype == nvinfer1::DataType::kINT8)
       setIdentityInt8DynamicRange(inputTensor);
     this->map(arg, inputTensor);

@@ -8,8 +8,33 @@ endif()
 # Wrapper around CPMAddPackage
 #-------------------------------------------------------------------------------------
 macro(mlir_executor_add_package)
-  mlir_tensorrt_add_package(${ARGN})
+  if(COMMAND mlir_tensorrt_add_package)
+    mlir_tensorrt_add_package(${ARGN})
+  else()
+    CPMAddPackage(${ARGN})
+  endif()
 endmacro()
+
+#-------------------------------------------------------------------------------------
+# Wrapper around llvm-project
+#-------------------------------------------------------------------------------------
+macro(mlir_executor_add_llvm_project)
+  CPMAddPackage(
+    ${ARGN}
+    )
+  set(MLIR_CMAKE_DIR "${CMAKE_BINARY_DIR}/lib/cmake/mlir")
+  set(LLVM_CMAKE_DIR "${llvm_project_BINARY_DIR}/lib/cmake/llvm")
+  set(MLIR_BINARY_DIR ${CMAKE_BINARY_DIR})
+  list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+  list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+  include(LLVMConfig)
+  include(MLIRConfig)
+
+  set(LLVM_RUNTIME_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/bin)
+  set(LLVM_LIBRARY_OUTPUT_INTDIR ${CMAKE_BINARY_DIR}/lib)
+endmacro()
+
 
 #-------------------------------------------------------------------------------------
 # Downloads FlatBuffers release and adds it to the build. Downstream targets
@@ -84,19 +109,27 @@ function(mlir_executor_add_lua)
 
   FILE(GLOB lua_sources ${lua_SOURCE_DIR}/src/*.c)
   # Remove lua.c (standalone lua interpreter) and onelua.c (a combination of all files).
-  list(REMOVE_ITEM lua_sources "${lua_SOURCE_DIR}/src/lua.c" "${lua_SOURCE_DIR}/src/onelua.c")
+  list(REMOVE_ITEM lua_sources
+    "${lua_SOURCE_DIR}/src/lua.c"
+    "${lua_SOURCE_DIR}/src/luac.c"
+    "${lua_SOURCE_DIR}/src/onelua.c")
   # Main lua library
-  add_library(lua-core STATIC EXCLUDE_FROM_ALL ${lua_sources})
+  add_library(lua-core EXCLUDE_FROM_ALL ${lua_sources})
   lua_set_target_copts(lua-core)
-  target_link_libraries(lua-core PUBLIC dl)
+  target_link_libraries(lua-core PUBLIC dl m)
   # Other libs should link `lua::core`.
   add_library(lua::core ALIAS lua-core)
   # Allow building main lua interpreter for whatever reason.
   add_executable(lua-interpreter EXCLUDE_FROM_ALL "${lua_SOURCE_DIR}/src/lua.c")
+  add_executable(luac EXCLUDE_FROM_ALL
+    "${lua_SOURCE_DIR}/src/luac.c"
+    ${lua_sources})
   lua_set_target_copts(lua-interpreter)
+  lua_set_target_copts(luac)
   # Note that this requires `libreadline-dev` package, we we don't install by
   # default in the devcontainer.
   target_link_libraries(lua-interpreter PRIVATE lua::core m dl readline)
+  target_link_libraries(luac PRIVATE lua::core m dl)
   set_target_properties(lua-interpreter PROPERTIES
       OUTPUT_NAME "lua"
   )

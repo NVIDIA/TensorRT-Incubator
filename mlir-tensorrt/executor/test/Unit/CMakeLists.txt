@@ -11,6 +11,7 @@ endfunction()
 if (EXISTS ${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include/gtest/gtest.h)
     add_subdirectory(CAPI)
     add_subdirectory(Runtime)
+    add_subdirectory(Utils)
 else()
   message(WARNING "gtest not found, unittests will not be available")
 endif()
@@ -24,4 +25,3 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
   )
 
-  

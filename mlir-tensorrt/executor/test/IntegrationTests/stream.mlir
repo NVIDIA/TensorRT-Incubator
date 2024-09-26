@@ -1,3 +1,4 @@
+// REQUIRES: host-has-at-least-1-gpus
 // RUN: executor-opt %s -convert-cuda-to-executor -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-lua \
 // RUN:   | executor-runner -input-type=lua | FileCheck %s

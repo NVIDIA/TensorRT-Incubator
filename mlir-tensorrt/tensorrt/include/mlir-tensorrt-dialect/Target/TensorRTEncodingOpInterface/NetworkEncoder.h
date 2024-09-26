@@ -97,11 +97,12 @@ public:
   size_t contains(Value v) { return valueMap.count(v); }
 
   /// Get a Weights from an elements attr.
-  nvinfer1::Weights getNvInferWeights(ElementsAttr values);
+  FailureOr<nvinfer1::Weights> getNvInferWeights(ElementsAttr values);
 
   /// Get a Weights from an optional elements attr. If attr is not present,
   /// then return kNullWeights.
-  nvinfer1::Weights getNvInferWeights(std::optional<ElementsAttr> attr);
+  FailureOr<nvinfer1::Weights>
+  getNvInferWeights(std::optional<ElementsAttr> attr);
 
   /// For a given operation, try to add that operation to `network` and populate
   /// `valueMap` with its results. If `op` doesn't not represent a TensorRT
@@ -294,7 +295,7 @@ nvinfer1::Permutation getNvInferPermutation(ArrayRef<int64_t> array);
 /// will cause the program to abort. This is meant to simplify the usage API
 /// below in the `buildLayer` dispatch function, so types should be
 /// appropriately verified before using.
-nvinfer1::DataType getNvInferDataType(Type t);
+FailureOr<nvinfer1::DataType> getNvInferDataType(Location loc, Type t);
 Type getNvInferDataTypeAsMlirType(MLIRContext *ctx, nvinfer1::DataType t);
 
 /// Convert an array of dimension indices into a bit mask. This is used below in

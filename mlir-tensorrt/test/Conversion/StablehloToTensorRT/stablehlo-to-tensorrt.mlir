@@ -1124,23 +1124,6 @@ func.func @hlo_pad_static(%arg0: tensor<10x48x48x32xf32>) -> tensor<10x48x48x48x
 
 // -----
 
-func.func @hlo_pad_static_low_high(%arg0: tensor<10x48x48x32xf32>) -> tensor<10x48x48x64xf32> {
-  %0 = "stablehlo.constant"() {value = dense<0.0> : tensor<f32>} : () -> tensor<f32>
-  %1 = "stablehlo.pad"(%arg0, %0) {
-    edge_padding_high = array<i64: 0, 0, 0, 16>,
-    edge_padding_low = array<i64: 0, 0, 0, 16>,
-    interior_padding = array<i64: 0, 0, 0, 0>
-  } : (tensor<10x48x48x32xf32>, tensor<f32>) -> tensor<10x48x48x64xf32>
-  func.return %1 : tensor<10x48x48x64xf32>
-}
-
-// CHECK-LABEL: @hlo_pad_static
-//  CHECK-SAME:  (%[[arg0:.+]]: tensor<10x48x48x32xf32>
-//       CHECK:  %[[fill:.+]] = tensorrt.constant dense<0.0{{.*}}> : tensor<f32>
-//       CHECK:  tensorrt.slice %[[arg0]][0, 0, 0, -16][10, 48, 48, 64][1, 1, 1, 1] fill(%[[fill]] : tensor<f32>) {mode = #tensorrt.slice_mode<kFILL>} : tensor<10x48x48x32xf32> to tensor<10x48x48x64xf32>
-
-// -----
-
 func.func @hlo_pad_dynamic_non_sliced_dim(%arg0: tensor<?x48x48x32xf32>) -> tensor<?x48x48x48xf32> {
   %0 = "stablehlo.constant"() {value = dense<0.0> : tensor<f32>} : () -> tensor<f32>
   %1 = "stablehlo.pad"(%arg0, %0) {
@@ -1928,6 +1911,28 @@ func.func @scatter_slice_update_f16(%arg0: tensor<1x134xf16>, %arg1: tensor<1x2x
 
 // -----
 
+func.func @scatter_slice_update_i1(%arg0: tensor<1x134xi1>, %arg1: tensor<1x2xi32>, %arg2: tensor<1x1x5xi1>) -> tensor<1x134xi1> {
+  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) ({
+  ^bb0(%arg3: tensor<i1>, %arg4: tensor<i1>):
+    stablehlo.return %arg4 : tensor<i1>
+  }) {indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = [1, 2], scatter_dims_to_operand_dims = [0, 1], index_vector_dim = 1>, unique_indices = false} : (tensor<1x134xi1>, tensor<1x2xi32>, tensor<1x1x5xi1>) -> tensor<1x134xi1>
+  return %0 : tensor<1x134xi1>
+}
+
+// CHECK-LABEL: @scatter_slice_update_i1
+//       CHECK:     %[[v0:.+]] = tensorrt.slice %arg1[0, 1][1, 1][1, 1] : tensor<1x2xi32> to tensor<1x1xi32>
+//       CHECK:     %[[v1:.+]] = tensorrt.collapse_rank %[[v0]] : tensor<1x1xi32> to tensor<i32>
+//       CHECK:     %[[v2:.+]] = tensorrt.collapse_rank %arg2 : tensor<1x1x5xi1> to tensor<1x5xi1>
+//       CHECK:     %[[v3:.+]] = tensorrt.constant dense<1> : tensor<2xi32>
+//       CHECK:     %[[v4:.+]] = tensorrt.linspace[%[[v1]] : tensor<i32>] [ static] [%[[v3]] : tensor<2xi32>] : tensor<1x5xi32>
+//       CHECK:     %[[v5:.+]] = tensorrt.identity %arg0 : tensor<1x134xi1> to tensor<1x134xi32>
+//       CHECK:     %[[v6:.+]] = tensorrt.identity %[[v2]] : tensor<1x5xi1> to tensor<1x5xi32>
+//       CHECK:     %[[v7:.+]] = tensorrt.scatter_elements {axis = 1 : i64} data(%[[v5]] : tensor<1x134xi32>) indices(%[[v4]] : tensor<1x5xi32>) updates(%[[v6]] : tensor<1x5xi32>)
+//       CHECK:     %[[v8:.+]] = tensorrt.identity %[[v7]] : tensor<1x134xi32> to tensor<1x134xi1>
+//       CHECK:     return %[[v8]] : tensor<1x134xi1>
+
+// -----
+
 func.func @quantize_pt_to_i8_static(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> {
   %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
   return %0 : tensor<2x3x300x300xi8>
@@ -2076,3 +2081,137 @@ func.func @compare_boolean_inputs(%arg0: tensor<i32>, %arg1: tensor<i32>) -> ten
 //       CHECK: %[[v3:.+]] = tensorrt.identity %[[v1]] : tensor<i1> to tensor<i32>
 //       CHECK: tensorrt.element_wise <kEQUAL>(%[[v2]], %[[v3]] : tensor<i32>, tensor<i32>) -> tensor<i1>
 //       CHECK: tensorrt.unary {unaryOperation = #tensorrt.unary_operation<kNOT>}
+
+// -----
+
+func.func @jnp_cumsum_2d_i32(%arg0: tensor<1x134xi32>) -> tensor<1x134xi32> {
+  %cst = arith.constant dense<0> : tensor<i32>
+  %4 = "stablehlo.reduce_window"(%arg0, %cst) <{base_dilations = array<i64: 1, 1>, padding = dense<[[0, 0], [133, 0]]> : tensor<2x2xi64>, window_dilations = array<i64: 1, 1>, window_dimensions = array<i64: 1, 134>, window_strides = array<i64: 1, 1>}> ({
+  ^bb0(%arg1: tensor<i32>, %arg2: tensor<i32>):
+    %5 = stablehlo.add %arg1, %arg2 : tensor<i32>
+    stablehlo.return %5 : tensor<i32>
+  }) : (tensor<1x134xi32>, tensor<i32>) -> tensor<1x134xi32>
+  return %4 : tensor<1x134xi32>
+}
+
+// CHECK-LABEL: @jnp_cumsum_2d_i32
+//       CHECK:  %[[v0:.+]] = tensorrt.identity %arg0
+//       CHECK:  %[[v1:.+]] = tensorrt.expand_rank %[[v0]] : tensor<1x134xf32> to tensor<1x1x1x134xf32>
+//       CHECK:  %[[v2:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1x134xf32>
+//       CHECK:  %[[v3:.+]] = tensorrt.convolution
+//       CHECK-SAME: post_padding = array<i64: 0, 0>
+//       CHECK-SAME: pre_padding = array<i64: 0, 133>
+//       CHECK-SAME: in(%[[v1]] : tensor<1x1x1x134xf32>) kernel(%[[v2]] : tensor<1x1x1x134xf32>) -> tensor<1x1x1x134xf32>
+//       CHECK:  %[[v4:.+]] = tensorrt.identity %[[v3]] : tensor<1x1x1x134xf32> to tensor<1x1x1x134xi32>
+//       CHECK:  %[[v5:.+]] = tensorrt.reshape %[[v4]] : tensor<1x1x1x134xi32> to tensor<1x134xi32>
+
+// -----
+
+func.func @jnp_cumsum_1d_i32(%arg0: tensor<134xi32>) -> tensor<134xi32> {
+  %cst = arith.constant dense<0> : tensor<i32>
+  %4 = "stablehlo.reduce_window"(%arg0, %cst) <{base_dilations = array<i64: 1>, padding = dense<[[133, 0]]> : tensor<1x2xi64>, window_dilations = array<i64: 1>, window_dimensions = array<i64: 134>, window_strides = array<i64: 1>}> ({
+  ^bb0(%arg1: tensor<i32>, %arg2: tensor<i32>):
+    %5 = stablehlo.add %arg1, %arg2 : tensor<i32>
+    stablehlo.return %5 : tensor<i32>
+  }) : (tensor<134xi32>, tensor<i32>) -> tensor<134xi32>
+  return %4 : tensor<134xi32>
+}
+
+// CHECK-LABEL: @jnp_cumsum_1d_i32
+//       CHECK:  %[[v0:.+]] = tensorrt.identity %arg0
+//       CHECK:  %[[v1:.+]] = tensorrt.expand_rank %[[v0]] : tensor<134xf32> to tensor<1x1x1x134xf32>
+//       CHECK:  %[[v2:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1x134xf32>
+//       CHECK:  %[[v3:.+]] = tensorrt.convolution
+//       CHECK-SAME: post_padding = array<i64: 0, 0>
+//       CHECK-SAME: pre_padding = array<i64: 0, 133>
+//       CHECK-SAME: in(%[[v1]] : tensor<1x1x1x134xf32>) kernel(%[[v2]] : tensor<1x1x1x134xf32>) -> tensor<1x1x1x134xf32>
+//       CHECK:  %[[v4:.+]] = tensorrt.identity %[[v3]] : tensor<1x1x1x134xf32> to tensor<1x1x1x134xi32>
+//       CHECK:  %[[v5:.+]] = tensorrt.reshape %[[v4]] : tensor<1x1x1x134xi32> to tensor<134xi32>
+
+// -----
+
+func.func @jnp_cumsum_2d_axis0_i32(%arg0: tensor<2x2xi32>) -> tensor<2x2xi32> {
+  %cst = arith.constant dense<0> : tensor<i32>
+  %0 = "stablehlo.reduce_window"(%arg0, %cst) <{base_dilations = array<i64: 1, 1>, padding = dense<[[1, 0], [0, 0]]> : tensor<2x2xi64>, window_dilations = array<i64: 1, 1>, window_dimensions = array<i64: 2, 1>, window_strides = array<i64: 1, 1>}> ({
+  ^bb0(%arg1: tensor<i32>, %arg2: tensor<i32>):
+    %1 = stablehlo.add %arg1, %arg2 : tensor<i32>
+    stablehlo.return %1 : tensor<i32>
+  }) : (tensor<2x2xi32>, tensor<i32>) -> tensor<2x2xi32>
+  return %0 : tensor<2x2xi32>
+}
+
+// CHECK-LABEL: @jnp_cumsum_2d_axis0_i32
+//       CHECK:  %[[v0:.+]] = tensorrt.identity %arg0
+//       CHECK:  %[[v1:.+]] = tensorrt.expand_rank %[[v0]] : tensor<2x2xf32> to tensor<1x1x2x2xf32>
+//       CHECK:  %[[v2:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1x1x2x1xf32>
+//       CHECK:  %[[v3:.+]] = tensorrt.convolution
+//       CHECK-SAME: post_padding = array<i64: 0, 0>
+//       CHECK-SAME: pre_padding = array<i64: 1, 0>
+//       CHECK-SAME: in(%[[v1]] : tensor<1x1x2x2xf32>) kernel(%[[v2]] :  tensor<1x1x2x1xf32>) -> tensor<1x1x2x2xf32>
+//       CHECK:  %[[v4:.+]] = tensorrt.identity %[[v3]] : tensor<1x1x2x2xf32> to tensor<1x1x2x2xi32>
+//       CHECK:  %[[v5:.+]] = tensorrt.reshape %[[v4]] : tensor<1x1x2x2xi32> to tensor<2x2xi32>
+
+// -----
+
+func.func @jnp_cumsum_3d_i32(%arg0: tensor<1x2x2xi32>) -> tensor<1x2x2xi32> {
+  %cst = arith.constant dense<0> : tensor<i32>
+  %0 = "stablehlo.reduce_window"(%arg0, %cst) <{base_dilations = array<i64: 1, 1, 1>, padding = dense<[[0, 0], [0, 0], [1, 0]]> : tensor<3x2xi64>, window_dilations = array<i64: 1, 1, 1>, window_dimensions = array<i64: 1, 1, 2>, window_strides = array<i64: 1, 1, 1>}> ({
+  ^bb0(%arg1: tensor<i32>, %arg2: tensor<i32>):
+    %1 = stablehlo.add %arg1, %arg2 : tensor<i32>
+    stablehlo.return %1 : tensor<i32>
+  }) : (tensor<1x2x2xi32>, tensor<i32>) -> tensor<1x2x2xi32>
+  return %0 : tensor<1x2x2xi32>
+}
+
+// CHECK-LABEL: @jnp_cumsum_3d_i32
+//       CHECK:  %[[v0:.+]] = tensorrt.identity %arg0
+//       CHECK:  %[[v1:.+]] = tensorrt.expand_rank %[[v0]] : tensor<1x2x2xf32> to tensor<1x1x1x2x2xf32>
+//       CHECK:  %[[v2:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1x1x2xf32>
+//       CHECK:  %[[v3:.+]] = tensorrt.convolution
+//       CHECK-SAME: post_padding = array<i64: 0, 0, 0>
+//       CHECK-SAME: pre_padding = array<i64: 0, 0, 1>
+//       CHECK-SAME: in(%[[v1]] : tensor<1x1x1x2x2xf32>) kernel(%[[v2]] : tensor<1x1x1x1x2xf32>) -> tensor<1x1x1x2x2xf32>
+//       CHECK:  %[[v4:.+]] = tensorrt.identity %[[v3]] : tensor<1x1x1x2x2xf32> to tensor<1x1x1x2x2xi32>
+//       CHECK:  %[[v5:.+]] = tensorrt.reshape %[[v4]] : tensor<1x1x1x2x2xi32> to tensor<1x2x2xi32>
+
+// -----
+
+func.func @jnp_cumsum_2d_f32(%arg0: tensor<1x134xf32>) -> tensor<1x134xf32> {
+  %cst = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+  %0 = "stablehlo.reduce_window"(%arg0, %cst) <{base_dilations = array<i64: 1, 1>, padding = dense<[[0, 0], [133, 0]]> : tensor<2x2xi64>, window_dilations = array<i64: 1, 1>, window_dimensions = array<i64: 1, 134>, window_strides = array<i64: 1, 1>}> ({
+  ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
+    %1 = stablehlo.add %arg1, %arg2 : tensor<f32>
+    stablehlo.return %1 : tensor<f32>
+  }) : (tensor<1x134xf32>, tensor<f32>) -> tensor<1x134xf32>
+  return %0 : tensor<1x134xf32>
+}
+
+// CHECK-LABEL: @jnp_cumsum_2d_f32
+//       CHECK:  %[[v1:.+]] = tensorrt.expand_rank %arg0 : tensor<1x134xf32> to tensor<1x1x1x134xf32>
+//       CHECK:  %[[v2:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1x134xf32>
+//       CHECK:  %[[v3:.+]] = tensorrt.convolution
+//       CHECK-SAME: post_padding = array<i64: 0, 0>
+//       CHECK-SAME: pre_padding = array<i64: 0, 133>
+//       CHECK-SAME: in(%[[v1]] : tensor<1x1x1x134xf32>) kernel(%[[v2]] : tensor<1x1x1x134xf32>) -> tensor<1x1x1x134xf32>
+//       CHECK:  %[[v4:.+]] = tensorrt.reshape %[[v3]] : tensor<1x1x1x134xf32> to tensor<1x134xf32>
+
+// -----
+
+func.func @jnp_cumsum_2d_f16(%arg0: tensor<1x134xf16>) -> tensor<1x134xf16> {
+  %cst = stablehlo.constant dense<0.000000e+00> : tensor<f16>
+  %0 = "stablehlo.reduce_window"(%arg0, %cst) <{base_dilations = array<i64: 1, 1>, padding = dense<[[0, 0], [133, 0]]> : tensor<2x2xi64>, window_dilations = array<i64: 1, 1>, window_dimensions = array<i64: 1, 134>, window_strides = array<i64: 1, 1>}> ({
+  ^bb0(%arg1: tensor<f16>, %arg2: tensor<f16>):
+    %1 = stablehlo.add %arg1, %arg2 : tensor<f16>
+    stablehlo.return %1 : tensor<f16>
+  }) : (tensor<1x134xf16>, tensor<f16>) -> tensor<1x134xf16>
+  return %0 : tensor<1x134xf16>
+}
+
+// CHECK-LABEL: @jnp_cumsum_2d_f16
+//       CHECK:  %[[v1:.+]] = tensorrt.expand_rank %arg0 : tensor<1x134xf16> to tensor<1x1x1x134xf16>
+//       CHECK:  %[[v2:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1x134xf16>
+//       CHECK:  %[[v3:.+]] = tensorrt.convolution
+//       CHECK-SAME: post_padding = array<i64: 0, 0>
+//       CHECK-SAME: pre_padding = array<i64: 0, 133>
+//       CHECK-SAME: in(%[[v1]] : tensor<1x1x1x134xf16>) kernel(%[[v2]] : tensor<1x1x1x134xf16>) -> tensor<1x1x1x134xf16>
+//       CHECK:  %[[v4:.+]] = tensorrt.reshape %[[v3]] : tensor<1x1x1x134xf16> to tensor<1x134xf16>

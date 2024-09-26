@@ -1,9 +1,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 #define MLIR_TENSORRT_DIALECT_EXECUTOR_IR_EXECUTOROPS_TD
 
-include "mlir-executor/Executor/IR/ExecutorDialect.td"
-include "mlir-executor/Executor/IR/ExecutorInterfaces.td"
-include "mlir-executor/Executor/IR/ExecutorTypes.td"
+include "mlir-executor/Executor/IR/ExecutorBase.td"
 
 include "mlir/Interfaces/MemorySlotInterfaces.td"
 include "mlir/Interfaces/CallInterfaces.td"
@@ -34,32 +32,6 @@ class AllBitWidthsMatch<list<string> names> :
 //===----------------------------------------------------------------------===//
 // Shorthand declarations
 //===----------------------------------------------------------------------===//
-
-/// A normal Executor op
-class Executor_Op<
-  string mnemonic,
-  list<Trait> traits = []
-> : Op<
-  Executor_Dialect,
-  mnemonic,
-  !listconcat(traits, [ExecutorOpInterface])
->;
-
-def I4  : I<4>;
-defvar Executor_ArithFloatTypes = [F64, F32, F16, F8E4M3FN, BF16];
-defvar Executor_ArithIntTypes = [I64, I32, I16, I8, I4, Index];
-
-// Integer signness semantics are specified by individual operations, not
-// the integer type.
-def Executor_Integer : AnyTypeOf<!listconcat(Executor_ArithIntTypes,
-      [I1])>;
-def Executor_Float : AnyTypeOf<Executor_ArithFloatTypes>;
-def Executor_MemRefElementTypes: AnyTypeOf<
-  !listconcat(Executor_ArithFloatTypes, [I32, I16, I8, I1])>;
-def Executor_AnyType : AnyTypeOf<[
-      Executor_Integer, Executor_Float, Executor_Table,
-      Executor_Ptr]>;
-def Executor_Index : AnyTypeOf<[I64, I32]>;
 
 /// Base class for cast-like operations.
 class Executor_CastOp<string mnemonic, list<Trait> traits = []>
@@ -366,6 +338,123 @@ def Executor_SetGlobalOp : Executor_Op<"set_global", [
 }
 
 //===----------------------------------------------------------------------===//
+// CoroYieldOp
+//===----------------------------------------------------------------------===//
+
+def Executor_CoroYieldOp : Executor_Op<"coro_yield", []> {
+  let summary = "suspends a coroutine";
+
+  let description = [{
+    The 'executor.coro_yield' operation suspends the current coroutine and
+    transfers control back to the program point immediately after the
+    point where the coroutine was resumed.
+
+    The control flow returns to the the 'coro_yield' point when the coroutine
+    is resumed. Note that 'coro_yield' is not a "terminator", but invoking the
+    coro suspension has "return-like" semantics with respect to 'executor.coro_resume`.
+
+    Therefore, the types passed to the continuation must match the result
+    types of the containing function.
+
+    Any function containing a 'coro_yield' is a coroutine function, and while
+    the compiler might not object until runtime when invoking
+    it directly with 'func.call', this is invalid and will result in undefined
+    behavior. A coroutine function can only be invoked through the sequence of
+    'executor.coro_create' and then one or more 'executor.coro_await' calls.
+  }];
+
+  let arguments = (ins Variadic<AnyType>:$yielded);
+  let assemblyFormat = "attr-dict ($yielded^ `:` type($yielded))?";
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// CoroCreateOp
+//===----------------------------------------------------------------------===//
+
+def Executor_CoroCreateOp : Executor_Op<"coro_create", [Pure]> {
+  let description = [{
+    Constructs a coroutine handle from a function or coroutine function.
+    Functions may or may not use 'executor.coro_yield' in their bodies
+    (abcense of 'coro_yield' does not prevent a 'func.func' from being
+    used as a coroutine, although the in that case 'coro_await' is
+    identical to just using 'func.call').
+  }];
+  let arguments = (ins FlatSymbolRefAttr:$func);
+  let results = (outs FunctionType:$result);
+
+  let assemblyFormat = [{
+    attr-dict $func `:` type($result)
+  }];
+
+  let hasVerifier = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// CoroAwaitOp
+//===----------------------------------------------------------------------===//
+
+def Executor_CoroAwaitOp : Executor_Op<"coro_await", [
+    CallOpInterface,
+    TypesMatchWith<"callee result types match result types",
+                     "callee", "results",
+                     "::llvm::cast<FunctionType>($_self).getResults()">]> {
+  let summary = "resume coroutine";
+
+  let description = [{
+    `executor.coro_await` resumes a coroutine. The 'callee_operands' must either be
+    empty or they must match the operands of the coroutine (for the initial
+    resume). The results yielded from the coroutine should always match
+    the function signature results, so the result types of `executor.coro_await`
+    must match the callee function result types.
+
+    The results of `executor.coro_await` are a flag indicating whether or not
+    the coroutine was resumed (false indicates the coroutine is terminated and cannot
+    be resumed) followed by the list of values yielded from the coroutine.
+    If the 'status' flag is false, then the 'results' values contain undefined
+    contents.
+  }];
+
+  let arguments = (ins FunctionType:$callee, Variadic<AnyType>:$callee_operands);
+  let results = (outs I1:$status, Variadic<AnyType>:$results);
+
+  let hasVerifier = 1;
+
+  let builders = [
+    OpBuilder<(ins "Value":$callee, CArg<"ValueRange", "{}">:$operands), [{
+      $_state.operands.push_back(callee);
+      $_state.addOperands(operands);
+      $_state.addTypes(::llvm::cast<FunctionType>(callee.getType()).getResults());
+    }]>];
+
+  let extraClassDeclaration = [{
+    // Functions for CallOpInterface
+
+    /// Get the operand range forwarded to callee.
+    operand_range getArgOperands() {
+      return getCalleeOperands();
+    }
+
+    /// Get the operand range forwarded to callee.
+    MutableOperandRange getArgOperandsMutable() {
+      return getCalleeOperandsMutable();
+    }
+
+    /// Return the callee of this operation.
+    CallInterfaceCallable getCallableForCallee() { return getCallee(); }
+
+    /// Set the callee for this operation.
+    void setCalleeFromCallable(CallInterfaceCallable callee) {
+      setOperand(0, callee.get<Value>());
+    }
+  }];
+
+  let assemblyFormat = [{
+    $callee `(` $callee_operands (`:` type($callee_operands)^)? `)` attr-dict `:` type($callee)
+  }];
+}
+
+//===----------------------------------------------------------------------===//
 // FuncOp
 //===----------------------------------------------------------------------===//
 
@@ -443,40 +532,17 @@ def Executor_CallOp : Executor_Op<"call", [
   let description = [{
     The `executor.call` operation represents a procedure call to an externally
     defined function given by the `callee` symbol name. The procedure is invoked
-    by passing `args` as well as immediate operands (attribute values) given
-    by `immediate_args`. The `immediate_args` attribute is optional.
-
-    If `immediate_args` is not specified, then the values in `args` are
-    passed to `callee` in the order that they are listed.
-
-    If `immediate_args` is specified, then the immediate args will first
-    be passed, followed by the values.
-
-    Currently, `immediate_args` values are restricted to be integers
-    attributes.
-
-    The function definition is currently not checked the verify that passing
-    immediate args makes sense. It is only verified against the types of
-    `args` and `results`.
+    by passing `args`.
   }];
 
   let arguments = (ins FlatSymbolRefAttr:$callee,
-                       Variadic<AnyType>:$args,
-                       OptionalAttr<ArrayAttr>:$immediate_args);
+                       Variadic<AnyType>:$args);
   let results = (outs Variadic<AnyType>:$results);
 
   let assemblyFormat = [{
-    $callee `(` $args `)` ($immediate_args^)? attr-dict
+    $callee `(` $args `)` attr-dict
        `:`  functional-type($args, $results)
   }];
-
-  let builders = [
-    OpBuilder<(ins "TypeRange":$types,
-                   "StringRef":$callee,
-                   "ValueRange":$args), [{
-      build($_builder, $_state, types, callee, args, ArrayAttr{});
-    }]>
-  ];
 
   let hasVerifier = 1;
 

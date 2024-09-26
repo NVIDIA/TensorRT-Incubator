@@ -27,8 +27,6 @@
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Clustering/Clustering.h"
 #include "mlir-tensorrt/Transforms/Clustering/Patterns.h"
-#include "mlir/Dialect/SCF/IR/SCF.h"
-#include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/PatternMatch.h"
@@ -112,16 +110,15 @@ static ClusterKindAttrInterface getClusterTargetForRegionOp(Operation *op) {
 }
 
 /// Returns the paramters that should be used for region outlining for a
-/// particular `scf.execute_region` cluster region.
-static FailureOr<OutlineRegionOptions> getOutliningParam(Operation *op) {
+
+static FailureOr<OutlineRegionOptions>
+getOutliningParam(Operation *op, SymbolTable &moduleSymbolTable) {
   ClusterKindAttrInterface target = getClusterTargetForRegionOp(op);
   std::optional<OutlineRegionOptions> opts =
-      target.getClusterOutliningOptions();
+      target.getClusterOutliningOptions(op->getContext(), moduleSymbolTable);
   if (!opts)
     return failure();
   return *opts;
-
-  return failure();
 }
 
 static FailureOr<tensorrt::ShapeProfileAttr>
@@ -270,7 +267,8 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
 /// Create outlined functions for each `scf.execute_region` operation within
 /// `region`.
 static FailureOr<SmallVector<FunctionOpInterface>>
-createFunctionsFromRegions(RewriterBase &rewriter, Region &region) {
+createFunctionsFromRegions(RewriterBase &rewriter, Region &region,
+                           SymbolTable &moduleSymbolTable) {
   SmallVector<FunctionOpInterface> outlinedFuncs;
 
   WalkResult result = region.walk([&](Operation *op) {
@@ -278,7 +276,8 @@ createFunctionsFromRegions(RewriterBase &rewriter, Region &region) {
       return WalkResult::advance();
 
     if (!isa<TensorRTClusterKindAttr>(getClusterTargetForRegionOp(op))) {
-      FailureOr<OutlineRegionOptions> opts = getOutliningParam(op);
+      FailureOr<OutlineRegionOptions> opts =
+          getOutliningParam(op, moduleSymbolTable);
       if (failed(opts))
         return WalkResult::interrupt();
       FailureOr<std::pair<FunctionOpInterface, SetVector<Value>>>
@@ -315,6 +314,7 @@ public:
 
   void runOnOperation() override {
     ModuleOp module = getOperation();
+    SymbolTable moduleSymbolTable(module);
 
     SmallVector<func::FuncOp> funcs = llvm::to_vector(llvm::make_filter_range(
         module.getOps<func::FuncOp>(), [](func::FuncOp func) {
@@ -332,7 +332,8 @@ public:
         return WalkResult::skip();
       });
 
-      if (failed(createFunctionsFromRegions(rewriter, func.getFunctionBody())))
+      if (failed(createFunctionsFromRegions(rewriter, func.getFunctionBody(),
+                                            moduleSymbolTable)))
         return signalPassFailure();
     }
   }

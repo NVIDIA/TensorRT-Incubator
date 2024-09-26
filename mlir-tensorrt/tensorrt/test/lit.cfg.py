@@ -55,7 +55,7 @@ llvm_config.with_environment("PATH", config.llvm_tools_dir, append_path=True)
 
 llvm_config.with_environment(
     "LD_LIBRARY_PATH",
-    [config.tensorrt_lib_dir],
+    [config.tensorrt_lib_dir, config.tensorrt_dialect_libs_dir],
     append_path=True,
 )
 

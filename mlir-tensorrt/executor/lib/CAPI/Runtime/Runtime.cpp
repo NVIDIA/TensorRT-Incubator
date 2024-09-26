@@ -32,6 +32,10 @@
 #include "llvm/ADT/SmallVectorExtras.h"
 #include <memory>
 
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#include "cuda_runtime_api.h"
+#endif
+
 struct MTRT_StreamImpl;
 
 #define DEFINE_C_API_PTR_METHODS(name, cpptype)                                \
@@ -149,39 +153,53 @@ public:
   MTRT_StreamImpl &operator=(const MTRT_StreamImpl &) = delete;
   MTRT_StreamImpl(MTRT_StreamImpl &&other) {
     stream = other.stream;
-    other.stream = nullptr;
+    other.stream = 0;
   };
   MTRT_StreamImpl &operator=(MTRT_StreamImpl &&other) {
     if (this != &other) {
       stream = other.stream;
-      other.stream = nullptr;
+      other.stream = 0;
     }
     return *this;
   };
+
   static StatusOr<std::unique_ptr<MTRT_StreamImpl>> create();
   ~MTRT_StreamImpl();
-  cudaStream_t getRawStream() { return stream; }
+  CudaStream getRawStream() { return stream; }
   Status sync();
 
 private:
-  MTRT_StreamImpl(cudaStream_t s) : stream(s) {}
-  cudaStream_t stream{nullptr};
+  MTRT_StreamImpl(CudaStream s) : stream(s) {}
+  CudaStream stream{0};
 };
 
 StatusOr<std::unique_ptr<MTRT_StreamImpl>> MTRT_StreamImpl::create() {
-  cudaStream_t s;
-  RETURN_ERROR_IF_CUDART_ERROR(cudaStreamCreate(&s));
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  CudaStream s;
+  RETURN_ERROR_IF_CUDART_ERROR(
+      cudaStreamCreate(reinterpret_cast<cudaStream_t *>(&s)));
+
   return std::unique_ptr<MTRT_StreamImpl>(new MTRT_StreamImpl(std::move(s)));
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
+#endif
 }
 
 MTRT_StreamImpl::~MTRT_StreamImpl() {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (stream)
-    cudaStreamDestroy(stream);
+    cudaStreamDestroy(reinterpret_cast<cudaStream_t>(stream));
+#endif
 }
 
 Status MTRT_StreamImpl::sync() {
-  RETURN_ERROR_IF_CUDART_ERROR(cudaStreamSynchronize(stream));
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  RETURN_ERROR_IF_CUDART_ERROR(
+      cudaStreamSynchronize(reinterpret_cast<cudaStream_t>(stream)));
   return getOkStatus();
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA support");
+#endif
 }
 
 MTRT_Status mtrtStreamCreate(MTRT_Stream *stream) {
@@ -328,20 +346,27 @@ static StatusOr<DLDeviceType> toDLPackDeviceType(PointerType address) {
   return DLDeviceType::kDLCPU;
 }
 
-MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_PointerType* result) {
-  #define RETURN_OK(v) *result = v; return mtrtStatusGetOk();
+MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device,
+                                               MTRT_PointerType *result) {
+#define RETURN_OK(v)                                                           \
+  *result = v;                                                                 \
+  return mtrtStatusGetOk();
   switch (device) {
-    case DLDeviceType::kDLCUDA: RETURN_OK(MTRT_PointerType_device)
-    case DLDeviceType::kDLCPU: RETURN_OK(MTRT_PointerType_host)
-    case DLDeviceType::kDLCUDAHost: RETURN_OK(MTRT_PointerType_host)
-    case DLDeviceType::kDLCUDAManaged: RETURN_OK(MTRT_PointerType_unified)
-    default:
-      return wrap(getStatusWithMsg(
-        StatusCode::InvalidArgument, "DLDeviceType [",
-        // device,
-        "] conversion to MTRT_PointerType is not supported."));
+  case DLDeviceType::kDLCUDA:
+    RETURN_OK(MTRT_PointerType_device)
+  case DLDeviceType::kDLCPU:
+    RETURN_OK(MTRT_PointerType_host)
+  case DLDeviceType::kDLCUDAHost:
+    RETURN_OK(MTRT_PointerType_host)
+  case DLDeviceType::kDLCUDAManaged:
+    RETURN_OK(MTRT_PointerType_unified)
+  default:
+    return wrap(
+        getStatusWithMsg(StatusCode::InvalidArgument, "DLDeviceType [",
+                         // device,
+                         "] conversion to MTRT_PointerType is not supported."));
   }
-  #undef RETURN_OK
+#undef RETURN_OK
 }
 
 static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
@@ -365,41 +390,57 @@ static StatusOr<DLDataTypeCode> toDLPackDataTypeCode(ScalarTypeCode type) {
     return DLDataTypeCode::kDLBfloat;
   default:
     return getStatusWithMsg(
-        StatusCode::InvalidArgument, "Scalar type code conversion to DLPackDataTypeCode is not supported.");
+        StatusCode::InvalidArgument,
+        "Scalar type code conversion to DLPackDataTypeCode is not supported.");
   }
   return DLDataTypeCode::kDLFloat;
 }
 
-MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTypeCode* result) {
-  #define RETURN_OK(v) *result = v; return mtrtStatusGetOk();
+MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype,
+                                                MTRT_ScalarTypeCode *result) {
+#define RETURN_OK(v)                                                           \
+  *result = v;                                                                 \
+  return mtrtStatusGetOk();
   switch (dtype.code) {
-    case kDLBool: RETURN_OK(MTRT_ScalarTypeCode_i1)
-    case kDLInt:
-      switch (dtype.bits) {
-        case 8: RETURN_OK(MTRT_ScalarTypeCode_i8)
-        case 16: RETURN_OK(MTRT_ScalarTypeCode_i16)
-        case 32: RETURN_OK(MTRT_ScalarTypeCode_i32)
-        case 64: RETURN_OK(MTRT_ScalarTypeCode_i64)
-      }
-    case kDLUInt:
-      switch (dtype.bits) {
-        case 8: RETURN_OK(MTRT_ScalarTypeCode_ui8);
-      }
-    case kDLFloat:
-      switch (dtype.bits) {
-        case 8: RETURN_OK(MTRT_ScalarTypeCode_f8e4m3fn)
-        case 16: RETURN_OK(MTRT_ScalarTypeCode_f16)
-        case 32: RETURN_OK(MTRT_ScalarTypeCode_f32)
-        case 64: RETURN_OK(MTRT_ScalarTypeCode_f64)
-      }
-    case kDLBfloat: RETURN_OK(MTRT_ScalarTypeCode_bf16)
-    case kDLComplex:
-    case kDLOpaqueHandle:
-    default:
-      return wrap(getStatusWithMsg(
-        StatusCode::InvalidArgument, "DLDataType conversion to MTRT_ScalarTypeCode is not supported."));
+  case kDLBool:
+    RETURN_OK(MTRT_ScalarTypeCode_i1)
+  case kDLInt:
+    switch (dtype.bits) {
+    case 8:
+      RETURN_OK(MTRT_ScalarTypeCode_i8)
+    case 16:
+      RETURN_OK(MTRT_ScalarTypeCode_i16)
+    case 32:
+      RETURN_OK(MTRT_ScalarTypeCode_i32)
+    case 64:
+      RETURN_OK(MTRT_ScalarTypeCode_i64)
+    }
+  case kDLUInt:
+    switch (dtype.bits) {
+    case 8:
+      RETURN_OK(MTRT_ScalarTypeCode_ui8);
+    }
+  case kDLFloat:
+    switch (dtype.bits) {
+    case 8:
+      RETURN_OK(MTRT_ScalarTypeCode_f8e4m3fn)
+    case 16:
+      RETURN_OK(MTRT_ScalarTypeCode_f16)
+    case 32:
+      RETURN_OK(MTRT_ScalarTypeCode_f32)
+    case 64:
+      RETURN_OK(MTRT_ScalarTypeCode_f64)
+    }
+  case kDLBfloat:
+    RETURN_OK(MTRT_ScalarTypeCode_bf16)
+  case kDLComplex:
+  case kDLOpaqueHandle:
+  default:
+    return wrap(getStatusWithMsg(
+        StatusCode::InvalidArgument,
+        "DLDataType conversion to MTRT_ScalarTypeCode is not supported."));
   }
-  #undef RETURN_OK
+#undef RETURN_OK
 }
 
 static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
@@ -630,12 +671,10 @@ MTRT_Status mtrtRuntimeSessionCreate(MTRT_RuntimeSessionOptions options,
                                      MTRT_RuntimeSession *result) {
   RuntimeSessionOptions *cppOptions = unwrap(options);
   Executable *cppExecutable = unwrap(executable);
-
-  StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(cppExecutable->getView(), *cppOptions);
+  StatusOr<std::unique_ptr<LuaRuntimeSession>> session =
+      LuaRuntimeSession::create(*cppOptions, cppExecutable->getView(), {});
   if (session.isError())
     return wrap(session.getStatus());
-
   *result = wrap(session->release());
   return mtrtStatusGetOk();
 }
@@ -649,7 +688,8 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
     const MTRT_RuntimeValue *outArgs, size_t numOutArgs, MTRT_Stream stream) {
-  RuntimeSession *cppSession = unwrap(session);
+  LuaRuntimeSession *cppSession =
+      static_cast<LuaRuntimeSession *>(unwrap(session));
 
   llvm::SmallVector<RuntimeValue *> inArgValues =
       llvm::map_to_vector(llvm::ArrayRef(inArgs, numInArgs),
