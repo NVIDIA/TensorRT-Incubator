@@ -60,6 +60,7 @@ def default_builder(init, dtype, namespace):
 
 find_func = {
     "tripy.Tensor": tensor_builder,
+    "tripy.types.TensorLike": tensor_builder,
     "tripy.Shape": tensor_builder,
     "tripy.dtype": dtype_builder,
     datatype.dtype: dtype_builder,
@@ -83,6 +84,12 @@ All other types do not have defaults and must be passed to the verifier using de
 default_constraints_all = {
     "__getitem__": {"index": 2},
     "__matmul__": {"self": tp.ones((2, 3))},
+    # Force broadcasting for binary ops so the entire broadcasting code path is triggered.
+    "__add__": {"other": 1},
+    "__mul__": {"other": 1},
+    "__pow__": {"other": 1},
+    "__sub__": {"other": 1},
+    "__truediv__": {"other": 1},
     "__radd__": {"self": 1},
     "__rmul__": {"self": 1},
     "__rpow__": {"self": 1},
@@ -105,21 +112,23 @@ default_constraints_all = {
     },
     "cumsum": {"dim": 0},
     "dequantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
-    "expand": {"sizes": tp.Tensor([3, 4]), "input": tp.ones((3, 1))},
+    "expand": {"sizes": [3, 4], "input": tp.ones((3, 1))},
     "flip": {"dim": 1},
     "full_like": {"value": 1},
-    "full": {"shape": tp.Tensor([3]), "value": 1},
+    "full": {"shape": [3], "value": 1},
     "gather": {"dim": 0, "index": tp.Tensor([1])},
-    "iota": {"shape": tp.Tensor([4])},
+    "iota": {"shape": [4]},
     "masked_fill": {"value": 1},
+    "maxpool": {"input": tp.ones((1, 3, 5, 5)), "kernel_dims": (3, 3)},
     "max": {"dim": 0},
     "mean": {"dim": 0},
-    "ones": {"shape": tp.Tensor([3, 2])},
+    "ones": {"shape": [3, 2]},
+    "outer": {"vec1": tp.Tensor([2, 3, 4, 5]), "vec2": tp.Tensor([1, 2, 3, 4])},
     "permute": {"perm": [1, 0]},
     "prod": {"dim": 0},
     "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
     "repeat": {"repeats": 2, "dim": 0},
-    "reshape": {"shape": tp.Tensor([6])},
+    "reshape": {"shape": [6]},
     "softmax": {"dim": 1},
     "split": {"indices_or_sections": 2},
     "squeeze": {"input": tp.ones((3, 1)), "dims": (1)},
@@ -127,7 +136,7 @@ default_constraints_all = {
     "transpose": {"dim0": 0, "dim1": 1},
     "unsqueeze": {"dim": 1},
     "var": {"dim": 0},
-    "zeros": {"shape": tp.Tensor([3, 2])},
+    "zeros": {"shape": [3, 2]},
 }
 
 

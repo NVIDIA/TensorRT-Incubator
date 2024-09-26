@@ -22,7 +22,6 @@ from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -76,13 +75,10 @@ def reshape_impl(
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-        "T2": ["int8", "int32", "int64"],
     },
-    dtype_constraints={"input": "T1", "shape": "T2", constraints.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def reshape(
-    input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]]
-) -> "tripy.Tensor":
+def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
 

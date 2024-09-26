@@ -17,9 +17,9 @@
 
 import enum
 from dataclasses import dataclass
-from typing import Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
-from tripy import export, constraints, utils
+from tripy import constraints, export, utils
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -90,8 +90,8 @@ class Pooling(BaseTraceOp):
 def maxpool(
     input: "tripy.Tensor",
     kernel_dims: Sequence[int],
-    stride: Sequence[int] = None,
-    padding: Sequence[Tuple[int]] = None,
+    stride: Optional[Sequence[int]] = None,
+    padding: Optional[Sequence[Tuple[int]]] = None,
 ) -> "tripy.Tensor":
     r"""
     Applies a max pooling over the input tensor.
