@@ -807,3 +807,60 @@ func.func @test_slice(%arg0: tensor<4xf32>) -> tensor<2xf32> {
 //       CHECK:      %[[from_elements:.+]] = tensor.from_elements %[[extracted_0]], %[[extracted_1]] : tensor<2xf32>
 //       CHECK:      return %[[from_elements]] : tensor<2xf32>
 
+
+// -----
+
+func.func @test_clamp_ui32(
+    %arg0: tensor<ui32>, %arg1: tensor<ui32>, %arg2: tensor<ui32>) -> tensor<ui32> {
+  %1 = "stablehlo.clamp"(%arg0, %arg1, %arg2)
+    : (tensor<ui32>, tensor<ui32>, tensor<ui32>) ->  tensor<ui32>
+  return %1: tensor<ui32>
+}
+
+// CHECK-LABEL: func.func @test_clamp_ui32
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<ui32>, %[[arg1:.+]]: tensor<ui32>, %[[arg2:.+]]: tensor<ui32>) -> tensor<ui32> {
+//       CHECK:   %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : tensor<ui32> to tensor<i32>
+//       CHECK:   %[[c0:.+]] = arith.constant 0 : index
+//       CHECK:   %[[extracted:.+]] = tensor.extract %[[v0]][] : tensor<i32>
+//       CHECK:   %[[v1:.+]] = builtin.unrealized_conversion_cast %[[arg1]] : tensor<ui32> to tensor<i32>
+//       CHECK:   %[[c0_0:.+]] = arith.constant 0 : index
+//       CHECK:   %[[extracted_1:.+]] = tensor.extract %[[v1]][] : tensor<i32>
+//       CHECK:   %[[v2:.+]] = builtin.unrealized_conversion_cast %[[arg2]] : tensor<ui32> to tensor<i32>
+//       CHECK:   %[[c0_2:.+]] = arith.constant 0 : index
+//       CHECK:   %[[extracted_3:.+]] = tensor.extract %[[v2]][] : tensor<i32>
+//   CHECK-DAG:   %[[v3:.+]] = arith.maxui %[[extracted]], %[[extracted_1]] : i32
+//   CHECK-DAG:   %[[v4:.+]] = arith.minui %[[v3]], %[[extracted_3]] : i32
+//   CHECK-DAG:   %[[from_elements:.+]] = tensor.from_elements %[[v4]] : tensor<i32>
+//   CHECK-DAG:   %[[v5:.+]] = builtin.unrealized_conversion_cast %[[from_elements]] : tensor<i32> to tensor<ui32>
+//   CHECK-DAG:   return %[[v5]] : tensor<ui32>
+
+// -----
+
+func.func @test_convert_to_unsigned(%arg0: tensor<i32>) -> tensor<ui32> {
+  %1 = "stablehlo.convert"(%arg0) : (tensor<i32>) -> tensor<ui32>
+  return %1: tensor<ui32>
+}
+
+// CHECK-LABEL: func.func @test_convert_to_unsigned
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<i32>) -> tensor<ui32>
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][] : tensor<i32>
+//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[extracted]] : tensor<i32>
+//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[from_elements]] : tensor<i32> to tensor<ui32>
+//   CHECK-DAG:     return %[[v0]] : tensor<ui32>
+
+
+// -----
+
+func.func @test_convert_from_unsigned(%arg0: tensor<ui32>) -> tensor<i32> {
+  %1 = "stablehlo.convert"(%arg0) : (tensor<ui32>) -> tensor<i32>
+  return %1: tensor<i32>
+}
+
+// CHECK-LABEL: func.func @test_convert_from_unsigned
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<ui32>) -> tensor<i32>
+//   CHECK-DAG:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : tensor<ui32> to tensor<i32>
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[v0]][] : tensor<i32>
+//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[extracted]] : tensor<i32>
+//   CHECK-DAG:     return %[[from_elements]] : tensor<i32>

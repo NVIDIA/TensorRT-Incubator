@@ -484,13 +484,15 @@ FailureOr<std::unique_ptr<mlirtrt::runtime::ExecutableStorage>>
 mlir::translateToRuntimeExecutable(Operation *op) {
 
   FBBuilder fbBuilder;
-  auto module = dyn_cast<ModuleOp>(op);
-  if (!module)
-    return failure();
+
+  if (!op->hasTrait<OpTrait::IsIsolatedFromAbove>() ||
+      !op->hasTrait<OpTrait::SymbolTable>() || op->getNumRegions() != 1 ||
+      !op->getRegion(0).hasOneBlock())
+    return emitError(op->getLoc()) << "expected module-like operation";
 
   // Do rename of symbols to sanitize.
-  SymbolTable symbolTable(module);
-  for (Operation &op : module.getOps()) {
+  SymbolTable symbolTable(op);
+  for (Operation &op : op->getRegion(0).getOps()) {
     auto nameAttr =
         op.getAttrOfType<StringAttr>(mlir::SymbolTable::getSymbolAttrName());
     if (!nameAttr)
@@ -513,7 +515,8 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   // executable as a Constant. These go into the 64bit section. We serialize the
   // string with the data in the 64 bit section.
   SmallVector<Offset64Pair<fb::String, fb::Vector64<int8_t>>> constData;
-  for (auto resourceOp : module.getOps<executor::ConstantResourceOp>()) {
+  for (auto resourceOp :
+       op->getRegion(0).getOps<executor::ConstantResourceOp>()) {
 
     auto serializedAttr = serializeElementsAttr(fbBuilder, resourceOp.getName(),
                                                 resourceOp.getValue());
@@ -544,7 +547,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   // Loop over all functions and collect metadata (function names and
   // signatures) that we will embed in the executable.
   SmallVector<Offset<rt::impl::Function>> funcOffsets;
-  for (auto func : module.getOps<func::FuncOp>()) {
+  for (auto func : op->getRegion(0).getOps<func::FuncOp>()) {
     if (func.isPrivate())
       continue;
     Offset<fb::String> funcNameOffset =
@@ -568,7 +571,7 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   // a StableHLO program (since the StableHLO spec requires a 2D process grid
   // [num_replicas, num_partitions]).
   FailureOr<SmallVector<int64_t>> processGrid =
-      executor::getModuleProcessGridShape(module);
+      executor::getModuleProcessGridShape(op);
   if (failed(processGrid) || processGrid->empty())
     processGrid = SmallVector<int64_t>(2, 1);
 
@@ -578,8 +581,9 @@ mlir::translateToRuntimeExecutable(Operation *op) {
   auto constVecOffsets = fbBuilder.serialize(constantOffsets);
   auto vecFuncOffsets = fbBuilder.serialize(funcOffsets);
   auto processGridShapeOffset = fbBuilder.serialize(gridShapeU);
-  llvm::StringRef moduleName =
-      module.getSymName() ? *module.getSymName() : "unnamed-module";
+  llvm::StringRef moduleName = op->hasAttr(SymbolTable::getSymbolAttrName())
+                                   ? SymbolTable::getSymbolName(op).strref()
+                                   : "unnamed-module";
   auto nameOffset = fbBuilder.CreateString(moduleName.str());
   rt::impl::ExecutableBuilder exeBuilder(fbBuilder);
   exeBuilder.add_process_grid_shape(processGridShapeOffset);

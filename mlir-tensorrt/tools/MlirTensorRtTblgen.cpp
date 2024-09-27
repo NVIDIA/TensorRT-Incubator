@@ -179,8 +179,9 @@ static void emitAttributeReplacement(FmtContext &ctx, raw_indented_ostream &os,
     return;
   }
   if (attrRecordName == "ElementsAttr") {
-    os << "nvinfer1::Weights " << namedAttr.name
+    os << "FailureOr<nvinfer1::Weights> " << namedAttr.name
        << " = encoder.getNvInferWeights(" << getter << ");\n";
+    os << "if (failed(" << namedAttr.name << ")) return failure();\n";
     return;
   }
   if (attrRecordName == "DenseI64ArrayAttr" ||

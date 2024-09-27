@@ -82,13 +82,14 @@ namespace mlir {
 /// }
 /// ```
 class OptionsContext : public llvm::cl::SubCommand {
-public:
+protected:
   /// Add an option to this context. The storage `value` must outlive the
   /// OptionsContext.
-  template <typename DataType, typename... Mods>
-  void addOption(llvm::StringRef name, DataType &value, Mods &&...mods) {
+  template <typename DataType, typename ParserClass, typename... Mods>
+  void addOptionImpl(llvm::StringRef name, DataType &value, Mods &&...mods) {
     auto opt =
-        std::make_unique<llvm::cl::opt<DataType, /*ExternalStorage=*/true>>(
+        std::make_unique<llvm::cl::opt<DataType, /*ExternalStorage=*/true,
+                                       /*ParserClass=*/ParserClass>>(
             llvm::cl::sub(*this), name, llvm::cl::location(value),
             std::forward<Mods>(mods)...);
     printers[opt.get()] = [opt = opt.get()](llvm::raw_ostream &os) {
@@ -96,6 +97,24 @@ public:
           os, opt->getValue());
     };
     options.push_back(OptionInfo{std::move(opt)});
+  }
+
+public:
+  /// Add an option to this context. The storage `value` must outlive the
+  /// OptionsContext.
+  template <typename DataType, typename... Mods>
+  void addOption(llvm::StringRef name, DataType &value, Mods &&...mods) {
+    addOptionImpl<DataType, llvm::cl::parser<DataType>, Mods...>(
+        name, value, std::forward<Mods>(mods)...);
+  }
+
+  /// Add an option to this context using a custom parser class (given as
+  /// template argument). The storage `value` must outlive the OptionsContext.
+  template <typename ParserClass, typename DataType, typename... Mods>
+  void addOptionWithParser(llvm::StringRef name, DataType &value,
+                           Mods &&...mods) {
+    addOptionImpl<DataType, ParserClass, Mods...>(name, value,
+                                                  std::forward<Mods>(mods)...);
   }
 
   /// Add a list options to this context. This context will have duplicated

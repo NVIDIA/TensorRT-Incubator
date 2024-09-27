@@ -4,11 +4,11 @@
 import mlir_tensorrt.compiler.api as api
 import ctypes
 
-ctypes.CDLL("libTensorRTTestPlugins.so")
+ctypes.CDLL("TensorRTTestPlugins.so")
 
 print("Querying Plugin Field Schema")
 schema = api.get_tensorrt_plugin_field_schema(
-    "TestPlugin1", "0", "", "libTensorRTTestPlugins.so"
+    "TestPlugin1", "0", "", "TensorRTTestPlugins.so"
 )
 print(schema)
 print(

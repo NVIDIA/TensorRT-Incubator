@@ -6,5 +6,5 @@ add_mlir_public_c_api_library(MLIRTensorRTCAPICommon
 
   LINK_LIBS PUBLIC
   MLIRTensorRTExecutorRuntimeAPI
-  MLIRTensorRTSupportStatus
-)
+  MLIRTensorRTCAPISupportStatus
+  )

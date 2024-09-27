@@ -28,6 +28,7 @@
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt/Transforms/Passes.h"

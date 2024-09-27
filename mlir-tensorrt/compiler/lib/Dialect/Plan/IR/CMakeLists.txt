@@ -1,4 +1,5 @@
 add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
+  PlanInterfaces.cpp
   PlanOps.cpp
   BuiltinClusterKinds.cpp
 

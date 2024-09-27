@@ -13,12 +13,38 @@ func.func @test_for(%lb: index, %ub: index, %step: index) {
   return
 }
 
+func.func @test_forwarded_args_in_entrybranch(%arg0: i64, %arg1: i64, %cond: i1) -> i64 {
+  %c1 = executor.constant 1 : i64
+  cf.cond_br %cond, ^bb1(%arg0: i64), ^bb2(%arg1: i64)
+^bb1(%arg2: i64):  // pred: ^bb0
+  %1 = executor.addi %c1, %arg2 : i64
+  cf.br ^bb3(%1 : i64)
+^bb2(%arg3: i64):  // pred: ^bb0
+  %2 = executor.addi %c1, %arg3 : i64
+  cf.br ^bb3(%2 : i64)
+^bb3(%4: i64):  // 2 preds: ^bb1, ^bb2
+  executor.print "test_forwarded_args_in_entrybranch(%d, %d, %d) = %d"(
+    %arg0, %arg1, %cond, %4 : i64, i64, i1, i64
+  )
+  return %4 : i64
+}
+
 func.func @main() -> i64 {
   %c0 = executor.constant 0 : i64
   %c0_index = executor.constant 0 : index
   %c10 = executor.constant 10 : index
   %c1 = executor.constant 1 : index
   func.call @test_for(%c0_index, %c10, %c1) : (index, index, index) -> ()
+
+  %c0_i1 = executor.constant 0 : i1
+  %c1_i1 = executor.constant 1 : i1
+  %c0_i64 = executor.constant 0 : i64
+  %c1_i64 = executor.constant 1 : i64
+  func.call @test_forwarded_args_in_entrybranch(%c0_i64, %c1_i64, %c0_i1)
+    : (i64, i64, i1) -> (i64)
+  func.call @test_forwarded_args_in_entrybranch(%c0_i64, %c1_i64, %c1_i1)
+    : (i64, i64, i1) -> (i64)
+
   return %c0 : i64
 }
 
@@ -33,3 +59,6 @@ func.func @main() -> i64 {
 // CHECK-NEXT: i = 8
 // CHECK-NEXT: i = 9
 // CHECK-NEXT: test_for = 45
+
+// CHECK: test_forwarded_args_in_entrybranch(0, 1, 0) = 2
+// CHECK: test_forwarded_args_in_entrybranch(0, 1, 1) = 1
