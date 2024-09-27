@@ -140,20 +140,23 @@ struct ConvertExecutorCall
 };
 
 /// Rewrite `executor` arithmetic ops if the types  are illegal.
-struct LegalizeExecutorOperands
-    : public OpInterfaceConversionPattern<executor::ExecutorOpInterface> {
-  using OpInterfaceConversionPattern::OpInterfaceConversionPattern;
+struct LegalizeExecutorOperands : public ConversionPattern {
+  LegalizeExecutorOperands(ExecutorTypeConverter &typeConverter,
+                           MLIRContext *ctx, PatternBenefit benefit = 1)
+      : ConversionPattern(typeConverter, MatchAnyOpTypeTag{}, benefit, ctx) {}
+
   LogicalResult
-  matchAndRewrite(executor::ExecutorOpInterface op, ArrayRef<Value> operands,
+  matchAndRewrite(Operation *op, ArrayRef<Value> operands,
                   ConversionPatternRewriter &rewriter) const override {
-    if (isa<executor::ConstantOp, executor::FuncOp, executor::CallOp>(op) ||
+    if (!llvm::isa<ExecutorDialect>(op->getDialect()) ||
+        isa<executor::ConstantOp, executor::FuncOp, executor::CallOp>(op) ||
         op->getNumRegions() > 0 ||
         (op->getNumResults() == 0 && op->getNumOperands() == 0))
       return failure();
     SmallVector<Type> resultTypes;
     if (failed(typeConverter->convertTypes(op->getResultTypes(), resultTypes)))
       return failure();
-    OperationState state(op.getLoc(), op->getName(), operands, resultTypes,
+    OperationState state(op->getLoc(), op->getName(), operands, resultTypes,
                          llvm::to_vector(op->getAttrDictionary()));
     rewriter.replaceOp(op, rewriter.create(state)->getResults());
     return success();

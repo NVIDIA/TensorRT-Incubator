@@ -24,11 +24,13 @@
 #ifndef MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
 #define MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
 
-#include "cuda_runtime_api.h"
 #include "mlir-executor/Support/Status.h"
 #include <memory>
 
 namespace mlirtrt {
+
+using CudaStream = uintptr_t;
+using CudaEvent = uintptr_t;
 
 struct EventPool;
 
@@ -41,20 +43,20 @@ public:
   PoolTrackedCudaEvent(PoolTrackedCudaEvent &&) = default;
   PoolTrackedCudaEvent(const PoolTrackedCudaEvent &) = delete;
   PoolTrackedCudaEvent &operator=(const PoolTrackedCudaEvent &) = delete;
-  PoolTrackedCudaEvent(cudaEvent_t event, EventPool *pool)
+  PoolTrackedCudaEvent(CudaEvent event, EventPool *pool)
       : event(event), owningPool(pool) {}
   ~PoolTrackedCudaEvent();
 
   void releaseBackToPool();
 
-  cudaEvent_t getEvent() const { return event; }
+  CudaEvent getEvent() const { return event; }
   EventPool *getPool() const { return owningPool; }
 
   static StatusOr<std::unique_ptr<PoolTrackedCudaEvent>>
   get(EventPool *eventPool);
 
 private:
-  cudaEvent_t event;
+  CudaEvent event;
   EventPool *owningPool;
 };
 
@@ -107,7 +109,7 @@ public:
   /// Free the block associated with the given pointer on the given stream. An
   /// event is pushed onto the stream and the memory won't be released into the
   /// free pool until after the stream has lapsed.
-  Status freeAsync(uintptr_t ptr, cudaStream_t stream);
+  Status freeAsync(uintptr_t ptr, CudaStream stream);
 
 private:
   EventPool eventPool;

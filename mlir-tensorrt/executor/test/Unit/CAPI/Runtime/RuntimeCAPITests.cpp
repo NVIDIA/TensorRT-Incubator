@@ -48,25 +48,23 @@ TEST(RuntimeCAPI, TestStatusCreate) {
 }
 
 TEST(RuntimeCAPI, TestStreamCreate) {
-  MTRT_Stream stream;
+  MTRT_Stream stream{nullptr};
   MTRT_Status streamStatus = mtrtStreamCreate(&stream);
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   ASSERT_TRUE(mtrtStatusIsOk(streamStatus));
   ASSERT_TRUE(!mtrtStreamIsNull(stream));
   mtrtStreamDestroy(stream);
+#else
+  ASSERT_FALSE(mtrtStatusIsOk(streamStatus));
+  ASSERT_TRUE(mtrtStreamIsNull(stream));
+#endif
 }
 
 TEST(RuntimeCAPI, TestClientCreate) {
-  MTRT_Stream stream;
-  MTRT_Status streamStatus = mtrtStreamCreate(&stream);
-  ASSERT_TRUE(mtrtStatusIsOk(streamStatus));
-  ASSERT_TRUE(!mtrtStreamIsNull(stream));
-
   MTRT_RuntimeClient client;
   mtrtRuntimeClientCreate(&client);
   ASSERT_TRUE(!mtrtRuntimeClientIsNull(client));
-
   mtrtRuntimeClientDestroy(client);
-  mtrtStreamDestroy(stream);
 }
 
 TEST(RuntimeCAPI, TestClientGetDevices) {
@@ -166,6 +164,7 @@ TEST(RuntimeCAPI, TestHostToHostCopy) {
   ASSERT_TRUE(mtrtStatusIsOk(status));
 }
 
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
 TEST(RuntimeCAPI, TestHostToDeviceAndBackCopy) {
 
   MTRT_RuntimeClient client;
@@ -228,6 +227,7 @@ TEST(RuntimeCAPI, TestHostToDeviceAndBackCopy) {
   status = mtrtRuntimeClientDestroy(client);
   ASSERT_TRUE(mtrtStatusIsOk(status));
 }
+#endif
 
 TEST(RuntimeCAPI, TestScalarType) {
   MTRT_Type type;

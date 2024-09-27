@@ -312,17 +312,14 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
   return std::make_unique<PyMemRefValue>(result);
 }
 
-
-
 static std::unique_ptr<PyMemRefValue>
-createMemRefViewFromDLPack(PyRuntimeClient &client,
-                       py::capsule capsule) {
-  DLManagedTensor *managedTensor =
-      static_cast<DLManagedTensor*>(PyCapsule_GetPointer(capsule.ptr(), "dltensor"));
+createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule) {
+  DLManagedTensor *managedTensor = static_cast<DLManagedTensor *>(
+      PyCapsule_GetPointer(capsule.ptr(), "dltensor"));
 
   if (managedTensor == nullptr) {
-      Py_DECREF(capsule);
-      return nullptr;
+    Py_DECREF(capsule);
+    return nullptr;
   }
 
   MTRT_MemRefValue result{nullptr};
@@ -330,17 +327,18 @@ createMemRefViewFromDLPack(PyRuntimeClient &client,
   // Extract the necessary information from the DLManagedTensor
   void *data = managedTensor->dl_tensor.data;
   int64_t *shape = managedTensor->dl_tensor.shape;
+  int64_t *strides = managedTensor->dl_tensor.strides;
 
-  int64_t* strides = managedTensor->dl_tensor.strides;
+  // Create a suffix product stride array in the event that the DLPack object's
+  // stride array is set to `null`
   std::vector<int64_t> stridesArray;
   if (!strides) {
-    // Create a suffix product stride array in the event that the DLPack object's stride array is set to `null`
-    auto ndim = managedTensor->dl_tensor.ndim;
+    int32_t ndim = managedTensor->dl_tensor.ndim;
     stridesArray.resize(ndim);
     if (ndim > 0) {
       stridesArray[ndim - 1] = 1;
       for (int i = ndim - 2; i >= 0; i--) {
-        stridesArray[i] = shape[i+1] * stridesArray[i+1]; 
+        stridesArray[i] = shape[i + 1] * stridesArray[i + 1];
       }
     }
     strides = stridesArray.data();
@@ -371,11 +369,13 @@ createMemRefViewFromDLPack(PyRuntimeClient &client,
 
   if (data) {
     s = mtrtMemRefCreateExternal(client, addressSpace, bytesPerElement * 8,
-                             reinterpret_cast<uintptr_t>(data), offset, rank,
-                             shape, strides, device, elementType, &result);
+                                 reinterpret_cast<uintptr_t>(data), offset,
+                                 rank, shape, strides, device, elementType,
+                                 &result);
   } else {
-    s = mtrtMemRefCreate(client, addressSpace, bytesPerElement * 8, rank, 
-                              shape, strides, device, mtrtStreamGetNull(), elementType, &result);
+    s = mtrtMemRefCreate(client, addressSpace, bytesPerElement * 8, rank, shape,
+                         strides, device, mtrtStreamGetNull(), elementType,
+                         &result);
   }
 
   THROW_IF_MTRT_ERROR(s);
@@ -791,7 +791,8 @@ PYBIND11_MODULE(_api, m) {
           [](PyRuntimeClient &self, py::capsule capsule) {
             return createMemRefViewFromDLPack(self, capsule).release();
           },
-          py::arg("dltensor") = py::none(), py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
+          py::arg("dltensor") = py::none(), py::keep_alive<0, 1>(),
+          py::keep_alive<0, 2>())
       .def(
           "create_device_memref_view",
           [](PyRuntimeClient &self, uintptr_t ptr, std::vector<int64_t> shape,

@@ -78,7 +78,7 @@ func.func @test_two_returns(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> (te
 
 #map = affine_map<(d0)->(d0)>
 module @test_no_dps_return {
-  func.func public @main(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> tensor<10xf32> {
+  func.func @main(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> tensor<10xf32> {
     %empty = tensor.empty () : tensor<10xf32>
     %0, %1 = linalg.generic {
       iterator_types = ["parallel"],
@@ -106,7 +106,7 @@ module @test_no_dps_return {
 
 #map = affine_map<(d0)->(d0)>
 module @test_one_dps_other_no_dps_return {
-  func.func public @main(%arg0: tensor<10xf32>) -> (tensor<10xf32>, tensor<10xf32>) {
+  func.func @main(%arg0: tensor<10xf32>) -> (tensor<10xf32>, tensor<10xf32>) {
     %empty = tensor.empty () : tensor<10xf32>
     %0 = linalg.generic {
       iterator_types = ["parallel"],

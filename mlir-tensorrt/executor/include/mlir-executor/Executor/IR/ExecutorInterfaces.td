@@ -3,16 +3,6 @@
 
 include "mlir/IR/OpBase.td"
 
-def ExecutorOpInterface : OpInterface<"ExecutorOpInterface"> {
-  let description = [{
-    This interface is to identify Executor dialect ops.
-  }];
-
-  let cppNamespace = "::mlir::executor";
-
-  let methods = [];
-}
-
 def RuntimeBuiltinInterface : OpInterface<"RuntimeBuiltinInterface"> {
   let description = [{
     Interface for operations that are likely to be lowered to an external

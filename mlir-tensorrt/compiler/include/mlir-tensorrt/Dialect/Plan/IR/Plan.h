@@ -26,7 +26,7 @@
 
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
-#include "mlir-tensorrt/Transforms/Clustering/Clustering.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -40,7 +40,6 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Interfaces/ValueBoundsOpInterface.h"
-#include "mlir/Pass/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
 
 //===----------------------------------------------------------------------===//
@@ -142,7 +141,6 @@ protected:
 //===----------------------------------------------------------------------===//
 // Plan Attributes
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Dialect/Plan/IR/PlanAttrInterfaces.h.inc"
 
 #define GET_ATTRDEF_CLASSES
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanAttributes.h.inc"

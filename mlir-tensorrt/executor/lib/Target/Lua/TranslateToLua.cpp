@@ -27,6 +27,7 @@
 #include "mlir/Dialect/DLTI/DLTI.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Support/IndentedOstream.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
 #include "llvm/ADT/ScopedHashTable.h"
@@ -46,30 +47,50 @@ class LuaEmitter {
 public:
   explicit LuaEmitter(MLIRContext *ctx, raw_ostream &os);
 
+  /// Emit Lua ofr a "module-like" operation. This creates a new scope for all
+  /// resources. It is expected that this is only used as the top-level
+  /// entrypoint and that the module-like operation does not contain nested
+  /// modules.
+  LogicalResult emitModule(Operation &op);
+
+  /// Emit Lua for an operation.
   LogicalResult emitOperation(Operation &op);
 
-  LogicalResult emitBlock(Block &block);
+  /// Emit Lua for a Block.
+  LogicalResult emitBlock(Block &block, bool isEntryBlock);
 
   using ValueMapper = llvm::ScopedHashTable<Value, std::string>;
   using BlockMapper = llvm::ScopedHashTable<Block *, std::string>;
 
   /// RAII helper function to manage entering/exiting scopes.
-  struct Scope {
-    explicit Scope(LuaEmitter &emitter, unsigned additionalLocals = 0)
+  struct RegionScope {
+    explicit RegionScope(LuaEmitter &emitter)
         : valueMapperScope(emitter.valueMapper),
           blockMapperScope(emitter.blockMapper), emitter(emitter) {
       emitter.labelInScopeCount.push(emitter.labelInScopeCount.top());
-      emitter.localsInScopeCount.push(emitter.localsInScopeCount.top() +
-                                      additionalLocals);
+      emitter.globalsInScopeCount.push(emitter.globalsInScopeCount.top());
     }
-    ~Scope() {
+    ~RegionScope() {
       emitter.labelInScopeCount.pop();
-      emitter.localsInScopeCount.pop();
+      emitter.globalsInScopeCount.pop();
     }
 
   private:
     llvm::ScopedHashTableScope<Value, std::string> valueMapperScope;
     llvm::ScopedHashTableScope<Block *, std::string> blockMapperScope;
+    LuaEmitter &emitter;
+  };
+
+  struct LocalVariableScope {
+    explicit LocalVariableScope(LuaEmitter &emitter, unsigned additionalLocals)
+        : localMapperScope(emitter.localMapper), emitter(emitter) {
+      emitter.localsInScopeCount.push(emitter.localsInScopeCount.top() +
+                                      additionalLocals);
+    }
+    ~LocalVariableScope() { emitter.localsInScopeCount.pop(); }
+
+  private:
+    llvm::ScopedHashTableScope<Value, std::string> localMapperScope;
     LuaEmitter &emitter;
   };
 
@@ -92,8 +113,9 @@ public:
   /// Generate a new variable name consisting of `v+[number]`. The number will
   /// always be monotonic within a single scope, regardless of which prefix is
   /// used.
-  StringRef getOrCreateVariableName(Value val, StringRef prefix = "v",
-                                    bool isLocal = false);
+  StringRef createGlobalVariableName(Value val, StringRef prefix = "v");
+  StringRef getOrCreateGlobalVariableName(Value val, StringRef prefix = "v");
+  StringRef createLocalVariableName(Value val, StringRef prefix = "l");
 
   StringRef getVariableName(Value val);
 
@@ -114,14 +136,15 @@ public:
 protected:
   /// Map from value to name of lua variable that contain the name.
   ValueMapper valueMapper;
+  ValueMapper localMapper;
 
   /// Map from block to name of lua label.
   BlockMapper blockMapper;
 
   /// The number of values in the current scope. This is used to declare the
   /// names of values in a scope.
-  unsigned globalsInScope = 0;
   std::stack<int64_t> localsInScopeCount;
+  std::stack<int64_t> globalsInScopeCount;
   std::stack<int64_t> labelInScopeCount;
 
   MLIRContext *ctx;
@@ -208,11 +231,18 @@ static LogicalResult emitAttribute(raw_ostream &os, Location loc,
 
 static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::BranchOp op) {
   Block *destBlock = op.getDest();
+  bool isEntry = op->getBlock()->isEntryBlock();
+
   // Declare non-local args to hold block arguments.
   for (auto [operand, blockArg] :
        llvm::zip(op.getDestOperands(), destBlock->getArguments())) {
-    emitter << emitter.getOrCreateVariableName(blockArg, "blockArg") << " = "
-            << emitter.getVariableName(operand) << ";\n";
+    // If we are branching from a entry block, we can can use a local.
+    if (isEntry)
+      emitter << "local ";
+    emitter << (isEntry
+                    ? emitter.createLocalVariableName(blockArg, "barg")
+                    : emitter.getOrCreateGlobalVariableName(blockArg, "barg"));
+    emitter << " = " << emitter.getVariableName(operand) << ";\n";
   }
   emitter << "goto " << emitter.getOrCreateLabel(*op.getDest()) << ";\n";
   return success();
@@ -220,18 +250,38 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::BranchOp op) {
 
 static LogicalResult printControlFlowOp(LuaEmitter &emitter,
                                         cf::CondBranchOp op) {
+
+  bool isEntry = op->getBlock()->isEntryBlock();
+
+  SmallVector<Value> trueOperands, falseOperands;
+
+  // Assign variables for the destination Block's BlockArguments. If this is the
+  // entry block, then we create locals, but we need to be sure that this occurs
+  // before the 'if .... goto .. end' since locals inside the 'if' block will go
+  // out of scope.
+  auto emitBlockArgs = [&](Block *destBlock, ValueRange operands) {
+    // Declare non-local args to hold block arguments.
+    for (auto [operand, blockArg] :
+         llvm::zip(operands, destBlock->getArguments())) {
+      // If we are branching from a entry block, we can can use a local.
+      if (isEntry)
+        emitter << "local ";
+      emitter << (isEntry ? emitter.createLocalVariableName(blockArg, "barg")
+                          : emitter.getOrCreateGlobalVariableName(blockArg,
+                                                                  "barg"));
+      emitter << " = " << emitter.getVariableName(operand) << ";\n";
+    }
+  };
+
+  emitBlockArgs(op.getTrueDest(), op.getTrueDestOperands());
+  emitBlockArgs(op.getFalseDest(), op.getFalseDestOperands());
   auto condName = emitter.getVariableName(op.getCondition());
+
   emitter << "if (" << condName << " == 1) or (" << condName << " == true)"
           << " then\n";
 
   auto emitBranch = [&](Block *destBlock, ValueRange operands) {
     emitter.getStream().indent();
-    // Declare non-local args to hold block arguments.
-    for (auto [operand, blockArg] :
-         llvm::zip(operands, destBlock->getArguments())) {
-      emitter << emitter.getOrCreateVariableName(blockArg, "blockArg") << " = "
-              << emitter.getVariableName(operand) << ";\n";
-    }
     emitter << "goto " << emitter.getOrCreateLabel(*destBlock) << ";\n";
     emitter.getStream().unindent();
   };
@@ -258,15 +308,6 @@ static LogicalResult printOperation(LuaEmitter &emitter, func::ReturnOp op) {
   return success();
 }
 
-/// For a given function, the number of additional locals required is the
-/// function arguments plus the number of arguments given to function calls.
-static unsigned getLocalRegisterRequirements(func::FuncOp op) {
-  unsigned numLocals = op.getNumArguments();
-  op.walk([&](func::CallOp op) { numLocals += op->getNumOperands(); });
-  op.walk([&](executor::CallOp op) { numLocals += op->getNumOperands(); });
-  return numLocals;
-}
-
 static LogicalResult printOperation(LuaEmitter &emitter, func::FuncOp op) {
   // We don't actually need to translate pure declarations for external C
   // functions.
@@ -276,18 +317,20 @@ static LogicalResult printOperation(LuaEmitter &emitter, func::FuncOp op) {
   }
 
   emitter << "function " << op.getName() << " ";
-  LuaEmitter::Scope scope(
-      emitter, /*additionalLocals=*/getLocalRegisterRequirements(op));
+
+  // We augment the local count with what is required for call ops.
+  LuaEmitter::LocalVariableScope localScope(emitter, /*additionalLocals=*/0);
+
   emitter << "(";
-  llvm::interleaveComma(op.getArguments(), emitter.getStream(),
-                        [&](BlockArgument &arg) {
-                          emitter << emitter.getOrCreateVariableName(arg);
-                        });
+  llvm::interleaveComma(
+      op.getArguments(), emitter.getStream(), [&](BlockArgument &arg) {
+        emitter << emitter.createLocalVariableName(arg, "arg");
+      });
   emitter << ")\n";
   emitter.getStream().indent();
 
-  for (Block &block : op.getBody()) {
-    if (failed(emitter.emitBlock(block)))
+  for (auto [idx, block] : llvm::enumerate(op.getBody())) {
+    if (failed(emitter.emitBlock(block, /*isEntryBlock=*/idx == 0)))
       return failure();
   }
   emitter.getStream().unindent();
@@ -304,6 +347,20 @@ static LogicalResult printOperation(LuaEmitter &emitter, func::CallOp op) {
   llvm::interleaveComma(op->getOperands(), emitter.getStream(), [&](Value v) {
     emitter << emitter.getVariableName(v);
   });
+  emitter << ");\n";
+  return success();
+}
+
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    func::CallIndirectOp op) {
+  if (op->getNumResults() > 0) {
+    if (failed(emitter.emitAssignPrefix(op.getOperation())))
+      return failure();
+  }
+  emitter << emitter.getVariableName(op.getCallee()) << "(";
+  llvm::interleaveComma(
+      op.getCalleeOperands(), emitter.getStream(),
+      [&](Value v) { emitter << emitter.getVariableName(v); });
   emitter << ");\n";
   return success();
 }
@@ -376,7 +433,7 @@ static LogicalResult printExecutorBinaryInfixOperation(LuaEmitter &emitter,
   } else {
     return op->emitOpError() << "unsupported binary executor arithmetic op";
   }
-  emitter << " " << emitter.getOrCreateVariableName(rhs) << ";\n";
+  emitter << " " << emitter.getVariableName(rhs) << ";\n";
   return success();
 }
 
@@ -442,14 +499,14 @@ static LogicalResult printOperation(LuaEmitter &emitter, executor::PrintOp op) {
     if (op->getNumOperands() > 0)
       emitter << ", ";
     llvm::interleaveComma(op->getOperands(), emitter, [&](Value v) {
-      emitter << emitter.getOrCreateVariableName(v);
+      emitter << emitter.getVariableName(v);
     });
     emitter << "));\n";
     return success();
   }
   emitter << "print(";
   llvm::interleaveComma(op->getOperands(), emitter, [&](Value v) {
-    emitter << emitter.getOrCreateVariableName(v);
+    emitter << emitter.getVariableName(v);
   });
   emitter << ");\n";
   return success();
@@ -564,7 +621,6 @@ static LogicalResult printOperation(LuaEmitter &emitter,
 
 /// Translate `executor.call`.
 static LogicalResult printOperation(LuaEmitter &emitter, executor::CallOp op) {
-  std::optional<ArrayAttr> immArgs = op.getImmediateArgs();
 
   if (op->getNumResults() > 0) {
     if (failed(emitter.emitAssignPrefix(op.getOperation())))
@@ -572,23 +628,48 @@ static LogicalResult printOperation(LuaEmitter &emitter, executor::CallOp op) {
   }
   emitter << op.getCallee() << "(";
 
-  if (immArgs) {
-    bool error = false;
-    llvm::interleaveComma(*immArgs, emitter.getStream(), [&](Attribute attr) {
-      if (failed(emitAttribute(emitter.getStream(), op.getLoc(), attr)))
-        error = true;
-    });
-    if (error)
-      return failure();
-
-    if (op.getNumOperands() > 0 && immArgs->size() > 0)
-      emitter << ", ";
-  }
-
   llvm::interleaveComma(op->getOperands(), emitter.getStream(), [&](Value v) {
     emitter << emitter.getVariableName(v);
   });
 
+  emitter << ");\n";
+  return success();
+}
+
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::CoroAwaitOp op) {
+  if (op->getNumResults() > 0) {
+    if (failed(emitter.emitAssignPrefix(op.getOperation())))
+      return failure();
+  }
+
+  emitter << "coroutine.resume(" << emitter.getVariableName(op.getCallee());
+  if (!op.getCalleeOperands().empty()) {
+    emitter << ", ";
+    llvm::interleaveComma(
+        op.getCalleeOperands(), emitter.getStream(),
+        [&](Value v) { emitter << emitter.getVariableName(v); });
+  }
+  emitter << ");\n";
+  return success();
+}
+
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::CoroCreateOp op) {
+  if (failed(emitter.emitAssignPrefix(op)))
+    return failure();
+  emitter << "coroutine.create(";
+  emitter << op.getFunc();
+  emitter << ");\n";
+  return success();
+}
+
+static LogicalResult printOperation(LuaEmitter &emitter,
+                                    executor::CoroYieldOp op) {
+  emitter << "coroutine.yield(";
+  llvm::interleaveComma(op.getYielded(), emitter.getStream(), [&](Value v) {
+    emitter << emitter.getVariableName(v);
+  });
   emitter << ");\n";
   return success();
 }
@@ -609,6 +690,7 @@ static LogicalResult printOperation(LuaEmitter &emitter, executor::FuncOp op) {
 LuaEmitter::LuaEmitter(MLIRContext *ctx, raw_ostream &os) : ctx(ctx), os(os) {
   localsInScopeCount.push(0);
   labelInScopeCount.push(0);
+  globalsInScopeCount.push(0);
 }
 
 bool LuaEmitter::hasBlockLabel(Block &block) const {
@@ -633,66 +715,151 @@ StringRef LuaEmitter::getOrCreateLabel(Block &block) {
 }
 
 bool LuaEmitter::isValueInScope(Value val) const {
-  return valueMapper.count(val) != 0;
+  return valueMapper.count(val) != 0 || localMapper.count(val) != 0;
 }
 
-StringRef LuaEmitter::getOrCreateVariableName(Value val, StringRef prefix,
-                                              bool isLocal) {
-  if (!isValueInScope(val)) {
-    std::string valueName =
-        isLocal ? llvm::formatv("localV{0}", ++localsInScopeCount.top()).str()
-                : llvm::formatv("v{0}", ++globalsInScope).str();
-    valueMapper.insert(val, valueName);
-  }
+StringRef LuaEmitter::createGlobalVariableName(Value val, StringRef prefix) {
+  assert(!isValueInScope(val) && "expected val not to be in scope");
+  std::string valueName =
+      llvm::formatv("{0}{1}", prefix, ++globalsInScopeCount.top()).str();
+  valueMapper.insert(val, valueName);
   return *valueMapper.begin(val);
+}
+
+StringRef LuaEmitter::getOrCreateGlobalVariableName(Value val,
+                                                    StringRef prefix) {
+  if (localMapper.count(val) != 0)
+    return *localMapper.begin(val);
+  if (valueMapper.count(val) == 0)
+    return createGlobalVariableName(val, prefix);
+  return *valueMapper.begin(val);
+}
+
+StringRef LuaEmitter::createLocalVariableName(Value val, StringRef prefix) {
+  assert(!isValueInScope(val) && "expected val not to be in scope");
+  std::string valueName =
+      llvm::formatv("{0}{1}", prefix, localsInScopeCount.top()++).str();
+  localMapper.insert(val, valueName);
+  return *localMapper.begin(val);
 }
 
 StringRef LuaEmitter::getVariableName(Value val) {
-  assert(isValueInScope(val) && "expected value to be in scope");
-  return *valueMapper.begin(val);
+  auto it = valueMapper.begin(val);
+  if (it != valueMapper.end())
+    return *it;
+  auto itLocal = localMapper.begin(val);
+  if (itLocal != localMapper.end())
+    return *itLocal;
+  llvm::report_fatal_error("value is not in scope");
 }
 
 LogicalResult LuaEmitter::emitAssignPrefix(Operation *op) {
   // In Lua, a variable can be declared local as long is it is not used in
   // another block. Lua locals go out of scope when the block terminates. Since
   // we translate Blocks 1-1 with Lua blocks, just check if it is used in
-  // another block (that is not a child).
-  bool localVar = !op->isUsedOutsideOfBlock(op->getBlock());
-  if (localVar && localsInScopeCount.top() + op->getNumResults() < 200) {
+  // another block (that is not a child). The only exception is the entry-block
+  // since MLIR guarantees that we can't jump into the scope of these variables.
+  constexpr unsigned kMaxNumLocals = 200;
+  bool isEntryBlock = op->getBlock()->isEntryBlock();
+  bool isLocalVar =
+      (isEntryBlock || !op->isUsedOutsideOfBlock(op->getBlock())) &&
+      localsInScopeCount.top() + op->getNumResults() < kMaxNumLocals;
+
+  if (isLocalVar)
     os << "local ";
-    localsInScopeCount.top() += op->getNumResults();
-  }
-  llvm::interleaveComma(op->getResults(), os,
-                        [this](Value v) { os << getOrCreateVariableName(v); });
+
+  llvm::interleaveComma(op->getResults(), os, [&](Value v) {
+    os << (isLocalVar ? createLocalVariableName(v)
+                      : createGlobalVariableName(v));
+  });
+
+  // Starting in Lua 5.4, it supports "<const>" attributes for local vars, which
+  // can save a lot of register movement, especially when passed to calls.
+  if (isLocalVar)
+    os << " <const> ";
+
   os << " = ";
   return success();
 }
 
-LogicalResult LuaEmitter::emitBlock(Block &block) {
-  // In Lua, you cannot "jump/goto" a label that is in the scope of a local
-  // variable. Instead, we make all blocks have their own do...end scope and
-  // only declare "local" the variables that are used internal to only one
-  // block. There are other potential strategies that could be explored, such as
-  // having `do...end` scope enclose a region instead of a block.
-  os << "::" << getOrCreateLabel(block) << ":: do\n";
-  os.indent();
+// In MLIR, SSA values scoping depends on dominance. For example, all
+// SSA values defined in a function entry block are visible to all other
+// blocks in the function body region. Typically, in a multi-block region,
+// blocks pass values through branching terminators and block arguments.
+// However, it's also possible to define SSA values inside a non-entry block
+// that are visible to blocks below in the region as long as the definition
+// of the SSA value dominates the other block, the SSA value is in scope.
+//
+// Lua variables can either be 'locals' or 'globals'. We prefer to use
+// locals as much as possible since it is performant and offers less surprises.
+// At first glance, you might expect all SSA values to be "local" variables.
+// However, due to the above MLIR subtleties, it's impossible to exactly match
+// the MLIR rules using Lua blocks and only 'local' variables. In Lua, you can
+// declare a "block" and give it a label as follows:
+//
+// ```lua
+// ::bb0:: do
+//   <nested statements...>
+// end
+// ```
+//
+// Lua 'local' variables are block-scoped, which means any variable
+// declared as 'local' can't be accessed after the 'end'. Furthermore,
+// similar to the rules about dominance in MLIR, in Lua you can't jump (goto)
+// a label if the required definition of a local variable would be bypassed. We
+// can ensure this always is true if we follow some simple rules:
+//
+// 1. MLIR blocks should be translated 1-1 with Lua blocks using the form
+//   described above.
+// 2. An SSA variable can only be declared 'local' if a) it is in a function
+//   entry block or b) it is only used within its Block.
+//
+// We allow SSA variables in 2.a to always be 'local' since the entry block
+// always dominates all other blocks in the function region and MLIR disallows
+// branching to entry blocks (entry block must have no predecessors).
+//
+// In addition to the above rules, there is a hard limit on the number of
+// local variables that are allowed within a single block (200). This is
+// due to Lua bytecode limitations. Importantly, function arguments are also
+// considered locals, so functions with huge argument lists can exhaust the
+// available local slots. In such cases, we might have to resort to using
+// globals variables, even for SSA values defined function entry blocks.
+LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
+  // If this is a non-entry block, then push a new scope for the locals.
+  // We don't need additional locals since no new arguments are created.
+  std::unique_ptr<LocalVariableScope> scope =
+      isEntryBlock
+          ? std::unique_ptr<LocalVariableScope>(nullptr)
+          : std::make_unique<LocalVariableScope>(*this, /*additionalLocals=*/0);
+
+  // Only declare new Lua block scope for non-entry blocks.
+  if (!isEntryBlock) {
+    os << "::" << getOrCreateLabel(block) << ":: do\n";
+    os.indent();
+  }
   for (Operation &op : block.getOperations()) {
     if (failed(emitOperation(op)))
       return failure();
   }
-  os.unindent();
-  os << "end\n";
+  // Terminate the block if required.
+  if (!isEntryBlock) {
+    os.unindent();
+    os << "end\n";
+  }
   return success();
 }
 
-/// Emit a module. This is the root of the translation.
-static LogicalResult printOperation(LuaEmitter &emitter, ModuleOp op) {
-  LuaEmitter::Scope scope(emitter);
-  for (Operation &op : op.getBody()->getOperations()) {
-    if (failed(emitter.emitOperation(op)))
-      return failure();
-  }
-  return success();
+static bool isModuleLike(Operation &op) {
+  return op.hasTrait<OpTrait::IsIsolatedFromAbove>() &&
+         op.hasTrait<OpTrait::SymbolTable>() && op.getNumRegions() == 1 &&
+         op.getRegion(0).hasOneBlock();
+}
+
+LogicalResult LuaEmitter::emitModule(Operation &op) {
+  assert(isModuleLike(op) && "expected module-like operation");
+  LuaEmitter::RegionScope scope(*this);
+  LuaEmitter::LocalVariableScope localScope(*this, /*additionalLocals=*/0);
+  return emitBlock(op.getRegion(0).front(), /*isEntryBlock=*/true);
 }
 
 LogicalResult LuaEmitter::emitOperation(Operation &op) {
@@ -700,7 +867,7 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
   if (isa<executor::ConstantResourceOp, executor::GlobalOp>(op))
     return success();
 
-  if (isa<executor::ExecutorOpInterface>(op)) {
+  if (isa<executor::ExecutorDialect>(op.getDialect())) {
     return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
         .Case<executor::FuncOp, executor::CallOp, executor::ConstantOp>(
             [&](auto op) { return printOperation(*this, op); })
@@ -745,15 +912,18 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
             [&](auto op) { return printOperation(*this, op); })
         .Case<executor::AssertOp>(
             [&](executor::AssertOp op) { return printOperation(*this, op); })
+        .Case<executor::CoroAwaitOp, executor::CoroYieldOp,
+              executor::CoroCreateOp>(
+            [&](auto op) { return printOperation(*this, op); })
         .Default([&](Operation *) {
           return op.emitOpError("unable to find printer for op");
         });
   }
   return llvm::TypeSwitch<Operation *, LogicalResult>(&op)
       // Builtin ops.
-      .Case<ModuleOp>([&](auto op) { return printOperation(*this, op); })
+      .Case<ModuleOp>([&](ModuleOp op) { return emitModule(*op); })
       // Func ops.
-      .Case<func::CallOp, func::FuncOp, func::ReturnOp>(
+      .Case<func::CallOp, func::FuncOp, func::ReturnOp, func::CallIndirectOp>(
           [&](auto op) { return printOperation(*this, op); })
       // CF ops
       .Case<cf::BranchOp, cf::CondBranchOp>(
@@ -765,7 +935,13 @@ LogicalResult LuaEmitter::emitOperation(Operation &op) {
 
 LogicalResult mlir::translateToLua(Operation *op, raw_ostream &os) {
   LuaEmitter luaEmitter(op->getContext(), os);
-  return luaEmitter.emitOperation(*op);
+  if (isa<FunctionOpInterface>(op))
+    return luaEmitter.emitOperation(*op);
+  if (isModuleLike(*op))
+    return luaEmitter.emitModule(*op);
+
+  return emitError(op->getLoc())
+         << "expected FunctionOpInterface or Module-like operation";
 }
 
 void mlir::registerToLuaTranslation() {

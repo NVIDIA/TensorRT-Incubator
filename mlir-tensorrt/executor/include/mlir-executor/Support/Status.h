@@ -26,6 +26,7 @@
 #ifndef MLIR_TENSORRT_SUPPORT_STATUS_H
 #define MLIR_TENSORRT_SUPPORT_STATUS_H
 
+#include "mlir-executor/Utils/ADTExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <cassert>
@@ -163,22 +164,17 @@ private:
   std::optional<T> payload;
 };
 
-template <typename T>
-auto fmtRange(llvm::ArrayRef<T> r) {
-  return llvm::make_range(r.begin(), r.end());
-}
-
 #define MTRT_CONCAT(x, y) _MTRT_CONCAT(x, y)
 #define _MTRT_CONCAT(x, y) x##y
-
-#define MTRT_ASSIGN_OR_RETURN(lhs, rexpr)                                      \
-  MTRT_ASSIGN_OR_RETURN_(MTRT_CONCAT(_status_or_value, __COUNTER__), lhs, rexpr)
 
 #define MTRT_ASSIGN_OR_RETURN_(statusor, lhs, rexpr)                           \
   auto statusor = (rexpr);                                                     \
   if (statusor.isError())                                                      \
     return statusor.getStatus();                                               \
   lhs = std::move(*statusor);
+
+#define MTRT_ASSIGN_OR_RETURN(lhs, rexpr)                                      \
+  MTRT_ASSIGN_OR_RETURN_(MTRT_CONCAT(_status_or_value, __COUNTER__), lhs, rexpr)
 
 #define MTRT_RETURN_IF_ERROR(rexpr)                                            \
   MTRT_RETURN_IF_ERROR_(MTRT_CONCAT(_tmpStatus, __COUNTER__), rexpr)
@@ -193,8 +189,6 @@ auto fmtRange(llvm::ArrayRef<T> r) {
   do {                                                                         \
     cudaError_t err = (x);                                                     \
     if (err != cudaSuccess) {                                                  \
-      std::stringstream ss;                                                    \
-      ss << __FILE__ << ":" << __LINE__ << " " << err;                         \
       return ::mlirtrt::getInternalErrorStatus(                                \
           "{0}:{1} ({2}) {3}", __FILE__, __LINE__, cudaGetErrorName(err),      \
           cudaGetErrorString(err));                                            \
@@ -205,8 +199,6 @@ auto fmtRange(llvm::ArrayRef<T> r) {
   do {                                                                         \
     CUresult err = (x);                                                        \
     if (err != CUDA_SUCCESS) {                                                 \
-      std::stringstream ss;                                                    \
-      ss << __FILE__ << ":" << __LINE__ << " " << err;                         \
       return ::mlirtrt::getInternalErrorStatus("{0}:{1} {2}");                 \
     }                                                                          \
   } while (false);
@@ -229,7 +221,6 @@ auto fmtRange(llvm::ArrayRef<T> r) {
   do {                                                                         \
     ncclResult_t err = (x);                                                    \
     if (err != ncclSuccess) {                                                  \
-      std::stringstream ss;                                                    \
       return getInternalErrorStatus(                                           \
           "{0}:{1} NCCL error [msg=\"{2}\" ncclGetLastError=\"{3}\"]",         \
           __FILE__, __LINE__, ncclGetErrorString(err),                         \

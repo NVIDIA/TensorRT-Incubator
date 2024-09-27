@@ -13,9 +13,9 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTSupportAllocators
   MLIRTensorRTSupportStatus
   flatbuffers
-  CUDA::cudart
   sol2::sol2
   lua::core
+  CUDA::cudart
 
   PRIVATE
   $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:MPI::MPI_C>

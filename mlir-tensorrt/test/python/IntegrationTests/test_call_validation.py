@@ -3,6 +3,7 @@ import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
+import torch
 
 
 main_memref_io = """
@@ -50,6 +51,13 @@ class Test:
             stream=self.stream,
         )
 
+    def create_memref_from_dlpack(self, shape, type):
+        arr = torch.ones(shape, dtype=type)
+        memref = self.client.create_memref_view_from_dlpack(arr.__dlpack__())
+        memref = self.client.copy_to_device(memref, device=self.client.get_devices()[0])
+        print(f"Memref stride: {memref.strides}")
+        return memref
+
     def create_memref_host(self, shape, type):
         h_memref = self.client.create_host_memref_view(
             ptr=int(self.host_data.ctypes.data),
@@ -67,6 +75,7 @@ class Test:
             session.execute_function(
                 "main", in_args=[arg], out_args=[arg], stream=self.stream
             )
+            print("Test passed succesfully")
         except runtime.MTRTException as e:
             print(f"MTRTException: {e}")
 
@@ -79,9 +88,11 @@ if __name__ == "__main__":
     t.execute(t.create_memref((5, 3), np.float32))
     print("TEST: runtime memref element type mismatch")
     t.execute(t.create_memref((5, 3), np.int32))
+    print("TEST: unit stride dimension")
+    t.execute(t.create_memref_from_dlpack((1, 3, 4), torch.float32))
     print("TEST: runtime memref address space mismatch")
     t.execute(t.create_memref_host((1, 3, 4), np.float32))
-    print("TEST: runtime type mistmatch")
+    print("TEST: runtime type mismatch")
     t.execute(t.create_scalar(5))
     t = Test(main_scalar_io)
     print("TEST: function with no output arguments")
@@ -93,9 +104,12 @@ if __name__ == "__main__":
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with rank 3 but receieved 2
 # CHECK-LABEL: TEST: runtime memref element type mismatch
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with element type f32 but receieved i32
+# CHECK-LABEL: TEST: unit stride dimension
+#       CHECK: Memref stride: [1, 4, 1]
+#       CHECK: Test passed succesfully
 # CHECK-LABEL: TEST: runtime memref address space mismatch
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with address space device but receieved host
-# CHECK-LABEL: TEST: runtime type mistmatch
+# CHECK-LABEL: TEST: runtime type mismatch
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type but received scalar type
 # CHECK-LABEL: TEST: function with no output arguments
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: function expects 0 output args (destination args) but received 1

@@ -24,6 +24,7 @@
 #ifndef INCLUDE_MLIR_EXECUTOR_TOOLS_EXECUTORRUNNERMAIN
 #define INCLUDE_MLIR_EXECUTOR_TOOLS_EXECUTORRUNNERMAIN
 
+#include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir/Support/LogicalResult.h"
 #include <cstdlib>
 #include <functional>
@@ -40,8 +41,10 @@ enum InputType {
 };
 
 /// Implementation for tools like `executor-runner`.
-LogicalResult ExecutorRunnerMain(int argc, char **argv,
-                                 std::function<void()> postInitCallback = {});
+LogicalResult ExecutorRunnerMain(
+    int argc, char **argv, std::function<void()> postInitCallback = {},
+    mlirtrt::runtime::LuaRuntimeSession::LuaModuleRegistrationFunc
+        registerExtraLuaFuncs = {});
 
 /// Helper wrapper to return the result of ExecutorRunnerMain directly from
 /// main.

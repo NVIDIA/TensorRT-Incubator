@@ -14,20 +14,21 @@ add_mlir_library(MLIRTensorRTTransforms
   ApplyBugWorkarounds.cpp
   BroadcastElimination.cpp
   ExpandOps.cpp
+  InferPluginShapes.cpp
   LegalizeInt8.cpp
-  TransposeElimination.cpp
-  ReshapeElimination.cpp
+  Passes.cpp
   RaiseActivations.cpp
   RaiseNormalizations.cpp
-  Passes.cpp
-  InferPluginShapes.cpp
+  ReshapeElimination.cpp
+  TransposeElimination.cpp
 
   DEPENDS
-  MLIRTensorRTTransformsPassIncGen
   MLIRTensorRTTransformsActivationsPdllGen
   MLIRTensorRTTransformsNormalizationsPdllGen
+  MLIRTensorRTTransformsPassIncGen
 
   LINK_LIBS PUBLIC
+  MLIRParser
   MLIRPass
   MLIRTensorRTAnalysis
   MLIRTensorRTConstantFoldingUtils

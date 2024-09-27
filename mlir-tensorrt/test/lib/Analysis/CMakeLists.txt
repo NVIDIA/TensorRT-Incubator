@@ -3,6 +3,7 @@ add_mlir_tensorrt_test_library(MLIRTensorRTTestTensorKindAnalysis
   TestBoundsAnalysis.cpp
 
   LINK_LIBS PUBLIC
-  MLIRTensorRTAnalysis
   MLIRPass
+  MLIRTensorRTAnalysis
+  MLIRTensorRTPlanAnalysis
   )

@@ -5,6 +5,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCUDAModu
 
   PUBLIC
   MLIRTensorRTExecutorRuntimeAPI
+  MLIRTensorRTExecutorCUDAUtils
 
   PRIVATE
   MLIRTensorRTExecutorRuntimeCommon

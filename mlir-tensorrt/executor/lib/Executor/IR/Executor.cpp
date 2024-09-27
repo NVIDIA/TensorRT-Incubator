@@ -30,6 +30,7 @@
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Interfaces/DataLayoutInterfaces.h"
 #include "mlir/Interfaces/FunctionImplementation.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Interfaces/MemorySlotInterfaces.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 #include "mlir/Transforms/InliningUtils.h"
@@ -1097,6 +1098,48 @@ SetGlobalOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
 }
 
 //===----------------------------------------------------------------------===//
+// CoroYieldOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult CoroYieldOp::verify() {
+  auto fn = (*this)->getParentOfType<FunctionOpInterface>();
+  if (!fn)
+    return emitOpError() << "must have FunctionOpInterface parent";
+  if (getOperandTypes() != fn.getResultTypes())
+    return emitOpError() << "operand types yielded from coroutine must match "
+                            "the parent function result types";
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// CoroCreateOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult CoroCreateOp::verify() {
+  auto fn =
+      (*this)->getParentOfType<ModuleOp>().lookupSymbol<FunctionOpInterface>(
+          getFunc());
+  if (!fn)
+    return emitOpError() << "reference to undefined function '" << getFunc()
+                         << "'";
+  if (fn.getFunctionType() != getType())
+    return emitOpError("reference to function with mismatched type");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// CoroAwaitOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult CoroAwaitOp::verify() {
+  if (!getCalleeOperands().empty() &&
+      TypeRange(getCalleeOperands()) != getCallee().getType().getInputs())
+    return emitOpError("callee operands must either be empty or their types "
+                       "must match the callee function input types");
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // FuncOp
 //===----------------------------------------------------------------------===//
 
@@ -1151,17 +1194,7 @@ void FuncOp::build(OpBuilder &builder, OperationState &state, StringRef name,
 // CallOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult CallOp::verify() {
-  if (std::optional<ArrayAttr> argsAttr = getImmediateArgs()) {
-    for (Attribute arg : *argsAttr) {
-      auto intAttr = dyn_cast<IntegerAttr>(arg);
-      if (!intAttr)
-        return emitOpError(
-            "immediate constant attribute arg must be an IntegerType");
-    }
-  }
-  return success();
-}
+LogicalResult CallOp::verify() { return success(); }
 
 LogicalResult
 CallOp::verifySymbolUses(::mlir::SymbolTableCollection &symbolTable) {
@@ -1496,7 +1529,8 @@ StringRef executor::getExecutorGlobalInitializerFuncNameAttr() {
   return "executor.global_init_func";
 }
 
-FailureOr<ArrayRef<int64_t>> executor::getModuleProcessGridShape(ModuleOp op) {
+FailureOr<ArrayRef<int64_t>>
+executor::getModuleProcessGridShape(Operation *op) {
   DenseI64ArrayAttr attr = op->getAttrOfType<DenseI64ArrayAttr>(
       ExecutorDialect::kProcessGridShapeAttrName);
   if (!attr)
@@ -1504,7 +1538,7 @@ FailureOr<ArrayRef<int64_t>> executor::getModuleProcessGridShape(ModuleOp op) {
   return attr.asArrayRef();
 }
 
-LogicalResult executor::setModuleProcessGridShape(ModuleOp op,
+LogicalResult executor::setModuleProcessGridShape(Operation *op,
                                                   ArrayRef<int64_t> shape) {
   FailureOr<ArrayRef<int64_t>> existingShape = getModuleProcessGridShape(op);
   if (failed(existingShape)) {
