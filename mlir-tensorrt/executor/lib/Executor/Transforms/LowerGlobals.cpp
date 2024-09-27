@@ -40,12 +40,12 @@ using namespace mlir::executor;
 /// region, append that code into a function called `executor_globals_init` and
 /// set the gloal with a `executor.set_global` operation.
 static LogicalResult rewriteGlobalInitializers(RewriterBase &rewriter,
-                                               ModuleOp op) {
-  auto globals = llvm::to_vector(op.getOps<GlobalOp>());
+                                               Operation *op) {
+  auto globals = llvm::to_vector(op->getRegion(0).getOps<GlobalOp>());
   OpBuilder::InsertionGuard g(rewriter);
-  rewriter.setInsertionPointToStart(op.getBody());
+  rewriter.setInsertionPointToStart(&op->getRegion(0).front());
   MLIRContext *ctx = op->getContext();
-  auto initFunc = func::FuncOp::create(op.getLoc(), "executor_init_globals",
+  auto initFunc = func::FuncOp::create(op->getLoc(), "executor_init_globals",
                                        FunctionType::get(ctx, {}, {}));
   initFunc.setPrivate();
   SymbolTable moduleSymbolTable(op);
@@ -57,7 +57,7 @@ static LogicalResult rewriteGlobalInitializers(RewriterBase &rewriter,
               FlatSymbolRefAttr::get(initFunc));
 
   rewriter.setInsertionPointToStart(initFunc.addEntryBlock());
-  auto termOp = rewriter.create<func::ReturnOp>(op.getLoc());
+  auto termOp = rewriter.create<func::ReturnOp>(op->getLoc());
   for (GlobalOp globalOp : globals) {
     // For data with initial_value attributes, lower into ConstantResourceOp and
     // a load.
@@ -73,7 +73,7 @@ static LogicalResult rewriteGlobalInitializers(RewriterBase &rewriter,
       // Create the load and set in the initializer function.
       Value resourceValue = rewriter.create<ConstantResourceLoadOp>(
           globalOp.getLoc(), FlatSymbolRefAttr::get(constantResourceOp));
-      rewriter.create<SetGlobalOp>(op.getLoc(), resourceValue,
+      rewriter.create<SetGlobalOp>(op->getLoc(), resourceValue,
                                    globalOp.getSymName());
 
       // Globals should now return ptrs.
@@ -94,7 +94,7 @@ static LogicalResult rewriteGlobalInitializers(RewriterBase &rewriter,
     // Change the terminator to a store op.
     Operation *initTerm = globalInitBlock->getTerminator();
     rewriter.setInsertionPoint(initTerm);
-    rewriter.create<SetGlobalOp>(op.getLoc(), initTerm->getOperand(0),
+    rewriter.create<SetGlobalOp>(op->getLoc(), initTerm->getOperand(0),
                                  globalOp.getSymName());
     rewriter.eraseOp(initTerm);
     rewriter.setInsertionPoint(termOp);
@@ -117,7 +117,9 @@ public:
 
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
-    ModuleOp op = getOperation();
+    Operation *op = getOperation();
+    if (failed(checkIsModuleLike(op)))
+      return signalPassFailure();
 
     IRRewriter rewriter(ctx);
     if (failed(rewriteGlobalInitializers(rewriter, op))) {

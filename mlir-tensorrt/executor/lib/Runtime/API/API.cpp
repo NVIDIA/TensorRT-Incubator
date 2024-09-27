@@ -21,6 +21,7 @@
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
+#include "mlir-executor/Support/CUDAWrappers.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/CommandLine.h"
@@ -28,7 +29,7 @@
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Threading.h"
-#include <vector>
+#include <cstdlib>
 
 #ifdef MLIR_EXECUTOR_ENABLE_NCCL
 #define OMPI_SKIP_MPICXX
@@ -354,15 +355,12 @@ RuntimeSessionOptions::createUsingSingleHostMpi() {
 // RuntimeSession
 //===----------------------------------------------------------------------===//
 
-RuntimeSession::RuntimeSession(
-    RuntimeSessionOptions options, ExecutableView exe, sol::state state,
-    std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator,
-    std::unique_ptr<AllocTracker> allocTracker,
-    std::unique_ptr<ResourceTracker> resourceTracker)
+RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
+                               ExecutableView exe)
     : options(std::move(options)), executable(exe),
-      pinnedMemoryAllocator(std::move(pinnedMemoryAllocator)),
-      allocTracker(std::move(allocTracker)),
-      resourceTracker(std::move(resourceTracker)), state(std::move(state)) {}
+      pinnedMemoryAllocator(std::make_unique<PinnedMemoryAllocator>()),
+      allocTracker(std::make_unique<AllocTracker>()),
+      resourceTracker(std::make_unique<ResourceTracker>()) {}
 
 //===----------------------------------------------------------------------===//
 // AllocTracker
@@ -493,7 +491,7 @@ PointerInfo AllocTracker::lookupOrDefault(uintptr_t ptr) const {
 StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
                                         uint64_t size,
                                         std::optional<uint32_t> alignment,
-                                        std::optional<cudaStream_t> stream) {
+                                        std::optional<CudaStream> stream) {
   if (type == PointerType::host) {
     assert(alignment && !stream &&
            "expected alignment, no stream for host allocation");
@@ -503,7 +501,7 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     // alignment dumbly.
     size = llvm::alignTo(size, *alignment);
     uintptr_t mem =
-        reinterpret_cast<uintptr_t>(std::aligned_alloc(*alignment, size));
+        reinterpret_cast<uintptr_t>(::aligned_alloc(*alignment, size));
     if (mem == 0)
       return mlirtrt::getInternalErrorStatus(
           "failed to allocate memory on host");
@@ -512,6 +510,8 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     tracker.track(info);
     return info;
   }
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (type == PointerType::device) {
     size = std::max<size_t>(size, 16);
     if (!stream) {
@@ -525,7 +525,8 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
       return info;
     }
     void *alloc{nullptr};
-    RETURN_ERROR_IF_CUDART_ERROR(cudaMallocAsync(&alloc, size, *stream));
+    RETURN_ERROR_IF_CUDART_ERROR(
+        cudaMallocAsync(&alloc, size, reinterpret_cast<cudaStream_t>(*stream)));
     MTRT_DBGF("Allocated %lu device bytes 0x%lx", size,
               reinterpret_cast<uintptr_t>(alloc));
     PointerInfo info{reinterpret_cast<uintptr_t>(alloc), size, type,
@@ -544,13 +545,14 @@ StatusOr<PointerInfo> runtime::allocate(AllocTracker &tracker, PointerType type,
     tracker.track(info);
     return info;
   }
+#endif
   return getStatusWithMsg(
       mlirtrt::StatusCode::InvalidArgument,
       "unimplemented allocation type: ", stringifyPointerType(type));
 }
 
 mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
-                                        std::optional<cudaStream_t> stream) {
+                                        std::optional<CudaStream> stream) {
   if (!tracker.contains(ptr)) {
     MTRT_DBGF("ignoring ptr 0x%lx because it was either already freed, "
               "externally managed, or has an external reference",
@@ -577,27 +579,29 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
     return mlirtrt::Status::getOk();
   }
 
+  if (obj.type == PointerType::host) {
+    MTRT_DBGF("Freeing host memory %lx", ptr);
+    std::free(reinterpret_cast<void *>(obj.ptr));
+    tracker.untrack(ptr);
+    return Status::getOk();
+  }
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (obj.type == PointerType::device || obj.type == PointerType::unified) {
-    if (stream && *stream != nullptr) {
+    if (stream && *stream != 0) {
       MTRT_DBGF("Asynchronously freeing CUDA device/pinned host memory 0x%lx "
                 "type %d on stream %lx",
                 ptr, static_cast<int32_t>(obj.type),
                 reinterpret_cast<uintptr_t>(*stream));
       RETURN_ERROR_IF_CUDART_ERROR(
-          cudaFreeAsync(reinterpret_cast<void *>(obj.ptr), *stream));
+          cudaFreeAsync(reinterpret_cast<void *>(obj.ptr),
+                        reinterpret_cast<cudaStream_t>(*stream)));
     } else {
       MTRT_DBGF(
           "Synchronously freeing CUDA device/pinned host memory %lx type %d",
           ptr, static_cast<int32_t>(obj.type));
       RETURN_ERROR_IF_CUDART_ERROR(cudaFree(reinterpret_cast<void *>(obj.ptr)));
     }
-    tracker.untrack(ptr);
-    return Status::getOk();
-  }
-
-  if (obj.type == PointerType::host) {
-    MTRT_DBGF("Freeing host memory %lx", ptr);
-    std::free(reinterpret_cast<void *>(obj.ptr));
     tracker.untrack(ptr);
     return Status::getOk();
   }
@@ -609,6 +613,8 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
         cudaFreeHost(reinterpret_cast<void *>(obj.ptr)));
     return Status::getOk();
   }
+
+#endif
 
   return mlirtrt::getInternalErrorStatus("unhandled allocation type");
 }
@@ -730,18 +736,15 @@ static Status parseDebugFlags() {
   return Status::getOk();
 }
 
-StatusOr<std::unique_ptr<RuntimeClient>> RuntimeClient::create() {
-  static llvm::once_flag onceFlag{};
-  llvm::call_once(onceFlag, parseDebugFlags);
-
+static mlirtrt::Status
+populateDevices(llvm::SmallVectorImpl<std::unique_ptr<Device>> &devices) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  int32_t numDevices = 0;
   // Find the number of devices. In single-process mode, the "addressable
   // devices" is equivalent to any devices the process can view, but this
   // is not true in multi-process mode.
-  int32_t numDevices = 1;
   RETURN_ERROR_IF_CUDART_ERROR(cudaGetDeviceCount(&numDevices));
 
-  // Setup device objects. Create a view of the device pointers.
-  llvm::SmallVector<std::unique_ptr<Device>> devices;
   devices.reserve(numDevices);
   for (int32_t i = 0; i < numDevices; ++i) {
     StatusOr<std::unique_ptr<Device>> device = Device::create(i);
@@ -749,6 +752,19 @@ StatusOr<std::unique_ptr<RuntimeClient>> RuntimeClient::create() {
       return device.getStatus();
     devices.push_back(std::move(*device));
   }
+#endif
+  return getOkStatus();
+}
+
+StatusOr<std::unique_ptr<RuntimeClient>> RuntimeClient::create() {
+  static llvm::once_flag onceFlag{};
+  llvm::call_once(onceFlag, parseDebugFlags);
+
+  // Setup device objects. Create a view of the device pointers.
+  llvm::SmallVector<std::unique_ptr<Device>> devices;
+  mlirtrt::Status status = populateDevices(devices);
+  if (!status.isOk())
+    return status;
 
   return std::unique_ptr<RuntimeClient>(new RuntimeClient(std::move(devices)));
 }
@@ -760,7 +776,7 @@ llvm::ArrayRef<std::unique_ptr<Device>> RuntimeClient::getDevices() const {
 StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
     PointerType addressSpace, int64_t bitsPerElement,
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
-    std::optional<const Device *> device, std::optional<cudaStream_t> stream,
+    std::optional<const Device *> device, std::optional<CudaStream> stream,
     std::optional<ScalarType> scalarType) {
   if (addressSpace == PointerType::device ||
       addressSpace == PointerType::unified) {
@@ -809,7 +825,7 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
 }
 
 Status RuntimeClient::deallocate(std::unique_ptr<MemRefValue> value,
-                                 std::optional<cudaStream_t> stream) {
+                                 std::optional<CudaStream> stream) {
   return safeDeallocate(
       allocTracker, reinterpret_cast<uintptr_t>(value->getMemory()), stream);
 }
@@ -840,8 +856,8 @@ RuntimeClient::copyHostToHost(const MemRefValue &hostBuffer) {
 StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
                             const Device &device,
-                            std::optional<cudaStream_t> cudaStream) {
-
+                            std::optional<CudaStream> cudaStream) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (!isHostVisible(hostBufferImpl.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to a device its data must reside in an address space "
@@ -882,9 +898,10 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
              hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),
              totalBufferSize, stagingHostMemPtr);
 
-    RETURN_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(
-        (*deviceMemRef)->getVoidPtr(), stagingHostMemPtr, totalBufferSize,
-        cudaMemcpyKind::cudaMemcpyHostToDevice, *cudaStream));
+    RETURN_ERROR_IF_CUDART_ERROR(
+        cudaMemcpyAsync((*deviceMemRef)->getVoidPtr(), stagingHostMemPtr,
+                        totalBufferSize, cudaMemcpyKind::cudaMemcpyHostToDevice,
+                        reinterpret_cast<cudaStream_t>(*cudaStream)));
 
     // Free pinned host memory asynchronously.
     getPinnedMemorAllocator().freeAsync(pinnedMemory->ptr, *cudaStream);
@@ -896,14 +913,16 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
         cudaMemcpy((*deviceMemRef)->getVoidPtr(), hostBufferImpl.getVoidPtr(),
                    totalBufferSize, cudaMemcpyKind::cudaMemcpyHostToDevice));
   }
-
   return std::move(*deviceMemRef);
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
+#endif
 }
 
 StatusOr<std::unique_ptr<MemRefValue>>
 RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
-                          std::optional<cudaStream_t> cudaStream) {
-
+                          std::optional<CudaStream> cudaStream) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus("to copy a MemRef to the host from a device, "
                                "its data must reside in an address space "
@@ -931,17 +950,21 @@ RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
         cudaMemcpy((*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(),
                    copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost));
   } else {
-    RETURN_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(
-        (*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
-        cudaMemcpyKind::cudaMemcpyDeviceToHost, *cudaStream));
+    RETURN_ERROR_IF_CUDART_ERROR(
+        cudaMemcpyAsync((*hostMemRef)->getVoidPtr(), deviceMemRef.getVoidPtr(),
+                        copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost,
+                        reinterpret_cast<cudaStream_t>(*cudaStream)));
   }
 
   return std::move(*hostMemRef);
+#endif
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
 }
 
 Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
                                  MemRefValue &hostMemRef,
-                                 std::optional<cudaStream_t> stream) {
+                                 std::optional<CudaStream> stream) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (!isDeviceVisible(deviceMemRef.getAddressSpace()))
     return getInvalidArgStatus(
         "to copy a MemRef to the host from a device, "
@@ -967,8 +990,8 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
         "to match, "
         " but the source MemRef has shape=({0,$[, ]}) strides=({1,$[, ]}) and "
         "the destination MemRef has shape=({2,$[, ]}) strides=({3,$[, ]})",
-        fmtRange(deviceMemRef.getShape()), fmtRange(deviceMemRef.getStrides()),
-        fmtRange(hostMemRef.getShape()), fmtRange(hostMemRef.getStrides()));
+        deviceMemRef.getShape(), deviceMemRef.getStrides(),
+        hostMemRef.getShape(), hostMemRef.getStrides());
 
   int64_t copySizeInBytes = deviceMemRef.getTotalFootprintInBytes();
   if (!stream) {
@@ -976,11 +999,15 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
         cudaMemcpy(hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(),
                    copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost));
   } else {
-    RETURN_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(
-        hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(), copySizeInBytes,
-        cudaMemcpyKind::cudaMemcpyDeviceToHost, *stream));
+    RETURN_ERROR_IF_CUDART_ERROR(
+        cudaMemcpyAsync(hostMemRef.getVoidPtr(), deviceMemRef.getVoidPtr(),
+                        copySizeInBytes, cudaMemcpyKind::cudaMemcpyDeviceToHost,
+                        reinterpret_cast<cudaStream_t>(*stream)));
   }
   return getOkStatus();
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA enabled");
+#endif
 }
 
 //===----------------------------------------------------------------------===//

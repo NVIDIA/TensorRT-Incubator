@@ -43,87 +43,6 @@ using namespace mlir;
 using namespace mlir::plan;
 
 //===----------------------------------------------------------------------===//
-// Operation Placement Utilities
-//===----------------------------------------------------------------------===//
-
-/// Returns true if the given operation should run "on the host". This means
-/// that the operation can be converted to Executor IR. It derives this
-/// information based on the operation, the operands, and the TensorKindAnalysis
-/// information.
-static bool shouldRunOnHost(Operation *op, DataFlowSolver &solver) {
-  // An operation can't be placed on the host if the types are too big.
-  LLVM_DEBUG(DBGS() << "should run on host? " << *op << "\n");
-  auto isHostType = [](Type t) {
-    return t.isIntOrIndexOrFloat() || stablehlo_ext::isScalarizableType(t);
-  };
-  if (!llvm::all_of(op->getResultTypes(), isHostType) ||
-      !llvm::all_of(op->getOperandTypes(), isHostType)) {
-    LLVM_DEBUG(DBGS() << "  types not all host compatible\n");
-    return false;
-  }
-
-  // Filter for StableHLO dialect ops. Don't consider stablehlo ops nested in
-  // other stablehlo ops.
-  if (!isa<stablehlo::StablehloDialect>(op->getDialect()) ||
-      isa<stablehlo::StablehloDialect>(op->getParentOp()->getDialect())) {
-    LLVM_DEBUG(DBGS() << "  not stablehlo op\n");
-    return false;
-  }
-
-  // Ignore constants. We don't cluster constants. They are cloned during the
-  // outlining step.
-  if (op->hasTrait<OpTrait::ConstantLike>())
-    return false;
-
-  // Filter for which operations we support on the host.
-  if (!op->hasTrait<OpTrait::Elementwise>() &&
-      !isa<stablehlo::ConcatenateOp, stablehlo::IotaOp, stablehlo::ReshapeOp,
-           stablehlo::BroadcastInDimOp, stablehlo::SliceOp,
-           stablehlo::BitcastConvertOp, stablehlo::ConvertOp,
-           stablehlo::SelectOp, stablehlo::ReduceOp>(op)) {
-    LLVM_DEBUG(DBGS() << "  not a supported op\n");
-    return false;
-  }
-
-  // If the operation doesn't have any operands, then we can run on host if
-  // the result is required on host (e.g. `stablehlo.arange : tensor<4xi32>`).
-  if (op->getNumOperands() == 0) {
-    LLVM_DEBUG(DBGS() << "  checking result TensorKinds\n");
-    return llvm::all_of(op->getResults(), [&](Value v) {
-      const auto *lattice = solver.lookupState<TensorKindLattice>(v);
-      LLVM_DEBUG({
-        if (lattice)
-          DBGS() << "  arg: ";
-        lattice->print(llvm::dbgs());
-        llvm::dbgs() << "\n";
-      });
-      return lattice && !lattice->getValue().isUninitialized() &&
-             lattice->getValue().isHostVisible();
-    });
-  }
-
-  // If all the types are small enough and they are host tensors, then we can
-  // place the computation on the host. Note that the TensorKind of the
-  // results doesn't matter here. If the operands and result types are small,
-  // then we can run the computation on the host as long as the inputs are on
-  // the host. A result TensorKind of 'device' or 'both' just means the result
-  // must be transferred to the device afterwards.
-  LLVM_DEBUG(DBGS() << "  checking operand TensorKinds\n");
-  return llvm::all_of(op->getOperands(), [&](Value operand) {
-    const TensorKindLattice *lattice =
-        solver.lookupState<TensorKindLattice>(operand);
-    LLVM_DEBUG({
-      if (lattice)
-        DBGS() << "  arg: ";
-      lattice->print(llvm::dbgs());
-      llvm::dbgs() << "\n";
-    });
-    return lattice && !lattice->getValue().isUninitialized() &&
-           lattice->getValue().isHostVisible();
-  });
-}
-
-//===----------------------------------------------------------------------===//
 // HostClusterKindAttr
 //===----------------------------------------------------------------------===//
 
@@ -140,7 +59,7 @@ HostClusterKindAttr::getClusterKindOptions(DataFlowSolver &solver) const {
                                      ClusterRange) { return true; };
   opts.clusterTarget = *this;
   opts.isClusterableOp = [&solver](Operation *op) {
-    return shouldRunOnHost(op, solver);
+    return plan::detail::shouldRunOnHost(op, solver);
   };
   return opts;
 }
@@ -171,62 +90,17 @@ static bool shouldCloneProducer(Value v, Region &cluster) {
          1024 * 1024;
 }
 
-/// Create a `func.func` operation that represents `regionOp` and inserts into
-/// the `module` SymbolTable. The function is given a name starting with
-/// `nameBase` but may have numbers appended in order to unique the name. The
-/// created function has argument/result types as indicated by the parameters.
-static FailureOr<FunctionOpInterface>
-createOutlinedFunc(RewriterBase &rewriter, Location loc, Operation *regionOp,
-                   Operation *module, StringRef nameBase, StringRef tagName,
-                   TypeRange funcArgTypes, TypeRange funcResultTypes) {
-  OpBuilder::InsertionGuard g(rewriter);
-
-  // Create the func for outlining the region body.
-  FunctionType type =
-      FunctionType::get(rewriter.getContext(), funcArgTypes, funcResultTypes);
-  auto outlinedFunc = mlir::func::FuncOp::create(loc, nameBase, type, {});
-  Block *funcBody = outlinedFunc.addEntryBlock();
-
-  // Add an empty terminator.
-  rewriter.setInsertionPointToEnd(funcBody);
-  rewriter.create<func::ReturnOp>(loc);
-
-  // Insert into the module.
-  SymbolTable(module).insert(outlinedFunc,
-                             module->getRegions().front().front().end());
-
-  // Tag the function with a UnitAttr for identifying the different kinds of
-  // functions based on the cluster type.
-  outlinedFunc->setAttr(tagName, rewriter.getUnitAttr());
-  return cast<FunctionOpInterface>(outlinedFunc.getOperation());
-}
-
 std::optional<OutlineRegionOptions>
-HostClusterKindAttr::getClusterOutliningOptions() const {
+HostClusterKindAttr::getClusterOutliningOptions(
+    MLIRContext *ctx, SymbolTable &moduleSymbolTable) const {
+  OpBuilder b(ctx);
   return OutlineRegionOptions{
       /*typeConverter=*/stablehlo_ext::getScalarizationTypeConverter(),
       /*shouldCloneProducer=*/shouldCloneProducer,
       /*createFunc=*/
-      [](RewriterBase &rewriter, Location loc, Operation *regionOp,
-         ArrayRef<Value> callOperands, ArrayRef<Type> convertedOperandTypes,
-         ArrayRef<Type> results)
-          -> FailureOr<std::pair<FunctionOpInterface, SmallVector<Value>>> {
-        ModuleOp module = regionOp->getParentOfType<ModuleOp>();
-        FailureOr<FunctionOpInterface> func =
-            createOutlinedFunc(rewriter, loc, regionOp, module, "host_cluster",
-                               "cluster.host", convertedOperandTypes, results);
-        if (failed(func))
-          return failure();
-        func->setPrivate();
-
-        rewriter.setInsertionPoint(regionOp);
-        SmallVector<Value> callReplacements =
-            rewriter
-                .create<func::CallOp>(loc, llvm::cast<func::FuncOp>(*func),
-                                      callOperands)
-                .getResults();
-        return std::make_pair(*func, callReplacements);
-      }};
+      OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(
+          moduleSymbolTable, {b.getNamedAttr("cluster.host", b.getUnitAttr())},
+          "host_cluster")};
 }
 
 std::function<bool(const Cluster &)>
@@ -292,7 +166,7 @@ TensorRTClusterKindAttr::getClusterKindOptions(DataFlowSolver &solver) const {
     if (!disallowShapeTensorCalculations)
       return true;
 
-    return !shouldRunOnHost(op, *solver);
+    return !plan::detail::shouldRunOnHost(op, *solver);
   };
   return opts;
 }
@@ -317,6 +191,7 @@ TensorRTClusterKindAttr::getClusterFilter() const {
 }
 
 std::optional<OutlineRegionOptions>
-TensorRTClusterKindAttr::getClusterOutliningOptions() const {
+TensorRTClusterKindAttr::getClusterOutliningOptions(
+    MLIRContext *ctx, SymbolTable &moduleSymbolTable) const {
   return {};
 }

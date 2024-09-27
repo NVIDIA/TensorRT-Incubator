@@ -9,7 +9,6 @@ add_mlir_executor_runtime_library(MLIRTensorRTExecutionEngineLuaRuntime
 
   LINK_LIBS PUBLIC
   MLIRTensorRTExecutorRuntimeAPI
-  CUDA::cudart
 
   LINK_LIBS PRIVATE
   MLIRExecutorRuntimeCapabilities

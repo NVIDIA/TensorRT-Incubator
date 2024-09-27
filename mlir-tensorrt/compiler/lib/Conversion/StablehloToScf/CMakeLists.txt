@@ -9,7 +9,8 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToSCF
   MLIRIR
   MLIRPass
   MLIRRewrite
-  StablehloOps
   MLIRSCFDialect
   MLIRTensorDialect
-)
+  MLIRTransformUtils
+  StablehloOps
+  )

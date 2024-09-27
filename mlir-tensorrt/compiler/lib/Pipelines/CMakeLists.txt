@@ -3,10 +3,10 @@ set(LLVM_OPTIONAL_SOURCES
 )
 set(pipeline_deps_
   MLIRPass
-  MLIRTransforms
-  MLIRTensorRTTransforms
-  MLIRTensorRTTensorRTRuntimeDialect
   MLIRTensorRTCUDADialect
+  MLIRTensorRTTensorRTRuntimeDialect
+  MLIRTensorRTTransforms
+  MLIRTransforms
   )
 
 if(MLIR_TRT_ENABLE_HLO)
@@ -15,8 +15,10 @@ if(MLIR_TRT_ENABLE_HLO)
   )
   list(APPEND pipeline_deps_
     MLIRTensorRTStableHloExtTransforms
-    MLIRTensorRTStablehloToTensorRT
     MLIRTensorRTStablehloInputPreprocessing
+    MLIRTensorRTStablehloRaiseQDQ
+    MLIRTensorRTStablehloToSCF
+    MLIRTensorRTStablehloToTensorRT
   )
 endif()
 

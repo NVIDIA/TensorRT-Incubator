@@ -379,6 +379,20 @@ def Plan_WithValuesOp : Plan_Op<"with_values",
   let hasVerifier = 1;
 }
 
+//===----------------------------------------------------------------------===//
+// ConstraintOp
+//===----------------------------------------------------------------------===//
+def Plan_ConstraintOp : Plan_Op<"constraint", [Pure]>{
+  let summary =
+    "Used for applying constraints to its memref operand using attributes.";
+  let description = [{
+   This op is used to apply constraints to its memref operand using the 
+   attributes associated for dimension analysis passes.
+  }];
 
+  let arguments = (ins AnyRankedOrUnrankedMemRef:$memrefToConstrain);
+
+  let assemblyFormat = "`(` $memrefToConstrain `)` attr-dict  `:` type($memrefToConstrain)";
+}
 
 #endif // MLIR_TENSORRT_DIALECT_PLAN_IR_PLANOPS_TD

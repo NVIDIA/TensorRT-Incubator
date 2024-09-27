@@ -3,6 +3,10 @@
 
 include "mlir/Pass/PassBase.td"
 
+// This class represents an mlir::InterfacePass.
+class ModuleLikePass<string passArg>
+  : PassBase<passArg, "::mlir::ModuleLikePass">;
+
 //===----------------------------------------------------------------------===//
 // ExecutorPopulateFunctionMetadataPass
 //===----------------------------------------------------------------------===//
@@ -57,8 +61,7 @@ def ExecutorExpandOpsPass : Pass<"executor-expand-ops"> {
 // PackArguments
 //===----------------------------------------------------------------------===//
 
-def ExecutorPackArgumentsPass : Pass<"executor-pack-arguments",
-    "::mlir::ModuleOp"> {
+def ExecutorPackArgumentsPass : ModuleLikePass<"executor-pack-arguments"> {
   let summary = "changes calling convention of executor functions to packed";
 
   let description = [{
@@ -94,8 +97,7 @@ def ExecutorPackArgumentsPass : Pass<"executor-pack-arguments",
 //===----------------------------------------------------------------------===//
 
 def ExecutorDecomposeAggregateLoadsAndStoresPass :
-  Pass<"executor-decompose-aggregate-loads-and-stores",
-      "::mlir::ModuleOp"> {
+      ModuleLikePass<"executor-decompose-aggregate-loads-and-stores"> {
   let summary = "lowers load/store of aggregates into more primitive ops";
 
   let description = [{
@@ -113,8 +115,8 @@ def ExecutorDecomposeAggregateLoadsAndStoresPass :
 // ExecutorLowerToRuntimeBuiltinsPass
 //===----------------------------------------------------------------------===//
 
-def ExecutorLowerToRuntimeBuiltinsPass : Pass<"executor-lower-to-runtime-builtins",
-      "::mlir::ModuleOp"> {
+def ExecutorLowerToRuntimeBuiltinsPass :
+        ModuleLikePass<"executor-lower-to-runtime-builtins"> {
   let summary = "lowers some primitive operations to runtime builtin calls";
 
   let description = [{
@@ -139,7 +141,7 @@ def ExecutorLowerToRuntimeBuiltinsPass : Pass<"executor-lower-to-runtime-builtin
 // ExecutorLowerGlobalsPass
 //===----------------------------------------------------------------------===//
 
-def ExecutorLowerGlobalsPass : Pass<"executor-lower-globals", "::mlir::ModuleOp"> {
+def ExecutorLowerGlobalsPass : ModuleLikePass<"executor-lower-globals"> {
   let summary = "Lower globals to their final form before translation";
 
   let description = [{
@@ -164,8 +166,7 @@ def ExecutorLowerGlobalsPass : Pass<"executor-lower-globals", "::mlir::ModuleOp"
 //===----------------------------------------------------------------------===//
 // ExecutorAllocsToGlobalsPass
 //===----------------------------------------------------------------------===//
-def ExecutorAllocsToGlobalsPass : Pass<"executor-allocs-to-globals",
-                                      "::mlir::ModuleOp"> {
+def ExecutorAllocsToGlobalsPass : ModuleLikePass<"executor-allocs-to-globals"> {
   let summary = "Move long-lived allocations to global buffers";
   let description = [{
     This pass moves `memref`s that are allocated and deallocated in the same

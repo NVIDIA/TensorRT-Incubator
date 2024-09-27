@@ -2,20 +2,21 @@ add_subdirectory(PluginRegistry)
 add_subdirectory(TensorRTEncodingOpInterface)
 
 add_mlir_library(MLIRTensorRTTargetTensorRT
-  TranslateToTensorRT.cpp
   Registration.cpp
+  TranslateToTensorRT.cpp
 
   LINK_LIBS PUBLIC
   MLIRDialect
   MLIRIR
   MLIRPass
-  MLIRTransformUtils
-  MLIRTRTTensorRTDynamicLoader
-  MLIRTensorRTTensorRTUtils
+  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTEncodingImpl
   MLIRTensorRTTensorRTEncodingOpInterface
   MLIRTensorRTTensorRTPluginRegistry
-  MLIRTensorRTTensorRTEncodingImpl
-  MLIRTensorRTDialect
+  MLIRTensorRTTensorRTUtils
+  MLIRTransformUtils
+  MLIRTranslateLib
+  MLIRTRTTensorRTDynamicLoader
 
   LINK_LIBS PRIVATE
   TensorRTHeaderOnly

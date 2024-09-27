@@ -5,9 +5,10 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloRaiseQDQ
   MLIRTensorRTGenericTransformPassIncGen
 
   LINK_LIBS PUBLIC
+  MLIRFuncDialect
   MLIRIR
   MLIRPass
   MLIRRewrite
+  MLIRTransformUtils
   StablehloOps
-  MLIRFuncDialect
 )

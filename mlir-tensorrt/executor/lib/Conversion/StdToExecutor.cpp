@@ -20,7 +20,6 @@
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/IR/Executor.h"
-#include "mlir-executor/Executor/Transforms/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -29,7 +28,6 @@
 #include "mlir/Dialect/PDLInterp/IR/PDLInterp.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
 
 namespace mlir::executor {
