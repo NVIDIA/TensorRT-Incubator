@@ -631,12 +631,11 @@ def __rmod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]
 
 
 @export.public_api(document_under="operations/functions")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def maximum(lhs: "tripy.types.TensorLike", rhs: "tripy.types.TensorLike") -> "tripy.Tensor":
+def maximum(lhs: "tripy.Tensor", rhs: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs an elementwise maximum.
 
@@ -662,12 +661,11 @@ def maximum(lhs: "tripy.types.TensorLike", rhs: "tripy.types.TensorLike") -> "tr
 
 
 @export.public_api(document_under="operations/functions")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("lhs", "rhs")])
 @constraints.dtype_info(
     dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
     dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def minimum(lhs: "tripy.types.TensorLike", rhs: "tripy.types.TensorLike") -> "tripy.Tensor":
+def minimum(lhs: "tripy.Tensor", rhs: "tripy.Tensor") -> "tripy.Tensor":
     """
     Performs an elementwise minimum.
 

@@ -69,7 +69,7 @@ class Expand(BaseTraceOp):
         )
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["input", "output_rank", "output_len"], shape_argument=["shape"])
+@frontend_utils.convert_shape_inputs(["shape"])
 def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int, output_len: Optional[int] = None):
     return Expand.build([input, shape], output_rank, output_len)
 

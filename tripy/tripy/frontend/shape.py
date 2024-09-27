@@ -125,6 +125,25 @@ class Shape(Tensor):
             # share the underlying data
             self.trace_tensor = data.trace_tensor
             self.stack_info = data.stack_info
+        elif (
+            isinstance(data, Sequence)
+            and len(data) > 0
+            and all(map(lambda e: isinstance(e, int) or isinstance(e, ShapeScalar), data))
+        ):
+            # Handle the case where data is a list of mixed int and ShapeScalar elements
+            # Example: [1, a.shape[0]]
+            # We convert this to a tensor to avoid expensive evaluation of ShapeScalar elements (like a.shape[0])
+            from tripy.frontend.trace.ops.concatenate import concatenate
+            from tripy.frontend.trace.ops.reshape import reshape
+
+            data = concatenate(
+                [reshape(e, (1,)) if isinstance(e, ShapeScalar) else Tensor([e], dtype=int32) for e in data], dim=0
+            )
+            # the shape of data should correspond to the given rank
+            super().__init__(data=None, dtype=int32, name=name, device=data.device)
+            # share the underlying data
+            self.trace_tensor = data.trace_tensor
+            self.stack_info = data.stack_info
         else:
             shape = data.shape if hasattr(data, "shape") else utils.get_shape(data)
             device = data.device if hasattr(data, "device") else None
@@ -282,7 +301,7 @@ class Shape(Tensor):
         # so we should clamp the argument
         if other.rank == 0:
             other = reshape(other, (1,))
-        other = Shape(maximum(other, 0)) + [len(self)]
+        other = Shape(maximum(other, Tensor(0, int32))) + [len(self)]
 
         unsqueezed = unsqueeze(self, 0)
         tiled = expand(unsqueezed, other)
@@ -293,7 +312,7 @@ class Shape(Tensor):
     def __rmul__(self, other):
         return self.__mul__(other)
 
-    @frontend_utils.convert_inputs_to_tensors(shape_argument=["other"])
+    @frontend_utils.convert_shape_inputs(["other"])
     def __eq__(self, other):
         from tripy.frontend.trace.ops.reduce import all
 

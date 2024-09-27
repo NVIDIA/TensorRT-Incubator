@@ -17,13 +17,14 @@
 
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
-from tripy import utils, constraints
+
+from tripy import constraints, utils
+from tripy.common.exception import raise_error
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import utils as op_utils
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_tuple
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -81,9 +82,10 @@ class Slice(BaseTraceOp):
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
 
     def to_flat_ir(self, inputs, outputs):
+        from tripy.common.datatype import bool as tp_bool
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import bool as tp_bool, int32
 
         with FlatIRTensor.context(["construct constant tensors for slice `dim`'s > len(slice_params) // 3"]):
             device = inputs[0].device
@@ -127,8 +129,8 @@ class Slice(BaseTraceOp):
 
                     # if start > limit, the dim should be empty (we will set start to match the end)
                     def adjust_start(start_bound, end_bound):
-                        from tripy.frontend.trace.ops.binary_elementwise import Comparison
                         from tripy.flat_ir.ops import CompareOp, SelectOp
+                        from tripy.frontend.trace.ops.binary_elementwise import Comparison
 
                         start_comparison = FlatIRTensor.build(
                             shape=[1],
@@ -208,12 +210,12 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
 
     """
-    from tripy.frontend.shape import ShapeScalar, Shape
+    from tripy.frontend.shape import Shape, ShapeScalar
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip
+    from tripy.frontend.trace.ops.gather import gather
     from tripy.frontend.trace.ops.reshape import reshape, squeeze
     from tripy.frontend.trace.ops.where import where
-    from tripy.frontend.trace.ops.gather import gather
 
     # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
     if isinstance(index, Tensor):

@@ -69,12 +69,14 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim:
     from tripy.frontend.trace.ops.expand import expand
     from tripy.frontend.trace.ops.reshape import reshape
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
-    from tripy.frontend.trace.ops.concatenate import concatenate
     from tripy.frontend.tensor import Tensor
-    from tripy.frontend.shape import Shape
+    from tripy.frontend.shape import ShapeScalar, Shape
+    from tripy.frontend.trace.ops.concatenate import concatenate
 
-    if isinstance(repeats, int) and repeats < 0:
-        raise_error("`repeats` value must be non-negative.", [f"Got: repeats={repeats}."])
+    if isinstance(repeats, int):
+        if repeats < 0:
+            raise_error("`repeats` value must be non-negative.", [f"Got: repeats={repeats}."])
+        repeats = ShapeScalar(repeats)
 
     # By constraining repeats to be a single integer, we can use a very
     # simple implementation for repeat.
@@ -90,8 +92,6 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim:
     out = unsqueeze(input, dim + 1)
     out = expand(out, input.shape[: dim + 1] + Shape([repeats]) + input.shape[dim + 1 :])
 
-    # repeat_mask = [1] * input.rank
-    # repeat_mask[dim] = repeats
     repeat_mask = concatenate(
         [reshape(repeats, (1,)) if idx == dim else Tensor([1]) for idx in range(input.rank)], dim=0
     )

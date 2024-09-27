@@ -68,7 +68,7 @@ class Iota(BaseTraceOp):
         DynamicIotaOp.build(inputs, outputs, dim=self.dim)
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["dim", "dtype", "output_rank"], shape_argument=["shape"])
+@frontend_utils.convert_shape_inputs(["shape"])
 def iota_impl(
     shape: Union["tripy.Shape", Sequence[int]], dim: int, dtype: datatype.dtype, output_rank: int
 ) -> "tripy.Tensor":
