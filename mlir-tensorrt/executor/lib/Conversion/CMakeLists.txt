@@ -32,10 +32,12 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
 
   LINK_LIBS PUBLIC
   MLIRArithDialect
-  MLIRMathDialect
   MLIRControlFlowDialect
   MLIRFuncDialect
+  MLIRIR
+  MLIRMathDialect
   MLIRMemRefDialect
+  MLIRParser
   MLIRRewrite
   MLIRTensorRTConvertToExecutorCommon
   MLIRTransforms

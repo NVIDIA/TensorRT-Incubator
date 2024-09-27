@@ -13,9 +13,11 @@ add_compile_definitions("MLIR_PYTHON_PACKAGE_PREFIX=mlir_tensorrt.compiler.")
 include_directories(
   ${MLIR_INCLUDE_DIRS}
   ${MLIR_TENSORRT_ROOT_DIR}/compiler/include
+  ${MLIR_TENSORRT_ROOT_DIR}/kernel/include
   ${MLIR_TENSORRT_ROOT_DIR}/executor/include
   ${MLIR_TENSORRT_ROOT_BINARY_DIR}/compiler/include
   ${MLIR_TENSORRT_ROOT_BINARY_DIR}/executor/include
+  ${MLIR_TENSORRT_ROOT_BINARY_DIR}/kernel/include
   # Upstream stablehlo python extension modules doesn't properly declare include
   # requirements.
   "$<$<BOOL:${MLIR_TRT_ENABLE_HLO}>:${stablehlo_SOURCE_DIR}>"

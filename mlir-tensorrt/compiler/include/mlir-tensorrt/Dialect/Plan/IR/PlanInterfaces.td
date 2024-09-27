@@ -30,7 +30,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
             /*desc=*/"Return the region outlining options for the cluster",
             /*retTy*/"std::optional<OutlineRegionOptions>",
             "getClusterOutliningOptions",
-            (ins ),
+            (ins "::mlir::MLIRContext*":$context, "::mlir::SymbolTable&":$moduleSymbolTable),
             "",
             ""
         >,

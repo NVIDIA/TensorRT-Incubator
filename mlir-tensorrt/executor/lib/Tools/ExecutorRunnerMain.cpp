@@ -21,6 +21,7 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Support/MPI.h"
+#include "mlir-executor/Support/CUDAWrappers.h"
 #include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -74,6 +75,7 @@ namespace {
 struct Options {
   cl::opt<std::string> inputFilename{cl::Positional, cl::desc("<input file>"),
                                      cl::init("-")};
+
   cl::opt<std::string> outputFilename{"o", cl::desc("Output filename"),
                                       cl::value_desc("filename"),
                                       cl::init("-")};
@@ -92,6 +94,11 @@ struct Options {
                                       cl::desc("Dump function signature"),
                                       cl::init(false)};
 
+  cl::opt<std::string> outputSplitMarker{
+      "output-split-marker",
+      llvm::cl::desc("Split marker to use for merging the ouput"),
+      llvm::cl::init("")};
+
   cl::opt<enum InputType> inputType{
       "input-type", cl::init(Unspecified),
       cl::desc("override how to interpret the input file"),
@@ -101,9 +108,39 @@ struct Options {
 };
 } // namespace
 
-LogicalResult
-executor::ExecutorRunnerMain(int argc, char **argv,
-                             std::function<void()> postInitCallback) {
+static LogicalResult initializeCudaRuntime() {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  int device = 0;
+  // Context must be created for the correct device we will be using in this
+  // process. Currently, assume direct mapping from local rank -> device.
+  // TODO: Context creation for multi-gpu should be improved somehow.
+  if (const char *rank_str = std::getenv("OMPI_COMM_WORLD_LOCAL_RANK"))
+    device = std::stoi(rank_str);
+
+  cudaError_t result = cudaSetDevice(device);
+  if (result != cudaSuccess) {
+    llvm::errs() << "failed to initialize CUDA device: "
+                 << cudaGetErrorString(result);
+    return failure();
+  }
+
+  // Make a single no-op CUDA call in order to force CUDART to setup the context
+  // for the current thread. It's possible that the first CUDA call when loading
+  // globals will be a CUDA driver call, which doesn't do any automatic context
+  // initialization.
+  result = cudaFree(0);
+  if (result != cudaSuccess) {
+    llvm::errs() << "cudaFree failed: " << cudaGetErrorString(result);
+    return failure();
+  }
+#endif
+  return success();
+}
+
+LogicalResult executor::ExecutorRunnerMain(
+    int argc, char **argv, std::function<void()> postInitCallback,
+    mlirtrt::runtime::LuaRuntimeSession::LuaModuleRegistrationFunc
+        registerExtraLuaFuncs) {
   llvm::InitLLVM initLLVM(argc, argv);
 
   Status mpiStatus = maybeInitializeMpi();
@@ -148,65 +185,60 @@ executor::ExecutorRunnerMain(int argc, char **argv,
   if (!output)
     return emitError(loc) << "failed to open output buffer: " << errorMessage;
 
-  // Initialize the CUDA driver.
-  int device = 0;
-  // Context must be created for the correct device we will be using in this
-  // process. Currently, assume direct mapping from local rank -> device.
-  // TODO: Context creation for multi-gpu should be improved somehow.
-  if (const char *rank_str = std::getenv("OMPI_COMM_WORLD_LOCAL_RANK"))
-    device = std::stoi(rank_str);
-  cudaError_t result = cudaSetDevice(device);
-  if (result != cudaSuccess)
-    return emitError(loc) << "failed to initialize CUDA device: "
-                          << cudaGetErrorString(result);
-
-  // Make a single no-op CUDA call in order to force CUDART to setup the context
-  // for the current thread. It's possible that the first CUDA call when loading
-  // globals will be a CUDA driver call, which doesn't do any automatic context
-  // initialization.
-  result = cudaFree(0);
-  if (result != cudaSuccess)
-    return emitError(loc) << "cudaFree failed: " << cudaGetErrorString(result);
+  if (failed(initializeCudaRuntime()))
+    return failure();
 
   // Read the buffer as a Lua script and execute.
-
-  if (options.inputType == Lua) {
-    assert(!options.dumpFunctionSignature &&
-           "Can not dump function signature for Lua input type.");
-    mlirtrt::StatusOr<int64_t> result =
-        mlirtrt::runtime::runExecutorLuaScript(input->getBuffer());
-    if (!result.isOk())
-      return emitError(UnknownLoc::get(&context)) << result.getString();
-    return success(*result == 0);
-  }
-
-  assert(options.inputType == ExecutorRuntimeExecutable &&
-         "expected executor executable input type");
-
-  mlirtrt::StatusOr<std::unique_ptr<mlirtrt::runtime::Executable>> executable =
-      mlirtrt::runtime::Executable::loadFromBuffer(std::move(input));
-  if (!executable.isOk())
-    return emitError(UnknownLoc::get(&context))
-           << "failed to load executable from buffer: "
-           << executable.getString();
-
-  if (options.dumpFunctionSignature) {
-    for (unsigned i = 0; i < executable->get()->getNumFunctions(); ++i) {
-      std::string str;
-      llvm::raw_string_ostream ss(str);
-      mlirtrt::runtime::print(ss,
-                              executable->get()->getFunction(i).getSignature());
-      llvm::outs() << ss.str() << "\n";
+  auto processBuffer = [&](std::unique_ptr<llvm::MemoryBuffer> input,
+                           llvm::raw_ostream &os) -> LogicalResult {
+    if (options.inputType == Lua) {
+      assert(!options.dumpFunctionSignature &&
+             "Can not dump function signature for Lua input type.");
+      mlirtrt::StatusOr<int64_t> result =
+          mlirtrt::runtime::runExecutorLuaScript(input->getBuffer(),
+                                                 registerExtraLuaFuncs);
+      if (!result.isOk())
+        return emitError(UnknownLoc::get(&context)) << result.getString();
+      return success(*result == 0);
     }
+
+    assert(options.inputType == ExecutorRuntimeExecutable &&
+           "expected executor executable input type");
+
+    mlirtrt::StatusOr<std::unique_ptr<mlirtrt::runtime::Executable>>
+        executable =
+            mlirtrt::runtime::Executable::loadFromBuffer(std::move(input));
+    if (!executable.isOk())
+      return emitError(UnknownLoc::get(&context))
+             << "failed to load executable from buffer: "
+             << executable.getString();
+
+    if (options.dumpFunctionSignature) {
+      for (unsigned i = 0; i < executable->get()->getNumFunctions(); ++i) {
+        std::string str;
+        llvm::raw_string_ostream ss(str);
+        mlirtrt::runtime::print(
+            ss, executable->get()->getFunction(i).getSignature());
+        llvm::outs() << ss.str() << "\n";
+      }
+      return success();
+    }
+
+    mlirtrt::StatusOr<int64_t> executionResult =
+        mlirtrt::runtime::runExecutorExecutable(
+            std::move(*executable), std::move(registerExtraLuaFuncs));
+    if (!executionResult.isOk())
+      return emitError(UnknownLoc::get(&context))
+             << "failed to load and run executable: "
+             << executionResult.getString();
+
     return success();
-  }
+  };
 
-  mlirtrt::StatusOr<int64_t> executionResult =
-      mlirtrt::runtime::runExecutorExecutable(std::move(*executable));
-  if (!executionResult.isOk())
-    return emitError(UnknownLoc::get(&context))
-           << "failed to load and run executable: "
-           << executionResult.getString();
-
-  return success(*executionResult == 0);
+  if (failed(mlir::splitAndProcessBuffer(std::move(input), processBuffer,
+                                         output->os(), options.splitInputFile,
+                                         options.outputSplitMarker)))
+    return failure();
+  output->keep();
+  return success();
 }

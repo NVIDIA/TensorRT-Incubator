@@ -85,53 +85,60 @@ static GlobalOp getOrCreateRuntimeGlobalOp(RewriterBase &rewriter,
       });
 }
 
-static ExecutorCallBuilder getLoadEngineBuilder(MLIRContext *ctx) {
-  return ExecutorCallBuilder{
+struct TensorRTRuntimeBuiltinCallBuilders {
+  Type indexType;
+  MLIRContext *ctx = indexType.getContext();
+
+  ExecutorCallBuilder loadEngine = {
       ctx,
       "_trtrt_load",
       executor::ExecutorOpaqueType::get(ctx, "trtrt_engine"),
       {executor::ExecutorOpaqueType::get(ctx, "trtrt_runtime"),
-       executor::PointerType::get(ctx, MemoryType::host)}};
-}
+       executor::PointerType::get(ctx, MemoryType::host), indexType}};
 
-static ExecutorCallBuilder getCreateExecutionContextBuilder(MLIRContext *ctx) {
-  return ExecutorCallBuilder{
+  ExecutorCallBuilder createContext = {
       ctx, "_trtrt_create_context",
       executor::ExecutorOpaqueType::get(ctx, "trtrt_context"),
       executor::ExecutorOpaqueType::get(ctx, "trtrt_engine")};
-}
+};
 
 /// Create a `executor.global` to load the TensorRT engine/execution context.
 static GlobalOp getOrCreateExecutionContextGlobal(RewriterBase &rewriter,
                                                   func::FuncOp trtFunc,
                                                   ConstantResourceOp resourceOp,
-                                                  GlobalOp runtimeGlobal) {
+                                                  GlobalOp runtimeGlobal,
+                                                  Type indexType) {
   std::string name = (trtFunc.getName() + "_exec_ctx").str();
   auto parentModule = trtFunc->getParentOfType<ModuleOp>();
   SymbolTable symbolTable(parentModule);
   ExecutorOpaqueType execOpaqueType =
       getTrtContextOpaqueType(rewriter.getContext());
+
+  TensorRTRuntimeBuiltinCallBuilders callBuilder{indexType};
+
   return getOrCreateGlobalOp(
       rewriter, trtFunc.getLoc(), parentModule, name, execOpaqueType, true,
       [&](OpBuilder &nested, Location loc) {
         ImplicitLocOpBuilder ib(loc, nested);
         Value data = ib.create<ConstantResourceLoadOp>(
             FlatSymbolRefAttr::get(resourceOp));
+        // Use 'executor.getoffset' as a portable way of calculating the final
+        // buffer size. The data type for TRT engines should always be 'i8', but
+        // this is more fool-proof.
+        ShapedType dataType = resourceOp.getValue().getShapedType();
+        Value dataSize = ib.create<GetOffsetOp>(
+            indexType, dataType.getElementType(),
+            ArrayRef<OpFoldResult>{
+                rewriter.getI64IntegerAttr(dataType.getNumElements())});
         Value runtime =
             ib.create<GetGlobalOp>(getTrtRuntimeOpaqueType(ib.getContext()),
                                    FlatSymbolRefAttr::get(runtimeGlobal));
-
-        ExecutorCallBuilder callBuilder =
-            getLoadEngineBuilder(rewriter.getContext());
-        ExecutorCallBuilder createContextBuilder =
-            getCreateExecutionContextBuilder(rewriter.getContext());
-
-        Value engine =
-            callBuilder
-                .create(ib, trtFunc.getLoc(), parentModule, {runtime, data})
-                .getResult(0);
+        Value engine = callBuilder.loadEngine
+                           .create(ib, trtFunc.getLoc(), parentModule,
+                                   {runtime, data, dataSize})
+                           .getResult(0);
         Value context =
-            createContextBuilder
+            callBuilder.createContext
                 .create(ib, trtFunc.getLoc(), parentModule, {engine})
                 .getResult(0);
         ib.create<ReturnOp>(context);
@@ -158,7 +165,8 @@ struct ConvertCompile : public ConvertOpToExecutorPattern<trtrt::CompileOp> {
         getOrCreateSerializedTrtEngineDeclaration(rewriter, trtFunc);
     GlobalOp runtimeGlobal = getOrCreateRuntimeGlobalOp(rewriter, module);
     GlobalOp executionContextGlobal = getOrCreateExecutionContextGlobal(
-        rewriter, trtFunc, resourceGlobal, runtimeGlobal);
+        rewriter, trtFunc, resourceGlobal, runtimeGlobal,
+        this->getTypeConverter()->getIndexType());
     resourceGlobal->moveAfter(runtimeGlobal);
     executionContextGlobal->moveAfter(resourceGlobal);
 

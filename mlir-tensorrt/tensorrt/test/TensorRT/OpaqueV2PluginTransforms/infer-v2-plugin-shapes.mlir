@@ -7,7 +7,7 @@
 
 func.func @test_shape_region_v2_populate(%arg0: tensor<?x4x?x?xf32>) -> tensor<?x?x?x?xf32> {
   %0 = tensorrt.opaque_plugin {
-    dso_path = "libTensorRTTestPlugins.so",
+    dso_path = "TensorRTTestPlugins.so",
     plugin_name = "TestV2InferShapePlugin",
     plugin_version = "0",
     plugin_namespace = "",
@@ -37,7 +37,7 @@ func.func @test_shape_region_v2_populate(%arg0: tensor<?x4x?x?xf32>) -> tensor<?
 //   REIFY-DAG:     %[[c4:.+]] = arith.constant 4 : index
 //   REIFY-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   REIFY-DAG:     %[[c42:.+]] = arith.constant 42 : index
-//   REIFY-DAG:     %[[v0:.+]] = tensorrt.opaque_plugin {creator_params = {}, dso_path = "libTensorRTTestPlugins.so", plugin_name = "TestInferShapePlugin", plugin_namespace = "", plugin_version = "0"}(%[[arg0]]) : (tensor<?x4x?x?xf32>) -> tensor<?x?x?x?xf32> {
+//   REIFY-DAG:     %[[v0:.+]] = tensorrt.opaque_plugin {creator_params = {}, dso_path = "TensorRTTestPlugins.so", plugin_name = "TestInferShapePlugin", plugin_namespace = "", plugin_version = "0"}(%[[arg0]]) : (tensor<?x4x?x?xf32>) -> tensor<?x?x?x?xf32> {
 //                     --- no need to check all the ops in the body again ---
 //       REIFY:       tensorrt.yield
 //  REIFY-NEXT:     }

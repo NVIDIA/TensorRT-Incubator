@@ -5,6 +5,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeNCCLModu
 
   PUBLIC
   MLIRTensorRTExecutorRuntimeAPI
+  MLIRTensorRTExecutorCUDAUtils
 
   PRIVATE
   sol2::sol2

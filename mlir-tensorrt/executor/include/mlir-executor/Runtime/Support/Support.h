@@ -76,49 +76,6 @@ void _MTRT_WARNV(const char *format, const char *file, int64_t line,
   } while (false)
 #endif
 
-//===----------------------------------------------------------------------===//
-// Utilities for "unreachable"
-//===----------------------------------------------------------------------===//
-
-/// This function is called when a fatal error is reached, and the program's
-/// only options is to abort. It will print the message and file/line# to
-/// stderr before aborting.
-[[noreturn]] inline void unreachable_internal(const char *msg, const char *file,
-                                              unsigned line) {
-  std::cerr << (msg != nullptr ? msg : "") << "\n"
-            << "UNREACHABLE executed";
-  if (file != nullptr)
-    std::cerr << " at " << file << ":" << line;
-  std::cerr << "!\n";
-  abort();
-}
-
-/// An implementation of `std::unreachable` (C++ 23), according to
-/// https://en.cppreference.com/w/cpp/utility/unreachable. This function should
-/// be used on release build code paths instead of `unreachable_internal`
-[[noreturn]] inline void unreachable_internal_opt(const char *msg = nullptr,
-                                                  const char *file = nullptr,
-                                                  unsigned line = 0) {
-  unreachable_internal(msg, file, line);
-#ifdef __GNUC__ // GCC, Clang, ICC
-  __builtin_unreachable();
-#else
-#if defined(_MSC_VER) // MSVC
-  __assume(false);
-#endif
-#endif
-}
-
 } // namespace mlirtrt::runtime
-
-/// Marks that the current location is not supposed to be reachable. If the code
-/// is reached in a non-release build, prints a message and aborts.
-#ifndef NDEBUG
-#define mlir_trt_unreachable(msg)                                              \
-  ::mlirtrt::runtime::unreachable_internal(msg, __FILE__, __LINE__)
-#else
-#define mlir_trt_unreachable(msg)                                              \
-  ::mlirtrt::runtime::unreachable_internal_opt(msg, __FILE__, __LINE__)
-#endif
 
 #endif // MLIR_TENSORRT_RUNTIME_COMMON_DEBUG
