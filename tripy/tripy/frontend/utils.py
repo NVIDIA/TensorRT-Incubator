@@ -74,7 +74,7 @@ def convert_inputs_to_tensors(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             from tripy.common.exception import raise_error
-            from tripy.frontend.shape import Shape
+            from tripy.frontend.shape import ShapeScalar, Shape
             from tripy.frontend.tensor import Tensor
 
             # Try to include correct column offsets for non-tensor arguments.
@@ -220,7 +220,7 @@ def convert_inputs_to_tensors(
                             return Result.ok()
                         # Otherwise check for numbers.
                         for inner_arg in seq_arg:
-                            if not isinstance(inner_arg, numbers.Number):
+                            if not (isinstance(inner_arg, numbers.Number) or isinstance(inner_arg, ShapeScalar)):
                                 return Result.err(
                                     [
                                         f"Encountered non-number of type {type(inner_arg).__qualname__} in sequence: {inner_arg}"

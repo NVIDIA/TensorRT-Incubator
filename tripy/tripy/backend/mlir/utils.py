@@ -93,8 +93,14 @@ def get_mlir_scalar_attr(mlir_dtype, value):
 
 
 def list_to_dense_attr(data: List, mlir_dtype):
+    from tripy.frontend.shape import ShapeScalar
+
     if isinstance(data, numbers.Number):
         return [get_mlir_scalar_attr(mlir_dtype, data)]
+
+    if isinstance(data, ShapeScalar):
+        return [get_mlir_scalar_attr(mlir_dtype, data.tolist())]
+
     attrs = []
     for element in data:
         attrs.extend(list_to_dense_attr(element, mlir_dtype))

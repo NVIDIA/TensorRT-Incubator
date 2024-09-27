@@ -32,7 +32,7 @@ NestedNumberSequence = export.public_api(
     autodoc_options=[":no-index:"],
     module=sys.modules[__name__],
     symbol="NestedNumberSequence",
-)(Union[numbers.Number, Sequence["tripy.types.NestedNumberSequence"]])
+)(Union[numbers.Number, "tripy.ShapeScalar", Sequence["tripy.types.NestedNumberSequence"]])
 
 NestedNumberSequence.__doc__ = """
 Denotes the recursive type annotation for sequences of Python numbers, possibly nested to an arbitrary depth.

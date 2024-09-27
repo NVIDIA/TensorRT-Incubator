@@ -58,6 +58,7 @@ class SAM2ImagePredictor:
         super().__init__()
         self.model = sam_model
         self.use_tripy_prompt_encoder = self.model.use_tripy_prompt_encoder
+        self.use_tripy_mask_decoder = self.model.use_tripy_mask_decoder
         self.dense_pe = self.model.sam_prompt_encoder.get_dense_pe()
 
         self._transforms = SAM2Transforms(
@@ -415,18 +416,32 @@ class SAM2ImagePredictor:
             )
             sparse_embeddings = torch.from_dlpack(sparse_embeddings)
             dense_embeddings = torch.from_dlpack(dense_embeddings)
+
         # Predict masks
         batched_mode = concat_points is not None and concat_points[0].shape[0] > 1  # multi object prediction
         high_res_features = [feat_level[img_idx].unsqueeze(0) for feat_level in self._features["high_res_feats"]]
-        low_res_masks, iou_predictions, _, _ = self.model.sam_mask_decoder(
-            image_embeddings=self._features["image_embed"][img_idx].unsqueeze(0),
-            image_pe=torch.from_dlpack(self.dense_pe),
-            sparse_prompt_embeddings=sparse_embeddings,
-            dense_prompt_embeddings=dense_embeddings,
-            multimask_output=multimask_output,
-            repeat_image=batched_mode,
-            high_res_features=high_res_features,
-        )
+
+        if self.use_tripy_mask_decoder:
+            low_res_masks, iou_predictions, _, _ = self.model.sam_mask_decoder(
+                image_embeddings=tp.Tensor(self._features["image_embed"][img_idx].unsqueeze(0).contiguous()),
+                image_pe=tp.Tensor(self.dense_pe),
+                sparse_prompt_embeddings=tp.Tensor(sparse_embeddings.contiguous()),
+                dense_prompt_embeddings=tp.Tensor(dense_embeddings.contiguous()),
+                high_res_features_1=tp.Tensor(high_res_features[0].contiguous()),
+                high_res_features_2=tp.Tensor(high_res_features[1].contiguous()),
+            )
+            low_res_masks = torch.from_dlpack(low_res_masks)
+            iou_predictions = torch.from_dlpack(iou_predictions)
+        else:
+            low_res_masks, iou_predictions, _, _ = self.model.sam_mask_decoder(
+                image_embeddings=self._features["image_embed"][img_idx].unsqueeze(0),
+                image_pe=torch.from_dlpack(self.dense_pe),
+                sparse_prompt_embeddings=sparse_embeddings,
+                dense_prompt_embeddings=dense_embeddings,
+                multimask_output=multimask_output,
+                repeat_image=batched_mode,
+                high_res_features=high_res_features,
+            )
 
         # Upscale the masks to the original image resolution
         masks = self._transforms.postprocess_masks(low_res_masks, self._orig_hw[img_idx])

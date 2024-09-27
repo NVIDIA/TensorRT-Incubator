@@ -178,7 +178,7 @@ class Shape(Tensor):
         """
         return super().__add__(other)
 
-    def multiply(self, other: Union["tripy.Shape", Tensor]) -> "tripy.Shape":
+    def multiply(self, other: Union["tripy.Shape", Tensor, Sequence[Union[int, "tripy.ShapeScalar"]]]) -> "tripy.Shape":
         """
         The * operator for shapes is tiling. This method is exposed to allow for elementwise multiplication,
         should it be necessary.
@@ -215,7 +215,9 @@ class Shape(Tensor):
     def _validate_add_argument(self, other):
         if isinstance(other, Shape):
             return
-        if not isinstance(other, Sequence) or (len(other) != 0 and not isinstance(other[0], int)):
+        if not isinstance(other, Sequence) or (
+            len(other) != 0 and not (isinstance(other[0], int) or isinstance(other[0], ShapeScalar))
+        ):
             raise_error(
                 "Invalid types for addition with a Tripy Shape.",
                 details=[

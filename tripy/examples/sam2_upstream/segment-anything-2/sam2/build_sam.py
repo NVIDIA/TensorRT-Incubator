@@ -54,17 +54,27 @@ def build_sam2(
     model = instantiate(cfg.model, _recursive_=True)
     _load_checkpoint(model, ckpt_path, cfg)
 
-    if cfg["model"].use_tripy_transformer:
+    if cfg["model"].use_tripy_mask_decoder:
         start = time.time()
-        tp_transformer = model.sam_mask_decoder.transformer
-        compiler = tp.Compiler(tp_transformer)
-        compiled_transformer = compiler.compile(
-            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),
-            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),
-            tp.InputInfo((1, 8, 256), dtype=tp.float32),
+        tp_sam_mask_decoder = model.sam_mask_decoder
+        compiler = tp.Compiler(tp_sam_mask_decoder)
+        compiled_tp_sam_mask_decoder = compiler.compile(
+            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_embeddings
+            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_pe
+            tp.InputInfo((1, 2, 256), dtype=tp.float32),  # sparse_prompt_embeddings
+            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # dense_prompt_embeddings
+            True,  # multimask_output
+            False,  # repeat_image
+            tp.InputInfo((1, 32, 256, 256), dtype=tp.float32),  # high_res_features_1
+            tp.InputInfo((1, 64, 128, 128), dtype=tp.float32),  # high_res_features_2
         )
         print(f"Compile took {time.time() - start}s")
-        model.sam_mask_decoder.transformer = compiled_transformer
+        conv_s0 = model.sam_mask_decoder.conv_s0
+        conv_s1 = model.sam_mask_decoder.conv_s1
+
+        model.sam_mask_decoder = compiled_tp_sam_mask_decoder
+        setattr(model.sam_mask_decoder, "conv_s0", conv_s0)
+        setattr(model.sam_mask_decoder, "conv_s1", conv_s1)
 
     if cfg["model"].use_tripy_prompt_encoder:
         start = time.time()
@@ -167,42 +177,40 @@ def build_sam2_video_predictor_hf(model_id, **kwargs):
 
 def _load_checkpoint(model, ckpt_path, cfg=None):
 
-    use_tripy_transformer = cfg["model"].use_tripy_transformer
+    use_tripy_mask_decoder = cfg["model"].use_tripy_mask_decoder
     use_tripy_prompt_encoder = cfg["model"].use_tripy_prompt_encoder
     if ckpt_path is not None:
         sd = torch.load(ckpt_path, map_location="cpu")["model"]
         missing_keys, unexpected_keys = model.load_state_dict(sd, strict=False)
-
-        tp_transformer = model.sam_mask_decoder.transformer
-        tp_transformer_state_dict = tp_transformer.state_dict()
+        tp_mask_decoder = model.sam_mask_decoder
+        tp_mask_decoder_state_dict = tp_mask_decoder.state_dict()
 
         tp_prompt_encoder = model.sam_prompt_encoder
         tp_prompt_encoder_state_dict = tp_prompt_encoder.state_dict()
 
-        print(f"Tripy transformer state_dict has {len(tp_transformer_state_dict.keys())} keys.")
+        expected_mask_decoder_keys = len(tp_mask_decoder_state_dict.keys())
+        print(f"Tripy transformer state_dict has {expected_mask_decoder_keys} keys.")
         nb_keys = 0
         nb_prompt_keys = 0
 
         for key in sd:
-            if use_tripy_transformer and key.startswith("sam_mask_decoder.transformer"):
-                new_key = key.replace("sam_mask_decoder.transformer.", "")
+            if use_tripy_mask_decoder and key.startswith("sam_mask_decoder"):
+                new_key = key.replace("sam_mask_decoder.", "")
                 nb_keys += 1
-                print(f"loading {new_key} to Tripy transformer")
                 weight = sd[key]
                 param = tp.Parameter(weight)
-                tp_transformer_state_dict[new_key] = param
+                tp_mask_decoder_state_dict[new_key] = param
 
             if use_tripy_prompt_encoder and key.startswith("sam_prompt_encoder"):
                 new_key = key.replace("sam_prompt_encoder.", "")
                 nb_prompt_keys += 1
                 weight = sd[key]
-                print(f"loading {key} to Tripy sam_prompt_encoder")
                 param = tp.Parameter(weight)
                 tp_prompt_encoder_state_dict[new_key] = param
 
-        if use_tripy_transformer:
-            print(f"expected keys {len(tp_transformer_state_dict.keys())}, got {nb_keys}")
-            tp_transformer.load_from_state_dict(tp_transformer_state_dict)
+        if use_tripy_mask_decoder:
+            print(f"expected keys {expected_mask_decoder_keys}, got {nb_keys}")
+            tp_mask_decoder.load_from_state_dict(tp_mask_decoder_state_dict)
 
         if use_tripy_prompt_encoder:
             print(f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}")
