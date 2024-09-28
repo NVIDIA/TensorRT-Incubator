@@ -35,8 +35,8 @@ class TestAllClose:
         ],
     )
     def test_all_close_float32(self, tensor_a, tensor_b, rtol, atol):
-        np_result = torch.allclose(torch.FloatTensor(tensor_a), torch.FloatTensor(tensor_b), rtol=rtol, atol=atol)
+        torch_result = torch.allclose(torch.FloatTensor(tensor_a), torch.FloatTensor(tensor_b), rtol=rtol, atol=atol)
         tp_result = tp.allclose(
             tp.Tensor(tensor_a, dtype=tp.float32), tp.Tensor(tensor_b, dtype=tp.float32), rtol=rtol, atol=atol
         )
-        assert np_result == tp_result
+        assert torch_result == tp_result

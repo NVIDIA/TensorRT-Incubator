@@ -161,6 +161,10 @@ class Executable:
                                     tensor,
                                 ],
                             )
+            elif "Runtime stride mismatch" in str(err):
+                # Just raise the error for now.
+                raise raise_error(str(err))
+
             raise
 
         from tripy.utils.stack_info import StackInfo
