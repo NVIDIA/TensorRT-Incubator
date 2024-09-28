@@ -15,9 +15,12 @@
 # limitations under the License.
 #
 
+import re
+
 from functools import lru_cache
 from typing import Sequence
 
+from tripy.utils import raise_error
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import device as tp_device
 from tripy.common import utils as common_utils
@@ -66,7 +69,56 @@ def create_memref_view(data):
     """
     Creates a memref view of an array object that implements the dlpack interface.
     """
-    return mlir_utils.MLIRRuntimeClient().create_memref_view_from_dlpack(data.__dlpack__())
+    try:
+        memref = mlir_utils.MLIRRuntimeClient().create_memref_view_from_dlpack(
+            data.__dlpack__(), assert_canonical_strides=True
+        )
+    except runtime.MTRTException as e:
+        error_msg = str(e)
+        match = re.search(
+            r"Given strides \[([\d, ]+)\] do not match canonical strides \[([\d, ]+)\] for shape \[([\d, ]+)\]",
+            error_msg,
+        )
+
+        if match:
+            given_strides = [int(s) for s in match.group(1).split(",")]
+            canonical_strides = [int(s) for s in match.group(2).split(",")]
+            shape = [int(s) for s in match.group(3).split(",")]
+
+            def check_tensor_type_and_suggest_contiguous(obj):
+                obj_type = str(type(obj))
+                if "torch.Tensor" in obj_type:
+                    return "PyTorch Tensor", "tensor.contiguous() or tensor.clone()"
+                elif "jaxlib" in obj_type or "jax.numpy" in obj_type:
+                    return "JAX Array", "jax.numpy.asarray(array) or jax.numpy.copy(array)"
+                elif "numpy.ndarray" in obj_type:
+                    return "NumPy Array", "np.ascontiguousarray(array) or array.copy(order='C')"
+                elif "cupy.ndarray" in obj_type:
+                    return "CuPy Array", "cp.ascontiguousarray(array) or array.copy(order='C')"
+                else:
+                    return None, None
+
+            tensor_type, contiguous_suggestion = check_tensor_type_and_suggest_contiguous(data)
+
+            error_message = (
+                f"Non-canonical strides detected:\n"
+                f"  Shape: {shape}\n"
+                f"  Current stride: {given_strides}\n"
+                f"  Expected canonical stride: {canonical_strides}\n"
+                f"Non-canonical strides are not supported for Tripy tensors. "
+                f"This usually occurs when the tensor is not contiguous in memory. "
+                + (
+                    f"To resolve this issue:\n"
+                    f"For {tensor_type}, use {contiguous_suggestion} to ensure contiguity before converting to a Tripy tensor."
+                    if tensor_type is not None
+                    else ""
+                )
+            )
+            raise_error(error_message)
+        else:
+            # If the error message doesn't match the expected format, re-raise the original exception
+            raise
+    return memref
 
 
 # TODO(#134): Consider move below functions to MLIR py bindings

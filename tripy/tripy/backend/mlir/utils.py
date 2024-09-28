@@ -172,6 +172,20 @@ def get_constant_value(arg) -> Optional[ir.DenseElementsAttr]:
     return None
 
 
+def check_tensor_type_and_suggest_contiguous(obj):
+    obj_type = str(type(obj))
+    if "torch.Tensor" in obj_type:
+        return "PyTorch Tensor", "tensor.contiguous() or tensor.clone()"
+    elif "jaxlib" in obj_type or "jax.numpy" in obj_type:
+        return "JAX Array", "jax.numpy.asarray(array) or jax.numpy.copy(array)"
+    elif "numpy.ndarray" in obj_type:
+        return "NumPy Array", "np.ascontiguousarray(array) or array.copy(order='C')"
+    elif "cupy.ndarray" in obj_type:
+        return "CuPy Array", "cp.ascontiguousarray(array) or array.copy(order='C')"
+    else:
+        return None, None
+
+
 def remove_sym_attr(mlir_text: str) -> str:
     return re.sub(r"module @\S+ {", "module {", mlir_text)
 

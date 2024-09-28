@@ -159,6 +159,10 @@ class Executable:
                                     tensor,
                                 ],
                             )
+            elif "Runtime stride mismatch" in str(err):
+                # Just raise the error for now.
+                raise raise_error(str(err))
+
             raise
 
         output_tensors = [Tensor(output, fetch_stack_info=False) for output in executor_outputs]
