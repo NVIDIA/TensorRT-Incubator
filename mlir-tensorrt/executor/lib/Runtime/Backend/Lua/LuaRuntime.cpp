@@ -77,7 +77,8 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
 
 static void registerLuaRuntimeMethodsCommon(
     lua_State *state, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker,
+    OutputAllocatorTracker *outputAllocatorTracker) {
   registerExecutorCoreModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
                                               allocTracker);
 
@@ -92,17 +93,19 @@ static void registerLuaRuntimeMethodsCommon(
 #endif
 
 #ifdef MLIR_EXECUTOR_ENABLE_TENSORRT
-  registerExecutorTensorRTModuleLuaRuntimeMethods(
-      state, pinnedMemoryAllocator, allocTracker, resourceTracker);
+  registerExecutorTensorRTModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
+                                                  allocTracker, resourceTracker,
+                                                  outputAllocatorTracker);
 #endif
 }
 
 void mlirtrt::runtime::registerLuaRuntimeMethods(
     lua_State *state, const RuntimeSessionOptions &options,
     PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
-    ResourceTracker *resourceTracker) {
+    ResourceTracker *resourceTracker,
+    OutputAllocatorTracker *outputAllocatorTracker) {
   registerLuaRuntimeMethodsCommon(state, pinnedMemoryAllocator, allocTracker,
-                                  resourceTracker);
+                                  resourceTracker, outputAllocatorTracker);
 #ifdef MLIR_EXECUTOR_ENABLE_NCCL
   registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
   registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
@@ -151,10 +154,10 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
   lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::coroutine);
 
   // Register builtin methods.
-  registerLuaRuntimeMethods(lua.lua_state(), session->getOptions(),
-                            &session->getPinnedMemorAllocator(),
-                            &session->getAllocTracker(),
-                            &session->getResourceTracker());
+  registerLuaRuntimeMethods(
+      lua.lua_state(), session->getOptions(),
+      &session->getPinnedMemorAllocator(), &session->getAllocTracker(),
+      &session->getResourceTracker(), &session->getOutputAllocatorTracker());
 
   // Register user-provided methods.
   if (registerExtraLuaFuncs)
@@ -425,11 +428,11 @@ static Status pushScalarArgument(sol::state_view &lua,
 
 static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
                                                const TypeUnionView &sigArg) {
-  if (sigArg.isa<MemrefTypeView>()) {
+  if (sigArg.isa<MemRefTypeView>()) {
     if (runArg->getKind() != RuntimeValue::Kind::MemRef)
       return getInvalidArgStatus(
           "function expects a memref type but received scalar type");
-    auto view = sigArg.get<MemrefTypeView>();
+    auto view = sigArg.get<MemRefTypeView>();
     auto value = static_cast<const MemRefValue *>(runArg);
 
     if (view.getElementType() != *value->getScalarType())
@@ -502,12 +505,132 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
   return getOkStatus();
 }
 
+static constexpr int MEMREF_FIXED_FIELDS = 3; // allocPtr, alignedPtr, offset
+
+// MemRefTableReader encapsulates the logic for reading MemRef data from a Lua
+// table
+class MemRefTableReader {
+public:
+  MemRefTableReader(const sol::protected_function_result &pfr,
+                    impl::CallingConvention conv)
+      : mPfr(pfr), mConv(conv), mIndex(1) {
+    // Currently, we only support unpacked calling convention
+    assert(mConv == CallingConvention::unpacked &&
+           "Only unpacked calling convention is supported");
+  }
+
+  // Retrieves the next value of type T from the MemRef table
+  // This method advances the internal index automatically
+  template <typename T>
+  T getNextValue() {
+    sol::object obj = mPfr[0];
+    assert(obj.is<sol::table>() && "Expected a table for MemRefValue");
+    sol::table memRefTable = obj.as<sol::table>();
+    return memRefTable.get<T>(mIndex++);
+  }
+
+  // Moves to the next MemRef in the table
+  // This is called after processing all data for the current MemRef
+  void nextMemRef(int offset) {
+    // The index 3 represents the fixed-size part of each MemRef entry
+    // (allocPtr, alignedPtr, offset)
+    mIndex += offset;
+  }
+
+private:
+  const sol::protected_function_result &mPfr;
+  impl::CallingConvention mConv;
+  int mIndex;
+};
+
+// Extracts a scalar value from the function result
+// This handles different integer types represented by ScalarTypeCode
+StatusOr<std::unique_ptr<ScalarValue>>
+getScalarValue(const sol::protected_function_result &pfr, int index,
+               const FunctionSignatureView &sig) {
+  assert(sig.getCConv() == CallingConvention::unpacked);
+  ScalarTypeCode code = sig.getResult(0).get<ScalarTypeView>();
+
+  switch (code) {
+  case ScalarTypeCode::i1:
+  case ScalarTypeCode::i4:
+  case ScalarTypeCode::i8:
+  case ScalarTypeCode::i16:
+  case ScalarTypeCode::i32:
+  case ScalarTypeCode::i64:
+    // All integer types are stored as int64_t and later interpreted based on
+    // their ScalarTypeCode
+    return std::make_unique<ScalarValue>(pfr[index].get<int64_t>(), code);
+  default:
+    return getInvalidArgStatus("Unsupported scalar type code: ",
+                               impl::EnumNameScalarTypeCode(code));
+  }
+}
+
+// Parses the results of a function call, handling both scalar and MemRef return
+// types
+StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+parseResults(const sol::protected_function_result &pfr,
+             const FunctionSignatureView &sig,
+             std::optional<RuntimeClient *> client) {
+  llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
+  MemRefTableReader reader(pfr, sig.getCConv());
+
+  for (unsigned i = 0; i < sig.getNumResults(); ++i) {
+    if (sig.getResult(i).isa<ScalarTypeView>()) {
+      auto scalar = getScalarValue(pfr, i, sig);
+      if (!scalar.isOk())
+        return scalar.getStatus();
+      results.push_back(std::move(*scalar));
+      continue;
+    }
+
+    if (!sig.getResult(i).isa<MemRefTypeView>())
+      return getInvalidArgStatus("Result can only be a memref or scalar");
+
+    // Handle MemRef return values
+    const auto &resultView = sig.getResult(i).get<MemRefTypeView>();
+    unsigned rank = resultView.getRank();
+
+    // Extract MemRef metadata
+    uintptr_t allocPtr = reader.getNextValue<uintptr_t>();
+    [[maybe_unused]] uintptr_t alignedPtr = reader.getNextValue<uintptr_t>();
+    int64_t offset = reader.getNextValue<int64_t>();
+
+    llvm::SmallVector<int64_t, 4> shape(rank);
+    llvm::SmallVector<int64_t, 4> strides(rank);
+
+    // Extract shape and strides
+    for (unsigned dim = 0; dim < rank; ++dim)
+      shape[dim] = reader.getNextValue<int64_t>();
+    for (unsigned dim = 0; dim < rank; ++dim)
+      strides[dim] = reader.getNextValue<int64_t>();
+
+    if (!client)
+      return getInvalidArgStatus("Runtime client cannot be nullptr");
+
+    // Create MemRefValue from extracted data
+    auto memref = MemRefValue::create(
+        *client, resultView.getAddressSpace(),
+        resultView.getElementType().getBitWidth(), allocPtr, offset, shape,
+        strides, (*client)->getDevices()[0].get(), resultView.getElementType());
+
+    if (!memref.isOk())
+      return memref.getStatus();
+
+    results.push_back(std::move(*memref));
+    reader.nextMemRef(MEMREF_FIXED_FIELDS + rank * 2);
+  }
+
+  return results;
+}
+
 StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 runtime::executeFunctionWithLuaBackend(
     LuaRuntimeSession &session, std::string_view name,
     llvm::ArrayRef<RuntimeValue *> inputArgs,
-    llvm::ArrayRef<RuntimeValue *> outputArgs,
-    std::optional<CudaStream> stream) {
+    llvm::ArrayRef<RuntimeValue *> outputArgs, std::optional<CudaStream> stream,
+    std::optional<RuntimeClient *> client) {
 
   FunctionView meta = session.getExecutable().getFunction(name);
   FunctionSignatureView sig = meta.getSignature();
@@ -519,10 +642,6 @@ runtime::executeFunctionWithLuaBackend(
   if (funcObj.get_type() != sol::type::function)
     return getStatusWithMsg(StatusCode::InternalError, "no function named \"",
                             std::string(name), "\" found");
-
-  if (sig.getNumResults() > 0)
-    return getInvalidArgStatus("functions with {0} results are not supported",
-                               sig.getNumResults());
 
   // Validate the number of arguments against the signature.
   if (sig.getNumOutputArgs() != outputArgs.size())
@@ -584,19 +703,28 @@ runtime::executeFunctionWithLuaBackend(
   if (stream)
     RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
 
+  // Create output allocator for each result argument.
+  OutputAllocatorTracker &outputAllocatorTracker =
+      session.getOutputAllocatorTracker();
+  for (unsigned i = 0; i < sig.getNumResults(); ++i) {
+    // Look up output allocator based on result index.
+    outputAllocatorTracker.track(
+        std::make_unique<CustomTensorRTOuputAllocator>());
+  }
+
   // If the number of arguments exceed a particular threshold, then
   // we pass arguments packed into a table, otherwise we pass as arguments.
-  sol::protected_function_result result =
+  sol::protected_function_result pfr =
       sig.getCConv() == CallingConvention::unpacked
           ? funcObj(sol::as_args(args))
           : funcObj(args);
 
-  if (!result.valid()) {
-    sol::error err(result);
+  if (!pfr.valid()) {
+    sol::error err(pfr);
     return getStatusWithMsg(StatusCode::InternalError,
                             "failed to run function \"", std::string(name),
                             "\": ", err.what());
   }
 
-  return llvm::SmallVector<std::unique_ptr<RuntimeValue>>{};
+  return parseResults(pfr, sig, client);
 }

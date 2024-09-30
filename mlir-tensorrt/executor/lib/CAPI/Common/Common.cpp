@@ -395,8 +395,8 @@ MTRT_Status getTypeHelper(TypeUnionView typeUnionView, MTRT_Type *type) {
   // concrete object, and release it to be owned by the CAPI object.
   auto typeUnion = std::make_unique<impl::TypeUnion>();
   // Extract the correct type.
-  if (typeUnionView.isa<MemrefTypeView>()) {
-    auto memrefView = typeUnionView.get<MemrefTypeView>();
+  if (typeUnionView.isa<MemRefTypeView>()) {
+    auto memrefView = typeUnionView.get<MemRefTypeView>();
     impl::MemRefTypeT memref;
     memref.shape = memrefView.getShape();
     memref.strides = memrefView.getStrides();

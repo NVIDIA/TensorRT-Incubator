@@ -360,7 +360,8 @@ RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
     : options(std::move(options)), executable(exe),
       pinnedMemoryAllocator(std::make_unique<PinnedMemoryAllocator>()),
       allocTracker(std::make_unique<AllocTracker>()),
-      resourceTracker(std::make_unique<ResourceTracker>()) {}
+      resourceTracker(std::make_unique<ResourceTracker>()),
+      outputAllocatorTracker(std::make_unique<OutputAllocatorTracker>()) {}
 
 //===----------------------------------------------------------------------===//
 // AllocTracker
@@ -1129,8 +1130,8 @@ static llvm::raw_ostream &squareBraces(llvm::raw_ostream &os, Callable c) {
 }
 
 llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const TypeUnionView &arg) {
-  if (arg.isa<MemrefTypeView>())
-    return print(os, arg.get<MemrefTypeView>());
+  if (arg.isa<MemRefTypeView>())
+    return print(os, arg.get<MemRefTypeView>());
   if (arg.isa<ScalarTypeView>())
     return print(os, arg.get<ScalarTypeView>());
   if (arg.isa<ExternalOpaqueTypeView>())
@@ -1186,7 +1187,7 @@ llvm::raw_ostream &rt::print(llvm::raw_ostream &os,
      << ">";
   return os;
 }
-llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemrefTypeView &exe) {
+llvm::raw_ostream &rt::print(llvm::raw_ostream &os, const MemRefTypeView &exe) {
 
   auto handleDimOrStride = [](llvm::raw_ostream &os, int64_t x) {
     if (x != std::numeric_limits<int64_t>::min())
