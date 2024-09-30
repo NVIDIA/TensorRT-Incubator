@@ -360,7 +360,8 @@ RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
     : options(std::move(options)), executable(exe),
       pinnedMemoryAllocator(std::make_unique<PinnedMemoryAllocator>()),
       allocTracker(std::make_unique<AllocTracker>()),
-      resourceTracker(std::make_unique<ResourceTracker>()) {}
+      resourceTracker(std::make_unique<ResourceTracker>()),
+      outputAllocatorTracker(std::make_unique<OutputAllocatorTracker>()) {}
 
 //===----------------------------------------------------------------------===//
 // AllocTracker

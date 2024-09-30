@@ -77,7 +77,10 @@ def infer_output_shape(client, session, exe, input_shape):
     outs = [client.create_memref(out_0, shape=shape, dtype=runtime.ScalarTypeCode.i64)]
 
     session.execute_function(
-        exe.get_signature("main").get_shape_func_name(), in_args=ins, out_args=outs
+        exe.get_signature("main").get_shape_func_name(),
+        in_args=ins,
+        out_args=outs,
+        client=client,
     )
 
     # Copy output shape from device to host. Also, convert to int32 type since shape calculation uses int64 type.
@@ -135,7 +138,7 @@ def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
     )
 
     session.execute_function(
-        "main", in_args=[arg0, arg1], out_args=[arg2], stream=stream
+        "main", in_args=[arg0, arg1], out_args=[arg2], stream=stream, client=client
     )
     data = np.asarray(client.copy_to_host(arg2, stream=stream))
     stream.sync()
