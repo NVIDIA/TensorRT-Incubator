@@ -156,28 +156,32 @@ getTensorRTShapeProfile(plan::BoundsAttr attr, Value v) {
   return getProfileAttr(attr.getMinShape(), attr.getMaxShape());
 }
 
-static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
-                                           plan::InlineClosedGroupOp op) {
-  tensorrt::TensorRTModuleOp trtModuleOp = getOrCreateTensorRTModuleOp(op);
-  auto funcArgTypes = llvm::to_vector(TypeRange(op.getInputs()));
-  FailureOr<FunctionOpInterface> func = createOutlinedFunc(
-      rewriter, op.getLoc(), op, trtModuleOp, "tensorrt_cluster",
-      "cluster.tensorrt", TypeRange(op.getInputs()),
-      op.getYield()->getOperandTypes());
-  if (failed(func))
-    return failure();
-  assert(func->getFunctionBody().getBlocks().size() == 1 &&
-         "expected body with one block");
-  func->setPublic();
+template <typename OpType>
+static auto createCallOp(RewriterBase &rewriter, OpType op,
+                         tensorrt::TensorRTModuleOp trtModuleOp,
+                         FunctionOpInterface func) {
+  static_assert(
+      std::is_same_v<OpType, plan::InlineClosedGroupOp> ||
+          std::is_same_v<OpType, plan::InlineClosedAllocGroupOp>,
+      "OpType must be either InlineClosedGroupOp or InlineClosedAllocGroupOp");
+  if constexpr (std::is_same_v<OpType, plan::InlineClosedGroupOp>)
+    return rewriter.create<tensorrt::CallOp>(
+        op.getLoc(), op.getResultTypes(), op.getInputs(), op.getOuts(),
+        SymbolRefAttr::get(trtModuleOp.getNameAttr(),
+                           {FlatSymbolRefAttr::get(func)}));
+  else if constexpr (std::is_same_v<OpType, plan::InlineClosedAllocGroupOp>)
+    return rewriter.create<tensorrt::CallAllocOp>(
+        op.getLoc(), op.getResultTypes(), op.getInputs(),
+        SymbolRefAttr::get(trtModuleOp.getNameAttr(),
+                           {FlatSymbolRefAttr::get(func)}));
+}
 
-  rewriter.setInsertionPoint(op);
-  auto callOp = rewriter.create<tensorrt::CallOp>(
-      op.getLoc(), op.getResultTypes(), op.getInputs(), op.getOuts(),
-      SymbolRefAttr::get(trtModuleOp.getNameAttr(),
-                         {FlatSymbolRefAttr::get(*func)}));
-
+template <typename OpType>
+static LogicalResult populateFunctionAttributes(RewriterBase &rewriter,
+                                                OpType op,
+                                                FunctionOpInterface *func) {
   // Populate the function arguments attributes.
-  for (unsigned i = 0; i < (*func).getNumArguments(); i++) {
+  for (unsigned i = 0; i < func->getNumArguments(); i++) {
     BoundsAttr srcAttr = cast<BoundsAttr>(op.getInputAttrs()[i]);
     // We may have scalar (index|signless int)-typed values since we haven't
     // eliminated `plan.(with_shape|with_values)` ops yet.
@@ -202,30 +206,57 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
     func->setArgAttr(i, mlir::getHostTensorArgAttrName(),
                      rewriter.getUnitAttr());
   }
-  // Populate the function result attributes.
-  for (unsigned i = 0; i < (*func).getNumResults(); i++) {
-    BoundsAttr srcAttr = cast<BoundsAttr>(op.getResAttrs()[i]);
-    if (srcAttr.isNone())
-      continue;
-    FailureOr<tensorrt::ShapeProfileAttr> boundsAttr =
-        getTensorRTShapeProfile(srcAttr, op.getResults()[i]);
-    if (failed(boundsAttr))
-      return op->emitOpError("failed to create TensorRT shape profile "
-                             "attribute from Plan BoundsAttr for result #")
-             << i << " (" << srcAttr << ")";
-    if (srcAttr.isShapeBound()) {
+  // Populate the function result attributes for DPS call op.
+  if constexpr (std::is_same_v<OpType, plan::InlineClosedGroupOp>) {
+    for (unsigned i = 0; i < func->getNumResults(); i++) {
+      BoundsAttr srcAttr = cast<BoundsAttr>(op.getResAttrs()[i]);
+      if (srcAttr.isNone())
+        continue;
+      FailureOr<tensorrt::ShapeProfileAttr> boundsAttr =
+          getTensorRTShapeProfile(srcAttr, op.getResults()[i]);
+      if (failed(boundsAttr))
+        return op->emitOpError("failed to create TensorRT shape profile "
+                               "attribute from Plan BoundsAttr for result #")
+               << i << " (" << srcAttr << ")";
+      if (srcAttr.isShapeBound()) {
+        func->setResultAttr(
+            i, tensorrt::TensorRTDialect::getShapeProfileArgAttrName(),
+            *boundsAttr);
+        continue;
+      }
+      assert(srcAttr.isValueBound() && "expected value bound or shape bound");
       func->setResultAttr(
-          i, tensorrt::TensorRTDialect::getShapeProfileArgAttrName(),
+          i, tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName(),
           *boundsAttr);
-      continue;
+      func->setResultAttr(i, mlir::getHostTensorArgAttrName(),
+                          rewriter.getUnitAttr());
     }
-    assert(srcAttr.isValueBound() && "expected value bound or shape bound");
-    func->setResultAttr(
-        i, tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName(),
-        *boundsAttr);
-    func->setResultAttr(i, mlir::getHostTensorArgAttrName(),
-                        rewriter.getUnitAttr());
   }
+  return success();
+}
+
+template <typename OpType>
+static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter, OpType op) {
+  tensorrt::TensorRTModuleOp trtModuleOp = getOrCreateTensorRTModuleOp(op);
+  auto funcArgTypes = llvm::to_vector(TypeRange(op.getInputs()));
+
+  FailureOr<FunctionOpInterface> func = createOutlinedFunc(
+      rewriter, op.getLoc(), op, trtModuleOp, "tensorrt_cluster",
+      "cluster.tensorrt", TypeRange(op.getInputs()),
+      op.getYield()->getOperandTypes());
+
+  if (failed(func))
+    return failure();
+
+  assert(func->getFunctionBody().getBlocks().size() == 1 &&
+         "expected body with one block");
+  func->setPublic();
+
+  rewriter.setInsertionPoint(op);
+  auto callOp = createCallOp<OpType>(rewriter, op, trtModuleOp, *func);
+
+  if (failed(populateFunctionAttributes(rewriter, op, &(*func))))
+    return failure();
 
   // Populate the function entry block.
   rewriter.eraseBlock(&func->getFunctionBody().front());
@@ -234,14 +265,14 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   // ops to the `tensorrt.module` op. This is needed since `tensorrt.module` op
   // has its own symbol table.
   SymbolTableCollection symbolTable;
-  for (auto compositeOp : op.getBody().getOps<stablehlo::CompositeOp>()) {
+  for (auto compositeOp :
+       op.getBody().template getOps<stablehlo::CompositeOp>()) {
     auto decompositionFunc = dyn_cast_if_present<func::FuncOp>(
-        symbolTable.lookupSymbolIn(op->getParentOfType<ModuleOp>(),
+        symbolTable.lookupSymbolIn(op->template getParentOfType<ModuleOp>(),
                                    compositeOp.getDecompositionAttr()));
     if (!decompositionFunc)
       return emitError(compositeOp.getLoc())
-             << "failed to lookup stablehlo.composite decomposition "
-                "function: "
+             << "failed to lookup stablehlo.composite decomposition function: "
              << compositeOp.getDecompositionAttr();
     rewriter.moveOpAfter(decompositionFunc, func->getOperation());
   }
@@ -254,22 +285,18 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   rewriter.replaceOpWithNewOp<func::ReturnOp>(regionYieldOp,
                                               regionYieldOp->getOperands());
 
-  // Erase the DPS arugments, which now should be unused.
-  if (llvm::any_of(func->getArguments().take_back(op.getOuts().size()),
-                   [](BlockArgument arg) { return !arg.use_empty(); }))
-    return failure();
-  func->getFunctionBody().front().eraseArguments(op.getInputs().size(),
-                                                 op.getOuts().size());
+  if constexpr (std::is_same_v<OpType, plan::InlineClosedGroupOp>) {
+    // Erase the DPS arugments, which now should be unused.
+    if (llvm::any_of(func->getArguments().take_back(op.getOuts().size()),
+                     [](BlockArgument arg) { return !arg.use_empty(); }))
+      return failure();
+    func->getFunctionBody().front().eraseArguments(op.getInputs().size(),
+                                                   op.getOuts().size());
+  }
 
   // replace the original region results.
   rewriter.replaceOp(op, callOp);
   return success();
-}
-
-static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
-                                           plan::InlineClosedAllocGroupOp op) {
-  return op.emitError("outlinining inline closed alloc group ops to tensorrt "
-                      "dialect is not yet implemented");
 }
 
 /// Create outlined functions for each `scf.execute_region` operation within
@@ -302,12 +329,14 @@ createFunctionsFromRegions(RewriterBase &rewriter, Region &region,
     }
 
     if (auto group = dyn_cast<plan::InlineClosedGroupOp>(op)) {
-      if (failed(outlineTensorRTRegion(rewriter, group)))
+      if (failed(outlineTensorRTRegion<plan::InlineClosedGroupOp>(rewriter,
+                                                                  group)))
         return WalkResult::interrupt();
       return WalkResult::advance();
     }
     if (auto allocGroup = dyn_cast<plan::InlineClosedAllocGroupOp>(op)) {
-      if (failed(outlineTensorRTRegion(rewriter, allocGroup)))
+      if (failed(outlineTensorRTRegion<plan::InlineClosedAllocGroupOp>(
+              rewriter, allocGroup)))
         return WalkResult::interrupt();
       return WalkResult::advance();
     }

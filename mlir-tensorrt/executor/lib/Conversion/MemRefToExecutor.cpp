@@ -548,6 +548,7 @@ void executor::populateMemRefToExecutorPatterns(
 }
 
 namespace {
+
 /// Pass to convert `memref` to `executor` dialect operrations.
 class ConvertMemRefToExecutorPass
     : public mlir::executor::impl::ConvertMemRefToExecutorPassBase<
@@ -579,6 +580,7 @@ public:
     RewritePatternSet patterns(ctx);
     executor::populateMemRefToExecutorPatterns(
         patterns, typeConverter, allowUncheckedMemrefCastConversion);
+
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns))))
       return signalPassFailure();

@@ -223,6 +223,10 @@ StableHLOToExecutableOptions::StableHLOToExecutableOptions(
       disallowHostTensorsInTensorRTClusters, llvm::cl::init(false),
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)"));
+  addOption(
+      "enable-non-dps-returns", enableNonDPSReturns, llvm::cl::init(false),
+      llvm::cl::desc(
+          "allow tensorrt based output allocations using output allocator"));
   addOption("executor-index-bitwidth", executorIndexBitwidth,
             llvm::cl::init(64));
   addOption("device-compute-capability", deviceComputeCapability,
@@ -307,6 +311,7 @@ void StableHloToExecutableTask::buildStablehloClusteringPipeline(
   plan::StablehloClusteringPassOptions clusteringOpts{};
   clusteringOpts.disallowHostTensorsInTensorRTClusters =
       opts.disallowHostTensorsInTensorRTClusters;
+  clusteringOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
   clusteringOpts.entrypoint = opts.entrypoint;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
@@ -340,7 +345,9 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
 
   // Perform bufferization.
   pm.addPass(createMemRefCastEliminationPass());
-  pm.addPass(plan::createPlanAllocTensorsPass());
+  plan::PlanAllocTensorsPassOptions allocTensorsOpts{};
+  allocTensorsOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
+  pm.addPass(plan::createPlanAllocTensorsPass(allocTensorsOpts));
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(createMemRefCastEliminationPass());
   pm.addPass(createCanonicalizerPass());
@@ -529,6 +536,11 @@ struct ClusteringPipelineCliOpts
       *this, "device-compute-capability",
       llvm::cl::desc("target device compute capability (SM version)"),
       llvm::cl::init(60)};
+  Option<bool> enableNonDPSReturns{
+      *this, "enable-non-dps-returns",
+      llvm::cl::desc(
+          "allow tensorrt based output allocations using output allocator"),
+      llvm::cl::init(false)};
   Option<int64_t> deviceMaxSharedMemoryPerBlockKb{
       *this, "device-max-smem-per-block",
       llvm::cl::desc("max shared memory per block (in kilobytes)"),
@@ -556,6 +568,7 @@ static StableHLOToExecutableOptions populateStablehloClusteringPipelineOpts(
   opts.deviceComputeCapability = cliOpts.deviceComputeCapability;
   opts.deviceMaxSharedMemoryPerBlockKb =
       cliOpts.deviceMaxSharedMemoryPerBlockKb;
+  opts.enableNonDPSReturns = cliOpts.enableNonDPSReturns;
   opts.shouldInferDeviceOptionsFromHost = cliOpts.inferDeviceOptionsFromHost;
   opts.entrypoint = cliOpts.entrypoint;
   return opts;

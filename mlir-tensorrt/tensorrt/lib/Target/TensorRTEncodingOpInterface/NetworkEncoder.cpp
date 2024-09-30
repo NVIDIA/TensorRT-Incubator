@@ -520,25 +520,25 @@ static void packNonSplatInt4Tensor(ElementsAttr values, int64_t count,
   }
 }
 
-static void serializeSplatElements(DenseIntOrFPElementsAttr values,
-                                   std::vector<int8_t> &data) {
+static LogicalResult serializeSplatElements(DenseIntOrFPElementsAttr values,
+                                            std::vector<int8_t> &data) {
   assert(values.isSplat() && "expected SplatElementsAttr");
 
   auto rtt = cast<RankedTensorType>(values.getType());
   if (rtt.getElementType().isInteger(32)) {
     std::fill_n(reinterpret_cast<int32_t *>(data.data()),
                 values.getNumElements(), values.getSplatValue<int32_t>());
-    return;
+    return llvm::success();
   }
   if (rtt.getElementType().isInteger(8)) {
     std::fill_n(reinterpret_cast<int8_t *>(data.data()),
                 values.getNumElements(), values.getSplatValue<int8_t>());
-    return;
+    return llvm::success();
   }
   if (rtt.getElementType().isF32()) {
     std::fill_n(reinterpret_cast<float *>(data.data()), values.getNumElements(),
                 values.getSplatValue<float>());
-    return;
+    return llvm::success();
   }
   if (rtt.getElementType().isF16() || rtt.getElementType().isBF16()) {
     APInt tmp = values.getSplatValue<APFloat>().bitcastToAPInt();
@@ -546,7 +546,7 @@ static void serializeSplatElements(DenseIntOrFPElementsAttr values,
     uint16_t fillValue = *reinterpret_cast<const uint16_t *>(tmp.getRawData());
     std::fill_n(reinterpret_cast<uint16_t *>(data.data()),
                 values.getNumElements(), fillValue);
-    return;
+    return llvm::success();
   }
   if (rtt.getElementType().isFloat8E4M3FN()) {
     APInt tmp = values.getSplatValue<APFloat>().bitcastToAPInt();
@@ -554,7 +554,7 @@ static void serializeSplatElements(DenseIntOrFPElementsAttr values,
     uint8_t fillValue = *reinterpret_cast<const uint8_t *>(tmp.getRawData());
     std::fill_n(reinterpret_cast<uint8_t *>(data.data()),
                 values.getNumElements(), fillValue);
-    return;
+    return llvm::success();
   }
   if (rtt.getElementType().isInteger(4)) {
     APInt tmp = values.getSplatValue<APInt>();
@@ -566,11 +566,12 @@ static void serializeSplatElements(DenseIntOrFPElementsAttr values,
     packed |= ((value & 0x0F) << 4);
     // Fill `data` vector with `packed`
     std::fill_n(reinterpret_cast<uint8_t *>(data.data()), data.size(), packed);
-    return;
+    return llvm::success();
   }
 
-  llvm_unreachable("unsupported data type to convert MLIR splat attribute to "
-                   "TensorRT weights!");
+  return emitError(UnknownLoc::get(values.getContext()))
+         << "unsupported data type to convert MLIR splat attribute to TensorRT "
+            "weights!";
 }
 
 FailureOr<nvinfer1::Weights>
@@ -615,8 +616,10 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
   weights.values = data.data();
 
   if (values.isSplat() && isa<DenseIntOrFPElementsAttr>(values)) {
-    serializeSplatElements(cast<DenseIntOrFPElementsAttr>(values),
-                           weightsMap[values]);
+    LogicalResult status = serializeSplatElements(
+        cast<DenseIntOrFPElementsAttr>(values), weightsMap[values]);
+    if (failed(status))
+      return failure();
     return weights;
   }
 

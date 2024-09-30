@@ -53,6 +53,7 @@ public:
     }
   }
 };
+
 } // namespace
 
 namespace mlir::executor {

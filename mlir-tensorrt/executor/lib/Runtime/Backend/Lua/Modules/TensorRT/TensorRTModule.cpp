@@ -141,9 +141,12 @@ public:
     size = std::max(size, static_cast<uint64_t>(1));
     if (size > mOutputSize) {
       size = roundUp(size, alignment);
-      if (mOutputPtr)
+      if (mOutputPtr) {
+        MTRT_DBGF("tensorrt module output allocator deallocating 0x%lx",
+                  mOutputPtr);
         mlirtrt::runtime::safeDeallocate(*mTracker, mOutputPtr,
                                          CudaStreamPtr(stream));
+      }
       mOutputPtr = 0;
       mOutputSize = 0;
       StatusOr<PointerInfo> memory =
@@ -152,6 +155,9 @@ public:
       if (memory.isOk()) {
         mOutputPtr = (*memory).ptr;
         mOutputSize = memory->size;
+        MTRT_DBGF(
+            "tensorrt module output allocator allocating %lu bytes at 0x%lx",
+            mOutputSize, mOutputPtr);
       }
       return reinterpret_cast<void *>(mOutputPtr);
     }

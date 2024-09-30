@@ -427,7 +427,7 @@ public:
 
   /// Return a function by name. This asserts that the function with the given
   /// name exists.
-  FunctionView getFunction(std::string_view name) const;
+  StatusOr<FunctionView> getFunction(std::string_view name) const;
 
   ConstantView getConstant(int64_t idx) const {
     assert(view->constants() && "expected valid constant pointer");

@@ -149,14 +149,17 @@ static bool isHostVisible(PointerType type) {
 // ExecutableView
 //===----------------------------------------------------------------------===//
 
-FunctionView ExecutableView::getFunction(std::string_view name) const {
+StatusOr<FunctionView>
+ExecutableView::getFunction(std::string_view name) const {
   const flatbuffers::Vector<flatbuffers::Offset<impl::Function>> &functions =
       *view->functions();
   auto it = std::find_if(functions.begin(), functions.end(),
                          [&](const impl::Function *x) {
                            return x->name()->string_view() == name;
                          });
-  assert(it != view->functions()->end());
+  if (it == view->functions()->end())
+    return getStatusWithMsg(StatusCode::InvalidArgument, "Function with name (",
+                            name, ") is not present in the executable");
   return FunctionView(*it);
 }
 
@@ -367,6 +370,7 @@ RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
 //===----------------------------------------------------------------------===//
 
 AllocTracker::~AllocTracker() {
+  MTRT_DBGF("Destroying alloc tracker %p", static_cast<void *>(this));
   MTRT_DBGF("checking %u allocations", map.size());
   llvm::SmallVector<PointerInfo> ptrsToFree;
   ptrsToFree.reserve(map.size());
@@ -452,12 +456,19 @@ void AllocTracker::track(PointerInfo info) {
     // (e.g. function argument), in which case it may have been deallocated,
     // allowing an internal allocator to pick up that same address. That case is
     // not an error.
-    assert((!contains(info.ptr) || get(info.ptr).isExternallyManaged()) &&
-           "an internally managed pointer should not already be tracked");
+    if (contains(info.ptr) and get(info.ptr).isInternallyManaged()) {
+      MTRT_DBGF("Allocator %p: Internally managed pointer 0x%lx should not be "
+                "already tracked",
+                static_cast<void *>(this), info.ptr);
+      assert(0 &&
+             "an internally managed pointer should not already be tracked");
+    }
   }
-  MTRT_DBGF("AllocTracker is now tracking 0x%lx size=%lu space=%s ownership=%s",
-            info.ptr, info.size, runtime::impl::EnumNamePointerType(info.type),
-            runtime::impl::EnumNamePointerOwner(info.owner));
+  MTRT_DBGF(
+      "AllocTracker %p is now tracking 0x%lx size=%lx space=%s ownership=%s",
+      static_cast<void *>(this), info.ptr, info.size,
+      runtime::impl::EnumNamePointerType(info.type),
+      runtime::impl::EnumNamePointerOwner(info.owner));
   auto value = std::make_unique<Metadata>();
   value->externalReferenceCount.store(0);
   value->releasedInternally = false;
@@ -487,6 +498,8 @@ void AllocTracker::track(PointerInfo info) {
 }
 
 void AllocTracker::untrack(uintptr_t ptr) {
+  MTRT_DBGF("AllocTracker %p is now untracking 0x%lx)",
+            static_cast<void *>(this), ptr);
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   map.erase(map.find(ptr));
@@ -596,7 +609,7 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
 
   PointerInfo obj = tracker.get(ptr);
   if (obj.owner == PointerOwner::external) {
-    MTRT_DBGF("Untracking externally managed pointer 0x%lx", ptr);
+    MTRT_DBGF("Untracking externally managed 0x%lx", ptr);
     tracker.untrack(obj.ptr);
     return mlirtrt::Status::getOk();
   }
@@ -747,9 +760,16 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
   if (!::getFootprintInBytes(shape, strides, bitsPerElement).isOk())
     return getInvalidArgStatus(
         "only memrefs with non-negative strides are allowed");
-  if (!ptr)
+
+  auto isEmptyTensor = [](llvm::ArrayRef<int64_t> shape) -> bool {
+    return std::any_of(shape.begin(), shape.end(),
+                       [](int64_t s) { return s == 0; });
+  };
+
+  if (!ptr && !isEmptyTensor(shape))
     return getInvalidArgStatus(
-        "MemRef objects must be created with a valid pointer");
+        "MemRef objects must be created with a valid pointer for a non-empty "
+        "tensor");
 
   if (isDeviceVisible(addressSpace) && (!device || !*device))
     return getInvalidArgStatus("a specific device must be provided for MemRefs "

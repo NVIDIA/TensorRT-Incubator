@@ -565,37 +565,45 @@ getScalarValue(const sol::protected_function_result &pfr, int index,
   }
 }
 
-// Parses the results of a function call, handling both scalar and MemRef return
-// types
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-runtime::parseResults(const sol::protected_function_result &pfr,
-                      const FunctionSignatureView &sig,
-                      std::optional<RuntimeClient *> client) {
+/// Parses the results of a function call, handling both scalar and MemRef
+/// return types.
+///
+/// @param pfr The protected function result to parse.
+/// @param sig The function signature view.
+/// @param sessionAllocTracker The allocation tracker for the current session.
+/// @param client Optional runtime client pointer.
+/// @return A vector of unique pointers to RuntimeValue, or an error status.
+static StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
+parseResults(const sol::protected_function_result &pfr,
+             const FunctionSignatureView &sig, LuaRuntimeSession &session,
+             std::optional<RuntimeClient *> client) {
   llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
-  for (unsigned i = 0; i < sig.getNumResults(); ++i) {
+  results.reserve(sig.getNumResults());
 
-    if (sig.getResult(i).isa<ScalarTypeView>()) {
-      auto scalar = getScalarValue(pfr, i, sig);
-      if (!scalar.isOk())
-        return scalar.getStatus();
-      results.push_back(std::move(*scalar));
+  for (unsigned i = 0; i < sig.getNumResults(); ++i) {
+    const auto &resultType = sig.getResult(i);
+
+    if (resultType.isa<ScalarTypeView>()) {
+      auto scalarValue = getScalarValue(pfr, i, sig);
+      if (!scalarValue.isOk())
+        return scalarValue.getStatus();
+      results.push_back(std::move(*scalarValue));
       continue;
     }
 
-    MemRefTableReader reader(pfr, i);
-
-    if (!sig.getResult(i).isa<MemRefTypeView>())
+    if (!resultType.isa<MemRefTypeView>())
       return getInvalidArgStatus("Result can only be a memref or scalar");
 
     // Handle MemRef return values
-    const auto &resultView = sig.getResult(i).get<MemRefTypeView>();
-    unsigned rank = resultView.getRank();
+    const auto &memRefView = resultType.get<MemRefTypeView>();
+    MemRefTableReader reader(pfr, i);
 
     // Extract MemRef metadata
     uintptr_t allocPtr = reader.getNextValue<uintptr_t>();
     [[maybe_unused]] uintptr_t alignedPtr = reader.getNextValue<uintptr_t>();
     int64_t offset = reader.getNextValue<int64_t>();
 
+    unsigned rank = memRefView.getRank();
     llvm::SmallVector<int64_t, 4> shape(rank);
     llvm::SmallVector<int64_t, 4> strides(rank);
 
@@ -608,14 +616,42 @@ runtime::parseResults(const sol::protected_function_result &pfr,
     if (!client)
       return getInvalidArgStatus("Runtime client cannot be nullptr");
 
-    // Create MemRefValue from extracted data
-    auto memref = (*client)->createExternalMemRef(
-        resultView.getAddressSpace(), resultView.getElementType().getBitWidth(),
-        allocPtr, offset, shape, strides, (*client)->getDevices()[0].get(),
-        resultView.getElementType());
+    // Create an external MemRef and track it in both session and client
+    // allocation trackers
+    MTRT_DBGF("Creating external MemRef for ptr 0x%lx: "
+              "Session alloc tracker: %p, Session pinner memory allocator: %p, "
+              "Client: %p, Client tracker: %p. "
+              "This ptr is registered with the session and will now be tracked "
+              "by the client as well.",
+              allocPtr, static_cast<void *>(&session.getAllocTracker()),
+              static_cast<void *>(&session.getPinnedMemorAllocator()),
+              static_cast<void *>(*client),
+              static_cast<void *>(&(*client)->getAllocTracker()));
+
+    // We need here actually is to "release" the pointer from the session
+    // ownership and have the client assume
+    PointerInfo info = session.getAllocTracker().get(allocPtr);
+    session.getAllocTracker().untrack(info.ptr);
+
+    // It is possible that pinned memory also tracks the memory for
+    // deallocation.
+    session.getPinnedMemorAllocator().untrack(info.ptr);
+
+    AllocTracker &allocator = (*client)->getAllocTracker();
+    // if (!allocator.contains(info.ptr))
+    allocator.track(info);
+
+    // Create a memref so that client now tracks it.
+    auto memref = MemRefValue::create(
+        *client, memRefView.getAddressSpace(),
+        memRefView.getElementType().getBitWidth(), allocPtr, offset, shape,
+        strides, (*client)->getDevices()[0].get(), memRefView.getElementType());
 
     if (!memref.isOk())
       return memref.getStatus();
+
+    // Increment external reference count since we are returning a memref
+    allocator.incrementExternalCount(info.ptr);
 
     results.push_back(std::move(*memref));
   }
@@ -630,8 +666,11 @@ runtime::executeFunctionWithLuaBackend(
     llvm::ArrayRef<RuntimeValue *> outputArgs, std::optional<CudaStream> stream,
     std::optional<RuntimeClient *> client) {
 
-  FunctionView meta = session.getExecutable().getFunction(name);
-  FunctionSignatureView sig = meta.getSignature();
+  StatusOr<FunctionView> func = session.getExecutable().getFunction(name);
+  if (func.isError())
+    return func.getStatus();
+
+  FunctionSignatureView sig = (*func).getSignature();
 
   // Call the main function, if present.
   sol::state &lua = session.getLuaState();
@@ -715,5 +754,5 @@ runtime::executeFunctionWithLuaBackend(
                             "\": ", err.what());
   }
 
-  return parseResults(pfr, sig, client);
+  return parseResults(pfr, sig, session, client);
 }

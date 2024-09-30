@@ -65,17 +65,26 @@ struct RemoveWithValuesRewriter : public OpRewritePattern<plan::WithValuesOp> {
 } // namespace
 
 /// Get a map from `tensorrt.func` functions to associated `tensorrt.call`
-/// operations.
-static llvm::DenseMap<func::FuncOp, SmallVector<tensorrt::CallOp>>
+/// and `tensorrt.call_alloc` operations.
+static llvm::DenseMap<func::FuncOp, SmallVector<Operation *>>
 getTensorRTFunctionCallMap(ModuleOp op, SymbolTableCollection &collection) {
-  llvm::DenseMap<func::FuncOp, SmallVector<tensorrt::CallOp>> map;
-  op->walk([&](tensorrt::CallOp callOp) {
-    func::FuncOp func = callOp.getFuncCallee(collection);
-    if (map.contains(func)) {
-      map[func].push_back(callOp);
+  llvm::DenseMap<func::FuncOp, SmallVector<Operation *>> map;
+  op->walk([&](Operation *callOp) {
+    if (!isa<tensorrt::CallOp, tensorrt::CallAllocOp>(callOp))
       return;
+
+    func::FuncOp func;
+    if (auto call = dyn_cast<tensorrt::CallOp>(callOp)) {
+      func = call.getFuncCallee(collection);
+    } else {
+      auto callAlloc = dyn_cast<tensorrt::CallAllocOp>(callOp);
+      func = callAlloc.getFuncCallee(collection);
     }
-    map.insert(std::make_pair(func, SmallVector<tensorrt::CallOp>{callOp}));
+
+    if (map.count(func))
+      map[func].push_back(callOp);
+    else
+      map.insert({func, SmallVector<Operation *>{callOp}});
   });
   return map;
 }
@@ -84,7 +93,7 @@ getTensorRTFunctionCallMap(ModuleOp op, SymbolTableCollection &collection) {
 /// `tensorrt.call` operations.
 static LogicalResult removeUnusedArgs(SymbolTableCollection &collection,
                                       ModuleOp op, func::FuncOp funcOp,
-                                      ArrayRef<tensorrt::CallOp> callOps) {
+                                      ArrayRef<Operation *> callOps) {
   llvm::SmallBitVector unusedArgs(funcOp.getNumArguments(), 0);
   for (BlockArgument arg : funcOp.getArguments()) {
     if (arg.use_empty())
@@ -99,10 +108,16 @@ static LogicalResult removeUnusedArgs(SymbolTableCollection &collection,
     funcOp.eraseArgument(i);
 
     // Update the call ops.
-    for (tensorrt::CallOp callOp : callOps)
-      callOp.getInputsMutable().erase(i);
+    for (Operation *callOp : callOps) {
+      if (auto call = dyn_cast<tensorrt::CallOp>(callOp))
+        call.getInputsMutable().erase(i);
+      else if (auto callAlloc = dyn_cast<tensorrt::CallAllocOp>(callOp))
+        callAlloc.getInputsMutable().erase(i);
+      else
+        return emitError(funcOp->getLoc())
+               << "Unexpected operation type in callOps";
+    }
   }
-
   return success();
 }
 

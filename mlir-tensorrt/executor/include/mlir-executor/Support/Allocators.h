@@ -104,6 +104,9 @@ public:
   PinnedMemoryAllocator();
   ~PinnedMemoryAllocator();
 
+  /// Untracks
+  void untrack(uintptr_t ptr);
+
   StatusOr<PinnedMemoryBlock> allocate(size_t size);
 
   /// Free the block associated with the given pointer on the given stream. An
@@ -113,6 +116,9 @@ public:
 
 private:
   EventPool eventPool;
+
+  /// Tracks all the pointers which need not to freed up.
+  static std::vector<uintptr_t> untrackedPtrs;
 
   /// Tracks all blocks allocated by the allocator.
   struct BlockTracker;

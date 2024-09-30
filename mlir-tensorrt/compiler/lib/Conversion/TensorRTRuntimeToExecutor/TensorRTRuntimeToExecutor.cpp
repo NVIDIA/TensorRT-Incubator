@@ -379,20 +379,22 @@ struct ConvertEnqueueAllocToCall
 
     // Create output memrefs from output descriptors
     SmallVector<Value> results;
+    // Initialize output descriptor offset to skip number of results.
+    // `outputDescOffset` is used to retrieve rank, ptr, shapes, and strides per
+    // result.
+    outputDescOffset = 1;
     for (unsigned i = 0; i < op->getNumResults(); ++i) {
       unsigned rank = cast<MemRefType>(op->getResult(i).getType()).getRank();
-      unsigned offset =
-          1 +
-          i * (2 * rank + 2); // num res, (i * (rank, ptr, [shape], [stride]))
-
       Value rankOffset = b.create<executor::GetOffsetOp>(
           b.getI64Type(), structType,
-          ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                 rewriter.getI64IntegerAttr(offset++)});
+          ArrayRef<OpFoldResult>{
+              this->createIndexConstant(b, 0),
+              rewriter.getI64IntegerAttr(outputDescOffset++)});
       Value devicePtrOffset = b.create<executor::GetOffsetOp>(
           b.getI64Type(), structType,
-          ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                 rewriter.getI64IntegerAttr(offset++)});
+          ArrayRef<OpFoldResult>{
+              this->createIndexConstant(b, 0),
+              rewriter.getI64IntegerAttr(outputDescOffset++)});
 
       [[maybe_unused]] Value rankValue = b.create<executor::LoadOp>(
           b.getI64Type(), outputDescriptors, rankOffset);
@@ -406,8 +408,9 @@ struct ConvertEnqueueAllocToCall
       for (unsigned r = 0; r < rank; ++r) {
         Value shapeOffset = b.create<executor::GetOffsetOp>(
             b.getI64Type(), structType,
-            ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                   rewriter.getI64IntegerAttr(offset++)});
+            ArrayRef<OpFoldResult>{
+                this->createIndexConstant(b, 0),
+                rewriter.getI64IntegerAttr(outputDescOffset++)});
         Value shape = b.create<executor::LoadOp>(
             b.getI64Type(), outputDescriptors, shapeOffset);
         shapes.push_back(shape);
@@ -416,8 +419,9 @@ struct ConvertEnqueueAllocToCall
       for (unsigned r = 0; r < rank; ++r) {
         Value strideOffset = b.create<executor::GetOffsetOp>(
             b.getI64Type(), structType,
-            ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
-                                   rewriter.getI64IntegerAttr(offset++)});
+            ArrayRef<OpFoldResult>{
+                this->createIndexConstant(b, 0),
+                rewriter.getI64IntegerAttr(outputDescOffset++)});
         Value shape = b.create<executor::LoadOp>(
             b.getI64Type(), outputDescriptors, strideOffset);
         shapes.push_back(shape);
