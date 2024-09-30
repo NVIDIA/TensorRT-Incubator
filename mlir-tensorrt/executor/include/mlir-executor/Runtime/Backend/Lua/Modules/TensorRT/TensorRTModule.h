@@ -37,7 +37,7 @@ class ResourceTracker;
 /// Lua state.
 void registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker);
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker, OutputAllocatorTracker *outputAllocatorTracker);
 
 } // namespace mlirtrt::runtime
 

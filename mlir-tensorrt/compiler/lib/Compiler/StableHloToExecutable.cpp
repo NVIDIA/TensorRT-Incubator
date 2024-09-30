@@ -485,11 +485,13 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     runner = pm.get();
   }
 
+  runner->printAsTextualPipeline(llvm::dbgs());
+
   // Setup pass manager
-  if (failed(runner->run(module)))
-    return getInternalErrorStatus(
-        "failed to run compilation on module with symbol name: {0}",
-        module.getName() ? *module.getName() : "no-symbol-name");
+  // if (failed(runner->run(module)))
+  //   return getInternalErrorStatus(
+  //       "failed to run compilation on module with symbol name: {0}",
+  //       module.getName() ? *module.getName() : "no-symbol-name");
 
   // Translate to Runtime Executable
   FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =

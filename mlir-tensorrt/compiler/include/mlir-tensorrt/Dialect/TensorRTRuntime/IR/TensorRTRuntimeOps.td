@@ -116,4 +116,73 @@ def TensorRTRuntime_EnqueueOp : TensorRTRuntime_Op<"enqueue", [
   }];
 }
 
+// //===----------------------------------------------------------------------===//
+// // AllocEnqueueOp
+// //===----------------------------------------------------------------------===//
+
+// def Output_Desc : TypeDef<CUDA_Dialect, "Output_Desc", []> {
+//   let mnemonic = "Output_Desc";
+//   let description = [{
+//     An opaque object which represents a CUDA stream object (CUstream).
+//     A CUDA stream contains a sequence of operations that execute on GPU in the
+//     order in which they are issued by the host.
+//   }];
+// }
+
+// def TensorRTRuntime_AllocEnqueueOp : TensorRTRuntime_Op<"alloc_enqueue", [
+//     DeclareOpInterfaceMethods<InferTypeOpInterface>,
+//     DeclareOpInterfaceMethods<TensorKindOpInterface>,
+//     DeclareOpInterfaceMethods<MemoryEffectsOpInterface>,
+//     AttrSizedOperandSegments,
+//     DestinationStyleOpInterface
+// ]> {
+//   let description = [{
+
+//     Asynchronously executes the computation represented by the
+//     `execution_context` on the specified CUDA stream. This operation
+//     is a bufferizable destination-passing-style (DPS) operation.
+
+//     This means that the `inputs` and `outputs` can accept either
+//     all `tensor` types or all `memref` types. If the types are `tensor`
+//     types, then the the values passed to the `outs` parameter must
+//     be equal in type and number to the operation's results.
+
+//     When the `inputs` and `outputs` are `memref` types, then the
+//     operation should have no results.
+
+//     The `host_tensor_args` attribute is a list of indices into the
+//     `inputs` list indicating which arguments should be host tensors.
+//   }];
+
+//   let arguments = (ins TensorRTRuntime_Context:$execution_context,
+//                        CUDA_Stream:$stream,
+//                        Descriptor:$output_descriptors,
+//                        Variadic<AnyShaped>:$inputs,
+//                        OptionalAttr<DenseI64ArrayAttr>:$host_tensor_args);
+//   let results = (outs Variadic<AnyType>:$results);
+
+//   let assemblyFormat = [{
+//     $execution_context `stream` `(` $stream `)` ` `
+//     (`host_tensor_args` $host_tensor_args^ ` ` )?
+//     `(` $inputs `)` `outs` `(` $outs `)`
+//     attr-dict `:` functional-type($inputs, $outs)
+//   }];
+
+//   let hasVerifier = 1;
+
+//   let extraClassDeclaration = [{
+//     // Declare the outs as inits/outs to DestinationStyleOpInterface.
+//     MutableOperandRange getDpsInitsMutable() { return getOutsMutable(); }
+
+//     /// Return true if the operand at the specified index is a host tensor
+//     /// argument.
+//     bool isOperandOnHost(int64_t operandIdx) {
+//       if(std::optional<ArrayRef<int64_t>> indices = getHostTensorArgs()) {
+//         return llvm::is_contained(*indices, operandIdx - 2);
+//       }
+//       return false;
+//     }
+//   }];
+// }
+
 #endif // MLIR_TENSORRT_DIALECT_TENSORRT_IR_TENSORRTRUNTIMEOPS_TD

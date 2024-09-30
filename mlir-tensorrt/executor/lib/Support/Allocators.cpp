@@ -297,3 +297,118 @@ Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, CudaStream stream) {
       "MLIR-Executor was not built with CUDA enabled");
 #endif
 }
+
+
+//===----------------------------------------------------------------------===//
+// CustomTensorRTOutputAllocator
+//===----------------------------------------------------------------------===//
+
+inline uint64_t roundUp(uint64_t m, uint64_t n) {
+  return ((m + n - 1) / n) * n;
+}
+
+CustomTensorRTOuputAllocator::~CustomTensorRTOuputAllocator() {
+  if (mOutputPtr != nullptr) {
+    cudaFree(mOutputPtr);
+  }
+}
+
+void *CustomTensorRTOuputAllocator::reallocateOutputAsync(
+    char const *tensorName, void *currentMemory, uint64_t size,
+    uint64_t alignment, CudaStream stream) {
+
+  assert(currentMemory == mCurrentMemory && "output buffer mismatch");
+  assert(strcmp(tensorName, mTensorName) == 0 && "tensor name mismatch");
+  assert(!mReallocateOutputCalled && "duplicate call to reallocateOutput");
+  mReallocateOutputCalled = true;
+  // Some memory allocators return nullptr when allocating zero bytes, but
+  // TensorRT requires a non-null ptr even for empty tensors, so allocate a
+  // dummy byte.
+  size = std::max(size, static_cast<uint64_t>(1));
+
+  // Check if reallocation is required.
+  if (size > mOutputSize) {
+    size = roundUp(size, alignment);
+
+    if (mOutputPtr) {
+      cudaFree(mOutputPtr);
+    }
+
+    mOutputPtr = nullptr;
+    mOutputSize = 0;
+
+    void *memory;
+    cudaMalloc(&memory, size);
+    mOutputPtr = memory;
+    if (mOutputPtr != nullptr) {
+      mOutputSize = size;
+    }
+    return mOutputPtr;
+  }
+  return mCurrentMemory;
+}
+
+void CustomTensorRTOuputAllocator::notifyShape(char const *tensorName,
+                                               const int64_t *dims, int64_t nbDims) {
+  assert(mReallocateOutputCalled &&
+         "TensorRT must invoke reallocateOutput first");
+  assert(!mNotifyShapeCalled && "duplicate call to notifyShape");
+  assert(strcmp(tensorName, mTensorName) == 0 && "tensor name mismatch");
+
+  mNotifyShapeCalled = true;
+  mOutputDims.resize(nbDims);
+  std::copy_n(dims, nbDims, mOutputDims.begin());
+}
+
+OutputDescriptor::OutputDescriptor(uintptr_t ptr)
+    : mData(reinterpret_cast<int64_t*>(ptr)),
+      mSize(calculateTotalSize(ptr)) {}
+
+int64_t OutputDescriptor::getNumberOfResults() const {
+    return mData[0];
+}
+
+unsigned OutputDescriptor::getRank(int resultIndex) const {
+    size_t index = getIndexForResult(resultIndex);
+    return static_cast<unsigned>(mData[index]);
+}
+
+void OutputDescriptor::setTensorDataPtr(int resultIndex, uintptr_t ptr) {
+    size_t index = getIndexForResult(resultIndex);
+    mData[index + 1] = static_cast<int64_t>(ptr);
+}
+
+void OutputDescriptor::setShape(int resultIndex, const std::vector<int64_t>& shape) {
+    size_t index = getIndexForResult(resultIndex);
+    unsigned rank = static_cast<unsigned>(mData[index]);
+    assert(shape.size() == rank && "Shape size doesn't match the rank");
+    index += OUTPUT_DESC_FIXED_FIELDS;
+    std::copy(shape.begin(), shape.end(), mData + index);
+}
+
+void OutputDescriptor::setStride(int resultIndex, const std::vector<int64_t>& stride) {
+    size_t index = getIndexForResult(resultIndex);
+    unsigned rank = static_cast<unsigned>(mData[index]);
+    assert(stride.size() == rank && "Stride size doesn't match the rank");
+    index += OUTPUT_DESC_FIXED_FIELDS + rank;
+    std::copy(stride.begin(), stride.end(), mData + index);
+}
+
+size_t OutputDescriptor::getIndexForResult(int resultIndex) const {
+    return calculateOffsetForResult(mData, resultIndex);
+}
+
+size_t OutputDescriptor::calculateTotalSize(uintptr_t ptr) {
+    int64_t* desc = reinterpret_cast<int64_t*>(ptr);
+    int64_t numResults = desc[0];
+    return calculateOffsetForResult(desc, numResults);
+}
+
+size_t OutputDescriptor::calculateOffsetForResult(const int64_t* desc, int64_t resultIndex) {
+    size_t offset = 1; // Start after number of results
+    for (int64_t i = 0; i < resultIndex; ++i) {
+        unsigned rank = static_cast<unsigned>(desc[offset]);
+        offset += 2 + 2 * rank; // rank + dataPtr + shape + stride
+    }
+    return offset;
+}

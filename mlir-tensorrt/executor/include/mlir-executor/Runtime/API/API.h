@@ -120,7 +120,7 @@ std::string_view stringifyPointerType(PointerType ptrType);
 //===----------------------------------------------------------------------===//
 // TypeView
 // This section includes classes that form the TypeUnion:
-// MemrefTypeView, ScalarTypeView, ExternalOpaqueTypeView
+// MemRefTypeView, ScalarTypeView, ExternalOpaqueTypeView
 //===----------------------------------------------------------------------===//
 
 /// Base class for all the below classes that provide flatbuffer-view wrappers
@@ -155,10 +155,10 @@ public:
 /// A wrapper around `impl::MemRefTypeT` to provide additional convenience
 /// utilities.  It does not own any memory; it only
 // provides a read-only view into the buffer.
-class MemrefTypeView : public FlatbufferTypeObjectView<impl::MemRefType,
+class MemRefTypeView : public FlatbufferTypeObjectView<impl::MemRefType,
                                                        impl::Type::MemRefType> {
 public:
-  MemrefTypeView(const impl::MemRefType *view)
+  MemRefTypeView(const impl::MemRefType *view)
       : FlatbufferTypeObjectView(view) {}
 
   int64_t getRank() const { return view->shape()->size(); }
@@ -877,6 +877,8 @@ public:
 
   ResourceTracker &getResourceTracker() { return *resourceTracker; }
 
+  OutputAllocatorTracker &getOutputAllocatorTracker() { return *outputAllocatorTracker; }
+
   /// Returns the options used to construct the session.
   const RuntimeSessionOptions &getOptions() { return options; }
 
@@ -888,6 +890,7 @@ protected:
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
+  std::unique_ptr<OutputAllocatorTracker> outputAllocatorTracker;
 };
 
 //===----------------------------------------------------------------------===//
@@ -988,7 +991,7 @@ llvm::raw_ostream &print(llvm::raw_ostream &os, const Executable &exe);
 /// Print a text summary of the constant to the stream.
 llvm::raw_ostream &print(llvm::raw_ostream &os, const ConstantView &constant);
 /// Print a text summary of the type to the stream.
-llvm::raw_ostream &print(llvm::raw_ostream &os, const MemrefTypeView &type);
+llvm::raw_ostream &print(llvm::raw_ostream &os, const MemRefTypeView &type);
 /// Print a text summary of the type to the stream.
 llvm::raw_ostream &print(llvm::raw_ostream &os, const ScalarTypeView &type);
 /// Print a text summary of the type to the stream.
