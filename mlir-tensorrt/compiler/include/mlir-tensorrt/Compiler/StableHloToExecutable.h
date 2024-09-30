@@ -105,14 +105,7 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Get the mutable DebugOptions.
   DebugOptions &getDebugOptions() { return debugOptions; }
 
-  llvm::hash_code getHash() const override;
-
-  bool shouldInvalidateCache() const override {
-    // If a callback is provided, we have no way of verifying whether it is
-    // equivalent to a callback from another set of options. Therefore, we are
-    // forced to invalidate the cache entry if it is present at all.
-    return static_cast<bool>(layerMetadataCallback);
-  }
+  std::optional<llvm::hash_code> getHash() const override;
 
   /// The host index bit-width.
   int64_t executorIndexBitwidth{64};
