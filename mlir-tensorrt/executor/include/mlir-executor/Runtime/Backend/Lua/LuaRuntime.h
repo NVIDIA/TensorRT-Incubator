@@ -104,13 +104,6 @@ executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
                               std::optional<CudaStream> stream = {},
                               std::optional<RuntimeClient *> client = {});
 
-// Parses the results of a function call, handling both scalar and MemRef return
-// types
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-parseResults(const sol::protected_function_result &pfr,
-             const FunctionSignatureView &sig,
-             std::optional<RuntimeClient *> client);
-
 } // namespace mlirtrt::runtime
 
 #endif // MLIR_TENSORRT_RUNTIME_BACKEND_LUA_LUARUNTIME_H

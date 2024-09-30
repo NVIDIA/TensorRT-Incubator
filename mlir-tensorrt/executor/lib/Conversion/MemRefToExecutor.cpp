@@ -24,6 +24,7 @@
 #include "mlir-executor/Conversion/ConvertToExecutorCommon.h"
 #include "mlir-executor/Conversion/Passes.h"
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/ImplicitLocOpBuilder.h"
 #include "mlir/IR/Matchers.h"
@@ -548,6 +549,21 @@ void executor::populateMemRefToExecutorPatterns(
 }
 
 namespace {
+
+class RemoveNoOpClonePattern : public OpRewritePattern<bufferization::CloneOp> {
+public:
+  using OpRewritePattern<bufferization::CloneOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(bufferization::CloneOp op,
+                                PatternRewriter &rewriter) const override {
+    if (op.getInput().getType() == op.getOutput().getType()) {
+      rewriter.replaceOp(op, op.getInput());
+      return success();
+    }
+    return failure();
+  }
+};
+
 /// Pass to convert `memref` to `executor` dialect operrations.
 class ConvertMemRefToExecutorPass
     : public mlir::executor::impl::ConvertMemRefToExecutorPassBase<
@@ -579,6 +595,10 @@ public:
     RewritePatternSet patterns(ctx);
     executor::populateMemRefToExecutorPatterns(
         patterns, typeConverter, allowUncheckedMemrefCastConversion);
+
+    // Remove unrealized cast and redundant clone operations.
+    patterns.add<RemoveNoOpClonePattern>(ctx);
+
     if (failed(applyPartialConversion(getOperation(), target,
                                       std::move(patterns))))
       return signalPassFailure();

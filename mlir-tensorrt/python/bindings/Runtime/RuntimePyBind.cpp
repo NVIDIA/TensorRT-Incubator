@@ -600,6 +600,15 @@ static MTRT_RuntimeValue convertArgType(py::object obj) {
   throw std::runtime_error("argument must be MemRef or scalar");
 }
 
+/// Convert Runtime value to PyMemRefValue or PyScalarValue object.
+static py::object convertGenericArgToPyObject(MTRT_RuntimeValue value) {
+  if (mtrtRuntimeValueIsMemRef(value))
+    return py::cast<PyMemRefValue>(mtrtRuntimeValueDynCastToMemRef(value));
+  if (mtrtRuntimeValueIsScalar(value))
+    return py::cast<PyScalarValue>(mtrtRuntimeValueDynCastToScalar(value));
+  return py::none();
+}
+
 //===----------------------------------------------------------------------===//
 // Declare the bindings.
 //===----------------------------------------------------------------------===//
@@ -950,22 +959,43 @@ PYBIND11_MODULE(_api, m) {
       .def(
           "execute_function",
           [](PyRuntimeSession &self, std::string name,
-             std::vector<py::object> inArgs, std::vector<py::object> outArgs,
-             std::optional<MTRT_Stream> stream) {
+             std::vector<py::object> inArgs,
+             std::optional<std::vector<py::object>> outArgs,
+             std::optional<MTRT_Stream> stream, PyRuntimeClient &client) {
             MTRT_StringView nameRef{name.data(), name.size()};
 
-            auto inArgsGeneric = llvm::map_to_vector(inArgs, convertArgType);
-            auto outArgsGeneric = llvm::map_to_vector(outArgs, convertArgType);
+            int64_t numResults;
+            MTRT_Status s =
+                mtrtRuntimeSessionGetNumResults(self, nameRef, &numResults);
+            THROW_IF_MTRT_ERROR(s);
 
-            MTRT_Status s = mtrtRuntimeSessionExecuteFunction(
+            auto inArgsGeneric = llvm::map_to_vector(inArgs, convertArgType);
+            auto outArgsGeneric =
+                outArgs ? llvm::map_to_vector(*outArgs, convertArgType)
+                        : llvm::SmallVector<MTRT_RuntimeValue>{};
+
+            std::vector<MTRT_RuntimeValue> resultsGeneric(numResults);
+
+            s = mtrtRuntimeSessionExecuteFunction(
                 self, nameRef, inArgsGeneric.data(), inArgsGeneric.size(),
                 outArgsGeneric.data(), outArgsGeneric.size(),
-                stream ? *stream : mtrtStreamGetNull());
+                resultsGeneric.data(), stream ? *stream : mtrtStreamGetNull(),
+                client);
             THROW_IF_MTRT_ERROR(s);
-          },
-          py::arg("name"), py::arg("in_args"), py::arg("out_args"),
-          py::arg("stream") = py::none());
 
+            std::vector<py::object> resultPyObject;
+            if (numResults > 0) {
+              for (const auto &arg : resultsGeneric)
+                resultPyObject.push_back(convertGenericArgToPyObject(arg));
+            }
+
+            return resultPyObject;
+          },
+          py::arg("name"), py::arg("in_args"), py::arg("out_args") = py::none(),
+          py::arg("stream") = py::none(), py::arg("client"),
+          "Execute a function given input and optional output arguments. "
+          "Return optional results as a Python object if output arguments are "
+          "not present.");
   py::class_<PyGlobalDebugFlag>(m, "GlobalDebug", py::module_local())
       .def_property_static("flag", &PyGlobalDebugFlag::get,
                            &PyGlobalDebugFlag::set, "LLVM-wide debug flag")

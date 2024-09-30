@@ -36,7 +36,11 @@ def test_stablehlo_add(
         session = runtime.RuntimeSession(session_options, exe)
 
         session.execute_function(
-            "main", in_args=test.in_args, out_args=test.out_args, stream=stream
+            "main",
+            in_args=test.in_args,
+            out_args=test.out_args,
+            stream=stream,
+            client=runtime_client,
         )
         output = [
             (

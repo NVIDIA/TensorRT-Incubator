@@ -268,8 +268,82 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
 
 static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
                                            plan::InlineClosedAllocGroupOp op) {
-  return op.emitError("outlinining inline closed alloc group ops to tensorrt "
-                      "dialect is not yet implemented");
+  tensorrt::TensorRTModuleOp trtModuleOp = getOrCreateTensorRTModuleOp(op);
+  auto funcArgTypes = llvm::to_vector(TypeRange(op.getInputs()));
+  FailureOr<FunctionOpInterface> func = createOutlinedFunc(
+      rewriter, op.getLoc(), op, trtModuleOp, "tensorrt_cluster",
+      "cluster.tensorrt", TypeRange(op.getInputs()),
+      op.getYield()->getOperandTypes());
+  if (failed(func))
+    return failure();
+  assert(func->getFunctionBody().getBlocks().size() == 1 &&
+         "expected body with one block");
+  func->setPublic();
+
+  rewriter.setInsertionPoint(op);
+
+  auto callOp = rewriter.create<tensorrt::CallAllocOp>(
+      op.getLoc(), op.getResultTypes(), op.getInputs(),
+      SymbolRefAttr::get(trtModuleOp.getNameAttr(),
+                         {FlatSymbolRefAttr::get(*func)}));
+
+  // Populate the function arguments attributes.
+  for (unsigned i = 0; i < (*func).getNumArguments(); i++) {
+    BoundsAttr srcAttr = cast<BoundsAttr>(op.getInputAttrs()[i]);
+    // We may have scalar (index|signless int)-typed values since we haven't
+    // eliminated `plan.(with_shape|with_values)` ops yet.
+    if (!op.argHasTensorType(i) || srcAttr.isNone())
+      continue;
+    FailureOr<tensorrt::ShapeProfileAttr> boundAttr =
+        getTensorRTShapeProfile(srcAttr, op.getInputs()[i]);
+    if (failed(boundAttr))
+      return op->emitOpError("failed to create TensorRT shape profile "
+                             "attribute from Plan BoundsAttr for argument #")
+             << i << " (" << srcAttr << ")";
+    if (srcAttr.isShapeBound()) {
+      func->setArgAttr(i,
+                       tensorrt::TensorRTDialect::getShapeProfileArgAttrName(),
+                       *boundAttr);
+      continue;
+    }
+    assert(srcAttr.isValueBound() && "expected value bound or shape bound");
+    func->setArgAttr(
+        i, tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName(),
+        *boundAttr);
+    func->setArgAttr(i, mlir::getHostTensorArgAttrName(),
+                     rewriter.getUnitAttr());
+  }
+
+  // Populate the function entry block.
+  rewriter.eraseBlock(&func->getFunctionBody().front());
+
+  // Move private decomposition funcs associated with all `stablehlo.composite`
+  // ops to the `tensorrt.module` op. This is needed since `tensorrt.module` op
+  // has its own symbol table.
+  SymbolTableCollection symbolTable;
+  for (auto compositeOp : op.getBody().getOps<stablehlo::CompositeOp>()) {
+    auto decompositionFunc = dyn_cast_if_present<func::FuncOp>(
+        symbolTable.lookupSymbolIn(op->getParentOfType<ModuleOp>(),
+                                   compositeOp.getDecompositionAttr()));
+    if (!decompositionFunc)
+      return emitError(compositeOp.getLoc())
+             << "failed to lookup stablehlo.composite decomposition "
+                "function: "
+             << compositeOp.getDecompositionAttr();
+    rewriter.moveOpAfter(decompositionFunc, func->getOperation());
+  }
+
+  // Move region op operations to the func body.
+  Operation *regionYieldOp = op.getYield();
+  rewriter.inlineRegionBefore(op.getRegion(), func->getFunctionBody(),
+                              func->getFunctionBody().end());
+  rewriter.setInsertionPoint(regionYieldOp);
+  rewriter.replaceOpWithNewOp<func::ReturnOp>(regionYieldOp,
+                                              regionYieldOp->getOperands());
+
+  // replace the original region results.
+  rewriter.replaceOp(op, callOp);
+  return success();
 }
 
 /// Create outlined functions for each `scf.execute_region` operation within

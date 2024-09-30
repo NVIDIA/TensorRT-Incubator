@@ -47,7 +47,9 @@ def test_serialize(ASM):
         device=devices[0],
         stream=stream,
     )
-    session0.execute_function("main", in_args=[arg0], out_args=[arg1], stream=stream)
+    session0.execute_function(
+        "main", in_args=[arg0], out_args=[arg1], stream=stream, client=client
+    )
     output0 = np.asarray(client.copy_to_host(arg1, stream=stream))
     stream.sync()
 
@@ -57,7 +59,9 @@ def test_serialize(ASM):
     exe_reconstructed = compiler.Executable(serialized_exe)
 
     session1 = runtime.RuntimeSession(session_options, exe_reconstructed)
-    session1.execute_function("main", in_args=[arg0], out_args=[arg1], stream=stream)
+    session1.execute_function(
+        "main", in_args=[arg0], out_args=[arg1], stream=stream, client=client
+    )
     output1 = np.asarray(client.copy_to_host(arg1, stream=stream))
     stream.sync()
 

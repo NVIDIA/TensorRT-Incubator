@@ -93,6 +93,8 @@ convertCallOp(Operation *op, IRRewriter &rewriter,
   SmallVector<int64_t> hostTensorArgs;
   for (auto [idx, arg] : llvm::enumerate(trtFunc.getArguments())) {
     const TensorKindLattice *kind = solver.lookupState<TensorKindLattice>(arg);
+    if (!isa<RankedTensorType>(arg.getType()))
+      continue;
     RankedTensorType rtt = cast<RankedTensorType>(arg.getType());
     // To be conservative, we only do this if type is i32 and num elements
     // <= 8.

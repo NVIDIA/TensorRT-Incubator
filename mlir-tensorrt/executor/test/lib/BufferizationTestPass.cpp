@@ -53,22 +53,31 @@ public:
     }
   }
 };
+
+struct PlanBufferizationPipelineCliOpts
+    : public PassPipelineOptions<PlanBufferizationPipelineCliOpts> {
+  Option<bool> enableNonDPSReturns{
+      *this, "enable-non-dps-returns",
+      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
+      llvm::cl::init(false)};
+};
+
 } // namespace
 
 namespace mlir::executor {
 void registerTestExecutorBufferizePass() {
   PassRegistration<ExecutorBufferizationTestPass>();
-
-  PassPipelineRegistration<> executorBufferizationPipeline(
-      "test-executor-bufferization-pipeline",
-      "Run one-shot-bufferization and buffer deallocation pipelines",
-      [](OpPassManager &pm) {
-        pm.addPass(std::make_unique<ExecutorBufferizationTestPass>());
-        pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
-        bufferization::BufferDeallocationPipelineOptions deallocOptions{};
-        bufferization::buildBufferDeallocationPipeline(pm, deallocOptions);
-        pm.addPass(createCSEPass());
-        pm.addPass(createCanonicalizerPass());
-      });
+  PassPipelineRegistration<PlanBufferizationPipelineCliOpts>
+      executorBufferizationPipeline(
+          "test-executor-bufferization-pipeline",
+          "Run one-shot-bufferization and buffer deallocation pipelines",
+          [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
+            pm.addPass(std::make_unique<ExecutorBufferizationTestPass>());
+            pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
+            bufferization::BufferDeallocationPipelineOptions deallocOptions{};
+            bufferization::buildBufferDeallocationPipeline(pm, deallocOptions);
+            pm.addPass(createCSEPass());
+            pm.addPass(createCanonicalizerPass());
+          });
 }
 } // namespace mlir::executor

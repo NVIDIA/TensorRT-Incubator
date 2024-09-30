@@ -14,17 +14,23 @@ func.func @main(%arg0: tensor<2x3x4xf32>) -> tensor<2x3x4xf32> {
 """
 
 
-def stablehlo_add():
+def stablehlo_add(use_non_dps=False, debug=False):
     # Build/parse the main function.
     with ir.Context() as context:
         m = ir.Module.parse(ASM)
 
         # Use the compiler API to compile to executable.
         client = compiler.CompilerClient(context)
-        opts = compiler.StableHLOToExecutableOptions(
-            client,
-            ["--tensorrt-builder-opt-level=3", "--tensorrt-strongly-typed=false"],
-        )
+        c_opts = [
+            "--tensorrt-builder-opt-level=3",
+            "--tensorrt-strongly-typed=false",
+        ]
+        if use_non_dps:
+            c_opts.append("--enable-non-dps-returns")
+        if debug:
+            c_opts.append("--debug=true")
+            c_opts.append(f"--mlir-print-ir-tree-dir=mlir-dumps-add-no-clone")
+        opts = compiler.StableHLOToExecutableOptions(client, c_opts)
         exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
 
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
@@ -44,36 +50,53 @@ def stablehlo_add():
         device=devices[0],
         stream=stream,
     )
-    arg1 = client.create_memref(
-        np.zeros(shape=(2, 3, 4), dtype=np.float32).data,
-        device=devices[0],
-        stream=stream,
-    )
-    session.execute_function("main", in_args=[arg0], out_args=[arg1], stream=stream)
 
-    data = np.asarray(client.copy_to_host(arg1, stream=stream))
+    result = None
+    if use_non_dps:
+        results = session.execute_function(
+            "main", in_args=[arg0], stream=stream, client=client
+        )
+        result = results[0]
+    else:
+        result = client.create_memref(
+            np.zeros(shape=(2, 3, 4), dtype=np.float32).data,
+            device=devices[0],
+            stream=stream,
+        )
+        session.execute_function(
+            "main", in_args=[arg0], out_args=[result], stream=stream, client=client
+        )
+
+    data = np.asarray(client.copy_to_host(result, stream=stream))
     stream.sync()
 
     print(data)
 
-    # Run execution a bunch more times asynchronously so that it calculates
-    # `x * 2**num_iter`.
-    num_iter = 5
-    start_time = time.time()
-    for _ in range(0, num_iter):
-        session.execute_function("main", in_args=[arg0], out_args=[arg0], stream=stream)
-    data = np.asarray(client.copy_to_host(arg1, stream=stream))
-    stream.sync()
-    end_time = time.time()
-    elapsed = end_time - start_time
+    if not use_non_dps:
+        # Run execution a bunch more times asynchronously so that it calculates
+        # `x * 2**num_iter`.
+        num_iter = 5
+        start_time = time.time()
+        for _ in range(0, num_iter):
+            session.execute_function(
+                "main", in_args=[arg0], out_args=[arg0], stream=stream, client=client
+            )
+        data = np.asarray(client.copy_to_host(arg0, stream=stream))
+        stream.sync()
+        end_time = time.time()
+        elapsed = end_time - start_time
 
-    print(np.asarray(client.copy_to_host(arg0)))
-    print(f"1000 iterations avg { (elapsed/num_iter)/1000.0} msec per iteration")
+        print(np.asarray(client.copy_to_host(arg0)))
+        print(f"1000 iterations avg { (elapsed/num_iter)/1000.0} msec per iteration")
 
 
 if __name__ == "__main__":
+    print("DPS style execution:")
     stablehlo_add()
+    print("Non DPS style execution:")
+    stablehlo_add(use_non_dps=True)
 
+# CHECK-LABEL:  DPS style execution:
 #      CHECK:   [ 0.  2.  4.  6.]
 # CHECK-NEXT:   [ 8. 10. 12. 14.]
 # CHECK-NEXT:   [16. 18. 20. 22.]]
@@ -88,3 +111,11 @@ if __name__ == "__main__":
 # CHECK-NEXT:   [384. 416. 448. 480.]
 # CHECK-NEXT:   [512. 544. 576. 608.]
 # CHECK-NEXT:   [640. 672. 704. 736.]
+# CHECK-LABEL:  DPS style execution:
+#      CHECK:   [ 0.  2.  4.  6.]
+# CHECK-NEXT:   [ 8. 10. 12. 14.]
+# CHECK-NEXT:   [16. 18. 20. 22.]]
+# CHECK-NEXT:
+# CHECK-NEXT:   [24. 26. 28. 30.]
+# CHECK-NEXT:   [32. 34. 36. 38.]
+# CHECK-NEXT:   [40. 42. 44. 46.]]]

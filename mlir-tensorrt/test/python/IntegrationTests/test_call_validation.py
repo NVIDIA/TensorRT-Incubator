@@ -73,7 +73,11 @@ class Test:
         session = runtime.RuntimeSession(self.session_options, self.exe)
         try:
             session.execute_function(
-                "main", in_args=[arg], out_args=[arg], stream=self.stream
+                "main",
+                in_args=[arg],
+                out_args=[arg],
+                stream=self.stream,
+                client=self.client,
             )
             print("Test passed succesfully")
         except runtime.MTRTException as e:
