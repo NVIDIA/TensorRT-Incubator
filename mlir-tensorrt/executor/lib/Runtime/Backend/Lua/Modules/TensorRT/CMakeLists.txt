@@ -3,6 +3,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeTensorRT
 
   LINK_LIBS PUBLIC
   MLIRTensorRTExecutorRuntimeAPI
+  MLIRTensorRTExecutorCUDAUtils
 
   PRIVATE
   MLIRTensorRTExecutorRuntimeCommon

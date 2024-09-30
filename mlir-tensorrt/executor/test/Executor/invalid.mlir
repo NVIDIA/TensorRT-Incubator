@@ -260,3 +260,51 @@ func.func @getoffset_invalid_table_offset(%arg0: !executor.ptr<host>, %arg1: i32
   %0 = executor.getoffset [1, 0, 0, 0] : () -> i64, !executor.table<f32, f32>
   return %0 : i64
 }
+
+// -----
+
+builtin.module {
+  // expected-error @below {{'executor.coro_yield' op must have FunctionOpInterface parent}}
+  executor.coro_yield
+}
+
+// -----
+
+func.func @coro(%arg0: i32, %arg1: i32) -> i32 {
+  // expected-error @below {{'executor.coro_yield' op operand types yielded from coroutine must match the parent function result types}}
+  executor.coro_yield %arg1, %arg0 : i32, i32
+  return %arg0 : i32
+}
+
+// -----
+
+func.func @coro(%arg0: f32, %arg1: i32) -> i32 {
+  %c2_i32 = arith.constant 2 : i32
+  executor.coro_yield %c2_i32 : i32
+  return %c2_i32 : i32
+}
+
+func.func @coro_create() -> ((i32) -> i32) {
+  %c0 = arith.constant 0 : i32
+  %c0_f32 = arith.constant 0.0 : f32
+  // expected-error @below {{'executor.coro_create' op reference to function with mismatched type}}
+  %coro = executor.coro_create @coro : (i32) -> i32
+  return %coro : (i32) -> i32
+}
+
+// -----
+
+func.func @coro(%arg0: f32, %arg1: i32) -> i32 {
+  %c2_i32 = arith.constant 2 : i32
+  executor.coro_yield %c2_i32 : i32
+  return %c2_i32 : i32
+}
+
+func.func @coro_await() -> (i32) {
+  %c0 = arith.constant 0 : i32
+  %c0_f32 = arith.constant 0.0 : f32
+  %coro = executor.coro_create @coro : (f32, i32) -> i32
+  // expected-error @below {{'executor.coro_await' op callee operands must either be empty or their types must match the callee function input types}}
+  %0:2 = executor.coro_await %coro (%c0, %c0_f32 : i32, f32) : (f32, i32) -> i32
+  return %0#1 : i32
+}

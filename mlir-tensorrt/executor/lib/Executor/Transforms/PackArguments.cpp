@@ -103,8 +103,9 @@ public:
   using Base::Base;
 
   void runOnOperation() override {
-
-    ModuleOp op = getOperation();
+    Operation *op = getOperation();
+    if (failed(checkIsModuleLike(op)))
+      return signalPassFailure();
 
     // find functions that need to be repacked and an adaptor generated.
     SmallVector<func::FuncOp> funcs;

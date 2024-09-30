@@ -25,6 +25,7 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
+#include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRegistration.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/CUDA/CudaModule.h"
@@ -34,9 +35,11 @@
 #include "mlir-executor/Runtime/Backend/Lua/Modules/TensorRT/TensorRTModule.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Alignment.h"
 #include <memory>
 
 #if defined(__clang__)
@@ -51,6 +54,8 @@
 
 using namespace mlirtrt;
 using namespace mlirtrt::runtime;
+
+static constexpr uint64_t kMinConstantBufferByteAlignment = 8;
 
 #ifndef MLIR_EXECUTOR_ENABLE_NCCL
 /// Registers functions that are dependent on certain parameters like the
@@ -75,16 +80,21 @@ static void registerLuaRuntimeMethodsCommon(
     AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
   registerExecutorCoreModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
                                               allocTracker);
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   registerExecutorCUDAModuleLuaRuntimeMethods(
       state, allocTracker, pinnedMemoryAllocator, resourceTracker);
+#endif
 
 #ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
   registerExecutorCuBLASModuleLuaRuntimeMethods(state, allocTracker,
                                                 resourceTracker);
 #endif
 
+#ifdef MLIR_EXECUTOR_ENABLE_TENSORRT
   registerExecutorTensorRTModuleLuaRuntimeMethods(
       state, pinnedMemoryAllocator, allocTracker, resourceTracker);
+#endif
 }
 
 void mlirtrt::runtime::registerLuaRuntimeMethods(
@@ -107,21 +117,155 @@ void mlirtrt::runtime::registerLuaRuntimeMethods(
 #endif
 }
 
-StatusOr<int64_t>
-mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript) {
+/// If the program was compiled with NCCL enabled, then check for the
+/// NCCL uuid if the system has multiple GPUs.
+static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
+#if MLIR_EXECUTOR_ENABLE_NCCL
+
+  if (options.getNumDevices() > 1 && options.getNcclUuid().empty())
+    return getInternalErrorStatus(
+        "number of devices is {0} but the NCCL UUID is empty",
+        options.getNumDevices());
+
+  MTRT_DBG("creating session with DeviceID={0}/{1} UUID={2}",
+           options.getDeviceId(), options.getNumDevices(),
+           options.getNcclUuid());
+
+#endif
+  return getOkStatus();
+}
+
+//===----------------------------------------------------------------------===//
+// LuaRuntimeSession
+//===----------------------------------------------------------------------===//
+
+StatusOr<std::unique_ptr<LuaRuntimeSession>>
+LuaRuntimeSession::create(RuntimeSessionOptions options,
+                          ExecutableView executable,
+                          LuaModuleRegistrationFunc registerExtraLuaFuncs) {
+  MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
+
+  auto session = std::unique_ptr<LuaRuntimeSession>(
+      new LuaRuntimeSession(std::move(options), executable));
+  sol::state &lua = session->getLuaState();
+  lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::coroutine);
+
+  // Register builtin methods.
+  registerLuaRuntimeMethods(lua.lua_state(), session->getOptions(),
+                            &session->getPinnedMemorAllocator(),
+                            &session->getAllocTracker(),
+                            &session->getResourceTracker());
+
+  // Register user-provided methods.
+  if (registerExtraLuaFuncs)
+    registerExtraLuaFuncs(session->getLuaState().lua_state(),
+                          &session->getAllocTracker(),
+                          &session->getResourceTracker());
+
+  // Load globals into the context.
+  // TODO: eliminate this copy, we already own the executable.
+  if (session->getExecutable()) {
+    ExecutableView executable = session->getExecutable();
+    MTRT_DBGF("loading %lu constants", executable.getConstants().size());
+    for (ConstantView constant : executable.getConstants()) {
+      size_t bytes = constant.size();
+      if (!llvm::isAddrAligned(llvm::Align(kMinConstantBufferByteAlignment),
+                               constant.data())) {
+        MTRT_WARNV("constant (name={0}, size={1}) is not aligned to minimum "
+                   "{2} bytes copying into runtime session context",
+                   constant.getName(), constant.size(),
+                   kMinConstantBufferByteAlignment);
+        MTRT_ASSIGN_OR_RETURN(StatusOr<PointerInfo> buffer,
+                              mlirtrt::runtime::allocate(
+                                  session->getAllocTracker(), PointerType::host,
+                                  bytes, kMinConstantBufferByteAlignment, {}));
+        std::memcpy(reinterpret_cast<void *>(buffer->ptr),
+                    reinterpret_cast<const void *>(constant.data()), bytes);
+        lua[constant.getName()] = buffer->ptr;
+        continue;
+      }
+
+      // Otherwise, just use an external view.
+      lua[constant.getName()] = reinterpret_cast<uintptr_t>(constant.data());
+      session->getAllocTracker().track(PointerInfo(
+          reinterpret_cast<uintptr_t>(constant.data()), constant.size(),
+          PointerType::host, PointerOwner::external));
+    }
+
+    // Load the main Lua script.
+    sol::protected_function_result result =
+        lua.script(executable.getCode(), sol::script_pass_on_error);
+    if (!result.valid()) {
+      sol::error err = result;
+      return getStatusWithMsg(StatusCode::InternalError,
+                              "failed to load lua script: ", err.what());
+    }
+  }
+
+  // Call the executor_init_globals function, if present.
+  sol::protected_function initGlobals = lua["executor_init_globals"];
+  if (initGlobals.get_type() == sol::type::function) {
+    if (!initGlobals.is<std::function<void()>>())
+      return getStatusWithMsg(StatusCode::InternalError,
+                              "executor_init_globals function should have "
+                              "signature function<void()>");
+    sol::protected_function_result result = initGlobals();
+    if (!result.valid()) {
+      sol::error err(result);
+      return getStatusWithMsg(StatusCode::InternalError,
+                              "failed to initialize globals: ", err.what());
+    }
+  }
+
+  return session;
+}
+
+/// Get the primary stream for the loaded executable to use.
+CudaStream LuaRuntimeSession::getCudaStream() {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  auto stream = state["stream0"].get<CudaStream>();
+  return stream;
+#else
+  llvm::report_fatal_error("runtime not compiled with CUDA support");
+#endif
+}
+
+/// Set the primary stream for the loaded executable to use.
+Status LuaRuntimeSession::setCudaStream(CudaStream stream) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  state["stream0"] = CudaStreamPtr(stream);
+  return getOkStatus();
+#else
+  return getInternalErrorStatus("runtime not compiled with CUDA support");
+#endif
+}
+
+//===----------------------------------------------------------------------===//
+// Convenience Functions
+//===----------------------------------------------------------------------===//
+
+StatusOr<int64_t> mlirtrt::runtime::runExecutorLuaScript(
+    std::string_view luaScript,
+    LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
   ADD_RUNTIME_MODULE_RANGE("runtime_runExecutorLuaScript");
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
     return client.getStatus();
 
-  sol::state lua;
-  lua.open_libraries(sol::lib::base, sol::lib::string);
-  registerLuaRuntimeMethods(lua.lua_state(), RuntimeSessionOptions(),
-                            &(*client)->getPinnedMemorAllocator(),
-                            &(*client)->getAllocTracker(),
-                            &(*client)->getResourceTracker());
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+  StatusOr<RuntimeSessionOptions> options =
+      RuntimeSessionOptions::createUsingSingleHostMpi();
+#else
+  StatusOr<RuntimeSessionOptions> options = RuntimeSessionOptions();
+#endif
 
+  MTRT_ASSIGN_OR_RETURN(
+      std::unique_ptr<LuaRuntimeSession> session,
+      LuaRuntimeSession::create(std::move(*options), ExecutableView(nullptr),
+                                std::move(registerExtraLuaFuncs)));
+
+  sol::state &lua = session->getLuaState();
   sol::protected_function_result result = lua.script(luaScript);
   if (!result.valid()) {
     sol::error err = result;
@@ -149,87 +293,9 @@ mlirtrt::runtime::runExecutorLuaScript(std::string_view luaScript) {
   return returnCode;
 }
 
-/// If the program was compiled with NCCL enabled, then check for the
-/// NCCL uuid if the system has multiple GPUs.
-static Status maybeCheckForValidNcclUuid(const RuntimeSessionOptions &options) {
-#if MLIR_EXECUTOR_ENABLE_NCCL
-
-  if (options.getNumDevices() > 1 && options.getNcclUuid().empty())
-    return getInternalErrorStatus(
-        "number of devices is {0} but the NCCL UUID is empty",
-        options.getNumDevices());
-
-  MTRT_DBG("creating session with DeviceID={0}/{1} UUID={2}",
-           options.getDeviceId(), options.getNumDevices(),
-           options.getNcclUuid());
-
-#endif
-  return getOkStatus();
-}
-
-/// Create an execution state. This will setup a Lua environment and invoke
-/// global initialization.
-StatusOr<std::unique_ptr<RuntimeSession>>
-mlirtrt::runtime::createRuntimeSessionWithLuaBackend(
-    ExecutableView executable, const RuntimeSessionOptions &options) {
-  ADD_RUNTIME_MODULE_RANGE("runtime_loadExecutable");
-
-  MTRT_RETURN_IF_ERROR(maybeCheckForValidNcclUuid(options));
-
-  auto pinnedMemoryAllocator = std::make_unique<PinnedMemoryAllocator>();
-  auto allocTracker = std::make_unique<AllocTracker>();
-  auto resourceTracker = std::make_unique<ResourceTracker>();
-
-  sol::state lua;
-  lua.open_libraries(sol::lib::base, sol::lib::string);
-  registerLuaRuntimeMethods(lua.lua_state(), options,
-                            pinnedMemoryAllocator.get(), allocTracker.get(),
-                            resourceTracker.get());
-
-  // Load globals into the context.
-  // TODO: eliminate this copy, we already own the executable.
-  MTRT_DBGF("loading %lu constants", executable.getConstants().size());
-  for (ConstantView constant : executable.getConstants()) {
-    size_t bytes = constant.size();
-
-    MTRT_ASSIGN_OR_RETURN(StatusOr<PointerInfo> buffer,
-                          mlirtrt::runtime::allocate(*allocTracker,
-                                                     PointerType::host, bytes,
-                                                     alignof(char), {}));
-    std::memcpy(reinterpret_cast<void *>(buffer->ptr),
-                reinterpret_cast<const void *>(constant.data()), bytes);
-    lua[constant.getName()] = buffer->ptr;
-  }
-  // Load the main Lua script.
-  sol::protected_function_result result =
-      lua.script(executable.getCode(), sol::script_pass_on_error);
-  if (!result.valid()) {
-    sol::error err = result;
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to load lua script: ", err.what());
-  }
-
-  // Call the executor_init_globals function, if present.
-  sol::protected_function initGlobals = lua["executor_init_globals"];
-  if (initGlobals.get_type() == sol::type::function) {
-    if (!initGlobals.is<std::function<void()>>())
-      return getStatusWithMsg(StatusCode::InternalError,
-                              "executor_init_globals function should have "
-                              "signature function<void()>");
-    sol::protected_function_result result = initGlobals();
-    if (!result.valid()) {
-      sol::error err(result);
-      return getStatusWithMsg(StatusCode::InternalError,
-                              "failed to initialize globals: ", err.what());
-    }
-  }
-  return std::make_unique<RuntimeSession>(
-      options, executable, std::move(lua), std::move(pinnedMemoryAllocator),
-      std::move(allocTracker), std::move(resourceTracker));
-}
-
 StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
-    std::unique_ptr<Executable> executable) {
+    std::unique_ptr<Executable> executable,
+    LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs) {
 
   StatusOr<std::unique_ptr<RuntimeClient>> client = RuntimeClient::create();
   if (!client.isOk())
@@ -244,13 +310,13 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
   if (!options.isOk())
     return options.getStatus();
 
-  StatusOr<std::unique_ptr<RuntimeSession>> session =
-      createRuntimeSessionWithLuaBackend(executable->getView(), *options);
-  if (!session.isOk())
-    return session.getStatus();
+  MTRT_ASSIGN_OR_RETURN(
+      std::unique_ptr<LuaRuntimeSession> session,
+      LuaRuntimeSession::create(*options, executable->getView(),
+                                std::move(registerExtraLuaFuncs)));
 
   // Call the main function, if present.
-  sol::state_view lua((*session)->getLuaState());
+  sol::state &lua = session->getLuaState();
   sol::protected_function mainObj = lua["main"];
   if (mainObj.get_type() != sol::type::function)
     return getStatusWithMsg(StatusCode::InternalError,
@@ -269,22 +335,6 @@ StatusOr<int64_t> mlirtrt::runtime::runExecutorExecutable(
   return result.get<int64_t>();
 }
 
-/// Set the primary stream for the loaded executable to use.
-Status mlirtrt::runtime::setRuntimeSessionCudaStream(RuntimeSession &session,
-                                                     cudaStream_t stream) {
-  sol::state_view state(session.getLuaState());
-  state["stream0"] = CudaStreamPtr(stream);
-  return getOkStatus();
-}
-
-/// Get the primary stream for the loaded executable to use.
-cudaStream_t
-mlirtrt::runtime::getRuntimeSessionCudaStream(RuntimeSession &session) {
-  sol::state_view state(session.getLuaState());
-  auto stream = state["stream0"].get<CudaStreamPtr>();
-  return stream;
-}
-
 /// A "memref" in executor IR is packed into a table of
 /// (allocated_ptr, aligned_ptr, offset, [shape list], [stride list]) when
 /// passed across the function I/O
@@ -297,9 +347,8 @@ static Status pushMemRefTableArg(sol::state_view &lua, AllocTracker &tracker,
   assert(ptr != 0 && "expected non-null pointer");
   MTRT_DBG("pushing memref argument ptr={0} shape=({1:$[,]}) "
            "strides=({2:$[,]}) bitwidth={3} size={4}",
-           value.getVoidPtr(), fmtRange(value.getShape()),
-           fmtRange(value.getStrides()), value.getElementBitWidth(),
-           value.getTotalFootprintInBytes());
+           value.getVoidPtr(), value.getShape(), value.getStrides(),
+           value.getElementBitWidth(), value.getTotalFootprintInBytes());
 
   std::vector<sol::object> memrefTable;
   memrefTable.reserve(3 + 2 * value.getRank());
@@ -374,8 +423,8 @@ static Status pushScalarArgument(sol::state_view &lua,
   return getOkStatus();
 }
 
-static Status valiateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
-                                              const TypeUnionView &sigArg) {
+static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
+                                               const TypeUnionView &sigArg) {
   if (sigArg.isa<MemrefTypeView>()) {
     if (runArg->getKind() != RuntimeValue::Kind::MemRef)
       return getInvalidArgStatus(
@@ -401,14 +450,13 @@ static Status valiateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
           return getInvalidArgStatus(
               "all shape dimensions extents must be "
               "non-negative but received shape [{0:$[, ]}]",
-              mlirtrt::fmtRange(value->getShape()));
+              value->getShape());
         if (view.getShape()[i] >= 0 &&
             view.getShape()[i] != value->getShape()[i])
           return getInvalidArgStatus(
               "Runtime shape mismatch. Expected [{0:$[, ]}] "
               "but received [{1:$[, ]}]",
-              mlirtrt::fmtRange(view.getShape()),
-              mlirtrt::fmtRange(value->getShape()));
+              view.getShape(), value->getShape());
       }
     }
 
@@ -417,21 +465,16 @@ static Status valiateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
         if (value->getStrides()[i] < 0)
           return getInvalidArgStatus(
               "all strides must be non-negative but received shape [{0:$[, ]}]",
-              mlirtrt::fmtRange(value->getStrides()));
-        // if (view.getStrides()[i] >= 0 &&
-        //     view.getStrides()[i] != value->getStrides()[i])
-          // return getInvalidArgStatus(
-          //     "Runtime stride mismatch. Expected [{0:$[, ]}] "
-          //     "but received [{1:$[, ]}]",
-          //     mlirtrt::fmtRange(view.getStrides()),
-          //     mlirtrt::fmtRange(value->getStrides()));
+              value->getStrides());
+        if (view.getStrides()[i] >= 0 &&
+            view.getStrides()[i] != value->getStrides()[i])
           // Allow the special case of non-canonical stride for unit dimensions
-          // if (!(view.getShape()[i] == 1 && view.getStrides()[i] == 1))
-          //   return getInvalidArgStatus(
-          //       "Runtime stride mismatch!!!!!!. Expected [{0:$[, ]}] "
-          //       "but received [{1:$[, ]}]",
-          //       mlirtrt::fmtRange(view.getStrides()),
-          //       mlirtrt::fmtRange(value->getStrides()));
+          // See https://github.com/pytorch/pytorch/issues/99803 for more detail
+          if (value->getShape()[i] != 1 || value->getStrides()[i] != 1)
+            return getInvalidArgStatus(
+                "Runtime stride mismatch. Expected [{0:$[, ]}] "
+                "but received [{1:$[, ]}]",
+                view.getStrides(), value->getStrides());
       }
     }
 
@@ -461,16 +504,16 @@ static Status valiateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
 
 StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 runtime::executeFunctionWithLuaBackend(
-    RuntimeSession &session, std::string_view name,
+    LuaRuntimeSession &session, std::string_view name,
     llvm::ArrayRef<RuntimeValue *> inputArgs,
     llvm::ArrayRef<RuntimeValue *> outputArgs,
-    std::optional<cudaStream_t> stream) {
+    std::optional<CudaStream> stream) {
 
   FunctionView meta = session.getExecutable().getFunction(name);
   FunctionSignatureView sig = meta.getSignature();
 
   // Call the main function, if present.
-  sol::state_view lua(session.getLuaState());
+  sol::state &lua = session.getLuaState();
   AllocTracker &tracker = session.getAllocTracker();
   sol::protected_function funcObj = lua[name];
   if (funcObj.get_type() != sol::type::function)
@@ -493,7 +536,7 @@ runtime::executeFunctionWithLuaBackend(
 
   // Validate the inferred Lua function type here against the signature.
   for (unsigned i = 0; i < inputArgs.size(); ++i) {
-    auto status = valiateArgsTypesAgainstFuncArgs(inputArgs[i], sig.getArg(i));
+    auto status = validateArgsTypesAgainstFuncArgs(inputArgs[i], sig.getArg(i));
     if (!status.isOk())
       return getInvalidArgStatus(
           "Input argument {0} validation failed against "
@@ -502,7 +545,7 @@ runtime::executeFunctionWithLuaBackend(
   }
   for (unsigned i = 0; i < outputArgs.size(); ++i) {
     auto status =
-        valiateArgsTypesAgainstFuncArgs(outputArgs[i], sig.getOutputArg(i));
+        validateArgsTypesAgainstFuncArgs(outputArgs[i], sig.getOutputArg(i));
     if (!status.isOk())
       return getInvalidArgStatus(
           "Output argument {0} validation failed against "
@@ -539,7 +582,7 @@ runtime::executeFunctionWithLuaBackend(
   }
 
   if (stream)
-    RETURN_STATUS_IF_ERROR(setRuntimeSessionCudaStream(session, *stream));
+    RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
 
   // If the number of arguments exceed a particular threshold, then
   // we pass arguments packed into a table, otherwise we pass as arguments.

@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Lua/Modules/TensorRT/TensorRTModule.h"
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
@@ -293,9 +294,10 @@ prepareBuffers(const AllocTracker &allocTracker,
     // use this case as a chance to make a correction and copy a buffer from
     // device-to-host.
     if (location == nvinfer1::TensorLocation::kDEVICE &&
-        !buffer.isDeviceVisible()) {
-      mlir_trt_unreachable("expected device buffer");
-    }
+        !buffer.isDeviceVisible())
+      return getInvalidArgStatus(
+          "attempted to invoke a TensorRT engine with a non-device-visible "
+          "buffer where a device buffer was expected");
 
     // If TRT expect's the buffer to be on the host (e.g. shape tensor), then we
     // should copy the device buffer to a page-locked staging host buffer.
@@ -386,12 +388,16 @@ void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
   };
 
   lua["_trtrt_load"] =
-      [allocTracker](
-          sol::this_state state, std::shared_ptr<nvinfer1::IRuntime> &runtime,
-          uintptr_t pointer) -> std::shared_ptr<NvInferEngineWrapper> {
+      [allocTracker](sol::this_state state,
+                     std::shared_ptr<nvinfer1::IRuntime> &runtime,
+                     uintptr_t pointer,
+                     size_t size) -> std::shared_ptr<NvInferEngineWrapper> {
     ADD_TENSORRT_MODULE_RANGE("trtrt_load");
     const AllocTracker &tracker = *allocTracker;
     MTRT_DBGF("%s", "loading nvinfer cuda engine");
+    assert(size <= tracker.get(pointer).size &&
+           "specified engine size is smaller than loaded serialized "
+           "engine buffer");
     return std::make_shared<NvInferEngineWrapper>(runtime, pointer,
                                                   tracker.get(pointer).size);
   };

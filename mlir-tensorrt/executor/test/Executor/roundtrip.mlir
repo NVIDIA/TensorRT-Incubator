@@ -626,3 +626,59 @@ func.func @table_extract_table(%arg0: !executor.table<i32, !executor.table<f32, 
 //  CHECK-SAME: %[[arg0:.+]]: !executor.table<i32, !executor.table<f32, f32>>)
 //       CHECK:     %[[v0:.+]] = executor.table.get %[[arg0]][1] : <i32, !executor.table<f32, f32>>
 //       CHECK:     return %[[v0]] : !executor.table<f32, f32>
+
+// -----
+
+func.func @my_coro(%arg0: index, %arg1: i32) -> i32 {
+  %c1_i32 = arith.constant 1 : i32
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %0 = scf.for %i = %c0 to %arg0 step %c1 iter_args(%acc = %arg1) -> i32 {
+    %next = arith.addi %acc, %c1_i32 : i32
+    executor.coro_yield %next : i32
+    scf.yield %next : i32
+  }
+  return %0 : i32
+}
+
+// CHECK-LABEL: func.func @my_coro
+//  CHECK-SAME: (%[[arg0:.+]]: index, %[[arg1:.+]]: i32) -> i32 {
+//       CHECK:     %[[c1_i32:.+]] = arith.constant 1 : i32
+//       CHECK:     %[[c0:.+]] = arith.constant 0 : index
+//       CHECK:     %[[c1:.+]] = arith.constant 1 : index
+//       CHECK:     %[[v0:.+]] = scf.for %[[arg2]] = %[[c0]] to %[[arg0]] step %[[c1]] iter_args(%[[arg3]] = %[[arg1]]) -> (i32)
+//       CHECK:       %[[v1:.+]] = arith.addi %[[arg3]], %[[c1_i32]] : i32
+//       CHECK:       executor.coro_yield %[[v1]] : i32
+//       CHECK:       scf.yield %[[v1]] : i32
+//       CHECK:     return %[[v0]] : i32
+
+
+// -----
+
+func.func @coro(%arg0: f32, %arg1: i32) -> i32 {
+  %c2_i32 = arith.constant 2 : i32
+  executor.coro_yield %c2_i32 : i32
+  return %c2_i32 : i32
+}
+
+func.func @coro_await() -> (i32) {
+  %c0 = arith.constant 0 : i32
+  %c0_f32 = arith.constant 0.0 : f32
+  %coro = executor.coro_create @coro : (f32, i32) -> i32
+  %0:2 = executor.coro_await %coro (%c0_f32, %c0 : f32, i32) : (f32, i32) -> i32
+  %1:2 = executor.coro_await %coro () : (f32, i32) -> i32
+  return %1#1 : i32
+}
+
+// CHECK-LABEL: func.func @coro
+//  CHECK-SAME: (%[[arg0:.+]]: f32, %[[arg1:.+]]: i32) -> i32 {
+//       CHECK:     %[[c2_i32:.+]] = arith.constant 2 : i32
+//       CHECK:     executor.coro_yield %[[c2_i32]] : i32
+//       CHECK:     return %[[c2_i32]] : i32
+// CHECK-LABEL: func.func @coro_await
+//       CHECK:     %[[c0_i32:.+]] = arith.constant 0 : i32
+//       CHECK:     %[[cst:.+]] = arith.constant 0.000000e+00 : f32
+//       CHECK:     %[[v0:.+]] = executor.coro_create @coro : (f32, i32) -> i32
+//       CHECK:     %[[status:status.*]], %[[results:.+]] = executor.coro_await %[[v0]](%[[cst]], %[[c0_i32]] : f32, i32) : (f32, i32) -> i32
+//       CHECK:     %[[status_0:.+]], %[[results_1:.+]] = executor.coro_await %[[v0]]() : (f32, i32) -> i32
+//       CHECK:     return %[[results_1]] : i32

@@ -367,7 +367,11 @@ struct HostShapeConstantsToAllocTensorPattern
   LogicalResult matchAndRewrite(arith::ConstantOp op,
                                 PatternRewriter &rewriter) const override {
     auto elementsAttr = dyn_cast<ElementsAttr>(op.getValue());
-    if (!elementsAttr || !isa<RankedTensorType>(elementsAttr.getType()))
+    if (!elementsAttr ||
+        // Only tensor-typed elements are supported.
+        !isa<RankedTensorType>(elementsAttr.getType())
+        // Complex element types are not supported.
+        || !elementsAttr.getElementType().isIntOrIndexOrFloat())
       return failure();
     if (elementsAttr.getNumElements() >
         kHostConstantToFromElementsNumElementsLimit)

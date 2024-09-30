@@ -128,6 +128,13 @@ ExecutorTypeConverter::ExecutorTypeConverter(
   FloatType f64Type = Float64Type::get(ctx);
 
   // Add conversions for supported POD types.
+  addConversion([&](FunctionType t) -> std::optional<Type> {
+    SmallVector<Type> convertedInputs, convertedResults;
+    if (failed(convertTypes(t.getInputs(), convertedInputs)) ||
+        failed(convertTypes(t.getResults(), convertedResults)))
+      return std::nullopt;
+    return FunctionType::get(t.getContext(), convertedInputs, convertedResults);
+  });
   addConversion(
       [indexType = getIndexType()](IndexType t) { return indexType; });
   addConversion([](IntegerType t) -> std::optional<Type> {

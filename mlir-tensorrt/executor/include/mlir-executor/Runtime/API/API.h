@@ -451,6 +451,9 @@ public:
   /// Return a vector of FunctionViews.
   llvm::SmallVector<FunctionView> getFunctions() const;
 
+  /// Allow contextual conversion to bool for checking validity.
+  operator bool() const { return view != nullptr; }
+
 protected:
   const impl::Executable *view;
 };
@@ -809,7 +812,7 @@ private:
 /// by the caller. For CUDA allocations, a stream may optionally be provided.
 StatusOr<PointerInfo> allocate(AllocTracker &tracker, PointerType type,
                                uint64_t size, std::optional<uint32_t> alignment,
-                               std::optional<cudaStream_t> stream);
+                               std::optional<CudaStream> stream);
 
 /// Synchronously dealloates the specified pointer. The PointerInfo from
 /// `tracker` is used to determine the method of dceallocation (e.g. `std::free`
@@ -817,7 +820,7 @@ StatusOr<PointerInfo> allocate(AllocTracker &tracker, PointerType type,
 /// its tracking set. If the pointer is absent from `tracker`, an error is
 /// returned.
 Status safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
-                      std::optional<cudaStream_t> stream = {});
+                      std::optional<CudaStream> stream = {});
 
 //===----------------------------------------------------------------------===//
 // ResourceTracker
@@ -857,21 +860,13 @@ private:
 /// read-only view to the Executable's storage (e.g. constant data, code, etc).
 /// The Executable must outlive any RuntimeSessions that are created from it
 /// (and currently no reference counting is implemented).
-/// TODO: Make this a generic pure-virtual interface so that we can have
-/// different kinds of backends; Lua is an implementation detail and shouldn't
-/// be leaked through here.
 /// TODO: methods for accessing/setting default stream should be moved here.
 class RuntimeSession {
 public:
-  RuntimeSession(RuntimeSessionOptions options, ExecutableView executable,
-                 sol::state state,
-                 std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator,
-                 std::unique_ptr<AllocTracker> allocTracker,
-                 std::unique_ptr<ResourceTracker> resourceTracker);
+  RuntimeSession(RuntimeSessionOptions options, ExecutableView executable);
+  virtual ~RuntimeSession() {}
 
   ExecutableView getExecutable() const { return executable; }
-
-  lua_State *getLuaState() const { return state.lua_state(); }
 
   PinnedMemoryAllocator &getPinnedMemorAllocator() {
     return *pinnedMemoryAllocator;
@@ -881,15 +876,17 @@ public:
 
   ResourceTracker &getResourceTracker() { return *resourceTracker; }
 
-private:
+  /// Returns the options used to construct the session.
+  const RuntimeSessionOptions &getOptions() { return options; }
+
+protected:
   RuntimeSessionOptions options;
+
   ExecutableView executable;
 
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
-
-  sol::state state;
 };
 
 //===----------------------------------------------------------------------===//
@@ -919,7 +916,7 @@ public:
   allocateMemRef(PointerType addressSpace, int64_t bitsPerElement,
                  llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
                  std::optional<const Device *> device = {},
-                 std::optional<cudaStream_t> stream = {},
+                 std::optional<CudaStream> stream = {},
                  std::optional<ScalarType> scalarType = {});
 
   StatusOr<std::unique_ptr<MemRefValue>>
@@ -933,7 +930,7 @@ public:
   /// Frees the memory in `value`. The `stream` may optionally be provided
   /// for resources that can be deallocated asynchronously.
   Status deallocate(std::unique_ptr<MemRefValue> value,
-                    std::optional<cudaStream_t> stream = {});
+                    std::optional<CudaStream> stream = {});
 
   // Allocates a new host buffer and fills it with data present in the
   // `hostBuffer`.
@@ -945,19 +942,18 @@ public:
   /// the given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
   copyToDevice(const MemRefValue &hostBuffer, const Device &device,
-               std::optional<cudaStream_t> stream);
+               std::optional<CudaStream> stream);
 
   /// Allocates a new device buffer and fills it with data present on the host
   /// in the specified buffer. The allocation and copy are performed on the
   /// given stream.
   StatusOr<std::unique_ptr<MemRefValue>>
-  copyToHost(const MemRefValue &deviceMemRef,
-             std::optional<cudaStream_t> stream);
+  copyToHost(const MemRefValue &deviceMemRef, std::optional<CudaStream> stream);
 
   /// Copy from the given device MemRefValue to an existing MemRefValue on the
   /// host.
   Status copyToHost(const MemRefValue &deviceMemRef, MemRefValue &hostMemRef,
-                    std::optional<cudaStream_t> stream);
+                    std::optional<CudaStream> stream);
 
   /// Return the AllocTracker.
   AllocTracker &getAllocTracker() { return allocTracker; }
