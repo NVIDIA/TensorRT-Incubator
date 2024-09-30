@@ -31,13 +31,26 @@ class TestPooling:
         ],
     )
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16, tp.int8])
-    def test_maxpool_2d(self, kernel_dims, stride, padding, dtype):
+    @pytest.mark.parametrize("pool_type", ["max", "avg"])
+    def test_pool_2d(self, kernel_dims, stride, padding, dtype, pool_type):
         inp_tp = tp.reshape(tp.arange(64, dtype=dtype), (1, 1, 8, 8))
-        out = tp.maxpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
-        out_torch = torch.from_dlpack(out).to("cpu")
-
         torch_padding = (padding[0][0], padding[1][0])
-        pool_torch = torch.nn.MaxPool2d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
+
+        if pool_type == "max":
+            out = tp.maxpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
+            pool_torch = torch.nn.MaxPool2d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
+        elif pool_type == "avg":
+            if torch_padding != (0, 0):
+                pytest.skip(
+                    "https://github.com/NVIDIA/TensorRT-Incubator/issues/241: Tripy average pool is incorrect when padding != 0."
+                )
+
+            out = tp.avgpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
+            pool_torch = torch.nn.AvgPool2d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
+
+        out_torch = torch.from_dlpack(out).to("cpu")
+        if pool_type == "avg" and dtype == tp.int8:
+            pytest.skip("Torch average pool is not implemented for int8")
         expected = pool_torch(torch.from_dlpack(inp_tp).to("cpu"))
         assert torch.allclose(expected, out_torch)
         assert expected.shape == out_torch.shape
@@ -49,13 +62,21 @@ class TestPooling:
         ],
     )
     @pytest.mark.parametrize("dtype", [tp.float32, tp.float16])
-    def test_maxpool_3d(self, kernel_dims, stride, padding, dtype):
+    @pytest.mark.parametrize("pool_type", ["max", "avg"])
+    def test_pool_3d(self, kernel_dims, stride, padding, dtype, pool_type):
         inp_tp = tp.reshape(tp.arange(512, dtype=dtype), (1, 1, 8, 8, 8))
-        out = tp.maxpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
+        torch_padding = (padding[0][0], padding[1][0], padding[2][0])
+
+        if pool_type == "max":
+            out = tp.maxpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
+            pool_torch = torch.nn.MaxPool3d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
+        elif pool_type == "avg":
+            pytest.skip("https://github.com/NVIDIA/TensorRT-Incubator/issues/237: Average pooling is not functional.")
+            out = tp.avgpool(inp_tp, kernel_dims=kernel_dims, stride=stride, padding=padding)
+            pool_torch = torch.nn.AvgPool3d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
+
         out_torch = torch.from_dlpack(out).to("cpu")
 
-        torch_padding = (padding[0][0], padding[1][0], padding[2][0])
-        pool_torch = torch.nn.MaxPool3d(kernel_size=kernel_dims, stride=stride, padding=torch_padding)
         expected = pool_torch(torch.from_dlpack(inp_tp).to("cpu"))
         assert torch.allclose(expected, out_torch)
         assert expected.shape == out_torch.shape

@@ -128,6 +128,8 @@ default_constraints_all = {
     "unsqueeze": {"dim": 1},
     "var": {"dim": 0},
     "zeros": {"shape": tp.Tensor([3, 2])},
+    "maxpool": {"kernel_dims": (1, 1)},
+    "avgpool": {"kernel_dims": (1, 1)},
 }
 
 
