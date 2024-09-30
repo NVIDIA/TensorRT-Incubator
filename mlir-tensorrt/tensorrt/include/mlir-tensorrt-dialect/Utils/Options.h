@@ -149,7 +149,7 @@ public:
   void print(llvm::raw_ostream &os) const;
 
   /// Get a hash derived from the string representation of the options.
-  virtual llvm::hash_code getHash() const;
+  virtual std::optional<llvm::hash_code> getHash() const;
 
   virtual bool shouldInvalidateCache() const { return false; }
 
