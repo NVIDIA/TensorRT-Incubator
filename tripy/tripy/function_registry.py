@@ -100,7 +100,11 @@ class FuncOverload:
 
         def sanitize_name(annotation):
             # typing module annotations are likely to be better when pretty-printed due to including subscripts
-            return annotation if annotation.__module__ == "typing" else annotation.__qualname__
+            return (
+                annotation
+                if annotation.__module__ == "typing"
+                else f"{annotation.__module__}.{annotation.__qualname__}"
+            )
 
         def render_arg_type(arg: Any) -> str:
             # it is more useful to report more detailed types for sequences/tuples in error messages
@@ -116,7 +120,7 @@ class FuncOverload:
                 return f"List[Union[{', '.join(arg_types)}]]"
             if isinstance(arg, Tuple):
                 return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
-            return type(arg).__qualname__
+            return f"{type(arg).__module__}.{type(arg).__qualname__}"
 
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
             from collections.abc import Sequence as ABCSequence
