@@ -35,7 +35,8 @@
 
 namespace mlir {
 void registerTestTensorKindAnalysisPass();
-}
+void registerTestTensorRTShapeInferencePass();
+} // namespace mlir
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
@@ -44,6 +45,7 @@ int main(int argc, char **argv) {
                   mlir::affine::AffineDialect, mlir::quant::QuantizationDialect,
                   mlir::scf::SCFDialect>();
   mlir::registerTestTensorKindAnalysisPass();
+  mlir::registerTestTensorRTShapeInferencePass();
   mlir::func::registerInlinerExtension(registry);
   mlir::tensorrt::registerTensorRTTranslationCLOpts();
   mlir::tensorrt::registerTensorRTPasses();
