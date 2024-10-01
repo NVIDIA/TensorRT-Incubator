@@ -3510,6 +3510,7 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    Optional<TensorRT_ShapeTensor>:$output_shape,
     OptionalAttr<DenseF32ArrayAttr>:$scales,
     TensorRT_ResizeCoordinateTransformationAttr:$coordinateTransformation,
     TensorRT_ResizeRoundModeAttr:$nearestRounding,
@@ -3517,11 +3518,13 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
   );
   let results = (outs
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
-  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
-    if ($op.getScales().has_value())
+    if ($op.getOutputShape())
+      layer->setInput(1, *$output_shape);
+    else if ($op.getScales().has_value())
       layer->setScales($scales.value().begin(), $scales.value().size());
     else
       layer->setOutputDimensions(getNvInferDims($op.getType().getShape()));
@@ -3576,17 +3579,20 @@ def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    Optional<TensorRT_ShapeTensor>:$output_shape,
     OptionalAttr<DenseF32ArrayAttr>:$scales,
     TensorRT_ResizeCoordinateTransformationAttr:$coordinateTransformation,
     TensorRT_ResizeSelectorAttr:$selectorForSinglePixel
   );
   let results = (outs
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
-  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
-    if ($op.getScales().has_value())
+    if ($op.getOutputShape())
+      layer->setInput(1, *$output_shape);
+    else if ($op.getScales().has_value())
       layer->setScales($scales.value().begin(), $scales.value().size());
     else
       layer->setOutputDimensions(getNvInferDims($op.getType().getShape()));
@@ -3642,6 +3648,7 @@ def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    Optional<TensorRT_ShapeTensor>:$output_shape,
     OptionalAttr<DenseF32ArrayAttr>:$scales,
     TensorRT_ResizeCoordinateTransformationAttr:$coordinateTransformation,
     TensorRT_ResizeSelectorAttr:$selectorForSinglePixel,
@@ -3649,11 +3656,13 @@ def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
   );
   let results = (outs
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
-  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
-    if ($op.getScales().has_value())
+    if ($op.getOutputShape())
+      layer->setInput(1, *$output_shape);
+    else if ($op.getScales().has_value())
       layer->setScales($scales.value().begin(), $scales.value().size());
     else
       layer->setOutputDimensions(getNvInferDims($op.getType().getShape()));

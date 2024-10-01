@@ -20,7 +20,7 @@ from tripy.frontend import utils as frontend_utils
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int32"],
+        "T1": ["float32", "float16", "bfloat16", "int32"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )

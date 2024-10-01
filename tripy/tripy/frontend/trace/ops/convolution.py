@@ -85,7 +85,7 @@ class Convolution(BaseTraceOp):
 
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8"],
+        "T1": ["float32", "float16", "bfloat16"],
     },
     dtype_constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
 )

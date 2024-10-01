@@ -17,7 +17,6 @@
 
 from typing import Any, Sequence
 
-import tripy.frontend.utils as frontend_utils
 from tripy import export, utils
 from tripy.frontend.tensor import Tensor
 from tripy.utils import Result
@@ -30,7 +29,6 @@ class Parameter(Tensor):
     constant, enabling additional optimization opportunities.
     """
 
-    @frontend_utils.convert_inputs_to_tensors()
     def __init__(self, tensor: Any) -> None:
         """
         Args:
