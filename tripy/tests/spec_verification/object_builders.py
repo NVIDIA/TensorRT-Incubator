@@ -136,6 +136,8 @@ default_constraints_all = {
     "transpose": {"dim0": 0, "dim1": 1},
     "unsqueeze": {"dim": 1},
     "var": {"dim": 0},
+    "maxpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
+    "avgpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
     "zeros": {"shape": [3, 2]},
 }
 
