@@ -65,6 +65,6 @@ class TestLinear:
             weight_quant_dim=0,
         )
 
-        qlinear.load_from_state_dict(
+        qlinear.load_state_dict(
             {"weight_scale": tp.Parameter(tp.ones((20,))), "input_scale": tp.Parameter(tp.ones((20,)))}
         )

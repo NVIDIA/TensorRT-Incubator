@@ -63,23 +63,23 @@ class TestModule:
             "dummy2.nested.param": network.dummy2.nested.param,
         }
 
-    def test_load_from_state_dict_top_level_param(
+    def test_load_state_dict_top_level_param(
         self,
         network,
     ):
         state_dict = {"param": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
-        network.load_from_state_dict(state_dict)
+        network.load_state_dict(state_dict)
         assert network.param is state_dict["param"]
 
-    def test_load_from_state_dict_nested_param(
+    def test_load_state_dict_nested_param(
         self,
         network,
     ):
         state_dict = {"dummy1.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
-        network.load_from_state_dict(state_dict)
+        network.load_state_dict(state_dict)
         assert network.dummy1.nested.param is state_dict["dummy1.nested.param"]
 
-    def test_load_from_state_dict_with_different_shapes_fails(
+    def test_load_state_dict_with_different_shapes_fails(
         self,
         network,
     ):
@@ -88,9 +88,9 @@ class TestModule:
         with helper.raises(
             tp.TripyException, match=r"New parameter shape: \[3\] is not compatible with current shape: \[2\]"
         ):
-            network.load_from_state_dict(state_dict)
+            network.load_state_dict(state_dict)
 
-    def test_load_from_state_dict_with_different_dtype_fails(
+    def test_load_state_dict_with_different_dtype_fails(
         self,
         network,
     ):
@@ -99,7 +99,7 @@ class TestModule:
         with helper.raises(
             tp.TripyException, match="New parameter dtype: float16 is not compatible with current dtype: float32"
         ):
-            network.load_from_state_dict(state_dict)
+            network.load_state_dict(state_dict)
 
     def test_mixed_collections_not_registered(self, network):
         network.mix_param_list = [True, tp.Parameter(1)]
@@ -153,20 +153,20 @@ class TestModuleWithList:
             "dummy_list.1.nested.param": list_network.dummy_list[1].nested.param,
         }
 
-    def test_load_from_state_dict_top_level_param(
+    def test_load_state_dict_top_level_param(
         self,
         list_network,
     ):
         state_dict = {"params.0": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
-        list_network.load_from_state_dict(state_dict)
+        list_network.load_state_dict(state_dict)
         assert list_network.params[0] is state_dict["params.0"]
 
-    def test_load_from_state_dict_nested_param(
+    def test_load_state_dict_nested_param(
         self,
         list_network,
     ):
         state_dict = {"dummy_list.0.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
-        list_network.load_from_state_dict(state_dict)
+        list_network.load_state_dict(state_dict)
         assert list_network.dummy_list[0].nested.param is state_dict["dummy_list.0.nested.param"]
 
     def test_modify_list_param(self, list_network):
@@ -205,20 +205,20 @@ class TestModuleWithDict:
             "dummy_dict.op1.nested.param": dict_network.dummy_dict["op1"].nested.param,
         }
 
-    def test_load_from_state_dict_top_level_param(
+    def test_load_state_dict_top_level_param(
         self,
         dict_network,
     ):
         state_dict = {"params.param": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
-        dict_network.load_from_state_dict(state_dict)
+        dict_network.load_state_dict(state_dict)
         assert dict_network.params["param"] is state_dict["params.param"]
 
-    def test_load_from_state_dict_nested_param(
+    def test_load_state_dict_nested_param(
         self,
         dict_network,
     ):
         state_dict = {"dummy_dict.op0.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
-        dict_network.load_from_state_dict(state_dict)
+        dict_network.load_state_dict(state_dict)
         assert dict_network.dummy_dict["op0"].nested.param is state_dict["dummy_dict.op0.nested.param"]
 
     def test_modify_dict_param(self, dict_network):
@@ -255,7 +255,7 @@ class TestMixedModule:
             "mixed_dict.dummy.nested.param": tensor,
             "mixed_dict.dummy_nested.param": tensor,
         }
-        module.load_from_state_dict(external_state_dict)
+        module.load_state_dict(external_state_dict)
         assert module.mixed_list[0].nested.param is tensor
         assert module.mixed_list[1].param is tensor
         assert module.mixed_dict["dummy"].nested.param is tensor
@@ -279,7 +279,7 @@ class TestComplexModule:
             "nets.list_net.params.0": tensor,
             "nets.list_net.dummy_list.0.nested.param": tensor,
         }
-        module.load_from_state_dict(external_state_dict)
+        module.load_state_dict(external_state_dict)
         assert module.nets["dict_net"].params["param"] is tensor
         assert module.nets["list_net"].params[0] is tensor
         assert module.nets["dict_net"].dummy_dict["op0"].nested.param is tensor
