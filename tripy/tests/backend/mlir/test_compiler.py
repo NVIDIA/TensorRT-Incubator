@@ -66,6 +66,6 @@ class TestErrorMapping:
 
                 with pytest.raises(
                     TripyException,
-                    match=".*This is the first level of context\n    This is the second level of context\n.*",
+                    match=".*This is the first level of context\n    This is the second level of context.\n.*",
                 ) as exc:
                     map_error_to_user_code_and_raise(flat_ir, exc, err_str)

@@ -25,7 +25,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Where(BaseTraceOp):
 
     def infer_shape_output_idxs(self, inputs):
@@ -61,6 +60,7 @@ class Where(BaseTraceOp):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         self.outputs[0].dtype = self.inputs[1].dtype
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import bool as tp_bool
         from tripy.common.datatype import int32

@@ -23,7 +23,6 @@ from tripy.frontend.trace.ops.utils import InferLenPolicies
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Cast(BaseTraceOp):
     dtype: "tripy.common.dtype"
 
@@ -46,6 +45,7 @@ class Cast(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32, int64, float32, bool as tp_bool
         from tripy.flat_ir.ops import CompareOp, ConvertOp, ConstantOp, DynamicBroadcastOp

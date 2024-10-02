@@ -201,26 +201,6 @@ class BaseTraceOp(abc.ABC):
         """
         ...
 
-    def convert_to_flat_ir(
-        self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], flat_ir: Optional["FlatIR"] = None
-    ) -> None:
-        """
-        Convert the trace operation to Flat IR representation.
-
-        This method decides whether to call the wrapped or unwrapped version
-        of to_flat_ir based on the is_flat_ir_conversion_wrapped flag.
-
-        Args:
-            inputs: List of input FlatIRTensor objects
-            outputs: List of output FlatIRTensor objects
-            flat_ir: Optional FlatIR object for the wrapped version
-        """
-        try:
-            self.to_flat_ir(inputs, outputs)
-        except TypeError as e:
-            assert "to_flat_ir() missing 1 required positional argument: 'flat_ir'" in str(e)
-            self.to_flat_ir(inputs, outputs, flat_ir)
-
     def str_skip_fields(self) -> Set[str]:
         """
         Returns names of dataclass fields to skip when generating a string representation of the op.

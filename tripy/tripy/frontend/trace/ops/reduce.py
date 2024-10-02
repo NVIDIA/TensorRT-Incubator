@@ -30,7 +30,6 @@ import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Reduce(BaseTraceOp):
     class Kind(enum.Enum):
         def __init__(self, op, init_value):
@@ -58,6 +57,7 @@ class Reduce(BaseTraceOp):
             self.dim = [idx if idx >= 0 else idx + self.inputs[0].rank for idx in self.dim]
             self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -78,7 +78,6 @@ class Reduce(BaseTraceOp):
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class ArgMinMax(Reduce):
     class Kind:
         ARG_MAX = "argmax"
@@ -90,6 +89,7 @@ class ArgMinMax(Reduce):
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.int32
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor

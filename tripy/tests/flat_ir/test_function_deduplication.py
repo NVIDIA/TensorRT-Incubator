@@ -77,12 +77,11 @@ def test_is_structurally_equivalent():
             flat_ir.register_tensor(callee_out)
             setattr(callee_out, "caller_tensor", original_out)
 
-        func = FlatIRFunction(name, [callee_input], callee_outputs)
         mock_op = MockOp([callee_input], [callee_outputs[0]])
         const_op = ConstantOp.build([], [callee_outputs[1]], data=[3, 4, 5])
         callee_outputs[1].producer = const_op
 
-        func.ops.extend([mock_op, const_op])
+        func = FlatIRFunction(name, [callee_input], callee_outputs, [mock_op, const_op])
         for out in output_tensors:
             out.producer = func
 
