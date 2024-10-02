@@ -43,7 +43,8 @@ class FlatIR:
 
     def __str__(self) -> str:
         """Generate a string representation of the FlatIR."""
-        from tripy.flat_ir.ops.base import FlatIRFunction, BaseFlatIROp
+        from tripy.flat_ir.function import FlatIRFunction
+        from tripy.flat_ir.ops.base import BaseFlatIROp
 
         ir = []
 
@@ -96,7 +97,8 @@ class FlatIR:
         from mlir_tensorrt.compiler import ir
         from mlir_tensorrt.compiler.dialects import func as func_dialect
         from tripy.backend.mlir.utils import make_ir_context, make_tensor_location
-        from tripy.flat_ir.ops.base import FlatIRFunction, BaseFlatIROp
+        from tripy.flat_ir.function import FlatIRFunction
+        from tripy.flat_ir.ops.base import BaseFlatIROp
 
         def _base_op_to_mlir(op, mlir_tensor_map):
             op_inputs = [mlir_tensor_map[input_tensor.name] for input_tensor in op.inputs]
@@ -376,7 +378,8 @@ class FlatIR:
         """
         Integrate a subgraph delineated by the given inputs and outputs into this FlatIR.
         """
-        from tripy.flat_ir.ops.base import BaseFlatIROp, FlatIRFunction
+        from tripy.flat_ir.function import FlatIRFunction
+        from tripy.flat_ir.ops.base import BaseFlatIROp
         from tripy.flat_ir.tensor import FlatIRTensor
         from tripy.flat_ir.ops import ConstantOp
 

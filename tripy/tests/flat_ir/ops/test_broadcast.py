@@ -33,6 +33,6 @@ class TestBroadcastOp:
         broadcast = func_broadcast.ops[-1]
         assert isinstance(broadcast, DynamicBroadcastOp)
         assert re.match(
-            r"t_inter3: \[rank=\(2\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter4, t_inter2, broadcast_dim=\[\]\)",
+            r"t_inter[0-9]+: \[rank=\(2\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[\]\)",
             str(broadcast),
         )

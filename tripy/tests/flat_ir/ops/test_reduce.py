@@ -17,8 +17,8 @@
 
 import tripy as tp
 from tripy.frontend.trace import Trace
+from tripy.flat_ir.function import FlatIRFunction
 from tripy.flat_ir.ops import ArgMinMaxOp, ConvertOp, DivideOp, DynamicBroadcastOp, MulOp, ReduceOp
-from tripy.flat_ir.ops.base import FlatIRFunction
 import re
 
 
