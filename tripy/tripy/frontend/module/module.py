@@ -147,7 +147,7 @@ class Module:
 
         return state_dict
 
-    def load_from_state_dict(self, state_dict: Dict[str, Parameter]) -> None:
+    def load_state_dict(self, state_dict: Dict[str, Parameter]) -> None:
         r"""
         Loads parameters from the provided ``state_dict`` into the current module.
         This will recurse over any nested child modules.
@@ -174,7 +174,7 @@ class Module:
             print(f"Before: {module.param}")
 
             state_dict["param"] = tp.Parameter(tp.zeros((2,), dtype=tp.float32))
-            module.load_from_state_dict(state_dict)
+            module.load_state_dict(state_dict)
 
             print(f"After: {module.param}")
 
