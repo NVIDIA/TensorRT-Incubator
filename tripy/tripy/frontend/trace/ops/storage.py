@@ -51,22 +51,21 @@ class Storage(BaseTraceOp):
 
         self.data = data
         if isinstance(data, runtime.MemRefValue):
-            assert not any([dtype, device]), "Internal usage: dtype/device are inherited from memref."
             self.dtype = mlir_utils.convert_runtime_dtype_to_tripy_dtype(self.data.dtype)
             self.shape = tuple(data.shape)
-            self.device = tp_device("gpu") if data.address_space == runtime.PointerType.device else tp_device("cpu")
+            self.device = tp_device(("gpu" if data.address_space == runtime.PointerType.device else "cpu", 0))
             self.has_memref = True
         elif common_utils.is_empty(data):
             # special case: empty tensor
             self.dtype = utils.default(dtype, datatype.float32)
             self.shape = tuple(utils.get_shape(data))
             self.data = memref.create_empty_memref(shape=self.shape, dtype=self.dtype)
-            self.device = utils.default(device, tp_device("gpu"))
+            self.device = utils.default(device, tp_device(("gpu", 0)))
             self.has_memref = True
         else:
             self.dtype = dtype if dtype else common_utils.get_element_type(data)
             self.shape = tuple(utils.get_shape(data))
-            self.device = utils.default(device, tp_device("gpu"))
+            self.device = utils.default(device, tp_device(("gpu", 0)))
             self.has_memref = False
 
     # for storage, we will always consider the result to be an ordinary tensor
@@ -90,7 +89,7 @@ class Storage(BaseTraceOp):
 
     def infer_devices(self):
         # TODO(#155): Fix allocation on host
-        self.outputs[0].device = tp_device("gpu")
+        self.outputs[0].device = tp_device(("gpu", 0))
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp

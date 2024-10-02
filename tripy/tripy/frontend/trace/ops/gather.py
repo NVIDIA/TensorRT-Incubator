@@ -55,7 +55,7 @@ class Gather(BaseTraceOp):
     def infer_devices(self):
         from tripy.common import device
 
-        self.outputs[0].device = device("gpu")
+        self.outputs[0].device = self.inputs[0].device
 
     @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
