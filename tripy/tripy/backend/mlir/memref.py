@@ -26,7 +26,7 @@ import mlir_tensorrt.runtime.api as runtime
 
 
 @lru_cache(maxsize=None)
-def _cached_create_memref(shape: Sequence[int], dtype: str, device_kind: str, stream):
+def _cached_create_empty_memref(shape: Sequence[int], dtype: str, device_kind: str, stream):
     mlirtrt_device = mlir_utils.MLIRRuntimeClient().get_devices()[0] if device_kind == "gpu" else None
     mlir_dtype = mlir_utils.convert_tripy_dtype_to_runtime_dtype(dtype)
     return mlir_utils.MLIRRuntimeClient().create_memref(
@@ -55,9 +55,10 @@ def create_empty_memref(
 
     """
     if use_cache:
-        return _cached_create_memref(tuple(shape), dtype, device.kind, stream)
+        assert common_utils.is_shape_empty(shape)
+        return _cached_create_empty_memref(tuple(shape), dtype, device.kind, stream)
     else:
-        return _cached_create_memref.__wrapped__(tuple(shape), dtype, device.kind, stream)
+        return _cached_create_empty_memref.__wrapped__(tuple(shape), dtype, device.kind, stream)
 
 
 def create_memref_view(data):

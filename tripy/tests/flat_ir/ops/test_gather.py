@@ -19,7 +19,7 @@ import pytest
 import tripy as tp
 
 from tripy.flat_ir.ops import DynamicGatherOp
-from tripy.flat_ir.ops.base import FlatIRFunction
+from tripy.flat_ir.function import FlatIRFunction
 from tripy.frontend.trace import Trace
 import re
 

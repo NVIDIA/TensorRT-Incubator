@@ -38,9 +38,6 @@ class BaseTraceOp(abc.ABC):
     outputs: List["TraceTensor"]
     """The output tensors of this operation"""
 
-    is_to_flat_ir_wrapped = False
-    """Flag indicating whether the to_flat_ir method has been wrapped"""
-
     @classmethod
     def build_internal(
         cls, inputs: List["TraceTensor"], outputs: List["TraceTensor"], *args, **kwargs
@@ -218,10 +215,11 @@ class BaseTraceOp(abc.ABC):
             outputs: List of output FlatIRTensor objects
             flat_ir: Optional FlatIR object for the wrapped version
         """
-        if self.is_to_flat_ir_wrapped:
-            self.to_flat_ir(inputs, outputs, flat_ir)
-        else:
+        try:
             self.to_flat_ir(inputs, outputs)
+        except TypeError as e:
+            assert "to_flat_ir() missing 1 required positional argument: 'flat_ir'" in str(e)
+            self.to_flat_ir(inputs, outputs, flat_ir)
 
     def str_skip_fields(self) -> Set[str]:
         """

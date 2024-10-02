@@ -478,7 +478,8 @@ def wraps_to_flat_ir_to_func(cls):
     def wrapped_to_flat_ir(
         self, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], flat_ir: "FlatIR"
     ) -> None:
-        from tripy.flat_ir.ops.base import BaseFlatIROp, FlatIRFunction
+        from tripy.flat_ir.function import FlatIRFunction
+        from tripy.flat_ir.ops.base import BaseFlatIROp
 
         callee_inputs = [
             input_tensor.clone(reason_details=f"Function input cloned from {input_tensor}") for input_tensor in inputs
@@ -551,7 +552,6 @@ def wraps_to_flat_ir_to_func(cls):
             output_tensor.producer = flat_ir_function
 
     cls.to_flat_ir = wrapped_to_flat_ir
-    cls.is_to_flat_ir_wrapped = True
     return cls
 
 

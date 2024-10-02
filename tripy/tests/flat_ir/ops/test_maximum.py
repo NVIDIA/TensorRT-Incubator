@@ -18,8 +18,8 @@
 import re
 import tripy as tp
 from tripy.frontend.trace import Trace
+from tripy.flat_ir.function import FlatIRFunction
 from tripy.flat_ir.ops import MaxOp
-from tripy.flat_ir.ops.base import FlatIRFunction
 
 
 class TestMaxOp:

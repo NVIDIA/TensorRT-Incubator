@@ -18,7 +18,8 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from tripy.flat_ir.flat_ir import FlatIR
-from tripy.flat_ir.ops.base import FlatIRFunction, BaseFlatIROp
+from tripy.flat_ir.function import FlatIRFunction
+from tripy.flat_ir.ops.base import BaseFlatIROp
 from tripy.flat_ir.ops import ConstantOp
 from tripy.flat_ir.tensor import FlatIRTensor
 from tripy.common.device import device
@@ -39,7 +40,7 @@ class MockOp(BaseFlatIROp):
         return True
 
     def to_mlir(self, operands):
-        assert "Not implemented"
+        raise NotImplementedError()
 
 
 def test_is_structurally_equivalent():
