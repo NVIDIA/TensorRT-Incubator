@@ -28,9 +28,11 @@ import tripy as tp
 )
 def linear_block(tripy_dtype, torch_dtype):
 
+    NUM_LAYERS = 15
+
     class LinearBlock(tp.Module):
         def __init__(self):
-            self.layers = [tp.Linear(256, 256, bias=False, dtype=tripy_dtype) for _ in range(10)]
+            self.layers = [tp.Linear(256, 256, bias=False, dtype=tripy_dtype) for _ in range(NUM_LAYERS)]
             for layer in self.layers:
                 # Adjust the weights to prevent FP16 overflows:
                 weight = np.tile(np.array([[-1, 1], [1, -1]], dtype=TRIPY_TO_NUMPY[tripy_dtype]), (128, 128))
@@ -47,7 +49,7 @@ def linear_block(tripy_dtype, torch_dtype):
             self.layers = torch.nn.ModuleList(
                 [
                     torch.nn.Linear(256, 256, bias=False, dtype=torch_dtype, device=torch.device("cuda"))
-                    for _ in range(10)
+                    for _ in range(NUM_LAYERS)
                 ]
             )
 

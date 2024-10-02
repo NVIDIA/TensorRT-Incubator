@@ -288,15 +288,17 @@ MLIR_TRT_TO_TRIPY_DTYPE = {v: k for k, v in TRIPY_DTYPE_TO_MLIR_TRT.items()}
 
 
 def convert_tripy_dtype_to_runtime_dtype(dtype: datatype.dtype) -> runtime.ScalarTypeCode:
-    if dtype not in TRIPY_DTYPE_TO_MLIR_TRT:
+    try:
+        return TRIPY_DTYPE_TO_MLIR_TRT[dtype]
+    except KeyError:
         raise_error(f"Data type: '{dtype}' does not have a corresponding runtime data type")
-    return TRIPY_DTYPE_TO_MLIR_TRT.get(dtype)
 
 
 def convert_runtime_dtype_to_tripy_dtype(dtype: runtime.ScalarTypeCode) -> datatype.dtype:
-    if dtype not in MLIR_TRT_TO_TRIPY_DTYPE:
+    try:
+        return MLIR_TRT_TO_TRIPY_DTYPE[dtype]
+    except KeyError:
         raise_error(f"Data type: '{dtype}' does not have a corresponding tripy data type")
-    return MLIR_TRT_TO_TRIPY_DTYPE.get(dtype)
 
 
 def is_any_dim_dynamic(mlir_tensor):

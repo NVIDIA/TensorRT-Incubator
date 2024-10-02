@@ -22,6 +22,8 @@ from tripy import export
 from tripy.common.exception import TripyException
 from tripy.utils.json import Decoder, Encoder
 
+_VALID_KINDS = {"cpu", "gpu"}
+
 
 @export.public_api()
 @dataclass
@@ -60,27 +62,30 @@ class device:
             assert gpu_1.kind == "gpu"
             assert gpu_1.index == 1
         """
+        try:
+            # Fast constructor for the critical path. If a Tuple[str, int] is provided, then
+            # we bypass all the logic to parse the information from a string.
+            self.kind, self.index = device
+        except ValueError:
+            kind, _, index = device.partition(":")
+            kind = kind.lower()
 
-        kind, _, index = device.partition(":")
-        kind = kind.lower()
+            if index:
+                try:
+                    index = int(index)
+                except ValueError:
+                    raise TripyException(f"Could not interpret: {index} as an integer")
+            else:
+                index = 0
 
-        if index:
-            try:
-                index = int(index)
-            except ValueError:
-                raise TripyException(f"Could not interpret: {index} as an integer")
-        else:
-            index = 0
+            if index < 0:
+                raise TripyException(f"Device index must be a non-negative integer, but was: {index}")
 
-        if index < 0:
-            raise TripyException(f"Device index must be a non-negative integer, but was: {index}")
+            if kind not in _VALID_KINDS:
+                raise TripyException(f"Unrecognized device kind: {kind}. Choose from: {list(_VALID_KINDS)}")
 
-        VALID_KINDS = {"cpu", "gpu"}
-        if kind not in VALID_KINDS:
-            raise TripyException(f"Unrecognized device kind: {kind}. Choose from: {list(VALID_KINDS)}")
-
-        self.kind = kind
-        self.index = index
+            self.kind = kind
+            self.index = index
 
     def __str__(self) -> str:
         return f"{self.kind}:{self.index}"

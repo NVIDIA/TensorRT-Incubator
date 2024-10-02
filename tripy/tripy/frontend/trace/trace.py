@@ -30,18 +30,6 @@ class Trace:
     A flattened representation of a computation graph expressed by one or more Tensors.
     """
 
-    def _infer_tensor_info(self):
-        """
-        Infers basic information, like device, for all tensors in the trace.
-        """
-
-        # Compute and cache device information for all tensors
-        for inp in self.inputs:
-            inp.producer.infer_devices()
-
-        for op in self.ops:
-            op.infer_devices()
-
     def __init__(
         self,
         tensors: Sequence["tripy.Tensor"],
@@ -96,9 +84,6 @@ class Trace:
 
         # Reverse the order of the layers so they are topologically sorted
         self.ops = topological_sort(self.ops)
-
-        # Perform shape/dtype/device inference to fill shape information for all tensors.
-        self._infer_tensor_info()
 
         logger.trace(lambda: f"{self}\n")
 

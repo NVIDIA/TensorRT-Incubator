@@ -29,6 +29,7 @@ from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
+from tripy.frontend.trace.tensor import TraceTensor
 from tripy.utils.stack_info import StackInfo
 
 
@@ -96,7 +97,6 @@ class Tensor(metaclass=TensorMeta):
 
             tensor = tp.Tensor([1.0, 2.0, 3.0], dtype=tp.float32)
         """
-        from tripy.frontend.trace.tensor import TraceTensor
 
         stack_info = StackInfo([])
         if fetch_stack_info:
@@ -121,17 +121,6 @@ class Tensor(metaclass=TensorMeta):
             Storage.build_internal([], [self.trace_tensor], data)
         else:
             Storage.build_internal([], [self.trace_tensor], data, dtype, device)
-
-        # Storage should populate attrs of trace_tensor
-        assert all(
-            attr is not None
-            for attr in [
-                self.trace_tensor.shape,
-                self.trace_tensor.dtype,
-                self.trace_tensor.device,
-                self.trace_tensor.producer,
-            ]
-        )
 
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
@@ -174,12 +163,14 @@ class Tensor(metaclass=TensorMeta):
         return self.trace_tensor.rank
 
     def eval(self) -> runtime.MemRefValue:
+        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
+            # Exit early if the tensor has already been evaluated.
+            # This happens before the imports below so we don't incur extra overhead.
+            return self.trace_tensor.producer.data
+
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
-
-        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
-            return self.trace_tensor.producer.data
 
         trace = Trace([self])
         flat_ir = trace.to_flat_ir()

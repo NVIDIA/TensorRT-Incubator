@@ -17,9 +17,10 @@
 
 import abc
 from dataclasses import dataclass
-from typing import List, Set, Union, Optional
+from typing import List, Optional, Set, Union
 
 from tripy import utils
+from tripy.common.exception import raise_error
 from tripy.utils import Result
 
 
@@ -47,10 +48,6 @@ class BaseTraceOp(abc.ABC):
 
         *args and **kwargs are passed along to the trace operation's constructor.
         """
-        from tripy.frontend.trace.tensor import TraceTensor
-
-        assert all(isinstance(tensor, TraceTensor) for tensor in inputs + outputs)
-
         op = cls(inputs, outputs, *args, **kwargs)
         for out in op.outputs:
             out.producer = op
@@ -73,7 +70,6 @@ class BaseTraceOp(abc.ABC):
         of returning a list of output tensors.
         """
 
-        from tripy.common.exception import raise_error
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.frontend.tensor import Tensor
 

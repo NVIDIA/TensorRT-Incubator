@@ -41,7 +41,7 @@ def _cached_create_empty_memref(shape: Sequence[int], dtype: str, device_kind: s
 def create_empty_memref(
     shape: Sequence[int],
     dtype: str,
-    device: tp_device = tp_device("gpu"),
+    device: tp_device = tp_device(("gpu", 0)),
     stream=None,
     use_cache: bool = True,
 ):

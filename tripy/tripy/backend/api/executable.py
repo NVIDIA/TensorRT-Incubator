@@ -25,6 +25,7 @@ from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.exception import raise_error
 from tripy.frontend import Tensor
 from tripy.utils import json as json_utils
+from tripy.utils.stack_info import StackInfo
 
 
 @export.public_api(document_under="compiling_code")
@@ -41,6 +42,7 @@ class Executable:
         self._executable = executable
         self._executor = Executor(self._executable)
         self._arg_names = arg_names
+        self._num_expected_args = len(arg_names)
         self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
 
@@ -88,12 +90,12 @@ class Executable:
 
             out = compiled_add(a, b)
         """
-        NUM_ARGS = len(args) + len(kwargs)
+        num_positional = len(args)
+        NUM_ARGS = num_positional + len(kwargs)
 
-        input_tensors = []
-        input_tensors.extend(args)
+        input_tensors = list(args)
         # Need to get arguments in the order of self._arg_names, which may be different from kwargs ordering.
-        expected_kwargs = self._arg_names[len(args) :]
+        expected_kwargs = self._arg_names[num_positional:]
         for name in expected_kwargs:
             if name not in kwargs:
                 raise_error(f"Missing argument: {name}", [f"Expected the following arguments: {self._arg_names}"])
@@ -106,16 +108,17 @@ class Executable:
                 f"Extra keyword arguments: {list(kwargs.keys())}",
                 [
                     f"Expected the following arguments: {self._arg_names}.\n"
-                    f"Note: The following arguments were already provided as positional arguments: {self._arg_names[:len(args)]}"
+                    f"Note: The following arguments were already provided as positional arguments: {self._arg_names[:num_positional]}"
                 ],
             )
 
         # We do this after kwarg checks since those will be more informative (we can explain which arguments are missing/extra).
-        if NUM_ARGS != len(self._arg_names):
+
+        if NUM_ARGS != self._num_expected_args:
             raise_error(
                 "Incorrect number of arguments.",
                 [
-                    f"Expected {len(self._arg_names)} arguments but got {NUM_ARGS}.\n"
+                    f"Expected {self._num_expected_args} arguments but got {NUM_ARGS}.\n"
                     f"Note: Expected arguments were: {self._arg_names}",
                 ],
             )

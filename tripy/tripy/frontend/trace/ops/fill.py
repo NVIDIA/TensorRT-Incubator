@@ -41,7 +41,7 @@ class Fill(BaseTraceOp):
     def infer_devices(self):
         from tripy.common import device
 
-        self.outputs[0].device = device("gpu")
+        self.outputs[0].device = device(("gpu", 0))
 
     def infer_rank(self):
         if self.output_rank is None:
