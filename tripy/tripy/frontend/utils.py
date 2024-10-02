@@ -16,8 +16,8 @@
 #
 
 import functools
-from collections import deque
 import numbers
+from collections import deque
 from typing import List, Optional, Sequence, Tuple, Union
 
 from tripy import utils
@@ -28,12 +28,33 @@ from tripy.frontend.trace.ops import BaseTraceOp
 
 # Try to include correct column offsets for non-tensor arguments.
 def _add_column_info_for_non_tensor(
-    arg, arg_index, is_kwarg, dtype, num_args, func_name, skip_num_stack_entries, list_index=None
+    arg,
+    arg_index,
+    is_kwarg,
+    dtype,
+    num_args,
+    func_name,
+    skip_num_stack_entries,
+    list_index=None,
+    TensorType=None,
 ):
     from tripy.frontend.tensor import Tensor
+    from tripy.frontend.shape import Shape
+    from tripy.frontend.trace.ops.cast import cast
 
-    assert not isinstance(arg, Tensor)
-    arg = Tensor(arg, dtype=dtype)
+    TensorType = utils.default(TensorType, Tensor)
+
+    assert not isinstance(
+        arg, Tensor
+    ), f"This function should not be called for objects that are already Tensor instances"
+
+    if isinstance(arg, numbers.Number) and TensorType == Shape:
+        # Shapes require 1D values.
+        arg = [arg]
+
+    arg = TensorType(arg)
+    if dtype is not None:
+        arg = cast(arg, dtype=dtype)
     arg.stack_info.fetch_source_code()
 
     # This is the stack depth in arg.stack_info where we find the decorated function.
@@ -50,8 +71,6 @@ def _add_column_info_for_non_tensor(
     # Also save the last dispatch target we see.
     dispatch_target = None
     for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH + skip_num_stack_entries :]):
-        import tripy.function_registry
-
         dispatch_target = source_info._dispatch_target or dispatch_target
         if source_info.module not in utils.get_module_names_to_exclude_from_stack_info():
             frame_index = idx + WRAPPER_STACK_DEPTH + skip_num_stack_entries
@@ -102,7 +121,15 @@ def _add_column_info_for_non_tensor(
 
 
 def _convert_nontensor_arg(
-    arg, arg_idx, is_kwarg, num_args, func_name, skip_num_stack_entries, cast_dtype=None, list_index=None
+    arg,
+    arg_idx,
+    is_kwarg,
+    num_args,
+    func_name,
+    skip_num_stack_entries,
+    cast_dtype=None,
+    list_index=None,
+    TensorType=None,
 ):
     from tripy.utils import Result
 
@@ -145,6 +172,7 @@ def _convert_nontensor_arg(
         func_name=func_name,
         skip_num_stack_entries=skip_num_stack_entries,
         list_index=list_index,
+        TensorType=TensorType,
     )
 
 
@@ -213,8 +241,30 @@ def convert_inputs_to_tensors(
         def wrapper(*args, **kwargs):
             from tripy.common.exception import raise_error
             from tripy.frontend.tensor import Tensor
+            from tripy.frontend.shape import Shape, ShapeScalar
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
+
+            # TODO (#233): Disallow mixing Tensor/Shape. The workaround below works
+            # because ShapeScalars will typically be broadcasted in order to operate
+            # with Tensors/Shapes. Otherwise, Shape and ShapeScalar would have been
+            # at the same level of hierarchy.
+            #
+            # When a function has multiple arguments, the order of precedence is:
+            #
+            # 1. Tensor
+            # 2. Shape
+            # 3. ShapeScalar
+            #
+            # That is, if we have an operation with a mixture of types, all arguments are
+            # converted to the type with the highest precedence, e.g. Tensor + Shape -> Tensor.
+            TensorType = None
+            MaxType = max(
+                (type(arg) for arg_name, arg in all_args if arg_name not in exclude),
+                key=lambda typ: {Tensor: 2, Shape: 1, ShapeScalar: 0}.get(typ, -1),
+            )
+            if issubclass(MaxType, Tensor):
+                TensorType = MaxType
 
             def get_arg(name: str):
                 for arg_name, arg in all_args:
@@ -274,6 +324,7 @@ def convert_inputs_to_tensors(
                         skip_num_stack_entries,
                         find_sync_target_dtype(name),
                         list_index=list_index,
+                        TensorType=TensorType,
                     )
 
                 if name in exclude or isinstance(arg, Tensor):
@@ -352,6 +403,7 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
                         skip_num_stack_entries,
                         cast_dtype=None,
                         list_index=list_index,
+                        TensorType=Shape,
                     )
 
                 if name not in targets:
@@ -369,7 +421,7 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
                     continue
                 # if it's not a tensor and not a sequence, we treat as a singleton shape
                 if not isinstance(arg, Sequence):
-                    add_arg(Shape(convert_nontensor_arg([arg])))
+                    add_arg(convert_nontensor_arg([arg]))
                     continue
 
                 # otherwise, for a sequence we convert all at once if no member is a tensor
@@ -379,7 +431,7 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
                     continue
 
                 if not any(map(lambda member: isinstance(member, Tensor), arg)):
-                    add_arg(Shape(convert_nontensor_arg(arg)))
+                    add_arg(convert_nontensor_arg(arg))
                     continue
 
                 shape_components = []
@@ -390,14 +442,14 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
                         acc.append(member)
                         continue
                     if len(acc) > 0:
-                        shape_components.append(Shape(convert_nontensor_arg(acc)))
+                        shape_components.append(convert_nontensor_arg(acc))
                         acc = []
                     if member.rank != 0:
                         raise_error("Tensor in a shape argument must be a scalar.", [f"Got {member}"])
                     member = Shape(unsqueeze(member, 0))
                     shape_components.append(member)
                 if len(acc) > 0:
-                    shape_components.append(Shape(convert_nontensor_arg(acc)))
+                    shape_components.append(convert_nontensor_arg(acc))
                 add_arg(concatenate(shape_components, 0))
 
             return func(*new_args, **new_kwargs)

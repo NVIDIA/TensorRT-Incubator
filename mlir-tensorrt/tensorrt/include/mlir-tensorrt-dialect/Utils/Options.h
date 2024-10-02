@@ -82,6 +82,12 @@ namespace mlir {
 /// }
 /// ```
 class OptionsContext : public llvm::cl::SubCommand {
+public:
+  OptionsContext() = default;
+  OptionsContext(const OptionsContext &) = delete;
+  OptionsContext(OptionsContext &&) = default;
+  virtual ~OptionsContext() = default;
+
 protected:
   /// Add an option to this context. The storage `value` must outlive the
   /// OptionsContext.
@@ -143,7 +149,9 @@ public:
   void print(llvm::raw_ostream &os) const;
 
   /// Get a hash derived from the string representation of the options.
-  llvm::hash_code getHash() const;
+  virtual std::optional<llvm::hash_code> getHash() const;
+
+  virtual bool shouldInvalidateCache() const { return false; }
 
 private:
   struct OptionInfo {

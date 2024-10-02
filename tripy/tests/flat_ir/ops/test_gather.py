@@ -20,6 +20,7 @@ import tripy as tp
 
 from tripy.flat_ir.ops import DynamicGatherOp
 from tripy.frontend.trace import Trace
+import re
 
 
 class TestGatherOp:
@@ -38,9 +39,9 @@ class TestGatherOp:
         reshape = flat_ir.ops[-2]
         print(str(reshape))
         assert isinstance(gather, DynamicGatherOp)
-        assert (
-            str(gather)
-            == f"out: [rank=(3), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter4, axis={axis})"
+        assert re.match(
+            rf"out: \[rank=\(3\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicGatherOp\(data, indices, t_inter[0-9]+, axis={axis}\)",
+            str(gather),
         )
 
     @pytest.mark.parametrize("axis", [0, 1])

@@ -172,8 +172,6 @@ def _run_dtype_constraints_subtest(test_data):
     return ret_val, namespace
 
 
-# Positive dtype testing is run during L1 testing.
-@pytest.mark.l1
 @pytest.mark.parametrize("test_data", DTYPE_CONSTRAINT_CASES, ids=lambda val: val[-1])
 def test_dtype_constraints(test_data):
     # If data type checking is enabled, negative tests will trivially pass (we will throw an
