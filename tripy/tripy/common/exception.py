@@ -106,15 +106,22 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
 
     EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors, convert_shape_inputs]
 
-    def should_exclude(frame):
+    def should_exclude(source_info):
+        if source_info.code is None:
+            return True
+
+        # Exclude frames from some modules that are not very useful to users:
+        if source_info.module in utils.get_module_names_to_exclude_from_stack_info():
+            return True
+
         for func in EXCLUDE_FUNCTIONS:
             filename = inspect.getsourcefile(func)
             lines, start_line = inspect.getsourcelines(func)
 
-            if frame.file != filename:
+            if source_info.file != filename:
                 return False
 
-            if frame.line < start_line or frame.line > (start_line + len(lines)):
+            if source_info.line < start_line or source_info.line > (start_line + len(lines)):
                 return False
             return True
 
@@ -123,13 +130,6 @@ def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool =
 
     stack_info.fetch_source_code()
     for index, source_info in enumerate(stack_info):
-        if source_info.code is None:
-            continue
-
-        # Exclude frames from some modules that are not very useful to users:
-        if source_info.module in utils.get_module_names_to_exclude_from_stack_info():
-            continue
-
         if should_exclude(source_info):
             continue
 

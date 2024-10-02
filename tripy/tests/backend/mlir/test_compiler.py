@@ -68,3 +68,10 @@ class TestErrorMapping:
                     match=".*This is the first level of context\n    This is the second level of context\n.*",
                 ) as exc:
                     map_error_to_user_code_and_raise(flat_ir, exc, err_str)
+
+    def test_layer_metadata_callback(self):
+        # TODO: Finish this:
+        inp = tp.ones((2, 2))
+        out = tp.gelu(inp)
+
+        out.eval()

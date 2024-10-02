@@ -16,25 +16,34 @@
 #
 
 
+import mlir_tensorrt.runtime.api as runtime
+
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import device as tp_device
 from tripy.common import utils as common_utils
 
-import mlir_tensorrt.runtime.api as runtime
 
-
-def create_empty_memref(shape, dtype, device=tp_device("gpu"), stream=None):
+def create_memref(shape, dtype, device=tp_device("gpu"), stream=None, array=None):
     """
-    Creates an empty memref, used for allocating memory.
+    Creates a memref. If array is provided, it will be populated by the values
+    from the array. Otherwise, an empty memref is created.
     """
-    mlirtrt_device = mlir_utils.MLIRRuntimeClient().get_devices()[0] if device == tp_device("gpu") else None
     mlir_dtype = mlir_utils.convert_tripy_dtype_to_runtime_dtype(dtype)
-    return mlir_utils.MLIRRuntimeClient().create_memref(
-        shape=list(shape),
-        dtype=mlir_dtype,
-        device=mlirtrt_device,
-        stream=stream,
-    )
+
+    args = []
+
+    # "array" is marked as a positional-only argument
+    if array is not None:
+        args.append(array)
+
+    kwargs = {"shape": shape, "dtype": mlir_dtype}
+
+    if device.kind == "gpu":
+        kwargs["device"] = mlir_utils.MLIRRuntimeClient().get_devices()[device.index]
+        # Streams are only allowed for GPU allocations.
+        kwargs["stream"] = stream
+
+    return mlir_utils.MLIRRuntimeClient().create_memref(*args, **kwargs)
 
 
 def create_memref_view(data):

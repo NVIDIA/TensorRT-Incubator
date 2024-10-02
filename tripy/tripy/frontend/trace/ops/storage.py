@@ -59,7 +59,7 @@ class Storage(BaseTraceOp):
             # special case: empty tensor
             self.dtype = utils.default(dtype, datatype.float32)
             self.shape = tuple(utils.get_shape(data))
-            self.data = memref.create_empty_memref(shape=self.shape, dtype=self.dtype)
+            self.data = memref.create_memref(shape=self.shape, dtype=self.dtype)
             self.device = utils.default(device, tp_device("gpu"))
             self.has_memref = True
         else:

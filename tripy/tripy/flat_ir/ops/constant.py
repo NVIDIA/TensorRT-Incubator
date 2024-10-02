@@ -15,17 +15,17 @@
 # limitations under the License.
 #
 
-import numbers
 from dataclasses import dataclass
 from typing import Sequence, Set, Union
 
+import mlir_tensorrt.runtime.api as runtime
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 
 from tripy import utils
+from tripy.backend.mlir.memref import create_memref
+from tripy.common import device
 from tripy.flat_ir.ops.base import BaseFlatIROp
-
-import mlir_tensorrt.runtime.api as runtime
 
 
 @dataclass(repr=False)
@@ -41,6 +41,7 @@ class ConstantOp(BaseFlatIROp):
 
     def to_mlir(self, operands):
         import array
+
         import tripy.common.datatype as datatype
         from tripy.backend.mlir import utils as mlir_utils
 
@@ -59,11 +60,11 @@ class ConstantOp(BaseFlatIROp):
             # so we have to represent them as ints and then cast the result
             if self.outputs[0].dtype == datatype.bool:
                 # need to use memoryview.cast to ensure that the view will be flattened
-                int_memref = runtime_client.create_memref(
-                    array.array("i", memoryview(data_memref).cast("b").tolist()),
+                int_memref = create_memref(
+                    array=array.array("i", memoryview(data_memref).cast("b").tolist()),
                     shape=self.data.shape,
-                    dtype=mlir_utils.convert_tripy_dtype_to_runtime_dtype(datatype.int32),
-                    device=None,
+                    dtype=datatype.int32,
+                    device=device("cpu"),
                 )
                 attr = ir.DenseElementsAttr.get(
                     array=int_memref, type=mlir_utils.get_mlir_dtype(datatype.int32), shape=data_memref.shape

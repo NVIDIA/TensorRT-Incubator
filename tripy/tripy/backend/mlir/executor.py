@@ -20,7 +20,7 @@ from typing import List
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.runtime.api as runtime
 
-from tripy.backend.mlir.memref import create_empty_memref
+from tripy.backend.mlir.memref import create_memref
 from tripy.backend.utils import TensorInfo
 from tripy.common import datatype, device
 from tripy.common.exception import raise_error
@@ -29,8 +29,8 @@ from tripy.utils import log_time, make_tuple
 
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
-        from tripy.backend.mlir.utils import MLIRRuntimeClient
         from tripy.backend.api.stream import default_stream
+        from tripy.backend.mlir.utils import MLIRRuntimeClient
 
         self.runtime_client = MLIRRuntimeClient()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
@@ -44,15 +44,16 @@ class Executor:
 
         shape = make_tuple(shape)
         if len(shape) == 0:
-            # create an empty memref
-            return self.runtime_client.create_memref(
-                shape=(0,), dtype=runtime.runtime.ScalarTypeCode.i64, stream=self.stream._active_cuda_stream
+            return create_memref(
+                shape=(0,),
+                dtype=datatype.int64,
+                device=device("cpu"),
             )
-        return self.runtime_client.create_memref(
-            convert_list_to_array(shape, datatype.int64),
+        return create_memref(
+            array=convert_list_to_array(shape, datatype.int64),
             shape=(len(shape),),
-            dtype=runtime.ScalarTypeCode.i64,
-            stream=self.stream._active_cuda_stream,
+            dtype=datatype.int64,
+            device=device("cpu"),
         )
 
     def _get_inputs_runtime_shape(self, inputs):
@@ -173,7 +174,7 @@ class Executor:
 
         # Allocate output memory and store buffer pointers.
         outputs = [
-            create_empty_memref(
+            create_memref(
                 shape=info.shape, dtype=info.dtype, device=info.device, stream=self.stream._active_cuda_stream
             )
             for info in out_tensor_info
