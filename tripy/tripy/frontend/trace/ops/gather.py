@@ -25,7 +25,6 @@ from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Gather(BaseTraceOp):
     axis: int
 
@@ -58,6 +57,7 @@ class Gather(BaseTraceOp):
 
         self.outputs[0].device = device("gpu")
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicGatherOp, DynamicSliceOp
         from tripy.flat_ir.tensor import FlatIRTensor

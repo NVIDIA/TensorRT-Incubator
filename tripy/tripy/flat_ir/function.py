@@ -21,13 +21,13 @@ from tripy import utils
 class FlatIRFunction:
     """Represents a function in the Flat IR."""
 
-    def __init__(self, name: str, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"]):
+    def __init__(self, name: str, inputs: List["FlatIRTensor"], outputs: List["FlatIRTensor"], ops):
         """Initialize a FlatIRFunction."""
         self.name = name
         self.inputs = inputs
         self.outputs = outputs
-        self.ops: List[BaseFlatIROp] = []
-        self.traced_ir_ops: List[BaseFlatIROp] = []  # Used for flat ir function deduplication
+        self.ops = ops
+        self.traced_ir_ops = ops  # Used only for function deduplication.
         self.trace_input_names = None
         self.trace_output_names = None
         self.caller_replacements = []
@@ -38,8 +38,7 @@ class FlatIRFunction:
         """
         Create a clone of the function with new inputs and outputs.
         """
-        new_func = FlatIRFunction(self.name, new_inputs, new_outputs)
-        new_func.ops = self.ops
+        new_func = FlatIRFunction(self.name, new_inputs, new_outputs, self.ops)
         new_func.trace_input_names = self.trace_input_names
         new_func.trace_output_names = self.trace_output_names
         return new_func
@@ -53,13 +52,6 @@ class FlatIRFunction:
 
     def get_caller_outputs(self) -> List["FlatIRTensor"]:
         return [getattr(out, "caller_tensor") for out in self.outputs]
-
-    def add_op(self, op: BaseFlatIROp) -> None:
-        """
-        Add an operation to the function ops. `trace_ir_ops` are used only for function deduplication.
-        """
-        self.ops.append(op)
-        self.traced_ir_ops.append(op)
 
     def __str__(self) -> str:
         """Generate a string representation of the function."""

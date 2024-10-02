@@ -25,7 +25,6 @@ from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Split(BaseTraceOp):
     indices_or_sections: Union[int, Sequence[int]]
     dim: int
@@ -108,6 +107,7 @@ class Split(BaseTraceOp):
             [input_tensor, start_index_tensor, limit_index_tensor, stride_index_tensor], [output_tensor]
         )
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DivideOp, MulOp
         from tripy.flat_ir.tensor import FlatIRTensor

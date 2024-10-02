@@ -28,7 +28,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class BinaryElementwise(BaseTraceOp):
     class Kind:
         SUM = " + "
@@ -127,6 +126,7 @@ class BinaryElementwise(BaseTraceOp):
 
         return [broadcasted_input_0, broadcasted_input_1]
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import AddOp, DivideOp, FloorOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -193,7 +193,6 @@ class BinaryElementwise(BaseTraceOp):
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Comparison(BinaryElementwise):
     class Kind:
         class KindElem(str):
@@ -217,6 +216,7 @@ class Comparison(BinaryElementwise):
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.bool
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import CompareOp
 

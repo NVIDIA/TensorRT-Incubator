@@ -26,7 +26,6 @@ from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class MatrixMultiplication(BaseTraceOp):
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
@@ -109,6 +108,7 @@ class MatrixMultiplication(BaseTraceOp):
 
             self.outputs[0].rank = output_rank
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import ConcatenateOp, DotOp, DynamicSliceOp

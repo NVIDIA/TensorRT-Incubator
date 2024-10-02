@@ -28,7 +28,6 @@ from tripy.utils import make_tuple
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Slice(BaseTraceOp):
     shape_slice: Optional[slice] = None  # only used for inferring the length of a shape result
 
@@ -82,6 +81,7 @@ class Slice(BaseTraceOp):
     # we only care about the data input
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import bool as tp_bool
         from tripy.common.datatype import int32

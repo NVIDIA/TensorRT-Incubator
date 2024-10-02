@@ -53,11 +53,8 @@ def create_subgraph(config):
         # Create a function with no inputs and a single output
         func_result_tensor = FlatIRTensor.build(shape=[2], rank=1, dtype=int32, reason_details="", device=device("gpu"))
         setattr(result_tensor, "caller_tensor", func_result_tensor)
-        func = FlatIRFunction("MockFunc", [], [result_tensor])
+        func = FlatIRFunction("MockFunc", [], [result_tensor], [op1, op2, op3, mock_op])
         func_result_tensor.producer = func
-
-        # Insert all operations in a function
-        func.ops = [op1, op2, op3, mock_op]
 
         # Return function result tensor i.e. output of a function call
         return [], [func_result_tensor]

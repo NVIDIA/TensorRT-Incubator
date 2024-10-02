@@ -27,7 +27,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
-@frontend_utils.wraps_to_flat_ir_to_func
 class Dequantize(BaseTraceOp):
 
     dtype: datatype.dtype
@@ -36,6 +35,7 @@ class Dequantize(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import (
