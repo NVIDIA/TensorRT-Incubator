@@ -62,7 +62,7 @@ class MultiScaleAttention(tp.Module):
         self.proj = tp.Linear(dim_out, dim_out)
 
     def forward(self, x):
-        B, H, W, _ = x.shape
+        B, H, W = x.shape[0:3]
         # qkv with shape (B, H * W, 3, nHead, C)
         qkv = tp.reshape(self.qkv(x), (B, H * W, 3, self.num_heads, -1))
         # q, k, v with shape (B, H * W, nheads, C)
@@ -115,11 +115,8 @@ class MultiScaleBlock(tp.Module):
 
         self.pool, self.q_stride = None, q_stride
         if self.q_stride:
-            # TODO(#195): Add tp.Pool
-            # self.pool = nn.MaxPool2d(
-            #     kernel_size=q_stride, stride=q_stride, ceil_mode=False
-            # )
-            pass
+            # q_stride is (2, 2)
+            self.pool = partial(tp.maxpool, kernel_dims=q_stride, stride=q_stride)
 
         self.attn = MultiScaleAttention(
             dim,
@@ -151,7 +148,7 @@ class MultiScaleBlock(tp.Module):
         # Window partition
         window_size = self.window_size
         if window_size > 0:
-            H, W = x.shape[1], x.shape[2]
+            H, W = x.shape[1:3]
             x, pad_hw = window_partition(x, window_size)
 
         # Window Attention + Q Pooling (if stage change)
@@ -266,8 +263,8 @@ class Hiera(tp.Module):
     def _get_pos_embed(self, hw: Tuple[int, int]) -> tp.Tensor:
         h, w = hw
         window_embed = self.pos_embed_window
-        # TODO: tp.resize
-        pos_embed = F.interpolate(self.pos_embed, size=(h, w), mode="bicubic")
+        pos_embed_shape = (self.pos_embed.shape[0], self.pos_embed.shape[1], h, w)
+        pos_embed = tp.resize(self.pos_embed, mode="cubic", output_shape=pos_embed_shape)
         # WAR: tp.repeat twice
         window_embed = tp.repeat(window_embed, h // self.window_spec[0], dim=-2)
         window_embed = tp.repeat(window_embed, w // self.window_spec[0], dim=-1)
@@ -280,7 +277,8 @@ class Hiera(tp.Module):
         # x: (B, H, W, C)
 
         # Add pos embed
-        x = x + self._get_pos_embed(x.shape[1:3])
+        h, w = x.shape[1:3]
+        x = x + self._get_pos_embed((h, w))
 
         outputs = []
         for i, blk in enumerate(self.blocks):

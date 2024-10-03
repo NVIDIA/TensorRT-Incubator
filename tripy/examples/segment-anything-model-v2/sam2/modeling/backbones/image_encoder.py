@@ -73,15 +73,15 @@ class FpnNeck(tp.Module):
         self.convs = []
         self.backbone_channel_list = backbone_channel_list
         for dim in backbone_channel_list:
-            # 1. The weight name could be different, "convs.0.conv.0..."
-            # 2. kernel_dims, stride, padding may need to convert to tuple
+            # The weight name could be different, "convs.0.conv.0..."
+            make_2d_tuple = lambda x: 2 * (x,)
             self.convs.append(
                 tp.Conv(
                     in_channels=dim,
                     out_channels=d_model,
-                    kernel_dims=kernel_size,
-                    stride=stride,
-                    padding=padding,
+                    kernel_dims=make_2d_tuple(kernel_size),
+                    stride=make_2d_tuple(stride),
+                    padding=make_2d_tuple(padding),
                 )
             )
         self.fpn_interp_model = fpn_interp_model
@@ -105,13 +105,11 @@ class FpnNeck(tp.Module):
             x = xs[i]
             lateral_features = self.convs[n - i](x)
             if i in self.fpn_top_down_levels and prev_features is not None:
-                # TODO(#193): needs tp.resize
-                top_down_features = F.interpolate(
-                    prev_features.to(dtype=torch.float32),
-                    scale_factor=2.0,
+                b, c, h, w = prev_features.shape[0:2]
+                top_down_features = tp.resize(
+                    tp.cast(prev_features, tp.float32),  # is this cast really needed?
                     mode=self.fpn_interp_model,
-                    align_corners=(None if self.fpn_interp_model == "nearest" else False),
-                    antialias=False,
+                    output_shape=(b, c, h * 2, w * 2),
                 )
                 prev_features = lateral_features + top_down_features
                 if self.fuse_type == "avg":
@@ -120,6 +118,6 @@ class FpnNeck(tp.Module):
                 prev_features = lateral_features
             x_out = prev_features
             out[i] = x_out
-            pos[i] = self.position_encoding(x_out).to(x_out.dtype)
+            pos[i] = tp.cast(self.position_encoding(x_out), x_out.dtype)
 
         return out, pos
