@@ -24,65 +24,7 @@ from tripy.frontend.tensor import Tensor
 import tripy.frontend.utils as frontend_utils
 
 
-@export.public_api()
-class ShapeScalar(Tensor):
-    """
-    Scalar shape is a tensor used to represent a scalar value extracted from a shape tensor.
-    ShapeScalars are scalars (rank 0) of non-negative integer (using int32 as the datatype).
-    """
-
-    def __init__(
-        self,
-        data: Union[Sequence, Tensor, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
-        name: Optional[str] = None,
-    ) -> None:
-        r"""
-        Args:
-            data: The value of the ShapeScalar, which should be a scalar integer.
-            name: An optional name
-        """
-
-        from tripy.common.exception import raise_error
-
-        if isinstance(data, Tensor):
-            # these fields can be None in the case of an uninitialized tensor (like Tensor(None))
-            if data.trace_tensor.rank is not None and data.trace_tensor.rank != 0:
-                raise_error(
-                    f"Scalar shape tensors must be of rank 0, but input tensor is rank {data.rank}", details=[data]
-                )
-            if data.dtype is not None and data.dtype != int32:
-                raise_error(
-                    f"Scalar shape tensor must have int32 member, but input tensor has data type {data.dtype}",
-                    details=[data],
-                )
-
-            # the shape of data should correspond to the given rank
-            super().__init__(data=None, dtype=int32, name=name, device=data.device)
-            # share the underlying data
-            self.trace_tensor = data.trace_tensor
-            self.stack_info = data.stack_info
-        else:
-            shape = data.shape if hasattr(data, "shape") else utils.get_shape(data)
-            device = data.device if hasattr(data, "device") else None
-            if len(shape) != 0:
-                raise_error(
-                    f"Tensors used to represent scalar shapes must be of rank 0, but given shape {shape} has rank {len(shape)}."
-                )
-            super().__init__(data=data, dtype=int32, name=name, device=device)
-
-    def __repr__(self) -> str:
-        # denote the representation as a shape rather than a tensor
-        tensor_repr = super().__repr__()
-        assert tensor_repr[:6] == "tensor"
-        return "shape_scalar" + tensor_repr[6:]
-
-    def __str__(self) -> str:
-        val = self.tolist()
-        assert isinstance(val, int)
-        return f"shape_scalar({val})"
-
-
-@export.public_api()
+@export.public_api(document_under="shape/index.rst")
 class Shape(Tensor):
     """
     A Shape is a tensor used to represent a tensor shape.
@@ -344,3 +286,61 @@ class Shape(Tensor):
 
     def __iter__(self):
         return Shape.ShapeIter(self)
+
+
+@export.public_api(document_under="shape")
+class ShapeScalar(Tensor):
+    """
+    Scalar shape is a tensor used to represent a scalar value extracted from a shape tensor.
+    ShapeScalars are scalars (rank 0) of non-negative integer (using int32 as the datatype).
+    """
+
+    def __init__(
+        self,
+        data: Union[Sequence, Tensor, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        name: Optional[str] = None,
+    ) -> None:
+        r"""
+        Args:
+            data: The value of the ShapeScalar, which should be a scalar integer.
+            name: An optional name
+        """
+
+        from tripy.common.exception import raise_error
+
+        if isinstance(data, Tensor):
+            # these fields can be None in the case of an uninitialized tensor (like Tensor(None))
+            if data.trace_tensor.rank is not None and data.trace_tensor.rank != 0:
+                raise_error(
+                    f"Scalar shape tensors must be of rank 0, but input tensor is rank {data.rank}", details=[data]
+                )
+            if data.dtype is not None and data.dtype != int32:
+                raise_error(
+                    f"Scalar shape tensor must have int32 member, but input tensor has data type {data.dtype}",
+                    details=[data],
+                )
+
+            # the shape of data should correspond to the given rank
+            super().__init__(data=None, dtype=int32, name=name, device=data.device)
+            # share the underlying data
+            self.trace_tensor = data.trace_tensor
+            self.stack_info = data.stack_info
+        else:
+            shape = data.shape if hasattr(data, "shape") else utils.get_shape(data)
+            device = data.device if hasattr(data, "device") else None
+            if len(shape) != 0:
+                raise_error(
+                    f"Tensors used to represent scalar shapes must be of rank 0, but given shape {shape} has rank {len(shape)}."
+                )
+            super().__init__(data=data, dtype=int32, name=name, device=device)
+
+    def __repr__(self) -> str:
+        # denote the representation as a shape rather than a tensor
+        tensor_repr = super().__repr__()
+        assert tensor_repr[:6] == "tensor"
+        return "shape_scalar" + tensor_repr[6:]
+
+    def __str__(self) -> str:
+        val = self.tolist()
+        assert isinstance(val, int)
+        return f"shape_scalar({val})"

@@ -21,49 +21,12 @@ from tripy.common.exception import raise_error
 _default_stream_instances = {}
 
 
-@export.public_api(document_under="compiler")
-def default_stream(device: Device = Device("gpu")) -> "tripy.Stream":
-    """
-    Provides access to the default CUDA stream for a given device.
-    There is only one default stream instance per device.
-
-    Args:
-        device: The device for which to get the default stream.
-
-    Returns:
-        The default stream for the specified device.
-
-    Raises:
-        :class:`tripy.TripyException`: If the device is not of type 'gpu' or if the device index is not 0.
-
-    Note:
-        Calling :func:`default_stream` with the same device always returns the same :class:`Stream` instance for that device.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Retrieving The Default Stream
-
-        # Get the default stream for the current device.
-        default = tp.default_stream()
-    """
-    global _default_stream_instances
-
-    if device.kind != "gpu":
-        raise_error(f"default_stream creation requires device to be of type gpu, got device={device}.")
-
-    if device.index != 0:
-        raise_error(f"Tripy stream only works with device index 0, got device={device}")
-
-    if device.index not in _default_stream_instances:
-        _default_stream_instances[device.index] = Stream()
-
-    return _default_stream_instances[device.index]
-
-
-@export.public_api(document_under="compiler")
+@export.public_api(document_under="compiling_code")
 class Stream:
     """
     Represents a CUDA stream that can be used to manage concurrent operations.
+
+    .. note:: Streams can only be used with compiled functions.
 
     This class is a wrapper around the underlying stream object, allowing management of CUDA streams.
     """
@@ -89,8 +52,7 @@ class Stream:
             # doc: no-print-locals compiler compiled_linear
             linear = tp.Linear(2, 3)
 
-            compiler = tp.Compiler(linear)
-            compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
+            compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
             # Run the compiled linear function on a custom stream:
             stream = tp.Stream()
@@ -122,8 +84,7 @@ class Stream:
             import time
 
             linear = tp.Linear(2, 3)
-            compiler = tp.Compiler(linear)
-            compiled_linear = compiler.compile(tp.InputInfo((2, 2), dtype=tp.float32))
+            compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
             input = tp.ones((2, 2), dtype=tp.float32)
 
@@ -155,3 +116,42 @@ class Stream:
 
     def __hash__(self):
         return hash(id(self))
+
+
+@export.public_api(document_under="compiling_code/stream.rst")
+def default_stream(device: Device = Device("gpu")) -> Stream:
+    """
+    Provides access to the default CUDA stream for a given device.
+    There is only one default stream instance per device.
+
+    Args:
+        device: The device for which to get the default stream.
+
+    Returns:
+        The default stream for the specified device.
+
+    Raises:
+        :class:`tripy.TripyException`: If the device is not of type 'gpu' or if the device index is not 0.
+
+    .. note:: Calling :func:`default_stream` with the same device always
+        returns the same :class:`Stream` instance for that device.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Retrieving The Default Stream
+
+        # Get the default stream for the current device.
+        default = tp.default_stream()
+    """
+    global _default_stream_instances
+
+    if device.kind != "gpu":
+        raise_error(f"default_stream creation requires device to be of type gpu, got device={device}.")
+
+    if device.index != 0:
+        raise_error(f"Tripy stream only works with device index 0, got device={device}")
+
+    if device.index not in _default_stream_instances:
+        _default_stream_instances[device.index] = Stream()
+
+    return _default_stream_instances[device.index]
