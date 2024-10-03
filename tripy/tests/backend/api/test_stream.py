@@ -33,9 +33,8 @@ def test_new_streams():
 
 def test_enqueue_work_on_stream():
     linear = tp.Linear(25, 30)
-    compiler = tp.Compiler(linear)
 
-    compiled_linear = compiler.compile(tp.InputInfo((2, 25), dtype=tp.float32))
+    compiled_linear = tp.compile(linear, args=[tp.InputInfo((2, 25), dtype=tp.float32)])
 
     a = tp.ones((2, 25), dtype=tp.float32)
 

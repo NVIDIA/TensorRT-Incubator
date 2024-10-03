@@ -48,8 +48,6 @@ Tripy can also compile functions to generate efficient machine code for faster e
 def add(a, b):
     return a + b
 
-compiler = tp.Compiler(add)
-
 # When compiling, we need to specify shape and data type constraints on the inputs:
 
 # a is a 1D dynamic shape tensor of shape (d,), where `d` can range from 1 to 5.
@@ -59,7 +57,7 @@ a_info = tp.InputInfo(shape=([1, 2, 5],), dtype=tp.float32)
 # `b` is a 1D tensor of shape (1,).
 b_info = tp.InputInfo((1,), dtype=tp.float32)
 
-compiled_add = compiler.compile(a_info, b_info)
+compiled_add = tp.compile(add, args=[a_info, b_info])
 
 print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
 ```
