@@ -22,9 +22,11 @@ from typing import Optional, Sequence, Union
 
 from tripy import export, constraints
 from tripy.common import datatype
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
 from tripy.utils import make_list
+
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -55,6 +57,7 @@ class Reduce(BaseTraceOp):
             self.dim = [idx if idx >= 0 else idx + self.inputs[0].rank for idx in self.dim]
             self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -86,6 +89,7 @@ class ArgMinMax(Reduce):
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.int32
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor

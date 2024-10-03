@@ -31,20 +31,21 @@ class TestDivideOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        div = flat_ir.ops[-1]
-        broadcast_a = flat_ir.ops[-3]
-        broadcast_b = flat_ir.ops[-2]
+        func_div = flat_ir.ops[-1]
+        div = func_div.ops[-1]
+        broadcast_a = func_div.ops[-3]
+        broadcast_b = func_div.ops[-2]
         assert isinstance(div, DivideOp)
 
         assert re.match(
-            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(a, t_inter[0-9]+, broadcast_dim=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[0\]\)",
             str(broadcast_a),
         )
         assert re.match(
-            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(b, t_inter[0-9]+, broadcast_dim=\[0\]\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[0\]\)",
             str(broadcast_b),
         )
         assert re.match(
-            r"out: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DivideOp\(t_inter[0-9]+, t_inter[0-9]+\)",
+            r"t_inter[0-9]+: \[rank=\(1\), dtype=\(float32\), loc=\(gpu:0\)\] = DivideOp\(t_inter[0-9]+, t_inter[0-9]+\)",
             str(div),
         )

@@ -228,6 +228,9 @@ def parse_tensor_names_from_location(msg: str) -> Tuple[List[str], List[str], Li
     if not loc:
         return [], [], [], [], msg
 
+    # Hack: Extract callsite for function call locations.
+    if "at" in loc:
+        _, _, loc = loc.partition('at "')
     input_names, _, loc = loc.partition(OUTPUT_SEPARATOR)
     output_names, _, loc = loc.partition(TRACE_INPUTS_SEPARATOR)
     trace_inputs, _, trace_outputs = loc.partition(TRACE_OUTPUTS_SEPARATOR)
@@ -306,6 +309,33 @@ def is_any_dim_dynamic(mlir_tensor):
     return any([type.is_dynamic_dim(i) for i in range(type.rank)])
 
 
+def has_all_dynamic_dims(tensor_type: ir.RankedTensorType) -> bool:
+    """Check if all dimensions of a tensor type are dynamic."""
+    if not isinstance(tensor_type, ir.RankedTensorType):
+        raise ValueError("Input must be a RankedTensorType")
+
+    return all(dim == ir.ShapedType.get_dynamic_size() for dim in tensor_type.shape)
+
+
+def cast_to_dynamic_ranked_tensor(input_tensor: ir.Value, always_insert_cast: bool = False) -> ir.Value:
+    """Cast a tensor to a dynamic ranked tensor if necessary."""
+    from mlir_tensorrt.compiler.dialects._ods_common import get_op_result_or_value
+    from mlir_tensorrt.compiler.dialects import stablehlo
+
+    input_type = get_op_result_or_value(input_tensor).type
+
+    if not ir.RankedTensorType.isinstance(input_type):
+        raise ValueError("Input must be a RankedTensorType")
+
+    if not always_insert_cast and has_all_dynamic_dims(input_type):
+        return input_tensor
+
+    dynamic_shape = [ir.ShapedType.get_dynamic_size()] * input_type.rank
+    dynamic_type = ir.RankedTensorType.get(dynamic_shape, input_type.element_type)
+
+    return stablehlo.ConvertOp(result=dynamic_type, operand=input_tensor).result
+
+
 class ShapeContext:
     _instance = None
 
@@ -374,6 +404,7 @@ class ShapeContext:
         for op in visited_producers:
             inputs = [subgraph.register_tensor(inp.to_flat_ir()) for inp in op.inputs]
             outputs = [subgraph.register_tensor(out.to_flat_ir()) for out in op.outputs]
+            # Pass shallow copies of inputs/outputs so that the op is free to modify them
             op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
             subgraph.integrate_subgraph(inputs, outputs)
 

@@ -74,6 +74,19 @@ def is_empty(data: Sequence) -> bool:
     return isinstance(data, Sequence) and all(map(is_empty, data))
 
 
+def is_shape_empty(shape: Sequence[int]) -> bool:
+    """
+    A shape is considered empty if any of its dimensions is zero.
+
+    Args:
+        shape (Tuple[int, ...]): A tuple representing the shape of a tensor.
+
+    Returns:
+        bool: True if the shape represents an empty tensor, False otherwise.
+    """
+    return any(dim == 0 for dim in shape)
+
+
 class Float16MemoryView:
     """
     A custom memory view class for handling float16 data.

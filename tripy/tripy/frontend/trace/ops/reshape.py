@@ -58,6 +58,7 @@ class Reshape(BaseTraceOp):
         else:
             self.outputs[0].rank = self.output_rank
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicReshapeOp
 

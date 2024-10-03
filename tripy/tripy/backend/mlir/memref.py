@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+from functools import lru_cache
+from typing import Sequence
 
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import device as tp_device
@@ -23,11 +25,9 @@ from tripy.common import utils as common_utils
 import mlir_tensorrt.runtime.api as runtime
 
 
-def create_empty_memref(shape, dtype, device=tp_device("gpu"), stream=None):
-    """
-    Creates an empty memref, used for allocating memory.
-    """
-    mlirtrt_device = mlir_utils.MLIRRuntimeClient().get_devices()[0] if device == tp_device("gpu") else None
+@lru_cache(maxsize=None)
+def _cached_create_empty_memref(shape: Sequence[int], dtype: str, device_kind: str, stream):
+    mlirtrt_device = mlir_utils.MLIRRuntimeClient().get_devices()[0] if device_kind == "gpu" else None
     mlir_dtype = mlir_utils.convert_tripy_dtype_to_runtime_dtype(dtype)
     return mlir_utils.MLIRRuntimeClient().create_memref(
         shape=list(shape),
@@ -37,11 +37,34 @@ def create_empty_memref(shape, dtype, device=tp_device("gpu"), stream=None):
     )
 
 
+def create_empty_memref(
+    shape: Sequence[int],
+    dtype: str,
+    device: tp_device = tp_device("gpu"),
+    stream=None,
+    use_cache: bool = True,
+):
+    """
+    Creates an empty memref, used for allocating memory.
+    Caches the result for subsequent calls with the same parameters.
+
+    Args:
+        use_cache (bool, optional): Whether to use cached results for repeated calls with the same parameters.
+                                    If True, returns cached results if available. If False, always creates a new memref.
+                                    Defaults to True. This ensures we reuse empty memref across functions.
+
+    """
+    if use_cache:
+        assert common_utils.is_shape_empty(shape)
+        return _cached_create_empty_memref(tuple(shape), dtype, device.kind, stream)
+    else:
+        return _cached_create_empty_memref.__wrapped__(tuple(shape), dtype, device.kind, stream)
+
+
 def create_memref_view(data):
     """
     Creates a memref view of an array object that implements the dlpack interface.
     """
-
     return mlir_utils.MLIRRuntimeClient().create_memref_view_from_dlpack(data.__dlpack__())
 
 

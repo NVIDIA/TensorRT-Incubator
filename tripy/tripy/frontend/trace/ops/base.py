@@ -25,11 +25,18 @@ from tripy.utils import Result
 
 @dataclass(repr=False)
 class BaseTraceOp(abc.ABC):
+    """
+    Abstract base class for trace operations in the computational graph.
+
+    This class represents a node in the trace graph, with inputs and outputs
+    as TraceTensor objects.
+    """
+
     inputs: List["TraceTensor"]
-    """The inputs of this layer"""
+    """The input tensors of this operation"""
 
     outputs: List["TraceTensor"]
-    """The outputs of this layer"""
+    """The output tensors of this operation"""
 
     @classmethod
     def build_internal(

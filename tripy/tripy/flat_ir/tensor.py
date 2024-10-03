@@ -84,6 +84,24 @@ class FlatIRTensor:
             reason_context=copy.copy(_BUILD_CONTEXT),
         )
 
+    def clone(self, reason_details, name=None) -> "FlatIRTensor":
+        """
+        Create a clone of the FlatIRTensor with an optional new name.
+        """
+        return FlatIRTensor(
+            name=name,
+            # Include code from the caller of this function up, and not just user code
+            # since this is an intermediate tensor created within tripy.
+            stack_info=utils.get_stack_info(include_code_index=1),
+            dtype=self.dtype,
+            device=self.device,
+            rank=self.rank,
+            producer=None,  # Reset producer for the cloned tensor
+            shape=copy.deepcopy(self.shape),
+            reason_details=copy.deepcopy(reason_details),
+            reason_context=copy.copy(_BUILD_CONTEXT),
+        )
+
     def __str__(self) -> str:
         return (
             f"{self.name}: [rank=({self.rank}), "
