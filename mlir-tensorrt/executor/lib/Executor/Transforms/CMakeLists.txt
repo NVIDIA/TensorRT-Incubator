@@ -18,10 +18,14 @@ add_mlir_executor_library(MLIRTensorRTExecutorTransforms
   MLIRComplexToStandard
   MLIRFuncDialect
   MLIRIR
+  MLIRMemRefTransforms
   MLIRPass
   MLIRReconcileUnrealizedCasts
+  MLIRSCFToControlFlow
+  MLIRSCFTransforms
   MLIRTensorRTConvertToExecutorCommon
   MLIRTensorRTExecutorDialect
   MLIRTensorRTExecutorUtils
   MLIRTensorRTStdToExecutor
-)
+  MLIRTensorTransforms
+  )

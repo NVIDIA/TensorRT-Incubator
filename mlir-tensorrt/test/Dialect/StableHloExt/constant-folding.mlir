@@ -999,3 +999,55 @@ func.func @simplify_reshape_broadcastindim_reshape2(%arg0: tensor<1x1xf32>) -> t
 //  CHECK-SAME: dims = [0, 1]
 //  CHECK-SAME: (tensor<1x1xf32>) -> tensor<8x1xf32>
 //  CHECK-NEXT: return
+
+// -----
+
+func.func @fold_div() -> tensor<4xf32> {
+  %lhs = stablehlo.constant dense<[0.1, -0.2, -0.3, 0.4]> : tensor<4xf32>
+  %rhs = stablehlo.constant dense<[0.4, -0.8, 0.6, -0.44]> : tensor<4xf32>
+  %result = stablehlo.divide %lhs, %rhs : tensor<4xf32>
+  return %result : tensor<4xf32>
+}
+
+// CHECK-LABEL: func.func @fold_div
+//       CHECK:     %[[cst:.+]] = stablehlo.constant dense<[2.500000e-01, 2.500000e-01, -5.000000e-01, -0.909090936]> : tensor<4xf32>
+//       CHECK:     return %[[cst]] : tensor<4xf32>
+
+// -----
+
+func.func @fold_div_elided() -> tensor<4xf32> {
+  %lhs = stablehlo.constant dense_resource<__elided__> : tensor<4xf32>
+  %rhs = stablehlo.constant dense<[0.4, -0.8, 0.6, -0.44]> : tensor<4xf32>
+  %result = stablehlo.divide %lhs, %rhs : tensor<4xf32>
+  return %result : tensor<4xf32>
+}
+
+// CHECK-LABEL: func.func @fold_div_elided
+//       CHECK:     stablehlo.divide
+//  CHECK-NEXT:     return
+
+// -----
+
+func.func @fold_floor() -> tensor<4xf32> {
+  %lhs = stablehlo.constant dense<[0.1, -0.2, 1.3, -11.4]> : tensor<4xf32>
+  %result = stablehlo.floor %lhs : tensor<4xf32>
+  return %result : tensor<4xf32>
+}
+
+
+// CHECK-LABEL: func.func @fold_floor
+//       CHECK:     %[[cst:.+]] = stablehlo.constant dense<[0.000000e+00, -1.000000e+00, 1.000000e+00, -1.200000e+01]> : tensor<4xf32>
+//       CHECK:     return %[[cst]] : tensor<4xf32>
+
+// -----
+
+func.func @fold_sub() -> tensor<4xf32> {
+  %lhs = stablehlo.constant dense<[0.1, -0.2, -0.3, 0.4]> : tensor<4xf32>
+  %rhs = stablehlo.constant dense<[0.4, -0.8, 0.6, -0.44]> : tensor<4xf32>
+  %result = stablehlo.subtract %lhs, %rhs : tensor<4xf32>
+  return %result : tensor<4xf32>
+}
+
+// CHECK-LABEL: func.func @fold_sub
+//       CHECK:     %[[cst:.+]] = stablehlo.constant dense<[-3.000000e-01, 6.000000e-01, -0.900000035, 0.840000033]> : tensor<4xf32>
+//       CHECK:     return %[[cst]] : tensor<4xf32>

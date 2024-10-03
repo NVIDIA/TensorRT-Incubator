@@ -49,10 +49,11 @@ endfunction()
 # ------------------------------------------------------------------------------
 function(add_mtrt_python_wheel name)
   if(BUILD_SHARED_LIBS)
-    message(FATAL_ERROR
+    message(WARNING
       "Python wheels cannot be built from build tree when BUILD_SHARED_LIBS=ON! "
       "This must be done after build from an install tree and is currently unsupported."
     )
+    return()
   endif()
 
   find_package(Python3 REQUIRED)

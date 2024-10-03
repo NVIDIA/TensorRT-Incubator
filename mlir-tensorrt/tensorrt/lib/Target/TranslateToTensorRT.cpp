@@ -40,6 +40,7 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Duration.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -61,6 +62,46 @@ namespace tensorrt {
 
 using namespace mlir;
 using namespace mlir::tensorrt;
+
+bool ByteSizeParser::parse(llvm::cl::Option &option, StringRef argName,
+                           StringRef arg, std::optional<uint64_t> &val) {
+  val = std::nullopt;
+  if (arg.empty())
+    return false;
+
+  char *End;
+
+  // Parse integer part, leaving 'End' pointing to the first non-integer char
+  val = std::strtoull(arg.data(), &End, 0);
+
+  while (1) {
+    switch (*End++) {
+    case 0:
+      return false; // No error
+    case 'i':       // Ignore the 'i' in KiB if people use that
+    case 'b':
+    case 'B': // Ignore B suffix
+      break;
+    case 'g':
+    case 'G':
+      *val *= 1024ull * 1024ull * 1024ull;
+      break;
+    case 'm':
+    case 'M':
+      *val *= 1024ull * 1024ull;
+      break;
+    case 'k':
+    case 'K':
+      *val *= 1024ull;
+      break;
+    default:
+      // Print an error message if unrecognized character.
+      return option.error("'" + arg +
+                          "' value invalid for byte size argument!");
+    }
+  }
+  return false;
+}
 
 namespace {
 struct TensorRTTranslationCLFlags {
@@ -101,6 +142,14 @@ struct TensorRTTranslationCLFlags {
       llvm::cl::desc("forces TensorRT builder to build a strongly typed "
                      "network."),
       llvm::cl::init(false), llvm::cl::cat(optCategory)};
+  llvm::cl::opt<std::optional<uint64_t>, /*ExternalStorage=*/false,
+                /*ParserClass=*/ByteSizeParser>
+      tensorrtWorkspaceMemoryPoolLimit{
+          "tensorrt-workspace-memory-pool-limit",
+          llvm::cl::desc(
+              "TensorRT workspace memory pool limit "
+              "in bytes with optional size suffix like 'GiB' or 'KiB'"),
+          llvm::cl::init(std::nullopt), llvm::cl::cat(optCategory)};
 
   //===----------------------------------------------------------------------===//
   // TensorRT Builder Logging
@@ -148,6 +197,7 @@ static llvm::ManagedStatic<TensorRTTranslationCLFlags>
     clTensorRTTranslationOptions;
 
 void mlir::tensorrt::registerTensorRTTranslationCLOpts() {
+  // Ensure that the managed static options are instantiated.
   (void)*clTensorRTTranslationOptions;
 }
 
@@ -172,6 +222,8 @@ TensorRTTranslationOptions TensorRTTranslationOptions::fromCLFlags() {
       clTensorRTTranslationOptions->tensorrtStronglyTyped;
   options.enableVerboseLogs =
       clTensorRTTranslationOptions->enableTensorRTVerboseLogging;
+  options.workspaceMemoryPoolLimit =
+      clTensorRTTranslationOptions->tensorrtWorkspaceMemoryPoolLimit;
   options.pluginPathsToSerialize =
       llvm::to_vector(clTensorRTTranslationOptions->pluginPathsToSerialize);
   options.saveTensorRTLayerInfoDirectory =
@@ -332,11 +384,11 @@ static LogicalResult maybeSetStronglyTypedOption(
 #endif
 }
 
-FailureOr<TensorRTEngineResult>
-tensorrt::buildFunction(mlir::FunctionOpInterface op,
-                        TensorRTBuilderContext &builderContext,
-                        TensorRTSerializedTimingCache &serializedTimingCache,
-                        const TensorRTTranslationOptions &opts) {
+FailureOr<TensorRTEngineResult> tensorrt::buildFunction(
+    mlir::FunctionOpInterface op, TensorRTBuilderContext &builderContext,
+    TensorRTSerializedTimingCache &serializedTimingCache,
+    const TensorRTTranslationOptions &opts,
+    std::function<std::string(Operation *)> layerMetadataCallback) {
   assert(builderContext.getBuilder() && "expected valid builder context");
   std::unique_ptr<nvinfer1::IBuilder> &builder = builderContext.getBuilder();
 
@@ -357,9 +409,9 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
   nvinfer1::IOptimizationProfile *optimProfile =
       builder->createOptimizationProfile();
 
-  NvInferNetworkEncoder encoder(network.get(), optimProfile,
-                                builderContext.getTensorRTVersion(),
-                                opts.enableStronglyTyped);
+  NvInferNetworkEncoder encoder(
+      network.get(), optimProfile, builderContext.getTensorRTVersion(),
+      opts.enableStronglyTyped, layerMetadataCallback);
 
   // Currently we only support single-block functions with unique return
   // terminator ops.
@@ -442,6 +494,14 @@ tensorrt::buildFunction(mlir::FunctionOpInterface op,
 
   setBuilderOptimizationLevel(config.get(), opts.tensorrtBuilderOptLevel,
                               builderContext.getTensorRTVersion());
+
+  if (opts.workspaceMemoryPoolLimit) {
+    LLVM_DEBUG(
+        DBGS() << "setting TensorRT builder workspace memory pool limit = "
+               << opts.workspaceMemoryPoolLimit << " bytes\n");
+    config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE,
+                               *opts.workspaceMemoryPoolLimit);
+  }
 
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(8, 6, 0)
   if (!opts.pluginPathsToSerialize.empty() &&
@@ -673,9 +733,10 @@ public:
 
   explicit TranslateToTensorRTEnginePass(
       std::shared_ptr<TensorRTBuilderContext> builderContext,
-      TensorRTTranslationOptions options)
-      : builderContext(builderContext), translationOptions(std::move(options)) {
-  }
+      TensorRTTranslationOptions options,
+      std::function<std::string(Operation *)> metadataCallback)
+      : builderContext(builderContext), translationOptions(std::move(options)),
+        layerMetadataCallback(std::move(metadataCallback)) {}
 
   LogicalResult initialize(MLIRContext *context) final {
     if (!this->builderContext) {
@@ -742,8 +803,9 @@ public:
         continue;
       }
 
-      FailureOr<TensorRTEngineResult> engineResult = buildFunction(
-          func, *builderContext, *timingCache, translationOptions);
+      FailureOr<TensorRTEngineResult> engineResult =
+          buildFunction(func, *builderContext, *timingCache, translationOptions,
+                        layerMetadataCallback);
       if (failed(engineResult) || !engineResult->serializedEngine) {
         func.emitError() << "failed to translate function '" << func.getName()
                          << "' to a TensorRT engine";
@@ -820,11 +882,15 @@ private:
 
   /// Options affecting TensorRT translation.
   TensorRTTranslationOptions translationOptions;
+
+  std::function<std::string(Operation *)> layerMetadataCallback;
 };
 } // namespace
 
 std::unique_ptr<mlir::Pass> tensorrt::createTranslateTensorRTPass(
     std::shared_ptr<tensorrt::TensorRTBuilderContext> context,
+    std::function<std::string(Operation *)> layerMetadataCallback,
     TensorRTTranslationOptions options) {
-  return std::make_unique<TranslateToTensorRTEnginePass>(context, options);
+  return std::make_unique<TranslateToTensorRTEnginePass>(context, options,
+                                                         layerMetadataCallback);
 }

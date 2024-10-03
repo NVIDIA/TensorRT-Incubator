@@ -936,12 +936,12 @@ LogicalResult tensorrt::ResizeNearestOp::verify() {
   auto outputRank = outputType.getRank();
   const int64_t resizeDim = std::min(static_cast<int64_t>(3), outputRank);
   for (int64_t i = outputRank - 1; i >= 0; --i) {
-    if (inputType.getDimSize(i) != outputType.getDimSize(i)) {
-      if (outputRank - i > resizeDim) {
+    if (inputType.isDynamicDim(i) || outputType.isDynamicDim(i))
+      continue;
+    if (inputType.getDimSize(i) != outputType.getDimSize(i))
+      if (outputRank - i > resizeDim)
         return emitOpError("only supports resizing on the innermost min(3, "
                            "rank(input)) dimensions");
-      }
-    }
   }
 
   if (getScales().has_value()) {
@@ -954,14 +954,17 @@ LogicalResult tensorrt::ResizeNearestOp::verify() {
             "all scale values except innermost min(3, rank(input)) must be 1");
   }
 
-  for (int64_t i = 0; i < resizeDim; ++i) {
-    if (inputType.isDynamicDim(outputRank - 1 - i) ||
-        outputType.isDynamicDim(outputRank - 1 - i)) {
-      if (!getScales().has_value())
+  if (!getOutputShape()) {
+    for (int64_t i = 0; i < resizeDim; ++i) {
+      // output dims must be static or
+      // scales is given and input dims are static
+      if (outputType.isDynamicDim(outputRank - 1 - i) &&
+          (inputType.isDynamicDim(outputRank - 1 - i) ||
+           !getScales().has_value()))
         return emitOpError(
-            "output innermost min(3, rank(input)) dimension that resize on "
-            "cannot be dynamic when resize scales parameter is NOT "
-            "specified");
+            "input innermost min(3, rank(input)) dimension that resize on "
+            "cannot be dynamic when output_shape parameter is NOT "
+            "specified and it cannot be inferred statically");
     }
   }
   return success();
@@ -974,11 +977,14 @@ LogicalResult tensorrt::ResizeLinearOp::verify() {
 
   auto outputRank = outputType.getRank();
   const int64_t resizeDim = std::min(static_cast<int64_t>(3), outputRank);
-  for (int64_t i = outputRank - 1; i >= 0; --i)
+  for (int64_t i = outputRank - 1; i >= 0; --i) {
+    if (inputType.isDynamicDim(i) || outputType.isDynamicDim(i))
+      continue;
     if (inputType.getDimSize(i) != outputType.getDimSize(i))
       if (outputRank - i > resizeDim)
         return emitOpError("only supports resizing on the innermost min(3, "
                            "rank(input)) dimensions");
+  }
 
   if (getScales().has_value()) {
     if (static_cast<int64_t>(getScales().value().size()) != outputRank)
@@ -990,14 +996,17 @@ LogicalResult tensorrt::ResizeLinearOp::verify() {
             "all scale values except innermost min(3, rank(input)) must be 1");
   }
 
-  for (int64_t i = 0; i < resizeDim; ++i) {
-    if (inputType.isDynamicDim(outputRank - 1 - i) ||
-        inputType.isDynamicDim(outputRank - 1 - i)) {
-      if (!getScales().has_value())
+  if (!getOutputShape()) {
+    for (int64_t i = 0; i < resizeDim; ++i) {
+      // output dims must be static or
+      // scales is given and input dims are static
+      if (outputType.isDynamicDim(outputRank - 1 - i) &&
+          (inputType.isDynamicDim(outputRank - 1 - i) ||
+           !getScales().has_value()))
         return emitOpError(
-            "output innermost min(3, rank(input)) dimension that resize on "
-            "cannot be dynamic when resize scales parameter is NOT "
-            "specified");
+            "input innermost min(3, rank(input)) dimension that resize on "
+            "cannot be dynamic when output_shape parameter is NOT "
+            "specified and it cannot be inferred statically");
     }
   }
   // ResizeLinearOp impl end
@@ -1028,14 +1037,17 @@ LogicalResult tensorrt::ResizeCubicOp::verify() {
         return emitOpError("all scale values except 2 innermost must be 1");
   }
 
-  for (size_t i = 0; i < 2; ++i) {
-    if (inputType.isDynamicDim(outputRank - 1 - i) ||
-        inputType.isDynamicDim(outputRank - 1 - i)) {
-      if (!getScales().has_value())
+  if (!getOutputShape()) {
+    for (int64_t i = 0; i < 2; ++i) {
+      // output dims must be static or
+      // scales is given and input dims are static
+      if (outputType.isDynamicDim(outputRank - 1 - i) &&
+          (inputType.isDynamicDim(outputRank - 1 - i) ||
+           !getScales().has_value()))
         return emitOpError(
-            "output innermost 2 dimensions that resize on "
-            "cannot be dynamic when resize scales parameter is NOT "
-            "specified");
+            "input innermost 2 dimensions that resize on "
+            "cannot be dynamic when output_shape parameter is NOT "
+            "specified and it cannot be inferred statically");
     }
   }
 

@@ -23,12 +23,12 @@
 //===----------------------------------------------------------------------===//
 #ifndef MLIR_TENSORRT_SUPPORT_CUDAWRAPPERS_H
 #define MLIR_TENSORRT_SUPPORT_CUDAWRAPPERS_H
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
 
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Support/Status.h"
 #include <functional>
 #include <memory>
-#include <sstream>
 
 namespace mlirtrt {
 
@@ -106,4 +106,5 @@ public:
 
 } // namespace mlirtrt
 
+#endif // MLIR_EXECUTOR_ENABLE_CUDA
 #endif // MLIR_TENSORRT_SUPPORT_CUDAWRAPPERS_H

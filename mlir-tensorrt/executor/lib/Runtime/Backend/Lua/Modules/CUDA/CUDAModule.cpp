@@ -22,10 +22,10 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Runtime/Backend/Lua/Modules/CUDA/CudaModule.h"
-
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"

@@ -19,7 +19,7 @@ template <typename T>
 class Int4Test : public ::testing::Test {};
 
 using Int4Types = ::testing::Types<nv_int4, nv_uint4>;
-TYPED_TEST_SUITE(Int4Test, Int4Types);
+TYPED_TEST_SUITE(Int4Test, Int4Types, );
 
 TYPED_TEST(Int4Test, TestCreation) {
   using int4Type = TypeParam;
@@ -115,7 +115,7 @@ template <typename T>
 class Int4PackedTest : public ::testing::Test {};
 
 using Int4PackedTypes = ::testing::Types<nv_int4p, nv_uint4p>;
-TYPED_TEST_SUITE(Int4PackedTest, Int4PackedTypes);
+TYPED_TEST_SUITE(Int4PackedTest, Int4PackedTypes, );
 
 TYPED_TEST(Int4PackedTest, TestCreation) {
   using int4PackedType = TypeParam;

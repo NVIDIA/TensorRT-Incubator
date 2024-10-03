@@ -19,7 +19,7 @@ import inspect
 from dataclasses import dataclass
 from typing import List, Optional, Any
 from types import ModuleType
-
+from textwrap import dedent
 from tripy.function_registry import FunctionRegistry
 
 
@@ -40,7 +40,11 @@ PUBLIC_API_FUNCTION_REGISTRY = FunctionRegistry()
 
 
 def public_api(
-    document_under: str = "", autodoc_options: Optional[List[str]] = None, module: ModuleType = None, symbol: str = None
+    document_under: str = "",
+    autodoc_options: Optional[List[str]] = None,
+    module: ModuleType = None,
+    symbol: str = None,
+    doc: str = None,
 ):
     """
     Decorator that exports a function/class to the public API under the top-level module and
@@ -71,6 +75,9 @@ def public_api(
         module: The module under which to export this public API. Defaults to the top-level Tripy module.
 
         symbol: The name of the symbol, if different from ``__name__``.
+
+        doc: Optional docstring. This is useful in cases where the docstring cannot be provided as normal.
+            For example, global variables sometimes don't register docstrings correctly.
     """
     assert not autodoc_options or (
         ":no-members:" not in autodoc_options or ":no-special-members:" in autodoc_options
@@ -79,6 +86,9 @@ def public_api(
     def export_impl(obj):
         nonlocal module, symbol
         import tripy
+
+        if doc is not None:
+            obj.__doc__ = dedent(doc)
 
         module = module or tripy
 

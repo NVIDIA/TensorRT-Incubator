@@ -24,14 +24,15 @@
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include <deque>
 #include <set>
-#include <sstream>
-#include <string>
+
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+#include "cuda_runtime_api.h"
+#endif
 
 using namespace mlirtrt;
 
@@ -45,13 +46,19 @@ using namespace mlirtrt;
 
 StatusOr<std::unique_ptr<PoolTrackedCudaEvent>>
 PoolTrackedCudaEvent::get(EventPool *pool) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   assert(pool != nullptr && "expected valid device event pool");
   cudaEvent_t event;
   RETURN_ERROR_IF_CUDART_ERROR(cudaEventCreate(&event));
   ALLOC_DBGF("creating pool-tracked cuda event %lu on pool %lu",
              reinterpret_cast<uintptr_t>(event),
              reinterpret_cast<uintptr_t>(pool));
-  return std::make_unique<PoolTrackedCudaEvent>(event, pool);
+  return std::make_unique<PoolTrackedCudaEvent>(
+      reinterpret_cast<uintptr_t>(event), pool);
+#else
+  return getInternalErrorStatus(
+      "MLIR-Executor was not built with CUDA enabled");
+#endif
 }
 
 PoolTrackedCudaEvent::~PoolTrackedCudaEvent() { releaseBackToPool(); }
@@ -63,7 +70,7 @@ void PoolTrackedCudaEvent::releaseBackToPool() {
                reinterpret_cast<uintptr_t>(owningPool));
     this->owningPool->push(PoolTrackedCudaEvent(event, nullptr));
     this->owningPool = nullptr;
-    this->event = nullptr;
+    this->event = 0;
   }
 }
 
@@ -161,9 +168,11 @@ struct PinnedMemoryAllocator::BlockEventQueue {
 
 Status PinnedMemoryAllocator::BlockEventQueue::checkForFreeBlocks(
     std::unique_ptr<PinnedMemoryAllocator::BlockSet> &freeBlocks) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   while (std::optional<BlockEvent> blockEvent = getNextOldestBlockEvent()) {
     auto &[eventPtr, block] = *blockEvent;
-    cudaError_t status = cudaEventQuery(eventPtr->getEvent());
+    cudaError_t status =
+        cudaEventQuery(reinterpret_cast<cudaEvent_t>(eventPtr->getEvent()));
     if (status == cudaErrorNotReady) {
       (void)cudaGetLastError();
       eventQueue.emplace_back(std::move(*blockEvent));
@@ -176,6 +185,25 @@ Status PinnedMemoryAllocator::BlockEventQueue::checkForFreeBlocks(
       freeBlocks->insert(block);
   }
   return getOkStatus();
+#else
+  return getInternalErrorStatus(
+      "MLIR-Executor was not built with CUDA enabled");
+#endif
+}
+
+static void cudaFreeHostWrapper(uintptr_t ptr) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
+  cudaError_t err = cudaFreeHost(reinterpret_cast<void *>(ptr));
+  if (err != cudaSuccess) {
+    llvm::errs() << llvm::formatv("'cudaFreeHost' error: ({0}) {1}\n",
+                                  cudaGetErrorName(err),
+                                  cudaGetErrorString(err));
+    return;
+  }
+#else
+  llvm_unreachable("attempted to call cudaFreeHost, but MLIR-Executor was not "
+                   "built with CUDA enabled");
+#endif
 }
 
 struct PinnedMemoryAllocator::BlockTracker {
@@ -183,13 +211,14 @@ struct PinnedMemoryAllocator::BlockTracker {
   llvm::DenseMap<uintptr_t, Block *> pointerToBlock;
 
   ~BlockTracker() {
+
     ALLOC_DBGF(
         "[PinnedMemoryAllocator] Releasing block tracker that has %lu blocks",
         blocks.size());
     for (Block *block : blocks) {
       ALLOC_DBGF("[PinnedMemoryAllocator] releasing block %lu of size %lu",
                  block->ptr, block->size);
-      (void)cudaFreeHost(reinterpret_cast<void *>(block->ptr));
+      cudaFreeHostWrapper(block->ptr);
     }
   }
 };
@@ -202,6 +231,7 @@ PinnedMemoryAllocator::PinnedMemoryAllocator()
 PinnedMemoryAllocator::~PinnedMemoryAllocator() {}
 
 StatusOr<PinnedMemoryBlock> PinnedMemoryAllocator::allocate(size_t size) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (size == 0)
     return PinnedMemoryBlock{0, 0};
 
@@ -233,10 +263,15 @@ StatusOr<PinnedMemoryBlock> PinnedMemoryAllocator::allocate(size_t size) {
   blockTracker->blocks.insert(result);
   blockTracker->pointerToBlock.insert({result->ptr, result});
   return PinnedMemoryBlock{result->ptr, result->size};
+#else
+  return getInternalErrorStatus(
+      "MLIR-Executor was not built with CUDA enabled");
+#endif
 }
 
 // Free the given block.
-Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, cudaStream_t stream) {
+Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, CudaStream stream) {
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
   if (ptr == 0)
     return getOkStatus();
 
@@ -246,7 +281,9 @@ Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, cudaStream_t stream) {
   // the dependency. It won't be released until the dependency is met.
   StatusOr<std::unique_ptr<PoolTrackedCudaEvent>> event =
       eventPool.getCudaEvent();
-  RETURN_ERROR_IF_CUDART_ERROR(cudaEventRecord((*event)->getEvent(), stream));
+  RETURN_ERROR_IF_CUDART_ERROR(
+      cudaEventRecord(reinterpret_cast<cudaEvent_t>((*event)->getEvent()),
+                      reinterpret_cast<cudaStream_t>(stream)));
   block->pendingEvents++;
   // Add the event and block to processing list.
   ALLOC_DBGF("enqueing asynchronously free of block %lu on stream %lu using "
@@ -255,4 +292,8 @@ Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, cudaStream_t stream) {
              reinterpret_cast<uintptr_t>((*event)->getEvent()));
   pendingBlockEvents->eventQueue.emplace_front(std::move(*event), block);
   return getOkStatus();
+#else
+  return getInternalErrorStatus(
+      "MLIR-Executor was not built with CUDA enabled");
+#endif
 }

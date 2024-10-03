@@ -97,17 +97,14 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
         frame_info += " " * start + apply_color("^" * (size), Fore.red)
         if not is_first_frame:
             frame_info += " --- required from here"
-    else:
-        if not is_first_frame:
-            frame_info = "Required from:\n" + frame_info
     frame_info += "\n\n"
     return frame_info
 
 
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
-    from tripy.frontend.utils import convert_inputs_to_tensors
+    from tripy.frontend.utils import convert_inputs_to_tensors, convert_shape_inputs
 
-    EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors]
+    EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors, convert_shape_inputs]
 
     def should_exclude(frame):
         for func in EXCLUDE_FUNCTIONS:

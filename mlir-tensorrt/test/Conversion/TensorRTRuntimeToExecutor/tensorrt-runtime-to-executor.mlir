@@ -17,7 +17,7 @@ func.func @main(%arg0: memref<1x3x256x256xf32>, %arg1: memref<1x3x256x256xf32>) 
 
 //   CHECK-DAG:   executor.func private @_trtrt_enqueue(!executor.opaque<"trtrt_context">, !executor.ptr<host>, ...)
 //   CHECK-DAG:   executor.func private @_trtrt_create_context(!executor.opaque<"trtrt_engine">) -> !executor.opaque<"trtrt_context">
-//   CHECK-DAG:   executor.func private @_trtrt_load(!executor.opaque<"trtrt_runtime">, !executor.ptr<host>) -> !executor.opaque<"trtrt_engine">
+//   CHECK-DAG:   executor.func private @_trtrt_load(!executor.opaque<"trtrt_runtime">, !executor.ptr<host>, i64) -> !executor.opaque<"trtrt_engine">
 //   CHECK-DAG:   executor.func private @_trtrt_create_runtime() -> !executor.opaque<"trtrt_runtime">
 // CHECK-LABEL:   executor.global @tensorrt_runtime : !executor.opaque<"trtrt_runtime"> {
 //   CHECK-DAG:     %[[v0:.+]] = executor.call @_trtrt_create_runtime() : () -> !executor.opaque<"trtrt_runtime">
@@ -25,8 +25,9 @@ func.func @main(%arg0: memref<1x3x256x256xf32>, %arg1: memref<1x3x256x256xf32>) 
 //       CHECK:   executor.constant_resource @my_func_engine_data dense<0> : vector<10xi8>
 // CHECK-LABEL:   executor.global @my_func_exec_ctx constant : !executor.opaque<"trtrt_context"> {
 //   CHECK-DAG:     %[[v0:.+]] = executor.load_constant_resource @my_func_engine_data : !executor.ptr<host>
+//   CHECK-DAG:     %[[size:.+]] = executor.getoffset[10] : () -> i64, i8
 //   CHECK-DAG:     %[[v1:.+]] = executor.get_global @tensorrt_runtime : !executor.opaque<"trtrt_runtime">
-//   CHECK-DAG:     %[[v2:.+]] = executor.call @_trtrt_load(%[[v1]], %[[v0]]) : (!executor.opaque<"trtrt_runtime">, !executor.ptr<host>) -> !executor.opaque<"trtrt_engine">
+//   CHECK-DAG:     %[[v2:.+]] = executor.call @_trtrt_load(%[[v1]], %[[v0]], %[[size]]) : (!executor.opaque<"trtrt_runtime">, !executor.ptr<host>, i64) -> !executor.opaque<"trtrt_engine">
 //   CHECK-DAG:     %[[v3:.+]] = executor.call @_trtrt_create_context(%[[v2]]) : (!executor.opaque<"trtrt_engine">) -> !executor.opaque<"trtrt_context">
 //   CHECK-DAG:     executor.return %[[v3]] : !executor.opaque<"trtrt_context">
 // CHECK-LABEL: tensorrt.module @trt_funcs {

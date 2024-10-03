@@ -83,12 +83,19 @@ namespace mlir {
 /// ```
 class OptionsContext : public llvm::cl::SubCommand {
 public:
+  OptionsContext() = default;
+  OptionsContext(const OptionsContext &) = delete;
+  OptionsContext(OptionsContext &&) = default;
+  virtual ~OptionsContext() = default;
+
+protected:
   /// Add an option to this context. The storage `value` must outlive the
   /// OptionsContext.
-  template <typename DataType, typename... Mods>
-  void addOption(llvm::StringRef name, DataType &value, Mods &&...mods) {
+  template <typename DataType, typename ParserClass, typename... Mods>
+  void addOptionImpl(llvm::StringRef name, DataType &value, Mods &&...mods) {
     auto opt =
-        std::make_unique<llvm::cl::opt<DataType, /*ExternalStorage=*/true>>(
+        std::make_unique<llvm::cl::opt<DataType, /*ExternalStorage=*/true,
+                                       /*ParserClass=*/ParserClass>>(
             llvm::cl::sub(*this), name, llvm::cl::location(value),
             std::forward<Mods>(mods)...);
     printers[opt.get()] = [opt = opt.get()](llvm::raw_ostream &os) {
@@ -96,6 +103,24 @@ public:
           os, opt->getValue());
     };
     options.push_back(OptionInfo{std::move(opt)});
+  }
+
+public:
+  /// Add an option to this context. The storage `value` must outlive the
+  /// OptionsContext.
+  template <typename DataType, typename... Mods>
+  void addOption(llvm::StringRef name, DataType &value, Mods &&...mods) {
+    addOptionImpl<DataType, llvm::cl::parser<DataType>, Mods...>(
+        name, value, std::forward<Mods>(mods)...);
+  }
+
+  /// Add an option to this context using a custom parser class (given as
+  /// template argument). The storage `value` must outlive the OptionsContext.
+  template <typename ParserClass, typename DataType, typename... Mods>
+  void addOptionWithParser(llvm::StringRef name, DataType &value,
+                           Mods &&...mods) {
+    addOptionImpl<DataType, ParserClass, Mods...>(name, value,
+                                                  std::forward<Mods>(mods)...);
   }
 
   /// Add a list options to this context. This context will have duplicated
@@ -124,7 +149,9 @@ public:
   void print(llvm::raw_ostream &os) const;
 
   /// Get a hash derived from the string representation of the options.
-  llvm::hash_code getHash() const;
+  virtual std::optional<llvm::hash_code> getHash() const;
+
+  virtual bool shouldInvalidateCache() const { return false; }
 
 private:
   struct OptionInfo {

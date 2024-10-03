@@ -179,8 +179,9 @@ static void emitAttributeReplacement(FmtContext &ctx, raw_indented_ostream &os,
     return;
   }
   if (attrRecordName == "ElementsAttr") {
-    os << "nvinfer1::Weights " << namedAttr.name
+    os << "FailureOr<nvinfer1::Weights> " << namedAttr.name
        << " = encoder.getNvInferWeights(" << getter << ");\n";
+    os << "if (failed(" << namedAttr.name << ")) return failure();\n";
     return;
   }
   if (attrRecordName == "DenseI64ArrayAttr" ||
@@ -397,7 +398,11 @@ static bool emitLayerAddDefinitions(const llvm::RecordKeeper &recordKeeper,
       }
 
       // Emit the body with substitutions.
+      os << "auto const numLayersBefore = network->getNbLayers();\n";
       os << tblgen::tgfmt(expr, &ctx);
+      os << "auto const numLayersAfter = network->getNbLayers();\n";
+      os << "for (int64_t i = numLayersBefore; i < numLayersAfter; ++i) "
+            "encoder.map(tensorrtOp, network->getLayer(i));\n";
       os << "return success();\n";
       os.unindent();
       os << "}\n";

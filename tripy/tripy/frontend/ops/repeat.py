@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from typing import Union
 from tripy import constraints, export
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
@@ -26,7 +27,7 @@ from tripy.frontend import utils as frontend_utils
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 @frontend_utils.process_dim
-def repeat(input: "tripy.Tensor", repeats: int, dim: int) -> "tripy.Tensor":
+def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim: int) -> "tripy.Tensor":
     """
     Repeats each element of a tensor after itself along the specified dimension.
 
@@ -68,9 +69,14 @@ def repeat(input: "tripy.Tensor", repeats: int, dim: int) -> "tripy.Tensor":
     from tripy.frontend.trace.ops.expand import expand
     from tripy.frontend.trace.ops.reshape import reshape
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.frontend.tensor import Tensor
+    from tripy.frontend.shape import ShapeScalar, Shape
+    from tripy.frontend.trace.ops.concatenate import concatenate
 
-    if repeats < 0:
-        raise_error("`repeats` value must be non-negative.", [f"Got: repeats={repeats}."])
+    if isinstance(repeats, int):
+        if repeats < 0:
+            raise_error("`repeats` value must be non-negative.", [f"Got: repeats={repeats}."])
+        repeats = ShapeScalar(repeats)
 
     # By constraining repeats to be a single integer, we can use a very
     # simple implementation for repeat.
@@ -84,10 +90,11 @@ def repeat(input: "tripy.Tensor", repeats: int, dim: int) -> "tripy.Tensor":
     #            [2],]     [2, 2],]
     #
     out = unsqueeze(input, dim + 1)
-    out = expand(out, input.shape[: dim + 1] + [repeats] + input.shape[dim + 1 :])
+    out = expand(out, input.shape[: dim + 1] + Shape([repeats]) + input.shape[dim + 1 :])
 
-    repeat_mask = [1] * input.rank
-    repeat_mask[dim] = repeats
+    repeat_mask = concatenate(
+        [reshape(repeats, (1,)) if idx == dim else Tensor([1]) for idx in range(input.rank)], dim=0
+    )
     new_shape = input.shape.multiply(repeat_mask)
     out = reshape(out, new_shape)
     return out

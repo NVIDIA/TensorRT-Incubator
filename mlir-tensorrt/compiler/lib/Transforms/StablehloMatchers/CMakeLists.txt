@@ -3,11 +3,12 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloMatchers
 
   DEPENDS
   MLIRTensorRTGenericTransformPassIncGen
-  
+
   LINK_LIBS PUBLIC
   MLIRIR
-  MLIRRewrite
   MLIRPass
-  StablehloOps
+  MLIRRewrite
   MLIRTensorDialect
-)
+  MLIRTransformUtils
+  StablehloOps
+  )

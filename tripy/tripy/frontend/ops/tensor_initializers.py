@@ -28,16 +28,15 @@ from tripy.frontend import utils as frontend_utils
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
+@frontend_utils.convert_shape_inputs(["shape"])
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
-    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def ones(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
+    shape: "tripy.types.ShapeLike",
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":
     """
@@ -64,16 +63,15 @@ def ones(
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_inputs_to_tensors(shape_argument=["shape"], exclude=["dtype"])
+@frontend_utils.convert_shape_inputs(["shape"])
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
-    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def zeros(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
+    shape: "tripy.types.ShapeLike",
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":
     """

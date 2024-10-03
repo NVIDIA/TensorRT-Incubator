@@ -14,10 +14,13 @@
 # limitations under the License.
 
 from typing import Tuple, Type
+from functools import partial
+import math
 
 import tripy as tp
 from tripy import Tensor
 from sam2.modeling.sam2_utils import MLP, scaled_dot_product_attention
+from sam2.modeling.positional_encoding import apply_rotary_enc, compute_axial_cis
 
 
 class TwoWayTransformer(tp.Module):
@@ -222,7 +225,7 @@ class Attention(tp.Module):
 
     def _separate_heads(self, x: Tensor, num_heads: int) -> Tensor:
         b, n, c = x.shape[0], x.shape[1], x.shape[2]
-        x = tp.reshape(x, [b, n, tp.Tensor([num_heads]), c // num_heads])
+        x = tp.reshape(x, [b, n, num_heads, c // num_heads])
         return tp.transpose(x, 1, 2)  # B x N_heads x N_tokens x C_per_head
 
     def _recombine_heads(self, x: Tensor) -> Tensor:
@@ -252,6 +255,63 @@ class Attention(tp.Module):
 
         # Attention
         out = scaled_dot_product_attention(q, k, v, embedding_dim=k.shape[-1])
+        out = self._recombine_heads(out)
+        out = self.out_proj(out)
+
+        return out
+
+
+class RoPEAttention(Attention):
+    """Attention with rotary position encoding."""
+
+    def __init__(
+        self,
+        *args,
+        rope_theta=10000.0,
+        # whether to repeat q rope to match k length
+        # this is needed for cross-attention to memories
+        rope_k_repeat=False,
+        feat_sizes=(32, 32),  # [w, h] for stride 16 feats at 512 resolution
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.compute_cis = partial(compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta)
+        freqs_cis = self.compute_cis(end_x=feat_sizes[0], end_y=feat_sizes[1])
+        self.freqs_cis = freqs_cis
+        self.rope_k_repeat = rope_k_repeat
+
+    def forward(self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: int = 0) -> tp.Tensor:
+        # Input projections
+        q = self.q_proj(q)
+        k = self.k_proj(k)
+        v = self.v_proj(v)
+
+        # Separate into heads
+        q = self._separate_heads(q, self.num_heads)
+        k = self._separate_heads(k, self.num_heads)
+        v = self._separate_heads(v, self.num_heads)
+
+        # Apply rotary position encoding
+        w = h = tp.ShapeScalar(tp.cast(tp.sqrt(tp.cast(q.shape[-2], tp.float32)), tp.int32))  # DDS?
+        self.freqs_cis = self.freqs_cis
+        if self.freqs_cis.shape[0] != q.shape[-2]:
+            self.freqs_cis = self.compute_cis(end_x=w, end_y=h)
+        if q.shape[-2] != k.shape[-2]:
+            assert self.rope_k_repeat
+
+        num_k_rope = k.shape[-2] - num_k_exclude_rope
+        q, new_k = apply_rotary_enc(
+            q,
+            k[:, :, :num_k_rope],
+            freqs_cis=self.freqs_cis,
+            repeat_freqs_k=self.rope_k_repeat,
+        )
+
+        k = tp.concatenate([new_k, k[:, :, num_k_rope:]], dim=-1)
+
+        # Attention
+        out = scaled_dot_product_attention(q, k, v)
         out = self._recombine_heads(out)
         out = self.out_proj(out)
 

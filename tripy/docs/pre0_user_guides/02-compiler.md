@@ -58,7 +58,7 @@ fast_geglu(inp).eval()
 ### Optimization Profiles
 
 In the example above, we assumed `inp` has a static shape of `(1, 2)`.
-Now, let’s assume that the shape of `inp` can vary from `(1, 2)` to `(16, 2)`, with `(8, 2)`
+Now, let's assume that the shape of `inp` can vary from `(1, 2)` to `(16, 2)`, with `(8, 2)`
 being the shape we'd like to optimize for. To express this constraint to the compiler,
 we can provide the range of shapes to `InputInfo` using `shape=((1, 8, 16), 2)`.
 This indicates to the compiler that the first dimension can vary from 1 to 16,

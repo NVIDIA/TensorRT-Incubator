@@ -36,6 +36,8 @@ class ReduceWindowOp(BaseFlatIROp):
     def _get_reduce_func(self):
         if self.reduce_mode == "max":
             return stablehlo.MaxOp
+        elif self.reduce_mode == "avg":
+            return stablehlo.AddOp
         else:
             raise NotImplementedError()
 

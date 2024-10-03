@@ -171,10 +171,15 @@ def TensorRT_ActivationOp : TensorRT_Op<"activation", [Pure,
       layer->setAlpha(*$alpha);
     if($beta)
       layer->setBeta(*$beta);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -204,9 +209,14 @@ def TensorRT_UnaryOp : TensorRT_Op<"unary", [Pure,
   let trtLayerAdd = [{
     ::nvinfer1::IUnaryLayer *layer = $net->addUnary(*$input, *$unaryOperation);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    $e.setMetadata(layer, $op);
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
   }];
 }
 
@@ -266,10 +276,15 @@ def TensorRT_ElementWiseOp : TensorRT_Op<"element_wise", [Pure,
   let trtLayerAdd = [{
     nvinfer1::IElementWiseLayer *layer = $net->addElementWise(
       *$input1, *$input2, *$elementwiseOperation);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -292,14 +307,17 @@ def TensorRT_ConstantOp : TensorRT_Op<"constant", [Pure,
   let hasFolder = 1;
 
   let trtLayerAdd = [{
-    nvinfer1::IConstantLayer *constLayer = $net->addConstant($resultShape, $weights);
+    nvinfer1::IConstantLayer *constLayer = $net->addConstant($resultShape, *$weights);
     nvinfer1::ITensor* result = constLayer->getOutput(0);
     if (!$e.isStronglyTyped()) {
-      constLayer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      constLayer->setOutputType(0, *outputTrtType);
     }
     $results.push_back(result);
-    $e.setName(constLayer, $op);
+    $e.setMetadata(constLayer, $op);
   }];
 }
 
@@ -337,10 +355,15 @@ def TensorRT_ConcatenationOp : TensorRT_Op<"concatenation",
     nvinfer1::IConcatenationLayer *layer =
         $net->addConcatenation($inputs.data(), $inputs.size());
     layer->setAxis(static_cast<int32_t>($axis));
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -421,7 +444,7 @@ def TensorRT_ConvolutionOp : TensorRT_Op<"convolution",
     nvinfer1::IConvolutionLayer *layer = $net->addConvolutionNd(
         *$input, numOutputMaps,
         getNvInferDims($op.getKernelSpatialShape()),
-        $kernelStatic, $biasStatic);
+        *$kernelStatic, *$biasStatic);
     if ($kernel)
       layer->setInput(1, *$kernel);
     if ($bias)
@@ -432,10 +455,15 @@ def TensorRT_ConvolutionOp : TensorRT_Op<"convolution",
     if ($dilation)
       layer->setDilationNd(*$dilation);
     layer->setNbGroups($num_groups);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                            $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 
   let hasCanonicalizer = 1;
@@ -511,10 +539,15 @@ def TensorRT_EinsumOp : TensorRT_Op<"einsum", [Pure,
   let trtLayerAdd = [{
     nvinfer1::IEinsumLayer *layer = network->addEinsum(
         $inputs.data(), $inputs.size(), $equation.str().c_str());
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -611,11 +644,15 @@ def TensorRT_GatherOp : TensorRT_Op<"gather",
     layer->setGatherAxis(static_cast<int32_t>($axis));
     layer->setNbElementWiseDims(static_cast<int32_t>($numBroadcastDims));
     layer->setMode(nvinfer1::GatherMode::kDEFAULT);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -693,11 +730,15 @@ def TensorRT_GatherNdOp : TensorRT_Op<"gather_nd",
   let trtLayerAdd = [{
     nvinfer1::IGatherLayer *layer = $net->addGatherV2(
         *$data, *$indices, nvinfer1::GatherMode::kND);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -787,11 +828,15 @@ def TensorRT_GatherElementsOp : TensorRT_Op<"gather_elements",
         *$data, *$indices, nvinfer1::GatherMode::kELEMENT);
     layer->setMode(nvinfer1::GatherMode::kELEMENT);
     layer->setGatherAxis(static_cast<int32_t>($axis));
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -821,11 +866,15 @@ def TensorRT_Identity84Op : TensorRT_Op<"identity84", [Pure,
 
   let trtLayerAdd = [{
     nvinfer1::IIdentityLayer *layer = $net->addIdentity(*$input);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -858,17 +907,21 @@ def TensorRT_IdentityOp : TensorRT_Op<"identity", [
   let hasFolder = 1;
 
   let trtLayerAdd = [{
+    FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+    if (failed(outputTrtType))
+      return failure();
     if (!$e.isStronglyTyped()) {
       nvinfer1::IIdentityLayer *layer = $net->addIdentity(*$input);
       layer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+          0, *outputTrtType);
       $results.push_back(layer->getOutput(0));
-      $e.setName(layer, $op);
+      $e.setMetadata(layer, $op);
     } else {
       nvinfer1::ICastLayer *layer = $net->addCast(*$input,
-          getNvInferDataType($op.getType().getElementType()));
+          *outputTrtType);
       $results.push_back(layer->getOutput(0));
-      $e.setName(layer, $op);
+      $e.setMetadata(layer, $op);
     }
   }];
 }
@@ -928,14 +981,18 @@ def TensorRT_LinspaceOp : TensorRT_Op<"linspace", [
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
+    FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+    if (failed(outputTrtType))
+      return failure();
     nvinfer1::ILayer *layer =
       $e.addFillLayer(
-        getNvInferDataType($op.getType().getElementType()),
+        *outputTrtType,
         $resultShape, $shape, nvinfer1::FillOperation::kLINSPACE,
         $static_start, $static_step,
         $start, $step);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -985,13 +1042,17 @@ def TensorRT_RandomUniformOp : TensorRT_Op<"random_uniform", [
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
+    FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+    if (failed(outputTrtType))
+      return failure();
     nvinfer1::ILayer *layer =
       $e.addFillLayer(
-         getNvInferDataType($op.getType().getElementType()),
+        *outputTrtType,
         $resultShape, $shape, nvinfer1::FillOperation::kRANDOM_UNIFORM,
         $static_low, $static_high, $low, $high);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1045,13 +1106,17 @@ def TensorRT_RandomNormalOp : TensorRT_Op<"random_normal", [
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
+    FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+    if (failed(outputTrtType))
+      return failure();
     nvinfer1::ILayer *layer =
       $e.addFillLayer(
-         getNvInferDataType($op.getType().getElementType()),
+        *outputTrtType,
         $resultShape, $shape, nvinfer1::FillOperation::kRANDOM_NORMAL,
         $static_mean, $static_std, $mean, $std);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1141,11 +1206,15 @@ def TensorRT_NormalizationOp : TensorRT_Op<"normalization",
       layer->setEpsilon(*$eps);
     if (num_groups)
       layer->setNbGroups(*$num_groups);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1216,11 +1285,15 @@ def TensorRT_PoolingOp : TensorRT_Op<"pooling",
       assert(*$poolingType == nvinfer1::PoolingType::kMAX_AVERAGE_BLEND);
       layer->setBlendFactor(*$blendFactor);
     }
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(
-          0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1266,10 +1339,15 @@ def TensorRT_ReduceOp : TensorRT_Op<"reduce",
   let trtLayerAdd = [{
     nvinfer1::IReduceLayer *layer = $net->addReduce(
         *$input, *$reduceOperation, $reduceAxes, $keepDimensions);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1305,10 +1383,15 @@ def TensorRT_SelectOp : TensorRT_Op<"select", [
   let trtLayerAdd = [{
     ::nvinfer1::ISelectLayer *layer =
         $net->addSelect(*$condition, *$thenInput, *$elseInput);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1458,9 +1541,14 @@ def TensorRT_SliceOp : TensorRT_Op<"slice", [
       layer->setInput(4, *$fill);
     }
     $results.push_back(layer->getOutput(0));
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
-    $e.setName(layer, $op);
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1501,10 +1589,15 @@ def TensorRT_SoftMaxOp : TensorRT_Op<"softmax", [Pure,
     ::nvinfer1::ISoftMaxLayer *layer = $net->addSoftMax(*$input);
     // `setAxes` expects a bitmask.
     layer->setAxes(1U << $axis);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1561,10 +1654,15 @@ def TensorRT_OneHotOp : TensorRT_Op<"one_hot", [
   let hasVerifier = 1;
   let trtLayerAdd = [{
     ::nvinfer1::IOneHotLayer *layer = $net->addOneHot(*$indices, *$values, *$depth, $axis);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1611,7 +1709,7 @@ def TensorRT_RaggedSoftMaxOp : TensorRT_Op<"ragged_softmax", [
   let trtLayerAdd = [{
     ::nvinfer1::IRaggedSoftMaxLayer *layer = $net->addRaggedSoftMax(*$input, *$bounds);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1641,7 +1739,7 @@ def TensorRT_AssertionOp : TensorRT_Op<"assertion", [Pure]>{
   let hasVerifier = 1;
   let trtLayerAdd = [{
     ::nvinfer1::IAssertionLayer *layer = $net->addAssertion(*$condition, $message.str().c_str());
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1743,12 +1841,16 @@ def TensorRT_MatrixMultiplyOp : TensorRT_Op<"matrix_multiply", [Pure,
   let trtLayerAdd = [{
     ::nvinfer1::IMatrixMultiplyLayer *layer = $net->addMatrixMultiply(
       *$input0, *$op0, *$input1, *$op1);
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
     if (!$e.isStronglyTyped()) {
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
       ::nvinfer1::IIdentityLayer *identityLayer = $net->addIdentity(*layer->getOutput(0));
-      identityLayer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
-      $e.setName(identityLayer, $op);
+      identityLayer->setOutputType(0, *outputTrtType);
+      $e.setMetadata(identityLayer, $op);
       $results.push_back(identityLayer->getOutput(0));
     } else {
       $results.push_back(layer->getOutput(0));
@@ -1817,11 +1919,16 @@ def TensorRT_TopKOp : TensorRT_Op<"top_k",
         *$input, *$topkOperation,
         static_cast<int32_t>($k),
         static_cast<uint32_t>(1U << $axis));
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getValues().getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> valuesTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getValues().getType().getElementType());
+      if (failed(valuesTrtType))
+        return failure();
+      layer->setOutputType(0, *valuesTrtType);
+    }
     $results.push_back(layer->getOutput(0));
     $results.push_back(layer->getOutput(1));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1877,7 +1984,7 @@ def TensorRT_PaddingOp : TensorRT_Op<"padding", [Pure, TensorRTInferTensorResult
     ::nvinfer1::IPaddingLayer *layer = $net->addPaddingNd(
         *$input, $prePadding, $postPadding);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1910,7 +2017,7 @@ def TensorRT_NonZeroOp : TensorRT_Op<"non_zero",
   let trtLayerAdd = [{
     nvinfer1::INonZeroLayer *layer = $net->addNonZero(*$input);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -1998,8 +2105,12 @@ def TensorRT_IfOp : TensorRT_Op<"if", [Pure, TensorRTInferTensorResultTypes,
           assert($e.contains(use) != 0 && "expected use to be remapped");
           nvinfer1::IIfConditionalInputLayer *inputLayer = layer->addInput(
               *$e.lookup(use));
-          if (!$e.isStronglyTyped())
-            inputLayer->setOutputType(0, getNvInferDataType(use.getType()));
+          if (!$e.isStronglyTyped()){
+            FailureOr<nvinfer1::DataType> useTrtType = getNvInferDataType($op.getLoc(), use.getType());
+            if (failed(useTrtType))
+              return failure();
+            inputLayer->setOutputType(0, *useTrtType);
+          }
           $e.map(use, inputLayer->getOutput(0));
         }
       }
@@ -2023,8 +2134,13 @@ def TensorRT_IfOp : TensorRT_Op<"if", [Pure, TensorRTInferTensorResultTypes,
           assert($e.contains(trueVal) > 0 && $e.contains(falseVal) > 0);
           ::nvinfer1::IIfConditionalOutputLayer *outputLayer =
               layer->addOutput(*$e.lookup(trueVal), *$e.lookup(falseVal));
-          if (!$e.isStronglyTyped())
-            outputLayer->setOutputType(0, getNvInferDataType(opResult.getType()));
+          if (!$e.isStronglyTyped()){
+            FailureOr<nvinfer1::DataType> resultTrtType = getNvInferDataType($op.getLoc(),
+                                                                opResult.getType());
+            if (failed(resultTrtType))
+              return failure();
+            outputLayer->setOutputType(0, *resultTrtType);
+          }
           $results.push_back(outputLayer->getOutput(0));
         }
       }
@@ -2340,7 +2456,7 @@ def TensorRT_ShapeOp : TensorRT_Op<"shape", [Pure,
 
   let trtLayerAdd = [{
     ::nvinfer1::IShapeLayer* layer = $net->addShape(*$input);
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
     $results.push_back(layer->getOutput(0));
 
   #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
@@ -2349,7 +2465,7 @@ def TensorRT_ShapeOp : TensorRT_Op<"shape", [Pure,
     // during translation by target TRT version.
     ::nvinfer1::ICastLayer *cast = $net->addCast(*layer->getOutput(0),
       nvinfer1::DataType::kINT32);
-    $e.setName(cast, $op);
+    $e.setMetadata(cast, $op);
     $results.back() = cast->getOutput(0);
   #endif
   }];
@@ -2564,10 +2680,15 @@ def TensorRT_ShuffleOp : TensorRT_Op<"shuffle",
     if ($reshape)
       layer->setReshapeDimensions(*$reshape);
     layer->setSecondTranspose(getNvInferPermutation($op.getSecondTranspose()));
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -2647,7 +2768,7 @@ def TensorRT_DeconvolutionOp : TensorRT_Op<"deconvolution",
     nvinfer1::IDeconvolutionLayer *layer = $net->addDeconvolutionNd(
         *$input, numOutputMaps,
         getNvInferDims($op.getKernelSpatialShape()),
-        $kernelWeightsStatic, $biasWeightsStatic);
+        *$kernelWeightsStatic, *$biasWeightsStatic);
     if ($kernelWeights)
       layer->setInput(1, *$kernelWeights);
     if ($biasWeights)
@@ -2658,10 +2779,15 @@ def TensorRT_DeconvolutionOp : TensorRT_Op<"deconvolution",
     if ($dilation)
       layer->setDilationNd(*$dilation);
     layer->setNbGroups($num_groups);
-    if (!$e.isStronglyTyped())
-      layer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+    if (!$e.isStronglyTyped()){
+      FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
+                                                          $op.getType().getElementType());
+      if (failed(outputTrtType))
+        return failure();
+      layer->setOutputType(0, *outputTrtType);
+    }
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 
@@ -2801,11 +2927,15 @@ def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(10, 0, 0)
     assert($op.getScale().getType().getRank() < 2);
 #endif
+    FailureOr<nvinfer1::DataType> inputTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+    if (failed(inputTrtType))
+      return failure();
     if (!$e.isStronglyTyped()) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(9, 1, 0)
       nvinfer1::IIdentityLayer *scaleCastLayer = $net->addIdentity(*$scale);
       scaleCastLayer->setOutputType(0, nvinfer1::DataType::kFLOAT);
-      $e.setName(scaleCastLayer, $op);
+      $e.setMetadata(scaleCastLayer, $op);
       quantizeLayer = $net->addQuantize(*$input, *scaleCastLayer->getOutput(0));
 #else
       quantizeLayer = $net->addQuantize(*$input, *$scale);
@@ -2813,7 +2943,7 @@ def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
     } else {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
       quantizeLayer = $net->addQuantize(*$input, *$scale,
-          getNvInferDataType($op.getType().getElementType()));
+          *inputTrtType);
 #else
       llvm_unreachable("strongly typed is enabled when compiled with TRT version < 9.1; "
         "this should never occur");
@@ -2823,13 +2953,13 @@ def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
       quantizeLayer->setAxis(*$axis);
     if (!$e.isStronglyTyped()) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
-      quantizeLayer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+      quantizeLayer->setOutputType(0, *inputTrtType);
       $results.push_back(quantizeLayer->getOutput(0));
 #else
       nvinfer1::IIdentityLayer *identityLayer = $net->addIdentity(*quantizeLayer->getOutput(0));
-      identityLayer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+      identityLayer->setOutputType(0, *inputTrtType);
       $results.push_back(identityLayer->getOutput(0));
-      $e.setName(identityLayer, $op);
+      $e.setMetadata(identityLayer, $op);
 #endif
     } else {
       $results.push_back(quantizeLayer->getOutput(0));
@@ -2949,21 +3079,29 @@ def TensorRT_DequantizeOp : TensorRT_Op<"dequantize",
     assert($op.getScale().getType().getRank() < 2);
 #endif
     nvinfer1::ILayer *dequantizeLayer{nullptr};
+    FailureOr<nvinfer1::DataType> resultTrtType = getNvInferDataType($op.getLoc(),
+                                                        $op.getType().getElementType());
+    if (failed(resultTrtType))
+      return failure();
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(9, 1, 0)
     nvinfer1::IIdentityLayer *scaleCastLayer = $net->addIdentity(*$scale);
     scaleCastLayer->setOutputType(0, nvinfer1::DataType::kFLOAT);
-    $e.setName(scaleCastLayer, $op);
+    $e.setMetadata(scaleCastLayer, $op);
     dequantizeLayer = $e.addDequantizeLayer($input, scaleCastLayer->getOutput(0),
-    getNvInferDataType($op.getType().getElementType()), $axis);
+    *resultTrtType, $axis);
 #else
     dequantizeLayer = $e.addDequantizeLayer($input, $scale,
-    getNvInferDataType($op.getType().getElementType()), $axis);
+    *resultTrtType, $axis);
 #endif
+    FailureOr<nvinfer1::DataType> inputTrtType = getNvInferDataType($op.getLoc(),
+                                                      $op.getInput().getType().getElementType());
+    if (failed(inputTrtType))
+      return failure();
     if (!$e.isStronglyTyped()) {
-      dequantizeLayer->setPrecision(getNvInferDataType($op.getInput().getType().getElementType()));
+      dequantizeLayer->setPrecision(*inputTrtType);
     }
     $results.push_back(dequantizeLayer->getOutput(0));
-    $e.setName(dequantizeLayer, $op);
+    $e.setMetadata(dequantizeLayer, $op);
   }];
 }
 
@@ -3325,7 +3463,8 @@ def TensorRT_ReshapeOp : TensorRT_Op<"reshape",
 //===----------------------------------------------------------------------===//
 
 def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
- TensorRTPartiallyInferTensorResultTypes]>{
+        TensorRTPartiallyInferTensorResultTypes,
+        DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>]>{
   let summary = "TensorRT Resize(IResizeLayer with NEAREST mode) operation";
   let description = [{
 
@@ -3372,6 +3511,7 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    Optional<TensorRT_ShapeTensor>:$output_shape,
     OptionalAttr<DenseF32ArrayAttr>:$scales,
     TensorRT_ResizeCoordinateTransformationAttr:$coordinateTransformation,
     TensorRT_ResizeRoundModeAttr:$nearestRounding,
@@ -3379,11 +3519,13 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
   );
   let results = (outs
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
-  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
-    if ($op.getScales().has_value())
+    if ($op.getOutputShape())
+      layer->setInput(1, *$output_shape);
+    else if ($op.getScales().has_value())
       layer->setScales($scales.value().begin(), $scales.value().size());
     else
       layer->setOutputDimensions(getNvInferDims($op.getType().getShape()));
@@ -3400,7 +3542,8 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
 //===----------------------------------------------------------------------===//
 
 def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
- TensorRTPartiallyInferTensorResultTypes]>{
+        TensorRTPartiallyInferTensorResultTypes,
+        DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>]>{
   let summary = "TensorRT Resize(IResizeLayer with LINEAR mode) operation";
   let description = [{
 
@@ -3438,17 +3581,20 @@ def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    Optional<TensorRT_ShapeTensor>:$output_shape,
     OptionalAttr<DenseF32ArrayAttr>:$scales,
     TensorRT_ResizeCoordinateTransformationAttr:$coordinateTransformation,
     TensorRT_ResizeSelectorAttr:$selectorForSinglePixel
   );
   let results = (outs
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
-  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
-    if ($op.getScales().has_value())
+    if ($op.getOutputShape())
+      layer->setInput(1, *$output_shape);
+    else if ($op.getScales().has_value())
       layer->setScales($scales.value().begin(), $scales.value().size());
     else
       layer->setOutputDimensions(getNvInferDims($op.getType().getShape()));
@@ -3464,7 +3610,8 @@ def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
 //===----------------------------------------------------------------------===//
 
 def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
- TensorRTPartiallyInferTensorResultTypes]>{
+        TensorRTPartiallyInferTensorResultTypes,
+        DeclareOpInterfaceMethods<ReifyRankedShapedTypeOpInterface>]>{
   let summary = "TensorRT Resize(IResizeLayer with CUBIC mode) operation";
   let description = [{
 
@@ -3504,6 +3651,7 @@ def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    Optional<TensorRT_ShapeTensor>:$output_shape,
     OptionalAttr<DenseF32ArrayAttr>:$scales,
     TensorRT_ResizeCoordinateTransformationAttr:$coordinateTransformation,
     TensorRT_ResizeSelectorAttr:$selectorForSinglePixel,
@@ -3511,11 +3659,13 @@ def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
   );
   let results = (outs
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
-  let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
-    if ($op.getScales().has_value())
+    if ($op.getOutputShape())
+      layer->setInput(1, *$output_shape);
+    else if ($op.getScales().has_value())
       layer->setScales($scales.value().begin(), $scales.value().size());
     else
       layer->setOutputDimensions(getNvInferDims($op.getType().getShape()));
@@ -3724,11 +3874,15 @@ def TensorRT_ScatterOp : TensorRT_Op<"scatter_nd",
         *$data, *$indices, *$updates, nvinfer1::ScatterMode::kND);
     layer->setMode(nvinfer1::ScatterMode::kND);
     nvinfer1::IIdentityLayer *identityLayer = $net->addIdentity(*layer->getOutput(0));
+    FailureOr<nvinfer1::DataType> inputTrtType = getNvInferDataType($op.getLoc(),
+                                                      $op.getType().getElementType());
+    if (failed(inputTrtType))
+      return failure();
     if (!$e.isStronglyTyped())
-      identityLayer->setOutputType(0, getNvInferDataType($op.getType().getElementType()));
+      identityLayer->setOutputType(0, *inputTrtType);
     $results.push_back(identityLayer->getOutput(0));
-    $e.setName(layer, $op);
-    $e.setName(identityLayer, $op);
+    $e.setMetadata(layer, $op);
+    $e.setMetadata(identityLayer, $op);
   }];
 }
 
@@ -3819,7 +3973,7 @@ def TensorRT_ScatterElementsOp : TensorRT_Op<"scatter_elements",
     if ($axis)
       layer->setAxis(*$axis);
     $results.push_back(layer->getOutput(0));
-    $e.setName(layer, $op);
+    $e.setMetadata(layer, $op);
   }];
 }
 

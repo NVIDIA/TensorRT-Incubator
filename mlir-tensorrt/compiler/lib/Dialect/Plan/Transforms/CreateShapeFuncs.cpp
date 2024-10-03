@@ -349,11 +349,10 @@ static Value getHostConstantTensor(RewriterBase &rewriter, Location loc,
   auto rtt =
       RankedTensorType::get({static_cast<int64_t>(values.size())},
                             rewriter.getIndexType(), getHostSpace(rewriter));
+
   // Create the DenseIntElementsAttr with host space
   auto attr = DenseIntElementsAttr::get(rtt, values);
-
-  return rewriter.create<arith::ConstantOp>(
-      loc, rtt, attr);
+  return rewriter.create<arith::ConstantOp>(loc, rtt, attr);
 }
 
 static SmallVector<Value> createConstantIndices(RewriterBase &rewriter,

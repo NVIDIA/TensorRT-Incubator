@@ -8,10 +8,6 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCoreModu
   sol2::sol2
   lua::core
   nvtx3-cpp
-
-  # TODO: remove these when the executor.memcpy op is fixed
-  CUDA::cudart
-  CUDA::cuda_driver
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTExecutorRuntimeModuleUtils
   MLIRTensorRTSupportAllocators

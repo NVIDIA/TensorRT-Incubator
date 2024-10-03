@@ -82,7 +82,6 @@ class TestShape:
 
         assert isinstance(s, tp.Shape)
         assert len(s) == len(values)
-        assert s.trace_tensor.producer.inputs == []
         assert cp.from_dlpack(s).get().tolist() == values
 
     def test_empty_shape(self):

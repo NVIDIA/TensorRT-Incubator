@@ -17,14 +17,15 @@
 
 import inspect
 from textwrap import dedent
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Sequence, Union, Optional
 
 import pytest
-
+import torch
 from tests import helper
 
+import tripy as tp
 from tripy import TripyException
-from tripy.function_registry import AnnotationInfo, FunctionRegistry
+from tripy.function_registry import AnnotationInfo, FunctionRegistry, render_arg_type, sanitize_name
 
 
 @pytest.fixture()
@@ -326,6 +327,14 @@ class TestFunctionRegistry:
         assert registry["test"]([1, 2, 3]) == [1, 2, 3]
         assert registry["test"]([[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]) == [[0.0, 1.0, 2.0], [3.0, 4.0, 5.0]]
 
+    def test_optional_can_be_none(self, registry):
+        @registry("test")
+        def func(n: Optional[int]):
+            return n
+
+        assert registry["test"](None) == None
+        assert registry["test"](1) == 1
+
     def test_error_sequence(self, registry):
         @registry("test")
         def func(n: Sequence[int]) -> int:
@@ -344,7 +353,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[int\]' but got argument of type: 'List\[float\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int\]' but got argument of type: 'List\[float\]'\.
             """
             ).strip(),
         ):
@@ -368,7 +377,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[int, float\]' but got argument of type: 'List\[str\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Union\[int, float\]' but got argument of type: 'List\[str\]'\.
             """
             ).strip(),
         ):
@@ -392,7 +401,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[int\]' but got argument of type: 'List\[Union\[(int, str)|(str, int)\]\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int\]' but got argument of type: 'List\[Union\[(int, str)|(str, int)\]\]'\.
             """
             ).strip(),
         ):
@@ -416,7 +425,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[typing\.Sequence\[int\]\]' but got argument of type: 'List\[int\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[Sequence\[int\]\]' but got argument of type: 'List\[int\]'\.
             """
             ).strip(),
         ):
@@ -440,7 +449,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[typing\.Sequence\[int\]\]' but got argument of type: 'List\[List\[float\]\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[Sequence\[int\]\]' but got argument of type: 'List\[List\[float\]\]'\.
             """
             ).strip(),
         ):
@@ -464,7 +473,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Sequence\[typing\.Union\[int, float\]\]' but got argument of type: 'List\[str\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[Union\[int, float\]\]' but got argument of type: 'List\[str\]'\.
             """
             ).strip(),
         ):
@@ -488,7 +497,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[numbers\.Number, typing\.Sequence\[ForwardRef\('tripy\.types\.NestedNumberSequence'\)\]\]' but got argument of type: 'str'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Union\[numbers\.Number, Sequence\[tripy\.types\.NestedNumberSequence\]\]' but got argument of type: 'str'\.
             """
             ).strip(),
         ):
@@ -512,8 +521,36 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'typing\.Union\[numbers\.Number, typing\.Sequence\[ForwardRef\('tripy\.types\.NestedNumberSequence'\)\]\]' but got argument of type: 'List\[List\[str\]\]'
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Union\[numbers\.Number, Sequence\[tripy\.types\.NestedNumberSequence\]\]' but got argument of type: 'List\[List\[str\]\]'
             """
             ).strip(),
         ):
             registry["test"]([["a"], ["b"], ["c"]])
+
+
+@pytest.mark.parametrize(
+    "typ, expected",
+    [
+        (tp.types.TensorLike, "Union[tripy.Tensor, tripy.types.NestedNumberSequence]"),
+        (tp.types.ShapeLike, "Union[tripy.Shape, Sequence[Union[int, tripy.ShapeScalar]]]"),
+        (tp.Tensor, "Tensor"),
+        (torch.Tensor, "torch.Tensor"),
+        (int, "int"),
+        (Optional[int], "Optional[int]"),
+    ],
+)
+def test_sanitize_name(typ, expected):
+    assert sanitize_name(typ) == expected
+
+
+@pytest.mark.parametrize(
+    "typ, expected",
+    [
+        (tp.Tensor([1, 2, 3]), "Tensor"),
+        (torch.tensor([1, 2, 3]), "torch.Tensor"),
+        (0, "int"),
+        ("hi", "str"),
+    ],
+)
+def test_render_arg_type(typ, expected):
+    assert render_arg_type(typ) == expected
