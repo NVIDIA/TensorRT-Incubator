@@ -130,7 +130,8 @@ MLIR_CAPI_EXPORTED MTRT_Status
 mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
                  int64_t bitsPerElement, int64_t rank, const int64_t *shape,
                  const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
-                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result);
+                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
+                 bool assertCanonicalStrides = false);
 
 /// Creates an externally managed MemRef value. The caller provides all the
 /// metadata for the MemRef including the shape, strides (in elements), pointer,
@@ -142,7 +143,8 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
     int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
-    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result);
+    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
+    bool assertCanonicalStrides = false);
 
 /// Destroys `MTRT_MemRefValue` in a potentially asynchronous manner.
 /// If `buffer` is a device buffer, device memory is freed in the stream
