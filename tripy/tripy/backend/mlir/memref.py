@@ -28,12 +28,13 @@ import mlir_tensorrt.runtime.api as runtime
 @lru_cache(maxsize=None)
 def _cached_create_empty_memref(shape: Sequence[int], dtype: str, device_kind: str, stream):
     mlirtrt_device = mlir_utils.MLIRRuntimeClient().get_devices()[0] if device_kind == "gpu" else None
+    mlirtrt_stream = stream if device_kind == "gpu" else None
     mlir_dtype = mlir_utils.convert_tripy_dtype_to_runtime_dtype(dtype)
     return mlir_utils.MLIRRuntimeClient().create_memref(
         shape=list(shape),
         dtype=mlir_dtype,
         device=mlirtrt_device,
-        stream=stream,
+        stream=mlirtrt_stream,
     )
 
 
