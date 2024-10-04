@@ -185,8 +185,7 @@ class TestCompile:
         inp = tp.ones((2, 2), dtype=tp.float32)
         out = compiled_gelu(inp)
 
-        # TODO (#225): Replace with tp.all
-        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(tp.relu(inp)))
+        assert tp.allclose(out, tp.relu(inp), rtol=0.0, atol=0.0)
 
     def test_module(self):
         layernorm = tp.LayerNorm(2)
