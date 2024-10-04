@@ -73,18 +73,10 @@ class Storage(BaseTraceOp):
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
 
     def str_skip_fields(self) -> Set[str]:
-        if utils.should_omit_constant_in_str(self.shape):
+        # skip data if i) it is a MemRefValue or ii) its volume exceeds threshold
+        if not isinstance(self.data, Sequence) or utils.should_omit_constant_in_str(self.shape):
             return {"data"}
         return set()
-
-    def __str__(self) -> str:
-        skip_fields = self.str_skip_fields()
-        args = []
-        if "data" not in skip_fields:
-            data_str = memref.pretty_print_memref(self.data) if self.has_memref else str(self.data)
-            args.append(f"data={data_str}")
-        args.extend([f"{field}={getattr(self, field)}" for field in ("shape", "dtype", "device")])
-        return f"{self.outputs[0].name} = storage({', '.join([inp.name for inp in self.inputs] + args)})"
 
     def __eq__(self, other) -> bool:
         return self.data == other.data if isinstance(other, Storage) else False

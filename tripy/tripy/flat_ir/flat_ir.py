@@ -352,23 +352,16 @@ class FlatIR:
         return tensor
 
     def _get_constant_key(self, op):
-        from mlir_tensorrt.runtime._mlir_libs._api import MemRefValue
-        from tripy.utils.utils import list_to_tuple, volume
+        from mlir_tensorrt.runtime.api import MemRefValue
+        from tripy.utils.utils import list_to_tuple
 
         if isinstance(op.data, MemRefValue):
-            from tripy.backend.mlir.memref import tolist
-
-            VOLUME_THRESHOLD_FOR_MEMREF = 50
-            if volume(op.data.shape) < VOLUME_THRESHOLD_FOR_MEMREF:
-                l = tolist(op.data)
-            else:
-                l = [op.data.ptr]
-            data = list_to_tuple(l if isinstance(l, List) else [l])
-        elif isinstance(op.data, int) or isinstance(op.data, float) or isinstance(op.data, bool):
-            data = list_to_tuple(
-                op.data,
-            )
+            # use data pointer as key when data is a memref,
+            # usually come from users, no need to deduplicate
+            data = (op.data.ptr,)
         else:
+            # small constants can be deduplicated
+            # when data is a list
             data = list_to_tuple(op.data)
 
         # Create a unique key for the constant based on its data and type
