@@ -40,8 +40,8 @@ def test_perf_regression(perf_case, benchmark):
 def test_perf_comparative(perf_case):
     compiled_tripy_module, compiled_torch_module, inputs, perf_threshold = perf_case
 
-    WARM_UP_RUNS = 2
-    ITERATIONS = 100
+    WARM_UP_RUNS = 10
+    ITERATIONS = 250
 
     # Time Tripy
     stream = tp.default_stream()

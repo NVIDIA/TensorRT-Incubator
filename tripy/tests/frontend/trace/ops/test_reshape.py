@@ -55,7 +55,7 @@ class TestSqueeze:
 
         with helper.raises(
             tp.TripyException,
-            match="number of output elements \(1\) doesn't match expected number of elements \(4\)",
+            match=r"number of output elements \(1\) doesn't match expected number of elements \(4\)",
             has_stack_info_for=[a, b],
         ):
             b.eval()

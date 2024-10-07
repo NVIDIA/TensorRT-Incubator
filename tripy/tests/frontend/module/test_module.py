@@ -46,7 +46,7 @@ class TestModule:
 
     def test_incompatible_parameter_cannot_be_set(self, network):
         with helper.raises(
-            tp.TripyException, match="New parameter shape: \[2, 3\] is not compatible with current shape: \[2\]"
+            tp.TripyException, match=r"New parameter shape: \[2, 3\] is not compatible with current shape: \[2\]"
         ):
             network.param = tp.Parameter(tp.ones((2, 3)))
 

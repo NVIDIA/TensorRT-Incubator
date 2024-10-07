@@ -57,6 +57,6 @@ class TestStack:
         b = tp.ones((4, 3))
         with raises(
             tp.TripyException,
-            match="error: shapes of operand \(0\) and \(1\) are not compatible at non-concat index 1:",
+            match=r"error: shapes of operand \(0\) and \(1\) are not compatible at non-concat index 1:",
         ):
             tp.stack([a, b]).eval()
