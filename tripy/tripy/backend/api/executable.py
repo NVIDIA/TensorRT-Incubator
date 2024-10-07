@@ -162,9 +162,7 @@ class Executable:
                             )
             raise
 
-        from tripy.utils.stack_info import StackInfo
-
-        output_tensors = [Tensor(output, stack_info=StackInfo([])) for output in executor_outputs]
+        output_tensors = [Tensor(output, fetch_stack_info=False) for output in executor_outputs]
         if len(output_tensors) == 1:
             output_tensors = output_tensors[0]
         return output_tensors

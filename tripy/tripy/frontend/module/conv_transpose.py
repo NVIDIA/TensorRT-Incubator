@@ -21,11 +21,11 @@ from typing import Optional
 
 from tripy import export
 from tripy.common import datatype
-from tripy.frontend.module.convolution import ConvBase
+from tripy.frontend.module.conv import ConvBase
 from tripy.frontend.module.parameter import DefaultParameter, Parameter
 
 
-@export.public_api(document_under="operations/modules")
+@export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
 @dataclass
 class ConvTranspose(ConvBase):
     r"""
