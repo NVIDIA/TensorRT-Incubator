@@ -61,7 +61,7 @@ jobs:
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
           python3 docs/generate_rsts.py
-          sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W
+          sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
 
     - name: run-test
       uses: addnab/docker-run-action@v3

@@ -7,7 +7,7 @@ This directory includes all the source files for the public API documentation.
 You can build the documentation locally in the development container by running:
 ```bash
 python3 docs/generate_rsts.py
-sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W
+sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
 ```
 To view the documentation, you can open `build/docs/index.html` in a browser.
 

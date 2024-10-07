@@ -16,7 +16,9 @@
 #
 
 from textwrap import indent
-from typing import Any, List, Optional, Sequence, Union
+from typing import Any, Optional
+
+import mlir_tensorrt.runtime.api as runtime
 
 # Import ops to populate the registry before we define our Tensor class
 import tripy.frontend.ops
@@ -27,8 +29,7 @@ from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
-
-import mlir_tensorrt.runtime.api as runtime
+from tripy.utils.stack_info import StackInfo
 
 
 class TensorMeta(type):
@@ -73,11 +74,11 @@ class Tensor(metaclass=TensorMeta):
 
     def __init__(
         self,
-        data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        data: Any,
         dtype: Optional["tripy.dtype"] = None,
         device: Optional["tripy.device"] = None,
         name: Optional[str] = None,
-        stack_info: Optional["StackInfo"] = None,
+        fetch_stack_info: bool = True,
     ) -> None:
         """
         Args:
@@ -85,7 +86,9 @@ class Tensor(metaclass=TensorMeta):
             dtype: The data type of the tensor.
             device: The device on which to allocate the tensor.
             name: The name of the tensor. If provided, this must be a unique string.
-            stack_info: The stack infomation of the tensor.
+            fetch_stack_info: Whether to fetch stack information for the tensor.
+                Stack information allows Tripy to generate much higher quality error
+                messages at the cost of a small overhead when initializing the tensor.
 
         .. code-block:: python
             :linenos:
@@ -95,13 +98,12 @@ class Tensor(metaclass=TensorMeta):
         """
         from tripy.frontend.trace.tensor import TraceTensor
 
-        # We include code for everything above the `BaseTraceOp.build` function, which is called at most
-        # this many stack frames above the constructor.
-        STACK_DEPTH_OF_BUILD = 4
-        # not using utils.default() because it always evaluates the `default` argument.
-        stack_info = (
-            stack_info if stack_info is not None else utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
-        )
+        stack_info = StackInfo([])
+        if fetch_stack_info:
+            # We include code for everything above the `BaseTraceOp.build` function, which is called at most
+            # this many stack frames above the constructor.
+            STACK_DEPTH_OF_BUILD = 4
+            stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
 
         name = name if name is not None else Tensor._get_unique_name()
 

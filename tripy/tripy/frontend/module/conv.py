@@ -83,7 +83,7 @@ class ConvBase(Module):
         self.dtype = dtype
 
 
-@export.public_api(document_under="operations/modules")
+@export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
 @dataclass
 class Conv(ConvBase):
     r"""

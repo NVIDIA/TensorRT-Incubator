@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Optional, Sequence, Union
+from typing import Any, Optional, Sequence, Union
 
 from tripy import export, utils
 from tripy.common.datatype import int32
@@ -41,7 +41,7 @@ class Shape(Tensor):
 
     def __init__(
         self,
-        data: Union[Sequence, Tensor, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        data: Any,
         name: Optional[str] = None,
     ) -> None:
         r"""
@@ -297,7 +297,7 @@ class ShapeScalar(Tensor):
 
     def __init__(
         self,
-        data: Union[Sequence, Tensor, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        data: Any,
         name: Optional[str] = None,
     ) -> None:
         r"""
