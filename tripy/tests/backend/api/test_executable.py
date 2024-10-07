@@ -66,12 +66,12 @@ class TestExecutable:
             (
                 [tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32)],
                 {"b": tp.ones((2, 2), dtype=tp.float32)},
-                "Extra keyword arguments: \['b'\]",
+                r"Extra keyword arguments: \['b'\]",
             ),
             (
                 [tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32)],
                 {"c": tp.ones((2, 2), dtype=tp.float32)},
-                "Extra keyword arguments: \['c'\]",
+                r"Extra keyword arguments: \['c'\]",
             ),
         ],
     )
