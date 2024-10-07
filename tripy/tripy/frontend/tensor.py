@@ -201,7 +201,6 @@ class Tensor(metaclass=TensorMeta):
     def tolist(self):
         data_memref = self.eval()
         if self.dtype not in (
-            datatype.float16,
             datatype.float32,
             datatype.int8,
             datatype.int32,
@@ -217,18 +216,20 @@ class Tensor(metaclass=TensorMeta):
         raise TypeError("Iterating over tensors is not supported")
 
     def __repr__(self) -> str:
-        # The Evaluation required before accessing self.trace_tensor.producer attributes.
-        arr = self.eval()
-        arr_str = memref.pretty_print_memref(arr)
+        from tripy.frontend.utils import pretty_print
+
+        data_list = self.tolist()
+        data_shape = self.trace_tensor.producer.shape
+        arr_str = pretty_print(data_list, data_shape)
         indentation = ""
         sep = ""
-        if len(arr.shape) > 1 and any(dim > 1 for dim in arr.shape):
+        if len(data_shape) > 1 and any(dim > 1 for dim in data_shape):
             indentation = " " * 4
             sep = "\n"
         return (
             f"tensor({sep}"
             f"{indent(arr_str, prefix=indentation)}, {sep}"
-            f"{indent(f'dtype={self.dtype}, loc={self.device}, shape={arr.shape}', prefix=indentation)}"
+            f"{indent(f'dtype={self.dtype}, loc={self.device}, shape={data_shape}', prefix=indentation)}"
             f")"
         )
 
@@ -240,7 +241,7 @@ class Tensor(metaclass=TensorMeta):
         return self.eval().__dlpack_device__()
 
     def __bool__(self):
-        data = memref.tolist(self.eval())
+        data = self.tolist()
         if any(dim != 1 for dim in self.trace_tensor.producer.shape):
             raise_error(
                 "Boolean value of a Tensor with more than one value is ambiguous",

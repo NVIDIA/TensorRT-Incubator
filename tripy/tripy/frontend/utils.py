@@ -633,3 +633,41 @@ def process_dim(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def pretty_print(data_list, shape, threshold=1000, linewidth=10, edgeitems=3):
+    """
+    Returns a pretty-print string of list format data.
+    """
+    def _data_str(data, summarize, linewidth, edgeitems, indent=0):
+        if isinstance(data, (float, int)):
+            return str(data)
+
+        if len(data) == 0 or isinstance(data[0], (float, int)):
+            if summarize and len(data) > 2 * edgeitems:
+                data_lines = [data[:edgeitems] + [" ..."] + data[-edgeitems:]]
+            else:
+                data_lines = [data[i : i + linewidth] for i in range(0, len(data), linewidth)]
+            lines = [", ".join([f"{e:.4f}" if isinstance(e, float) else str(e) for e in line]) for line in data_lines]
+            return "[" + ("," + "\n" + " " * (indent + 1)).join(lines) + "]"
+
+        if summarize and len(data) > 2 * edgeitems:
+            slices = (
+                [_data_str(data[i], summarize, linewidth, edgeitems, indent + 1) for i in range(0, edgeitems)]
+                + ["..."]
+                + [
+                    _data_str(data[i], summarize, linewidth, edgeitems, indent + 1)
+                    for i in range(len(data) - edgeitems, len(data))
+                ]
+            )
+        else:
+            slices = [_data_str(data[i], summarize, linewidth, edgeitems, indent + 1) for i in range(0, len(data))]
+
+        tensor_str = ("," + "\n" * (max(len(shape) - indent - 1, 1)) + " " * (indent + 1)).join(slices)
+        return "[" + tensor_str + "]"
+
+    numel = 1
+    for d in shape:
+        numel *= d
+    summarize = numel > threshold
+    return _data_str(data_list, summarize, linewidth, edgeitems)
