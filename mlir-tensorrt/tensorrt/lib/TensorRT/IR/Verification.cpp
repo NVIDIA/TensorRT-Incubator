@@ -1023,10 +1023,13 @@ LogicalResult tensorrt::ResizeCubicOp::verify() {
     return emitOpError(
         "does not support resizing on a tensor that has rank < 2");
 
-  for (int64_t i = outputRank - 3; i >= 0; --i)
+  for (int64_t i = outputRank - 3; i >= 0; --i) {
+    if (inputType.isDynamicDim(i) || outputType.isDynamicDim(i))
+      continue;
     if (inputType.getDimSize(i) != outputType.getDimSize(i))
       return emitOpError(
           "only supports resizing on the innermost 2 dimensions");
+  }
 
   if (getScales().has_value()) {
     if (static_cast<int64_t>(getScales().value().size()) != outputRank)
