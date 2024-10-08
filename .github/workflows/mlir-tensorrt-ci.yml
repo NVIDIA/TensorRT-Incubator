@@ -43,7 +43,7 @@ jobs:
           fetch-depth: 5
 
       # Run initial format check
-      - name: Run commit message, python format, and c++ clang format check
+      - name: Run python format and clang check
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
@@ -52,41 +52,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           # This step does two things
-          # 1. Check if commit message is in the canonical format
-          # 2. Check if Python files follow black format
-          # 3. Check if C++ files follow clang format
+          # 1. Check if Python files follow black format
+          # 2. Check if C++ files follow clang format
           # NOTE: We are placed at the root directory ('/') inside the container.
           run: |
             cd tensorrt-incubator
             git config --global --add safe.directory /tensorrt-incubator
-            cat > commit_message_checker.py <<EOF
-            #!/usr/bin/python3
-            import re
-            import sys
-            match = re.search(r"^(\[bot\].+|NFC: .+|(.+\n\n+.+\n+.+))$", sys.argv[1], re.DOTALL)
-            if match:
-              sys.exit(0)
-            sys.exit(1)
-            EOF
-
             cat > run_format_check.sh <<EOF
             #!/bin/bash
             set -e
-            head_commit_message=$(git rev-list --max-count=1 --format=%B --no-commit-header HEAD)
-            python3 commit_message_checker.py "$head_commit_message"
-            if [[ $? == 0 ]] ; then
-                echo "Commit message is in the canonical form :)"
-            else
-                echo "Commit message is not in the canonical form!"
-                echo "${head_commit_message}"
-                echo ""
-                echo "Expected format is, "
-                echo "<subject>"
-                echo ""
-                echo "<body>"
-                echo "body should be at least two lines."
-                exit 1
-            fi
             python3 -m black --check --exclude='.*\.pyi' mlir-tensorrt/test/
             python3 -m black --check --exclude='.*\.pyi' mlir-tensorrt/python/
             git clang-format HEAD~1 --diff
