@@ -223,6 +223,45 @@ cc_library(
     ],
 )
 
+td_library(
+    name = "TensorKindInterfaceTdFiles",
+    srcs = [
+        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td",
+    ],
+    includes = ["tensorrt/include"],
+    deps = [
+        "@llvm-project//mlir:OpBaseTdFiles",
+    ],
+)
+
+gentbl_cc_library(
+    name = "TensorRTTensorKindInterfacesIncGen",
+    strip_include_prefix = "tensorrt/include",
+    tbl_outs = [
+        (
+            ["-gen-op-interface-decls"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h.inc",
+        ),
+        (
+            ["-gen-op-interface-defs"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.cpp.inc",
+        ),
+        (
+            ["-gen-attr-interface-decls"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.h.inc",
+        ),
+        (
+            ["-gen-attr-interface-defs"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.cpp.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td",
+    deps = [
+        ":TensorKindInterfaceTdFiles",
+    ],
+)
+
 cc_library(
     name = "TensorRTAnalysis",
     srcs = [
@@ -230,11 +269,14 @@ cc_library(
     ],
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h",
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTDialect",
+        ":TensorRTTensorKindInterfacesIncGen",
         "@llvm-project//mlir:Analysis",
+        "@llvm-project//mlir:BufferizationDialect",
     ],
 )
 
