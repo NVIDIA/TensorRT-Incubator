@@ -165,6 +165,8 @@ cc_library(
     ],
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Utils/Utils.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Utils/TensorRTVersion.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Utils/NvInferPluginUtils.h",
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
@@ -316,18 +318,18 @@ cc_library(
 
 gentbl_cc_library(
     name = "TensorRTTransformsPassesIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             [
                 "-gen-pass-decls",
                 "-name=TensorRTTransforms",
             ],
-            "include/mlir-tensorrt/Dialect/TensorRT/Transforms/Passes.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Dialect/TensorRT/Transforms/Passes.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Transforms/Passes.td",
     deps = [
         "@llvm-project//mlir:PassBaseTdFiles",
     ],
@@ -336,28 +338,25 @@ gentbl_cc_library(
 cc_library(
     name = "TensorRTTransforms",
     srcs = [
-        "lib/Dialect/TensorRT/Transforms/ApplyBugWorkarounds.cpp",
-        "lib/Dialect/TensorRT/Transforms/BroadcastElimination.cpp",
-        "lib/Dialect/TensorRT/Transforms/ExpandOps.cpp",
-        "lib/Dialect/TensorRT/Transforms/FuncCompositionReport.cpp",
-        "lib/Dialect/TensorRT/Transforms/LegalizeInt8.cpp",
-        "lib/Dialect/TensorRT/Transforms/LowerLoopsToSCF.cpp",
-        "lib/Dialect/TensorRT/Transforms/SegmentTensorRTOps.cpp",
-        "lib/Dialect/TensorRT/Transforms/SetShapeProfiles.cpp",
-        "lib/Dialect/TensorRT/Transforms/SinkTensorRTConstantOps.cpp",
-        "lib/Dialect/TensorRT/Transforms/TensorRTRegionOutlining.cpp",
-        "lib/Dialect/TensorRT/Transforms/TransposeElimination.cpp",
-        "lib/Conversion/TensorRTCommon/ConvertToTensorRTCommon.cpp",
+        "tensorrt/lib/TensorRT/Transforms/ApplyBugWorkarounds.cpp",
+        "tensorrt/lib/TensorRT/Transforms/BroadcastElimination.cpp",
+        "tensorrt/lib/TensorRT/Transforms/ExpandOps.cpp",
+        "tensorrt/lib/TensorRT/Transforms/InferPluginShapes.cpp",
+        "tensorrt/lib/TensorRT/Transforms/LegalizeInt8.cpp",
+        "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
+        "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.cpp",
+        "tensorrt/lib/TensorRT/Transforms/ReshapeElimination.cpp",
+        "tensorrt/lib/TensorRT/Transforms/TransposeElimination.cpp",
+        #"compiler/lib/Conversion/TensorRTCommon/ConvertToTensorRTCommon.cpp",
     ],
     copts = [
-        "-DCRUISE_EXPERIMENTAL_BAZEL_BUILD",
         "-DMLIR_TRT_TARGET_TENSORRT",    
     ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Dialect/TensorRT/Transforms/*.h",
-        "include/mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h",
-    ]),
-    strip_include_prefix = "include",
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h",
+        #"compiler/include/mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTAnalysis",
         ":TensorRTDialect",
