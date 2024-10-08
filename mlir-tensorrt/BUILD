@@ -9,14 +9,13 @@ package(
 td_library(
     name = "TensorRTDialectTdFiles",
     srcs = [
-        "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTAttributes.td",
-        "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTDialect.td",
-        "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTEnums.td",
-        "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTInterfaces.td",
-        "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOps.td",
-        "include/mlir-tensorrt/Dialect/TensorRT/IR/generated/TensorRT.8.4.3.1.Ops.td",
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTAttributes.td",
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.td",
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTEnums.td",
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTInterfaces.td",
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.td",
     ],
-    includes = ["include"],
+    includes = ["tensorrt/include"],
     deps = [
         "@llvm-project//mlir:AttrTdFiles",
         "@llvm-project//mlir:ControlFlowInterfacesTdFiles",
@@ -30,67 +29,68 @@ td_library(
 
 gentbl_cc_library(
     name = "TensorRTOpsIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             ["-gen-op-decls"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOps.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.h.inc",
         ),
         (
             ["-gen-op-defs"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOps.cpp.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.cpp.inc",
         ),
         (
             [
                 "-gen-typedef-decls",
                 "-dialect=tensorrt",
             ],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOpsTypes.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOpsTypes.h.inc",
         ),
         (
             [
                 "-gen-typedef-defs",
                 "-dialect=tensorrt",
             ],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOpsTypes.cpp.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOpsTypes.cpp.inc",
         ),
         (
             [
                 "-gen-dialect-decls",
                 "-dialect=tensorrt",
             ],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOpsDialect.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOpsDialect.h.inc",
         ),
         (
             [
                 "-gen-dialect-defs",
                 "-dialect=tensorrt",
             ],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOpsDialect.cpp.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOpsDialect.cpp.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOps.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.td",
     deps = [
         ":TensorRTDialectTdFiles",
+        "@llvm-project//mlir:CallInterfacesTdFiles",
     ],
 )
 
 gentbl_cc_library(
     name = "TensorRTEnumsIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             ["-gen-enum-decls"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTEnums.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTEnums.h.inc",
         ),
         (
             ["-gen-enum-defs"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTEnums.cpp.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTEnums.cpp.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTEnums.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTEnums.td",
     deps = [
         ":TensorRTDialectTdFiles",
         "@llvm-project//mlir:AttrTdFiles",
@@ -100,19 +100,19 @@ gentbl_cc_library(
 
 gentbl_cc_library(
     name = "TensorRTAttributesIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             ["-gen-attrdef-decls"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTAttributes.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTAttributes.h.inc",
         ),
         (
             ["-gen-attrdef-defs"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTAttributes.cpp.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTAttributes.cpp.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTAttributes.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTAttributes.td",
     deps = [
         ":TensorRTDialectTdFiles",
     ],
@@ -120,19 +120,19 @@ gentbl_cc_library(
 
 gentbl_cc_library(
     name = "TensorRTInterfacesIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             ["-gen-op-interface-decls"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTInterfaces.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTInterfaces.h.inc",
         ),
         (
             ["-gen-op-interface-defs"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTInterfaces.cpp.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTInterfaces.cpp.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTInterfaces.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTInterfaces.td",
     deps = [
         ":TensorRTDialectTdFiles",
     ],
@@ -140,19 +140,19 @@ gentbl_cc_library(
 
 gentbl_cc_library(
     name = "TensorRTAttrInterfacesIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             ["-gen-attr-interface-decls"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTAttrInterfaces.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTAttrInterfaces.h.inc",
         ),
         (
             ["-gen-attr-interface-defs"],
-            "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTAttrInterfaces.cpp.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTAttrInterfaces.cpp.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTInterfaces.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTInterfaces.td",
     deps = [
         ":TensorRTDialectTdFiles",
     ],
@@ -161,12 +161,12 @@ gentbl_cc_library(
 cc_library(
     name = "TensorRTUtils",
     srcs = [
-        "lib/Dialect/TensorRT/Utils/Utils.cpp",
+        "tensorrt/lib/TensorRT/Utils/Utils.cpp",
     ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Dialect/TensorRT/Utils/*.h",
-    ]),
-    strip_include_prefix = "include",
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Utils/Utils.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTDialect",
     ],
@@ -175,19 +175,16 @@ cc_library(
 cc_library(
     name = "TensorRTCommonUtils",
     srcs = [
-        "lib/Utils/EinsumHelper.cpp",
-        "lib/Utils/IndexUtils.cpp",
-        "lib/Utils/PassTreePrinter.cpp",
-        "lib/Utils/RegionUtils.cpp",
-        "lib/Utils/ShapeUtils.cpp",
-        "lib/Utils/StaticValueUtils.cpp",
-        "lib/Utils/TensorUtils.cpp",
-        "lib/Utils/VectorUtils.cpp",
+        "tensorrt/lib/Utils/ShapeUtils.cpp",
+        "tensorrt/lib/Utils/StaticValueUtils.cpp",
+        "tensorrt/lib/Utils/ConstantFoldUtils.cpp",
     ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Utils/*.h",
-    ]),
-    strip_include_prefix = "include",
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/Utils/ShapeUtils.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Utils/StaticValueUtils.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Utils/ConstantFoldUtils.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
     deps = [
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LinalgDialect",
@@ -199,15 +196,16 @@ cc_library(
 cc_library(
     name = "TensorRTDialect",
     srcs = [
-        "lib/Dialect/TensorRT/IR/TensorRT.cpp",
-        "lib/Dialect/TensorRT/IR/TypeInferenceInterfaceImpls.cpp",
-        "lib/Dialect/TensorRT/IR/Verification.cpp",
+        "tensorrt/lib/TensorRT/IR/TensorRT.cpp",
+        "tensorrt/lib/TensorRT/IR/TypeInferenceInterfaceImpls.cpp",
+        "tensorrt/lib/TensorRT/IR/Verification.cpp",
+        "tensorrt/lib/TensorRT/IR/EinsumHelper.cpp",
+        "tensorrt/lib/TensorRT/IR/EinsumHelper.h",
     ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTDialect.h",
-        "include/mlir-tensorrt/Utils/*.h",
-    ]),
-    strip_include_prefix = "include",
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTAttrInterfacesIncGen",
         ":TensorRTAttributesIncGen",
@@ -228,13 +226,12 @@ cc_library(
 cc_library(
     name = "TensorRTAnalysis",
     srcs = [
-        "lib/Dialect/TensorRT/Analysis/ShapeTensorBoundsAnalysis.cpp",
-        "lib/Dialect/TensorRT/Analysis/TensorKindAnalysis.cpp",
+        "tensorrt/lib/Analysis/TensorKindAnalysis.cpp",
     ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Dialect/TensorRT/Analysis/*.h",
-    ]),
-    strip_include_prefix = "include",
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTDialect",
         "@llvm-project//mlir:Analysis",
@@ -406,32 +403,32 @@ gentbl_cc_library(
     ],
 )
 
-cc_library(
-    name = "TensorRTEncodingOpInterface",
-    srcs = [
-        "lib/Target/TensorRT/TensorRTEncodingOpInterface/NetworkEncoder.cpp",
-        "lib/Target/TensorRT/TensorRTEncodingOpInterface/TensorRTEncodingOpInterface.cpp",
-    ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Target/TensorRT/TensorRTEncodingOpInterface/*.h",
-    ]),
-    strip_include_prefix = "include",
-    deps = [
-        ":TensorRTDialect",
-        ":TensorRTEncodingOpInterfaceIncGen",
-        ":TensorRTEnumConverterGen",
-        ":TensorRTUtils",
-        "@cuda",
-        "@tensorrt8601",
-    ],
-    # This is needed for CUDA 12 capability, as the vendored TensorRT is built with CUDA 11
-    # TODO[MLA-15279]: Remove once we vendor a CUDA 12 version of TRT 8.6
-    data = [
-        "@cuda112//:cublas",
-        "@cuda112//:cublaslt",
-    ],
-    linkopts = ["-Wl,-rpath,./external/cuda112/targets/x86_64-linux/lib"],
-)
+# cc_library(
+#     name = "TensorRTEncodingOpInterface",
+#     srcs = [
+#         "lib/Target/TensorRT/TensorRTEncodingOpInterface/NetworkEncoder.cpp",
+#         "lib/Target/TensorRT/TensorRTEncodingOpInterface/TensorRTEncodingOpInterface.cpp",
+#     ],
+#     hdrs = glob([
+#         "include/mlir-tensorrt/Target/TensorRT/TensorRTEncodingOpInterface/*.h",
+#     ]),
+#     strip_include_prefix = "include",
+#     deps = [
+#         ":TensorRTDialect",
+#         ":TensorRTEncodingOpInterfaceIncGen",
+#         ":TensorRTEnumConverterGen",
+#         ":TensorRTUtils",
+#         "@cuda",
+#         "@tensorrt8601",
+#     ],
+#     # This is needed for CUDA 12 capability, as the vendored TensorRT is built with CUDA 11
+#     # TODO[MLA-15279]: Remove once we vendor a CUDA 12 version of TRT 8.6
+#     data = [
+#         "@cuda112//:cublas",
+#         "@cuda112//:cublaslt",
+#     ],
+#     linkopts = ["-Wl,-rpath,./external/cuda112/targets/x86_64-linux/lib"],
+# )
 
 gentbl_cc_library(
     name = "TensorRTEncodingIncGen",
@@ -461,28 +458,28 @@ cc_library(
     deps = [
         ":TensorRTDialect",
         ":TensorRTEncodingIncGen",
-        ":TensorRTEncodingOpInterface",
+        # ":TensorRTEncodingOpInterface",
     ],
 )
 
-cc_library(
-    name = "TensorRTDynamicLoader",
-    srcs = [
-        "lib/Utils/TensorRTDynamicLoader/TensorRTDynamicLoader.cpp",
-    ],
-    deps = [
-        "@cuda",
-        "@llvm-project//mlir:Support",
-        "@tensorrt8601",
-    ],
-    # This is needed for CUDA 12 capability, as the vendored TensorRT is built with CUDA 11
-    # TODO[MLA-15279]: Remove once we vendor a CUDA 12 version of TRT 8.6
-    data = [
-        "@cuda112//:cublas",
-        "@cuda112//:cublaslt",
-    ],
-    linkopts = ["-Wl,-rpath,./external/cuda112/targets/x86_64-linux/lib"],
-)
+# cc_library(
+#     name = "TensorRTDynamicLoader",
+#     srcs = [
+#         "lib/Utils/TensorRTDynamicLoader/TensorRTDynamicLoader.cpp",
+#     ],
+#     deps = [
+#         "@cuda",
+#         "@llvm-project//mlir:Support",
+#         "@tensorrt8601",
+#     ],
+#     # This is needed for CUDA 12 capability, as the vendored TensorRT is built with CUDA 11
+#     # TODO[MLA-15279]: Remove once we vendor a CUDA 12 version of TRT 8.6
+#     data = [
+#         "@cuda112//:cublas",
+#         "@cuda112//:cublaslt",
+#     ],
+#     linkopts = ["-Wl,-rpath,./external/cuda112/targets/x86_64-linux/lib"],
+# )
 
 gentbl_cc_library(
     name = "TensorRTTranslationPassIncGen",
@@ -517,9 +514,9 @@ cc_library(
     strip_include_prefix = "include",
     deps = [
         ":TensorRTDialect",
-        ":TensorRTDynamicLoader",
+        # ":TensorRTDynamicLoader",
         ":TensorRTEncodingImpl",
-        ":TensorRTEncodingOpInterface",
+        # ":TensorRTEncodingOpInterface",
         ":TensorRTTranslationPassIncGen",
         "@llvm-project//mlir:FuncExtensions",
         "@llvm-project//mlir:TranslateLib",
