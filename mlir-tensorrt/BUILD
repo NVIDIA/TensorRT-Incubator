@@ -280,6 +280,40 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "TensorRTCompilerUtils",
+    srcs = [
+        "compiler/lib/Utils/RegionUtils.cpp",
+    ],
+    hdrs = [
+        "compiler/include/mlir-tensorrt/Utils/RegionUtils.h",
+    ],
+    strip_include_prefix = "compiler/include",
+    deps = [
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:TransformUtils",
+    ],
+)
+
+cc_library(
+    name = "TensorRTGenericClustering",
+    srcs = [
+        "compiler/lib/Transforms/Clustering/Clustering.cpp",
+        "compiler/lib/Transforms/Clustering/Patterns.cpp",
+    ],
+    hdrs = [
+        "compiler/include/mlir-tensorrt/Transforms/Clustering/Clustering.h",
+        "compiler/include/mlir-tensorrt/Transforms/Clustering/Patterns.h",
+    ],
+    strip_include_prefix = "compiler/include",
+    deps = [
+        ":TensorRTCompilerUtils",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+)
+
 gentbl_cc_library(
     name = "TensorRTTransformsPassesIncGen",
     strip_include_prefix = "include",
@@ -296,24 +330,6 @@ gentbl_cc_library(
     td_file = "include/mlir-tensorrt/Dialect/TensorRT/Transforms/Passes.td",
     deps = [
         "@llvm-project//mlir:PassBaseTdFiles",
-    ],
-)
-
-cc_library(
-    name = "TensorRTGenericClustering",
-    srcs = [
-        "lib/Transforms/Clustering/Clustering.cpp",
-        "lib/Transforms/Clustering/Patterns.cpp",
-    ],
-    hdrs = [
-        "include/mlir-tensorrt/Transforms/Clustering/Clustering.h",
-        "include/mlir-tensorrt/Transforms/Clustering/Patterns.h",
-    ],
-    strip_include_prefix = "include",
-    deps = [
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:SCFDialect",
-        "@llvm-project//mlir:Transforms",
     ],
 )
 
