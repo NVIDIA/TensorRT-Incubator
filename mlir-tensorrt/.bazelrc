@@ -1,0 +1,56 @@
+# Licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+# Also available under a BSD-style license. See LICENSE.
+
+# TODO: migrate all dependencies from WORKSPACE to MODULE.bazel
+# https://bazel.build/external/migration
+common --noenable_bzlmod
+
+# Automatically detect host platform to pick config
+common --enable_platform_specific_config
+
+###############################################################################
+# Options for "generic_clang" builds: these options should generally apply to
+# builds using a Clang-based compiler, and default to the `clang` executable on
+# the `PATH`. While these are provided for convenience and may serve as a
+# reference, it would be preferable for users to configure an explicit C++
+# toolchain instead of relying on `.bazelrc` files.
+###############################################################################
+
+# Set the default compiler to the `clang` binary on the `PATH`.
+build:generic_clang --repo_env=CC=clang
+
+# C++17 standard version is required.
+build:generic_clang --cxxopt=-std=c++17 --host_cxxopt=-std=c++17
+
+# Use `-Wall` for Clang.
+build:generic_clang --copt=-Wall --host_copt=-Wall
+
+# The Clang available on MacOS has a warning that isn't clean on MLIR code. The
+# warning doesn't show up with more recent Clangs, so just disable for now.
+build:generic_clang --cxxopt=-Wno-range-loop-analysis --host_cxxopt=-Wno-range-loop-analysis
+
+# Build errors are not a helpful way to enforce deprecation in-repo and it is
+# not the point of the Bazel build to catch usage of deprecated APIs.
+build:generic_clang --copt=-Wno-deprecated --host_copt=-Wno-deprecated
+
+
+# lld links faster than other linkers. Assume that anybody using clang on linux
+# also has lld available.
+build:linux --linkopt=-fuse-ld=lld --host_linkopt=-fuse-ld=lld
+build:linux --config=generic_clang
+
+build:macos --config=generic_clang
+
+# Other compilation modes
+build:opt --compilation_mode=opt
+build:dbg --compilation_mode=dbg
+
+# GDB builds in dbg mode
+build:gdb --config=dbg
+
+
+# Continue running tests for targets that build without having
+# AOT compile genrules failing to build from terminating the rest
+test --keep_going
