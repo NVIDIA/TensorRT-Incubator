@@ -494,7 +494,7 @@ def __rtruediv__(self: numbers.Number, other: "tripy.types.TensorLike") -> "trip
 @TENSOR_METHOD_REGISTRY("__floordiv__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
@@ -530,7 +530,7 @@ def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", 
 @TENSOR_METHOD_REGISTRY("__rfloordiv__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
@@ -566,7 +566,7 @@ def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor",
 @TENSOR_METHOD_REGISTRY("__mod__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def __mod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
@@ -597,7 +597,7 @@ def __mod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
 @TENSOR_METHOD_REGISTRY("__rmod__")
 @frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
 @constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
     dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def __rmod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
