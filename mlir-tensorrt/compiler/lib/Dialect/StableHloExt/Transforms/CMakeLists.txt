@@ -9,12 +9,15 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
     LowerSpecialCustomCalls.cpp
 
     LINK_LIBS PUBLIC
+    ChloOps
     MLIRRewrite
     MLIRTensorDialect
     MLIRTensorRTCommonUtils
-    MLIRTensorRTStableHloExtUtils
     MLIRTensorRTConstantFoldingUtils
+    MLIRTensorRTShapeUtils
+    MLIRTensorRTStableHloExtUtils
     StablehloOps
+    StablehloPasses
 
     DEPENDS
     MLIRTensorRTStableHloExtTransformsPassIncGen

@@ -77,13 +77,14 @@ class ConvBase(Module):
         self.stride = utils.default(stride, (1,) * (rank - 2))
         self.dilation = utils.default(dilation, (1,) * (rank - 2))
 
+        self.bias = None
         if bias:
             self.bias = DefaultParameter((out_channels,), dtype=dtype)
 
         self.dtype = dtype
 
 
-@export.public_api(document_under="operations/modules")
+@export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
 @dataclass
 class Conv(ConvBase):
     r"""
@@ -268,7 +269,7 @@ class Conv(ConvBase):
             None,  # lhs_dilation for transposed conv only
             self.dilation,
         )
-        if hasattr(self, "bias"):
+        if self.bias is not None:
             bias_shape_to_broadcast = (1, self.weight.shape[0]) + (1,) * (self.weight.rank - 2)
             x += reshape(self.bias, bias_shape_to_broadcast)
         return x

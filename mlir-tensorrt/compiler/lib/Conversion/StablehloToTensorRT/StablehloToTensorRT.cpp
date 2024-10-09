@@ -1293,6 +1293,156 @@ getTransposeForReduceWindow(ArrayRef<int64_t> windowDims) {
 }
 
 namespace {
+/// Convert `jnp.cumsum` expressed as `stablehlo.reduce_window<add>` to
+/// `tensorrt.convolution`.
+/// This pass only supports cases where the input of jnp.cumsum is <= 3D,
+/// and the input precision is F16, F32, or I32.
+struct ConvertCumsum
+    : public ConvertHloOpToTensorRTPattern<stablehlo::ReduceWindowOp> {
+  using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
+  LogicalResult
+  matchAndRewrite(stablehlo::ReduceWindowOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto addOp =
+        dyn_cast_or_null<stablehlo::AddOp>(getWindowReductionOp(op, 0));
+    if (!addOp)
+      return failure();
+
+    auto isOnlyOneGreaterOne = [](ArrayRef<int64_t> seq) {
+      auto it =
+          std::find_if(seq.begin(), seq.end(), [](int num) { return num > 1; });
+      // Check if only one element is greater than 1
+      bool onlyOneGreaterOne =
+          it != seq.end() && std::count_if(seq.begin(), seq.end(), [](int num) {
+                               return num > 1;
+                             }) == 1;
+      if (onlyOneGreaterOne)
+        return static_cast<int>(std::distance(seq.begin(), it));
+      return -1;
+    };
+    auto isAllOne = [](ArrayRef<int64_t> seq) {
+      return llvm::all_of(seq, [](int num) { return num == 1; });
+    };
+
+    auto inputType =
+        cast<RankedTensorType>(adaptor.getInputs().front().getType());
+    auto inputShape = inputType.getShape();
+    ArrayRef<int64_t> windowDims = op.getWindowDimensions();
+    int idx = isOnlyOneGreaterOne(windowDims);
+    SmallVector<int64_t> windowStrides =
+        op.getWindowStrides().has_value()
+            ? llvm::to_vector(*op.getWindowStrides())
+            : SmallVector<int64_t>(windowDims.size(), 1);
+    SmallVector<int64_t> windowDilations =
+        op.getWindowDilations().has_value()
+            ? llvm::to_vector(*op.getWindowDilations())
+            : SmallVector<int64_t>(windowDims.size(), 1);
+
+    // Check if not Cumsum
+    if (idx < 0 || inputShape[idx] != windowDims[idx] ||
+        inputType.getRank() != static_cast<int64_t>(windowDims.size()) ||
+        !isAllOne(windowStrides) || !isAllOne(windowDilations))
+      return failure();
+    FailureOr<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> paddings =
+        convertPaddingAttribute(op.getLoc(), op.getPadding());
+    if (failed(paddings) || paddings->first[idx] != windowDims[idx] - 1)
+      return failure();
+
+    // windowDims is later rank-expanded adding 2D to be the kernel of
+    // tensorrt::ConvolutionOp that can be up to 5D.
+    if (windowDims.size() > 3)
+      return failure();
+
+    auto getKernelShape =
+        [](SmallVector<int64_t> &kernelShape, SmallVector<int64_t> &strides,
+           SmallVector<int64_t> &dilations, SmallVector<int64_t> &prePaddings,
+           SmallVector<int64_t> &postPaddings) {
+          int gap = 2 - kernelShape.size();
+          if (gap > 0) {
+            // To use Conv2D, referring to
+            // https://docs.nvidia.com/deeplearning/tensorrt/operators/docs/Convolution.html#shape-information
+            kernelShape.insert(kernelShape.begin(), gap, 1);
+            strides.insert(strides.begin(), gap, 1);
+            dilations.insert(dilations.begin(), gap, 1);
+            prePaddings.insert(prePaddings.begin(), gap, 0);
+            postPaddings.insert(postPaddings.begin(), gap, 0);
+          }
+          // Add Ch_{out} = 1 and Ch_{in} = 1
+          kernelShape.insert(kernelShape.begin(), 2, 1);
+        };
+    SmallVector<int64_t> convKernelShape{windowDims};
+    SmallVector<int64_t> prePaddings{paddings->first};
+    SmallVector<int64_t> postPaddings{paddings->second};
+    getKernelShape(convKernelShape, windowStrides, windowDilations, prePaddings,
+                   postPaddings);
+    SmallVector<int64_t> convInputShape{inputShape};
+    convInputShape.insert(convInputShape.begin(),
+                          convKernelShape.size() - inputShape.size(), 1);
+    assert(convInputShape.size() == convKernelShape.size());
+
+    // tensorrt::ConvolutionOp does not accept the i32 type for both input and
+    // kernel.
+    auto checkI32 = [&](Value v) {
+      return mlir::getElementTypeOrSelf(v.getType()).isInteger(32);
+    };
+    auto convertToF32IfI32 = [&](Value v) {
+      if (checkI32(v)) {
+        Value newV = rewriter.create<tensorrt::IdentityOp>(
+            v.getLoc(),
+            cast<RankedTensorType>(v.getType()).clone(rewriter.getF32Type()),
+            v);
+        return newV;
+      }
+      return v;
+    };
+    auto convertToI32IfItWas = [&](Value v) {
+      if (checkI32(adaptor.getInputs().front())) {
+        Value newV = rewriter.create<tensorrt::IdentityOp>(
+            v.getLoc(),
+            cast<RankedTensorType>(v.getType()).clone(rewriter.getI32Type()),
+            v);
+        return newV;
+      }
+      return v;
+    };
+
+    Value input = convertToF32IfI32(adaptor.getInputs().front());
+    Value convInput = rewriter.create<tensorrt::ExpandRankOp>(
+        op->getLoc(),
+        RankedTensorType::get(
+            convInputShape,
+            cast<RankedTensorType>(input.getType()).getElementType()),
+        input);
+    auto convKernelType =
+        cast<RankedTensorType>(convInput.getType()).clone(convKernelShape);
+    Value convKernel = rewriter.create<tensorrt::ConstantOp>(
+        op->getLoc(),
+        /*weights=*/
+        DenseElementsAttr::get(
+            convKernelType,
+            getConstantAttrOf(convKernelType.getElementType(), 1.)));
+
+    auto conv = rewriter.create<tensorrt::ConvolutionOp>(
+        op->getLoc(), convInput.getType(),
+        /*input=*/convInput,
+        /*kernel=*/convKernel,
+        /*bias=*/Value(),
+        /*stride=*/windowStrides,
+        /*pre_padding=*/prePaddings,
+        /*post_padding=*/postPaddings,
+        /*num_groups=*/1,
+        /*dilation=*/windowDilations);
+
+    // Restore the original shape and element type
+    auto reshape = rewriter.create<tensorrt::ReshapeOp>(
+        op->getLoc(), inputType, convertToI32IfItWas(conv));
+
+    rewriter.replaceOp(op, reshape);
+
+    return success();
+  }
+};
+
 /// Convert `stablehlo.reduce_window` using `tensorrt.pooling`. Note that
 /// TensorRT has some restrictions which make this nuanced. Note that a common
 /// HLO operation is `stablehlo.reduce_window<add>`, which is equivalent to
@@ -2248,7 +2398,7 @@ struct PadConverter : public ConvertHloOpToTensorRTPattern<stablehlo::PadOp> {
       rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
           op,
           /*input=*/adaptor.getOperand(),
-          /*offset=*/*edgePaddingLow,
+          /*offset=*/sliceOffset,
           /*size=*/size,
           /*stride=*/stride,
           /*slice_mode=*/tensorrt::SliceMode::kFILL,
@@ -3187,12 +3337,34 @@ struct ConvertScatterToTensorRTScatterElements
         op->getLoc(), newUpdateType.clone(rewriter.getI32Type()), Value(),
         startIndex, constOneTuple, FloatAttr(), FloatAttr());
 
-    auto newOp = rewriter.create<tensorrt::ScatterElementsOp>(
-        op->getLoc(), /*data*/ adaptor.getInputs().front(),
-        /*indices*/ newIndices, /*updates*/ newUpdates,
-        /*axis*/ rewriter.getI64IntegerAttr(1));
+    auto checkI1 = [&](Value v) {
+      return (
+          cast<RankedTensorType>(v.getType()).getElementType().isInteger(1));
+    };
+    auto convertToI32 = [&](Value v) {
+      return rewriter.create<tensorrt::IdentityOp>(
+          v.getLoc(),
+          cast<RankedTensorType>(v.getType()).clone(rewriter.getI32Type()), v);
+    };
+    auto convertToI1 = [&](Value v) {
+      return rewriter.create<tensorrt::IdentityOp>(
+          v.getLoc(),
+          cast<RankedTensorType>(v.getType()).clone(rewriter.getI1Type()), v);
+    };
 
-    rewriter.replaceOp(op, newOp->getResults());
+    if (checkI1(adaptor.getInputs().front())) {
+      auto newOp = rewriter.create<tensorrt::ScatterElementsOp>(
+          op->getLoc(), /*data*/ convertToI32(adaptor.getInputs().front()),
+          /*indices*/ newIndices, /*updates*/ convertToI32(newUpdates),
+          /*axis*/ rewriter.getI64IntegerAttr(1));
+      rewriter.replaceOp(op, convertToI1(newOp)->getResults());
+    } else {
+      auto newOp = rewriter.create<tensorrt::ScatterElementsOp>(
+          op->getLoc(), /*data*/ adaptor.getInputs().front(),
+          /*indices*/ newIndices, /*updates*/ newUpdates,
+          /*axis*/ rewriter.getI64IntegerAttr(1));
+      rewriter.replaceOp(op, newOp->getResults());
+    }
     return success();
   }
 };
@@ -3749,7 +3921,7 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       // Other
       ConvertTranspose, ConvertSelect, ConvertConcatenate, Log1pConverter,
       ConvertAtan2, Expm1OpConverter, BatchNormInferenceOpConverter,
-      DynamicUpdateSliceToConcatConverter,
+      DynamicUpdateSliceToConcatConverter, ConvertCumsum,
 
   // StableHLO Binary operations
 #define MAKE_BINARY_OP_CONVERTER(x, y)                                         \

@@ -15,10 +15,10 @@
 # limitations under the License.
 #
 
+import math
 from typing import Any, Sequence
 
-import tripy.frontend.utils as frontend_utils
-from tripy import export, utils
+from tripy import export
 from tripy.frontend.tensor import Tensor
 from tripy.utils import Result
 
@@ -30,7 +30,6 @@ class Parameter(Tensor):
     constant, enabling additional optimization opportunities.
     """
 
-    @frontend_utils.convert_inputs_to_tensors()
     def __init__(self, tensor: Any) -> None:
         """
         Args:
@@ -81,7 +80,7 @@ class DefaultParameter(Parameter):
         from tripy.frontend.ops.tensor_initializers import arange
         from tripy.frontend.trace.ops.reshape import reshape
 
-        super().__init__(reshape(arange(utils.volume(shape), dtype), shape))
+        super().__init__(reshape(arange(math.prod(shape), dtype), shape))
 
         self._shape = shape
         self._dtype = dtype

@@ -296,13 +296,32 @@ struct OutlineRegionOptions {
   /// operation with no operands.
   std::function<bool(Value, Region &)> shouldCloneProducer{};
 
+  /// A 'CreateFuncAndCallStubsFunc' is a function that takes in the signature
+  /// of a function and constructs a 'FunctionOpInterface' stub function (body
+  /// only contains 'return' terminator). In addition, it should construct a
+  /// CallOpInterface operation immediately before `regionOp`.
+  /// The CallOpInterface calls the created stub function. The arguments of the
+  /// call are specified by `callOperands`.
+  using CreateFuncAndCallStubsFunc = std::function<
+      FailureOr<std::pair<FunctionOpInterface, SmallVector<Value>>>(
+          RewriterBase &, Location, Operation *regionOp,
+          ArrayRef<Value> callOperands, ArrayRef<Type> funcArgTypes,
+          ArrayRef<Type> funcResultTypes)>;
+
+  /// Return a default implementation for a 'CreateFuncAndCallStubsFunc'. The
+  /// caller must provide the symbol table in which the created function will be
+  /// inserted. The function is named by using 'namePrefix', but it may have a
+  /// suffix attached when the SymbolTable insertion uniques the symbol name.
+  /// Additional discardable attributes `extraFuncAttrs` will be added to the
+  /// created function if provided.
+  static CreateFuncAndCallStubsFunc getDefaultCreateFuncAndCallStubFunc(
+      SymbolTable &moduleSymbolTable,
+      ArrayRef<NamedAttribute> extraFuncAttrs = {},
+      StringRef namePrefix = "cluster");
+
   /// Creates and returns the outlined function (with an empty body region)
   /// using the specified name and operands.
-  std::function<FailureOr<std::pair<FunctionOpInterface, SmallVector<Value>>>(
-      RewriterBase &, Location, Operation *regionOp,
-      ArrayRef<Value> callOperands, ArrayRef<Type> convertedOperandTypes,
-      ArrayRef<Type> results)>
-      createFunc;
+  CreateFuncAndCallStubsFunc createFunc;
 };
 
 /// Outline the given `scf.execute_region` operation to a function-like

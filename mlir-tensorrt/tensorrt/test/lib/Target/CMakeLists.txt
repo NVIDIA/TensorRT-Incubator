@@ -4,18 +4,20 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-unset(LLVM_LINK_COMPONENTS )
+set(LLVM_LINK_COMPONENTS Support)
 
 add_llvm_library(TensorRTTestPlugins
     TestPlugins.cpp TestV2Plugins.cpp
 
-    SHARED
+    MODULE
+
+    BUILDTREE_ONLY
 
     TestPlugins.cpp TestV2Plugins.cpp
     LINK_LIBS PRIVATE
+    CUDA::cudart
     MLIRTRTTensorRTDynamicLoader
     TensorRTHeaderOnly
-    CUDA::cudart
     )
 
 include(GenerateExportHeader)

@@ -50,13 +50,19 @@ class TestShapeScalar:
             np.array(2, dtype=np.int32),
         ],
     )
-    def test_scalar_shape(self, value):
+    def test_construction(self, value):
         s = tp.ShapeScalar(value)
 
         assert isinstance(s, tp.ShapeScalar)
         assert s.trace_tensor.producer.inputs == []
 
-    def test_scalar_shape_str_method(self):
+    def test_int_conversion(self):
+        val = 4
+        s = tp.ShapeScalar(val)
+
+        assert int(s) == val
+
+    def test_str_method(self):
         s = tp.ShapeScalar(12)
         assert s.__str__() == f"shape_scalar(12)"
 
@@ -82,7 +88,6 @@ class TestShape:
 
         assert isinstance(s, tp.Shape)
         assert len(s) == len(values)
-        assert s.trace_tensor.producer.inputs == []
         assert cp.from_dlpack(s).get().tolist() == values
 
     def test_empty_shape(self):

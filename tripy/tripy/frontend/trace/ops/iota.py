@@ -60,7 +60,7 @@ class Iota(BaseTraceOp):
     def infer_devices(self):
         from tripy.common import device
 
-        self.outputs[0].device = device("gpu")
+        self.outputs[0].device = device(("gpu", 0))
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicIotaOp
@@ -68,7 +68,7 @@ class Iota(BaseTraceOp):
         DynamicIotaOp.build(inputs, outputs, dim=self.dim)
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["dim", "dtype", "output_rank"], shape_argument=["shape"])
+@frontend_utils.convert_shape_inputs(["shape"])
 def iota_impl(
     shape: Union["tripy.Shape", Sequence[int]], dim: int, dtype: datatype.dtype, output_rank: int
 ) -> "tripy.Tensor":
@@ -85,13 +85,12 @@ def iota_impl(
 @export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "bool"],
     },
-    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def iota(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
+    shape: "tripy.types.ShapeLike",
     dim: int = 0,
     dtype: datatype.dtype = datatype.float32,
 ) -> "tripy.Tensor":

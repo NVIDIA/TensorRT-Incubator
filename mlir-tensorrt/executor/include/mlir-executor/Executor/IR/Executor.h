@@ -126,10 +126,10 @@ SymbolRefAttr getOrInsertFuncDeclaration(OpBuilder &rewriter, Location loc,
 
 /// Return the process grid shape as specified by the attribute attached to the
 /// module operation.
-FailureOr<ArrayRef<int64_t>> getModuleProcessGridShape(ModuleOp op);
+FailureOr<ArrayRef<int64_t>> getModuleProcessGridShape(Operation *op);
 
 /// Set the process grid shape on the module.
-LogicalResult setModuleProcessGridShape(ModuleOp op, ArrayRef<int64_t> shape);
+LogicalResult setModuleProcessGridShape(Operation *op, ArrayRef<int64_t> shape);
 
 /// Extract func argument attribute at an index. Attribute should have a
 /// concrete type of `executor::ValueBoundsAttr` or

@@ -27,9 +27,7 @@ def test_timing_cache(tmp_path):
         c = a + b
         return c
 
-    compiler = tp.Compiler(func)
-
-    compiler.compile(tp.InputInfo((2,), dtype=tp.float32), tp.InputInfo((2,), dtype=tp.float32))
+    tp.compile(func, args=[tp.InputInfo((2,), dtype=tp.float32), tp.InputInfo((2,), dtype=tp.float32)])
 
     assert dummy_file.parent.exists(), "Cache directory was not created."
     assert dummy_file.exists(), "Cache file was not created."
@@ -38,7 +36,7 @@ def test_timing_cache(tmp_path):
     tp.config.timing_cache_file_path = str(dummy_file)
 
     # Check if new timing cache file is created when we recompile.
-    compiler.compile(tp.InputInfo((1,), dtype=tp.float32), tp.InputInfo((1,), dtype=tp.float32))
+    tp.compile(func, args=[tp.InputInfo((1,), dtype=tp.float32), tp.InputInfo((1,), dtype=tp.float32)])
 
     assert dummy_file.exists(), "Cache file was not created."
     assert tp.config.timing_cache_file_path == str(

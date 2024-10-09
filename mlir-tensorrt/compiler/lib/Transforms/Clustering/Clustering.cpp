@@ -25,7 +25,6 @@
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Transforms/OneToNTypeConversion.h"
 #include "llvm/ADT/EquivalenceClasses.h"
-#include "llvm/ADT/SetVector.h"
 
 #include <algorithm>
 #include <queue>
@@ -440,6 +439,64 @@ mlir::createRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter,
   regionOp->setAttr(Cluster::kRegionTargetAttrName, cluster.getTarget());
 
   return regionOp;
+}
+
+//===----------------------------------------------------------------------===//
+// Region Outlining to Function Utilities
+//===----------------------------------------------------------------------===//
+
+/// Create a `func.func` operation that has the specified arg/result types and
+/// insert it into the moduleSymbolTable.
+static FunctionOpInterface
+createOutlinedFunc(RewriterBase &rewriter, Location loc,
+                   SymbolTable &moduleSymbolTable, StringRef nameBase,
+                   TypeRange funcArgTypes, TypeRange funcResultTypes) {
+  OpBuilder::InsertionGuard g(rewriter);
+
+  // Create the func for outlining the region body.
+  FunctionType type =
+      FunctionType::get(rewriter.getContext(), funcArgTypes, funcResultTypes);
+  auto outlinedFunc = mlir::func::FuncOp::create(loc, nameBase, type, {});
+  Block *funcBody = outlinedFunc.addEntryBlock();
+
+  // Add an empty terminator.
+  rewriter.setInsertionPointToEnd(funcBody);
+  rewriter.create<func::ReturnOp>(loc);
+
+  // Insert into the module.
+  moduleSymbolTable.insert(outlinedFunc);
+
+  return cast<FunctionOpInterface>(outlinedFunc.getOperation());
+}
+
+OutlineRegionOptions::CreateFuncAndCallStubsFunc
+OutlineRegionOptions::getDefaultCreateFuncAndCallStubFunc(
+    SymbolTable &moduleSymbolTable, ArrayRef<NamedAttribute> extraFuncAttrs,
+    StringRef namePrefix) {
+  // Create the func.func
+  std::string prefixStr = namePrefix.str();
+  std::vector<NamedAttribute> extraFuncAttrsCopy(extraFuncAttrs);
+  return [prefixStr, &moduleSymbolTable, extraFuncAttrs = extraFuncAttrsCopy](
+             RewriterBase &rewriter, Location loc, Operation *regionOp,
+             ArrayRef<Value> callOperands, ArrayRef<Type> convertedOperandTypes,
+             ArrayRef<Type> results)
+             -> FailureOr<std::pair<FunctionOpInterface, SmallVector<Value>>> {
+    FunctionOpInterface func =
+        createOutlinedFunc(rewriter, loc, moduleSymbolTable, prefixStr,
+                           convertedOperandTypes, results);
+    func.setPrivate();
+
+    for (const NamedAttribute &attr : extraFuncAttrs)
+      func->setAttr(attr.getName(), attr.getValue());
+
+    rewriter.setInsertionPoint(regionOp);
+    SmallVector<Value> callReplacements =
+        rewriter
+            .create<func::CallOp>(loc, llvm::cast<func::FuncOp>(*func),
+                                  callOperands)
+            .getResults();
+    return std::make_pair(func, callReplacements);
+  };
 }
 
 /// Given the `args` that have "source" types (which should each be converted to

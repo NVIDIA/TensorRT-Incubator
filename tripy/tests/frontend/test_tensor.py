@@ -22,12 +22,12 @@ import cupy as cp
 import numpy as np
 import pytest
 import torch
+from tests.conftest import DATA_TYPE_TEST_CASES
+from tests.helper import NUMPY_TO_TRIPY
 
 import tripy as tp
-from tests.conftest import DATA_TYPE_TEST_CASES
-from tests.helper import NUMPY_TYPES, np_to_tripy_dtype
-from tripy.utils.stack_info import SourceInfo
 from tripy.common.utils import get_element_type
+from tripy.utils.stack_info import SourceInfo
 
 
 class TestTensor:
@@ -52,12 +52,12 @@ class TestTensor:
         assert isinstance(a.trace_tensor.producer, tp.frontend.trace.ops.Storage)
         assert a.trace_tensor.producer.device.kind == kind
 
-    @pytest.mark.parametrize("dtype", NUMPY_TYPES)
+    @pytest.mark.parametrize("dtype", NUMPY_TO_TRIPY.keys())
     def test_dtype_from_numpy(self, dtype):
 
         np_array = np.array([1, 2, 3], dtype=dtype)
         tensor = tp.Tensor(np_array)
-        tp_dtype = np_to_tripy_dtype(dtype)
+        tp_dtype = NUMPY_TO_TRIPY[dtype]
         assert tensor.dtype == tp_dtype
 
     def test_bool_tensor(self):

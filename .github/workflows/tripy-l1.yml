@@ -35,19 +35,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/configure-pages@v5
+
     - name: build-docs
       run: |
         cd /tripy/
         python3 docs/generate_rsts.py
-        sphinx-build build/doc_sources build/docs -c docs/ -j auto -W
+        sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
         cp docs/packages.html build/docs/
+
     - uses: actions/upload-pages-artifact@v3
       with:
         path: "/tripy/build/docs"
     - name: Deploy to GitHub Pages
       id: deployment
       uses: actions/deploy-pages@v4
+
     - name: l1-test
       run: |
         cd /tripy/
-        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not manual" -n 4 --durations=15
+        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l1 and not manual" -n 4 --durations=15 --ignore tests/performance

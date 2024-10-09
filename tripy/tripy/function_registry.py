@@ -22,6 +22,8 @@ from textwrap import dedent
 from typing import Any, Callable, Dict, List, Optional
 
 from dataclasses import dataclass
+from collections.abc import Sequence as ABCSequence
+from typing import ForwardRef, get_args, get_origin, Sequence, Union, Optional
 
 
 @dataclass
@@ -29,6 +31,57 @@ class AnnotationInfo:
     type_info: type
     optional: bool
     kind: Any  # Uses inspect.Parameter.<kind>
+
+
+def get_type_name(typ):
+    # Attach module name if possible
+    module_name = ""
+    try:
+        module_name = typ.__module__ + "."
+    except AttributeError:
+        pass
+    else:
+        # Don't attach prefix for built-in types or Tripy types.
+        # If we include modules for Tripy, they will include all submodules, which can be confusing
+        # e.g. Tensor will be something like "tripy.frontend.tensor.Tensor"
+        if any(module_name.startswith(skip_module) for skip_module in {"builtins", "tripy"}):
+            module_name = ""
+
+    return module_name + typ.__qualname__
+
+
+def sanitize_name(annotation):
+    if get_origin(annotation) is Union and annotation._name == "Optional":
+        types = get_args(annotation)
+        return f"{annotation.__name__}[{sanitize_name(types[0])}]"
+
+    if get_origin(annotation) in {Union, ABCSequence}:
+        types = get_args(annotation)
+        return f"{annotation.__name__}[{', '.join(sanitize_name(typ) for typ in types)}]"
+
+    if isinstance(annotation, ForwardRef):
+        return annotation.__forward_arg__
+
+    # typing module annotations are likely to be better when pretty-printed due to including subscripts
+    return annotation if annotation.__module__ == "typing" else get_type_name(annotation)
+
+
+def render_arg_type(arg: Any) -> str:
+    # it is more useful to report more detailed types for sequences/tuples in error messages
+    from typing import List, Tuple
+
+    if isinstance(arg, List):
+        if len(arg) == 0:
+            return "List"
+        # catch inconsistencies this way
+        arg_types = {render_arg_type(member) for member in arg}
+        if len(arg_types) == 1:
+            return f"List[{list(arg_types)[0]}]"
+        return f"List[Union[{', '.join(arg_types)}]]"
+    if isinstance(arg, Tuple):
+        return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
+
+    return get_type_name(type(arg))
 
 
 class FuncOverload:
@@ -98,29 +151,7 @@ class FuncOverload:
     def matches_arg_types(self, args, kwargs) -> "Result":
         from tripy.utils.result import Result
 
-        def sanitize_name(annotation):
-            # typing module annotations are likely to be better when pretty-printed due to including subscripts
-            return annotation if annotation.__module__ == "typing" else annotation.__qualname__
-
-        def render_arg_type(arg: Any) -> str:
-            # it is more useful to report more detailed types for sequences/tuples in error messages
-            from typing import List, Tuple
-
-            if isinstance(arg, List):
-                if len(arg) == 0:
-                    return "List"
-                # catch inconsistencies this way
-                arg_types = {render_arg_type(member) for member in arg}
-                if len(arg_types) == 1:
-                    return f"List[{list(arg_types)[0]}]"
-                return f"List[Union[{', '.join(arg_types)}]]"
-            if isinstance(arg, Tuple):
-                return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
-            return type(arg).__qualname__
-
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
-            from collections.abc import Sequence as ABCSequence
-            from typing import ForwardRef, get_args, get_origin, Sequence, Union
 
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
@@ -149,9 +180,12 @@ class FuncOverload:
                     return all(map(lambda member: matches_type(name, seq_arg[0], member), arg))
                 return True
 
+            if get_origin(annotation) is Union and annotation._name == "Optional":
+                return arg is None or matches_type(arg, get_args(annotation)[0])
+
             # Forward references can be used for recursive type definitions. Warning: Has the potential for infinite looping if there is no base case!
             if isinstance(annotation, ForwardRef):
-                # need this import in case the annotation references tripy
+                # NOTE: We need this import in case the annotation references tripy
                 import tripy
 
                 return matches_type(name, eval(annotation.__forward_arg__), arg)

@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import export, utils, constraints
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.exception import raise_error
 
@@ -54,8 +55,9 @@ class Gather(BaseTraceOp):
     def infer_devices(self):
         from tripy.common import device
 
-        self.outputs[0].device = device("gpu")
+        self.outputs[0].device = self.inputs[0].device
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicGatherOp, DynamicSliceOp
         from tripy.flat_ir.tensor import FlatIRTensor

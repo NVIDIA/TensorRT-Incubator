@@ -6,14 +6,14 @@ add_mlir_tensorrt_library(MLIRTensorRTRuntimeToExecutor
 
   LINK_LIBS PUBLIC
   MLIRArithDialect
-  MLIRTensorRTExecutorDialect
-  MLIRTensorRTCUDADialect
-  MLIRTensorRTExecutorUtils
-  MLIRTensorRTConvertToExecutorCommon
-  MLIRTensorRTTensorRTRuntimeDialect
-  MLIRTensorRTDialect
   MLIRReconcileUnrealizedCasts
   MLIRRewrite
+  MLIRTensorRTConvertToExecutorCommon
+  MLIRTensorRTCUDADialect
+  MLIRTensorRTDialect
+  MLIRTensorRTExecutorDialect
+  MLIRTensorRTExecutorUtils
+  MLIRTensorRTTensorRTRuntimeDialect
   MLIRTransforms
   MLIRTransformUtils
 )

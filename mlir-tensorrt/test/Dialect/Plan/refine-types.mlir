@@ -126,8 +126,36 @@ func.func @tensorrt_opaque_plugin_no_cast() -> tensor<?xf32> {
   return %3 : tensor<?xf32>
 }
 // CHECK-LABEL: func.func @tensorrt_opaque_plugin_no_cast
-// CHECK-SAME: () -> tensor<?xf32>
-// CHECK: %[[v1:.*]] = stablehlo.dynamic_reshape %{{.*}}, %{{.*}} : (tensor<64xf32>, tensor<1xi32>) -> tensor<64xf32>
-// CHECK: %[[v2:.*]] = tensorrt.opaque_plugin
-// CHECK-SAME: (%[[v1]]) : (tensor<64xf32>) -> tensor<?xf32>
-// CHECK: return %{{.*}} : tensor<?xf32>
+// CHECK-SAME: () -> tensor<1xf32>
+// CHECK: %[[cst:.*]] = stablehlo.constant dense<1.000000e+00> : tensor<64xf32>
+// CHECK: %[[v0:.*]] = tensorrt.opaque_plugin
+// CHECK: return %{{.*}} : tensor<1xf32>
+
+// -----
+
+func.func @refine_tensorrt_resize_with_shape() -> tensor<?x?x?x?xf32> {
+  %c3 = arith.constant 3 : index
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %cst = stablehlo.constant dense<1.000000e+00> : tensor<1x1x4x4xf32>
+  %c = stablehlo.constant dense<[1, 1, 8, 8]> : tensor<4xi32>
+  %result = tensorrt.resize_linear {
+    coordinateTransformation = #tensorrt.resize_coordinate_transformation<kALIGN_CORNERS>,
+    selectorForSinglePixel = #tensorrt.resize_selector<kUPPER>
+  } %cst, %c : (tensor<1x1x4x4xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
+  %dim_i32_0 = tensor.extract %c[%c0] : tensor<4xi32>
+  %dim_i32_1 = tensor.extract %c[%c1] : tensor<4xi32>
+  %dim_i32_2 = tensor.extract %c[%c2] : tensor<4xi32>
+  %dim_i32_3 = tensor.extract %c[%c3] : tensor<4xi32>
+  %dim_0 = arith.index_cast %dim_i32_0 : i32 to index
+  %dim_1 = arith.index_cast %dim_i32_1 : i32 to index
+  %dim_2 = arith.index_cast %dim_i32_2 : i32 to index
+  %dim_3 = arith.index_cast %dim_i32_3 : i32 to index
+  %1 = plan.with_shape %result(%dim_0, %dim_1, %dim_2, %dim_3) : (tensor<?x?x?x?xf32>, index, index, index, index) -> tensor<?x?x?x?xf32>
+  return %1 : tensor<?x?x?x?xf32>
+}
+// CHECK-LABEL: func.func @refine_tensorrt_resize_with_shape
+// CHECK-SAME: -> tensor<1x1x8x8xf32>
+// CHECK: %[[v0:.*]] = tensorrt.resize_linear {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kALIGN_CORNERS>, selectorForSinglePixel = #tensorrt.resize_selector<kUPPER>} %cst, %c : (tensor<1x1x4x4xf32>, tensor<4xi32>) -> tensor<1x1x8x8xf32>
+// CHECK: return %[[v0]] : tensor<1x1x8x8xf32>

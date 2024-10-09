@@ -126,11 +126,12 @@ static inline bool mtrtMemRefValueIsNull(MTRT_MemRefValue memref) {
 ///   - `stream` may optionally be provided in order to provide for asynchronous
 ///   allocation, otherwise
 ///      the result of `mtrtStreamGetNull()` should be passed.
-MTRT_Status
+MLIR_CAPI_EXPORTED MTRT_Status
 mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
                  int64_t bitsPerElement, int64_t rank, const int64_t *shape,
                  const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
-                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result);
+                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
+                 bool assertCanonicalStrides = false);
 
 /// Creates an externally managed MemRef value. The caller provides all the
 /// metadata for the MemRef including the shape, strides (in elements), pointer,
@@ -138,11 +139,12 @@ mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
 /// buffer resides (only if it is a device buffer). The RuntimeClient tracks
 /// this MemRef as an externally managed resource and will not warn the user if
 /// it is not freed when RuntimeClient is destroyed.
-MTRT_Status mtrtMemRefCreateExternal(
+MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
     int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
-    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result);
+    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
+    bool assertCanonicalStrides = false);
 
 /// Destroys `MTRT_MemRefValue` in a potentially asynchronous manner.
 /// If `buffer` is a device buffer, device memory is freed in the stream
@@ -387,13 +389,15 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionExecuteFunction(
 // DLPack
 //===----------------------------------------------------------------------===//
 
-/// Converts a DLDeviceType to MTRT_PointerType. This function will throw a runtime
-/// error if the device type is invalid.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtGetPointerTypeFromDLDeviceType(DLDeviceType device, MTRT_PointerType* result);
+/// Converts a DLDeviceType to MTRT_PointerType. This function will throw a
+/// runtime error if the device type is invalid.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtGetPointerTypeFromDLDeviceType(
+    DLDeviceType device, MTRT_PointerType *result);
 
-/// Converts a DLDataType to MTRT_ScalarTypeCode. This function will throw a runtime
-/// error if the data type is invalid.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(DLDataType dtype, MTRT_ScalarTypeCode* result);
+/// Converts a DLDataType to MTRT_ScalarTypeCode. This function will throw a
+/// runtime error if the data type is invalid.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtGetScalarTypeCodeFromDLDataType(
+    DLDataType dtype, MTRT_ScalarTypeCode *result);
 
 #ifdef __cplusplus
 }

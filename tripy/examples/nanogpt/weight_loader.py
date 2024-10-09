@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +52,7 @@ def load_weights_from_hf(model, model_type, dtype):
         param = tp.Parameter(weight)
         tripy_state_dict[key] = param
 
-    model.load_from_state_dict(tripy_state_dict)
+    model.load_state_dict(tripy_state_dict)
 
 
 def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
@@ -112,5 +112,5 @@ def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
         param = tp.Parameter(weight.contiguous())
         tripy_state_dict[key] = param
 
-    model.load_from_state_dict(tripy_state_dict)
+    model.load_state_dict(tripy_state_dict)
     print("Loaded weights to tripy model.")

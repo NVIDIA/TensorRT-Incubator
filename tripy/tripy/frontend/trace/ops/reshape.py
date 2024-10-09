@@ -22,7 +22,6 @@ from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -59,13 +58,14 @@ class Reshape(BaseTraceOp):
         else:
             self.outputs[0].rank = self.output_rank
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicReshapeOp
 
         DynamicReshapeOp.build(inputs, outputs)
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["input", "output_rank", "output_len"], shape_argument=["shape"])
+@frontend_utils.convert_shape_inputs(["shape"])
 def reshape_impl(
     input: "tripy.Tensor", shape: Sequence, output_rank: int, output_len: Optional[int] = None
 ) -> "tripy.Tensor":
@@ -76,13 +76,10 @@ def reshape_impl(
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-        "T2": ["int8", "int32", "int64"],
     },
-    dtype_constraints={"input": "T1", "shape": "T2", constraints.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def reshape(
-    input: "tripy.Tensor", shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]]
-) -> "tripy.Tensor":
+def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Tensor":
     """
     Returns a new tensor with the contents of the input tensor in the specified shape.
 

@@ -4,10 +4,17 @@ macro(add_mlir_executor_runtime_capability_library name)
     target_link_libraries(MLIRExecutorRuntimeCapabilities INTERFACE ${name})
 endmacro()
 
-add_subdirectory(Core)
-add_subdirectory(CUDA)
-add_subdirectory(TensorRT)
 add_subdirectory(Utils)
+
+add_subdirectory(Core)
+
+if(MLIR_EXECUTOR_ENABLE_CUDA)
+    add_subdirectory(CUDA)
+endif()
+
+if(MLIR_EXECUTOR_ENABLE_TENSORRT)
+    add_subdirectory(TensorRT)
+endif()
 
 if(MLIR_EXECUTOR_ENABLE_NCCL)
     add_subdirectory(NCCL)

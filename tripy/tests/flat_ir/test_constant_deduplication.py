@@ -15,6 +15,7 @@
 
 import pytest
 from tripy.flat_ir.flat_ir import FlatIR
+from tripy.flat_ir.function import FlatIRFunction
 from tripy.flat_ir.ops import ConstantOp
 from tripy.flat_ir.tensor import FlatIRTensor
 from tripy.common.device import device
@@ -29,7 +30,7 @@ class MockOp:
             output.producer = self
 
 
-def create_subgraph():
+def create_subgraph(config):
     # Create constant tensors and ops
     const1 = FlatIRTensor.build(shape=[2], rank=1, dtype=int32, reason_details="", device=device("gpu"))
     op1 = ConstantOp.build([], [const1], data=[1, 2])
@@ -48,18 +49,31 @@ def create_subgraph():
     result_tensor = FlatIRTensor.build(shape=[2], rank=1, dtype=int32, reason_details="", device=device("gpu"))
     mock_op = MockOp([const1, const2, const3], [result_tensor])
 
+    if config == "func":
+        # Create a function with no inputs and a single output
+        func_result_tensor = FlatIRTensor.build(shape=[2], rank=1, dtype=int32, reason_details="", device=device("gpu"))
+        setattr(result_tensor, "caller_tensor", func_result_tensor)
+        func = FlatIRFunction("MockFunc", [], [result_tensor], [op1, op2, op3, mock_op])
+        func_result_tensor.producer = func
+
+        # Return function result tensor i.e. output of a function call
+        return [], [func_result_tensor]
+
     return [], [result_tensor]
 
 
-def test_integrate_subgraph_constant_deduplication():
+@pytest.mark.parametrize("config", ["main", "func"])
+def test_integrate_subgraph_constant_deduplication(config):
     flat_ir = FlatIR()
-    inputs, outputs = create_subgraph()
+    inputs, outputs = create_subgraph(config)
 
     # Integrate the subgraph
     flat_ir.integrate_subgraph(inputs, outputs)
 
     # Verify that only two ConstantOps remain
-    constant_ops = [op for op in flat_ir.ops if isinstance(op, ConstantOp)]
+    ops = flat_ir.ops[0].ops if isinstance(flat_ir.ops[0], FlatIRFunction) else flat_ir.ops
+
+    constant_ops = [op for op in ops if isinstance(op, ConstantOp)]
     assert len(constant_ops) == 2, "There should be only two ConstantOps after integration"
 
     # Verify that the remaining ConstantOps have different data
@@ -72,12 +86,13 @@ def test_integrate_subgraph_constant_deduplication():
     assert set(constant_data) == expected_data, f"Expected constant data {expected_data}, but got {set(constant_data)}"
 
     # Verify that the mock op now uses the same tensor for its first two inputs
-    mock_op = [op for op in flat_ir.ops if isinstance(op, MockOp)][0]
+    mock_op = [op for op in ops if isinstance(op, MockOp)][0]
     assert mock_op.inputs[0] is mock_op.inputs[1], "The mock op should use the same tensor for its first two inputs"
     assert mock_op.inputs[0] is not mock_op.inputs[2], "The mock op should still have a different third input"
 
-    # Verify that tensor replacements were applied
-    assert len(flat_ir.tensor_replacements) > 0, "There should be tensor replacements after integration"
+    if config == "main":
+        # Verify that tensor replacements were applied
+        assert len(flat_ir.tensor_replacements) > 0, "There should be tensor replacements after integration"
 
-    # Verify that the constant map has the correct number of entries
-    assert len(flat_ir.constant_map) == 2, "Constant map should have 2 entries"
+        # Verify that the constant map has the correct number of entries
+        assert len(flat_ir.constant_map) == 2, "Constant map should have 2 entries"

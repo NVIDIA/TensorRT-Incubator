@@ -21,12 +21,10 @@ from typing import Optional, Sequence, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
-from tripy import export, utils, constraints
+from tripy import constraints, export, utils
 from tripy.common import datatype
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -43,7 +41,7 @@ class Fill(BaseTraceOp):
     def infer_devices(self):
         from tripy.common import device
 
-        self.outputs[0].device = device("gpu")
+        self.outputs[0].device = device(("gpu", 0))
 
     def infer_rank(self):
         if self.output_rank is None:
@@ -55,6 +53,7 @@ class Fill(BaseTraceOp):
             self.output_rank = input_shape[0]
         self.outputs[0].rank = self.output_rank
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp, ConvertOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -92,9 +91,9 @@ class Fill(BaseTraceOp):
         )
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["value", "dtype", "output_rank"], shape_argument=["shape"])
+@frontend_utils.convert_shape_inputs(["shape"])
 def full_impl(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
+    shape: "tripy.types.ShapeLike",
     value: Union[numbers.Number, "tripy.Tensor"],
     dtype: "tripy.dtype",
     output_rank: int,
@@ -110,13 +109,12 @@ def full_impl(
 @export.public_api(document_under="operations/initializers")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["int32"],
-        "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"shape": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def full(
-    shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]],
+    shape: "tripy.types.ShapeLike",
     value: Union[numbers.Number, "tripy.Tensor"],
     dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":

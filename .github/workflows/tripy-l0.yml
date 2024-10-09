@@ -42,7 +42,7 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: build-new-container
+    - name: Build new container
       if: steps.filter.outputs.local_container == 'true'
       uses: docker/build-push-action@v6
       with:
@@ -50,7 +50,7 @@ jobs:
         tags: ${{ env.NEW_TEST_IMAGE }}
         push: false
 
-    - name: pull-latest-container
+    - name: Pull latest container
       if: steps.filter.outputs.local_container != 'true'
       run: docker pull ${{ env.l0_image }}
 
@@ -61,12 +61,33 @@ jobs:
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
           python3 docs/generate_rsts.py
-          sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W
+          sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
 
-    - name: run-test
+    - name: Run tests
       uses: addnab/docker-run-action@v3
       with:
         image: ${{ env.l0_image }}
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
-          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" -n 4 --durations=15
+          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" -n 4 --durations=15 --ignore tests/performance
+
+    - name: Run performance benchmarks
+      uses: addnab/docker-run-action@v3
+      with:
+        image: ${{ env.l0_image }}
+        options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
+        run: |
+          pytest tests/performance -v -m "not l1 and not manual" --benchmark-warmup=on --benchmark-json benchmark.json
+
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'pytest'
+        output-file-path: ${{ github.workspace }}/tripy/benchmark.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        # Show alert with commit comment on detecting possible performance regression
+        alert-threshold: '105%'
+        comment-on-alert: true
+        fail-on-alert: true
+        gh-pages-branch: benchmarks

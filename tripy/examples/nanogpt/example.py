@@ -1,6 +1,5 @@
-
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -99,14 +98,13 @@ def main():
 
     # Compile the model before running inference.
     compile_start_time = time.perf_counter()
-    compiler = tp.Compiler(model)
     input_shape = (
         1,
         # We can specify dynamic dimensions by using a sequence indicating the min/opt/max values that
         # a dimension should support:
         [1, len(input_ids), padded_seq_len],
     )
-    model = compiler.compile(tp.InputInfo(input_shape, dtype=tp.int32))
+    model = tp.compile(model, args=[tp.InputInfo(input_shape, dtype=tp.int32)])
     compile_end_time = time.perf_counter()
     print(f"Compilation took {compile_end_time - compile_start_time} seconds.")
 

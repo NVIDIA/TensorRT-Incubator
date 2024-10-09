@@ -21,11 +21,11 @@ from typing import Optional
 
 from tripy import export
 from tripy.common import datatype
-from tripy.frontend.module.convolution import ConvBase
+from tripy.frontend.module.conv import ConvBase
 from tripy.frontend.module.parameter import DefaultParameter, Parameter
 
 
-@export.public_api(document_under="operations/modules")
+@export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
 @dataclass
 class ConvTranspose(ConvBase):
     r"""
@@ -238,7 +238,7 @@ class ConvTranspose(ConvBase):
             self.stride,  # effectively lhs_dilation for StableHLO
             self.dilation,
         )
-        if hasattr(self, "bias"):
+        if self.bias is not None:
             bias_shape_to_broadcast = (1, weight.shape[0]) + (1,) * (rank - 2)
             x += reshape(self.bias, bias_shape_to_broadcast)
         return x

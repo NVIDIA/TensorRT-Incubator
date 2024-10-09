@@ -17,7 +17,8 @@
 
 import abc
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Tuple
+
 
 from tripy import utils
 
@@ -87,7 +88,7 @@ class BaseFlatIROp(abc.ABC):
             for field in utils.get_dataclass_fields(self, BaseFlatIROp)
             if field.name not in skip_fields
         ]
-        return f"{outputs_str} = {self._op_name()}({', '.join([inp.name for inp in self.inputs] + args)})"
+        return f"{outputs_str} = {self._op_name()}({', '.join([str(inp.name) for inp in self.inputs] + args)})"
 
     def __repr__(self) -> str:
         # This is a hack to prevent printing the entire stack info when we print this.

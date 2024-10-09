@@ -19,7 +19,9 @@ import pytest
 import tripy as tp
 
 from tripy.flat_ir.ops import DynamicGatherOp
+from tripy.flat_ir.function import FlatIRFunction
 from tripy.frontend.trace import Trace
+import re
 
 
 class TestGatherOp:
@@ -34,13 +36,16 @@ class TestGatherOp:
         trace = Trace([out])
         flat_ir = trace.to_flat_ir()
 
-        gather = flat_ir.ops[-1]
-        reshape = flat_ir.ops[-2]
+        func_gather = flat_ir.ops[-1]
+        assert isinstance(func_gather, FlatIRFunction)
+
+        gather = func_gather.ops[-1]
+        reshape = func_gather.ops[-7]
         print(str(reshape))
         assert isinstance(gather, DynamicGatherOp)
-        assert (
-            str(gather)
-            == f"out: [rank=(3), dtype=(float32), loc=(gpu:0)] = DynamicGatherOp(data, indices, t_inter4, axis={axis})"
+        assert re.match(
+            rf"t_inter[0-9]+: \[rank=\(3\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicGatherOp\(t_inter[0-9]+, t_inter[0-9]+, t_inter[0-9]+, axis={axis}\)",
+            str(gather),
         )
 
     @pytest.mark.parametrize("axis", [0, 1])
@@ -50,7 +55,7 @@ class TestGatherOp:
         flat_ir = trace.to_flat_ir()
         mlir_text = str(flat_ir.to_mlir())
         if axis == 0:
-            target = '"stablehlo.dynamic_gather"(%c, %c_0, %2) <{dimension_numbers = #stablehlo.gather<offset_dims = [1], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>}> : (tensor<2x3xi32>, tensor<1xi32>, tensor<2xi32>) -> tensor<1x?xi32>'
+            target = '"stablehlo.dynamic_gather"(%arg0, %arg1, %6) <{dimension_numbers = #stablehlo.gather<offset_dims = [1], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>}> : (tensor<?x?xi32>, tensor<?xi32>, tensor<2xi32>) -> tensor<?x?xi32>'
         else:
-            target = '"stablehlo.dynamic_gather"(%c, %c_0, %2) <{dimension_numbers = #stablehlo.gather<offset_dims = [0], collapsed_slice_dims = [1], start_index_map = [1], index_vector_dim = 1>}> : (tensor<2x3xi32>, tensor<1xi32>, tensor<2xi32>) -> tensor<?x1xi32>'
+            target = '"stablehlo.dynamic_gather"(%arg0, %arg1, %6) <{dimension_numbers = #stablehlo.gather<offset_dims = [0], collapsed_slice_dims = [1], start_index_map = [1], index_vector_dim = 1>}> : (tensor<?x?xi32>, tensor<?xi32>, tensor<2xi32>) -> tensor<?x?xi32>'
         assert target in mlir_text, mlir_text

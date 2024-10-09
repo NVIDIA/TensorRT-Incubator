@@ -74,6 +74,7 @@ target_link_libraries(mlir-tensorrt-lsp-server PRIVATE
 llvm_update_compile_flags(mlir-tensorrt-lsp-server)
 mlir_check_link_libraries(mlir-tensorrt-lsp-server)
 _mtrt_set_target_compile_defs(mlir-tensorrt-lsp-server)
+set_target_properties(mlir-tensorrt-lsp-server PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
 # ----------------------------------------------------------------------------
 # mlir-tensorrt-opt

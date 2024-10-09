@@ -22,7 +22,6 @@
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
-#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/Support/raw_ostream.h"
@@ -57,6 +56,18 @@ protected:
   bool verbose;
 };
 
+/// A llvm::cl::opt parser for turning strings like "1024gb" into a number of
+/// bytes. Allowed suffixes are strings like 'gb', 'GiB', 'kb', 'mb', 'b' (case
+/// insensitive, we interpret both 'b|B' as meaning "byte"). This example comes
+/// straight from the LLVM documentation
+/// (https://llvm.org/docs/CommandLine.html#writing-a-custom-parser).
+struct ByteSizeParser : public llvm::cl::parser<std::optional<uint64_t>> {
+  using llvm::cl::parser<std::optional<uint64_t>>::parser;
+  // parse - Return true on error.
+  bool parse(llvm::cl::Option &O, StringRef ArgName, StringRef ArgValue,
+             std::optional<uint64_t> &Val);
+};
+
 /// TensorRTTranslationOptions wraps all available options for constructing
 /// TensorRT engine from MLIR. This should expose all TensorRT
 /// `nvinfer1::IBuilder` options that we currently support.
@@ -82,6 +93,10 @@ struct TensorRTTranslationOptions {
   /// Set the nvinfer::NetworkDefinitionCreationFlag to use strongly typed mode.
   bool enableStronglyTyped = false;
 
+  /// Maximum workspace/scratchspace (in bytes) allowed. The abcense of a value
+  /// indicates that the limit is the maximum device memory.
+  std::optional<uint64_t> workspaceMemoryPoolLimit = std::nullopt;
+
   /// Enable TensorRT verbose logs
   bool enableVerboseLogs = false;
 
@@ -106,6 +121,8 @@ struct TensorRTTranslationOptions {
   /// hash.
   std::string loadTensorRTEnginesFromDirectory;
 
+  /// Add command line options to mlir::OptionsContext and configure struct to
+  /// serve as backend storage for the options.
   void addToOptions(mlir::OptionsContext &context) {
     context.addOption("tensorrt-timing-cache-path", timingCachePath,
                       llvm::cl::init(""));
@@ -117,6 +134,9 @@ struct TensorRTTranslationOptions {
                       llvm::cl::init(""));
     context.addOption("tensorrt-layer-info-dir", saveTensorRTLayerInfoDirectory,
                       llvm::cl::init(""));
+    context.addOptionWithParser<ByteSizeParser>(
+        "tensorrt-workspace-memory-pool-limit", workspaceMemoryPoolLimit,
+        llvm::cl::init(std::nullopt));
   }
 };
 
@@ -208,17 +228,18 @@ private:
 /// `tensorrt.shape_profile` arguments have been populated for each argument
 /// that has unknown dimensions.
 /// TODO(cbate): add additional options here for builder configuration.
-FailureOr<TensorRTEngineResult>
-buildFunction(mlir::FunctionOpInterface op,
-              TensorRTBuilderContext &builderContext,
-              TensorRTSerializedTimingCache &serializedTimingCache,
-              const TensorRTTranslationOptions &options =
-                  TensorRTTranslationOptions::fromCLFlags());
+FailureOr<TensorRTEngineResult> buildFunction(
+    mlir::FunctionOpInterface op, TensorRTBuilderContext &builderContext,
+    TensorRTSerializedTimingCache &serializedTimingCache,
+    const TensorRTTranslationOptions &options =
+        TensorRTTranslationOptions::fromCLFlags(),
+    std::function<std::string(Operation *)> layerMetadataCallback = nullptr);
 
 /// Create an instance of a translate-to-tensorrt pass using an existing
 /// TensorRTBuilderContext.
 std::unique_ptr<mlir::Pass> createTranslateTensorRTPass(
     std::shared_ptr<tensorrt::TensorRTBuilderContext> context,
+    std::function<std::string(Operation *)> layerMetadataCallback,
     TensorRTTranslationOptions options =
         TensorRTTranslationOptions::fromCLFlags());
 

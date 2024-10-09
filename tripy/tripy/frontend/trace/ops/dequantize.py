@@ -35,6 +35,7 @@ class Dequantize(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import (
@@ -108,7 +109,6 @@ class Dequantize(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/quantization")
-@frontend_utils.convert_inputs_to_tensors(exclude=["dtype", "dim"])
 @constraints.dtype_info(
     dtype_variables={"T1": ["int4", "int8", "float8"], "T2": ["float32", "float16", "bfloat16"]},
     dtype_constraints={"input": "T1", "scale": "T2", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
@@ -186,6 +186,12 @@ def dequantize(
 
     .. seealso:: :func:`quantize`
     """
+    from tripy.frontend import Tensor
+
+    if not isinstance(scale, Tensor):
+        scale = Tensor(scale)
+
     op_utils.check_qdq_args(input, scale, dtype, dim, False)
 
+    # See the note in quantize.py on why we don't just use frontend ops here.
     return Dequantize.build([input, scale], dtype, dim)

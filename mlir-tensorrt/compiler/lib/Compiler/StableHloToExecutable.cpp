@@ -40,6 +40,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
@@ -47,6 +48,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <functional>
 #include <memory>
 
 #define DEBUG_TYPE "compiler-api"
@@ -271,6 +273,14 @@ Status StableHLOToExecutableOptions::inferDeviceOptionsFromHost() {
   return Status::getOk();
 }
 
+std::optional<llvm::hash_code> StableHLOToExecutableOptions::getHash() const {
+  // If a callback is provided, we have no way of reliably hashing it.
+  if (layerMetadataCallback)
+    return std::nullopt;
+
+  return OptionsContext::getHash();
+}
+
 //===----------------------------------------------------------------------===//
 // StableHloToExecutableTask
 //===----------------------------------------------------------------------===//
@@ -466,11 +476,19 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   }
 #endif
 
-  mlir::PassManager &runner =
-      client.getOrCreatePassManager<StableHloToExecutableTask>(options);
+  mlir::PassManager *runner;
+  std::unique_ptr<StableHloToExecutableTask> pm{};
+
+  if (options.getHash())
+    runner = &client.getOrCreatePassManager<StableHloToExecutableTask>(options);
+  else {
+    pm.reset(new StableHloToExecutableTask(client.getContext(), options));
+    CompilerClient::setupPassManagerLogging(*pm, options.debugOptions);
+    runner = pm.get();
+  }
 
   // Setup pass manager
-  if (failed(runner.run(module)))
+  if (failed(runner->run(module)))
     return getInternalErrorStatus(
         "failed to run compilation on module with symbol name: {0}",
         module.getName() ? *module.getName() : "no-symbol-name");

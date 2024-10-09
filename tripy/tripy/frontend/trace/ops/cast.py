@@ -17,6 +17,7 @@
 
 from dataclasses import dataclass
 from tripy import export, constraints
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.trace.ops.utils import InferLenPolicies
 
@@ -27,13 +28,16 @@ class Cast(BaseTraceOp):
 
     def infer_shape_output_idxs(self, inputs):
         from tripy.common.datatype import int32
-        from tripy.frontend.shape import Shape
+        from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
-        if isinstance(inputs[0], Shape):
-            # Only still a valid shape if it remains int32
-            if self.dtype == int32:
+        # Only still a valid shape if it remains int32
+        if self.dtype == int32:
+            if isinstance(inputs[0], Shape):
                 return Result.ok({"shape": [0]})
+            elif isinstance(inputs[0], ShapeScalar):
+                return Result.ok({"scalar": [0]})
+
         return Result.ok({})
 
     infer_len = InferLenPolicies.infer_same_as_first_input
@@ -41,6 +45,7 @@ class Cast(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32, int64, float32, bool as tp_bool
         from tripy.flat_ir.ops import CompareOp, ConvertOp, ConstantOp, DynamicBroadcastOp
@@ -107,8 +112,10 @@ class Cast(BaseTraceOp):
     },
     dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
     dtype_exceptions=[
+        {"T1": "float8", "T2": "int4"},
         {"T1": "float8", "T2": "int8"},
         {"T1": "float8", "T2": "int64"},
+        {"T1": "int4", "T2": "float8"},
         {"T1": "int4", "T2": "int8"},
         {"T1": "int4", "T2": "int64"},
     ],

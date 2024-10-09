@@ -69,7 +69,7 @@ class Expand(BaseTraceOp):
         )
 
 
-@frontend_utils.convert_inputs_to_tensors(exclude=["input", "output_rank", "output_len"], shape_argument=["shape"])
+@frontend_utils.convert_shape_inputs(["shape"])
 def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int, output_len: Optional[int] = None):
     return Expand.build([input, shape], output_rank, output_len)
 
@@ -78,13 +78,10 @@ def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int, output
 @constraints.dtype_info(
     dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
-        "T2": ["int8", "int32", "int64"],
     },
-    dtype_constraints={"input": "T1", "sizes": "T2", constraints.RETURN_VALUE: "T1"},
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def expand(
-    input: "tripy.Tensor", sizes: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]]
-) -> "tripy.Tensor":
+def expand(input: "tripy.Tensor", sizes: "tripy.types.ShapeLike") -> "tripy.Tensor":
     """
     Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.
 

@@ -16,14 +16,15 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
-from tripy import utils, constraints
+from typing import Optional, Sequence, Union
+
+from tripy import constraints, utils
+from tripy.common.exception import raise_error
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import utils as op_utils
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_tuple
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -80,10 +81,12 @@ class Slice(BaseTraceOp):
     # we only care about the data input
     infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
+        from tripy.common.datatype import bool as tp_bool
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import DynamicReshapeOp, DynamicSliceOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import bool as tp_bool, int32
 
         with FlatIRTensor.context(["construct constant tensors for slice `dim`'s > len(slice_params) // 3"]):
             device = inputs[0].device
@@ -127,8 +130,8 @@ class Slice(BaseTraceOp):
 
                     # if start > limit, the dim should be empty (we will set start to match the end)
                     def adjust_start(start_bound, end_bound):
-                        from tripy.frontend.trace.ops.binary_elementwise import Comparison
                         from tripy.flat_ir.ops import CompareOp, SelectOp
+                        from tripy.frontend.trace.ops.binary_elementwise import Comparison
 
                         start_comparison = FlatIRTensor.build(
                             shape=[1],
@@ -180,7 +183,9 @@ class Slice(BaseTraceOp):
     },
     dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
 )
-def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "tripy.Tensor"]) -> "tripy.Tensor":
+def __getitem__(
+    self: "tripy.Tensor", index: Union[slice, int, "tripy.Tensor", Sequence[Union[slice, int, "tripy.Tensor"]]]
+) -> "tripy.Tensor":
     """
     Returns a tensor containing a slice of this tensor.
 
@@ -208,12 +213,12 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
 
     """
-    from tripy.frontend.shape import ShapeScalar, Shape
+    from tripy.frontend.shape import Shape, ShapeScalar
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip
-    from tripy.frontend.trace.ops.reshape import reshape, squeeze
-    from tripy.frontend.trace.ops.where import where
     from tripy.frontend.trace.ops.gather import gather
+    from tripy.frontend.trace.ops.reshape import squeeze
+    from tripy.frontend.trace.ops.where import where
 
     # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
     if isinstance(index, Tensor):
@@ -303,6 +308,6 @@ def __getitem__(self: "tripy.Tensor", index: Union[slice, int, Tuple[int], "trip
 # Conveniently converts the inputs to tensors. The decorator also fills in column info for the converted tensors.
 # Because the helper is called inside another function, we need to skip one entry in the call stack to find
 # the original call to user code.
-@frontend_utils.convert_inputs_to_tensors(exclude=["shape_slice"], skip_num_stack_entries=1)
+@frontend_utils.convert_inputs_to_tensors(exclude=["tensor", "shape_slice"], skip_num_stack_entries=1)
 def slice_helper(tensor, *slice_params, shape_slice: Optional[slice] = None):
     return Slice.build(inputs=[tensor, *slice_params], shape_slice=shape_slice)

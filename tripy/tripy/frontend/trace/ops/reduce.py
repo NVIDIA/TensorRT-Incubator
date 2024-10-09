@@ -15,16 +15,18 @@
 # limitations under the License.
 #
 
+import math
 import enum
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
 from tripy import export, constraints
 from tripy.common import datatype
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
 from tripy.utils import make_list
-from tripy.common.exception import raise_error
+
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -55,6 +57,7 @@ class Reduce(BaseTraceOp):
             self.dim = [idx if idx >= 0 else idx + self.inputs[0].rank for idx in self.dim]
             self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -86,6 +89,7 @@ class ArgMinMax(Reduce):
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.int32
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -312,22 +316,14 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     from tripy.frontend.trace.ops.cast import cast
 
     sum_val = sum(tensor, dim=dim, keepdim=keepdim)
-    # compute number of elements in the array and divide by number of elements in dims
-    input_shape = tensor.shape
-    nb_elements = prod(input_shape, dim=0, keepdim=True)
-    nb_elements_in_mean_dim = 1
 
-    if dim is not None:
-        for d in make_list(dim):
-            nb_elements_in_mean_dim = input_shape[d] * nb_elements_in_mean_dim
-        divisor = nb_elements_in_mean_dim
-    else:
-        divisor = nb_elements[0]
+    # compute number of elements in the array and divide by number of elements in dims
+    num_elements = math.prod(tensor.shape if dim is None else [tensor.shape[d] for d in make_list(dim)])
 
     if apply_to_divisor:
-        divisor = apply_to_divisor(divisor)
+        num_elements = apply_to_divisor(num_elements)
 
-    return sum_val / (cast(divisor, sum_val.dtype))
+    return sum_val / (cast(num_elements, sum_val.dtype))
 
 
 @export.public_api(document_under="operations/functions")
@@ -406,11 +402,14 @@ def var(
         torch_input = torch.arange(6, dtype=torch.float32).reshape((2, 3)) # doc: omit
         assert np.array_equal(cp.from_dlpack(output).get(), np.from_dlpack(torch_input.var(dim=1, keepdim=True)))
     """
+    from tripy.frontend import Tensor
     from tripy.frontend.trace.ops.binary_elementwise import maximum
 
     mean_val = mean(input, dim=dim, keepdim=dim is not None)
     sub = (input - mean_val) ** 2.0
-    return mean_impl(sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: maximum(x - correction, 0))
+    return mean_impl(
+        sub, dim=dim, keepdim=keepdim, apply_to_divisor=lambda x: maximum(x - Tensor(correction), Tensor(0))
+    )
 
 
 def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optional[int], keepdim: bool):
