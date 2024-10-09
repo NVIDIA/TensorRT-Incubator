@@ -271,19 +271,32 @@ gentbl_cc_library(
 )
 
 cc_library(
+    name = "TensorRTTensorKindInterfaces",
+    srcs = [
+        "tensorrt/lib/Interface/TensorKindOpInterface.cpp",
+    ],
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
+    deps = [
+        ":TensorRTTensorKindInterfacesIncGen",
+        "@llvm-project//mlir:Analysis",
+    ],
+)
+
+cc_library(
     name = "TensorRTAnalysis",
     srcs = [
         "tensorrt/lib/Analysis/TensorKindAnalysis.cpp",
     ],
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h",
-        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h",
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTDialect",
-        ":TensorRTTensorKindInterfacesIncGen",
-        "@llvm-project//mlir:Analysis",
+        ":TensorRTTensorKindInterfaces",
         "@llvm-project//mlir:BufferizationDialect",
     ],
 )
