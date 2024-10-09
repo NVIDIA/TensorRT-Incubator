@@ -341,6 +341,7 @@ cc_library(
         "tensorrt/lib/TensorRT/Transforms/ApplyBugWorkarounds.cpp",
         "tensorrt/lib/TensorRT/Transforms/BroadcastElimination.cpp",
         "tensorrt/lib/TensorRT/Transforms/ExpandOps.cpp",
+        "tensorrt/lib/TensorRT/Transforms/Passes.cpp",
         # "tensorrt/lib/TensorRT/Transforms/InferPluginShapes.cpp",
         "tensorrt/lib/TensorRT/Transforms/LegalizeInt8.cpp",
         # "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
@@ -364,21 +365,6 @@ cc_library(
         ":TensorRTTransformsPassesIncGen",
         ":TensorRTUtils",
         "@tensorrt10_x86//:tensorrt10",
-    ],
-)
-
-cc_library(
-    name = "TensorRTPipelines",
-    srcs = [
-        "lib/Pipelines/TensorRTPassPipelines.cpp",
-    ],
-    hdrs = [
-        "include/mlir-tensorrt/Pipelines/Pipelines.h",
-    ],
-    copts = ["-DCRUISE_EXPERIMENTAL_BAZEL_BUILD"],
-    strip_include_prefix = "include",
-    deps = [
-        ":TensorRTTransforms",
     ],
 )
 
@@ -596,7 +582,6 @@ cc_library(
     strip_include_prefix = "include",
     deps = [
         ":TensorRTGeneralTransforms",
-        ":TensorRTPipelines",
         ":TensorRTTarget",
         ":TensorRTTransforms",
         "@llvm-project//mlir:ConversionPasses",
