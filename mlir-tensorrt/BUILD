@@ -166,9 +166,11 @@ cc_library(
         "tensorrt/lib/TensorRT/IR/Verification.cpp",
         "tensorrt/lib/TensorRT/IR/EinsumHelper.cpp",
         "tensorrt/lib/TensorRT/IR/EinsumHelper.h",
+        "tensorrt/lib/TensorRT/IR/TensorKindOpInterfaceImpl.cpp",
     ],
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h",
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
@@ -178,6 +180,7 @@ cc_library(
         ":TensorRTEnumsIncGen",
         ":TensorRTInterfacesIncGen",
         ":TensorRTOpsIncGen",
+        ":TensorRTTensorKindInterfacesIncGen",
         "@llvm-project//mlir:ControlFlowInterfaces",
         "@llvm-project//mlir:DestinationStyleOpInterface",
         "@llvm-project//mlir:DialectUtils",
