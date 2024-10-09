@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728504600472,
+  "lastUpdate": 1728510247349,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -170,6 +170,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007220392277263378",
             "extra": "mean: 144.71391203147462 usec\nrounds: 7583"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "a08c1d57731dfd56c6c54c0d084599068dc3d0f3",
+          "message": "Add tp.pad",
+          "timestamp": "2024-10-09T19:44:26Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/203/commits/a08c1d57731dfd56c6c54c0d084599068dc3d0f3"
+        },
+        "date": 1728510246600,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6086.786595945146,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003158266898115851",
+            "extra": "mean: 164.29030067625064 usec\nrounds: 6451"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6699.72787578988,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007383972969742347",
+            "extra": "mean: 149.25979361245365 usec\nrounds: 7298"
           }
         ]
       }
