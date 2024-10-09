@@ -478,33 +478,34 @@ cc_library(
 
 gentbl_cc_library(
     name = "TensorRTEncodingIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             ["--gen-tensorrt-layer-add-defs"],
-            "include/mlir-tensorrt/Dialect/TensorRT/Target/TensorRTEncodingImpl.inc.cpp",
+            "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.inc.cpp",
         ),
     ],
     tblgen = ":mlir-tensorrt-tblgen",
-    td_file = "include/mlir-tensorrt/Dialect/TensorRT/IR/TensorRTOps.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.td",
     deps = [
         ":TensorRTDialectTdFiles",
+        "@llvm-project//mlir:CallInterfacesTdFiles",
     ],
 )
 
 cc_library(
     name = "TensorRTEncodingImpl",
     srcs = [
-        "lib/Dialect/TensorRT/Target/TensorRTEncodingImpl.cpp",
+        "tensorrt/lib/TensorRT/Target/TensorRTEncodingImpl.cpp",
     ],
     hdrs = [
-        "include/mlir-tensorrt/Dialect/TensorRT/Target/TensorRTEncodingImpl.h",
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h",
     ],
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTDialect",
         ":TensorRTEncodingIncGen",
-        # ":TensorRTEncodingOpInterface",
+        ":TensorRTEncodingOpInterface",
     ],
 )
 
