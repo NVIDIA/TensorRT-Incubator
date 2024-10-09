@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728410630931,
+  "lastUpdate": 1728495811818,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -102,6 +102,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009487584053039735",
             "extra": "mean: 146.02980752728814 usec\nrounds: 7513"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "ce83abee83b808a852a918548e5ded7b40e6b2b1",
+          "message": "Update pyproject.toml to use 0.1.34 MLIR-TRT",
+          "timestamp": "2024-10-09T16:45:52Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/261/commits/ce83abee83b808a852a918548e5ded7b40e6b2b1"
+        },
+        "date": 1728495811030,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6012.32472136634,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033529936354029256",
+            "extra": "mean: 166.3250150887964 usec\nrounds: 6388"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6700.311722038496,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006691655825094381",
+            "extra": "mean: 149.2467875353956 usec\nrounds: 7245"
           }
         ]
       }
