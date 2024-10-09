@@ -211,6 +211,7 @@ cc_library(
         "tensorrt/lib/Utils/ShapeUtils.cpp",
         "tensorrt/lib/Utils/StaticValueUtils.cpp",
         "tensorrt/lib/Utils/ConstantFoldUtils.cpp",
+        "tensorrt/lib/Utils/NvInferPluginUtils.cpp",
     ],
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/Utils/ShapeUtils.h",
@@ -224,6 +225,7 @@ cc_library(
     strip_include_prefix = "tensorrt/include",
     deps = [
         "@tensorrt10_x86//:tensorrt10",
+        "@rules_cuda//cuda:runtime",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LinalgDialect",
         "@llvm-project//mlir:TensorDialect",
