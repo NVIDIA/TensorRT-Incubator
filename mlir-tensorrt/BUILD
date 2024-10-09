@@ -614,7 +614,7 @@ cc_library(
         "compiler/include/mlir-tensorrt/Registration/RegisterMlirTensorRtTranslations.h",
     ],
     copts = [
-        "-DMLIR_TRT_TARGET_TENSORRT",    
+        "-DMLIR_TRT_TARGET_TENSORRT",   
     ],
     strip_include_prefix = "compiler/include",
     deps = [

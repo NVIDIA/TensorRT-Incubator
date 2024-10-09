@@ -66,7 +66,7 @@
 #endif
 
 namespace mlir {
-
+#ifdef MLIR_TRT_ENABLE_EXECUTOR
 inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   // Registration for executor dialect and all upstream dialects that can appear
   // in the host IR.
@@ -84,6 +84,7 @@ inline void registerAllMlirTensorRtExecutorDialects(DialectRegistry &registry) {
   tensor::registerSubsetOpInterfaceExternalModels(registry);
   scf::registerBufferizableOpInterfaceExternalModels(registry);
 }
+#endif // MLIR_TRT_ENABLE_EXECUTOR
 
 inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
   registerCoreMlirTensorRtDialects(registry);
