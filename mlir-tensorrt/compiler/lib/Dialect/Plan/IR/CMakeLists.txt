@@ -17,7 +17,7 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRInferTypeOpInterface
   MLIRControlFlowInterfaces
   MLIRTensorRTInterfaces
-  MLIRTensorRTGenericClustering
+  MLIRExecutorGenericClustering
   MLIRTensorRTConvertToTensorRTCommon
   MLIRTensorRTStablehloScalarToArith
   MLIRTensorRTStablehloToTensorRT

@@ -52,12 +52,12 @@ static void updateTypeInPlaceAndMaybeInsertCast(RewriterBase &rewriter,
   rewriter.modifyOpInPlace(toUpdate.getDefiningOp(),
                            [&]() { toUpdate.setType(newType); });
 
-  // If all the users are StableHLO or TensorRT ops, then they all allow
-  // in-place update of operand types.
-  auto isTensorRTOp = [](Operation *op) {
-    return llvm::isa<tensorrt::TensorRTDialect>(op->getDialect());
+  // If all the users are StableHLO ops or plugins, then they all allow in-place
+  // update of operand types.
+  auto isOpaquePlugin = [](Operation *op) {
+    return llvm::isa<tensorrt::OpaquePluginOp>(op);
   };
-  if (stablehlo::canUpdateTypeWithoutCast(toUpdate, isTensorRTOp))
+  if (stablehlo::canUpdateTypeWithoutCast(toUpdate, isOpaquePlugin))
     return;
 
   OpBuilder::InsertionGuard g(rewriter);
@@ -294,38 +294,6 @@ struct StableHloRefineTypeFromWithShapeGeneric
   }
 };
 
-/// Given a pattern `plan.with_shape(tensorrt_op, dims...)`, if inspection of
-/// `dims` yields an opportunity to refine the type of `with_shape`, then
-/// `tensorrt_op` can also be refined. The refinements are made (and casts are
-/// inserted if required).
-struct TensorRTRefineTypeFromWithShapeGeneric
-    : public OpRewritePattern<WithShapeOp> {
-  using OpRewritePattern<WithShapeOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WithShapeOp withOp,
-                                PatternRewriter &rewriter) const override {
-    auto producer = withOp.getOperand().getDefiningOp();
-    if (!producer || !producer->hasOneUse() ||
-        !isa<tensorrt::TensorRTDialect>(producer->getDialect()))
-      return failure();
-
-    // Create a new shape and try to refine it.
-    std::optional<SmallVector<int64_t>> newShape =
-        getRefinedShape(withOp.getShape(), withOp.getOperand().getType());
-    if (!newShape)
-      return failure();
-
-    // Update type of the producer.
-    updateTypeInPlaceAndMaybeInsertCast(
-        rewriter, withOp.getOperand(),
-        withOp.getOperand().getType().clone(*newShape));
-
-    // Update type of the WithShapeOp.
-    updateTypeInPlaceAndMaybeInsertCast(rewriter, withOp.getResult(),
-                                        withOp.getType().clone(*newShape));
-    return success();
-  }
-};
-
 class PlanRefineTypesPass
     : public plan::impl::PlanRefineTypesPassBase<PlanRefineTypesPass> {
   using Base::Base;
@@ -347,12 +315,10 @@ class PlanRefineTypesPass
         RefineDynamicIota,
         SimplifyIdentityDynamicBroadcast,
         StableHloRefineTypeFromWithShapeGeneric,
-        WithShapeAbsorbCastPattern,
-        TensorRTRefineTypeFromWithShapeGeneric
+        WithShapeAbsorbCastPattern
       >(ctx);
     // clang-format on
     stablehlo::populateStablehloRefineShapesPatterns(&patterns, ctx);
-    stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
     if (failed(applyPatternsAndFoldGreedily(funcTarget, std::move(patterns),
                                             config))) {
       emitError(funcTarget.getLoc())

@@ -22,6 +22,7 @@
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Target/TensorRTEncodingOpInterface/NetworkEncoder.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir/Support/LogicalResult.h"
 #include "llvm/Support/raw_ostream.h"
@@ -228,18 +229,17 @@ private:
 /// `tensorrt.shape_profile` arguments have been populated for each argument
 /// that has unknown dimensions.
 /// TODO(cbate): add additional options here for builder configuration.
-FailureOr<TensorRTEngineResult> buildFunction(
-    mlir::FunctionOpInterface op, TensorRTBuilderContext &builderContext,
-    TensorRTSerializedTimingCache &serializedTimingCache,
-    const TensorRTTranslationOptions &options =
-        TensorRTTranslationOptions::fromCLFlags(),
-    std::function<std::string(Operation *)> layerMetadataCallback = nullptr);
+FailureOr<TensorRTEngineResult>
+buildFunction(mlir::FunctionOpInterface op,
+              TensorRTBuilderContext &builderContext,
+              TensorRTSerializedTimingCache &serializedTimingCache,
+              const TensorRTTranslationOptions &options =
+                  TensorRTTranslationOptions::fromCLFlags());
 
 /// Create an instance of a translate-to-tensorrt pass using an existing
 /// TensorRTBuilderContext.
 std::unique_ptr<mlir::Pass> createTranslateTensorRTPass(
     std::shared_ptr<tensorrt::TensorRTBuilderContext> context,
-    std::function<std::string(Operation *)> layerMetadataCallback,
     TensorRTTranslationOptions options =
         TensorRTTranslationOptions::fromCLFlags());
 

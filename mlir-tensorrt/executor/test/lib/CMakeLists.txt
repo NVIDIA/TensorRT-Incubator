@@ -13,3 +13,4 @@ add_mlir_executor_test_library(MLIRExecutorBufferizationTestPass
   MLIRBufferizationTransforms
   MLIRBufferizationPipelines)
 
+add_subdirectory(Transforms)

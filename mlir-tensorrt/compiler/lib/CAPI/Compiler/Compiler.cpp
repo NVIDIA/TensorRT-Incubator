@@ -32,6 +32,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/CAPI/IR.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace mlirtrt;
 using namespace mlirtrt::compiler;
@@ -194,32 +195,6 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
 
   if (dumpIrTreeDir)
     cppOpts->debugOptions.dumpIRPath = std::string(dumpIrTreeDir);
-
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status
-mtrtStableHloToExecutableOptionsSetTensorRTTranslationMetadataCallback(
-    MTRT_StableHLOToExecutableOptions options, MTRT_MetadataCallback callback,
-    void *userData) {
-  StableHLOToExecutableOptions *cppOpts = unwrap(options);
-
-  // Construct the append callback which we will pass to the callback provided
-  // by the user. We do it this way to avoid needing a string construct in the C
-  // API.
-  auto appendFunc = [](MlirStringRef str, void *appendCtx) {
-    std::string &accum = *reinterpret_cast<std::string *>(appendCtx);
-    accum += std::string(str.data, str.length);
-  };
-
-  // Capturing by reference here will cause `callback` to point to the wrong
-  // place at the time this callback is invoked.
-  cppOpts->layerMetadataCallback = [=](Operation *op) {
-    std::string accum;
-    void *appendCtx = reinterpret_cast<void *>(&accum);
-    callback(wrap(op), appendFunc, appendCtx, userData);
-    return accum;
-  };
 
   return mtrtStatusGetOk();
 }

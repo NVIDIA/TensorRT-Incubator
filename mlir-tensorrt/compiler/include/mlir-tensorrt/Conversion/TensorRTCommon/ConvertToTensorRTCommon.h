@@ -38,33 +38,12 @@ namespace mlir {
 struct LowerToTensorRTOptions {
   LowerToTensorRTOptions() = default;
 
-  /// Specifies what to do when encountering an `i64` type.
-  enum class I64Lowering {
-    /// Convert all operations producing/consuming `i64` to tensors to act on
-    /// `i32` tensors. Essentially this results in a function-wide replacement
-    /// of i64 with i32. Operations such as `func.func` also have their `i64`
-    /// tensor argmuments converted to i32.
-    /// TODO: allow for special handling of function args (e.g. retain a special
-    /// cast), since functions are ABI boundaries.
-    CastI64ToI32 = 0,
-    /// Fail when encountering an i64 tensor type. This is the default and
-    /// should be used when the user is not sure of whether i64 to i32
-    /// conversion would be ok.
-    FailOnI64
-  };
+  void setTensorRTVersion(int64_t trtVersion) { trtMajorVersion = trtVersion; }
 
-  LowerToTensorRTOptions &setI64Lowering(I64Lowering howToLowerI64) {
-    this->i64Lowering = howToLowerI64;
-    return *this;
-  }
-
-  /// Returns true if the options allow for global i64 to i32 replacement.
-  bool allowsI64ToI32Conversion() const {
-    return i64Lowering == I64Lowering::CastI64ToI32;
-  }
+  int64_t getTensorRTVersion() const { return trtMajorVersion; };
 
 private:
-  I64Lowering i64Lowering = I64Lowering::FailOnI64;
+  int64_t trtMajorVersion = 10;
 };
 
 //===----------------------------------------------------------------------===//
@@ -110,8 +89,71 @@ private:
 };
 
 //===----------------------------------------------------------------------===//
-// TensorRT Derived Conversion Pattern Rewriters
+// TensorRT Conversion Pattern Rewriters
 //===----------------------------------------------------------------------===//
+
+/// Custom TensorRT rewriter that wraps `ConversionPatternRewriter`. It uses
+/// TensorRT major version to check if created operataion is valid.
+/// Methods from `ConversionPatternRewriter` should be forwarded in this
+/// class as needed.
+class TensorRTConversionPatternRewriter {
+public:
+  explicit TensorRTConversionPatternRewriter(
+      ConversionPatternRewriter &rewriter)
+      : rewriter(rewriter) {}
+
+  /// Method same as `replaceOpWithNewOp`, except it takes `trtMajorVersion` as
+  /// input and checks if elements types of created op are valid for the given
+  /// TensorRT version. This is necessary since TensorRT dialect represents
+  /// opset for the latest TensorRT version and element type used might not
+  /// be compatible if target `trtMajorVersion` is older.
+  template <typename OpTy, typename... Args>
+  OpTy checkAndReplaceOpWithNewOp(Operation *op, int64_t trtMajorVersion,
+                                  Args &&...args) {
+    auto newOp =
+        rewriter.create<OpTy>(op->getLoc(), std::forward<Args>(args)...);
+    if (!newOp.isValidForTensorRTVersion(trtMajorVersion)) {
+      rewriter.eraseOp(newOp);
+      return nullptr;
+    }
+    rewriter.replaceOp(op, newOp.getOperation());
+    return newOp;
+  }
+
+  /// Method same as `create`, except it takes `trtMajorVersion` as
+  /// input and checks if elements types of created op are valid for the given
+  /// TensorRT version.
+  template <typename OpTy, typename... Args>
+  OpTy checkAndCreate(Location loc, int64_t trtMajorVersion, Args &&...args) {
+    auto newOp = rewriter.create<OpTy>(loc, std::forward<Args>(args)...);
+    if (!newOp.isValidForTensorRTVersion(trtMajorVersion)) {
+      rewriter.eraseOp(newOp);
+      return nullptr;
+    }
+    return newOp;
+  }
+
+  void replaceOp(Operation *op, ValueRange newValues) {
+    rewriter.replaceOp(op, newValues);
+  }
+
+  void replaceOp(Operation *op, Operation *newOp) {
+    rewriter.replaceOp(op, newOp);
+  }
+
+  StringAttr getStringAttr(const Twine &bytes) {
+    return rewriter.getStringAttr(bytes);
+  }
+
+  IntegerAttr getIntegerAttr(Type type, int64_t value) {
+    return rewriter.getIntegerAttr(type, value);
+  }
+
+  MLIRContext *getContext() { return rewriter.getContext(); }
+
+private:
+  ConversionPatternRewriter &rewriter;
+};
 
 /// A derived ConversionPattern that also allows a variety of helper methods to
 /// be accessed from within `matchAndRewrite` functions.
@@ -130,8 +172,9 @@ protected:
   /// Create a `tensorrt.identity` to cast tensor-typed value from one element
   /// type to another. If `newTypeOrElementType` is a tensor type, then only the
   /// element type is used.
-  static TypedValue<RankedTensorType>
-  castTensor(RewriterBase &rewriter, Type newTypeOrElementType,
+  static FailureOr<TypedValue<RankedTensorType>>
+  castTensor(TensorRTConversionPatternRewriter &rewriter,
+             int64_t trtMajorVersion, Type newTypeOrElementType,
              TypedValue<RankedTensorType> src);
 
   /// Overides base class templated method to get TensorRT type converter.

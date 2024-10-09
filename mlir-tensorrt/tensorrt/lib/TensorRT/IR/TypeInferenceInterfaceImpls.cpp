@@ -24,7 +24,6 @@
 #include "EinsumHelper.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
-#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/Builders.h"
@@ -1212,7 +1211,7 @@ LogicalResult tensorrt::ResizeNearestOp::inferReturnTypeComponents(
         inputType.getRank())
       return emitOptionalError(loc, "scales parameter must have same number of "
                                     "dimensions as input/output");
-    for (int64_t i = 0; i < inputType.getRank() - resizeDims; i++)
+    for (int i = 0; i < inputType.getRank() - resizeDims; i++)
       if (adaptor.getScales().value()[i] != 1)
         return emitOptionalError(
             loc,
@@ -1234,58 +1233,6 @@ LogicalResult tensorrt::ResizeNearestOp::inferReturnTypeComponents(
         /*vec=*/resultShape,
         /*elementType=*/inputType.getElementType());
   }
-  return success();
-}
-
-LogicalResult tensorrt::ResizeNearestOp::reifyResultShapes(
-    OpBuilder &b, ReifiedRankedShapedTypeDims &result) {
-  Location loc = getLoc();
-  RankedTensorType resultType = getType();
-  int64_t rank = resultType.getRank();
-
-  // Case 1: if `output_shape` is specified, then we just extract the scalars
-  // from that shape.
-  if (TypedValue<TensorType> outputShape = getOutputShape()) {
-    // 'tensor.extract' %source [%index]
-    SmallVector<OpFoldResult> extents;
-    for (int64_t i = 0; i < rank; i++) {
-      Value index = b.create<arith::ConstantOp>(getLoc(), b.getIndexAttr(i));
-      Value extractedShape =
-          b.create<tensor::ExtractOp>(loc, outputShape, index).getResult();
-      extents.push_back(
-          b.create<arith::IndexCastOp>(loc, b.getIndexType(), extractedShape)
-              .getResult());
-    }
-    result.emplace_back(std::move(extents));
-    return success();
-  }
-
-  SmallVector<OpFoldResult> extents;
-  extents.reserve(rank);
-
-  // This number of trailing dimensions are the special dimensions.
-  const int64_t resizeDims =
-      std::min(static_cast<int64_t>(3), resultType.getRank());
-
-  for (auto [idx, extent] : llvm::enumerate(resultType.getShape())) {
-
-    // If dimension is known, just materialize the extent as constant.
-    if (!ShapedType::isDynamic(extent)) {
-      extents.push_back(b.getIndexAttr(extent));
-      continue;
-    }
-
-    // Otherwise, the extent is equal to sentinel value (ShapedType::kDynamic),
-    // then we use `tensor.dim` on the input operand.
-    // Batch dimensions can only be leading dim.
-    if (static_cast<int64_t>(idx) >= rank - resizeDims)
-      return failure();
-
-    Value index = b.create<arith::ConstantOp>(loc, b.getIndexAttr(idx));
-    extents.push_back(
-        b.create<tensor::DimOp>(loc, getInput(), index).getResult());
-  }
-  result.emplace_back(std::move(extents));
   return success();
 }
 
@@ -1306,7 +1253,7 @@ LogicalResult tensorrt::ResizeLinearOp::inferReturnTypeComponents(
         inputType.getRank())
       return emitOptionalError(loc, "scales parameter must have same number of "
                                     "dimensions as input/output");
-    for (int64_t i = 0; i < inputType.getRank() - resizeDims; i++)
+    for (int i = 0; i < inputType.getRank() - resizeDims; i++)
       if (adaptor.getScales().value()[i] != 1)
         return emitOptionalError(
             loc,
@@ -1329,58 +1276,6 @@ LogicalResult tensorrt::ResizeLinearOp::inferReturnTypeComponents(
         /*vec=*/resultShape,
         /*elementType=*/inputType.getElementType());
   }
-  return success();
-}
-
-LogicalResult tensorrt::ResizeLinearOp::reifyResultShapes(
-    OpBuilder &b, ReifiedRankedShapedTypeDims &result) {
-  Location loc = getLoc();
-  RankedTensorType resultType = getType();
-  int64_t rank = resultType.getRank();
-
-  // Case 1: if `output_shape` is specified, then we just extract the scalars
-  // from that shape.
-  if (TypedValue<TensorType> outputShape = getOutputShape()) {
-    // 'tensor.extract' %source [%index]
-    SmallVector<OpFoldResult> extents;
-    for (int64_t i = 0; i < rank; i++) {
-      Value index = b.create<arith::ConstantOp>(getLoc(), b.getIndexAttr(i));
-      Value extractedShape =
-          b.create<tensor::ExtractOp>(loc, outputShape, index).getResult();
-      extents.push_back(
-          b.create<arith::IndexCastOp>(loc, b.getIndexType(), extractedShape)
-              .getResult());
-    }
-    result.emplace_back(std::move(extents));
-    return success();
-  }
-
-  SmallVector<OpFoldResult> extents;
-  extents.reserve(rank);
-
-  // This number of trailing dimensions are the special dimensions.
-  const int64_t resizeDims =
-      std::min(static_cast<int64_t>(3), resultType.getRank());
-
-  for (auto [idx, extent] : llvm::enumerate(resultType.getShape())) {
-
-    // If dimension is known, just materialize the extent as constant.
-    if (!ShapedType::isDynamic(extent)) {
-      extents.push_back(b.getIndexAttr(extent));
-      continue;
-    }
-
-    // Otherwise, the extent is equal to sentinel value (ShapedType::kDynamic),
-    // then we use `tensor.dim` on the input operand.
-    // Batch dimensions can only be leading dim.
-    if (static_cast<int64_t>(idx) >= rank - resizeDims)
-      return failure();
-
-    Value index = b.create<arith::ConstantOp>(loc, b.getIndexAttr(idx));
-    extents.push_back(
-        b.create<tensor::DimOp>(loc, getInput(), index).getResult());
-  }
-  result.emplace_back(std::move(extents));
   return success();
 }
 
@@ -1403,7 +1298,7 @@ LogicalResult tensorrt::ResizeCubicOp::inferReturnTypeComponents(
         inputType.getRank())
       return emitOptionalError(loc, "scales parameter must have same number of "
                                     "dimensions as input/output");
-    for (int64_t i = 0; i < inputType.getRank() - 2; i++)
+    for (int i = 0; i < inputType.getRank() - 2; i++)
       if (adaptor.getScales().value()[i] != 1)
         return emitOptionalError(
             loc, "all scale values except 2 innermost must be 1");
@@ -1425,58 +1320,6 @@ LogicalResult tensorrt::ResizeCubicOp::inferReturnTypeComponents(
         /*vec=*/resultShape,
         /*elementType=*/inputType.getElementType());
   }
-  return success();
-}
-
-LogicalResult tensorrt::ResizeCubicOp::reifyResultShapes(
-    OpBuilder &b, ReifiedRankedShapedTypeDims &result) {
-  Location loc = getLoc();
-  RankedTensorType resultType = getType();
-  int64_t rank = resultType.getRank();
-
-  // Case 1: if `output_shape` is specified, then we just extract the scalars
-  // from that shape.
-  if (TypedValue<TensorType> outputShape = getOutputShape()) {
-    // 'tensor.extract' %source [%index]
-    SmallVector<OpFoldResult> extents;
-    for (int64_t i = 0; i < rank; i++) {
-      Value index = b.create<arith::ConstantOp>(getLoc(), b.getIndexAttr(i));
-      Value extractedShape =
-          b.create<tensor::ExtractOp>(loc, outputShape, index).getResult();
-      extents.push_back(
-          b.create<arith::IndexCastOp>(loc, b.getIndexType(), extractedShape)
-              .getResult());
-    }
-    result.emplace_back(std::move(extents));
-    return success();
-  }
-
-  SmallVector<OpFoldResult> extents;
-  extents.reserve(rank);
-
-  // This number of trailing dimensions are the special dimensions.
-  const int64_t resizeDims =
-      std::min(static_cast<int64_t>(3), resultType.getRank());
-
-  for (auto [idx, extent] : llvm::enumerate(resultType.getShape())) {
-
-    // If dimension is known, just materialize the extent as constant.
-    if (!ShapedType::isDynamic(extent)) {
-      extents.push_back(b.getIndexAttr(extent));
-      continue;
-    }
-
-    // Otherwise, the extent is equal to sentinel value (ShapedType::kDynamic),
-    // then we use `tensor.dim` on the input operand.
-    // Batch dimensions can only be leading dim.
-    if (static_cast<int64_t>(idx) >= rank - resizeDims)
-      return failure();
-
-    Value index = b.create<arith::ConstantOp>(loc, b.getIndexAttr(idx));
-    extents.push_back(
-        b.create<tensor::DimOp>(loc, getInput(), index).getResult());
-  }
-  result.emplace_back(std::move(extents));
   return success();
 }
 

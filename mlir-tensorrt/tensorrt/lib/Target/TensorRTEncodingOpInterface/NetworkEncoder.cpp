@@ -265,12 +265,10 @@ static std::string createName(NvInferNetworkEncoder::NamesSet &names,
   return getUniqueName(names, name);
 }
 
-void NvInferNetworkEncoder::setMetadata(nvinfer1::ILayer *layer,
-                                        Operation *sourceOp) {
+void NvInferNetworkEncoder::setName(nvinfer1::ILayer *layer,
+                                    Operation *sourceOp) {
   std::string name = createName(namesSet, sourceOp);
   layer->setName(name.c_str());
-  if (layerMetadataCallback)
-    layer->setMetadata(layerMetadataCallback(sourceOp).c_str());
 }
 
 nvinfer1::ITensor *NvInferNetworkEncoder::lookup(Value v) const {
@@ -293,13 +291,6 @@ void NvInferNetworkEncoder::map(ValueRange from,
     valueMap.insert(v, l->getOutput(0));
 }
 
-void NvInferNetworkEncoder::map(Operation *op, nvinfer1::ILayer *layer) {
-  if (!layerMap.count(op))
-    layerMap[op] = {};
-
-  layerMap[op].push_back(layer);
-}
-
 bool NvInferNetworkEncoder::isStronglyTyped() const {
   if (!usesStronglyTyped)
     return false;
@@ -311,7 +302,7 @@ NvInferNetworkEncoder::insertCastLayer(nvinfer1::ITensor *input,
                                        nvinfer1::DataType dataType,
                                        Operation *sourceOp) {
   auto castLayer = network->addCast(*input, dataType);
-  setMetadata(castLayer, sourceOp);
+  setName(castLayer, sourceOp);
   return castLayer->getOutput(0);
 }
 

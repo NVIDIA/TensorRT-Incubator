@@ -33,7 +33,6 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/TypeID.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Hashing.h"
 #include <memory>
 
 namespace mlirtrt::compiler {
@@ -102,22 +101,16 @@ public:
   /// Create or retrieve a cached PassManager of the given derived type using
   /// the provided options. PassManagers are cached by type and a hash of the
   /// string representation of the options.
-  /// This function should only be called if the options have a valid hash.
   template <typename CompilationTaskType, typename OptionsType>
   mlir::PassManager &getOrCreatePassManager(const OptionsType &options) {
-    auto hash = options.getHash();
-
-    assert(hash);
-
-    auto key =
-        std::make_pair(mlir::TypeID::get<CompilationTaskType>(), hash.value());
+    auto key = std::make_pair(mlir::TypeID::get<CompilationTaskType>(),
+                              options.getHash());
     auto it = cachedPassManagers.find(key);
-
     if (it == cachedPassManagers.end()) {
       auto pm = std::make_unique<CompilationTaskType>(context, options);
       setupPassManagerLogging(*pm, options.debugOptions);
       auto *ptr = pm.get();
-      cachedPassManagers[key] = std::move(pm);
+      cachedPassManagers.insert(std::make_pair(key, std::move(pm)));
       return *ptr;
     }
     return *it->second;
@@ -126,6 +119,7 @@ public:
   /// Return the MLIRContext associated with the client.
   mlir::MLIRContext *getContext() const { return context; }
 
+private:
   /// Helper for setting the correct logging options on cached PassManagers.
   static void setupPassManagerLogging(mlir::PassManager &pm,
                                       const DebugOptions &options);

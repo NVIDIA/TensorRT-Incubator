@@ -647,8 +647,7 @@ public:
          int64_t bitsPerElement, uintptr_t ptr, int64_t offset,
          llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
          std::optional<const Device *> device,
-         std::optional<ScalarType> scalarType,
-         std::optional<bool> assertCanonicalStrides = {});
+         std::optional<ScalarType> scalarType);
 
   mlirtrt::runtime::PointerType getBufferKind() { return addressSpace; }
   int64_t getElementBitWidth() const { return bitsPerElement; }
@@ -918,8 +917,7 @@ public:
                  llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
                  std::optional<const Device *> device = {},
                  std::optional<CudaStream> stream = {},
-                 std::optional<ScalarType> scalarType = {},
-                 std::optional<bool> assertCanonicalStrides = {});
+                 std::optional<ScalarType> scalarType = {});
 
   StatusOr<std::unique_ptr<MemRefValue>>
   createExternalMemRef(PointerType addressSpace, int64_t bitsPerElement,
@@ -927,8 +925,7 @@ public:
                        llvm::ArrayRef<int64_t> shape,
                        llvm::ArrayRef<int64_t> strides,
                        std::optional<const Device *> device = {},
-                       std::optional<ScalarType> scalarType = {},
-                       std::optional<bool> assertCanonicalStrides = {});
+                       std::optional<ScalarType> scalarType = {});
 
   /// Frees the memory in `value`. The `stream` may optionally be provided
   /// for resources that can be deallocated asynchronously.

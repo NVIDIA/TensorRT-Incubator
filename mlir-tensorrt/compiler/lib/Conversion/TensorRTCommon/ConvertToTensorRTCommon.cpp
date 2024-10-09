@@ -101,7 +101,7 @@ bool TensorRTTypeConverter::isLegalTensorType(TensorType type) {
     return true;
   return elType.isF16() || elType.isF32() || elType.isSignlessInteger(32) ||
          elType.isSignlessInteger(1) || elType.isFloat8E4M3FN() ||
-         elType.isBF16() || elType.isInteger(4);
+         elType.isBF16() || elType.isInteger(4) || elType.isSignlessInteger(64);
 }
 
 std::optional<Type> TensorRTTypeConverter::convertTensorType(TensorType type) {
@@ -110,13 +110,6 @@ std::optional<Type> TensorRTTypeConverter::convertTensorType(TensorType type) {
 
   auto rtt = cast<RankedTensorType>(type);
   Type i32Type = IntegerType::get(type.getContext(), 32);
-
-  // Handle i64 depending on options.
-  if (type.getElementType().isInteger(64)) {
-    if (options.allowsI64ToI32Conversion())
-      return RankedTensorType::Builder(rtt).setElementType(i32Type);
-    return std::nullopt;
-  }
 
   // Handle index type.
   if (type.getElementType().isIndex())
@@ -129,16 +122,18 @@ std::optional<Type> TensorRTTypeConverter::convertTensorType(TensorType type) {
 // TensorRT Derived Conversion Pattern Rewriters
 //===----------------------------------------------------------------------===//
 
-TypedValue<RankedTensorType>
-ConvertToTensorRTPattern::castTensor(RewriterBase &rewriter,
-                                     Type newTypeOrElementType,
-                                     TypedValue<RankedTensorType> src) {
+FailureOr<TypedValue<RankedTensorType>> ConvertToTensorRTPattern::castTensor(
+    TensorRTConversionPatternRewriter &rewriter, int64_t trtMajorVersion,
+    Type newTypeOrElementType, TypedValue<RankedTensorType> src) {
   Type newElementType = mlir::getElementTypeOrSelf(newTypeOrElementType);
   if (newElementType == src.getType().getElementType())
     return src;
   Type newType =
       RankedTensorType::Builder(cast<RankedTensorType>(src.getType()))
           .setElementType(newElementType);
-  return rewriter.create<tensorrt::IdentityOp>(src.getLoc(), newType, src)
-      .getResult();
+  auto identityOp = rewriter.checkAndCreate<tensorrt::IdentityOp>(
+      src.getLoc(), trtMajorVersion, newType, src);
+  if (!identityOp)
+    return failure();
+  return identityOp.getResult();
 }

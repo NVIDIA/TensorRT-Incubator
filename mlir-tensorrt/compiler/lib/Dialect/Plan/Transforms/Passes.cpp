@@ -77,6 +77,10 @@ struct ClusteringPipelineCliOpts
       *this, "disallow-host-tensors-in-tensorrt-clusters",
       llvm::cl::desc("don't allow host tensor inputs to tensorrt clusters"),
       llvm::cl::init(false)};
+  Option<int64_t> trtMajorVersion{
+      *this, "trt-major-version",
+      llvm::cl::desc("target TensorRT version for segmentation pipeline"),
+      llvm::cl::init(10)};
 };
 } // namespace
 
@@ -96,6 +100,7 @@ void plan::registerPlanDialectPipelines() {
       "apply the Plan Dialect segmentation pipeline",
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
         StablehloClusteringPassOptions clusterOpts{};
+        clusterOpts.trtMajorVersion = opts.trtMajorVersion;
         clusterOpts.disallowHostTensorsInTensorRTClusters =
             opts.disallowHostTensorsInTensorRTClusters;
         clusterOpts.entrypoint = opts.entrypoint;

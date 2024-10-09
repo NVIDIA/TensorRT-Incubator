@@ -63,7 +63,7 @@ void OptionsContext::print(llvm::raw_ostream &os) const {
       " ");
 }
 
-std::optional<llvm::hash_code> OptionsContext::getHash() const {
+llvm::hash_code OptionsContext::getHash() const {
   // We hash by just hashing the string representation.
   llvm::SmallString<128> str;
   {

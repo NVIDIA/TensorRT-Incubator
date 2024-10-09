@@ -2,6 +2,7 @@ add_mlir_dialect_library(MLIRTensorRTDialect
   EinsumHelper.cpp
   TensorRT.cpp
   Verification.cpp
+  TensorRTVersionCompatibility.cpp
   TensorKindOpInterfaceImpl.cpp
   TypeInferenceInterfaceImpls.cpp
 

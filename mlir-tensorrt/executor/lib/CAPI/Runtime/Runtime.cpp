@@ -231,8 +231,7 @@ MTRT_Status
 mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
                  int64_t bitsPerElement, int64_t rank, const int64_t *shape,
                  const int64_t *strides, MTRT_Device device, MTRT_Stream stream,
-                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-                 bool assertCanonicalStrides) {
+                 MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result) {
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
       unwrap(client)->allocateMemRef(
           unwrap(pointerKind), bitsPerElement,
@@ -245,8 +244,7 @@ mtrtMemRefCreate(MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
               : std::optional(unwrap(stream)->getRawStream()),
           scalarType != MTRT_ScalarTypeCode::MTRT_ScalarTypeCode_unknown
               ? std::optional(ScalarType(unwrap(scalarType)))
-              : std::nullopt,
-          std::optional(assertCanonicalStrides));
+              : std::nullopt);
 
   if (bufferImpl.isError())
     return wrap(bufferImpl.getStatus());
@@ -259,8 +257,7 @@ MTRT_Status mtrtMemRefCreateExternal(
     MTRT_RuntimeClient client, MTRT_PointerType pointerKind,
     int64_t bitsPerElement, uintptr_t ptr, int64_t offset, int64_t rank,
     const int64_t *shape, const int64_t *strides, MTRT_Device device,
-    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result,
-    bool assertCanonicalStrides) {
+    MTRT_ScalarTypeCode scalarType, MTRT_MemRefValue *result) {
   StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
       unwrap(client)->createExternalMemRef(
           unwrap(pointerKind), bitsPerElement, ptr, offset,
@@ -270,8 +267,7 @@ MTRT_Status mtrtMemRefCreateExternal(
                                    : std::optional(unwrap(device)),
           scalarType == MTRT_ScalarTypeCode_unknown
               ? std::nullopt
-              : std::optional(ScalarType(unwrap(scalarType))),
-          std::optional(assertCanonicalStrides));
+              : std::optional(ScalarType(unwrap(scalarType))));
 
   if (bufferImpl.isError())
     return wrap(bufferImpl.getStatus());

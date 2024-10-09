@@ -313,8 +313,7 @@ static std::unique_ptr<PyMemRefValue> createMemRef(
 }
 
 static std::unique_ptr<PyMemRefValue>
-createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
-                           std::optional<bool> assertCanonicalStrides) {
+createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule) {
   DLManagedTensor *managedTensor = static_cast<DLManagedTensor *>(
       PyCapsule_GetPointer(capsule.ptr(), "dltensor"));
 
@@ -369,16 +368,14 @@ createMemRefViewFromDLPack(PyRuntimeClient &client, py::capsule capsule,
   }
 
   if (data) {
-    s = mtrtMemRefCreateExternal(
-        client, addressSpace, bytesPerElement * 8,
-        reinterpret_cast<uintptr_t>(data), offset, rank, shape, strides, device,
-        elementType, &result,
-        assertCanonicalStrides ? *assertCanonicalStrides : false);
+    s = mtrtMemRefCreateExternal(client, addressSpace, bytesPerElement * 8,
+                                 reinterpret_cast<uintptr_t>(data), offset,
+                                 rank, shape, strides, device, elementType,
+                                 &result);
   } else {
-    s = mtrtMemRefCreate(
-        client, addressSpace, bytesPerElement * 8, rank, shape, strides, device,
-        mtrtStreamGetNull(), elementType, &result,
-        assertCanonicalStrides ? *assertCanonicalStrides : false);
+    s = mtrtMemRefCreate(client, addressSpace, bytesPerElement * 8, rank, shape,
+                         strides, device, mtrtStreamGetNull(), elementType,
+                         &result);
   }
 
   THROW_IF_MTRT_ERROR(s);
@@ -791,15 +788,11 @@ PYBIND11_MODULE(_api, m) {
           "returns a new memref and allocates uninitialized backing storage")
       .def(
           "create_memref_view_from_dlpack",
-          [](PyRuntimeClient &self, py::capsule capsule,
-             std::optional<bool> assertCanonicalStrides) {
-            return createMemRefViewFromDLPack(self, capsule,
-                                              assertCanonicalStrides)
-                .release();
+          [](PyRuntimeClient &self, py::capsule capsule) {
+            return createMemRefViewFromDLPack(self, capsule).release();
           },
-          py::arg("dltensor") = py::none(),
-          py::arg("assert_canonical_strides") = py::none(),
-          py::keep_alive<0, 1>(), py::keep_alive<0, 2>())
+          py::arg("dltensor") = py::none(), py::keep_alive<0, 1>(),
+          py::keep_alive<0, 2>())
       .def(
           "create_device_memref_view",
           [](PyRuntimeClient &self, uintptr_t ptr, std::vector<int64_t> shape,
