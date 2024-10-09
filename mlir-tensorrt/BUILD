@@ -216,6 +216,7 @@ cc_library(
         "tensorrt/include/mlir-tensorrt-dialect/Utils/TensorRTVersion.h",
         "tensorrt/include/mlir-tensorrt-dialect/Utils/NvInferPluginUtils.h",
         "tensorrt/include/mlir-tensorrt-dialect/Utils/NvInferAdaptor.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Utils/Options.h",
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
@@ -523,18 +524,18 @@ cc_library(
 
 gentbl_cc_library(
     name = "TensorRTTranslationPassIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     tbl_outs = [
         (
             [
                 "-gen-pass-decls",
                 "-name=TensorRTTranslation",
             ],
-            "include/mlir-tensorrt/Target/TensorRT/Passes.h.inc",
+            "tensorrt/include/mlir-tensorrt-dialect/Target/Passes.h.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Target/TensorRT/Passes.td",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/Target/Passes.td",
     deps = [
         "@llvm-project//mlir:PassBaseTdFiles",
     ],
@@ -543,23 +544,25 @@ gentbl_cc_library(
 cc_library(
     name = "TensorRTTarget",
     srcs = [
-        "lib/Target/TensorRT/Registration.cpp",
-        "lib/Target/TensorRT/TranslateToTensorRT.cpp",
+        "tensorrt/lib/Target/Registration.cpp",
+        "tensorrt/lib/Target/TranslateToTensorRT.cpp",
     ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Registration/*.h",
-        "include/mlir-tensorrt/Target/TensorRT/*.h",
-    ]),
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/Target/TranslateToTensorRT.h",
+        "tensorrt/include/mlir-tensorrt-dialect/Target/Passes.h",
+    ],
     copts = ["-DMLIR_TRT_TARGET_TENSORRT"],
-    strip_include_prefix = "include",
+    strip_include_prefix = "tensorrt/include",
     deps = [
         ":TensorRTDialect",
-        # ":TensorRTDynamicLoader",
+        ":TensorRTCommonUtils",
+        ":TensorRTDynamicLoader",
         ":TensorRTEncodingImpl",
-        # ":TensorRTEncodingOpInterface",
+        ":TensorRTEncodingOpInterface",
         ":TensorRTTranslationPassIncGen",
         "@llvm-project//mlir:FuncExtensions",
         "@llvm-project//mlir:TranslateLib",
+        "@llvm-project//llvm:BitWriter",
     ],
 )
 
