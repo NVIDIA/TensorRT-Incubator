@@ -671,38 +671,42 @@ static StatusOr<int64_t> getFootprintInBytes(llvm::ArrayRef<int64_t> shape,
   return sizeBytes;
 }
 
-static llvm::SmallVector<int64_t> getCanonicalStride(const llvm::ArrayRef<int64_t>& shape) {
-    if (shape.empty())
-        return {};
+static llvm::SmallVector<int64_t>
+getCanonicalStride(const llvm::ArrayRef<int64_t> &shape) {
+  if (shape.empty())
+    return {};
 
-    llvm::SmallVector<int64_t> canonicalStride(shape.size(), 1);
-    int64_t cumulativeProduct = 1;
+  llvm::SmallVector<int64_t> canonicalStride(shape.size(), 1);
+  int64_t cumulativeProduct = 1;
 
-    for (int64_t dimIndex = shape.size() - 1; dimIndex >= 0; --dimIndex) {
-        bool isFirstZeroDim = (shape[dimIndex] == 0 && dimIndex != static_cast<int64_t>(shape.size()) - 1);
-        // For dimensions with size 0 or 1, the stride can be arbitrary.
-        // We set it to 1 here, but other values would also be valid.
-        if (isFirstZeroDim || shape[dimIndex] == 1)
-            canonicalStride[dimIndex] = 1;
-        else
-            canonicalStride[dimIndex] = cumulativeProduct;
-        // For zero-sized dimensions (except the last one), we don't update the cumulative product
-        // This allows for consistent handling of zero-sized dimensions across different frameworks
-        cumulativeProduct *= isFirstZeroDim ? 1 : shape[dimIndex];
-    }
+  for (int64_t dimIndex = shape.size() - 1; dimIndex >= 0; --dimIndex) {
+    bool isFirstZeroDim = (shape[dimIndex] == 0 &&
+                           dimIndex != static_cast<int64_t>(shape.size()) - 1);
+    // For dimensions with size 0 or 1, the stride can be arbitrary.
+    // We set it to 1 here, but other values would also be valid.
+    if (isFirstZeroDim || shape[dimIndex] == 1)
+      canonicalStride[dimIndex] = 1;
+    else
+      canonicalStride[dimIndex] = cumulativeProduct;
+    // For zero-sized dimensions (except the last one), we don't update the
+    // cumulative product This allows for consistent handling of zero-sized
+    // dimensions across different frameworks
+    cumulativeProduct *= isFirstZeroDim ? 1 : shape[dimIndex];
+  }
 
-    return canonicalStride;
+  return canonicalStride;
 }
 
 static bool areStridesEquivalent(llvm::ArrayRef<int64_t> shape,
-                          llvm::ArrayRef<int64_t> stride,
-                          llvm::ArrayRef<int64_t> expectedStride) {
+                                 llvm::ArrayRef<int64_t> stride,
+                                 llvm::ArrayRef<int64_t> expectedStride) {
   if (shape.size() != stride.size() || shape.size() != expectedStride.size())
     return false;
 
   for (size_t i = 0; i < shape.size(); ++i)
     // Allow arbitrary strides for dimensions with size 0 or 1
-    // This accounts for discrepancies in how different frameworks handle these cases
+    // This accounts for discrepancies in how different frameworks handle these
+    // cases
     if (stride[i] != expectedStride[i] && shape[i] != 0 && shape[i] != 1)
       return false;
 
@@ -828,7 +832,8 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
     PointerType addressSpace, int64_t bitsPerElement,
     llvm::ArrayRef<int64_t> shape, llvm::ArrayRef<int64_t> strides,
     std::optional<const Device *> device, std::optional<CudaStream> stream,
-    std::optional<ScalarType> scalarType, std::optional<bool> assertCanonicalStrides) {
+    std::optional<ScalarType> scalarType,
+    std::optional<bool> assertCanonicalStrides) {
   if (addressSpace == PointerType::device ||
       addressSpace == PointerType::unified) {
     if (!device || !*device)
@@ -849,9 +854,9 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::allocateMemRef(
     return allocation.getStatus();
 
   // Create the descriptor.
-  StatusOr<std::unique_ptr<MemRefValue>> bufferImpl =
-      MemRefValue::create(this, addressSpace, bitsPerElement, allocation->ptr,
-                          0, shape, strides, device, scalarType, assertCanonicalStrides);
+  StatusOr<std::unique_ptr<MemRefValue>> bufferImpl = MemRefValue::create(
+      this, addressSpace, bitsPerElement, allocation->ptr, 0, shape, strides,
+      device, scalarType, assertCanonicalStrides);
   if (bufferImpl.isError())
     return bufferImpl.getStatus();
 
@@ -862,11 +867,12 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
     PointerType addressSpace, int64_t bitsPerElement, uintptr_t ptr,
     int64_t offset, llvm::ArrayRef<int64_t> shape,
     llvm::ArrayRef<int64_t> strides, std::optional<const Device *> device,
-    std::optional<ScalarType> scalarType, std::optional<bool> assertCanonicalStrides) {
+    std::optional<ScalarType> scalarType,
+    std::optional<bool> assertCanonicalStrides) {
   // Create the descriptor.
-  StatusOr<std::unique_ptr<MemRefValue>> memref =
-      MemRefValue::create(this, addressSpace, bitsPerElement, ptr, offset,
-                          shape, strides, device, scalarType, assertCanonicalStrides);
+  StatusOr<std::unique_ptr<MemRefValue>> memref = MemRefValue::create(
+      this, addressSpace, bitsPerElement, ptr, offset, shape, strides, device,
+      scalarType, assertCanonicalStrides);
   if (!memref.isOk())
     return memref.getStatus();
 

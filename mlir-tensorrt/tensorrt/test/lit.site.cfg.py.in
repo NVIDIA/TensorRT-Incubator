@@ -8,6 +8,9 @@ config.llvm_shlib_ext = "@SHLIBEXT@"
 config.enable_asan = @ENABLE_ASAN@
 config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
 
+config.target_tensorrt = @MLIR_TRT_DIALECT_TARGET_TENSORRT@
+config.mlir_tensorrt_compile_time_version = "@MLIR_TRT_TENSORRT_VERSION@"
+
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
 

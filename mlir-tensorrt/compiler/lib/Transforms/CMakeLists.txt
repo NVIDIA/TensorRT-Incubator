@@ -11,5 +11,3 @@ add_subdirectory(DropNestedModules)
 add_subdirectory(DuplicateFunctionElimination)
 add_subdirectory(SCFDetensorizeLoops)
 add_subdirectory(MemRefCastElimination)
-add_subdirectory(Clustering)
-

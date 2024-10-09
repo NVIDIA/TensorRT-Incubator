@@ -459,6 +459,11 @@ LogicalResult tensorrt::ConvolutionOp::verify() {
 
 LogicalResult tensorrt::ActivationOp::verify() {
   ActivationType act = getActivationType();
+  if ((getInput().getType().getElementType().isSignlessInteger(32) ||
+       getInput().getType().getElementType().isSignlessInteger(64)) &&
+      (act != ActivationType::kRELU))
+    return emitOpError()
+           << "int32 and int64 types are supported only for RELU activation.";
   std::optional<APFloat> alpha = getAlpha();
   std::optional<APFloat> beta = getBeta();
   bool expectAlpha = requiresAlphaAttribute(act);
@@ -1147,12 +1152,6 @@ LogicalResult OpaquePluginOp::verifyRegions() {
 
 LogicalResult tensorrt::SelectOp::verify() {
   // Select impl start
-  if (getThenInput().getType().getElementType() !=
-      getElseInput().getType().getElementType())
-    return emitOpError(
-        "thenInput and elseInput must have the same element type");
-  if (getType().getElementType() != getThenInput().getType().getElementType())
-    return emitOpError("thenInput and result must have the same element type");
 
   // Select impl end
   return success();
@@ -1322,6 +1321,7 @@ static LogicalResult verifyAllowedDataTypes(UnaryOp op) {
   // Names of the lambdas appear in the error message using the macro below.
   auto I8 = [](Type t) { return isTensorRTInt8Type(t); };
   auto I32 = [](Type t) { return t.isInteger(32); };
+  auto I64 = [](Type t) { return t.isInteger(64); };
   auto I1 = [](Type t) { return t.isInteger(1); };
   auto F16 = [](Type t) { return t.isF16(); };
   auto F32 = [](Type t) { return t.isF32(); };
@@ -1335,8 +1335,7 @@ static LogicalResult verifyAllowedDataTypes(UnaryOp op) {
                                       "the following: " #__VA_ARGS__;
 
   switch (op.getUnaryOperation()) {
-    // TODO: TensorRT 8.6 supports I32 for ABS
-    HANDLE_CASE(ABS, I8, I32, F16, F32, BF16)
+    HANDLE_CASE(ABS, I8, I32, I64, F16, F32, BF16)
     HANDLE_CASE(ACOS, F16, F32)
     HANDLE_CASE(ACOSH, F16, F32)
     HANDLE_CASE(ASIN, F16, F32)
@@ -1350,15 +1349,15 @@ static LogicalResult verifyAllowedDataTypes(UnaryOp op) {
     HANDLE_CASE(EXP, F16, F32, BF16)
     HANDLE_CASE(FLOOR, F16, F32, BF16)
     HANDLE_CASE(LOG, F16, F32, BF16)
-    HANDLE_CASE(NEG, I8, I32, F16, F32, BF16)
+    HANDLE_CASE(NEG, I8, I32, I64, F16, F32, BF16)
     HANDLE_CASE(RECIP, F16, F32, BF16)
     HANDLE_CASE(ROUND, F16, F32, BF16)
     HANDLE_CASE(SIN, F16, F32, BF16)
     HANDLE_CASE(SINH, F16, F32)
     HANDLE_CASE(SQRT, F16, F32, BF16)
     HANDLE_CASE(NOT, I1)
-    HANDLE_CASE(SIGN, I8, I32, F16, F32, BF16)
-    HANDLE_CASE(TAN, F32)
+    HANDLE_CASE(SIGN, I8, I32, I64, F16, F32, BF16)
+    HANDLE_CASE(TAN, F16, F32)
   }
   llvm_unreachable("unhandled unary operation type");
 

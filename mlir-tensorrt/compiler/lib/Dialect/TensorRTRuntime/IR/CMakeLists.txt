@@ -14,5 +14,5 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTTensorRTRuntimeDialect
   MLIRFuncDialect
   MLIRTensorRTDialect
   MLIRTensorRTCUDADialect
-  MLIRTensorRTCommonUtils
+  MLIRExecutorCommonUtils
   )
