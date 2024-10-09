@@ -84,7 +84,7 @@ def _convert_pad_sizes(padding_sizes):
     sizes_1d = []
     for size in padding_sizes:
         if isinstance(size, Tensor):
-            assert size.rank == 0
+            assert size.rank == 0, f"Size expected to be of rank 0, got {size.rank}."
             sizes_1d.append(unsqueeze(size, 0))
         else:
             sizes_1d.append(Tensor([size], dtype=int32))
@@ -94,23 +94,27 @@ def _convert_pad_sizes(padding_sizes):
 @export.public_api(document_under="operations/functions")
 @constraints.dtype_info(
     dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bool", "int32"],
     },
     dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
-def pad(input: "tripy.Tensor", padding_sizes: Sequence[Tuple], padding_value: Union[int, float] = 0) -> "tripy.Tensor":
+def pad(
+    input: "tripy.Tensor",
+    pad: Sequence[Tuple[Union[int, "tripy.ShapeScalar"]]],
+    mode: str = "constant",
+    value: Union[int, float] = 0,
+) -> "tripy.Tensor":
     r"""
-    Pads `input` with `padding_value` of given `padding_sizes`.
+    Pads the input tensor.
 
     Args:
         input: The input tensor.
-
-        padding_sizes: A sequence of padding sizes of each dimension. Its length must equal to the rank
-            of `input`. Each element of `padding_size` is a tuple of integers or scalars `(low, high)`,
+        pad: A sequence of padding sizes of each dimension. Its length must be equal to the rank
+            of ``input``. Each element of ``pad`` is a tuple of integers or scalars ``(low, high)``,
             which represents the padding sizes before the lowest index and after the highest index at
             the corresponding dimension.
-
-        padding_value: The padding value.
+        mode: The padding mode. Only "constant" is supported.
+        value: The padding value for "constant" mode.
 
     Returns:
         The padded tensor.
@@ -126,18 +130,25 @@ def pad(input: "tripy.Tensor", padding_sizes: Sequence[Tuple], padding_value: Un
         expected = np.pad(input_np, ((1, 0), (0, 1))) # doc: omit
         assert np.array_equal(cp.from_dlpack(output).get(), expected)
     """
-    if len(padding_sizes) != input.rank:
+    if len(pad) != input.rank:
         raise_error(
-            "`padding_sizes` length must equal to the rank of `input`.",
-            [f"Got padding_sizes={padding_sizes}, ", f" input's rank={input.rank}"],
+            "`pad` length must equal to the rank of `input`.",
+            [f"Got pad={pad}, ", f" input's rank={input.rank}"],
         )
 
-    padding_low, padding_high = list(zip(*padding_sizes))
+    supported_modes = {"constant"}
+    if mode not in supported_modes:
+        raise_error(
+            "Unsupported padding mode.",
+            [f"Got mode={mode}, while supported modes are {supported_modes}"],
+        )
+
+    padding_low, padding_high = list(zip(*pad))
     return Pad.build(
         [
             input,
             _convert_pad_sizes(padding_low),
             _convert_pad_sizes(padding_high),
         ],
-        padding_value,
+        value,
     )

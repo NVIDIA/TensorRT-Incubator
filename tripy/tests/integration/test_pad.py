@@ -21,18 +21,19 @@ import tripy as tp
 
 
 class TestPad:
+
     @pytest.mark.parametrize(
-        "padding_sizes, padding_value",
+        "pad, value",
         [
             (((0, 1), (2, 0)), 0),
             (((1, 2), (2, 3)), 1),
         ],
     )
-    def test_pad_constant(self, padding_sizes, padding_value):
+    def test_pad_constant(self, pad, value):
         inp = np.arange(4, dtype=np.int32).reshape((2, 2))
 
-        out = tp.pad(tp.Tensor(inp), padding_sizes, padding_value=padding_value)
-        expected = np.pad(inp, padding_sizes, constant_values=padding_value)
+        out = tp.pad(tp.Tensor(inp), pad, value=value)
+        expected = np.pad(inp, pad, constant_values=value)
 
         assert np.array_equal(cp.from_dlpack(out).get(), expected)
 

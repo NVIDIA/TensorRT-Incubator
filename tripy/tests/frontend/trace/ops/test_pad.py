@@ -16,16 +16,27 @@
 #
 import tripy as tp
 from tripy.frontend.trace.ops import Pad
+from tests import helper
 
 
 class TestPad:
     def test_op_func(self):
         a = tp.Tensor([1, 2, 3, 4])
-        a = tp.pad(a, (1, 1))
+        a = tp.pad(a, [(1, 1)])
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Pad)
 
     def test_infer_rank(self):
         a = tp.Tensor([1, 2, 3, 4])
-        a = tp.pad(a, (1, 1))
+        a = tp.pad(a, [(1, 1)])
         assert a.trace_tensor.rank == 1
+
+    def test_invalid_pad_length(self):
+        with helper.raises(tp.TripyException, match="`pad` length must equal to the rank of `input`."):
+            a = tp.Tensor([1, 2, 3, 4])
+            a = tp.pad(a, [(1, 1), (1, 1)])
+
+    def test_unsupported_mode(self):
+        with helper.raises(tp.TripyException, match="Unsupported padding mode."):
+            a = tp.Tensor([1, 2, 3, 4])
+            a = tp.pad(a, [(1, 1)], mode="circular")
