@@ -33,7 +33,8 @@
 
 namespace mlir::executor {
 void registerTestExecutorBufferizePass();
-}
+void registerTestClusteringTransformPass();
+} // namespace mlir::executor
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
@@ -41,6 +42,7 @@ int main(int argc, char **argv) {
   mlir::executor::registerAllRequiredDialects(registry);
   mlir::executor::registerAllPasses();
   mlir::executor::registerTestExecutorBufferizePass();
+  mlir::executor::registerTestClusteringTransformPass();
 
   // Bufferization-related dialects/interfaces only required for tests.
   registry.insert<mlir::bufferization::BufferizationDialect,

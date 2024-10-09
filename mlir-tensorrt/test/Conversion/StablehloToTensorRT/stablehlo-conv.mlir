@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt -split-input-file -tensorrt-stablehlo-input-preprocessing -convert-stablehlo-to-tensorrt=allow-i64-to-i32-conversion %s | FileCheck %s
+// RUN: mlir-tensorrt-opt -split-input-file -tensorrt-stablehlo-input-preprocessing -convert-stablehlo-to-tensorrt %s | FileCheck %s
 func.func @conv2d_nhwc_rsck_no_padding_dilated(
     %arg0: tensor<1x32x64x2xf32>,
     %arg1: tensor<3x3x2x128xf32>)

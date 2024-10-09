@@ -17,6 +17,7 @@
 
 from dataclasses import dataclass
 from tripy import export, constraints
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.frontend.trace.ops.utils import InferLenPolicies
 
@@ -44,6 +45,7 @@ class Cast(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32, int64, float32, bool as tp_bool
         from tripy.flat_ir.ops import CompareOp, ConvertOp, ConstantOp, DynamicBroadcastOp

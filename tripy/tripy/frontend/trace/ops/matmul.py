@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import utils, constraints
+from tripy.frontend import utils as frontend_utils
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.common.exception import raise_error
@@ -107,6 +108,7 @@ class MatrixMultiplication(BaseTraceOp):
 
             self.outputs[0].rank = output_rank
 
+    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import ConcatenateOp, DotOp, DynamicSliceOp
@@ -156,6 +158,9 @@ class MatrixMultiplication(BaseTraceOp):
             ConcatenateOp.build([extra_a_ones, input], [input_expanded], dim=0)
             return input_expanded
 
+        broadcasted_inputs_0 = inputs[0]
+        broadcasted_inputs_1 = inputs[1]
+
         a_rank, b_rank = (input.rank for input in inputs)
         if not (a_rank == 2 and b_rank == 2):
             nb_a_batch_dims, nb_b_batch_dims = [max(rank - 2, 0) for rank in [a_rank, b_rank]]
@@ -189,20 +194,25 @@ class MatrixMultiplication(BaseTraceOp):
                 b_dims = op_utils.concatenate_tensors([bcast_of_batch_shapes, b_mat_shape], dim=0)
 
             with FlatIRTensor.context(["Use the computed output dims from #4 to broadcast both the inputs."]):
-                inputs[0] = op_utils.insert_broadcast(
+                broadcasted_inputs_0 = op_utils.insert_broadcast(
                     inputs[0],
                     out_rank=nb_result_batch_dims + a_rank - nb_a_batch_dims,
                     shape_of_target_tensor=a_dims,
                     tensor_details=["left operand of DotOp"],
                 )
-                inputs[1] = op_utils.insert_broadcast(
+                broadcasted_inputs_1 = op_utils.insert_broadcast(
                     inputs[1],
                     out_rank=nb_result_batch_dims + b_rank - nb_b_batch_dims,
                     shape_of_target_tensor=b_dims,
                     tensor_details=["right operand of DotOp"],
                 )
 
-        DotOp.build(inputs, outputs, contracting_dim=self.contracting_dim, batching_dim=self.batching_dim)
+        DotOp.build(
+            [broadcasted_inputs_0, broadcasted_inputs_1],
+            outputs,
+            contracting_dim=self.contracting_dim,
+            batching_dim=self.batching_dim,
+        )
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")

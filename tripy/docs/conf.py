@@ -51,6 +51,18 @@ autodoc_typehints = "both"
 autodoc_typehints_format = "short"
 python_use_unqualified_type_names = True
 
+nitpick_ignore = {
+    ("py:class", "tripy.types.ShapeLike"),
+    ("py:class", "tripy.types.TensorLike"),
+    ("py:class", "tripy.types.NestedNumberSequence"),
+    ("py:class", "Tensor"),
+    ("py:class", "Shape"),
+}
+nitpick_ignore_regex = {
+    ("py:class", r"numbers\.Number"),
+    ("py:class", r"collections\..*"),
+}
+
 autodoc_default_options = {
     "members": True,
     "no-undoc-members": True,

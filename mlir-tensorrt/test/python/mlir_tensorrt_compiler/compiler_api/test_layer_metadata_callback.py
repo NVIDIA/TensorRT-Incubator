@@ -54,12 +54,7 @@ def compile_asm():
 print("Compiling ASM")
 compile_asm()
 # CHECK-LABEL: Compiling ASM
-# CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
-# CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
 # CHECK: layer_metadata_callback CALLED
-# CHECK: [translate-to-tensorrt] deserializing TensorRT builder timing cache (0 bytes)
-# CHECK: [translate-to-tensorrt] Setting builder optimization level to 3
-# CHECK: [translate-to-tensorrt] replacing cache with updated data (0 -> 2057 bytes)
 # CHECK: TEST_CUSTOM_METADATA
 
 

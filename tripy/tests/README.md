@@ -10,15 +10,20 @@ The `tests/integration` directory captures the latter group of tests.
 
 You can run all tests locally in the development container by running:
 ```bash
-pytest tests/ -v
+pytest tests/ -v -n 4 --dist worksteal --ignore tests/performance
+pytest tests/performance -v
 ```
+
+Performance tests are run separately because they must run serially to ensure
+accurate measurements.
 
 You can also provide marker arguments to only run specific test cadences
 (see [the test cadence section](#test-cadence) below). For example, to run only
 L0 tests, use:
 
 ```bash
-pytest tests/ -v -m "not l1 and not manual" -n 4
+pytest tests/ -v -m "not l1 and not manual" -n 4 --dist worksteal --ignore tests/performance
+pytest tests/performance -v -m "not l1 and not manual"
 ```
 
 
@@ -56,7 +61,7 @@ http://localhost:8080/snakeviz/%2Ftripy%2Fprof%2Fcombined.prof
 You can generate code coverage reports locally by running:
 
 ```bash
-pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -n 4 -v
+pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
 ```
 
 To view the report, open the `htmlcov/index.html` file from the root directory in a browser.
@@ -125,3 +130,26 @@ Any caption other than `Example` will have a prefix of `Example: ` prepended to 
 
 **NOTE: The docstrings must *not* import `tripy`, `numpy`, or `torch`. They will be imported**
     **automatically as `tp`, `np`, and `torch` respectively. Any other modules will need to be imported.**
+
+
+### Performance Tests
+
+In addition to functional tests, we also run performance tests of three kinds:
+
+1. Regression tests, which compare current Tripy performance to historical data
+    to ensure we don't regress. We use the
+    [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io/en/latest/)
+    plugin to gather data and the
+    [Continuous Benchmark GitHub Action](https://github.com/marketplace/actions/continuous-benchmark)
+    for regression testing.
+
+    You can view graphs and charts of the historical data by opening the
+    [`index.html` file from the `benchmarks` branch](https://github.com/NVIDIA/TensorRT-Incubator/blob/benchmarks/dev/bench/index.html)
+    in a browser.
+
+2. Comparative tests, which compare Tripy and `torch.compile`.
+
+3. Overhead tests, which check the overhead introduced by Tripy as compared
+    to running the underlying MLIR executable by itself. This is done by measuring
+    how long it takes to run an empty executable since in that case, all the time
+    is taken by the Tripy wrapper code.

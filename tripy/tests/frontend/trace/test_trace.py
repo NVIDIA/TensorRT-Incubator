@@ -133,8 +133,8 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                a = storage(data=[1.0000], shape=(1,), dtype=float32, device=gpu:0)
-                b = storage(data=[1.0000], shape=(1,), dtype=float32, device=gpu:0)
+                a = storage(shape=(1,), dtype=float32, device=gpu:0)
+                b = storage(shape=(1,), dtype=float32, device=gpu:0)
                 c = a + b
                 d = c + c
                 outputs:
@@ -192,7 +192,7 @@ class TestTrace:
                 """
                 inputs:
                     a: [rank=(1), shape=((1,)), dtype=(float32), loc=(gpu:0)]
-                b = storage(data=[1.0000], shape=(1,), dtype=float32, device=gpu:0)
+                b = storage(shape=(1,), dtype=float32, device=gpu:0)
                 c = a + b
                 outputs:
                     c: [rank=(1), dtype=(float32), loc=(gpu:0)]

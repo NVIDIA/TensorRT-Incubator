@@ -40,8 +40,7 @@ class TestPlugin:
         def gelu(X):
             return tp.plugin("CustomGeluPluginDynamic", [X], output_info=[(X.rank, X.dtype)], type_id=0)
 
-        compiler = tp.Compiler(gelu)
-        compiled_gelu = compiler.compile(tp.InputInfo((2, (1, 2, 3), 4), dtype=tp.float32))
+        compiled_gelu = tp.compile(gelu, args=[tp.InputInfo((2, (1, 2, 3), 4), dtype=tp.float32)])
 
         inp = tp.iota((2, 1, 4))
         assert tp.allclose(compiled_gelu(inp), tp.gelu(inp))

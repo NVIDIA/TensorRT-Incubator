@@ -12,7 +12,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
     ChloOps
     MLIRRewrite
     MLIRTensorDialect
-    MLIRTensorRTCommonUtils
+    MLIRExecutorCommonUtils
     MLIRTensorRTConstantFoldingUtils
     MLIRTensorRTShapeUtils
     MLIRTensorRTStableHloExtUtils

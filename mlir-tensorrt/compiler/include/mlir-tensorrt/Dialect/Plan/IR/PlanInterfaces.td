@@ -22,7 +22,7 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
             /*desc=*/"Return the clustering options for the cluster",
             /*retTy-*/"::mlir::ClusteringOpts",
             "getClusterKindOptions",
-            /*args=*/(ins "::mlir::DataFlowSolver &":$solver),
+            /*args=*/(ins "::mlir::DataFlowSolver &":$solver, "std::optional<int64_t>":$trtMajorVersion),
             /*body=*/"",
             ""
         >,

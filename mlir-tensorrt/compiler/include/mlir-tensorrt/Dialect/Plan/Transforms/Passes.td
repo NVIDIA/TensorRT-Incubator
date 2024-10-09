@@ -252,7 +252,9 @@ def StablehloClusteringPass : Pass<"stablehlo-clustering", "::mlir::ModuleOp"> {
       "disallow-host-tensors-in-tensorrt-clusters", "bool", "false",
       "don't cluster host tensors in TensorRT clusters">,
     Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass", "bool", "false",
-      "don't apply create shape to func pass in TensorRT clusters">
+      "don't apply create shape to func pass in TensorRT clusters">,
+    Option<"trtMajorVersion", "trt-major-version", "int64_t", "NV_TENSORRT_MAJOR",
+    "terget TensorRT version for clustering">
   ];
 
   let dependentDialects = [

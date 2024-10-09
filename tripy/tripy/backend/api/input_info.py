@@ -22,15 +22,13 @@ from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
 
 
-@export.public_api(document_under="compiler")
+@export.public_api(document_under="compiling_code")
 class InputInfo:
     """
     Captures information about an input to a compiled function.
     """
 
-    def __init__(
-        self, shape: Sequence[Union[int, Tuple[int], Tuple[int, int], Tuple[int, int, int]]], dtype: "tripy.dtype"
-    ) -> None:
+    def __init__(self, shape: Sequence[Union[int, Tuple[int, int, int]]], dtype: "tripy.dtype") -> None:
         """
         Args:
             shape: The shape of the input.
@@ -95,7 +93,7 @@ class InputInfo:
 
 
 # TODO(MLIR-TRT #923): Can generalize `InputInfo` and drop this class.
-@export.public_api(document_under="compiler")
+@export.public_api(document_under="compiling_code")
 @dataclass
 class ArgInfo:
     shape_bounds: Sequence[Tuple[int, int]]

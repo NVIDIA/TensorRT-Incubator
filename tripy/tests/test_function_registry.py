@@ -189,7 +189,7 @@ class TestFunctionRegistry:
         def func(a: int, b: int):
             return a + b
 
-        with helper.raises(TripyException, match="Some required arguments were not provided: \['a'\]"):
+        with helper.raises(TripyException, match=r"Some required arguments were not provided: \['a'\]"):
             registry["test"](b=0)
 
     def test_func_overload_caches_signature(self, registry):
