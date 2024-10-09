@@ -341,20 +341,20 @@ cc_library(
         "tensorrt/lib/TensorRT/Transforms/ApplyBugWorkarounds.cpp",
         "tensorrt/lib/TensorRT/Transforms/BroadcastElimination.cpp",
         "tensorrt/lib/TensorRT/Transforms/ExpandOps.cpp",
-        "tensorrt/lib/TensorRT/Transforms/InferPluginShapes.cpp",
+        # "tensorrt/lib/TensorRT/Transforms/InferPluginShapes.cpp",
         "tensorrt/lib/TensorRT/Transforms/LegalizeInt8.cpp",
-        "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
-        "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.cpp",
+        # "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
+        # "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.cpp",
         "tensorrt/lib/TensorRT/Transforms/ReshapeElimination.cpp",
         "tensorrt/lib/TensorRT/Transforms/TransposeElimination.cpp",
-        #"compiler/lib/Conversion/TensorRTCommon/ConvertToTensorRTCommon.cpp",
+        # "compiler/lib/Conversion/TensorRTCommon/ConvertToTensorRTCommon.cpp",
     ],
     copts = [
         "-DMLIR_TRT_TARGET_TENSORRT",    
     ],
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h",
-        #"compiler/include/mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h",
+        # "compiler/include/mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h",
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
@@ -363,6 +363,7 @@ cc_library(
         ":TensorRTGenericClustering",
         ":TensorRTTransformsPassesIncGen",
         ":TensorRTUtils",
+        "@tensorrt10_x86//:tensorrt10",
     ],
 )
 

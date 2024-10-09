@@ -19,3 +19,8 @@ llvm_configure(
         "AArch64",
     ],
 )
+
+# TODO: figure out how to get cuda deps working
+# load("@rules_cuda//cuda:repositories.bzl", "register_detected_cuda_toolchains", "rules_cuda_dependencies")
+# rules_cuda_dependencies()
+# register_detected_cuda_toolchains()
