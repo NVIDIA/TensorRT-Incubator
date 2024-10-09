@@ -43,9 +43,47 @@ class Resize(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ResizeCubicOp, ResizeLinearOp, ResizeNearestOp
 
-        # set output_shape's shape
-        # because MLIR requires a static shaped operand
-        inputs[1].shape = (inputs[0].rank,)
+        if self.scales:
+            from tripy.common.datatype import float32, int32
+            from tripy.flat_ir.ops import ConstantOp, ConvertOp, MulOp
+            from tripy.flat_ir.tensor import FlatIRTensor
+
+            # construct output_shape using scales
+            out_shape = (inputs[0].rank,)
+            scales_tensor = FlatIRTensor.build(
+                shape=out_shape,
+                rank=1,
+                dtype=float32,
+                device=outputs[0].device,
+                reason_details=[f"create scales tensor in resize op."],
+            )
+            ConstantOp.build([], [scales_tensor], data=self.scales)
+            # inputs[1] is input[0].shape
+            input_shape_f32 = FlatIRTensor.build(
+                shape=out_shape,
+                rank=1,
+                dtype=float32,
+                device=outputs[0].device,
+                reason_details=[f"convert input shape tensor to float32 in resize op."],
+            )
+            ConvertOp.build([inputs[1]], [input_shape_f32])
+            out_shape_f32 = FlatIRTensor.build(
+                shape=out_shape,
+                rank=1,
+                dtype=float32,
+                device=outputs[0].device,
+                reason_details=[f"compute output shape in resize op."],
+            )
+            MulOp.build([input_shape_f32, scales_tensor], [out_shape_f32])
+            out_shape_tensor = FlatIRTensor.build(
+                shape=out_shape,
+                rank=1,
+                dtype=int32,
+                device=outputs[0].device,
+                reason_details=[f"convert output shape to int32 in resize op."],
+            )
+            ConvertOp.build([out_shape_f32], [out_shape_tensor])
+            inputs[1] = out_shape_tensor
 
         if self.mode == "nearest":
             ResizeNearestOp.build(inputs, outputs)
@@ -66,7 +104,7 @@ class Resize(BaseTraceOp):
 def resize(
     input: "tripy.Tensor",
     mode: str,
-    output_shape: Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]] = None,
+    output_shape: "tripy.types.ShapeLike" = None,
     scales: Sequence[Union[int, float]] = None,
     align_corners: bool = False,
 ) -> "tripy.Tensor":
@@ -93,17 +131,13 @@ def resize(
         :caption: Example
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
-        output = tp.interpolate(input, "nearest", scales=(1, 1, 2, 2))
+        output = tp.resize(input, "nearest", scales=(1, 1, 2, 2))
 
         input_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4)) # doc: omit
         expected = torch.nn.functional.interpolate(input_torch, scale_factor=2.0, mode="nearest") # doc: omit
 
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
-    from tripy.common.datatype import int32, float32
-    from tripy.frontend.trace.ops.cast import cast
-    from tripy.frontend.tensor import Tensor
-
     supported_modes = ("cubic", "linear", "nearest")
     if mode not in supported_modes:
         raise_error(
@@ -114,10 +148,5 @@ def resize(
         raise_error("One of `output_shape` and `scale` must be given.")
 
     inputs = [input]
-    if output_shape is None:
-        # construct output_shape using scales
-        input_shape = input.shape
-        scales_tensor = Tensor(scales, dtype=float32)
-        output_shape = cast(cast(input_shape, float32) * scales_tensor, int32)
-    inputs.append(output_shape)
+    inputs.append(output_shape if output_shape is not None else input.shape)
     return Resize.build(inputs, mode, scales, align_corners)

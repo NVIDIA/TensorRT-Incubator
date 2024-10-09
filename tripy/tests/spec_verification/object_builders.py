@@ -129,6 +129,12 @@ default_constraints_all = {
     "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
     "repeat": {"repeats": 2, "dim": 0},
     "reshape": {"shape": [6]},
+    "resize": {
+        "input": tp.ones((1, 3, 8, 8)),
+        "mode": "nearest",
+        "output_shape": (1, 3, 16, 16),
+        "scales": [],
+    },
     "softmax": {"dim": 1},
     "split": {"indices_or_sections": 2},
     "squeeze": {"input": tp.ones((3, 1)), "dims": (1)},

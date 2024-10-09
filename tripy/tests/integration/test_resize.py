@@ -52,16 +52,3 @@ class TestResize:
         out_torch = torch.from_dlpack(out_tp).to("cpu")
         assert expected.shape == out_tp.shape
         assert torch.allclose(out_torch, expected)
-
-
-from tripy.logging import logger
-
-logger.verbosity = "ir"
-
-inp_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4))
-inp_tp = tp.Tensor(inp_torch)
-ones = tp.ones((1, 1, 8, 8))
-out = tp.resize(inp_tp, "linear", output_shape=ones.shape)
-# out = tp.resize(inp_tp, "linear", scales=[1, 1, 2, 2])
-out = out + out
-print(out)
