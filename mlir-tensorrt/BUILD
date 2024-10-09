@@ -370,18 +370,18 @@ cc_library(
 
 gentbl_cc_library(
     name = "TensorRTGenericTransformPassesIncGen",
-    strip_include_prefix = "include",
+    strip_include_prefix = "compiler/include",
     tbl_outs = [
         (
             [
                 "-gen-pass-decls",
                 "-name=MLIRTensorRTGenericTransforms",
             ],
-            "include/mlir-tensorrt/Transforms/Passes.h.inc",
+            "compiler/include/mlir-tensorrt/Transforms/Passes.h.inc",
         ),
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "include/mlir-tensorrt/Transforms/Passes.td",
+    td_file = "compiler/include/mlir-tensorrt/Transforms/Passes.td",
     deps = [
         "@llvm-project//mlir:PassBaseTdFiles",
     ],
@@ -390,16 +390,19 @@ gentbl_cc_library(
 cc_library(
     name = "TensorRTGeneralTransforms",
     srcs = [
-        "lib/Transforms/DropNestedModules/DropNestedModules.cpp",
-        "lib/Transforms/EliminateI1Tensors/EliminateI1Tensors.cpp",
-        "lib/Transforms/TransformDialectInterpreter/TransformDialectInterpreter.cpp",
+        "compiler/lib/Transforms/DropNestedModules/DropNestedModules.cpp",
+        "compiler/lib/Transforms/DuplicateFunctionElimination/DuplicateFunctionElimination.cpp",
+        "compiler/lib/Transforms/MemRefCastElimination/MemRefCastElimination.cpp",
+        "compiler/lib/Transforms/SCFDetensorizeLoops/SCFDetensorizeLoops.cpp",
     ],
-    hdrs = glob([
-        "include/mlir-tensorrt/Transforms/*.h",
-    ]),
-    strip_include_prefix = "include",
+    hdrs = [
+        "compiler/include/mlir-tensorrt/Transforms/Passes.h",
+        "compiler/include/mlir-tensorrt/Transforms/Transforms.h",
+    ],
+    strip_include_prefix = "compiler/include",
     deps = [
         ":TensorRTGenericTransformPassesIncGen",
+        ":TensorRTAnalysis",
         "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:FuncTransforms",
