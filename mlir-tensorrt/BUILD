@@ -509,24 +509,17 @@ cc_library(
     ],
 )
 
-# cc_library(
-#     name = "TensorRTDynamicLoader",
-#     srcs = [
-#         "lib/Utils/TensorRTDynamicLoader/TensorRTDynamicLoader.cpp",
-#     ],
-#     deps = [
-#         "@cuda",
-#         "@llvm-project//mlir:Support",
-#         "@tensorrt8601",
-#     ],
-#     # This is needed for CUDA 12 capability, as the vendored TensorRT is built with CUDA 11
-#     # TODO[MLA-15279]: Remove once we vendor a CUDA 12 version of TRT 8.6
-#     data = [
-#         "@cuda112//:cublas",
-#         "@cuda112//:cublaslt",
-#     ],
-#     linkopts = ["-Wl,-rpath,./external/cuda112/targets/x86_64-linux/lib"],
-# )
+cc_library(
+    name = "TensorRTDynamicLoader",
+    srcs = [
+        "executor/lib/Utils/TensorRTDynamicLoader/TensorRTDynamicLoader.cpp",
+    ],
+    deps = [
+        "@rules_cuda//cuda:runtime",
+        "@llvm-project//mlir:Support",
+        "@tensorrt10_x86//:tensorrt10",
+    ],
+)
 
 gentbl_cc_library(
     name = "TensorRTTranslationPassIncGen",
