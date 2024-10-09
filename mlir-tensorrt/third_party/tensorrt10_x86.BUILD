@@ -29,8 +29,6 @@ cc_library(
         "include/NvInferRuntimePlugin.h",
         "include/NvInferSafeRuntime.h",
         "include/NvInferVersion.h",
-        "include/NvOnnxConfig.h",
-        "include/NvOnnxParser.h",
     ],
     includes = ["include"],
 )

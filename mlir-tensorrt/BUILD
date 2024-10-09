@@ -344,7 +344,7 @@ cc_library(
         "tensorrt/lib/TensorRT/Transforms/BroadcastElimination.cpp",
         "tensorrt/lib/TensorRT/Transforms/ExpandOps.cpp",
         "tensorrt/lib/TensorRT/Transforms/Passes.cpp",
-        # "tensorrt/lib/TensorRT/Transforms/InferPluginShapes.cpp",
+        "tensorrt/lib/TensorRT/Transforms/InferPluginShapes.cpp",
         "tensorrt/lib/TensorRT/Transforms/LegalizeInt8.cpp",
         # "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
         # "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.cpp",
@@ -367,6 +367,7 @@ cc_library(
         ":TensorRTTransformsPassesIncGen",
         ":TensorRTUtils",
         "@tensorrt10_x86//:tensorrt10",
+        "@rules_cuda//cuda:runtime",
     ],
 )
 
@@ -469,16 +470,10 @@ cc_library(
         ":TensorRTEnumConverterGen",
         ":TensorRTUtils",
         ":TensorRTCommonUtils",
-        #"@cuda",
+        ":TensorRTAnalysis",
+        "@rules_cuda//cuda:runtime",
         "@tensorrt10_x86//:tensorrt10",
     ],
-    # # This is needed for CUDA 12 capability, as the vendored TensorRT is built with CUDA 11
-    # # TODO[MLA-15279]: Remove once we vendor a CUDA 12 version of TRT 8.6
-    # data = [
-    #     "@cuda112//:cublas",
-    #     "@cuda112//:cublaslt",
-    # ],
-    # linkopts = ["-Wl,-rpath,./external/cuda112/targets/x86_64-linux/lib"],
 )
 
 gentbl_cc_library(

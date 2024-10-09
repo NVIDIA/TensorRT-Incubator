@@ -54,3 +54,15 @@ build:gdb --config=dbg
 # Continue running tests for targets that build without having
 # AOT compile genrules failing to build from terminating the rest
 test --keep_going
+
+
+# rules_cuda convenience flags
+build --flag_alias=enable_cuda=@rules_cuda//cuda:enable
+build --flag_alias=cuda_archs=@rules_cuda//cuda:archs
+build --flag_alias=cuda_compiler=@rules_cuda//cuda:compiler
+build --flag_alias=cuda_copts=@rules_cuda//cuda:copts
+build --flag_alias=cuda_host_copts=@rules_cuda//cuda:host_copts
+build --flag_alias=cuda_runtime=@rules_cuda//cuda:runtime
+
+build:generic_clang --enable_cuda=True
+build:generic_clang --cuda_compiler=clang

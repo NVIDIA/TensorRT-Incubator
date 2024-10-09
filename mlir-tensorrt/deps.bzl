@@ -54,12 +54,11 @@ def third_party_deps():
         url = "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.2.0/tars/TensorRT-10.2.0.19.Linux.x86_64-gnu.cuda-12.5.tar.gz",
     )
 
-    # TODO: figure out how to get cuda deps working
-    # RULES_CUDA_COMMIT = "a3e87114b41f78373f916ce1021183943c6057e9"
-    # RULES_CUDA_SHA256 = "eb40d2ecabbd4dac8c13534cd3b97d7f9c8fb4aa2ae8bf6c1cc2c8b31bfaede9"
-    # http_archive(
-    #     name = "rules_cuda",
-    #     sha256 = RULES_CUDA_SHA256,
-    #     strip_prefix = "rules_cuda-" + RULES_CUDA_COMMIT,
-    #     urls = ["https://github.com/bazel-contrib/rules_cuda/archive/{commit}.tar.gz".format(commit = RULES_CUDA_COMMIT)],
-    # )
+    RULES_CUDA_COMMIT = "a3e87114b41f78373f916ce1021183943c6057e9"
+    RULES_CUDA_SHA256 = "eb40d2ecabbd4dac8c13534cd3b97d7f9c8fb4aa2ae8bf6c1cc2c8b31bfaede9"
+    http_archive(
+        name = "rules_cuda",
+        sha256 = RULES_CUDA_SHA256,
+        strip_prefix = "rules_cuda-" + RULES_CUDA_COMMIT,
+        urls = ["https://github.com/bazel-contrib/rules_cuda/archive/{commit}.tar.gz".format(commit = RULES_CUDA_COMMIT)],
+    )
