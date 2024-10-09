@@ -145,12 +145,14 @@ def TensorRT_ActivationOp : TensorRT_Op<"activation", [Pure,
   }];
 
   let arguments = (ins
-    TensorRT_Tensor:$input,
+    TensorRT_RankedTensorOf<
+      [TensorRT_I8, I32, I64, F16, BF16, F32]>:$input,
     TensorRT_ActivationTypeAttr:$activationType,
     OptionalAttr<F32Attr>:$alpha,
     OptionalAttr<F32Attr>:$beta
   );
-  let results = (outs TensorRT_Tensor:$result);
+  let results = (outs TensorRT_RankedTensorOf<
+      [TensorRT_I8, I32, I64, F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict  $input `:` type($input)";
   let hasVerifier = 1;
   let extraClassDeclaration = [{
@@ -161,6 +163,9 @@ def TensorRT_ActivationOp : TensorRT_Op<"activation", [Pure,
     /// Return true if the `beta` parameter should be provided
     /// for the current activation type.
     static bool requiresBetaAttribute(ActivationType activationType);
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
@@ -205,6 +210,11 @@ def TensorRT_UnaryOp : TensorRT_Op<"unary", [Pure,
 
   let hasVerifier = 1;
   let hasFolder = 1;
+
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
     ::nvinfer1::IUnaryLayer *layer = $net->addUnary(*$input, *$unaryOperation);
@@ -273,6 +283,10 @@ def TensorRT_ElementWiseOp : TensorRT_Op<"element_wise", [Pure,
   let hasVerifier = 1;
   let hasFolder = 1;
   let hasCanonicalizer = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IElementWiseLayer *layer = $net->addElementWise(
       *$input1, *$input2, *$elementwiseOperation);
@@ -300,12 +314,15 @@ def TensorRT_ConstantOp : TensorRT_Op<"constant", [Pure,
     The `tensorrt.constant` op represents a constant value.
   }];
   let arguments = (ins ElementsAttr:$weights);
-  let results = (outs TensorRT_RankedTensorOf<[F16, F32, I32, BF16, TensorRT_I8,
-    TensorRT_F8, TensorRT_I4]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[I1, TensorRT_I4, TensorRT_I8, I32, I64,
+                          TensorRT_F8, F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict $weights";
   let hasVerifier = 1;
   let hasFolder = 1;
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IConstantLayer *constLayer = $net->addConstant($resultShape, *$weights);
     nvinfer1::ITensor* result = constLayer->getOutput(0);
@@ -343,14 +360,17 @@ def TensorRT_ConcatenationOp : TensorRT_Op<"concatenation",
   }];
 
   let arguments = (ins
-    Variadic<TensorRT_RankedTensorOf<[Index, F32, F16, I32, BF16, TensorRT_I8, I1, TensorRT_F8]>>:$inputs,
+    Variadic<TensorRT_RankedTensorOf<[I1, TensorRT_I8, I32, I64, TensorRT_F8, F16, BF16, F32]>>:$inputs,
     I32Attr:$axis
   );
   let results = (outs AnyRankedTensor:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type($result)";
   let hasVerifier = 1;
   let hasFolder = 1;
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IConcatenationLayer *layer =
         $net->addConcatenation($inputs.data(), $inputs.size());
@@ -397,9 +417,9 @@ def TensorRT_ConvolutionOp : TensorRT_Op<"convolution",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, BF16]>:$input,
-    Optional<TensorRT_RankedTensorOf<[F32, F16, BF16]>>:$kernel,
-    Optional<TensorRT_RankedTensorOf<[F32, F16, BF16]>>:$bias,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$input,
+    Optional<TensorRT_RankedTensorOf<[F16, BF16, F32]>>:$kernel,
+    Optional<TensorRT_RankedTensorOf<[F16, BF16, F32]>>:$bias,
     OptionalAttr<ElementsAttr>:$kernelStatic,
     OptionalAttr<ElementsAttr>:$biasStatic,
     DenseI64ArrayAttr:$stride,
@@ -429,6 +449,9 @@ def TensorRT_ConvolutionOp : TensorRT_Op<"convolution",
             : this->getKernel().getType().getShape().take_back(
                   this->getNumSpatialDims());
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let builders = [
@@ -530,12 +553,15 @@ def TensorRT_EinsumOp : TensorRT_Op<"einsum", [Pure,
   }];
 
   let arguments = (ins
-    Variadic<TensorRT_RankedTensorOf<[F32, F16, BF16]>>:$inputs,
+    Variadic<TensorRT_RankedTensorOf<[F16, BF16, F32]>>:$inputs,
     StrAttr:$equation
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, F16, BF16]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type($result)";
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IEinsumLayer *layer = network->addEinsum(
         $inputs.data(), $inputs.size(), $equation.str().c_str());
@@ -613,7 +639,7 @@ def TensorRT_GatherOp : TensorRT_Op<"gather",
 
    let arguments = (ins
     TensorRT_Tensor:$data,
-    TensorRT_Tensor:$indices,
+    TensorRT_RankedTensorOf<[I32, I64]>:$indices,
     I64Attr:$axis,
     DefaultValuedAttr<I64Attr, "0">:$numBroadcastDims
   );
@@ -636,6 +662,9 @@ def TensorRT_GatherOp : TensorRT_Op<"gather",
     static ::mlir::tensorrt::GatherMode getGatherMode() {
       return ::mlir::tensorrt::GatherMode::kDEFAULT;
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
@@ -717,7 +746,7 @@ def TensorRT_GatherNdOp : TensorRT_Op<"gather_nd",
 
   let arguments = (ins
     TensorRT_Tensor:$data,
-    TensorRT_Tensor:$indices
+    TensorRT_RankedTensorOf<[I32, I64]>:$indices
   );
 
   let results = (outs TensorRT_Tensor:$result);
@@ -726,6 +755,11 @@ def TensorRT_GatherNdOp : TensorRT_Op<"gather_nd",
     attr-dict `data` `(` $data `)`  `indices` `(` $indices `)`
      `:` functional-type(operands, results)
   }];
+
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
     nvinfer1::IGatherLayer *layer = $net->addGatherV2(
@@ -799,7 +833,7 @@ def TensorRT_GatherElementsOp : TensorRT_Op<"gather_elements",
 
   let arguments = (ins
     TensorRT_Tensor:$data,
-    TensorRT_Tensor:$indices,
+    TensorRT_RankedTensorOf<[I32, I64]>:$indices,
     I64Attr:$axis
   );
   let results = (outs TensorRT_Tensor:$result);
@@ -821,6 +855,9 @@ def TensorRT_GatherElementsOp : TensorRT_Op<"gather_elements",
     static ::mlir::tensorrt::GatherMode getGatherMode() {
       return ::mlir::tensorrt::GatherMode::kELEMENT;
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
@@ -900,11 +937,16 @@ def TensorRT_IdentityOp : TensorRT_Op<"identity", [
         (uint8) -> (f32 | f16)
   }];
 
-  let arguments = (ins TensorRT_RankedTensorOf<[Index, F32, F16, I32, BF16, TensorRT_I8, UI8, I1]>:$input);
-  let results = (outs TensorRT_RankedTensorOf<[Index, F32, F16, I32, BF16, TensorRT_I8, UI8, I1]>:$result);
+  let arguments = (ins TensorRT_RankedTensorOf<[I1, UI8, TensorRT_I8, I32, F16, BF16, F32]>:$input);
+  let results = (outs TensorRT_RankedTensorOf<[I1, UI8, TensorRT_I8, I32, F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
   let hasVerifier = 1;
   let hasFolder = 1;
+
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
     FailureOr<nvinfer1::DataType> outputTrtType = getNvInferDataType($op.getLoc(),
@@ -958,12 +1000,12 @@ def TensorRT_LinspaceOp : TensorRT_Op<"linspace", [
 
   let arguments = (ins
     Optional<1DTensorOf<[I32]>>:$shape,
-    Optional<0DTensorOf<[F32, I32]>>:$start,
-    Optional<1DTensorOf<[F32, I32]>>:$step,
+    Optional<0DTensorOf<[I32, F32]>>:$start,
+    Optional<1DTensorOf<[I32, F32]>>:$step,
     OptionalAttr<F64Attr>:$static_start,
     OptionalAttr<F64Attr>:$static_step
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, I32]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[I32, I64, F16, F32]>:$result);
   let assemblyFormat = [{
     attr-dict
     `[`  ($start^ `:` type($start)) : ($static_start)? `]`
@@ -978,6 +1020,9 @@ def TensorRT_LinspaceOp : TensorRT_Op<"linspace", [
     FillOperation getFillOperationEnumValue() {
       return tensorrt::FillOperation::kLINSPACE;
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
@@ -1039,6 +1084,9 @@ def TensorRT_RandomUniformOp : TensorRT_Op<"random_uniform", [
     FillOperation getFillOperationEnumValue() {
       return tensorrt::FillOperation::kRANDOM_UNIFORM;
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
@@ -1103,6 +1151,9 @@ def TensorRT_RandomNormalOp : TensorRT_Op<"random_normal", [
     FillOperation getFillOperationEnumValue() {
       return tensorrt::FillOperation::kRANDOM_NORMAL;
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
@@ -1184,18 +1235,22 @@ def TensorRT_NormalizationOp : TensorRT_Op<"normalization",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F16, F32, BF16]>:$input,
-    TensorRT_RankedTensorOf<[F16, F32, BF16]>:$scale,
-    TensorRT_RankedTensorOf<[F16, F32, BF16]>:$bias,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$input,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$scale,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$bias,
     TensorRT_DimensionListAttr:$axis,
     OptionalAttr<F32Attr>:$eps,
     OptionalAttr<I32Attr>:$num_groups
   );
-  let results = (outs TensorRT_RankedTensorOf<[F16, F32, BF16]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[F16, BF16, F32]>:$result);
   let assemblyFormat =[{
     attr-dict `(`$input `:` type($input) `,` $scale `:` type($scale) `,` $bias `:` type($bias)`)` `->` type($result)
   }];
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::INormalizationLayer* layer = $net->addNormalization(
       /*input=*/*$input,
@@ -1251,7 +1306,7 @@ def TensorRT_PoolingOp : TensorRT_Op<"pooling",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, TensorRT_I8]>:$input,
+    TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
     DenseI64ArrayAttr:$windowSize,
     DenseI64ArrayAttr:$stride,
     DenseI64ArrayAttr:$prePadding,
@@ -1260,7 +1315,7 @@ def TensorRT_PoolingOp : TensorRT_Op<"pooling",
     OptionalAttr<F32Attr>:$blendFactor,
     OptionalAttr<BoolAttr>:$averageCountExcludesPadding
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, F16, TensorRT_I8]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` $input `:` type($input) `)` `->` type($result)";
   let hasVerifier = 1;
   let extraClassDeclaration = [{
@@ -1268,6 +1323,9 @@ def TensorRT_PoolingOp : TensorRT_Op<"pooling",
     int64_t getNumSpatialDims() {
       return getType().getRank()-2;
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
@@ -1323,18 +1381,23 @@ def TensorRT_ReduceOp : TensorRT_Op<"reduce",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, BF16, I32]>:$input,
+    TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$input,
     TensorRT_DimensionListAttr:$reduceAxes,
     DefaultValuedAttr<BoolAttr, "false">:$keepDimensions,
     TensorRT_ReduceOperationAttr:$reduceOperation
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, F16, BF16, I32]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$result);
   let assemblyFormat = [{
     $reduceOperation $input attr-dict `:` type($input) `->` type($result)
   }];
   let hasVerifier = 1;
 
   let hasCanonicalizer = 1;
+
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
     nvinfer1::IReduceLayer *layer = $net->addReduce(
@@ -1357,7 +1420,8 @@ def TensorRT_ReduceOp : TensorRT_Op<"reduce",
 
 def TensorRT_SelectOp : TensorRT_Op<"select", [
       Pure,
-      TensorRTInferTensorResultTypes]>{
+      TensorRTInferTensorResultTypes,
+      AllElementTypesMatch<["thenInput", "elseInput", "result"]>]>{
   let summary = "TensorRT ISelectLayer operation";
   let description = [{
     The `tensorrt.select` operation accepts a boolean
@@ -1373,13 +1437,16 @@ def TensorRT_SelectOp : TensorRT_Op<"select", [
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[I1]>:$condition,
-    TensorRT_RankedTensorOf<[I32, F16, F32, BF16]>:$thenInput,
-    TensorRT_RankedTensorOf<[I32, F16, F32, BF16]>:$elseInput
+    TensorRT_RankedTensorOf<[I1, I32, I64, F16, BF16, F32]>:$thenInput,
+    TensorRT_RankedTensorOf<[I1, I32, I64, F16, BF16, F32]>:$elseInput
   );
-  let results = (outs TensorRT_RankedTensorOf<[I32, F16, F32, BF16]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[I1, I32, I64, F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type($result)";
   let hasVerifier = 1;
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::ISelectLayer *layer =
         $net->addSelect(*$condition, *$thenInput, *$elseInput);
@@ -1493,6 +1560,9 @@ def TensorRT_SliceOp : TensorRT_Op<"slice", [
         return getStride();
       return getStaticStrideAttr();
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let builders = [
@@ -1579,12 +1649,16 @@ def TensorRT_SoftMaxOp : TensorRT_Op<"softmax", [Pure,
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, BF16]>:$input,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$input,
     I64Attr:$axis
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, F16, BF16]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict $input `:` type($input)";
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::ISoftMaxLayer *layer = $net->addSoftMax(*$input);
     // `setAxes` expects a bitmask.
@@ -1645,13 +1719,17 @@ def TensorRT_OneHotOp : TensorRT_Op<"one_hot", [
 
   let arguments = (ins
     TensorRT_RankedTensorOf<[I32]>:$indices,
-    TensorRT_RankedTensorOf<[F32, F16, BF16, TensorRT_I8, I1, I32]>:$values,
+    TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$values,
     TensorRT_RankedTensorOf<[I32]>:$depth,
     SI64Attr:$axis
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, F16, BF16, TensorRT_I8, I1, I32]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type(results)";
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::IOneHotLayer *layer = $net->addOneHot(*$indices, *$values, *$depth, $axis);
     if (!$e.isStronglyTyped()){
@@ -1700,12 +1778,16 @@ def TensorRT_RaggedSoftMaxOp : TensorRT_Op<"ragged_softmax", [
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, BF16, TensorRT_I8]>:$input,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$input,
     TensorRT_RankedTensorOf<[I32]>:$bounds
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, BF16, TensorRT_I8]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type(results)";
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::IRaggedSoftMaxLayer *layer = $net->addRaggedSoftMax(*$input, *$bounds);
     $results.push_back(layer->getOutput(0));
@@ -1737,6 +1819,12 @@ def TensorRT_AssertionOp : TensorRT_Op<"assertion", [Pure]>{
   );
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)`";
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    static bool isValidForTensorRTVersion(int64_t trtMajorVersion, Type inputElementType){
+      return inputElementType.isSignlessInteger(1);
+    }
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::IAssertionLayer *layer = $net->addAssertion(*$condition, $message.str().c_str());
     $e.setMetadata(layer, $op);
@@ -1803,8 +1891,8 @@ def TensorRT_MatrixMultiplyOp : TensorRT_Op<"matrix_multiply", [Pure,
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, BF16, TensorRT_I8, I1]>:$input0,
-    TensorRT_RankedTensorOf<[F32, F16, BF16, TensorRT_I8, I1]>:$input1,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$input0,
+    TensorRT_RankedTensorOf<[F16, BF16, F32]>:$input1,
     TensorRT_MatrixOperationAttr:$op0,
     TensorRT_MatrixOperationAttr:$op1
   );
@@ -1836,6 +1924,9 @@ def TensorRT_MatrixMultiplyOp : TensorRT_Op<"matrix_multiply", [Pure,
         return input.getShape().size() - 1;
       return input.getShape().size() - 2;
     };
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
 
   }] # baseClassDeclaration;
   let trtLayerAdd = [{
@@ -1899,7 +1990,7 @@ def TensorRT_TopKOp : TensorRT_Op<"top_k",
   }];
 
   let arguments = (ins
-    TensorRT_Tensor:$input,
+    TensorRT_RankedTensorOf<[I32, I64, F16, BF16, F32]>:$input,
     I64Attr:$k,
     I64Attr:$axis,
     TensorRT_TopKOperationAttr:$topkOperation
@@ -1913,7 +2004,10 @@ def TensorRT_TopKOp : TensorRT_Op<"top_k",
     OpBuilder<(ins "Value":$input, "int64_t":$k, "int64_t":$axis,
                    "tensorrt::TopKOperation":$topkOperation)>
   ];
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::ITopKLayer *layer = $net->addTopK(
         *$input, *$topkOperation,
@@ -1972,14 +2066,17 @@ def TensorRT_PaddingOp : TensorRT_Op<"padding", [Pure, TensorRTInferTensorResult
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, I32, TensorRT_I8]>:$input,
+    TensorRT_RankedTensorOf<[TensorRT_I8, I32, F16, F32]>:$input,
     DenseI64ArrayAttr:$prePadding,
     DenseI64ArrayAttr:$postPadding
   );
-  let results = (outs TensorRT_RankedTensorOf<[F16, F32, I32, TensorRT_I8]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, I32, F16, F32]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type(results)";
   let hasVerifier = 1;
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::IPaddingLayer *layer = $net->addPaddingNd(
         *$input, $prePadding, $postPadding);
@@ -2010,10 +2107,13 @@ def TensorRT_NonZeroOp : TensorRT_Op<"non_zero",
     ```
   }];
 
-  let arguments = (ins TensorRT_Tensor:$input);
+  let arguments = (ins TensorRT_RankedTensorOf<[I1, I8, I32, F16, BF16, F32]>:$input);
   let results = (outs TensorRT_RankedTensorOf<[I32]>:$result);
   let assemblyFormat = "attr-dict  $input `:` type($input) `->` type($result)";
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::INonZeroLayer *layer = $net->addNonZero(*$input);
     $results.push_back(layer->getOutput(0));
@@ -2072,7 +2172,7 @@ def TensorRT_IfOp : TensorRT_Op<"if", [Pure, TensorRTInferTensorResultTypes,
 
   let arguments = (ins 0DTensorOf<[I1]>:$condition);
 
-  let results = (outs Variadic<TensorRT_Tensor>:$results);
+  let results = (outs Variadic<TensorRT_RankedTensorOf<[I1, I32, F16, BF16, F32]>>:$results);
 
   let regions = (region SizedRegion<1>:$trueRegion, AnyRegion:$falseRegion);
 
@@ -2091,6 +2191,11 @@ def TensorRT_IfOp : TensorRT_Op<"if", [Pure, TensorRTInferTensorResultTypes,
       "function_ref<void(OpBuilder &, Location)>":$falseBranchBuilder
     )>
   ];
+
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 
   let trtLayerAdd = [{
     ::nvinfer1::IIfConditional* layer = $net->addIfConditional();
@@ -2446,14 +2551,17 @@ def TensorRT_ShapeOp : TensorRT_Op<"shape", [Pure,
     ```
   }];
 
-  let arguments = (ins TensorRT_RankedTensorOf<[Index, F32, F16, BF16, I32, TensorRT_I8, I1, TensorRT_F8]>:$input);
+  let arguments = (ins TensorRT_RankedTensorOf<[I1, TensorRT_I8, I32, TensorRT_F8, F16, BF16, F32]>:$input);
   let results = (outs 1DTensorOf<[I32]>:$result);
 
   let assemblyFormat = "attr-dict $input `:` type($input) `->` type($result)";
 
   let hasCanonicalizer = 1;
   let hasFolder = 1;
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::IShapeLayer* layer = $net->addShape(*$input);
     $e.setMetadata(layer, $op);
@@ -2476,7 +2584,8 @@ def TensorRT_ShapeOp : TensorRT_Op<"shape", [Pure,
 //===----------------------------------------------------------------------===//
 
 def TensorRT_ParametricReLUOp : TensorRT_Op<"parametric_relu", [Pure,
-    AllRanksMatch<["input", "slope"]>, TensorRTInferTensorResultTypes]>{
+    AllRanksMatch<["input", "slope"]>, AllElementTypesMatch<["input", "slope"]>,
+    TensorRTInferTensorResultTypes]>{
   let summary = "TensorRT ParametricReLU(IParametricReLULayer) operation";
   let description = [{
     The `tensorrt.parametricrelu` applies the function `f` to each element `x` at indices`i=(i_0, ... i_n)` of the input tensor,
@@ -2493,13 +2602,16 @@ def TensorRT_ParametricReLUOp : TensorRT_Op<"parametric_relu", [Pure,
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[F32, F16, BF16, TensorRT_I8]>:$input,
-    TensorRT_RankedTensorOf<[F32, F16, BF16, TensorRT_I8]>:$slope
+    TensorRT_RankedTensorOf<[TensorRT_I8, F16, BF16, F32]>:$input,
+    TensorRT_RankedTensorOf<[TensorRT_I8, F16, BF16, F32]>:$slope
   );
-  let results = (outs TensorRT_RankedTensorOf<[F32, F16, BF16, TensorRT_I8]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[TensorRT_I8, F16, BF16, F32]>:$result);
   let assemblyFormat = "attr-dict `ins` `(` operands `:` type(operands) `)` `->` type(results)";
   let hasVerifier = 1;
-
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     ::nvinfer1::IParametricReLULayer  *layer = $net->addParametricReLU(
         *$input, *$slope);
@@ -2629,7 +2741,7 @@ def TensorRT_ShuffleOp : TensorRT_Op<"shuffle",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[TensorRT_I8, I32, F16, F32, BF16, TensorRT_F8]>:$input,
+    TensorRT_Tensor:$input,
     Optional<1DTensorOf<[I32]>>:$dynamic_reshape,
     DenseI64ArrayAttr:$first_transpose,
     OptionalAttr<DenseI64ArrayAttr>:$reshape,
@@ -2665,6 +2777,9 @@ def TensorRT_ShuffleOp : TensorRT_Op<"shuffle",
     /// Return the second transpose as an AffineMap permutation. If the
     /// second transpose is empty (for scalar input), then returns an empty AffineMap.
     AffineMap getSecondTransposeMap();
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }];
 
   let trtLayerAdd = [{
@@ -2722,9 +2837,9 @@ def TensorRT_DeconvolutionOp : TensorRT_Op<"deconvolution",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[TensorRT_I8, F32, F16]>:$input,
-    Optional<TensorRT_RankedTensorOf<[TensorRT_I8, F32, F16]>>:$kernelWeights,
-    Optional<TensorRT_RankedTensorOf<[TensorRT_I8, F32, F16]>>:$biasWeights,
+    TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$input,
+    Optional<TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>>:$kernelWeights,
+    Optional<TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>>:$biasWeights,
     OptionalAttr<ElementsAttr>:$kernelWeightsStatic,
     OptionalAttr<ElementsAttr>:$biasWeightsStatic,
     DenseI64ArrayAttr:$stride,
@@ -2754,6 +2869,9 @@ def TensorRT_DeconvolutionOp : TensorRT_Op<"deconvolution",
             : this->getKernelWeights().getType().getShape().take_back(
                   this->getNumSpatialDims());
     }
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
   let builders = [
     OpBuilder<(ins "Type":$type, "Value":$input, "OpFoldResult":$kernelWeights, "OpFoldResult":$biasWeights,
@@ -2922,6 +3040,11 @@ def TensorRT_QuantizeOp : TensorRT_Op<"quantize",
   }];
   let hasVerifier = 1;
 
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
+
   let trtLayerAdd = [{
     nvinfer1::IQuantizeLayer *quantizeLayer{nullptr};
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(10, 0, 0)
@@ -3074,6 +3197,10 @@ def TensorRT_DequantizeOp : TensorRT_Op<"dequantize",
     `->` type($result)
   }];
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_LT(10, 0, 0)
     assert($op.getScale().getType().getRank() < 2);
@@ -3138,6 +3265,10 @@ def TensorRT_TransposeOp : TensorRT_Op<"transpose",
   let hasFolder = 1;
   let hasCanonicalizer = 1;
   let assemblyFormat = "attr-dict $input `:` type($input) `to` type($result)";
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 }
 
 //===----------------------------------------------------------------------===//
@@ -3194,6 +3325,9 @@ def TensorRT_ExpandRankOp : TensorRT_Op<"expand_rank",
     /// Return the reassociation dims derived from the
     /// input and result shapes.
     SmallVector<ReassociationIndices> getReassociationIndices();
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 }
 
@@ -3249,6 +3383,9 @@ def TensorRT_CollapseRankOp : TensorRT_Op<"collapse_rank",
     /// Return the reassociation dims derived from the
     /// input and result shapes.
     SmallVector<ReassociationIndices> getReassociationIndices();
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
   }] # baseClassDeclaration;
 
   let builders = [
@@ -3317,7 +3454,10 @@ def TensorRT_BroadcastOp : TensorRT_Op<"broadcast",
     /// broadcast dims order. For example, broadcast dims [3, 1, 2] would
     /// return [1, 2, 0].
     AffineMap getBroadcastDimsPermutation();
-  }];
+
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 }
 
 //===----------------------------------------------------------------------===//
@@ -3341,6 +3481,11 @@ class TensorRT_ArgMinMaxOp<string mnemonic> :
     // rank-reduced.
     OpBuilder<(ins "Value":$input, "int64_t":$axis)>
   ];
+
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 }
 
 def TensorRT_ArgMinOp : TensorRT_ArgMinMaxOp<"argmin"> {
@@ -3455,6 +3600,10 @@ def TensorRT_ReshapeOp : TensorRT_Op<"reshape",
     // Construct reshape with static shape.
     OpBuilder<(ins "Type":$result, "Value":$input)>
   ];
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
 }
 
 
@@ -3521,6 +3670,10 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
   let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
     if ($op.getOutputShape())
@@ -3590,6 +3743,10 @@ def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
   let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
     if ($op.getOutputShape())
@@ -3661,6 +3818,10 @@ def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
   let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IResizeLayer *layer = network->addResize(*$input);
     if ($op.getOutputShape())
@@ -3857,9 +4018,9 @@ def TensorRT_ScatterOp : TensorRT_Op<"scatter_nd",
   }];
 
    let arguments = (ins
-    TensorRT_RankedTensorOf<[I32, F16, F32, BF16]>:$data,
-    TensorRT_RankedTensorOf<[I32]>:$indices,
-    TensorRT_RankedTensorOf<[I32, F16, F32, BF16]>:$updates
+    TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$data,
+    TensorRT_RankedTensorOf<[I32, I64]>:$indices,
+    TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$updates
   );
   let results = (outs TensorRT_Tensor:$result);
   let assemblyFormat = [{
@@ -3869,6 +4030,10 @@ def TensorRT_ScatterOp : TensorRT_Op<"scatter_nd",
     `updates` `(` $updates `:` type($updates) `)`
   }];
   let hasVerifier = 1;
+  let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IScatterLayer *layer = $net->addScatter(
         *$data, *$indices, *$updates, nvinfer1::ScatterMode::kND);
@@ -3953,9 +4118,9 @@ def TensorRT_ScatterElementsOp : TensorRT_Op<"scatter_elements",
   }];
 
    let arguments = (ins
-    TensorRT_RankedTensorOf<[TensorRT_I8, I32, F16, F32]>:$data,
-    TensorRT_RankedTensorOf<[I32]>:$indices,
-    TensorRT_RankedTensorOf<[TensorRT_I8, I32, F16, F32]>:$updates,
+    TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$data,
+    TensorRT_RankedTensorOf<[I32, I64]>:$indices,
+    TensorRT_RankedTensorOf<[TensorRT_I8, I32, I64, F16, BF16, F32]>:$updates,
     OptionalAttr<I64Attr>:$axis
   );
   let results = (outs TensorRT_Tensor:$result);
@@ -3966,6 +4131,10 @@ def TensorRT_ScatterElementsOp : TensorRT_Op<"scatter_elements",
     `updates` `(` $updates `:` type($updates) `)`
   }];
   let hasVerifier = 1;
+    let extraClassDeclaration = [{
+    /// Returns true if created op is valid for TensorRT major version.
+    bool isValidForTensorRTVersion(int64_t trtMajorVersion);
+  }] # baseClassDeclaration;
   let trtLayerAdd = [{
     nvinfer1::IScatterLayer *layer = $net->addScatter(
         *$data, *$indices, *$updates, nvinfer1::ScatterMode::kELEMENT);

@@ -36,12 +36,12 @@ def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
     "::mlir::quant::QuantizationDialect",
   ];
   let options = [
-    Option<"allowI64ToI32Conversion", "allow-i64-to-i32-conversion", "bool", "false",
-      "allow function-wide rewrite of i64 tensors to i32 tensors">,
     Option<"convertLoops", "convert-loops", "bool", "false",
       "convert loops to TensorRT's loop layer">,
     Option<"convertConditionals", "convert-conditionals", "bool", "true",
-      "convert conditionals to TensorRT's conditional layer">
+      "convert conditionals to TensorRT's conditional layer">,
+    Option<"trtMajorVersion", "trt-major-version", "int64_t", "NV_TENSORRT_MAJOR",
+    "target TensorRT version for conversion">
   ];
 }
 

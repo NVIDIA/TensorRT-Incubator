@@ -4,6 +4,14 @@ project(mlir-tensorrt-dialect LANGUAGES C CXX)
 #-------------------------------------------------------------------------------
 # Options and settings
 #-------------------------------------------------------------------------------
+set(MLIR_TRT_DIALECT_FEATURE_FLAGS)
+macro(mtrt_dialect_option name)
+  option(${name} ${ARGN})
+  list(APPEND MLIR_TRT_DIALECT_FEATURE_FLAGS ${name})
+endmacro()
+
+mtrt_dialect_option(MLIR_TRT_DIALECT_TARGET_TENSORRT
+  "Enable exporting TensorRT dialect IR to a TensorRT engine" ON)
 
 #-------------------------------------------------------------------------------
 # Project Setup
@@ -11,7 +19,7 @@ project(mlir-tensorrt-dialect LANGUAGES C CXX)
 
 set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
 
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ standard to conform to")
+set(CMAKE_CXX_STANDARD 17 "C++ standard to conform to")
 
 if(PROJECT_IS_TOP_LEVEL)
   message(STATUS "Building MLIR-Tensorrt-dialect as standalone project")
@@ -61,16 +69,20 @@ include(cmake/TensorRTFunctions.cmake)
 # Dependencies
 #-------------------------------------------------------------------------------
 
-if(MLIR_TRT_TARGET_TENSORRT)
+if(MLIR_TRT_DIALECT_TARGET_TENSORRT)
   find_package(CUDAToolkit REQUIRED)
 endif()
 
 #-------------------------------------------------------------------------------
 # Project Targets
 #-------------------------------------------------------------------------------
-if(MLIR_TRT_TARGET_TENSORRT)
-  add_definitions(-DMLIR_TRT_TARGET_TENSORRT)
-endif()
+set(MLIR_TRT_DIALECT_DEFINITIONS)
+foreach(feature_flag IN LISTS MLIR_TRT_DIALECT_FEATURE_FLAGS)
+  if(${feature_flag})
+    list(APPEND MLIR_TRT_DIALECT_DEFINITIONS "-D${feature_flag}")
+  endif()
+endforeach()
+add_definitions(${MLIR_TRT_DIALECT_DEFINITIONS})
 
 set(MLIR_TENSORRT_DIALECT_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(MLIR_TENSORRT_DIALECT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})

@@ -34,6 +34,7 @@
 #include "mlir/Support/TypeID.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
+#include "llvm/Support/ErrorHandling.h"
 #include <memory>
 
 namespace mlirtrt::compiler {
@@ -105,14 +106,14 @@ public:
   /// This function should only be called if the options have a valid hash.
   template <typename CompilationTaskType, typename OptionsType>
   mlir::PassManager &getOrCreatePassManager(const OptionsType &options) {
-    auto hash = options.getHash();
-
-    assert(hash);
+    std::optional<llvm::hash_code> hash = options.getHash();
+    if (!hash)
+      llvm::report_fatal_error("attempted to lookup a PassManager from a cache "
+                               "with an un-hashable options key");
 
     auto key =
         std::make_pair(mlir::TypeID::get<CompilationTaskType>(), hash.value());
     auto it = cachedPassManagers.find(key);
-
     if (it == cachedPassManagers.end()) {
       auto pm = std::make_unique<CompilationTaskType>(context, options);
       setupPassManagerLogging(*pm, options.debugOptions);

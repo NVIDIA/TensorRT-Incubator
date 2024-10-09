@@ -11,7 +11,6 @@
 #include "../Utils.h"
 #include "NvInferRuntime.h"
 #include "mlir-c/IR.h"
-#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
@@ -21,7 +20,6 @@
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/raw_ostream.h"
 #include <pybind11/attr.h>
-#include <pybind11/functional.h>
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Utils/NvInferAdaptor.h"

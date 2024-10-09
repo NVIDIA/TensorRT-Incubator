@@ -24,6 +24,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 #define MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 
+#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include <memory>

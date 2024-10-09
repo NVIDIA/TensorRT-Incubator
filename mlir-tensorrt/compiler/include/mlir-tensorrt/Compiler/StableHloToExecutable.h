@@ -105,6 +105,8 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Get the mutable DebugOptions.
   DebugOptions &getDebugOptions() { return debugOptions; }
 
+  /// Return the hash of the options. Returns `nullopt` when the TensorRT
+  /// layer metadata callback is set since that can't be reliably hashed.
   std::optional<llvm::hash_code> getHash() const override;
 
   /// The host index bit-width.

@@ -149,15 +149,17 @@ public:
   void print(llvm::raw_ostream &os) const;
 
   /// Get a hash derived from the string representation of the options.
+  /// Derived classes can use this method to incorporate additional factors
+  /// which cannot be captured by the options string representation. Returning
+  /// nullopt indicates that the options cannot or should not be hashed and used
+  /// as a cache key.
   virtual std::optional<llvm::hash_code> getHash() const;
-
-  virtual bool shouldInvalidateCache() const { return false; }
 
 private:
   struct OptionInfo {
     std::unique_ptr<llvm::cl::Option> option;
   };
-  /// Storageof the options.
+  /// Storage for the options.
   std::vector<OptionInfo> options;
   llvm::DenseMap<llvm::cl::Option *, std::function<void(llvm::raw_ostream &)>>
       printers;
