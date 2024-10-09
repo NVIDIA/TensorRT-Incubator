@@ -14,6 +14,10 @@ def third_party_deps():
         sha256 = LLVM_SHA256,
         strip_prefix = "llvm-project-" + LLVM_COMMIT,
         urls = ["https://github.com/llvm/llvm-project/archive/{commit}.tar.gz".format(commit = LLVM_COMMIT)],
+        # patches = [
+        #     "//:build_tools/llvm-project.patch",
+        # ],
+        # patch_args = ["-p1"],
     )
 
     SKYLIB_VERSION = "1.3.0"

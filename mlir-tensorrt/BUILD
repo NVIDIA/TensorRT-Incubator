@@ -326,7 +326,7 @@ gentbl_cc_library(
         (
             [
                 "-gen-pass-decls",
-                "-name=TensorRTTransforms",
+                "-name=TensorRT",
             ],
             "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h.inc",
         ),
@@ -347,18 +347,14 @@ cc_library(
         "tensorrt/lib/TensorRT/Transforms/Passes.cpp",
         "tensorrt/lib/TensorRT/Transforms/InferPluginShapes.cpp",
         "tensorrt/lib/TensorRT/Transforms/LegalizeInt8.cpp",
-        # "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
-        # "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.cpp",
         "tensorrt/lib/TensorRT/Transforms/ReshapeElimination.cpp",
         "tensorrt/lib/TensorRT/Transforms/TransposeElimination.cpp",
-        # "compiler/lib/Conversion/TensorRTCommon/ConvertToTensorRTCommon.cpp",
     ],
     copts = [
         "-DMLIR_TRT_TARGET_TENSORRT",    
     ],
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h",
-        # "compiler/include/mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h",
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
@@ -566,23 +562,66 @@ cc_library(
     ],
 )
 
+gentbl_cc_library(
+    name = "TensorRTConversionPassIncGen",
+    strip_include_prefix = "compiler/include",
+    tbl_outs = [
+        (
+            [
+                "-gen-pass-decls",
+                "-name=MLIRTensorRTConversion",
+            ],
+            "compiler/include/mlir-tensorrt/Conversion/Passes.h.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "compiler/include/mlir-tensorrt/Conversion/Passes.td",
+    deps = [
+        "@llvm-project//mlir:PassBaseTdFiles",
+    ],
+)
+
+cc_library(
+    name = "TensorRTConversion",
+    srcs = [
+        "compiler/lib/Conversion/TensorRTCommon/ConvertToTensorRTCommon.cpp",
+    ],
+    hdrs = [
+        "compiler/include/mlir-tensorrt/Conversion/Patterns.h",
+        "compiler/include/mlir-tensorrt/Conversion/Passes.h",
+        "compiler/include/mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h",
+    ],
+    copts = [
+        "-DMLIR_TRT_TARGET_TENSORRT",
+    ],
+    strip_include_prefix = "compiler/include",
+    deps = [
+        ":TensorRTDialect",
+        ":TensorRTConversionPassIncGen",
+        "@llvm-project//mlir:ConversionPasses",
+    ],
+)
+
 cc_library(
     name = "TensorRTRegistration",
     srcs = [
-        "lib/Registration/Registration.cpp",
+        "compiler/lib/Registration/Registration.cpp",
     ],
     hdrs = [
-        "include/mlir-tensorrt/Conversion/Patterns.h",
+        "compiler/include/mlir-tensorrt/Registration/RegisterMlirTensorRtCoreDialects.h",
+        "compiler/include/mlir-tensorrt/Registration/RegisterMlirTensorRtDialects.h",
+        "compiler/include/mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h",
+        "compiler/include/mlir-tensorrt/Registration/RegisterMlirTensorRtTranslations.h",
     ],
     copts = [
         "-DMLIR_TRT_TARGET_TENSORRT",    
     ],
-    strip_include_prefix = "include",
+    strip_include_prefix = "compiler/include",
     deps = [
         ":TensorRTGeneralTransforms",
         ":TensorRTTarget",
         ":TensorRTTransforms",
-        "@llvm-project//mlir:ConversionPasses",
+        ":TensorRTConversion",
         "@llvm-project//mlir:ShapeDialect",
     ],
 )
