@@ -88,7 +88,7 @@ class Resize(BaseTraceOp):
         if self.mode == "nearest":
             ResizeNearestOp.build(inputs, outputs)
         elif self.mode == "cubic":
-            ResizeCubicOp.build(inputs, outputs, self.align_corners, -0.75)
+            ResizeCubicOp.build(inputs, outputs, self.align_corners, cubic_coeff=-0.75)
         else:
             ResizeLinearOp.build(inputs, outputs, self.align_corners)
 
@@ -113,7 +113,7 @@ def resize(
 
     Args:
         input: The input tensor.
-        mode: The resize operation's algorithm. Must be one of "cubic, linear, nearest".
+        mode: The resize operation's algorithm. Must be one of: ["cubic", linear", "nearest"].
         output_shape: The output shape of the resize operation.
         scales: A sequence of scale factors for each dimension. Must have
             the same length as input tensor's rank. Will be ignored if ``output_shape`` is
@@ -121,7 +121,7 @@ def resize(
         align_corners: If set to ``True``, the input and output tensors are aligned by the
             center points of their corner pixels, preserving the values at the corner pixels.
             If set to ``False``, the input and output tensors are aligned by the corner points of
-            their corner pixels. Only in effect when ``mode`` is ``cubic`` or ``linear``.
+            their corner pixels. Only in effect when ``mode`` is ``"cubic"`` or ``"linear"``.
 
     Returns:
         The output tensor after the resize operation.

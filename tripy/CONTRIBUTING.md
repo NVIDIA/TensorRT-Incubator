@@ -173,7 +173,7 @@ The Tripy container includes a build of MLIR-TensorRT, but in some cases, you ma
     * The same major version as the TensorRT version in the container.
     * A minor version equal to or higher than the version in the container.
 
-    For example, to install Python 3.10.12 wheels compatible with TensorRT 10.1+, run:
+    For example, to install Python 3.10.12 wheels compatible with TensorRT 10.2+, run:
     ```bash
     python3 -m pip install --force-reinstall /mlir-tensorrt/build/wheels/python3.10.12/trt102/**/*.whl
     ```
