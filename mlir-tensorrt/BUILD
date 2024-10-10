@@ -403,7 +403,6 @@ cc_library(
         "tensorrt/lib/TensorRT/Transforms/TransposeElimination.cpp",
         "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
         "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.cpp",
-
     ],
     copts = [
         "-DMLIR_TRT_TARGET_TENSORRT",    
@@ -701,4 +700,5 @@ cc_binary(
         ":TensorRTRegistration",
         "@llvm-project//mlir:MlirOptLib",
     ],
+    linkopts = ["-Wl,-rpath,./bazel-mlir-tensorrt/external/tensorrt10_x86/targets/x86_64-linux-gnu/lib"],
 )
