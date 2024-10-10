@@ -22,7 +22,7 @@ module attributes {dlti.dl_spec = #dlti.dl_spec<#dlti.dl_entry<index, 64 : i64>,
   executor.func private @executor_alloc(i64, i64) -> !executor.ptr<host>
   executor.func private @__cuda_stream_create() -> !executor.ptr<host>
   executor.global @stream0 constant : !executor.ptr<host>
-  executor.func private @_trtrt_alloc_enqueue(!executor.opaque<"trtrt_context">, !executor.ptr<host>, !executor.ptr<host>, ...)
+  executor.func private @_trtrt_enqueue_alloc(!executor.opaque<"trtrt_context">, !executor.ptr<host>, !executor.ptr<host>, ...)
   executor.func private @_trtrt_create_runtime() -> !executor.opaque<"trtrt_runtime">
   executor.func private @_trtrt_create_context(!executor.opaque<"trtrt_engine">) -> !executor.opaque<"trtrt_context">
   executor.func private @_trtrt_load(!executor.opaque<"trtrt_runtime">, !executor.ptr<host>, i64) -> !executor.opaque<"trtrt_engine">
@@ -46,7 +46,7 @@ module attributes {dlti.dl_spec = #dlti.dl_spec<#dlti.dl_entry<index, 64 : i64>,
     executor.call @_store_i64(%4, %c0_i64, %c1_i64) : (!executor.ptr<host>, i64, i64) -> ()
     executor.call @_store_i64(%4, %c8_i64, %c1_i64) : (!executor.ptr<host>, i64, i64) -> ()
     %5 = executor.table.create(%2, %c0_i64, %c1_i64, %c1_i64, %c1_i64, %3, %c0_i64, %c1_i64, %c1_i64, %c1_i64 : !executor.ptr<device>, i64, i64, i64, i64, !executor.ptr<device>, i64, i64, i64, i64) : <!executor.ptr<device>, i64, i64, i64, i64, !executor.ptr<device>, i64, i64, i64, i64>
-    executor.call @_trtrt_alloc_enqueue(%0, %1, %4, %5) : (!executor.opaque<"trtrt_context">, !executor.ptr<host>, !executor.ptr<host>, !executor.table<!executor.ptr<device>, i64, i64, i64, i64, !executor.ptr<device>, i64, i64, i64, i64>) -> ()
+    executor.call @_trtrt_enqueue_alloc(%0, %1, %4, %5) : (!executor.opaque<"trtrt_context">, !executor.ptr<host>, !executor.ptr<host>, !executor.table<!executor.ptr<device>, i64, i64, i64, i64, !executor.ptr<device>, i64, i64, i64, i64>) -> ()
     %6 = executor.call @_load_i64(%4, %c8_i64) : (!executor.ptr<host>, i64) -> i64
     %7 = executor.call @_load_i64(%4, %c16_i64) : (!executor.ptr<host>, i64) -> i64
     %8 = executor.call @_inttoptr_i64_i64(%7) : (i64) -> !executor.ptr<device>
@@ -84,7 +84,7 @@ def stablehlo_add():
             client,
             ["--tensorrt-builder-opt-level=3", "--tensorrt-strongly-typed=false"],
         )
-        opts.set_debug_options(False, [], "alloc_enqueue")
+        opts.set_debug_options(False, [], "enqueue_alloc")
         exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
 
     # The RuntimeClient can and should persist across multiple Executables, RuntimeSessions, etc.
