@@ -20,6 +20,34 @@ llvm_configure(
     ],
 )
 
+# -------------------------- #
+#      CUDA Rules Setup      #
+# -------------------------- #
+
 load("@rules_cuda//cuda:repositories.bzl", "register_detected_cuda_toolchains", "rules_cuda_dependencies")
+
 rules_cuda_dependencies()
+
 register_detected_cuda_toolchains()
+
+# --------------------------- #
+#    Buildifier Dependencies  #
+# --------------------------- #
+
+# https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
+
+go_rules_dependencies()
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
+
+go_register_toolchains(version = "1.20.3")
+
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+
+gazelle_dependencies()
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
