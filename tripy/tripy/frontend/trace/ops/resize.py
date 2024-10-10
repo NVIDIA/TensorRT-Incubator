@@ -49,6 +49,8 @@ class Resize(BaseTraceOp):
             from tripy.flat_ir.tensor import FlatIRTensor
 
             # construct output_shape using scales
+            # inputs[1] is input[0].shape
+            # output_shape = (inputs[1].cast(fp32) * scales).cast(int32)
             out_shape = (inputs[0].rank,)
             scales_tensor = FlatIRTensor.build(
                 shape=out_shape,
@@ -58,7 +60,6 @@ class Resize(BaseTraceOp):
                 reason_details=[f"create scales tensor in resize op."],
             )
             ConstantOp.build([], [scales_tensor], data=self.scales)
-            # inputs[1] is input[0].shape
             input_shape_f32 = FlatIRTensor.build(
                 shape=out_shape,
                 rank=1,
@@ -144,6 +145,8 @@ def resize(
             "Unsupported resize mode.",
             [f"Supported modes are {supported_modes}, but got {mode}."],
         )
+    if align_corners and mode not in ("cubic", "linear"):
+        raise_error("align_corners can only be set with `cubic` or `linear` mode.")
     if output_shape is None and scales is None:
         raise_error("One of `output_shape` and `scale` must be given.")
 
