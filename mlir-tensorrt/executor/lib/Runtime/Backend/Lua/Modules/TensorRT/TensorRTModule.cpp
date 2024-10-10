@@ -426,7 +426,7 @@ static Status enqueueV3Wrapper(AllocTracker &tracker,
 }
 
 static Status
-allocEnqueueV3Wrapper(AllocTracker &tracker, ResourceTracker &resourceTracker,
+enqueueAllocV3Wrapper(AllocTracker &tracker, ResourceTracker &resourceTracker,
                       OutputAllocatorTracker &outputAllocatorTracker,
                       NvInferExecContextWrapper &context, CudaStreamPtr stream,
                       sol::table &va, OutputDescriptor outputDesc) {
@@ -568,16 +568,16 @@ void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
 
-  lua["_trtrt_alloc_enqueue"] =
+  lua["_trtrt_enqueue_alloc"] =
       [allocTracker, resourceTracker, outputAllocatorTracker](
           sol::this_state state,
           std::shared_ptr<NvInferExecContextWrapper> context,
           CudaStreamPtr stream, uintptr_t outputDesc, sol::table va) {
-        ADD_TENSORRT_MODULE_RANGE("trtrt_alloc_enqueue");
+        ADD_TENSORRT_MODULE_RANGE("trtrt_enqueue_alloc");
         sol::state_view luaState(state);
         assert(context != nullptr);
         assert(stream != nullptr && "expected valid stream");
-        Status result = allocEnqueueV3Wrapper(*allocTracker, *resourceTracker,
+        Status result = enqueueAllocV3Wrapper(*allocTracker, *resourceTracker,
                                               *outputAllocatorTracker, *context,
                                               stream, va, outputDesc);
         SET_LUA_ERROR_IF_ERROR(result, state);
