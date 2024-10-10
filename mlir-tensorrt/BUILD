@@ -356,6 +356,40 @@ gentbl_cc_library(
     ],
 )
 
+gentbl_cc_library(
+    name = "TensorRTTransformsActivationsPdllGen",
+    strip_include_prefix = "tensorrt/lib/TensorRT/Transforms",
+    tbl_outs = [
+        (
+            ["-x=cpp"],
+            "tensorrt/lib/TensorRT/Transforms/RaiseActivations.pdll.h.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-pdll",
+    td_file = "tensorrt/lib/TensorRT/Transforms/RaiseActivations.pdll",
+    deps = [
+        ":TensorRTDialectTdFiles",
+        "@llvm-project//mlir:CallInterfacesTdFiles",
+    ],
+)
+
+gentbl_cc_library(
+    name = "TensorRTTransformsNormalizationsPdllGen",
+    strip_include_prefix = "tensorrt/lib/TensorRT/Transforms",
+    tbl_outs = [
+        (
+            ["-x=cpp"],
+            "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.pdll.h.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-pdll",
+    td_file = "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.pdll",
+    deps = [
+        ":TensorRTDialectTdFiles",
+        "@llvm-project//mlir:CallInterfacesTdFiles",
+    ],
+)
+
 cc_library(
     name = "TensorRTTransforms",
     srcs = [
@@ -367,6 +401,9 @@ cc_library(
         "tensorrt/lib/TensorRT/Transforms/LegalizeInt8.cpp",
         "tensorrt/lib/TensorRT/Transforms/ReshapeElimination.cpp",
         "tensorrt/lib/TensorRT/Transforms/TransposeElimination.cpp",
+        "tensorrt/lib/TensorRT/Transforms/RaiseActivations.cpp",
+        "tensorrt/lib/TensorRT/Transforms/RaiseNormalizations.cpp",
+
     ],
     copts = [
         "-DMLIR_TRT_TARGET_TENSORRT",    
@@ -380,6 +417,8 @@ cc_library(
         ":TensorRTDialect",
         ":TensorRTGenericClustering",
         ":TensorRTTransformsPassesIncGen",
+        ":TensorRTTransformsActivationsPdllGen",
+        ":TensorRTTransformsNormalizationsPdllGen",
         ":TensorRTUtils",
         "@tensorrt10_x86//:tensorrt10",
         "@rules_cuda//cuda:runtime",
