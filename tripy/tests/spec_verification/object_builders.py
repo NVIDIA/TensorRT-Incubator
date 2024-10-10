@@ -124,6 +124,7 @@ default_constraints_all = {
     "mean": {"dim": 0},
     "ones": {"shape": [3, 2]},
     "outer": {"vec1": tp.Tensor([2, 3, 4, 5]), "vec2": tp.Tensor([1, 2, 3, 4])},
+    "pad": {"pad": [(0, 1), (1, 0)]},
     "permute": {"perm": [1, 0]},
     "prod": {"dim": 0},
     "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},

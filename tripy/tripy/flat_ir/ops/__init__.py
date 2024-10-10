@@ -39,6 +39,7 @@ from tripy.flat_ir.ops.log import LogOp
 from tripy.flat_ir.ops.maximum import MaxOp
 from tripy.flat_ir.ops.minimum import MinOp
 from tripy.flat_ir.ops.mul import MulOp
+from tripy.flat_ir.ops.pad import DynamicPadOp
 from tripy.flat_ir.ops.plugin import PluginOp
 from tripy.flat_ir.ops.pow import PowOp
 from tripy.flat_ir.ops.reduce import ArgMinMaxOp, ReduceOp
