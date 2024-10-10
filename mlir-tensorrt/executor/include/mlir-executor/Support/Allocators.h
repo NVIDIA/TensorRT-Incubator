@@ -128,6 +128,163 @@ private:
   std::unique_ptr<BlockEventQueue> pendingBlockEvents;
 };
 
+//===----------------------------------------------------------------------===//
+// OutputAllocator and CustomTensorRTOuputAllocator
+//===----------------------------------------------------------------------===//
+
+/// Class to allocate memory for outputs with data-dependent shapes. The sizes
+/// of those are unknown so pre-allocation is not possible.
+class OutputAllocator {
+public:
+  virtual ~OutputAllocator() = default;
+
+  /// Set the name of the tensor.
+  virtual void setTensorName(const char *tensorName) = 0;
+
+  /// Set the current memory pointer.
+  virtual void setCurrentMemory(void *currentMemory) = 0;
+
+  /// Set the size of the output.
+  virtual void setOutputSize(const int64_t outputSize) = 0;
+
+  /// Reallocate output memory asynchronously.
+  virtual void *reallocateOutputAsync(char const *tensorName,
+                                      void *currentMemory, uint64_t size,
+                                      uint64_t alignment,
+                                      CudaStream /*stream*/) = 0;
+
+  /// Notify the shape of the tensor.
+  virtual void notifyShape(char const *tensorName, const int64_t *dims,
+                           int64_t nbDims) = 0;
+};
+
+/// Custom TensorRT output allocator implementation.
+class CustomTensorRTOuputAllocator : public OutputAllocator {
+public:
+  CustomTensorRTOuputAllocator() = default;
+  ~CustomTensorRTOuputAllocator();
+
+  /// Set the name of the tensor.
+  /// \note Methods are called just after construction. TODO: can they be called
+  /// during construction?
+  void setTensorName(const char *tensorName) override {
+    mTensorName = tensorName;
+  }
+
+  /// Set the current memory pointer.
+  void setCurrentMemory(void *currentMemory) override {
+    mCurrentMemory = currentMemory;
+  }
+
+  /// Set the size of the output.
+  void setOutputSize(int64_t outputSize) override { mOutputSize = outputSize; }
+
+  /// Reallocate output memory asynchronously.
+  void *reallocateOutputAsync(char const *tensorName, void *currentMemory,
+                              uint64_t size, uint64_t alignment,
+                              CudaStream /*stream*/) override;
+
+  /// Notify the shape of the tensor.
+  void notifyShape(char const *tensorName, const int64_t *dims,
+                   int64_t nbDims) override;
+
+  void *mOutputPtr{nullptr};           ///< nullptr if memory could not be allocated
+  uint64_t mOutputSize{0};             ///< Size of allocation pointed to by output.
+  bool mReallocateOutputCalled{false}; ///< Flag indicating if reallocateOutput was called
+  bool mNotifyShapeCalled{false};      ///< Flag indicating if notifyShape was called
+  std::vector<int64_t> mOutputDims;    ///< Dimensions of tensor.
+
+private:
+  const char *mTensorName;              ///< Name of the tensor
+  void *mCurrentMemory;                 ///< Current memory pointer
+};
+
+/// Class to track and manage multiple OutputAllocators.
+class OutputAllocatorTracker {
+public:
+  OutputAllocatorTracker() = default;
+  ~OutputAllocatorTracker() = default;
+
+  // Disable copy operations
+  OutputAllocatorTracker(const OutputAllocatorTracker &) = delete;
+  OutputAllocatorTracker &operator=(const OutputAllocatorTracker &) = delete;
+
+  // Enable move operations
+  OutputAllocatorTracker(OutputAllocatorTracker &&) = default;
+  OutputAllocatorTracker &operator=(OutputAllocatorTracker &&) = default;
+
+  /// Track a new OutputAllocator.
+  /// \param allocator Unique pointer to the OutputAllocator to be tracked.
+  void track(std::unique_ptr<OutputAllocator> allocator) {
+    mOutputAllocatorRegistry.emplace_back(std::move(allocator));
+  }
+
+  /// Get an OutputAllocator by index.
+  /// \param index The index of the OutputAllocator to retrieve.
+  /// \return Pointer to the OutputAllocator at the specified index.
+  OutputAllocator *get(int64_t index) {
+    return mOutputAllocatorRegistry[index].get();
+  }
+
+private:
+  /// Registry of OutputAllocators.
+  std::vector<std::unique_ptr<OutputAllocator>> mOutputAllocatorRegistry;
+};
+
+/// Manages output tensor descriptors for TensorRT execution.
+class OutputDescriptor {
+public:
+    /// Constructs an OutputDescriptor from a raw pointer.
+    ///
+    /// \param ptr Raw pointer to the descriptor data.
+    OutputDescriptor(uintptr_t ptr);
+
+    /// Returns the number of results in the descriptor.
+    int64_t getNumberOfResults() const;
+
+    /// Gets the rank of a specific tensor result.
+    ///
+    /// \param resultIndex Index of the result.
+    unsigned getRank(int resultIndex) const;
+
+    /// Sets the data pointer for a specific tensor result.
+    ///
+    /// \param resultIndex Index of the result to update.
+    /// \param ptr New data pointer value.
+    void setTensorDataPtr(int resultIndex, uintptr_t ptr);
+
+    /// Sets the shape for a specific tensor result.
+    ///
+    /// \param resultIndex Index of the result to update.
+    /// \param shape Vector containing the shape dimensions.
+    void setShape(int resultIndex, const std::vector<int64_t>& shape);
+
+    /// Sets the stride for a specific tensor result.
+    ///
+    /// \param resultIndex Index of the result to update.
+    /// \param stride Vector containing the stride values.
+    void setStride(int resultIndex, const std::vector<int64_t>& stride);
+
+private:
+    /// Pointer to the raw descriptor data.
+    int64_t* mData;
+
+    /// Total size of the descriptor data.
+    size_t mSize;
+
+    /// Calculates the index for a specific result in the descriptor.
+    size_t getIndexForResult(int resultIndex) const;
+
+    /// Calculates the total size of the descriptor.
+    static size_t calculateTotalSize(uintptr_t ptr);
+
+    /// Calculates the offset for a specific result in the descriptor.
+    static size_t calculateOffsetForResult(const int64_t* desc, int64_t resultIndex);
+
+    /// Fixed fields corresponding to rank, data ptr.
+    static constexpr int OUTPUT_DESC_FIXED_FIELDS = 2;
+};
+
 } // namespace mlirtrt
 
 #endif // MLIR_TENSORRT_SUPPORT_ALLOCATORS_H

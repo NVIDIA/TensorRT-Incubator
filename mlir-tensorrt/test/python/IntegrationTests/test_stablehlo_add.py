@@ -49,7 +49,9 @@ def stablehlo_add():
         device=devices[0],
         stream=stream,
     )
-    session.execute_function("main", in_args=[arg0], out_args=[arg1], stream=stream)
+    session.execute_function(
+        "main", in_args=[arg0], out_args=[arg1], stream=stream, client=client
+    )
 
     data = np.asarray(client.copy_to_host(arg1, stream=stream))
     stream.sync()
@@ -61,7 +63,9 @@ def stablehlo_add():
     num_iter = 5
     start_time = time.time()
     for _ in range(0, num_iter):
-        session.execute_function("main", in_args=[arg0], out_args=[arg0], stream=stream)
+        session.execute_function(
+            "main", in_args=[arg0], out_args=[arg0], stream=stream, client=client
+        )
     data = np.asarray(client.copy_to_host(arg1, stream=stream))
     stream.sync()
     end_time = time.time()
