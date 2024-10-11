@@ -19,14 +19,14 @@ from dataclasses import dataclass
 from tripy import export, constraints
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.trace.ops.utils import InferLenPolicies
+from tripy.frontend.trace.ops.utils import InferLenPolicies, TensorVariants
 
 
 @dataclass(repr=False)
 class Cast(BaseTraceOp):
     dtype: "tripy.common.dtype"
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.common.datatype import int32
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
@@ -34,9 +34,9 @@ class Cast(BaseTraceOp):
         # Only still a valid shape if it remains int32
         if self.dtype == int32:
             if isinstance(inputs[0], Shape):
-                return Result.ok({"shape": [0]})
+                return Result.ok({TensorVariants.SHAPE: [0]})
             elif isinstance(inputs[0], ShapeScalar):
-                return Result.ok({"scalar": [0]})
+                return Result.ok({TensorVariants.SCALAR: [0]})
 
         return Result.ok({})
 

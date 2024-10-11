@@ -49,7 +49,7 @@ class BinaryElementwise(BaseTraceOp):
             op_str = f"{self.kind}({self.inputs[0].name}, {self.inputs[1].name})"
         return f"{self.outputs[0].name} = {op_str}"
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         # To avoid issues, we do not permit both Shape and Tensor args and recommend explicit conversion if they do need to combined.
         # ShapeScalar args can be broadcast up into Shapes and so do not pose an issue.
         from tripy.frontend.shape import Shape, ShapeScalar
@@ -70,10 +70,10 @@ class BinaryElementwise(BaseTraceOp):
                         f" Indices of tensor arguments: {', '.join(tensor_arg_indices)}.",
                     ]
                 )
-            return Result.ok({"shape": [0]})
+            return Result.ok({op_utils.TensorVariants.SHAPE: [0]})
         elif all(map(lambda t: isinstance(t, ShapeScalar), inputs)):
             # Binary operation on ShapeScalar should yield another ShapeScalar.
-            return Result.ok({"scalar": [0]})
+            return Result.ok({op_utils.TensorVariants.SCALAR: [0]})
         else:
             return Result.ok({})
 
@@ -212,7 +212,7 @@ class Comparison(BinaryElementwise):
     kind: Kind.KindElem
 
     # the result of a comparison will be bool, so do not wrap
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.bool

@@ -75,6 +75,7 @@ class BaseTraceOp(abc.ABC):
 
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.frontend.tensor import Tensor
+        from tripy.frontend.trace.ops.utils import TensorVariants
 
         # NOTE: If you change the stack depth where the tensors are constructed, update STACK_DEPTH_OF_BUILD in
         # the Tensor constructor!
@@ -84,8 +85,8 @@ class BaseTraceOp(abc.ABC):
         out_trace_tensors = [out.trace_tensor for out in outputs]
         op = cls.build_internal(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
 
-        # wrap shape outputs if necessary
-        res = op.infer_shape_output_idxs(inputs)
+        # wrap outputs in Shape or ShapeScalar if necessary
+        res = op.infer_tensor_variants(inputs)
         if not res:
             custom_err = "" if not res.error_details else " Further information: " + "\n".join(res.error_details)
             shape_arg_idxs = [i for i in range(len(inputs)) if isinstance(inputs[i], Shape)]
@@ -94,7 +95,11 @@ class BaseTraceOp(abc.ABC):
                 f"Error processing shape inputs in operator {cls.__name__}{custom_err}\n(Shape input indices: {shape_arg_msg}.)"
             )
 
-        shape = res.value.get("shape")
+        assert all(
+            map(lambda k: k == TensorVariants.SHAPE or k == TensorVariants.SCALAR, res.value.keys())
+        ), "Invalid key returned by infer_tensor_variants"
+
+        shape = res.value.get(TensorVariants.SHAPE)
         if shape is not None:
             # for shape outputs, we infer the length
             if len(shape) != 0:
@@ -105,7 +110,7 @@ class BaseTraceOp(abc.ABC):
                 if inferred_lengths[idx] is not None:
                     out_trace_tensors[idx].shape = [inferred_lengths[idx]]
 
-        scalar_shape = res.value.get("scalar")
+        scalar_shape = res.value.get(TensorVariants.SCALAR)
         if scalar_shape is not None:
             for idx in scalar_shape:
                 outputs[idx] = ShapeScalar(outputs[idx])
@@ -114,7 +119,7 @@ class BaseTraceOp(abc.ABC):
             return outputs[0]
         return outputs
 
-    def infer_shape_output_idxs(self, inputs: List["Tensor"]) -> Result:
+    def infer_tensor_variants(self, inputs: List["Tensor"]) -> Result:
         """
         Given the operator's inputs, this method returns a `Result` containing a dict of the operator's output indices
         that should be wrapped in `tp.Shape` or `tp.ShapeScalar`.
@@ -133,15 +138,17 @@ class BaseTraceOp(abc.ABC):
             inputs: The operator's (front-end `Tensor`) inputs
 
         Returns:
-            A `Result` containing, if successful, a list of indices of outputs that should be converted to `tp.Shape`.
+            A `Result` containing, if successful, a dict keyed by `TensorVariants.SHAPE` and `TensorVariants.SCALAR` where the values
+            list which indices of the output should be wrapped in `tp.Shape` and `tp.ShapeScalar`, respectively.
         """
         from tripy.frontend.shape import Shape
+        from tripy.frontend.trace.ops.utils import TensorVariants
 
         is_shape = lambda t: isinstance(t, Shape)
 
         if any(map(is_shape, inputs)):
             if all(map(is_shape, inputs)):
-                return Result.ok({"shape": list(range(len(self.outputs))), "scalar": []})
+                return Result.ok({TensorVariants.SHAPE: list(range(len(self.outputs))), TensorVariants.SCALAR: []})
             return Result.err(["Either all inputs must be tp.Shape or all must be tp.Tensor."])
         return Result.ok({})
 
