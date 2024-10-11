@@ -246,26 +246,44 @@ def convert_inputs_to_tensors(
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
 
-            # TODO (#233): Disallow mixing Tensor/Shape. The workaround below works
-            # because ShapeScalars will typically be broadcasted in order to operate
-            # with Tensors/Shapes. Otherwise, Shape and ShapeScalar would have been
-            # at the same level of hierarchy.
-            #
-            # When a function has multiple arguments, the order of precedence is:
-            #
-            # 1. Tensor
-            # 2. Shape
-            # 3. ShapeScalar
-            #
-            # That is, if we have an operation with a mixture of types, all arguments are
-            # converted to the type with the highest precedence, e.g. Tensor + Shape -> Tensor.
+            # Disallow mixing Tensor and Shape by default. If it makes sense in a given function
+            # to have both Tensor and Shape arguments, that might suggest that custom handling
+            # rather than relying on this decorator would make sense.
+            tensor_args = []
+            shape_args = []
+            # Don't need special handling for ShapeScalars because they get broadcast up into larger sizes
+            # as needed -- can treat them as a tensor or a shape whenever we need
+            shape_scalar_encountered = False
+            for arg_name, arg in all_args:
+                if arg_name in exclude:
+                    continue
+                if isinstance(arg, Shape):
+                    shape_args.append((arg_name, arg))
+                elif isinstance(arg, ShapeScalar):
+                    shape_scalar_encountered = True
+                elif isinstance(arg, Tensor):
+                    tensor_args.append((arg_name, arg))
+
+            if len(shape_args) and len(tensor_args):
+
+                def format_args(arg_info):
+                    return ", ".join(map(lambda name_value: f"{name_value[1]} (`{name_value[0]}`)", arg_info))
+
+                raise_error(
+                    "This operator expects all arguments to be tp.Tensor or all to be tp.Shape but was given arguments of mixed types."
+                    " Consider explicitly converting between these types using tp.Shape(value) or value.as_tensor()."
+                    f" Arguments that are tp.Shape: {format_args(shape_args)}."
+                    f" Arguments that are tp.Tensor: {format_args(tensor_args)}."
+                )
+
+            # Result is a shape scalar only if we can't broadcast it up to anything else
             TensorType = None
-            MaxType = max(
-                (type(arg) for arg_name, arg in all_args if arg_name not in exclude),
-                key=lambda typ: {Tensor: 2, Shape: 1, ShapeScalar: 0}.get(typ, -1),
-            )
-            if issubclass(MaxType, Tensor):
-                TensorType = MaxType
+            if shape_scalar_encountered and not len(tensor_args) and not len(shape_args):
+                TensorType = ShapeScalar
+            if len(tensor_args):
+                TensorType = Tensor
+            if len(shape_args):
+                TensorType = Shape
 
             def get_arg(name: str):
                 for arg_name, arg in all_args:
