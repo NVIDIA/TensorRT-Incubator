@@ -4,7 +4,7 @@
 
 ## Model Compilation And Deployment
 
-Let's walk through a simple example of a [GEGLU](https://arxiv.org/abs/2002.05202v1) module defined below:
+Let's walk through a simple example of a [GEGLU](https://arxiv.org/abs/2002.05202) module defined below:
 
 ```py
 # doc: no-print-locals
