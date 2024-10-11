@@ -19,8 +19,8 @@ import copy
 import operator
 from typing import Any, Dict, Iterator, List, Tuple, Union, Sequence, TypeVar
 
-from tripy import export
-from tripy.common.exception import raise_error
+from tripy import export, utils
+from tripy.common.exception import raise_error, _make_stack_info_message
 from tripy.frontend.module.parameter import Parameter
 from tripy.logging import logger
 
@@ -41,11 +41,11 @@ def _check_param_compatible(original_param, new_param, param_name):
 
 
 def _is_homogeneous_container(container: Sequence, typ: T):
-    return all(isinstance(op, typ) for op in container)
+    return all(isinstance(elem, typ) for elem in container)
 
 
 def _contains_types(container: Sequence, types: type):
-    return any(any(isinstance(value, typ) for typ in types) for value in container)
+    return any(any(isinstance(elem, typ) for typ in types) for elem in container)
 
 
 @export.public_api(document_under="modules/index.rst")
@@ -106,10 +106,17 @@ class Module:
 
         if isinstance(value, List) or isinstance(value, Dict):
             container = value if isinstance(value, List) else value.values()
-            if _contains_types(container, [Parameter, Module]) and not (
-                _is_homogeneous_container(container, Parameter) or _is_homogeneous_container(container, Module)
+            if _contains_types(container, [Parameter, Module]) and (
+                not _is_homogeneous_container(container, Parameter) and not _is_homogeneous_container(container, Module)
             ):
-                logger.warning("A container of mixed types will not be registered with this module's state_dict().")
+                stack_info = utils.get_stack_info()
+                stack_info.fetch_source_code()
+                stack_info_msg = _make_stack_info_message(stack_info)
+
+                logger.warning(
+                    "A container of mixed types will not be registered with this module's state_dict()."
+                    + (f"\nNote: container was set here: {stack_info_msg}" if stack_info_msg else "")
+                )
 
     def state_dict(self) -> Dict[str, Parameter]:
         r"""
@@ -149,7 +156,7 @@ class Module:
 
         return state_dict
 
-    def load_from_state_dict(self, state_dict: Dict[str, Parameter]) -> None:
+    def load_state_dict(self, state_dict: Dict[str, Parameter]) -> None:
         r"""
         Loads parameters from the provided ``state_dict`` into the current module.
         This will recurse over any nested child modules.
@@ -176,7 +183,7 @@ class Module:
             print(f"Before: {module.param}")
 
             state_dict["param"] = tp.Parameter(tp.zeros((2,), dtype=tp.float32))
-            module.load_from_state_dict(state_dict)
+            module.load_state_dict(state_dict)
 
             print(f"After: {module.param}")
 
@@ -278,14 +285,10 @@ class Module:
         for name, value in vars(self).items():
             if isinstance(value, typ):
                 yield name, value
-            elif isinstance(value, List) and _contains_types(value, [typ]) and _is_homogeneous_container(value, typ):
+            elif isinstance(value, List) and _is_homogeneous_container(value, typ):
                 for i, obj in enumerate(value):
                     yield f"{name}.{i}", obj
-            elif (
-                isinstance(value, Dict)
-                and _contains_types(value.values(), [typ])
-                and _is_homogeneous_container(value.values(), typ)
-            ):
+            elif isinstance(value, Dict) and _is_homogeneous_container(value.values(), typ):
                 for key, obj in value.items():
                     yield f"{name}.{key}", obj
 

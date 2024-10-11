@@ -60,7 +60,7 @@ class Iota(BaseTraceOp):
     def infer_devices(self):
         from tripy.common import device
 
-        self.outputs[0].device = device("gpu")
+        self.outputs[0].device = device(("gpu", 0))
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicIotaOp

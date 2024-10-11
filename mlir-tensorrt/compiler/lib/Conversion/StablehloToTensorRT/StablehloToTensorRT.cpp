@@ -212,6 +212,10 @@ struct SortToTopK : public ConvertHloOpToTensorRTPattern<stablehlo::SortOp> {
   LogicalResult
   matchAndRewrite(stablehlo::SortOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     // We support `stablehlo::SortOp` op with one or two (conditional) operands.
     if (op->getOperands().size() > 2)
       return failure();
@@ -248,7 +252,8 @@ struct SortToTopK : public ConvertHloOpToTensorRTPattern<stablehlo::SortOp> {
     if (inputType.getElementType().isInteger(32)) {
       inputType = RankedTensorType::Builder(cast<RankedTensorType>(inputType))
                       .setElementType(rewriter.getF32Type());
-      valueOperand = castTensor(rewriter, inputType, valueOperand);
+      valueOperand = *castTensor(trtRewriter, targetTrtMajorVersion, inputType,
+                                 valueOperand);
     }
 
     // 1D input is not supported, so we expand it by appending 1
@@ -256,8 +261,12 @@ struct SortToTopK : public ConvertHloOpToTensorRTPattern<stablehlo::SortOp> {
       SmallVector<int64_t> expandedShape{inputType.getShape().front(), 1};
       inputType =
           RankedTensorType::get(expandedShape, inputType.getElementType());
-      valueOperand = rewriter.create<tensorrt::ExpandRankOp>(
-          op->getLoc(), inputType, valueOperand);
+      auto expandedValueOperand =
+          trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+              op->getLoc(), targetTrtMajorVersion, inputType, valueOperand);
+      if (!expandedValueOperand)
+        return failure();
+      valueOperand = expandedValueOperand;
     }
 
     // Max value of `k` can be 3840, as of TRT 8.6.1.
@@ -270,52 +279,74 @@ struct SortToTopK : public ConvertHloOpToTensorRTPattern<stablehlo::SortOp> {
       Value indexOperand = adaptor.getOperands()[1];
       if (failed(doesOperandRepresentIndices(op, indexOperand)))
         return failure();
-      auto topKOp = rewriter.create<tensorrt::TopKOp>(
-          op.getLoc(), valueOperand,
+      auto topKOp = trtRewriter.checkAndCreate<tensorrt::TopKOp>(
+          op.getLoc(), targetTrtMajorVersion, valueOperand,
           /*k=*/inputType.getDimSize(op.getDimension()),
           /*axis=*/static_cast<int64_t>(op.getDimension()), topKOpType);
+      if (!topKOp)
+        return failure();
       auto topKOpValues = topKOp.getValues();
       auto topKOpIndices = topKOp.getIndices();
 
-      if (topKOp.getType(0) != op.getType(0))
-        topKOpValues = castTensor(rewriter, op.getType(0), topKOpValues);
+      if (topKOp.getType(0) != op.getType(0)) {
+        auto castedTopKOpValues = castTensor(trtRewriter, targetTrtMajorVersion,
+                                             op.getType(0), topKOpValues);
+        if (failed(castedTopKOpValues))
+          return failure();
+        topKOpValues = *castedTopKOpValues;
+      }
 
       if (topKOpValues.getType().getRank() !=
           dyn_cast<RankedTensorType>(op.getType(0)).getRank()) {
-        topKOpValues = rewriter.create<tensorrt ::CollapseRankOp>(
-            op->getLoc(), dyn_cast<RankedTensorType>(op.getType(0)),
-            topKOpValues);
-        topKOpIndices = rewriter.create<tensorrt ::CollapseRankOp>(
-            op->getLoc(), dyn_cast<RankedTensorType>(op.getType(1)),
-            topKOpIndices);
+        auto collapsedTopKOpValues =
+            trtRewriter.checkAndCreate<tensorrt ::CollapseRankOp>(
+                op->getLoc(), targetTrtMajorVersion,
+                dyn_cast<RankedTensorType>(op.getType(0)), topKOpValues);
+        if (!collapsedTopKOpValues)
+          return failure();
+        topKOpValues = collapsedTopKOpValues;
+        auto collapsedTopKOpIndices =
+            trtRewriter.checkAndCreate<tensorrt ::CollapseRankOp>(
+                op->getLoc(), targetTrtMajorVersion,
+                dyn_cast<RankedTensorType>(op.getType(1)), topKOpIndices);
+        if (!collapsedTopKOpIndices)
+          return failure();
+        topKOpIndices = collapsedTopKOpIndices;
       }
 
-      rewriter.replaceOp(op, {topKOpValues, topKOpIndices});
+      trtRewriter.replaceOp(op, {topKOpValues, topKOpIndices});
       return success();
     }
 
     // We have only values as input
-    auto topKOpValues =
-        rewriter
-            .create<tensorrt::TopKOp>(
-                op.getLoc(), valueOperand,
-                /*k=*/inputType.getDimSize(op.getDimension()),
-                /*axis=*/static_cast<int64_t>(op.getDimension()), topKOpType)
-            .getValues();
+    auto topKOp = trtRewriter.checkAndCreate<tensorrt::TopKOp>(
+        op.getLoc(), targetTrtMajorVersion, valueOperand,
+        /*k=*/inputType.getDimSize(op.getDimension()),
+        /*axis=*/static_cast<int64_t>(op.getDimension()), topKOpType);
+    if (!topKOp)
+      return failure();
+    auto topKOpValues = topKOp.getValues();
 
-    if (topKOpValues.getType() != op.getType(0))
-      topKOpValues = castTensor(rewriter, op.getType(0), topKOpValues);
+    if (topKOpValues.getType() != op.getType(0)) {
+      auto castedTopKOpValues = castTensor(trtRewriter, targetTrtMajorVersion,
+                                           op.getType(0), topKOpValues);
+      if (failed(castedTopKOpValues))
+        return failure();
+      topKOpValues = *castedTopKOpValues;
+    }
 
     if (topKOpValues.getType().getRank() !=
-        dyn_cast<RankedTensorType>(op.getType(0)).getRank())
-      topKOpValues =
-          rewriter
-              .create<tensorrt ::CollapseRankOp>(
-                  op->getLoc(), dyn_cast<RankedTensorType>(op.getType(0)),
-                  topKOpValues)
-              .getResult();
+        dyn_cast<RankedTensorType>(op.getType(0)).getRank()) {
+      auto collapsedTopKOpValues =
+          trtRewriter.checkAndCreate<tensorrt ::CollapseRankOp>(
+              op->getLoc(), targetTrtMajorVersion,
+              dyn_cast<RankedTensorType>(op.getType(0)), topKOpValues);
+      if (!collapsedTopKOpValues)
+        return failure();
+      topKOpValues = collapsedTopKOpValues;
+    }
 
-    rewriter.replaceOp(op, topKOpValues);
+    trtRewriter.replaceOp(op, topKOpValues);
     return success();
   }
 };
@@ -325,10 +356,10 @@ struct SortToTopK : public ConvertHloOpToTensorRTPattern<stablehlo::SortOp> {
 /// operation if it is a simple reduction (e.g. sum, mul, max/min) that be
 /// converted 1-1. Caller must do the replacement, this just creates the new
 /// operation and returns the new value.
-static FailureOr<Value> convertSimpleReductions(RewriterBase &rewriter,
-                                                stablehlo::ReduceOp op,
-                                                int64_t reductionDim,
-                                                Value input, Value init) {
+static FailureOr<Value>
+convertSimpleReductions(TensorRTConversionPatternRewriter &rewriter,
+                        stablehlo::ReduceOp op, int64_t reductionDim,
+                        Value input, Value init, int64_t trtMajorVersion) {
   // TODO: verify the init is the neutral value based on the op below.
   if (!matchPattern(init, m_Constant()))
     return failure();
@@ -355,12 +386,14 @@ static FailureOr<Value> convertSimpleReductions(RewriterBase &rewriter,
   else
     return failure();
 
-  return rewriter
-      .create<tensorrt::ReduceOp>(loc, op.getType(0), input,
-                                  /*reduceDims=*/
-                                  SmallVector<int64_t>{reductionDim},
-                                  /*keepdims=*/false, reductionOp)
-      .getResult();
+  auto reduceOp = rewriter.checkAndCreate<tensorrt::ReduceOp>(
+      loc, trtMajorVersion, op.getType(0), input,
+      /*reduceDims=*/
+      SmallVector<int64_t>{reductionDim},
+      /*keepdims=*/false, reductionOp);
+  if (!reduceOp)
+    return failure();
+  return reduceOp.getResult();
 }
 
 static FailureOr<Value> convertBooleanReductions(RewriterBase &rewriter,
@@ -444,10 +477,10 @@ static RankedTensorType getCollapsedShape(RankedTensorType t,
 }
 
 /// Drop the unit dimension at `dimToDrop` from each of `values`.
-static SmallVector<Value> createRankReducedResults(RewriterBase &rewriter,
-                                                   Location loc,
-                                                   ResultRange values,
-                                                   int64_t dimToDrop) {
+static SmallVector<Value>
+createRankReducedResults(TensorRTConversionPatternRewriter &rewriter,
+                         Location loc, ResultRange values, int64_t dimToDrop,
+                         int64_t trtMajorVersion) {
   assert(!values.empty());
   SmallVector<Value> result;
   result.reserve(values.size());
@@ -457,27 +490,29 @@ static SmallVector<Value> createRankReducedResults(RewriterBase &rewriter,
            "expected value to have unit dim to drop");
     auto rtt = RankedTensorType::Builder(inputType);
     rtt.dropDim(dimToDrop);
-    Value collapsed =
-        rewriter.create<tensorrt::CollapseRankOp>(loc, Type(rtt), v);
+    Value collapsed = rewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+        loc, trtMajorVersion, Type(rtt), v);
     result.push_back(collapsed);
   }
   return result;
 }
 
 template <typename TensorRTOpType, stablehlo::ComparisonDirection dir>
-static LogicalResult
-matchAndReplaceStablehloArgMinMax(stablehlo::ReduceOp op,
-                                  RewriterBase &rewriter, Value operand,
-                                  ArrayRef<int64_t> reductionDims) {
+static LogicalResult matchAndReplaceStablehloArgMinMax(
+    stablehlo::ReduceOp op, TensorRTConversionPatternRewriter &rewriter,
+    Value operand, ArrayRef<int64_t> reductionDims, int64_t trtMajorVersion) {
   if (!matchPattern(op,
                     matchers::detail::StablehloArgMinMaxReduceMatcher<dir>()))
     return failure();
-  auto argMaxOp = rewriter.create<TensorRTOpType>(
-      op.getLoc(),
+  auto argMinOrMaxOp = rewriter.checkAndCreate<TensorRTOpType>(
+      op.getLoc(), trtMajorVersion,
       /*input=*/operand, /*axis=*/reductionDims.front());
   // Rank reduce the results.
+  if (!argMinOrMaxOp)
+    return failure();
   SmallVector<Value> replacements = createRankReducedResults(
-      rewriter, op.getLoc(), argMaxOp->getResults(), reductionDims.front());
+      rewriter, op.getLoc(), argMinOrMaxOp.getResults(), reductionDims.front(),
+      trtMajorVersion);
   rewriter.replaceOp(op, replacements);
   return success();
 }
@@ -491,18 +526,21 @@ struct ConvertReduceOp
   LogicalResult
   matchAndRewrite(stablehlo::ReduceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Value operand = adaptor.getInputs().front();
     auto inputType = cast<RankedTensorType>(operand.getType());
     SmallVector<int64_t> reductionDims = llvm::to_vector(op.getDimensions());
-
     // Try to match and handle the ArgMin/ArgMax cases.
     if (succeeded(matchAndReplaceStablehloArgMinMax<
                   tensorrt::ArgMaxOp, stablehlo::ComparisonDirection::GE>(
-            op, rewriter, operand, reductionDims)))
+            op, trtRewriter, operand, reductionDims, targetTrtMajorVersion)))
       return success();
     if (succeeded(matchAndReplaceStablehloArgMinMax<
                   tensorrt::ArgMinOp, stablehlo::ComparisonDirection::LE>(
-            op, rewriter, operand, reductionDims)))
+            op, trtRewriter, operand, reductionDims, targetTrtMajorVersion)))
       return success();
 
     // TRT can only handle single reduction dims right now. We can support
@@ -511,11 +549,14 @@ struct ConvertReduceOp
       llvm::sort(reductionDims);
       if (!isContiguousSequence(reductionDims))
         return failure();
-      operand = rewriter.create<tensorrt::ReshapeOp>(
-          op.getLoc(),
+      auto reshapedOperand = trtRewriter.checkAndCreate<tensorrt::ReshapeOp>(
+          op.getLoc(), targetTrtMajorVersion,
           getCollapsedShape(inputType, reductionDims.front(),
                             reductionDims.size()),
           operand);
+      if (!reshapedOperand)
+        return failure();
+      operand = reshapedOperand;
       reductionDims = SmallVector<int64_t>{reductionDims.front()};
     }
 
@@ -529,16 +570,17 @@ struct ConvertReduceOp
     FailureOr<Value> replacement = convertBooleanReductions(
         rewriter, op, reductionDims.front(), operand, init);
     if (succeeded(replacement)) {
-      rewriter.replaceOp(op, *replacement);
+      trtRewriter.replaceOp(op, *replacement);
       return success();
     }
 
-    replacement = convertSimpleReductions(rewriter, op, reductionDims.front(),
-                                          operand, init);
+    replacement =
+        convertSimpleReductions(trtRewriter, op, reductionDims.front(), operand,
+                                init, targetTrtMajorVersion);
     if (failed(replacement))
       return rewriter.notifyMatchFailure(
           op, "could not do simple reduction transform");
-    rewriter.replaceOp(op, *replacement);
+    trtRewriter.replaceOp(op, *replacement);
     return success();
   }
 };
@@ -552,6 +594,10 @@ struct ConvertDot : public ConvertHloOpToTensorRTPattern<stablehlo::DotOp> {
   LogicalResult
   matchAndRewrite(stablehlo::DotOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     TensorType resultType = op.getType();
     tensorrt::MatrixOperation qualifierLhs = tensorrt::MatrixOperation::kNONE;
     tensorrt::MatrixOperation qualifierRhs = tensorrt::MatrixOperation::kNONE;
@@ -563,9 +609,15 @@ struct ConvertDot : public ConvertHloOpToTensorRTPattern<stablehlo::DotOp> {
       qualifierRhs = tensorrt::MatrixOperation::kVECTOR;
 
     auto replaceWithMaybeCast = [&](TensorValue replacement) {
-      if (replacement.getType() != op.getType())
-        replacement = castTensor(rewriter, op.getType(), replacement);
-      rewriter.replaceOp(op, replacement);
+      if (replacement.getType() != op.getType()) {
+        auto castedReplacement = castTensor(trtRewriter, targetTrtMajorVersion,
+                                            op.getType(), replacement);
+        if (failed(castedReplacement))
+          return failure();
+        replacement = *castedReplacement;
+      }
+      trtRewriter.replaceOp(op, replacement);
+      return success();
     };
 
     Value lhs = adaptor.getLhs();
@@ -574,17 +626,26 @@ struct ConvertDot : public ConvertHloOpToTensorRTPattern<stablehlo::DotOp> {
     if (lhsType.getElementType().isInteger(32)) {
       resultType =
           cast<RankedTensorType>(op.getType()).clone(rewriter.getF32Type());
-      lhs = castTensor(rewriter, rewriter.getF32Type(), cast<TensorValue>(lhs));
-      rhs = castTensor(rewriter, rewriter.getF32Type(), cast<TensorValue>(rhs));
+      auto castedLhs =
+          castTensor(trtRewriter, targetTrtMajorVersion, rewriter.getF32Type(),
+                     cast<TensorValue>(lhs));
+      if (failed(castedLhs))
+        return failure();
+      lhs = *castedLhs;
+      auto castedRhs =
+          castTensor(trtRewriter, targetTrtMajorVersion, rewriter.getF32Type(),
+                     cast<TensorValue>(rhs));
+      if (failed(castedRhs))
+        return failure();
+      rhs = *castedRhs;
     }
+    auto replacement = trtRewriter.checkAndCreate<tensorrt::MatrixMultiplyOp>(
+        op->getLoc(), targetTrtMajorVersion, resultType, lhs, rhs, qualifierLhs,
+        qualifierRhs);
+    if (!replacement)
+      return failure();
 
-    auto replacement =
-        rewriter
-            .create<tensorrt::MatrixMultiplyOp>(op->getLoc(), resultType, lhs,
-                                                rhs, qualifierLhs, qualifierRhs)
-            .getResult();
-    replaceWithMaybeCast(replacement);
-    return success();
+    return replaceWithMaybeCast(replacement.getResult());
   }
 };
 
@@ -596,6 +657,10 @@ struct ConvertDotGeneral
   LogicalResult
   matchAndRewrite(stablehlo::DotGeneralOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     stablehlo::DotDimensionNumbersAttr dimNums = op.getDotDimensionNumbers();
     // Only convert if batch nums agree.
     ArrayRef<int64_t> lhsBatchDims = dimNums.getLhsBatchingDimensions();
@@ -611,9 +676,15 @@ struct ConvertDotGeneral
     TensorType rhsType = op.getRhs().getType();
 
     auto replaceWithMaybeCast = [&](TensorValue replacement) {
-      if (replacement.getType() != op.getType())
-        replacement = castTensor(rewriter, op.getType(), replacement);
-      rewriter.replaceOp(op, replacement);
+      if (replacement.getType() != op.getType()) {
+        auto castedReplacement = castTensor(trtRewriter, targetTrtMajorVersion,
+                                            op.getType(), replacement);
+        if (failed(castedReplacement))
+          return failure();
+        replacement = *castedReplacement;
+      }
+      trtRewriter.replaceOp(op, replacement);
+      return success();
     };
 
     Value lhs = adaptor.getLhs();
@@ -622,22 +693,30 @@ struct ConvertDotGeneral
     if (lhsType.getElementType().isInteger(32)) {
       resultType =
           cast<RankedTensorType>(op.getType()).clone(rewriter.getF32Type());
-      lhs = castTensor(rewriter, rewriter.getF32Type(), cast<TensorValue>(lhs));
-      rhs = castTensor(rewriter, rewriter.getF32Type(), cast<TensorValue>(rhs));
+      auto castedLhs =
+          castTensor(trtRewriter, targetTrtMajorVersion, rewriter.getF32Type(),
+                     cast<TensorValue>(lhs));
+      if (failed(castedLhs))
+        return failure();
+      lhs = *castedLhs;
+      auto castedRhs =
+          castTensor(trtRewriter, targetTrtMajorVersion, rewriter.getF32Type(),
+                     cast<TensorValue>(rhs));
+      if (failed(castedRhs))
+        return failure();
+      rhs = *castedRhs;
     }
-
     // When both operand ranks are same and rank equals batch dimensions for
     // each operand, this is an elementwise multiplication op.
     if ((lhsType.getRank() == rhsType.getRank()) &&
         (lhsType.getRank() == static_cast<int64_t>(lhsBatchDims.size())) &&
         (rhsType.getRank() == static_cast<int64_t>(rhsBatchDims.size()))) {
-      auto replacement = rewriter
-                             .create<tensorrt::ElementWiseOp>(
-                                 op->getLoc(), resultType, lhs, rhs,
-                                 tensorrt::ElementWiseOperation::kPROD)
-                             .getResult();
-      replaceWithMaybeCast(replacement);
-      return success();
+      auto replacement = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+          op->getLoc(), targetTrtMajorVersion, resultType, lhs, rhs,
+          tensorrt::ElementWiseOperation::kPROD);
+      if (!replacement)
+        return failure();
+      return replaceWithMaybeCast(replacement);
     }
 
     // Allow reshaping to conform to MatMul requirements.
@@ -650,12 +729,17 @@ struct ConvertDotGeneral
 
         SmallVector<int64_t> newLhsShape(lhsType.getShape());
         newLhsShape.insert(newLhsShape.end() - 2, 1, 1);
-        Value newLhs = rewriter.create<tensorrt::ExpandRankOp>(
-            op->getLoc(),
+        auto newLhs = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+            op->getLoc(), targetTrtMajorVersion,
             RankedTensorType::get(newLhsShape, lhsType.getElementType()), lhs);
+        if (!newLhs)
+          return failure();
 
-        auto matMulOp = rewriter.create<tensorrt::MatrixMultiplyOp>(
-            op->getLoc(), newLhs, rhs, qualifierLhs, qualifierRhs);
+        auto matMulOp = trtRewriter.checkAndCreate<tensorrt::MatrixMultiplyOp>(
+            op->getLoc(), targetTrtMajorVersion, newLhs.getResult(), rhs,
+            qualifierLhs, qualifierRhs);
+        if (!matMulOp)
+          return failure();
 
         // Convert the output shape to match the dot_general op's original
         // output shape.
@@ -664,9 +748,11 @@ struct ConvertDotGeneral
             llvm::to_vector(llvm::seq<unsigned>(0, rank));
         std::swap(perm[rank - 3], perm[rank - 2]);
         auto affineMap = AffineMap::getPermutationMap(perm, op->getContext());
-        auto transposeOp = rewriter.create<tensorrt::TransposeOp>(
-            op->getLoc(), matMulOp, affineMap);
-        rewriter.replaceOp(op, transposeOp.getResult());
+        auto transposeOp = trtRewriter.checkAndCreate<tensorrt::TransposeOp>(
+            op->getLoc(), targetTrtMajorVersion, matMulOp, affineMap);
+        if (!transposeOp)
+          return failure();
+        trtRewriter.replaceOp(op, transposeOp.getResult());
         return success();
       }
     }
@@ -704,14 +790,12 @@ struct ConvertDotGeneral
       // TODO: should this be an assert?
       return failure();
     }
-
-    auto replacement =
-        rewriter
-            .create<tensorrt::MatrixMultiplyOp>(op->getLoc(), resultType, lhs,
-                                                rhs, qualifierLhs, qualifierRhs)
-            .getResult();
-    replaceWithMaybeCast(replacement);
-    return success();
+    auto replacement = trtRewriter.checkAndCreate<tensorrt::MatrixMultiplyOp>(
+        op->getLoc(), targetTrtMajorVersion, resultType, lhs, rhs, qualifierLhs,
+        qualifierRhs);
+    if (!replacement)
+      return failure();
+    return replaceWithMaybeCast(replacement.getResult());
   }
 };
 } // namespace
@@ -797,10 +881,10 @@ tryReplaceEllipsis(StringRef input0, TensorType input0Type, StringRef input1,
 /// Given information for a `stablehlo.einsum` operation, try to match some
 /// common special cases that are currently unsupported by TensorRT. These can
 /// be manually.
-static FailureOr<Value> handleSpecialEinsum(RewriterBase &rewriter,
-                                            Location loc, StringRef equation,
-                                            TensorType resultType,
-                                            TensorValue lhs, TensorValue rhs) {
+static FailureOr<Value>
+handleSpecialEinsum(TensorRTConversionPatternRewriter &rewriter, Location loc,
+                    StringRef equation, TensorType resultType, TensorValue lhs,
+                    TensorValue rhs, int64_t trtMajorVersion) {
   SmallVector<StringRef> frags;
   llvm::SplitString(equation, frags, "->");
   assert(frags.size() == 2 && "expected an input and result fragment");
@@ -817,11 +901,14 @@ static FailureOr<Value> handleSpecialEinsum(RewriterBase &rewriter,
     FailureOr<std::string> ellipsisReplaced =
         tryReplaceEllipsis(input0, lhs.getType(), input1, rhs.getType(), res,
                            resultType, equation);
-    if (succeeded(ellipsisReplaced))
-      return rewriter
-          .create<tensorrt::EinsumOp>(loc, resultType, ValueRange{lhs, rhs},
-                                      rewriter.getStringAttr(*ellipsisReplaced))
-          .getResult();
+    if (succeeded(ellipsisReplaced)) {
+      auto einsumOp = rewriter.checkAndCreate<tensorrt::EinsumOp>(
+          loc, trtMajorVersion, resultType, ValueRange{lhs, rhs},
+          rewriter.getStringAttr(*ellipsisReplaced));
+      if (!einsumOp)
+        return failure();
+      return einsumOp.getResult();
+    }
   }
   return failure();
 }
@@ -834,16 +921,25 @@ struct ConvertEinsum
   LogicalResult
   matchAndRewrite(stablehlo::EinsumOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Type resultType =
         RankedTensorType::Builder(cast<RankedTensorType>(op.getType()))
             .setElementType(rewriter.getF32Type());
-
     // The result will always be a f32 tensor, so add an identity to convert if
     // required.
     auto replaceWithMaybeCast = [&](TensorValue replacement) {
-      if (replacement.getType() != op.getType())
-        replacement = castTensor(rewriter, op.getType(), replacement);
-      rewriter.replaceOp(op, replacement);
+      if (replacement.getType() != op.getType()) {
+        auto castedReplacement = castTensor(trtRewriter, targetTrtMajorVersion,
+                                            op.getType(), replacement);
+        if (failed(castedReplacement))
+          return failure();
+        replacement = *castedReplacement;
+      }
+      trtRewriter.replaceOp(op, replacement);
+      return success();
     };
 
     FailureOr<std::string> equation =
@@ -853,26 +949,23 @@ struct ConvertEinsum
 
     // Try to handle special cases, e.g. replace ellipses if possible.
     FailureOr<Value> specialCase = handleSpecialEinsum(
-        rewriter, op.getLoc(), *equation, cast<TensorType>(resultType),
+        trtRewriter, op.getLoc(), *equation, cast<TensorType>(resultType),
         cast<TensorValue>(adaptor.getLhs()),
-        cast<TensorValue>(adaptor.getRhs()));
+        cast<TensorValue>(adaptor.getRhs()), targetTrtMajorVersion);
     if (succeeded(specialCase)) {
-      replaceWithMaybeCast(cast<TensorValue>(*specialCase));
-      return success();
+      return replaceWithMaybeCast(cast<TensorValue>(*specialCase));
     }
     // Otherwise, proceed with a 1-1 swap.
     if (op.getEinsumConfig().contains("..."))
       return rewriter.notifyMatchFailure(
           op, "cannot convert einsum equations with ellipsis");
-    TensorValue replacement =
-        rewriter
-            .create<tensorrt::EinsumOp>(
-                op.getLoc(), resultType,
-                ValueRange{adaptor.getLhs(), adaptor.getRhs()},
-                rewriter.getStringAttr(*equation))
-            .getResult();
-    replaceWithMaybeCast(replacement);
-    return success();
+    auto replacement = trtRewriter.checkAndCreate<tensorrt::EinsumOp>(
+        op.getLoc(), targetTrtMajorVersion, resultType,
+        ValueRange{adaptor.getLhs(), adaptor.getRhs()},
+        trtRewriter.getStringAttr(*equation));
+    if (!replacement)
+      return failure();
+    return replaceWithMaybeCast(replacement.getResult());
   }
 };
 
@@ -886,6 +979,11 @@ struct HloBinaryOpConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       HloOpType op,
       typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    Location loc = op.getLoc();
+
     if (EwiseOpEnumValue == tensorrt::ElementWiseOperation::kXOR ||
         EwiseOpEnumValue == tensorrt::ElementWiseOperation::kOR ||
         EwiseOpEnumValue == tensorrt::ElementWiseOperation::kAND) {
@@ -897,13 +995,15 @@ struct HloBinaryOpConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
           !rhsType.getElementType().isInteger(1))
         return failure();
     }
-    Location loc = op.getLoc();
-    auto elementwiseOp = rewriter.create<tensorrt::ElementWiseOp>(
-        loc, /*result=*/op.getType(),
+
+    auto elementwiseOp = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, /*result=*/op.getType(),
         /*input1=*/adaptor.getLhs(),
         /*input2=*/adaptor.getRhs(),
         /*elementwiseOperation=*/EwiseOpEnumValue);
-    rewriter.replaceOp(op, elementwiseOp.getResult());
+    if (!elementwiseOp)
+      return failure();
+    trtRewriter.replaceOp(op, elementwiseOp.getResult());
     return success();
   }
 };
@@ -918,6 +1018,9 @@ struct HloUnaryOpConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       HloOpType op,
       typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Location loc = op.getLoc();
 
     auto operand = cast<TensorValue>(adaptor.getOperand());
@@ -926,7 +1029,11 @@ struct HloUnaryOpConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
     if (operandType.getRank() == 0) {
       RankedTensorType newShape =
           RankedTensorType::get({1}, operandType.getElementType());
-      operand = rewriter.create<tensorrt::ExpandRankOp>(loc, newShape, operand);
+      auto expOperand = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+          loc, targetTrtMajorVersion, newShape, operand);
+      if (!expOperand)
+        return failure();
+      operand = expOperand;
     }
 
     // kNOT only supports integer types, while hlo is bitwise.
@@ -937,26 +1044,27 @@ struct HloUnaryOpConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
     // I32 is unsupported, so cast to f32 first.
     if (operandType.getElementType().isInteger(32) &&
         UnaryOpEnumValue != tensorrt::UnaryOperation::kSIGN) {
-      operand = HloUnaryOpConverter::castTensor(rewriter, rewriter.getF32Type(),
-                                                operand);
+      operand = *HloUnaryOpConverter::castTensor(
+          trtRewriter, targetTrtMajorVersion, rewriter.getF32Type(), operand);
     }
-    TensorValue result =
-        rewriter
-            .create<tensorrt::UnaryOp>(loc, /*result=*/operand.getType(),
-                                       /*input=*/operand,
-                                       /*unaryOperation=*/UnaryOpEnumValue)
-            .getResult();
+    auto unaryOp = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        loc, targetTrtMajorVersion, /*result=*/operand.getType(),
+        /*input=*/operand,
+        /*unaryOperation=*/UnaryOpEnumValue);
+    if (!unaryOp)
+      return failure();
+    TensorValue result = unaryOp.getResult();
     // Cast back if required.
     if (result.getType().getElementType() != op.getType().getElementType())
-      result = HloUnaryOpConverter::castTensor(
-          rewriter, cast<RankedTensorType>(op.getType()).getElementType(),
-          result);
+      result = *HloUnaryOpConverter::castTensor(
+          trtRewriter, targetTrtMajorVersion,
+          cast<RankedTensorType>(op.getType()).getElementType(), result);
 
     if (result.getType().getRank() != op.getType().getRank())
-      result =
-          rewriter.create<tensorrt::CollapseRankOp>(loc, op.getType(), result);
+      result = trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+          loc, targetTrtMajorVersion, op.getType(), result);
 
-    rewriter.replaceOp(op, result);
+    trtRewriter.replaceOp(op, result);
     return success();
   }
 };
@@ -971,9 +1079,14 @@ struct HloUnaryOpToActivationConverter
       HloOpType op,
       typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Location loc = op.getLoc();
-    auto elementwiseOp = rewriter.create<tensorrt::ActivationOp>(
-        loc, /*result=*/op.getResult().getType(),
+
+    auto elementwiseOp = trtRewriter.checkAndCreate<tensorrt::ActivationOp>(
+        loc, targetTrtMajorVersion,
+        /*result=*/op.getResult().getType(),
         /*input=*/adaptor.getOperand(),
         /*activationType=*/activationType,
         tensorrt::ActivationOp::requiresAlphaAttribute(activationType)
@@ -982,7 +1095,9 @@ struct HloUnaryOpToActivationConverter
         tensorrt::ActivationOp::requiresBetaAttribute(activationType)
             ? rewriter.getF32FloatAttr(0.0)
             : FloatAttr());
-    rewriter.replaceOp(op, elementwiseOp->getResults());
+    if (!elementwiseOp)
+      return failure();
+    trtRewriter.replaceOp(op, elementwiseOp.getResult());
     return success();
   }
 };
@@ -995,13 +1110,20 @@ struct RsqrtConverter
   LogicalResult
   matchAndRewrite(stablehlo::RsqrtOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     auto type = cast<RankedTensorType>(op.getType());
-    auto recipOp = rewriter.create<tensorrt::UnaryOp>(
-        op.getLoc(), type, adaptor.getOperand(),
+    auto recipOp = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op.getLoc(), targetTrtMajorVersion, type, adaptor.getOperand(),
         tensorrt::UnaryOperation::kRECIP);
-    rewriter.replaceOpWithNewOp<tensorrt::UnaryOp>(
-        op, type, recipOp.getResult(), tensorrt::UnaryOperation::kSQRT);
-    return success();
+    if (!recipOp)
+      return failure();
+    auto sqrtOp = trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::UnaryOp>(
+        op, targetTrtMajorVersion, type, recipOp.getResult(),
+        tensorrt::UnaryOperation::kSQRT);
+    return sqrtOp ? success() : failure();
   }
 };
 
@@ -1024,30 +1146,37 @@ struct ConvertRemainder
   LogicalResult
   matchAndRewrite(stablehlo::RemOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Location loc = op.getLoc();
+
     TensorType resultType = op.getType();
     Type convertedResultType =
         this->getTypeConverter()->convertType(resultType);
+    if (!convertedResultType)
+      return failure();
     // Do "lhs - div(lhs, rhs) * rhs".
-    TensorValue floorDiv =
-        rewriter
-            .create<tensorrt::ElementWiseOp>(
-                loc, convertedResultType, adaptor.getLhs(), adaptor.getRhs(),
-                tensorrt::ElementWiseOperation::kDIV)
-            .getResult();
+    auto divOp = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, convertedResultType, adaptor.getLhs(),
+        adaptor.getRhs(), tensorrt::ElementWiseOperation::kDIV);
+    if (!divOp)
+      return failure();
+    TensorValue floorDiv = divOp.getResult();
     if (isa<FloatType>(resultType.getElementType())) {
-      floorDiv = ConvertHloOpToTensorRTPattern::castTensor(
-          rewriter, rewriter.getI32Type(), floorDiv);
-      floorDiv = ConvertHloOpToTensorRTPattern::castTensor(
-          rewriter, convertedResultType, floorDiv);
+      floorDiv = *ConvertHloOpToTensorRTPattern::castTensor(
+          trtRewriter, targetTrtMajorVersion, rewriter.getI32Type(), floorDiv);
+      floorDiv = *ConvertHloOpToTensorRTPattern::castTensor(
+          trtRewriter, targetTrtMajorVersion, convertedResultType, floorDiv);
     }
-    Value product = rewriter.create<tensorrt::ElementWiseOp>(
-        loc, convertedResultType, floorDiv, adaptor.getRhs(),
-        tensorrt::ElementWiseOperation::kPROD);
-    rewriter.replaceOpWithNewOp<tensorrt::ElementWiseOp>(
-        op, convertedResultType, adaptor.getLhs(), product,
-        tensorrt::ElementWiseOperation::kSUB);
-    return success();
+    Value product = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, convertedResultType, floorDiv,
+        adaptor.getRhs(), tensorrt::ElementWiseOperation::kPROD);
+    auto sumOp =
+        trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ElementWiseOp>(
+            op, targetTrtMajorVersion, convertedResultType, adaptor.getLhs(),
+            product, tensorrt::ElementWiseOperation::kSUB);
+    return sumOp ? success() : failure();
   }
 };
 
@@ -1058,79 +1187,104 @@ struct CompareConverter
   LogicalResult
   matchAndRewrite(stablehlo::CompareOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     TensorType resultType = op.getType();
     Location loc = op.getLoc();
 
-    auto convertI1ToI32 = [&](Value v) {
-      if (!cast<RankedTensorType>(v.getType()).getElementType().isInteger(1))
-        return v;
-      Value newV = rewriter.create<tensorrt::IdentityOp>(
-          v.getLoc(),
-          cast<RankedTensorType>(v.getType()).clone(rewriter.getI32Type()), v);
-      return newV;
-    };
-    Value lhs = convertI1ToI32(adaptor.getLhs());
-    Value rhs = convertI1ToI32(adaptor.getRhs());
+    TensorValue lhs = cast<TensorValue>(adaptor.getLhs());
+    TensorValue rhs = cast<TensorValue>(adaptor.getRhs());
+    // Convert i1 to i32
+    if (cast<RankedTensorType>(lhs.getType()).getElementType().isInteger(1)) {
+      lhs = *castTensor(trtRewriter, targetTrtMajorVersion,
+                        rewriter.getI32Type(), lhs);
+      rhs = *castTensor(trtRewriter, targetTrtMajorVersion,
+                        rewriter.getI32Type(), rhs);
+    }
     assert(lhs.getType() == rhs.getType() &&
            "lhs type should be equal to rhs type.");
 
     auto replaceWithEwise = [&](tensorrt::ElementWiseOperation ewiseOp) {
-      rewriter.replaceOpWithNewOp<tensorrt::ElementWiseOp>(op, resultType, lhs,
-                                                           rhs, ewiseOp);
+      auto newOp =
+          trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ElementWiseOp>(
+              op, targetTrtMajorVersion, resultType, lhs, rhs, ewiseOp);
+      return newOp ? success() : failure();
     };
 
     // Handle the simple cases with simple replacement.
     if (op.getComparisonDirection() == stablehlo::ComparisonDirection::EQ) {
-      replaceWithEwise(tensorrt::ElementWiseOperation::kEQUAL);
-      return success();
+      return replaceWithEwise(tensorrt::ElementWiseOperation::kEQUAL);
     }
     if (op.getComparisonDirection() == stablehlo::ComparisonDirection::LT) {
-      replaceWithEwise(tensorrt::ElementWiseOperation::kLESS);
-      return success();
+      return replaceWithEwise(tensorrt::ElementWiseOperation::kLESS);
     }
     if (op.getComparisonDirection() == stablehlo::ComparisonDirection::GT) {
-      replaceWithEwise(tensorrt::ElementWiseOperation::kGREATER);
-      return success();
+      return replaceWithEwise(tensorrt::ElementWiseOperation::kGREATER);
     }
 
     if (op.getComparisonDirection() == stablehlo::ComparisonDirection::LE) {
       // There is no "LE" for TensorRT, so replace with OR(LT,EQ).
-      Value eq = rewriter.create<tensorrt::ElementWiseOp>(
-          loc, resultType, lhs, rhs, tensorrt::ElementWiseOperation::kEQUAL);
-      Value lt = rewriter.create<tensorrt::ElementWiseOp>(
-          loc, resultType, lhs, rhs, tensorrt::ElementWiseOperation::kLESS);
-      rewriter.replaceOpWithNewOp<tensorrt::ElementWiseOp>(
-          op, resultType, eq, lt, tensorrt::ElementWiseOperation::kOR);
-      return success();
+      auto eqOp = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+          loc, targetTrtMajorVersion, resultType, lhs, rhs,
+          tensorrt::ElementWiseOperation::kEQUAL);
+      if (!eqOp)
+        return failure();
+      Value eq = eqOp.getResult();
+      Value lt = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+          loc, targetTrtMajorVersion, resultType, lhs, rhs,
+          tensorrt::ElementWiseOperation::kLESS);
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ElementWiseOp>(
+                 op, targetTrtMajorVersion, resultType, eq, lt,
+                 tensorrt::ElementWiseOperation::kOR)
+                 ? success()
+                 : failure();
     }
 
     if (op.getComparisonDirection() == stablehlo::ComparisonDirection::GE) {
       // There is no "GE" for TensorRT, so replace with OR(GT,EQ).
-      Value eq = rewriter.create<tensorrt::ElementWiseOp>(
-          loc, resultType, lhs, rhs, tensorrt::ElementWiseOperation::kEQUAL);
-      Value gt = rewriter.create<tensorrt::ElementWiseOp>(
-          loc, resultType, lhs, rhs, tensorrt::ElementWiseOperation::kGREATER);
-      rewriter.replaceOpWithNewOp<tensorrt::ElementWiseOp>(
-          op, resultType, eq, gt, tensorrt::ElementWiseOperation::kOR);
-      return success();
+      auto eqOp = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+          loc, targetTrtMajorVersion, resultType, lhs, rhs,
+          tensorrt::ElementWiseOperation::kEQUAL);
+      if (!eqOp)
+        return failure();
+      Value eq = eqOp.getResult();
+      Value gt = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+          loc, targetTrtMajorVersion, resultType, lhs, rhs,
+          tensorrt::ElementWiseOperation::kGREATER);
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ElementWiseOp>(
+                 op, targetTrtMajorVersion, resultType, eq, gt,
+                 tensorrt::ElementWiseOperation::kOR)
+                 ? success()
+                 : failure();
     }
 
     if (op.getComparisonDirection() == stablehlo::ComparisonDirection::NE) {
       // Convert NE to NOT(EQ).
-      Value eq = rewriter.create<tensorrt::ElementWiseOp>(
-          loc, resultType, lhs, rhs, tensorrt::ElementWiseOperation::kEQUAL);
+      auto eqOp = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+          loc, targetTrtMajorVersion, resultType, lhs, rhs,
+          tensorrt::ElementWiseOperation::kEQUAL);
+      if (!eqOp)
+        return failure();
+      Value eq = eqOp.getResult();
       // TensorRT unary ops need at least 1D tensor
       if (cast<RankedTensorType>(eq.getType()).getRank() == 0) {
         RankedTensorType newType =
             RankedTensorType::get({1}, resultType.getElementType());
-        eq = rewriter.create<tensorrt::ExpandRankOp>(loc, newType, eq);
+        auto expandOp = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+            loc, targetTrtMajorVersion, newType, eq);
+        if (!expandOp)
+          return failure();
+        eq = expandOp;
       }
-      Value ne = rewriter.create<tensorrt::UnaryOp>(
-          loc, eq.getType(), eq, tensorrt::UnaryOperation::kNOT);
+      Value ne = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+          loc, targetTrtMajorVersion, eq.getType(), eq,
+          tensorrt::UnaryOperation::kNOT);
       if (cast<RankedTensorType>(ne.getType()).getRank() !=
           resultType.getRank())
-        ne = rewriter.create<tensorrt::CollapseRankOp>(loc, resultType, ne);
-      rewriter.replaceOp(op, ne);
+        ne = trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+            loc, targetTrtMajorVersion, resultType, ne);
+      trtRewriter.replaceOp(op, ne);
       return success();
     }
     return rewriter.notifyMatchFailure(op, "unsupported comparison type");
@@ -1144,55 +1298,69 @@ struct ClampConverter
   LogicalResult
   matchAndRewrite(stablehlo::ClampOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    auto originalType = cast<RankedTensorType>(adaptor.getOperand().getType());
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
 
+    auto originalType = cast<RankedTensorType>(adaptor.getOperand().getType());
     auto valueOperand = cast<TensorValue>(adaptor.getOperand());
     auto valueMin = cast<TensorValue>(adaptor.getMin());
     auto valueMax = cast<TensorValue>(adaptor.getMax());
 
     // The clamp min/max values are either rank-0 or equal to the rank of the
     // operand.
-    auto maybeExpandBoundsRank = [&](TensorValue v) -> TensorValue {
+    auto maybeExpandBoundsRank = [&](TensorValue v) -> FailureOr<TensorValue> {
       if (v.getType().getRank() == originalType.getRank())
         return v;
       SmallVector<int64_t> newShape(originalType.getRank(), 1);
       Type expandedType =
           RankedTensorType::Builder(cast<RankedTensorType>(v.getType()))
               .setShape(newShape);
-      return rewriter
-          .create<tensorrt::ExpandRankOp>(op.getLoc(), expandedType, v)
-          .getResult();
+      auto expandOp = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+          op.getLoc(), targetTrtMajorVersion, expandedType, v);
+      if (!expandOp)
+        return failure();
+      return expandOp.getResult();
     };
 
     // I32 is unsupported, so cast to fp32.
     if (originalType.getElementType().isInteger(32)) {
       Type f32Type = rewriter.getF32Type();
-      valueOperand = ConvertHloOpToTensorRTPattern::castTensor(
-          rewriter, f32Type, valueOperand);
-      valueMin = ConvertHloOpToTensorRTPattern::castTensor(rewriter, f32Type,
-                                                           valueMin);
-      valueMax = ConvertHloOpToTensorRTPattern::castTensor(rewriter, f32Type,
-                                                           valueMax);
+      valueOperand = *ConvertHloOpToTensorRTPattern::castTensor(
+          trtRewriter, targetTrtMajorVersion, f32Type, valueOperand);
+      valueMin = *ConvertHloOpToTensorRTPattern::castTensor(
+          trtRewriter, targetTrtMajorVersion, f32Type, valueMin);
+      valueMax = *ConvertHloOpToTensorRTPattern::castTensor(
+          trtRewriter, targetTrtMajorVersion, f32Type, valueMax);
     }
 
-    Value lowerBound = rewriter.create<tensorrt::ElementWiseOp>(
-        op->getLoc(), valueOperand.getType(), valueOperand,
-        maybeExpandBoundsRank(valueMin), tensorrt::ElementWiseOperation::kMAX);
-
-    TensorValue result = rewriter
-                             .create<tensorrt::ElementWiseOp>(
-                                 op->getLoc(), lowerBound.getType(), lowerBound,
-                                 maybeExpandBoundsRank(valueMax),
-                                 tensorrt::ElementWiseOperation::kMIN)
-                             .getResult();
+    auto maybeExpandedMin = maybeExpandBoundsRank(valueMin);
+    if (failed(maybeExpandedMin))
+      return failure();
+    auto maxOp = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op->getLoc(), targetTrtMajorVersion, valueOperand.getType(),
+        valueOperand, *maybeExpandedMin, tensorrt::ElementWiseOperation::kMAX);
+    if (!maxOp)
+      return failure();
+    Value lowerBound = maxOp.getResult();
+    auto maybeExpandedMax = maybeExpandBoundsRank(valueMax);
+    if (failed(maybeExpandedMax))
+      return failure();
+    TensorValue result =
+        (trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+             op->getLoc(), targetTrtMajorVersion, lowerBound.getType(),
+             lowerBound, *maybeExpandedMax,
+             tensorrt::ElementWiseOperation::kMIN))
+            .getResult();
 
     // Cast back if required.
     if (result.getType() != originalType) {
-      rewriter.replaceOp(op, ConvertHloOpToTensorRTPattern::castTensor(
-                                 rewriter, originalType, result));
+      trtRewriter.replaceOp(
+          op, *ConvertHloOpToTensorRTPattern::castTensor(
+                  trtRewriter, targetTrtMajorVersion, originalType, result));
       return success();
     }
-    rewriter.replaceOp(op, result);
+    trtRewriter.replaceOp(op, result);
     return success();
   }
 };
@@ -1295,7 +1463,7 @@ getTransposeForReduceWindow(ArrayRef<int64_t> windowDims) {
 namespace {
 /// Convert `jnp.cumsum` expressed as `stablehlo.reduce_window<add>` to
 /// `tensorrt.convolution`.
-/// This pass only supports cases where the input of jnp.cumsum is <= 3D,
+/// This pattern only supports cases where the input of jnp.cumsum is <= 3D,
 /// and the input precision is F16, F32, or I32.
 struct ConvertCumsum
     : public ConvertHloOpToTensorRTPattern<stablehlo::ReduceWindowOp> {
@@ -1303,6 +1471,10 @@ struct ConvertCumsum
   LogicalResult
   matchAndRewrite(stablehlo::ReduceWindowOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     auto addOp =
         dyn_cast_or_null<stablehlo::AddOp>(getWindowReductionOp(op, 0));
     if (!addOp)
@@ -1387,8 +1559,8 @@ struct ConvertCumsum
     };
     auto convertToF32IfI32 = [&](Value v) {
       if (checkI32(v)) {
-        Value newV = rewriter.create<tensorrt::IdentityOp>(
-            v.getLoc(),
+        Value newV = trtRewriter.checkAndCreate<tensorrt::IdentityOp>(
+            v.getLoc(), targetTrtMajorVersion,
             cast<RankedTensorType>(v.getType()).clone(rewriter.getF32Type()),
             v);
         return newV;
@@ -1397,8 +1569,8 @@ struct ConvertCumsum
     };
     auto convertToI32IfItWas = [&](Value v) {
       if (checkI32(adaptor.getInputs().front())) {
-        Value newV = rewriter.create<tensorrt::IdentityOp>(
-            v.getLoc(),
+        Value newV = trtRewriter.checkAndCreate<tensorrt::IdentityOp>(
+            v.getLoc(), targetTrtMajorVersion,
             cast<RankedTensorType>(v.getType()).clone(rewriter.getI32Type()),
             v);
         return newV;
@@ -1407,37 +1579,47 @@ struct ConvertCumsum
     };
 
     Value input = convertToF32IfI32(adaptor.getInputs().front());
-    Value convInput = rewriter.create<tensorrt::ExpandRankOp>(
-        op->getLoc(),
+    auto expandedInput = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+        op->getLoc(), targetTrtMajorVersion,
         RankedTensorType::get(
             convInputShape,
             cast<RankedTensorType>(input.getType()).getElementType()),
         input);
+    if (!expandedInput)
+      return failure();
+    Value convInput = expandedInput.getResult();
     auto convKernelType =
         cast<RankedTensorType>(convInput.getType()).clone(convKernelShape);
-    Value convKernel = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    auto kernelConstant = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*weights=*/
         DenseElementsAttr::get(
             convKernelType,
             getConstantAttrOf(convKernelType.getElementType(), 1.)));
+    if (!kernelConstant)
+      return failure();
 
-    auto conv = rewriter.create<tensorrt::ConvolutionOp>(
-        op->getLoc(), convInput.getType(),
+    auto conv = trtRewriter.checkAndCreate<tensorrt::ConvolutionOp>(
+        op->getLoc(), targetTrtMajorVersion, convInput.getType(),
         /*input=*/convInput,
-        /*kernel=*/convKernel,
+        /*kernel=*/kernelConstant.getResult(),
         /*bias=*/Value(),
         /*stride=*/windowStrides,
         /*pre_padding=*/prePaddings,
         /*post_padding=*/postPaddings,
         /*num_groups=*/1,
         /*dilation=*/windowDilations);
+    if (!conv)
+      return failure();
 
     // Restore the original shape and element type
-    auto reshape = rewriter.create<tensorrt::ReshapeOp>(
-        op->getLoc(), inputType, convertToI32IfItWas(conv));
+    auto reshape = trtRewriter.checkAndCreate<tensorrt::ReshapeOp>(
+        op->getLoc(), targetTrtMajorVersion, inputType,
+        convertToI32IfItWas(conv));
+    if (!reshape)
+      return failure();
 
-    rewriter.replaceOp(op, reshape);
+    trtRewriter.replaceOp(op, reshape);
 
     return success();
   }
@@ -1462,6 +1644,9 @@ struct ConvertReduceWindow
   LogicalResult
   matchAndRewrite(stablehlo::ReduceWindowOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     if (op->getNumResults() != 1)
       return rewriter.notifyMatchFailure(op, "expected one input to windowOp");
@@ -1514,10 +1699,12 @@ struct ConvertReduceWindow
         return rewriter.notifyMatchFailure(
             op, "failed to calculate transpose permutation");
 
-      // Transpose the input and all the attributes.
       permMap = AffineMap::getPermutationMap(*perm, rewriter.getContext());
-      input =
-          rewriter.create<tensorrt::TransposeOp>(op.getLoc(), input, permMap);
+      auto transposedInput = trtRewriter.checkAndCreate<tensorrt::TransposeOp>(
+          op.getLoc(), targetTrtMajorVersion, input, permMap);
+      if (!transposedInput)
+        return failure();
+      input = transposedInput;
       padding.first = permMap.compose(padding.first);
       padding.second = permMap.compose(padding.second);
       windowStrides = permMap.compose(windowStrides);
@@ -1543,11 +1730,13 @@ struct ConvertReduceWindow
 
     auto replaceOp = [&](TypedValue<RankedTensorType> result) {
       if (!permMap.isIdentity()) {
-        rewriter.replaceOpWithNewOp<tensorrt::TransposeOp>(
-            op, result, mlir::inversePermutation(permMap));
-        return success();
+        return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::TransposeOp>(
+                   op, targetTrtMajorVersion, result,
+                   mlir::inversePermutation(permMap))
+                   ? success()
+                   : failure();
       }
-      rewriter.replaceOp(op, result);
+      trtRewriter.replaceOp(op, result);
       return success();
     };
 
@@ -1556,8 +1745,8 @@ struct ConvertReduceWindow
     SmallVector<int64_t> zeros(windowDims.size(), 0);
     auto resultType = cast<RankedTensorType>(op.getType(0));
     resultType = resultType.clone(permMap.compose(resultType.getShape()));
-    auto poolOp = rewriter.create<tensorrt::PoolingOp>(
-        op.getLoc(), resultType, input,
+    auto poolOp = trtRewriter.checkAndCreate<tensorrt::PoolingOp>(
+        op.getLoc(), targetTrtMajorVersion, resultType, input,
         /*windowSize=*/ArrayRef(windowDims).drop_front(numBatchDims),
         /*stride=*/ArrayRef(windowStrides).drop_front(numBatchDims),
         /*prePadding=*/ArrayRef(padding.first).drop_front(numBatchDims),
@@ -1567,7 +1756,8 @@ struct ConvertReduceWindow
         *poolingType == tensorrt::PoolingType::kMAX
             ? nullptr
             : rewriter.getBoolAttr(true));
-
+    if (!poolOp)
+      return failure();
     if (*poolingType == tensorrt::PoolingType::kMAX)
       return replaceOp(poolOp.getResult());
 
@@ -1578,14 +1768,19 @@ struct ConvertReduceWindow
                               inputType.getElementType());
     int64_t windowVolume = std::accumulate(windowDims.begin(), windowDims.end(),
                                            1, std::multiplies<>());
-    Value windowVolConst = rewriter.create<tensorrt::ConstantOp>(
-        op.getLoc(), constShape,
+    auto windowVolConst = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op.getLoc(), targetTrtMajorVersion, constShape,
         DenseElementsAttr::get(
             constShape,
             getConstantAttrOf(constShape.getElementType(), windowVolume)));
-    auto elwiseOp = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(), poolOp.getType(), poolOp.getResult(), windowVolConst,
+    if (!windowVolConst)
+      return failure();
+    auto elwiseOp = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion, poolOp.getType(),
+        poolOp.getResult(), windowVolConst,
         tensorrt::ElementWiseOperation::kPROD);
+    if (!elwiseOp)
+      return failure();
     return replaceOp(elwiseOp.getResult());
   }
 };
@@ -1665,6 +1860,10 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       HloOpType op,
       typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     auto originalType = cast<RankedTensorType>(op.getType());
     auto convertedType = dyn_cast_or_null<RankedTensorType>(
         this->getTypeConverter()->convertType(originalType));
@@ -1672,7 +1871,6 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       return failure();
     RankedTensorType supportedConstantType =
         convertToLegalConstantType(convertedType);
-
     ElementsAttr constValueAttr = op.getValue();
     if (failed(convertConstant(rewriter, op, constValueAttr, originalType,
                                supportedConstantType)))
@@ -1683,8 +1881,11 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
     auto replaceRoot = [&](TypedValue<RankedTensorType> replacement) {
       // We may need an identity operation to convert back to boolean.
-      rewriter.replaceOp(op, HloConstantConverter::castTensor(
-                                 rewriter, convertedType, replacement));
+      auto casted = HloConstantConverter::castTensor(
+          trtRewriter, targetTrtMajorVersion, convertedType, replacement);
+      if (failed(casted))
+        return failure();
+      trtRewriter.replaceOp(op, *casted);
       return success();
     };
 
@@ -1696,19 +1897,27 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
                 constValueAttr.getElementType().getIntOrFloatBitWidth() >=
             1024 * 1024 &&
         isa<DenseElementsAttr>(constValueAttr);
-
-    if (!isBigSplat)
-      return replaceRoot(rewriter.create<mlir::tensorrt::ConstantOp>(
-          op.getLoc(), constValueAttr));
-
-    auto constOp = rewriter.create<mlir::tensorrt::ConstantOp>(
-        op.getLoc(), cast<DenseElementsAttr>(constValueAttr)
-                         .resizeSplat(constValueAttr.getShapedType().clone(
-                             SmallVector<int64_t>(originalType.getRank(), 1))));
-    auto broadcastOp = rewriter.create<tensorrt::BroadcastOp>(
-        op.getLoc(), supportedConstantType, constOp.getResult(),
+    if (!isBigSplat) {
+      auto constOp = trtRewriter.checkAndCreate<mlir::tensorrt::ConstantOp>(
+          op.getLoc(), targetTrtMajorVersion, constValueAttr);
+      if (!constOp)
+        return failure();
+      return replaceRoot(constOp.getResult());
+    }
+    auto constOp = trtRewriter.checkAndCreate<mlir::tensorrt::ConstantOp>(
+        op.getLoc(), targetTrtMajorVersion,
+        cast<DenseElementsAttr>(constValueAttr)
+            .resizeSplat(constValueAttr.getShapedType().clone(
+                SmallVector<int64_t>(originalType.getRank(), 1))));
+    if (!constOp)
+      return failure();
+    auto broadcastOp = trtRewriter.checkAndCreate<tensorrt::BroadcastOp>(
+        op.getLoc(), targetTrtMajorVersion, supportedConstantType,
+        constOp.getResult(),
         llvm::to_vector(llvm::seq<int64_t>(0, originalType.getRank())));
-    return replaceRoot(broadcastOp);
+    if (!broadcastOp)
+      return failure();
+    return replaceRoot(broadcastOp.getResult());
   }
 };
 } // namespace
@@ -1722,6 +1931,10 @@ struct HloSliceConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       HloOpType op,
       typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     // Get the values for the start, size, and stop indices. These must be
     // converted to i32 in a safe manner.
     Location loc = op.getLoc();
@@ -1740,13 +1953,16 @@ struct HloSliceConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
     if (failed(i32Shape))
       return rewriter.notifyMatchFailure(op,
                                          "could not convert i64 shape to i32");
-    auto sliceOp = rewriter.create<mlir::tensorrt::SliceOp>(
-        op.getLoc(), adaptor.getOperand(), *startIndices, *i32Shape, *strides);
+    auto sliceOp = trtRewriter.checkAndCreate<mlir::tensorrt::SliceOp>(
+        op.getLoc(), targetTrtMajorVersion, adaptor.getOperand(), *startIndices,
+        *i32Shape, *strides);
+    if (!sliceOp)
+      return failure();
 
     // This should always be true since the semantics of the HLO slice op and
     // the TensorRT slice op align.
     assert(sliceOp.getType().getShape() == op.getType().getShape());
-    rewriter.replaceOp(op, sliceOp.getResult());
+    trtRewriter.replaceOp(op, sliceOp.getResult());
     return success();
   }
 };
@@ -1758,25 +1974,37 @@ struct HloSliceConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 /// There is no ceil divide in TRT. We don't take advantage of static dimension
 /// information in the result because TRT requires the size for all dimensions
 /// to be packaged into a single tensor.
-static Value calculateSliceSize(OpBuilder &b, Location loc, Value offset,
-                                Value limit, Value stride) {
-  Value limitMinusOffset =
-      b.create<tensorrt::ElementWiseOp>(loc, offset.getType(), limit, offset,
-                                        tensorrt::ElementWiseOperation::kSUB);
-  Value one = b.create<tensorrt::ConstantOp>(
-      loc, stride.getType(),
+static FailureOr<Value> calculateSliceSize(TensorRTConversionPatternRewriter &r,
+                                           int64_t trtMajorVersion,
+                                           Location loc, Value offset,
+                                           Value limit, Value stride) {
+  auto limitMinusOffset = r.checkAndCreate<tensorrt::ElementWiseOp>(
+      loc, trtMajorVersion, offset.getType(), limit, offset,
+      tensorrt::ElementWiseOperation::kSUB);
+  if (!limitMinusOffset)
+    return failure();
+
+  Value one = r.checkAndCreate<tensorrt::ConstantOp>(
+      loc, trtMajorVersion, stride.getType(),
       DenseElementsAttr::get(
           cast<ShapedType>(stride.getType()),
-          b.getIntegerAttr(
+          r.getIntegerAttr(
               cast<RankedTensorType>(stride.getType()).getElementType(), 1)));
-  Value strideMinusOne = b.create<tensorrt::ElementWiseOp>(
-      loc, offset.getType(), stride, one, tensorrt::ElementWiseOperation::kSUB);
-  Value numerator = b.create<tensorrt::ElementWiseOp>(
-      loc, offset.getType(), limitMinusOffset, strideMinusOne,
-      tensorrt::ElementWiseOperation::kSUM);
-  return b.create<tensorrt::ElementWiseOp>(
-      loc, offset.getType(), numerator, stride,
-      tensorrt::ElementWiseOperation::kDIV);
+
+  auto strideMinusOne = r.checkAndCreate<tensorrt::ElementWiseOp>(
+      loc, trtMajorVersion, offset.getType(), stride, one,
+      tensorrt::ElementWiseOperation::kSUB);
+  if (!strideMinusOne)
+    return failure();
+  auto numerator = r.checkAndCreate<tensorrt::ElementWiseOp>(
+      loc, trtMajorVersion, offset.getType(), limitMinusOffset.getResult(),
+      strideMinusOne.getResult(), tensorrt::ElementWiseOperation::kSUM);
+  if (!numerator)
+    return failure();
+  return (r.checkAndCreate<tensorrt::ElementWiseOp>(
+              loc, trtMajorVersion, offset.getType(), numerator.getResult(),
+              stride, tensorrt::ElementWiseOperation::kDIV))
+      .getResult();
 }
 
 namespace {
@@ -1787,15 +2015,26 @@ struct RealDynamicSliceConverter
   LogicalResult
   matchAndRewrite(stablehlo::RealDynamicSliceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    Type resultType = getTypeConverter()->convertType(op.getType());
     Location loc = op.getLoc();
-    Value sliceSize =
-        calculateSliceSize(rewriter, loc, adaptor.getStartIndices(),
-                           adaptor.getLimitIndices(), adaptor.getStrides());
-    rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
-        op, getTypeConverter()->convertType(op.getType()), adaptor.getOperand(),
-        /*offset=*/adaptor.getStartIndices(), /*size=*/sliceSize,
-        /*stride=*/adaptor.getStrides(), tensorrt::SliceMode::kDEFAULT);
-    return success();
+
+    if (!resultType)
+      return failure();
+
+    FailureOr<Value> sliceSize = calculateSliceSize(
+        trtRewriter, targetTrtMajorVersion, loc, adaptor.getStartIndices(),
+        adaptor.getLimitIndices(), adaptor.getStrides());
+    if (failed(sliceSize))
+      return failure();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
+               op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
+               /*offset=*/adaptor.getStartIndices(), /*size=*/*sliceSize,
+               /*stride=*/adaptor.getStrides(), tensorrt::SliceMode::kDEFAULT)
+               ? success()
+               : failure();
   }
 };
 
@@ -1810,6 +2049,10 @@ struct DynamicSliceConverter
   LogicalResult
   matchAndRewrite(stablehlo::DynamicSliceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     auto resultType = getTypeConverter()->convertType(op.getType());
     if (!resultType)
       return failure();
@@ -1826,8 +2069,8 @@ struct DynamicSliceConverter
       if (cast<TensorType>(offsetValue.getType()).getElementType() != i32Type)
         return rewriter.notifyMatchFailure(
             op, "offset tensors must have i32 element type");
-      reshapedIndices.push_back(
-          rewriter.create<tensorrt::ReshapeOp>(loc, scalar1DType, offsetValue));
+      reshapedIndices.push_back(trtRewriter.checkAndCreate<tensorrt::ReshapeOp>(
+          loc, targetTrtMajorVersion, scalar1DType, offsetValue));
     }
 
     // Then concatenate them together.
@@ -1835,22 +2078,24 @@ struct DynamicSliceConverter
     Value dynamicOffsets =
         reshapedIndices.size() == 1
             ? reshapedIndices.front()
-            : rewriter.create<tensorrt::ConcatenationOp>(loc, reshapedIndices,
-                                                         /*axis=*/0);
+            : trtRewriter.checkAndCreate<tensorrt::ConcatenationOp>(
+                  loc, targetTrtMajorVersion, reshapedIndices,
+                  /*axis=*/0);
     MLIRContext *ctx = getContext();
     SmallVector<int32_t> size = llvm::to_vector(
         llvm::map_range(op.getSliceSizes(), [](int64_t element) {
           return static_cast<int32_t>(element);
         }));
-    rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
-        op, resultType, adaptor.getOperand(),
-        /*start=*/dynamicOffsets,
-        /*size=*/
-        DenseI32ArrayAttr::get(ctx, size),
-        /*stride=*/
-        DenseI32ArrayAttr::get(ctx, SmallVector<int32_t>(resultRank, 1)),
-        /*mode=*/tensorrt::SliceMode::kDEFAULT);
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
+               op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
+               /*start=*/dynamicOffsets,
+               /*size=*/
+               DenseI32ArrayAttr::get(ctx, size),
+               /*stride=*/
+               DenseI32ArrayAttr::get(ctx, SmallVector<int32_t>(resultRank, 1)),
+               /*mode=*/tensorrt::SliceMode::kDEFAULT)
+               ? success()
+               : failure();
   }
 };
 
@@ -1862,12 +2107,18 @@ struct ConvertBroadcastInDim
   LogicalResult
   matchAndRewrite(stablehlo::BroadcastInDimOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<tensorrt::BroadcastOp>(
-        op, this->getTypeConverter()->convertType(op.getType()),
-        adaptor.getOperand(),
-        DenseI64ArrayAttr::get(rewriter.getContext(),
-                               op.getBroadcastDimensions()));
-    return success();
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    Type resultType = this->getTypeConverter()->convertType(op.getType());
+    if (!resultType)
+      return failure();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::BroadcastOp>(
+               op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
+               DenseI64ArrayAttr::get(rewriter.getContext(),
+                                      op.getBroadcastDimensions()))
+               ? success()
+               : failure();
   }
 };
 
@@ -1878,13 +2129,19 @@ struct ConvertDynamicBroadcastInDim
   LogicalResult
   matchAndRewrite(stablehlo::DynamicBroadcastInDimOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Type newType = this->getTypeConverter()->convertType(op.getType());
     if (!newType)
       return failure();
-    rewriter.replaceOpWithNewOp<tensorrt::BroadcastOp>(
-        op, newType, adaptor.getOperand(), adaptor.getOutputDimensions(),
-        rewriter.getDenseI64ArrayAttr(op.getBroadcastDimensions()));
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::BroadcastOp>(
+               op, targetTrtMajorVersion, newType, adaptor.getOperand(),
+               adaptor.getOutputDimensions(),
+               rewriter.getDenseI64ArrayAttr(op.getBroadcastDimensions()))
+               ? success()
+               : failure();
   }
 };
 
@@ -1895,28 +2152,37 @@ struct ConvertBroadcast
   LogicalResult
   matchAndRewrite(stablehlo::BroadcastOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     int64_t numLeadingDimensions = op.getBroadcastSizes().size();
     if (numLeadingDimensions == 0)
       return failure();
-
     // Lowering is easier if we first expand rank and then broadcast. This is
     // equal to a tile.
     auto resultType =
         cast<RankedTensorType>(getTypeConverter()->convertType(op.getType()));
+    if (!resultType)
+      return failure();
     SmallVector<int64_t> resultShape(resultType.getShape());
     for (int64_t i = 0; i < numLeadingDimensions; i++)
       resultShape[i] = 1;
     RankedTensorType reshapeType =
         RankedTensorType::Builder(resultType).setShape(resultShape);
-    Value reshapeResult = rewriter.create<tensorrt::ExpandRankOp>(
-        op.getLoc(), reshapeType, adaptor.getOperand());
+
+    auto reshapeResult = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+        op.getLoc(), targetTrtMajorVersion, reshapeType, adaptor.getOperand());
+    if (!reshapeResult)
+      return failure();
 
     auto broadcastDims =
         llvm::to_vector(llvm::seq<int64_t>(0, op.getType().getRank()));
-    rewriter.replaceOpWithNewOp<tensorrt::BroadcastOp>(
-        op, this->getTypeConverter()->convertType(op.getType()), reshapeResult,
-        DenseI64ArrayAttr::get(rewriter.getContext(), broadcastDims));
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::BroadcastOp>(
+               op, targetTrtMajorVersion, resultType, reshapeResult.getResult(),
+               DenseI64ArrayAttr::get(rewriter.getContext(), broadcastDims))
+               ? success()
+               : failure();
   }
 };
 
@@ -1929,25 +2195,31 @@ struct ReshapeConverter
   LogicalResult
   matchAndRewrite(stablehlo::ReshapeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    Type resultType = this->getTypeConverter()->convertType(op.getType());
+    if (!resultType)
+      return failure();
     if (succeeded(tensorrt::isUnitDimRankExpanding(op.getOperand().getType(),
                                                    op.getType()))) {
-      rewriter.replaceOpWithNewOp<tensorrt::ExpandRankOp>(
-          op, this->getTypeConverter()->convertType(op.getType()),
-          adaptor.getOperand());
-      return success();
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ExpandRankOp>(
+                 op, targetTrtMajorVersion, resultType, adaptor.getOperand())
+                 ? success()
+                 : failure();
     }
     if (succeeded(tensorrt::isUnitDimRankReducing(op.getOperand().getType(),
                                                   op.getType()))) {
-      rewriter.replaceOpWithNewOp<tensorrt::CollapseRankOp>(
-          op, this->getTypeConverter()->convertType(op.getType()),
-          adaptor.getOperand());
-      return success();
+
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::CollapseRankOp>(
+                 op, targetTrtMajorVersion, resultType, adaptor.getOperand())
+                 ? success()
+                 : failure();
     }
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(
-        op, this->getTypeConverter()->convertType(op.getType()),
-        adaptor.getOperand());
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ReshapeOp>(
+               op, targetTrtMajorVersion, resultType, adaptor.getOperand())
+               ? success()
+               : failure();
   }
 };
 
@@ -1959,13 +2231,18 @@ struct DynamicReshapeConverter
   LogicalResult
   matchAndRewrite(stablehlo::DynamicReshapeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     auto resultType =
         cast<RankedTensorType>(getTypeConverter()->convertType(op.getType()));
     Value inputTensor = adaptor.getOperand();
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(
-        op, resultType, inputTensor,
-        resultType.hasStaticShape() ? Value() : adaptor.getOutputShape());
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ReshapeOp>(
+               op, targetTrtMajorVersion, resultType, inputTensor,
+               resultType.hasStaticShape() ? Value() : adaptor.getOutputShape())
+               ? success()
+               : failure();
   }
 };
 
@@ -1977,12 +2254,17 @@ struct ConvertConverter
   LogicalResult
   matchAndRewrite(SourceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Type newType = this->getTypeConverter()->convertType(op.getType());
     if (!newType)
       return failure();
-    rewriter.replaceOpWithNewOp<tensorrt::IdentityOp>(op, newType,
-                                                      adaptor.getOperand());
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::IdentityOp>(
+               op, targetTrtMajorVersion, newType, adaptor.getOperand())
+               ? success()
+               : failure();
   }
 };
 
@@ -1994,10 +2276,17 @@ struct ConvertConcatenate
   LogicalResult
   matchAndRewrite(stablehlo::ConcatenateOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    rewriter.replaceOpWithNewOp<tensorrt::ConcatenationOp>(
-        op, this->getTypeConverter()->convertType(op.getType()),
-        adaptor.getOperands(), op.getDimension());
-    return success();
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    Type resultType = this->getTypeConverter()->convertType(op.getType());
+    if (!resultType)
+      return failure();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ConcatenationOp>(
+               op, targetTrtMajorVersion, resultType, adaptor.getOperands(),
+               op.getDimension())
+               ? success()
+               : failure();
   }
 };
 
@@ -2008,6 +2297,9 @@ struct ConvertSelect
   LogicalResult
   matchAndRewrite(stablehlo::SelectOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     TensorValue trueOperand = cast<TensorValue>(adaptor.getOnTrue());
     TensorValue falseOperand = cast<TensorValue>(adaptor.getOnFalse());
@@ -2022,20 +2314,25 @@ struct ConvertSelect
       RankedTensorType newType =
           RankedTensorType::Builder(cast<RankedTensorType>(trueType))
               .setElementType(rewriter.getF32Type());
-      trueOperand = castTensor(rewriter, newType, trueOperand);
-      falseOperand = castTensor(rewriter, newType, falseOperand);
+      trueOperand =
+          *castTensor(trtRewriter, targetTrtMajorVersion, newType, trueOperand);
+      falseOperand = *castTensor(trtRewriter, targetTrtMajorVersion, newType,
+                                 falseOperand);
     }
 
-    auto selectOp = rewriter.create<tensorrt::SelectOp>(
-        op.getLoc(), adaptor.getPred(), trueOperand, falseOperand);
+    auto selectOp = trtRewriter.checkAndCreate<tensorrt::SelectOp>(
+        op.getLoc(), targetTrtMajorVersion, adaptor.getPred(), trueOperand,
+        falseOperand);
+    if (!selectOp)
+      return failure();
     auto selectOpResult = selectOp.getResult();
 
     // Cast the result back to the original type.
     if (selectOpResult.getType() != op.getResult().getType())
-      selectOpResult =
-          castTensor(rewriter, op.getResult().getType(), selectOpResult);
+      selectOpResult = *castTensor(trtRewriter, targetTrtMajorVersion,
+                                   op.getResult().getType(), selectOpResult);
 
-    rewriter.replaceOp(op, selectOpResult);
+    trtRewriter.replaceOp(op, selectOpResult);
     return success();
   }
 };
@@ -2047,13 +2344,21 @@ struct ConvertTranspose
   LogicalResult
   matchAndRewrite(stablehlo::TransposeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
+    Type resultType = this->getTypeConverter()->convertType(op.getType());
+    if (!resultType)
+      return failure();
     ArrayRef<int64_t> permutation = op.getPermutation();
     AffineMap permutationMap =
         AffineMap::getPermutationMap(permutation, rewriter.getContext());
-    rewriter.replaceOpWithNewOp<tensorrt::TransposeOp>(
-        op, this->getTypeConverter()->convertType(op.getType()),
-        adaptor.getOperand(), permutationMap);
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::TransposeOp>(
+               op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
+               permutationMap)
+               ? success()
+               : failure();
   }
 };
 
@@ -2063,20 +2368,22 @@ struct ConvertIota : public ConvertHloOpToTensorRTPattern<stablehlo::IotaOp> {
   LogicalResult
   matchAndRewrite(stablehlo::IotaOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Type resultType = this->getTypeConverter()->convertType(op.getType());
-    // Iota produces a tensor from no inputs, so we can hit this converter even
-    // if the type converter rejects i64->i32 conversions.
     if (!resultType)
-      return rewriter.notifyMatchFailure(op, "cannot convert result type");
+      return failure();
     if (cast<RankedTensorType>(resultType).getRank() != 1 ||
         op.getIotaDimension() != 0)
       return failure();
-    rewriter.replaceOpWithNewOp<tensorrt::LinspaceOp>(
-        op, resultType,
-        /*shape=*/Value(), /*start=*/Value(), /*step=*/Value(),
-        /*static_start=*/rewriter.getF64FloatAttr(0.0),
-        /*static_step=*/rewriter.getF64FloatAttr(1.0));
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::LinspaceOp>(
+               op, targetTrtMajorVersion, resultType,
+               /*shape=*/Value(), /*start=*/Value(), /*step=*/Value(),
+               /*static_start=*/rewriter.getF64FloatAttr(0.0),
+               /*static_step=*/rewriter.getF64FloatAttr(1.0))
+               ? success()
+               : failure();
   }
 };
 
@@ -2087,16 +2394,22 @@ struct ConvertDynamicIota
   LogicalResult
   matchAndRewrite(stablehlo::DynamicIotaOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
-    TensorType resultType = op.getType();
-    if (resultType.getRank() != 1 ||
-        !this->getTypeConverter()->convertType(op.getType()))
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
+    auto resultType = dyn_cast_or_null<RankedTensorType>(
+        this->getTypeConverter()->convertType(op.getType()));
+    if (!resultType || resultType.getRank() != 1)
       return failure();
-    rewriter.replaceOpWithNewOp<tensorrt::LinspaceOp>(
-        op, this->getTypeConverter()->convertType(op.getType()),
-        /*shape=*/adaptor.getOutputShape(), /*start=*/Value(), /*step=*/Value(),
-        /*static_start=*/rewriter.getF64FloatAttr(0.0),
-        /*static_step=*/rewriter.getF64FloatAttr(1.0));
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::LinspaceOp>(
+               op, targetTrtMajorVersion, resultType,
+               /*shape=*/adaptor.getOutputShape(), /*start=*/Value(),
+               /*step=*/Value(),
+               /*static_start=*/rewriter.getF64FloatAttr(0.0),
+               /*static_step=*/rewriter.getF64FloatAttr(1.0))
+               ? success()
+               : failure();
   }
 };
 
@@ -2106,6 +2419,10 @@ struct ConvertAtan2 : public ConvertOpToTensorRTPattern<stablehlo::Atan2Op> {
   LogicalResult
   matchAndRewrite(stablehlo::Atan2Op op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Value lhs = adaptor.getLhs();
     Value rhs = adaptor.getRhs();
     if (!cast<RankedTensorType>(lhs.getType()).getElementType().isF32() ||
@@ -2116,16 +2433,21 @@ struct ConvertAtan2 : public ConvertOpToTensorRTPattern<stablehlo::Atan2Op> {
     if (!resultType)
       return failure();
 
-    // Element-wise divide input Tensors, apply atan unary, apply quadrant
-    // correction
-    Value intermediateDiv = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    // All elementwise and unary ops used in conversion support same set of
+    // data types between TRT versions, thus we check failure only for the first
+    // op creation.
+    // Element-wise divide input Tensors, apply atan unary, apply
+    // quadrant correction
+    auto intermediateDiv = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/lhs,
         /*input2=*/rhs,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kDIV);
-    Value atan2Intermediate = rewriter.create<tensorrt::UnaryOp>(
-        op->getLoc(),
-        /*input=*/intermediateDiv,
+    if (!intermediateDiv)
+      return failure();
+    Value atan2Intermediate = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op->getLoc(), targetTrtMajorVersion,
+        /*input=*/intermediateDiv.getResult(),
         /*unaryOperation=*/tensorrt::UnaryOperation::kATAN);
 
     // Constant tensors used for quadrant correction
@@ -2133,22 +2455,22 @@ struct ConvertAtan2 : public ConvertOpToTensorRTPattern<stablehlo::Atan2Op> {
         RankedTensorType::Builder(resultType)
             .setShape(SmallVector<int64_t>(resultType.getRank(), 1));
 
-    Value constZero = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    Value constZero = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*weights=*/
         DenseElementsAttr::get(constType, rewriter.getF32FloatAttr(0.0)));
 
-    Value constOne = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    Value constOne = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*weights=*/
         DenseElementsAttr::get(constType, rewriter.getF32FloatAttr(1.0)));
-    Value constTwo = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    Value constTwo = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*weights=*/
         DenseElementsAttr::get(constType, rewriter.getF32FloatAttr(2.0)));
 
-    Value constPi = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    Value constPi = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*weights=*/
         DenseElementsAttr::get(constType, rewriter.getF32FloatAttr(M_PI)));
     // Quadrant correction is only needed when (other < 0) (elementwise)
@@ -2160,57 +2482,52 @@ struct ConvertAtan2 : public ConvertOpToTensorRTPattern<stablehlo::Atan2Op> {
     // 1) * pi
 
     // Mask of (lhs < 0)
-    auto lhsMaskValue =
-        rewriter
-            .create<tensorrt::ElementWiseOp>(
-                op.getLoc(),
-                /*input1=*/lhs,
-                /*input2=*/constZero,
-                /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kLESS)
-            .getResult();
+    auto lhsMaskValue = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
+        /*input1=*/lhs,
+        /*input2=*/constZero,
+        /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kLESS);
     // Mask of (rhs < 0)
-    auto rhsMaskValue =
-        rewriter
-            .create<tensorrt::ElementWiseOp>(
-                op.getLoc(),
-                /*input1=*/rhs,
-                /*input2=*/constZero,
-                /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kLESS)
-            .getResult();
+    auto rhsMaskValue = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
+        /*input1=*/rhs,
+        /*input2=*/constZero,
+        /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kLESS);
 
     Type f32Type = rewriter.getF32Type();
-    auto lhsMask =
-        ConvertOpToTensorRTPattern::castTensor(rewriter, f32Type, lhsMaskValue);
-    auto rhsMask =
-        ConvertOpToTensorRTPattern::castTensor(rewriter, f32Type, rhsMaskValue);
+    auto lhsMask = *ConvertOpToTensorRTPattern::castTensor(
+        trtRewriter, targetTrtMajorVersion, f32Type, lhsMaskValue);
+    auto rhsMask = *ConvertOpToTensorRTPattern::castTensor(
+        trtRewriter, targetTrtMajorVersion, f32Type, rhsMaskValue);
     // Apply 2 * x - 1 to translate mask from {0, 1} to {-1, 1}
-    lhsMask = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    lhsMask = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/lhsMask,
         /*input2=*/constTwo,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kPROD);
-    lhsMask = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    lhsMask = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/lhsMask,
         /*input2=*/constOne,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kSUB);
     // Multiply mask by pi
-    lhsMask = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    lhsMask = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/lhsMask,
         /*input2=*/constPi,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kPROD);
     // Take product of masks to generate correction term
-    Value correctionTerm = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value correctionTerm = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/lhsMask,
         /*input2=*/rhsMask,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kPROD);
     // Add correction term to atan(lhs/rhs) to obtain atan2(lhs, rhs)
-    rewriter.replaceOpWithNewOp<tensorrt::ElementWiseOp>(
-        op, atan2Intermediate, correctionTerm,
-        tensorrt::ElementWiseOperation::kSUB);
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ElementWiseOp>(
+               op, targetTrtMajorVersion, atan2Intermediate, correctionTerm,
+               tensorrt::ElementWiseOperation::kSUB)
+               ? success()
+               : failure();
   }
 };
 } // namespace
@@ -2218,13 +2535,18 @@ struct ConvertAtan2 : public ConvertOpToTensorRTPattern<stablehlo::Atan2Op> {
 /// Given the tensor `v`, reshape the tensor to drop the `dimToDrop`-th
 /// dimension. This assumes `unitDimToDrop` is a unit-sized dimension, otherwise
 /// the behavior is undefined.
-static Value getRankReducedTensor(RewriterBase &rewriter, Location loc, Value v,
-                                  int64_t unitDimToDrop) {
+static FailureOr<Value>
+getRankReducedTensor(TensorRTConversionPatternRewriter &rewriter, Location loc,
+                     Value v, int64_t unitDimToDrop, int64_t trtMajorVersion) {
   auto inputType = dyn_cast<RankedTensorType>(v.getType());
   assert((!inputType || inputType.getDimSize(unitDimToDrop) == 1) &&
          "expected value to have unit dim to drop");
   Type newType = RankedTensorType::Builder(inputType).dropDim(unitDimToDrop);
-  return rewriter.create<tensorrt::CollapseRankOp>(loc, newType, v);
+  auto collapseOp = rewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+      loc, trtMajorVersion, newType, v);
+  if (!collapseOp)
+    return failure();
+  return collapseOp.getResult();
 }
 
 namespace {
@@ -2245,6 +2567,10 @@ struct TorchIndexSelectConverter
   LogicalResult
   matchAndRewrite(stablehlo::TorchIndexSelectOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Location loc = op.getLoc();
     // The "batch_dims" attribute refers to the number of batch dimensions
     Value indices = adaptor.getIndex();
@@ -2274,8 +2600,16 @@ struct TorchIndexSelectConverter
            operandType.getDimSize(0) == 1 && indicesType.getRank() > 1) {
       assert(resultType.getDimSize(0) == 1 && "expected result_shape[0] == 1");
       // Fold leading unit dim.
-      operand = getRankReducedTensor(rewriter, op.getLoc(), operand, 0);
-      indices = getRankReducedTensor(rewriter, op.getLoc(), indices, 0);
+      auto operandReduced = getRankReducedTensor(
+          trtRewriter, op.getLoc(), operand, 0, targetTrtMajorVersion);
+      if (failed(operandReduced))
+        return failure();
+      operand = *operandReduced;
+      auto indicesReduced = getRankReducedTensor(
+          trtRewriter, op.getLoc(), indices, 0, targetTrtMajorVersion);
+      if (failed(indicesReduced))
+        return failure();
+      indices = *indicesReduced;
       // Adjust the effective gather parameters.
       operandType = cast<TensorType>(operand.getType());
       indicesType = cast<TensorType>(indices.getType());
@@ -2296,20 +2630,24 @@ struct TorchIndexSelectConverter
              "expected batch dims to be the same size for indices and operand");
 #endif // NDEBUG
 
-    TensorValue result =
-        rewriter
-            .create<tensorrt::GatherOp>(loc, resultType, /*data=*/operand,
-                                        /*indices=*/indices,
-                                        /*axis=*/axis,
-                                        /*numElementWiseDims=*/numBatchDims)
-            .getResult();
-
+    auto gatherOp = trtRewriter.checkAndCreate<tensorrt::GatherOp>(
+        loc, targetTrtMajorVersion, resultType, /*data=*/operand,
+        /*indices=*/indices,
+        /*axis=*/axis,
+        /*numElementWiseDims=*/numBatchDims);
+    if (!gatherOp)
+      return failure();
+    TensorValue result = gatherOp.getResult();
     // Check if we need to expand the shape back up.
-    if (result.getType().getRank() != op.getType().getRank())
-      result =
-          rewriter.create<tensorrt::ExpandRankOp>(loc, op.getType(), result);
+    if (result.getType().getRank() != op.getType().getRank()) {
+      auto resultExpanded = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+          loc, targetTrtMajorVersion, op.getType(), result);
+      if (!resultExpanded)
+        return failure();
+      result = resultExpanded.getResult();
+    }
 
-    rewriter.replaceOp(op, result);
+    trtRewriter.replaceOp(op, result);
     return success();
   }
 };
@@ -2321,6 +2659,10 @@ struct ReverseConverter
   LogicalResult
   matchAndRewrite(stablehlo::ReverseOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     // TODO: does this op even get used in dynamic shape situations? That edge
     // case could be handled, but it doesn't look like a common use-case for
     // this op, so abort on unknown shapes for now.
@@ -2349,9 +2691,11 @@ struct ReverseConverter
       offsets[dimIdx] =
           static_cast<int32_t>(operandType.getDimSize(dimIdx)) - 1;
     }
-    rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(op, adaptor.getOperand(),
-                                                   offsets, *sizes, strides);
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
+               op, targetTrtMajorVersion, adaptor.getOperand(), offsets, *sizes,
+               strides)
+               ? success()
+               : failure();
   }
 };
 
@@ -2362,6 +2706,10 @@ struct PadConverter : public ConvertHloOpToTensorRTPattern<stablehlo::PadOp> {
   LogicalResult
   matchAndRewrite(stablehlo::PadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     auto inputType = cast<RankedTensorType>(adaptor.getOperand().getType());
     Location loc = op.getLoc();
     // We don't handle non-zero interior padding (padding between elements).
@@ -2395,44 +2743,55 @@ struct PadConverter : public ConvertHloOpToTensorRTPattern<stablehlo::PadOp> {
       SmallVector<int32_t> stride(op.getType().getRank(), 1);
       assert(size.size() == edgePaddingLow->size() &&
              size.size() == edgePaddingHigh->size());
-      rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
-          op,
-          /*input=*/adaptor.getOperand(),
-          /*offset=*/sliceOffset,
-          /*size=*/size,
-          /*stride=*/stride,
-          /*slice_mode=*/tensorrt::SliceMode::kFILL,
-          /*fill=*/adaptor.getPaddingValue());
-      return success();
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
+                 op, targetTrtMajorVersion,
+                 /*input=*/adaptor.getOperand(),
+                 /*offset=*/sliceOffset,
+                 /*size=*/size,
+                 /*stride=*/stride,
+                 /*slice_mode=*/tensorrt::SliceMode::kFILL,
+                 /*fill=*/adaptor.getPaddingValue())
+                 ? success()
+                 : failure();
     }
 
     // Otherwise, calculate size = shape(input) + pad_low + pad_high.
-    Value shape = rewriter.create<tensorrt::ShapeOp>(loc, adaptor.getOperand());
+    auto shape = trtRewriter.checkAndCreate<tensorrt::ShapeOp>(
+        loc, targetTrtMajorVersion, adaptor.getOperand());
+    if (!shape)
+      return failure();
     auto shapeTensorType =
         RankedTensorType::get({inputType.getRank()}, rewriter.getI32Type());
-    Value padHighConst = rewriter.create<tensorrt::ConstantOp>(
-        loc, shapeTensorType,
+    auto padHighConst = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        loc, targetTrtMajorVersion, shapeTensorType,
         DenseIntElementsAttr::get(shapeTensorType, *edgePaddingHigh));
-    Value padLowConst = rewriter.create<tensorrt::ConstantOp>(
-        loc, shapeTensorType,
+    if (!padHighConst)
+      return failure();
+    auto padLowConst = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        loc, targetTrtMajorVersion, shapeTensorType,
         DenseIntElementsAttr::get(shapeTensorType, *edgePaddingLow));
-    Value size = rewriter.create<tensorrt::ElementWiseOp>(
-        loc, shapeTensorType, padLowConst, padHighConst,
+    if (!padLowConst)
+      return failure();
+    auto padLowHighSum = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, shapeTensorType, padLowConst, padHighConst,
         tensorrt::ElementWiseOperation::kSUM);
-    size = rewriter.create<tensorrt::ElementWiseOp>(
-        loc, shapeTensorType, size, shape,
+    Value size = padLowHighSum.getResult();
+    size = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, shapeTensorType, size, shape.getResult(),
         tensorrt::ElementWiseOperation::kSUM);
 
     SmallVector<int32_t> stride(inputType.getRank(), 1);
-    rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
-        op, op.getType(),
-        /*input=*/adaptor.getOperand(),
-        /*offset=*/DenseI32ArrayAttr::get(rewriter.getContext(), sliceOffset),
-        /*size=*/size,
-        /*stride=*/DenseI32ArrayAttr::get(rewriter.getContext(), stride),
-        /*mode=*/tensorrt::SliceMode::kFILL,
-        /*fill=*/adaptor.getPaddingValue());
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
+               op, targetTrtMajorVersion, op.getType(),
+               /*input=*/adaptor.getOperand(),
+               /*offset=*/
+               DenseI32ArrayAttr::get(rewriter.getContext(), sliceOffset),
+               /*size=*/size,
+               /*stride=*/DenseI32ArrayAttr::get(rewriter.getContext(), stride),
+               /*mode=*/tensorrt::SliceMode::kFILL,
+               /*fill=*/adaptor.getPaddingValue())
+               ? success()
+               : failure();
   }
 };
 
@@ -2444,6 +2803,10 @@ struct DynamicPadConverter
   LogicalResult
   matchAndRewrite(stablehlo::DynamicPadOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     // We don't handle non-zero interior padding (padding between elements).
     Value interiorPadding = adaptor.getInteriorPadding();
@@ -2459,45 +2822,60 @@ struct DynamicPadConverter
     if (edgePaddingLowType.getElementType().isInteger(32)) {
       edgePaddingLowType = RankedTensorType::Builder(edgePaddingLowType)
                                .setElementType(rewriter.getF32Type());
-      edgePaddingLow = DynamicPadConverter::castTensor(
-          rewriter, edgePaddingLowType, edgePaddingLow);
+      edgePaddingLow =
+          *DynamicPadConverter::castTensor(trtRewriter, targetTrtMajorVersion,
+                                           edgePaddingLowType, edgePaddingLow);
     }
-    TensorValue sliceOffset =
-        rewriter
-            .create<tensorrt::UnaryOp>(loc, edgePaddingLowType, edgePaddingLow,
-                                       tensorrt::UnaryOperation::kNEG)
-            .getResult();
-    if (edgePaddingLowType != adaptor.getEdgePaddingLow().getType())
-      sliceOffset = DynamicPadConverter::castTensor(
-          rewriter, adaptor.getEdgePaddingLow().getType(), sliceOffset);
+    auto sliceOffsetOp = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        loc, targetTrtMajorVersion, edgePaddingLowType, edgePaddingLow,
+        tensorrt::UnaryOperation::kNEG);
+    if (!sliceOffsetOp)
+      return failure();
+    TensorValue sliceOffset = sliceOffsetOp.getResult();
+    if (edgePaddingLowType != adaptor.getEdgePaddingLow().getType()) {
+      auto sliceOffsetCast = DynamicPadConverter::castTensor(
+          trtRewriter, targetTrtMajorVersion,
+          adaptor.getEdgePaddingLow().getType(), sliceOffset);
+      if (failed(sliceOffsetCast))
+        return failure();
+      sliceOffset = *sliceOffsetCast;
+    }
 
     // calculate size = shape(input) + pad_low + pad_high.
-    Value shape = rewriter.create<tensorrt::ShapeOp>(loc, adaptor.getOperand());
+    auto shape = trtRewriter.checkAndCreate<tensorrt::ShapeOp>(
+        loc, targetTrtMajorVersion, adaptor.getOperand());
+    if (!shape)
+      return failure();
     auto shapeTensorType =
         RankedTensorType::get({inputType.getRank()}, rewriter.getI32Type());
-    Value size = rewriter.create<tensorrt::ElementWiseOp>(
-        loc, shapeTensorType, adaptor.getEdgePaddingLow(),
-        adaptor.getEdgePaddingHigh(), tensorrt::ElementWiseOperation::kSUM);
-    size = rewriter.create<tensorrt::ElementWiseOp>(
-        loc, shapeTensorType, size, shape,
+    auto padLowHighSum = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, shapeTensorType,
+        adaptor.getEdgePaddingLow(), adaptor.getEdgePaddingHigh(),
+        tensorrt::ElementWiseOperation::kSUM);
+    if (!padLowHighSum)
+      return failure();
+    Value size = padLowHighSum.getResult();
+    size = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, shapeTensorType, size, shape.getResult(),
         tensorrt::ElementWiseOperation::kSUM);
 
     SmallVector<int32_t> stride(inputType.getRank(), 1);
 
-    rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
-        op, op.getType(),
-        /*input=*/adaptor.getOperand(),
-        /*offset=*/sliceOffset,
-        /*size=*/size,
-        /*static_stride*/ DenseI32ArrayAttr::get(rewriter.getContext(), stride),
-        /*mode*/ tensorrt::SliceMode::kFILL,
-        /*fill=*/adaptor.getPaddingValue());
-
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
+               op, targetTrtMajorVersion, op.getType(),
+               /*input=*/adaptor.getOperand(),
+               /*offset=*/sliceOffset,
+               /*size=*/size,
+               /*static_stride*/
+               DenseI32ArrayAttr::get(rewriter.getContext(), stride),
+               /*mode*/ tensorrt::SliceMode::kFILL,
+               /*fill=*/adaptor.getPaddingValue())
+               ? success()
+               : failure();
   }
 };
 
-/// Convert `stablehlo.get_dimension_size` to `tensorrt.constant`
+/// Convert `stablehlo.get_dimension_size` to `tensorrt.slice`
 struct GetDimensionSizeConverter
     : public ConvertHloOpToTensorRTPattern<stablehlo::GetDimensionSizeOp> {
   using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
@@ -2505,20 +2883,30 @@ struct GetDimensionSizeConverter
   LogicalResult
   matchAndRewrite(stablehlo::GetDimensionSizeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Location loc = op.getLoc();
-    Value shape = rewriter.create<tensorrt::ShapeOp>(loc, adaptor.getOperand());
+    auto shape = trtRewriter.checkAndCreate<tensorrt::ShapeOp>(
+        loc, targetTrtMajorVersion, adaptor.getOperand());
+    if (!shape)
+      return failure();
     auto axis = static_cast<int32_t>(op.getDimension());
 
     SmallVector<int32_t> strides{1};
     SmallVector<int32_t> offsets{axis};
     SmallVector<int32_t> sizes{1};
 
-    Value slice =
-        rewriter.create<tensorrt::SliceOp>(loc, shape, offsets, sizes, strides);
-    rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(
-        op, getTypeConverter()->convertType(op.getType()), slice);
-
-    return success();
+    auto slice = trtRewriter.checkAndCreate<tensorrt::SliceOp>(
+        loc, targetTrtMajorVersion, shape.getResult(), offsets, sizes, strides);
+    if (!slice)
+      return failure();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ReshapeOp>(
+               op, targetTrtMajorVersion,
+               getTypeConverter()->convertType(op.getType()), slice.getResult())
+               ? success()
+               : failure();
   }
 };
 
@@ -2536,90 +2924,104 @@ struct Log1pConverter
   LogicalResult
   matchAndRewrite(stablehlo::Log1pOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     Value x = adaptor.getOperand();
     TensorType inputType = cast<TensorType>(x.getType());
 
     auto replaceWithMaybeCast = [&](TensorValue replacement) {
-      if (replacement.getType() != op.getType())
-        replacement = castTensor(rewriter, op.getType(), replacement);
-      rewriter.replaceOp(op, replacement);
+      if (replacement.getType() != op.getType()) {
+        auto replacementCast = castTensor(trtRewriter, targetTrtMajorVersion,
+                                          op.getType(), replacement);
+        if (failed(replacementCast))
+          return failure();
+        replacement = *replacementCast;
+      }
+      trtRewriter.replaceOp(op, replacement);
+      return success();
     };
 
     // Approximations work for only f32 operands
     // Stable HLO passes I32 after catsing into F32. F16 is casted explicitly.
     if (inputType.getElementType().isF16()) {
       inputType = inputType.clone(rewriter.getF32Type());
-      x = rewriter.create<tensorrt::IdentityOp>(op->getLoc(), inputType, x);
+      x = trtRewriter.checkAndCreate<tensorrt::IdentityOp>(
+          op->getLoc(), targetTrtMajorVersion, inputType, x);
     }
     RankedTensorType constOneType = RankedTensorType::get(
         SmallVector<int64_t>(cast<RankedTensorType>(inputType).getRank(), 1),
         inputType.getElementType());
-    Value constOne = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    auto constOne = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*type=*/constOneType,
         /*weights=*/
         DenseElementsAttr::get(constOneType, rewriter.getF32FloatAttr(1.0)));
-    Value u = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    if (!constOne)
+      return failure();
+    auto u = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input1=*/x,
         /*input2=*/constOne,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kSUM);
+    if (!u)
+      return failure();
     RankedTensorType compareType = RankedTensorType::get(
         cast<RankedTensorType>(inputType).getShape(), rewriter.getI1Type());
-    Value uEqualConstOne = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value uEqualConstOne = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type*/ compareType,
         /*input1=*/u,
         /*input2=*/constOne,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kEQUAL);
-    Value logU = rewriter.create<tensorrt::UnaryOp>(
-        op->getLoc(),
+    Value logU = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*type*/ inputType,
         /*input=*/u,
         /*unaryOperation=*/tensorrt::UnaryOperation::kLOG);
-    Value uEqualInf = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value uEqualInf = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type*/ compareType,
         /*input1=*/u,
         /*input2=*/logU,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kEQUAL);
-    Value condition = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value condition = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type*/ compareType,
         /*input1=*/uEqualConstOne,
         /*input2=*/uEqualInf,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kOR);
-    Value uSubConstOne = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value uSubConstOne = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input1=*/u,
         /*input2=*/constOne,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kSUB);
-    Value logUDivUSubConstOne = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
-        /*type=*/inputType,
-        /*input1=*/logU,
-        /*input2=*/uSubConstOne,
-        /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kDIV);
-    Value largeLog = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value logUDivUSubConstOne =
+        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+            op.getLoc(), targetTrtMajorVersion,
+            /*type=*/inputType,
+            /*input1=*/logU,
+            /*input2=*/uSubConstOne,
+            /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kDIV);
+    Value largeLog = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input1=*/x,
         /*input2=*/logUDivUSubConstOne,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kPROD);
 
-    auto approximation =
-        rewriter
-            .create<tensorrt::SelectOp>(op.getLoc(),
-                                        /*type=*/inputType,
-                                        /*condition=*/condition,
-                                        /*thenInput=*/x,
-                                        /*elseInput=*/largeLog)
-            .getResult();
-
-    replaceWithMaybeCast(approximation);
-    return success();
+    auto approximation = trtRewriter.checkAndCreate<tensorrt::SelectOp>(
+        op.getLoc(), targetTrtMajorVersion,
+        /*type=*/inputType,
+        /*condition=*/condition,
+        /*thenInput=*/x,
+        /*elseInput=*/largeLog);
+    if (!approximation)
+      return failure();
+    return replaceWithMaybeCast(approximation.getResult());
   }
 };
 
@@ -2650,40 +3052,54 @@ struct Expm1OpConverter
   LogicalResult
   matchAndRewrite(stablehlo::Expm1Op op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     Value x = adaptor.getOperand();
     TensorType inputType = cast<TensorType>(x.getType());
 
     auto replaceWithMaybeCast = [&](TensorValue replacement) {
-      if (replacement.getType() != op.getType())
-        replacement = castTensor(rewriter, op.getType(), replacement);
-      rewriter.replaceOp(op, replacement);
+      if (replacement.getType() != op.getType()) {
+        auto replacementCast = castTensor(trtRewriter, targetTrtMajorVersion,
+                                          op.getType(), replacement);
+        if (failed(replacementCast))
+          return failure();
+        replacement = *replacementCast;
+      }
+      trtRewriter.replaceOp(op, replacement);
+      return success();
     };
 
     // Approximations work for only f32 operands
     // Stable HLO passes I32 after catsing into F32. F16 is casted explicitly.
     if (inputType.getElementType().isF16()) {
       inputType = inputType.clone(rewriter.getF32Type());
-      x = rewriter.create<tensorrt::IdentityOp>(op->getLoc(), inputType, x);
+      x = trtRewriter.checkAndCreate<tensorrt::IdentityOp>(
+          op->getLoc(), targetTrtMajorVersion, inputType, x);
     }
     RankedTensorType constOneType = RankedTensorType::get(
         SmallVector<int64_t>(cast<RankedTensorType>(inputType).getRank(), 1),
         inputType.getElementType());
-    Value constOne = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    auto constOne = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*type=*/constOneType,
         /*weights=*/
         DenseElementsAttr::get(constOneType, rewriter.getF32FloatAttr(1.0)));
-    Value constNegOne = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    if (!constOne)
+      return failure();
+    Value constNegOne = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*type=*/constOneType,
         /*weights=*/
         DenseElementsAttr::get(constOneType, rewriter.getF32FloatAttr(-1.0)));
-    Value u = rewriter.create<tensorrt::UnaryOp>(
-        op.getLoc(),
+    auto u = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input=*/x,
         /*unaryOperation=*/tensorrt::UnaryOperation::kEXP);
+    if (!u)
+      return failure();
     RankedTensorType compareType = RankedTensorType::get(
         cast<RankedTensorType>(inputType).getShape(), rewriter.getI1Type());
 
@@ -2693,93 +3109,99 @@ struct Expm1OpConverter
     // a. Compute (u==1)
     // b. When element is NaN, (u==u) is False. Thus, NOT(u==u) is similar to
     // (u==NaN) c. (u==1) || NOT(u==u)
-    Value uEqualConstOne = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value uEqualConstOne = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/compareType,
         /*input1=*/u,
         /*input2=*/constOne,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kEQUAL);
-    Value uEqualU = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value uEqualU = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/compareType,
         /*input1=*/u,
         /*input2=*/u,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kEQUAL);
-    Value uEqualNaN = rewriter.create<tensorrt::UnaryOp>(
-        op.getLoc(),
+    Value uEqualNaN = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/compareType,
         /*input=*/uEqualU,
         /*unaryOperation=*/tensorrt::UnaryOperation::kNOT);
-    Value uEqualConstOneOrNaN = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
-        /*type=*/compareType,
-        /*input1=*/uEqualConstOne,
-        /*input2=*/uEqualNaN,
-        /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kOR);
-    Value uMinusOne = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value uEqualConstOneOrNaN =
+        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+            op.getLoc(), targetTrtMajorVersion,
+            /*type=*/compareType,
+            /*input1=*/uEqualConstOne,
+            /*input2=*/uEqualNaN,
+            /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kOR);
+    Value uMinusOne = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input1=*/u,
         /*input2=*/constOne,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kSUB);
-    Value uMinusOneEqualConstNegOne = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
-        /*type=*/compareType,
-        /*input1=*/uMinusOne,
-        /*input2=*/constNegOne,
-        /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kEQUAL);
-    Value logU = rewriter.create<tensorrt::UnaryOp>(
-        op.getLoc(),
+    Value uMinusOneEqualConstNegOne =
+        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+            op.getLoc(), targetTrtMajorVersion,
+            /*type=*/compareType,
+            /*input1=*/uMinusOne,
+            /*input2=*/constNegOne,
+            /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kEQUAL);
+    auto logU = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input=*/u,
         /*unaryOperation=*/tensorrt::UnaryOperation::kLOG);
-    Value isUInf = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    if (!logU)
+      return failure();
+    Value isUInf = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/compareType,
         /*input1=*/logU,
         /*input2=*/u,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kEQUAL);
 
     // (x / ~x)
-    Value xDivLogU = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value xDivLogU = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input1=*/x,
         /*input2=*/logU,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kDIV);
 
     // expm1 = (u-1) * (x / ~x)
-    Value expm1 = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value expm1 = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
         /*input1=*/uMinusOne,
         /*input2=*/xDivLogU,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kPROD);
 
     // expm1 = isUInf ? u : expm1
-    expm1 = rewriter.create<tensorrt::SelectOp>(op.getLoc(),
-                                                /*type=*/inputType,
-                                                /*condition=*/isUInf,
-                                                /*thenInput=*/u,
-                                                /*elseInput=*/expm1);
-    Value checkUMinusOneEqualConstNegOne = rewriter.create<tensorrt::SelectOp>(
-        op.getLoc(),
+    auto expm1SelectOp = trtRewriter.checkAndCreate<tensorrt::SelectOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/inputType,
-        /*condition=*/uMinusOneEqualConstNegOne,
-        /*thenInput=*/constNegOne,
+        /*condition=*/isUInf,
+        /*thenInput=*/u,
         /*elseInput=*/expm1);
+    if (!expm1SelectOp)
+      return failure();
+    expm1 = expm1SelectOp.getResult();
+    Value checkUMinusOneEqualConstNegOne =
+        trtRewriter.checkAndCreate<tensorrt::SelectOp>(
+            op.getLoc(), targetTrtMajorVersion,
+            /*type=*/inputType,
+            /*condition=*/uMinusOneEqualConstNegOne,
+            /*thenInput=*/constNegOne,
+            /*elseInput=*/expm1);
 
-    auto approximation = rewriter
-                             .create<tensorrt::SelectOp>(
-                                 op.getLoc(),
-                                 /*type=*/inputType,
-                                 /*condition=*/uEqualConstOneOrNaN,
-                                 /*thenInput=*/x,
-                                 /*elseInput=*/checkUMinusOneEqualConstNegOne)
-                             .getResult();
+    auto approximation = trtRewriter.checkAndCreate<tensorrt::SelectOp>(
+        op.getLoc(), targetTrtMajorVersion,
+        /*type=*/inputType,
+        /*condition=*/uEqualConstOneOrNaN,
+        /*thenInput=*/x,
+        /*elseInput=*/checkUMinusOneEqualConstNegOne);
 
-    replaceWithMaybeCast(approximation);
-    return success();
+    return replaceWithMaybeCast(approximation);
   }
 };
 
@@ -2791,6 +3213,10 @@ struct BatchNormInferenceOpConverter
   LogicalResult
   matchAndRewrite(stablehlo::BatchNormInferenceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     RankedTensorType resultType = dyn_cast_or_null<RankedTensorType>(
         getTypeConverter()->convertType(op.getType()));
     if (!resultType)
@@ -2812,12 +3238,15 @@ struct BatchNormInferenceOpConverter
             .setShape(broadcastedShape1DTensors);
 
     auto doBroadcast = [&](Value v) {
-      return rewriter.create<tensorrt::ExpandRankOp>(
-          op.getLoc(),
+      return trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+          op.getLoc(), targetTrtMajorVersion,
           /*type=*/broadcastedShape1DTensorsType,
           /*input=*/v);
     };
-    Value broadcastedScale = doBroadcast(adaptor.getScale());
+    auto scaleBroadcastOp = doBroadcast(adaptor.getScale());
+    if (!scaleBroadcastOp)
+      return failure();
+    Value broadcastedScale = scaleBroadcastOp;
     Value broadcastedOffset = doBroadcast(adaptor.getOffset());
     Value broadcastedMean = doBroadcast(adaptor.getMean());
     Value broadcastedVariance = doBroadcast(adaptor.getVariance());
@@ -2851,50 +3280,55 @@ struct BatchNormInferenceOpConverter
     RankedTensorType epsilonType =
         RankedTensorType::Builder(resultType)
             .setShape(SmallVector<int64_t>(resultType.getRank(), 1));
-    Value epsilon = rewriter.create<tensorrt::ConstantOp>(
-        op.getLoc(),
+    auto epsilon = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/epsilonType,
         /*weight=*/
         DenseElementsAttr::get(epsilonType, epsAttr.getValue()));
+    if (!epsilon)
+      return failure();
 
     // Input tensor x is normalized at inference time as follows.
     // x = x - m
-    Value centeredOperand = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    auto centeredOperand = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/adaptor.getOperand(),
         /*input2=*/broadcastedMean,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kSUB);
+    if (!centeredOperand)
+      return failure();
     // stddev = sqrt(v + e)
-    Value updatedVariance = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value updatedVariance = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/broadcastedVariance,
         /*input2=*/epsilon,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kSUM);
-    Value stddev = rewriter.create<tensorrt::UnaryOp>(
-        op.getLoc(),
+    Value stddev = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*type=*/broadcastedShape1DTensorsType,
         /*input=*/updatedVariance,
         /*unaryOperation=*/tensorrt::UnaryOperation::kSQRT);
     // x = (x-m) / stedev
-    Value normalizedOperand = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
-        /*input1=*/centeredOperand,
-        /*input2=*/stddev,
-        /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kDIV);
+    Value normalizedOperand =
+        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+            op.getLoc(), targetTrtMajorVersion,
+            /*input1=*/centeredOperand,
+            /*input2=*/stddev,
+            /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kDIV);
     // x = (x-m)/stddev * scale
-    Value scaledOperand = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value scaledOperand = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/normalizedOperand,
         /*input2=*/broadcastedScale,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kPROD);
     // x = (x-m)/stddev * scale + offset
-    Value shiftedOperand = rewriter.create<tensorrt::ElementWiseOp>(
-        op.getLoc(),
+    Value shiftedOperand = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        op.getLoc(), targetTrtMajorVersion,
         /*input1=*/scaledOperand,
         /*input2=*/broadcastedOffset,
         /*elementwiseOperation=*/tensorrt::ElementWiseOperation::kSUM);
 
-    rewriter.replaceOp(op, shiftedOperand);
+    trtRewriter.replaceOp(op, shiftedOperand);
     return success();
   };
 };
@@ -2907,6 +3341,9 @@ struct UniformQuantizeConverter
   LogicalResult
   matchAndRewrite(stablehlo::UniformQuantizeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Location loc = op->getLoc();
 
     auto quantizedType = cast<mlir::quant::UniformQuantizedType>(
@@ -2920,13 +3357,14 @@ struct UniformQuantizeConverter
     SmallVector<int64_t> scaleShape(0, 0);
     RankedTensorType scaleType =
         RankedTensorType::get(scaleShape, rewriter.getF32Type());
-    Value scaleValue = rewriter.create<tensorrt::ConstantOp>(
-        loc,
+    Value scaleValue = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        loc, targetTrtMajorVersion,
         DenseElementsAttr::get(scaleType, float(quantizedType.getScale())));
-
-    rewriter.replaceOpWithNewOp<tensorrt::QuantizeOp>(
-        op, op.getType(), adaptor.getOperand(), scaleValue, IntegerAttr());
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::QuantizeOp>(
+               op, targetTrtMajorVersion, op.getType(), adaptor.getOperand(),
+               scaleValue, IntegerAttr())
+               ? success()
+               : failure();
   }
 };
 
@@ -2938,6 +3376,9 @@ struct UniformDequantizeConverter
   LogicalResult
   matchAndRewrite(stablehlo::UniformDequantizeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Location loc = op->getLoc();
 
     // Parse scale and zero_point info from UniformQuantizedType first
@@ -2951,14 +3392,15 @@ struct UniformDequantizeConverter
 
     RankedTensorType scaleType =
         RankedTensorType::get(scaleShape, rewriter.getF32Type());
-    Value scaleValue = rewriter.create<tensorrt::ConstantOp>(
-        loc, scaleType,
+    Value scaleValue = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        loc, targetTrtMajorVersion, scaleType,
         DenseElementsAttr::get(scaleType, float(quantizedType.getScale())));
 
-    rewriter.replaceOpWithNewOp<tensorrt::DequantizeOp>(
-        op, op.getType(), adaptor.getOperand(), scaleValue, IntegerAttr());
-
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::DequantizeOp>(
+               op, targetTrtMajorVersion, op.getType(), adaptor.getOperand(),
+               scaleValue, IntegerAttr())
+               ? success()
+               : failure();
   }
 };
 
@@ -3012,9 +3454,10 @@ getEffectiveTensorRTPaddings(ArrayRef<int64_t> prePadding,
 // 3. [num_groups, c_in/num_groups, c_out/num_groups, ....] -> [c_in,
 // c_out/num_groups, ....] (ReshapeOp)
 // If num_groups=1, simple transpose works.
-static Value prepareHloConvKernelForDeconvCase(RewriterBase &rewriter,
-                                               Location loc, Value kernel,
-                                               int64_t numGroups) {
+static FailureOr<Value>
+prepareHloConvKernelForDeconvCase(TensorRTConversionPatternRewriter &rewriter,
+                                  Location loc, Value kernel, int64_t numGroups,
+                                  int64_t trtMajorVersion) {
   RankedTensorType kernelType = cast<RankedTensorType>(kernel.getType());
   // Flip the spatial dimensions
   SmallVector<int32_t> startIdx(kernelType.getRank(), 0);
@@ -3029,43 +3472,41 @@ static Value prepareHloConvKernelForDeconvCase(RewriterBase &rewriter,
     strides[i] *= -1;
     size[i] = static_cast<int32_t>(kernelType.getDimSize(i));
   }
-  Value flipped = rewriter.create<tensorrt::SliceOp>(loc, kernel,
-                                                     /*offsets=*/startIdx,
-                                                     /*sizes=*/size,
-                                                     /*strides=*/strides);
-
+  auto flipped =
+      rewriter.checkAndCreate<tensorrt::SliceOp>(loc, trtMajorVersion, kernel,
+                                                 /*offsets=*/startIdx,
+                                                 /*sizes=*/size,
+                                                 /*strides=*/strides);
+  if (!flipped)
+    return failure();
   if (numGroups == 1) {
     SmallVector<unsigned> perm =
         llvm::to_vector(llvm::seq<unsigned>(0, kernelType.getRank()));
     std::swap(perm[0], perm[1]);
-    Value transpose =
-        rewriter
-            .create<tensorrt::TransposeOp>(
-                loc, flipped,
-                AffineMap::getPermutationMap(perm, rewriter.getContext()))
-            .getResult();
-    return transpose;
+    auto transpose = rewriter.checkAndCreate<tensorrt::TransposeOp>(
+        loc, trtMajorVersion, flipped.getResult(),
+        AffineMap::getPermutationMap(perm, rewriter.getContext()));
+    if (!transpose)
+      return failure();
+    return transpose.getResult();
   }
   SmallVector<int64_t> firstReshapeShape(kernelType.getShape());
   firstReshapeShape[0] /= numGroups;
   // Vector will be very small, so insert in the beginning is okay.
   firstReshapeShape.insert(firstReshapeShape.begin(), numGroups);
-  Value firstReshape =
-      rewriter
-          .create<tensorrt::ReshapeOp>(
-              loc,
-              RankedTensorType::get(firstReshapeShape,
-                                    kernelType.getElementType()),
-              flipped)
-          .getResult();
-
+  auto firstReshape = rewriter.checkAndCreate<tensorrt::ReshapeOp>(
+      loc, trtMajorVersion,
+      RankedTensorType::get(firstReshapeShape, kernelType.getElementType()),
+      flipped.getResult());
+  if (!firstReshape)
+    return failure();
   SmallVector<unsigned> perm =
       llvm::to_vector(llvm::seq<unsigned>(0, (kernelType.getRank() + 1)));
   std::swap(perm[1], perm[2]);
   Value transpose =
       rewriter
-          .create<tensorrt::TransposeOp>(
-              loc, firstReshape,
+          .checkAndCreate<tensorrt::TransposeOp>(
+              loc, trtMajorVersion, firstReshape.getResult(),
               AffineMap::getPermutationMap(perm, rewriter.getContext()))
           .getResult();
 
@@ -3075,8 +3516,8 @@ static Value prepareHloConvKernelForDeconvCase(RewriterBase &rewriter,
 
   Value secondReshape =
       rewriter
-          .create<tensorrt::ReshapeOp>(
-              loc,
+          .checkAndCreate<tensorrt::ReshapeOp>(
+              loc, trtMajorVersion,
               RankedTensorType::get(firstReshapeShape,
                                     kernelType.getElementType()),
               transpose)
@@ -3130,7 +3571,11 @@ struct ConvolutionConverter
   LogicalResult
   matchAndRewrite(stablehlo::ConvolutionOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Location loc = op.getLoc();
+
     Type resultType = getTypeConverter()->convertType(op.getType());
     if (!resultType)
       return rewriter.notifyMatchFailure(op, "could not convert result type");
@@ -3214,34 +3659,38 @@ struct ConvolutionConverter
             "spatial dimension is not static or effective padding is "
             "negative.");
 
-      Value updatedKernel = prepareHloConvKernelForDeconvCase(
-          rewriter, op->getLoc(), op.getRhs(), numGroups);
+      FailureOr<Value> updatedKernel = prepareHloConvKernelForDeconvCase(
+          trtRewriter, op->getLoc(), op.getRhs(), numGroups,
+          targetTrtMajorVersion);
+      if (failed(updatedKernel))
+        return failure();
 
-      rewriter.replaceOpWithNewOp<tensorrt::DeconvolutionOp>(
-          op, op.getType(),
-          /*input=*/op.getLhs(),
-          /*kernelWeights=*/updatedKernel,
-          /*biasWeights=*/Value(),
-          /*stride=*/lhsDilation,
-          /*pre_padding=*/(*trtPadding).first,
-          /*post_padding=*/(*trtPadding).second,
-          /*num_groups=*/numGroups,
-          /*dilation=*/rhsDilation);
-
-      return success();
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::DeconvolutionOp>(
+                 op, targetTrtMajorVersion, op.getType(),
+                 /*input=*/op.getLhs(),
+                 /*kernelWeights=*/*updatedKernel,
+                 /*biasWeights=*/Value(),
+                 /*stride=*/lhsDilation,
+                 /*pre_padding=*/(*trtPadding).first,
+                 /*post_padding=*/(*trtPadding).second,
+                 /*num_groups=*/numGroups,
+                 /*dilation=*/rhsDilation)
+                 ? success()
+                 : failure();
     }
 
-    rewriter.replaceOpWithNewOp<tensorrt::ConvolutionOp>(
-        op, op.getType(),
-        /*input=*/op.getLhs(),
-        /*kernel=*/op.getRhs(),
-        /*bias=*/Value(),
-        /*stride=*/windowStrides,
-        /*pre_padding=*/prePadding,
-        /*post_padding=*/postPadding,
-        /*num_groups=*/numGroups,
-        /*dilation=*/rhsDilation);
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ConvolutionOp>(
+               op, targetTrtMajorVersion, op.getType(),
+               /*input=*/op.getLhs(),
+               /*kernel=*/op.getRhs(),
+               /*bias=*/Value(),
+               /*stride=*/windowStrides,
+               /*pre_padding=*/prePadding,
+               /*post_padding=*/postPadding,
+               /*num_groups=*/numGroups,
+               /*dilation=*/rhsDilation)
+               ? success()
+               : failure();
   }
 };
 
@@ -3254,9 +3703,14 @@ struct ConvertScatterToTensorRT
   LogicalResult
   matchAndRewrite(stablehlo::ScatterOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     if (!tensorrt::isCanonicalScatterNd(op))
       return rewriter.notifyMatchFailure(
           op, "can only convert ops that are in ScatterNd format");
+
     auto indicesType =
         cast<RankedTensorType>(adaptor.getScatterIndices().getType());
     auto updatesType =
@@ -3266,10 +3720,15 @@ struct ConvertScatterToTensorRT
     SmallVector<Value> replacements;
     replacements.reserve(adaptor.getInputs().size());
     for (auto [input, update] :
-         llvm::zip(adaptor.getInputs(), adaptor.getUpdates()))
-      replacements.push_back(rewriter.create<tensorrt::ScatterOp>(
-          op.getLoc(), input, adaptor.getScatterIndices(), update));
-    rewriter.replaceOp(op, replacements);
+         llvm::zip(adaptor.getInputs(), adaptor.getUpdates())) {
+      auto scatterOp = trtRewriter.checkAndCreate<tensorrt::ScatterOp>(
+          op.getLoc(), targetTrtMajorVersion, input,
+          adaptor.getScatterIndices(), update);
+      if (!scatterOp)
+        return failure();
+      replacements.push_back(scatterOp.getResult());
+    }
+    trtRewriter.replaceOp(op, replacements);
     return success();
   }
 };
@@ -3284,6 +3743,10 @@ struct ConvertScatterToTensorRTScatterElements
   LogicalResult
   matchAndRewrite(stablehlo::ScatterOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     RankedTensorType inputsType =
         cast<RankedTensorType>(adaptor.getInputs().getType().front());
     RankedTensorType indicesType =
@@ -3312,58 +3775,69 @@ struct ConvertScatterToTensorRTScatterElements
       return failure();
 
     TypedValue<RankedTensorType> startIndexTensor =
-        rewriter.create<tensorrt::SliceOp>(op.getLoc(),
-                                           adaptor.getScatterIndices(),
-                                           /*offsets=*/ArrayRef<int32_t>{0, 1},
-                                           /*sizes=*/ArrayRef<int32_t>{1, 1},
-                                           /*strides=*/ArrayRef<int32_t>{1, 1});
-    auto startIndex = rewriter.create<tensorrt::CollapseRankOp>(
-        op->getLoc(), RankedTensorType::get({}, rewriter.getI32Type()),
-        startIndexTensor);
+        trtRewriter.checkAndCreate<tensorrt::SliceOp>(
+            op.getLoc(), targetTrtMajorVersion, adaptor.getScatterIndices(),
+            /*offsets=*/ArrayRef<int32_t>{0, 1},
+            /*sizes=*/ArrayRef<int32_t>{1, 1},
+            /*strides=*/ArrayRef<int32_t>{1, 1});
+    auto startIndex = trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+        op->getLoc(), targetTrtMajorVersion,
+        RankedTensorType::get({}, rewriter.getI32Type()), startIndexTensor);
 
     SmallVector<int64_t> newUpdateShape(updatesType.getShape().take_back(2));
     RankedTensorType newUpdateType = updatesType.clone(newUpdateShape);
-    auto newUpdates = rewriter.create<tensorrt::CollapseRankOp>(
-        op->getLoc(), newUpdateType, adaptor.getUpdates().front());
+    auto newUpdates = trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+        op->getLoc(), targetTrtMajorVersion, newUpdateType,
+        adaptor.getUpdates().front());
+    if (!newUpdates)
+      return failure();
 
-    Value constOneTuple = rewriter.create<tensorrt::ConstantOp>(
-        op->getLoc(),
+    Value constOneTuple = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op->getLoc(), targetTrtMajorVersion,
         /*weights=*/
         DenseElementsAttr::get(
             startIndex.getType().clone(SmallVector<int64_t>{2}),
             rewriter.getI32IntegerAttr(1)));
 
-    Value newIndices = rewriter.create<tensorrt::LinspaceOp>(
-        op->getLoc(), newUpdateType.clone(rewriter.getI32Type()), Value(),
-        startIndex, constOneTuple, FloatAttr(), FloatAttr());
+    Value newIndices = trtRewriter.checkAndCreate<tensorrt::LinspaceOp>(
+        op->getLoc(), targetTrtMajorVersion,
+        newUpdateType.clone(rewriter.getI32Type()), Value(), startIndex,
+        constOneTuple, FloatAttr(), FloatAttr());
 
     auto checkI1 = [&](Value v) {
       return (
           cast<RankedTensorType>(v.getType()).getElementType().isInteger(1));
     };
     auto convertToI32 = [&](Value v) {
-      return rewriter.create<tensorrt::IdentityOp>(
-          v.getLoc(),
+      return trtRewriter.checkAndCreate<tensorrt::IdentityOp>(
+          v.getLoc(), targetTrtMajorVersion,
           cast<RankedTensorType>(v.getType()).clone(rewriter.getI32Type()), v);
     };
     auto convertToI1 = [&](Value v) {
-      return rewriter.create<tensorrt::IdentityOp>(
-          v.getLoc(),
+      return trtRewriter.checkAndCreate<tensorrt::IdentityOp>(
+          v.getLoc(), targetTrtMajorVersion,
           cast<RankedTensorType>(v.getType()).clone(rewriter.getI1Type()), v);
     };
 
     if (checkI1(adaptor.getInputs().front())) {
-      auto newOp = rewriter.create<tensorrt::ScatterElementsOp>(
-          op->getLoc(), /*data*/ convertToI32(adaptor.getInputs().front()),
-          /*indices*/ newIndices, /*updates*/ convertToI32(newUpdates),
+      auto newOp = trtRewriter.checkAndCreate<tensorrt::ScatterElementsOp>(
+          op->getLoc(), targetTrtMajorVersion,
+          /*data*/ convertToI32(adaptor.getInputs().front()),
+          /*indices*/ newIndices,
+          /*updates*/ convertToI32(newUpdates),
           /*axis*/ rewriter.getI64IntegerAttr(1));
-      rewriter.replaceOp(op, convertToI1(newOp)->getResults());
+      if (!newOp)
+        return failure();
+      trtRewriter.replaceOp(op, convertToI1(newOp)->getResults());
     } else {
-      auto newOp = rewriter.create<tensorrt::ScatterElementsOp>(
-          op->getLoc(), /*data*/ adaptor.getInputs().front(),
-          /*indices*/ newIndices, /*updates*/ newUpdates,
+      auto newOp = trtRewriter.checkAndCreate<tensorrt::ScatterElementsOp>(
+          op->getLoc(), targetTrtMajorVersion,
+          /*data*/ adaptor.getInputs().front(),
+          /*indices*/ newIndices, /*updates*/ newUpdates.getResult(),
           /*axis*/ rewriter.getI64IntegerAttr(1));
-      rewriter.replaceOp(op, newOp->getResults());
+      if (!newOp)
+        return failure();
+      trtRewriter.replaceOp(op, newOp->getResults());
     }
     return success();
   }
@@ -3400,6 +3874,9 @@ struct SingleDimSimpleGatherToTensorRTGatherPattern
   LogicalResult
   matchAndRewrite(stablehlo::GatherOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     RankedTensorType resultType = dyn_cast_or_null<RankedTensorType>(
         typeConverter->convertType(op.getType()));
     if (!resultType)
@@ -3407,10 +3884,11 @@ struct SingleDimSimpleGatherToTensorRTGatherPattern
 
     if (std::optional<int64_t> gatherDim =
             stablehlo::isSingleDimSimpleGatherWithImplicitIndexDim(op)) {
-      rewriter.replaceOpWithNewOp<tensorrt::GatherOp>(
-          op, resultType, adaptor.getOperand(), adaptor.getStartIndices(),
-          *gatherDim);
-      return success();
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::GatherOp>(
+                 op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
+                 adaptor.getStartIndices(), *gatherDim)
+                 ? success()
+                 : failure();
     }
 
     if (std::optional<int64_t> gatherDim =
@@ -3420,12 +3898,14 @@ struct SingleDimSimpleGatherToTensorRTGatherPattern
       auto indicesType =
           cast<RankedTensorType>(adaptor.getStartIndices().getType());
       indicesType = indicesType.clone(indicesType.getShape().drop_back());
-      auto reshapeOp = rewriter.create<tensorrt::CollapseRankOp>(
-          op.getLoc(), indicesType, adaptor.getStartIndices());
-      rewriter.replaceOpWithNewOp<tensorrt::GatherOp>(
-          op, resultType, adaptor.getOperand(), reshapeOp.getResult(),
-          *gatherDim);
-      return success();
+      auto reshapeOp = trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+          op.getLoc(), targetTrtMajorVersion, indicesType,
+          adaptor.getStartIndices());
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::GatherOp>(
+                 op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
+                 reshapeOp.getResult(), *gatherDim)
+                 ? success()
+                 : failure();
     }
     return failure();
   }
@@ -3437,6 +3917,10 @@ struct ConvertGatherToTensorRT
   LogicalResult
   matchAndRewrite(stablehlo::GatherOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     // A canonical gather has empty "collapsed slice dims", a start_indices
     // operand rank of 2, index_vector_dim=1, start_index_map = [0, 1, ...],
     // offset_dims = [1, 2, ...].
@@ -3458,10 +3942,12 @@ struct ConvertGatherToTensorRT
     if (isCanonicalGatherWithPartialSlices(op))
       return rewriter.notifyMatchFailure(op, "gather has partial slices");
 
-    rewriter.replaceOpWithNewOp<tensorrt::GatherOp>(
-        op, getTypeConverter()->convertType(op.getType()), adaptor.getOperand(),
-        adaptor.getStartIndices(), /*axis=*/0);
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::GatherOp>(
+               op, targetTrtMajorVersion,
+               getTypeConverter()->convertType(op.getType()),
+               adaptor.getOperand(), adaptor.getStartIndices(), /*axis=*/0)
+               ? success()
+               : failure();
   }
 };
 
@@ -3471,16 +3957,22 @@ struct ConvertGatherToTensorRTGatherNd
   LogicalResult
   matchAndRewrite(stablehlo::GatherOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     RankedTensorType resultType = dyn_cast_or_null<RankedTensorType>(
         getTypeConverter()->convertType(op.getType()));
     if (!resultType)
       return failure();
 
     if (stablehlo::isSimpleLeadingMultiDimGather(op)) {
-      rewriter.replaceOpWithNewOp<tensorrt::GatherNdOp>(
-          op, resultType,
-          /*data=*/adaptor.getOperand(), /*indices=*/adaptor.getStartIndices());
-      return success();
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::GatherNdOp>(
+                 op, targetTrtMajorVersion, resultType,
+                 /*data=*/adaptor.getOperand(),
+                 /*indices=*/adaptor.getStartIndices())
+                 ? success()
+                 : failure();
     }
 
     if (stablehlo::isSimpleLeadingMultiDimGatherWithDegenerateDims(op)) {
@@ -3490,12 +3982,15 @@ struct ConvertGatherToTensorRTGatherNd
       llvm::append_range(resultShape, resultType.getShape().drop_front(
                                           indicesType.getRank() - 1 +
                                           indicesType.getShape().back()));
-      Value replacement = rewriter.create<tensorrt::GatherNdOp>(
-          op.getLoc(), resultType.clone(resultShape),
+      auto replacement = trtRewriter.checkAndCreate<tensorrt::GatherNdOp>(
+          op.getLoc(), targetTrtMajorVersion, resultType.clone(resultShape),
           /*data=*/adaptor.getOperand(), /*indices=*/adaptor.getStartIndices());
-      rewriter.replaceOpWithNewOp<tensorrt::ReshapeOp>(op, resultType,
-                                                       replacement);
-      return success();
+      if (!replacement)
+        return failure();
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ReshapeOp>(
+                 op, targetTrtMajorVersion, resultType, replacement.getResult())
+                 ? success()
+                 : failure();
     }
 
     return failure();
@@ -3510,6 +4005,12 @@ struct ConvertGatherWithPartialSlicesToTensorRT
   LogicalResult
   matchAndRewrite(stablehlo::GatherOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    Type resutType = typeConverter->convertType(op.getType());
+    if (!resutType)
+      return failure();
     // See notes above in the `ConvertGatherWithPartialSlices`.
     // Note that these conditions enforce that `startIndices` operand is
     // rank 2.
@@ -3543,53 +4044,58 @@ struct ConvertGatherWithPartialSlicesToTensorRT
       // First, create the start indices tensor for the slice.
       // It is composed of the requisite slice from `startIndices`
       // concatenated with zeros.
-      TypedValue<RankedTensorType> indexSlice = rewriter.create<
+      TypedValue<RankedTensorType> indexSlice = trtRewriter.checkAndCreate<
           tensorrt::SliceOp>(
-          loc, adaptor.getStartIndices(),
+          loc, targetTrtMajorVersion, adaptor.getStartIndices(),
           /*offsets=*/ArrayRef<int32_t>{static_cast<int32_t>(i), 0},
           /*sizes=*/ArrayRef<int32_t>{1, static_cast<int32_t>(indexVectorSize)},
           /*strides=*/ArrayRef<int32_t>{1, 1});
 
       // Flatten the index slice.
-      indexSlice = rewriter.create<tensorrt::CollapseRankOp>(
-          loc, indexSlice.getType().clone(ArrayRef<int64_t>{indexVectorSize}),
+      indexSlice = trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+          loc, targetTrtMajorVersion,
+          indexSlice.getType().clone(ArrayRef<int64_t>{indexVectorSize}),
           indexSlice);
 
       // Concatenate with the right number of `0`s.
       int64_t numZeros = operandRank - indexVectorSize;
       assert(numZeros >= 0 &&
              "expected non-negative number of zeros to append");
-      auto constZeros = rewriter.create<tensorrt::ConstantOp>(
-          loc, cast<ElementsAttr>(rewriter.getZeroAttr(
-                   RankedTensorType::get({numZeros}, rewriter.getI32Type()))));
+      auto constZeros = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+          loc, targetTrtMajorVersion,
+          cast<ElementsAttr>(rewriter.getZeroAttr(
+              RankedTensorType::get({numZeros}, rewriter.getI32Type()))));
 
-      Value operandSliceIndices = rewriter.create<tensorrt::ConcatenationOp>(
-          loc, ValueRange{indexSlice, constZeros},
-          /*axis=*/static_cast<int32_t>(0));
+      Value operandSliceIndices =
+          trtRewriter.checkAndCreate<tensorrt::ConcatenationOp>(
+              loc, targetTrtMajorVersion, ValueRange{indexSlice, constZeros},
+              /*axis=*/static_cast<int32_t>(0));
 
       // Slice the operand.
-      auto operandSlice = rewriter.create<tensorrt::SliceOp>(
-          loc, adaptor.getOperand(),
+      auto operandSlice = trtRewriter.checkAndCreate<tensorrt::SliceOp>(
+          loc, targetTrtMajorVersion, adaptor.getOperand(),
           /*offsets=*/operandSliceIndices,
           /*size=*/
           rewriter.getDenseI32ArrayAttr(llvm::map_to_vector(
               sliceShape, [](int64_t x) -> int32_t { return x; })),
           /*strides=*/
           rewriter.getDenseI32ArrayAttr(SmallVector<int32_t>(operandRank, 1)));
-
+      if (!operandSlice)
+        return failure();
       // Expand rank by prepending a 1 for the indexStart batch dimension.
       SmallVector<int64_t> newShape(operandSlice.getType().getShape());
       newShape.insert(newShape.begin(), 1);
-      slices.push_back(rewriter.create<tensorrt::ExpandRankOp>(
-          loc, operandSlice.getType().clone(newShape), operandSlice));
+      slices.push_back(trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+          loc, targetTrtMajorVersion, operandSlice.getType().clone(newShape),
+          operandSlice.getResult()));
     }
 
     // Concatenate the slices.
-    rewriter.replaceOpWithNewOp<tensorrt::ConcatenationOp>(
-        op, typeConverter->convertType(op.getType()), slices,
-        /*axis=*/0);
-
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ConcatenationOp>(
+               op, targetTrtMajorVersion, resutType, slices,
+               /*axis=*/0)
+               ? success()
+               : failure();
   }
 };
 
@@ -3648,6 +4154,10 @@ struct DynamicUpdateSliceToConcatConverter
   LogicalResult
   matchAndRewrite(stablehlo::DynamicUpdateSliceOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     // Check that the update has at most 1 dimension not equal in size to the
     // corresponding dimension of the result shape and exactly one of the
     // offsets is non-zero.
@@ -3679,8 +4189,8 @@ struct DynamicUpdateSliceToConcatConverter
       return failure();
 
     // Reshape the scalar offset to tensor<1xi32>.
-    updateStartOffset = rewriter.create<tensorrt::ExpandRankOp>(
-        loc,
+    updateStartOffset = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+        loc, targetTrtMajorVersion,
         RankedTensorType::get(
             {1}, mlir::getElementTypeOrSelf(updateStartOffset.getType())),
         updateStartOffset);
@@ -3692,12 +4202,17 @@ struct DynamicUpdateSliceToConcatConverter
         rewriter, loc, resultType.getShape(), *concatAxis, updateStartOffset);
     SmallVector<int64_t> firstPartShape(resultType.getShape());
     firstPartShape[*concatAxis] = ShapedType::kDynamic;
-    parts.push_back(rewriter.create<tensorrt::SliceOp>(
-        loc, resultType.clone(firstPartShape), adaptor.getOperand(),
-        /*start=*/rewriter.getDenseI32ArrayAttr(SmallVector<int32_t>(rank, 0)),
+    auto beginningPart = trtRewriter.checkAndCreate<tensorrt::SliceOp>(
+        loc, targetTrtMajorVersion, resultType.clone(firstPartShape),
+        adaptor.getOperand(),
+        /*start=*/
+        rewriter.getDenseI32ArrayAttr(SmallVector<int32_t>(rank, 0)),
         /*size=*/sliceSize,
         /*strides=*/
-        rewriter.getDenseI32ArrayAttr(SmallVector<int32_t>(rank, 1))));
+        rewriter.getDenseI32ArrayAttr(SmallVector<int32_t>(rank, 1)));
+    if (!beginningPart)
+      return failure();
+    parts.push_back(beginningPart.getResult());
 
     // Add the middle part (the update).
     parts.push_back(adaptor.getUpdate());
@@ -3709,8 +4224,8 @@ struct DynamicUpdateSliceToConcatConverter
     // (static case). We will update them in the condition block.
     // Calculate the slice start = update offset + update size.
     TypedValue<RankedTensorType> concatDimOffset =
-        rewriter.create<tensorrt::ElementWiseOp>(
-            loc, updateStartOffset,
+        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+            loc, targetTrtMajorVersion, updateStartOffset,
             tensorrt::createConstShapeTensor(
                 rewriter, loc,
                 {static_cast<int32_t>(updateType.getDimSize(*concatAxis))}),
@@ -3720,8 +4235,8 @@ struct DynamicUpdateSliceToConcatConverter
         *concatAxis, concatDimOffset);
     // Calculate the slice size = result shape - update offset.
     TypedValue<RankedTensorType> finalPartDimSize =
-        rewriter.create<tensorrt::ElementWiseOp>(
-            loc,
+        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+            loc, targetTrtMajorVersion,
             tensorrt::createConstShapeTensor(
                 rewriter, loc,
                 {static_cast<int32_t>(resultType.getDimSize(*concatAxis))}),
@@ -3733,33 +4248,39 @@ struct DynamicUpdateSliceToConcatConverter
     // concat dim will be unknown.
     SmallVector<int64_t> sliceShape(resultType.getShape());
     sliceShape[*concatAxis] = ShapedType::kDynamic;
-    parts.push_back(rewriter.create<tensorrt::SliceOp>(
-        loc, resultType.clone(sliceShape), adaptor.getOperand(),
+    parts.push_back(trtRewriter.checkAndCreate<tensorrt::SliceOp>(
+        loc, targetTrtMajorVersion, resultType.clone(sliceShape),
+        adaptor.getOperand(),
         /*start=*/endOffset,
         /*size=*/endShape,
         /*stride=*/
         rewriter.getDenseI32ArrayAttr(
             SmallVector<int32_t>(updateType.getRank(), 1))));
 
-    rewriter.replaceOpWithNewOp<tensorrt::ConcatenationOp>(
-        op, op.getType(), parts,
-        /*axis=*/*concatAxis);
-    return success();
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::ConcatenationOp>(
+               op, targetTrtMajorVersion, op.getType(), parts,
+               /*axis=*/*concatAxis)
+               ? success()
+               : failure();
   }
 };
 
 /// Creates `tensorrt.constant` from the Q/DQ scale in the form of ElementsAttr.
 /// Q/DQ scale is saved in the form of ElementsAttr as the value of `scale` key
 /// in `stablehlo.composite` op `attr` dictionary by `stablehlo-raise-qdq` pass.
-static FailureOr<Value> getScaleConstant(RewriterBase &rewriter, Location loc,
-                                         DictionaryAttr attr,
-                                         StringRef qdqMode) {
+static FailureOr<Value>
+getScaleConstant(TensorRTConversionPatternRewriter &rewriter, Location loc,
+                 DictionaryAttr attr, StringRef qdqMode,
+                 int64_t trtMajorVersion) {
   if (qdqMode != "tensorrt.pt_q" && qdqMode != "tensorrt.pt_dq") {
     auto scaleAttr = dyn_cast<ElementsAttr>(attr.get("scale"));
     if (!scaleAttr)
       return failure();
-    Value scaleConstant = rewriter.create<tensorrt::ConstantOp>(loc, scaleAttr);
-    return scaleConstant;
+    auto scaleConstant = rewriter.checkAndCreate<tensorrt::ConstantOp>(
+        loc, trtMajorVersion, scaleAttr);
+    if (!scaleConstant)
+      return failure();
+    return scaleConstant.getResult();
   }
   // For `kPerTensorQuantize` and `kPerTensorDequantize` case, we need to
   // extract a single element from the splat elements attribute and create
@@ -3769,25 +4290,29 @@ static FailureOr<Value> getScaleConstant(RewriterBase &rewriter, Location loc,
     return failure();
   RankedTensorType scaleConstantType =
       RankedTensorType::get({}, scaleAttr.getElementType());
-  return rewriter
-      .create<tensorrt::ConstantOp>(
-          loc, DenseElementsAttr::get(scaleConstantType,
-                                      scaleAttr.getSplatValue<APFloat>()))
-      .getResult();
+  auto tensorConstant = rewriter.checkAndCreate<tensorrt::ConstantOp>(
+      loc, trtMajorVersion,
+      DenseElementsAttr::get(scaleConstantType,
+                             scaleAttr.getSplatValue<APFloat>()));
+  if (!tensorConstant)
+    return failure();
+  return tensorConstant.getResult();
 }
 
 template <typename OpTy>
-static LogicalResult addQOrDQ(RewriterBase &rewriter, stablehlo::CompositeOp op,
-                              DictionaryAttr &attr, StringRef qdqMode,
-                              IntegerAttr axis) {
+static LogicalResult addQOrDQ(TensorRTConversionPatternRewriter &rewriter,
+                              int64_t trtMajorVersion,
+                              stablehlo::CompositeOp op, DictionaryAttr &attr,
+                              StringRef qdqMode, IntegerAttr axis) {
   FailureOr<Value> scaleConstant =
-      getScaleConstant(rewriter, op->getLoc(), attr, qdqMode);
+      getScaleConstant(rewriter, op->getLoc(), attr, qdqMode, trtMajorVersion);
   if (failed(scaleConstant))
     return failure();
-  rewriter.replaceOpWithNewOp<OpTy>(op, op->getResultTypes(),
-                                    op->getOperands().front(), *scaleConstant,
-                                    axis);
-  return success();
+  return rewriter.checkAndReplaceOpWithNewOp<OpTy>(
+             op, trtMajorVersion, op->getResultTypes(),
+             op->getOperands().front(), *scaleConstant, axis)
+             ? success()
+             : failure();
 }
 
 /// Converts `stablehlo.composite` op to TensorRT Q or DQ, based on attribute
@@ -3798,6 +4323,10 @@ struct CompositeToQDQConverter
   LogicalResult
   matchAndRewrite(stablehlo::CompositeOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     DictionaryAttr attr = op.getCompositeAttributes();
     if (!attr.contains("axis") || !attr.contains("scale") ||
         !attr.contains("is_pointwise"))
@@ -3809,32 +4338,33 @@ struct CompositeToQDQConverter
     // Add Q or DQ based on Q/DQ mode
     if (qdqMode ==
         tensorrt::TensorRTDialect::kTensorRTPerTensorQuantizationMarker)
-      return addQOrDQ<tensorrt::QuantizeOp>(rewriter, op, attr, qdqMode,
-                                            IntegerAttr());
+      return addQOrDQ<tensorrt::QuantizeOp>(trtRewriter, targetTrtMajorVersion,
+                                            op, attr, qdqMode, IntegerAttr());
     if (qdqMode ==
         tensorrt::TensorRTDialect::kTensorRTPerChannelQuantizationMarker) {
       Attribute axisAttr = attr.get("axis");
       auto axis = cast<IntegerAttr>(axisAttr);
-      return addQOrDQ<tensorrt::QuantizeOp>(rewriter, op, attr, qdqMode, axis);
+      return addQOrDQ<tensorrt::QuantizeOp>(trtRewriter, targetTrtMajorVersion,
+                                            op, attr, qdqMode, axis);
     }
     if (qdqMode == tensorrt::TensorRTDialect::kTensorRTBlockQuantizationMarker)
-      return addQOrDQ<tensorrt::QuantizeOp>(rewriter, op, attr, qdqMode,
-                                            IntegerAttr());
+      return addQOrDQ<tensorrt::QuantizeOp>(trtRewriter, targetTrtMajorVersion,
+                                            op, attr, qdqMode, IntegerAttr());
     if (qdqMode ==
         tensorrt::TensorRTDialect::kTensorRTPerTensorDequantizationMarker)
-      return addQOrDQ<tensorrt::DequantizeOp>(rewriter, op, attr, qdqMode,
-                                              IntegerAttr());
+      return addQOrDQ<tensorrt::DequantizeOp>(
+          trtRewriter, targetTrtMajorVersion, op, attr, qdqMode, IntegerAttr());
     if (qdqMode ==
         tensorrt::TensorRTDialect::kTensorRTPerChannelDequantizationMarker) {
       Attribute axisAttr = attr.get("axis");
       auto axis = cast<IntegerAttr>(axisAttr);
-      return addQOrDQ<tensorrt::DequantizeOp>(rewriter, op, attr, qdqMode,
-                                              axis);
+      return addQOrDQ<tensorrt::DequantizeOp>(
+          trtRewriter, targetTrtMajorVersion, op, attr, qdqMode, axis);
     }
     if (qdqMode ==
         tensorrt::TensorRTDialect::kTensorRTBlockDequantizationMarker)
-      return addQOrDQ<tensorrt::DequantizeOp>(rewriter, op, attr, qdqMode,
-                                              IntegerAttr());
+      return addQOrDQ<tensorrt::DequantizeOp>(
+          trtRewriter, targetTrtMajorVersion, op, attr, qdqMode, IntegerAttr());
     return failure();
   }
 };
@@ -3854,7 +4384,6 @@ public:
   void runOnOperation() override {
     // Create the conversion target.
     MLIRContext *ctx = &getContext();
-
     // Patterns like softmax must be applied before other hlo-to-tensorrt
     // conversions run because matcher for softmax matches with base HLO ops.
     {
@@ -3869,9 +4398,7 @@ public:
     {
       RewritePatternSet patterns(ctx);
       LowerToTensorRTOptions loweringOptions;
-      if (allowI64ToI32Conversion)
-        loweringOptions.setI64Lowering(
-            LowerToTensorRTOptions::I64Lowering::CastI64ToI32);
+      loweringOptions.setTensorRTVersion(trtMajorVersion);
       TensorRTTypeConverter typeConverter(ctx, loweringOptions);
       TensorRTConversionTarget target(*ctx, typeConverter);
 

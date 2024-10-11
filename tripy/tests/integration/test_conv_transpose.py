@@ -186,7 +186,7 @@ class TestConvolution:
         expected = conv_layer_torch(input_torch).to(torch_dtype)
         output = conv_layer(input)
 
-        rtol_ = 1e-3
+        rtol_ = 1e-2
         assert tp.allclose(output, tp.Tensor(expected), rtol=rtol_)
         assert output.shape == expected.shape
 

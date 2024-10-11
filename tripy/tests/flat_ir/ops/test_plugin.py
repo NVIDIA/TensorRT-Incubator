@@ -59,7 +59,7 @@ class TestPluginOp:
 
     def test_mlir(self, flat_ir):
         assert """
-            tensorrt.opaque_plugin {creator_params = {output_height = 5 : i32, output_width = 5 : i32}, plugin_name = "ROIAlign_TRT", plugin_namespace = "", plugin_version = "1"}(%0, %cst, %1) : (tensor<?x?x?x?xf32>, tensor<2x4xf32>, tensor<?xi32>) -> tensor<?x?x?x?xf32>
+            tensorrt.opaque_plugin {creator_params = {output_height = 5 : i32, output_width = 5 : i32}, plugin_name = "ROIAlign_TRT", plugin_namespace = "", plugin_version = "1"}(%0, %cst, %2) : (tensor<?x?x?x?xf32>, tensor<2x4xf32>, tensor<?xi32>) -> tensor<?x?x?x?xf32>
             """.strip() in str(
             flat_ir.to_mlir()
         )

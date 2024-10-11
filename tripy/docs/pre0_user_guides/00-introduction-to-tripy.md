@@ -105,21 +105,19 @@ All the code we've seen so far has been using Tripy's eager mode. It is also pos
 functions or modules ahead of time, which can result in significantly better performance.
 
 *Note that the compiler imposes some requirements on the functions/modules it can compile.*
-*See {class}`tripy.Compiler` for details.*
+*See {func}`tripy.compile` for details.*
 
 Let's compile the MLP module we defined above as an example:
 
 ```py
 # doc: no-print-locals
-compiler = tp.Compiler(mlp)
-
 # When we compile, we need to indicate which parameters to the function should be runtime inputs.
 # In this case, MLP takes a single input tensor for which we can specify our desired shape and datatype.
-fast_mlp = compiler.compile(tp.InputInfo(shape=(1, 2), dtype=tp.float32))
+fast_mlp = tp.compile(mlp, args=[tp.InputInfo(shape=(1, 2), dtype=tp.float32)])
 ```
 
 It is also possible to compile for a range of possible input shapes.
-See {func}`tripy.Compiler.compile` for details.
+See {func}`tripy.compile` for details.
 
 Now let's benchmark the compiled version against eager mode:
 ```py

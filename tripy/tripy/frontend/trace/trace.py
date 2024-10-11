@@ -20,7 +20,6 @@ from typing import List, Sequence, Set
 
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
-from tripy.frontend.trace.ops import BaseTraceOp
 from tripy.frontend.trace.tensor import TraceTensor
 from tripy.frontend.utils import topological_sort
 from tripy.logging import logger
@@ -30,18 +29,6 @@ class Trace:
     """
     A flattened representation of a computation graph expressed by one or more Tensors.
     """
-
-    def _infer_tensor_info(self):
-        """
-        Infers basic information, like device, for all tensors in the trace.
-        """
-
-        # Compute and cache device information for all tensors
-        for inp in self.inputs:
-            inp.producer.infer_devices()
-
-        for op in self.ops:
-            op.infer_devices()
 
     def __init__(
         self,
@@ -56,7 +43,7 @@ class Trace:
             shapes: The shape profile, consisting of min, opt, and max shapes for each input tensors.
                     Must be in the same order as `inputs`.
         """
-        self.ops: List[BaseTraceOp] = []
+        self.ops: List["BaseTraceOp"] = []
         self.inputs: List[TraceTensor] = [inp.trace_tensor for inp in inputs]
         self.outputs: List[TraceTensor] = [tensor.trace_tensor for tensor in tensors]
         self.shapes = shapes
@@ -97,9 +84,6 @@ class Trace:
 
         # Reverse the order of the layers so they are topologically sorted
         self.ops = topological_sort(self.ops)
-
-        # Perform shape/dtype/device inference to fill shape information for all tensors.
-        self._infer_tensor_info()
 
         logger.trace(lambda: f"{self}\n")
 

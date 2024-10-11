@@ -39,7 +39,11 @@ struct ConvertChloErfToTensorRT
   LogicalResult
   matchAndRewrite(chlo::ErfOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
     Location loc = op->getLoc();
+
     auto operand = adaptor.getOperand();
     auto operandType = cast<RankedTensorType>(operand.getType());
     Type resultType = typeConverter->convertType(op.getType());
@@ -48,20 +52,36 @@ struct ConvertChloErfToTensorRT
     if (operandType.getRank() == 0) {
       RankedTensorType newShape =
           RankedTensorType::get({1}, operandType.getElementType());
-      operand = rewriter.create<tensorrt::ExpandRankOp>(loc, newShape, operand);
+      auto expOperand = trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+          loc, targetTrtMajorVersion, newShape, operand);
+      if (!expOperand)
+        return failure();
+      operand = expOperand;
     }
-    TypedValue<RankedTensorType> result = rewriter.create<tensorrt::UnaryOp>(
-        op.getLoc(), operand.getType(), operand,
+    auto unaryOp = trtRewriter.checkAndCreate<tensorrt::UnaryOp>(
+        op.getLoc(), targetTrtMajorVersion, operand.getType(), operand,
         tensorrt::UnaryOperation::kERF);
+    if (!unaryOp)
+      return failure();
+    TypedValue<RankedTensorType> result = unaryOp.getResult();
     // Cast back if required.
-    if (result.getType().getElementType() != op.getType().getElementType())
-      result = castTensor(rewriter, op.getType().getElementType(), result);
+    if (result.getType().getElementType() != op.getType().getElementType()) {
+      auto castedResult = castTensor(trtRewriter, targetTrtMajorVersion,
+                                     op.getType().getElementType(), result);
+      if (failed(castedResult))
+        return failure();
+      result = *castedResult;
+    }
     // collapse rank if required
-    if (result.getType().getRank() != op.getType().getRank())
-      result =
-          rewriter.create<tensorrt::CollapseRankOp>(loc, op.getType(), result);
-
-    rewriter.replaceOp(op, result);
+    if (result.getType().getRank() != op.getType().getRank()) {
+      auto collapsedResult =
+          trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
+              loc, targetTrtMajorVersion, op.getType(), result);
+      if (!collapsedResult)
+        return failure();
+      result = collapsedResult;
+    }
+    trtRewriter.replaceOp(op, result);
     return success();
   }
 };
@@ -73,6 +93,10 @@ struct ConvertChloTopKOpToTensorRT
   LogicalResult
   matchAndRewrite(chlo::TopKOp op, OpAdaptor adaptor,
                   ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+
     auto operand = adaptor.getOperand();
     RankedTensorType operandType = cast<RankedTensorType>(operand.getType());
 
@@ -87,8 +111,11 @@ struct ConvertChloTopKOpToTensorRT
       return rewriter.notifyMatchFailure(
           op, "k exceeds the maximum supported by TensorRT");
 
-    rewriter.replaceOpWithNewOp<tensorrt::TopKOp>(
-        op, operand, k, axis, tensorrt::TopKOperation::kMAX);
+    auto newOp = trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::TopKOp>(
+        op, targetTrtMajorVersion, operand, k, axis,
+        tensorrt::TopKOperation::kMAX);
+    if (!newOp)
+      return failure();
     return success();
   }
 };

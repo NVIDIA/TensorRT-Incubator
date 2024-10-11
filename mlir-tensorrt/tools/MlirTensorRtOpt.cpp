@@ -34,7 +34,6 @@ using namespace llvm;
 namespace mlir {
 void registerTestTensorKindAnalysisPass();
 #ifdef MLIR_TRT_ENABLE_HLO
-void registerTestClusteringTransformPass();
 void registerTestBoundsAnalysisPass();
 #endif // MLIR_TRT_ENABLE_HLO
 } // namespace mlir
@@ -42,7 +41,6 @@ void registerTestBoundsAnalysisPass();
 static void registerTestPasses() {
   ::mlir::registerTestTensorKindAnalysisPass();
 #ifdef MLIR_TRT_ENABLE_HLO
-  ::mlir::registerTestClusteringTransformPass();
   ::mlir::registerTestBoundsAnalysisPass();
 #endif // MLIR_TRT_ENABLE_HLO
 }

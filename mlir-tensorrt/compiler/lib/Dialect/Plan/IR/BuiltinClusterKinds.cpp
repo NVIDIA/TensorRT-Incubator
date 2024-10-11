@@ -21,17 +21,18 @@
 /// Definitions for TensorRT and Host Cluster Kinds
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Conversion/StablehloScalarToArith/StablehloScalarToArith.h"
 #include "mlir-tensorrt/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
-#include "mlir-tensorrt/Transforms/Clustering/Clustering.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/Support/Debug.h"
+#include <optional>
 
 using namespace mlir;
 using namespace mlir::plan;
@@ -52,8 +53,8 @@ int64_t HostClusterKindAttr::getClusterBenefit() const { return getBenefit(); }
 
 /// ClusteringOpts that identifies groups of `stablehlo` ops that can be
 /// converted to scalars and will be clustered into scalar cluster.
-ClusteringOpts
-HostClusterKindAttr::getClusterKindOptions(DataFlowSolver &solver) const {
+ClusteringOpts HostClusterKindAttr::getClusterKindOptions(
+    DataFlowSolver &solver, std::optional<int64_t> trtMajorVersion) const {
   ClusteringOpts opts;
   opts.mergeIndependentClusters = [](Operation *, ClusterRange, Operation *,
                                      ClusterRange) { return true; };
@@ -119,8 +120,8 @@ std::string TensorRTClusterKindAttr::getClusterKindName() const {
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
 /// clustered into one TensorRT function (which is eventually translated to a
 /// engine).
-ClusteringOpts
-TensorRTClusterKindAttr::getClusterKindOptions(DataFlowSolver &solver) const {
+ClusteringOpts TensorRTClusterKindAttr::getClusterKindOptions(
+    DataFlowSolver &solver, std::optional<int64_t> trtMajorVersion) const {
   // Any properties used in the returned lambdas must be copied by value,
   // otherwise it will not work correctly.
   bool disallowShapeTensorCalculations = getDisallowShapeTensorCalculations();
@@ -129,8 +130,10 @@ TensorRTClusterKindAttr::getClusterKindOptions(DataFlowSolver &solver) const {
   opts.mergeIndependentClusters = [](Operation *, ClusterRange, Operation *,
                                      ClusterRange) { return true; };
   opts.clusterTarget = *this;
-  opts.isClusterableOp = [solver = &solver,
-                          disallowShapeTensorCalculations](Operation *op) {
+  opts.isClusterableOp = [solver = &solver, disallowShapeTensorCalculations,
+                          trtMajorVersion](Operation *op) {
+    if (!trtMajorVersion.has_value())
+      return false;
     if (op->hasTrait<OpTrait::ConstantLike>())
       return false;
     if (llvm::isa<plan::WithShapeOp>(op))
@@ -145,8 +148,7 @@ TensorRTClusterKindAttr::getClusterKindOptions(DataFlowSolver &solver) const {
     MLIRContext *ctx = op->getContext();
     RewritePatternSet patterns(ctx);
     LowerToTensorRTOptions loweringOptions;
-    loweringOptions.setI64Lowering(
-        LowerToTensorRTOptions::I64Lowering::FailOnI64);
+    loweringOptions.setTensorRTVersion(*trtMajorVersion);
     TensorRTTypeConverter typeConverter(ctx, loweringOptions);
     TensorRTConversionTarget target(*ctx, typeConverter);
     populateStablehloToTensorRtConversionPattern(typeConverter, patterns);

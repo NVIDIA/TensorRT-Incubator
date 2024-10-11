@@ -514,3 +514,54 @@ print("-- Outer scope: np.from_dlpack(): ", np.from_dlpack(memref))
 # CHECK-LABEL: Test memref maintains data's lifetime
 # CHECK-NEXT: -- Inner scope: np.from_dlpack(): [1 2]
 # CHECK-NEXT: -- Outer scope: np.from_dlpack(): [1 2]
+
+
+def check_non_canonical_stride(client, assert_canonical_strides):
+    try:
+        t = cp.arange(12, dtype=cp.float32).reshape(3, 4)
+        a = cp.transpose(t)
+        memref = client.create_memref_view_from_dlpack(
+            a.__dlpack__(), assert_canonical_strides
+        )
+    except Exception as e:
+        print(f"Received error message: {str(e)}")
+
+
+def check_canonical_stride(client, assert_canonical_strides):
+    try:
+        t = cp.arange(12, dtype=cp.float32).reshape(3, 4)
+        memref = client.create_memref_view_from_dlpack(
+            t.__dlpack__(), assert_canonical_strides
+        )
+    except Exception as e:
+        print(f"Received error message: {str(e)}")
+
+
+def test_memref_strides():
+    print("Testing non-canonical stride: assert_canonical_strides = True")
+    non_canonical_result = check_non_canonical_stride(
+        client, assert_canonical_strides=True
+    )
+
+    print("Testing non-canonical stride: assert_canonical_strides = False")
+    non_canonical_result = check_non_canonical_stride(
+        client, assert_canonical_strides=False
+    )
+
+    print("Testing canonical stride: assert_canonical_strides = True")
+    canonical_result = check_canonical_stride(client, assert_canonical_strides=True)
+
+    print("Testing canonical stride: assert_canonical_strides = False")
+    canonical_result = check_canonical_stride(client, assert_canonical_strides=False)
+
+
+print("Test memref strides")
+test_memref_strides()
+
+# CHECK-LABEL: Test memref strides
+# CHECK-NEXT: Testing non-canonical stride: assert_canonical_strides = True
+# CHECK-NEXT: Received error message: InvalidArgument: InvalidArgument:
+# CHECK-SAME: Given strides [1, 4] do not match canonical strides [3, 1] for shape [4, 3]
+# CHECK-NEXT: Testing non-canonical stride: assert_canonical_strides = False
+# CHECK-NEXT: Testing canonical stride: assert_canonical_strides = True
+# CHECK-NEXT: Testing canonical stride: assert_canonical_strides = False

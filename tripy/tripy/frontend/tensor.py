@@ -16,7 +16,9 @@
 #
 
 from textwrap import indent
-from typing import Any, List, Optional, Sequence, Union
+from typing import Any, Optional
+
+import mlir_tensorrt.runtime.api as runtime
 
 # Import ops to populate the registry before we define our Tensor class
 import tripy.frontend.ops
@@ -27,8 +29,8 @@ from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
-
-import mlir_tensorrt.runtime.api as runtime
+from tripy.frontend.trace.tensor import TraceTensor
+from tripy.utils.stack_info import StackInfo
 
 
 class TensorMeta(type):
@@ -73,11 +75,11 @@ class Tensor(metaclass=TensorMeta):
 
     def __init__(
         self,
-        data: Union[List, "np.ndarray", "cp.ndarray", "torch.Tensor", "jnp.ndarray"],
+        data: Any,
         dtype: Optional["tripy.dtype"] = None,
         device: Optional["tripy.device"] = None,
         name: Optional[str] = None,
-        stack_info: Optional["StackInfo"] = None,
+        fetch_stack_info: bool = True,
     ) -> None:
         """
         Args:
@@ -85,7 +87,9 @@ class Tensor(metaclass=TensorMeta):
             dtype: The data type of the tensor.
             device: The device on which to allocate the tensor.
             name: The name of the tensor. If provided, this must be a unique string.
-            stack_info: The stack infomation of the tensor.
+            fetch_stack_info: Whether to fetch stack information for the tensor.
+                Stack information allows Tripy to generate much higher quality error
+                messages at the cost of a small overhead when initializing the tensor.
 
         .. code-block:: python
             :linenos:
@@ -93,15 +97,13 @@ class Tensor(metaclass=TensorMeta):
 
             tensor = tp.Tensor([1.0, 2.0, 3.0], dtype=tp.float32)
         """
-        from tripy.frontend.trace.tensor import TraceTensor
 
-        # We include code for everything above the `BaseTraceOp.build` function, which is called at most
-        # this many stack frames above the constructor.
-        STACK_DEPTH_OF_BUILD = 4
-        # not using utils.default() because it always evaluates the `default` argument.
-        stack_info = (
-            stack_info if stack_info is not None else utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
-        )
+        stack_info = StackInfo([])
+        if fetch_stack_info:
+            # We include code for everything above the `BaseTraceOp.build` function, which is called at most
+            # this many stack frames above the constructor.
+            STACK_DEPTH_OF_BUILD = 4
+            stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
 
         name = name if name is not None else Tensor._get_unique_name()
 
@@ -119,17 +121,6 @@ class Tensor(metaclass=TensorMeta):
             Storage.build_internal([], [self.trace_tensor], data)
         else:
             Storage.build_internal([], [self.trace_tensor], data, dtype, device)
-
-        # Storage should populate attrs of trace_tensor
-        assert all(
-            attr is not None
-            for attr in [
-                self.trace_tensor.shape,
-                self.trace_tensor.dtype,
-                self.trace_tensor.device,
-                self.trace_tensor.producer,
-            ]
-        )
 
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
@@ -172,12 +163,14 @@ class Tensor(metaclass=TensorMeta):
         return self.trace_tensor.rank
 
     def eval(self) -> runtime.MemRefValue:
+        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
+            # Exit early if the tensor has already been evaluated.
+            # This happens before the imports below so we don't incur extra overhead.
+            return self.trace_tensor.producer.data
+
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
-
-        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
-            return self.trace_tensor.producer.data
 
         trace = Trace([self])
         flat_ir = trace.to_flat_ir()
@@ -189,7 +182,7 @@ class Tensor(metaclass=TensorMeta):
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
         data = executor.execute([out.device for out in flat_ir.outputs])
-        executor._stream.synchronize()
+        executor.stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
         # Data is present now. Assign the underlying device type.
@@ -201,7 +194,6 @@ class Tensor(metaclass=TensorMeta):
     def tolist(self):
         data_memref = self.eval()
         if self.dtype not in (
-            datatype.float16,
             datatype.float32,
             datatype.int8,
             datatype.int32,
@@ -217,18 +209,20 @@ class Tensor(metaclass=TensorMeta):
         raise TypeError("Iterating over tensors is not supported")
 
     def __repr__(self) -> str:
-        # The Evaluation required before accessing self.trace_tensor.producer attributes.
-        arr = self.eval()
-        arr_str = memref.pretty_print_memref(arr)
+        from tripy.frontend.utils import pretty_print
+
+        data_list = self.tolist()
+        data_shape = self.trace_tensor.producer.shape
+        arr_str = pretty_print(data_list, data_shape)
         indentation = ""
         sep = ""
-        if len(arr.shape) > 1 and any(dim > 1 for dim in arr.shape):
+        if len(data_shape) > 1 and any(dim > 1 for dim in data_shape):
             indentation = " " * 4
             sep = "\n"
         return (
             f"tensor({sep}"
             f"{indent(arr_str, prefix=indentation)}, {sep}"
-            f"{indent(f'dtype={self.dtype}, loc={self.device}, shape={arr.shape}', prefix=indentation)}"
+            f"{indent(f'dtype={self.dtype}, loc={self.device}, shape={data_shape}', prefix=indentation)}"
             f")"
         )
 
@@ -240,7 +234,7 @@ class Tensor(metaclass=TensorMeta):
         return self.eval().__dlpack_device__()
 
     def __bool__(self):
-        data = memref.tolist(self.eval())
+        data = self.tolist()
         if any(dim != 1 for dim in self.trace_tensor.producer.shape):
             raise_error(
                 "Boolean value of a Tensor with more than one value is ambiguous",

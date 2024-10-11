@@ -24,13 +24,13 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Executor/IR/Executor.h"
+#include "mlir-executor/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/Clustering/Patterns.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
@@ -49,6 +49,7 @@
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/STLExtras.h"
+#include <optional>
 
 #define DEBUG_TYPE "stablehlo-clustering"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "]"
@@ -90,10 +91,19 @@ applyClusteringToFunc(RewriterBase &rewriter, func::FuncOp func,
                       ArrayRef<ClusterKindAttrInterface> clusters,
                       const StablehloClusteringPassOptions &opts) {
   ClusteringPatternSet<ClusteringRewriter> patterns;
-  for (const auto &[idx, target] : llvm::enumerate(clusters))
-    patterns.add(target.getClusterKindOptions(solver), createInlineGroupOp,
-                 isOpInClusterRegion, target.getClusterFilter(),
-                 PatternBenefit(target.getClusterBenefit()));
+  for (const auto &[idx, target] : llvm::enumerate(clusters)) {
+    if (target.getClusterKindName() == "tensorrt") {
+      patterns.add(target.getClusterKindOptions(solver, opts.trtMajorVersion),
+                   createInlineGroupOp, isOpInClusterRegion,
+                   target.getClusterFilter(),
+                   PatternBenefit(target.getClusterBenefit()));
+    } else {
+      patterns.add(target.getClusterKindOptions(solver, std::nullopt),
+                   createInlineGroupOp, isOpInClusterRegion,
+                   target.getClusterFilter(),
+                   PatternBenefit(target.getClusterBenefit()));
+    }
+  }
 
   for (const std::unique_ptr<ClusteringRewriter> &rewrite : patterns) {
     FailureOr<SmallVector<Operation *>> regionOps =
@@ -275,7 +285,8 @@ public:
     for (func::FuncOp func : funcs) {
       if (failed(applyClusteringToFunc(
               rewriter, func, solver, schedule,
-              StablehloClusteringPassOptions{entrypoint})))
+              StablehloClusteringPassOptions{entrypoint, false, false,
+                                             trtMajorVersion})))
         return signalPassFailure();
     }
 
