@@ -198,6 +198,8 @@ def tripy_scaled_dot_product_attention(
             tp.ones_like(attn_mask) * -float("inf"),
             tp.zeros_like(attn_mask),
         )
+    if embedding_dim is None:
+        embedding_dim = query.shape[-1]
     qk = query @ tp.transpose(key, -2, -1) / tp.sqrt(tp.cast(embedding_dim, tp.float32))
     return (
         tp.cast(

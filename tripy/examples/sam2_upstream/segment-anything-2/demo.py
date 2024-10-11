@@ -121,9 +121,16 @@ from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
+# model_cfg = "sam2_hiera_l_tp_backbone.yaml"
 model_cfg = "sam2_hiera_l.yaml"
 device = torch.device("cuda")
-sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=device)
+use_tripy_image_encoder = model_cfg == "sam2_hiera_l_tp_backbone.yaml"
+sam2_model = build_sam2(
+    model_cfg,
+    sam2_checkpoint,
+    device=device,
+    use_tripy_image_encoder=use_tripy_image_encoder,
+)
 
 predictor = SAM2ImagePredictor(sam2_model)
 predictor.set_image(image)

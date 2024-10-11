@@ -36,6 +36,7 @@ def build_sam2(
     mode="eval",
     hydra_overrides_extra=[],
     apply_postprocessing=True,
+    use_tripy_image_encoder=False,
     **kwargs,
 ):
 
@@ -54,21 +55,36 @@ def build_sam2(
     model = instantiate(cfg.model, _recursive_=True)
     _load_checkpoint(model, ckpt_path, cfg)
 
+    if use_tripy_image_encoder:
+        print("Start compiling image encoder...")
+        start = time.time()
+        tp_image_encoder = model.image_encoder
+        compiled_tp_image_encoder = tp.compile(
+            tp_image_encoder.forward,
+            args=[
+                tp.InputInfo((1, 3, 1024, 1024), dtype=tp.float32),
+            ],
+        )
+        print(f"Compile image encoder took {time.time() - start}s")
+        model.image_encoder = compiled_tp_image_encoder
+
     if cfg["model"].use_tripy_mask_decoder:
         start = time.time()
         tp_sam_mask_decoder = model.sam_mask_decoder
-        compiler = tp.Compiler(tp_sam_mask_decoder)
-        compiled_tp_sam_mask_decoder = compiler.compile(
-            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_embeddings
-            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_pe
-            tp.InputInfo((1, 2, 256), dtype=tp.float32),  # sparse_prompt_embeddings
-            tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # dense_prompt_embeddings
-            True,  # multimask_output
-            False,  # repeat_image
-            tp.InputInfo((1, 32, 256, 256), dtype=tp.float32),  # high_res_features_1
-            tp.InputInfo((1, 64, 128, 128), dtype=tp.float32),  # high_res_features_2
+        compiled_tp_sam_mask_decoder = tp.compile(
+            tp_sam_mask_decoder,
+            args=[
+                tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_embeddings
+                tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_pe
+                tp.InputInfo((1, 2, 256), dtype=tp.float32),  # sparse_prompt_embeddings
+                tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # dense_prompt_embeddings
+                True,  # multimask_output
+                False,  # repeat_image
+                tp.InputInfo((1, 32, 256, 256), dtype=tp.float32),  # high_res_features_1
+                tp.InputInfo((1, 64, 128, 128), dtype=tp.float32),  # high_res_features_2
+            ],
         )
-        print(f"Compile took {time.time() - start}s")
+        print(f"Compile mask decoder took {time.time() - start}s")
         conv_s0 = model.sam_mask_decoder.conv_s0
         conv_s1 = model.sam_mask_decoder.conv_s1
 
@@ -79,20 +95,21 @@ def build_sam2(
     if cfg["model"].use_tripy_prompt_encoder:
         start = time.time()
         tp_prompt_encoder = model.sam_prompt_encoder
-        compiler = tp.Compiler(tp_prompt_encoder)
-        compiled_prompt_encoder = compiler.compile(
-            tp.InputInfo((1, 1, 2), dtype=tp.float32),
-            tp.InputInfo((1, 1), dtype=tp.int32),
-            None,
-            None,
+        compiled_prompt_encoder = tp.compile(
+            tp_prompt_encoder,
+            args=[
+                tp.InputInfo((1, 1, 2), dtype=tp.float32),
+                tp.InputInfo((1, 1), dtype=tp.int32),
+                None,
+                None,
+            ],
         )
-        print(f"Compile took {time.time() - start}s")
+        print(f"Compile prompt encoder took {time.time() - start}s")
 
         start = time.time()
         tp_dense_pe = model.sam_prompt_encoder.get_dense_pe
-        compiler = tp.Compiler(tp_dense_pe)
-        compiled_get_dense_pe = compiler.compile()
-        print(f"Compile took {time.time() - start}s")
+        compiled_get_dense_pe = tp.compile(tp_dense_pe)
+        print(f"Compile dense pe took {time.time() - start}s")
         model.sam_prompt_encoder = compiled_prompt_encoder
         setattr(model.sam_prompt_encoder, "get_dense_pe", compiled_get_dense_pe)
 
@@ -210,11 +227,11 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
 
         if use_tripy_mask_decoder:
             print(f"expected keys {expected_mask_decoder_keys}, got {nb_keys}")
-            tp_mask_decoder.load_from_state_dict(tp_mask_decoder_state_dict)
+            tp_mask_decoder.load_state_dict(tp_mask_decoder_state_dict)
 
         if use_tripy_prompt_encoder:
             print(f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}")
-            tp_prompt_encoder.load_from_state_dict(tp_prompt_encoder_state_dict)
+            tp_prompt_encoder.load_state_dict(tp_prompt_encoder_state_dict)
 
         if missing_keys:
             logging.error(missing_keys)
