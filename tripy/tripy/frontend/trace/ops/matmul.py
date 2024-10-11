@@ -30,7 +30,7 @@ class MatrixMultiplication(BaseTraceOp):
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.frontend.shape import Shape
         from tripy.utils import Result
 

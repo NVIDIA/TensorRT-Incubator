@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+from enum import Enum
 from typing import Any, List, Optional, Sequence
 
 from tripy import utils
@@ -49,24 +50,34 @@ def get_broadcast_dim(dim1, dim2):
 
 
 ##
-## Handling shape outputs: These are common policies to use for overring infer_shape_output_idxs
+## Handling returning different tensor variants (Shape or ShapeScalars) from operators
 ##
 
+"""
+Enum representing the tensor variants encoded in the result of `infer_tensor_variants`.
+"""
 
-class ShapeOutputIdxPolicies:
+
+class TensorVariants(Enum):
+    SHAPE = 1
+    SCALAR = 2
+
+
+# These are common policies to use for overring infer_tensor_variants
+class InferVariantPolicies:
     def infer_from_first_input_only(self, inputs):
         """
-        Common override for `infer_shape_output_idxs`: Treat the outputs as shapes if the *first* input is a shape.
+        Treat the outputs as shapes if the *first* input is a shape.
         """
         from tripy.frontend.shape import Shape
 
         if isinstance(inputs[0], Shape):
-            return Result.ok({"shape": list(range(len(self.outputs)))})
+            return Result.ok({TensorVariants.SHAPE: list(range(len(self.outputs)))})
         return Result.ok({})
 
     def never_return_shape(self, inputs):
         """
-        Accepts shapes but the result is always no shape indices
+        Accepts shapes but the result is always no shape indices.
         """
         return Result.ok({})
 

@@ -69,7 +69,7 @@ class Storage(BaseTraceOp):
             self.has_memref = False
 
     # for storage, we will always consider the result to be an ordinary tensor
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def str_skip_fields(self) -> Set[str]:
         # skip data if i) it is a MemRefValue or ii) its volume exceeds threshold

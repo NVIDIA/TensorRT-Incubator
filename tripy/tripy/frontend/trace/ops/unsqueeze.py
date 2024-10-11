@@ -29,7 +29,7 @@ class Unsqueeze(BaseTraceOp):
     dim: int
 
     # the result will not be rank 1 and so can't be a shape but we may want to unsqueeze shapes
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
