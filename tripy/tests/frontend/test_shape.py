@@ -510,7 +510,8 @@ class TestShape:
 
     def test_binary_elementwise_broadcast_rejected(self, values):
         with raises(
-            tp.TripyException, match="For binary elementwise operators on Shapes, all inputs must be of rank at most 1"
+            tp.TripyException,
+            match="This operator expects all arguments to be tp.Tensor or all to be tp.Shape but was given arguments of mixed types",
         ):
             tp.Shape(values).multiply(tp.Tensor([values, values]))
 
