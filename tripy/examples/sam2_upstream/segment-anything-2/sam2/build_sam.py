@@ -36,6 +36,7 @@ def build_sam2(
     mode="eval",
     hydra_overrides_extra=[],
     apply_postprocessing=True,
+    use_tripy_image_encoder=False,
     **kwargs,
 ):
 
@@ -53,6 +54,19 @@ def build_sam2(
 
     model = instantiate(cfg.model, _recursive_=True)
     _load_checkpoint(model, ckpt_path, cfg)
+
+    if use_tripy_image_encoder:
+        print("Start compiling image encoder...")
+        start = time.time()
+        tp_image_encoder = model.image_encoder
+        compiled_tp_image_encoder = tp.compile(
+            tp_image_encoder.forward,
+            args=[
+                tp.InputInfo((1, 3, 1024, 1024), dtype=tp.float32),
+            ],
+        )
+        print(f"Compile image encoder took {time.time() - start}s")
+        model.image_encoder = compiled_tp_image_encoder
 
     if cfg["model"].use_tripy_mask_decoder:
         start = time.time()
@@ -76,7 +90,7 @@ def build_sam2(
                 ),  # high_res_features_2
             ],
         )
-        print(f"Compile took {time.time() - start}s")
+        print(f"Compile mask decoder took {time.time() - start}s")
         conv_s0 = model.sam_mask_decoder.conv_s0
         conv_s1 = model.sam_mask_decoder.conv_s1
 
@@ -96,12 +110,12 @@ def build_sam2(
                 None,
             ],
         )
-        print(f"Compile took {time.time() - start}s")
+        print(f"Compile prompt encoder took {time.time() - start}s")
 
         start = time.time()
         tp_dense_pe = model.sam_prompt_encoder.get_dense_pe
         compiled_get_dense_pe = tp.compile(tp_dense_pe)
-        print(f"Compile took {time.time() - start}s")
+        print(f"Compile dense pe took {time.time() - start}s")
         model.sam_prompt_encoder = compiled_prompt_encoder
         setattr(model.sam_prompt_encoder, "get_dense_pe", compiled_get_dense_pe)
 

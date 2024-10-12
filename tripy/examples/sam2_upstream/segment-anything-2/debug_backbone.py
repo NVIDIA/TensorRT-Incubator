@@ -1,0 +1,62 @@
+import tripy as tp
+import torch
+
+from sam2.modeling.backbones_tripy import image_encoder, hieradet, position_embedding
+
+from tripy.logging import logger
+
+logger.verbosity = "mlir"
+
+
+############## trunk -- Hiera #############
+def test_trunk():
+    trunk = hieradet.Hiera(
+        embed_dim=144,
+        num_heads=2,
+        stages=[2, 6, 36, 4],
+        global_att_blocks=[23, 33, 43],
+        window_pos_embed_bkg_spatial_size=[7, 7],
+        window_spec=[8, 4, 16, 8],
+    )
+    trunk_inp = tp.ones((1, 3, 1024, 1024))
+    trunk_out = trunk(trunk_inp)
+    print(trunk_out[0])
+
+
+############## neck -- FpnNeck #############
+def test_neck():
+    position_encoding = position_embedding.PositionEmbeddingSine(
+        num_pos_feats=256,
+        normalize=True,
+        scale=None,
+        temperature=10000,
+    )
+    neck = image_encoder.FpnNeck(
+        position_encoding=position_encoding,
+        d_model=256,
+        backbone_channel_list=[1152, 576, 288, 144],
+        fpn_top_down_levels=[2, 3],
+        fpn_interp_model="nearest",
+    )
+    neck_inp = [
+        tp.ones([1, 144, 256, 256]),
+        tp.ones([1, 288, 128, 128]),
+        tp.ones([1, 576, 64, 64]),
+        tp.ones([1, 1152, 32, 32]),
+    ]
+    neck_out = neck(neck_inp)
+    print(neck_out[0])
+
+
+############ image_encoder (trunk + neck) ##################
+def test_image_encoder(trunk, neck):
+    image_encoder = image_encoder.ImageEncoder(
+        trunk=trunk,
+        neck=neck,
+        scalp=1,
+    )
+    inp = tp.ones((1, 3, 1024, 1024))
+    out = image_encoder(inp)
+
+
+test_neck()

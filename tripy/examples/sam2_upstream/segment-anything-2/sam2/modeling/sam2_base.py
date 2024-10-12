@@ -543,6 +543,8 @@ class SAM2Base(torch.nn.Module):
 
     def forward_image(self, img_batch: torch.Tensor):
         """Get the image feature on the input batch."""
+        if isinstance(self.image_encoder, tp.Module):
+            img_batch = tp.Tensor(img_batch.contiguous())
         backbone_out = self.image_encoder(img_batch)
         if self.use_high_res_features_in_sam:
             # precompute projected level 0 and level 1 features in SAM decoder
