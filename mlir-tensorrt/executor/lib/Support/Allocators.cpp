@@ -299,66 +299,8 @@ Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, CudaStream stream) {
 }
 
 //===----------------------------------------------------------------------===//
-// CustomTensorRTOutputAllocator
+// OutputDescriptor
 //===----------------------------------------------------------------------===//
-
-inline uint64_t roundUp(uint64_t m, uint64_t n) {
-  return ((m + n - 1) / n) * n;
-}
-
-CustomTensorRTOuputAllocator::~CustomTensorRTOuputAllocator() {
-  if (mOutputPtr != nullptr) {
-    cudaFree(mOutputPtr);
-  }
-}
-
-void *CustomTensorRTOuputAllocator::reallocateOutputAsync(
-    char const *tensorName, void *currentMemory, uint64_t size,
-    uint64_t alignment, CudaStream stream) {
-
-  assert(currentMemory == mCurrentMemory && "output buffer mismatch");
-  assert(strcmp(tensorName, mTensorName) == 0 && "tensor name mismatch");
-  assert(!mReallocateOutputCalled && "duplicate call to reallocateOutput");
-  mReallocateOutputCalled = true;
-  // Some memory allocators return nullptr when allocating zero bytes, but
-  // TensorRT requires a non-null ptr even for empty tensors, so allocate a
-  // dummy byte.
-  size = std::max(size, static_cast<uint64_t>(1));
-
-  // Check if reallocation is required.
-  if (size > mOutputSize) {
-    size = roundUp(size, alignment);
-
-    if (mOutputPtr) {
-      cudaFree(mOutputPtr);
-    }
-
-    mOutputPtr = nullptr;
-    mOutputSize = 0;
-
-    void *memory;
-    cudaMalloc(&memory, size);
-    mOutputPtr = memory;
-    if (mOutputPtr != nullptr) {
-      mOutputSize = size;
-    }
-    return mOutputPtr;
-  }
-  return mCurrentMemory;
-}
-
-void CustomTensorRTOuputAllocator::notifyShape(char const *tensorName,
-                                               const int64_t *dims,
-                                               int64_t nbDims) {
-  assert(mReallocateOutputCalled &&
-         "TensorRT must invoke reallocateOutput first");
-  assert(!mNotifyShapeCalled && "duplicate call to notifyShape");
-  assert(strcmp(tensorName, mTensorName) == 0 && "tensor name mismatch");
-
-  mNotifyShapeCalled = true;
-  mOutputDims.resize(nbDims);
-  std::copy_n(dims, nbDims, mOutputDims.begin());
-}
 
 OutputDescriptor::OutputDescriptor(uintptr_t ptr)
     : mData(reinterpret_cast<int64_t *>(ptr)), mSize(calculateTotalSize(ptr)) {}

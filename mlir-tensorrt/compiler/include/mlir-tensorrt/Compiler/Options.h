@@ -34,6 +34,9 @@ namespace mlirtrt::compiler {
 /// DebugOptions are options that are common to different compiler API
 /// interfaces.
 struct DebugOptions {
+  /// Dump textual pipeline passes
+  bool dumpTextualPipeline = false;
+
   /// A directory path where the IR will be dumped during compilation
   /// using the `mlir-print-ir-tree-dir` mechanism.
   std::string dumpIRPath = "";
@@ -49,6 +52,7 @@ struct DebugOptions {
   mlir::SmallVector<std::string> llvmDebugTypes = {};
 
   void addToOptions(mlir::OptionsContext &context) {
+    context.addOption("dump-textual-pipeline", dumpTextualPipeline);
     context.addOption("mlir-print-ir-tree-dir", dumpIRPath, llvm::cl::init(""));
     context.addOption("debug", enableLLVMDebugFlag);
     context.addList<std::string>("debug-only", llvmDebugTypes,

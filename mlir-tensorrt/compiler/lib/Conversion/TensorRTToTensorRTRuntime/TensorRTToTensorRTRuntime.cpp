@@ -58,15 +58,14 @@ struct RewriteConstants : public OpRewritePattern<tensorrt::ConstantOp> {
 };
 
 // Helper function to convert both CallOp and CallAllocOp
-LogicalResult convertCallOp(Operation *op, IRRewriter &rewriter,
-                            ModuleOp module,
-                            SmallVector<tensorrt::TensorRTModuleOp> trtModules,
-                            MLIRContext *ctx) {
+static LogicalResult
+convertCallOp(Operation *op, MLIRContext *ctx, IRRewriter &rewriter,
+              SymbolTableCollection &symbolTable, DataFlowSolver &solver,
+              ModuleOp module,
+              ArrayRef<tensorrt::TensorRTModuleOp> trtModules) {
   Location loc = op->getLoc();
   ValueRange inputs;
   ValueRange outputs;
-  SymbolTableCollection symbolTable;
-  DataFlowSolver solver;
   func::FuncOp trtFunc;
 
   if (auto callOp = dyn_cast<tensorrt::CallOp>(op)) {
@@ -78,6 +77,8 @@ LogicalResult convertCallOp(Operation *op, IRRewriter &rewriter,
     inputs = callAllocOp.getInputs();
     // CallAllocOp doesn't have outputs as operands
   } else {
+    llvm_unreachable("unexpected type of operation. Only callOp and "
+                     "callAllocOp are supported.");
     return failure();
   }
 
@@ -105,9 +106,9 @@ LogicalResult convertCallOp(Operation *op, IRRewriter &rewriter,
   rewriter.setInsertionPoint(op);
 
   Value executionContext = rewriter.create<trtrt::CompileOp>(
-      loc, SymbolRefAttr::get(
-               rewriter.getStringAttr(trtModules.front().getSymName()),
-               {FlatSymbolRefAttr::get(trtFunc)}));
+      loc,
+      SymbolRefAttr::get(rewriter.getStringAttr(*trtModules.front().getName()),
+                         {FlatSymbolRefAttr::get(trtFunc)}));
   Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
 
   Operation *enqueueOp;
@@ -145,6 +146,8 @@ class ConvertTensorRTToRuntimePass
     }
 
     IRRewriter rewriter(ctx);
+    SymbolTableCollection symbolTable;
+    DataFlowSolver solver;
 
     SmallVector<tensorrt::TensorRTModuleOp> trtModules =
         llvm::to_vector(module.getOps<tensorrt::TensorRTModuleOp>());
@@ -163,7 +166,8 @@ class ConvertTensorRTToRuntimePass
     });
 
     for (auto callOp : llvm::make_early_inc_range(callOps)) {
-      if (failed(convertCallOp(callOp, rewriter, module, trtModules, ctx))) {
+      if (failed(convertCallOp(callOp, ctx, rewriter, symbolTable, solver,
+                               module, trtModules))) {
         return signalPassFailure();
       }
     }

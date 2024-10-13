@@ -414,7 +414,6 @@ void InlineClosedGroupOp::getSuccessorRegions(
     regions.push_back(RegionSuccessor(&getBody(), getBody().getArguments()));
     return;
   }
-
   // Otherwise, the region branches back to the parent operation.
   regions.push_back(RegionSuccessor(getResults()));
 }

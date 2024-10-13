@@ -77,8 +77,7 @@ static void registerDefaultDeviceDependentMethods(lua_State *state,
 
 static void registerLuaRuntimeMethodsCommon(
     lua_State *state, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker,
-    OutputAllocatorTracker *outputAllocatorTracker) {
+    AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
   registerExecutorCoreModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
                                               allocTracker);
 
@@ -94,18 +93,16 @@ static void registerLuaRuntimeMethodsCommon(
 
 #ifdef MLIR_EXECUTOR_ENABLE_TENSORRT
   registerExecutorTensorRTModuleLuaRuntimeMethods(state, pinnedMemoryAllocator,
-                                                  allocTracker, resourceTracker,
-                                                  outputAllocatorTracker);
+                                                  allocTracker, resourceTracker);
 #endif
 }
 
 void mlirtrt::runtime::registerLuaRuntimeMethods(
     lua_State *state, const RuntimeSessionOptions &options,
     PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
-    ResourceTracker *resourceTracker,
-    OutputAllocatorTracker *outputAllocatorTracker) {
+    ResourceTracker *resourceTracker) {
   registerLuaRuntimeMethodsCommon(state, pinnedMemoryAllocator, allocTracker,
-                                  resourceTracker, outputAllocatorTracker);
+                                  resourceTracker);
 #ifdef MLIR_EXECUTOR_ENABLE_NCCL
   registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
   registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
@@ -157,7 +154,7 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
   registerLuaRuntimeMethods(
       lua.lua_state(), session->getOptions(),
       &session->getPinnedMemorAllocator(), &session->getAllocTracker(),
-      &session->getResourceTracker(), &session->getOutputAllocatorTracker());
+      &session->getResourceTracker());
 
   // Register user-provided methods.
   if (registerExtraLuaFuncs)
@@ -702,15 +699,6 @@ runtime::executeFunctionWithLuaBackend(
 
   if (stream)
     RETURN_STATUS_IF_ERROR(session.setCudaStream(*stream));
-
-  // Create output allocator for each result argument.
-  OutputAllocatorTracker &outputAllocatorTracker =
-      session.getOutputAllocatorTracker();
-  for (unsigned i = 0; i < sig.getNumResults(); ++i) {
-    // Look up output allocator based on result index.
-    outputAllocatorTracker.track(
-        std::make_unique<CustomTensorRTOuputAllocator>());
-  }
 
   // If the number of arguments exceed a particular threshold, then
   // we pass arguments packed into a table, otherwise we pass as arguments.
