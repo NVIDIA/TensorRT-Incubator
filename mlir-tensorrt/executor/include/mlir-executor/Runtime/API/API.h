@@ -877,10 +877,6 @@ public:
 
   ResourceTracker &getResourceTracker() { return *resourceTracker; }
 
-  OutputAllocatorTracker &getOutputAllocatorTracker() {
-    return *outputAllocatorTracker;
-  }
-
   /// Returns the options used to construct the session.
   const RuntimeSessionOptions &getOptions() { return options; }
 
@@ -892,7 +888,6 @@ protected:
   std::unique_ptr<PinnedMemoryAllocator> pinnedMemoryAllocator;
   std::unique_ptr<AllocTracker> allocTracker;
   std::unique_ptr<ResourceTracker> resourceTracker;
-  std::unique_ptr<OutputAllocatorTracker> outputAllocatorTracker;
 };
 
 //===----------------------------------------------------------------------===//

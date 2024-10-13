@@ -263,7 +263,7 @@ struct ConvertEnqueueAllocToCall
     ImplicitLocOpBuilder b(op.getLoc(), rewriter);
 
     // Function name for the enqueue alloc operation
-    std::string funcName = "_trtrt_alloc_enqueue";
+    std::string funcName = "_trtrt_enqueue_alloc";
 
     // Create new operands for the call op
     SmallVector<Value> newOperands = {adaptor.getExecutionContext(),
@@ -394,7 +394,7 @@ struct ConvertEnqueueAllocToCall
           ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
                                  rewriter.getI64IntegerAttr(offset++)});
 
-      Value rankValue = b.create<executor::LoadOp>(
+      [[maybe_unused]] Value rankValue = b.create<executor::LoadOp>(
           b.getI64Type(), outputDescriptors, rankOffset);
       Value intPtr = b.create<executor::LoadOp>(
           b.getI64Type(), outputDescriptors, devicePtrOffset);
@@ -429,8 +429,10 @@ struct ConvertEnqueueAllocToCall
       resultRange.append(shapes.begin(), shapes.end());
       resultRange.append(strides.begin(), strides.end());
 
-      Value result = b.create<executor::CreateTableOp>(executor::TableType::get(
-          b.getContext(), llvm::to_vector(TypeRange(resultRange))));
+      Value result = b.create<executor::CreateTableOp>(
+          executor::TableType::get(b.getContext(),
+                                   llvm::to_vector(TypeRange(resultRange))),
+          resultRange);
 
       results.push_back(result);
     }

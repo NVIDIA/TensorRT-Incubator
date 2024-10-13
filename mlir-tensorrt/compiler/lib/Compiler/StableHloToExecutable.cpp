@@ -222,6 +222,10 @@ StableHLOToExecutableOptions::StableHLOToExecutableOptions(
       disallowHostTensorsInTensorRTClusters, llvm::cl::init(false),
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)"));
+  addOption(
+      "use-non-dps-call-conv", useNonDPSCallConv, llvm::cl::init(false),
+      llvm::cl::desc(
+          "allow tensorrt based output allocations using output allocator"));
   addOption("executor-index-bitwidth", executorIndexBitwidth,
             llvm::cl::init(64));
   addOption("device-compute-capability", deviceComputeCapability,
@@ -303,6 +307,7 @@ void StableHloToExecutableTask::buildStablehloClusteringPipeline(
   plan::StablehloClusteringPassOptions clusteringOpts{};
   clusteringOpts.disallowHostTensorsInTensorRTClusters =
       opts.disallowHostTensorsInTensorRTClusters;
+  clusteringOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
   clusteringOpts.entrypoint = opts.entrypoint;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
@@ -336,7 +341,9 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
 
   // Perform bufferization.
   pm.addPass(createMemRefCastEliminationPass());
-  pm.addPass(plan::createPlanAllocTensorsPass());
+  plan::PlanAllocTensorsPassOptions allocTensorsOpts{};
+  allocTensorsOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
+  pm.addPass(plan::createPlanAllocTensorsPass(allocTensorsOpts));
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(createMemRefCastEliminationPass());
   pm.addPass(createCanonicalizerPass());
@@ -485,13 +492,14 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     runner = pm.get();
   }
 
-  runner->printAsTextualPipeline(llvm::dbgs());
+  if (options.debugOptions.dumpTextualPipeline)
+    runner->printAsTextualPipeline(llvm::dbgs());
 
   // Setup pass manager
-  // if (failed(runner->run(module)))
-  //   return getInternalErrorStatus(
-  //       "failed to run compilation on module with symbol name: {0}",
-  //       module.getName() ? *module.getName() : "no-symbol-name");
+  if (failed(runner->run(module)))
+    return getInternalErrorStatus(
+        "failed to run compilation on module with symbol name: {0}",
+        module.getName() ? *module.getName() : "no-symbol-name");
 
   // Translate to Runtime Executable
   FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
@@ -524,6 +532,11 @@ struct ClusteringPipelineCliOpts
       *this, "device-compute-capability",
       llvm::cl::desc("target device compute capability (SM version)"),
       llvm::cl::init(60)};
+  Option<bool> useNonDPSCallConv{
+      *this, "use-non-dps-call-conv",
+      llvm::cl::desc(
+          "allow tensorrt based output allocations using output allocator"),
+      llvm::cl::init(false)};
   Option<int64_t> deviceMaxSharedMemoryPerBlockKb{
       *this, "device-max-smem-per-block",
       llvm::cl::desc("max shared memory per block (in kilobytes)"),
@@ -551,6 +564,7 @@ static StableHLOToExecutableOptions populateStablehloClusteringPipelineOpts(
   opts.deviceComputeCapability = cliOpts.deviceComputeCapability;
   opts.deviceMaxSharedMemoryPerBlockKb =
       cliOpts.deviceMaxSharedMemoryPerBlockKb;
+  opts.useNonDPSCallConv = cliOpts.useNonDPSCallConv;
   opts.shouldInferDeviceOptionsFromHost = cliOpts.inferDeviceOptionsFromHost;
   opts.entrypoint = cliOpts.entrypoint;
   return opts;

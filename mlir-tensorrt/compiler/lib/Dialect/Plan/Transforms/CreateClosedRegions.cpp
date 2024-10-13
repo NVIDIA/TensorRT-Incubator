@@ -351,34 +351,114 @@ static void remapAnalysisState(DataFlowSolver &solver, ValueRange originals,
   }
 }
 
-static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
-                                         plan::InlineGroupOp op,
-                                         DataFlowSolver &solver) {
-  OpBuilder::InsertionGuard g(rewriter);
-  Location loc = op.getLoc();
+static FailureOr<SmallVector<BoundsAttr>>
+getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
+                   SmallVector<Value> const &inputs) {
 
-  // Materialize the destination operands.
-  SmallVector<DestinationOperandMaterializationResult> destinationOperands;
+  // Compute input tensor kinds.
+  SmallVector<TensorKindInfo> inputTensorKinds;
+  inputTensorKinds.reserve(inputs.size());
+  for (auto [idx, input] : llvm::enumerate(inputs)) {
+    if (!isa<RankedTensorType>(input.getType())) {
+      inputTensorKinds.push_back(TensorKindInfo());
+      continue;
+    }
+    const TensorKindLattice *tensorKindLattice =
+        solver.lookupState<TensorKindLattice>(input);
+    if (!tensorKindLattice || tensorKindLattice->getValue().isUninitialized())
+      return emitError(loc)
+             << ("input operand #") << idx << " of type " << input.getType()
+             << " does not have a TensorKind associated with it";
+    inputTensorKinds.push_back(tensorKindLattice->getValue());
+  }
+
+  // Create the shape profile attributes for the inputs.
+  SmallVector<BoundsAttr> inputAttrs;
+  inputAttrs.reserve(inputTensorKinds.size());
+  for (auto [idx, input] : llvm::enumerate(inputs)) {
+    auto tensorType = dyn_cast<RankedTensorType>(input.getType());
+    if (!tensorType) {
+      inputAttrs.push_back(BoundsAttr::get(rewriter.getContext()));
+      continue;
+    }
+
+    // Check if we need tensor value bounds (shape/host tensor bounds).
+    if (inputTensorKinds[idx].isHostVisible()) {
+      const auto *lattice = solver.lookupState<TensorValueBoundsLattice>(input);
+      if (!lattice)
+        return emitError(loc)
+               << "host-visible input operand #" << idx << " of type "
+               << input.getType()
+               << " does not have value bounds information attached";
+
+      plan::BoundsArray bounds = lattice->getValue();
+      if (bounds.isUninitialized())
+        bounds = BoundsArray::getMaxRangeForValueBounds(input);
+      auto [lbAttr, ubAttr] = bounds.getAsElementsAttr(tensorType);
+
+      BoundsAttr boundsAttr = BoundsAttr::getChecked(
+          loc, rewriter.getContext(), BoundsKind::Value, DenseI64ArrayAttr{},
+          DenseI64ArrayAttr{}, lbAttr, ubAttr);
+      if (!boundsAttr)
+        return failure();
+      inputAttrs.push_back(boundsAttr);
+      continue;
+    }
+
+    // We don't need shape bounds attributes for statically shaped tensors.
+    if (tensorType.hasStaticShape()) {
+      inputAttrs.push_back(BoundsAttr::get(rewriter.getContext()));
+      continue;
+    }
+
+    // Get the upper bounds of the shape.
+    FailureOr<SmallVector<int64_t>> ub =
+        getShapeBoundsForValue(input, presburger::BoundType::UB, solver);
+    if (failed(ub))
+      return emitError(input.getLoc())
+             << "failed to derive upper bound for " << input;
+
+    // Get the lower bound of the shape.
+    FailureOr<SmallVector<int64_t>> lb =
+        getShapeBoundsForValue(input, presburger::BoundType::LB, solver);
+    if (failed(lb))
+      lb = SmallVector<int64_t>(tensorType.getRank(), 0);
+    BoundsAttr boundsAttr = BoundsAttr::getChecked(
+        mlir::detail::getDefaultDiagnosticEmitFn(loc), rewriter.getContext(),
+        BoundsKind::Shape, ArrayRef(*lb), ArrayRef(*ub));
+    if (!boundsAttr)
+      return failure();
+    inputAttrs.push_back(boundsAttr);
+  }
+
+  return inputAttrs;
+}
+
+static LogicalResult materializeDestinationOperands(
+    RewriterBase &rewriter, plan::InlineGroupOp op, DataFlowSolver &solver,
+    SmallVector<DestinationOperandMaterializationResult> &destinationOperands) {
   destinationOperands.reserve(op.getNumResults());
   for (OpResult res : op->getOpResults()) {
     FailureOr<DestinationOperandMaterializationResult> destResult =
         materializeDestinationOperand(rewriter, res.getLoc(), op,
                                       res.getResultNumber(), solver);
-    if (failed(destResult))
+    if (failed(destResult)) {
       return emitError(res.getLoc())
              << "failed to materialize destination operand of type "
              << res.getType();
+    }
     destinationOperands.push_back(*destResult);
   }
+  return success();
+}
 
-  // Make the region isolated from above. This captures the input operands.
-  SmallVector<Value> inputs = makeRegionIsolatedFromAbove(
-      rewriter, op.getRegion(), [&](Operation *producer) {
-        return shouldCloneProducer(producer, op.getRegion());
-      });
-
-  rewriter.setInsertionPoint(op);
-  auto closedGroupOp = rewriter.create<InlineClosedGroupOp>(
+// Helper function to create DPS closed group op.
+static LogicalResult createDPSClosedGroupOp(
+    RewriterBase &rewriter, plan::InlineGroupOp op, DataFlowSolver &solver,
+    const SmallVector<Value> &inputs,
+    const SmallVector<DestinationOperandMaterializationResult>
+        &destinationOperands) {
+  InlineClosedGroupOp closedGroupOp = rewriter.create<InlineClosedGroupOp>(
       op.getLoc(), /*target=*/op.getTarget(),
       /*inputs=*/inputs,
       /*outs=*/
@@ -415,28 +495,12 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
   remapAnalysisState(solver, op->getResults(), replacements);
   rewriter.replaceOp(op, replacements);
 
-  SmallVector<TensorKindInfo> inputTensorKinds;
-  inputTensorKinds.reserve(inputs.size());
-  for (auto [idx, input] : llvm::enumerate(inputs)) {
-    if (!isa<RankedTensorType>(input.getType())) {
-      inputTensorKinds.push_back(TensorKindInfo());
-      continue;
-    }
-    const TensorKindLattice *tensorKindLattice =
-        solver.lookupState<TensorKindLattice>(input);
-    if (!tensorKindLattice || tensorKindLattice->getValue().isUninitialized())
-      return closedGroupOp->emitOpError("input operand #")
-             << idx << " of type " << input.getType()
-             << " does not have a TensorKind associated with it";
-    inputTensorKinds.push_back(tensorKindLattice->getValue());
-  }
-
   // Create the closed region result profile attrs.
   SmallVector<BoundsAttr> resultAttrs;
   for (const DestinationOperandMaterializationResult &dest :
        destinationOperands) {
     auto boundsAttr = BoundsAttr::getChecked(
-        mlir::detail::getDefaultDiagnosticEmitFn(loc), rewriter.getContext(),
+        mlir::detail::getDefaultDiagnosticEmitFn(op->getLoc()), rewriter.getContext(),
         BoundsKind::Shape, ArrayRef(dest.constantShapeLowerBound),
         ArrayRef(dest.constantShapeUpperBound));
     if (!boundsAttr)
@@ -445,67 +509,77 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
   }
   closedGroupOp.setResAttrsAttr(resultAttrs);
 
-  // Create the shape profile attributes for the inputs.
-  SmallVector<BoundsAttr> inputAttrs;
-  inputAttrs.reserve(inputTensorKinds.size());
-  for (auto [idx, input] : llvm::enumerate(closedGroupOp.getInputs())) {
-    auto tensorType = dyn_cast<RankedTensorType>(input.getType());
-    if (!tensorType) {
-      inputAttrs.push_back(BoundsAttr::get(rewriter.getContext()));
-      continue;
-    }
+  // Create the closed region input profilw attrs.
+  auto inputAttr = getInputAttributes(rewriter, solver, closedGroupOp->getLoc(),
+                                      closedGroupOp.getInputs());
+  if (failed(inputAttr))
+    return emitError(closedGroupOp.getLoc())
+           << "failed to compute input attribute ";
 
-    // Check if we need tensor value bounds (shape/host tensor bounds).
-    if (inputTensorKinds[idx].isHostVisible()) {
-      const auto *lattice = solver.lookupState<TensorValueBoundsLattice>(input);
-      if (!lattice)
-        return emitError(closedGroupOp.getLoc())
-               << "host-visible input operand #" << idx << " of type "
-               << input.getType()
-               << " does not have value bounds information attached";
-
-      plan::BoundsArray bounds = lattice->getValue();
-      if (bounds.isUninitialized())
-        bounds = BoundsArray::getMaxRangeForValueBounds(input);
-      auto [lbAttr, ubAttr] = bounds.getAsElementsAttr(tensorType);
-
-      BoundsAttr boundsAttr = BoundsAttr::getChecked(
-          closedGroupOp.getLoc(), rewriter.getContext(), BoundsKind::Value,
-          DenseI64ArrayAttr{}, DenseI64ArrayAttr{}, lbAttr, ubAttr);
-      if (!boundsAttr)
-        return failure();
-      inputAttrs.push_back(boundsAttr);
-      continue;
-    }
-
-    // We don't need shape bounds attributes for statically shaped tensors.
-    if (tensorType.hasStaticShape()) {
-      inputAttrs.push_back(BoundsAttr::get(rewriter.getContext()));
-      continue;
-    }
-
-    // Get the upper bounds of the shape.
-    FailureOr<SmallVector<int64_t>> ub =
-        getShapeBoundsForValue(input, presburger::BoundType::UB, solver);
-    if (failed(ub))
-      return emitError(input.getLoc())
-             << "failed to derive upper bound for " << input;
-
-    // Get the lower bound of the shape.
-    FailureOr<SmallVector<int64_t>> lb =
-        getShapeBoundsForValue(input, presburger::BoundType::LB, solver);
-    if (failed(lb))
-      lb = SmallVector<int64_t>(tensorType.getRank(), 0);
-    BoundsAttr boundsAttr = BoundsAttr::getChecked(
-        mlir::detail::getDefaultDiagnosticEmitFn(loc), rewriter.getContext(),
-        BoundsKind::Shape, ArrayRef(*lb), ArrayRef(*ub));
-    if (!boundsAttr)
-      return failure();
-    inputAttrs.push_back(boundsAttr);
-  }
-  closedGroupOp.setInputAttrsAttr(inputAttrs);
+  closedGroupOp.setInputAttrsAttr(*inputAttr);
 
   return success();
+}
+
+// Helper function to create non-DPS closed group op.
+static LogicalResult
+createNonDPSClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
+                          DataFlowSolver &solver,
+                          const SmallVector<Value> &inputs) {
+  // Create a new closed group op and move blocks into it.
+  InlineClosedGroupNonDPSOp closedGroupOp =
+      rewriter.create<InlineClosedGroupNonDPSOp>(
+          op.getLoc(), /*result type*/ op->getResultTypes(),
+          /*target=*/op.getTarget(),
+          /*inputs=*/inputs);
+
+  rewriter.inlineBlockBefore(
+      &op.getRegion().front(), &closedGroupOp.getRegion().front(),
+      closedGroupOp.getRegion().front().end(),
+      closedGroupOp.getRegion().getArguments().take_front(
+          op.getRegion().getNumArguments()));
+
+  rewriter.replaceOp(op, closedGroupOp->getResults());
+
+  // Create the closed region input profilw attrs.
+  auto inputAttr = getInputAttributes(rewriter, solver, closedGroupOp->getLoc(),
+                                      closedGroupOp.getInputs());
+  if (failed(inputAttr))
+    return emitError(closedGroupOp.getLoc())
+           << "failed to compute input attribute ";
+
+  closedGroupOp.setInputAttrsAttr(*inputAttr);
+
+  return success();
+}
+
+static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
+                                         plan::InlineGroupOp op,
+                                         DataFlowSolver &solver,
+                                         bool useNonDPSCallConv) {
+  OpBuilder::InsertionGuard g(rewriter);
+
+  // Materialize destination operands if not using non-DPS call convention.
+  SmallVector<DestinationOperandMaterializationResult> destinationOperands;
+  if (!useNonDPSCallConv)
+    if (failed(materializeDestinationOperands(rewriter, op, solver,
+                                              destinationOperands)))
+      return failure();
+
+  // Make the region isolated from above. This captures the input operands.
+  SmallVector<Value> inputs = makeRegionIsolatedFromAbove(
+      rewriter, op.getRegion(), [&](Operation *producer) {
+        return shouldCloneProducer(producer, op.getRegion());
+      });
+
+  rewriter.setInsertionPoint(op);
+
+  // Create and populate the appropriate closed group op based on call
+  // convention.
+  if (!useNonDPSCallConv)
+    return createDPSClosedGroupOp(rewriter, op, solver, inputs,
+                                  destinationOperands);
+  return createNonDPSClosedGroupOp(rewriter, op, solver, inputs);
 }
 
 namespace {
@@ -549,7 +623,8 @@ public:
 
     IRRewriter rewriter(ctx);
     for (InlineGroupOp groupOp : groupOps) {
-      if (failed(createClosedGroupOp(rewriter, groupOp, solver)))
+      if (failed(createClosedGroupOp(rewriter, groupOp, solver,
+                                     useNonDPSCallConv)))
         return signalPassFailure();
     }
   }

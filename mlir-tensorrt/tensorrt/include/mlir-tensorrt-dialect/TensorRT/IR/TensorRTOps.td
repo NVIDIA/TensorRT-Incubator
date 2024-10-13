@@ -71,7 +71,9 @@ def TensorRT_TensorRTModuleOp : TensorRT_Op<"module", [
 
   let extraClassDeclaration = [{
     /// Return the name of this module if present.
-    std::optional<StringRef> getName() { return getSymName(); }
+    std::optional<StringRef> getName() const {
+      return (*this)->getAttrOfType<StringAttr>("sym_name").getValue();
+    }
 
     /// Construct a module from the location context.
     static TensorRTModuleOp create(Location loc, StringRef name);

@@ -93,21 +93,14 @@ StatusOr<int64_t> runExecutorExecutable(
     LuaRuntimeSession::LuaModuleRegistrationFunc registerExtraLuaFuncs = {});
 
 /// Execute a named function in the session with the specified input args and
-/// output (destination args). Returns optional results.
+/// output (destination args). Returns optional results supporting both DPS and
+/// non-DPS style calling convention.
 StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
 executeFunctionWithLuaBackend(LuaRuntimeSession &session, std::string_view name,
                               llvm::ArrayRef<RuntimeValue *> inputArgs,
                               llvm::ArrayRef<RuntimeValue *> outputArgs,
                               std::optional<CudaStream> stream = {},
                               std::optional<RuntimeClient *> client = {});
-
-/// Execute a named function in the session with the specified input args and
-/// return results.
-StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>>
-executeFunctionWithResultWithLuaBackend(
-    LuaRuntimeSession &session, RuntimeClient &client, std::string_view name,
-    llvm::ArrayRef<RuntimeValue *> inputArgs,
-    std::optional<CudaStream> stream = {});
 
 } // namespace mlirtrt::runtime
 

@@ -81,8 +81,7 @@ struct EnqueueOpInterface
     // the correct space.
     SmallVector<Value> newInputBuffers;
     newInputBuffers.reserve(enqueueOp.getNumDpsInputs());
-    for (auto [idx, opOperand] :
-         llvm::enumerate(enqueueOp.getDpsInputOperands())) {
+    for (OpOperand *opOperand : enqueueOp.getDpsInputOperands()) {
 
       // The context and steam operands are considered "DPS inputs" and
       // therefore they'll be skipped here.
@@ -99,7 +98,7 @@ struct EnqueueOpInterface
       // Check if this input is a host tensor. Insert a copy if required. Note
       // that we subtract two from the index to account for context/stream
       // arguments.
-      if (enqueueOp.isOperandOnHost(idx) &&
+      if (enqueueOp.isOperandOnHost(opOperand) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::host_pinned)) {
         FailureOr<Value> pinnedAlloc = options.createAlloc(
             rewriter, op->getLoc(),
@@ -117,7 +116,7 @@ struct EnqueueOpInterface
       }
 
       // If we are in host space, then copy to the device.
-      if (!enqueueOp.isOperandOnHost(idx) &&
+      if (!enqueueOp.isOperandOnHost(opOperand) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::device)) {
         FailureOr<Value> devAlloc = options.createAlloc(
             rewriter, op->getLoc(),
@@ -210,17 +209,17 @@ struct EnqueueAllocOpInterface
     // Handle inputs
     SmallVector<Value> newInputBuffers;
     newInputBuffers.reserve(enqueueAllocOp.getInputs().size());
-    for (auto [idx, input] : llvm::enumerate(enqueueAllocOp.getInputs())) {
-      assert(isa<RankedTensorType>(input.getType()) &&
-             "expected tensor inputs");
-      FailureOr<Value> buffer = getBuffer(rewriter, input, options);
+    for (OpOperand &opOperand : enqueueAllocOp->getOpOperands()) {
+      if (!isa<RankedTensorType>(opOperand.get().getType()))
+        continue;
+      FailureOr<Value> buffer = getBuffer(rewriter, opOperand.get(), options);
       if (failed(buffer))
         return failure();
 
       MemRefType memRefType = cast<MemRefType>(buffer->getType());
 
       // Handle host tensor inputs
-      if (enqueueAllocOp.isOperandOnHost(idx) &&
+      if (enqueueAllocOp.isOperandOnHost(&opOperand) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::host_pinned)) {
         FailureOr<Value> pinnedAlloc = options.createAlloc(
             rewriter, loc,
@@ -238,7 +237,7 @@ struct EnqueueAllocOpInterface
       }
 
       // Handle device tensor inputs
-      if (!enqueueAllocOp.isOperandOnHost(idx) &&
+      if (!enqueueAllocOp.isOperandOnHost(&opOperand) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::device)) {
         FailureOr<Value> devAlloc = options.createAlloc(
             rewriter, loc,
@@ -288,9 +287,7 @@ struct EnqueueAllocOpInterface
         loc, TypeRange(outputBufferTypes), enqueueAllocOp.getExecutionContext(),
         enqueueAllocOp.getStream(), newInputBuffers,
         enqueueAllocOp.getHostTensorArgsAttr());
-
     replaceOpWithBufferizedValues(rewriter, op, bufferizedOp.getResults());
-
     return success();
   }
 };

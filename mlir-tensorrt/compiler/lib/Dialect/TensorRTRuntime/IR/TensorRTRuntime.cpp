@@ -81,7 +81,7 @@ void EnqueueOp::inferOperandKind(
   for (OpOperand &operand : getOperation()->getOpOperands()) {
     if (!isa<ShapedType>(operand.get().getType()))
       continue;
-    if (isOperandOnHost(operand.getOperandNumber())) {
+    if (isOperandOnHost(&operand)) {
       setOperandKind(operand, TensorKind::Host);
       continue;
     }
@@ -90,7 +90,7 @@ void EnqueueOp::inferOperandKind(
 }
 
 TensorKind EnqueueOp::getStaticOperandTensorKind(OpOperand &operand) {
-  return isOperandOnHost(operand.getOperandNumber()) ? TensorKind::Host
+  return isOperandOnHost(&operand) ? TensorKind::Host
                                                      : TensorKind::Device;
 }
 
@@ -124,7 +124,7 @@ void EnqueueAllocOp::inferOperandKind(
   for (OpOperand &operand : getOperation()->getOpOperands()) {
     if (!isa<ShapedType>(operand.get().getType()))
       continue;
-    if (isOperandOnHost(operand.getOperandNumber())) {
+    if (isOperandOnHost(&operand)) {
       setOperandKind(operand, TensorKind::Host);
       continue;
     }
@@ -133,7 +133,7 @@ void EnqueueAllocOp::inferOperandKind(
 }
 
 TensorKind EnqueueAllocOp::getStaticOperandTensorKind(OpOperand &operand) {
-  return isOperandOnHost(operand.getOperandNumber()) ? TensorKind::Host
+  return isOperandOnHost(&operand) ? TensorKind::Host
                                                      : TensorKind::Device;
 }
 
@@ -203,27 +203,26 @@ void EnqueueAllocOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
 
-  // This op allocates memory for its results. Only allocate if the inputs are
-  // bufferized to memrefs.
-  OpOperand &operand = getInputsMutable()[0];
-  if (!isa<MemRefType>(operand.get().getType()))
-    return;
-
-  effects.emplace_back(MemoryEffects::Allocate::get(), 0,
-                       /*effectOnFullRegion=*/true);
-
   for (OpOperand &operand : getInputsMutable()) {
     if (!isa<MemRefType>(operand.get().getType()))
       continue;
     effects.emplace_back(MemoryEffects::Read::get(), &operand,
                          SideEffects::DefaultResource::get());
   }
+  
+  bool resultRequireAllocation{false};
   for (OpResult result : getResults()) {
     if (!isa<MemRefType>(result.getType()))
       continue;
+    resultRequireAllocation = true;
     effects.emplace_back(MemoryEffects::Write::get(), result,
                          SideEffects::DefaultResource::get());
   }
+
+  if (resultRequireAllocation)
+    effects.emplace_back(MemoryEffects::Allocate::get(), 0,
+                        /*effectOnFullRegion=*/true);
+
 }
 
 //===----------------------------------------------------------------------===//

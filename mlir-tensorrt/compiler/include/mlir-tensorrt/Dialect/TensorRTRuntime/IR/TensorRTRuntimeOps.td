@@ -105,9 +105,9 @@ def TensorRTRuntime_EnqueueOp : TensorRTRuntime_Op<"enqueue", [
     // Declare the outs as inits/outs to DestinationStyleOpInterface.
     MutableOperandRange getDpsInitsMutable() { return getOutsMutable(); }
 
-    /// Return true if the operand at the specified index is a host tensor
-    /// argument.
-    bool isOperandOnHost(int64_t operandIdx) {
+    /// Return true if the operand is a host tensor argument.
+    bool isOperandOnHost(OpOperand *operand) {
+      unsigned operandIdx = operand->getOperandNumber();
       if(std::optional<ArrayRef<int64_t>> indices = getHostTensorArgs()) {
         return llvm::is_contained(*indices, operandIdx - 2);
       }
@@ -150,9 +150,9 @@ def TensorRTRuntime_EnqueueAllocOp : TensorRTRuntime_Op<"enqueue_alloc", [
   let hasVerifier = 1;
 
   let extraClassDeclaration = [{
-    /// Return true if the operand at the specified index is a host tensor
-    /// argument.
-    bool isOperandOnHost(int64_t operandIdx) {
+    /// Return true if the operand is a host tensor argument.
+    bool isOperandOnHost(OpOperand *operand) {
+      unsigned operandIdx = operand->getOperandNumber();
       if(std::optional<ArrayRef<int64_t>> indices = getHostTensorArgs()) {
         return llvm::is_contained(*indices, operandIdx - 2);
       }

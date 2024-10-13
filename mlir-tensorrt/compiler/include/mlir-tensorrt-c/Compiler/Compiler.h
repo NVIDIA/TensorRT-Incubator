@@ -82,7 +82,8 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
 MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     MTRT_StableHLOToExecutableOptions options, bool enableDebugging,
     const char **debugTypes, size_t debugTypeSizes,
-    const char *dumpIrTreeDir = nullptr, const char *dumpTensorRTDir = nullptr);
+    const char *dumpIrTreeDir = nullptr, const char *dumpTensorRTDir = nullptr,
+    bool dumpTextualPipeline = false);
 
 /// Sets the layer metadata callback. The `userData` argument is passed along
 /// to the callback when it is invoked.

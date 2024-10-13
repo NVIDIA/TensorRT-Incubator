@@ -37,7 +37,6 @@ void registerLuaRuntimeMethods(lua_State *state,
                                const RuntimeSessionOptions &options,
                                PinnedMemoryAllocator *pinnedMemoryAllocator,
                                AllocTracker *allocTracker,
-                               ResourceTracker *resourceTracker,
-                               OutputAllocatorTracker *outputAllocatorTracker);
+                               ResourceTracker *resourceTracker);
 
 } // namespace mlirtrt::runtime
