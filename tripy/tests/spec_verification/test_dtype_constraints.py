@@ -148,10 +148,7 @@ def _run_dtype_constraints_subtest(test_data):
                 f"""
                 from {func_obj.__module__} import {func_obj.__qualname__}
 
-                if {func_name} == "shape":
-                    ret_val = args[0].shape
-                else:
-                    ret_val = {func_obj.__qualname__}(*args, **kwargs)
+                ret_val = {func_obj.__qualname__}(*args, **kwargs)
                 """
             ),
             globals(),
