@@ -101,22 +101,30 @@ def str_from_source_info(source_info, enable_color=True, is_first_frame=True, ca
     return frame_info
 
 
+def _get_function_file_and_lines(func):
+    filename = inspect.getsourcefile(func)
+    lines, start_line = inspect.getsourcelines(func)
+    return filename, start_line, start_line + len(lines)
+
+
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
+
     from tripy.frontend.utils import convert_inputs_to_tensors, convert_shape_inputs
 
     EXCLUDE_FUNCTIONS = [convert_inputs_to_tensors, convert_shape_inputs]
 
+    exclude_file_lines = {}  # Maps filenames to ranges of lines that should be ignored.
+    for func in EXCLUDE_FUNCTIONS:
+        filename, start_line, end_line = _get_function_file_and_lines(func)
+
+        exclude_file_lines[filename] = (start_line, end_line)
+
     def should_exclude(frame):
-        for func in EXCLUDE_FUNCTIONS:
-            filename = inspect.getsourcefile(func)
-            lines, start_line = inspect.getsourcelines(func)
+        if frame.file not in exclude_file_lines:
+            return False
 
-            if frame.file != filename:
-                return False
-
-            if frame.line < start_line or frame.line > (start_line + len(lines)):
-                return False
-            return True
+        start_line, end_line = exclude_file_lines[frame.file]
+        return frame.line >= start_line and frame.line <= end_line
 
     frame_strs = []
     num_frames_printed = 0
