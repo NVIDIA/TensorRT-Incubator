@@ -15,11 +15,15 @@
 # limitations under the License.
 #
 
+import re
 from dataclasses import dataclass
 from textwrap import dedent
 
 from tests import helper
-from tripy.common.exception import TripyException, _make_stack_info_message, raise_error
+
+import tripy as tp
+from tripy.common.exception import TripyException, _get_function_file_and_lines, _make_stack_info_message, raise_error
+from tripy.frontend.utils import convert_shape_inputs
 from tripy.utils import StackInfo, get_stack_info
 from tripy.utils.stack_info import SourceInfo
 
@@ -120,3 +124,37 @@ class TestRaiseError:
             ).strip()
             in dedent(error_msg).strip()
         )
+
+    def test_convert_shape_inputs_is_excluded(self):
+        filename, start_line, end_line = _get_function_file_and_lines(convert_shape_inputs)
+        tensor = tp.ones((2, 3))
+
+        stack_info = tensor.stack_info
+
+        assert any(
+            frame.file == filename and frame.line >= start_line and frame.line <= end_line for frame in stack_info
+        )
+
+        # Make sure that no extraneous wrapper code is included
+        expected = dedent(
+            r"""
+                --> [a-z_/\.]+:[0-9]+ in full\(\)
+                    |
+                [0-9]+ |     return full_impl\(shape, value, dtype, output_rank\)
+                    |
+
+                --> [a-z_/\.]+:[0-9]+ in ones\(\)
+                    |
+                [0-9]+ |     return full\(shape, 1, dtype\)
+                    |            ^^^^^^^^^^^^^^^^^^^^^ --- required from here
+
+                --> [a-z_/\.]+:[0-9]+ in test_convert_shape_inputs_is_excluded\(\)
+                    |
+                [0-9]+ |         tensor = tp.ones\(\(2, 3\)\)
+                    |                  ^^^^^^^^^^^^^^^ --- required from here
+
+                """
+        ).strip()
+
+        actual = _make_stack_info_message(stack_info, enable_color=False)
+        assert re.search(expected, actual) is not None
