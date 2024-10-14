@@ -66,7 +66,7 @@ class MultiScaleAttention(tp.Module):
         # qkv with shape (B, H * W, 3, nHead, C)
         qkv = tp.reshape(self.qkv(x), (B, H * W, 3, self.num_heads, -1))
         # q, k, v with shape (B, H * W, nheads, C)
-        q, k, v = tp.split(qkv, 3, dim=2)
+        q, k, v = qkv[:, :, 0], qkv[:, :, 1], qkv[:, :, 2]
 
         # Q pooling (for downsample at stage changes)
         if self.q_pool:
@@ -217,6 +217,7 @@ class Hiera(tp.Module):
         self.q_pool_blocks = [x + 1 for x in self.stage_ends[:-1]][:q_pool]
         self.return_interm_layers = return_interm_layers
 
+        self.embed_dim = embed_dim
         self.patch_embed = PatchEmbed(
             embed_dim=embed_dim,
         )
@@ -227,6 +228,8 @@ class Hiera(tp.Module):
         self.window_pos_embed_bkg_spatial_size = window_pos_embed_bkg_spatial_size
         self.pos_embed = tp.Parameter(tp.zeros((1, embed_dim, *self.window_pos_embed_bkg_spatial_size)))
         self.pos_embed_window = tp.Parameter(tp.zeros((1, embed_dim, self.window_spec[0], self.window_spec[0])))
+        # WAR: https://github.com/NVIDIA/TensorRT-Incubator/issues/269
+        self.pos_embed_torch = self._get_pos_embed_torch((256, 256))
 
         cur_stage = 1
         self.blocks = []
@@ -266,7 +269,7 @@ class Hiera(tp.Module):
     def _get_pos_embed(self, hw: Tuple[int, int]) -> tp.Tensor:
         h, w = hw
         window_embed = self.pos_embed_window
-        pos_embed_shape = (self.pos_embed.shape[0], self.pos_embed.shape[1], h, w)
+        pos_embed_shape = (1, self.embed_dim, h, w)
         pos_embed = tp.resize(self.pos_embed, mode="cubic", output_shape=pos_embed_shape)
         # WAR: tp.repeat twice
         window_embed = tp.repeat(window_embed, h // self.window_spec[0], dim=-2)
@@ -275,13 +278,25 @@ class Hiera(tp.Module):
         pos_embed = tp.permute(pos_embed, (0, 2, 3, 1))
         return pos_embed
 
+    def _get_pos_embed_torch(self, hw: Tuple[int, int]):
+        import torch
+        import torch.nn.functional as F
+
+        h, w = hw
+        window_embed = torch.from_dlpack(self.pos_embed_window)
+        pos_embed = F.interpolate(torch.from_dlpack(self.pos_embed), size=(h, w), mode="bicubic")
+        pos_embed = pos_embed + window_embed.tile([x // y for x, y in zip(pos_embed.shape, window_embed.shape)])
+        pos_embed = pos_embed.permute(0, 2, 3, 1)
+        return pos_embed
+
     def __call__(self, x: tp.Tensor) -> List[tp.Tensor]:
         x = self.patch_embed(x)
         # x: (B, H, W, C)
 
         # Add pos embed
-        h, w = x.shape[1:3]
-        x = x + self._get_pos_embed((h, w))
+        # h, w = x.shape[1:3]  # (256, 256)
+        # x = x + self._get_pos_embed((256, 256))
+        x = x + tp.Tensor(self.pos_embed_torch)
 
         outputs = []
         for i, blk in enumerate(self.blocks):

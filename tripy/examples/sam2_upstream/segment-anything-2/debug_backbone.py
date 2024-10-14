@@ -1,3 +1,4 @@
+import time
 import tripy as tp
 import torch
 
@@ -20,7 +21,7 @@ def test_trunk():
     )
     trunk_inp = tp.ones((1, 3, 1024, 1024))
     trunk_out = trunk(trunk_inp)
-    print(trunk_out[0])
+    print(trunk_out[1])
 
 
 ############## neck -- FpnNeck #############
@@ -49,14 +50,51 @@ def test_neck():
 
 
 ############ image_encoder (trunk + neck) ##################
-def test_image_encoder(trunk, neck):
-    image_encoder = image_encoder.ImageEncoder(
+def test_image_encoder():
+    trunk = hieradet.Hiera(
+        embed_dim=144,
+        num_heads=2,
+        stages=[2, 6, 36, 4],
+        global_att_blocks=[23, 33, 43],
+        window_pos_embed_bkg_spatial_size=[7, 7],
+        window_spec=[8, 4, 16, 8],
+    )
+
+    position_encoding = position_embedding.PositionEmbeddingSine(
+        num_pos_feats=256,
+        normalize=True,
+        scale=None,
+        temperature=10000,
+    )
+    neck = image_encoder.FpnNeck(
+        position_encoding=position_encoding,
+        d_model=256,
+        backbone_channel_list=[1152, 576, 288, 144],
+        fpn_top_down_levels=[2, 3],
+        fpn_interp_model="nearest",
+    )
+
+    encoder = image_encoder.ImageEncoder(
         trunk=trunk,
         neck=neck,
         scalp=1,
     )
-    inp = tp.ones((1, 3, 1024, 1024))
-    out = image_encoder(inp)
+
+    # test eager mode
+    # inp = tp.ones((1, 3, 1024, 1024))
+    # out = encoder(inp)
+    # print(out)
+
+    # test compilation
+    print("Start compiling image encoder...")
+    start = time.time()
+    compiled_tp_image_encoder = tp.compile(
+        encoder.forward,
+        args=[
+            tp.InputInfo((1, 3, 1024, 1024), dtype=tp.float32),
+        ],
+    )
+    print(f"Compile image encoder took {time.time() - start}s")
 
 
-test_neck()
+test_image_encoder()
