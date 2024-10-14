@@ -77,11 +77,17 @@ def build_sam2(
                 tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_embeddings
                 tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_pe
                 tp.InputInfo((1, 2, 256), dtype=tp.float32),  # sparse_prompt_embeddings
-                tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # dense_prompt_embeddings
+                tp.InputInfo(
+                    (1, 256, 64, 64), dtype=tp.float32
+                ),  # dense_prompt_embeddings
                 True,  # multimask_output
                 False,  # repeat_image
-                tp.InputInfo((1, 32, 256, 256), dtype=tp.float32),  # high_res_features_1
-                tp.InputInfo((1, 64, 128, 128), dtype=tp.float32),  # high_res_features_2
+                tp.InputInfo(
+                    (1, 32, 256, 256), dtype=tp.float32
+                ),  # high_res_features_1
+                tp.InputInfo(
+                    (1, 64, 128, 128), dtype=tp.float32
+                ),  # high_res_features_2
             ],
         )
         print(f"Compile mask decoder took {time.time() - start}s")
@@ -189,7 +195,9 @@ def build_sam2_video_predictor_hf(model_id, **kwargs):
     }
     config_name, checkpoint_name = model_id_to_filenames[model_id]
     ckpt_path = hf_hub_download(repo_id=model_id, filename=checkpoint_name)
-    return build_sam2_video_predictor(config_file=config_name, ckpt_path=ckpt_path, **kwargs)
+    return build_sam2_video_predictor(
+        config_file=config_name, ckpt_path=ckpt_path, **kwargs
+    )
 
 
 def _load_checkpoint(model, ckpt_path, cfg=None):
@@ -230,7 +238,9 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
             tp_mask_decoder.load_state_dict(tp_mask_decoder_state_dict)
 
         if use_tripy_prompt_encoder:
-            print(f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}")
+            print(
+                f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}"
+            )
             tp_prompt_encoder.load_state_dict(tp_prompt_encoder_state_dict)
 
         if missing_keys:
