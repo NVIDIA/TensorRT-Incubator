@@ -19,11 +19,11 @@ from tripy.common.exception import raise_error
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"tensors": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"tensors": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def stack(tensors: List[Union["tripy.Tensor"]], dim: int = 0) -> "tripy.Tensor":
     """

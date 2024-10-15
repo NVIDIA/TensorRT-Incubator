@@ -18,11 +18,11 @@ from tripy.frontend import utils as frontend_utils
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int32"],
     },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 @frontend_utils.process_dim
 def cumsum(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":

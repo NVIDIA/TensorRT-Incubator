@@ -83,11 +83,11 @@ class Convolution(BaseTraceOp):
         )
 
 
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def convolution(
     input: "tripy.Tensor",

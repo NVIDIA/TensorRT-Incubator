@@ -100,12 +100,12 @@ class Gather(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "index": "T2", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
         "T2": ["int32"],
     },
-    dtype_constraints={"input": "T1", "index": "T2", constraints.RETURN_VALUE: "T1"},
 )
 def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """
