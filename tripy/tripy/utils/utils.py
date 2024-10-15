@@ -444,7 +444,8 @@ def get_positional_arg_names(func, *args):
 
         arg_names.append(name)
 
-    arg_names.extend([None] * (len(args) - len(arg_names)))
+    # For all variadic positional arguments, assign the name of the variadic group.
+    arg_names.extend([name] * (len(args) - len(arg_names)))
     return list(zip(arg_names, args))
 
 

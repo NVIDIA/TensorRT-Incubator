@@ -15,11 +15,11 @@
 # limitations under the License.
 #
 
-import tripy as tp
-
-from typing import Union, Optional, get_origin, get_args, ForwardRef, List
-from tripy.common import datatype
 import inspect
+from typing import ForwardRef, List, Optional, Union, get_args, get_origin
+
+import tripy as tp
+from tripy.common import datatype
 
 
 def tensor_builder(init, dtype, namespace):
@@ -29,7 +29,10 @@ def tensor_builder(init, dtype, namespace):
         return out
     elif not isinstance(init, tp.Tensor):
         return init
-    out = tp.cast(init, dtype=namespace[dtype])
+
+    out = init
+    if dtype is not None:
+        out = tp.cast(out, dtype=namespace[dtype])
     out.eval()
     return out
 
@@ -146,6 +149,8 @@ default_constraints_all = {
     "maxpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
     "avgpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
     "zeros": {"shape": [3, 2]},
+    # Methods
+    "Shape.as_tensor": {"self": tp.Shape([1, 2, 3])},
 }
 
 
