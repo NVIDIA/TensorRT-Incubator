@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729029346100,
+  "lastUpdate": 1729031108571,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -408,6 +408,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007165824897296668",
             "extra": "mean: 143.5145679259662 usec\nrounds: 7585"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "c9c2fc226711f26da3f482bacb134c4daf7eaca8",
+          "message": "Adds dtype constraint enforcement, various bug fixes and improvements",
+          "timestamp": "2024-10-15T22:05:50Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/274/commits/c9c2fc226711f26da3f482bacb134c4daf7eaca8"
+        },
+        "date": 1729031107813,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6226.324438759435,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003160990012362032",
+            "extra": "mean: 160.60839903794752 usec\nrounds: 6582"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6858.967925109602,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007663718318583941",
+            "extra": "mean: 145.79452928175348 usec\nrounds: 7568"
           }
         ]
       }
