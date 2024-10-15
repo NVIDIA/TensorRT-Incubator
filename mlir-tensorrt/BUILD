@@ -1,4 +1,5 @@
 load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "td_library")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 
 package(
     default_visibility = [
@@ -707,4 +708,12 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 
 buildifier(
     name = "buildifier",
+)
+
+# bazel run //:requirements.update
+compile_pip_requirements(
+    name = "requirements",
+    requirements_in = "//:requirements.txt",
+    requirements_txt = "//:requirements_lock.txt",
+    tags = ["manual"],
 )

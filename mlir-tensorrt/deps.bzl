@@ -67,6 +67,15 @@ def third_party_deps():
         urls = ["https://github.com/bazel-contrib/rules_cuda/archive/{commit}.tar.gz".format(commit = RULES_CUDA_COMMIT)],
     )
 
+    RULES_PYTHON_VERSION = "0.29.0"
+    RULES_PYTHON_SHA256 = "d71d2c67e0bce986e1c5a7731b4693226867c45bfe0b7c5e0067228a536fc580"
+    http_archive(
+        name = "rules_python",
+        sha256 = RULES_PYTHON_SHA256,
+        strip_prefix = "rules_python-{}".format(RULES_PYTHON_VERSION),
+        url = "https://github.com/bazelbuild/rules_python/releases/download/{}/rules_python-{}.tar.gz".format(RULES_PYTHON_VERSION, RULES_PYTHON_VERSION),
+    )
+
     http_archive(
         name = "io_bazel_rules_go",
         sha256 = "6dc2da7ab4cf5d7bfc7c949776b1b7c733f05e56edc4bcd9022bb249d2e2a996",

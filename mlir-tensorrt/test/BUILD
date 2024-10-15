@@ -5,6 +5,8 @@
 
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@llvm-project//llvm:lit_test.bzl", "lit_test")
+load("@pip_deps//:requirements.bzl", "requirement")
+load("//:version.bzl", "MLIR_TENSORRT_VERSION")
 
 expand_template(
     name = "lit_site_cfg_py",
@@ -16,6 +18,8 @@ expand_template(
         "\"@TENSORRT_MLIR_BINARY_DIR@\"": "os.path.join(os.environ['TEST_SRCDIR'], 'tensorrt-mlir')",
         "\"@LLVM_TOOLS_DIR@\"": "os.path.join(os.environ['TEST_SRCDIR'], 'llvm-project', 'llvm')",
         "\"@CMAKE_SOURCE_DIR@\"": "os.path.join(os.environ['TEST_SRCDIR'], 'tensorrt-mlir')",
+        "\"@CMAKE_BINARY_DIR@\"": "os.path.join(os.environ['TEST_SRCDIR'], 'tensorrt-mlir')",
+        "@MLIR_TRT_TENSORRT_VERSION@": "{}".format(MLIR_TENSORRT_VERSION),
         "@MLIR_TRT_ENABLE_PYTHON@": "False",
         "@MLIR_TRT_ENABLE_ASSERTIONS@": "True",
         "@MLIR_TRT_TARGET_CPP@": "False",
@@ -37,6 +41,7 @@ filegroup(
     data = [
         "lit.cfg.py",
         "lit.site.cfg.py",
+        "gpu_tools.py",
         "@llvm-project//llvm:FileCheck",
         "@llvm-project//llvm:count",
         "@llvm-project//llvm:not",
@@ -52,6 +57,12 @@ filegroup(
             "//test:lit_data",
         ],
         tags = ["lit_tests"],
+        deps = [
+            requirement("nvidia-ml-py"),
+            requirement("click"),
+            requirement("numpy"),
+
+        ],
     )
     for src in glob([
         "Dialect/**/*.mlir",
