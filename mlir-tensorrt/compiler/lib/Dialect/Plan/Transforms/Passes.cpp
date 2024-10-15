@@ -80,7 +80,7 @@ struct ClusteringPipelineCliOpts
   Option<int64_t> trtMajorVersion{
       *this, "trt-major-version",
       llvm::cl::desc("target TensorRT version for segmentation pipeline"),
-      llvm::cl::init(10)};
+      llvm::cl::init(NV_TENSORRT_MAJOR)};
 };
 } // namespace
 

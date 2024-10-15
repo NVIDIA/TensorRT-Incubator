@@ -1,248 +1,147 @@
 diff --git a/stablehlo/integrations/c/CMakeLists.txt b/stablehlo/integrations/c/CMakeLists.txt
-index 014a1a8d..1e0bcfb4 100644
+index 74595438..400a1121 100644
 --- a/stablehlo/integrations/c/CMakeLists.txt
 +++ b/stablehlo/integrations/c/CMakeLists.txt
 @@ -28,7 +28,6 @@ add_mlir_public_c_api_library(ChloCAPI
-
+ 
    LINK_LIBS PUBLIC
    ChloOps
 -  LLVMSupport
  )
-
+ 
  add_mlir_public_c_api_library(StablehloCAPI
+@@ -40,10 +39,9 @@ add_mlir_public_c_api_library(StablehloCAPI
+   StablehloTypes.cpp
+ 
+   LINK_LIBS PUBLIC
+-  LLVMSupport
+   MLIRCAPIIR
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+   StablehloOps
+   StablehloPasses
+   StablehloPortableApi
 diff --git a/stablehlo/reference/CMakeLists.txt b/stablehlo/reference/CMakeLists.txt
-index b3a406b0..af6c38da 100644
+index b3a406b0..b6dcac90 100644
 --- a/stablehlo/reference/CMakeLists.txt
 +++ b/stablehlo/reference/CMakeLists.txt
-@@ -169,7 +169,6 @@ add_mlir_library(StablehloReferenceProcessGrid
+@@ -20,7 +20,7 @@ add_mlir_library(StablehloReferenceApi
+   MLIRIR
+   MLIRParser
+   MLIRPass
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+   InterpreterOps
+   StablehloPasses
+   StablehloReferenceConfiguration
+@@ -40,7 +40,7 @@ add_mlir_library(StablehloReferenceAxes
+ 
+   LINK_LIBS PUBLIC
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+ )
+ 
+ add_mlir_library(StablehloReferenceConfiguration
+@@ -48,7 +48,7 @@ add_mlir_library(StablehloReferenceConfiguration
+   Configuration.cpp
+ 
+   LINK_LIBS PUBLIC
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+   StablehloReferenceErrors
+   StablehloReferenceProcess
+   StablehloReferenceScope
+@@ -60,7 +60,7 @@ add_mlir_library(StablehloReferenceElement
+ 
+   LINK_LIBS PUBLIC
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+   StablehloReferenceTypes
+ )
+ 
+@@ -70,7 +70,7 @@ add_mlir_library(StablehloReferenceErrors
+ 
+   LINK_LIBS PUBLIC
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+ )
+ 
+ add_mlir_library(StablehloReferenceIndex
+@@ -79,7 +79,7 @@ add_mlir_library(StablehloReferenceIndex
+ 
+   LINK_LIBS PUBLIC
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+ )
+ 
+ set(LLVM_TARGET_DEFINITIONS InterpreterOps.td)
+@@ -102,7 +102,7 @@ add_mlir_dialect_library(InterpreterOps
+   StablehloReferenceOps
+   StablehloReferenceProcessGrid
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+ )
+ 
+ set(LLVM_TARGET_DEFINITIONS InterpreterPasses.td)
+@@ -120,7 +120,7 @@ add_mlir_library(InterpreterPasses
+   InterpreterOps
+   MLIRIR
+   MLIRPass
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+   MLIRTransforms
+   MLIRTransformUtils
+ )
+@@ -169,9 +169,8 @@ add_mlir_library(StablehloReferenceProcessGrid
    ProcessGrid.cpp
-
+ 
    LINK_LIBS PUBLIC
 -  LLVMSupport
    MLIRIR
-   MLIRSupport
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
    StablehloReferenceTensor
-diff --git a/stablehlo/transforms/StablehloAggressiveSimplification.cpp b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
-index 6445f72d..cc6c542d 100644
---- a/stablehlo/transforms/StablehloAggressiveSimplification.cpp
-+++ b/stablehlo/transforms/StablehloAggressiveSimplification.cpp
-@@ -58,6 +58,40 @@ namespace stablehlo {
- #include "stablehlo/transforms/Passes.h.inc"
-
- namespace {
-+
-+/// Does the same as PatternRewriter::replaceOpWithNewOp, but with a twist.
-+///
-+/// Sometimes, we want to replace an op with a new op and simultaneously refine
-+/// the result type from a dynamically-shaped type to a statically-shaped type.
-+/// (Search for usages of this function for examples).
-+//
-+/// Oftentimes, this works just fine because HLO is designed to accommodate
-+/// this kind of type refinements. But sometimes, this doesn't work - when
-+/// the op is used outside of the HLO dialect (e.g. in func.return). In these
-+/// cases, we insert a tensor.cast to smooth things out.
-+template <typename OpTy, typename... Args>
-+static OpTy refineOpWithNewOp(PatternRewriter &rewriter, Operation *op,
-+                              Args &&...args) {
-+  auto newOp = rewriter.create<OpTy>(op->getLoc(), std::forward<Args>(args)...);
-+
-+  llvm::SmallVector<Value> replacementResults;
-+  assert(op->getNumResults() == newOp->getNumResults() &&
-+         "replacement op doesn't match results of original op");
-+  for (auto [opResult, newOpResult] :
-+       llvm::zip(op->getResults(), newOp->getResults())) {
-+    Value replacementResult = newOpResult;
-+    if (llvm::any_of(opResult.getUsers(), [&](Operation *user) {
-+          return user->getDialect() != op->getDialect();
-+        }))
-+      replacementResult = rewriter.create<mlir::tensor::CastOp>(
-+          op->getLoc(), opResult.getType(), newOpResult);
-+    replacementResults.push_back(replacementResult);
-+  }
-+
-+  rewriter.replaceOp(op, replacementResults);
-+  return newOp;
-+}
-+
- // This is an upper limit on how many elements canonicalization patterns are
- // allowed to materialize as new constants.
- constexpr int64_t kFoldOpEltLimit = 65536;
-@@ -138,7 +172,7 @@ struct AddOpCanon final : OpRewritePattern<mlir::stablehlo::AddOp> {
-     if (TypedAttr res;
-         lhsAttr && rhsAttr &&
-         (res = foldBinaryOpIntOrFloat(lhsAttr, rhsAttr, std::plus<>{}))) {
--      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(op, res);
-+      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
-       return success();
-     }
-
-@@ -176,7 +210,7 @@ struct SubtractOpCanon final : OpRewritePattern<mlir::stablehlo::SubtractOp> {
-     if (TypedAttr res;
-         lhsAttr && rhsAttr &&
-         (res = foldBinaryOpIntOrFloat(lhsAttr, rhsAttr, std::minus<>{}))) {
--      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(op, res);
-+      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
-       return success();
-     }
-
-@@ -227,7 +261,7 @@ struct MulOpCanon final : OpRewritePattern<mlir::stablehlo::MulOp> {
-     if (TypedAttr res;
-         lhsAttr && rhsAttr &&
-         (res = foldBinaryOpIntOrFloat(lhsAttr, rhsAttr, std::multiplies<>{}))) {
--      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(op, res);
-+      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
-       return success();
-     }
-
-@@ -318,15 +352,16 @@ struct CompareOpCanon final : OpRewritePattern<mlir::stablehlo::CompareOp> {
-         case ComparisonDirection::EQ:
-         case ComparisonDirection::GE:
-         case ComparisonDirection::LE: {
--          rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--              op, SplatElementsAttr::get(type, rewriter.getBoolAttr(true)));
-+          refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+              rewriter, op,
-+              SplatElementsAttr::get(type, rewriter.getBoolAttr(true)));
-           return success();
-         }
-         case ComparisonDirection::GT:
-         case ComparisonDirection::LT:
-         case ComparisonDirection::NE: {
--          rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--              op, rewriter.getZeroAttr(type));
-+          refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+              rewriter, op, rewriter.getZeroAttr(type));
-           return success();
-         }
-       }
-@@ -355,7 +390,7 @@ struct CompareOpCanon final : OpRewritePattern<mlir::stablehlo::CompareOp> {
-              [direction, kind = *compType](const APInt &a, const APInt &b) {
-                return calculateComp(kind, direction, a, b);
-              }))) {
--      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(op, res);
-+      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(rewriter, op, res);
-       return success();
-     }
-
-@@ -408,8 +443,8 @@ struct SelectOpCanon final : OpRewritePattern<mlir::stablehlo::SelectOp> {
-       newValues.push_back(condElem ? trueElem : falseElem);
-     }
-
--    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--        op, DenseElementsAttr::get(type, newValues));
-+    refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+        rewriter, op, DenseElementsAttr::get(type, newValues));
-     return success();
-   }
- };
-@@ -484,9 +519,10 @@ struct BroadcastInDimOpCanon final
-     // Handle splat broadcasts.
-     if (SplatElementsAttr cstAttr;
-         matchPattern(operand, m_Constant(&cstAttr))) {
--      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--          op, SplatElementsAttr::get(op.getType(),
--                                     cstAttr.getSplatValue<Attribute>()));
-+      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+          rewriter, op,
-+          SplatElementsAttr::get(op.getType(),
-+                                 cstAttr.getSplatValue<Attribute>()));
-       return success();
-     }
-
-@@ -557,8 +593,8 @@ struct ConcatenateOpCanon final
-     }
-
-     assert(newElems.size() == numElems);
--    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--        op, DenseElementsAttr::get(op.getType(), newElems));
-+    refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+        rewriter, op, DenseElementsAttr::get(op.getType(), newElems));
-     return success();
-   }
- };
-@@ -576,39 +612,6 @@ struct ConvertOpCanon final : OpRewritePattern<mlir::stablehlo::ConvertOp> {
-   }
- };
-
--/// Does the same as PatternRewriter::replaceOpWithNewOp, but with a twist.
--///
--/// Sometimes, we want to replace an op with a new op and simultaneously refine
--/// the result type from a dynamically-shaped type to a statically-shaped type.
--/// (Search for usages of this function for examples).
--//
--/// Oftentimes, this works just fine because HLO is designed to accommodate
--/// this kind of type refinements. But sometimes, this doesn't work - when
--/// the op is used outside of the HLO dialect (e.g. in func.return). In these
--/// cases, we insert a tensor.cast to smooth things out.
--template <typename OpTy, typename... Args>
--static OpTy refineOpWithNewOp(PatternRewriter &rewriter, Operation *op,
--                              Args &&...args) {
--  auto newOp = rewriter.create<OpTy>(op->getLoc(), std::forward<Args>(args)...);
--
--  llvm::SmallVector<Value> replacementResults;
--  assert(op->getNumResults() == newOp->getNumResults() &&
--         "replacement op doesn't match results of original op");
--  for (auto [opResult, newOpResult] :
--       llvm::zip(op->getResults(), newOp->getResults())) {
--    Value replacementResult = newOpResult;
--    if (llvm::any_of(opResult.getUsers(), [&](Operation *user) {
--          return user->getDialect() != op->getDialect();
--        }))
--      replacementResult = rewriter.create<mlir::tensor::CastOp>(
--          op->getLoc(), opResult.getType(), newOpResult);
--    replacementResults.push_back(replacementResult);
--  }
--
--  rewriter.replaceOp(op, replacementResults);
--  return newOp;
--}
--
- /// If a DynamicBroadCastInDimOp is not actually dynamic, use an ordinary
- /// BroadcastInDimOp.
- struct DynamicBroadcastInDimOpNotActuallyDynamic final
-@@ -943,8 +946,8 @@ struct GetDimensionSizeOpCanon final
-
-     auto elemTy = cast<IntegerType>(op.getType().getElementType());
-     IntegerAttr elemVal = rewriter.getIntegerAttr(elemTy, dimSize);
--    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--        op, DenseElementsAttr::get(op.getType(), elemVal));
-+    refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+        rewriter, op, DenseElementsAttr::get(op.getType(), elemVal));
-     return success();
-   }
- };
-@@ -1036,16 +1039,17 @@ struct ReshapeOpCanon final : OpRewritePattern<mlir::stablehlo::ReshapeOp> {
-     if (!matchPattern(op.getOperand(), m_Constant(&cstAttr))) return failure();
-
-     if (auto splat = dyn_cast<SplatElementsAttr>(cstAttr)) {
--      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--          op, SplatElementsAttr::get(op.getType(),
--                                     splat.getSplatValue<Attribute>()));
-+      refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+          rewriter, op,
-+          SplatElementsAttr::get(op.getType(),
-+                                 splat.getSplatValue<Attribute>()));
-       return success();
-     }
-
-     auto elements =
-         llvm::to_vector_of<Attribute>(cstAttr.getValues<Attribute>());
--    rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
--        op, DenseElementsAttr::get(op.getType(), elements));
-+    refineOpWithNewOp<mlir::stablehlo::ConstantOp>(
-+        rewriter, op, DenseElementsAttr::get(op.getType(), elements));
-     return success();
-   }
- };
-diff --git a/stablehlo/transforms/StablehloRefineShapes.cpp b/stablehlo/transforms/StablehloRefineShapes.cpp
-index e5120133..7118a9e7 100644
---- a/stablehlo/transforms/StablehloRefineShapes.cpp
-+++ b/stablehlo/transforms/StablehloRefineShapes.cpp
-@@ -151,7 +151,7 @@ LogicalResult refineReturnTypes(PatternRewriter& rewriter, Operation* op,
-   // upstream API to achieve this directly, but if it's introduced in the
-   // future, we could use it here.
-   rewriter.replaceOpUsesWithIf(op, op->getResults(),
--                               [](OpOperand& use) { return false; });
-+                               [](OpOperand& use) { return true; });
-   return success();
- }
+ )
+ 
+@@ -183,7 +182,7 @@ add_mlir_library(StablehloReferenceScope
+   StablehloReferenceValue
+   StablehloReferenceTensor
+   StablehloReferenceToken
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+ )
+ 
+ add_mlir_library(StablehloReferenceTensor
+@@ -205,7 +204,7 @@ add_mlir_library(StablehloReferenceToken
+ 
+   LINK_LIBS PUBLIC
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+   StablehloOps
+ )
+ 
+@@ -215,7 +214,7 @@ add_mlir_library(StablehloReferenceTypes
+ 
+   LINK_LIBS PUBLIC
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+ )
+ 
+ add_mlir_library(StablehloReferenceValue
+@@ -224,7 +223,7 @@ add_mlir_library(StablehloReferenceValue
+ 
+   LINK_LIBS PUBLIC
+   MLIRIR
+-  MLIRSupport
++  MLIRSupport  # LLVMSupport is automatically added in AddLLVM.cmake.
+   StablehloReferenceTensor
+   StablehloReferenceToken
+ )

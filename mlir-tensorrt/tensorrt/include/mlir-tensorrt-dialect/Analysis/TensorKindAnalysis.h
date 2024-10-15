@@ -57,8 +57,9 @@ public:
   static TensorKind getStaticOperandTensorKind(OpOperand &operand);
 
   /// Visit the given operation and transfer info from results to operands.
-  void visitOperation(Operation *op, ArrayRef<TensorKindLattice *> operands,
-                      ArrayRef<const TensorKindLattice *> results) override;
+  LogicalResult
+  visitOperation(Operation *op, ArrayRef<TensorKindLattice *> operands,
+                 ArrayRef<const TensorKindLattice *> results) override;
 
   /// Set the state of the given lattice point at region exit state. This
   /// function is just called on terminators of regions that are not owned by a

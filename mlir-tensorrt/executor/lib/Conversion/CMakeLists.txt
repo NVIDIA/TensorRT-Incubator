@@ -25,6 +25,7 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
   ExecutorToExecutor.cpp
   MemRefToExecutor.cpp
   StdToExecutor.cpp
+  LinalgToExecutor.cpp
 
   DEPENDS
   MLIRExecutorConversionPassIncGen
@@ -35,6 +36,7 @@ add_mlir_executor_library(MLIRTensorRTStdToExecutor
   MLIRControlFlowDialect
   MLIRFuncDialect
   MLIRIR
+  MLIRLinalgDialect
   MLIRMathDialect
   MLIRMemRefDialect
   MLIRParser

@@ -49,7 +49,6 @@
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/STLExtras.h"
-#include <optional>
 
 #define DEBUG_TYPE "stablehlo-clustering"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "]"

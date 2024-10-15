@@ -119,7 +119,7 @@ TensorKind TensorKindAnalysis::getStaticOperandTensorKind(OpOperand &operand) {
   return TensorKind::Unknown;
 }
 
-void TensorKindAnalysis::visitOperation(
+LogicalResult TensorKindAnalysis::visitOperation(
     Operation *op, ArrayRef<TensorKindLattice *> operands,
     ArrayRef<const TensorKindLattice *> results) {
 
@@ -139,33 +139,39 @@ void TensorKindAnalysis::visitOperation(
     return propagateIfChanged(operands[idx], operands[idx]->meet(kind));
   };
 
-  if (auto opIface = dyn_cast<mlir::TensorKindOpInterface>(op))
-    return opIface.inferOperandKind(operands, results, setInferredType);
+  if (auto opIface = dyn_cast<mlir::TensorKindOpInterface>(op)) {
+    opIface.inferOperandKind(operands, results, setInferredType);
+    return success();
+  }
 
   if (auto tensorReshapeOp = dyn_cast<tensor::ReshapeOp>(op)) {
     // Propagate result kind to the input tensor kind.
     setInferredType(tensorReshapeOp.getSourceMutable(), results[0]->getValue());
     setInferredType(tensorReshapeOp.getShapeMutable(), TensorKind::Host);
-    return;
+    return success();
   }
 
-  if (auto tensorExtractOp = dyn_cast<tensor::ExtractOp>(op))
-    return setInferredType(tensorExtractOp.getTensorMutable(),
-                           TensorKind::Host);
+  if (auto tensorExtractOp = dyn_cast<tensor::ExtractOp>(op)) {
+    setInferredType(tensorExtractOp.getTensorMutable(), TensorKind::Host);
+    return success();
+  }
 
   if (auto bufferizeOp = dyn_cast<bufferization::AllocTensorOp>(op)) {
     // It has no tensor operands, nothing to do.
-    if (!bufferizeOp.getCopy() || !bufferizeOp.getMemorySpace())
-      return;
+    if (!bufferizeOp.getCopy() || !bufferizeOp.getMemorySpace()) {
+      return success();
+    }
     if (auto memSpace = dyn_cast_or_null<TensorKindAttrInterface>(
             bufferizeOp.getMemorySpaceAttr())) {
 
-      if (memSpace.getTensorKind().isHostOnly())
-        return setInferredType(bufferizeOp.getCopyMutable()[0],
-                               TensorKind::Device);
-      if (memSpace.getTensorKind().isDeviceOnly())
-        return setInferredType(bufferizeOp.getCopyMutable()[0],
-                               TensorKind::Host);
+      if (memSpace.getTensorKind().isHostOnly()) {
+        setInferredType(bufferizeOp.getCopyMutable()[0], TensorKind::Device);
+        return success();
+      }
+      if (memSpace.getTensorKind().isDeviceOnly()) {
+        setInferredType(bufferizeOp.getCopyMutable()[0], TensorKind::Host);
+        return success();
+      }
     }
   }
 
@@ -189,7 +195,7 @@ void TensorKindAnalysis::visitOperation(
       }
       addDependency(const_cast<TensorKindLattice *>(result), op);
     }
-    return;
+    return success();
   }
   //  - Otherwise, at least one operand is not "small". We set operands to
   //    "device", regardless of result types. This has the effect of creating
@@ -204,6 +210,7 @@ void TensorKindAnalysis::visitOperation(
       continue;
     setInferredType(operand, TensorKind::Device);
   }
+  return success();
 }
 
 void TensorKindAnalysis::setToExitState(TensorKindLattice *lattice) {
