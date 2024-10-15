@@ -190,7 +190,7 @@ logging.info("CUDA visible devices are: ")
 for i in range(torch.cuda.device_count()):
     logging.info(f"\tDevice {i}: {torch.cuda.get_device_name(i)}")
 
-x = tp.Tensor(torch.randn((1, 3, 224, 224), dtype=torch.float32), device=tp.device("gpu:0"))
+x = tp.Tensor(torch.randn((1, 3, 224, 224), dtype=torch.float32), device=tp.device("gpu"))
 model = TPResNetModel()
 
 logging.info("Model forward path running ")
