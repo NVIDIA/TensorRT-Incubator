@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729034709032,
+  "lastUpdate": 1729035428114,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -476,6 +476,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006929137231129753",
             "extra": "mean: 147.09990068603724 usec\nrounds: 7446"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "4d6646048fc1d6aceabd6a2576d94f3733cc743b",
+          "message": "Updates exception throwing logic to correctly exclude decorators",
+          "timestamp": "2024-10-15T22:05:50Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/268/commits/4d6646048fc1d6aceabd6a2576d94f3733cc743b"
+        },
+        "date": 1729035427346,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6050.194891831476,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003213076691904024",
+            "extra": "mean: 165.28393182013454 usec\nrounds: 6412"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6844.208170300476,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007189429946369173",
+            "extra": "mean: 146.10893986821821 usec\nrounds: 7391"
           }
         ]
       }
