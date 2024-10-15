@@ -11,4 +11,5 @@ docker build -f build_tools/bazel/Dockerfile \
 
 docker run -it \
            -v "$(pwd)":"/opt/src/mlir-tensorrt" \
+           -v "${HOME}/.cache/bazel":"${HOME}/.cache/bazel" \
            mlir-tensorrt:dev
