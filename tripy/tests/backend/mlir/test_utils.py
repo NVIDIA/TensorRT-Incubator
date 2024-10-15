@@ -18,6 +18,10 @@
 import pytest
 from mlir_tensorrt.compiler import ir
 
+import cupy as cp
+import numpy as np
+import torch
+
 import tripy
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.datatype import DATA_TYPES
@@ -47,3 +51,17 @@ class TestUtils:
                     "bool": ir.IntegerType.get_signless(1),
                 }[dtype.name]
             )
+
+    @pytest.mark.parametrize(
+        "tensor, expected_type, expected_suggestion",
+        [
+            (torch.tensor([1, 2, 3]), "PyTorch Tensor", "tensor.contiguous() or tensor.clone()"),
+            (np.array([1, 2, 3]), "NumPy Array", "np.ascontiguousarray(array) or array.copy(order='C')"),
+            (cp.array([1, 2, 3]), "CuPy Array", "cp.ascontiguousarray(array) or array.copy(order='C')"),
+            ([1, 2, 3], None, None),
+        ],
+    )
+    def test_check_tensor_type_and_suggest_contiguous(self, tensor, expected_type, expected_suggestion):
+        result_type, result_suggestion = mlir_utils.check_tensor_type_and_suggest_contiguous(tensor)
+        assert result_type == expected_type
+        assert result_suggestion == expected_suggestion
