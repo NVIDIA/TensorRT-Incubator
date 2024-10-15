@@ -395,7 +395,6 @@ Operation *
 mlir::createRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter,
                                 ClusterRegionOpBuilderFunc createRegionOp) {
   // insert the region to the last Op to because of dominance property
-  assert(cluster.getTarget() && "expected a valid cluster target attribute");
   Operation *insertionOp = cluster.getRoot();
 
   // find all the values that are used outside of the cluster. These values
@@ -446,7 +445,9 @@ mlir::createRegionOpFromCluster(const Cluster &cluster, RewriterBase &rewriter,
       return !regionOp->isProperAncestor(operand.getOwner());
     });
   }
-  regionOp->setAttr(Cluster::kRegionTargetAttrName, cluster.getTarget());
+
+  if (cluster.getTarget())
+    regionOp->setAttr(Cluster::kRegionTargetAttrName, cluster.getTarget());
 
   return regionOp;
 }

@@ -31,6 +31,23 @@ defvar ConvertToExecutorOptions = [
     "an unpacked list of scalars">
 ];
 
+def ConvertLinalgToExecutorPass : Pass<"convert-linalg-to-executor"> {
+  let summary = "Convert Linalg upstream dialect ops to 'executor' dialect";
+  let description = [{
+    The purpose of this conversion is to lower certain Linalg operations to
+    the Executor dialect.
+
+    Only certain bufferized Linalg operations are supported:
+
+    - 'linalg.fill' filling a device buffer where the element type has size of
+      1, 2, or 4 bytes.
+  }];
+  let dependentDialects = [
+    "::mlir::executor::ExecutorDialect"
+  ];
+  let options = ConvertToExecutorOptions;
+}
+
 def ConvertMemRefToExecutorPass : Pass<"convert-memref-to-executor"> {
   let summary = "Convert MemRef dialect ops to Exectuor dialect ops";
   let description = [{

@@ -152,7 +152,7 @@ struct TensorKindInfo {
 class TensorKindLattice : public dataflow::AbstractSparseLattice {
 public:
   using AbstractSparseLattice::AbstractSparseLattice;
-  Value getPoint() const { return point.get<Value>(); }
+  Value getPoint() const { return this->getAnchor(); }
   TensorKindInfo &getValue() { return value; }
   const TensorKindInfo &getValue() const {
     return const_cast<TensorKindLattice *>(this)->getValue();

@@ -1,13 +1,15 @@
-// RUN: executor-opt %s -test-executor-bufferization-pipeline -executor-lowering-pipeline \
+// RUN: executor-opt %s -test-executor-bufferization-pipeline -inline -executor-lowering-pipeline \
 // RUN:   | executor-translate -mlir-to-runtime-executable \
 // RUN:   | executor-runner -input-type=rtexe | FileCheck %s
 
-func.func private @print_tensor(%arg0: memref<4xcomplex<f32>, strided<[?], offset: ?>>) {
+!memref_type = memref<4xcomplex<f32>, strided<[?], offset: ?>, #executor.memory_type<host>>
+
+func.func private @print_tensor(%arg0: !memref_type) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c4 = arith.constant 4 : index
   scf.for %i = %c0 to %c4 step %c1 {
-    %el = memref.load %arg0 [%i] : memref<4xcomplex<f32>, strided<[?], offset: ?>>
+    %el = memref.load %arg0 [%i] : !memref_type
     %re = complex.re %el : complex<f32>
     %im = complex.im %el : complex<f32>
     executor.print "[%d] = (%.2f, %.2f)"(%i, %re, %im : index, f32, f32)
@@ -38,10 +40,10 @@ func.func @main() -> i32 {
     scf.yield %updated0, %updated1 : tensor<4xcomplex<f32>>, tensor<4xcomplex<f32>>
   }
 
-  %memref = bufferization.to_memref %result#0 read_only : tensor<4xcomplex<f32>> -> memref<4xcomplex<f32>, strided<[?], offset: ?>>
-  func.call @print_tensor(%memref) : (memref<4xcomplex<f32>, strided<[?], offset: ?>>) -> ()
-  %memref1 = bufferization.to_memref %result#1 read_only : tensor<4xcomplex<f32>> -> memref<4xcomplex<f32>, strided<[?], offset: ?>>
-  func.call @print_tensor(%memref1) : (memref<4xcomplex<f32>, strided<[?], offset: ?>>) -> ()
+  %memref = bufferization.to_memref %result#0 read_only : tensor<4xcomplex<f32>> -> !memref_type
+  func.call @print_tensor(%memref) : (!memref_type) -> ()
+  %memref1 = bufferization.to_memref %result#1 read_only : tensor<4xcomplex<f32>> -> !memref_type
+  func.call @print_tensor(%memref1) : (!memref_type) -> ()
 
   %c0_i32 = arith.constant 0 : i32
   return %c0_i32 : i32

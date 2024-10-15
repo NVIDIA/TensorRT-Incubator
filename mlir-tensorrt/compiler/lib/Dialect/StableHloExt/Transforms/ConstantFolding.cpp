@@ -285,7 +285,6 @@ struct SimplifyReshapeBroadcastInDimReshape
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(stablehlo::ReshapeOp op,
                                 PatternRewriter &rewriter) const override {
-
     auto outputType = op.getType();
     if (!succeeded(tensorrt::isUnitDimRankReducing(op.getOperand().getType(),
                                                    outputType)))
@@ -305,6 +304,34 @@ struct SimplifyReshapeBroadcastInDimReshape
             tensorrt::isUnitDimRankExpanding(inputType, reshapeOp.getType())))
       return failure();
 
+    int64_t inputRank = inputType.getRank();
+    int64_t outputRank = outputType.getRank();
+    if (inputRank < outputRank)
+      return failure();
+
+    // Drop input operand's front to match for outputRank if and only if
+    // dimSize=1
+    int64_t gap = inputRank - outputRank;
+    for (int64_t i = 0; i < gap; i++)
+      if (inputType.getDimSize(i) != 1)
+        return failure();
+
+    auto getTargetReshapeOp = [&](int64_t gap) {
+      if (gap == 0)
+        return reshapeOp;
+
+      // When gap > 0
+      auto reshapeOp1 = rewriter.create<stablehlo::ReshapeOp>(
+          reshapeOp.getLoc(),
+          inputType.clone(inputType.getShape().drop_front(gap)),
+          reshapeOp.getOperand());
+      auto reshapeOp2 = rewriter.create<stablehlo::ReshapeOp>(
+          reshapeOp.getLoc(), reshapeOp->getResultTypes(),
+          reshapeOp1->getResults());
+      rewriter.replaceOp(reshapeOp, reshapeOp2->getResults());
+      return reshapeOp2;
+    };
+
     auto isIncreasing = [](ArrayRef<int64_t> seq) {
       for (size_t i = 1; i < seq.size(); ++i)
         if (seq[i] <= seq[i - 1])
@@ -312,15 +339,17 @@ struct SimplifyReshapeBroadcastInDimReshape
       return true;
     };
 
-    int64_t inputRank = inputType.getRank();
+    stablehlo::ReshapeOp targetReshapeOp = getTargetReshapeOp(gap);
+    auto targetInputType = targetReshapeOp.getOperand().getType();
+
     if (!isIncreasing(broadcastInDimOp.getBroadcastDimensions()) ||
         !succeeded(tensorrt::checkLhsShapeBroadcastableToRhs(
-            inputType.getShape(), outputType.getShape())))
+            targetInputType.getShape(), outputType.getShape())))
       return failure();
 
     rewriter.replaceOpWithNewOp<stablehlo::BroadcastInDimOp>(
-        op, outputType, reshapeOp.getOperand(),
-        llvm::to_vector(llvm::seq<int64_t>(0, inputRank)));
+        op, outputType, targetReshapeOp.getOperand(),
+        llvm::to_vector(llvm::seq<int64_t>(0, targetInputType.getRank())));
     return success();
   }
 };

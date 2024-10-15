@@ -129,29 +129,34 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   // MemSet Ops
   //===----------------------------------------------------------------------===//
   lua["__cuda_memset_32"] = [](sol::this_state state, uintptr_t pointer,
-                               size_t numElements, uint32_t fillInt) {
+                               size_t offset, size_t numBytes,
+                               uint32_t fillInt) {
     MTRT_DBGF("cudaMemset32 @ 0x%lx, %lu bytes fill value = %u", pointer,
-              numElements, fillInt);
-    SET_LUA_ERROR_IF_CUDA_ERROR(
-        cuMemsetD32(static_cast<CUdeviceptr>(pointer), fillInt, numElements),
-        state);
+              numBytes, fillInt);
+    SET_LUA_ERROR_IF_CUDA_ERROR(cuMemsetD32(static_cast<CUdeviceptr>(pointer),
+                                            fillInt,
+                                            numBytes / sizeof(fillInt)),
+                                state);
   };
 
   lua["__cuda_memset_16"] = [](sol::this_state state, uintptr_t pointer,
-                               size_t numElements, uint16_t fillInt) {
+                               size_t offset, size_t numBytes,
+                               uint16_t fillInt) {
     MTRT_DBGF("cudaMemset16 @ 0x%lx, %lu bytes fill value = %u", pointer,
-              numElements, fillInt);
-    SET_LUA_ERROR_IF_CUDA_ERROR(
-        cuMemsetD16(static_cast<CUdeviceptr>(pointer), fillInt, numElements),
-        state);
+              numBytes, fillInt);
+    SET_LUA_ERROR_IF_CUDA_ERROR(cuMemsetD16(static_cast<CUdeviceptr>(pointer),
+                                            fillInt,
+                                            numBytes / sizeof(fillInt)),
+                                state);
   };
 
   lua["__cuda_memset_8"] = [](sol::this_state state, uintptr_t pointer,
-                              size_t numElements, uint8_t fillInt) {
+                              size_t offset, size_t numBytes, uint8_t fillInt) {
     MTRT_DBGF("cudaMemset8 @ 0x%lx, %lu bytes fill value = %u", pointer,
-              numElements, fillInt);
+              numBytes, fillInt);
     SET_LUA_ERROR_IF_CUDA_ERROR(
-        cuMemsetD8(static_cast<CUdeviceptr>(pointer), fillInt, numElements),
+        cuMemsetD8(static_cast<CUdeviceptr>(pointer + offset), fillInt,
+                   numBytes / sizeof(fillInt)),
         state);
   };
 

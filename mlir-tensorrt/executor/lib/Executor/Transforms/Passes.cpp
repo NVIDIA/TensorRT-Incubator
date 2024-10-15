@@ -50,6 +50,10 @@ void executor::buildExecutorLoweringPipeline(
   pm.addPass(mlir::createLowerAffinePass());
   addCleanupPasses(pm);
   pm.addPass(
+      createConvertLinalgToExecutorPass(ConvertLinalgToExecutorPassOptions{
+          stdToExecutorOpts.indexBitwidth,
+          stdToExecutorOpts.usePackedMemRefCConv}));
+  pm.addPass(
       createConvertMemRefToExecutorPass(ConvertMemRefToExecutorPassOptions{
           stdToExecutorOpts.indexBitwidth,
           stdToExecutorOpts.usePackedMemRefCConv}));

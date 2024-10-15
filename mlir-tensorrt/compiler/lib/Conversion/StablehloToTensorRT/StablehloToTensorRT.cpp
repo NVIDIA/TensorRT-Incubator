@@ -36,6 +36,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/Quant/QuantOps.h"
+#include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/TypeUtilities.h"
@@ -3748,41 +3749,55 @@ struct ConvertScatterToTensorRTScatterElements
         this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     RankedTensorType inputsType =
-        cast<RankedTensorType>(adaptor.getInputs().getType().front());
+        cast<RankedTensorType>(adaptor.getInputs().front().getType());
     RankedTensorType indicesType =
         cast<RankedTensorType>(adaptor.getScatterIndices().getType());
     RankedTensorType updatesType =
         cast<RankedTensorType>(adaptor.getUpdates().front().getType());
     stablehlo::ScatterDimensionNumbersAttr dimsAttrs =
         op.getScatterDimensionNumbers();
-    int64_t inputsTypeRank = inputsType.getRank();
-    int64_t updatesTypeRank = updatesType.getRank();
+    ArrayRef<int64_t> updateWindowDims = dimsAttrs.getUpdateWindowDims();
+    ArrayRef<int64_t> scatterDimsToOperandDims =
+        dimsAttrs.getScatterDimsToOperandDims();
+
+    // Axis to slice. Can be 0 or 1 in this pattern.
+    int64_t axis = scatterDimsToOperandDims.back();
     auto isSeq = [](ArrayRef<int64_t> ar, int64_t start, int64_t end) {
       return llvm::equal(ar, llvm::seq<int64_t>(start, end));
     };
 
-    bool expectedForm =
-        indicesType.getRank() == 2 && dimsAttrs.getIndexVectorDim() == 1 &&
-        isSeq(dimsAttrs.getUpdateWindowDims(), 1, updatesTypeRank) &&
-        isSeq(dimsAttrs.getScatterDimsToOperandDims(), 0,
-              indicesType.getDimSize(1)) &&
-        adaptor.getInputs().size() == 1 && indicesType.getDimSize(0) == 1 &&
-        inputsType.getDimSize(0) == 1;
-    bool sliceUpdate = updatesType.getDimSize(updatesTypeRank - 1) <
-                       inputsType.getDimSize(inputsTypeRank - 1);
-
-    if (!expectedForm || !sliceUpdate)
+    if (op.getInputs().size() != 1 || inputsType.getRank() != 2 ||
+        indicesType.getRank() != 2 || indicesType.getDimSize(0) != 1 ||
+        indicesType.getDimSize(1) !=
+            static_cast<int64_t>(scatterDimsToOperandDims.size()) ||
+        updatesType.getRank() != 3 ||
+        !isSeq(updateWindowDims, 1, updatesType.getRank()) ||
+        !isSeq(scatterDimsToOperandDims, 0, indicesType.getDimSize(1)))
       return failure();
 
-    TypedValue<RankedTensorType> startIndexTensor =
+    // TODO: Currently we support batchSize = 1 only.
+    if (inputsType.getDimSize(axis ^ 1) != 1)
+      return failure();
+
+    // Check if it is a slice update.
+    int64_t numElemTotal = inputsType.getDimSize(axis);
+    int64_t numElemSlice = updatesType.getDimSize(1 + axis);
+    if (numElemSlice >= numElemTotal)
+      return failure();
+
+    TypedValue<RankedTensorType> _startIndex =
         trtRewriter.checkAndCreate<tensorrt::SliceOp>(
             op.getLoc(), targetTrtMajorVersion, adaptor.getScatterIndices(),
-            /*offsets=*/ArrayRef<int32_t>{0, 1},
+            /*offsets=*/ArrayRef<int32_t>{0, static_cast<int32_t>(axis)},
             /*sizes=*/ArrayRef<int32_t>{1, 1},
             /*strides=*/ArrayRef<int32_t>{1, 1});
+    if (!_startIndex)
+      return failure();
     auto startIndex = trtRewriter.checkAndCreate<tensorrt::CollapseRankOp>(
         op->getLoc(), targetTrtMajorVersion,
-        RankedTensorType::get({}, rewriter.getI32Type()), startIndexTensor);
+        RankedTensorType::get({}, rewriter.getI32Type()), _startIndex);
+    if (!startIndex)
+      return failure();
 
     SmallVector<int64_t> newUpdateShape(updatesType.getShape().take_back(2));
     RankedTensorType newUpdateType = updatesType.clone(newUpdateShape);
@@ -3798,11 +3813,15 @@ struct ConvertScatterToTensorRTScatterElements
         DenseElementsAttr::get(
             startIndex.getType().clone(SmallVector<int64_t>{2}),
             rewriter.getI32IntegerAttr(1)));
+    if (!constOneTuple)
+      return failure();
 
     Value newIndices = trtRewriter.checkAndCreate<tensorrt::LinspaceOp>(
         op->getLoc(), targetTrtMajorVersion,
         newUpdateType.clone(rewriter.getI32Type()), Value(), startIndex,
         constOneTuple, FloatAttr(), FloatAttr());
+    if (!newIndices)
+      return failure();
 
     auto checkI1 = [&](Value v) {
       return (
@@ -3825,7 +3844,7 @@ struct ConvertScatterToTensorRTScatterElements
           /*data*/ convertToI32(adaptor.getInputs().front()),
           /*indices*/ newIndices,
           /*updates*/ convertToI32(newUpdates),
-          /*axis*/ rewriter.getI64IntegerAttr(1));
+          /*axis*/ rewriter.getI64IntegerAttr(axis));
       if (!newOp)
         return failure();
       trtRewriter.replaceOp(op, convertToI1(newOp)->getResults());
@@ -3834,7 +3853,7 @@ struct ConvertScatterToTensorRTScatterElements
           op->getLoc(), targetTrtMajorVersion,
           /*data*/ adaptor.getInputs().front(),
           /*indices*/ newIndices, /*updates*/ newUpdates.getResult(),
-          /*axis*/ rewriter.getI64IntegerAttr(1));
+          /*axis*/ rewriter.getI64IntegerAttr(axis));
       if (!newOp)
         return failure();
       trtRewriter.replaceOp(op, newOp->getResults());
