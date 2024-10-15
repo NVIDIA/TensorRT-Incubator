@@ -189,6 +189,7 @@ class Tensor(metaclass=TensorMeta):
         self.device = flat_ir.outputs[0].device
 
         Storage.build_internal([], [self.trace_tensor], data)
+        self.trace_tensor.eval_stack_info = utils.get_stack_info()
         return data
 
     def tolist(self):

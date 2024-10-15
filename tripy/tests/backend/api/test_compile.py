@@ -133,6 +133,56 @@ class TestCompile:
         out = compiled_add(tp.ones((3, 1), dtype=tp.float32), tp.ones((3, 1), dtype=tp.float32))
         assert cp.array_equal(cp.from_dlpack(out), cp.ones((3, 1), dtype=cp.float32) * 2)
 
+    def test_error_if_evaling_input_during_compile(self):
+        def func(a):
+            print(a)
+            return a + 1
+
+        with helper.raises(tp.TripyException, match="Cannot evaluate a tensor while compiling."):
+            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+
+    def test_error_if_evaling_intermediate_tensor_during_compile(self):
+        def func(a):
+            b = a + 1
+            print(b)
+            return b
+
+        with helper.raises(tp.TripyException, match="Cannot evaluate a tensor while compiling."):
+            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+
+    def test_error_if_evaling_in_nested_func_during_compile(self):
+        def add(a, b):
+            c = a + b
+            print(c)
+            return c
+
+        def func(a):
+            return add(a, 1)
+
+        with helper.raises(tp.TripyException, match="Cannot evaluate a tensor while compiling."):
+            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+
+    def test_allow_eval_if_tensor_unused_in_compile(self):
+        # If the tensor is not actually used in the computation graph then we don't care if it's eval'd.
+        def func(a):
+            print(a.shape)
+
+            c = a - 1
+            print(c)
+            return a
+
+        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+
+    def test_allow_eval_for_non_input_to_compile(self):
+        # We should allow non-inputs to be evaluated.
+        const = tp.ones((2, 3), dtype=tp.float32)
+        const.eval()
+
+        def func(a):
+            return a + const
+
+        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+
 
 # TODO (#256): Remove these tests and replace with exhaustive integration testing
 class TestCompiledOps:
