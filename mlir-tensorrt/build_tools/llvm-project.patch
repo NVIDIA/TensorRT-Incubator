@@ -223,7 +223,7 @@ index 5293977fe733..55e086ff0110 100644
  }
  
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir b/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir
-index ab18ce05e355..66b70a82ec31 100644
+index ab18ce05e355..148908536d6c 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir
 @@ -4,8 +4,8 @@
@@ -287,7 +287,7 @@ index ab18ce05e355..66b70a82ec31 100644
    return %1 : memref<?xf32>
  }
  
-@@ -77,9 +77,9 @@ func.func @static_layout_to_no_layout_cast(%m: memref<?xf32, strided<[1], offset
+@@ -77,19 +77,20 @@ func.func @static_layout_to_no_layout_cast(%m: memref<?xf32, strided<[1], offset
  // TODO: to_memref with layout maps not supported yet. This should fold to a
  // memref.cast.
  func.func @no_layout_to_dyn_layout_cast(%m: memref<?xf32>) -> memref<?xf32, strided<[1], offset: ?>> {
@@ -295,11 +295,12 @@ index ab18ce05e355..66b70a82ec31 100644
 +  %0 = bufferization.to_tensor %m : memref<?xf32> -> tensor<?xf32>
    // expected-error @+1 {{failed to legalize unresolved materialization from ('memref<?xf32>') to 'memref<?xf32, strided<[1], offset: ?>>' that remained live after conversion}}
 -  %1 = bufferization.to_memref %0 : memref<?xf32, strided<[1], offset: ?>>
+-  // expected-note @below{{see existing live user here}}
 +  %1 = bufferization.to_memref %0 : tensor<?xf32> -> memref<?xf32, strided<[1], offset: ?>>
-   // expected-note @below{{see existing live user here}}
++  // expected-note @below {{see existing live user here:}}
    return %1 : memref<?xf32, strided<[1], offset: ?>>
  }
-@@ -87,9 +87,10 @@ func.func @no_layout_to_dyn_layout_cast(%m: memref<?xf32>) -> memref<?xf32, stri
+ 
  // -----
  
  func.func @illegal_unranked_to_rank(%m: memref<*xf32>) -> memref<?xf32> {
@@ -311,7 +312,7 @@ index ab18ce05e355..66b70a82ec31 100644
 +  %0 = bufferization.to_tensor %m : memref<*xf32> -> tensor<*xf32>
 +  // expected-error @+1 {{failed to legalize unresolved materialization from ('memref<*xf32>') to 'memref<?xf32>' that remained live after conversion}}
 +  %1 = bufferization.to_memref %0 : tensor<*xf32> -> memref<?xf32>
-+  // expected-note @+1 {{see existing live user here}}
++  // expected-note @below {{see existing live user here:}}
    return %1 : memref<?xf32>
  }
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-analysis.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-analysis.mlir
