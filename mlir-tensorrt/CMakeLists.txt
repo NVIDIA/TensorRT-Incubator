@@ -180,10 +180,8 @@ include(HandleLLVMOptions)
 # Download Stablehlo if it isn't provided by a parent project.
 if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
   mtrt_add_stablehlo(
-    # We don't tag versions vX.Y.Z in stablehlo, so use the upgrade
-    # year-month-day as a tag for CPM caching.
-    VERSION 1.5.2
-    GIT_TAG 24d1807a9a3e0df81103a0be9be7ad28ee34c85a
+    VERSION 1.6.4
+    GIT_TAG 1456dfa1e1a83aab0cc717714ba3695886f60302
     GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
     PATCHES "${MLIR_TENSORRT_ROOT_DIR}/build_tools/stablehlo.patch"
     OPTIONS
