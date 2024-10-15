@@ -184,33 +184,35 @@ We should generally avoid exceptions.
 """
 CONVERT_TENSOR_EXCEPTIONS = {
     "slice_helper",  # We use it to convert inputs to __getitem__ but need to handle slices before converting
+    "quantize",
+    "dequantize",
 }
 
 
 # Decorator to preprocess inputs of a function and convert Python numbers to tripy tensors.
 def convert_inputs_to_tensors(
+    targets: List[str],
     sync_arg_types: Optional[List[Tuple[str]]] = None,
-    exclude: Optional[List[str]] = None,
     unpack_argument: Optional[List[str]] = None,
     skip_num_stack_entries: int = 0,
 ):
     """
-    Decorator that converts all arguments to `Tensor`s before passing them along
+    Decorator that converts the specified arguments to `Tensor`s before passing them along
     to the decorated function. Converts only Python numbers or lists of Python numbers;
     inputs like `numpy` arrays will be left unchanged and should be handled manually.
 
-    This decorator is intended mainly to be used with overloads of Python operators; for other
-    cases, we recommend that users explicitly convert non-Tripy inputs.
+    This decorator should be used sparingly; in most cases, we should require users to convert
+    arguments to tensors manually.
 
     Args:
+        targets: A list of names of arguments to convert.
+
         sync_arg_types: A list of tuples of strings indicating the parameter indices for parameters
             that must share a type. For example, `sync_arg_types=[("a", "b"), ("c", "d")]` indicates that
             arguments `a` and `b` and arguments `c` and `d` should have the same types. Type casting is only
             enabled for Python numbers, and at least one of the arguments in each tuple must be a `Tensor`.
             For arguments that are lists included in `unpack_argument`,
             the syncing will be done for each member of the specified lists.
-
-        exclude: A list of names of arguments to skip over. These arguments will not be modified.
 
         unpack_argument: If an argument name is included and it is a list,
           the members of the list will each be individually converted into `Tensor`s,
@@ -225,7 +227,6 @@ def convert_inputs_to_tensors(
     """
 
     sync_arg_types = utils.default(sync_arg_types, [])
-    exclude = utils.default(exclude, [])
     unpack_argument = utils.default(unpack_argument, [])
 
     def impl(func):
@@ -254,7 +255,7 @@ def convert_inputs_to_tensors(
                 # Unless otherwise specified, we treat them as ordinary Tensors.
                 Tensor if type(arg) not in {Shape, ShapeScalar} else type(arg)
                 for arg_name, arg in all_args
-                if isinstance(arg, Tensor) and arg_name not in exclude
+                if isinstance(arg, Tensor) and arg_name in targets
             }
             # We usually can treat ShapeScalars as either tensors or shapes due to broadcasting, so we can remove them from the below check.
             shape_scalar_encountered = ShapeScalar in types
@@ -338,7 +339,7 @@ def convert_inputs_to_tensors(
                         TensorType=TensorType,
                     )
 
-                if name in exclude or isinstance(arg, Tensor):
+                if name not in targets or isinstance(arg, Tensor):
                     add_arg(arg)
                     continue
                 if name in unpack_argument and isinstance(arg, Sequence):

@@ -102,13 +102,13 @@ class Cast(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    dtype_exceptions=[
+    exceptions=[
         {"T1": "float8", "T2": "int4"},
         {"T1": "float8", "T2": "int8"},
         {"T1": "float8", "T2": "int64"},

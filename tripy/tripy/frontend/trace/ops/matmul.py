@@ -216,9 +216,9 @@ class MatrixMultiplication(BaseTraceOp):
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
 )
 def __matmul__(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """

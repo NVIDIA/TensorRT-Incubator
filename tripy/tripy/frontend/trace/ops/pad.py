@@ -92,11 +92,9 @@ def _convert_pad_sizes(padding_sizes):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
-        "T1": ["float32", "float16", "bool", "int32"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bool", "int32"]},
 )
 def pad(
     input: "tripy.Tensor",

@@ -16,11 +16,11 @@
 #
 
 from dataclasses import dataclass
+
+from tripy import constraints
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import Result
-from tripy import constraints
-from tripy.common.datatype import DATA_TYPES
 
 
 @dataclass(repr=False)
@@ -52,19 +52,19 @@ class Shape(BaseTraceOp):
 
 @TENSOR_METHOD_REGISTRY("shape")
 @property
-@constraints.dtype_info(
-    dtype_variables={
-        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+@constraints.dtypes(
+    constraints={"self": "T1", constraints.RETURN_VALUE: "T2"},
+    variables={
+        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["int32"],
     },
-    dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "T2"},
 )
-def shape(self: "tripy.Tensor") -> "tripy.Tensor":
+def shape(self: "tripy.Tensor") -> "tripy.Shape":
     """
     Represents the shape of the tensor.
 
     Returns:
-        A 1D tensor containing the shape of this tensor.
+        A shape tensor containing the shape of this tensor.
 
     .. code-block:: python
         :linenos:

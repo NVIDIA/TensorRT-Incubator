@@ -29,11 +29,11 @@ from tripy.frontend import utils as frontend_utils
 
 @export.public_api(document_under="operations/initializers")
 @frontend_utils.convert_shape_inputs(["shape"])
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def ones(
     shape: "tripy.types.ShapeLike",
@@ -64,11 +64,11 @@ def ones(
 
 @export.public_api(document_under="operations/initializers")
 @frontend_utils.convert_shape_inputs(["shape"])
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def zeros(
     shape: "tripy.types.ShapeLike",
@@ -98,12 +98,12 @@ def zeros(
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
@@ -131,12 +131,12 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
@@ -165,11 +165,11 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
     },
-    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     r"""
@@ -223,11 +223,11 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
     },
-    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     r"""
@@ -281,11 +281,11 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
     },
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def arange(
     start: Union[numbers.Number, "tripy.ShapeScalar"],
@@ -348,11 +348,11 @@ def arange(
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
     },
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def arange(stop: Union[numbers.Number, "tripy.Tensor"], dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     r"""

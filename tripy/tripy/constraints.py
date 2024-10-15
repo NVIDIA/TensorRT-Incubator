@@ -15,48 +15,54 @@
 # limitations under the License.
 #
 
-from typing import List, Dict, Tuple, Any
-from collections import namedtuple
 import functools
-from tripy import utils
+from collections import namedtuple
+from typing import Any, Dict, List, Tuple, Sequence
+
+from tripy import config, utils
 from tripy.common.exception import raise_error
-from tripy import config
 
 TYPE_VERIFICATION = {}
-RETURN_VALUE = "RETURN_VALUE"
+RETURN_VALUE = "__RETURN_VALUE"
 
 
-def dtype_info(
-    dtype_variables: dict = {},
-    dtype_constraints: dict = {},
-    dtype_exceptions: dict = [],
+def dtypes(
+    constraints: Dict[str, str] = {},
+    variables: Dict[str, List[str]] = {},
+    exceptions: List[Dict[str, str]] = [],
     aliases: List[str] = [],
 ):
     """
-    This function is a decorator that populates TYPE_VERIFICATION global dictionary which will be used by
-    test_dtype_constraints.py to verify the dtypes of all operations.
+    Specifies data type constraints for the decorated function.
 
     **IMPORTANT: This should be applied before the `convert_inputs_to_tensors` decorator (i.e. must follow it in the code)**
-        **to make type checking work reliably. This ensures that the inputs coming in to the wrapped functions are Tensors**
+        **to make type checking work reliably. This ensures that the inputs coming in to the wrapped functions are Tensors.**
+        **To avoid pitfalls, you can make this the innermost decorator.**
+
+    NOTE: When annotating a new API, you should also update `tests/constraints/object_builders.py`.
 
     Args:
-        dtype_variables: This input must be a dictionary with the names of groups of variables as the keys and lists of datatypes as the values.
-            Example: dtype_variables={"T": ["float32", "float16", "int8", "int32", "int64", "bool"], "T1": ["int32"]}.
-            Any datatype not included will be tested to ensure it fails the test cases.
-        dtype_constraints: This input assigns inputs and return parameters to variable groups.
-            It must be a dictionary with parameter names as keys and variable group names as values.
-            For assigning the return value, the key must be constraints.RETURN_VALUE.
-            Example: dtype_constraints={"input": "T", "index": "T1", constraints.RETURN_VALUE: "T"}.
-        aliases: A list of function name aliases. For methods that are exposed as multiple APIs (e.g. __add__ and __radd__), this
-            will enable type information to be added to the documentation for the aliases as well.
+        constraints: Maps parameters and return values to data type constraint variables.
+            Use the special value `constraints.RETURN_VALUE` to denote return values.
+            For example:
+                {"input": "T1", "other": T2, constraints.RETURN_VALUE: "T1"}
+        variables: Maps data type constraints variables to their supported data types.
+            For example:
+                {"T1": ["float32", "float16"], "T2": ["int32", "int64"]}
+        exceptions: Indicates specific combinations of data types that are not supported by the API.
+            For example:
+                [
+                    {"T1": "float16", "T2": "int32"},
+                ]
+        aliases: A list of function name aliases. For methods that are exposed as multiple APIs
+            (e.g. __add__ and __radd__), this will enable type information to be added to the
+            documentation for the aliases as well.
     """
 
     def decorator(func):
-        return_dtype = dtype_constraints.get(RETURN_VALUE, None)
-        VerifInfo = namedtuple(
-            "VerifInfo", ["obj", "inputs", "dtype_exceptions", "return_dtype", "dtypes", "dtype_constraints"]
-        )
-        verif_info = VerifInfo(func, {}, dtype_exceptions, return_dtype, dtype_variables, dtype_constraints)
+        return_dtype = constraints.get(RETURN_VALUE, None)
+        VerifInfo = namedtuple("VerifInfo", ["obj", "inputs", "exceptions", "return_dtype", "dtypes", "constraints"])
+        verif_info = VerifInfo(func, {}, exceptions, return_dtype, variables, constraints)
 
         for key in [func.__qualname__] + aliases:
             TYPE_VERIFICATION[key] = verif_info
@@ -64,8 +70,8 @@ def dtype_info(
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             if config.enable_dtype_checking:
-                from tripy.frontend.tensor import Tensor
                 from tripy.common.datatype import dtype
+                from tripy.frontend.tensor import Tensor
 
                 merged_args = utils.merge_function_arguments(func, *args, **kwargs)
 
@@ -74,28 +80,73 @@ def dtype_info(
                 type_var_first_args: Dict[str, Tuple[str, dtype, Any]] = {}
 
                 for name, arg in merged_args:
-                    if name in dtype_constraints:
-                        type_var = dtype_constraints[name]
+                    if name not in constraints:
+                        continue
 
-                        if isinstance(arg, Tensor):
+                    if arg is None:
+                        # This is only possible for ommitted optional arguments. Otherwise, None will
+                        # be disallowed by the function registry's type checking.
+                        continue
+
+                    type_var = constraints[name]
+
+                    def get_arg_dtype(arg):
+                        if isinstance(arg, Sequence):
+                            arg_dtypes = [get_arg_dtype(elem) for elem in arg]
+                            if len(set(arg_dtypes)) != 1:
+                                raise_error(
+                                    f"Mismatched data types in sequence argument for '{func.__qualname__}'.",
+                                    [
+                                        f"For parameter: '{name}', all arguments must have the same data type, but got: "
+                                        f"{arg_dtypes}"
+                                    ],
+                                )
+                            arg_dtype = arg_dtypes[0]
+                        elif isinstance(arg, Tensor):
                             arg_dtype = arg.dtype
                         elif isinstance(arg, dtype):
                             arg_dtype = arg
                         else:
-                            continue
+                            # This should be unreachable because type checking will be done by the function registry.
+                            assert False, f"Expected a tensor or data type argument for {name}, but got: {arg}"
+                        return arg_dtype
 
-                        # Check if the type is supported at all
-                        supported_dtypes = dtype_variables[type_var]
-                        if arg_dtype.name not in supported_dtypes:
-                            raise_error(
-                                f"Unsupported data type for '{func.__qualname__}'.",
+                    arg_dtype = get_arg_dtype(arg)
+
+                    # Check if the type is supported at all
+                    supported_dtypes = variables[type_var]
+                    if arg_dtype.name not in supported_dtypes:
+                        raise_error(
+                            f"Unsupported data type for '{func.__qualname__}'.",
+                            [
+                                f"For parameter: '{name}', got unsupported data type: '{arg_dtype}'.\n"
+                                f"Supported data types are: {supported_dtypes}.\n"
+                            ]
+                            + (
                                 [
-                                    f"For parameter: '{name}', got unsupported data type: '{arg_dtype}'.\n"
-                                    f"Supported data types are: {supported_dtypes}.\n"
+                                    f"Note: '{name}' was: ",
+                                    arg,
+                                ]
+                                if isinstance(arg, Tensor)
+                                else []
+                            ),
+                        )
+
+                    # Check if the type matches that of other inputs with the same type_var.
+                    if type_var in type_var_first_args:
+                        other_name, other_arg_dtype, other_arg = type_var_first_args[type_var]
+                        if other_arg_dtype != arg_dtype:
+                            raise_error(
+                                f"Mismatched data types for '{func.__qualname__}'.",
+                                [
+                                    f"Parameters: '{other_name}' and '{name}' must have matching data types, but got: "
+                                    f"'{other_arg_dtype.name}' and '{arg_dtype.name}' respectively.\n"
                                 ]
                                 + (
                                     [
-                                        f"Note: '{name}' was: ",
+                                        f"Note: '{other_name}' was: ",
+                                        other_arg,
+                                        f"While '{name}' was: ",
                                         arg,
                                     ]
                                     if isinstance(arg, Tensor)
@@ -103,29 +154,7 @@ def dtype_info(
                                 ),
                             )
 
-                        # Check if the type matches that of other inputs with the same type_var.
-                        if type_var in type_var_first_args:
-                            other_name, other_arg_dtype, other_arg = type_var_first_args[type_var]
-                            if other_arg_dtype != arg_dtype:
-                                raise_error(
-                                    f"Mismatched data types for '{func.__qualname__}'.",
-                                    [
-                                        f"Parameters: '{other_name}' and '{name}' must have matching data types, but got: "
-                                        f"'{other_arg_dtype.name}' and '{arg_dtype.name}' respectively.\n"
-                                    ]
-                                    + (
-                                        [
-                                            f"Note: '{other_name}' was: ",
-                                            other_arg,
-                                            f"While '{name}' was: ",
-                                            arg,
-                                        ]
-                                        if isinstance(arg, Tensor)
-                                        else []
-                                    ),
-                                )
-
-                        type_var_first_args[type_var] = (name, arg_dtype, arg)
+                    type_var_first_args[type_var] = (name, arg_dtype, arg)
 
             return func(*args, **kwargs)
 
