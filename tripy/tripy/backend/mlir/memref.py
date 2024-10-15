@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+import math
 import re
 
 import mlir_tensorrt.runtime.api as runtime
@@ -23,12 +24,19 @@ from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import device as tp_device
 from tripy.utils import raise_error
 
+EMPTY_MEMREF_CACHE = {}
+
 
 def create_memref(shape, dtype, device=tp_device("gpu"), stream=None, array=None):
     """
     Creates a memref. If array is provided, it will be populated by the values
     from the array. Otherwise, an empty memref is created.
     """
+    is_empty_shape = math.prod(shape) == 0
+    cache_key = (shape, dtype, device)
+    if is_empty_shape and cache_key in EMPTY_MEMREF_CACHE:
+        return EMPTY_MEMREF_CACHE[cache_key]
+
     mlir_dtype = mlir_utils.convert_tripy_dtype_to_runtime_dtype(dtype)
 
     args = []
@@ -44,7 +52,12 @@ def create_memref(shape, dtype, device=tp_device("gpu"), stream=None, array=None
         # Streams are only allowed for GPU allocations.
         kwargs["stream"] = stream
 
-    return mlir_utils.MLIRRuntimeClient().create_memref(*args, **kwargs)
+    memref = mlir_utils.MLIRRuntimeClient().create_memref(*args, **kwargs)
+
+    if is_empty_shape:
+        EMPTY_MEMREF_CACHE[cache_key] = memref
+
+    return memref
 
 
 def create_memref_view(data):
