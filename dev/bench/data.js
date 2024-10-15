@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728943147065,
+  "lastUpdate": 1729029346100,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -374,6 +374,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007052055895121178",
             "extra": "mean: 147.6412224121067 usec\nrounds: 7394"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "1c1a13f14a1353e3cfcb2cb3b0ab98f6ff2cdb6f",
+          "message": "Add checks for non-canonical strides",
+          "timestamp": "2024-10-15T07:03:52Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/273/commits/1c1a13f14a1353e3cfcb2cb3b0ab98f6ff2cdb6f"
+        },
+        "date": 1729029345357,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6173.779465920269,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000321432830493542",
+            "extra": "mean: 161.97533545214498 usec\nrounds: 6545"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6967.933739771023,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007165824897296668",
+            "extra": "mean: 143.5145679259662 usec\nrounds: 7585"
           }
         ]
       }
