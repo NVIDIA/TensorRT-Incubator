@@ -18,19 +18,10 @@
 import functools
 import inspect
 from collections import OrderedDict, defaultdict
-from textwrap import dedent
-from typing import Any, Callable, Dict, List, Optional
-
-from dataclasses import dataclass
 from collections.abc import Sequence as ABCSequence
-from typing import ForwardRef, get_args, get_origin, Sequence, Union, Optional
-
-
-@dataclass
-class AnnotationInfo:
-    type_info: type
-    optional: bool
-    kind: Any  # Uses inspect.Parameter.<kind>
+from dataclasses import dataclass
+from textwrap import dedent
+from typing import Any, Callable, Dict, ForwardRef, List, Sequence, Union, get_args, get_origin
 
 
 def get_type_name(typ):
@@ -82,6 +73,13 @@ def render_arg_type(arg: Any) -> str:
         return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
 
     return get_type_name(type(arg))
+
+
+@dataclass
+class AnnotationInfo:
+    type_info: type
+    optional: bool
+    kind: Any  # Uses inspect.Parameter.<kind>
 
 
 class FuncOverload:

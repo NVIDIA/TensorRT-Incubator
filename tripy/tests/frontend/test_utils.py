@@ -27,57 +27,57 @@ from tests import helper
 # for magic methods. We would not want to see this outside of tests.
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["a"])
 def __func_test_basic__(a):
     return a
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["a", "b", "c"])
 def __func_test_multi_input__(a, b, c):
     return a, b, c
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("a", "b", "c")])
+@convert_inputs_to_tensors(["a", "b", "c"], sync_arg_types=[("a", "b", "c")])
 def __func_test_sync_arg_types__(a, b, c):
     return a, b, c
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["args"])
 def __func_test_variadic_positional_args__(*args):
     return args
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["x", "args"])
 def __func_test_arg_before_variadic_positional_args__(x, *args):
     return (x,) + args
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["args", "y"])
 def __func_test_kwarg_after_variadic_positional_args__(*args, y):
     return args + (y,)
 
 
-@convert_inputs_to_tensors(unpack_argument=["xs"])
+@convert_inputs_to_tensors(["xs"], unpack_argument=["xs"])
 def __func_test_convert_list_input__(xs):
     return xs
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("xs",)], unpack_argument=["xs"])
+@convert_inputs_to_tensors(["xs"], sync_arg_types=[("xs",)], unpack_argument=["xs"])
 def __func_test_sync_within_list__(xs):
     return xs
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("x", "ys")], unpack_argument=["ys"])
+@convert_inputs_to_tensors(["x", "ys"], sync_arg_types=[("x", "ys")], unpack_argument=["ys"])
 def __func_test_sync_single_type_to_list__(x, ys):
     return x, ys
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("xs", "y")], unpack_argument=["xs"])
+@convert_inputs_to_tensors(["xs", "y"], sync_arg_types=[("xs", "y")], unpack_argument=["xs"])
 def __func_test_sync_list_type_to_single__(xs, y):
     return xs, y
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("xs", "ys")], unpack_argument=["xs", "ys"])
+@convert_inputs_to_tensors(["xs", "ys"], sync_arg_types=[("xs", "ys")], unpack_argument=["xs", "ys"])
 def __func_test_sync_list_types__(xs, ys):
     return xs, ys
 

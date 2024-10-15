@@ -95,11 +95,9 @@ class Resize(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
-        "T1": ["float32", "float16", "int8"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "int8"]},
 )
 @frontend_utils.convert_shape_inputs(["output_shape"])
 def resize(

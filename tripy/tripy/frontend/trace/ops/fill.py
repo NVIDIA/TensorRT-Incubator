@@ -107,11 +107,11 @@ def full_impl(
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def full(
     shape: "tripy.types.ShapeLike",
@@ -142,12 +142,12 @@ def full(
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
 )
 def full_like(input: "tripy.Tensor", value: numbers.Number, dtype: Optional["tripy.dtype"] = None) -> "tripy.Tensor":
     """
