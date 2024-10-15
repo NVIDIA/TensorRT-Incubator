@@ -2449,6 +2449,49 @@ LogicalResult OpaquePluginOp::reifyResultShapes(
 }
 
 //===----------------------------------------------------------------------===//
+// ResizeOp
+//===----------------------------------------------------------------------===//
+
+/// Fold `tensorrt.op(..., tensor.cast(x)... )` to `tensorrt.op(..., x, ...)`
+/// if the cast is a generalizing cast (it is removing some static dims of the
+/// type of  `x` and replacing them with dynamic dimensions).
+template <typename OpType>
+struct AbsorbTensorCastOp : public OpRewritePattern<OpType> {
+  using OpRewritePattern<OpType>::OpRewritePattern;
+  LogicalResult matchAndRewrite(OpType op,
+                                PatternRewriter &rewriter) const override {
+    if (auto castOp = op.getInput().template getDefiningOp<tensor::CastOp>()) {
+      RankedTensorType castType = cast<RankedTensorType>(castOp.getType());
+      RankedTensorType sourceType =
+          cast<RankedTensorType>(castOp.getSource().getType());
+      if (castType.getEncoding() != sourceType.getEncoding() ||
+          !isTargetRefinementOfSource(castType.getShape(),
+                                      sourceType.getShape()))
+        return failure();
+      rewriter.modifyOpInPlace(
+          op, [&]() { op.getInputMutable().assign(castOp.getSource()); });
+      return success();
+    }
+    return failure();
+  }
+};
+
+void ResizeCubicOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
+                                                MLIRContext *context) {
+  patterns.insert<AbsorbTensorCastOp<ResizeCubicOp>>(context);
+}
+
+void ResizeLinearOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
+                                                 MLIRContext *context) {
+  patterns.insert<AbsorbTensorCastOp<ResizeLinearOp>>(context);
+}
+
+void ResizeNearestOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
+                                                  MLIRContext *context) {
+  patterns.insert<AbsorbTensorCastOp<ResizeNearestOp>>(context);
+}
+
+//===----------------------------------------------------------------------===//
 // DimList Attribute Parameter
 //===----------------------------------------------------------------------===//
 

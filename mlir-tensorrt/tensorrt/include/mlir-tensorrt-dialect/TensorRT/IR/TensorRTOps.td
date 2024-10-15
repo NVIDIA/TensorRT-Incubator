@@ -3670,6 +3670,7 @@ def TensorRT_ResizeNearestOp : TensorRT_Op<"resize_nearest", [Pure,
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
   let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
   let extraClassDeclaration = [{
     /// Returns true if created op is valid for TensorRT major version.
     bool isValidForTensorRTVersion(int64_t trtMajorVersion);
@@ -3743,6 +3744,7 @@ def TensorRT_ResizeLinearOp : TensorRT_Op<"resize_linear", [Pure,
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
   let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
   let extraClassDeclaration = [{
     /// Returns true if created op is valid for TensorRT major version.
     bool isValidForTensorRTVersion(int64_t trtMajorVersion);
@@ -3818,6 +3820,7 @@ def TensorRT_ResizeCubicOp : TensorRT_Op<"resize_cubic", [Pure,
     TensorRT_RankedTensorOf<[TensorRT_I8, F16, F32]>:$result);
   let assemblyFormat = "attr-dict $input ( `,` $output_shape^ )? `:` functional-type(operands,results) ";
   let hasVerifier = 1;
+  let hasCanonicalizer = 1;
   let extraClassDeclaration = [{
     /// Returns true if created op is valid for TensorRT major version.
     bool isValidForTensorRTVersion(int64_t trtMajorVersion);

@@ -39,6 +39,7 @@ void plan::buildPlanSegmentationPipeline(
       plan::createMaterializeShapeCalculationsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addPass(plan::createPlanRefineTypesPass());
+  pm.addPass(createCanonicalizerPass());
   if (!opts.disableCreateShapeFuncPass)
     pm.addPass(createPlanCreateShapeFuncsPass());
   pm.addNestedPass<func::FuncOp>(
