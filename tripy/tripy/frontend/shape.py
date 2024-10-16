@@ -112,13 +112,14 @@ class Shape(Tensor):
         ret.stack_info = self.stack_info
         return ret
 
-    def add(self, other: Union["tripy.Shape", Tensor]) -> "tripy.Shape":
+    def add(self, other: Union["tripy.Shape", "tripy.ShapeScalar"]) -> "tripy.Shape":
         """
         The + operator for shapes is concatenation. This method is exposed to allow for elementwise addition,
         should it be necessary.
 
         Args:
-            other: Another :class:`Shape` or :class:`Tensor` .
+            other: Another :class:`Shape` or a :class:`ShapeScalar`. :class:`Tensor` is not permitted and should be
+                   explicitly converted if this is desired.
 
         Returns:
             The result of elementwise addition of this :class:`Shape` and `other`, returned as a :class:`Shape` .
@@ -135,13 +136,14 @@ class Shape(Tensor):
         """
         return super().__add__(other)
 
-    def multiply(self, other: Union["tripy.Shape", Tensor]) -> "tripy.Shape":
+    def multiply(self, other: Union["tripy.Shape", "tripy.ShapeScalar"]) -> "tripy.Shape":
         """
         The * operator for shapes is tiling. This method is exposed to allow for elementwise multiplication,
         should it be necessary.
 
         Args:
-            other: Another :class:`Shape` or :class:`Tensor` .
+            other: Another :class:`Shape` or a :class:`tripy.ShapeScalar`. :class:`Tensor` is not permitted and should be
+                   explicitly converted if this is desired.
 
         Returns:
             The result of elementwise multiplication of this :class:`Shape` and `other`, returned as a :class:`Shape` .

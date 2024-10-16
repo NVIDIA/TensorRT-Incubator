@@ -50,23 +50,24 @@ class BinaryElementwise(BaseTraceOp):
         return f"{self.outputs[0].name} = {op_str}"
 
     def infer_shape_output_idxs(self, inputs):
-        # permit one input to be a shape but require the output to be a shape
+        # To avoid issues, we do not permit both Shape and Tensor args and recommend explicit conversion if they do need to combined.
+        # ShapeScalar args can be broadcast up into Shapes and so do not pose an issue.
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
         if any(map(lambda t: isinstance(t, Shape), inputs)):
-            # if there is a non-shape input, it must be rank 1 or 0 to avoid broadcasting
-            if not all(map(lambda t: t.rank <= 1, inputs)):
-                invalid_indices_message = ", ".join(
-                    map(
-                        lambda i: f"Index {i} (rank {inputs[i].rank})",
-                        filter(lambda i: inputs[i].rank > 1, range(len(inputs))),
-                    )
-                )
+            # Note: Most binary elementwise ops use the convert_inputs_to_tensors decorator, which also checks for this.
+            if any(map(lambda t: not isinstance(t, (Shape, ShapeScalar)), inputs)):
+                shape_arg_indices = [i for i, t in enumerate(inputs) if isinstance(t, Shape)]
+                tensor_arg_indices = [
+                    i for i, t in enumerate(inputs) if not isinstance(t, Shape) and not isinstance(t, ShapeScalar)
+                ]
                 return Result.err(
                     [
-                        "For binary elementwise operators on Shapes, all inputs must be of rank at most 1.",
-                        f"The following inputs have invalid ranks: {invalid_indices_message}",
+                        "Binary elementwise operators do not accept combinations of Shape and Tensor arguments."
+                        " Consider explicitly converting using tp.Shape or as_tensor."
+                        f" Indices of shape arguments: {', '.join(shape_arg_indices)}."
+                        f" Indices of tensor arguments: {', '.join(tensor_arg_indices)}.",
                     ]
                 )
             return Result.ok({"shape": [0]})
