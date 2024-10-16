@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-from enum import Enum
 from typing import Any, List, Optional, Sequence
 
 from tripy import utils
