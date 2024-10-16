@@ -112,7 +112,7 @@ class BaseTraceOp(abc.ABC):
             return outputs[0]
         return outputs
 
-    def infer_tensor_variants(self, inputs: List["Tensor"]) -> Result:
+    def infer_tensor_variants(self, inputs: List["Tensor"]) -> Result[List[type]]:
         """
         Given the operator's inputs, this method returns a `Result` containing a dict of the operator's output indices
         that should be wrapped in `tp.Shape` or `tp.ShapeScalar`.
