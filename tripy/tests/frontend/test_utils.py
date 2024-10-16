@@ -355,8 +355,9 @@ class TestConvertInputsToTensors:
         s2 = tp.Shape([5, 6, 7])
         with helper.raises(
             tp.TripyException,
-            match=r"This operator expects all arguments to be tp\.Tensor or all to be tp\.Shape but was given arguments of mixed types\."
-            r" Consider explicitly converting between these types using tp\.Shape\(value\) or value\.as\_tensor\(\)",
+            match=r"\_\_func\_test\_multi\_input\_\_ expects tensor arguments to have matching class types,"
+            r" but got mixed `tp\.Tensor` and `tp\.Shape` arguments\.\n"
+            r"    Consider explicitly converting using tp\.Shape\(tensor\) or shape\.as\_tensor\(\)",
         ):
             __func_test_multi_input__(t1, s1, s2)
 
