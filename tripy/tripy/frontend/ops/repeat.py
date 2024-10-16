@@ -92,9 +92,8 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim:
     out = unsqueeze(input, dim + 1)
     out = expand(out, input.shape[: dim + 1] + Shape([repeats]) + input.shape[dim + 1 :])
 
-    repeat_mask = concatenate(
-        [reshape(repeats, (1,)) if idx == dim else Tensor([1]) for idx in range(input.rank)], dim=0
-    )
+    repeat_mask = [1] * input.rank
+    repeat_mask[dim] = repeats
     new_shape = input.shape.multiply(Shape(repeat_mask))
     out = reshape(out, new_shape)
     return out
