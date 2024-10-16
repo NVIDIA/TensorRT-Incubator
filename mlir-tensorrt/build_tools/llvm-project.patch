@@ -1,5 +1,5 @@
 diff --git a/mlir/include/mlir/Dialect/Bufferization/IR/Bufferization.h b/mlir/include/mlir/Dialect/Bufferization/IR/Bufferization.h
-index 6f19dca2e8..d6ccbdd7ac 100644
+index 6f19dca2e822..d6ccbdd7acc1 100644
 --- a/mlir/include/mlir/Dialect/Bufferization/IR/Bufferization.h
 +++ b/mlir/include/mlir/Dialect/Bufferization/IR/Bufferization.h
 @@ -12,10 +12,16 @@
@@ -16,11 +16,11 @@ index 6f19dca2e8..d6ccbdd7ac 100644
 +namespace mlir::bufferization::detail {
 +bool tensorTypesMatchUpToEncoding(Type lhs, Type rhs);
 +} // namespace mlir::bufferization::detail
-
+ 
  //===----------------------------------------------------------------------===//
  // Bufferization Dialect
 diff --git a/mlir/include/mlir/Dialect/Bufferization/IR/BufferizationOps.td b/mlir/include/mlir/Dialect/Bufferization/IR/BufferizationOps.td
-index 1c70a4b8df..c97a1fe819 100644
+index 1c70a4b8df92..c97a1fe819a3 100644
 --- a/mlir/include/mlir/Dialect/Bufferization/IR/BufferizationOps.td
 +++ b/mlir/include/mlir/Dialect/Bufferization/IR/BufferizationOps.td
 @@ -387,9 +387,7 @@ def Bufferization_ToTensorOp : Bufferization_Op<"to_tensor", [
@@ -35,13 +35,13 @@ index 1c70a4b8df..c97a1fe819 100644
    let summary = "create a tensor from a `memref`";
    let description = [{
 @@ -476,9 +474,16 @@ def Bufferization_ToTensorOp : Bufferization_Op<"to_tensor", [
-
+ 
    let assemblyFormat = [{
      $memref (`restrict` $restrict^)? (`writable` $writable^)? attr-dict
 -      `:` type($memref)
 +      `:` type($memref) `->` type($result)
    }];
-
+ 
 +  let builders = [
 +    OpBuilder<(ins "Value":$memref, CArg<"bool", "false">:$restrict, CArg<"bool", "false">:$writeable), [{
 +      auto rtt = memref::getTensorTypeFromMemRefType(memref.getType());
@@ -64,18 +64,18 @@ index 1c70a4b8df..c97a1fe819 100644
    let description = [{
 @@ -550,7 +556,7 @@ def Bufferization_ToMemrefOp : Bufferization_Op<"to_memref", [
    }];
-
+ 
    let assemblyFormat = [{
 -    $tensor (`read_only` $read_only^)? attr-dict `:` type($memref)
 +    $tensor (`read_only` $read_only^)? attr-dict `:` type($tensor) `->` type($memref)
    }];
-
+ 
    let hasFolder = 1;
 diff --git a/mlir/include/mlir/Dialect/Bufferization/Transforms/Passes.td b/mlir/include/mlir/Dialect/Bufferization/Transforms/Passes.td
-index 1cece818db..3132af5b7a 100644
+index a610ddcc9899..18c4e5cedc8c 100644
 --- a/mlir/include/mlir/Dialect/Bufferization/Transforms/Passes.td
 +++ b/mlir/include/mlir/Dialect/Bufferization/Transforms/Passes.td
-@@ -517,6 +517,10 @@ def OneShotBufferize : Pass<"one-shot-bufferize", "ModuleOp"> {
+@@ -533,6 +533,10 @@ def OneShotBufferize : Pass<"one-shot-bufferize", "ModuleOp"> {
             /*default=*/"false",
             "The memory space of an memref types must always be inferred. If "
             "unset, a default memory space of 0 is used otherwise.">,
@@ -87,7 +87,7 @@ index 1cece818db..3132af5b7a 100644
              /*default=*/"false",
             "Test only: Only run inplaceability analysis and annotate IR">,
 diff --git a/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp b/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp
-index d51d63f243..550ac7e83b 100644
+index d51d63f243ea..550ac7e83b9e 100644
 --- a/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp
 +++ b/mlir/lib/Dialect/Bufferization/IR/BufferizableOpInterface.cpp
 @@ -719,7 +719,7 @@ void bufferization::replaceOpWithBufferizedValues(RewriterBase &rewriter,
@@ -100,13 +100,13 @@ index d51d63f243..550ac7e83b 100644
      replacements.push_back(replacement);
    }
 diff --git a/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp b/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp
-index 04a8ff30ee..d1d5d3b89b 100644
+index 04a8ff30ee94..d1d5d3b89b3e 100644
 --- a/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp
 +++ b/mlir/lib/Dialect/Bufferization/IR/BufferizationOps.cpp
 @@ -23,6 +23,16 @@ using namespace mlir::bufferization;
  // Helper functions
  //===----------------------------------------------------------------------===//
-
+ 
 +bool bufferization::detail::tensorTypesMatchUpToEncoding(Type lhs, Type rhs) {
 +  auto lhsType = cast<ShapedType>(lhs);
 +  auto rhsType = cast<ShapedType>(rhs);
@@ -121,13 +121,13 @@ index 04a8ff30ee..d1d5d3b89b 100644
      OpBuilder &b, Value value, MemRefType destType,
      const BufferizationOptions &options) {
 diff --git a/mlir/lib/Dialect/Bufferization/Transforms/Bufferize.cpp b/mlir/lib/Dialect/Bufferization/Transforms/Bufferize.cpp
-index e422086c9f..d4271c68cb 100644
+index e422086c9fde..d4271c68cbcc 100644
 --- a/mlir/lib/Dialect/Bufferization/Transforms/Bufferize.cpp
 +++ b/mlir/lib/Dialect/Bufferization/Transforms/Bufferize.cpp
 @@ -67,10 +67,14 @@ BufferizeTypeConverter::BufferizeTypeConverter() {
                                ValueRange inputs, Location loc) -> Value {
      assert(inputs.size() == 1 && "expected exactly one input");
-
+ 
 +    // Unranked to ranked casts must be explicit.
 +    if (auto inputType = dyn_cast<UnrankedMemRefType>(inputs[0].getType()))
 +      return nullptr;
@@ -155,13 +155,13 @@ index e422086c9f..d4271c68cb 100644
        opt.printConflicts = printConflicts;
        opt.testAnalysisOnly = testAnalysisOnly;
 diff --git a/mlir/lib/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.cpp b/mlir/lib/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.cpp
-index 87464ccb71..c654dbba46 100644
+index 87464ccb7172..c654dbba46e8 100644
 --- a/mlir/lib/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.cpp
 +++ b/mlir/lib/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.cpp
 @@ -479,10 +479,6 @@ struct FromElementsOpInterface
      auto fromElementsOp = cast<tensor::FromElementsOp>(op);
      auto tensorType = cast<RankedTensorType>(fromElementsOp.getType());
-
+ 
 -    // TODO: Implement memory space for this op.
 -    if (options.defaultMemorySpaceFn(tensorType) != Attribute())
 -      return op->emitError("memory space not implemented yet");
@@ -182,11 +182,11 @@ index 87464ccb71..c654dbba46 100644
      Value buffer = rewriter.create<bufferization::ToMemrefOp>(
 -        op->getLoc(), memrefType, *tensorAlloc);
 +        op->getLoc(), *memrefType, *tensorAlloc);
-
+ 
      // Case: tensor<0xelem_type>.
      if (fromElementsOp.getElements().empty()) {
 diff --git a/mlir/test/Dialect/Arith/bufferize.mlir b/mlir/test/Dialect/Arith/bufferize.mlir
-index a3b1454fb6..0b7838e147 100644
+index a3b1454fb68f..0b7838e1471d 100644
 --- a/mlir/test/Dialect/Arith/bufferize.mlir
 +++ b/mlir/test/Dialect/Arith/bufferize.mlir
 @@ -7,7 +7,7 @@ func.func @index_cast(%tensor: tensor<i32>, %scalar: i32) -> (tensor<index>, ind
@@ -210,7 +210,7 @@ index a3b1454fb6..0b7838e147 100644
  // CHECK:           %[[RET:.*]] = bufferization.to_tensor %[[RET_MEMREF]] : memref<f32>
  // CHECK:           return %[[RET]] : tensor<f32>
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/OwnershipBasedBufferDeallocation/dealloc-other.mlir b/mlir/test/Dialect/Bufferization/Transforms/OwnershipBasedBufferDeallocation/dealloc-other.mlir
-index 5293977fe7..55e086ff01 100644
+index 5293977fe733..55e086ff0110 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/OwnershipBasedBufferDeallocation/dealloc-other.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/OwnershipBasedBufferDeallocation/dealloc-other.mlir
 @@ -9,7 +9,7 @@
@@ -221,9 +221,9 @@ index 5293977fe7..55e086ff01 100644
 +  %0 = bufferization.to_memref %t : tensor<?x?x?xf16> -> memref<?x?x?xf16>
    return %0 : memref<?x?x?xf16>
  }
-
+ 
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir b/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir
-index ff94c1b331..36ae70e605 100644
+index ab18ce05e355..148908536d6c 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/finalizing-bufferize.mlir
 @@ -4,8 +4,8 @@
@@ -236,7 +236,7 @@ index ff94c1b331..36ae70e605 100644
 +  %1 = bufferization.to_memref %0 : tensor<f32> -> memref<f32>
    return %1 : memref<f32>
  }
-
+ 
 @@ -14,14 +14,14 @@ func.func @eliminate_materializations(%arg0: memref<f32>) -> memref<f32> {
  func.func @unable_to_convert_lone_buffer_cast() -> memref<f32> {
    // expected-error @+1 {{failed to legalize operation 'test.source'}}
@@ -245,9 +245,9 @@ index ff94c1b331..36ae70e605 100644
 +  %1 = bufferization.to_memref %0 : tensor<f32> -> memref<f32>
    return %1 : memref<f32>
  }
-
+ 
  // -----
-
+ 
  func.func @unable_to_convert_lone_tensor_load(%arg0: memref<f32>) {
 -  %0 = bufferization.to_tensor %arg0 : memref<f32>
 +  %0 = bufferization.to_tensor %arg0 : memref<f32> -> tensor<f32>
@@ -264,7 +264,7 @@ index ff94c1b331..36ae70e605 100644
 +  %1 = bufferization.to_memref %0 : tensor<?xf32> -> memref<?xf32>
    return %1 : memref<?xf32>
  }
-
+ 
 @@ -52,8 +52,8 @@ func.func @dyn_layout_to_no_layout_cast(%m: memref<?xf32, strided<[1], offset: ?
  //       CHECK:   memref.copy %[[arg]], %[[alloc]]
  //       CHECK:   return %[[alloc]]
@@ -275,7 +275,7 @@ index ff94c1b331..36ae70e605 100644
 +  %1 = bufferization.to_memref %0 : tensor<?xf32> -> memref<?xf32>
    return %1 : memref<?xf32>
  }
-
+ 
 @@ -67,8 +67,8 @@ func.func @fancy_layout_to_no_layout_cast(%m: memref<?xf32, strided<[100], offse
  //       CHECK:   memref.copy %[[arg]], %[[alloc]]
  //       CHECK:   return %[[alloc]]
@@ -286,34 +286,37 @@ index ff94c1b331..36ae70e605 100644
 +  %1 = bufferization.to_memref %0 : tensor<?xf32> -> memref<?xf32>
    return %1 : memref<?xf32>
  }
-
-@@ -77,9 +77,9 @@ func.func @static_layout_to_no_layout_cast(%m: memref<?xf32, strided<[1], offset
+ 
+@@ -77,19 +77,20 @@ func.func @static_layout_to_no_layout_cast(%m: memref<?xf32, strided<[1], offset
  // TODO: to_memref with layout maps not supported yet. This should fold to a
  // memref.cast.
  func.func @no_layout_to_dyn_layout_cast(%m: memref<?xf32>) -> memref<?xf32, strided<[1], offset: ?>> {
 -  %0 = bufferization.to_tensor %m : memref<?xf32>
 +  %0 = bufferization.to_tensor %m : memref<?xf32> -> tensor<?xf32>
-   // expected-error @+1 {{failed to materialize conversion for result #0 of operation 'bufferization.to_memref' that remained live after conversion}}
+   // expected-error @+1 {{failed to legalize unresolved materialization from ('memref<?xf32>') to 'memref<?xf32, strided<[1], offset: ?>>' that remained live after conversion}}
 -  %1 = bufferization.to_memref %0 : memref<?xf32, strided<[1], offset: ?>>
+-  // expected-note @below{{see existing live user here}}
 +  %1 = bufferization.to_memref %0 : tensor<?xf32> -> memref<?xf32, strided<[1], offset: ?>>
-   // expected-note @+1 {{see existing live user here}}
++  // expected-note @below {{see existing live user here:}}
    return %1 : memref<?xf32, strided<[1], offset: ?>>
  }
-@@ -87,9 +87,8 @@ func.func @no_layout_to_dyn_layout_cast(%m: memref<?xf32>) -> memref<?xf32, stri
+ 
  // -----
-
+ 
  func.func @illegal_unranked_to_rank(%m: memref<*xf32>) -> memref<?xf32> {
 -  // expected-note @+1 {{prior use here}}
 -  %0 = bufferization.to_tensor %m : memref<*xf32>
 -  // expected-error @+1 {{expects different type than prior uses: 'tensor<?xf32>' vs 'tensor<*xf32>'}}
 -  %1 = bufferization.to_memref %0 : memref<?xf32>
-+  %0 = bufferization.to_tensor %m : memref<*xf32> -> tensor<?xf32>
++
++  %0 = bufferization.to_tensor %m : memref<*xf32> -> tensor<*xf32>
 +  // expected-error @+1 {{failed to legalize unresolved materialization from ('memref<*xf32>') to 'memref<?xf32>' that remained live after conversion}}
-+  %1 = bufferization.to_memref %0 : tensor<?xf32> -> memref<?xf32>
++  %1 = bufferization.to_memref %0 : tensor<*xf32> -> memref<?xf32>
++  // expected-note @below {{see existing live user here:}}
    return %1 : memref<?xf32>
  }
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-analysis.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-analysis.mlir
-index c3e44c4267..b749340395 100644
+index c3e44c426797..b74934039506 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-analysis.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-analysis.mlir
 @@ -96,7 +96,7 @@ func.func @to_memref_not_read_only(%idx : index, %f: f32) -> f32 {
@@ -336,7 +339,7 @@ index c3e44c4267..b749340395 100644
  }
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-encodings.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-encodings.mlir
 new file mode 100644
-index 0000000000..f892ae95e6
+index 000000000000..f892ae95e697
 --- /dev/null
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-encodings.mlir
 @@ -0,0 +1,133 @@
@@ -474,11 +477,11 @@ index 0000000000..f892ae95e6
 +//       CHECK:     %[[v1:.+]] = bufferization.to_tensor %[[alloc]] : memref<128xf32, 2> -> tensor<128xf32, 2 : i64>
 +//       CHECK:     return %[[v1]] : tensor<128xf32, 2 : i64>
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-partial.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-partial.mlir
-index 9380c81ce2..7ec3e99350 100644
+index 9380c81ce235..7ec3e9935093 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-partial.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize-partial.mlir
 @@ -25,9 +25,9 @@ func.func @use_of_unknown_op_1(%t1: tensor<?xf32>)
-
+ 
    %idx = arith.constant 0 : index
    %cst = arith.constant 0.0 : f32
 -  // CHECK: %[[dummy_memref:.*]] = bufferization.to_memref %[[dummy]] : memref<?xf32, strided<[?], offset: ?>>
@@ -490,16 +493,16 @@ index 9380c81ce2..7ec3e99350 100644
    %1 = vector.transfer_read %0[%idx], %cst : tensor<?xf32>, vector<5xf32>
    return %1 : vector<5xf32>
 @@ -61,7 +61,7 @@ func.func @use_of_unknown_op_3(%t1: tensor<?xf32>)
-
+ 
    // CHECK: %[[dummy:.*]] = "test.dummy_op"(%[[t1]])
    %0 = "test.dummy_op"(%t1) : (tensor<?xf32>) -> tensor<?xf32>
 -  // CHECK: %[[dummy_memref:.*]] = bufferization.to_memref %[[dummy]] : memref<?xf32, strided<[?], offset: ?>>
 +  // CHECK: %[[dummy_memref:.*]] = bufferization.to_memref %[[dummy]] : tensor<?xf32> -> memref<?xf32, strided<[?], offset: ?>>
    // CHECK: %[[v2:.*]] = vector.transfer_read %[[dummy_memref]]
    %2 = vector.transfer_read %0[%idx], %cst : tensor<?xf32>, vector<5xf32>
-
+ 
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize.mlir
-index dbf8d65634..d3948d6989 100644
+index dbf8d6563477..d3948d69896b 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-bufferize.mlir
 @@ -134,7 +134,7 @@ func.func @copy_deallocated() -> tensor<10xf32> {
@@ -510,7 +513,7 @@ index dbf8d65634..d3948d6989 100644
 +  // CHECK-DAG: %[[m:.*]] = bufferization.to_memref %[[t]] : tensor<?xf32> -> memref<?xf32, strided{{.*}}>
    // CHECK-DAG: %[[alloc:.*]] = memref.alloc(%{{.*}}) {{.*}} : memref<?xf32>
    %0 = bufferization.alloc_tensor(%sz) : tensor<?xf32>
-
+ 
 @@ -200,7 +200,7 @@ func.func @read_of_alias(%t: tensor<100xf32>, %pos1: index, %pos2: index,
  // CHECK-LABEL: func @from_unranked_to_unranked(
  //  CHECK-SAME:     %[[arg0:.*]]: tensor<*xi32>
@@ -521,7 +524,7 @@ index dbf8d65634..d3948d6989 100644
    // CHECK: return %[[t]] : tensor<*xi32>
    %0 = tensor.cast %arg0 : tensor<*xi32> to tensor<*xi32>
 @@ -227,7 +227,7 @@ func.func @tensor_copy(%arg0: tensor<5xf32>) -> tensor<5xf32> {
-
+ 
  // CHECK-LABEL: func @materialize_in_destination_buffer(
  //  CHECK-SAME:     %[[t:.*]]: tensor<5xf32>, %[[m:.*]]: memref<5xf32>)
 -//       CHECK:   %[[b:.*]] = bufferization.to_memref %[[t]] : memref<5xf32, strided<[?], offset: ?>>
@@ -530,7 +533,7 @@ index dbf8d65634..d3948d6989 100644
  func.func @materialize_in_destination_buffer(%t: tensor<5xf32>, %m: memref<5xf32>) {
    bufferization.materialize_in_destination %t in restrict writable %m
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-analysis.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-analysis.mlir
-index 42d9cc00d3..0a50dc156e 100644
+index 42d9cc00d3ff..0a50dc156e7c 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-analysis.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-analysis.mlir
 @@ -1064,7 +1064,7 @@ func.func @main_func(%A : tensor<?xf32> {bufferization.writable = true},
@@ -539,16 +542,16 @@ index 42d9cc00d3..0a50dc156e 100644
      -> vector<10xf32> {
 -  %0 = bufferization.to_tensor %m restrict : memref<?xf32>
 +  %0 = bufferization.to_tensor %m restrict : memref<?xf32> -> tensor<?xf32>
-
+ 
    // Write to the tensor. Cannot be inplace due to tensor_load.
    //      CHECK: vector.transfer_write
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-force-copy-before-write.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-force-copy-before-write.mlir
-index 7685f2ef3a..9d40ef245d 100644
+index 7685f2ef3aaf..9d40ef245dc4 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-force-copy-before-write.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-force-copy-before-write.mlir
 @@ -28,9 +28,9 @@ module {
    // CHECK_COPY:           memref.copy
-
+ 
    func.func @contains_to_memref_op(%arg0: tensor<?xf32> {bufferization.writable = true}, %arg1: index) -> vector<5xf32> {
 -    %0 = bufferization.to_memref %arg0 : memref<?xf32>
 +    %0 = bufferization.to_memref %arg0 : tensor<?xf32> -> memref<?xf32>
@@ -560,23 +563,23 @@ index 7685f2ef3a..9d40ef245d 100644
 \ No newline at end of file
 +}
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-invalid.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-invalid.mlir
-index ee0f71f668..ce81ac5055 100644
+index ee0f71f668dc..ce81ac50556b 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-invalid.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize-invalid.mlir
 @@ -115,7 +115,7 @@ func.func @scf_while_non_equiv_yield(%arg0: tensor<5xi1>,
-
+ 
  func.func @to_tensor_op_unsupported(%m: memref<?xf32>, %idx: index) -> (f32) {
    // expected-error @+1 {{to_tensor ops without `restrict` are not supported by One-Shot Analysis}}
 -  %0 = bufferization.to_tensor %m : memref<?xf32>
 +  %0 = bufferization.to_tensor %m : memref<?xf32> -> tensor<?xf32>
-
+ 
    %1 = tensor.extract %0[%idx] : tensor<?xf32>
    return %1 : f32
 diff --git a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize.mlir b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize.mlir
-index 0248afb11f..ddff4ac23f 100644
+index 0d5224514e3a..9d0df0218c68 100644
 --- a/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize.mlir
 +++ b/mlir/test/Dialect/Bufferization/Transforms/one-shot-module-bufferize.mlir
-@@ -640,7 +640,7 @@ func.func @to_memref_op_unsupported(
+@@ -664,7 +664,7 @@ func.func @to_memref_op_unsupported(
    // to_memref op.
    // CHECK: %[[alloc:.*]] = memref.alloc
    // CHECK: memref.copy %[[arg0]], %[[alloc]]
@@ -584,9 +587,9 @@ index 0248afb11f..ddff4ac23f 100644
 +  %0 = bufferization.to_memref %t1 : tensor<?xf32> -> memref<?xf32>
    // CHECK: "test.foo"(%[[alloc]])
    "test.foo"(%0) : (memref<?xf32>) -> ()
-
+ 
 diff --git a/mlir/test/Dialect/Bufferization/canonicalize.mlir b/mlir/test/Dialect/Bufferization/canonicalize.mlir
-index b6c0a0e25e..b4cdbf6471 100644
+index b6c0a0e25efe..b4cdbf64718d 100644
 --- a/mlir/test/Dialect/Bufferization/canonicalize.mlir
 +++ b/mlir/test/Dialect/Bufferization/canonicalize.mlir
 @@ -6,8 +6,8 @@
@@ -629,7 +632,7 @@ index b6c0a0e25e..b4cdbf6471 100644
 +  %1 = bufferization.to_memref %0 : tensor<?xf32, 7> -> memref<?xf32, 7>
    return %1 : memref<?xf32, 7>
  }
-
+ 
 @@ -61,8 +61,8 @@ func.func @canonicalize_buffer_cast_of_tensor_load(
    %arg0: memref<?xf32, strided<[1], offset: 3>>)
    -> memref<?xf32, strided<[1], offset: ?>>
@@ -640,7 +643,7 @@ index b6c0a0e25e..b4cdbf6471 100644
 +  %1 = bufferization.to_memref %0 : tensor<?xf32> -> memref<?xf32, strided<[1], offset: ?>>
    return %1 : memref<?xf32, strided<[1], offset: ?>>
  }
-
+ 
 @@ -74,8 +74,8 @@ func.func @canonicalize_buffer_cast_of_tensor_load(
  func.func @canonicalize_buffer_cast_of_tensor_load_to_copy(
    %arg0: memref<?xf32, strided<[1], offset: ?>>)
@@ -684,7 +687,7 @@ index b6c0a0e25e..b4cdbf6471 100644
    return %1 : f32
  }
 diff --git a/mlir/test/Dialect/Bufferization/ops.mlir b/mlir/test/Dialect/Bufferization/ops.mlir
-index ad4a66c1b7..b193d7b4cf 100644
+index ad4a66c1b797..b193d7b4cfec 100644
 --- a/mlir/test/Dialect/Bufferization/ops.mlir
 +++ b/mlir/test/Dialect/Bufferization/ops.mlir
 @@ -15,15 +15,15 @@ func.func @test_clone(%buf : memref<*xf32>) -> memref<*xf32> {
@@ -698,20 +701,20 @@ index ad4a66c1b7..b193d7b4cf 100644
 +    : tensor<*xi64> -> memref<*xi64, 1>
    return %0, %1 : memref<?xi64, affine_map<(d0) -> (d0 + 7)>>, memref<*xi64, 1>
  }
-
+ 
  // CHECK-LABEL: func @test_to_tensor
  func.func @test_to_tensor(%buf : memref<2xf32>) -> tensor<2xf32> {
 -  %tensor = bufferization.to_tensor %buf restrict writable : memref<2xf32>
 +  %tensor = bufferization.to_tensor %buf restrict writable : memref<2xf32> -> tensor<2xf32>
    return %tensor : tensor<2xf32>
  }
-
+ 
 diff --git a/mlir/test/Dialect/ControlFlow/one-shot-bufferize.mlir b/mlir/test/Dialect/ControlFlow/one-shot-bufferize.mlir
-index b82ebdde63..032bcc3780 100644
+index b82ebdde63a1..032bcc378098 100644
 --- a/mlir/test/Dialect/ControlFlow/one-shot-bufferize.mlir
 +++ b/mlir/test/Dialect/ControlFlow/one-shot-bufferize.mlir
 @@ -3,7 +3,7 @@
-
+ 
  // CHECK-NO-FUNC-LABEL: func @br(
  //  CHECK-NO-FUNC-SAME:     %[[t:.*]]: tensor<5xf32>)
 -//       CHECK-NO-FUNC:   %[[m:.*]] = bufferization.to_memref %[[t]] : memref<5xf32, strided<[?], offset: ?>>
@@ -720,7 +723,7 @@ index b82ebdde63..032bcc3780 100644
  //       CHECK-NO-FUNC:     cf.br ^[[block:.*]](%[[m]]
  //       CHECK-NO-FUNC:   ^[[block]](%[[arg1:.*]]: memref<5xf32, strided<[?], offset: ?>>):
 @@ -23,7 +23,7 @@ func.func @br(%t: tensor<5xf32>) {
-
+ 
  // CHECK-NO-FUNC-LABEL: func @cond_br(
  //  CHECK-NO-FUNC-SAME:     %[[t1:.*]]: tensor<5xf32>,
 -//       CHECK-NO-FUNC:   %[[m1:.*]] = bufferization.to_memref %[[t1]] : memref<5xf32, strided<[?], offset: ?>>
@@ -729,11 +732,11 @@ index b82ebdde63..032bcc3780 100644
  //       CHECK-NO-FUNC:   %[[r:.*]] = scf.execute_region -> memref<5xf32, strided<[?], offset: ?>> {
  //       CHECK-NO-FUNC:     cf.cond_br %{{.*}}, ^[[block1:.*]](%[[m1]] : {{.*}}), ^[[block2:.*]](%[[alloc]] : {{.*}})
 diff --git a/mlir/test/Dialect/Func/func-bufferize.mlir b/mlir/test/Dialect/Func/func-bufferize.mlir
-index 22986bbc76..e03079e658 100644
+index 22986bbc7601..5e3e572a8947 100644
 --- a/mlir/test/Dialect/Func/func-bufferize.mlir
 +++ b/mlir/test/Dialect/Func/func-bufferize.mlir
 @@ -39,7 +39,7 @@ func.func @call_sink(%arg0: tensor<f32>) {
-
+ 
  // CHECK-LABEL:   func @unconverted_op_in_body() -> memref<f32> {
  // CHECK:           %[[TENSOR:.*]] = "test.source"() : () -> tensor<f32>
 -// CHECK:           %[[MEMREF:.*]] = bufferization.to_memref %[[TENSOR]] : memref<f32>
@@ -742,7 +745,7 @@ index 22986bbc76..e03079e658 100644
  func.func @unconverted_op_in_body() -> tensor<f32> {
    %0 = "test.source"() : () -> tensor<f32>
 diff --git a/mlir/test/Dialect/Linalg/bufferize.mlir b/mlir/test/Dialect/Linalg/bufferize.mlir
-index f416cd9fcf..9ed1a505ed 100644
+index f416cd9fcf0b..9ed1a505eddc 100644
 --- a/mlir/test/Dialect/Linalg/bufferize.mlir
 +++ b/mlir/test/Dialect/Linalg/bufferize.mlir
 @@ -12,7 +12,7 @@
@@ -784,7 +787,7 @@ index f416cd9fcf..9ed1a505ed 100644
  // CHECK:           linalg.generic
  // CHECK-SAME:      ins(%[[ARG0_MEMREF]] : memref<2x3x4xvector<3x4xi4>>)
 diff --git a/mlir/test/Dialect/Linalg/canonicalize.mlir b/mlir/test/Dialect/Linalg/canonicalize.mlir
-index d34bc8c1c5..859fb55d57 100644
+index 4bc2ed140da9..af5e745cb3a9 100644
 --- a/mlir/test/Dialect/Linalg/canonicalize.mlir
 +++ b/mlir/test/Dialect/Linalg/canonicalize.mlir
 @@ -373,7 +373,7 @@ func.func @fill_pack_general() -> tensor<1x1x8x4x4x8xi32>{
@@ -797,7 +800,7 @@ index d34bc8c1c5..859fb55d57 100644
    return %pack_18 : tensor<1x1x8x4x4x8xi32>
  }
 diff --git a/mlir/test/Dialect/MemRef/normalize-memrefs.mlir b/mlir/test/Dialect/MemRef/normalize-memrefs.mlir
-index c7af033a22..1c80a9f602 100644
+index c7af033a22a2..1c80a9f6024d 100644
 --- a/mlir/test/Dialect/MemRef/normalize-memrefs.mlir
 +++ b/mlir/test/Dialect/MemRef/normalize-memrefs.mlir
 @@ -356,10 +356,10 @@ func.func @neg_map() -> memref<2x3xf32, #neg> {
@@ -814,7 +817,7 @@ index c7af033a22..1c80a9f602 100644
    return %1 : tensor<16x512xf32>
  }
 diff --git a/mlir/test/Dialect/SCF/bufferize.mlir b/mlir/test/Dialect/SCF/bufferize.mlir
-index ff16123102..c7ca1dcb03 100644
+index ff1612310255..c7ca1dcb031b 100644
 --- a/mlir/test/Dialect/SCF/bufferize.mlir
 +++ b/mlir/test/Dialect/SCF/bufferize.mlir
 @@ -4,8 +4,8 @@
@@ -852,7 +855,7 @@ index ff16123102..c7ca1dcb03 100644
  // CHECK:           }
  // CHECK:           %[[TENSOR:.*]] = bufferization.to_tensor %[[RESULT:.*]] : memref<f32>
 @@ -80,7 +80,7 @@ func.func @for_correct_recursive_legalization_behavior(%arg0: tensor<f32>, %inde
-
+ 
  // CHECK-LABEL:   func @bufferize_while(
  // CHECK-SAME: %[[ARG0:.*]]: i64, %[[ARG1:.*]]: i64, %[[ARG2:.*]]: tensor<f32>
 -// CHECK: %[[M:.*]] = bufferization.to_memref %[[ARG2]] : memref<f32>
@@ -861,7 +864,7 @@ index ff16123102..c7ca1dcb03 100644
  // CHECK: scf.condition(%{{.*}}) %{{.*}}, %{{.*}}, %{{.*}} : i64, i64, memref<f32>
  // CHECK: ^bb0(%{{.*}}: i64, %{{.*}}: i64, %{{.*}}: memref<f32>):
 diff --git a/mlir/test/Dialect/Shape/bufferize.mlir b/mlir/test/Dialect/Shape/bufferize.mlir
-index 9f30a05220..2007fb7918 100644
+index 9f30a052208f..2007fb79181b 100644
 --- a/mlir/test/Dialect/Shape/bufferize.mlir
 +++ b/mlir/test/Dialect/Shape/bufferize.mlir
 @@ -6,7 +6,7 @@
@@ -874,7 +877,7 @@ index 9f30a05220..2007fb7918 100644
  // CHECK:           }
  // CHECK:           %[[TENSOR:.*]] = bufferization.to_tensor %[[MEMREF:.*]] : memref<2xf16>
 diff --git a/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul24_lib.mlir b/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul24_lib.mlir
-index 8293169049..963d07bdb4 100644
+index 8293169049ca..963d07bdb4ed 100644
 --- a/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul24_lib.mlir
 +++ b/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul24_lib.mlir
 @@ -14,19 +14,19 @@
@@ -901,7 +904,7 @@ index 8293169049..963d07bdb4 100644
  // CHECK:           %[[VAL_21:.*]] = memref.dim %[[VAL_19]], %[[VAL_3]] : memref<?x?xf16>
  // CHECK:           %[[VAL_22:.*]] = memref.dim %[[VAL_19]], %[[VAL_4]] : memref<?x?xf16>
 diff --git a/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul_lib.mlir b/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul_lib.mlir
-index 699508acf1..6dff0ca227 100644
+index 699508acf13c..6dff0ca2274c 100644
 --- a/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul_lib.mlir
 +++ b/mlir/test/Dialect/SparseTensor/GPU/gpu_matmul_lib.mlir
 @@ -30,13 +30,13 @@
@@ -921,7 +924,7 @@ index 699508acf1..6dff0ca227 100644
  // CHECK:           %[[VAL_36:.*]] = memref.dim %[[VAL_34]], %[[VAL_3]] : memref<?x?xf64>
  // CHECK:           %[[VAL_37:.*]] = memref.dim %[[VAL_34]], %[[VAL_4]] : memref<?x?xf64>
 diff --git a/mlir/test/Dialect/SparseTensor/GPU/gpu_matvec_lib.mlir b/mlir/test/Dialect/SparseTensor/GPU/gpu_matvec_lib.mlir
-index 14a0e9c30b..83d9a26a0d 100644
+index 14a0e9c30b20..83d9a26a0d52 100644
 --- a/mlir/test/Dialect/SparseTensor/GPU/gpu_matvec_lib.mlir
 +++ b/mlir/test/Dialect/SparseTensor/GPU/gpu_matvec_lib.mlir
 @@ -30,12 +30,12 @@ module {
@@ -940,7 +943,7 @@ index 14a0e9c30b..83d9a26a0d 100644
  // CHECK:           %[[VAL_34:.*]] = memref.dim %[[VAL_32]], %[[VAL_3]] : memref<?xf64>
  // CHECK:           %[[VAL_35:.*]], %[[VAL_36:.*]] = gpu.alloc async {{\[}}%[[VAL_33]]] (%[[VAL_34]]) : memref<?xf64>
 diff --git a/mlir/test/Dialect/SparseTensor/GPU/gpu_sampled_matmul_lib.mlir b/mlir/test/Dialect/SparseTensor/GPU/gpu_sampled_matmul_lib.mlir
-index 97f36d4992..daff389b25 100644
+index 97f36d49927b..daff389b25c9 100644
 --- a/mlir/test/Dialect/SparseTensor/GPU/gpu_sampled_matmul_lib.mlir
 +++ b/mlir/test/Dialect/SparseTensor/GPU/gpu_sampled_matmul_lib.mlir
 @@ -28,11 +28,11 @@
@@ -958,7 +961,7 @@ index 97f36d4992..daff389b25 100644
  // CHECK:           %[[VAL_13:.*]], %[[VAL_14:.*]] = gpu.alloc async {{\[}}%[[VAL_12]]] () : memref<8x8xf64>
  // CHECK:           %[[VAL_15:.*]] = gpu.memcpy async {{\[}}%[[VAL_14]]] %[[VAL_13]], %[[VAL_11]] : memref<8x8xf64>, memref<8x8xf64>
 diff --git a/mlir/test/Dialect/SparseTensor/GPU/gpu_sddmm_lib.mlir b/mlir/test/Dialect/SparseTensor/GPU/gpu_sddmm_lib.mlir
-index 93f49002a4..1351d5a3df 100644
+index 93f49002a47d..1351d5a3dfc7 100644
 --- a/mlir/test/Dialect/SparseTensor/GPU/gpu_sddmm_lib.mlir
 +++ b/mlir/test/Dialect/SparseTensor/GPU/gpu_sddmm_lib.mlir
 @@ -30,13 +30,13 @@
@@ -978,7 +981,7 @@ index 93f49002a4..1351d5a3df 100644
  // CHECK:           %[[VAL_20:.*]] = memref.dim %[[VAL_18]], %[[VAL_3]] : memref<?x?xf32>
  // CHECK:           %[[VAL_21:.*]] = memref.dim %[[VAL_18]], %[[VAL_4]] : memref<?x?xf32>
 diff --git a/mlir/test/Dialect/SparseTensor/constant_index_map.mlir b/mlir/test/Dialect/SparseTensor/constant_index_map.mlir
-index f9559ce648..857967bcf5 100644
+index f9559ce648c7..857967bcf521 100644
 --- a/mlir/test/Dialect/SparseTensor/constant_index_map.mlir
 +++ b/mlir/test/Dialect/SparseTensor/constant_index_map.mlir
 @@ -14,8 +14,8 @@
@@ -993,7 +996,7 @@ index f9559ce648..857967bcf5 100644
  // CHECK:             %[[VAL_11:.*]] = memref.load %[[VAL_6]]{{\[}}%[[VAL_3]], %[[VAL_9]]] : memref<1x77xi1>
  // CHECK:             %[[VAL_12:.*]] = memref.load %[[VAL_7]]{{\[}}%[[VAL_3]], %[[VAL_9]]] : memref<1x77xi1>
 diff --git a/mlir/test/Dialect/SparseTensor/dense.mlir b/mlir/test/Dialect/SparseTensor/dense.mlir
-index 60a217e05e..1bbf67e48a 100644
+index 60a217e05e61..1bbf67e48af8 100644
 --- a/mlir/test/Dialect/SparseTensor/dense.mlir
 +++ b/mlir/test/Dialect/SparseTensor/dense.mlir
 @@ -40,7 +40,7 @@
@@ -1024,7 +1027,7 @@ index 60a217e05e..1bbf67e48a 100644
  // CHECK:           scf.for %[[VAL_9:.*]] = %[[VAL_5]] to %[[VAL_3]] step %[[VAL_6]] {
  // CHECK:             %[[VAL_11:.*]] = arith.muli %[[VAL_9]], %[[VAL_4]] : index
 diff --git a/mlir/test/Dialect/SparseTensor/fuse_sparse_pad_with_consumer.mlir b/mlir/test/Dialect/SparseTensor/fuse_sparse_pad_with_consumer.mlir
-index 0ef143a1a2..275f7f2ff2 100644
+index 0ef143a1a2f3..275f7f2ff25f 100644
 --- a/mlir/test/Dialect/SparseTensor/fuse_sparse_pad_with_consumer.mlir
 +++ b/mlir/test/Dialect/SparseTensor/fuse_sparse_pad_with_consumer.mlir
 @@ -30,7 +30,7 @@
@@ -1046,7 +1049,7 @@ index 0ef143a1a2..275f7f2ff2 100644
  // CHECK:         }
  func.func @padded_mul(%arg0: tensor<4x4xf32, #CSR>, %arg1: tensor<8x8xf32>) -> tensor<8x8xf32> {
 diff --git a/mlir/test/Dialect/SparseTensor/sorted_coo.mlir b/mlir/test/Dialect/SparseTensor/sorted_coo.mlir
-index 2b9a2dd8f4..a48b100da8 100644
+index 2b9a2dd8f488..a48b100da8f4 100644
 --- a/mlir/test/Dialect/SparseTensor/sorted_coo.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sorted_coo.mlir
 @@ -101,7 +101,7 @@ func.func @sparse_scale(%argx: tensor<?x?xf32, #SortedCOO>) -> tensor<?x?xf32, #
@@ -1068,7 +1071,7 @@ index 2b9a2dd8f4..a48b100da8 100644
  // C_HECK:           %[[VAL_16:.*]] = memref.load %[[VAL_7]]{{\[}}%[[VAL_5]]] : memref<?xindex>
  // C_HECK:           %[[VAL_17:.*]] = memref.load %[[VAL_7]]{{\[}}%[[VAL_6]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_1d.mlir b/mlir/test/Dialect/SparseTensor/sparse_1d.mlir
-index fcc2216603..ca0f4f0367 100644
+index fcc221660353..ca0f4f036735 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_1d.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_1d.mlir
 @@ -51,7 +51,7 @@ func.func @add_d(%arga: tensor<32xf32, #DV>, %argb: f32, %argx: tensor<32xf32>)
@@ -1190,7 +1193,7 @@ index fcc2216603..ca0f4f0367 100644
  // CHECK-DAG:       %[[VAL_18:.*]] = memref.load %[[VAL_6]]{{\[}}%[[VAL_4]]] : memref<?xindex>
  // CHECK-DAG:       %[[VAL_19:.*]] = memref.load %[[VAL_6]]{{\[}}%[[VAL_5]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_2d.mlir b/mlir/test/Dialect/SparseTensor/sparse_2d.mlir
-index 06670ab096..3fc0fb0430 100644
+index 06670ab096fc..3fc0fb04309c 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_2d.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_2d.mlir
 @@ -25,8 +25,8 @@
@@ -1431,7 +1434,7 @@ index 06670ab096..3fc0fb0430 100644
  // CHECK:           %[[VAL_26:.*]] = memref.load %[[VAL_9]]{{\[}}%[[VAL_6]]] : memref<?xindex>
  // CHECK:           %[[VAL_27:.*]] = memref.load %[[VAL_9]]{{\[}}%[[VAL_7]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_3d.mlir b/mlir/test/Dialect/SparseTensor/sparse_3d.mlir
-index 427a5c3d03..8f08c27283 100644
+index 427a5c3d03a7..8f08c27283ff 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_3d.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_3d.mlir
 @@ -33,9 +33,9 @@
@@ -1693,7 +1696,7 @@ index 427a5c3d03..8f08c27283 100644
  // CHECK:             %[[VAL_15:.*]] = memref.load %[[VAL_9]]{{\[}}%[[VAL_14]]] : memref<?xf32>
  // CHECK:             scf.for %[[VAL_16:.*]] = %[[VAL_7]] to %[[VAL_5]] step %[[VAL_8]] {
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_affine.mlir b/mlir/test/Dialect/SparseTensor/sparse_affine.mlir
-index 1ec6fb586d..1d3aafa924 100644
+index 1ec6fb586d43..1d3aafa924a9 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_affine.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_affine.mlir
 @@ -25,8 +25,8 @@
@@ -1748,7 +1751,7 @@ index 1ec6fb586d..1d3aafa924 100644
  // CHECK:           %[[VAL_16:.*]] = memref.load %[[VAL_11]]{{\[}}%[[VAL_6]]] : memref<?xindex>
  // CHECK:           scf.for %[[VAL_17:.*]] = %[[VAL_15]] to %[[VAL_16]] step %[[VAL_6]] {
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_batch.mlir b/mlir/test/Dialect/SparseTensor/sparse_batch.mlir
-index f158fc6108..cfddef743c 100644
+index f158fc6108a1..cfddef743cf2 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_batch.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_batch.mlir
 @@ -14,7 +14,7 @@
@@ -1761,7 +1764,7 @@ index f158fc6108..cfddef743c 100644
  // CHECK:           scf.for %[[VAL_11:.*]] = %[[VAL_2]] to %[[VAL_5]] step %[[VAL_1]] {
  // CHECK:             scf.for %[[VAL_12:.*]] = %[[VAL_2]] to %[[VAL_4]] step %[[VAL_1]] {
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_fp_ops.mlir b/mlir/test/Dialect/SparseTensor/sparse_fp_ops.mlir
-index b6c7b77139..072b34edb4 100644
+index b6c7b771394b..072b34edb430 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_fp_ops.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_fp_ops.mlir
 @@ -38,7 +38,7 @@
@@ -1855,7 +1858,7 @@ index b6c7b77139..072b34edb4 100644
  // CHECK:         %[[VAL_10:.*]] = memref.load %[[VAL_5]]{{\[}}%[[VAL_4]]] : memref<?xindex>
  // CHECK:         scf.for %[[VAL_11:.*]] = %[[VAL_9]] to %[[VAL_10]] step %[[VAL_4]] {
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_fusion.mlir b/mlir/test/Dialect/SparseTensor/sparse_fusion.mlir
-index 50f21416f5..d9f48afef4 100644
+index 50f21416f5a7..d9f48afef481 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_fusion.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_fusion.mlir
 @@ -25,10 +25,10 @@
@@ -1883,7 +1886,7 @@ index 50f21416f5..d9f48afef4 100644
  // CHECK:         }
  func.func @sparse_fusion(%argA: tensor<100xf64, #SV>) -> tensor<100xf64> {
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_int_ops.mlir b/mlir/test/Dialect/SparseTensor/sparse_int_ops.mlir
-index 8fa473b5a9..b022153200 100644
+index 8fa473b5a9db..b0221532007c 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_int_ops.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_int_ops.mlir
 @@ -33,8 +33,8 @@
@@ -1998,7 +2001,7 @@ index 8fa473b5a9..b022153200 100644
  // CHECK:           %[[VAL_10:.*]] = memref.load %[[VAL_5]]{{\[}}%[[VAL_4]]] : memref<?xindex>
  // CHECK:           scf.for %[[VAL_11:.*]] = %[[VAL_9]] to %[[VAL_10]] step %[[VAL_4]] {
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_kernels.mlir b/mlir/test/Dialect/SparseTensor/sparse_kernels.mlir
-index 78e29979ca..6332b35ef6 100644
+index 78e29979ca1a..6332b35ef6c0 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_kernels.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_kernels.mlir
 @@ -18,8 +18,8 @@
@@ -2069,8 +2072,21 @@ index 78e29979ca..6332b35ef6 100644
  // CHECK:           %[[VAL_12:.*]] = memref.load %[[VAL_11]][] : memref<f32>
  // CHECK:           %[[VAL_13:.*]] = memref.load %[[VAL_5]]{{\[}}%[[VAL_3]]] : memref<?xindex>
  // CHECK:           %[[VAL_14:.*]] = memref.load %[[VAL_5]]{{\[}}%[[VAL_4]]] : memref<?xindex>
+diff --git a/mlir/test/Dialect/SparseTensor/sparse_kernels_to_iterator.mlir b/mlir/test/Dialect/SparseTensor/sparse_kernels_to_iterator.mlir
+index f819458e0385..a8398deb7a3b 100644
+--- a/mlir/test/Dialect/SparseTensor/sparse_kernels_to_iterator.mlir
++++ b/mlir/test/Dialect/SparseTensor/sparse_kernels_to_iterator.mlir
+@@ -85,7 +85,7 @@ func.func @sqsum(%arg0: tensor<?x?x?x?xi32, #COO>) -> tensor<i32> {
+ // CHECK:           %[[VAL_3:.*]] = arith.constant 0 : index
+ // CHECK:           %[[VAL_4:.*]] = arith.constant 0 : i32
+ // CHECK:           %[[VAL_5:.*]] = arith.constant dense<0> : tensor<10xi32>
+-// CHECK:           %[[VAL_6:.*]] = bufferization.to_memref %[[VAL_5]] : memref<10xi32>
++// CHECK:           %[[VAL_6:.*]] = bufferization.to_memref %[[VAL_5]] : tensor<10xi32> -> memref<10xi32>
+ // CHECK:           linalg.fill ins(%[[VAL_4]] : i32) outs(%[[VAL_6]] : memref<10xi32>)
+ // CHECK:           %[[VAL_7:.*]] = sparse_tensor.positions %[[VAL_0]] {level = 0 : index} : tensor<10xi32, #sparse{{.*}}> to memref<?xindex>
+ // CHECK:           %[[VAL_8:.*]] = sparse_tensor.coordinates %[[VAL_0]] {level = 0 : index} : tensor<10xi32, #sparse{{.*}}> to memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_lower.mlir b/mlir/test/Dialect/SparseTensor/sparse_lower.mlir
-index c27df00785..62ebc7ef3d 100644
+index c27df0078552..62ebc7ef3d96 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_lower.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_lower.mlir
 @@ -29,8 +29,8 @@
@@ -2096,7 +2112,7 @@ index c27df00785..62ebc7ef3d 100644
  // CHECK-MIR-DAG:         %[[VAL_15:.*]] = memref.load %[[VAL_6]]{{\[}}%[[VAL_14]]] : memref<?xindex>
  // CHECK-MIR-DAG:         %[[VAL_16:.*]] = arith.addi %[[VAL_14]], %[[VAL_5]] : index
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_lower_col.mlir b/mlir/test/Dialect/SparseTensor/sparse_lower_col.mlir
-index 9fbb9dd0a2..ac6ad740c6 100644
+index 9fbb9dd0a26d..ac6ad740c60e 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_lower_col.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_lower_col.mlir
 @@ -32,8 +32,8 @@
@@ -2122,7 +2138,7 @@ index 9fbb9dd0a2..ac6ad740c6 100644
  // CHECK-MIR:             %[[VAL_16:.*]] = memref.load %[[VAL_10]]{{\[}}%[[VAL_15]]] : memref<64xf64>
  // CHECK-MIR:             %[[VAL_17:.*]] = memref.load %[[VAL_7]]{{\[}}%[[VAL_15]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_lower_inplace.mlir b/mlir/test/Dialect/SparseTensor/sparse_lower_inplace.mlir
-index 773c5677ee..8115a7fafb 100644
+index 773c5677eea5..8115a7fafb33 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_lower_inplace.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_lower_inplace.mlir
 @@ -29,8 +29,8 @@
@@ -2148,7 +2164,7 @@ index 773c5677ee..8115a7fafb 100644
  // CHECK-MIR-DAG:         %[[VAL_12:.*]] = memref.load %[[VAL_6]]{{\[}}%[[VAL_11]]] : memref<?xindex>
  // CHECK-MIR-DAG:         %[[VAL_13:.*]] = arith.addi %[[VAL_11]], %[[VAL_5]] : index
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_nd.mlir b/mlir/test/Dialect/SparseTensor/sparse_nd.mlir
-index 2ac36fa6d8..fad8778491 100644
+index 2ac36fa6d899..fad877849134 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_nd.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_nd.mlir
 @@ -35,13 +35,13 @@
@@ -2168,7 +2184,7 @@ index 2ac36fa6d8..fad8778491 100644
  // CHECK:           scf.for %[[VAL_21:.*]] = %[[VAL_11]] to %[[VAL_10]] step %[[VAL_12]] {
  // CHECK:             %[[VAL_23:.*]] = arith.muli %[[VAL_21]], %[[VAL_9]] : index
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_outbuf.mlir b/mlir/test/Dialect/SparseTensor/sparse_outbuf.mlir
-index 5b453e9a73..b8b20c42f0 100644
+index 5b453e9a736a..b8b20c42f0fb 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_outbuf.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_outbuf.mlir
 @@ -19,7 +19,7 @@
@@ -2199,7 +2215,7 @@ index 5b453e9a73..b8b20c42f0 100644
  // CHECK-DAG:       %[[VAL_9:.*]] = memref.load %[[VAL_4]]{{\[}}%[[VAL_3]]] : memref<?xindex>
  // CHECK:           scf.for %[[VAL_10:.*]] = %[[VAL_8]] to %[[VAL_9]] step %[[VAL_3]] {
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_pack.mlir b/mlir/test/Dialect/SparseTensor/sparse_pack.mlir
-index a90194a74e..50ceeeb0b3 100644
+index a90194a74ee4..50ceeeb0b339 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_pack.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_pack.mlir
 @@ -12,12 +12,12 @@
@@ -2241,7 +2257,7 @@ index a90194a74e..50ceeeb0b3 100644
  // CHECK:           %[[VAL_19:.*]] = memref.subview %[[VAL_2]][0] {{\[}}%[[VAL_16]]] [1] : memref<?xf64> to memref<?xf64>
  // CHECK:           memref.copy %[[VAL_19]], %[[VAL_18]] : memref<?xf64> to memref<?xf64>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_parallel_reduce.mlir b/mlir/test/Dialect/SparseTensor/sparse_parallel_reduce.mlir
-index 44a551464c..ec2cb31009 100644
+index 44a551464c86..ec2cb31009d8 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_parallel_reduce.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_parallel_reduce.mlir
 @@ -24,8 +24,8 @@
@@ -2256,7 +2272,7 @@ index 44a551464c..ec2cb31009 100644
  //       CHECK:    %[[TMP_6:.*]] = memref.load %[[TMP_4]][%[[TMP_arg3]]] : memref<16xf32>
  //       CHECK:    %[[TMP_7:.*]] = memref.load %[[TMP_0]][%[[TMP_arg3]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_perm.mlir b/mlir/test/Dialect/SparseTensor/sparse_perm.mlir
-index 07c273fcdd..08956201c6 100644
+index 07c273fcddc3..08956201c672 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_perm.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_perm.mlir
 @@ -24,7 +24,7 @@
@@ -2278,7 +2294,7 @@ index 07c273fcdd..08956201c6 100644
  // CHECK:           scf.for %[[VAL_11:.*]] = %[[VAL_3]] to %[[VAL_7]] step %[[VAL_4]] {
  // CHECK:             %[[VAL_13:.*]] = arith.muli %[[VAL_11]], %[[VAL_8]] : index
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_perm_lower.mlir b/mlir/test/Dialect/SparseTensor/sparse_perm_lower.mlir
-index 9bf10345f4..3aad6b7586 100644
+index 9bf10345f4ea..3aad6b758652 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_perm_lower.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_perm_lower.mlir
 @@ -26,7 +26,7 @@
@@ -2300,7 +2316,7 @@ index 9bf10345f4..3aad6b7586 100644
  // CHECK-MIR:           %[[VAL_12:.*]] = scf.for %[[D2:.*]] = %[[I0]] to %[[DimSize0]] step %[[I1]] iter_args(%[[VAL_14:.*]] = %[[VAL_11]]) -> (f32) {
  // CHECK-MIR:             %[[VAL_18:.*]] = arith.muli %[[D2]], %[[DimSize1]] : index
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_scalars.mlir b/mlir/test/Dialect/SparseTensor/sparse_scalars.mlir
-index 666882edcb..0da059c010 100644
+index 666882edcbab..0da059c010ad 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_scalars.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_scalars.mlir
 @@ -33,8 +33,8 @@
@@ -2315,7 +2331,7 @@ index 666882edcb..0da059c010 100644
  // CHECK-DAG:       %[[VAL_17:.*]] = memref.load %[[VAL_9]]{{\[}}%[[VAL_6]]] : memref<?xindex>
  // CHECK-DAG:       %[[VAL_18:.*]] = memref.load %[[VAL_9]]{{\[}}%[[VAL_7]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_sddmm.mlir b/mlir/test/Dialect/SparseTensor/sparse_sddmm.mlir
-index a03b97684a..540c9d22ec 100644
+index a03b97684a7a..540c9d22ecdb 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_sddmm.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_sddmm.mlir
 @@ -64,14 +64,14 @@ func.func @fold_yield_direct_zero() -> tensor<32xf64> {
@@ -2348,7 +2364,7 @@ index a03b97684a..540c9d22ec 100644
  // CHECK-DAG:       %[[VAL_14:.*]] = sparse_tensor.coordinates %[[VAL_0]] {level = 0 : index} : tensor<8x8xf64, #sparse{{[0-9]*}}> to memref<?xindex>
  // CHECK-DAG:       %[[VAL_15:.*]] = sparse_tensor.positions %[[VAL_0]] {level = 1 : index} : tensor<8x8xf64, #sparse{{[0-9]*}}> to memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_sddmm_org.mlir b/mlir/test/Dialect/SparseTensor/sparse_sddmm_org.mlir
-index a66028c61b..b3349116ef 100644
+index a66028c61b22..b3349116ef51 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_sddmm_org.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_sddmm_org.mlir
 @@ -30,8 +30,8 @@
@@ -2363,7 +2379,7 @@ index a66028c61b..b3349116ef 100644
  // CHECK-DAG:       %[[VAL_12:.*]] = sparse_tensor.coordinates %[[VAL_0]] {level = 0 : index} : tensor<8x8xf64, #sparse{{[0-9]*}}> to memref<?xindex>
  // CHECK-DAG:       %[[VAL_13:.*]] = sparse_tensor.positions %[[VAL_0]] {level = 1 : index} : tensor<8x8xf64, #sparse{{[0-9]*}}> to memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_vector_chain.mlir b/mlir/test/Dialect/SparseTensor/sparse_vector_chain.mlir
-index 281e7858ce..2491945334 100644
+index 281e7858ce25..24919453348d 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_vector_chain.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_vector_chain.mlir
 @@ -31,7 +31,7 @@
@@ -2376,7 +2392,7 @@ index 281e7858ce..2491945334 100644
  // CHECK:           %[[VAL_16:.*]] = scf.for %[[VAL_17:.*]] = %[[VAL_6]] to %[[VAL_5]] step %[[VAL_7]] iter_args(%[[VAL_18:.*]] = %[[VAL_15]]) -> (f64) {
  // CHECK:             %[[VAL_19:.*]] = memref.load %[[VAL_8]]{{\[}}%[[VAL_17]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/sparse_vector_index.mlir b/mlir/test/Dialect/SparseTensor/sparse_vector_index.mlir
-index ac357d9dc2..9dee2f2278 100644
+index ac357d9dc248..9dee2f227854 100644
 --- a/mlir/test/Dialect/SparseTensor/sparse_vector_index.mlir
 +++ b/mlir/test/Dialect/SparseTensor/sparse_vector_index.mlir
 @@ -28,7 +28,7 @@
@@ -2398,7 +2414,7 @@ index ac357d9dc2..9dee2f2278 100644
  // CHECK:           %[[VAL_12:.*]] = memref.load %[[VAL_8]]{{\[}}%[[VAL_4]]] : memref<?xindex>
  // CHECK:           %[[VAL_13:.*]] = memref.load %[[VAL_8]]{{\[}}%[[VAL_5]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/spy_sddmm.mlir b/mlir/test/Dialect/SparseTensor/spy_sddmm.mlir
-index 287b62ef44..f32999e334 100644
+index 287b62ef44c6..f32999e33412 100644
 --- a/mlir/test/Dialect/SparseTensor/spy_sddmm.mlir
 +++ b/mlir/test/Dialect/SparseTensor/spy_sddmm.mlir
 @@ -24,8 +24,8 @@
@@ -2413,7 +2429,7 @@ index 287b62ef44..f32999e334 100644
  // CHECK-DAG:     %[[VAL_9:.*]] = sparse_tensor.coordinates %[[VAL_2]] {level = 1 : index} : tensor<8x8xf64, #sparse{{[0-9]*}}> to memref<?xindex>
  // CHECK-DAG:     %[[VAL_10:.*]] = sparse_tensor.values %[[VAL_2]] : tensor<8x8xf64, #sparse{{[0-9]*}}> to memref<?xf64>
 diff --git a/mlir/test/Dialect/SparseTensor/spy_sddmm_bsr.mlir b/mlir/test/Dialect/SparseTensor/spy_sddmm_bsr.mlir
-index 10a7ac5802..01d2d19e58 100755
+index 10a7ac5802ec..01d2d19e583b 100755
 --- a/mlir/test/Dialect/SparseTensor/spy_sddmm_bsr.mlir
 +++ b/mlir/test/Dialect/SparseTensor/spy_sddmm_bsr.mlir
 @@ -37,8 +37,8 @@
@@ -2428,7 +2444,7 @@ index 10a7ac5802..01d2d19e58 100755
  // CHECK-DAG:       %[[VAL_12:.*]] = sparse_tensor.positions %[[VAL_7]] {level = 1 : index} : tensor<?x?x2x2xf32, #[[$MAP]]> to memref<?xindex>
  // CHECK-DAG:       %[[VAL_13:.*]] = sparse_tensor.coordinates %[[VAL_7]] {level = 1 : index} : tensor<?x?x2x2xf32, #[[$MAP]]> to memref<?xindex>
 diff --git a/mlir/test/Dialect/SparseTensor/unused-tensor.mlir b/mlir/test/Dialect/SparseTensor/unused-tensor.mlir
-index f85acb9c69..7e8b9f83fa 100644
+index f85acb9c6969..7e8b9f83fac7 100644
 --- a/mlir/test/Dialect/SparseTensor/unused-tensor.mlir
 +++ b/mlir/test/Dialect/SparseTensor/unused-tensor.mlir
 @@ -28,8 +28,8 @@
@@ -2443,7 +2459,7 @@ index f85acb9c69..7e8b9f83fa 100644
  // CHECK:             scf.for %[[VAL_11:.*]] = %[[VAL_6]] to %[[VAL_3]] step %[[VAL_7]] {
  // CHECK:               scf.for %[[VAL_12:.*]] = %[[VAL_6]] to %[[VAL_5]] step %[[VAL_7]] {
 diff --git a/mlir/test/Dialect/SparseTensor/vectorize_reduction.mlir b/mlir/test/Dialect/SparseTensor/vectorize_reduction.mlir
-index 578e86a793..f95aa09e4d 100644
+index 578e86a793f9..f95aa09e4d54 100644
 --- a/mlir/test/Dialect/SparseTensor/vectorize_reduction.mlir
 +++ b/mlir/test/Dialect/SparseTensor/vectorize_reduction.mlir
 @@ -16,7 +16,7 @@
@@ -2573,7 +2589,7 @@ index 578e86a793..f95aa09e4d 100644
  // CHECK-OFF:   %[[VAL_8:.*]] = memref.load %[[VAL_4]]{{\[}}%[[VAL_2]]] : memref<?xindex>
  // CHECK-OFF:   %[[VAL_9:.*]] = memref.load %[[VAL_4]]{{\[}}%[[VAL_3]]] : memref<?xindex>
 diff --git a/mlir/test/Dialect/Tensor/bufferize.mlir b/mlir/test/Dialect/Tensor/bufferize.mlir
-index 3a3c8af15e..13be67d056 100644
+index 3a3c8af15e6e..13be67d0562e 100644
 --- a/mlir/test/Dialect/Tensor/bufferize.mlir
 +++ b/mlir/test/Dialect/Tensor/bufferize.mlir
 @@ -3,7 +3,7 @@
@@ -2586,7 +2602,7 @@ index 3a3c8af15e..13be67d056 100644
  // CHECK:           return %[[EXTENT]] : index
  func.func @dim(%arg0: tensor<*xf32>, %arg1: index) -> index {
 @@ -39,7 +39,7 @@ func.func @tensor.cast(%arg0: tensor<?xindex>) -> tensor<2xindex> {
-
+ 
  // CHECK-LABEL:   func @tensor.cast_from_unranked(
  // CHECK-SAME:                                    %[[TENSOR:.*]]: tensor<*xf32>) -> tensor<2xf32> {
 -// CHECK:           %[[MEMREF:.*]] = bufferization.to_memref %[[TENSOR]] : memref<*xf32>
@@ -2595,7 +2611,7 @@ index 3a3c8af15e..13be67d056 100644
  // CHECK:           %[[RET:.*]] = bufferization.to_tensor %[[CASTED_MEMREF]] : memref<2xf32, strided<[?], offset: ?>>
  // CHECK:           return %[[RET]] : tensor<2xf32>
 @@ -52,7 +52,7 @@ func.func @tensor.cast_from_unranked(%arg0: tensor<*xf32>) -> tensor<2xf32> {
-
+ 
  // CHECK-LABEL:   func @tensor.cast_to_unranked(
  // CHECK-SAME:                                  %[[TENSOR:.*]]: tensor<2xf32>) -> tensor<*xf32> {
 -// CHECK:           %[[MEMREF:.*]] = bufferization.to_memref %[[TENSOR]] : memref<2xf32>
@@ -2710,7 +2726,7 @@ index 3a3c8af15e..13be67d056 100644
  func.func @tensor.reshape(%t1: tensor<?x10xf32>) -> tensor<2x2x5xf32> {
 -  // CHECK: %[[m1:.*]] = bufferization.to_memref %[[t1]] : memref<?x10xf32>
 +  // CHECK: %[[m1:.*]] = bufferization.to_memref %[[t1]] : tensor<?x10xf32> -> memref<?x10xf32>
-
+ 
    // CHECK: %[[two:.*]] = arith.constant 2 : i64
    %two = arith.constant 2 : i64
 @@ -560,7 +560,7 @@ func.func @tensor.reshape(%t1: tensor<?x10xf32>) -> tensor<2x2x5xf32> {
@@ -2723,7 +2739,7 @@ index 3a3c8af15e..13be67d056 100644
    // CHECK-DAG: %[[c1:.*]] = arith.constant 1 : index
    // CHECK-DAG: %[[dim0:.*]] = memref.dim %[[m1]], %[[c0]]
 diff --git a/mlir/test/Dialect/Tensor/one-shot-bufferize.mlir b/mlir/test/Dialect/Tensor/one-shot-bufferize.mlir
-index e2169fe140..c0e6b415e1 100644
+index e2169fe1404c..c0e6b415e1a6 100644
 --- a/mlir/test/Dialect/Tensor/one-shot-bufferize.mlir
 +++ b/mlir/test/Dialect/Tensor/one-shot-bufferize.mlir
 @@ -387,7 +387,7 @@ func.func @tensor.reshape() -> tensor<2x2x5xf32> {
@@ -2732,15 +2748,15 @@ index e2169fe140..c0e6b415e1 100644
  func.func @reshape_with_non_identity_layout(%arg0: memref<2x2xf32, strided<[?, ?], offset: ?>, 3>, %arg1: tensor<2xi32>, %idx: index) -> f32 {
 -  %t = bufferization.to_tensor %arg0 restrict : memref<2x2xf32, strided<[?, ?], offset: ?>, 3>
 +  %t = bufferization.to_tensor %arg0 restrict : memref<2x2xf32, strided<[?, ?], offset: ?>, 3> -> tensor<2x2xf32>
-
+ 
    // CHECK: %[[SUBVIEW:.+]] = memref.subview %[[INPUT]][1, 0] [1, 2] [1, 1] : memref<2x2xf32, strided<[?, ?], offset: ?>, 3> to memref<2xf32, strided<[?], offset: ?>, 3>
    %extracted_slice = tensor.extract_slice %t[1, 0] [1, 2] [1, 1] : tensor<2x2xf32> to tensor<2xf32>
 diff --git a/mlir/test/Dialect/Vector/bufferize.mlir b/mlir/test/Dialect/Vector/bufferize.mlir
-index 3399f60a2c..2f4c783984 100644
+index 3399f60a2c3b..2f4c7839842c 100644
 --- a/mlir/test/Dialect/Vector/bufferize.mlir
 +++ b/mlir/test/Dialect/Vector/bufferize.mlir
 @@ -2,7 +2,7 @@
-
+ 
  // CHECK-LABEL: func @transfer_read(
  //  CHECK-SAME:     %[[t:.*]]: tensor<?x?xf32>, %[[o1:.*]]: index, %[[o2:.*]]: index, %[[pad:.*]]: f32)
 -//       CHECK:   %[[m:.*]] = bufferization.to_memref %[[t]] : memref<?x?xf32>
@@ -2749,7 +2765,7 @@ index 3399f60a2c..2f4c783984 100644
  //       CHECK:   return %[[r]]
  func.func @transfer_read(%t: tensor<?x?xf32>, %o1: index,
 @@ -16,7 +16,7 @@ func.func @transfer_read(%t: tensor<?x?xf32>, %o1: index,
-
+ 
  // CHECK-LABEL: func @transfer_write(
  //  CHECK-SAME:     %[[t:.*]]: tensor<?x?xf32>, %[[o1:.*]]: index, %[[o2:.*]]: index, %[[vec:.*]]: vector<5x6xf32>, %[[mask:.*]]: vector<5x6xi1>)
 -//       CHECK:   %[[m:.*]] = bufferization.to_memref %[[t]] : memref<?x?xf32>
@@ -2767,32 +2783,32 @@ index 3399f60a2c..2f4c783984 100644
  //       CHECK:   %[[out:.*]] = vector.gather %[[m]][%[[c0]], %[[c0]]] [%[[v]]], %[[mask]], %[[pass_thru]] : memref<?x?xf32>, vector<16xi32>, vector<16xi1>, vector<16xf32> into vector<16xf32>
  func.func @gather(%base: tensor<?x?xf32>, %v: vector<16xi32>, %mask: vector<16xi1>, %pass_thru: vector<16xf32>) -> vector<16xf32> {
 diff --git a/mlir/test/Integration/Dialect/Vector/CPU/AMX/mulf-full.mlir b/mlir/test/Integration/Dialect/Vector/CPU/AMX/mulf-full.mlir
-index a7c5b91273..d49e9c9079 100644
+index a7c5b9127342..d49e9c907919 100644
 --- a/mlir/test/Integration/Dialect/Vector/CPU/AMX/mulf-full.mlir
 +++ b/mlir/test/Integration/Dialect/Vector/CPU/AMX/mulf-full.mlir
 @@ -100,8 +100,8 @@ func.func @entry() -> i32 {
    ]> : tensor<16x32xbf16>
-
+ 
    // Set up memory.
 -  %a = bufferization.to_memref %0 : memref<16x32xbf16>
 -  %b = bufferization.to_memref %1 : memref<16x32xbf16>
 +  %a = bufferization.to_memref %0 : tensor<16x32xbf16> -> memref<16x32xbf16>
 +  %b = bufferization.to_memref %1 : tensor<16x32xbf16> -> memref<16x32xbf16>
    %c = memref.alloc() : memref<16x16xf32>
-
+ 
    // Call kernel.
 diff --git a/mlir/test/Integration/Dialect/Vector/CPU/AMX/muli-full.mlir b/mlir/test/Integration/Dialect/Vector/CPU/AMX/muli-full.mlir
-index 7b7ee54db8..4a9925232c 100644
+index 7b7ee54db8c3..4a9925232c89 100644
 --- a/mlir/test/Integration/Dialect/Vector/CPU/AMX/muli-full.mlir
 +++ b/mlir/test/Integration/Dialect/Vector/CPU/AMX/muli-full.mlir
 @@ -100,8 +100,8 @@ func.func @entry() -> i32 {
    ]> : tensor<16x64xi8>
-
+ 
    // Set up memory.
 -  %a = bufferization.to_memref %0 : memref<16x64xi8>
 -  %b = bufferization.to_memref %1 : memref<16x64xi8>
 +  %a = bufferization.to_memref %0 : tensor<16x64xi8> -> memref<16x64xi8>
 +  %b = bufferization.to_memref %1 : tensor<16x64xi8> -> memref<16x64xi8>
    %c = memref.alloc() : memref<16x16xi32>
-
+ 
    // Call kernel.

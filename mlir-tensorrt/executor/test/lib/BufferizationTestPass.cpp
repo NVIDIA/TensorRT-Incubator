@@ -11,6 +11,7 @@
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotModuleBufferize.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
@@ -44,7 +45,7 @@ public:
       return executor::MemoryTypeAttr::get(ctx, MemoryType::host);
     };
     options.setFunctionBoundaryTypeConversion(
-        bufferization::LayoutMapOption::FullyDynamicLayoutMap);
+        bufferization::LayoutMapOption::InferLayoutMap);
 
     if (failed(bufferization::runOneShotModuleBufferize(module, options))) {
       emitError(module.getLoc()) << "failed to bufferize module";
@@ -62,8 +63,8 @@ void registerTestExecutorBufferizePass() {
       "test-executor-bufferization-pipeline",
       "Run one-shot-bufferization and buffer deallocation pipelines",
       [](OpPassManager &pm) {
-        pm.addPass(createInlinerPass());
         pm.addPass(std::make_unique<ExecutorBufferizationTestPass>());
+        pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
         bufferization::BufferDeallocationPipelineOptions deallocOptions{};
         bufferization::buildBufferDeallocationPipeline(pm, deallocOptions);
         pm.addPass(createCSEPass());

@@ -964,8 +964,8 @@ LogicalResult tensorrt::ResizeNearestOp::verify() {
       // output dims must be static or
       // scales is given and input dims are static
       if (outputType.isDynamicDim(outputRank - 1 - i) &&
-          (inputType.isDynamicDim(outputRank - 1 - i) ||
-           !getScales().has_value()))
+          inputType.isDynamicDim(outputRank - 1 - i) &&
+          !getScales().has_value())
         return emitOpError(
             "input innermost min(3, rank(input)) dimension that resize on "
             "cannot be dynamic when output_shape parameter is NOT "

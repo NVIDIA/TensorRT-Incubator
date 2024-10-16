@@ -104,6 +104,14 @@ def has_fp8_support():
     return get_sm_version() >= (8, 9)
 
 
+def get_num_cuda_devices() -> int:
+    try:
+        with nvml_context() as devices:
+            return len(devices)
+    except:
+        return 0
+
+
 @click.group()
 def cli():
     pass

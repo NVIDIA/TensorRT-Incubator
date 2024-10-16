@@ -30,6 +30,7 @@
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/FormatVariadic.h"
+#include <algorithm>
 #include <climits>
 #include <type_traits>
 
@@ -873,6 +874,35 @@ void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
   DEFINE_STORE_METHOD(i4, nv_int4, nv_int4);
 
 #undef DEFINE_STORE_METHOD
+  //===----------------------------------------------------------------------===//
+  // MemSet Ops
+  //===----------------------------------------------------------------------===//
+  lua["__memset_32"] = [](sol::this_state state, uintptr_t pointer,
+                          size_t offset, size_t numBytes, uint32_t fillInt) {
+    MTRT_DBGF("memset32 @ 0x%lx, %lu bytes fill value = %u", pointer, numBytes,
+              fillInt);
+    llvm::MutableArrayRef<uint32_t> buffer(
+        reinterpret_cast<uint32_t *>(pointer), numBytes / sizeof(fillInt));
+    std::fill(buffer.begin(), buffer.end(), fillInt);
+  };
+
+  lua["__memset_16"] = [](sol::this_state state, uintptr_t pointer,
+                          size_t offset, size_t numBytes, uint16_t fillInt) {
+    MTRT_DBGF("memset16 @ 0x%lx, %lu bytes fill value = %u", pointer, numBytes,
+              fillInt);
+    llvm::MutableArrayRef<uint16_t> buffer(
+        reinterpret_cast<uint16_t *>(pointer), numBytes / sizeof(fillInt));
+    std::fill(buffer.begin(), buffer.end(), fillInt);
+  };
+
+  lua["__memset_8"] = [](sol::this_state state, uintptr_t pointer,
+                         size_t offset, size_t numBytes, uint8_t fillInt) {
+    MTRT_DBGF("memset8 @ 0x%lx, %lu bytes fill value = %u", pointer, numBytes,
+              fillInt);
+    llvm::MutableArrayRef<uint8_t> buffer(reinterpret_cast<uint8_t *>(pointer),
+                                          numBytes / sizeof(fillInt));
+    std::fill(buffer.begin(), buffer.end(), fillInt);
+  };
 
   //===----------------------------------------------------------------------===//
   // Stridded Copy Methods

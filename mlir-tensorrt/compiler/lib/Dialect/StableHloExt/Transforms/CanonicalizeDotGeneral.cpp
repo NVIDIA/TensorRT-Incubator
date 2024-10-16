@@ -371,7 +371,7 @@ struct DotGeneralCollapsingRewrite : public DotGeneralCanonicalizerBase {
         SmallVector<int64_t>{newRhsType.getRank() - 1});
     Value replacement = rewriter.create<stablehlo::DotGeneralOp>(
         op->getLoc(), op.getType().clone(newOutputShape), newLhs, newRhs,
-        newConfig, op.getPrecisionConfigAttr());
+        newConfig, op.getPrecisionConfigAttr(), op.getAlgorithmAttr());
     rewriter.replaceOpWithNewOp<stablehlo::ReshapeOp>(op, op.getType(),
                                                       replacement);
     return success();

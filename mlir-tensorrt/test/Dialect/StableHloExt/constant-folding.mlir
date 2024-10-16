@@ -1002,6 +1002,23 @@ func.func @simplify_reshape_broadcastindim_reshape2(%arg0: tensor<1x1xf32>) -> t
 
 // -----
 
+func.func @simplify_reshape_broadcastindim_reshape3(%arg0: tensor<1x1x1x1x256xf16>) -> tensor<1x1x8x256xf16> {
+    %0 = stablehlo.reshape %arg0 : (tensor<1x1x1x1x256xf16>) -> tensor<1x1x1x1x1x1x1x1x256xf16>
+    %1 = stablehlo.broadcast_in_dim %0, dims = [0, 1, 2, 3, 4, 5, 7, 8, 9] : (tensor<1x1x1x1x1x1x1x1x256xf16>) -> tensor<1x1x1x1x1x1x8x1x1x256xf16>
+    %2 = stablehlo.reshape %1 : (tensor<1x1x1x1x1x1x8x1x1x256xf16>) -> tensor<1x1x8x256xf16>
+    return %2: tensor<1x1x8x256xf16>
+}
+
+// CHECK-LABEL: func.func @simplify_reshape_broadcastindim_reshape3
+//       CHECK: stablehlo.reshape
+//  CHECK-SAME: (tensor<1x1x1x1x256xf16>) -> tensor<1x1x1x256xf16>
+//       CHECK: stablehlo.broadcast_in_dim
+//  CHECK-SAME: dims = [0, 1, 2, 3]
+//  CHECK-SAME: (tensor<1x1x1x256xf16>) -> tensor<1x1x8x256xf16>
+//  CHECK-NEXT: return
+
+// -----
+
 func.func @fold_div() -> tensor<4xf32> {
   %lhs = stablehlo.constant dense<[0.1, -0.2, -0.3, 0.4]> : tensor<4xf32>
   %rhs = stablehlo.constant dense<[0.4, -0.8, 0.6, -0.44]> : tensor<4xf32>

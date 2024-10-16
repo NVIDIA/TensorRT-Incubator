@@ -392,8 +392,8 @@ ConvertToExecutorPattern::getMemRefAllocationInformation(
   if (failed(elementByteSize))
     return failure();
 
-  assert(memrefType.getNumDynamicDims() ==
-             static_cast<int64_t>(dynamicSizes.size()) &&
+  assert(static_cast<unsigned>(memrefType.getNumDynamicDims()) ==
+             dynamicSizes.size() &&
          "must provide correct dynamic dims");
 
   MemRefAllocationInformation info;

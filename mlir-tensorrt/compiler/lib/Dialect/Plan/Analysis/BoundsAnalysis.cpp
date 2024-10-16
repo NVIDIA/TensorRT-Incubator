@@ -249,18 +249,18 @@ intersectDimBoundsWithScalarBounds(
 //===----------------------------------------------------------------------===//
 
 void ShapeBoundsForwardAnalysis::setToEntryState(ShapeBoundsLattice *lattice) {
-  ShapedType shapedType = dyn_cast<ShapedType>(lattice->getPoint().getType());
+  ShapedType shapedType = dyn_cast<ShapedType>(lattice->getAnchor().getType());
   if (!shapedType)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 
   if (shapedType.hasStaticShape())
     return propagateIfChanged(
         lattice, lattice->join(BoundsArray::getMaxRangeForShapeBounds(
-                     lattice->getPoint())));
+                     lattice->getAnchor())));
 
   std::optional<tensorrt::ShapeProfileAttr> shapeProfile =
       maybeGetFunctionArgBound(
-          lattice->getPoint(),
+          lattice->getAnchor(),
           tensorrt::TensorRTDialect::getShapeProfileArgAttrName());
   if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
@@ -270,7 +270,7 @@ void ShapeBoundsForwardAnalysis::setToEntryState(ShapeBoundsLattice *lattice) {
                    shapeProfile->getMin(), shapeProfile->getMax())));
 }
 
-void ShapeBoundsForwardAnalysis::visitOperation(
+LogicalResult ShapeBoundsForwardAnalysis::visitOperation(
     Operation *op, ArrayRef<const ShapeBoundsLattice *> operands,
     ArrayRef<ShapeBoundsLattice *> results) {
 
@@ -307,11 +307,11 @@ void ShapeBoundsForwardAnalysis::visitOperation(
   };
 
   for (ShapeBoundsLattice *lattice : results) {
-    if (auto rtt = dyn_cast<RankedTensorType>(lattice->getPoint().getType())) {
+    if (auto rtt = dyn_cast<RankedTensorType>(lattice->getAnchor().getType())) {
       if (rtt.hasStaticShape())
         propagateIfChanged(lattice,
                            lattice->join(BoundsArray::getMaxRangeForShapeBounds(
-                               lattice->getPoint())));
+                               lattice->getAnchor())));
     }
   }
 
@@ -329,9 +329,11 @@ void ShapeBoundsForwardAnalysis::visitOperation(
         intersectDimBoundsWithScalarBounds(
             getScalarLatticeValues(withOp.getShape()), operands[0]);
     if (failed(ranges))
-      return;
-    return joinCallback(withOp.getResult(), *ranges);
+      return success();
+    joinCallback(withOp.getResult(), *ranges);
+    return success();
   }
+  return success();
 }
 
 void ShapeBoundsForwardAnalysis::visitNonControlFlowArguments(
@@ -350,22 +352,22 @@ void ShapeBoundsForwardAnalysis::visitNonControlFlowArguments(
 void ShapeBoundsBackwardsAnalysis::setToExitState(ShapeBoundsLattice *lattice) {
   LLVM_DEBUG(
       DBGS("ShapeBoundsBackwardsAnalysis") << "setting to exit state: ";
-      lattice->getPoint().print(llvm::dbgs(), OpPrintingFlags().skipRegions());
+      lattice->getAnchor().print(llvm::dbgs(), OpPrintingFlags().skipRegions());
       llvm::dbgs() << "\n");
 
-  auto shapedType = dyn_cast<ShapedType>(lattice->getPoint().getType());
+  auto shapedType = dyn_cast<ShapedType>(lattice->getAnchor().getType());
   if (!shapedType)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 
   if (shapedType.hasStaticShape())
     return propagateIfChanged(
         lattice, lattice->meet(BoundsArray::getMaxRangeForShapeBounds(
-                     lattice->getPoint())));
+                     lattice->getAnchor())));
 
   return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 }
 
-void ShapeBoundsBackwardsAnalysis::visitOperation(
+LogicalResult ShapeBoundsBackwardsAnalysis::visitOperation(
     Operation *op, ArrayRef<ShapeBoundsLattice *> operands,
     ArrayRef<const ShapeBoundsLattice *> results) {
   LLVM_DEBUG({
@@ -389,8 +391,10 @@ void ShapeBoundsBackwardsAnalysis::visitOperation(
     FailureOr<SmallVector<ConstantIntRanges>> ranges =
         intersectDimBoundsWithScalarBounds(
             getScalarLatticeValues(withOp.getShape()), results[0]);
-    if (failed(ranges))
-      return propagateIfChanged(operands[0], operands[0]->meet(BoundsArray()));
+    if (failed(ranges)) {
+      propagateIfChanged(operands[0], operands[0]->meet(BoundsArray()));
+      return success();
+    }
     LLVM_DEBUG(DBGS("ShapeBoundsBackwardsAnalysis")
                << "inferred " << BoundsArray(*ranges) << " for\n\t" << withOp
                << "\n");
@@ -414,6 +418,7 @@ void ShapeBoundsBackwardsAnalysis::visitOperation(
     }
     propagateIfChanged(operands[0], changed);
   }
+  return success();
 }
 
 void ShapeBoundsBackwardsAnalysis::visitBranchOperand(OpOperand &operand) {
@@ -562,7 +567,7 @@ static void inferResultRanges(tensor::ExtractOp extractOp,
 /// we are in a function where the bounds are encoded into the arguments.
 void ShapeIntegerRangeAnalysis::setToEntryState(
     IntegerValueRangeLattice *lattice) {
-  bool isShapeFunc = hasShapeFuncMarker(lattice->getPoint(),
+  bool isShapeFunc = hasShapeFuncMarker(lattice->getAnchor(),
                                         PlanDialect::kShapeFuncMarkerAttrName);
   // No need to perform integer range analysis for shape func
   if (isShapeFunc) {
@@ -571,31 +576,31 @@ void ShapeIntegerRangeAnalysis::setToEntryState(
         "We can not reason about integer value range for a shape function"));
     return propagateIfChanged(
         lattice,
-        lattice->join(IntegerValueRange::getMaxRange(lattice->getPoint())));
+        lattice->join(IntegerValueRange::getMaxRange(lattice->getAnchor())));
   }
 
   bool hasShapeUser =
-      llvm::any_of(lattice->getPoint().getUsers(), [&](Operation *user) {
+      llvm::any_of(lattice->getAnchor().getUsers(), [&](Operation *user) {
         return isa<plan::WithShapeOp>(user);
       });
 
-  if (!lattice->getPoint().getType().isIntOrIndex())
+  if (!lattice->getAnchor().getType().isIntOrIndex())
     return propagateIfChanged(lattice, lattice->join(IntegerValueRange()));
 
   std::optional<tensorrt::ShapeProfileAttr> shapeProfile =
       maybeGetFunctionArgBound(
-          lattice->getPoint(),
+          lattice->getAnchor(),
           tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName());
   if (!shapeProfile) {
     IntegerValueRange range =
-        IntegerValueRange::getMaxRange(lattice->getPoint());
+        IntegerValueRange::getMaxRange(lattice->getAnchor());
     if (hasShapeUser)
       range = IntegerValueRange(truncateToNonNegative(range.getValue()));
     return propagateIfChanged(lattice, lattice->join(range));
   }
   assert(shapeProfile->getMax().size() == 1 &&
          "expected one element for scalar value bounds");
-  Type intType = lattice->getPoint().getType();
+  Type intType = lattice->getAnchor().getType();
   unsigned bitWidth = intType.isIndex() ? IndexType::kInternalStorageBitWidth
                                         : intType.getIntOrFloatBitWidth();
   return propagateIfChanged(
@@ -606,18 +611,18 @@ void ShapeIntegerRangeAnalysis::setToEntryState(
 
 /// Visit an operation. Invoke the transfer function on each operation that
 /// implements `InferIntRangeInterface`.
-void ShapeIntegerRangeAnalysis::visitOperation(
+LogicalResult ShapeIntegerRangeAnalysis::visitOperation(
     Operation *op, ArrayRef<const IntegerValueRangeLattice *> operands,
     ArrayRef<IntegerValueRangeLattice *> results) {
   for (const IntegerValueRangeLattice *lattice : operands) {
-    if (lattice->getPoint().getType().isIntOrIndex() &&
+    if (lattice->getAnchor().getType().isIntOrIndex() &&
         lattice->getValue().isUninitialized())
-      return;
+      return success();
   }
 
   SmallVector<ConstantIntRanges> argRanges(
       llvm::map_range(operands, [](const IntegerValueRangeLattice *val) {
-        if (!val->getPoint().getType().isIntOrIndex())
+        if (!val->getAnchor().getType().isIntOrIndex())
           return ConstantIntRanges::maxRange(64);
         return val->getValue().getValue();
       }));
@@ -660,13 +665,17 @@ void ShapeIntegerRangeAnalysis::visitOperation(
   };
 
   if (auto extractOp = dyn_cast<tensor::ExtractOp>(op)) {
-    if (!extractOp.getType().isIntOrIndex())
-      return propagateIfChanged(results[0],
-                                results[0]->join(IntegerValueRange()));
-    return inferResultRanges(extractOp, argRanges, setResultRanges);
+    if (!extractOp.getType().isIntOrIndex()) {
+      propagateIfChanged(results[0], results[0]->join(IntegerValueRange()));
+      return success();
+    }
+    inferResultRanges(extractOp, argRanges, setResultRanges);
+    return success();
   }
-  if (auto dimOp = dyn_cast<tensor::DimOp>(op))
-    return inferResultRanges(dimOp, argRanges, setResultRanges);
+  if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
+    inferResultRanges(dimOp, argRanges, setResultRanges);
+    return success();
+  }
 
   return IntegerRangeAnalysis::visitOperation(op, operands, results);
 }
@@ -687,7 +696,7 @@ bool TensorValueBoundsAnalysis::shouldAnalyzeValueBounds(Value value) {
 
 void TensorValueBoundsAnalysis::setToEntryState(
     TensorValueBoundsLattice *lattice) {
-  Value point = lattice->getPoint();
+  Value point = lattice->getAnchor();
   if (!shouldAnalyzeValueBounds(point))
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 
@@ -746,7 +755,7 @@ intersectTensorValueBoundsAndScalarBounds(
   return ranges;
 }
 
-void TensorValueBoundsAnalysis::visitOperation(
+LogicalResult TensorValueBoundsAnalysis::visitOperation(
     Operation *op, ArrayRef<const TensorValueBoundsLattice *> operands,
     ArrayRef<TensorValueBoundsLattice *> results) {
 
@@ -787,7 +796,7 @@ void TensorValueBoundsAnalysis::visitOperation(
   // If the value is produced by constant op, populate ranges appropriately.
   // NOTE: we should instead use the mechanism from ConstantIntRanges lattice?
   for (TensorValueBoundsLattice *lattice : results) {
-    Value point = lattice->getPoint();
+    Value point = lattice->getAnchor();
     if (!shouldAnalyzeValueBounds(point))
       continue;
     maybePopulateConstantValueBounds(point, joinCallback);
@@ -807,9 +816,11 @@ void TensorValueBoundsAnalysis::visitOperation(
         intersectTensorValueBoundsAndScalarBounds(
             getScalarLatticeValues(withOp.getElements()), operands[0]);
     if (failed(ranges))
-      return;
-    return joinCallback(withOp.getResult(), *ranges);
+      return success();
+    joinCallback(withOp.getResult(), *ranges);
+    return success();
   }
+  return success();
 }
 
 void TensorValueBoundsAnalysis::visitNonControlFlowArguments(
