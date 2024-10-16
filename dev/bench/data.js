@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729035428114,
+  "lastUpdate": 1729108673853,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -510,6 +510,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007189429946369173",
             "extra": "mean: 146.10893986821821 usec\nrounds: 7391"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "38b6e65791e4e70567c5ff5e49515df0c85b8299",
+          "message": "[Tripy] Disallow passing both Shapes and Tensors with the `convert_inputs_to_tensors decorator`",
+          "timestamp": "2024-10-15T22:05:50Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/277/commits/38b6e65791e4e70567c5ff5e49515df0c85b8299"
+        },
+        "date": 1729108673026,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6054.6223563069425,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003192532015890508",
+            "extra": "mean: 165.1630673477638 usec\nrounds: 6389"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6682.843523577972,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007068040167462425",
+            "extra": "mean: 149.6369017876695 usec\nrounds: 7310"
           }
         ]
       }
