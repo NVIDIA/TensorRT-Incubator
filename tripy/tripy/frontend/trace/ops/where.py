@@ -41,9 +41,9 @@ class Where(BaseTraceOp):
                         f" the Boolean input must be rank 1, but given rank {inputs[0].rank}",
                     ]
                 )
-            return Result.ok({op_utils.TensorVariants.SHAPE: [0]})
+            return Result.ok([Shape])
         elif not isinstance(inputs[1], Shape) and not isinstance(inputs[2], Shape):
-            return Result.ok({})
+            return Result.ok([None])
         else:
             return Result.err(
                 [

@@ -70,12 +70,12 @@ class BinaryElementwise(BaseTraceOp):
                         f" Indices of tensor arguments: {', '.join(tensor_arg_indices)}.",
                     ]
                 )
-            return Result.ok({op_utils.TensorVariants.SHAPE: [0]})
+            return Result.ok([Shape])
         elif all(map(lambda t: isinstance(t, ShapeScalar), inputs)):
             # Binary operation on ShapeScalar should yield another ShapeScalar.
-            return Result.ok({op_utils.TensorVariants.SCALAR: [0]})
+            return Result.ok([ShapeScalar])
         else:
-            return Result.ok({})
+            return Result.ok([None])
 
     def infer_len(self):
         # For the shape case, the result will be broadcast to the max of the input shapes

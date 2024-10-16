@@ -54,15 +54,6 @@ def write_shape_input_indices_message(inputs: List["tripy.Tensor"]) -> str:
 ## Handling returning different tensor variants (Shape or ShapeScalars) from operators
 ##
 
-"""
-Enum representing the tensor variants encoded in the result of `infer_tensor_variants`.
-"""
-
-
-class TensorVariants(Enum):
-    SHAPE = 1
-    SCALAR = 2
-
 
 # These are common policies to use for overring infer_tensor_variants
 class InferVariantPolicies:
@@ -73,14 +64,14 @@ class InferVariantPolicies:
         from tripy.frontend.shape import Shape
 
         if isinstance(inputs[0], Shape):
-            return Result.ok({TensorVariants.SHAPE: list(range(len(self.outputs)))})
-        return Result.ok({})
+            return Result.ok([Shape] * len(self.outputs))
+        return Result.ok([None] * len(self.outputs))
 
     def never_return_shape(self, inputs):
         """
         Accepts shapes but the result is always no shape indices.
         """
-        return Result.ok({})
+        return Result.ok([None] * len(self.outputs))
 
 
 ##

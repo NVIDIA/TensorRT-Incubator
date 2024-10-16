@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from tripy import export, constraints
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.trace.ops.utils import InferLenPolicies, TensorVariants
+from tripy.frontend.trace.ops.utils import InferLenPolicies
 
 
 @dataclass(repr=False)
@@ -33,12 +33,9 @@ class Cast(BaseTraceOp):
 
         # Only still a valid shape if it remains int32
         if self.dtype == int32:
-            if isinstance(inputs[0], Shape):
-                return Result.ok({TensorVariants.SHAPE: [0]})
-            elif isinstance(inputs[0], ShapeScalar):
-                return Result.ok({TensorVariants.SCALAR: [0]})
-
-        return Result.ok({})
+            if isinstance(inputs[0], (Shape, ShapeScalar)):
+                return Result.ok([type(inputs[0])])
+        return Result.ok([None])
 
     infer_len = InferLenPolicies.infer_same_as_first_input
 

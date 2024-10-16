@@ -28,9 +28,9 @@ class Shape(BaseTraceOp):
 
     # always return a shape
     def infer_tensor_variants(self, inputs) -> Result:
-        from tripy.frontend.trace.ops.utils import TensorVariants
+        from tripy.frontend.shape import Shape as ShapeType
 
-        return Result.ok({TensorVariants.SHAPE: [0]})
+        return Result.ok([ShapeType])
 
     def infer_len(self):
         return [self.inputs[0].rank]

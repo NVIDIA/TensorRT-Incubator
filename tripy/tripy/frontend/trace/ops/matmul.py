@@ -39,7 +39,7 @@ class MatrixMultiplication(BaseTraceOp):
         if (isinstance(inputs[0], Shape) and isinstance(inputs[1], Shape)) or (
             not isinstance(inputs[0], Shape) and not isinstance(inputs[1], Shape)
         ):
-            return Result.ok({})
+            return Result.ok([None])
         return Result.err(None)
 
     def infer_rank(self):
