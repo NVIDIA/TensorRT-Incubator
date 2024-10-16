@@ -32,7 +32,7 @@ class Resize(BaseTraceOp):
     scales: Sequence[float]
     align_corners: bool
 
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank

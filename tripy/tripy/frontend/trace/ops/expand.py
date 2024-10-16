@@ -34,13 +34,13 @@ class Expand(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def infer_shape_output_idxs(self, inputs) -> Result:
+    def infer_tensor_variants(self, inputs) -> Result:
         from tripy.frontend.shape import Shape
 
         # wrap if the first input is a shape and the output is rank-1
         if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok({"shape": [0]})
-        return Result.ok({})
+            return Result.ok([Shape])
+        return Result.ok([None])
 
     def infer_len(self):
         if self.output_len is not None:

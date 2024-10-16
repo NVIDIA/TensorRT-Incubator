@@ -26,19 +26,16 @@ from tripy.frontend.trace.ops.utils import InferLenPolicies
 class Cast(BaseTraceOp):
     dtype: "tripy.common.dtype"
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.common.datatype import int32
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
         # Only still a valid shape if it remains int32
         if self.dtype == int32:
-            if isinstance(inputs[0], Shape):
-                return Result.ok({"shape": [0]})
-            elif isinstance(inputs[0], ShapeScalar):
-                return Result.ok({"scalar": [0]})
-
-        return Result.ok({})
+            if isinstance(inputs[0], (Shape, ShapeScalar)):
+                return Result.ok([type(inputs[0])])
+        return Result.ok([None])
 
     infer_len = InferLenPolicies.infer_same_as_first_input
 

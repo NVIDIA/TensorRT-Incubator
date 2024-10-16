@@ -46,7 +46,7 @@ class Reduce(BaseTraceOp):
     kind: Kind
 
     # if the input is a shape, the output is likely not going to be rank 1 so we should not wrap as a shape
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
         if self.dim is None:

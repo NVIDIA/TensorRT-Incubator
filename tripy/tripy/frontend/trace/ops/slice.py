@@ -79,7 +79,7 @@ class Slice(BaseTraceOp):
         return [None]
 
     # we only care about the data input
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
 
     @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):

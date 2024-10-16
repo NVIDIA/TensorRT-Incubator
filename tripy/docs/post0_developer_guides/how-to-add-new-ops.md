@@ -125,10 +125,10 @@ class Theta(BaseTraceOp):
     dim: int
     dtype: datatype.dtype
 
-    # The `infer_shape_output_idxs` method should indicate which outputs of this operator represent shapes.
-    # The corresponding outputs will be wrapped as `tripy.Shape` objects instead of regular `tripy.Tensor`s.
+    # The `infer_tensor_variants` method should indicate which outputs of this operator represent shapes or shape scalars;
+    # the corresponding outputs will be wrapped as `tripy.Shape` or `tripy.ShapeScalar` objects instead of regular `tripy.Tensor`s.
     # Our `Theta` operation should never return shapes, so we can use the corresponding preexisting policy.
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
