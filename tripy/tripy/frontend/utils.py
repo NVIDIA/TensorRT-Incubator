@@ -248,41 +248,36 @@ def convert_inputs_to_tensors(
             # Disallow mixing Tensor and Shape by default. If it makes sense in a given function
             # to have both Tensor and Shape arguments, that might suggest that custom handling
             # rather than relying on this decorator would make sense.
-            tensor_args = []
-            shape_args = []
-            # Don't need special handling for ShapeScalars because they get broadcast up into larger sizes
-            # as needed -- can treat them as a tensor or a shape whenever we need
-            shape_scalar_encountered = False
-            for arg_name, arg in all_args:
-                if arg_name in exclude:
-                    continue
-                if isinstance(arg, Shape):
-                    shape_args.append((arg_name, arg))
-                elif isinstance(arg, ShapeScalar):
-                    shape_scalar_encountered = True
-                elif isinstance(arg, Tensor):
-                    tensor_args.append((arg_name, arg))
+            types = set(
+                {
+                    # There are other subclasses of Tensor, like Parameter and DefaultParameter.
+                    # Unless otherwise specified, we treat them as ordinary Tensors.
+                    Tensor if type(arg) != Shape and type(arg) != ShapeScalar else type(arg)
+                    for arg_name, arg in all_args
+                    if isinstance(arg, Tensor) and arg_name not in exclude
+                }
+            )
+            # We usually can treat ShapeScalars as either tensors or shapes due to broadcasting, so we can remove them from the below check.
+            shape_scalar_encountered = ShapeScalar in types
+            if ShapeScalar in types:
+                types.remove(ShapeScalar)
 
-            if len(shape_args) and len(tensor_args):
-
-                def format_args(arg_info):
-                    return ", ".join(map(lambda name_value: f"{name_value[1]} (`{name_value[0]}`)", arg_info))
-
+            if len(types) > 1:
                 raise_error(
-                    "This operator expects all arguments to be tp.Tensor or all to be tp.Shape but was given arguments of mixed types."
-                    " Consider explicitly converting between these types using tp.Shape(value) or value.as_tensor()."
-                    f" Arguments that are tp.Shape: {format_args(shape_args)}."
-                    f" Arguments that are tp.Tensor: {format_args(tensor_args)}."
+                    f"{func.__name__} expects tensor arguments to have matching class types, "
+                    f"but got mixed `tp.Tensor` and `tp.Shape` arguments.",
+                    [
+                        "Consider explicitly converting using tp.Shape(tensor) or shape.as_tensor()\n"
+                        "Note: argument types were: " + ", ".join(f"{name}: {type(arg)}" for name, arg in all_args)
+                    ],
                 )
 
-            # Result is a shape scalar only if we can't broadcast it up to anything else
             TensorType = None
-            if shape_scalar_encountered and not len(tensor_args) and not len(shape_args):
+            if types:
+                TensorType = types.pop()
+            # Result is a shape scalar only if we can't broadcast it up to anything else
+            elif shape_scalar_encountered:
                 TensorType = ShapeScalar
-            if len(tensor_args):
-                TensorType = Tensor
-            if len(shape_args):
-                TensorType = Shape
 
             def get_arg(name: str):
                 for arg_name, arg in all_args:
