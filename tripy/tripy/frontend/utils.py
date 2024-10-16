@@ -253,15 +253,14 @@ def convert_inputs_to_tensors(
                 {
                     # There are other subclasses of Tensor, like Parameter and DefaultParameter.
                     # Unless otherwise specified, we treat them as ordinary Tensors.
-                    Tensor if type(arg) != Shape and type(arg) != ShapeScalar else type(arg)
+                    Tensor if type(arg) not in {Shape, ShapeScalar} else type(arg)
                     for arg_name, arg in all_args
                     if isinstance(arg, Tensor) and arg_name not in exclude
                 }
             )
             # We usually can treat ShapeScalars as either tensors or shapes due to broadcasting, so we can remove them from the below check.
             shape_scalar_encountered = ShapeScalar in types
-            if ShapeScalar in types:
-                types.remove(ShapeScalar)
+            types -= {ShapeScalar}
 
             if len(types) > 1:
                 raise_error(
