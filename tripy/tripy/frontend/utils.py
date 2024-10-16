@@ -248,15 +248,13 @@ def convert_inputs_to_tensors(
             # Disallow mixing Tensor and Shape by default. If it makes sense in a given function
             # to have both Tensor and Shape arguments, that might suggest that custom handling
             # rather than relying on this decorator would make sense.
-            types = set(
-                {
-                    # There are other subclasses of Tensor, like Parameter and DefaultParameter.
-                    # Unless otherwise specified, we treat them as ordinary Tensors.
-                    Tensor if type(arg) not in {Shape, ShapeScalar} else type(arg)
-                    for arg_name, arg in all_args
-                    if isinstance(arg, Tensor) and arg_name not in exclude
-                }
-            )
+            types = {
+                # There are other subclasses of Tensor, like Parameter and DefaultParameter.
+                # Unless otherwise specified, we treat them as ordinary Tensors.
+                Tensor if type(arg) not in {Shape, ShapeScalar} else type(arg)
+                for arg_name, arg in all_args
+                if isinstance(arg, Tensor) and arg_name not in exclude
+            }
             # We usually can treat ShapeScalars as either tensors or shapes due to broadcasting, so we can remove them from the below check.
             shape_scalar_encountered = ShapeScalar in types
             types -= {ShapeScalar}
