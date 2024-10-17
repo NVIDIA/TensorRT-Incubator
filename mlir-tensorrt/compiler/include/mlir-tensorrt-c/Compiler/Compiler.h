@@ -25,6 +25,7 @@
 #define MLIR_TENSORRT_C_COMPILER_COMPILER
 
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
@@ -47,8 +48,8 @@ mtrtCompilerClientCreate(MlirContext context, MTRT_CompilerClient *client);
 MLIR_CAPI_EXPORTED MTRT_Status
 mtrtCompilerClientDestroy(MTRT_CompilerClient client);
 
-static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient options) {
-  return !options.ptr;
+static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient client) {
+  return !client.ptr;
 }
 
 //===----------------------------------------------------------------------===//
@@ -107,6 +108,14 @@ static inline bool mtrtStableHloToExecutableOptionsIsNull(
 MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerStableHLOToExecutable(
     MTRT_CompilerClient client, MlirOperation module,
     MTRT_StableHLOToExecutableOptions options, MTRT_Executable *result);
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerPopulatePassManager(
+    MTRT_CompilerClient compilerClient,
+    MTRT_StableHLOToExecutableOptions stableHloToExecutableOptions,
+    MlirPassManager *passManager);
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtTranslateRuntimeToExecutable(
+    MlirOperation moduleOp, MTRT_Executable *result);
 
 //===----------------------------------------------------------------------===//
 // MTRT_StableHLOProgramSignatureRefinementOptions

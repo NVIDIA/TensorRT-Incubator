@@ -388,66 +388,6 @@ void StableHloToExecutableTask::populatePassManager(
   mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
 }
 
-StatusOr<std::unique_ptr<runtime::Executable>>
-StableHloToExecutableTask::compileStableHLOToExecutable(
-    mlir::ModuleOp module, const StableHLOToExecutableOptions &options) {
-  LLVM_DEBUG({
-    DBGS() << "compiling with options:\n";
-    options.print(llvm::dbgs());
-    llvm::dbgs() << "\n";
-  });
-
-#ifndef NDEBUG
-  //===----------------------------------------------------------------------===//
-  // Set debug options.
-  //===----------------------------------------------------------------------===//
-  if (options.debugOptions.enableLLVMDebugFlag) {
-    SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
-                            [](const std::string &x) { return x.c_str(); });
-    llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
-                               debugTypeLiterals.size());
-    llvm::DebugFlag = true;
-  }
-#endif
-
-  //===----------------------------------------------------------------------===//
-  // Setup pass manager
-  //===----------------------------------------------------------------------===//
-
-  StableHloToExecutableTask runner(module->getContext(), options);
-  if (failed(setupPassManager(runner, options.debugOptions))) {
-    /// TODO: Ignored. This can fail if pass manager static CL options were not
-    /// registered/initialized. This happens through invocation of e.g. this
-    /// function in e.g. Python bindings or standalone calls to C++ or C API
-    /// without doing all the typical static CL setup. We should instead be
-    /// accepting a PassManager here that has already been setup to the caller's
-    /// specifications.
-  }
-  if (failed(runner.run(module)))
-    return getInternalErrorStatus(
-        "failed to run compilation on module with symbol name: {0}",
-        module.getName() ? *module.getName() : "no-symbol-name");
-
-  //===----------------------------------------------------------------------===//
-  // Translate to Runtime Executable
-  //===----------------------------------------------------------------------===//
-
-  FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
-      mlir::translateToRuntimeExecutable(module);
-  if (failed(exeStorage))
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to translate compiled MLIR module to a "
-                            "MLIR-TensorRT runtime Executable");
-
-#ifndef NDEBUG
-  // Turn debugging back off if we turned it on.
-  if (options.debugOptions.enableLLVMDebugFlag)
-    llvm::DebugFlag = false;
-#endif
-
-  return std::make_unique<runtime::Executable>(std::move(*exeStorage));
-}
 
 mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
 StableHloToExecutableTask::compileStableHLOToExecutable(

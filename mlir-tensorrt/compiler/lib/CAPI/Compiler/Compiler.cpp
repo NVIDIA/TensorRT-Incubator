@@ -23,15 +23,19 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-c/Compiler/Compiler.h"
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Support/Status.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
 #include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
+#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/CAPI/IR.h"
+#include "mlir/CAPI/Pass.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Debug.h"
 
 using namespace mlirtrt;
 using namespace mlirtrt::compiler;
@@ -46,9 +50,13 @@ DEFINE_C_API_PTR_METHODS(MTRT_StableHLOToExecutableOptions,
                          StableHLOToExecutableOptions)
 DEFINE_C_API_PTR_METHODS(MTRT_StableHLOProgramSignatureRefinementOptions,
                          StableHLOProgramSignatureRefinementOptions)
+
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
+
+#define DEBUG_TYPE "compiler-api"
+#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]")
 
 /// Return the MTRT_StatusCode. These are auto-generated from the same schema as
 /// the `mlirtrt::StatusCode`.
@@ -97,7 +105,7 @@ MTRT_Status mtrtCompilerClientCreate(MlirContext context,
 }
 
 MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
-  delete reinterpret_cast<MTRT_CompilerClient *>(client.ptr);
+  delete reinterpret_cast<CompilerClient *>(client.ptr);
   return mtrtStatusGetOk();
 }
 
@@ -252,6 +260,68 @@ MTRT_Status mtrtCompilerStableHLOToExecutable(
                             exe.getString().c_str());
 
   result->ptr = (*exe).release();
+
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtCompilerPopulatePassManager(
+    MTRT_CompilerClient compilerClient,
+    MTRT_StableHLOToExecutableOptions stableHloToExecutableOptions,
+    MlirPassManager *pm) {
+
+  PassManager *passManager = llvm::dyn_cast<PassManager>(unwrap(*pm));
+
+  std::unique_ptr<StableHloToExecutableTask> runner{};
+
+  CompilerClient &client = *unwrap(compilerClient);
+  const StableHLOToExecutableOptions &options =
+      *unwrap(stableHloToExecutableOptions);
+
+  LLVM_DEBUG({
+    DBGS() << "compiling with options:\n";
+    options.print(llvm::dbgs());
+    llvm::dbgs() << "\n";
+  });
+
+#ifndef NDEBUG
+  if (options.debugOptions.enableLLVMDebugFlag) {
+    SmallVector<const char *> debugTypeLiterals =
+        llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
+                            [](const std::string &x) { return x.c_str(); });
+    llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
+                               debugTypeLiterals.size());
+    llvm::DebugFlag = true;
+  }
+#endif
+
+  if (options.getHash())
+    passManager =
+        &client.getOrCreatePassManager<StableHloToExecutableTask>(options);
+  else {
+    runner.reset(new StableHloToExecutableTask(client.getContext(), options));
+    CompilerClient::setupPassManagerLogging(*passManager, options.debugOptions);
+    passManager = runner.get();
+  }
+
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtTranslateRuntimeToExecutable(MlirOperation moduleOp,
+                                             MTRT_Executable *result) {
+  ModuleOp module = llvm::dyn_cast<ModuleOp>(unwrap(moduleOp));
+
+  // Translate to Runtime Executable
+  FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
+      mlir::translateToRuntimeExecutable(module);
+
+  if (failed(exeStorage))
+    return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
+                            "failed to translate compiled MLIR module to a "
+                            "MLIR-TensorRT runtime Executable");
+
+  auto exe = std::make_unique<runtime::Executable>(std::move(*exeStorage));
+
+  result->ptr = exe.release();
 
   return mtrtStatusGetOk();
 }

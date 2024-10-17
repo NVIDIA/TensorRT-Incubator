@@ -206,13 +206,6 @@ public:
   /// This is the "functional" entrypoint that will allocate a new PassManager
   /// for a single run.
   static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
-  compileStableHLOToExecutable(mlir::ModuleOp module,
-                               const StableHLOToExecutableOptions &options);
-
-  /// Compile a StableHLO module into a MLIR-TensorRT Runtime executable.
-  /// This is the "functional" entrypoint that will allocate a new PassManager
-  /// for a single run.
-  static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
   compileStableHLOToExecutable(CompilerClient &client, mlir::ModuleOp module,
                                const StableHLOToExecutableOptions &options);
 };

@@ -11,6 +11,7 @@
 #include "../Utils.h"
 #include "NvInferRuntime.h"
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
@@ -36,6 +37,26 @@ MTRT_DEFINE_COMPILER_INLINE_PY_CAPSULE_CASTER_FUNCS(
     StableHLOToExecutableOptions)
 
 namespace {
+
+// Define a type caster for MlirPassManager
+namespace pybind11 { namespace detail {
+    template <> struct type_caster<MlirPassManager> {
+        PYBIND11_TYPE_CASTER(MlirPassManager, _("MlirPassManager"));
+
+        // Conversion from Python to C++
+        bool load(py::handle src, bool) {
+            py::object capsule = mlirApiObjectToCapsule(src);
+            value = mlirPythonCapsuleToPassManager(capsule.ptr());
+            return !mlirPassManagerIsNull(value);
+        }
+
+        // Conversion from C++ to Python
+        static py::handle cast(MlirPassManager pm, py::return_value_policy, py::handle) {
+            if (mlirPassManagerIsNull(pm)) return py::none();
+            return py::reinterpret_steal<py::object>(mlirPythonPassManagerToCapsule(pm));
+        }
+    };
+}}
 
 //===----------------------------------------------------------------------===//
 // Python Wrapper Classes
@@ -324,6 +345,27 @@ PYBIND11_MODULE(_api, m) {
         return new PyExecutable(exe);
       },
       py::arg("client"), py::arg("module"), py::arg("options"));
+
+  m.def(
+      "compiler_populate_pass_manager",
+      [](PyCompilerClient &client, PyStableHLOToExecutableOptions &options) {
+        MlirPassManager pm{nullptr};
+        MTRT_Status status =
+            mtrtCompilerPopulatePassManager(client, options, &pm);
+        THROW_IF_MTRT_ERROR(status);
+        return py::reinterpret_steal<py::object>(mlirPythonPassManagerToCapsule(pm));
+      },
+      py::arg("client"), py::arg("options"));
+
+  m.def(
+      "compiler_translate_to_executable",
+      [](MlirOperation module) {
+        MTRT_Executable exe{nullptr};
+        MTRT_Status status = mtrtTranslateRuntimeToExecutable(module, &exe);
+        THROW_IF_MTRT_ERROR(status);
+        return new PyExecutable(exe);
+      },
+      py::arg("module"));
 
   m.def(
       "get_stablehlo_program_refined_signature",
