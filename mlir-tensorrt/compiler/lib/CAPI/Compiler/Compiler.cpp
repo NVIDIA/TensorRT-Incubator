@@ -185,7 +185,7 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
 MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     MTRT_StableHLOToExecutableOptions options, bool enableDebugging,
     const char **debugTypes, size_t debugTypeSizes, const char *dumpIrTreeDir,
-    const char *dumpTensorRTDir) {
+    const char *dumpTensorRTDir, bool dumpTextualPipeline) {
 
   StableHLOToExecutableOptions *cppOpts = unwrap(options);
   cppOpts->debugOptions.enableLLVMDebugFlag = enableDebugging;
@@ -195,6 +195,7 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
   if (dumpIrTreeDir)
     cppOpts->debugOptions.dumpIRPath = std::string(dumpIrTreeDir);
 
+  cppOpts->debugOptions.dumpTextualPipeline = dumpTextualPipeline;
   return mtrtStatusGetOk();
 }
 

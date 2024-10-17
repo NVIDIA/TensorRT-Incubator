@@ -48,12 +48,16 @@ struct DebugOptions {
   /// `-debug-types=...` from the command line.
   mlir::SmallVector<std::string> llvmDebugTypes = {};
 
+  /// Dump textual pipeline passes.
+  bool dumpTextualPipeline = false;
+
   void addToOptions(mlir::OptionsContext &context) {
     context.addOption("mlir-print-ir-tree-dir", dumpIRPath, llvm::cl::init(""));
     context.addOption("debug", enableLLVMDebugFlag);
     context.addList<std::string>("debug-only", llvmDebugTypes,
                                  llvm::cl::ZeroOrMore,
                                  llvm::cl::CommaSeparated);
+    context.addOption("dump-textual-pipeline", dumpTextualPipeline);
   }
 };
 
