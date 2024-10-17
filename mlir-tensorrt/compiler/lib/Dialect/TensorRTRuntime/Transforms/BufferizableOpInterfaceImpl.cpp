@@ -49,16 +49,16 @@ struct EnqueueOpInterface
   /// outputs in our use-case.
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
                               const bufferization::AnalysisState &state) const {
-    EnqueueOp callOp = cast<EnqueueOp>(op);
-    return callOp.isDpsInput(&opOperand);
+    EnqueueOp enqueueOp = cast<EnqueueOp>(op);
+    return enqueueOp.isDpsInput(&opOperand);
   }
 
   /// Only dps inits are written.
   bool
   bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
                           const bufferization::AnalysisState &state) const {
-    EnqueueOp callOp = cast<EnqueueOp>(op);
-    return callOp.isDpsInit(&opOperand);
+    EnqueueOp enqueueOp = cast<EnqueueOp>(op);
+    return enqueueOp.isDpsInit(&opOperand);
   }
 
   // TensorRT will guarantee that the input will be read before the result
@@ -72,21 +72,21 @@ struct EnqueueOpInterface
   /// Bufferize the `trtrt.enqueue` operation.
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
                           const BufferizationOptions &options) const {
-    EnqueueOp callOp = cast<EnqueueOp>(op);
+    EnqueueOp enqueueOp = cast<EnqueueOp>(op);
     MLIRContext *ctx = op->getContext();
     Location loc = op->getLoc();
-    rewriter.setInsertionPoint(callOp);
+    rewriter.setInsertionPoint(enqueueOp);
 
     // For the inputs, check the memory space and insert a copy if it is not in
     // the correct space.
     SmallVector<Value> newInputBuffers;
-    newInputBuffers.reserve(callOp.getNumDpsInputs());
+    newInputBuffers.reserve(enqueueOp.getNumDpsInputs());
     for (auto [idx, opOperand] :
-         llvm::enumerate(callOp.getDpsInputOperands())) {
+         llvm::enumerate(enqueueOp.getDpsInputOperands())) {
 
       // The context and steam operands are considered "DPS inputs" and
       // therefore they'll be skipped here.
-      if (callOp.isScalar(opOperand)) {
+      if (enqueueOp.isScalar(opOperand)) {
         newInputBuffers.push_back(opOperand->get());
         continue;
       }
@@ -99,7 +99,7 @@ struct EnqueueOpInterface
       // Check if this input is a host tensor. Insert a copy if required. Note
       // that we subtract two from the index to account for context/stream
       // arguments.
-      if (callOp.isOperandOnHost(idx) &&
+      if (enqueueOp.isOperandOnHost(idx) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::host_pinned)) {
         FailureOr<Value> pinnedAlloc = options.createAlloc(
             rewriter, op->getLoc(),
@@ -117,7 +117,7 @@ struct EnqueueOpInterface
       }
 
       // If we are in host space, then copy to the device.
-      if (!callOp.isOperandOnHost(idx) &&
+      if (!enqueueOp.isOperandOnHost(idx) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::device)) {
         FailureOr<Value> devAlloc = options.createAlloc(
             rewriter, op->getLoc(),
@@ -139,10 +139,10 @@ struct EnqueueOpInterface
     }
 
     SmallVector<Value> newOutputBuffers;
-    newOutputBuffers.reserve(callOp.getNumDpsInits());
+    newOutputBuffers.reserve(enqueueOp.getNumDpsInits());
     for (OpResult opResult : op->getOpResults()) {
       OpOperand *opOperand =
-          callOp.getDpsInitOperand(opResult.getResultNumber());
+          enqueueOp.getDpsInitOperand(opResult.getResultNumber());
       FailureOr<Value> resultBuffer =
           getBuffer(rewriter, opOperand->get(), options);
       if (failed(resultBuffer))
@@ -153,7 +153,7 @@ struct EnqueueOpInterface
     rewriter.create<EnqueueOp>(
         op->getLoc(), newInputBuffers[0], newInputBuffers[1],
         ValueRange(newInputBuffers).drop_front(2), newOutputBuffers,
-        callOp.getHostTensorArgsAttr());
+        enqueueOp.getHostTensorArgsAttr());
     replaceOpWithBufferizedValues(rewriter, op, newOutputBuffers);
     return success();
   }

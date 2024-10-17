@@ -425,11 +425,11 @@ static Status pushScalarArgument(sol::state_view &lua,
 
 static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
                                                const TypeUnionView &sigArg) {
-  if (sigArg.isa<MemrefTypeView>()) {
+  if (sigArg.isa<MemRefTypeView>()) {
     if (runArg->getKind() != RuntimeValue::Kind::MemRef)
       return getInvalidArgStatus(
           "function expects a memref type but received scalar type");
-    auto view = sigArg.get<MemrefTypeView>();
+    auto view = sigArg.get<MemRefTypeView>();
     auto value = static_cast<const MemRefValue *>(runArg);
 
     if (view.getElementType() != *value->getScalarType())
