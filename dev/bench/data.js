@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729200407785,
+  "lastUpdate": 1729202859377,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -850,6 +850,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007244482127713629",
             "extra": "mean: 143.20630739073897 usec\nrounds: 7620"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "c893d1799b2d7b208efe70b282017e7b02cf32e6",
+          "message": "Force assign output shape of reshape operator if its known statically",
+          "timestamp": "2024-10-17T20:32:19Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/281/commits/c893d1799b2d7b208efe70b282017e7b02cf32e6"
+        },
+        "date": 1729202858563,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6158.32081495556,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003122764612753409",
+            "extra": "mean: 162.38192683490723 usec\nrounds: 6532"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6936.9664818381825,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000727983657527738",
+            "extra": "mean: 144.15523018860202 usec\nrounds: 7570"
           }
         ]
       }
