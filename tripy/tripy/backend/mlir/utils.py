@@ -380,22 +380,14 @@ class ShapeContext:
             """
             Recurse back from tensor to the inputs to the graph and store the visited tensors and nodes.
             """
-            from tripy.frontend.trace.ops.unsqueeze import Unsqueeze
-
             if id(tensor) in visited_tensors:
                 return
 
             visited_tensors[id(tensor)] = tensor
             if tensor.producer is not None:
                 visited_producers[id(tensor.producer)] = tensor.producer
-                # Special recursion conditions op by op basis.
-                # Only recurse inputs which are used in output shape calculations.
-                if isinstance(tensor.producer, Unsqueeze):
-                    traverse_backwards(tensor.producer.inputs[1], visited_tensors, visited_producers)
-                else:
-                    # Naively recurse all the inputs until a constant or user input.
-                    for input_tensor in tensor.producer.inputs:
-                        traverse_backwards(input_tensor, visited_tensors, visited_producers)
+                for input_tensor in tensor.producer.inputs:
+                    traverse_backwards(input_tensor, visited_tensors, visited_producers)
 
         def find_inputs(graph_nodes):
             """
