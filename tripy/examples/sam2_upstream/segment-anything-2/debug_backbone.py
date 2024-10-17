@@ -19,9 +19,20 @@ def test_trunk():
         window_pos_embed_bkg_spatial_size=[7, 7],
         window_spec=[8, 4, 16, 8],
     )
-    trunk_inp = tp.ones((1, 3, 1024, 1024))
-    trunk_out = trunk(trunk_inp)
-    print(trunk_out[1])
+    # trunk_inp = tp.ones((1, 3, 1024, 1024))
+    # trunk_out = trunk(trunk_inp)
+    # print(trunk_out[1])
+
+    print("Start compiling trunk...")
+    start = time.time()
+    compiled_tp_trunk = tp.compile(
+        trunk,
+        optimization_level=3,
+        args=[
+            tp.InputInfo((1, 3, 1024, 1024), dtype=tp.float32),
+        ],
+    )
+    print(f"Compile trunk took {time.time() - start}s")
 
 
 ############## neck -- FpnNeck #############
@@ -39,14 +50,29 @@ def test_neck():
         fpn_top_down_levels=[2, 3],
         fpn_interp_model="nearest",
     )
-    neck_inp = [
-        tp.ones([1, 144, 256, 256]),
-        tp.ones([1, 288, 128, 128]),
-        tp.ones([1, 576, 64, 64]),
-        tp.ones([1, 1152, 32, 32]),
-    ]
-    neck_out = neck(neck_inp)
-    print(neck_out[0])
+
+    # neck_inp = [
+    #     tp.ones([1, 144, 256, 256]),
+    #     tp.ones([1, 288, 128, 128]),
+    #     tp.ones([1, 576, 64, 64]),
+    #     tp.ones([1, 1152, 32, 32]),
+    # ]
+    # neck_out = neck(*neck_inp)
+    # print(neck_out[3])
+
+    print("Start compiling FpnNeck...")
+    start = time.time()
+    compiled_tp_neck = tp.compile(
+        neck,
+        optimization_level=3,
+        args=[
+            tp.InputInfo((1, 144, 256, 256), dtype=tp.float32),
+            tp.InputInfo((1, 288, 128, 128), dtype=tp.float32),
+            tp.InputInfo((1, 576, 64, 64), dtype=tp.float32),
+            tp.InputInfo((1, 1152, 32, 32), dtype=tp.float32),
+        ],
+    )
+    print(f"Compile image encoder took {time.time() - start}s")
 
 
 ############ image_encoder (trunk + neck) ##################

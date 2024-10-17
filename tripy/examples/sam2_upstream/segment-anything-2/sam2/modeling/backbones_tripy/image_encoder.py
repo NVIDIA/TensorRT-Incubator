@@ -121,11 +121,11 @@ class FpnNeck(tp.Module):
             x = xs[i]
             lateral_features = self.convs[n - i](x)
             if i in self.fpn_top_down_levels and prev_features is not None:
-                b, c, h, w = prev_features.shape
+                # WAR: https://github.com/NVIDIA/TensorRT-Incubator/issues/269
                 top_down_features = tp.resize(
                     tp.cast(prev_features, tp.float32),  # is this cast really needed?
                     mode=self.fpn_interp_model,
-                    output_shape=(b, c, h * 2, w * 2),
+                    output_shape=(1, 256, 64, 64),
                 )
                 prev_features = lateral_features + top_down_features
                 if self.fuse_type == "avg":

@@ -289,7 +289,7 @@ class Hiera(tp.Module):
         pos_embed = pos_embed.permute(0, 2, 3, 1)
         return pos_embed
 
-    def __call__(self, x: tp.Tensor) -> List[tp.Tensor]:
+    def __call__(self, x: tp.Tensor):
         x = self.patch_embed(x)
         # x: (B, H, W, C)
 
