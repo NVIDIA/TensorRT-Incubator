@@ -447,6 +447,9 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
                     if member.rank != 0:
                         raise_error("Tensor in a shape argument must be a scalar.", [f"Got {member}"])
                     member = Shape(unsqueeze(member, 0))
+                    # Force the trace tensor shape to be (1,) since its known that we are reshaping a scalar to a 1D tensor.
+                    # If we don't force the shape below, Tripy might require computing the shape of this trace tensor which can be expensive.
+                    member.trace_tensor.shape = (1,)
                     shape_components.append(member)
                 if len(acc) > 0:
                     shape_components.append(convert_nontensor_arg(acc))

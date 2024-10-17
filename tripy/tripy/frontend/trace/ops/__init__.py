@@ -39,5 +39,4 @@ from tripy.frontend.trace.ops.slice import Slice
 from tripy.frontend.trace.ops.split import Split
 from tripy.frontend.trace.ops.storage import Storage
 from tripy.frontend.trace.ops.unary_elementwise import UnaryElementwise
-from tripy.frontend.trace.ops.unsqueeze import Unsqueeze
 from tripy.frontend.trace.ops.where import Where
