@@ -414,6 +414,10 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
 }
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
+  if (!llvm::is_contained(map, ptr))
+  {
+    return;
+  }
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
@@ -582,7 +586,7 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
   if (obj.type == PointerType::host) {
     MTRT_DBGF("Freeing host memory %lx", ptr);
     std::free(reinterpret_cast<void *>(obj.ptr));
-    tracker.untrack(ptr);
+    tracker.untrack(obj.ptr);
     return Status::getOk();
   }
 
@@ -602,7 +606,7 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
           ptr, static_cast<int32_t>(obj.type));
       RETURN_ERROR_IF_CUDART_ERROR(cudaFree(reinterpret_cast<void *>(obj.ptr)));
     }
-    tracker.untrack(ptr);
+    tracker.untrack(obj.ptr);
     return Status::getOk();
   }
 

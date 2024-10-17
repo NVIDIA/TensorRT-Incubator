@@ -48,7 +48,7 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     from tripy.frontend.trace.ops.concatenate import concatenate
     from tripy.frontend.trace.ops.reshape import reshape
 
-    from tripy.frontend import Shape
+    from tripy.frontend.shape import Shape
 
     if dim < 0:
         dim = dim + input.rank + 1

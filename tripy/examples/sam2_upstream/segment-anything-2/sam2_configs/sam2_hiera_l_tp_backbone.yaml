@@ -116,5 +116,5 @@ model:
   # Compilation flag
   compile_image_encoder: False
 
-  use_tripy_mask_decoder: False
-  use_tripy_prompt_encoder: False
+  use_tripy_mask_decoder: true
+  use_tripy_prompt_encoder: true

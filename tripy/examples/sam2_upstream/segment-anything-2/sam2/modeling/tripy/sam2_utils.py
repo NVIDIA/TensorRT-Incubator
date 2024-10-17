@@ -35,7 +35,6 @@ def scaled_dot_product_attention(
     - Described: https://paperswithcode.com/method/scaled
     - Paper: https://arxiv.org/abs/1706.03762v7
     """
-
     if is_causal:  # this path is not called in demoDiffusion
         target_shape = query.shape[-2:-1] + key.shape[-2:-1]
         # TODO: #228: WAR to prevent computing output rank in infer_rank for reshape
@@ -47,7 +46,7 @@ def scaled_dot_product_attention(
             tp.ones_like(attn_mask) * -float("inf"),
             tp.zeros_like(attn_mask),
         )
-    qk = query @ tp.transpose(key, -2, -1) / tp.sqrt(tp.cast(embedding_dim, tp.float32))
+    qk = query @ tp.transpose(key, -2, -1) * (1.0 / tp.sqrt(tp.cast(embedding_dim, query.dtype)))
     return (
         tp.cast(
             tp.softmax((qk + attn_mask) if attn_mask is not None else qk, -1),
@@ -66,13 +65,14 @@ class MLP(tp.Module):
         num_layers: int,
         activation: tp.Module = tp.relu,
         sigmoid_output: bool = False,
+        dtype=tp.float32,
     ) -> None:
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
         self.layers = []
         for n, k in zip([input_dim] + h, h + [output_dim]):
-            self.layers.append(tp.Linear(n, k))
+            self.layers.append(tp.Linear(n, k, dtype=dtype))
 
         self.sigmoid_output = sigmoid_output
         self.act = activation
