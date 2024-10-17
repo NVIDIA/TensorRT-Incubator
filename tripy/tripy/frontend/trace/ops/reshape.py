@@ -142,7 +142,11 @@ def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Ten
     if isinstance(input, Shape) and len(shape) == 1 and isinstance(shape[0], int):
         output_len = shape[0]
 
-    return reshape_impl(input, shape, len(shape), output_len)
+    out = reshape_impl(input, shape, len(shape), output_len)
+    # If the output shape is known at compile time, assign it to prevent computing shape of trace tensor which is expensive to compute.
+    if all(map(lambda s: isinstance(s, int) and s > 0, shape)):
+        out.trace_tensor.shape = shape
+    return out
 
 
 @dataclass(repr=False)
