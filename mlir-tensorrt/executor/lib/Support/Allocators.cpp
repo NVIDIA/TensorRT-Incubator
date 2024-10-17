@@ -297,3 +297,60 @@ Status PinnedMemoryAllocator::freeAsync(uintptr_t ptr, CudaStream stream) {
       "MLIR-Executor was not built with CUDA enabled");
 #endif
 }
+
+//===----------------------------------------------------------------------===//
+// OutputDescriptor
+//===----------------------------------------------------------------------===//
+
+OutputDescriptor::OutputDescriptor(uintptr_t ptr)
+    : mData(reinterpret_cast<int64_t *>(ptr)), mSize(calculateTotalSize(ptr)) {}
+
+int64_t OutputDescriptor::getNumberOfResults() const { return mData[0]; }
+
+unsigned OutputDescriptor::getRank(int resultIndex) const {
+  size_t index = getIndexForResult(resultIndex);
+  return static_cast<unsigned>(mData[index]);
+}
+
+void OutputDescriptor::setTensorDataPtr(int resultIndex, uintptr_t ptr) {
+  size_t index = getIndexForResult(resultIndex);
+  mData[index + 1] = static_cast<int64_t>(ptr);
+}
+
+void OutputDescriptor::setShape(int resultIndex,
+                                const std::vector<int64_t> &shape) {
+  size_t index = getIndexForResult(resultIndex);
+  unsigned rank = static_cast<unsigned>(mData[index]);
+  assert(shape.size() == rank && "Shape size doesn't match the rank");
+  index += OUTPUT_DESC_FIXED_FIELDS;
+  std::copy(shape.begin(), shape.end(), mData + index);
+}
+
+void OutputDescriptor::setStride(int resultIndex,
+                                 const std::vector<int64_t> &stride) {
+  size_t index = getIndexForResult(resultIndex);
+  unsigned rank = static_cast<unsigned>(mData[index]);
+  assert(stride.size() == rank && "Stride size doesn't match the rank");
+  index += OUTPUT_DESC_FIXED_FIELDS + rank;
+  std::copy(stride.begin(), stride.end(), mData + index);
+}
+
+size_t OutputDescriptor::getIndexForResult(int resultIndex) const {
+  return calculateOffsetForResult(mData, resultIndex);
+}
+
+size_t OutputDescriptor::calculateTotalSize(uintptr_t ptr) {
+  int64_t *desc = reinterpret_cast<int64_t *>(ptr);
+  int64_t numResults = desc[0];
+  return calculateOffsetForResult(desc, numResults);
+}
+
+size_t OutputDescriptor::calculateOffsetForResult(const int64_t *desc,
+                                                  int64_t resultIndex) {
+  size_t offset = 1; // Start after number of results
+  for (int64_t i = 0; i < resultIndex; ++i) {
+    unsigned rank = static_cast<unsigned>(desc[offset]);
+    offset += 2 + 2 * rank; // rank + dataPtr + shape + stride
+  }
+  return offset;
+}

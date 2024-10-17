@@ -128,6 +128,61 @@ private:
   std::unique_ptr<BlockEventQueue> pendingBlockEvents;
 };
 
+/// Manages output tensor descriptors for TensorRT execution.
+class OutputDescriptor {
+public:
+  /// Constructs an OutputDescriptor from a raw pointer.
+  ///
+  /// \param ptr Raw pointer to the descriptor data.
+  OutputDescriptor(uintptr_t ptr);
+
+  /// Returns the number of results in the descriptor.
+  int64_t getNumberOfResults() const;
+
+  /// Gets the rank of a specific tensor result.
+  ///
+  /// \param resultIndex Index of the result.
+  unsigned getRank(int resultIndex) const;
+
+  /// Sets the data pointer for a specific tensor result.
+  ///
+  /// \param resultIndex Index of the result to update.
+  /// \param ptr New data pointer value.
+  void setTensorDataPtr(int resultIndex, uintptr_t ptr);
+
+  /// Sets the shape for a specific tensor result.
+  ///
+  /// \param resultIndex Index of the result to update.
+  /// \param shape Vector containing the shape dimensions.
+  void setShape(int resultIndex, const std::vector<int64_t> &shape);
+
+  /// Sets the stride for a specific tensor result.
+  ///
+  /// \param resultIndex Index of the result to update.
+  /// \param stride Vector containing the stride values.
+  void setStride(int resultIndex, const std::vector<int64_t> &stride);
+
+private:
+  /// Pointer to the raw descriptor data.
+  int64_t *mData;
+
+  /// Total size of the descriptor data.
+  size_t mSize;
+
+  /// Calculates the index for a specific result in the descriptor.
+  size_t getIndexForResult(int resultIndex) const;
+
+  /// Calculates the total size of the descriptor.
+  static size_t calculateTotalSize(uintptr_t ptr);
+
+  /// Calculates the offset for a specific result in the descriptor.
+  static size_t calculateOffsetForResult(const int64_t *desc,
+                                         int64_t resultIndex);
+
+  /// Fixed fields corresponding to rank, data ptr.
+  static constexpr int OUTPUT_DESC_FIXED_FIELDS = 2;
+};
+
 } // namespace mlirtrt
 
 #endif // MLIR_TENSORRT_SUPPORT_ALLOCATORS_H
