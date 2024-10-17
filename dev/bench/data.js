@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729113674117,
+  "lastUpdate": 1729197067000,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -748,6 +748,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006988449930710818",
             "extra": "mean: 149.02779006578197 usec\nrounds: 7368"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "834b30e02510162b38bd7ea3bf5f49b112572e89",
+          "message": "Fix unnecessary calls to compute shape of trace tensor; fix #246",
+          "timestamp": "2024-10-17T13:27:42Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/280/commits/834b30e02510162b38bd7ea3bf5f49b112572e89"
+        },
+        "date": 1729197066227,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6101.7061007035845,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003180892578688663",
+            "extra": "mean: 163.88858845310338 usec\nrounds: 6458"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6800.176819967019,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006924089138300179",
+            "extra": "mean: 147.05499966761894 usec\nrounds: 7420"
           }
         ]
       }
