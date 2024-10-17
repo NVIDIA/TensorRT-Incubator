@@ -99,11 +99,14 @@ class TestFlatten:
         assert np.array_equal(cp.from_dlpack(b).get(), np.ones((2, 60), dtype=np.float32))
 
 
-def test_reshape_with_no_trace_shape_inference(mocker):
+@pytest.mark.parametrize(
+    "operation", [lambda a: tp.reshape(a, (a.shape[0], a.shape[1], a.shape[2] // 2, 2)), lambda a: tp.flatten(a)]
+)
+def test_operation_with_no_trace_shape_inference(mocker, operation):
     # This test ensures that Tripy does not unnecessarily compute shape of a trace tensor.
     mock_function = mocker.patch("tripy.backend.mlir.utils.ShapeContext.get_shape_of_dynamic_trace_tensor")
+
     a = tp.ones((2, 3, 4))
-    s1, s2, s3 = a.shape
-    out = tp.reshape(a, (s1, s2, s3 / 2, 2))
+    out = operation(a)
     out.eval()
     mock_function.assert_not_called()
