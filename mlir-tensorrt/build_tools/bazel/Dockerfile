@@ -1,4 +1,4 @@
-ARG BASE_IMAGE
+ARG BASE_IMAGE=nvcr.io/nvidia/cuda:12.5.1-cudnn-devel-ubuntu22.04
 FROM ${BASE_IMAGE}
 
 # Specify user IDs
