@@ -49,8 +49,11 @@ class BaseTraceOp(abc.ABC):
         *args and **kwargs are passed along to the trace operation's constructor.
         """
         op = cls(inputs, outputs, *args, **kwargs)
+
+        is_compile_tracer = any(inp.is_compile_tracer for inp in inputs)
         for out in op.outputs:
             out.producer = op
+            out.is_compile_tracer |= is_compile_tracer
 
         op.infer_dtypes()
         op.infer_rank()
