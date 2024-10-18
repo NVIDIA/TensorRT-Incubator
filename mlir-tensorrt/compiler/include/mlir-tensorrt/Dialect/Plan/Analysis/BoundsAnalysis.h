@@ -127,9 +127,9 @@ public:
   void setToEntryState(ShapeBoundsLattice *lattice) override;
 
   /// Visit `op` and propagate bounds from `operands` to `results`.
-  void visitOperation(Operation *op,
-                      ArrayRef<const ShapeBoundsLattice *> operands,
-                      ArrayRef<ShapeBoundsLattice *> results) override;
+  LogicalResult visitOperation(Operation *op,
+                               ArrayRef<const ShapeBoundsLattice *> operands,
+                               ArrayRef<ShapeBoundsLattice *> results) override;
 
   /// Visit block arguments or operation results of an operation with region
   /// control-flow for which values are not defined by region control-flow.
@@ -152,8 +152,9 @@ public:
   void visitBranchOperand(OpOperand &operand) override;
   void visitCallOperand(OpOperand &operand) override;
 
-  void visitOperation(Operation *op, ArrayRef<ShapeBoundsLattice *> operands,
-                      ArrayRef<const ShapeBoundsLattice *> results) override;
+  LogicalResult
+  visitOperation(Operation *op, ArrayRef<ShapeBoundsLattice *> operands,
+                 ArrayRef<const ShapeBoundsLattice *> results) override;
 };
 
 //===----------------------------------------------------------------------===//
@@ -199,7 +200,7 @@ public:
 
   /// Visit an operation. Invoke the transfer function on each operation that
   /// implements `InferIntRangeInterface`.
-  void visitOperation(
+  LogicalResult visitOperation(
       Operation *op,
       ArrayRef<const dataflow::IntegerValueRangeLattice *> operands,
       ArrayRef<dataflow::IntegerValueRangeLattice *> results) override;
@@ -261,9 +262,10 @@ public:
   void setToEntryState(TensorValueBoundsLattice *lattice) override;
 
   /// Visit `op` and propagate bounds from `operands` to `results`.
-  void visitOperation(Operation *op,
-                      ArrayRef<const TensorValueBoundsLattice *> operands,
-                      ArrayRef<TensorValueBoundsLattice *> results) override;
+  LogicalResult
+  visitOperation(Operation *op,
+                 ArrayRef<const TensorValueBoundsLattice *> operands,
+                 ArrayRef<TensorValueBoundsLattice *> results) override;
 
   /// Visit block arguments or operation results of an operation with region
   /// control-flow for which values are not defined by region control-flow.

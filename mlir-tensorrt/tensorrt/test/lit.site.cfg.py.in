@@ -7,12 +7,37 @@ config.tensorrt_dialect_obj_root = "@MLIR_TENSORRT_DIALECT_BINARY_DIR@"
 config.llvm_shlib_ext = "@SHLIBEXT@"
 config.enable_asan = @ENABLE_ASAN@
 config.tensorrt_lib_dir = "@MLIR_TRT_TENSORRT_LIB_DIR@"
+config.project_obj_root = "@CMAKE_BINARY_DIR@"
 
 config.target_tensorrt = @MLIR_TRT_DIALECT_TARGET_TENSORRT@
 config.mlir_tensorrt_compile_time_version = "@MLIR_TRT_TENSORRT_VERSION@"
+
+config.gpu_tools_package_path = os.path.join(
+    "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@",
+    "../python/mlir_tensorrt_tools"
+)
+config.gpu_tools_script = os.path.join(
+    "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@",
+    "../python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
+)
+
+def load_gpu_tools_module():
+    from pathlib import Path
+    import importlib.util
+    import os
+    import sys
+    assert Path(config.gpu_tools_script).exists(), "gpu_tools.py script does not exist"
+    spec = importlib.util.spec_from_file_location("gpu_tools", config.gpu_tools_script)
+    gpu_tools = importlib.util.module_from_spec(spec)
+    sys.modules["gpu_tools"] = gpu_tools
+    spec.loader.exec_module(gpu_tools)
+    return gpu_tools
+
+load_gpu_tools_module()
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@/test/lit.cfg.py")
+

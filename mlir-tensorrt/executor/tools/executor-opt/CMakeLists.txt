@@ -17,6 +17,7 @@ target_link_libraries(executor-opt PRIVATE
   MLIRSCFToControlFlow
   MLIRSCFDialect
   MLIRControlFlowDialect
+  MLIRLinalgTransforms
   ${MLIR_EXECUTOR_TEST_LIBS}
   )
 

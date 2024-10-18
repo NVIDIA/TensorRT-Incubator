@@ -84,7 +84,7 @@ public:
         return false;
       return isa_and_nonnull<arith::ArithDialect>(op->getDialect());
     };
-    opts.clusterTarget = StringAttr::get(op->getContext(), "test-target");
+    opts.clusterTarget = Attribute{};
 
     /// Initialize the clustering state using the attributes. This allows us to
     /// inject initial conditions that can check edge cases in the horizontal
