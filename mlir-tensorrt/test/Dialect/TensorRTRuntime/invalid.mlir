@@ -31,3 +31,30 @@ func.func @enqueue_host_tensor_el_type(%arg0: !trtrt.context, %arg1: !cuda.strea
     : (tensor<1xf32>, tensor<1xi32>) -> (tensor<1xf32>)
   return %0 : tensor<1xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @enqueue_alloc_no_results
+func.func @enqueue_alloc_no_results(%ctx: !trtrt.context, %stream: !cuda.stream, %arg0: tensor<1x3x256x256xf32>) {
+  // expected-error @+1 {{at least one result is required.}}
+  trtrt.enqueue_alloc %ctx stream(%stream) (%arg0) : (tensor<1x3x256x256xf32>) -> ()
+  return
+}
+
+// -----
+
+// CHECK-LABEL: @enqueue_alloc_unranked_tensor
+func.func @enqueue_alloc_unranked_tensor(%ctx: !trtrt.context, %stream: !cuda.stream, %arg0: tensor<1x3x256x256xf32>) -> tensor<*xf32> {
+  // expected-error @+1 {{result must be either RankedTensorType or MemRefType}}
+  %result = trtrt.enqueue_alloc %ctx stream(%stream) (%arg0) : (tensor<1x3x256x256xf32>) -> tensor<*xf32>
+  return %result : tensor<*xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @enqueue_alloc_non_tensor_result
+func.func @enqueue_alloc_non_tensor_result(%ctx: !trtrt.context, %stream: !cuda.stream, %arg0: tensor<1x3x256x256xf32>) -> f32 {
+  // expected-error @+1 {{result #0 must be variadic of memref of any type values or tensor of any type values, but got 'f32}}
+  %result = trtrt.enqueue_alloc %ctx stream(%stream) (%arg0) : (tensor<1x3x256x256xf32>) -> f32
+  return %result : f32
+}
