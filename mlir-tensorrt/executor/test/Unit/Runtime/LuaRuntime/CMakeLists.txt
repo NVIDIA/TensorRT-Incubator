@@ -1,0 +1,9 @@
+add_mlir_executor_unittest(LuaRuntimeTests ExecuteFunctionWithLuaBackendTests.cpp)
+
+target_link_libraries(LuaRuntimeTests
+  PRIVATE
+  MLIRFuncInlinerExtension
+  MLIRLinalgTransforms
+  MLIRTensorRTTargetLua
+  MLIRTensorRTExecutionEngineLuaRuntime
+)
