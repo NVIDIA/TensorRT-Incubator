@@ -353,8 +353,7 @@ static void remapAnalysisState(DataFlowSolver &solver, ValueRange originals,
 
 static FailureOr<SmallVector<BoundsAttr>>
 getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
-                   SmallVector<Value> const &inputs) {
-
+                   const ValueRange &inputs) {
   // Compute input tensor kinds.
   SmallVector<TensorKindInfo> inputTensorKinds;
   inputTensorKinds.reserve(inputs.size());
@@ -367,7 +366,7 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
         solver.lookupState<TensorKindLattice>(input);
     if (!tensorKindLattice || tensorKindLattice->getValue().isUninitialized())
       return emitError(loc)
-             << ("input operand #") << idx << " of type " << input.getType()
+             << "input operand #" << idx << " of type " << input.getType()
              << " does not have a TensorKind associated with it";
     inputTensorKinds.push_back(tensorKindLattice->getValue());
   }
@@ -436,28 +435,27 @@ getInputAttributes(RewriterBase &rewriter, DataFlowSolver &solver, Location loc,
 
 static LogicalResult materializeDestinationOperands(
     RewriterBase &rewriter, plan::InlineGroupOp op, DataFlowSolver &solver,
-    SmallVector<DestinationOperandMaterializationResult> &destinationOperands) {
+    SmallVectorImpl<DestinationOperandMaterializationResult>
+        &destinationOperands) {
   destinationOperands.reserve(op.getNumResults());
   for (OpResult res : op->getOpResults()) {
     FailureOr<DestinationOperandMaterializationResult> destResult =
         materializeDestinationOperand(rewriter, res.getLoc(), op,
                                       res.getResultNumber(), solver);
-    if (failed(destResult)) {
+    if (failed(destResult))
       return emitError(res.getLoc())
              << "failed to materialize destination operand of type "
              << res.getType();
-    }
     destinationOperands.push_back(*destResult);
   }
   return success();
 }
 
 // Helper function to create DPS closed group op.
-static LogicalResult createDPSClosedGroupOp(
+static LogicalResult createInlineClosedGroupOp(
     RewriterBase &rewriter, plan::InlineGroupOp op, DataFlowSolver &solver,
-    const SmallVector<Value> &inputs,
-    const SmallVector<DestinationOperandMaterializationResult>
-        &destinationOperands) {
+    const ValueRange &inputs,
+    ArrayRef<DestinationOperandMaterializationResult> destinationOperands) {
   InlineClosedGroupOp closedGroupOp = rewriter.create<InlineClosedGroupOp>(
       op.getLoc(), /*target=*/op.getTarget(),
       /*inputs=*/inputs,
@@ -474,8 +472,8 @@ static LogicalResult createDPSClosedGroupOp(
   SmallVector<Value> replacements;
   replacements.reserve(destinationOperands.size());
   for (auto [newResult, destOperand, originalType] :
-       llvm::zip(closedGroupOp->getResults(), destinationOperands,
-                 op->getResultTypes())) {
+       llvm::zip_equal(closedGroupOp->getResults(), destinationOperands,
+                       op->getResultTypes())) {
     if (destOperand.strategy ==
         DestinationOperandMaterializationStrategy::ExactShape) {
       replacements.push_back(newResult);
@@ -500,8 +498,9 @@ static LogicalResult createDPSClosedGroupOp(
   for (const DestinationOperandMaterializationResult &dest :
        destinationOperands) {
     auto boundsAttr = BoundsAttr::getChecked(
-        mlir::detail::getDefaultDiagnosticEmitFn(op->getLoc()), rewriter.getContext(),
-        BoundsKind::Shape, ArrayRef(dest.constantShapeLowerBound),
+        mlir::detail::getDefaultDiagnosticEmitFn(op->getLoc()),
+        rewriter.getContext(), BoundsKind::Shape,
+        ArrayRef(dest.constantShapeLowerBound),
         ArrayRef(dest.constantShapeUpperBound));
     if (!boundsAttr)
       return failure();
@@ -510,8 +509,9 @@ static LogicalResult createDPSClosedGroupOp(
   closedGroupOp.setResAttrsAttr(resultAttrs);
 
   // Create the closed region input profilw attrs.
-  auto inputAttr = getInputAttributes(rewriter, solver, closedGroupOp->getLoc(),
-                                      closedGroupOp.getInputs());
+  FailureOr<SmallVector<BoundsAttr>> inputAttr = getInputAttributes(
+      rewriter, solver, closedGroupOp->getLoc(), closedGroupOp.getInputs());
+
   if (failed(inputAttr))
     return emitError(closedGroupOp.getLoc())
            << "failed to compute input attribute ";
@@ -523,12 +523,12 @@ static LogicalResult createDPSClosedGroupOp(
 
 // Helper function to create non-DPS closed group op.
 static LogicalResult
-createNonDPSClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
-                          DataFlowSolver &solver,
-                          const SmallVector<Value> &inputs) {
+createInlineClosedAllocGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
+                               DataFlowSolver &solver,
+                               const SmallVector<Value> &inputs) {
   // Create a new closed group op and move blocks into it.
-  InlineClosedGroupNonDPSOp closedGroupOp =
-      rewriter.create<InlineClosedGroupNonDPSOp>(
+  InlineClosedAllocGroupOp closedGroupOp =
+      rewriter.create<InlineClosedAllocGroupOp>(
           op.getLoc(), /*result type*/ op->getResultTypes(),
           /*target=*/op.getTarget(),
           /*inputs=*/inputs);
@@ -539,11 +539,16 @@ createNonDPSClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
       closedGroupOp.getRegion().getArguments().take_front(
           op.getRegion().getNumArguments()));
 
+  // Since we are about to replace values that may be inputs to other regions
+  // ops, we need to update the solver to populate the replacement TensorKind
+  // information.
+  remapAnalysisState(solver, op->getResults(), closedGroupOp->getResults());
   rewriter.replaceOp(op, closedGroupOp->getResults());
 
   // Create the closed region input profilw attrs.
-  auto inputAttr = getInputAttributes(rewriter, solver, closedGroupOp->getLoc(),
-                                      closedGroupOp.getInputs());
+  FailureOr<SmallVector<BoundsAttr>> inputAttr = getInputAttributes(
+      rewriter, solver, closedGroupOp->getLoc(), closedGroupOp.getInputs());
+
   if (failed(inputAttr))
     return emitError(closedGroupOp.getLoc())
            << "failed to compute input attribute ";
@@ -556,12 +561,12 @@ createNonDPSClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
 static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
                                          plan::InlineGroupOp op,
                                          DataFlowSolver &solver,
-                                         bool useNonDPSCallConv) {
+                                         bool enableNonDPSReturns) {
   OpBuilder::InsertionGuard g(rewriter);
 
   // Materialize destination operands if not using non-DPS call convention.
   SmallVector<DestinationOperandMaterializationResult> destinationOperands;
-  if (!useNonDPSCallConv)
+  if (!enableNonDPSReturns)
     if (failed(materializeDestinationOperands(rewriter, op, solver,
                                               destinationOperands)))
       return failure();
@@ -576,10 +581,10 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
 
   // Create and populate the appropriate closed group op based on call
   // convention.
-  if (!useNonDPSCallConv)
-    return createDPSClosedGroupOp(rewriter, op, solver, inputs,
-                                  destinationOperands);
-  return createNonDPSClosedGroupOp(rewriter, op, solver, inputs);
+  if (!enableNonDPSReturns)
+    return createInlineClosedGroupOp(rewriter, op, solver, inputs,
+                                     destinationOperands);
+  return createInlineClosedAllocGroupOp(rewriter, op, solver, inputs);
 }
 
 namespace {
@@ -624,7 +629,7 @@ public:
     IRRewriter rewriter(ctx);
     for (InlineGroupOp groupOp : groupOps) {
       if (failed(createClosedGroupOp(rewriter, groupOp, solver,
-                                     useNonDPSCallConv)))
+                                     enableNonDPSReturns)))
         return signalPassFailure();
     }
   }

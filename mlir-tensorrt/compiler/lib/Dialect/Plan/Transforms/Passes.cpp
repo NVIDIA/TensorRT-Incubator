@@ -45,7 +45,7 @@ void plan::buildPlanSegmentationPipeline(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
   pm.addPass(plan::createStablehloClusteringPass(opts));
   plan::CreateClosedRegionsPassOptions closedRegionOptions{};
-  closedRegionOptions.useNonDPSCallConv = opts.useNonDPSCallConv;
+  closedRegionOptions.enableNonDPSReturns = opts.enableNonDPSReturns;
   pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));
   pm.addPass(plan::createOutlineClustersPass());
   pm.addPass(mlir::createFuncExtDuplicateFunctionEliminationPass());
@@ -76,10 +76,9 @@ struct ClusteringPipelineCliOpts
     : public PassPipelineOptions<ClusteringPipelineCliOpts> {
   Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init(""),
                                  llvm::cl::desc("name of entrypoint function")};
-  Option<bool> useNonDPSCallConv{
-      *this, "use-non-dps-call-conv",
-      llvm::cl::desc(
-          "allow tensorrt based output allocations using output allocator"),
+  Option<bool> enableNonDPSReturns{
+      *this, "enable-non-dps-returns",
+      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
       llvm::cl::init(false)};
   Option<bool> disallowHostTensorsInTensorRTClusters{
       *this, "disallow-host-tensors-in-tensorrt-clusters",
@@ -93,10 +92,9 @@ struct ClusteringPipelineCliOpts
 
 struct PlanBufferizationPipelineCliOpts
     : public PassPipelineOptions<PlanBufferizationPipelineCliOpts> {
-  Option<bool> useNonDPSCallConv{
-      *this, "use-non-dps-call-conv",
-      llvm::cl::desc(
-          "allow tensorrt based output allocations using output allocator"),
+  Option<bool> enableNonDPSReturns{
+      *this, "enable-non-dps-returns",
+      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
       llvm::cl::init(false)};
 };
 
@@ -111,7 +109,7 @@ void plan::registerPlanDialectPipelines() {
           "perform bufferization and standard pre/post processing passes",
           [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
             PlanAllocTensorsPassOptions allocTensorOpts{};
-            allocTensorOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
+            allocTensorOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
             buildPlanBufferizationPipeline(pm, allocTensorOpts);
             buildPlanBufferOptimizationPipeline(pm);
           });
@@ -125,7 +123,7 @@ void plan::registerPlanDialectPipelines() {
         clusterOpts.disallowHostTensorsInTensorRTClusters =
             opts.disallowHostTensorsInTensorRTClusters;
         clusterOpts.entrypoint = opts.entrypoint;
-        clusterOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
+        clusterOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
         buildPlanSegmentationPipeline(pm, clusterOpts);
       });
 }

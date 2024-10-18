@@ -284,7 +284,7 @@ public:
     for (func::FuncOp func : funcs) {
       if (failed(applyClusteringToFunc(
               rewriter, func, solver, schedule,
-              StablehloClusteringPassOptions{entrypoint, useNonDPSCallConv,
+              StablehloClusteringPassOptions{entrypoint, enableNonDPSReturns,
                                              false, false, trtMajorVersion})))
         return signalPassFailure();
     }

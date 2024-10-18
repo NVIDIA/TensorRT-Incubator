@@ -857,7 +857,7 @@ public:
     }
 
     IRRewriter rewriter(ctx);
-    if (!useNonDPSCallConv) {
+    if (!enableNonDPSReturns) {
       // First rewrite public functions to conform to DPS style.
       if (failed(rewriteNotPrivateFuncsToDPS(rewriter, op))) {
         op->emitError("Failed to convert non-private functions to DPS");

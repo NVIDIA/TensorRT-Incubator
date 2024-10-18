@@ -295,7 +295,7 @@ void InlineGroupOp::getSuccessorRegions(
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedGroupOp and InlineClosedGroupNonDPSOp Helpers
+// InlineClosedGroupOp and InlineClosedAllocGroupOp Helpers
 //===----------------------------------------------------------------------===//
 
 static LogicalResult
@@ -468,15 +468,19 @@ void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedGroupNonDPSOp
+// InlineClosedAllocGroupOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult InlineClosedGroupNonDPSOp::verify() {
-  return verifyBoundsAttrs(getOperation(), getInputs(), getInputAttrs(),
-                           "inputs", "input_attrs");
+LogicalResult InlineClosedAllocGroupOp::verify() {
+  Operation *op = getOperation();
+  // Check for res_attrs
+  if (op->hasAttr("res_attrs"))
+    return op->emitOpError("must not contain 'res_attrs' attribute");
+  return verifyBoundsAttrs(op, getInputs(), getInputAttrs(), "inputs",
+                           "input_attrs");
 }
 
-void InlineClosedGroupNonDPSOp::getSuccessorRegions(
+void InlineClosedAllocGroupOp::getSuccessorRegions(
     RegionBranchPoint point, SmallVectorImpl<RegionSuccessor> &regions) {
   // If the predecessor is the InlineClosedGroupOp, branch into the body.
   if (point.isParent()) {
@@ -488,25 +492,22 @@ void InlineClosedGroupNonDPSOp::getSuccessorRegions(
 }
 
 OperandRange
-InlineClosedGroupNonDPSOp::getEntrySuccessorOperands(RegionBranchPoint point) {
+InlineClosedAllocGroupOp::getEntrySuccessorOperands(RegionBranchPoint point) {
   return getOperands();
 }
 
-void InlineClosedGroupNonDPSOp::getAsmBlockArgumentNames(
+void InlineClosedAllocGroupOp::getAsmBlockArgumentNames(
     Region &region, OpAsmSetValueNameFn setNameFn) {
-  assert(region.front().getNumArguments() == getInputs().size() &&
+  assert(region.getNumArguments() == getInputs().size() &&
          "expected one block arg for each input argument");
-  unsigned numInputs = getInputs().size();
-  for (BlockArgument arg : region.front().getArguments()) {
-    assert(arg.getArgNumber() < numInputs);
+  for (BlockArgument arg : region.getArguments())
     setNameFn(arg, "in");
-  }
 }
 
-void InlineClosedGroupNonDPSOp::build(OpBuilder &b, OperationState &state,
-                                      TypeRange resultTypes, Attribute target,
-                                      ValueRange inputs,
-                                      ArrayRef<BoundsAttr> input_attrs) {
+void InlineClosedAllocGroupOp::build(OpBuilder &b, OperationState &state,
+                                     TypeRange resultTypes, Attribute target,
+                                     ValueRange inputs,
+                                     ArrayRef<BoundsAttr> input_attrs) {
   state.addTypes(resultTypes);
   state.addOperands(inputs);
   state.getOrAddProperties<Properties>().target = target;

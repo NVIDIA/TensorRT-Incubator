@@ -248,9 +248,9 @@ def StablehloClusteringPass : Pass<"stablehlo-clustering", "::mlir::ModuleOp"> {
     Option<"entrypoint", "entrypoint", "std::string", "\"\"",
       "the name of the entrypoint function; if empty then the clustering runs"
       " on all functions">,
-    Option<"useNonDPSCallConv",
-      "use-non-dps-call-conv", "bool", "false",
-      "allow tensorrt based output allocations using output allocator">,      
+    Option<"enableNonDPSReturns",
+      "enable-non-dps-returns", "bool", "false",
+      "allow backend clusters to directly allocate outputs">,      
     Option<"disallowHostTensorsInTensorRTClusters",
       "disallow-host-tensors-in-tensorrt-clusters", "bool", "false",
       "don't cluster host tensors in TensorRT clusters">,
@@ -336,9 +336,9 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
       "(used only in testing) specifies to outline regions by walking in "
       " pre-order; used for verifying results are not sensitive "
       "to traversal order">,
-    Option<"useNonDPSCallConv", "use-non-dps-call-conv", "bool", 
+    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool", 
            /*default=*/"false", 
-           "Allow TensorRT-based output allocations using output allocator">
+           "Allow backend clusters to directly allocate outputs">
   ];
 
   let dependentDialects = [
@@ -436,9 +436,9 @@ def PlanAllocTensorsPass : Pass<"plan-alloc-tensors",
   ];
 
   let options = [
-    Option<"useNonDPSCallConv", "use-non-dps-call-conv", "bool", 
+    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool", 
            /*default=*/"false", 
-           "Allow TensorRT-based output allocations using output allocator">
+           "Allow backend clusters to directly allocate outputs">
   ];
 
 }
