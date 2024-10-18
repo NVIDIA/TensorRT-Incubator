@@ -106,6 +106,8 @@ static ClusterKindAttrInterface getClusterTargetForRegionOp(Operation *op) {
     return cast<ClusterKindAttrInterface>(regionOp.getTarget());
   if (auto regionOp = dyn_cast<plan::InlineClosedGroupOp>(op))
     return cast<ClusterKindAttrInterface>(regionOp.getTarget());
+  if (auto regionOp = dyn_cast<plan::InlineClosedAllocGroupOp>(op))
+    return cast<ClusterKindAttrInterface>(regionOp.getTarget());
   llvm_unreachable("unknown cluster region op kind");
 }
 
@@ -264,6 +266,12 @@ static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
   return success();
 }
 
+static LogicalResult outlineTensorRTRegion(RewriterBase &rewriter,
+                                           plan::InlineClosedAllocGroupOp op) {
+  return op.emitError("outlinining inline closed alloc group ops to tensorrt "
+                      "dialect is not yet implemented");
+}
+
 /// Create outlined functions for each `scf.execute_region` operation within
 /// `region`.
 static FailureOr<SmallVector<FunctionOpInterface>>
@@ -272,7 +280,8 @@ createFunctionsFromRegions(RewriterBase &rewriter, Region &region,
   SmallVector<FunctionOpInterface> outlinedFuncs;
 
   WalkResult result = region.walk([&](Operation *op) {
-    if (!isa<plan::InlineGroupOp, plan::InlineClosedGroupOp>(op))
+    if (!isa<plan::InlineGroupOp, plan::InlineClosedGroupOp,
+             plan::InlineClosedAllocGroupOp>(op))
       return WalkResult::advance();
 
     if (!isa<TensorRTClusterKindAttr>(getClusterTargetForRegionOp(op))) {
@@ -292,8 +301,13 @@ createFunctionsFromRegions(RewriterBase &rewriter, Region &region,
       return WalkResult::advance();
     }
 
-    if (auto dpsGroup = dyn_cast<plan::InlineClosedGroupOp>(op)) {
-      if (failed(outlineTensorRTRegion(rewriter, dpsGroup)))
+    if (auto group = dyn_cast<plan::InlineClosedGroupOp>(op)) {
+      if (failed(outlineTensorRTRegion(rewriter, group)))
+        return WalkResult::interrupt();
+      return WalkResult::advance();
+    }
+    if (auto allocGroup = dyn_cast<plan::InlineClosedAllocGroupOp>(op)) {
+      if (failed(outlineTensorRTRegion(rewriter, allocGroup)))
         return WalkResult::interrupt();
       return WalkResult::advance();
     }

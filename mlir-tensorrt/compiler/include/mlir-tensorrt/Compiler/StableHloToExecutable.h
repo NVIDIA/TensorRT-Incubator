@@ -128,6 +128,10 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Whether to disallow host tensors in TensorRT clusters.
   bool disallowHostTensorsInTensorRTClusters = false;
 
+  /// Use non-DPS style calling convention for entrypoint function
+  /// and backend types that support allocating results.
+  bool enableNonDPSReturns = false;
+
   /// Entrypoint function name.
   std::string entrypoint = "main";
 
