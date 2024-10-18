@@ -49,16 +49,16 @@ struct EnqueueOpInterface
   /// outputs in our use-case.
   bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
                               const bufferization::AnalysisState &state) const {
-    EnqueueOp callOp = cast<EnqueueOp>(op);
-    return callOp.isDpsInput(&opOperand);
+    EnqueueOp enqueueOp = cast<EnqueueOp>(op);
+    return enqueueOp.isDpsInput(&opOperand);
   }
 
   /// Only dps inits are written.
   bool
   bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
                           const bufferization::AnalysisState &state) const {
-    EnqueueOp callOp = cast<EnqueueOp>(op);
-    return callOp.isDpsInit(&opOperand);
+    EnqueueOp enqueueOp = cast<EnqueueOp>(op);
+    return enqueueOp.isDpsInit(&opOperand);
   }
 
   // TensorRT will guarantee that the input will be read before the result
@@ -72,21 +72,20 @@ struct EnqueueOpInterface
   /// Bufferize the `trtrt.enqueue` operation.
   LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
                           const BufferizationOptions &options) const {
-    EnqueueOp callOp = cast<EnqueueOp>(op);
+    EnqueueOp enqueueOp = cast<EnqueueOp>(op);
     MLIRContext *ctx = op->getContext();
     Location loc = op->getLoc();
-    rewriter.setInsertionPoint(callOp);
+    rewriter.setInsertionPoint(enqueueOp);
 
     // For the inputs, check the memory space and insert a copy if it is not in
     // the correct space.
     SmallVector<Value> newInputBuffers;
-    newInputBuffers.reserve(callOp.getNumDpsInputs());
-    for (auto [idx, opOperand] :
-         llvm::enumerate(callOp.getDpsInputOperands())) {
+    newInputBuffers.reserve(enqueueOp.getNumDpsInputs());
+    for (OpOperand *opOperand : enqueueOp.getDpsInputOperands()) {
 
       // The context and steam operands are considered "DPS inputs" and
       // therefore they'll be skipped here.
-      if (callOp.isScalar(opOperand)) {
+      if (enqueueOp.isScalar(opOperand)) {
         newInputBuffers.push_back(opOperand->get());
         continue;
       }
@@ -99,7 +98,7 @@ struct EnqueueOpInterface
       // Check if this input is a host tensor. Insert a copy if required. Note
       // that we subtract two from the index to account for context/stream
       // arguments.
-      if (callOp.isOperandOnHost(idx) &&
+      if (enqueueOp.isOperandOnHost(opOperand) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::host_pinned)) {
         FailureOr<Value> pinnedAlloc = options.createAlloc(
             rewriter, op->getLoc(),
@@ -117,7 +116,7 @@ struct EnqueueOpInterface
       }
 
       // If we are in host space, then copy to the device.
-      if (!callOp.isOperandOnHost(idx) &&
+      if (!enqueueOp.isOperandOnHost(opOperand) &&
           !isInMemorySpace(memRefType, plan::MemorySpace::device)) {
         FailureOr<Value> devAlloc = options.createAlloc(
             rewriter, op->getLoc(),
@@ -139,10 +138,10 @@ struct EnqueueOpInterface
     }
 
     SmallVector<Value> newOutputBuffers;
-    newOutputBuffers.reserve(callOp.getNumDpsInits());
+    newOutputBuffers.reserve(enqueueOp.getNumDpsInits());
     for (OpResult opResult : op->getOpResults()) {
       OpOperand *opOperand =
-          callOp.getDpsInitOperand(opResult.getResultNumber());
+          enqueueOp.getDpsInitOperand(opResult.getResultNumber());
       FailureOr<Value> resultBuffer =
           getBuffer(rewriter, opOperand->get(), options);
       if (failed(resultBuffer))
@@ -153,8 +152,142 @@ struct EnqueueOpInterface
     rewriter.create<EnqueueOp>(
         op->getLoc(), newInputBuffers[0], newInputBuffers[1],
         ValueRange(newInputBuffers).drop_front(2), newOutputBuffers,
-        callOp.getHostTensorArgsAttr());
+        enqueueOp.getHostTensorArgsAttr());
     replaceOpWithBufferizedValues(rewriter, op, newOutputBuffers);
+    return success();
+  }
+};
+
+struct EnqueueAllocOpInterface
+    : public bufferization::BufferizableOpInterface::ExternalModel<
+          EnqueueAllocOpInterface, EnqueueAllocOp> {
+  bool bufferizesToMemoryRead(Operation *op, OpOperand &opOperand,
+                              const bufferization::AnalysisState &state) const {
+    auto enqueueAllocOp = cast<EnqueueAllocOp>(op);
+    OperandRange inputs = enqueueAllocOp.getInputs();
+    return std::find(inputs.begin(), inputs.end(), opOperand.get()) !=
+           inputs.end();
+  }
+
+  bool
+  bufferizesToMemoryWrite(Operation *op, OpOperand &opOperand,
+                          const bufferization::AnalysisState &state) const {
+    return false; // This op doesn't write to its inputs
+  }
+
+  bufferization::AliasingValueList
+  getAliasingValues(Operation *op, OpOperand &opOperand,
+                    const bufferization::AnalysisState &state) const {
+    return {};
+  }
+
+  bool mustBufferizeInPlace(Operation *op, OpOperand &opOperand,
+                            const bufferization::AnalysisState &state) const {
+    // EnqueueAllocOp creates new outputs, doesn't modify inputs in-place
+    return false;
+  }
+
+  SmallVector<OpResult>
+  getAliasingOpResult(Operation *op, OpOperand &opOperand,
+                      const bufferization::AnalysisState &state) const {
+    return {}; // This op doesn't alias its inputs to its outputs
+  }
+
+  bool bufferizesToElementwiseAccess(Operation *op,
+                                     const bufferization::AnalysisState &state,
+                                     ArrayRef<OpOperand *> opOperands) const {
+    return true;
+  }
+
+  LogicalResult bufferize(Operation *op, RewriterBase &rewriter,
+                          const BufferizationOptions &options) const {
+    auto enqueueAllocOp = cast<EnqueueAllocOp>(op);
+    MLIRContext *ctx = op->getContext();
+    Location loc = op->getLoc();
+    rewriter.setInsertionPoint(enqueueAllocOp);
+
+    // Handle inputs
+    SmallVector<Value> newInputBuffers;
+    newInputBuffers.reserve(enqueueAllocOp.getInputs().size());
+    for (OpOperand &opOperand : enqueueAllocOp->getOpOperands()) {
+      if (!isa<RankedTensorType>(opOperand.get().getType()))
+        continue;
+      FailureOr<Value> buffer = getBuffer(rewriter, opOperand.get(), options);
+      if (failed(buffer))
+        return failure();
+
+      MemRefType memRefType = cast<MemRefType>(buffer->getType());
+
+      // Handle host tensor inputs
+      if (enqueueAllocOp.isOperandOnHost(&opOperand) &&
+          !isInMemorySpace(memRefType, plan::MemorySpace::host_pinned)) {
+        FailureOr<Value> pinnedAlloc = options.createAlloc(
+            rewriter, loc,
+            MemRefType::get(memRefType.getShape(), memRefType.getElementType(),
+                            memRefType.getLayout(),
+                            plan::MemorySpaceAttr::get(
+                                ctx, plan::MemorySpace::host_pinned)),
+            ValueRange{});
+        if (failed(pinnedAlloc))
+          return failure();
+        if (failed(options.createMemCpy(rewriter, loc, *buffer, *pinnedAlloc)))
+          return failure();
+        newInputBuffers.push_back(*pinnedAlloc);
+        continue;
+      }
+
+      // Handle device tensor inputs
+      if (!enqueueAllocOp.isOperandOnHost(&opOperand) &&
+          !isInMemorySpace(memRefType, plan::MemorySpace::device)) {
+        FailureOr<Value> devAlloc = options.createAlloc(
+            rewriter, loc,
+            MemRefType::get(
+                memRefType.getShape(), memRefType.getElementType(),
+                memRefType.getLayout(),
+                plan::MemorySpaceAttr::get(ctx, plan::MemorySpace::device)),
+            ValueRange{});
+        if (failed(devAlloc))
+          return failure();
+        if (failed(options.createMemCpy(rewriter, loc, *buffer, *devAlloc)))
+          return failure();
+        newInputBuffers.push_back(*devAlloc);
+        continue;
+      }
+
+      newInputBuffers.push_back(*buffer);
+    }
+
+    // Handle results
+    SmallVector<Type> outputBufferTypes;
+    outputBufferTypes.reserve(enqueueAllocOp.getNumResults());
+    for (unsigned i = 0; i < enqueueAllocOp.getNumResults(); ++i) {
+      Type resultType = enqueueAllocOp->getResultTypes()[i];
+      assert(isa<RankedTensorType>(resultType) &&
+             "result must be a ranked tensor type");
+      auto tensorType = dyn_cast<RankedTensorType>(resultType);
+
+      // Create dynamic strides, TODO: should we use ShapedType::kDynamic for a
+      // dynamic offset
+      SmallVector<int64_t> strides(tensorType.getRank(), ShapedType::kDynamic);
+
+      // TODO: Using layout result in an extra memory.alloc from
+      // memref<?x?x?x?xf32, strided<[?, ?, ?, ?]>, #plan.memory_space<device>>
+      // to memref<?x?x?x?xf32, #plan.memory_space<device>> auto layout =
+      // StridedLayoutAttr::get(ctx, 0 /* offset */, strides);
+
+      auto memRefType = MemRefType::get(
+          tensorType.getShape(), tensorType.getElementType(),
+          MemRefLayoutAttrInterface(),
+          plan::MemorySpaceAttr::get(ctx, plan::MemorySpace::device));
+      outputBufferTypes.push_back(memRefType);
+    }
+
+    // Create the new operation
+    auto bufferizedOp = rewriter.create<EnqueueAllocOp>(
+        loc, TypeRange(outputBufferTypes), enqueueAllocOp.getExecutionContext(),
+        enqueueAllocOp.getStream(), newInputBuffers,
+        enqueueAllocOp.getHostTensorArgsAttr());
+    replaceOpWithBufferizedValues(rewriter, op, bufferizedOp.getResults());
     return success();
   }
 };
@@ -166,5 +299,6 @@ void trtrt::registerBufferizableOpInterfaceExternalModels(
   registry.addExtension(
       +[](MLIRContext *ctx, trtrt::TensorRTRuntimeDialect *dialect) {
         trtrt::EnqueueOp::attachInterface<EnqueueOpInterface>(*ctx);
+        trtrt::EnqueueAllocOp::attachInterface<EnqueueAllocOpInterface>(*ctx);
       });
 }
