@@ -142,7 +142,11 @@ def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Ten
     if isinstance(input, Shape) and len(shape) == 1 and isinstance(shape[0], int):
         output_len = shape[0]
 
-    return reshape_impl(input, shape, len(shape), output_len)
+    out = reshape_impl(input, shape, len(shape), output_len)
+    # If the output shape is known at compile time, assign it to prevent computing shape of trace tensor which is expensive to compute.
+    if all(map(lambda s: isinstance(s, int) and s > 0, shape)):
+        out.trace_tensor.shape = shape
+    return out
 
 
 @dataclass(repr=False)
@@ -306,6 +310,10 @@ def flatten(input: "tripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "tr
     """
 
     # Infer the actual dimensions to flatten based on start_dim and end_dim.
+
+    if start_dim < 0:
+        start_dim += input.rank
+
     if end_dim < 0:
         end_dim += input.rank
 
@@ -323,4 +331,5 @@ def flatten(input: "tripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "tr
     # The new shape combines the dimensions before start_dim, the flattened dimension, and dimensions after end_dim.
     flattened_shape = input.shape[:start_dim] + Shape(reshape(flattened_dim_size, (1,))) + input.shape[end_dim + 1 :]
 
-    return reshape_impl(input, flattened_shape, len(flattened_shape))
+    out = reshape_impl(input, flattened_shape, len(flattened_shape))
+    return out

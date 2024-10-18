@@ -118,3 +118,5 @@ model:
 
   use_tripy_mask_decoder: False
   use_tripy_prompt_encoder: False
+
+  tripy_mask_decoder_dtype: float32

@@ -219,10 +219,56 @@ def __getitem__(
     from tripy.frontend.trace.ops.gather import gather
     from tripy.frontend.trace.ops.reshape import squeeze
     from tripy.frontend.trace.ops.where import where
+    from tripy.frontend.trace.ops.cast import cast
+    from tripy.frontend.trace.ops.reshape import reshape
+    from tripy.common.datatype import int32
 
     # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
     if isinstance(index, Tensor):
         return gather(self, 0, index)
+
+    # if isinstance(index, tuple) and any(isinstance(idx, Tensor) for idx in index):
+    #     result = self
+    #     dim_offset = 0
+    #     for dim, idx in enumerate(index):
+    #         if isinstance(idx, Tensor):
+    #             if idx.rank == 0:
+    #                 # For scalar tensor indices, we need to add a dimension
+    #                 idx = reshape(idx, (1,))
+
+    #             # Perform gather operation
+    #             result = gather(result, dim - dim_offset, idx)
+
+    #             # If the index tensor was scalar (rank 0), we need to squeeze the gathered dimension
+    #             if idx.rank == 0 or idx.shape[0] == 1:
+    #                 print("!!")
+    #                 result = squeeze(result, dim - dim_offset)
+    #                 dim_offset += 1
+    #             print(result)
+
+    #         elif isinstance(idx, (int, slice)):
+    #             full_slice = tuple(idx if i == dim else slice(None) for i in range(result.rank))
+    #             result = result[full_slice]
+    #         else:
+    #             raise TypeError(f"Unsupported index type: {type(idx)}")
+    #     return result
+
+    # # Handle tuple of indices
+    # if isinstance(index, tuple):
+    #     tensor_indices = [idx for idx in index if isinstance(idx, Tensor)]
+    #     if tensor_indices:
+    #         result = self
+    #         for dim, idx in enumerate(index):
+    #             if isinstance(idx, Tensor):
+    #                 # Reshape the index tensor to match the shape of the result
+    #                 idx_shape = result.shape[:dim] + [-1] + result.shape[dim:]
+    #                 import pdb; pdb.set_trace()
+    #                 print(idx_shape, idx.shape)
+    #                 reshaped_idx = reshape(idx, idx_shape)
+
+    #                 # Perform gather along the current dimension
+    #                 result = gather(result, dim, reshaped_idx)
+    #         return result
 
     # if we are taking a literal slice of a shape, we can pass on the slice to infer the length of the shape statically
     shape_slice = None
@@ -247,6 +293,7 @@ def __getitem__(
             if isinstance(index, int):
                 return index if index >= 0 else index + t_shape[i]
             else:
+                # index = cast(index, int32)
                 return where(index >= 0, index, t_shape[i] + index)
 
         # when dealing with a slice (not a single index), we clamp the start and end bounds to [0, t_shape[i]]

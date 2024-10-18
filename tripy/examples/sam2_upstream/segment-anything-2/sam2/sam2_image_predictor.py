@@ -409,8 +409,8 @@ class SAM2ImagePredictor:
             )
         else:
             sparse_embeddings, dense_embeddings = self.model.sam_prompt_encoder(
-                points_x=tp.Tensor(concat_points[0]),
-                points_y=tp.Tensor(concat_points[1]),
+                points_x=tp.Tensor(concat_points[0].contiguous()),
+                points_y=tp.Tensor(concat_points[1].contiguous()),
                 # boxes=None,
                 # masks=tp.Tensor(mask_input) if mask_input is not None else None,
             )
@@ -420,7 +420,7 @@ class SAM2ImagePredictor:
         # Predict masks
         batched_mode = concat_points is not None and concat_points[0].shape[0] > 1  # multi object prediction
         high_res_features = [feat_level[img_idx].unsqueeze(0) for feat_level in self._features["high_res_feats"]]
-
+        self.dense_pe = self.model.sam_prompt_encoder.get_dense_pe()
         if self.use_tripy_mask_decoder:
             low_res_masks, iou_predictions, _, _ = self.model.sam_mask_decoder(
                 image_embeddings=tp.Tensor(self._features["image_embed"][img_idx].unsqueeze(0).contiguous()),

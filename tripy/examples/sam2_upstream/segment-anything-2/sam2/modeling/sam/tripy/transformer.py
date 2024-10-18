@@ -28,6 +28,7 @@ class TwoWayTransformer(tp.Module):
         mlp_dim: int,
         activation: Type[tp.Module] = tp.relu,
         attention_downsample_rate: int = 2,
+        dtype=tp.float32,
     ) -> None:
         """
         A transformer decoder that attends to an input image using
@@ -57,11 +58,12 @@ class TwoWayTransformer(tp.Module):
                     activation=activation,
                     attention_downsample_rate=attention_downsample_rate,
                     skip_first_layer_pe=(i == 0),
+                    dtype=dtype,
                 )
             )
 
         self.final_attn_token_to_image = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate
+            embedding_dim, num_heads, downsample_rate=attention_downsample_rate, dtype=dtype
         )
         self.norm_final_attn = tp.LayerNorm(embedding_dim)
 
@@ -116,7 +118,8 @@ class TwoWayTransformer(tp.Module):
         k = keys + image_pe
         attn_out = self.final_attn_token_to_image(q=q, k=k, v=keys)
         queries = queries + attn_out
-        queries = self.norm_final_attn(queries)
+        queries = tp.cast(self.norm_final_attn(tp.cast(queries, self.norm_final_attn.dtype)), queries.dtype)
+        # queries = self.norm_final_attn(queries)
 
         return queries, keys
 
@@ -130,6 +133,7 @@ class TwoWayAttentionBlock(tp.Module):
         activation: Type[tp.Module] = tp.relu,
         attention_downsample_rate: int = 2,
         skip_first_layer_pe: bool = False,
+        dtype=tp.float32,
     ) -> None:
         """
         A transformer block with four layers: (1) self-attention of sparse
@@ -145,34 +149,28 @@ class TwoWayAttentionBlock(tp.Module):
           skip_first_layer_pe (bool): skip the PE on the first layer
         """
         super().__init__()
-        self.self_attn = Attention(embedding_dim, num_heads)
+        self.self_attn = Attention(embedding_dim, num_heads, dtype=dtype)
         self.norm1 = tp.LayerNorm(embedding_dim)
 
         self.cross_attn_token_to_image = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate
+            embedding_dim, num_heads, downsample_rate=attention_downsample_rate, dtype=dtype
         )
         self.norm2 = tp.LayerNorm(embedding_dim)
 
-        self.mlp = MLP(
-            embedding_dim, mlp_dim, embedding_dim, num_layers=2, activation=activation
-        )
+        self.mlp = MLP(embedding_dim, mlp_dim, embedding_dim, num_layers=2, activation=activation, dtype=dtype)
         self.norm3 = tp.LayerNorm(embedding_dim)
 
         self.norm4 = tp.LayerNorm(embedding_dim)
         self.cross_attn_image_to_token = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate
+            embedding_dim, num_heads, downsample_rate=attention_downsample_rate, dtype=dtype
         )
 
         self.skip_first_layer_pe = skip_first_layer_pe
 
-    def __call__(
-        self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor
-    ) -> Tuple[Tensor, Tensor]:
+    def __call__(self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor) -> Tuple[Tensor, Tensor]:
         return self.forward(queries, keys, query_pe, key_pe)
 
-    def forward(
-        self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor
-    ) -> Tuple[Tensor, Tensor]:
+    def forward(self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor) -> Tuple[Tensor, Tensor]:
         # Self attention block
         if self.skip_first_layer_pe:
             queries = self.self_attn(q=queries, k=queries, v=queries)
@@ -180,26 +178,31 @@ class TwoWayAttentionBlock(tp.Module):
             q = queries + query_pe
             attn_out = self.self_attn(q=q, k=q, v=queries)
             queries = queries + attn_out
-        queries = self.norm1(queries)
+
+        queries = tp.cast(self.norm1(tp.cast(queries, self.norm1.dtype)), queries.dtype)
 
         # Cross attention block, tokens attending to image embedding
         q = queries + query_pe
         k = keys + key_pe
         attn_out = self.cross_attn_token_to_image(q=q, k=k, v=keys)
         queries = queries + attn_out
-        queries = self.norm2(queries)
+
+        queries = tp.cast(self.norm2(tp.cast(queries, self.norm2.dtype)), queries.dtype)
+        # queries = self.norm2(queries)
 
         # MLP block
         mlp_out = self.mlp(queries)
         queries = queries + mlp_out
-        queries = self.norm3(queries)
+        queries = tp.cast(self.norm3(tp.cast(queries, self.norm3.dtype)), queries.dtype)
+        # queries = self.norm3(queries)
 
         # Cross attention block, image embedding attending to tokens
         q = queries + query_pe
         k = keys + key_pe
         attn_out = self.cross_attn_image_to_token(q=k, k=q, v=queries)
         keys = keys + attn_out
-        keys = self.norm4(keys)
+        keys = tp.cast(self.norm4(tp.cast(keys, self.norm4.dtype)), keys.dtype)
+        # keys = self.norm4(keys)
 
         return queries, keys
 
@@ -217,20 +220,19 @@ class Attention(tp.Module):
         downsample_rate: int = 1,
         dropout: float = 0.0,
         kv_in_dim: int = None,
+        dtype=tp.float32,
     ) -> None:
         super().__init__()
         self.embedding_dim = embedding_dim
         self.kv_in_dim = kv_in_dim if kv_in_dim is not None else embedding_dim
         self.internal_dim = embedding_dim // downsample_rate
         self.num_heads = num_heads
-        assert (
-            self.internal_dim % num_heads == 0
-        ), "num_heads must divide embedding_dim."
+        assert self.internal_dim % num_heads == 0, "num_heads must divide embedding_dim."
 
-        self.q_proj = tp.Linear(embedding_dim, self.internal_dim)
-        self.k_proj = tp.Linear(self.kv_in_dim, self.internal_dim)
-        self.v_proj = tp.Linear(self.kv_in_dim, self.internal_dim)
-        self.out_proj = tp.Linear(self.internal_dim, embedding_dim)
+        self.q_proj = tp.Linear(embedding_dim, self.internal_dim, dtype=dtype)
+        self.k_proj = tp.Linear(self.kv_in_dim, self.internal_dim, dtype=dtype)
+        self.v_proj = tp.Linear(self.kv_in_dim, self.internal_dim, dtype=dtype)
+        self.out_proj = tp.Linear(self.internal_dim, embedding_dim, dtype=dtype)
 
         self.dropout_p = dropout
 
@@ -240,13 +242,7 @@ class Attention(tp.Module):
         return tp.transpose(x, 1, 2)  # B x N_heads x N_tokens x C_per_head
 
     def _recombine_heads(self, x: Tensor) -> Tensor:
-        b, n_head, n_token, c_per_head = (
-            x.shape[0],
-            x.shape[1],
-            x.shape[2],
-            x.shape[3],
-        )
-
+        b, n_head, n_token, c_per_head = x.shape[0], x.shape[1], x.shape[2], x.shape[3]
         x = tp.transpose(x, 1, 2)
         return tp.reshape(x, [b, n_token, n_head * c_per_head])  # B x N_tokens x C
 

@@ -22,6 +22,7 @@ import torch
 import torch.distributed
 import torch.nn.functional as F
 import tripy as tp
+import nvtx
 
 from torch.nn.init import trunc_normal_
 
@@ -39,6 +40,18 @@ from sam2.modeling.sam2_utils import get_1d_sine_pe, MLP, select_closest_cond_fr
 
 # a large negative value as a placeholder score for missing objects
 NO_OBJ_SCORE = -1024.0
+
+
+markers = {}
+events = {}
+
+
+def profile_start(name, color="blue"):
+    markers[name] = nvtx.start_range(message=name, color=color)
+
+
+def profile_stop(name):
+    nvtx.end_range(markers[name])
 
 
 class SAM2Base(torch.nn.Module):
@@ -115,12 +128,13 @@ class SAM2Base(torch.nn.Module):
         compile_image_encoder: bool = False,
         use_tripy_mask_decoder: bool = False,
         use_tripy_prompt_encoder: bool = False,
+        tripy_mask_decoder_dtype="float32",
     ):
         super().__init__()
 
         self.use_tripy_mask_decoder = use_tripy_mask_decoder
         self.use_tripy_prompt_encoder = use_tripy_prompt_encoder
-
+        self.tripy_mask_decoder_dtype = getattr(tp, tripy_mask_decoder_dtype)
         # Part 1: the image backbone
         self.image_encoder = image_encoder
         # Use level 0, 1, 2 for high-res setting, or just level 2 for the default setting
@@ -249,11 +263,13 @@ class SAM2Base(torch.nn.Module):
             )
 
         if self.use_tripy_mask_decoder:
+
             transformer = TripyTwoWayTransformer(
                 depth=2,
                 embedding_dim=self.sam_prompt_embed_dim,
                 mlp_dim=2048,
                 num_heads=8,
+                dtype=self.tripy_mask_decoder_dtype,
             )
             self.sam_mask_decoder = TripyMaskDecoder(
                 num_multimask_outputs=3,
@@ -266,6 +282,7 @@ class SAM2Base(torch.nn.Module):
                 pred_obj_scores=self.pred_obj_scores,
                 pred_obj_scores_mlp=self.pred_obj_scores_mlp,
                 use_multimask_token_for_obj_ptr=self.use_multimask_token_for_obj_ptr,
+                dtype=self.tripy_mask_decoder_dtype,
                 **(self.sam_mask_decoder_extra_args or {}),
             )
 
@@ -388,50 +405,106 @@ class SAM2Base(torch.nn.Module):
             sam_mask_prompt = None
 
         if self.use_tripy_prompt_encoder:
-            sam_point_coords = tp.Tensor(sam_point_coords)
-            sam_point_labels = tp.Tensor(sam_point_labels)
-            sam_mask_prompt = tp.Tensor(sam_mask_prompt)
+            sam_point_coords = tp.Tensor(sam_point_coords.contiguous())
+            sam_point_labels = tp.Tensor(sam_point_labels.contiguous())
+            # sam_mask_prompt = tp.Tensor(sam_mask_prompt.contiguous())
 
             sparse_embeddings, dense_embeddings = self.sam_prompt_encoder(
                 points_x=sam_point_coords,
                 points_y=sam_point_labels,
-                boxes=None,
-                masks=sam_mask_prompt,
+                # boxes=None,
+                # masks=None,#sam_mask_prompt,
             )
             sparse_embeddings = torch.from_dlpack(sparse_embeddings)
             dense_embeddings = torch.from_dlpack(dense_embeddings)
-
+            self.dense_pe = self.sam_prompt_encoder.get_dense_pe()
         else:
             sparse_embeddings, dense_embeddings = self.sam_prompt_encoder(
                 points=(sam_point_coords, sam_point_labels),
                 boxes=None,
                 masks=sam_mask_prompt,
             )
+            self.dense_pe = self.sam_prompt_encoder.get_dense_pe()
+            self.dense_pe = self.dense_pe.contiguous()
+        # dense_pe = self.sam_prompt_encoder.get_dense_pe()
+        # if self.use_tripy_prompt_encoder:
+        #     dense_pe = torch.from_dlpack(dense_pe)
 
-        dense_pe = self.sam_prompt_encoder.get_dense_pe()
-        if self.use_tripy_prompt_encoder:
-            dense_pe = torch.from_dlpack(dense_pe)
+        if self.use_tripy_mask_decoder:
 
-        (
-            low_res_multimasks,
-            ious,
-            sam_output_tokens,
-            object_score_logits,
-        ) = self.sam_mask_decoder(
-            image_embeddings=tp.Tensor(backbone_features) if backbone_features is not None else None,
-            image_pe=tp.Tensor(dense_pe) if dense_pe is not None else None,
-            sparse_prompt_embeddings=tp.Tensor(sparse_embeddings) if sparse_embeddings is not None else None,
-            dense_prompt_embeddings=tp.Tensor(dense_embeddings) if dense_embeddings is not None else None,
-            multimask_output=tp.Tensor(multimask_output) if multimask_output is not None else None,
-            repeat_image=False,  # the image is already batched
-            high_res_features_1=tp.Tensor(high_res_features[0]),
-            high_res_features_2=tp.Tensor(high_res_features[1]),
-        )
+            if self.tripy_mask_decoder_dtype == tp.float16:
+                backbone_features = backbone_features.half()
+                self.dense_pe = (
+                    self.dense_pe.half()
+                    if not isinstance(self.dense_pe, tp.Tensor)
+                    else torch.from_dlpack(self.dense_pe).half()
+                )
+                sparse_embeddings = sparse_embeddings.half()
+                dense_embeddings = dense_embeddings.half()
+                hres_1 = high_res_features[0].half()
+                hres_2 = high_res_features[1].half()
+            else:
+                hres_1 = high_res_features[0]
+                hres_2 = high_res_features[1]
 
-        low_res_multimasks = torch.from_dlpack(low_res_multimasks)
-        ious = torch.from_dlpack(ious)
-        sam_output_tokens = torch.from_dlpack(sam_output_tokens)
-        object_score_logits = torch.from_dlpack(object_score_logits)
+            tp_backbone_features = tp.Tensor(backbone_features.contiguous())
+            tp_image_pe = (
+                tp.Tensor(self.dense_pe.contiguous()) if not isinstance(self.dense_pe, tp.Tensor) else self.dense_pe
+            )
+            tp_sparse = tp.Tensor(sparse_embeddings.contiguous())
+            tp_dense = tp.Tensor(dense_embeddings.contiguous())
+            hres_1 = tp.Tensor(hres_1.contiguous())
+            hres_2 = tp.Tensor(hres_2.contiguous())
+
+            if multimask_output:
+                (
+                    low_res_multimasks,
+                    ious,
+                    sam_output_tokens,
+                    object_score_logits,
+                ) = self.sam_mask_decoder_true(
+                    image_embeddings=tp_backbone_features,
+                    image_pe=tp_image_pe,
+                    sparse_prompt_embeddings=tp_sparse,
+                    dense_prompt_embeddings=tp_dense,
+                    high_res_features_1=hres_1,
+                    high_res_features_2=hres_2,
+                )
+
+            else:
+                (
+                    low_res_multimasks,
+                    ious,
+                    sam_output_tokens,
+                    object_score_logits,
+                ) = self.sam_mask_decoder_false(
+                    image_embeddings=tp_backbone_features,
+                    image_pe=tp_image_pe,
+                    sparse_prompt_embeddings=tp_sparse,
+                    dense_prompt_embeddings=tp_dense,
+                    high_res_features_1=hres_1,
+                    high_res_features_2=hres_2,
+                )
+
+            low_res_multimasks = torch.from_dlpack(low_res_multimasks).float()
+            ious = torch.from_dlpack(ious).float()
+            sam_output_tokens = torch.from_dlpack(sam_output_tokens).float()
+            object_score_logits = torch.from_dlpack(object_score_logits).float()
+        else:
+            (
+                low_res_multimasks,
+                ious,
+                sam_output_tokens,
+                object_score_logits,
+            ) = self.sam_mask_decoder(
+                image_embeddings=backbone_features,
+                image_pe=torch.from_dlpack(self.dense_pe.cuda()),
+                sparse_prompt_embeddings=sparse_embeddings,
+                dense_prompt_embeddings=dense_embeddings,
+                multimask_output=multimask_output,
+                repeat_image=False,  # the image is already batched
+                high_res_features=high_res_features,
+            )
 
         if self.pred_obj_scores:
             is_obj_appearing = object_score_logits > 0
@@ -551,12 +624,18 @@ class SAM2Base(torch.nn.Module):
             # precompute projected level 0 and level 1 features in SAM decoder
             # to avoid running it again on every SAM click
             if self.use_tripy_mask_decoder:
-                backbone_out["backbone_fpn"][0] = torch.from_dlpack(
-                    self.sam_mask_decoder.conv_s0(tp.Tensor(backbone_out["backbone_fpn"][0].contiguous()))
-                )
-                backbone_out["backbone_fpn"][1] = torch.from_dlpack(
-                    self.sam_mask_decoder.conv_s1(tp.Tensor(backbone_out["backbone_fpn"][1].contiguous()))
-                )
+                conv_s0_in = backbone_out["backbone_fpn"][0].contiguous()
+                conv_s1_in = backbone_out["backbone_fpn"][1].contiguous()
+
+                if self.tripy_mask_decoder_dtype == tp.float32:
+                    conv_s0_in = tp.Tensor(conv_s0_in)
+                    conv_s1_in = tp.Tensor(conv_s1_in)
+                else:
+                    conv_s0_in = tp.Tensor(conv_s0_in.half())
+                    conv_s1_in = tp.Tensor(conv_s1_in.half())
+
+                backbone_out["backbone_fpn"][0] = torch.from_dlpack(self.sam_mask_decoder.conv_s0(conv_s0_in))
+                backbone_out["backbone_fpn"][1] = torch.from_dlpack(self.sam_mask_decoder.conv_s1(conv_s1_in))
             else:
                 backbone_out["backbone_fpn"][0] = self.sam_mask_decoder.conv_s0(backbone_out["backbone_fpn"][0])
                 backbone_out["backbone_fpn"][1] = self.sam_mask_decoder.conv_s1(backbone_out["backbone_fpn"][1])
@@ -836,6 +915,8 @@ class SAM2Base(torch.nn.Module):
                 assert point_inputs is not None and mask_inputs is None
                 mask_inputs = prev_sam_mask_logits
             multimask_output = self._use_multimask(is_init_cond_frame, point_inputs)
+
+            profile_start("forward_sam_heads")
             sam_outputs = self._forward_sam_heads(
                 backbone_features=pix_feat_with_mem,
                 point_inputs=point_inputs,
@@ -843,6 +924,9 @@ class SAM2Base(torch.nn.Module):
                 high_res_features=high_res_features,
                 multimask_output=multimask_output,
             )
+            tp.default_stream().synchronize()
+            profile_stop("forward_sam_heads")
+
         (
             _,
             _,

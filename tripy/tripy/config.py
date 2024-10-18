@@ -32,6 +32,8 @@ enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
 mlir_debug_types = os.environ.get("TRIPY_MLIR_DEBUG_TYPES", "-mlir-print-ir-after-all,-translate-to-tensorrt").split(
     ","
 )
+# mlir_debug_types = os.environ.get("TRIPY_MLIR_DEBUG_TYPES", "-debug")
+
 mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/", "tripy", "mlir-dumps"))
 
 # TensorRT debug options
