@@ -277,10 +277,10 @@ def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group",
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedGroupNonDPSOp
+// InlineClosedAllocGroupOp
 //===----------------------------------------------------------------------===//
 
-def Plan_InlineClosedGroupNonDPSOp : Plan_InlineClosedGroupBase<"inline_closed_group_non_dps", [
+def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_alloc_group", [
   IsolatedFromAbove,
   SingleBlockImplicitTerminator<"plan::YieldOp">,
   DeclareOpInterfaceMethods<RegionBranchOpInterface,
@@ -289,7 +289,7 @@ def Plan_InlineClosedGroupNonDPSOp : Plan_InlineClosedGroupBase<"inline_closed_g
     ["getAsmBlockArgumentNames"]>
 ]> {
   let description = [{
-  The `plan.inline_closed_group_non_dps` operation is a variant of the
+  The `plan.inline_closed_alloc_group` operation is a variant of the
   `plan.inline_closed_group` operation that does not use destination-passing style
   (DPS). It is isolated from above and explicitly captures input operands,
   but unlike its DPS counterpart, it does not capture destination operands.
@@ -307,7 +307,7 @@ def Plan_InlineClosedGroupNonDPSOp : Plan_InlineClosedGroupBase<"inline_closed_g
   %0 = ... : tensor<?xf32> // A dynamically shaped operand
   %1 = ... : index         // A dynamic calculation of %0's extent
 
-  %2 = plan.inline_closed_group_non_dps target(#plan.cluster_target<tensorrt>)
+  %2 = plan.inline_closed_alloc_group target(#plan.cluster_target<tensorrt>)
     inputs(%0, %1 : tensor<?xf32>, index)
     in_attrs [#plan.bounds<shape, , >, #plan.bounds<none>] -> tensor<?xf32> {
     %3 = plan.with_shape %0 (%1) : (tensor<?xf32>, index) -> tensor<?xf32>
@@ -353,7 +353,7 @@ def Plan_YieldOp : Plan_Op<"yield", [
       Terminator,
       ReturnLike,
       ParentOneOf<["plan::InlineGroupOp",
-                   "plan::InlineClosedGroupOp", "plan::InlineClosedGroupNonDPSOp"]>]> {
+                   "plan::InlineClosedGroupOp", "plan::InlineClosedAllocGroupOp"]>]> {
 
   let arguments = (ins Variadic<AnyType>:$results);
 

@@ -527,8 +527,8 @@ createNonDPSClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
                           DataFlowSolver &solver,
                           const SmallVector<Value> &inputs) {
   // Create a new closed group op and move blocks into it.
-  InlineClosedGroupNonDPSOp closedGroupOp =
-      rewriter.create<InlineClosedGroupNonDPSOp>(
+  InlineClosedAllocGroupOp closedGroupOp =
+      rewriter.create<InlineClosedAllocGroupOp>(
           op.getLoc(), /*result type*/ op->getResultTypes(),
           /*target=*/op.getTarget(),
           /*inputs=*/inputs);
@@ -556,12 +556,12 @@ createNonDPSClosedGroupOp(RewriterBase &rewriter, plan::InlineGroupOp op,
 static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
                                          plan::InlineGroupOp op,
                                          DataFlowSolver &solver,
-                                         bool useNonDPSCallConv) {
+                                         bool enableNonDPSReturns) {
   OpBuilder::InsertionGuard g(rewriter);
 
   // Materialize destination operands if not using non-DPS call convention.
   SmallVector<DestinationOperandMaterializationResult> destinationOperands;
-  if (!useNonDPSCallConv)
+  if (!enableNonDPSReturns)
     if (failed(materializeDestinationOperands(rewriter, op, solver,
                                               destinationOperands)))
       return failure();
@@ -576,7 +576,7 @@ static LogicalResult createClosedGroupOp(RewriterBase &rewriter,
 
   // Create and populate the appropriate closed group op based on call
   // convention.
-  if (!useNonDPSCallConv)
+  if (!enableNonDPSReturns)
     return createDPSClosedGroupOp(rewriter, op, solver, inputs,
                                   destinationOperands);
   return createNonDPSClosedGroupOp(rewriter, op, solver, inputs);
@@ -624,7 +624,7 @@ public:
     IRRewriter rewriter(ctx);
     for (InlineGroupOp groupOp : groupOps) {
       if (failed(createClosedGroupOp(rewriter, groupOp, solver,
-                                     useNonDPSCallConv)))
+                                     enableNonDPSReturns)))
         return signalPassFailure();
     }
   }
