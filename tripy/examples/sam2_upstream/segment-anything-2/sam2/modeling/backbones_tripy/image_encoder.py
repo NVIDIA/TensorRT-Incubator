@@ -37,6 +37,7 @@ class ImageEncoder(tp.Module):
         assert (
             self.trunk.channel_list == self.neck.backbone_channel_list
         ), f"Channel dims of trunk and neck do not match. Trunk: {self.trunk.channel_list}, neck: {self.neck.backbone_channel_list}"
+        self.compiled_executable = None
 
     def forward(self, x):
         # __call__ returns a dict, not tensors
@@ -45,8 +46,20 @@ class ImageEncoder(tp.Module):
         return self.neck(self.trunk(x))
 
     def __call__(self, sample: tp.Tensor):
+        import torch
+
         # Forward through backbone
-        features_pos = self.forward(sample)
+        if self.compiled_executable:
+            import time
+
+            start = time.perf_counter()
+            features_pos = self.compiled_executable(sample)
+            end = time.perf_counter()
+            print(f"image encoder inference took {(end - start) * 1000}")
+        else:
+            features_pos = self.forward(sample)
+        for i in range(len(features_pos)):
+            features_pos[i] = torch.from_dlpack(features_pos[i])
         n = len(self.neck.backbone_channel_list)
         features = list(features_pos[:n])
         pos = list(features_pos[n:])

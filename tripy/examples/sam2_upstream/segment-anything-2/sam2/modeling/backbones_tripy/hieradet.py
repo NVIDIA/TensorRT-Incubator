@@ -228,8 +228,7 @@ class Hiera(tp.Module):
         self.window_pos_embed_bkg_spatial_size = window_pos_embed_bkg_spatial_size
         self.pos_embed = tp.Parameter(tp.zeros((1, embed_dim, *self.window_pos_embed_bkg_spatial_size)))
         self.pos_embed_window = tp.Parameter(tp.zeros((1, embed_dim, self.window_spec[0], self.window_spec[0])))
-        # WAR: https://github.com/NVIDIA/TensorRT-Incubator/issues/269
-        self.pos_embed_torch = self._get_pos_embed_torch((256, 256))
+        self.pos_embed_torch = None
 
         cur_stage = 1
         self.blocks = []
@@ -287,7 +286,7 @@ class Hiera(tp.Module):
         pos_embed = F.interpolate(torch.from_dlpack(self.pos_embed), size=(h, w), mode="bicubic")
         pos_embed = pos_embed + window_embed.tile([x // y for x, y in zip(pos_embed.shape, window_embed.shape)])
         pos_embed = pos_embed.permute(0, 2, 3, 1)
-        return pos_embed
+        return pos_embed.contiguous()
 
     def __call__(self, x: tp.Tensor):
         x = self.patch_embed(x)

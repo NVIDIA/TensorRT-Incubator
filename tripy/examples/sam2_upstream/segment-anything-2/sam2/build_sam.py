@@ -53,7 +53,7 @@ def build_sam2(
     OmegaConf.resolve(cfg)
 
     model = instantiate(cfg.model, _recursive_=True)
-    _load_checkpoint(model, ckpt_path, cfg)
+    _load_checkpoint(model, ckpt_path, cfg, use_tripy_image_encoder)
 
     if use_tripy_image_encoder:
         print("Start compiling image encoder...")
@@ -66,7 +66,7 @@ def build_sam2(
             ],
         )
         print(f"Compile image encoder took {time.time() - start}s")
-        model.image_encoder = compiled_tp_image_encoder
+        model.image_encoder.compiled_executable = compiled_tp_image_encoder
 
     if cfg["model"].use_tripy_mask_decoder:
         start = time.time()
@@ -200,7 +200,7 @@ def build_sam2_video_predictor_hf(model_id, **kwargs):
     )
 
 
-def _load_checkpoint(model, ckpt_path, cfg=None):
+def _load_checkpoint(model, ckpt_path, cfg=None, use_tripy_image_encoder=False):
 
     use_tripy_mask_decoder = cfg["model"].use_tripy_mask_decoder
     use_tripy_prompt_encoder = cfg["model"].use_tripy_prompt_encoder
@@ -212,6 +212,11 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
 
         tp_prompt_encoder = model.sam_prompt_encoder
         tp_prompt_encoder_state_dict = tp_prompt_encoder.state_dict()
+
+        tp_image_encoder = model.image_encoder
+        tp_image_encoder_state_dict = tp_image_encoder.state_dict()
+        print(f"Tripy image encoder expect {len(tp_image_encoder_state_dict)} keys.")
+        nb_image_keys = 0
 
         expected_mask_decoder_keys = len(tp_mask_decoder_state_dict.keys())
         print(f"Tripy transformer state_dict has {expected_mask_decoder_keys} keys.")
@@ -233,6 +238,19 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
                 param = tp.Parameter(weight)
                 tp_prompt_encoder_state_dict[new_key] = param
 
+            if use_tripy_image_encoder and key.startswith("image_encoder"):
+                new_key = key.replace("image_encoder.", "")
+                if new_key.startswith("neck.convs"):
+                    # convert neck.convs.0.conv.weight ->
+                    #         neck.convs.0.weight
+                    attrs = new_key.split(".")
+                    attrs.pop(3)  # remove "conv"
+                    new_key = ".".join(attrs)
+                nb_image_keys += 1
+                weight = sd[key]
+                param = tp.Parameter(weight.contiguous())
+                tp_image_encoder_state_dict[new_key] = param
+
         if use_tripy_mask_decoder:
             print(f"expected keys {expected_mask_decoder_keys}, got {nb_keys}")
             tp_mask_decoder.load_state_dict(tp_mask_decoder_state_dict)
@@ -242,6 +260,12 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
                 f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}"
             )
             tp_prompt_encoder.load_state_dict(tp_prompt_encoder_state_dict)
+
+        if use_tripy_image_encoder:
+            print(f"Converted {nb_image_keys} image encoder keys from checkpoint.")
+            tp_image_encoder.load_state_dict(tp_image_encoder_state_dict)
+            # WAR: https://github.com/NVIDIA/TensorRT-Incubator/issues/269
+            tp_image_encoder.trunk.pos_embed_torch = tp_image_encoder.trunk._get_pos_embed_torch((256, 256))
 
         if missing_keys:
             logging.error(missing_keys)

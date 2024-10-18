@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # sudo apt-get update && sudo apt-get install ffmpeg libsm6 libxext6  -y
+import argparse
 import torch
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
@@ -27,6 +28,9 @@ from tripy.logging import logger
 
 # logger.verbosity = "ir"
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--tp_backbone", action="store_true", help="use tripy backbone config file")
+args = parser.parse_args()
 
 def show_mask(mask, ax, random_color=False, borders=True):
     if random_color:
@@ -121,8 +125,10 @@ from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
-# model_cfg = "sam2_hiera_l_tp_backbone.yaml"
-model_cfg = "sam2_hiera_l.yaml"
+if args.tp_backbone:
+    model_cfg = "sam2_hiera_l_tp_backbone.yaml"
+else:
+    model_cfg = "sam2_hiera_l.yaml"
 device = torch.device("cuda")
 use_tripy_image_encoder = model_cfg == "sam2_hiera_l_tp_backbone.yaml"
 sam2_model = build_sam2(
@@ -132,12 +138,15 @@ sam2_model = build_sam2(
     use_tripy_image_encoder=use_tripy_image_encoder,
 )
 
+import time
+
 predictor = SAM2ImagePredictor(sam2_model)
+start = time.perf_counter()
 predictor.set_image(image)
+end = time.perf_counter()
+print(f"generate image embedding took {(end - start)*1000}")
 input_point = np.array([[500, 375]])
 input_label = np.array([1])
-
-import time
 
 start = time.perf_counter()
 masks, scores, logits = predictor.predict(
