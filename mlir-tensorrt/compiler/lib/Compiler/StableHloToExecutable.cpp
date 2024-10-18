@@ -485,6 +485,9 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     runner = pm.get();
   }
 
+  if (options.debugOptions.dumpTextualPipeline)
+    runner->printAsTextualPipeline(llvm::dbgs());
+
   // Setup pass manager
   if (failed(runner->run(module)))
     return getInternalErrorStatus(
