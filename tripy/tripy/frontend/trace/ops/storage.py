@@ -18,17 +18,16 @@
 from dataclasses import dataclass
 from typing import List, Sequence, Set, Union
 
+import mlir_tensorrt.runtime.api as runtime
+
 from tripy import utils
 from tripy.backend.mlir import memref
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import datatype
-from tripy.frontend import utils as frontend_utils
-from tripy.common import utils as common_utils
 from tripy.common import device as tp_device
+from tripy.common import utils as common_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-
-import mlir_tensorrt.runtime.api as runtime
 
 
 @dataclass(repr=False)
