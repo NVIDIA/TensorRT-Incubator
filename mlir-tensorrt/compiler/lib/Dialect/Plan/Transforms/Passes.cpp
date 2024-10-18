@@ -44,16 +44,19 @@ void plan::buildPlanSegmentationPipeline(
   pm.addNestedPass<func::FuncOp>(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
   pm.addPass(plan::createStablehloClusteringPass(opts));
-  pm.addPass(plan::createCreateClosedRegionsPass());
+  plan::CreateClosedRegionsPassOptions closedRegionOptions{};
+  closedRegionOptions.useNonDPSCallConv = opts.useNonDPSCallConv;
+  pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));
   pm.addPass(plan::createOutlineClustersPass());
   pm.addPass(mlir::createFuncExtDuplicateFunctionEliminationPass());
   pm.addPass(plan::createEliminateShapeOpsPass());
 }
 
-void plan::buildPlanBufferizationPipeline(OpPassManager &pm) {
+void plan::buildPlanBufferizationPipeline(
+    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &opts) {
   pm.addPass(createInlinerPass());
   pm.addPass(bufferization::createEmptyTensorEliminationPass());
-  pm.addPass(plan::createPlanAllocTensorsPass());
+  pm.addPass(plan::createPlanAllocTensorsPass(opts));
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(mlir::createMemRefCastEliminationPass());
   pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
@@ -73,6 +76,11 @@ struct ClusteringPipelineCliOpts
     : public PassPipelineOptions<ClusteringPipelineCliOpts> {
   Option<std::string> entrypoint{*this, "entrypoint", llvm::cl::init(""),
                                  llvm::cl::desc("name of entrypoint function")};
+  Option<bool> useNonDPSCallConv{
+      *this, "use-non-dps-call-conv",
+      llvm::cl::desc(
+          "allow tensorrt based output allocations using output allocator"),
+      llvm::cl::init(false)};
   Option<bool> disallowHostTensorsInTensorRTClusters{
       *this, "disallow-host-tensors-in-tensorrt-clusters",
       llvm::cl::desc("don't allow host tensor inputs to tensorrt clusters"),
@@ -82,18 +90,31 @@ struct ClusteringPipelineCliOpts
       llvm::cl::desc("target TensorRT version for segmentation pipeline"),
       llvm::cl::init(NV_TENSORRT_MAJOR)};
 };
+
+struct PlanBufferizationPipelineCliOpts
+    : public PassPipelineOptions<PlanBufferizationPipelineCliOpts> {
+  Option<bool> useNonDPSCallConv{
+      *this, "use-non-dps-call-conv",
+      llvm::cl::desc(
+          "allow tensorrt based output allocations using output allocator"),
+      llvm::cl::init(false)};
+};
+
 } // namespace
 
 // Register pipelines.
 
 void plan::registerPlanDialectPipelines() {
-  PassPipelineRegistration<> executorBufferizationPipeline(
-      "plan-bufferize-pipeline",
-      "perform bufferization and standard pre/post processing passes",
-      [](OpPassManager &pm) {
-        buildPlanBufferizationPipeline(pm);
-        buildPlanBufferOptimizationPipeline(pm);
-      });
+  PassPipelineRegistration<PlanBufferizationPipelineCliOpts>
+      executorBufferizationPipeline(
+          "plan-bufferize-pipeline",
+          "perform bufferization and standard pre/post processing passes",
+          [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
+            PlanAllocTensorsPassOptions allocTensorOpts{};
+            allocTensorOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
+            buildPlanBufferizationPipeline(pm, allocTensorOpts);
+            buildPlanBufferOptimizationPipeline(pm);
+          });
 
   PassPipelineRegistration<ClusteringPipelineCliOpts> segPipelineRegistration(
       "plan-segmentation-pipeline",
@@ -104,6 +125,7 @@ void plan::registerPlanDialectPipelines() {
         clusterOpts.disallowHostTensorsInTensorRTClusters =
             opts.disallowHostTensorsInTensorRTClusters;
         clusterOpts.entrypoint = opts.entrypoint;
+        clusterOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
         buildPlanSegmentationPipeline(pm, clusterOpts);
       });
 }
