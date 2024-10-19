@@ -3,7 +3,6 @@ import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
-import torch
 
 
 main_memref_io = """
@@ -52,7 +51,7 @@ class Test:
         )
 
     def create_memref_from_dlpack(self, shape, type):
-        arr = torch.ones(shape, dtype=type)
+        arr = np.ones(shape, dtype=type)
         memref = self.client.create_memref_view_from_dlpack(arr.__dlpack__())
         memref = self.client.copy_to_device(memref, device=self.client.get_devices()[0])
         print(f"Memref stride: {memref.strides}")
@@ -89,7 +88,7 @@ if __name__ == "__main__":
     print("TEST: runtime memref element type mismatch")
     t.execute(t.create_memref((5, 3), np.int32))
     print("TEST: unit stride dimension")
-    t.execute(t.create_memref_from_dlpack((1, 3, 4), torch.float32))
+    t.execute(t.create_memref_from_dlpack((1, 3, 4), np.float32))
     print("TEST: runtime memref address space mismatch")
     t.execute(t.create_memref_host((1, 3, 4), np.float32))
     print("TEST: runtime type mismatch")
@@ -105,7 +104,7 @@ if __name__ == "__main__":
 # CHECK-LABEL: TEST: runtime memref element type mismatch
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with element type f32 but receieved i32
 # CHECK-LABEL: TEST: unit stride dimension
-#       CHECK: Memref stride: [1, 4, 1]
+#       CHECK: Memref stride: [12, 4, 1]
 #       CHECK: Test passed succesfully
 # CHECK-LABEL: TEST: runtime memref address space mismatch
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type with address space device but receieved host
