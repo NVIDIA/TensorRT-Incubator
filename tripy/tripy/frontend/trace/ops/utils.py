@@ -49,20 +49,6 @@ def write_shape_input_indices_message(inputs: List["tripy.Tensor"]) -> str:
     return f"inputs with indices {', '.join(shape_indices)} are tp.Shape"
 
 
-def get_broadcast_dim(dim1, dim2):
-    if dim1.is_dynamic_dim():
-        return dim1
-    elif dim2.is_dynamic_dim():
-        return dim2
-    else:
-        assert dim1 == 1 or dim2 == 1 or dim1 == dim2
-        # can't just return max(dim1, dim2) because one may be 0
-        if dim1 == 1:
-            return dim2
-        # dim1 == dim2 or dim2 == 1
-        return dim1
-
-
 ##
 ## Handling shape outputs: These are common policies to use for overring infer_shape_output_idxs
 ##
