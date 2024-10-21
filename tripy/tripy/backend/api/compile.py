@@ -25,6 +25,7 @@ from tripy.backend.mlir import Compiler as MLIRCompiler
 from tripy.common.exception import raise_error
 from tripy.frontend import Tensor, Trace
 
+import time
 
 # TODO (#230): Support collections of tensors in args/kwargs
 @export.public_api(document_under="compiling_code/compile.rst")
@@ -181,9 +182,15 @@ def compile(
     trace = Trace(trace_outputs, trace_inputs, shapes=shapes)
 
     flat_ir = trace.to_flat_ir()
+
+    start_mlir = time.time()
     mlir = flat_ir.to_mlir()
+    print("time to get mlir ", time.time()-start_mlir)
+
+    start_compile = time.time()
     compiler = MLIRCompiler(trt_builder_opt_level=optimization_level)
     executable = compiler.compile(mlir, flat_ir=flat_ir)
+    print("time to compile ", time.time()-start_compile)
 
     return Executable(
         executable,

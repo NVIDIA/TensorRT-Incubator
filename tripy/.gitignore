@@ -88,3 +88,5 @@ core*
 
 # PyTest profiling results
 *.prof
+
+*logs/
