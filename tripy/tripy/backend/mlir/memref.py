@@ -33,7 +33,7 @@ def create_memref(shape, dtype, device=tp_device("gpu"), stream=None, array=None
     from the array. Otherwise, an empty memref is created.
     """
     is_empty_shape = math.prod(shape) == 0
-    cache_key = (shape, dtype, device)
+    cache_key = (shape, dtype, device.kind, device.index)
     if is_empty_shape and cache_key in EMPTY_MEMREF_CACHE:
         return EMPTY_MEMREF_CACHE[cache_key]
 
