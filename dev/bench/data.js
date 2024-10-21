@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729533595239,
+  "lastUpdate": 1729533871537,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -986,6 +986,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007409738131551353",
             "extra": "mean: 149.105337656012 usec\nrounds: 7353"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "0f21d30ae7f5a075448e0acdfaba3125ee64c8d7",
+          "message": "Avoids passing stream when creating host memrefs to not trip an assertion",
+          "timestamp": "2024-10-20T09:51:08Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/292/commits/0f21d30ae7f5a075448e0acdfaba3125ee64c8d7"
+        },
+        "date": 1729533870780,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6075.822134220327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003731710245966861",
+            "extra": "mean: 164.58677984791336 usec\nrounds: 6489"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7018.408379005334,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007255684025516411",
+            "extra": "mean: 142.48244701624537 usec\nrounds: 7679"
           }
         ]
       }
