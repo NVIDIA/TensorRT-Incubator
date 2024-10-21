@@ -39,5 +39,4 @@ import lit.llvm
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@/test/lit.cfg.py")
-
+lit_config.load_config(config, "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@" + "/test/lit.cfg.py")

@@ -39,9 +39,9 @@ filegroup(
     name = "lit_data",
     testonly = True,
     data = [
+        "gpu_tools.py",
         "lit.cfg.py",
         "lit.site.cfg.py",
-        "gpu_tools.py",
         "@llvm-project//llvm:FileCheck",
         "@llvm-project//llvm:count",
         "@llvm-project//llvm:not",
@@ -61,7 +61,6 @@ filegroup(
             requirement("nvidia-ml-py"),
             requirement("click"),
             requirement("numpy"),
-
         ],
     )
     for src in glob([

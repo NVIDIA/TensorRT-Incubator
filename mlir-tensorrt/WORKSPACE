@@ -30,7 +30,6 @@ rules_cuda_dependencies()
 
 register_detected_cuda_toolchains()
 
-
 # -------------------------- #
 #    Hermetic Python Setup   #
 # -------------------------- #

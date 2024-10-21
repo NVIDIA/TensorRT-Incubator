@@ -692,6 +692,19 @@ cc_binary(
 )
 
 cc_binary(
+    name = "tensorrt-opt",
+    srcs = ["tensorrt/tensorrt-opt/tensorrt-opt.cpp"],
+    copts = [
+        "-DMLIR_TRT_TARGET_TENSORRT",
+    ],
+    linkopts = ["-Wl,-rpath,/opt/src/mlir-tensorrt/bazel-mlir-tensorrt/external/tensorrt10_x86/targets/x86_64-linux-gnu/lib"],
+    deps = [
+        ":TensorRTRegistration",
+        "@llvm-project//mlir:MlirOptLib",
+    ],
+)
+
+cc_binary(
     name = "mlir-tensorrt-opt",
     srcs = ["tools/MlirTensorRtOpt.cpp"],
     copts = [
