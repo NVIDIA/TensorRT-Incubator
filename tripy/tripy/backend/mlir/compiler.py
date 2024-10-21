@@ -30,7 +30,7 @@ from tripy.backend.mlir.utils import (
     UNKNOWN_LOC,
 )
 from tripy.logging import logger
-from tripy.common.exception import _make_stack_info_message
+from tripy.common.exception import str_from_source_info
 
 
 G_COMPILER_CLIENT = None
@@ -110,12 +110,16 @@ class Compiler:
             if UNKNOWN_LOC in str(op.location):
                 return str(op.name)
 
-            _, _, _, trace_outputs, _ = parse_tensor_names_from_location(str(op.location))
+            # _, _, _, trace_outputs, _ = parse_tensor_names_from_location(str(op.location))
 
-            for name in trace_outputs:
-                if name in flat_ir.tensor_map:
-                    tensor = flat_ir.tensor_map[name]
-                    return _make_stack_info_message(tensor.stack_info, enable_color=False)
+            # for name in trace_outputs:
+            #     if name in flat_ir.tensor_map:
+            #         tensor = flat_ir.tensor_map[name]
+            #         user_frame_index = tensor.stack_info.get_first_user_frame_index()
+            #         if user_frame_index is None:
+            #             continue
+            #         user_frame = tensor.stack_info[user_frame_index]
+            #         return str_from_source_info(user_frame, enable_color=False)
 
             return str(op.name)
 
