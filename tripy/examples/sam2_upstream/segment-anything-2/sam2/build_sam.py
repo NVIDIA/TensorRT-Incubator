@@ -64,7 +64,7 @@ def build_sam2(
     if not os.path.exists(saved_engines_path):
         os.makedirs(saved_engines_path)
 
-    if use_tripy_image_encoder:
+    if 1 and use_tripy_image_encoder:
         # Use the saved_engines directory path instead of the fixed path
         executable_file = os.path.join(saved_engines_path, "image_encoder")
 
@@ -74,10 +74,11 @@ def build_sam2(
             print("Start compiling image encoder...")
             start = time.time()
             tp_image_encoder = model.image_encoder
+            tp_image_encoder_dtype = getattr(tp, model.image_encoder.trunk.dtype)
             compiled_tp_image_encoder = tp.compile(
                 tp_image_encoder.forward,
                 args=[
-                    tp.InputInfo((1, 3, 1024, 1024), dtype=tp.float32),
+                    tp.InputInfo((1, 3, 1024, 1024), dtype=tp_image_encoder_dtype),
                 ],
             )
             print(f"Compile image encoder took {time.time() - start}s")
@@ -333,6 +334,7 @@ def _load_checkpoint(model, ckpt_path, cfg=None, use_tripy_image_encoder=False):
         tp_image_encoder_state_dict = tp_image_encoder.state_dict()
         print(f"Tripy image encoder expect {len(tp_image_encoder_state_dict)} keys.")
         nb_image_keys = 0
+        image_encoder_dtype = getattr(torch, cfg["model"].image_encoder.trunk.dtype)
 
         expected_mask_decoder_keys = len(tp_mask_decoder_state_dict.keys())
         nb_keys = 0
@@ -366,6 +368,9 @@ def _load_checkpoint(model, ckpt_path, cfg=None, use_tripy_image_encoder=False):
                     new_key = ".".join(attrs)
                 nb_image_keys += 1
                 weight = sd[key]
+                if "norm" not in new_key:
+                    weight = weight.to(image_encoder_dtype)
+
                 param = tp.Parameter(weight.contiguous())
                 tp_image_encoder_state_dict[new_key] = param
 

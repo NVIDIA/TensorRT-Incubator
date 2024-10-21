@@ -45,12 +45,14 @@ def do_pool(x, pool, norm=None):
 
 
 class MultiScaleAttention(tp.Module):
+
     def __init__(
         self,
         dim: int,
         dim_out: int,
         num_heads: int,
         q_pool: tp.Module = None,
+        dtype: tp.dtype = tp.float32,
     ):
         super().__init__()
 
@@ -58,8 +60,8 @@ class MultiScaleAttention(tp.Module):
         self.dim_out = dim_out
         self.num_heads = num_heads
         self.q_pool = q_pool
-        self.qkv = tp.Linear(dim, dim_out * 3)
-        self.proj = tp.Linear(dim_out, dim_out)
+        self.qkv = tp.Linear(dim, dim_out * 3, dtype=dtype)
+        self.proj = tp.Linear(dim_out, dim_out, dtype=dtype)
 
     def __call__(self, x):
         B, H, W = x.shape[0:3]
@@ -101,6 +103,7 @@ class MultiScaleBlock(tp.Module):
         q_stride: Tuple[int, int] = None,
         act_layer: Callable = tp.gelu,
         window_size: int = 0,
+        dtype: tp.dtype = tp.float32,
     ):
         super().__init__()
 
@@ -123,6 +126,7 @@ class MultiScaleBlock(tp.Module):
             dim_out,
             num_heads=num_heads,
             q_pool=self.pool,
+            dtype=dtype,
         )
 
         self.norm2 = norm_layer(dim_out)
@@ -132,14 +136,22 @@ class MultiScaleBlock(tp.Module):
             dim_out,
             num_layers=2,
             activation=act_layer,
+            dtype=dtype,
         )
 
         if dim != dim_out:
-            self.proj = tp.Linear(dim, dim_out)
+            self.proj = tp.Linear(dim, dim_out, dtype=dtype)
 
     def __call__(self, x):
+
+        def call_norm(x, norm):
+            x_dtype = x.dtype
+            x = tp.cast(x, tp.float32)
+            x = norm(x)
+            return tp.cast(x, x_dtype)
+
         shortcut = x  # B, H, W, C
-        x = self.norm1(x)
+        x = call_norm(x, self.norm1)
 
         # Skip connection
         if self.dim != self.dim_out:
@@ -171,7 +183,8 @@ class MultiScaleBlock(tp.Module):
 
         x = shortcut + x
         # MLP
-        x = x + self.mlp(self.norm2(x))
+        t = call_norm(x, self.norm2)
+        x = x + self.mlp(t)
         return x
 
 
@@ -204,9 +217,12 @@ class Hiera(tp.Module):
             20,
         ),
         return_interm_layers=True,  # return feats from every stage
+        dtype: str = "float32",
     ):
         super().__init__()
 
+        self.dtype = dtype
+        tp_dtype = getattr(tp, dtype)
         assert len(stages) == len(window_spec)
         self.window_spec = window_spec
 
@@ -218,16 +234,16 @@ class Hiera(tp.Module):
         self.return_interm_layers = return_interm_layers
 
         self.embed_dim = embed_dim
-        self.patch_embed = PatchEmbed(
-            embed_dim=embed_dim,
-        )
+        self.patch_embed = PatchEmbed(embed_dim=embed_dim, dtype=tp_dtype)
         # Which blocks have global att?
         self.global_att_blocks = global_att_blocks
 
         # Windowed positional embedding (https://arxiv.org/abs/2311.05613)
         self.window_pos_embed_bkg_spatial_size = window_pos_embed_bkg_spatial_size
-        self.pos_embed = tp.Parameter(tp.zeros((1, embed_dim, *self.window_pos_embed_bkg_spatial_size)))
-        self.pos_embed_window = tp.Parameter(tp.zeros((1, embed_dim, self.window_spec[0], self.window_spec[0])))
+        self.pos_embed = tp.Parameter(tp.zeros((1, embed_dim, *self.window_pos_embed_bkg_spatial_size), dtype=tp_dtype))
+        self.pos_embed_window = tp.Parameter(
+            tp.zeros((1, embed_dim, self.window_spec[0], self.window_spec[0]), dtype=tp_dtype)
+        )
         self.pos_embed_torch = None
 
         cur_stage = 1
@@ -254,6 +270,7 @@ class Hiera(tp.Module):
                 num_heads=num_heads,
                 q_stride=self.q_stride if i in self.q_pool_blocks else None,
                 window_size=window_size,
+                dtype=tp_dtype,
             )
 
             embed_dim = dim_out
@@ -301,6 +318,7 @@ class Hiera(tp.Module):
         for i, blk in enumerate(self.blocks):
             x = blk(x)
             if (i == self.stage_ends[-1]) or (i in self.stage_ends and self.return_interm_layers):
+                # [1, 7, 43, 47]
                 feats = tp.permute(x, (0, 3, 1, 2))
                 outputs.append(feats)
 

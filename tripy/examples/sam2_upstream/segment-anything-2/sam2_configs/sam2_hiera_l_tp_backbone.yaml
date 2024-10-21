@@ -14,6 +14,7 @@ model:
       global_att_blocks: [23, 33, 43]
       window_pos_embed_bkg_spatial_size: [7, 7]
       window_spec: [8, 4, 16, 8]
+      dtype: float16
     neck:
       _target_: sam2.modeling.backbones_tripy.image_encoder.FpnNeck
       position_encoding:
@@ -26,6 +27,7 @@ model:
       backbone_channel_list: [1152, 576, 288, 144]
       fpn_top_down_levels: [2, 3]  # output level 0 and 1 directly use the backbone features
       fpn_interp_model: nearest
+      dtype: float16
 
   memory_attention:
     _target_: sam2.modeling.memory_attention.MemoryAttention
