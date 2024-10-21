@@ -54,21 +54,12 @@ public:
   }
 };
 
-struct PlanBufferizationPipelineCliOpts
-    : public PassPipelineOptions<PlanBufferizationPipelineCliOpts> {
-  Option<bool> useNonDPSCallConv{
-      *this, "use-non-dps-call-conv",
-      llvm::cl::desc(
-          "allow tensorrt based output allocations using output allocator"),
-      llvm::cl::init(false)};
-};
-
 } // namespace
 
 namespace mlir::executor {
 void registerTestExecutorBufferizePass() {
   PassRegistration<ExecutorBufferizationTestPass>();
-  PassPipelineRegistration<PlanBufferizationPipelineCliOpts> executorBufferizationPipeline(
+  PassPipelineRegistration<> executorBufferizationPipeline(
       "test-executor-bufferization-pipeline",
       "Run one-shot-bufferization and buffer deallocation pipelines",
       [](OpPassManager &pm) {

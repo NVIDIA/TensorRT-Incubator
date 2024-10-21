@@ -996,6 +996,7 @@ PYBIND11_MODULE(_api, m) {
           "Execute a function given input and optional output arguments. "
           "Return optional results as a Python object if output arguments are "
           "not present.");
+
   py::class_<PyGlobalDebugFlag>(m, "GlobalDebug", py::module_local())
       .def_property_static("flag", &PyGlobalDebugFlag::get,
                            &PyGlobalDebugFlag::set, "LLVM-wide debug flag")
@@ -1007,5 +1008,4 @@ PYBIND11_MODULE(_api, m) {
                   py::overload_cast<const std::vector<std::string> &>(
                       &PyGlobalDebugFlag::set_types),
                   "Sets specific debug types to be produced by LLVM");
-
 }

@@ -470,6 +470,7 @@ void AllocTracker::track(PointerInfo info) {
 void AllocTracker::untrack(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  MTRT_DBGF("AllocTracker is now untracking 0x%lx", ptr);
   map.erase(map.find(ptr));
 }
 
