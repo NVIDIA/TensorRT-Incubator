@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729534967287,
+  "lastUpdate": 1729635527268,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -1088,6 +1088,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000713336083578554",
             "extra": "mean: 150.20098967338586 usec\nrounds: 7392"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "a13b1672a29a61e19224f74ceac104cc38240759",
+          "message": "[Tripy] Rename `infer_shape_output_idxs` to `infer_tensor_variants`",
+          "timestamp": "2024-10-22T21:28:13Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/278/commits/a13b1672a29a61e19224f74ceac104cc38240759"
+        },
+        "date": 1729635526568,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6130.417052039198,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003433367850125287",
+            "extra": "mean: 163.12103915790917 usec\nrounds: 6515"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6799.747843774323,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000069383877552323",
+            "extra": "mean: 147.0642769372065 usec\nrounds: 7458"
           }
         ]
       }
