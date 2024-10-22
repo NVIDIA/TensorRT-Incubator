@@ -18,17 +18,16 @@
 from dataclasses import dataclass
 from typing import List, Sequence, Set, Union
 
+import mlir_tensorrt.runtime.api as runtime
+
 from tripy import utils
 from tripy.backend.mlir import memref
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import datatype
-from tripy.frontend import utils as frontend_utils
-from tripy.common import utils as common_utils
 from tripy.common import device as tp_device
+from tripy.common import utils as common_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-
-import mlir_tensorrt.runtime.api as runtime
 
 
 @dataclass(repr=False)
@@ -59,7 +58,7 @@ class Storage(BaseTraceOp):
             # special case: empty tensor
             self.dtype = utils.default(dtype, datatype.float32)
             self.shape = tuple(utils.get_shape(data))
-            self.data = memref.create_empty_memref(shape=self.shape, dtype=self.dtype)
+            self.data = memref.create_memref(shape=self.shape, dtype=self.dtype)
             self.device = utils.default(device, tp_device(("gpu", 0)))
             self.has_memref = True
         else:

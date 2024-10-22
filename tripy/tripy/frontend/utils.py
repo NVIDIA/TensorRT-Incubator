@@ -79,7 +79,8 @@ def _add_column_info_for_non_tensor(
     else:
         # Fallback path is just to look at the user code
         frame_index = arg.stack_info.get_first_user_frame_index()
-        dispatch_target = arg.stack_info[frame_index - 1]._dispatch_target
+        if frame_index is not None:
+            dispatch_target = arg.stack_info[frame_index - 1]._dispatch_target
 
     source_info = arg.stack_info[frame_index]
 
@@ -447,6 +448,9 @@ def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0
                     if member.rank != 0:
                         raise_error("Tensor in a shape argument must be a scalar.", [f"Got {member}"])
                     member = Shape(unsqueeze(member, 0))
+                    # Force the trace tensor shape to be (1,) since its known that we are reshaping a scalar to a 1D tensor.
+                    # If we don't force the shape below, Tripy might require computing the shape of this trace tensor which can be expensive.
+                    member.trace_tensor.shape = (1,)
                     shape_components.append(member)
                 if len(acc) > 0:
                     shape_components.append(convert_nontensor_arg(acc))
@@ -639,6 +643,7 @@ def pretty_print(data_list, shape, threshold=1000, linewidth=10, edgeitems=3):
     """
     Returns a pretty-print string of list format data.
     """
+
     def _data_str(data, summarize, linewidth, edgeitems, indent=0):
         if isinstance(data, (float, int)):
             return str(data)

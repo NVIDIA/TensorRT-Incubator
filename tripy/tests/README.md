@@ -10,12 +10,8 @@ The `tests/integration` directory captures the latter group of tests.
 
 You can run all tests locally in the development container by running:
 ```bash
-pytest tests/ -v -n 4 --dist worksteal --ignore tests/performance
-pytest tests/performance -v
+pytest tests/ -v
 ```
-
-Performance tests are run separately because they must run serially to ensure
-accurate measurements.
 
 You can also provide marker arguments to only run specific test cadences
 (see [the test cadence section](#test-cadence) below). For example, to run only
@@ -26,6 +22,9 @@ pytest tests/ -v -m "not l1 and not manual" -n 4 --dist worksteal --ignore tests
 pytest tests/performance -v -m "not l1 and not manual"
 ```
 
+Note that the L0/L1 tests can be parallelized, which is not necessarily
+true of `manual` tests. In that case, performance tests are run separately
+because they must run serially to ensure accurate measurements.
 
 ## Profiling
 

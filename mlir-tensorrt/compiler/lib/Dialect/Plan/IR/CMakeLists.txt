@@ -10,17 +10,18 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRTensorRTPlanDialectAttrInterfacesIncGen
 
   LINK_LIBS PUBLIC
-  MLIRIR
+  ChloOps
+  MLIRControlFlowInterfaces
   MLIRDialect
-  MLIRSupport
+  MLIRExecutorGenericClustering
   MLIRFuncDialect
   MLIRInferTypeOpInterface
-  MLIRControlFlowInterfaces
-  MLIRTensorRTInterfaces
-  MLIRTensorRTGenericClustering
+  MLIRIR
+  MLIRSupport
   MLIRTensorRTConvertToTensorRTCommon
+  MLIRTensorRTInterfaces
   MLIRTensorRTStablehloScalarToArith
   MLIRTensorRTStablehloToTensorRT
+  MLIRTensorRTSupportStatus
   StablehloOps
-  ChloOps
 )

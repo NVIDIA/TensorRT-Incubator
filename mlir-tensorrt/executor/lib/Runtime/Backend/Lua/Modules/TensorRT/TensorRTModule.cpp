@@ -74,17 +74,17 @@ static StdioLogger logger(/*verbose=*/false);
 //===----------------------------------------------------------------------===//
 namespace {
 struct Signature {
-  unsigned numArguments;
-  unsigned numResults;
+  unsigned numInputs;
+  unsigned numOutputs;
 
   explicit Signature(const nvinfer1::ICudaEngine *e)
-      : numArguments(0), numResults(0) {
+      : numInputs(0), numOutputs(0) {
     for (int32_t i = 0; i < e->getNbIOTensors(); i++) {
       const char *name = e->getIOTensorName(i);
       if (e->getTensorIOMode(name) == nvinfer1::TensorIOMode::kINPUT)
-        numArguments++;
+        numInputs++;
       else
-        numResults++;
+        numOutputs++;
     }
   }
 };
@@ -233,7 +233,7 @@ static Status setTensorAddressesOrReport(
       return getStatusWithMsg(StatusCode::InternalError, ss.str());
     }
 
-    if (idx < context.getSignature().numArguments) {
+    if (idx < context.getSignature().numInputs) {
       result = context->setInputShape(name.c_str(), dims);
       if (!result)
         return getInternalErrorStatus("failed to set input shape");
@@ -257,7 +257,7 @@ prepareBuffers(const AllocTracker &allocTracker,
   unsigned argumentBuffersIdx = 1;
   // The number of arguments should be equal to the number of results plus the
   // number of arguments of the TensorRT engine's functional signature.
-  const unsigned numOperands = sig.numResults + sig.numArguments;
+  const unsigned numOperands = sig.numOutputs + sig.numInputs;
   result.reserve(va.size() / 3);
   std::vector<PinnedMemoryBlock> &hostBuffers = context.getHostIOBuffers();
   unsigned hostBufferIdx = 0;
@@ -266,8 +266,8 @@ prepareBuffers(const AllocTracker &allocTracker,
     // compiler.
     /// TODO: make this less hacky.
     std::string name =
-        (i < sig.numArguments ? "arg" : "result") +
-        std::to_string(i >= sig.numArguments ? i - sig.numArguments : i);
+        (i < sig.numInputs ? "arg" : "result") +
+        std::to_string(i >= sig.numInputs ? i - sig.numInputs : i);
 
     // Parse the arguments: ptr, offset, rank, shape...
     uintptr_t ptr = va.get<uintptr_t>(argumentBuffersIdx++);

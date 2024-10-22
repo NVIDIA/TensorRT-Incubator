@@ -52,13 +52,13 @@ fast_geglu(inp).eval()
 In the example above, we assumed `inp` has a static shape of `(1, 2)`.
 Now, let's assume that the shape of `inp` can vary from `(1, 2)` to `(16, 2)`, with `(8, 2)`
 being the shape we'd like to optimize for. To express this constraint to the compiler,
-we can provide the range of shapes to `InputInfo` using `shape=((1, 8, 16), 2)`.
+we can provide the range of shapes to `InputInfo` using `shape=([1, 8, 16], 2)`.
 This indicates to the compiler that the first dimension can vary from 1 to 16,
 and it should optimize for a size of 8.
 
 ```py
 # doc: print-locals out out_change_shape
-inp_info = tp.InputInfo(shape=((1, 8, 16), 2), dtype=tp.float32)
+inp_info = tp.InputInfo(shape=([1, 8, 16], 2), dtype=tp.float32)
 fast_geglu = tp.compile(layer, args=[inp_info])
 out = fast_geglu(inp)
 
@@ -114,33 +114,3 @@ We can also query properties about the executable:
 input_info = loaded_fast_geglu.get_input_info()
 output_info = loaded_fast_geglu.get_output_info()
 ```
-
-## Common Pitfalls
-
-### Functions Must Be Pure
-
-Tripy expects that the functions that will be compiled are pure functions with no side effects.
-Consider this example:
-
-```py
-# doc: print-locals out
-def add_times_two(a, b):
-    c = a + b
-    print(f"c : {c}")
-    return c + a + b
-
-inp_info = tp.InputInfo(shape=(1, 2), dtype=tp.float32)
-fast_myadd = tp.compile(add_times_two, args=[inp_info, inp_info])
-a = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
-b = tp.Tensor([[2.0, 3.0]], dtype=tp.float32)
-
-out = fast_myadd(a, b)
-```
-
-We would expect that the output `out` is `[6.0, 10.0]` and `c` gets evaluated to `[3.0, 5.0]`.
-
-This unexpected behavior occurs because Tripy uses dummy tensors filled with 1's during the
-compilation process. When the print(c) statement is encountered during compilation, it
-outputs the result of adding two tensors filled with 1's, which is `[2.0, 2.0]`.
-The compiled function then uses this dummy result in place of the actual c value,
-leading to incorrect calculations in the final output.

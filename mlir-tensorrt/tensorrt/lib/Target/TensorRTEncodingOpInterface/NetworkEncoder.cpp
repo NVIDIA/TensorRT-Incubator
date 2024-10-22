@@ -476,7 +476,7 @@ LogicalResult NvInferNetworkEncoder::encodeBlock(Block &block) {
   for (Operation &op : block.without_terminator()) {
     auto trtOp = dyn_cast<tensorrt::TensorRTEncodingOpInterface>(op);
     if (!trtOp)
-      return op.emitOpError() << "not a TensorRTOpInterface operation";
+      return op.emitOpError() << "not a TensorRTEncodingOpInterface operation";
 
     if (failed(encodeOp(trtOp)))
       return op.emitOpError() << "failed to encode operation";

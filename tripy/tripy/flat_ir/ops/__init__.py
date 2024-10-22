@@ -39,10 +39,12 @@ from tripy.flat_ir.ops.log import LogOp
 from tripy.flat_ir.ops.maximum import MaxOp
 from tripy.flat_ir.ops.minimum import MinOp
 from tripy.flat_ir.ops.mul import MulOp
+from tripy.flat_ir.ops.pad import DynamicPadOp
 from tripy.flat_ir.ops.plugin import PluginOp
 from tripy.flat_ir.ops.pow import PowOp
 from tripy.flat_ir.ops.reduce import ArgMinMaxOp, ReduceOp
 from tripy.flat_ir.ops.reduce_window import ReduceWindowOp
+from tripy.flat_ir.ops.resize import ResizeCubicOp, ResizeLinearOp, ResizeNearestOp
 from tripy.flat_ir.ops.reshape import DynamicReshapeOp
 from tripy.flat_ir.ops.round_nearest_even import RoundNearestEvenOp
 from tripy.flat_ir.ops.rsqrt import RsqrtOp

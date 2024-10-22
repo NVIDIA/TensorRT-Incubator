@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt -split-input-file %s --convert-stablehlo-to-tensorrt=allow-i64-to-i32-conversion -allow-unregistered-dialect | FileCheck %s
+// RUN: mlir-tensorrt-opt -split-input-file %s --convert-stablehlo-to-tensorrt -allow-unregistered-dialect | FileCheck %s
 
 func.func @hlo_add_f32_static(%lhs: tensor<128x128xf32>, %rhs: tensor<128x128xf32>) -> tensor<128x128xf32> {
   %0 = "stablehlo.add"(%lhs, %rhs) : (tensor<128x128xf32>, tensor<128x128xf32>) -> tensor<128x128xf32>
@@ -895,32 +895,26 @@ func.func  @hlo_reduce_sum_multiple3(%arg0: tensor<1x7x7x2048xf32>) -> (tensor<1
 
 // -----
 
-// -----
-
-func.func @hlo_argmax(%arg0: tensor<1x10x20xf32>) -> (tensor<1x10xf32>, tensor<1x10xi64>) {
+func.func @hlo_argmax(%arg0: tensor<1x10x20xf32>) -> (tensor<1x10xf32>, tensor<1x10xi32>) {
   %cst = tensorrt.constant dense<-0.000000e+00> : tensor<f32>
   %cst_i32 = tensorrt.constant dense<0> : tensor<i32>
-  %cst_i64 = builtin.unrealized_conversion_cast %cst_i32 : tensor<i32> to tensor<i64>
 
-  %0 = "stablehlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<20xi64>
-  %1 = builtin.unrealized_conversion_cast %0 : tensor<20xi64> to tensor<20xi32>
-  %2 = tensorrt.broadcast %1 broadcast_dims<2> : tensor<20xi32> to tensor<1x10x20xi32>
-  %3 = builtin.unrealized_conversion_cast %2 : tensor<1x10x20xi32> to tensor<1x10x20xi64>
+  %0 = "stablehlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<20xi32>
+  %2 = tensorrt.broadcast %0 broadcast_dims<2> : tensor<20xi32> to tensor<1x10x20xi32>
 
-  %4:2 = stablehlo.reduce(%arg0 init: %cst), (%3 init: %cst_i64) across dimensions = [2] :
-    (tensor<1x10x20xf32>, tensor<1x10x20xi64>, tensor<f32>, tensor<i64>) -> (tensor<1x10xf32>, tensor<1x10xi64>)
-     reducer(%arg393: tensor<f32>, %arg395: tensor<f32>) (%arg394: tensor<i64>, %arg396: tensor<i64>)  {
+  %4:2 = stablehlo.reduce(%arg0 init: %cst), (%2 init: %cst_i32) across dimensions = [2] :
+    (tensor<1x10x20xf32>, tensor<1x10x20xi32>, tensor<f32>, tensor<i32>) -> (tensor<1x10xf32>, tensor<1x10xi32>)
+     reducer(%arg393: tensor<f32>, %arg395: tensor<f32>) (%arg394: tensor<i32>, %arg396: tensor<i32>)  {
       %7212 = stablehlo.compare  GE, %arg393, %arg395,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
       %7213 = stablehlo.maximum %arg393, %arg395 : tensor<f32>
       %7214 = stablehlo.compare  EQ, %arg393, %arg395,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
-      %7215 = stablehlo.minimum %arg394, %arg396 : tensor<i64>
-      %7216 = stablehlo.select %7212, %arg394, %arg396 : tensor<i1>, tensor<i64>
-      %7217 = stablehlo.select %7214, %7215, %7216 : tensor<i1>, tensor<i64>
-      stablehlo.return %7213, %7217 : tensor<f32>, tensor<i64>
+      %7215 = stablehlo.minimum %arg394, %arg396 : tensor<i32>
+      %7216 = stablehlo.select %7212, %arg394, %arg396 : tensor<i1>, tensor<i32>
+      %7217 = stablehlo.select %7214, %7215, %7216 : tensor<i1>, tensor<i32>
+      stablehlo.return %7213, %7217 : tensor<f32>, tensor<i32>
     }
-  return %4#0, %4#1 : tensor<1x10xf32>, tensor<1x10xi64>
+  return %4#0, %4#1 : tensor<1x10xf32>, tensor<1x10xi32>
 }
-
 // CHECK-LABEL: @hlo_argmax
 //  CHECK-SAME:  (%[[arg0:.+]]: tensor<{{.+}}>)
 //       CHECK:  %[[vals:.+]], %[[inds:.+]] = tensorrt.argmax {axis = 2 : i64} %[[arg0]] : tensor<1x10x20xf32> -> tensor<1x10x1xf32>, tensor<1x10x1xi32>
@@ -930,28 +924,25 @@ func.func @hlo_argmax(%arg0: tensor<1x10x20xf32>) -> (tensor<1x10xf32>, tensor<1
 
 // -----
 
-func.func @hlo_argmin(%arg0: tensor<1x10x20xf32>) -> (tensor<1x10xf32>, tensor<1x10xi64>) {
+func.func @hlo_argmin(%arg0: tensor<1x10x20xf32>) -> (tensor<1x10xf32>, tensor<1x10xi32>) {
   %cst = tensorrt.constant dense<-0.000000e+00> : tensor<f32>
   %cst_i32 = tensorrt.constant dense<0> : tensor<i32>
-  %cst_i64 = builtin.unrealized_conversion_cast %cst_i32 : tensor<i32> to tensor<i64>
 
-  %0 = "stablehlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<20xi64>
-  %1 = builtin.unrealized_conversion_cast %0 : tensor<20xi64> to tensor<20xi32>
-  %2 = tensorrt.broadcast %1 broadcast_dims<2> : tensor<20xi32> to tensor<1x10x20xi32>
-  %3 = builtin.unrealized_conversion_cast %2 : tensor<1x10x20xi32> to tensor<1x10x20xi64>
+  %0 = "stablehlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<20xi32>
+  %2 = tensorrt.broadcast %0 broadcast_dims<2> : tensor<20xi32> to tensor<1x10x20xi32>
 
-  %4:2 = stablehlo.reduce(%arg0 init: %cst), (%3 init: %cst_i64) across dimensions = [2] :
-    (tensor<1x10x20xf32>, tensor<1x10x20xi64>, tensor<f32>, tensor<i64>) -> (tensor<1x10xf32>, tensor<1x10xi64>)
-     reducer(%arg393: tensor<f32>, %arg395: tensor<f32>) (%arg394: tensor<i64>, %arg396: tensor<i64>)  {
+  %4:2 = stablehlo.reduce(%arg0 init: %cst), (%2 init: %cst_i32) across dimensions = [2] :
+    (tensor<1x10x20xf32>, tensor<1x10x20xi32>, tensor<f32>, tensor<i32>) -> (tensor<1x10xf32>, tensor<1x10xi32>)
+     reducer(%arg393: tensor<f32>, %arg395: tensor<f32>) (%arg394: tensor<i32>, %arg396: tensor<i32>)  {
       %7212 = stablehlo.compare  LE, %arg393, %arg395,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
       %7213 = stablehlo.minimum %arg393, %arg395 : tensor<f32>
       %7214 = stablehlo.compare  EQ, %arg393, %arg395,  NOTYPE : (tensor<f32>, tensor<f32>) -> tensor<i1>
-      %7215 = stablehlo.minimum %arg394, %arg396 : tensor<i64>
-      %7216 = stablehlo.select %7212, %arg394, %arg396 : tensor<i1>, tensor<i64>
-      %7217 = stablehlo.select %7214, %7215, %7216 : tensor<i1>, tensor<i64>
-      stablehlo.return %7213, %7217 : tensor<f32>, tensor<i64>
+      %7215 = stablehlo.minimum %arg394, %arg396 : tensor<i32>
+      %7216 = stablehlo.select %7212, %arg394, %arg396 : tensor<i1>, tensor<i32>
+      %7217 = stablehlo.select %7214, %7215, %7216 : tensor<i1>, tensor<i32>
+      stablehlo.return %7213, %7217 : tensor<f32>, tensor<i32>
     }
-  return %4#0, %4#1 : tensor<1x10xf32>, tensor<1x10xi64>
+  return %4#0, %4#1 : tensor<1x10xf32>, tensor<1x10xi32>
 }
 
 // CHECK-LABEL: @hlo_argmin
@@ -1698,10 +1689,10 @@ func.func @uniform_dequantize(%arg: tensor<16x16x!quant.uniform<i8:f32, 34.0>>) 
 
 // -----
 
-func.func @op_dynamic_slice_1d(%arg0: tensor<16xf32>, %arg1: tensor<i64>) -> tensor<4xf32> {
+func.func @op_dynamic_slice_1d(%arg0: tensor<16xf32>, %arg1: tensor<i32>) -> tensor<4xf32> {
   %0 = "stablehlo.dynamic_slice"(%arg0, %arg1) {
     slice_sizes = array<i64: 4>
-  } : (tensor<16xf32>, tensor<i64>) -> tensor<4xf32>
+  } : (tensor<16xf32>, tensor<i32>) -> tensor<4xf32>
   func.return %0 : tensor<4xf32>
 }
 
@@ -1909,7 +1900,7 @@ func.func @scatter_slice_update(%arg0: tensor<1x134xi32>, %arg1: tensor<1x2xi32>
 
 // -----
 
-func.func @scatter_slice_update_f16(%arg0: tensor<1x134xf16>, %arg1: tensor<1x2xi32>, %arg2: tensor<1x1x5xf16>) -> tensor<1x134xf16> {
+func.func @scatter_slice_update_f16_axis1(%arg0: tensor<1x134xf16>, %arg1: tensor<1x2xi32>, %arg2: tensor<1x1x5xf16>) -> tensor<1x134xf16> {
   %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) ({
   ^bb0(%arg3: tensor<f16>, %arg4: tensor<f16>):
     stablehlo.return %arg4 : tensor<f16>
@@ -1928,7 +1919,7 @@ func.func @scatter_slice_update_f16(%arg0: tensor<1x134xf16>, %arg1: tensor<1x2x
 
 // -----
 
-func.func @scatter_slice_update_i1(%arg0: tensor<1x134xi1>, %arg1: tensor<1x2xi32>, %arg2: tensor<1x1x5xi1>) -> tensor<1x134xi1> {
+func.func @scatter_slice_update_i1_axis1(%arg0: tensor<1x134xi1>, %arg1: tensor<1x2xi32>, %arg2: tensor<1x1x5xi1>) -> tensor<1x134xi1> {
   %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) ({
   ^bb0(%arg3: tensor<i1>, %arg4: tensor<i1>):
     stablehlo.return %arg4 : tensor<i1>
@@ -1947,6 +1938,28 @@ func.func @scatter_slice_update_i1(%arg0: tensor<1x134xi1>, %arg1: tensor<1x2xi3
 //       CHECK:     %[[v7:.+]] = tensorrt.scatter_elements {axis = 1 : i64} data(%[[v5]] : tensor<1x134xi32>) indices(%[[v4]] : tensor<1x5xi32>) updates(%[[v6]] : tensor<1x5xi32>)
 //       CHECK:     %[[v8:.+]] = tensorrt.identity %[[v7]] : tensor<1x134xi32> to tensor<1x134xi1>
 //       CHECK:     return %[[v8]] : tensor<1x134xi1>
+
+// -----
+
+func.func @scatter_slice_update_i1_axis0(%arg0: tensor<1024x1xi1>, %arg1: tensor<1x1xi32>, %arg2: tensor<1x134x1xi1>) -> tensor<1024x1xi1> {
+  %0 = "stablehlo.scatter"(%arg0, %arg1, %arg2) <{indices_are_sorted = false, scatter_dimension_numbers = #stablehlo.scatter<update_window_dims = [1, 2], scatter_dims_to_operand_dims = [0], index_vector_dim = 1>, unique_indices = false}> ({
+  ^bb0(%arg3: tensor<i1>, %arg4: tensor<i1>):
+    stablehlo.return %arg4 : tensor<i1>
+  }) : (tensor<1024x1xi1>, tensor<1x1xi32>, tensor<1x134x1xi1>) -> tensor<1024x1xi1>
+  return %0 : tensor<1024x1xi1>
+}
+
+// CHECK-LABEL: @scatter_slice_update_i1_axis0
+//       CHECK:     %[[v0:.+]] = tensorrt.slice %arg1[0, 0][1, 1][1, 1] : tensor<1x1xi32> to tensor<1x1xi32>
+//       CHECK:     %[[v1:.+]] = tensorrt.collapse_rank %[[v0]] : tensor<1x1xi32> to tensor<i32>
+//       CHECK:     %[[v2:.+]] = tensorrt.collapse_rank %arg2 : tensor<1x134x1xi1> to tensor<134x1xi1>
+//       CHECK:     %[[v3:.+]] = tensorrt.constant dense<1> : tensor<2xi32>
+//       CHECK:     %[[v4:.+]] = tensorrt.linspace[%[[v1]] : tensor<i32>] [ static] [%[[v3]] : tensor<2xi32>] : tensor<134x1xi32>
+//       CHECK:     %[[v5:.+]] = tensorrt.identity %arg0 : tensor<1024x1xi1> to tensor<1024x1xi32>
+//       CHECK:     %[[v6:.+]] = tensorrt.identity %[[v2]] : tensor<134x1xi1> to tensor<134x1xi32>
+//       CHECK:     %[[v7:.+]] = tensorrt.scatter_elements {axis = 0 : i64} data(%[[v5]] : tensor<1024x1xi32>) indices(%[[v4]] : tensor<134x1xi32>) updates(%[[v6]] : tensor<134x1xi32>)
+//       CHECK:     %[[v8:.+]] = tensorrt.identity %[[v7]] : tensor<1024x1xi32> to tensor<1024x1xi1>
+//       CHECK:     return %[[v8]] : tensor<1024x1xi1>
 
 // -----
 

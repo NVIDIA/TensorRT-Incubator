@@ -25,15 +25,23 @@
 #include "mlir/Dialect/Arith/Transforms/BufferizableOpInterfaceImpl.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/FuncBufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Complex/IR/Complex.h"
+#include "mlir/Dialect/Linalg/IR/ValueBoundsOpInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Linalg/Transforms/SubsetInsertionOpInterfaceImpl.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/SCF/Transforms/BufferDeallocationOpInterfaceImpl.h"
 #include "mlir/Dialect/SCF/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Tensor/IR/ValueBoundsOpInterfaceImpl.h"
 #include "mlir/Dialect/Tensor/Transforms/BufferizableOpInterfaceImpl.h"
+#include "mlir/Dialect/Tensor/Transforms/SubsetInsertionOpInterfaceImpl.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 
 namespace mlir::executor {
 void registerTestExecutorBufferizePass();
-}
+void registerTestClusteringTransformPass();
+} // namespace mlir::executor
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
@@ -41,19 +49,28 @@ int main(int argc, char **argv) {
   mlir::executor::registerAllRequiredDialects(registry);
   mlir::executor::registerAllPasses();
   mlir::executor::registerTestExecutorBufferizePass();
+  mlir::executor::registerTestClusteringTransformPass();
+
+  mlir::bufferization::registerBufferizationPasses();
+  mlir::memref::registerMemRefPasses();
 
   // Bufferization-related dialects/interfaces only required for tests.
   registry.insert<mlir::bufferization::BufferizationDialect,
                   mlir::complex::ComplexDialect, mlir::memref::MemRefDialect>();
   mlir::bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(
       registry);
-  mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::arith::registerBufferDeallocationOpInterfaceExternalModels(registry);
+  mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
   mlir::arith::registerBufferViewFlowOpInterfaceExternalModels(registry);
-  mlir::scf::registerBufferDeallocationOpInterfaceExternalModels(registry);
-  mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
-  mlir::scf::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::linalg::registerSubsetOpInterfaceExternalModels(registry);
+  mlir::linalg::registerValueBoundsOpInterfaceExternalModels(registry);
   mlir::registerConvertComplexToStandardPass();
+  mlir::scf::registerBufferDeallocationOpInterfaceExternalModels(registry);
+  mlir::scf::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::tensor::registerSubsetOpInterfaceExternalModels(registry);
+  mlir::tensor::registerValueBoundsOpInterfaceExternalModels(registry);
 
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));
