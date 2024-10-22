@@ -223,7 +223,7 @@ StableHLOToExecutableOptions::StableHLOToExecutableOptions(
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)"));
   addOption(
-      "use-non-dps-call-conv", useNonDPSCallConv, llvm::cl::init(false),
+      "enable-non-dps-returns", enableNonDPSReturns, llvm::cl::init(false),
       llvm::cl::desc(
           "allow tensorrt based output allocations using output allocator"));
   addOption("executor-index-bitwidth", executorIndexBitwidth,
@@ -307,7 +307,7 @@ void StableHloToExecutableTask::buildStablehloClusteringPipeline(
   plan::StablehloClusteringPassOptions clusteringOpts{};
   clusteringOpts.disallowHostTensorsInTensorRTClusters =
       opts.disallowHostTensorsInTensorRTClusters;
-  clusteringOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
+  clusteringOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
   clusteringOpts.entrypoint = opts.entrypoint;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
@@ -342,7 +342,7 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
   // Perform bufferization.
   pm.addPass(createMemRefCastEliminationPass());
   plan::PlanAllocTensorsPassOptions allocTensorsOpts{};
-  allocTensorsOpts.useNonDPSCallConv = opts.useNonDPSCallConv;
+  allocTensorsOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
   pm.addPass(plan::createPlanAllocTensorsPass(allocTensorsOpts));
   pm.addPass(plan::createPlanBufferizePass());
   pm.addPass(createMemRefCastEliminationPass());
@@ -532,8 +532,8 @@ struct ClusteringPipelineCliOpts
       *this, "device-compute-capability",
       llvm::cl::desc("target device compute capability (SM version)"),
       llvm::cl::init(60)};
-  Option<bool> useNonDPSCallConv{
-      *this, "use-non-dps-call-conv",
+  Option<bool> enableNonDPSReturns{
+      *this, "enable-non-dps-returns",
       llvm::cl::desc(
           "allow tensorrt based output allocations using output allocator"),
       llvm::cl::init(false)};
@@ -564,7 +564,7 @@ static StableHLOToExecutableOptions populateStablehloClusteringPipelineOpts(
   opts.deviceComputeCapability = cliOpts.deviceComputeCapability;
   opts.deviceMaxSharedMemoryPerBlockKb =
       cliOpts.deviceMaxSharedMemoryPerBlockKb;
-  opts.useNonDPSCallConv = cliOpts.useNonDPSCallConv;
+  opts.enableNonDPSReturns = cliOpts.enableNonDPSReturns;
   opts.shouldInferDeviceOptionsFromHost = cliOpts.inferDeviceOptionsFromHost;
   opts.entrypoint = cliOpts.entrypoint;
   return opts;

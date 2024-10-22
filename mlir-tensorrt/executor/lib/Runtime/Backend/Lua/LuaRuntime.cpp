@@ -502,30 +502,34 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
   return getOkStatus();
 }
 
-static constexpr int MEMREF_FIXED_FIELDS = 3; // allocPtr, alignedPtr, offset
+[[maybe_unused]] static constexpr int MEMREF_FIXED_FIELDS =
+    3; // allocPtr, alignedPtr, offset
 
 // MemRefTableReader encapsulates the logic for reading MemRef data from a Lua
 // table
 class MemRefTableReader {
 public:
-  MemRefTableReader(const sol::protected_function_result &pfr,
+  MemRefTableReader(const sol::protected_function_result &pfr, int resultIndex,
                     impl::CallingConvention conv)
       : mPfr(pfr), mConv(conv), mIndex(1) {
     // Currently, we only support unpacked calling convention
     assert(mConv == CallingConvention::unpacked &&
            "Only unpacked calling convention is supported");
+
+    // Assume result is always a memref.
+    sol::object obj = mPfr[resultIndex];
+    assert(obj.is<sol::table>() && "Expected a table for MemRefValue");
+    mMemRefTable = obj.as<sol::table>();
   }
 
   // Retrieves the next value of type T from the MemRef table
   // This method advances the internal index automatically
   template <typename T>
   T getNextValue() {
-    sol::object obj = mPfr[0];
-    assert(obj.is<sol::table>() && "Expected a table for MemRefValue");
-    sol::table memRefTable = obj.as<sol::table>();
-    return memRefTable.get<T>(mIndex++);
+    return mMemRefTable.get<T>(mIndex++);
   }
 
+  // TODO: This may not be required since each pfr index stores a memref.
   // Moves to the next MemRef in the table
   // This is called after processing all data for the current MemRef
   void nextMemRef(int offset) {
@@ -537,6 +541,7 @@ public:
 private:
   const sol::protected_function_result &mPfr;
   impl::CallingConvention mConv;
+  sol::table mMemRefTable;
   int mIndex;
 };
 
@@ -571,9 +576,10 @@ parseResults(const sol::protected_function_result &pfr,
              const FunctionSignatureView &sig,
              std::optional<RuntimeClient *> client) {
   llvm::SmallVector<std::unique_ptr<RuntimeValue>> results;
-  MemRefTableReader reader(pfr, sig.getCConv());
-
   for (unsigned i = 0; i < sig.getNumResults(); ++i) {
+
+    MemRefTableReader reader(pfr, i, sig.getCConv());
+
     if (sig.getResult(i).isa<ScalarTypeView>()) {
       auto scalar = getScalarValue(pfr, i, sig);
       if (!scalar.isOk())
@@ -607,16 +613,16 @@ parseResults(const sol::protected_function_result &pfr,
       return getInvalidArgStatus("Runtime client cannot be nullptr");
 
     // Create MemRefValue from extracted data
-    auto memref = MemRefValue::create(
-        *client, resultView.getAddressSpace(),
-        resultView.getElementType().getBitWidth(), allocPtr, offset, shape,
-        strides, (*client)->getDevices()[0].get(), resultView.getElementType());
+
+    auto memref = (*client)->createExternalMemRef(
+        resultView.getAddressSpace(), resultView.getElementType().getBitWidth(),
+        allocPtr, offset, shape, strides, (*client)->getDevices()[0].get(),
+        resultView.getElementType());
 
     if (!memref.isOk())
       return memref.getStatus();
 
     results.push_back(std::move(*memref));
-    reader.nextMemRef(MEMREF_FIXED_FIELDS + rank * 2);
   }
 
   return results;

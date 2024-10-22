@@ -58,7 +58,7 @@ class Compiler:
             f"--tensorrt-timing-cache-path={G_TIMING_CACHE_FILE}",
             f"--tensorrt-builder-opt-level={trt_builder_opt_level}",
             "--tensorrt-strongly-typed=True",
-            "--use-non-dps-call-conv",
+            "--enable-non-dps-returns",
         ]
         if config.enable_mlir_debug or config.enable_tensorrt_debug:
             opts.append("--debug=true")
@@ -74,7 +74,9 @@ class Compiler:
         with self.mlir_context:
             module = ir.Module.parse(code)
             opts = self._make_mlir_opts(self.trt_builder_opt_level)
-            return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
+            return compiler.compiler_stablehlo_to_executable(
+                self.compiler_client, module.operation, opts
+            )
 
     @utils.log_time
     def infer_shapes(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None):
@@ -94,8 +96,12 @@ class Compiler:
 
     # The optional flat_ir parameter is used to generate nicer error messages.
     @utils.log_time
-    def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:
-        logger.mlir(lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n")
+    def compile(
+        self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None
+    ) -> compiler.Executable:
+        logger.mlir(
+            lambda: f"{mlir_module.operation.get_asm(large_elements_limit=32)}\n"
+        )
         opts = self._make_mlir_opts(self.trt_builder_opt_level)
 
         try:

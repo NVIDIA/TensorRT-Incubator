@@ -26,7 +26,7 @@ def stablehlo_add(use_non_dps=False, debug=False):
             "--tensorrt-strongly-typed=false",
         ]
         if use_non_dps:
-            c_opts.append("--use-non-dps-call-conv")
+            c_opts.append("--enable-non-dps-returns")
         if debug:
             c_opts.append("--debug=true")
             c_opts.append(f"--mlir-print-ir-tree-dir=mlir-dumps-add-no-clone")
