@@ -50,30 +50,51 @@ def show_points(coords, labels, ax, marker_size=200):
     pos_points = coords[labels == 1]
     neg_points = coords[labels == 0]
     ax.scatter(
-        pos_points[:, 0], pos_points[:, 1], color="green", marker="*", s=marker_size, edgecolor="white", linewidth=1.25
+        pos_points[:, 0],
+        pos_points[:, 1],
+        color="green",
+        marker="*",
+        s=marker_size,
+        edgecolor="white",
+        linewidth=1.25,
     )
     ax.scatter(
-        neg_points[:, 0], neg_points[:, 1], color="red", marker="*", s=marker_size, edgecolor="white", linewidth=1.25
+        neg_points[:, 0],
+        neg_points[:, 1],
+        color="red",
+        marker="*",
+        s=marker_size,
+        edgecolor="white",
+        linewidth=1.25,
     )
 
 
 def show_box(box, ax):
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
-    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2))
+    ax.add_patch(
+        plt.Rectangle((x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2)
+    )
 
 
 sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
-model_cfg = "sam2_hiera_l_tp_backbone.yaml"
+# model_cfg = "sam2_hiera_l_tp_backbone.yaml"
+model_cfg = "sam2_hiera_l.yaml"
 
-predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint, device=torch.device("cuda"))
+predictor = build_sam2_video_predictor(
+    model_cfg, sam2_checkpoint, device=torch.device("cuda")
+)
 
 
 # `video_dir` a directory of JPEG frames with filenames like `<frame_index>.jpg`
 video_dir = "./notebooks/videos/bedroom"
 
 # scan all the JPEG frame names in this directory
-frame_names = [p for p in os.listdir(video_dir) if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]]
+frame_names = [
+    p
+    for p in os.listdir(video_dir)
+    if os.path.splitext(p)[-1] in [".jpg", ".jpeg", ".JPG", ".JPEG"]
+]
 frame_names.sort(key=lambda p: int(os.path.splitext(p)[0]))
 # take a look the first video frame
 frame_idx = 0
@@ -98,7 +119,9 @@ inference_state = make_tensors_contiguous(inference_state)
 predictor.reset_state(inference_state)
 
 ann_frame_idx = 0  # the frame index we interact with
-ann_obj_id = 1  # give a unique id to each object we interact with (it can be any integers)
+ann_obj_id = (
+    1  # give a unique id to each object we interact with (it can be any integers)
+)
 
 # Let's add a positive click at (x, y) = (210, 350) to get started
 points = np.array([[210, 350]], dtype=np.float32)
@@ -122,7 +145,9 @@ plt.savefig(f"video_mask_{ann_frame_idx}.png")
 
 
 ann_frame_idx = 0  # the frame index we interact with
-ann_obj_id = 1  # give a unique id to each object we interact with (it can be any integers)
+ann_obj_id = (
+    1  # give a unique id to each object we interact with (it can be any integers)
+)
 
 # Let's add a 2nd positive click at (x, y) = (250, 220) to refine the mask
 # sending all clicks (and their labels) to `add_new_points_or_box`
@@ -149,9 +174,12 @@ plt.savefig(f"video_mask_{ann_frame_idx}.png")
 # run propagation throughout the video and collect the results in a dict
 start = time.perf_counter()
 video_segments = {}  # video_segments contains the per-frame segmentation results
-for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
+for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(
+    inference_state
+):
     video_segments[out_frame_idx] = {
-        out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy() for i, out_obj_id in enumerate(out_obj_ids)
+        out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
+        for i, out_obj_id in enumerate(out_obj_ids)
     }
 end = time.perf_counter()
 print(f"Video segmentation took {(end - start)}s")

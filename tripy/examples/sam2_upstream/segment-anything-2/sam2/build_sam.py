@@ -55,7 +55,7 @@ def build_sam2(
     OmegaConf.resolve(cfg)
 
     model = instantiate(cfg.model, _recursive_=True)
-    _load_checkpoint(model, ckpt_path, cfg)
+    _load_checkpoint(model, ckpt_path, cfg, use_tripy_image_encoder)
 
     current_dir = os.getcwd()
     saved_engines_path = os.path.join(current_dir, "saved_engines", "image_pipeline")
@@ -64,33 +64,36 @@ def build_sam2(
     if not os.path.exists(saved_engines_path):
         os.makedirs(saved_engines_path)
 
-    if use_tripy_image_encoder:
-        print("Start compiling image encoder...")
-        start = time.time()
-        tp_image_encoder = model.image_encoder
-
+    if 1 and use_tripy_image_encoder:
         # Use the saved_engines directory path instead of the fixed path
         executable_file = os.path.join(saved_engines_path, "image_encoder")
 
         if os.path.exists(executable_file):
-            compiled_tp_image_encoder = tp.Executable.load(executable_file)
+            model.image_encoder.compiled_executable = tp.Executable.load(
+                executable_file
+            )
         else:
+            print("Start compiling image encoder...")
+            start = time.time()
+            tp_image_encoder = model.image_encoder
+            tp_image_encoder_dtype = getattr(tp, model.image_encoder.trunk.dtype)
             compiled_tp_image_encoder = tp.compile(
                 tp_image_encoder.forward,
                 args=[
-                    tp.InputInfo((1, 3, 1024, 1024), dtype=tp.float32),
+                    tp.InputInfo((1, 3, 1024, 1024), dtype=tp_image_encoder_dtype),
                 ],
             )
             print(f"Compile image encoder took {time.time() - start}s")
             compiled_tp_image_encoder.save(executable_file)
-
-        model.image_encoder = compiled_tp_image_encoder
+            model.image_encoder.compiled_executable = compiled_tp_image_encoder
 
     if cfg["model"].use_tripy_mask_decoder:
         tp_sam_mask_decoder = model.sam_mask_decoder
 
         # Use the saved_engines directory path instead of the fixed path
-        executable_file = os.path.join(saved_engines_path, "compiled_tp_sam_mask_decoder")
+        executable_file = os.path.join(
+            saved_engines_path, "compiled_tp_sam_mask_decoder"
+        )
         if os.path.exists(executable_file):
             compiled_tp_sam_mask_decoder = tp.Executable.load(executable_file)
         else:
@@ -98,14 +101,24 @@ def build_sam2(
             compiled_tp_sam_mask_decoder = tp.compile(
                 tp_sam_mask_decoder,
                 args=[
-                    tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_embeddings
+                    tp.InputInfo(
+                        (1, 256, 64, 64), dtype=tp.float32
+                    ),  # image_embeddings
                     tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # image_pe
-                    tp.InputInfo((1, 2, 256), dtype=tp.float32),  # sparse_prompt_embeddings
-                    tp.InputInfo((1, 256, 64, 64), dtype=tp.float32),  # dense_prompt_embeddings
+                    tp.InputInfo(
+                        (1, 2, 256), dtype=tp.float32
+                    ),  # sparse_prompt_embeddings
+                    tp.InputInfo(
+                        (1, 256, 64, 64), dtype=tp.float32
+                    ),  # dense_prompt_embeddings
                     True,  # multimask_output
                     False,  # repeat_image
-                    tp.InputInfo((1, 32, 256, 256), dtype=tp.float32),  # high_res_features_1
-                    tp.InputInfo((1, 64, 128, 128), dtype=tp.float32),  # high_res_features_2
+                    tp.InputInfo(
+                        (1, 32, 256, 256), dtype=tp.float32
+                    ),  # high_res_features_1
+                    tp.InputInfo(
+                        (1, 64, 128, 128), dtype=tp.float32
+                    ),  # high_res_features_2
                 ],
             )
             print(f"Compile mask decoder took {time.time() - start}s")
@@ -113,8 +126,14 @@ def build_sam2(
 
         assert os.path.exists(executable_file)
 
-        conv_s0 = tp.compile(model.sam_mask_decoder.conv_s0, args=[tp.InputInfo((1, 256, 256, 256), dtype=tp.float32)])
-        conv_s1 = tp.compile(model.sam_mask_decoder.conv_s1, args=[tp.InputInfo((1, 256, 128, 128), dtype=tp.float32)])
+        conv_s0 = tp.compile(
+            model.sam_mask_decoder.conv_s0,
+            args=[tp.InputInfo((1, 256, 256, 256), dtype=tp.float32)],
+        )
+        conv_s1 = tp.compile(
+            model.sam_mask_decoder.conv_s1,
+            args=[tp.InputInfo((1, 256, 128, 128), dtype=tp.float32)],
+        )
 
         model.sam_mask_decoder = compiled_tp_sam_mask_decoder
         setattr(model.sam_mask_decoder, "conv_s0", conv_s0)
@@ -201,10 +220,11 @@ def build_sam2_video_predictor(
         if os.path.exists(executable_file):
             compiled_tp_image_encoder = tp.Executable.load(executable_file)
         else:
+            tp_image_encoder_dtype = getattr(tp, model.image_encoder.trunk.dtype)
             compiled_tp_image_encoder = tp.compile(
                 tp_image_encoder.forward,
                 args=[
-                    tp.InputInfo((1, 3, 1024, 1024), dtype=tp.float32),
+                    tp.InputInfo((1, 3, 1024, 1024), dtype=tp_image_encoder_dtype),
                 ],
             )
             print(f"Compile image encoder took {time.time() - start}s")
@@ -216,30 +236,48 @@ def build_sam2_video_predictor(
         model_dtype = getattr(tp, cfg["model"].tripy_mask_decoder_dtype)
 
         tp_sam_mask_decoder = model.sam_mask_decoder
-        model_name_false = f"compiled_tp_sam_mask_decoder_multimask_output_false_{model_dtype}.json"
-        model_name_true = f"compiled_tp_sam_mask_decoder_multimask_output_true_{model_dtype}.json"
+        model_name_false = (
+            f"compiled_tp_sam_mask_decoder_multimask_output_false_{model_dtype}.json"
+        )
+        model_name_true = (
+            f"compiled_tp_sam_mask_decoder_multimask_output_true_{model_dtype}.json"
+        )
 
         # Use the saved_engines directory path instead of the fixed path
         executable_file = os.path.join(saved_engines_path, model_name_false)
 
         if os.path.exists(executable_file):
-            compiled_tp_sam_mask_decoder_multimask_output_false = tp.Executable.load(executable_file)
+            compiled_tp_sam_mask_decoder_multimask_output_false = tp.Executable.load(
+                executable_file
+            )
             executable_file = os.path.join(saved_engines_path, model_name_true)
-            compiled_tp_sam_mask_decoder_multimask_output_true = tp.Executable.load(executable_file)
+            compiled_tp_sam_mask_decoder_multimask_output_true = tp.Executable.load(
+                executable_file
+            )
         else:
             print(f"Compiling tripy mask decoder with precision {model_dtype}")
             start = time.time()
             compiled_tp_sam_mask_decoder_multimask_output_false = tp.compile(
                 tp_sam_mask_decoder,
                 args=[
-                    tp.InputInfo((1, 256, 64, 64), dtype=model_dtype),  # image_embeddings
+                    tp.InputInfo(
+                        (1, 256, 64, 64), dtype=model_dtype
+                    ),  # image_embeddings
                     tp.InputInfo((1, 256, 64, 64), dtype=model_dtype),  # image_pe
-                    tp.InputInfo((1, 3, 256), dtype=model_dtype),  # sparse_prompt_embeddings
-                    tp.InputInfo((1, 256, 64, 64), dtype=model_dtype),  # dense_prompt_embeddings
+                    tp.InputInfo(
+                        (1, 3, 256), dtype=model_dtype
+                    ),  # sparse_prompt_embeddings
+                    tp.InputInfo(
+                        (1, 256, 64, 64), dtype=model_dtype
+                    ),  # dense_prompt_embeddings
                     False,  # multimask_output
                     False,  # repeat_image
-                    tp.InputInfo((1, 32, 256, 256), dtype=model_dtype),  # high_res_features_1
-                    tp.InputInfo((1, 64, 128, 128), dtype=model_dtype),  # high_res_features_2
+                    tp.InputInfo(
+                        (1, 32, 256, 256), dtype=model_dtype
+                    ),  # high_res_features_1
+                    tp.InputInfo(
+                        (1, 64, 128, 128), dtype=model_dtype
+                    ),  # high_res_features_2
                 ],
             )
             print(f"Compile took {time.time() - start}s")
@@ -248,14 +286,24 @@ def build_sam2_video_predictor(
             compiled_tp_sam_mask_decoder_multimask_output_true = tp.compile(
                 tp_sam_mask_decoder,
                 args=[
-                    tp.InputInfo((1, 256, 64, 64), dtype=model_dtype),  # image_embeddings
+                    tp.InputInfo(
+                        (1, 256, 64, 64), dtype=model_dtype
+                    ),  # image_embeddings
                     tp.InputInfo((1, 256, 64, 64), dtype=model_dtype),  # image_pe
-                    tp.InputInfo((1, 2, 256), dtype=model_dtype),  # sparse_prompt_embeddings
-                    tp.InputInfo((1, 256, 64, 64), dtype=model_dtype),  # dense_prompt_embeddings
+                    tp.InputInfo(
+                        (1, 2, 256), dtype=model_dtype
+                    ),  # sparse_prompt_embeddings
+                    tp.InputInfo(
+                        (1, 256, 64, 64), dtype=model_dtype
+                    ),  # dense_prompt_embeddings
                     True,  # multimask_output
                     False,  # repeat_image
-                    tp.InputInfo((1, 32, 256, 256), dtype=model_dtype),  # high_res_features_1
-                    tp.InputInfo((1, 64, 128, 128), dtype=model_dtype),  # high_res_features_2
+                    tp.InputInfo(
+                        (1, 32, 256, 256), dtype=model_dtype
+                    ),  # high_res_features_1
+                    tp.InputInfo(
+                        (1, 64, 128, 128), dtype=model_dtype
+                    ),  # high_res_features_2
                 ],
             )
             print(f"Compile took {time.time() - start}s")
@@ -263,13 +311,17 @@ def build_sam2_video_predictor(
             compiled_tp_sam_mask_decoder_multimask_output_true.save(executable_file)
 
         model.sam_mask_decoder.conv_s0 = tp.compile(
-            model.sam_mask_decoder.conv_s0, args=[tp.InputInfo((1, 256, 256, 256), dtype=model_dtype)]
+            model.sam_mask_decoder.conv_s0,
+            args=[tp.InputInfo((1, 256, 256, 256), dtype=model_dtype)],
         )
         model.sam_mask_decoder.conv_s1 = tp.compile(
-            model.sam_mask_decoder.conv_s1, args=[tp.InputInfo((1, 256, 128, 128), dtype=model_dtype)]
+            model.sam_mask_decoder.conv_s1,
+            args=[tp.InputInfo((1, 256, 128, 128), dtype=model_dtype)],
         )
 
-        model.sam_mask_decoder_false = compiled_tp_sam_mask_decoder_multimask_output_false
+        model.sam_mask_decoder_false = (
+            compiled_tp_sam_mask_decoder_multimask_output_false
+        )
         model.sam_mask_decoder_true = compiled_tp_sam_mask_decoder_multimask_output_true
 
     if cfg["model"].use_tripy_prompt_encoder:
@@ -358,10 +410,12 @@ def build_sam2_video_predictor_hf(model_id, **kwargs):
     }
     config_name, checkpoint_name = model_id_to_filenames[model_id]
     ckpt_path = hf_hub_download(repo_id=model_id, filename=checkpoint_name)
-    return build_sam2_video_predictor(config_file=config_name, ckpt_path=ckpt_path, **kwargs)
+    return build_sam2_video_predictor(
+        config_file=config_name, ckpt_path=ckpt_path, **kwargs
+    )
 
 
-def _load_checkpoint(model, ckpt_path, cfg=None):
+def _load_checkpoint(model, ckpt_path, cfg=None, use_tripy_image_encoder=False):
 
     use_tripy_mask_decoder = cfg["model"].use_tripy_mask_decoder
     use_tripy_prompt_encoder = cfg["model"].use_tripy_prompt_encoder
@@ -382,6 +436,7 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
         tp_image_encoder_state_dict = tp_image_encoder.state_dict()
         print(f"Tripy image encoder expect {len(tp_image_encoder_state_dict)} keys.")
         nb_image_keys = 0
+        image_encoder_dtype = getattr(torch, cfg["model"].image_encoder.trunk.dtype)
 
         expected_mask_decoder_keys = len(tp_mask_decoder_state_dict.keys())
         nb_keys = 0
@@ -394,7 +449,10 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
                 new_key = key.replace("sam_mask_decoder.", "")
                 nb_keys += 1
                 weight = sd[key]
-                if not any(substring in key for substring in ["ln", "norm", "output_upscaling.1"]):
+                if not any(
+                    substring in key
+                    for substring in ["ln", "norm", "output_upscaling.1"]
+                ):
                     weight = weight.to(torch_dtype)
                 param = tp.Parameter(weight)
                 tp_mask_decoder_state_dict[new_key] = param
@@ -406,14 +464,18 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
                 param = tp.Parameter(weight)
                 tp_prompt_encoder_state_dict[new_key] = param
 
-            if isinstance(tp_memory_attention, tp.Module) and key.startswith("memory_attention"):
+            if isinstance(tp_memory_attention, tp.Module) and key.startswith(
+                "memory_attention"
+            ):
                 new_key = key.replace("memory_attention.", "")
                 nb_memory_attention_keys += 1
                 weight = sd[key]
                 param = tp.Parameter(weight)
                 tp_memory_attention_state_dict[new_key] = param
 
-            if isinstance(tp_image_encoder, tp.Module) and key.startswith("image_encoder"):
+            if isinstance(tp_image_encoder, tp.Module) and key.startswith(
+                "image_encoder"
+            ):
                 new_key = key.replace("image_encoder.", "")
                 if new_key.startswith("neck.convs"):
                     # convert neck.convs.0.conv.weight ->
@@ -423,6 +485,8 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
                     new_key = ".".join(attrs)
                 nb_image_keys += 1
                 weight = sd[key]
+                if "norm" not in new_key:
+                    weight = weight.to(image_encoder_dtype)
 
                 param = tp.Parameter(weight.contiguous())
                 tp_image_encoder_state_dict[new_key] = param
@@ -432,18 +496,24 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
             tp_mask_decoder.load_state_dict(tp_mask_decoder_state_dict)
 
         if use_tripy_prompt_encoder:
-            print(f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}")
+            print(
+                f"expected keys {len(tp_prompt_encoder_state_dict.keys())}, got {nb_prompt_keys}"
+            )
             tp_prompt_encoder.load_state_dict(tp_prompt_encoder_state_dict)
 
         if isinstance(tp_memory_attention, tp.Module):
-            print(f"expected keys {len(tp_memory_attention_state_dict.keys())}, got {nb_memory_attention_keys}")
+            print(
+                f"expected keys {len(tp_memory_attention_state_dict.keys())}, got {nb_memory_attention_keys}"
+            )
             tp_memory_attention.load_state_dict(tp_memory_attention_state_dict)
 
         if isinstance(tp_image_encoder, tp.Module):
             print(f"Converted {nb_image_keys} image encoder keys from checkpoint.")
             tp_image_encoder.load_state_dict(tp_image_encoder_state_dict)
             # WAR: https://github.com/NVIDIA/TensorRT-Incubator/issues/269
-            tp_image_encoder.trunk.pos_embed_torch = tp_image_encoder.trunk._get_pos_embed_torch((256, 256))
+            tp_image_encoder.trunk.pos_embed_torch = (
+                tp_image_encoder.trunk._get_pos_embed_torch((256, 256))
+            )
 
         if missing_keys:
             logging.error(missing_keys)

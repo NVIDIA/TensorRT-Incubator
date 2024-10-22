@@ -65,19 +65,27 @@ class PositionEmbeddingSine(tp.Module):
 
         pos_x = tp.unsqueeze(x_embed, -1) / dim_t
         pos_y = tp.unsqueeze(y_embed, -1) / dim_t
-        pos_x = tp.stack((tp.sin(pos_x[:, :, :, 0::2]), tp.cos(pos_x[:, :, :, 1::2])), dim=4)
-        pos_y = tp.stack((tp.sin(pos_y[:, :, :, 0::2]), tp.cos(pos_y[:, :, :, 1::2])), dim=4)
+        pos_x = tp.stack(
+            (tp.sin(pos_x[:, :, :, 0::2]), tp.cos(pos_x[:, :, :, 1::2])), dim=4
+        )
+        pos_y = tp.stack(
+            (tp.sin(pos_y[:, :, :, 0::2]), tp.cos(pos_y[:, :, :, 1::2])), dim=4
+        )
         pos_x = tp.flatten(pos_x, 3)
         pos_y = tp.flatten(pos_y, 3)
         pos = tp.permute(pos, (0, 3, 1, 2))
         return pos
 
-    def generate_static_embedding(self, inp_shape):
+    def generate_static_embedding(self, inp_shape, dtype):
         import torch
 
         B, _, H, W = inp_shape
-        y_embed = torch.arange(1, H + 1, dtype=torch.float32).view(1, -1, 1).repeat(B, 1, W)
-        x_embed = torch.arange(1, W + 1, dtype=torch.float32).view(1, 1, -1).repeat(B, H, 1)
+        y_embed = (
+            torch.arange(1, H + 1, dtype=torch.float32).view(1, -1, 1).repeat(B, 1, W)
+        )
+        x_embed = (
+            torch.arange(1, W + 1, dtype=torch.float32).view(1, 1, -1).repeat(B, H, 1)
+        )
 
         if self.normalize:
             eps = 1e-6
@@ -89,8 +97,11 @@ class PositionEmbeddingSine(tp.Module):
 
         pos_x = x_embed[:, :, :, None] / dim_t
         pos_y = y_embed[:, :, :, None] / dim_t
-        pos_x = torch.stack((pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
-        pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        pos_x = torch.stack(
+            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4
+        ).flatten(3)
+        pos_y = torch.stack(
+            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4
+        ).flatten(3)
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
-        print(f"Position embedding for {inp_shape}: {pos.shape}")
-        return tp.Tensor(pos.contiguous())
+        return tp.Tensor(pos.to(getattr(torch, dtype)).contiguous())

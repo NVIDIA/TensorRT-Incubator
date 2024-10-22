@@ -200,7 +200,7 @@ def tripy_scaled_dot_product_attention(
         )
     if embedding_dim is None:
         embedding_dim = query.shape[-1]
-    qk = query @ tp.transpose(key, -2, -1) / tp.sqrt(tp.cast(embedding_dim, tp.float32))
+    qk = query @ tp.transpose(key, -2, -1) / tp.sqrt(tp.cast(embedding_dim, query.dtype))
     return (
         tp.cast(
             tp.softmax((qk + attn_mask) if attn_mask is not None else qk, -1),
@@ -211,6 +211,7 @@ def tripy_scaled_dot_product_attention(
 
 
 class tripy_MLP(tp.Module):
+
     def __init__(
         self,
         input_dim: int,
@@ -219,13 +220,14 @@ class tripy_MLP(tp.Module):
         num_layers: int,
         activation: tp.Module = tp.relu,
         sigmoid_output: bool = False,
+        dtype=tp.float32,
     ) -> None:
         super().__init__()
         self.num_layers = num_layers
         h = [hidden_dim] * (num_layers - 1)
         self.layers = []
         for n, k in zip([input_dim] + h, h + [output_dim]):
-            self.layers.append(tp.Linear(n, k))
+            self.layers.append(tp.Linear(n, k, dtype=dtype))
 
         self.sigmoid_output = sigmoid_output
         self.act = activation

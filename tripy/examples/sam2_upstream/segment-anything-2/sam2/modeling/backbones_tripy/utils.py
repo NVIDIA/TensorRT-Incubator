@@ -90,6 +90,7 @@ class PatchEmbed(tp.Module):
         padding: Tuple[int, ...] = (3, 3),
         in_chans: int = 3,
         embed_dim: int = 768,
+        dtype: tp.dtype = tp.float32,
     ):
         """
         Args:
@@ -101,7 +102,7 @@ class PatchEmbed(tp.Module):
         """
         super().__init__()
         padding = ((padding[0], padding[0]), (padding[1], padding[1]))
-        self.proj = tp.Conv(in_chans, embed_dim, kernel_dims=kernel_size, stride=stride, padding=padding)
+        self.proj = tp.Conv(in_chans, embed_dim, kernel_dims=kernel_size, stride=stride, padding=padding, dtype=dtype)
 
     def __call__(self, x):
         x = self.proj(x)

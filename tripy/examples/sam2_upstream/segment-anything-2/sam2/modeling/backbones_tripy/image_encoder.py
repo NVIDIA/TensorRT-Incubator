@@ -24,6 +24,7 @@ import tripy as tp
 
 
 class ImageEncoder(tp.Module):
+
     def __init__(
         self,
         trunk: tp.Module,
@@ -37,6 +38,7 @@ class ImageEncoder(tp.Module):
         assert (
             self.trunk.channel_list == self.neck.backbone_channel_list
         ), f"Channel dims of trunk and neck do not match. Trunk: {self.trunk.channel_list}, neck: {self.neck.backbone_channel_list}"
+        self.compiled_executable = None
 
     def forward(self, x):
         # __call__ returns a dict, not tensors
@@ -45,8 +47,20 @@ class ImageEncoder(tp.Module):
         return self.neck(self.trunk(x))
 
     def __call__(self, sample: tp.Tensor):
+        import torch
+
         # Forward through backbone
-        features_pos = self.forward(sample)
+        if self.compiled_executable:
+            import time
+
+            start = time.perf_counter()
+            features_pos = self.compiled_executable(sample)
+            end = time.perf_counter()
+            print(f"image encoder inference took {(end - start) * 1000}")
+        else:
+            features_pos = self.forward(sample)
+        for i in range(len(features_pos)):
+            features_pos[i] = torch.from_dlpack(features_pos[i]).to(torch.float32)
         n = len(self.neck.backbone_channel_list)
         features = list(features_pos[:n])
         pos = list(features_pos[n:])
@@ -76,8 +90,10 @@ class FpnNeck(tp.Module):
         fpn_interp_model: str = "bilinear",
         fuse_type: str = "sum",
         fpn_top_down_levels: Optional[List[int]] = None,
+        dtype: str = "float32",
     ):
         super().__init__()
+        self.dtype = getattr(tp, dtype)
         # self.position_encoding = position_encoding
         self.convs = []
         self.backbone_channel_list = backbone_channel_list
@@ -90,6 +106,7 @@ class FpnNeck(tp.Module):
                     out_channels=d_model,
                     kernel_dims=make_2d_tuple(kernel_size),
                     stride=make_2d_tuple(stride),
+                    dtype=self.dtype,
                 )
             )
         self.fpn_interp_model = fpn_interp_model
@@ -106,7 +123,7 @@ class FpnNeck(tp.Module):
         self.position_encoding = []
         position_encoding_shapes = [[256, 256], [128, 128], [64, 64], [32, 32]]
         for s in position_encoding_shapes:
-            self.position_encoding.append(position_encoding.generate_static_embedding([1, 256] + s))
+            self.position_encoding.append(position_encoding.generate_static_embedding([1, 256] + s, dtype=dtype))
 
     def __call__(self, xs: List[tp.Tensor]):
 
@@ -123,7 +140,7 @@ class FpnNeck(tp.Module):
             if i in self.fpn_top_down_levels and prev_features is not None:
                 # WAR: https://github.com/NVIDIA/TensorRT-Incubator/issues/269
                 top_down_features = tp.resize(
-                    tp.cast(prev_features, tp.float32),  # is this cast really needed?
+                    tp.cast(prev_features, self.dtype),  # is this cast really needed?
                     mode=self.fpn_interp_model,
                     output_shape=(1, 256, 64, 64),
                 )
