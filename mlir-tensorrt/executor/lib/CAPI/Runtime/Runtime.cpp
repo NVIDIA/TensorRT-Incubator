@@ -29,9 +29,10 @@
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Support/Status.h"
 #include "mlir/Support/FileUtilities.h"
+#include "llvm/Support/Debug.h"
+
 #include "llvm/ADT/SmallVectorExtras.h"
 #include <memory>
-
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
 #include "cuda_runtime_api.h"
 #endif
@@ -140,6 +141,35 @@ static MTRT_Status wrap(const Status &status) {
   return mtrtStatusCreate(
       getMTRTStatusCodeFromRuntimeStatusCode(status.getCode()),
       status.getString().c_str());
+}
+
+//===----------------------------------------------------------------------===//
+// MTRT_Stream
+//===----------------------------------------------------------------------===//
+
+MTRT_Status mtrtEnableGlobalDebug(bool enable) {
+  llvm::DebugFlag = enable;
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtIsGlobalDebugEnabled(bool *enable) {
+  *enable = llvm::DebugFlag;
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtSetGlobalDebugType(const char *type) {
+  // Depending on the NDEBUG flag, this name can be either a function or a macro
+  // that expands to something that isn't a funciton call, so we cannot
+  // explicitly prefix it with `llvm::` or declare `using` it.
+  using namespace llvm;
+  setCurrentDebugType(type);
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtSetGlobalDebugTypes(const char **types, size_t n) {
+  using namespace llvm;
+  setCurrentDebugTypes(types, n);
+  return mtrtStatusGetOk();
 }
 
 //===----------------------------------------------------------------------===//
