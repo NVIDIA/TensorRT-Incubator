@@ -265,3 +265,65 @@ class Attention(tp.Module):
         out = self._recombine_heads(out)
         out = self.out_proj(out)
         return out
+
+
+from functools import partial
+from sam2.modeling.tripy.position_encoding import apply_rotary_enc, compute_axial_cis
+
+
+class RoPEAttention(Attention):
+    """Attention with rotary position encoding."""
+
+    def __init__(
+        self,
+        *args,
+        rope_theta=10000.0,
+        # whether to repeat q rope to match k length
+        # this is needed for cross-attention to memories
+        rope_k_repeat=False,
+        feat_sizes=(32, 32),  # [w, h] for stride 16 feats at 512 resolution
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.compute_cis = partial(compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta)
+        freqs_cis = self.compute_cis(end_x=feat_sizes[0], end_y=feat_sizes[1])
+        self.freqs_cis = freqs_cis
+        print(f"rope_k_repeat : {rope_k_repeat}")
+        self.rope_k_repeat = rope_k_repeat
+
+    def __call__(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.Tensor) -> Tensor:
+        return self.forward(q, k, v, num_k_exclude_rope)
+
+    def forward(self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: tp.Tensor) -> tp.Tensor:
+        # Input projections
+        q = self.q_proj(q)
+        k = self.k_proj(k)
+        v = self.v_proj(v)
+
+        # Separate into heads
+        q = self._separate_heads(q, self.num_heads)
+        k = self._separate_heads(k, self.num_heads)
+        v = self._separate_heads(v, self.num_heads)
+
+        # Apply rotary position encoding
+        # w = h = tp.ShapeScalar(tp.cast(tp.sqrt(tp.cast(q.shape[-2], tp.float32)), tp.int32))  # DDS?
+        w = h = tp.ShapeScalar(64)  # Current demo always uses 64.
+        self.freqs_cis = self.freqs_cis
+        self.freqs_cis = self.compute_cis(end_x=w, end_y=h)
+
+        num_k_rope = k.shape[-2] - num_k_exclude_rope
+        q, new_k = apply_rotary_enc(
+            q,
+            k[:, :, :num_k_rope],
+            freqs_cis=self.freqs_cis,
+            repeat_freqs_k=self.rope_k_repeat,
+        )
+        k = tp.concatenate([new_k, k[:, :, num_k_rope:, :]], dim=-2)
+
+        # Attention
+        out = scaled_dot_product_attention(q, k, v, embedding_dim=k.shape[-1])
+        out = self._recombine_heads(out)
+        out = self.out_proj(out)
+
+        return out

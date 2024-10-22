@@ -18,6 +18,7 @@ from typing import Optional
 import math
 import tripy as tp
 from tripy.common.datatype import float32
+import copy
 
 
 def scaled_dot_product_attention(
@@ -102,3 +103,41 @@ class LayerNorm2d(tp.Module):
         b = tp.unsqueeze(tp.unsqueeze(self.bias, 1), 2)
         x = w * x + b
         return x
+
+
+def get_activation_fn(activation):
+    """Return an activation function given a string"""
+    if activation == "relu":
+        return tp.relu
+    if activation == "gelu":
+        return tp.gelu
+    if activation == "glu":
+        return tp.glu
+    raise RuntimeError(f"activation should be relu/gelu, not {activation}.")
+
+
+def get_clones(module, N):
+    return [copy.deepcopy(module) for _ in range(N)]
+
+
+def cartesian_via_polar(abs, angles):
+    r"""
+    Constructs the real-valued cartesian coordinates from magnitude and angle representing polar coordinates. For input
+    ``abs`` and ``angles`` of shape :math:`(m_1, m_2, \ldots, m_i),` this function returns a new real tensor of shape
+    """
+    real = abs * tp.cos(angles)
+    imag = abs * tp.sin(angles)
+    return tp.stack([real, imag], dim=-1)
+
+
+def mul_as_complex(tensor1, tensor2):
+    r"""
+    Multiplies two tensors (elementwise) as if they were complex-valued.
+    The last dimension for both tensors must be 2, representing the real and imaginary components.
+    """
+    flattened1 = tensor1
+    flattened2 = tensor2
+
+    real = flattened1[:, :, :, :, 0] * flattened2[:, :, :, :, 0] - flattened1[:, :, :, :, 1] * flattened2[:, :, :, :, 1]
+    imag = flattened1[:, :, :, :, 0] * flattened2[:, :, :, :, 1] + flattened1[:, :, :, :, 1] * flattened2[:, :, :, :, 0]
+    return tp.stack([real, imag], dim=-1)

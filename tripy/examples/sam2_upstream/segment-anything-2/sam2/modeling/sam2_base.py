@@ -623,8 +623,17 @@ class SAM2Base(torch.nn.Module):
             # precompute projected level 0 and level 1 features in SAM decoder
             # to avoid running it again on every SAM click
             if self.use_tripy_mask_decoder:
-                conv_s0_in = backbone_out["backbone_fpn"][0].contiguous()
-                conv_s1_in = backbone_out["backbone_fpn"][1].contiguous()
+                is_backbone_out_tripy = isinstance(backbone_out["backbone_fpn"][0], tp.Tensor)
+                conv_s0_in = (
+                    backbone_out["backbone_fpn"][0].contiguous()
+                    if not is_backbone_out_tripy
+                    else backbone_out["backbone_fpn"][0]
+                )
+                conv_s1_in = (
+                    backbone_out["backbone_fpn"][1].contiguous()
+                    if not is_backbone_out_tripy
+                    else backbone_out["backbone_fpn"][1]
+                )
 
                 if self.tripy_mask_decoder_dtype == tp.float32:
                     conv_s0_in = tp.Tensor(conv_s0_in)
@@ -810,14 +819,24 @@ class SAM2Base(torch.nn.Module):
         # Step 2: Concatenate the memories and forward through the transformer encoder
         memory = torch.cat(to_cat_memory, dim=0)
         memory_pos_embed = torch.cat(to_cat_memory_pos_embed, dim=0)
-
-        pix_feat_with_mem = self.memory_attention(
-            curr=current_vision_feats,
-            curr_pos=current_vision_pos_embeds,
-            memory=memory,
-            memory_pos=memory_pos_embed,
-            num_obj_ptr_tokens=num_obj_ptr_tokens,
-        )
+        if isinstance(self.memory_attention, tp.Module) or isinstance(self.memory_attention, tp.Executable):
+            fake_obj_ptrs = torch.ones((num_obj_ptr_tokens,), dtype=torch.int32)
+            pix_feat_with_mem = self.memory_attention(
+                curr=tp.Tensor(current_vision_feats[0].contiguous()),
+                memory=tp.Tensor(memory.contiguous()),
+                curr_pos=tp.Tensor(current_vision_pos_embeds[0].contiguous()),
+                memory_pos=tp.Tensor(memory_pos_embed.contiguous()),
+                num_obj_ptr_tokens=tp.Tensor(fake_obj_ptrs.contiguous()),
+            )
+        else:
+            pix_feat_with_mem = self.memory_attention(
+                curr=current_vision_feats[0],
+                curr_pos=current_vision_pos_embeds[0],
+                memory=memory,
+                memory_pos=memory_pos_embed,
+                num_obj_ptr_tokens=num_obj_ptr_tokens,
+            )
+        pix_feat_with_mem = torch.from_dlpack(pix_feat_with_mem)
         # reshape the output (HW)BC => BCHW
         pix_feat_with_mem = pix_feat_with_mem.permute(1, 2, 0).view(B, C, H, W)
         return pix_feat_with_mem

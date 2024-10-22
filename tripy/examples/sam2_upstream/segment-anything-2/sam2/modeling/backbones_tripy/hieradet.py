@@ -296,7 +296,7 @@ class Hiera(tp.Module):
         # Add pos embed
         # h, w = x.shape[1:3]  # (256, 256)
         # x = x + self._get_pos_embed((256, 256))
-        x = x + tp.Tensor(self.pos_embed_torch)
+        x = x + tp.Tensor(self.pos_embed_torch.contiguous())
 
         outputs = []
         for i, blk in enumerate(self.blocks):

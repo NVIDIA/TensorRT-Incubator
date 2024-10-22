@@ -16,6 +16,7 @@
 # pip install -e ".[demo]"
 # pip3 install --force-reinstall /tripy/trt102/mlir-tensorrt-compiler-wheel/mlir_tensorrt_compiler-0.1.34+cuda12.trt102-cp310-cp310-linux_x86_64.whl
 # pip3 install --force-reinstall /tripy/trt102/mlir-tensorrt-runtime-wheel/mlir_tensorrt_runtime-0.1.34+cuda12.trt102-cp310-cp310-linux_x86_64.whl
+# pip3 install nvtx
 
 import torch
 from sam2.build_sam import build_sam2
@@ -63,7 +64,7 @@ def show_box(box, ax):
 
 
 sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
-model_cfg = "sam2_hiera_l.yaml"
+model_cfg = "sam2_hiera_l_tp_backbone.yaml"
 
 predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint, device=torch.device("cuda"))
 
