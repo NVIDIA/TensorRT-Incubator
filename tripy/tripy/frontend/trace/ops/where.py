@@ -27,7 +27,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 @dataclass(repr=False)
 class Where(BaseTraceOp):
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.frontend.shape import Shape
         from tripy.utils import Result
 
@@ -41,9 +41,9 @@ class Where(BaseTraceOp):
                         f" the Boolean input must be rank 1, but given rank {inputs[0].rank}",
                     ]
                 )
-            return Result.ok({"shape": [0]})
+            return Result.ok([Shape])
         elif not isinstance(inputs[1], Shape) and not isinstance(inputs[2], Shape):
-            return Result.ok({})
+            return Result.ok([None])
         else:
             return Result.err(
                 [

@@ -27,8 +27,10 @@ from tripy.common.datatype import DATA_TYPES
 class Shape(BaseTraceOp):
 
     # always return a shape
-    def infer_shape_output_idxs(self, inputs) -> Result:
-        return Result.ok({"shape": [0]})
+    def infer_tensor_variants(self, inputs) -> Result:
+        from tripy.frontend.shape import Shape as ShapeType
+
+        return Result.ok([ShapeType])
 
     def infer_len(self):
         return [self.inputs[0].rank]

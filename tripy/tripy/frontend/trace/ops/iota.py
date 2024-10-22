@@ -32,7 +32,7 @@ class Iota(BaseTraceOp):
     output_rank: int
     dtype: datatype.dtype
 
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
         if self.output_rank is None:
