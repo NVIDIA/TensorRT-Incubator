@@ -40,15 +40,6 @@ class Reshape(BaseTraceOp):
         # not just its shape
         return [None]
 
-    def infer_tensor_variants(self, inputs):
-        from tripy.frontend.shape import Shape
-        from tripy.utils import Result
-
-        # Only wrap the reshaped output if the result is rank 1
-        if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok([Shape])
-        return Result.ok([None])
-
     def infer_rank(self):
         if self.output_rank is None:
             shape_of_shape_input = op_utils.get_trace_shape(self.inputs[1])
@@ -65,7 +56,7 @@ class Reshape(BaseTraceOp):
         DynamicReshapeOp.build(inputs, outputs)
 
 
-@frontend_utils.convert_shape_inputs(["shape"])
+@frontend_utils.convert_inputs_to_shapes(["shape"])
 def reshape_impl(
     input: "tripy.Tensor", shape: Sequence, output_rank: int, output_len: Optional[int] = None
 ) -> "tripy.Tensor":
@@ -155,10 +146,6 @@ class Squeeze(BaseTraceOp):
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
-
-    # Even if given a shape input, the output should not be a shape because the result will not be rank 1.
-    # We should permit this, though, since it may be useful to extract a dimension from a shape as a scalar.
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
 

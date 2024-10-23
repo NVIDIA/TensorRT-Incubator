@@ -18,19 +18,13 @@
 from dataclasses import dataclass
 
 from tripy import constraints
+from tripy.common.datatype import DATA_TYPES
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import Result
 
 
 @dataclass(repr=False)
-class Shape(BaseTraceOp):
-
-    # always return a shape
-    def infer_tensor_variants(self, inputs) -> Result:
-        from tripy.frontend.shape import Shape as ShapeType
-
-        return Result.ok([ShapeType])
+class ShapeOp(BaseTraceOp):
 
     def infer_len(self):
         return [self.inputs[0].rank]
@@ -52,13 +46,7 @@ class Shape(BaseTraceOp):
 
 @TENSOR_METHOD_REGISTRY("shape")
 @property
-@constraints.dtypes(
-    constraints={"self": "T1", constraints.RETURN_VALUE: "T2"},
-    variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-        "T2": ["int32"],
-    },
-)
+@constraints.dtypes(constraints={"self": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
 def shape(self: "tripy.Tensor") -> "tripy.Shape":
     """
     Represents the shape of the tensor.
@@ -75,4 +63,6 @@ def shape(self: "tripy.Tensor") -> "tripy.Shape":
 
         assert np.array_equal(cp.from_dlpack(shape).get(), np.array([8, 2]))
     """
-    return Shape.build([self])
+    from tripy.frontend.shape import Shape
+
+    return ShapeOp.build([self], output_types=[Shape])

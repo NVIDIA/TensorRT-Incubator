@@ -36,9 +36,6 @@ class Split(BaseTraceOp):
             # + 1 because of the last split, which is [self.indices_or_sections[-1]:]
             return len(self.indices_or_sections) + 1
 
-    # we only care about the data input
-    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
-
     def infer_len(self):
         # since this only runs in the shape case, this is rank 1
         shape_len = op_utils.get_trace_shape(self.inputs[0])[0]

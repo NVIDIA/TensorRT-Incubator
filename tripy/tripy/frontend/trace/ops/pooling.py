@@ -40,8 +40,6 @@ class Pooling(BaseTraceOp):
     stride: Sequence[int]
     padding: Sequence[Tuple[int]]
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank
 

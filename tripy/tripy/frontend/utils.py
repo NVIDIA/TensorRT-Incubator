@@ -247,6 +247,8 @@ def convert_inputs_to_tensors(
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
 
+            # TODO (pranavm): Make this never convert to Shape/ShapeScalar
+
             # Disallow mixing Tensor and Shape by default. If it makes sense in a given function
             # to have both Tensor and Shape arguments, that might suggest that custom handling
             # rather than relying on this decorator would make sense.
@@ -360,7 +362,7 @@ def convert_inputs_to_tensors(
     return impl
 
 
-def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0):
+def convert_inputs_to_shapes(targets: Sequence[str], skip_num_stack_entries: int = 0):
     """
     Decorator that converts the specified arguments to `Shape`s before passing them along
     to the decorated function. Converts only Tripy Tensors, Python numbers, or lists of Python numbers;

@@ -31,6 +31,7 @@ class TraceTensor:
     stack_info: utils.StackInfo
     dtype: "tripy.common.dtype"
     device: "tripy.common.device"
+    # TODO (pranavm): Replace rank field with shape.
     rank: int
     producer: "BaseTraceOp"
     shape: Optional[List[int]] = None

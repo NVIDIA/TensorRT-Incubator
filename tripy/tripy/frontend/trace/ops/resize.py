@@ -32,8 +32,6 @@ class Resize(BaseTraceOp):
     scales: Sequence[float]
     align_corners: bool
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank
 
@@ -99,7 +97,7 @@ class Resize(BaseTraceOp):
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "int8"]},
 )
-@frontend_utils.convert_shape_inputs(["output_shape"])
+@frontend_utils.convert_inputs_to_shapes(["output_shape"])
 def resize(
     input: "tripy.Tensor",
     mode: str,

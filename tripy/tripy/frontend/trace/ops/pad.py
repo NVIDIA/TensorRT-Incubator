@@ -28,8 +28,6 @@ class Pad(BaseTraceOp):
 
     padding_value: Union[int, float]
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 

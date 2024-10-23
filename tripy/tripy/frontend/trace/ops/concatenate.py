@@ -19,6 +19,7 @@ from typing import List, Union
 from dataclasses import dataclass
 from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -50,7 +51,7 @@ class Concatenate(BaseTraceOp):
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
 )
-def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor":
+def concatenate(tensors: List[Union["tripy.Tensor", "tripy.Shape"]], dim: int) -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.
 
@@ -72,4 +73,11 @@ def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.concatenate((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
     """
-    return Concatenate.build(tensors, dim)
+    from tripy.frontend.tensor import Tensor
+    from tripy.frontend.shape import Shape
+
+    types = set(map(type, tensors))
+    if len(types) != 1:
+        raise_error("Mixed types are not allowed.", f"Received argument types: {list(map(type, tensors))}")
+
+    return Concatenate.build(tensors, dim, output_types=[Shape if isinstance(tensors[0], Shape) else Tensor])

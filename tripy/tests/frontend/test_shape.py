@@ -187,13 +187,13 @@ class TestShape:
         assert len(res) == len(values)
 
     def test_shape_op(self, values):
-        from tripy.frontend.trace.ops.shape import Shape
+        from tripy.frontend.trace.ops.shape import ShapeOp
 
         t = tp.Tensor(values)
         s = t.shape
 
         assert isinstance(s, tp.Shape)
-        assert isinstance(s.trace_tensor.producer, Shape)
+        assert isinstance(s.trace_tensor.producer, ShapeOp)
         assert cp.from_dlpack(s).get().tolist() == [len(values)]
 
     def test_len_shape_op(self, values):

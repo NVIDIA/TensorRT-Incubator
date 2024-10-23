@@ -67,9 +67,6 @@ class Storage(BaseTraceOp):
             self.device = utils.default(device, tp_device(("gpu", 0)))
             self.has_memref = False
 
-    # for storage, we will always consider the result to be an ordinary tensor
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     def str_skip_fields(self) -> Set[str]:
         # skip data if i) it is a MemRefValue or ii) its volume exceeds threshold
         if not isinstance(self.data, Sequence) or utils.should_omit_constant_in_str(self.shape):

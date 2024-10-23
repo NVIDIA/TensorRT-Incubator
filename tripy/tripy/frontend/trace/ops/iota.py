@@ -32,8 +32,6 @@ class Iota(BaseTraceOp):
     output_rank: int
     dtype: datatype.dtype
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     def infer_rank(self):
         if self.output_rank is None:
             if self.inputs[0].shape is None:
@@ -68,7 +66,7 @@ class Iota(BaseTraceOp):
         DynamicIotaOp.build(inputs, outputs, dim=self.dim)
 
 
-@frontend_utils.convert_shape_inputs(["shape"])
+@frontend_utils.convert_inputs_to_shapes(["shape"])
 def iota_impl(
     shape: Union["tripy.Shape", Sequence[int]], dim: int, dtype: datatype.dtype, output_rank: int
 ) -> "tripy.Tensor":

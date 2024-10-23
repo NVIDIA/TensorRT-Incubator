@@ -35,7 +35,7 @@ NestedNumberSequence = export.public_api(
         Denotes the recursive type annotation for sequences of Python numbers, possibly nested to an arbitrary depth.
         Tripy often automatically converts these sequences to :class:`Tensor`.
         """,
-)(Union[numbers.Number, Sequence["tripy.types.NestedNumberSequence"]])
+)(Union[numbers.Number, "tripy.ShapeScalar", Sequence["tripy.types.NestedNumberSequence"]])
 
 TensorLike = export.public_api(
     document_under="types.rst",

@@ -20,7 +20,7 @@ import numpy as np
 
 import tripy as tp
 from tripy.frontend.shape import ShapeScalar
-from tripy.frontend.utils import convert_inputs_to_tensors, convert_shape_inputs
+from tripy.frontend.utils import convert_inputs_to_tensors, convert_inputs_to_shapes
 from tests import helper
 
 # Putting underscores at the beginning and end of the names to get around the check
@@ -82,12 +82,12 @@ def __func_test_sync_list_types__(xs, ys):
     return xs, ys
 
 
-@convert_shape_inputs(["s"])
+@convert_inputs_to_shapes(["s"])
 def convert_shape(s):
     return s
 
 
-@convert_shape_inputs(["s"])
+@convert_inputs_to_shapes(["s"])
 def ignore_not_named(s, t):
     return (s, t)
 

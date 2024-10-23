@@ -33,8 +33,6 @@ class Fill(BaseTraceOp):
     output_rank: int
     dtype: datatype.dtype
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
@@ -91,7 +89,7 @@ class Fill(BaseTraceOp):
         )
 
 
-@frontend_utils.convert_shape_inputs(["shape"])
+@frontend_utils.convert_inputs_to_shapes(["shape"])
 def full_impl(
     shape: "tripy.types.ShapeLike",
     value: Union[numbers.Number, "tripy.Tensor"],

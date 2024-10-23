@@ -27,31 +27,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 @dataclass(repr=False)
 class Where(BaseTraceOp):
 
-    def infer_tensor_variants(self, inputs):
-        from tripy.frontend.shape import Shape
-        from tripy.utils import Result
-
-        # consider the result a shape if (both) the two value arguments are shapes
-        if isinstance(inputs[1], Shape) and isinstance(inputs[2], Shape):
-            # also require the bool input to be rank 1 to avoid broadcasting to a larger size
-            if inputs[0].rank != 1:
-                return Result.err(
-                    [
-                        "If the value inputs to operator 'where' are tp.Shape,"
-                        f" the Boolean input must be rank 1, but given rank {inputs[0].rank}",
-                    ]
-                )
-            return Result.ok([Shape])
-        elif not isinstance(inputs[1], Shape) and not isinstance(inputs[2], Shape):
-            return Result.ok([None])
-        else:
-            return Result.err(
-                [
-                    "Both value inputs to operator 'where' must either both be tp.Shape or both not be tp.Shape.",
-                    f"Given types {type(inputs[1])} and {type(inputs[2])}",
-                ]
-            )
-
     def infer_len(self):
         # broadcast to the largest of the input lengths
         return [max(map(lambda inp: op_utils.get_trace_shape(inp)[0], self.inputs))]

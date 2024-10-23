@@ -78,9 +78,6 @@ class Slice(BaseTraceOp):
             return [1 + strides_in_range]
         return [None]
 
-    # we only care about the data input
-    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
-
     @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import bool as tp_bool
@@ -178,8 +175,8 @@ class Slice(BaseTraceOp):
 
 @TENSOR_METHOD_REGISTRY("__getitem__")
 @constraints.dtypes(
-    constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
-    variables={"self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+    constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
     self: "tripy.Tensor", index: Union[slice, int, "tripy.Tensor", Sequence[Union[slice, int, "tripy.Tensor"]]]

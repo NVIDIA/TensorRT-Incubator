@@ -71,7 +71,7 @@ def dtypes(
         def wrapper(*args, **kwargs):
             if config.enable_dtype_checking:
                 from tripy.common.datatype import dtype
-                from tripy.frontend.tensor import Tensor
+                from tripy.frontend.tensor import BaseTensor
 
                 merged_args = utils.merge_function_arguments(func, *args, **kwargs)
 
@@ -102,7 +102,7 @@ def dtypes(
                                     ],
                                 )
                             arg_dtype = arg_dtypes[0]
-                        elif isinstance(arg, Tensor):
+                        elif isinstance(arg, BaseTensor):
                             arg_dtype = arg.dtype
                         elif isinstance(arg, dtype):
                             arg_dtype = arg
@@ -127,7 +127,7 @@ def dtypes(
                                     f"Note: '{name}' was: ",
                                     arg,
                                 ]
-                                if isinstance(arg, Tensor)
+                                if isinstance(arg, BaseTensor)
                                 else []
                             ),
                         )
@@ -149,7 +149,7 @@ def dtypes(
                                         f"While '{name}' was: ",
                                         arg,
                                     ]
-                                    if isinstance(arg, Tensor)
+                                    if isinstance(arg, BaseTensor)
                                     else []
                                 ),
                             )
