@@ -5,6 +5,7 @@
 
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@llvm-project//llvm:lit_test.bzl", "lit_test")
+load("@pip_deps//:requirements.bzl", "requirement")
 
 expand_template(
     name = "lit_site_cfg_py",
@@ -16,6 +17,7 @@ expand_template(
         "\"@MLIR_TENSORRT_DIALECT_BINARY_DIR@\"": "os.path.join(os.environ['TEST_SRCDIR'], 'tensorrt-mlir')",
         "\"@MLIR_TENSORRT_DIALECT_SOURCE_DIR@\"": "os.path.join(os.environ['TEST_SRCDIR'], 'tensorrt-mlir', 'tensorrt')",
         "@MLIR_ENABLE_BINDINGS_PYTHON@": "False",
+        "@MLIR_TRT_DIALECT_TARGET_TENSORRT@": "True",
         "@ENABLE_ASAN@": "False",
     },
     template = "lit.site.cfg.py.in",
@@ -26,6 +28,7 @@ filegroup(
     name = "lit_data",
     testonly = True,
     data = [
+        "gpu_tools.py",
         "lit.cfg.py",
         "lit.site.cfg.py",
         "@llvm-project//llvm:FileCheck",
@@ -42,11 +45,16 @@ filegroup(
             "//:tensorrt-opt",
             "//tensorrt/test:lit_data",
         ],
+        deps = [
+            requirement("nvidia-ml-py"),
+            requirement("click"),
+            requirement("numpy"),
+        ],
         tags = ["tensorrt_mlir_dialect_tests"],
     )
     for src in glob(
         [
-            "TensorRT/*.mlir",
+            "Dialect/TensorRT/*.mlir",
         ],
         exclude = [
             # exclude MLIR_TRT_ENABLE_TESTING related tests

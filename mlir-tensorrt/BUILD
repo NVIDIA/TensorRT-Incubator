@@ -28,6 +28,17 @@ td_library(
     ],
 )
 
+td_library(
+    name = "TensorKindInterfaceTdFiles",
+    srcs = [
+        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td",
+    ],
+    includes = ["tensorrt/include"],
+    deps = [
+        "@llvm-project//mlir:OpBaseTdFiles",
+    ],
+)
+
 gentbl_cc_library(
     name = "TensorRTOpsIncGen",
     strip_include_prefix = "tensorrt/include",
@@ -159,50 +170,31 @@ gentbl_cc_library(
     ],
 )
 
-cc_library(
-    name = "TensorRTDialect",
-    srcs = [
-        "tensorrt/lib/TensorRT/IR/EinsumHelper.cpp",
-        "tensorrt/lib/TensorRT/IR/EinsumHelper.h",
-        "tensorrt/lib/TensorRT/IR/TensorKindOpInterfaceImpl.cpp",
-        "tensorrt/lib/TensorRT/IR/TensorRT.cpp",
-        "tensorrt/lib/TensorRT/IR/TypeInferenceInterfaceImpls.cpp",
-        "tensorrt/lib/TensorRT/IR/Verification.cpp",
-    ],
-    hdrs = [
-        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h",
-        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h",
-    ],
+gentbl_cc_library(
+    name = "TensorRTTensorKindInterfacesIncGen",
     strip_include_prefix = "tensorrt/include",
+    tbl_outs = [
+        (
+            ["-gen-op-interface-decls"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h.inc",
+        ),
+        (
+            ["-gen-op-interface-defs"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.cpp.inc",
+        ),
+        (
+            ["-gen-attr-interface-decls"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.h.inc",
+        ),
+        (
+            ["-gen-attr-interface-defs"],
+            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.cpp.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td",
     deps = [
-        ":TensorRTAttrInterfacesIncGen",
-        ":TensorRTAttributesIncGen",
-        ":TensorRTCommonUtils",
-        ":TensorRTEnumsIncGen",
-        ":TensorRTInterfacesIncGen",
-        ":TensorRTOpsIncGen",
-        ":TensorRTTensorKindInterfacesIncGen",
-        "@llvm-project//mlir:ControlFlowInterfaces",
-        "@llvm-project//mlir:DestinationStyleOpInterface",
-        "@llvm-project//mlir:DialectUtils",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:LoopLikeInterface",
-        "@llvm-project//mlir:QuantOps",
-        "@llvm-project//mlir:TensorDialect",
-    ],
-)
-
-cc_library(
-    name = "TensorRTUtils",
-    srcs = [
-        "tensorrt/lib/TensorRT/Utils/Utils.cpp",
-    ],
-    hdrs = [
-        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Utils/Utils.h",
-    ],
-    strip_include_prefix = "tensorrt/include",
-    deps = [
-        ":TensorRTDialect",
+        ":TensorKindInterfaceTdFiles",
     ],
 )
 
@@ -234,42 +226,45 @@ cc_library(
     ],
 )
 
-td_library(
-    name = "TensorKindInterfaceTdFiles",
+cc_library(
+    name = "TensorRTDialect",
     srcs = [
-        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td",
+        "tensorrt/lib/TensorRT/IR/EinsumHelper.cpp",
+        "tensorrt/lib/TensorRT/IR/EinsumHelper.h",
+        "tensorrt/lib/TensorRT/IR/TensorKindOpInterfaceImpl.cpp",
+        "tensorrt/lib/TensorRT/IR/TensorRT.cpp",
+        "tensorrt/lib/TensorRT/IR/TypeInferenceInterfaceImpls.cpp",
+        "tensorrt/lib/TensorRT/IR/Verification.cpp",
     ],
-    includes = ["tensorrt/include"],
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h",
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
     deps = [
-        "@llvm-project//mlir:OpBaseTdFiles",
+        ":TensorRTAttrInterfacesIncGen",
+        ":TensorRTAttributesIncGen",
+        ":TensorRTEnumsIncGen",
+        ":TensorRTInterfacesIncGen",
+        ":TensorRTOpsIncGen",
+        ":TensorRTTensorKindInterfacesIncGen",
+        ":TensorRTCommonUtils",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:QuantOps",
     ],
 )
 
-gentbl_cc_library(
-    name = "TensorRTTensorKindInterfacesIncGen",
-    strip_include_prefix = "tensorrt/include",
-    tbl_outs = [
-        (
-            ["-gen-op-interface-decls"],
-            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h.inc",
-        ),
-        (
-            ["-gen-op-interface-defs"],
-            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.cpp.inc",
-        ),
-        (
-            ["-gen-attr-interface-decls"],
-            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.h.inc",
-        ),
-        (
-            ["-gen-attr-interface-defs"],
-            "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindAttrInterface.cpp.inc",
-        ),
+cc_library(
+    name = "TensorRTUtils",
+    srcs = [
+        "tensorrt/lib/TensorRT/Utils/Utils.cpp",
     ],
-    tblgen = "@llvm-project//mlir:mlir-tblgen",
-    td_file = "tensorrt/include/mlir-tensorrt-dialect/Interface/TensorKindOpInterface.td",
+    hdrs = [
+        "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Utils/Utils.h",
+    ],
+    strip_include_prefix = "tensorrt/include",
     deps = [
-        ":TensorKindInterfaceTdFiles",
+        ":TensorRTDialect",
     ],
 )
 
@@ -298,43 +293,8 @@ cc_library(
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
-        ":TensorRTDialect",
         ":TensorRTTensorKindInterfaces",
         "@llvm-project//mlir:BufferizationDialect",
-    ],
-)
-
-cc_library(
-    name = "TensorRTCompilerUtils",
-    srcs = [
-        "compiler/lib/Utils/RegionUtils.cpp",
-    ],
-    hdrs = [
-        "compiler/include/mlir-tensorrt/Utils/RegionUtils.h",
-    ],
-    strip_include_prefix = "compiler/include",
-    deps = [
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:TransformUtils",
-    ],
-)
-
-cc_library(
-    name = "TensorRTGenericClustering",
-    srcs = [
-        "compiler/lib/Transforms/Clustering/Clustering.cpp",
-        "compiler/lib/Transforms/Clustering/Patterns.cpp",
-    ],
-    hdrs = [
-        "compiler/include/mlir-tensorrt/Transforms/Clustering/Clustering.h",
-        "compiler/include/mlir-tensorrt/Transforms/Clustering/Patterns.h",
-    ],
-    strip_include_prefix = "compiler/include",
-    deps = [
-        ":TensorRTCompilerUtils",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:SCFDialect",
-        "@llvm-project//mlir:Transforms",
     ],
 )
 
@@ -408,20 +368,12 @@ cc_library(
     hdrs = [
         "tensorrt/include/mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h",
     ],
-    copts = [
-        "-DMLIR_TRT_TARGET_TENSORRT",
-    ],
     strip_include_prefix = "tensorrt/include",
     deps = [
-        ":TensorRTAnalysis",
         ":TensorRTDialect",
-        ":TensorRTGenericClustering",
         ":TensorRTTransformsActivationsPdllGen",
         ":TensorRTTransformsNormalizationsPdllGen",
         ":TensorRTTransformsPassesIncGen",
-        ":TensorRTUtils",
-        "@rules_cuda//cuda:runtime",
-        "@tensorrt10_x86//:tensorrt10",
     ],
 )
 
@@ -460,12 +412,8 @@ cc_library(
     deps = [
         ":TensorRTAnalysis",
         ":TensorRTGenericTransformPassesIncGen",
-        "@llvm-project//mlir:ArithDialect",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:FuncTransforms",
         "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:SCFTransforms",
-        "@llvm-project//mlir:TransformDialectTransforms",
+        "@llvm-project//mlir:SCFDialect",
     ],
 )
 
@@ -519,14 +467,11 @@ cc_library(
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
-        ":TensorRTAnalysis",
-        ":TensorRTCommonUtils",
         ":TensorRTDialect",
         ":TensorRTEncodingOpInterfaceIncGen",
         ":TensorRTEnumConverterGen",
+        ":TensorRTTensorKindInterfaces",
         ":TensorRTUtils",
-        "@rules_cuda//cuda:runtime",
-        "@tensorrt10_x86//:tensorrt10",
     ],
 )
 
@@ -557,7 +502,6 @@ cc_library(
     ],
     strip_include_prefix = "tensorrt/include",
     deps = [
-        ":TensorRTDialect",
         ":TensorRTEncodingIncGen",
         ":TensorRTEncodingOpInterface",
     ],
@@ -607,14 +551,10 @@ cc_library(
     copts = ["-DMLIR_TRT_TARGET_TENSORRT"],
     strip_include_prefix = "tensorrt/include",
     deps = [
-        ":TensorRTCommonUtils",
-        ":TensorRTDialect",
-        ":TensorRTDynamicLoader",
         ":TensorRTEncodingImpl",
         ":TensorRTEncodingOpInterface",
         ":TensorRTTranslationPassIncGen",
         "@llvm-project//llvm:BitWriter",
-        "@llvm-project//mlir:FuncExtensions",
         "@llvm-project//mlir:TranslateLib",
     ],
 )
@@ -644,12 +584,9 @@ cc_library(
         "compiler/lib/Conversion/TensorRTCommon/ConvertToTensorRTCommon.cpp",
     ],
     hdrs = [
-        "compiler/include/mlir-tensorrt/Conversion/Passes.h",
+        "compiler/include/mlir-tensorrt/Conversion/Passes.h",    
         "compiler/include/mlir-tensorrt/Conversion/Patterns.h",
         "compiler/include/mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h",
-    ],
-    copts = [
-        "-DMLIR_TRT_TARGET_TENSORRT",
     ],
     strip_include_prefix = "compiler/include",
     deps = [
@@ -670,16 +607,16 @@ cc_library(
         "compiler/include/mlir-tensorrt/Registration/RegisterMlirTensorRtPasses.h",
         "compiler/include/mlir-tensorrt/Registration/RegisterMlirTensorRtTranslations.h",
     ],
-    copts = [
-        "-DMLIR_TRT_TARGET_TENSORRT",
-    ],
+    copts = ["-DMLIR_TRT_TARGET_TENSORRT"],
     strip_include_prefix = "compiler/include",
     deps = [
         ":TensorRTConversion",
         ":TensorRTGeneralTransforms",
         ":TensorRTTarget",
         ":TensorRTTransforms",
-        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:FuncExtensions",
+        "@llvm-project//mlir:TransformDialectTransforms",
+
     ],
 )
 
@@ -694,9 +631,7 @@ cc_binary(
 cc_binary(
     name = "tensorrt-opt",
     srcs = ["tensorrt/tensorrt-opt/tensorrt-opt.cpp"],
-    copts = [
-        "-DMLIR_TRT_TARGET_TENSORRT",
-    ],
+    copts = ["-DMLIR_TRT_TARGET_TENSORRT"],
     linkopts = ["-Wl,-rpath,/opt/src/mlir-tensorrt/bazel-mlir-tensorrt/external/tensorrt10_x86/targets/x86_64-linux-gnu/lib"],
     deps = [
         ":TensorRTRegistration",
@@ -707,9 +642,7 @@ cc_binary(
 cc_binary(
     name = "mlir-tensorrt-opt",
     srcs = ["tools/MlirTensorRtOpt.cpp"],
-    copts = [
-        "-DMLIR_TRT_TARGET_TENSORRT",
-    ],
+    copts = ["-DMLIR_TRT_TARGET_TENSORRT"],
     linkopts = ["-Wl,-rpath,/opt/src/mlir-tensorrt/bazel-mlir-tensorrt/external/tensorrt10_x86/targets/x86_64-linux-gnu/lib"],
     deps = [
         ":TensorRTRegistration",

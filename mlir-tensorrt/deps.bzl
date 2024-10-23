@@ -6,8 +6,8 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def third_party_deps():
-    LLVM_COMMIT = "c8b5d30f707757a4fe4d9d0bb01f762665f6942f"
-    LLVM_SHA256 = "2f45df5b22f3b9db8080bd67899158cf040b4d3fbff3a049cfe1979313e51638"
+    LLVM_COMMIT = "c49770c60f26e449379447109f7d915bd8de0384"
+    LLVM_SHA256 = "d4de275d04babe573d8634b9b19c8397de370c6544c01afae121f19413bbfba2"
     http_archive(
         name = "llvm-raw",
         build_file_content = "# empty",
