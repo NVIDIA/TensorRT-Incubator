@@ -1,5 +1,6 @@
 // RUN: mlir-tensorrt-opt %s -plan-create-closed-regions -split-input-file | FileCheck %s
 // RUN: mlir-tensorrt-opt %s -plan-create-closed-regions=test-pre-walk-order=true -split-input-file | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -plan-create-closed-regions=enable-non-dps-returns=true -split-input-file | FileCheck %s --check-prefix=CHECK-ALLOC
 
 func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> tensor<10xf32> {
   %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<10xf32> {
@@ -19,6 +20,15 @@ func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> t
 //       CHECK:      res_attrs [#plan.bounds<shape, [10], [10]>] -> tensor<10xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<10xf32>, %[[in_0:.+]]: tensor<10xf32>, %[[out:.+]]: tensor<10xf32>):
 //       CHECK:     return %[[v1]] : tensor<10xf32>
+
+// CHECK-ALLOC-LABEL: @test_simple_static
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>) -> tensor<10xf32>
+//       CHECK-ALLOC:     %[[v1:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK-ALLOC:      inputs(%[[arg0]], %[[arg1]] : tensor<10xf32>, tensor<10xf32>)
+//       CHECK-ALLOC:      in_attrs [#plan.bounds<none>, #plan.bounds<none>]
+//       CHECK-ALLOC:      -> tensor<10xf32> {
+//       CHECK-ALLOC:     ^bb0(%[[in:.+]]: tensor<10xf32>, %[[in_0:.+]]: tensor<10xf32>):
+//       CHECK-ALLOC:     return %[[v1]] : tensor<10xf32>
 
 // -----
 
@@ -58,6 +68,21 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {tensorrt.shape_profi
 //       CHECK:       %[[v4:.+]] = with_shape %[[v3]](%[[in_1]], %[[in_2]]) :
 //       CHECK:       yield %[[v4]] : tensor<?x10xf32>
 //       CHECK:     return %[[v2]] : tensor<?x10xf32>
+
+// CHECK-ALLOC-LABEL: @test_simple_shape_bound
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<?x10xf32> {{.*}}) -> tensor<?x10xf32> {
+//       CHECK-ALLOC:     %[[c10:.+]] = arith.constant 10 : index
+//       CHECK-ALLOC:     %[[c0:.+]] = arith.constant 0 : index
+//       CHECK-ALLOC:     %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] : tensor<?x10xf32>
+//       CHECK-ALLOC:     %[[v2:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK-ALLOC:      inputs(%[[arg0]], %[[dim]], %[[c10]] : tensor<?x10xf32>, index, index)
+//       CHECK-ALLOC:      in_attrs [#plan.bounds<shape, [1, 10], [40, 10]>, #plan.bounds<none>, #plan.bounds<none>]
+//       CHECK-ALLOC:      -> tensor<?x10xf32> {
+//       CHECK-ALLOC:     ^bb0(%[[in:.+]]: tensor<?x10xf32>, %[[in_1:.+]]: index, %[[in_2:.+]]: index):
+//       CHECK-ALLOC:       %[[v3:.+]] = stablehlo.exponential %[[in]] : tensor<?x10xf32>
+//       CHECK-ALLOC:       %[[v4:.+]] = with_shape %[[v3]](%[[in_1]], %[[in_2]]) :
+//       CHECK-ALLOC:       yield %[[v4]] : tensor<?x10xf32>
+//       CHECK-ALLOC:     return %[[v2]] : tensor<?x10xf32>
 
 // -----
 
@@ -108,6 +133,26 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {tensorrt.shape_profile = #
 //       CHECK:       yield %[[v6]] : tensor<?x?xf32>
 //       CHECK:     return %[[v4]] : tensor<?x?xf32>
 
+// CHECK-ALLOC-LABEL: @test_dynamic_reshape
+//  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.*}}, %[[arg1:.+]]: tensor<2xi32> {{.*}}) -> tensor<?x?xf32> {
+//       CHECK-ALLOC:     %[[c1:.+]] = arith.constant 1 : index
+//       CHECK-ALLOC:     %[[c0:.+]] = arith.constant 0 : index
+//       CHECK-ALLOC:     %[[extracted:.+]] = tensor.extract %[[arg1]][%[[c0]]] : tensor<2xi32>
+//       CHECK-ALLOC:     %[[v0:.+]] = arith.index_cast %[[extracted]] : i32 to index
+//       CHECK-ALLOC:     %[[extracted_0:.+]] = tensor.extract %[[arg1]][%[[c1]]] : tensor<2xi32>
+//       CHECK-ALLOC:     %[[v1:.+]] = arith.index_cast %[[extracted_0]] : i32 to index
+//       CHECK-ALLOC:     %[[v4:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//       CHECK-ALLOC:      inputs(%[[arg0]], %[[arg1]], %[[v0]], %[[v1]] : tensor<?xf32>, tensor<2xi32>, index, index)
+//  CHECK-ALLOC-NEXT:      in_attrs [
+//  CHECK-ALLOC-SAME:          #plan.bounds<shape, [1], [40]>,
+//  CHECK-ALLOC-SAME:          #plan.bounds<value, dense<1> : tensor<2xi32>, dense<40> : tensor<2xi32>>,
+//  CHECK-ALLOC-SAME:          #plan.bounds<none>, #plan.bounds<none>]
+//  CHECK-ALLOC-NEXT:     -> tensor<?x?xf32>
+//       CHECK-ALLOC:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_1:.+]]: tensor<2xi32>, %[[in_2:.+]]: index, %[[in_3:.+]]: index):
+//       CHECK-ALLOC:       %[[v5:.+]] = stablehlo.dynamic_reshape %[[in]], %[[in_1]]
+//       CHECK-ALLOC:       %[[v6:.+]] = with_shape %[[v5]](%[[in_2]], %[[in_3]])
+//       CHECK-ALLOC:       yield %[[v6]] : tensor<?x?xf32>
+//       CHECK-ALLOC:     return %[[v4]] : tensor<?x?xf32>
 
 // -----
 
@@ -170,6 +215,8 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {tensorrt.shape_profile=
 //       CHECK:       %[[v19:.+]] = with_shape %[[v18]](%[[in_4]], %[[in_5]]) :
 //       CHECK:       yield %[[v19]] : tensor<?x?xf32>
 //       CHECK:     return %[[v5]] : tensor<?x?xf32>
+
+// CHECK-ALLOC-LABEL: @test_get_dim_size_max
 
 // -----
 

@@ -253,6 +253,196 @@ struct ConvertEnqueueToCall
   }
 };
 
+/// Convert `tensorrt.enqueue_alloc` to `executor.call`.
+struct ConvertEnqueueAllocToCall
+    : public ConvertOpToExecutorPattern<trtrt::EnqueueAllocOp> {
+  using ConvertOpToExecutorPattern::ConvertOpToExecutorPattern;
+  LogicalResult
+  matchAndRewrite(trtrt::EnqueueAllocOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    ImplicitLocOpBuilder b(op.getLoc(), rewriter);
+
+    // Function name for the enqueue alloc operation
+    std::string funcName = "_trtrt_enqueue_alloc";
+
+    // Create new operands for the call op
+    SmallVector<Value> newOperands = {adaptor.getExecutionContext(),
+                                      adaptor.getStream()};
+
+    // Calculate total number of table elements
+    int64_t numResults = op->getNumResults();
+    int64_t totalElements = 1; // 1 element to store number of results
+    // For each result: rank, ptr, [shape0, ... ], [stride0, ...]
+    for (int i = 0; i < numResults; ++i) {
+      int64_t rank = cast<MemRefType>(op.getResult(i).getType()).getRank();
+      totalElements++;           // Increment for rank
+      totalElements++;           // Increment for ptr
+      totalElements += rank * 2; // Increment for shape and stride
+    }
+    SmallVector<Type> outputTypes(totalElements, b.getI64Type());
+
+    auto hostPointerType = executor::PointerType::get(
+        op->getContext(), executor::MemoryType::host);
+
+    auto structType = executor::TableType::get(op->getContext(), outputTypes);
+
+    auto one = b.create<executor::ConstantOp>(rewriter.getI64IntegerAttr(1));
+
+    auto alignment = IntegerAttr{};
+
+    // Create output descriptors
+    Value outputDescriptors = rewriter.create<executor::AllocaOp>(
+        op->getLoc(), hostPointerType, one, alignment, structType);
+
+    // Store number of results : It is always a first value in output
+    // descriptors
+    Value numResultsOffset = b.create<executor::GetOffsetOp>(
+        b.getI64Type(), structType,
+        ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
+                               rewriter.getI64IntegerAttr(0)});
+
+    auto resultValue =
+        b.create<executor::ConstantOp>(rewriter.getI64IntegerAttr(numResults));
+    b.create<executor::StoreOp>(outputDescriptors, numResultsOffset,
+                                resultValue);
+
+    // Store rank per result
+    int64_t outputDescOffset = 1;
+    for (int i = 0; i < numResults; ++i) {
+      Value rankOffset = b.create<executor::GetOffsetOp>(
+          b.getI64Type(), structType,
+          ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
+                                 rewriter.getI64IntegerAttr(outputDescOffset)});
+      int64_t rank = cast<MemRefType>(op.getResult(i).getType()).getRank();
+      auto rankValue =
+          b.create<executor::ConstantOp>(rewriter.getI64IntegerAttr(rank));
+      b.create<executor::StoreOp>(outputDescriptors, rankOffset, rankValue);
+      outputDescOffset++;           // store rank
+      outputDescOffset++;           // skip ptr
+      outputDescOffset += rank * 2; // skip shape and stride
+    }
+
+    SmallVector<Value> inputMemrefValues;
+
+    auto createMemRefAndExractPtr = [&](Value oldVal, Value newVal) {
+      auto memrefType = cast<MemRefType>(oldVal.getType());
+      if (!memrefType)
+        return failure();
+      assert(isa<TableType>(newVal.getType()));
+      executor::MemRefDescriptor memref(newVal, memrefType);
+      Value offset =
+          convertOffsetInElementsToBytes(b, memref.offset(b), memrefType);
+
+      // Append the aligned pointer and offset.
+      inputMemrefValues.append({memref.alignedPtr(b), offset});
+
+      // Append the rank followed by the shape integers.
+      inputMemrefValues.push_back(
+          this->createIndexConstant(b, memrefType.getRank()));
+      for (int64_t i = 0; i < memrefType.getRank(); i++)
+        inputMemrefValues.push_back(memref.size(b, i));
+
+      return success();
+    };
+
+    // Insert output descriptors
+    newOperands.push_back(outputDescriptors);
+
+    // Create input memref table
+    for (auto [oldVal, newVal] :
+         llvm::zip(op.getInputs(), adaptor.getInputs())) {
+      if (failed(createMemRefAndExractPtr(oldVal, newVal)))
+        return failure();
+    }
+
+    // Create the table containing the pointer/offset args and append it to the
+    // arguments for the call op.
+    Value args = b.create<executor::CreateTableOp>(
+        executor::TableType::get(rewriter.getContext(),
+                                 llvm::to_vector(TypeRange(inputMemrefValues))),
+        inputMemrefValues);
+    newOperands.push_back(args);
+
+    // Create and insert the function declaration
+    auto parentModule = op->getParentOfType<ModuleOp>();
+    auto enqueueAllocFunc = getOrInsertFuncDeclaration(
+        rewriter, op.getLoc(), parentModule, funcName,
+        ExecutorFunctionType::get(rewriter.getContext(),
+                                  {adaptor.getExecutionContext().getType(),
+                                   adaptor.getStream().getType(),
+                                   outputDescriptors.getType()},
+                                  {}, rewriter.getUnitAttr()));
+
+    // Create the call op
+    b.create<CallOp>(TypeRange{}, enqueueAllocFunc.getLeafReference(),
+                     newOperands);
+
+    // Create output memrefs from output descriptors
+    SmallVector<Value> results;
+    for (unsigned i = 0; i < op->getNumResults(); ++i) {
+      unsigned rank = cast<MemRefType>(op->getResult(i).getType()).getRank();
+      unsigned offset =
+          1 +
+          i * (2 * rank + 2); // num res, (i * (rank, ptr, [shape], [stride]))
+
+      Value rankOffset = b.create<executor::GetOffsetOp>(
+          b.getI64Type(), structType,
+          ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
+                                 rewriter.getI64IntegerAttr(offset++)});
+      Value devicePtrOffset = b.create<executor::GetOffsetOp>(
+          b.getI64Type(), structType,
+          ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
+                                 rewriter.getI64IntegerAttr(offset++)});
+
+      [[maybe_unused]] Value rankValue = b.create<executor::LoadOp>(
+          b.getI64Type(), outputDescriptors, rankOffset);
+      Value intPtr = b.create<executor::LoadOp>(
+          b.getI64Type(), outputDescriptors, devicePtrOffset);
+      Value devicePtr = b.create<executor::IntToPtrOp>(
+          executor::PointerType::get(b.getContext(), MemoryType::device),
+          intPtr);
+
+      llvm::SmallVector<Value, 4> shapes, strides;
+      for (unsigned r = 0; r < rank; ++r) {
+        Value shapeOffset = b.create<executor::GetOffsetOp>(
+            b.getI64Type(), structType,
+            ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
+                                   rewriter.getI64IntegerAttr(offset++)});
+        Value shape = b.create<executor::LoadOp>(
+            b.getI64Type(), outputDescriptors, shapeOffset);
+        shapes.push_back(shape);
+      }
+
+      for (unsigned r = 0; r < rank; ++r) {
+        Value strideOffset = b.create<executor::GetOffsetOp>(
+            b.getI64Type(), structType,
+            ArrayRef<OpFoldResult>{this->createIndexConstant(b, 0),
+                                   rewriter.getI64IntegerAttr(offset++)});
+        Value shape = b.create<executor::LoadOp>(
+            b.getI64Type(), outputDescriptors, strideOffset);
+        shapes.push_back(shape);
+      }
+
+      auto offsetValue =
+          b.create<executor::ConstantOp>(rewriter.getI64IntegerAttr(0));
+      SmallVector<Value> resultRange = {devicePtr, devicePtr, offsetValue};
+      resultRange.append(shapes.begin(), shapes.end());
+      resultRange.append(strides.begin(), strides.end());
+
+      Value result = b.create<executor::CreateTableOp>(
+          executor::TableType::get(b.getContext(),
+                                   llvm::to_vector(TypeRange(resultRange))),
+          resultRange);
+
+      results.push_back(result);
+    }
+
+    rewriter.replaceOp(op, results);
+
+    return success();
+  }
+};
+
 struct ConvertTrtrtOpToCall : public ConvertToExecutorPattern {
   ConvertTrtrtOpToCall(ExecutorTypeConverter &typeConverter,
                        MLIRContext *context, PatternBenefit benefit = 1)
@@ -352,8 +542,8 @@ public:
       target.addLegalDialect<ExecutorDialect, CUDADialect>();
 
       RewritePatternSet patterns(&getContext());
-      patterns.add<ConvertEnqueueToCall, ConvertTrtrtOpToCall>(typeConverter,
-                                                               ctx);
+      patterns.add<ConvertEnqueueToCall, ConvertEnqueueAllocToCall,
+                   ConvertTrtrtOpToCall>(typeConverter, ctx);
       if (failed(applyPartialConversion(getOperation(), target,
                                         std::move(patterns))))
         return signalPassFailure();

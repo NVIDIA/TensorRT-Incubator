@@ -43,7 +43,7 @@ class Convolution(BaseTraceOp):
                 ],
             )
 
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def validate_inputs(self, tensor_shape, kernel_shape):
         if len(tensor_shape) != len(kernel_shape):
@@ -83,11 +83,11 @@ class Convolution(BaseTraceOp):
         )
 
 
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
-    dtype_constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def convolution(
     input: "tripy.Tensor",

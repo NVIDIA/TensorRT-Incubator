@@ -20,11 +20,11 @@ from tripy.frontend import utils as frontend_utils
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int4", "float8", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 @frontend_utils.process_dim
 def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim: int) -> "tripy.Tensor":
@@ -92,9 +92,8 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim:
     out = unsqueeze(input, dim + 1)
     out = expand(out, input.shape[: dim + 1] + Shape([repeats]) + input.shape[dim + 1 :])
 
-    repeat_mask = concatenate(
-        [reshape(repeats, (1,)) if idx == dim else Tensor([1]) for idx in range(input.rank)], dim=0
-    )
-    new_shape = input.shape.multiply(repeat_mask)
+    repeat_mask = [1] * input.rank
+    repeat_mask[dim] = repeats
+    new_shape = input.shape.multiply(Shape(repeat_mask))
     out = reshape(out, new_shape)
     return out

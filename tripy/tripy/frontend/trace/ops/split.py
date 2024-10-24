@@ -37,7 +37,7 @@ class Split(BaseTraceOp):
             return len(self.indices_or_sections) + 1
 
     # we only care about the data input
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
 
     def infer_len(self):
         # since this only runs in the shape case, this is rank 1
@@ -197,11 +197,11 @@ class Split(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def split(
     input: "tripy.Tensor", indices_or_sections: Union[int, Sequence[int]], dim: int = 0

@@ -28,7 +28,7 @@ class Permute(BaseTraceOp):
     permutation: Sequence[int]
 
     # note that permuting a shape would not do anything
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
 
     infer_len = op_utils.InferLenPolicies.infer_same_as_first_input
 
@@ -55,9 +55,9 @@ class Transpose(Permute):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
     """
@@ -85,9 +85,9 @@ def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
     """

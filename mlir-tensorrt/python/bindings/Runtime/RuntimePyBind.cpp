@@ -121,6 +121,36 @@ namespace {
 
 class PyRuntimeClient;
 
+/// Encapsulates setting llvm::debugflag and current debug types from MTRT
+/// runtime
+struct PyGlobalDebugFlag {
+  static void set(py::object &, bool enable) {
+    MTRT_Status s = mtrtEnableGlobalDebug(enable);
+    THROW_IF_MTRT_ERROR(s);
+  }
+
+  static bool get(const py::object &) {
+    bool enabled;
+    MTRT_Status s = mtrtIsGlobalDebugEnabled(&enabled);
+    THROW_IF_MTRT_ERROR(s);
+    return enabled;
+  }
+
+  static void set_types(const std::string &type) {
+    MTRT_Status s = mtrtSetGlobalDebugType(type.c_str());
+    THROW_IF_MTRT_ERROR(s);
+  }
+
+  static void set_types(const std::vector<std::string> &types) {
+    std::vector<const char *> pointers;
+    pointers.reserve(types.size());
+    for (const std::string &str : types)
+      pointers.push_back(str.c_str());
+    MTRT_Status s = mtrtSetGlobalDebugTypes(pointers.data(), pointers.size());
+    THROW_IF_MTRT_ERROR(s);
+  }
+};
+
 /// Python wrapper around MTRT_Event
 class PyStream : public PyMTRTWrapper<PyStream, MTRT_Stream> {
 public:
@@ -935,4 +965,16 @@ PYBIND11_MODULE(_api, m) {
           },
           py::arg("name"), py::arg("in_args"), py::arg("out_args"),
           py::arg("stream") = py::none());
+
+  py::class_<PyGlobalDebugFlag>(m, "GlobalDebug", py::module_local())
+      .def_property_static("flag", &PyGlobalDebugFlag::get,
+                           &PyGlobalDebugFlag::set, "LLVM-wide debug flag")
+      .def_static(
+          "set_types",
+          py::overload_cast<const std::string &>(&PyGlobalDebugFlag::set_types),
+          "Sets specific debug type to be produced by LLVM")
+      .def_static("set_types",
+                  py::overload_cast<const std::vector<std::string> &>(
+                      &PyGlobalDebugFlag::set_types),
+                  "Sets specific debug types to be produced by LLVM");
 }

@@ -27,7 +27,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 @dataclass(repr=False)
 class Where(BaseTraceOp):
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.frontend.shape import Shape
         from tripy.utils import Result
 
@@ -41,9 +41,9 @@ class Where(BaseTraceOp):
                         f" the Boolean input must be rank 1, but given rank {inputs[0].rank}",
                     ]
                 )
-            return Result.ok({"shape": [0]})
+            return Result.ok([Shape])
         elif not isinstance(inputs[1], Shape) and not isinstance(inputs[2], Shape):
-            return Result.ok({})
+            return Result.ok([None])
         else:
             return Result.err(
                 [
@@ -124,12 +124,12 @@ class Where(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     r"""
@@ -163,12 +163,12 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},
 )
 def masked_fill(input: "tripy.Tensor", mask: "tripy.Tensor", value: numbers.Number) -> "tripy.Tensor":
     r"""

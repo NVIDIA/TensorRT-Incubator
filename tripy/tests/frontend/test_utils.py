@@ -19,6 +19,7 @@ import cupy as cp
 import numpy as np
 
 import tripy as tp
+from tripy.frontend.shape import ShapeScalar
 from tripy.frontend.utils import convert_inputs_to_tensors, convert_shape_inputs
 from tests import helper
 
@@ -26,57 +27,57 @@ from tests import helper
 # for magic methods. We would not want to see this outside of tests.
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["a"])
 def __func_test_basic__(a):
     return a
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["a", "b", "c"])
 def __func_test_multi_input__(a, b, c):
     return a, b, c
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("a", "b", "c")])
+@convert_inputs_to_tensors(["a", "b", "c"], sync_arg_types=[("a", "b", "c")])
 def __func_test_sync_arg_types__(a, b, c):
     return a, b, c
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["args"])
 def __func_test_variadic_positional_args__(*args):
     return args
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["x", "args"])
 def __func_test_arg_before_variadic_positional_args__(x, *args):
     return (x,) + args
 
 
-@convert_inputs_to_tensors()
+@convert_inputs_to_tensors(["args", "y"])
 def __func_test_kwarg_after_variadic_positional_args__(*args, y):
     return args + (y,)
 
 
-@convert_inputs_to_tensors(unpack_argument=["xs"])
+@convert_inputs_to_tensors(["xs"], unpack_argument=["xs"])
 def __func_test_convert_list_input__(xs):
     return xs
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("xs",)], unpack_argument=["xs"])
+@convert_inputs_to_tensors(["xs"], sync_arg_types=[("xs",)], unpack_argument=["xs"])
 def __func_test_sync_within_list__(xs):
     return xs
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("x", "ys")], unpack_argument=["ys"])
+@convert_inputs_to_tensors(["x", "ys"], sync_arg_types=[("x", "ys")], unpack_argument=["ys"])
 def __func_test_sync_single_type_to_list__(x, ys):
     return x, ys
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("xs", "y")], unpack_argument=["xs"])
+@convert_inputs_to_tensors(["xs", "y"], sync_arg_types=[("xs", "y")], unpack_argument=["xs"])
 def __func_test_sync_list_type_to_single__(xs, y):
     return xs, y
 
 
-@convert_inputs_to_tensors(sync_arg_types=[("xs", "ys")], unpack_argument=["xs", "ys"])
+@convert_inputs_to_tensors(["xs", "ys"], sync_arg_types=[("xs", "ys")], unpack_argument=["xs", "ys"])
 def __func_test_sync_list_types__(xs, ys):
     return xs, ys
 
@@ -184,6 +185,26 @@ class TestConvertInputsToTensors:
         s, t2 = ignore_not_named(t1, [4, 5, 6])
         assert isinstance(s, tp.Shape)
         assert t2 == [4, 5, 6]
+
+    def test_permit_shape_scalars_with_shapes(self):
+        t1 = ShapeScalar(1)
+        t2 = ShapeScalar(2)
+        t3 = tp.Shape([1, 2])
+        a, b, c = __func_test_multi_input__(t1, t2, t3)
+
+        assert isinstance(a, ShapeScalar)
+        assert isinstance(b, ShapeScalar)
+        assert isinstance(c, tp.Shape)
+
+    def test_permit_shape_scalars_with_tensors(self):
+        t1 = ShapeScalar(1)
+        t2 = ShapeScalar(2)
+        t3 = tp.Tensor([[1, 2, 3], [4, 5, 6]])
+        a, b, c = __func_test_multi_input__(t1, t2, t3)
+
+        assert isinstance(a, ShapeScalar)
+        assert isinstance(b, ShapeScalar)
+        assert isinstance(c, tp.Tensor)
 
     # When we convert arguments to tensors, we should preserve the column range
     # of the original non-Tensor argument.
@@ -327,6 +348,18 @@ class TestConvertInputsToTensors:
             match=r"Expected a sequence but got str: hi",
         ):
             _ = __func_test_basic__([[1, 2, 3], [4, 5, 6], "hi"])
+
+    def test_mixed_shape_and_tensors_not_permitted(self):
+        t1 = tp.Tensor([1, 2, 3])
+        s1 = ShapeScalar(4)
+        s2 = tp.Shape([5, 6, 7])
+        with helper.raises(
+            tp.TripyException,
+            match=r"\_\_func\_test\_multi\_input\_\_ expects tensor arguments to have matching class types,"
+            r" but got mixed `tp\.Tensor` and `tp\.Shape` arguments\.\n"
+            r"    Consider explicitly converting using tp\.Shape\(tensor\) or shape\.as\_tensor\(\)",
+        ):
+            __func_test_multi_input__(t1, s1, s2)
 
     def test_invalid_argument_type_not_converted(self):
         a = np.array([1, 2, 3])

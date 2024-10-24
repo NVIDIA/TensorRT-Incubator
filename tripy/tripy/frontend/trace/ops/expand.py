@@ -34,13 +34,13 @@ class Expand(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def infer_shape_output_idxs(self, inputs) -> Result:
+    def infer_tensor_variants(self, inputs) -> Result:
         from tripy.frontend.shape import Shape
 
         # wrap if the first input is a shape and the output is rank-1
         if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok({"shape": [0]})
-        return Result.ok({})
+            return Result.ok([Shape])
+        return Result.ok([None])
 
     def infer_len(self):
         if self.output_len is not None:
@@ -75,11 +75,11 @@ def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int, output
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
 )
 def expand(input: "tripy.Tensor", sizes: "tripy.types.ShapeLike") -> "tripy.Tensor":
     """

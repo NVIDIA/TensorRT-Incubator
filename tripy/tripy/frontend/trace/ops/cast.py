@@ -26,19 +26,16 @@ from tripy.frontend.trace.ops.utils import InferLenPolicies
 class Cast(BaseTraceOp):
     dtype: "tripy.common.dtype"
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.common.datatype import int32
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
         # Only still a valid shape if it remains int32
         if self.dtype == int32:
-            if isinstance(inputs[0], Shape):
-                return Result.ok({"shape": [0]})
-            elif isinstance(inputs[0], ShapeScalar):
-                return Result.ok({"scalar": [0]})
-
-        return Result.ok({})
+            if isinstance(inputs[0], (Shape, ShapeScalar)):
+                return Result.ok([type(inputs[0])])
+        return Result.ok([None])
 
     infer_len = InferLenPolicies.infer_same_as_first_input
 
@@ -105,13 +102,13 @@ class Cast(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    dtype_exceptions=[
+    exceptions=[
         {"T1": "float8", "T2": "int4"},
         {"T1": "float8", "T2": "int8"},
         {"T1": "float8", "T2": "int64"},

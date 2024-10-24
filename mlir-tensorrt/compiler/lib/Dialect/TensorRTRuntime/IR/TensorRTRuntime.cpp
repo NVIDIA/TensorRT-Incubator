@@ -43,7 +43,7 @@ LogicalResult EnqueueOp::inferReturnTypes(
     SmallVectorImpl<Type> &inferredReturnTypes) {
   EnqueueOp::Adaptor adaptor(operands, attributes, properties, regions);
 
-  // If the `outs` operands are tensor types, then we shoudl return those as
+  // If the `outs` operands are tensor types, then we should return those as
   // results. Otherwise, for memref outs, we do not return results.
   for (Type t : TypeRange(adaptor.getOuts())) {
     auto tensorType = dyn_cast<TensorType>(t);
@@ -81,7 +81,7 @@ void EnqueueOp::inferOperandKind(
   for (OpOperand &operand : getOperation()->getOpOperands()) {
     if (!isa<ShapedType>(operand.get().getType()))
       continue;
-    if (isOperandOnHost(operand.getOperandNumber())) {
+    if (isOperandOnHost(&operand)) {
       setOperandKind(operand, TensorKind::Host);
       continue;
     }
@@ -90,27 +90,115 @@ void EnqueueOp::inferOperandKind(
 }
 
 TensorKind EnqueueOp::getStaticOperandTensorKind(OpOperand &operand) {
-  return isOperandOnHost(operand.getOperandNumber()) ? TensorKind::Host
-                                                     : TensorKind::Device;
+  return isOperandOnHost(&operand) ? TensorKind::Host : TensorKind::Device;
 }
 
 void EnqueueOp::getEffects(
     SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
         &effects) {
   for (OpOperand &operand : getInputsMutable()) {
-    if (!llvm::isa<MemRefType>(operand.get().getType()))
+    if (!isa<MemRefType>(operand.get().getType()))
       continue;
     effects.emplace_back(MemoryEffects::Read::get(), &operand,
                          SideEffects::DefaultResource::get());
   }
   for (OpOperand &operand : getOutsMutable()) {
-    if (!llvm::isa<MemRefType>(operand.get().getType()))
+    if (!isa<MemRefType>(operand.get().getType()))
       continue;
     effects.emplace_back(MemoryEffects::Read::get(), &operand,
                          SideEffects::DefaultResource::get());
     effects.emplace_back(MemoryEffects::Write::get(), &operand,
                          SideEffects::DefaultResource::get());
   }
+}
+
+//===----------------------------------------------------------------------===//
+// EnqueueAllocOp
+//===----------------------------------------------------------------------===//
+
+void EnqueueAllocOp::inferOperandKind(
+    ArrayRef<TensorKindLattice *> operands,
+    ArrayRef<const TensorKindLattice *> results,
+    llvm::function_ref<void(OpOperand &, TensorKind)> setOperandKind) {
+  for (OpOperand &operand : getOperation()->getOpOperands()) {
+    if (!isa<ShapedType>(operand.get().getType()))
+      continue;
+    if (isOperandOnHost(&operand)) {
+      setOperandKind(operand, TensorKind::Host);
+      continue;
+    }
+    setOperandKind(operand, TensorKind::Device);
+  }
+}
+
+TensorKind EnqueueAllocOp::getStaticOperandTensorKind(OpOperand &operand) {
+  return isOperandOnHost(&operand) ? TensorKind::Host : TensorKind::Device;
+}
+
+LogicalResult EnqueueAllocOp::verify() {
+  // Verify host tensor indices.
+  if (std::optional<ArrayRef<int64_t>> hostTensorIndices =
+          getHostTensorArgs()) {
+    // We don't count the context and stream argument here.
+    const int64_t numInputArgs = getInputs().size();
+    for (int64_t idx : *hostTensorIndices) {
+      if (idx >= numInputArgs || idx < 0)
+        return emitOpError("host_tensor_args value ")
+               << idx << " is out of bounds";
+      Value operand = getInputs()[idx];
+      Type elType = mlir::getElementTypeOrSelf(operand.getType());
+      if (!elType.isInteger(32))
+        return emitOpError("host tensor arguments must have element type i32, "
+                           "but input arg ")
+               << idx << " has type " << operand.getType();
+    }
+  }
+
+  if (getNumResults() == 0)
+    return emitOpError("at least one result is required.");
+
+  bool isRankedTensor = isa<RankedTensorType>(getResult(0).getType());
+  bool isMemRef = isa<MemRefType>(getResult(0).getType());
+
+  // Verify that all results are either all tensors or all memrefs
+  if (!isRankedTensor && !isMemRef)
+    return emitOpError("result must be either RankedTensorType or MemRefType");
+
+  for (auto resultType : getResultTypes()) {
+    if (isRankedTensor && !isa<RankedTensorType>(resultType))
+      return emitOpError("all results must be RankedTensorType");
+    if (isMemRef && !isa<MemRefType>(resultType))
+      return emitOpError("all results must be MemRefType");
+    if (isMemRef && !dyn_cast<MemRefType>(resultType).getLayout().isIdentity())
+      return emitOpError("result must have a canonical stride");
+  }
+
+  return success();
+}
+
+void EnqueueAllocOp::getEffects(
+    SmallVectorImpl<SideEffects::EffectInstance<MemoryEffects::Effect>>
+        &effects) {
+
+  for (OpOperand &operand : getInputsMutable()) {
+    if (!isa<MemRefType>(operand.get().getType()))
+      continue;
+    effects.emplace_back(MemoryEffects::Read::get(), &operand,
+                         SideEffects::DefaultResource::get());
+  }
+
+  bool resultRequireAllocation{false};
+  for (OpResult result : getResults()) {
+    if (!isa<MemRefType>(result.getType()))
+      continue;
+    resultRequireAllocation = true;
+    effects.emplace_back(MemoryEffects::Write::get(), result,
+                         SideEffects::DefaultResource::get());
+  }
+
+  if (resultRequireAllocation)
+    effects.emplace_back(MemoryEffects::Allocate::get(), 0,
+                         /*effectOnFullRegion=*/true);
 }
 
 //===----------------------------------------------------------------------===//
