@@ -118,4 +118,4 @@ class TestQuantize:
         scale = tp.ones((4,))
         quantized = tp.quantize(input, scale, tp.int8, dim=0)
 
-        assert tp.allclose(quantized, tp.ones((4, 4), dtype=tp.int8), rtol=0.0, atol=0.0)
+        assert bool(tp.all(quantized == tp.ones((4, 4), dtype=tp.int8)))

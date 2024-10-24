@@ -22,7 +22,7 @@ from tripy.common.exception import raise_error
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"a": "T1", "b": "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int32", "int8"]},
+    variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
     r"""

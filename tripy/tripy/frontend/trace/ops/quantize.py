@@ -15,12 +15,12 @@
 # limitations under the License.
 #
 
+import numbers
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Sequence, Union
 
-from tripy import export, constraints
+from tripy import constraints, export
 from tripy.common import datatype
-from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -37,17 +37,17 @@ class Quantize(BaseTraceOp):
 
     @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.tensor import FlatIRTensor
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import (
             ClampOp,
-            ConvertOp,
             ConcatenateOp,
+            ConvertOp,
+            DivideOp,
             DynamicBroadcastOp,
             DynamicReshapeOp,
-            DivideOp,
             RoundNearestEvenOp,
         )
-        from tripy.common.datatype import int32
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         # Represent quantize as clamp(round((input / scale))) + convert(dtype)
         scaled_tensor = FlatIRTensor.build(
@@ -128,14 +128,14 @@ class Quantize(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/quantization")
-@frontend_utils.convert_inputs_to_tensors(["scale"])
+@frontend_utils.convert_to_tensors(targets={"scale"})
 @constraints.dtypes(
     constraints={"input": "T1", "scale": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
     variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int4", "int8", "float8"]},
 )
 def quantize(
     input: "tripy.Tensor",
-    scale: "tripy.types.TensorLike",
+    scale: Union["tripy.Tensor", numbers.Number, Sequence[numbers.Number], Sequence[Sequence[numbers.Number]]],
     dtype: datatype.dtype,
     dim: Union[int, Any] = None,
 ) -> "tripy.Tensor":

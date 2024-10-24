@@ -39,7 +39,7 @@ class TestQuantize:
             tp.TripyException,
             match="Unsupported data type for 'quantize'.",
         ):
-            a = tp.quantize(a, 0.9, tp.int8)
+            a = tp.quantize(a, 1, tp.int8)
 
     def test_unsupported_quant_dtype(self):
         a = tp.Tensor([1.0, 2.0])
@@ -47,7 +47,7 @@ class TestQuantize:
             tp.TripyException,
             match="Unsupported data type for 'quantize'.",
         ):
-            a = tp.quantize(a, 0.9, tp.float16)
+            a = tp.quantize(a, 1, tp.float16)
 
     def test_invalid_scale_per_channel(self):
         a = tp.ones((4, 4))
@@ -78,7 +78,7 @@ class TestQuantize:
 
     def test_invalid_scale_per_tensor(self):
         a = tp.ones((4, 4))
-        scale = [0.5, 0.5]
+        scale = tp.Tensor([0.5] * 4)
         with helper.raises(
             tp.TripyException,
             match="Scale must be a scalar tensor in per-tensor quantize op",
