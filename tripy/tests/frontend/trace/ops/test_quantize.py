@@ -78,7 +78,7 @@ class TestQuantize:
 
     def test_invalid_scale_per_tensor(self):
         a = tp.ones((4, 4))
-        scale = [0.5, 0.5]
+        scale = tp.Tensor([0.5] * 4)
         with helper.raises(
             tp.TripyException,
             match="Scale must be a scalar tensor in per-tensor quantize op",

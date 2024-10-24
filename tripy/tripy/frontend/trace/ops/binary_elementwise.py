@@ -301,7 +301,7 @@ def __sub__(
     constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
-def __rsub__(self: "tripy.types.NestedNumberSequence", other: "tripy.types.TensorLike") -> "tripy.Tensor":
+def __rsub__(self: numbers.Number, other: "tripy.types.TensorLike") -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
