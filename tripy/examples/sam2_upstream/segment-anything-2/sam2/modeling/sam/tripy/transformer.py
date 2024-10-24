@@ -63,7 +63,10 @@ class TwoWayTransformer(tp.Module):
             )
 
         self.final_attn_token_to_image = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate, dtype=dtype
+            embedding_dim,
+            num_heads,
+            downsample_rate=attention_downsample_rate,
+            dtype=dtype,
         )
         self.norm_final_attn = tp.LayerNorm(embedding_dim)
 
@@ -118,7 +121,10 @@ class TwoWayTransformer(tp.Module):
         k = keys + image_pe
         attn_out = self.final_attn_token_to_image(q=q, k=k, v=keys)
         queries = queries + attn_out
-        queries = tp.cast(self.norm_final_attn(tp.cast(queries, self.norm_final_attn.dtype)), queries.dtype)
+        queries = tp.cast(
+            self.norm_final_attn(tp.cast(queries, self.norm_final_attn.dtype)),
+            queries.dtype,
+        )
         # queries = self.norm_final_attn(queries)
 
         return queries, keys
@@ -153,24 +159,41 @@ class TwoWayAttentionBlock(tp.Module):
         self.norm1 = tp.LayerNorm(embedding_dim)
 
         self.cross_attn_token_to_image = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate, dtype=dtype
+            embedding_dim,
+            num_heads,
+            downsample_rate=attention_downsample_rate,
+            dtype=dtype,
         )
         self.norm2 = tp.LayerNorm(embedding_dim)
 
-        self.mlp = MLP(embedding_dim, mlp_dim, embedding_dim, num_layers=2, activation=activation, dtype=dtype)
+        self.mlp = MLP(
+            embedding_dim,
+            mlp_dim,
+            embedding_dim,
+            num_layers=2,
+            activation=activation,
+            dtype=dtype,
+        )
         self.norm3 = tp.LayerNorm(embedding_dim)
 
         self.norm4 = tp.LayerNorm(embedding_dim)
         self.cross_attn_image_to_token = Attention(
-            embedding_dim, num_heads, downsample_rate=attention_downsample_rate, dtype=dtype
+            embedding_dim,
+            num_heads,
+            downsample_rate=attention_downsample_rate,
+            dtype=dtype,
         )
 
         self.skip_first_layer_pe = skip_first_layer_pe
 
-    def __call__(self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor) -> Tuple[Tensor, Tensor]:
+    def __call__(
+        self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor
+    ) -> Tuple[Tensor, Tensor]:
         return self.forward(queries, keys, query_pe, key_pe)
 
-    def forward(self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor) -> Tuple[Tensor, Tensor]:
+    def forward(
+        self, queries: Tensor, keys: Tensor, query_pe: Tensor, key_pe: Tensor
+    ) -> Tuple[Tensor, Tensor]:
         # Self attention block
         if self.skip_first_layer_pe:
             queries = self.self_attn(q=queries, k=queries, v=queries)
@@ -227,8 +250,9 @@ class Attention(tp.Module):
         self.kv_in_dim = kv_in_dim if kv_in_dim is not None else embedding_dim
         self.internal_dim = embedding_dim // downsample_rate
         self.num_heads = num_heads
-        assert self.internal_dim % num_heads == 0, "num_heads must divide embedding_dim."
-
+        assert (
+            self.internal_dim % num_heads == 0
+        ), "num_heads must divide embedding_dim."
         self.q_proj = tp.Linear(embedding_dim, self.internal_dim, dtype=dtype)
         self.k_proj = tp.Linear(self.kv_in_dim, self.internal_dim, dtype=dtype)
         self.v_proj = tp.Linear(self.kv_in_dim, self.internal_dim, dtype=dtype)
@@ -282,20 +306,27 @@ class RoPEAttention(Attention):
         # this is needed for cross-attention to memories
         rope_k_repeat=False,
         feat_sizes=(32, 32),  # [w, h] for stride 16 feats at 512 resolution
+        dtype="float32",
         **kwargs,
     ):
-        super().__init__(*args, **kwargs)
-
-        self.compute_cis = partial(compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta)
+        self.dtype = getattr(tp, dtype)
+        super().__init__(*args, dtype=self.dtype, **kwargs)
+        self.compute_cis = partial(
+            compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta
+        )
         freqs_cis = self.compute_cis(end_x=feat_sizes[0], end_y=feat_sizes[1])
         self.freqs_cis = freqs_cis
         print(f"rope_k_repeat : {rope_k_repeat}")
         self.rope_k_repeat = rope_k_repeat
 
-    def __call__(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.Tensor) -> Tensor:
+    def __call__(
+        self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.Tensor
+    ) -> Tensor:
         return self.forward(q, k, v, num_k_exclude_rope)
 
-    def forward(self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: tp.Tensor) -> tp.Tensor:
+    def forward(
+        self, q: tp.Tensor, k: tp.Tensor, v: tp.Tensor, num_k_exclude_rope: tp.Tensor
+    ) -> tp.Tensor:
         # Input projections
         q = self.q_proj(q)
         k = self.k_proj(k)
@@ -309,8 +340,8 @@ class RoPEAttention(Attention):
         # Apply rotary position encoding
         # w = h = tp.ShapeScalar(tp.cast(tp.sqrt(tp.cast(q.shape[-2], tp.float32)), tp.int32))  # DDS?
         w = h = tp.ShapeScalar(64)  # Current demo always uses 64.
-        self.freqs_cis = self.freqs_cis
         self.freqs_cis = self.compute_cis(end_x=w, end_y=h)
+        self.freqs_cis = tp.cast(self.freqs_cis, self.dtype)
 
         num_k_rope = k.shape[-2] - num_k_exclude_rope
         q, new_k = apply_rotary_enc(

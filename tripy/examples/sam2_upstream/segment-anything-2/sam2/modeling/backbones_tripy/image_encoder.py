@@ -55,8 +55,9 @@ class ImageEncoder(tp.Module):
 
             start = time.perf_counter()
             features_pos = self.compiled_executable(sample)
+            tp.default_stream().synchronize()
             end = time.perf_counter()
-            print(f"image encoder inference took {(end - start) * 1000}")
+            # print(f"image encoder inference took {(end - start) * 1000}")
         else:
             features_pos = self.forward(sample)
         for i in range(len(features_pos)):
@@ -123,7 +124,9 @@ class FpnNeck(tp.Module):
         self.position_encoding = []
         position_encoding_shapes = [[256, 256], [128, 128], [64, 64], [32, 32]]
         for s in position_encoding_shapes:
-            self.position_encoding.append(position_encoding.generate_static_embedding([1, 256] + s, dtype=dtype))
+            self.position_encoding.append(
+                position_encoding.generate_static_embedding([1, 256] + s, dtype=dtype)
+            )
 
     def __call__(self, xs: List[tp.Tensor]):
 

@@ -73,6 +73,7 @@ class PositionEmbeddingSine(tp.Module):
         )
         pos_x = tp.flatten(pos_x, 3)
         pos_y = tp.flatten(pos_y, 3)
+        pos = tp.concatenate([pos_x, pos_y], dim=3)
         pos = tp.permute(pos, (0, 3, 1, 2))
         return pos
 

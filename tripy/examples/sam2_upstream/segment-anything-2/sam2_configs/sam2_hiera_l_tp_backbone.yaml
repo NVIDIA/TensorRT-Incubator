@@ -33,11 +33,13 @@ model:
     _target_: sam2.modeling.tripy.memory_attention.MemoryAttention
     d_model: 256
     pos_enc_at_input: true
+    dtype: float16
     layer:
       _target_: sam2.modeling.tripy.memory_attention.MemoryAttentionLayer
       activation: relu
       dim_feedforward: 2048
       dropout: 0.1
+      dtype: float16
       pos_enc_at_attn: false
       self_attention:
         _target_: sam2.modeling.sam.tripy.transformer.RoPEAttention
@@ -47,6 +49,7 @@ model:
         num_heads: 1
         downsample_rate: 1
         dropout: 0.1
+        dtype: float16
       d_model: 256
       pos_enc_at_cross_attn_keys: true
       pos_enc_at_cross_attn_queries: false
@@ -60,26 +63,27 @@ model:
         downsample_rate: 1
         dropout: 0.1
         kv_in_dim: 64
+        dtype: float16
     num_layers: 4
 
   memory_encoder:
-      _target_: sam2.modeling.memory_encoder.MemoryEncoder
+      _target_: sam2.modeling.tripy.memory_encoder.MemoryEncoder
       out_dim: 64
       position_encoding:
-        _target_: sam2.modeling.position_encoding.PositionEmbeddingSine
+        _target_: sam2.modeling.backbones_tripy.position_embedding.PositionEmbeddingSine
         num_pos_feats: 64
         normalize: true
         scale: null
         temperature: 10000
       mask_downsampler:
-        _target_: sam2.modeling.memory_encoder.MaskDownSampler
+        _target_: sam2.modeling.tripy.memory_encoder.MaskDownSampler
         kernel_size: 3
         stride: 2
         padding: 1
       fuser:
-        _target_: sam2.modeling.memory_encoder.Fuser
+        _target_: sam2.modeling.tripy.memory_encoder.Fuser
         layer:
-          _target_: sam2.modeling.memory_encoder.CXBlock
+          _target_: sam2.modeling.tripy.memory_encoder.CXBlock
           dim: 256
           kernel_size: 7
           padding: 3

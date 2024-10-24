@@ -29,8 +29,11 @@ from tripy.logging import logger
 # logger.verbosity = "ir"
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--tp_backbone", action="store_true", help="use tripy backbone config file")
+parser.add_argument(
+    "--use_tripy", action="store_true", help="use tripy backbone config file"
+)
 args = parser.parse_args()
+
 
 def show_mask(mask, ax, random_color=False, borders=True):
     if random_color:
@@ -45,8 +48,12 @@ def show_mask(mask, ax, random_color=False, borders=True):
 
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         # Try to smooth contours
-        contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
-        mask_image = cv2.drawContours(mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2)
+        contours = [
+            cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours
+        ]
+        mask_image = cv2.drawContours(
+            mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2
+        )
     ax.imshow(mask_image)
 
 
@@ -76,7 +83,9 @@ def show_points(coords, labels, ax, marker_size=375):
 def show_box(box, ax):
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
-    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2))
+    ax.add_patch(
+        plt.Rectangle((x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2)
+    )
 
 
 def show_masks(
@@ -119,7 +128,7 @@ from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
-if args.tp_backbone:
+if args.use_tripy:
     model_cfg = "sam2_hiera_l_tp_backbone.yaml"
 else:
     model_cfg = "sam2_hiera_l.yaml"

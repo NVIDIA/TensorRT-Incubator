@@ -39,16 +39,18 @@ class MemoryAttentionLayer(tp.Module):
         pos_enc_at_cross_attn_keys: bool,
         pos_enc_at_cross_attn_queries: bool,
         self_attention: tp.Module,
+        dtype: "float32",
     ):
         super().__init__()
         self.d_model = d_model
         self.dim_feedforward = dim_feedforward
         self.self_attn = self_attention
         self.cross_attn_image = cross_attention
+        self.dtype = getattr(tp, dtype)
 
         # Implementation of Feedforward model
-        self.linear1 = tp.Linear(d_model, dim_feedforward)
-        self.linear2 = tp.Linear(dim_feedforward, d_model)
+        self.linear1 = tp.Linear(d_model, dim_feedforward, dtype=self.dtype)
+        self.linear2 = tp.Linear(dim_feedforward, d_model, dtype=self.dtype)
 
         self.norm1 = tp.LayerNorm(d_model)
         self.norm2 = tp.LayerNorm(d_model)
@@ -64,7 +66,7 @@ class MemoryAttentionLayer(tp.Module):
 
     def _forward_sa(self, tgt, query_pos):
         # Self-Attention
-        tgt2 = self.norm1(tgt)
+        tgt2 = tp.cast(self.norm1(tp.cast(tgt, self.norm1.dtype)), self.dtype)
         q = k = tgt2 + query_pos if self.pos_enc_at_attn else tgt2
         tgt2 = self.self_attn(q, k, v=tgt2, num_k_exclude_rope=tp.Tensor([0]))
         tgt = tgt + tgt2
@@ -74,7 +76,8 @@ class MemoryAttentionLayer(tp.Module):
         kwds = {}
 
         # Cross-Attention
-        tgt2 = self.norm2(tgt)
+        tgt2 = tp.cast(self.norm2(tp.cast(tgt, self.norm2.dtype)), self.dtype)
+
         tgt2 = self.cross_attn_image(
             q=tgt2 + query_pos if self.pos_enc_at_cross_attn_queries else tgt2,
             k=memory + pos if self.pos_enc_at_cross_attn_keys else memory,
@@ -97,7 +100,8 @@ class MemoryAttentionLayer(tp.Module):
         tgt = self._forward_sa(tgt, query_pos)
         tgt = self._forward_ca(tgt, memory, query_pos, pos, num_k_exclude_rope)
         # MLP
-        tgt2 = self.norm3(tgt)
+        tgt2 = tp.cast(self.norm3(tp.cast(tgt, self.norm3.dtype)), self.dtype)
+
         tgt2 = self.linear2(self.activation(self.linear1(tgt2)))
         tgt = tgt + tgt2
         return tgt
@@ -111,6 +115,7 @@ class MemoryAttention(tp.Module):
         layer: tp.Module,
         num_layers: int,
         batch_first: bool = True,  # Do layers expect batch first input?
+        dtype="float32",
     ):
         super().__init__()
         self.d_model = d_model
@@ -119,6 +124,7 @@ class MemoryAttention(tp.Module):
         self.norm = tp.LayerNorm(d_model)
         self.pos_enc_at_input = pos_enc_at_input
         self.batch_first = batch_first
+        self.dtype = getattr(tp, dtype)
 
     def __call__(
         self,
@@ -126,7 +132,9 @@ class MemoryAttention(tp.Module):
         memory: tp.Tensor,  # cross-attention inputs
         curr_pos: Optional[tp.Tensor] = None,  # pos_enc for self-attention inputs
         memory_pos: Optional[tp.Tensor] = None,  # pos_enc for cross-attention inputs
-        num_obj_ptr_tokens: Optional[tp.Tensor] = None,  # number of object pointer *tokens*
+        num_obj_ptr_tokens: Optional[
+            tp.Tensor
+        ] = None,  # number of object pointer *tokens*
     ):
 
         num_obj_ptr_tokens = num_obj_ptr_tokens.shape[0]
@@ -155,7 +163,8 @@ class MemoryAttention(tp.Module):
                 query_pos=curr_pos,
                 **kwds,
             )
-        normed_output = self.norm(output)
+
+        normed_output = tp.cast(self.norm(tp.cast(output, self.norm.dtype)), self.dtype)
 
         if self.batch_first:
             # Convert back to seq first

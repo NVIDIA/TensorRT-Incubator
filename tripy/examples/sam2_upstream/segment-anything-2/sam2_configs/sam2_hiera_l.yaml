@@ -28,17 +28,17 @@ model:
       fpn_interp_model: nearest
 
   memory_attention:
-    _target_: sam2.modeling.tripy.memory_attention.MemoryAttention # sam2.modeling.tripy.memory_attention.MemoryAttention
+    _target_: sam2.modeling.memory_attention.MemoryAttention
     d_model: 256
     pos_enc_at_input: true
     layer:
-      _target_: sam2.modeling.tripy.memory_attention.MemoryAttentionLayer # sam2.modeling.tripy.memory_attention.MemoryAttentionLayer
+      _target_: sam2.modeling.memory_attention.MemoryAttentionLayer
       activation: relu
       dim_feedforward: 2048
       dropout: 0.1
       pos_enc_at_attn: false
       self_attention:
-        _target_: sam2.modeling.sam.tripy.transformer.RoPEAttention # sam2.modeling.sam.tripy.transformer.RoPEAttention
+        _target_: sam2.modeling.sam.transformer.RoPEAttention
         rope_theta: 10000.0
         feat_sizes: [32, 32]
         embedding_dim: 256
@@ -49,7 +49,7 @@ model:
       pos_enc_at_cross_attn_keys: true
       pos_enc_at_cross_attn_queries: false
       cross_attention:
-        _target_: sam2.modeling.sam.tripy.transformer.RoPEAttention # sam2.modeling.sam.tripy.transformer.RoPEAttention
+        _target_: sam2.modeling.sam.transformer.RoPEAttention
         rope_theta: 10000.0
         feat_sizes: [32, 32]
         rope_k_repeat: True
@@ -115,8 +115,3 @@ model:
   use_mlp_for_obj_ptr_proj: true
   # Compilation flag
   compile_image_encoder: False
-
-  use_tripy_mask_decoder: true
-  use_tripy_prompt_encoder: true
-
-  tripy_mask_decoder_dtype: float16

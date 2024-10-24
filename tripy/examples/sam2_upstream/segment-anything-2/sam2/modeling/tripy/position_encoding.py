@@ -58,7 +58,9 @@ class PositionEmbeddingRandom(tp.Module):
         pe = self._pe_encoding(tp.stack([x_embed, y_embed], dim=-1))
         return tp.permute(pe, (2, 0, 1))  # C x H x W
 
-    def forward_with_coords(self, coords_input: tp.Tensor, image_size: Tuple[int, int]) -> tp.Tensor:
+    def forward_with_coords(
+        self, coords_input: tp.Tensor, image_size: Tuple[int, int]
+    ) -> tp.Tensor:
         """Positionally encode points that are not normalized to [0,1]."""
         new_x_coords = coords_input[:, :, 0] / image_size[1]
         new_y_coords = coords_input[:, :, 1] / image_size[0]
@@ -77,9 +79,15 @@ def init_t_xy(end_x: tp.ShapeScalar, end_y: tp.ShapeScalar):
     return t_x, t_y
 
 
-def compute_axial_cis(dim: int, end_x: tp.ShapeScalar, end_y: tp.ShapeScalar, theta: float = 10000.0):
-    freqs_x = 1.0 / (theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim))
-    freqs_y = 1.0 / (theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim))
+def compute_axial_cis(
+    dim: int, end_x: tp.ShapeScalar, end_y: tp.ShapeScalar, theta: float = 10000.0
+):
+    freqs_x = 1.0 / (
+        theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim)
+    )
+    freqs_y = 1.0 / (
+        theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim)
+    )
 
     t_x, t_y = init_t_xy(end_x, end_y)
     freqs_x = tp.outer(t_x, freqs_x)
@@ -101,8 +109,8 @@ def apply_rotary_enc(
     freqs_cis: tp.Tensor,
     repeat_freqs_k: bool = False,
 ):
-    xq_ = tp.reshape(tp.cast(xq, tp.float32), (*xq.shape[:-1], -1, 2))
-    xk_ = tp.reshape(tp.cast(xk, tp.float32), (*xk.shape[:-1], -1, 2))
+    xq_ = tp.reshape(xq, (*xq.shape[:-1], -1, 2))
+    xk_ = tp.reshape(xk, (*xk.shape[:-1], -1, 2))
 
     freqs_cis = reshape_for_broadcast(freqs_cis, xq_)
     xq_out = mul_as_complex(xq_, freqs_cis)
@@ -111,7 +119,9 @@ def apply_rotary_enc(
     # repeat freqs along seq_len dim to match k seq_len
     if repeat_freqs_k:
         r = xk_.shape[-3] // xq_.shape[-3]
-        freqs_cis = tp.flatten(tp.expand(tp.unsqueeze(freqs_cis, 2), (-1, -1, r, -1, -1, -1)), 2, 3)
+        freqs_cis = tp.flatten(
+            tp.expand(tp.unsqueeze(freqs_cis, 2), (-1, -1, r, -1, -1, -1)), 2, 3
+        )
 
     xk_out = tp.flatten(mul_as_complex(xk_, freqs_cis), 3)
     return tp.cast(xq_out, xq.dtype), tp.cast(xk_out, xk.dtype)

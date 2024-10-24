@@ -165,7 +165,7 @@ class SAM2Base(torch.nn.Module):
             self.memory_encoder.out_proj, "weight"
         ):
             # if there is compression of memories along channel dim
-            self.mem_dim = self.memory_encoder.out_proj.weight.shape[0]
+            self.mem_dim = int(self.memory_encoder.out_proj.weight.shape[0])
         self.num_maskmem = num_maskmem  # Number of memories accessible
         # Temporal encoding of the memories
         self.maskmem_tpos_enc = torch.nn.Parameter(
@@ -628,7 +628,9 @@ class SAM2Base(torch.nn.Module):
 
     def forward_image(self, img_batch: torch.Tensor):
         """Get the image feature on the input batch."""
-        if isinstance(self.image_encoder, tp.Module):
+        if isinstance(self.image_encoder, tp.Module) or isinstance(
+            self.image_encoder, tp.Executable
+        ):
             img_batch = img_batch.to(
                 getattr(torch, self.image_encoder.trunk.dtype)
             ).contiguous()
@@ -856,10 +858,10 @@ class SAM2Base(torch.nn.Module):
         ):
             fake_obj_ptrs = torch.ones((num_obj_ptr_tokens,), dtype=torch.int32)
             pix_feat_with_mem = self.memory_attention(
-                curr=tp.Tensor(current_vision_feats[0].contiguous()),
-                memory=tp.Tensor(memory.contiguous()),
-                curr_pos=tp.Tensor(current_vision_pos_embeds[0].contiguous()),
-                memory_pos=tp.Tensor(memory_pos_embed.contiguous()),
+                curr=tp.Tensor(current_vision_feats[0].half().contiguous()),
+                memory=tp.Tensor(memory.half().contiguous()),
+                curr_pos=tp.Tensor(current_vision_pos_embeds[0].half().contiguous()),
+                memory_pos=tp.Tensor(memory_pos_embed.half().contiguous()),
                 num_obj_ptr_tokens=tp.Tensor(fake_obj_ptrs.contiguous()),
             )
         else:
@@ -907,11 +909,21 @@ class SAM2Base(torch.nn.Module):
             mask_for_mem = mask_for_mem * self.sigmoid_scale_for_mem_enc
         if self.sigmoid_bias_for_mem_enc != 0.0:
             mask_for_mem = mask_for_mem + self.sigmoid_bias_for_mem_enc
-        maskmem_out = self.memory_encoder(
-            pix_feat, mask_for_mem, skip_mask_sigmoid=True
-        )  # sigmoid already applied
-        maskmem_features = maskmem_out["vision_features"]
-        maskmem_pos_enc = maskmem_out["vision_pos_enc"]
+
+        if isinstance(self.memory_encoder, tp.Module) or isinstance(
+            self.memory_encoder, tp.Executable
+        ):
+            maskmem_features, maskmem_pos_enc = self.memory_encoder(
+                tp.Tensor(pix_feat.contiguous()), tp.Tensor(mask_for_mem.contiguous())
+            )  # sigmoid already applied
+            maskmem_features = torch.from_dlpack(maskmem_features)
+            maskmem_pos_enc = [torch.from_dlpack(maskmem_pos_enc)]
+        else:
+            maskmem_out = self.memory_encoder(
+                pix_feat, mask_for_mem, skip_mask_sigmoid=True
+            )  # sigmoid already applied
+            maskmem_features = maskmem_out["vision_features"]
+            maskmem_pos_enc = maskmem_out["vision_pos_enc"]
 
         return maskmem_features, maskmem_pos_enc
 

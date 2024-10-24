@@ -18,11 +18,11 @@
 # pip3 install --force-reinstall /tripy/trt102/mlir-tensorrt-runtime-wheel/mlir_tensorrt_runtime-0.1.34+cuda12.trt102-cp310-cp310-linux_x86_64.whl
 # pip3 install nvtx
 
+import argparse
 import torch
 from sam2.build_sam import build_sam2
 from sam2.build_sam import build_sam2_video_predictor
 import numpy as np
-import torch
 import matplotlib.pyplot as plt
 from PIL import Image
 import tripy as tp
@@ -32,6 +32,12 @@ import time
 from tripy.logging import logger
 
 # logger.verbosity = "ir"
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--use_tripy", action="store_true", help="use tripy backbone config file"
+)
+args = parser.parse_args()
 
 
 def show_mask(mask, ax, obj_id=None, random_color=False):
@@ -78,8 +84,11 @@ def show_box(box, ax):
 
 
 sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
-# model_cfg = "sam2_hiera_l_tp_backbone.yaml"
-model_cfg = "sam2_hiera_l.yaml"
+
+if args.use_tripy:
+    model_cfg = "sam2_hiera_l_tp_backbone.yaml"
+else:
+    model_cfg = "sam2_hiera_l.yaml"
 
 predictor = build_sam2_video_predictor(
     model_cfg, sam2_checkpoint, device=torch.device("cuda")
