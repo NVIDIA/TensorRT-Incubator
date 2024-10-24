@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729794912456,
+  "lastUpdate": 1729811734415,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -1190,6 +1190,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006777422025125233",
             "extra": "mean: 151.86267380785563 usec\nrounds: 7205"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "585a5ea6d3f82e7446da27c787bdb756560cfef1",
+          "message": "Replaces `convert_inputs_to_tensors` decorator with a better decorator",
+          "timestamp": "2024-10-24T20:57:14Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/301/commits/585a5ea6d3f82e7446da27c787bdb756560cfef1"
+        },
+        "date": 1729811733658,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6009.889472587219,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003475092155276744",
+            "extra": "mean: 166.39241113522615 usec\nrounds: 6356"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6588.652798437231,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006740025452351762",
+            "extra": "mean: 151.7760960536866 usec\nrounds: 7111"
           }
         ]
       }
