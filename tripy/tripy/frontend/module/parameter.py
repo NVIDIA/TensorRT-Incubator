@@ -48,7 +48,6 @@ class Parameter(Tensor):
         """
         t = tensor
         # for convenience, this will convert other dlpack-supporting representations too
-        # TODO (pranavm): Figure out how to make this work for Shapes.
         if not isinstance(t, Tensor):
             t = Tensor(t)
         self.__dict__ = t.__dict__

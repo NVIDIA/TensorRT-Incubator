@@ -172,6 +172,9 @@ CONVERT_TENSOR_EXCEPTIONS = {
 }
 
 
+# TODO (pranavm): Change semantics of decorator:
+# - all args annotated `TensorLike` will be converted
+# - If we don't want conversion, make type annotation `Tensor` instead.
 # Decorator to preprocess inputs of a function and convert Python numbers to tripy tensors.
 def convert_inputs_to_tensors(
     targets: List[str],

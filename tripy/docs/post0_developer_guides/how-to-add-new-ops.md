@@ -195,7 +195,7 @@ import tripy.frontend.utils as frontend_utils
 # If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
 
-# The `convert_inputs_to_shapes` decorator converts the specified function arguments into `tripy.Shape`s,
+# The `convert_inputs_to_shapes` decorator converts the specified function arguments into shape tensors,
 # which would allow for using Python numbers and sequences. The `convert_inputs_to_tensors` decorator more generally converts
 # function arguments into Tripy tensors and is also commonly used in the codebase.
 @frontend_utils.convert_inputs_to_shapes(["shape"])
