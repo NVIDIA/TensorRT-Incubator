@@ -162,6 +162,10 @@ class Tensor(metaclass=TensorMeta):
     def rank(self):
         return self.trace_tensor.rank
 
+    @property
+    def ndim(self):
+        return self.trace_tensor.rank
+
     def eval(self) -> runtime.MemRefValue:
         if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
             # Exit early if the tensor has already been evaluated.

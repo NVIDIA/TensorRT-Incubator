@@ -306,6 +306,9 @@ def flatten(input: "tripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "tr
     """
 
     # Infer the actual dimensions to flatten based on start_dim and end_dim.
+    if start_dim < 0:
+        start_dim += input.rank
+
     if end_dim < 0:
         end_dim += input.rank
 

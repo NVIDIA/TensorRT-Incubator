@@ -128,6 +128,7 @@ class TestShape:
         reshaped = tp.reshape(t, (len(values), 1))
         assert isinstance(reshaped, tp.Tensor)
         assert reshaped.rank == 2
+        assert reshaped.ndim == 2
         assert cp.from_dlpack(reshaped).tolist() == [[v] for v in values]
 
     def test_plus_override(self, values, other_values):
