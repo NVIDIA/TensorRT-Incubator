@@ -511,7 +511,7 @@ class TestShape:
     def test_binary_elementwise_broadcast_rejected(self, values):
         with raises(
             tp.TripyException,
-            match=r"\_\_mul\_\_ expects tensor arguments to have matching class types, but got mixed `tp\.Tensor` and `tp\.Shape` arguments\.",
+            match=r"Error processing shape inputs in operator BinaryElementwise Further information: Binary elementwise operators do not accept combinations of Shape and Tensor arguments.",
         ):
             tp.Shape(values).multiply(tp.Tensor([values, values]))
 

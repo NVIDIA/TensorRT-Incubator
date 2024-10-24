@@ -19,7 +19,7 @@ import functools
 import inspect
 import numbers
 from collections import deque
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import List, Sequence, Set, Union
 
 from tripy import utils
 from tripy.common.exception import raise_error
@@ -39,6 +39,8 @@ def _add_column_info_for_non_tensor(
     list_index=None,
     TensorType=None,
 ):
+    from tripy.common.datatype import bool as tp_bool
+    from tripy.common.datatype import floating, integer
     from tripy.frontend.shape import Shape
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.cast import cast
@@ -49,13 +51,11 @@ def _add_column_info_for_non_tensor(
         arg, Tensor
     ), f"This function should not be called for objects that are already Tensor instances"
 
-    if isinstance(arg, numbers.Number) and TensorType == Shape:
+    if TensorType == Shape and isinstance(arg, numbers.Number):
         # Shapes require 1D values.
         arg = [arg]
 
     arg = TensorType(arg)
-    if dtype is not None:
-        arg = cast(arg, dtype=dtype)
     arg.stack_info.fetch_source_code()
 
     # This is the stack depth in arg.stack_info where we find the decorated function.
@@ -101,7 +101,7 @@ def _add_column_info_for_non_tensor(
 
     # Special case for __getitem__: It is variadic. Argument 0 is the tensor,
     # and all subsequent arguments are slice parameters (in start, stop, step order).
-    # Hence, we subtract two to get the index of the slice parameters
+    # Hence, we subtract one to get the index of the slice parameters
     if dispatch_target == "__getitem__":
         arg_index -= 1
 
@@ -119,7 +119,135 @@ def _add_column_info_for_non_tensor(
     if len(candidates) == 1:
         source_info.column_range = candidates[0]
 
+    if dtype is not None:
+        # Refuse to do unsafe casts like float -> int.
+        # NOTE: We do this check all the way down here so we have better stack information for `arg`.
+        UNSAFE_CASTS = {floating: integer, integer: tp_bool}
+        if any(issubclass(arg.dtype, frm) and issubclass(dtype, to) for frm, to in UNSAFE_CASTS.items()):
+            raise_error(
+                f"Refusing to automatically cast '{arg.dtype}' argument to '{dtype}'.",
+                [
+                    f"Hint: You may want to manually cast other operands in this expression to compatible types.\n",
+                    "Note: argument was: ",
+                    arg,
+                ],
+            )
+
+        original_stack_info = arg.stack_info
+        # TODO (pranavm): Remove `cast` and use dtype argument in Tensor constructor once `Shape`s are removed.
+        arg = cast(arg, dtype=dtype)
+        arg.stack_info = original_stack_info
+
     return arg
+
+
+# NOTE: Conversion to tensors needs to be done via a decorator so that we can add stack information
+# for non-tensors. Without having full context of the function signature, it is otherwise difficult to do so.
+def convert_to_tensors(targets: Set[str] = None, skip_num_stack_entries: int = 0):
+    """
+    Decorator that converts specified arguments to tensors.
+    If data type constraints are specified, any non-tensors converted will
+    also be casted to the expected data type, but will raise an exception for lossy
+    casts like float->int (but *not* for e.g. float32->float16).
+
+    Args:
+        targets: Names of arguments to convert to tensors. If not supplied, any arguments annotated
+            with `TensorLike` are converted.
+
+        skip_num_stack_entries: If the decorator is used on a function that is *called by*
+            a function that the user invokes, it will be necessary to skip stack entries
+            in order to get the column info from the user code. The number of entries skipped
+            should be equal to the nesting depth from a function called by user code
+            (if the decorated function is called by the user the depth is 0;
+            if the decorated function is called from a user function, the depth is 1; etc.)
+    """
+
+    def impl(func):
+        nonlocal targets
+
+        from tripy.constraints import TYPE_VERIFICATION
+        from tripy.types import TensorLike
+
+        signature = inspect.signature(func)
+        targets = targets or {name for name, param in signature.parameters.items() if param.annotation is TensorLike}
+
+        constraints = {}
+        if func.__qualname__ in TYPE_VERIFICATION:
+            constraints = TYPE_VERIFICATION[func.__qualname__].constraints
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            from tripy.frontend.tensor import Tensor
+            from tripy.constraints import get_arg_dtype
+
+            all_args = utils.merge_function_arguments(func, *args, **kwargs)
+
+            # TODO (pranavm): Remove all this logic once Shapes are removed:
+
+            from tripy.frontend.shape import Shape, ShapeScalar
+
+            # Disallow mixing Tensor and Shape by default. If it makes sense in a given function
+            # to have both Tensor and Shape arguments, that might suggest that custom handling
+            # rather than relying on this decorator would make sense.
+            types = {
+                # There are other subclasses of Tensor, like Parameter and DefaultParameter.
+                # Unless otherwise specified, we treat them as ordinary Tensors.
+                Tensor if type(arg) not in {Shape, ShapeScalar} else type(arg)
+                for _, arg in all_args
+                if isinstance(arg, Tensor)
+            }
+            # We usually can treat ShapeScalars as either tensors or shapes due to broadcasting, so we can remove them from the below check.
+            shape_scalar_encountered = ShapeScalar in types
+            types -= {ShapeScalar}
+
+            TensorType = None
+            if types:
+                TensorType = types.pop()
+            # Result is a shape scalar only if we can't broadcast it up to anything else
+            elif shape_scalar_encountered:
+                TensorType = ShapeScalar
+
+            # Materialize type variables from tensors.
+            type_vars = {}
+            for name, arg in all_args:
+                if name in constraints:
+                    dtype_result = get_arg_dtype(arg, func.__qualname__, name)
+                    if dtype_result:
+                        type_vars[constraints[name]] = dtype_result.value
+
+            new_args = []
+            new_kwargs = {}
+            for index, (name, arg) in enumerate(all_args):
+
+                def add_arg(arg):
+                    if name not in kwargs:
+                        new_args.append(arg)
+                    else:
+                        new_kwargs[name] = arg
+
+                if name in targets and not isinstance(arg, Tensor):
+                    dtype = None
+                    if name in constraints and constraints[name] in type_vars:
+                        dtype = type_vars[constraints[name]]
+
+                    arg = _add_column_info_for_non_tensor(
+                        arg,
+                        index,
+                        name in kwargs,
+                        dtype,
+                        len(args),
+                        func.__name__,
+                        skip_num_stack_entries,
+                        TensorType=TensorType,
+                    )
+
+                add_arg(arg)
+
+            return func(*new_args, **new_kwargs)
+
+        return wrapper
+
+    return impl
 
 
 def _convert_nontensor_arg(
@@ -176,188 +304,6 @@ def _convert_nontensor_arg(
         list_index=list_index,
         TensorType=TensorType,
     )
-
-
-"""
-Non-magic methods that are allowed to be decorated with convert_inputs_to_tensors.
-We should generally avoid exceptions.
-"""
-CONVERT_TENSOR_EXCEPTIONS = {
-    "slice_helper",  # We use it to convert inputs to __getitem__ but need to handle slices before converting
-    "quantize",
-    "dequantize",
-}
-
-
-# Decorator to preprocess inputs of a function and convert Python numbers to tripy tensors.
-def convert_inputs_to_tensors(
-    targets: List[str],
-    sync_arg_types: Optional[List[Tuple[str]]] = None,
-    unpack_argument: Optional[List[str]] = None,
-    skip_num_stack_entries: int = 0,
-):
-    """
-    Decorator that converts the specified arguments to `Tensor`s before passing them along
-    to the decorated function. Converts only Python numbers or lists of Python numbers;
-    inputs like `numpy` arrays will be left unchanged and should be handled manually.
-
-    This decorator should be used sparingly; in most cases, we should require users to convert
-    arguments to tensors manually.
-
-    Args:
-        targets: A list of names of arguments to convert.
-
-        sync_arg_types: A list of tuples of strings indicating the parameter indices for parameters
-            that must share a type. For example, `sync_arg_types=[("a", "b"), ("c", "d")]` indicates that
-            arguments `a` and `b` and arguments `c` and `d` should have the same types. Type casting is only
-            enabled for Python numbers, and at least one of the arguments in each tuple must be a `Tensor`.
-            For arguments that are lists included in `unpack_argument`,
-            the syncing will be done for each member of the specified lists.
-
-        unpack_argument: If an argument name is included and it is a list,
-          the members of the list will each be individually converted into `Tensor`s,
-          rather than having the whole list converted into a `Tensor`.
-
-        skip_num_stack_entries: If the decorator is used on a function that is *called by*
-            a function that the user invokes, it will be necessary to skip stack entries
-            in order to get the column info from the user code. The number of entries skipped
-            should be equal to the nesting depth from a function called by user code
-            (if the decorated function is called by the user the depth is 0;
-            if the decorated function is called from a user function, the depth is 1; etc.)
-    """
-
-    sync_arg_types = utils.default(sync_arg_types, [])
-    unpack_argument = utils.default(unpack_argument, [])
-
-    def impl(func):
-
-        func_name = func.__name__
-        # only checking __ at the start and end; in principle, we could add an exhaustive list of magic methods
-        if (
-            not func_name.startswith("__") or not func_name.endswith("__")
-        ) and func_name not in CONVERT_TENSOR_EXCEPTIONS:
-            raise_error(
-                f"convert_inputs_to_tensors decorator is only permitted for magic methods. Decorated function: {func_name}"
-            )
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            from tripy.frontend.shape import Shape, ShapeScalar
-            from tripy.frontend.tensor import Tensor
-
-            all_args = utils.merge_function_arguments(func, *args, **kwargs)
-
-            # Disallow mixing Tensor and Shape by default. If it makes sense in a given function
-            # to have both Tensor and Shape arguments, that might suggest that custom handling
-            # rather than relying on this decorator would make sense.
-            types = {
-                # There are other subclasses of Tensor, like Parameter and DefaultParameter.
-                # Unless otherwise specified, we treat them as ordinary Tensors.
-                Tensor if type(arg) not in {Shape, ShapeScalar} else type(arg)
-                for arg_name, arg in all_args
-                if isinstance(arg, Tensor) and arg_name in targets
-            }
-            # We usually can treat ShapeScalars as either tensors or shapes due to broadcasting, so we can remove them from the below check.
-            shape_scalar_encountered = ShapeScalar in types
-            types -= {ShapeScalar}
-
-            if len(types) > 1:
-                raise_error(
-                    f"{func.__name__} expects tensor arguments to have matching class types, "
-                    f"but got mixed `tp.Tensor` and `tp.Shape` arguments.",
-                    [
-                        "Consider explicitly converting using tp.Shape(tensor) or shape.as_tensor()\n"
-                        "Note: argument types were: " + ", ".join(f"{name}: {type(arg)}" for name, arg in all_args)
-                    ],
-                )
-
-            TensorType = None
-            if types:
-                TensorType = types.pop()
-            # Result is a shape scalar only if we can't broadcast it up to anything else
-            elif shape_scalar_encountered:
-                TensorType = ShapeScalar
-
-            def get_arg(name: str):
-                for arg_name, arg in all_args:
-                    if name == arg_name:
-                        return arg
-
-                assert (
-                    False
-                ), f"Cannot retrieve unnamed argument. This could be because the argument ({name}) is a variadic argument."
-
-            new_args = []
-            new_kwargs = {}
-            for index, (name, arg) in enumerate(all_args):
-
-                def add_arg(arg):
-                    if name not in kwargs:
-                        new_args.append(arg)
-                    else:
-                        new_kwargs[name] = arg
-
-                def find_sync_target_dtype(arg_name):
-
-                    for sync_tuple in sync_arg_types:
-                        if arg_name not in sync_tuple:
-                            continue
-
-                        for tensor_name in sync_tuple:
-                            sync_target = get_arg(tensor_name)
-                            # If multiple Tensors exist in a tuple,
-                            # leave the dtype check to frontend ops
-
-                            if isinstance(sync_target, Sequence):
-                                for member in sync_target:
-                                    if isinstance(member, Tensor):
-                                        return member.dtype
-                            elif isinstance(sync_target, Tensor):
-                                return sync_target.dtype
-                        else:
-                            sync_args = {sync_arg_name: get_arg(sync_arg_name) for sync_arg_name in sync_tuple}
-                            raise_error(
-                                f"At least one of the arguments: {sync_tuple} must be a `tripy.Tensor`.",
-                                [f"Got {sync_args}"],
-                            )
-                    return None
-
-                def convert_nontensor_arg(arg, list_index=None):
-                    # simply do not convert in these cases and let the registry give an error instead
-                    if not isinstance(arg, numbers.Number) and not isinstance(arg, Sequence):
-                        return arg
-
-                    return _convert_nontensor_arg(
-                        arg,
-                        index,
-                        name in kwargs,
-                        len(args),
-                        func.__name__,
-                        skip_num_stack_entries,
-                        find_sync_target_dtype(name),
-                        list_index=list_index,
-                        TensorType=TensorType,
-                    )
-
-                if name not in targets or isinstance(arg, Tensor):
-                    add_arg(arg)
-                    continue
-                if name in unpack_argument and isinstance(arg, Sequence):
-                    new_list = [
-                        member if isinstance(member, Tensor) else convert_nontensor_arg(member, list_index=i)
-                        for i, member in enumerate(arg)
-                    ]
-                    if isinstance(arg, tuple):
-                        new_list = tuple(new_list)
-                    add_arg(new_list)
-                    continue
-                add_arg(convert_nontensor_arg(arg))
-
-            return func(*new_args, **new_kwargs)
-
-        return wrapper
-
-    return impl
 
 
 def convert_shape_inputs(targets: Sequence[str], skip_num_stack_entries: int = 0):
@@ -540,14 +486,14 @@ def make_function(func):
 
         # Create a mapping of original tensors to their clones.
         tensor_map = {
-            id(tensor): tensor.clone(reason_details=f"Cloning tensor {tensor} for function input/output")
+            id(tensor): tensor.clone(reason_details=f"clone tensor {tensor} for function input/output")
             for tensor in inputs + outputs
         }
 
         # Function to get or create a cloned tensor
         def get_or_create_cloned_tensor(tensor):
             if id(tensor) not in tensor_map:
-                tensor_map[id(tensor)] = tensor.clone(reason_details=f"Cloning tensor {tensor} inside a function.")
+                tensor_map[id(tensor)] = tensor.clone(reason_details=f"clone tensor {tensor} inside a function.")
             return tensor_map[id(tensor)]
 
         # Update ops with cloned tensors.
