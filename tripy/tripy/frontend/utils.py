@@ -29,26 +29,16 @@ from tripy.flat_ir.ops import BaseFlatIROp
 
 # Try to include correct column offsets for non-tensor arguments.
 def _add_column_info_for_non_tensor(
-    arg,
-    arg_index,
-    is_kwarg,
-    dtype,
-    num_args,
-    func_name,
-    skip_num_stack_entries,
-    list_index=None,
-    TensorType=None,
+    arg, arg_index, is_kwarg, dtype, num_args, func_name, skip_num_stack_entries, list_index=None
 ):
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.cast import cast
-
-    TensorType = utils.default(TensorType, Tensor)
 
     assert not isinstance(
         arg, Tensor
     ), f"This function should not be called for objects that are already Tensor instances"
 
-    arg = TensorType(arg)
+    arg = Tensor(arg)
     if dtype is not None:
         arg = cast(arg, dtype=dtype)
     arg.stack_info.fetch_source_code()
@@ -126,7 +116,6 @@ def _convert_nontensor_arg(
     skip_num_stack_entries,
     cast_dtype=None,
     list_index=None,
-    TensorType=None,
 ):
     from tripy.utils import Result
 
@@ -169,7 +158,6 @@ def _convert_nontensor_arg(
         func_name=func_name,
         skip_num_stack_entries=skip_num_stack_entries,
         list_index=list_index,
-        TensorType=TensorType,
     )
 
 
@@ -241,8 +229,6 @@ def convert_inputs_to_tensors(
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
 
-            # TODO (pranavm): Make this never convert to Shape/DimensionSize
-
             def get_arg(name: str):
                 for arg_name, arg in all_args:
                     if name == arg_name:
@@ -301,7 +287,6 @@ def convert_inputs_to_tensors(
                         skip_num_stack_entries,
                         find_sync_target_dtype(name),
                         list_index=list_index,
-                        TensorType=Tensor,
                     )
 
                 if name not in targets or isinstance(arg, Tensor):

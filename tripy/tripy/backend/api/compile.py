@@ -171,8 +171,6 @@ def compile(
         )
 
     for index, out in enumerate(trace_outputs):
-        # TODO (pranavm): Also allow Shapes/ShapeScalars here
-
         if not isinstance(out, Tensor):
             raise_error(
                 "Function must return 1 or more Tensors.",

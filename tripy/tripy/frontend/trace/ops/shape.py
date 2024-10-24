@@ -71,9 +71,4 @@ def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
 
     shape = ShapeOp.build([self])
 
-    try:
-        return [
-            DimensionSize(squeeze(gather(shape, dim=0, index=Tensor([index])), dims=0)) for index in range(self.rank)
-        ]
-    except Exception as err:
-        print(err)
+    return [DimensionSize(squeeze(gather(shape, dim=0, index=Tensor([index])), dims=0)) for index in range(self.rank)]
