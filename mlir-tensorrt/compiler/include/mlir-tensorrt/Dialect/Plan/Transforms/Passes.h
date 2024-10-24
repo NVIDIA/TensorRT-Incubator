@@ -69,7 +69,8 @@ executorOneShotModuleBufferize(ModuleOp targetOp,
                                const ExecutorBufferizationOptions &options);
 
 /// Build a pipeline (targeting ModuleOp) for bufferization.
-void buildPlanBufferizationPipeline(OpPassManager &pm);
+void buildPlanBufferizationPipeline(
+    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &options);
 
 /// Build a post-bufferization pipeline that performs optimizations on memrefs.
 void buildPlanBufferOptimizationPipeline(OpPassManager &pm);
