@@ -49,7 +49,7 @@ class TestDequantize:
             tp.TripyException,
             match="Unsupported data type for 'dequantize'.",
         ):
-            a = tp.dequantize(a, 0.9, tp.int32)
+            a = tp.dequantize(a, 1, tp.int32)
 
     def test_invalid_scale_per_channel(self):
         a = tp.Tensor([2, 4], dtype=tp.int8)

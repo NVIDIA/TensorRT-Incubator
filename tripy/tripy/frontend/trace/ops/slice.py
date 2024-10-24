@@ -25,6 +25,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_tuple
+from tripy.types import TensorLike
 
 
 @dataclass(repr=False)
@@ -303,9 +304,8 @@ def __getitem__(
     return ShapeScalar(out) if isinstance(self, Shape) and out.rank == 0 else out
 
 
-# Conveniently converts the inputs to tensors. The decorator also fills in column info for the converted tensors.
 # Because the helper is called inside another function, we need to skip one entry in the call stack to find
 # the original call to user code.
-@frontend_utils.convert_inputs_to_tensors(["slice_params"], skip_num_stack_entries=1)
-def slice_helper(tensor, *slice_params, shape_slice: Optional[slice] = None):
+@frontend_utils.convert_to_tensors(skip_num_stack_entries=1)
+def slice_helper(tensor, *slice_params: TensorLike, shape_slice: Optional[slice] = None):
     return Slice.build(inputs=[tensor, *slice_params], shape_slice=shape_slice)
