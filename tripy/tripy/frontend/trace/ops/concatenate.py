@@ -73,11 +73,4 @@ def concatenate(tensors: List[Union["tripy.Tensor", "tripy.Shape"]], dim: int) -
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.concatenate((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
     """
-    from tripy.frontend.tensor import Tensor
-    from tripy.frontend.shape import Shape
-
-    types = set(map(type, tensors))
-    if len(types) != 1:
-        raise_error("Mixed types are not allowed.", f"Received argument types: {list(map(type, tensors))}")
-
-    return Concatenate.build(tensors, dim, output_types=[Shape if isinstance(tensors[0], Shape) else Tensor])
+    return Concatenate.build(tensors, dim)

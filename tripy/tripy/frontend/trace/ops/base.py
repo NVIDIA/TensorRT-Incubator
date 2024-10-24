@@ -60,9 +60,7 @@ class BaseTraceOp(abc.ABC):
         return op
 
     @classmethod
-    def build(
-        cls, inputs: List["Tensor"], *args, num_outputs=1, output_types: List[type] = None, **kwargs
-    ) -> Union["Tensor", List["Tensor"]]:
+    def build(cls, inputs: List["Tensor"], *args, num_outputs=1, **kwargs) -> Union["Tensor", List["Tensor"]]:
         """
         Builds a trace operation and binds its inputs to the trace tensors corresponding to the
         frontend tensors provided in `inputs` and creates `num_outputs` new frontend tensors for the
@@ -76,13 +74,9 @@ class BaseTraceOp(abc.ABC):
 
         from tripy.frontend.tensor import Tensor
 
-        output_types = utils.default(output_types, [Tensor] * num_outputs)
-
-        assert len(output_types) == num_outputs, "output_types must be specified for all outputs"
-
         # NOTE: If you change the stack depth where the tensors are constructed, update STACK_DEPTH_OF_BUILD in
         # the Tensor constructor!
-        outputs = [TensorType(None) for TensorType in output_types]
+        outputs = [Tensor(None) for _ in range(num_outputs)]
 
         inp_trace_tensors = [inp.trace_tensor for inp in inputs]
         out_trace_tensors = [out.trace_tensor for out in outputs]

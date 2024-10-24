@@ -17,11 +17,11 @@
 
 import cupy as cp
 import numpy as np
+from tests import helper
 
 import tripy as tp
-from tripy.frontend.shape import ShapeScalar
-from tripy.frontend.utils import convert_inputs_to_tensors, convert_inputs_to_shapes
-from tests import helper
+from tripy.frontend.dimension_size import DimensionSize
+from tripy.frontend.utils import convert_inputs_to_shapes, convert_inputs_to_tensors
 
 # Putting underscores at the beginning and end of the names to get around the check
 # for magic methods. We would not want to see this outside of tests.
@@ -187,23 +187,23 @@ class TestConvertInputsToTensors:
         assert t2 == [4, 5, 6]
 
     def test_permit_shape_scalars_with_shapes(self):
-        t1 = ShapeScalar(1)
-        t2 = ShapeScalar(2)
+        t1 = DimensionSize(1)
+        t2 = DimensionSize(2)
         t3 = tp.Shape([1, 2])
         a, b, c = __func_test_multi_input__(t1, t2, t3)
 
-        assert isinstance(a, ShapeScalar)
-        assert isinstance(b, ShapeScalar)
+        assert isinstance(a, DimensionSize)
+        assert isinstance(b, DimensionSize)
         assert isinstance(c, tp.Shape)
 
     def test_permit_shape_scalars_with_tensors(self):
-        t1 = ShapeScalar(1)
-        t2 = ShapeScalar(2)
+        t1 = DimensionSize(1)
+        t2 = DimensionSize(2)
         t3 = tp.Tensor([[1, 2, 3], [4, 5, 6]])
         a, b, c = __func_test_multi_input__(t1, t2, t3)
 
-        assert isinstance(a, ShapeScalar)
-        assert isinstance(b, ShapeScalar)
+        assert isinstance(a, DimensionSize)
+        assert isinstance(b, DimensionSize)
         assert isinstance(c, tp.Tensor)
 
     # When we convert arguments to tensors, we should preserve the column range
@@ -351,7 +351,7 @@ class TestConvertInputsToTensors:
 
     def test_mixed_shape_and_tensors_not_permitted(self):
         t1 = tp.Tensor([1, 2, 3])
-        s1 = ShapeScalar(4)
+        s1 = DimensionSize(4)
         s2 = tp.Shape([5, 6, 7])
         with helper.raises(
             tp.TripyException,

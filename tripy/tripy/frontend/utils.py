@@ -39,7 +39,6 @@ def _add_column_info_for_non_tensor(
     list_index=None,
     TensorType=None,
 ):
-    from tripy.frontend.shape import Shape
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.cast import cast
 
@@ -48,10 +47,6 @@ def _add_column_info_for_non_tensor(
     assert not isinstance(
         arg, Tensor
     ), f"This function should not be called for objects that are already Tensor instances"
-
-    if isinstance(arg, numbers.Number) and TensorType == Shape:
-        # Shapes require 1D values.
-        arg = [arg]
 
     arg = TensorType(arg)
     if dtype is not None:
@@ -242,43 +237,11 @@ def convert_inputs_to_tensors(
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            from tripy.frontend.shape import Shape, ShapeScalar
             from tripy.frontend.tensor import Tensor
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
 
-            # TODO (pranavm): Make this never convert to Shape/ShapeScalar
-
-            # Disallow mixing Tensor and Shape by default. If it makes sense in a given function
-            # to have both Tensor and Shape arguments, that might suggest that custom handling
-            # rather than relying on this decorator would make sense.
-            types = {
-                # There are other subclasses of Tensor, like Parameter and DefaultParameter.
-                # Unless otherwise specified, we treat them as ordinary Tensors.
-                Tensor if type(arg) not in {Shape, ShapeScalar} else type(arg)
-                for arg_name, arg in all_args
-                if isinstance(arg, Tensor) and arg_name in targets
-            }
-            # We usually can treat ShapeScalars as either tensors or shapes due to broadcasting, so we can remove them from the below check.
-            shape_scalar_encountered = ShapeScalar in types
-            types -= {ShapeScalar}
-
-            if len(types) > 1:
-                raise_error(
-                    f"{func.__name__} expects tensor arguments to have matching class types, "
-                    f"but got mixed `tp.Tensor` and `tp.Shape` arguments.",
-                    [
-                        "Consider explicitly converting using tp.Shape(tensor) or shape.as_tensor()\n"
-                        "Note: argument types were: " + ", ".join(f"{name}: {type(arg)}" for name, arg in all_args)
-                    ],
-                )
-
-            TensorType = None
-            if types:
-                TensorType = types.pop()
-            # Result is a shape scalar only if we can't broadcast it up to anything else
-            elif shape_scalar_encountered:
-                TensorType = ShapeScalar
+            # TODO (pranavm): Make this never convert to Shape/DimensionSize
 
             def get_arg(name: str):
                 for arg_name, arg in all_args:
@@ -338,7 +301,7 @@ def convert_inputs_to_tensors(
                         skip_num_stack_entries,
                         find_sync_target_dtype(name),
                         list_index=list_index,
-                        TensorType=TensorType,
+                        TensorType=Tensor,
                     )
 
                 if name not in targets or isinstance(arg, Tensor):
@@ -382,11 +345,13 @@ def convert_inputs_to_shapes(targets: Sequence[str], skip_num_stack_entries: int
             if the decorated function is called from a user function, the depth is 1; etc.)
     """
 
+    # TODO (pranavm): Make this do something?
     def impl(func):
+        return func
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             from tripy.common.exception import raise_error
-            from tripy.frontend.shape import Shape
             from tripy.frontend.tensor import Tensor
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)

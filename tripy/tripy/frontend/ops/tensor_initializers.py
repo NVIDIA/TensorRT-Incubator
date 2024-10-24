@@ -288,9 +288,9 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     },
 )
 def arange(
-    start: Union[numbers.Number, "tripy.ShapeScalar"],
-    stop: Union[numbers.Number, "tripy.ShapeScalar"],
-    step: Union[numbers.Number, "tripy.ShapeScalar"] = 1,
+    start: Union[numbers.Number, "tripy.DimensionSize"],
+    stop: Union[numbers.Number, "tripy.DimensionSize"],
+    step: Union[numbers.Number, "tripy.DimensionSize"] = 1,
     dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":
     r"""
@@ -322,7 +322,7 @@ def arange(
 
         assert tp.allclose(output, tp.Tensor(np.arange(2.3, 0.8, -0.2, dtype=np.float32)))
     """
-    from tripy.frontend.shape import ShapeScalar
+    from tripy.frontend.dimension_size import DimensionSize
 
     if isinstance(step, numbers.Number) and step == 0:
         raise_error("Step in arange cannot be 0.", [])
@@ -337,7 +337,7 @@ def arange(
             ],
         )
 
-    if not isinstance(size, ShapeScalar):
+    if not isinstance(size, DimensionSize):
         size = int(size)
     size = (size,)
 

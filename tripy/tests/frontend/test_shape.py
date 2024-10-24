@@ -51,24 +51,24 @@ class TestShapeScalar:
         ],
     )
     def test_construction(self, value):
-        s = tp.ShapeScalar(value)
+        s = tp.DimensionSize(value)
 
-        assert isinstance(s, tp.ShapeScalar)
+        assert isinstance(s, tp.DimensionSize)
         assert s.trace_tensor.producer.inputs == []
 
     def test_int_conversion(self):
         val = 4
-        s = tp.ShapeScalar(val)
+        s = tp.DimensionSize(val)
 
         assert int(s) == val
 
     def test_str_method(self):
-        s = tp.ShapeScalar(12)
+        s = tp.DimensionSize(12)
         assert s.__str__() == f"shape_scalar(12)"
 
     def test_scalar_slice(self):
         a = tp.iota((3, 3))
-        assert isinstance(a.shape[0], tp.ShapeScalar)
+        assert isinstance(a.shape[0], tp.DimensionSize)
 
         s = a.shape[0] * a.shape[1]
         b = tp.reshape(a, (s,))
@@ -79,7 +79,7 @@ class TestShapeScalar:
         s1 = a.shape[0]
         s2 = a.shape[1]
         s = s1 + s2
-        assert isinstance(s, tp.ShapeScalar)
+        assert isinstance(s, tp.DimensionSize)
 
 
 class TestShape:

@@ -532,7 +532,7 @@ class TestFunctionRegistry:
     "typ, expected",
     [
         (tp.types.TensorLike, "Union[tripy.Tensor, tripy.types.NestedNumberSequence]"),
-        (tp.types.ShapeLike, "Union[tripy.Shape, Sequence[Union[int, tripy.ShapeScalar]]]"),
+        (tp.types.ShapeLike, "Union[tripy.Shape, Sequence[Union[int, tripy.DimensionSize]]]"),
         (tp.Tensor, "Tensor"),
         (torch.Tensor, "torch.Tensor"),
         (int, "int"),

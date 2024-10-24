@@ -16,6 +16,7 @@
 #
 
 from dataclasses import dataclass
+from typing import List
 
 from tripy import constraints
 from tripy.common.datatype import DATA_TYPES
@@ -47,7 +48,7 @@ class ShapeOp(BaseTraceOp):
 @TENSOR_METHOD_REGISTRY("shape")
 @property
 @constraints.dtypes(constraints={"self": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
-def shape(self: "tripy.Tensor") -> "tripy.Shape":
+def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
     """
     Represents the shape of the tensor.
 
@@ -63,6 +64,16 @@ def shape(self: "tripy.Tensor") -> "tripy.Shape":
 
         assert np.array_equal(cp.from_dlpack(shape).get(), np.array([8, 2]))
     """
-    from tripy.frontend.shape import Shape
+    from tripy.frontend.dimension_size import DimensionSize
+    from tripy.frontend.trace.ops.gather import gather
+    from tripy.frontend.trace.ops.reshape import squeeze
+    from tripy.frontend.tensor import Tensor
 
-    return ShapeOp.build([self], output_types=[Shape])
+    shape = ShapeOp.build([self])
+
+    try:
+        return [
+            DimensionSize(squeeze(gather(shape, dim=0, index=Tensor([index])), dims=0)) for index in range(self.rank)
+        ]
+    except Exception as err:
+        print(err)

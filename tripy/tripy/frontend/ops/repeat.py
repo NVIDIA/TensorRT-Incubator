@@ -27,7 +27,7 @@ from tripy.frontend import utils as frontend_utils
     },
 )
 @frontend_utils.process_dim
-def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim: int) -> "tripy.Tensor":
+def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.DimensionSize"], dim: int) -> "tripy.Tensor":
     """
     Repeats each element of a tensor after itself along the specified dimension.
 
@@ -70,13 +70,13 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim:
     from tripy.frontend.trace.ops.reshape import reshape
     from tripy.frontend.trace.ops.unsqueeze import unsqueeze
     from tripy.frontend.tensor import Tensor
-    from tripy.frontend.shape import ShapeScalar, Shape
+    from tripy.frontend.dimension_size import DimensionSize, Shape
     from tripy.frontend.trace.ops.concatenate import concatenate
 
     if isinstance(repeats, int):
         if repeats < 0:
             raise_error("`repeats` value must be non-negative.", [f"Got: repeats={repeats}."])
-        repeats = ShapeScalar(repeats)
+        repeats = DimensionSize(repeats)
 
     # By constraining repeats to be a single integer, we can use a very
     # simple implementation for repeat.

@@ -28,14 +28,11 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class Reshape(BaseTraceOp):
 
     output_rank: int
-    output_len: Optional[int] = None  # only used to help with infer_len for a shape input
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_len(self):
-        if self.output_len is not None:
-            return [self.output_len]
         # skip inference for now because it requires obtaining the concrete _value_ of the second input,
         # not just its shape
         return [None]
@@ -57,10 +54,8 @@ class Reshape(BaseTraceOp):
 
 
 @frontend_utils.convert_inputs_to_shapes(["shape"])
-def reshape_impl(
-    input: "tripy.Tensor", shape: Sequence, output_rank: int, output_len: Optional[int] = None
-) -> "tripy.Tensor":
-    return Reshape.build([input, shape], output_rank, output_len)
+def reshape_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int) -> "tripy.Tensor":
+    return Reshape.build([input, shape], output_rank)
 
 
 @export.public_api(document_under="operations/functions")
@@ -91,7 +86,6 @@ def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Ten
         assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
     """
     from tripy.frontend.tensor import Tensor
-    from tripy.frontend.shape import Shape
 
     if isinstance(shape, Tensor):
         return Reshape.build([input, shape], None)
@@ -126,12 +120,7 @@ def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Ten
         shape = list(shape)
         shape[unknown_dim_index] = compute_unknown_dim(input, shape)
 
-    # we can support infer_len for tp.Shape if the result is rank 1 and the shape is constant
-    output_len = None
-    if isinstance(input, Shape) and len(shape) == 1 and isinstance(shape[0], int):
-        output_len = shape[0]
-
-    out = reshape_impl(input, shape, len(shape), output_len)
+    out = reshape_impl(input, shape, len(shape))
     # If the output shape is known at compile time, assign it to prevent computing shape of trace tensor which is expensive to compute.
     if all(map(lambda s: isinstance(s, int) and s > 0, shape)):
         out.trace_tensor.shape = shape
@@ -305,6 +294,7 @@ def flatten(input: "tripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "tr
     for i in range(start_dim, end_dim + 1):
         flattened_dim_size *= input.shape[i]
 
+    # TODO (pranavm): Fix this
     from tripy.frontend.shape import Shape
 
     # The new shape combines the dimensions before start_dim, the flattened dimension, and dimensions after end_dim.

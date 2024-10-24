@@ -96,7 +96,7 @@ def _convert_pad_sizes(padding_sizes):
 )
 def pad(
     input: "tripy.Tensor",
-    pad: Sequence[Tuple[Union[int, "tripy.ShapeScalar"]]],
+    pad: Sequence[Tuple[Union[int, "tripy.DimensionSize"]]],
     mode: str = "constant",
     value: Union[int, float] = 0,
 ) -> "tripy.Tensor":

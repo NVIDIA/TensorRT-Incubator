@@ -29,8 +29,6 @@ from tripy.utils import make_tuple
 
 @dataclass(repr=False)
 class Slice(BaseTraceOp):
-    shape_slice: Optional[slice] = None  # only used for inferring the length of a shape result
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
@@ -41,41 +39,6 @@ class Slice(BaseTraceOp):
     def infer_len(self):
         # Only infer if we have concrete values to use. Note that the result is only a Shape if these are *slices*,
         # not single indices, so a slice is the only case that needs to be considered
-        if self.shape_slice is not None:
-            input_len = op_utils.get_trace_shape(self.inputs[0])[0]
-
-            def convert_to_positive_idx(idx):
-                return idx if idx >= 0 else input_len + idx
-
-            def clamp_bound(idx):
-                return 0 if idx < 0 else (idx if idx <= input_len else input_len)
-
-            stride = utils.default(self.shape_slice.step, 1)
-            if stride > 0:
-                start = 0 if self.shape_slice.start is None else convert_to_positive_idx(self.shape_slice.start)
-                stop = input_len if self.shape_slice.stop is None else convert_to_positive_idx(self.shape_slice.stop)
-            else:
-                # for negative stride, we compute the indices as they would be on the flipped list, see comments below
-                start = (
-                    0
-                    if self.shape_slice.start is None
-                    else input_len - convert_to_positive_idx(self.shape_slice.start) - 1
-                )
-                stop = (
-                    input_len
-                    if self.shape_slice.stop is None
-                    else input_len - convert_to_positive_idx(self.shape_slice.stop) - 1
-                )
-
-            start_point = clamp_bound(start)
-            end_point = clamp_bound(stop)
-            if start_point >= end_point:
-                return [0]
-
-            # - 1 because the end_point is exclusive. Use // so we round down
-            strides_in_range = (end_point - start_point - 1) // abs(stride)
-            # + 1 because we include the starting point and then make strides
-            return [1 + strides_in_range]
         return [None]
 
     @frontend_utils.make_function
@@ -208,7 +171,6 @@ def __getitem__(
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
 
     """
-    from tripy.frontend.shape import Shape, ShapeScalar
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.gather import gather
@@ -218,11 +180,6 @@ def __getitem__(
     # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
     if isinstance(index, Tensor):
         return gather(self, 0, index)
-
-    # if we are taking a literal slice of a shape, we can pass on the slice to infer the length of the shape statically
-    shape_slice = None
-    if isinstance(self, Shape) and isinstance(index, slice):
-        shape_slice = index
 
     index = make_tuple(index)
     if len(index) > self.rank:
@@ -286,7 +243,7 @@ def __getitem__(
     if flip_dims:
         input_tensor = flip(input_tensor, dims=flip_dims)
 
-    out = slice_helper(input_tensor, *args, shape_slice=shape_slice)
+    out = slice_helper(input_tensor, *args)
 
     squeeze_dims = []
     for i, idx in enumerate(index):
@@ -297,12 +254,12 @@ def __getitem__(
     if squeeze_dims:
         out = squeeze(out, make_tuple(squeeze_dims))
 
-    return ShapeScalar(out) if isinstance(self, Shape) and out.rank == 0 else out
+    return out
 
 
 # Conveniently converts the inputs to tensors. The decorator also fills in column info for the converted tensors.
 # Because the helper is called inside another function, we need to skip one entry in the call stack to find
 # the original call to user code.
 @frontend_utils.convert_inputs_to_tensors(["slice_params"], skip_num_stack_entries=1)
-def slice_helper(tensor, *slice_params, shape_slice: Optional[slice] = None):
-    return Slice.build(inputs=[tensor, *slice_params], shape_slice=shape_slice)
+def slice_helper(tensor, *slice_params):
+    return Slice.build(inputs=[tensor, *slice_params])
