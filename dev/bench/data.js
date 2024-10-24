@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729703607989,
+  "lastUpdate": 1729794912456,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -1156,6 +1156,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000690178613888604",
             "extra": "mean: 149.11512339101773 usec\nrounds: 7356"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "29ce768a9da763327de23f526ab96f3ab07027a0",
+          "message": "Add ndim; support start_dim negative",
+          "timestamp": "2024-10-24T16:58:29Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/299/commits/29ce768a9da763327de23f526ab96f3ab07027a0"
+        },
+        "date": 1729794911561,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6005.652957150817,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003366805436196966",
+            "extra": "mean: 166.50978788398336 usec\nrounds: 6358"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6584.896570866722,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006777422025125233",
+            "extra": "mean: 151.86267380785563 usec\nrounds: 7205"
           }
         ]
       }
