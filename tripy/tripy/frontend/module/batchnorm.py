@@ -27,7 +27,7 @@ from tripy.frontend.module.parameter import DefaultParameter, Parameter
 @utils.constant_fields(["num_features"])
 class BatchNorm(Module):
     r"""
-    Applies Batch Normalization over an N-dimensional input tensor using precomputed statistics.
+    Applies batch normalization over an N-dimensional input tensor using precomputed statistics.
 
     This implementation supports 1D, 2D, and 3D inputs (e.g., time-series, images, and volumetric data).
     Batch Normalization normalizes across the specified feature dimension (typically the second dimension in the input).
@@ -36,35 +36,11 @@ class BatchNorm(Module):
     :math:`y = \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} * \gamma + \beta`
 
     where:
-    - :math:`\mu` is the precomputed running mean.
-    - :math:`\sigma^2` is the precomputed running variance.
-    - :math:`\gamma` and :math:`\beta` are learnable parameter vectors of size `num_features`.
+        - :math:`\mu` is the precomputed running mean.
+        - :math:`\sigma^2` is the precomputed running variance.
+        - :math:`\gamma` and :math:`\beta` are learnable parameter vectors (wieight and bias).
 
     This module is designed for evaluation purposes only, and it does not compute batch statistics.
-
-    Attributes:
-        num_features: The number of features or channels in the input (the size of the second dimension).
-        eps: A small value added to the denominator for numerical stability.
-
-    Example:
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        batch_norm = tp.BatchNorm(64)
-
-        # For a 2D image tensor of shape (N, C, H, W)
-        input = tp.iota((8, 64, 32, 32))
-        output = batch_norm(input)
-
-        # For a 1D signal tensor of shape (N, C, L)
-        input_1d = tp.iota((16, 64, 128))
-        output_1d = batch_norm(input_1d)
-
-        # For a 3D volumetric tensor of shape (N, C, D, H, W)
-        input_3d = tp.iota((4, 64, 16, 32, 32))
-        output_3d = batch_norm(input_3d)
     """
 
     num_features: int
@@ -83,9 +59,24 @@ class BatchNorm(Module):
     r"""The precomputed running variance for the feature channels of shape `(num_features,)`."""
 
     eps: float = 1e-5
-    r"""A small value added to the denominator to prevent division by zero during normalization."""
+    r""":math:`\epsilon` value added to the denominator to prevent division by zero during normalization."""
+
 
     def __init__(self, num_features: int, eps: float = 1e-5) -> None:
+        """
+        Args:
+            num_features: The number of feature channels in the input tensor (the size of the second dimension).
+            eps: :math:`\epsilon` value added to the denominator to prevent division by zero during normalization.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Example
+
+            batch_norm = tp.BatchNorm(3)
+
+            input = tp.iota((2, 3, 1, 1))
+            output = batch_norm(input)
+        """
         super().__init__()
 
         self.num_features = num_features
