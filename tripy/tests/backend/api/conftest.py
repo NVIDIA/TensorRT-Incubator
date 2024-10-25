@@ -12,9 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from tripy.frontend import Tensor
-
-
 def add(a, b):
     return a + b
 
@@ -29,10 +26,6 @@ def returns_non_tensor(a):
 
 def returns_nothing(a):
     return
-
-
-def accepts_nothing():
-    return Tensor([1])
 
 
 def returns_multiple_tensors(a, b):
