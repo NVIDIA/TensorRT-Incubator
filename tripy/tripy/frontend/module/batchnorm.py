@@ -27,18 +27,17 @@ from tripy.frontend.module.parameter import DefaultParameter, Parameter
 @utils.constant_fields(["num_features"])
 class BatchNorm(Module):
     r"""
-    Applies batch normalization over an N-dimensional input tensor using precomputed statistics.
-
-    This implementation supports 1D, 2D, and 3D inputs (e.g., time-series, images, and volumetric data).
-    Batch Normalization normalizes across the specified feature dimension (typically the second dimension in the input).
-    The mean (:math:`\mu`) and variance (:math:`\sigma^2`) used are the precomputed running statistics.
-
+    Applies batch normalization over an N-dimensional input tensor using precomputed statistics:
+    
     :math:`y = \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} * \gamma + \beta`
 
     where:
         - :math:`\mu` is the precomputed running mean.
         - :math:`\sigma^2` is the precomputed running variance.
         - :math:`\gamma` and :math:`\beta` are learnable parameter vectors (wieight and bias).
+
+    This implementation supports 1D, 2D, and 3D inputs (e.g., time-series, images, and volumetric data).
+    Batch Normalization normalizes across the specified feature dimension (typically the second dimension in the input).
 
     """
 
