@@ -36,9 +36,7 @@ llvm_config.use_default_substitutions()
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
 config.excludes = ["Inputs", "Examples", "CMakeLists.txt", "README.txt", "LICENSE.txt"]
-config.tensorrt_dialect_tools_dir = os.path.join(
-    config.tensorrt_dialect_obj_root, "bin"
-)
+config.tensorrt_dialect_tools_dir = os.path.join(config.tensorrt_dialect_obj_root)
 config.tensorrt_dialect_libs_dir = os.path.join(config.tensorrt_dialect_obj_root, "lib")
 config.substitutions.append(
     ("%tensorrt_dialect_libs", config.tensorrt_dialect_libs_dir)
