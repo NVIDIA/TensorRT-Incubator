@@ -10,7 +10,6 @@ func.func @trt_softmax_f32(%arg0: tensor<1x3x224x224xf32>) -> tensor<1x3x224x224
   return %0 : tensor<1x3x224x224xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_softmax_f16
 //  CHECK-SAME: tensorrt.engine
@@ -21,7 +20,6 @@ func.func @trt_softmax_f16(%arg0: tensor<1x3x224x224xf16>) -> tensor<1x3x224x224
   return %0 : tensor<1x3x224x224xf16>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_ragged_softmax_f32
 //  CHECK-SAME: tensorrt.engine

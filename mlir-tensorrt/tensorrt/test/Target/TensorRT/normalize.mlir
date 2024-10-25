@@ -12,7 +12,6 @@ func.func @trt_batch_normalize(%inp: tensor<2x3x2x2xf16>, %scale: tensor<1x3x1x1
 // CHECK-LABEL: @trt_batch_normalize
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_group_normalize(%inp: tensor<2x24x2x2xf16>, %scale: tensor<1x4x1x1xf16>, %bias: tensor<1x4x1x1xf16>) -> tensor<2x24x2x2xf16> {
     %0 = tensorrt.normalization {
@@ -24,7 +23,6 @@ func.func @trt_group_normalize(%inp: tensor<2x24x2x2xf16>, %scale: tensor<1x4x1x
 // CHECK-LABEL: @trt_group_normalize
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_instance_normalize(%inp: tensor<2x3x2x2xf16>, %scale: tensor<1x3x1x1xf16>, %bias: tensor<1x3x1x1xf16>) -> tensor<2x3x2x2xf16> {
     %0 = tensorrt.normalization {
@@ -36,7 +34,6 @@ func.func @trt_instance_normalize(%inp: tensor<2x3x2x2xf16>, %scale: tensor<1x3x
 // CHECK-LABEL: @trt_instance_normalize
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_layer_normalize_last_2d(%inp: tensor<2x3x2x2x2xf16>, %scale: tensor<1x1x1x2x2xf16>, %bias: tensor<1x1x1x2x2xf16>) -> tensor<2x3x2x2x2xf16> {
     %0 = tensorrt.normalization {
@@ -48,7 +45,6 @@ func.func @trt_layer_normalize_last_2d(%inp: tensor<2x3x2x2x2xf16>, %scale: tens
 // CHECK-LABEL: @trt_layer_normalize_last_2d
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_layer_normalize_last_3d(%inp: tensor<2x3x2x2x2xf16>, %scale: tensor<1x1x2x2x2xf16>, %bias: tensor<1x1x2x2x2xf16>) -> tensor<2x3x2x2x2xf16> {
     %0 = tensorrt.normalization {

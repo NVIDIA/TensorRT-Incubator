@@ -18,8 +18,6 @@ func.func @trt_2d_fp8_convolution(%arg0: tensor<1x32x128x128xf8E4M3FN>) -> tenso
 // CHECK-LABEL: @trt_2d_fp8_convolution
 //  CHECK-SAME: tensorrt.engine
 
-// -----
-
 func.func @trt_2d_bf16_convolution(%arg0: tensor<1x32x128x128xbf16>) -> tensor<1x64x128x128xbf16> {
   %0 = tensorrt.convolution {
     pre_padding = array<i64: 1, 1>,
@@ -32,8 +30,6 @@ func.func @trt_2d_bf16_convolution(%arg0: tensor<1x32x128x128xbf16>) -> tensor<1
 
 // CHECK-LABEL: @trt_2d_bf16_convolution
 //  CHECK-SAME: tensorrt.engine
-
-// -----
 
 func.func @trt_2d_int4_convolution(%arg0: tensor<1x32x128x128xf16>) -> tensor<1x64x128x128xf16> {
   %k = tensorrt.constant dense<2> : tensor<64x32x3x3xi4>

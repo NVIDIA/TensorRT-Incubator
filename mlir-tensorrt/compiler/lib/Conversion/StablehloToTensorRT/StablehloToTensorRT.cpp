@@ -4519,8 +4519,7 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       SingleDimSimpleGatherToTensorRTGatherPattern,
       ConvertScatterToTensorRTScatterElements,
       ConvertGatherToTensorRT,
-      ConvertGatherToTensorRTGatherNd,
-      ConvertGatherWithPartialSlicesToTensorRT,
+      ConvertGatherToTensorRTGatherNd,      
       CompositeToQDQConverter
     >(typeConverter, patterns.getContext(), PatternBenefit(1));
   // clang-format on

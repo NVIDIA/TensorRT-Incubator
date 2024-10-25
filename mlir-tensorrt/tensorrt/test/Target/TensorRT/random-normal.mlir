@@ -11,7 +11,6 @@ func.func @random_normal_static_mean_std() -> tensor<1x2x3x4xf32> {
   return %0 : tensor<1x2x3x4xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @random_normal_mean_std_dynamic
 //  CHECK-SAME: tensorrt.engine
@@ -21,7 +20,6 @@ func.func @random_normal_mean_std_dynamic(%mean: tensor<f32>, %std: tensor<f32>)
   return %0 : tensor<1x2x3x4xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @random_normal_default
 //  CHECK-SAME: tensorrt.engine
