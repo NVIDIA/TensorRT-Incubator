@@ -20,6 +20,7 @@ from typing import ForwardRef, List, Optional, Union, get_args, get_origin
 
 import tripy as tp
 from tripy.common import datatype
+from tripy.types import TensorLike
 
 
 def tensor_builder(init, dtype, namespace):
@@ -64,6 +65,7 @@ def default_builder(init, dtype, namespace):
 find_func = {
     "tripy.Tensor": tensor_builder,
     "tripy.types.TensorLike": tensor_builder,
+    TensorLike: tensor_builder,
     "tripy.Shape": tensor_builder,
     "tripy.dtype": dtype_builder,
     datatype.dtype: dtype_builder,

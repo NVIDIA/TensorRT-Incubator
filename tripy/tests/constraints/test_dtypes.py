@@ -121,7 +121,7 @@ for func_name, (
                         exception = True
                         positive_case = False
 
-                ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
+                ids = [f"{dtype_name}-{dtype}" for dtype_name, dtype in namespace.items()]
 
                 DTYPE_CONSTRAINT_CASES.append(
                     pytest.param(
@@ -160,11 +160,18 @@ def _run_dtype_constraints_subtest(test_data):
         args = [kwargs["self"]]
         del kwargs["self"]
 
+    def cast_to_bool(arg0, arg1):
+        if arg1.dtype == tp.bool:
+            return bool(arg0)
+        return arg0
+
     SPECIAL_FUNCS = {
-        "__radd__": (lambda self, other: self + other),
-        "__rsub__": (lambda self, other: self - other),
-        "__rpow__": (lambda self, other: self**other),
-        "__rmul__": (lambda self, other: self * other),
+        "__add__": (lambda self, other: self + cast_to_bool(other, self)),
+        "__mul__": (lambda self, other: self * cast_to_bool(other, self)),
+        "__radd__": (lambda self, other: cast_to_bool(self, other) + other),
+        "__rsub__": (lambda self, other: cast_to_bool(self, other) - other),
+        "__rpow__": (lambda self, other: cast_to_bool(self, other) ** other),
+        "__rmul__": (lambda self, other: cast_to_bool(self, other) * other),
         "__rtruediv__": (lambda self, other: self / other),
         "shape": (lambda self: self.shape),
     }
@@ -200,6 +207,7 @@ def _run_dtype_constraints_subtest(test_data):
 
         all_locals = locals()
         exec(dedent(code), globals(), all_locals)
+
         ret_val = all_locals["ret_val"]
 
     # If output does not have dtype skip .eval().

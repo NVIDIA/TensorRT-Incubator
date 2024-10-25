@@ -26,6 +26,38 @@ TYPE_VERIFICATION = {}
 RETURN_VALUE = "__RETURN_VALUE"
 
 
+def get_arg_dtype(arg, func_name, arg_name) -> utils.Result["tripy.dtype"]:
+    from tripy.common.datatype import dtype
+    from tripy.frontend.tensor import Tensor
+
+    if isinstance(arg, Sequence):
+        arg_dtypes = []
+        for elem in arg:
+            dtype_result = get_arg_dtype(elem, func_name, arg_name)
+            if not dtype_result:
+                return utils.Result.err(
+                    [f"Could not determine data type of elements in sequence: {arg_name}"] + dtype_result.error_details
+                )
+            arg_dtypes.append(dtype_result.value)
+
+        if len(set(arg_dtypes)) != 1:
+            return utils.Result.err(
+                [
+                    f"Mismatched data types in sequence argument for '{func_name}'.",
+                    f"For parameter: '{arg_name}', all arguments must have the same data type, but got: "
+                    f"{arg_dtypes}",
+                ],
+            )
+        arg_dtype = arg_dtypes[0]
+    elif isinstance(arg, Tensor):
+        arg_dtype = arg.dtype
+    elif isinstance(arg, dtype):
+        arg_dtype = arg
+    else:
+        return utils.Result.err([f"Expected a tensor or data type argument for {arg_name}, but got: {arg}"])
+    return utils.Result.ok(arg_dtype)
+
+
 def dtypes(
     constraints: Dict[str, str] = {},
     variables: Dict[str, List[str]] = {},
@@ -35,7 +67,7 @@ def dtypes(
     """
     Specifies data type constraints for the decorated function.
 
-    **IMPORTANT: This should be applied before the `convert_inputs_to_tensors` decorator (i.e. must follow it in the code)**
+    **IMPORTANT: This should be applied before the `convert_to_tensors` and related decorators (i.e. must follow it in the code)**
         **to make type checking work reliably. This ensures that the inputs coming in to the wrapped functions are Tensors.**
         **To avoid pitfalls, you can make this the innermost decorator.**
 
@@ -90,28 +122,10 @@ def dtypes(
 
                     type_var = constraints[name]
 
-                    def get_arg_dtype(arg):
-                        if isinstance(arg, Sequence):
-                            arg_dtypes = [get_arg_dtype(elem) for elem in arg]
-                            if len(set(arg_dtypes)) != 1:
-                                raise_error(
-                                    f"Mismatched data types in sequence argument for '{func.__qualname__}'.",
-                                    [
-                                        f"For parameter: '{name}', all arguments must have the same data type, but got: "
-                                        f"{arg_dtypes}"
-                                    ],
-                                )
-                            arg_dtype = arg_dtypes[0]
-                        elif isinstance(arg, Tensor):
-                            arg_dtype = arg.dtype
-                        elif isinstance(arg, dtype):
-                            arg_dtype = arg
-                        else:
-                            # This should be unreachable because type checking will be done by the function registry.
-                            assert False, f"Expected a tensor or data type argument for {name}, but got: {arg}"
-                        return arg_dtype
-
-                    arg_dtype = get_arg_dtype(arg)
+                    arg_dtype = get_arg_dtype(arg, func.__qualname__, name)
+                    if not arg_dtype:
+                        raise_error(f"Could not determine datatype of {name}", arg_dtype.error_details)
+                    arg_dtype = arg_dtype.value
 
                     # Check if the type is supported at all
                     supported_dtypes = variables[type_var]

@@ -50,7 +50,7 @@ class Result:
         return super().__getattribute__(name)
 
     def __class_getitem__(cls, item):
-        return f"{cls.__name__}[{item.__name__}]"
+        return f"{cls.__name__}[{item if isinstance(item, str) else item.__name__}]"
 
     def __str__(self):
         return repr(self)

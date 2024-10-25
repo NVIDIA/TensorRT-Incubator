@@ -201,7 +201,7 @@ import tripy.frontend.utils as frontend_utils
 @export.public_api(document_under="tensor_operations")
 
 # The `convert_shape_inputs` decorator converts the specified function arguments into `tripy.Shape`s,
-# which would allow for using Python numbers and sequences. The `convert_inputs_to_tensors` decorator more generally converts
+# which would allow for using Python numbers and sequences. The `convert_to_tensors` decorator more generally converts
 # function arguments into Tripy tensors and is also commonly used in the codebase.
 @frontend_utils.convert_shape_inputs(["shape"])
 def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":

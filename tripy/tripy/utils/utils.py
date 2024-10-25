@@ -436,16 +436,18 @@ def get_positional_arg_names(func, *args):
     # None instead.
     signature = inspect.signature(func)
     arg_names = []
+    varargs_name = None
     for name, param in signature.parameters.items():
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             # Positional arguments cannot follow variadic positional arguments
             # (they would just be absorbed into the variadic argument).
+            varargs_name = name
             break
 
         arg_names.append(name)
 
     # For all variadic positional arguments, assign the name of the variadic group.
-    arg_names.extend([name] * (len(args) - len(arg_names)))
+    arg_names.extend([varargs_name] * (len(args) - len(arg_names)))
     return list(zip(arg_names, args))
 
 
