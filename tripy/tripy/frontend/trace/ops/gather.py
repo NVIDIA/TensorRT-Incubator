@@ -29,7 +29,7 @@ class Gather(BaseTraceOp):
     axis: int
 
     # the output is a shape if the value input is a shape
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
 
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
@@ -100,12 +100,12 @@ class Gather(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
+@constraints.dtypes(
+    constraints={"input": "T1", "index": "T2", constraints.RETURN_VALUE: "T1"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
         "T2": ["int32"],
     },
-    dtype_constraints={"input": "T1", "index": "T2", constraints.RETURN_VALUE: "T1"},
 )
 def gather(input: "tripy.Tensor", dim: int, index: "tripy.Tensor") -> "tripy.Tensor":
     """

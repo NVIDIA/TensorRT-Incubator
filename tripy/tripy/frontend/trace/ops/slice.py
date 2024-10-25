@@ -25,6 +25,7 @@ from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_tuple
+from tripy.types import TensorLike
 
 
 @dataclass(repr=False)
@@ -79,7 +80,7 @@ class Slice(BaseTraceOp):
         return [None]
 
     # we only care about the data input
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.infer_from_first_input_only
+    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
 
     @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
@@ -177,11 +178,9 @@ class Slice(BaseTraceOp):
 
 
 @TENSOR_METHOD_REGISTRY("__getitem__")
-@constraints.dtype_info(
-    dtype_variables={
-        "self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]
-    },
-    dtype_constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
+@constraints.dtypes(
+    constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
+    variables={"self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
     self: "tripy.Tensor", index: Union[slice, int, "tripy.Tensor", Sequence[Union[slice, int, "tripy.Tensor"]]]
@@ -352,9 +351,8 @@ def __getitem__(
     return ShapeScalar(out) if isinstance(self, Shape) and out.rank == 0 else out
 
 
-# Conveniently converts the inputs to tensors. The decorator also fills in column info for the converted tensors.
 # Because the helper is called inside another function, we need to skip one entry in the call stack to find
 # the original call to user code.
-@frontend_utils.convert_inputs_to_tensors(exclude=["tensor", "shape_slice"], skip_num_stack_entries=1)
-def slice_helper(tensor, *slice_params, shape_slice: Optional[slice] = None):
+@frontend_utils.convert_to_tensors(skip_num_stack_entries=1)
+def slice_helper(tensor, *slice_params: TensorLike, shape_slice: Optional[slice] = None):
     return Slice.build(inputs=[tensor, *slice_params], shape_slice=shape_slice)

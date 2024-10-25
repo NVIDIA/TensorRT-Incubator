@@ -2461,13 +2461,18 @@ struct AbsorbTensorCastOp : public OpRewritePattern<OpType> {
   LogicalResult matchAndRewrite(OpType op,
                                 PatternRewriter &rewriter) const override {
     if (auto castOp = op.getInput().template getDefiningOp<tensor::CastOp>()) {
-      if (!isTargetRefinementOfSource(castOp.getType().getShape(),
-                                      castOp.getSource().getType().getShape()))
+      RankedTensorType castType = cast<RankedTensorType>(castOp.getType());
+      RankedTensorType sourceType =
+          cast<RankedTensorType>(castOp.getSource().getType());
+      if (castType.getEncoding() != sourceType.getEncoding() ||
+          !isTargetRefinementOfSource(castType.getShape(),
+                                      sourceType.getShape()))
         return failure();
       rewriter.modifyOpInPlace(
           op, [&]() { op.getInputMutable().assign(castOp.getSource()); });
+      return success();
     }
-    return success();
+    return failure();
   }
 };
 

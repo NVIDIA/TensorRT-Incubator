@@ -24,11 +24,44 @@ from typing import List
 import pytest
 from tests import helper
 from tests.conftest import skip_if_older_than_sm89
-from tests.spec_verification.object_builders import create_obj
+from tests.constraints.object_builders import create_obj
 
 import tripy as tp
+from tripy import constraints
 from tripy.common.datatype import DATA_TYPES
 from tripy.constraints import TYPE_VERIFICATION
+from tripy.export import PUBLIC_APIS
+
+# Get all functions/methods which have tensors in the type signature
+PUBLIC_API_TENSOR_FUNCTIONS = []
+PUBLIC_API_TENSOR_FUNCTION_NAMES = []
+for api in PUBLIC_APIS:
+    is_module = False
+    if inspect.isfunction(api.obj):
+        funcs = [api.obj]
+    elif inspect.isclass(api.obj):
+        if issubclass(api.obj, tp.Module):
+            # Skip over modules since the dtype constraint decorator doesn't work for them yet.
+            continue
+        funcs = [val for _, val in inspect.getmembers(api.obj, predicate=inspect.isfunction)]
+
+    for func in funcs:
+        if "Tensor" in str(inspect.signature(func)):
+            PUBLIC_API_TENSOR_FUNCTIONS.append(func)
+            name = api.qualname
+            if func.__name__ not in name:
+                name += f".{func.__name__}"
+            PUBLIC_API_TENSOR_FUNCTION_NAMES.append(name)
+
+
+@pytest.mark.parametrize("api", PUBLIC_API_TENSOR_FUNCTIONS, ids=PUBLIC_API_TENSOR_FUNCTION_NAMES)
+def test_all_public_apis_verified(api):
+    NON_VERIFIABLE_APIS = {"plugin", "Executable.__call__"}
+    if api.__qualname__ in NON_VERIFIABLE_APIS:
+        pytest.skip(f"Cannot do data type verification for: {NON_VERIFIABLE_APIS}")
+
+    assert api.__qualname__ in TYPE_VERIFICATION, f"Missing datatype constraints for: {api.__qualname__}"
+
 
 DTYPE_CONSTRAINT_CASES = []
 
@@ -88,7 +121,7 @@ for func_name, (
                         exception = True
                         positive_case = False
 
-                ids = [f"{dtype_name}={dtype}" for dtype_name, dtype in namespace.items()]
+                ids = [f"{dtype_name}-{dtype}" for dtype_name, dtype in namespace.items()]
 
                 DTYPE_CONSTRAINT_CASES.append(
                     pytest.param(
@@ -127,11 +160,18 @@ def _run_dtype_constraints_subtest(test_data):
         args = [kwargs["self"]]
         del kwargs["self"]
 
+    def cast_to_bool(arg0, arg1):
+        if arg1.dtype == tp.bool:
+            return bool(arg0)
+        return arg0
+
     SPECIAL_FUNCS = {
-        "__radd__": (lambda self, other: self + other),
-        "__rsub__": (lambda self, other: self - other),
-        "__rpow__": (lambda self, other: self**other),
-        "__rmul__": (lambda self, other: self * other),
+        "__add__": (lambda self, other: self + cast_to_bool(other, self)),
+        "__mul__": (lambda self, other: self * cast_to_bool(other, self)),
+        "__radd__": (lambda self, other: cast_to_bool(self, other) + other),
+        "__rsub__": (lambda self, other: cast_to_bool(self, other) - other),
+        "__rpow__": (lambda self, other: cast_to_bool(self, other) ** other),
+        "__rmul__": (lambda self, other: cast_to_bool(self, other) * other),
         "__rtruediv__": (lambda self, other: self / other),
         "shape": (lambda self: self.shape),
     }
@@ -139,21 +179,35 @@ def _run_dtype_constraints_subtest(test_data):
     if func_name in SPECIAL_FUNCS:
         ret_val = SPECIAL_FUNCS[func_name](*args, **kwargs)
     else:
-        all_locals = locals()
-        exec(
-            dedent(
-                # We can't call `func_obj` directly because there may be other decorators
-                # applied after the dtype constraints one. By importing it like this, we
-                # get the final version of the function.
-                f"""
-                from {func_obj.__module__} import {func_obj.__qualname__}
+        # We can't call `func_obj` directly because there may be other decorators
+        # applied after the dtype constraints one. By importing it like this, we
+        # get the final version of the function/class.
+        #
+        # NOTE: inspect.ismethod() will not work, possibly because of our decorators.
+        if "." in func_obj.__qualname__:
+            cls, method = func_obj.__qualname__.split(".")
 
+            # For methods, the first argument will be the instance
+            obj = args.pop(0)
+
+            code = f"""
+            from {func_obj.__module__} import {cls}
+
+            ret_val = obj.{method}(*args, **kwargs)
+            """
+        else:
+            code = f"""
+            from {func_obj.__module__} import {func_obj.__qualname__}
+
+            if {func_name} == "shape":
+                ret_val = args[0].shape
+            else:
                 ret_val = {func_obj.__qualname__}(*args, **kwargs)
-                """
-            ),
-            globals(),
-            all_locals,
-        )
+            """
+
+        all_locals = locals()
+        exec(dedent(code), globals(), all_locals)
+
         ret_val = all_locals["ret_val"]
 
     # If output does not have dtype skip .eval().
@@ -184,3 +238,17 @@ def test_dtype_constraints(test_data):
                 ret_val, namespace = _run_dtype_constraints_subtest(test_data)
                 if isinstance(ret_val, tp.Tensor):
                     assert ret_val.dtype == namespace[return_dtype]
+
+
+@constraints.dtypes(constraints={"tensors": "T1"}, variables={"T1": ["float32"]})
+def sequence_func(tensors: List[tp.Tensor]):
+    return
+
+
+class TestDtypes:
+    def test_works_with_sequences(self):
+        sequence_func([tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.float32)])
+
+    def test_raises_on_mismatched_sequence_dtypes(self):
+        with helper.raises(tp.TripyException, match="Mismatched data types in sequence argument for 'sequence_func'."):
+            sequence_func([tp.ones((2, 2), dtype=tp.float32), tp.ones((2, 2), dtype=tp.int32)])

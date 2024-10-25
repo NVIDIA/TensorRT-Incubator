@@ -49,7 +49,6 @@
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/STLExtras.h"
-#include <optional>
 
 #define DEBUG_TYPE "stablehlo-clustering"
 #define DBGS() llvm::dbgs() << "[" DEBUG_TYPE "]"
@@ -285,8 +284,8 @@ public:
     for (func::FuncOp func : funcs) {
       if (failed(applyClusteringToFunc(
               rewriter, func, solver, schedule,
-              StablehloClusteringPassOptions{entrypoint, false, false,
-                                             trtMajorVersion})))
+              StablehloClusteringPassOptions{entrypoint, enableNonDPSReturns,
+                                             false, false, trtMajorVersion})))
         return signalPassFailure();
     }
 

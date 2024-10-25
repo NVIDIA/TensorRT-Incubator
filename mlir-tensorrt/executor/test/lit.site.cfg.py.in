@@ -4,6 +4,8 @@ config.llvm_tools_dir = lit_config.substitute("@LLVM_TOOLS_DIR@")
 config.mlir_obj_dir = "@MLIR_BINARY_DIR@"
 config.enable_bindings_python = @MLIR_ENABLE_BINDINGS_PYTHON@
 config.executor_obj_root = "@MLIR_EXECUTOR_BINARY_DIR@"
+config.executor_tools_dir = "@LLVM_RUNTIME_OUTPUT_INTDIR@"
+config.executor_libs_dir = "@LLVM_LIBRARY_OUTPUT_INTDIR@"
 config.llvm_shlib_ext = "@SHLIBEXT@"
 config.enable_asan = @ENABLE_ASAN@
 
@@ -11,6 +13,11 @@ config.enable_cublas = @MLIR_EXECUTOR_ENABLE_CUBLAS@
 config.enable_nccl = @MLIR_EXECUTOR_ENABLE_NCCL@
 config.enable_mpi = @MLIR_EXECUTOR_ENABLE_MPI@
 config.enable_assertions = @LLVM_ENABLE_ASSERTIONS@
+
+config.gpu_tools_script = os.path.join(
+    "@MLIR_EXECUTOR_SOURCE_DIR@",
+    "../python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
+)
 
 import lit.llvm
 lit.llvm.initialize(lit_config, config)

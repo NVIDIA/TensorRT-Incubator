@@ -131,11 +131,41 @@ def Plan_InlineGroupOp : Plan_GroupOpBase<"inline_group", [
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedGroupOp
+// Plan_InlineClosedGroupBase
 //===----------------------------------------------------------------------===//
 
-def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
-  IsolatedFromAbove,
+class Plan_InlineClosedGroupBase<string mnemonic, list<Trait> traits = []> :
+    Plan_GroupOpBase<mnemonic, traits # [IsolatedFromAbove]> {
+
+  code baseInlineClosedExtraClassDeclaration = baseExtraClassDeclaration # [{
+    // Common methods for both DPS and non-DPS versions
+    bool argHasTensorType(unsigned inputIdx) {
+      assert(inputIdx < getInputs().size() && "input index out-of-bounds");
+      return isa<RankedTensorType>(getInputs()[inputIdx].getType());
+    }
+
+    BoundsAttr getInputBoundsAttr(unsigned inputIdx) {
+      assert(inputIdx < getInputs().size() && "input index out-of-bounds");
+      return cast<BoundsAttr>(getInputAttrs()[inputIdx]);
+    }
+
+    /// Populate the `input_attrs` from an array of BoundsAttrs.
+    void setInputAttrsAttr(ArrayRef<BoundsAttr> boundsAttrs) {
+      setInputAttrsAttr(::mlir::ArrayAttr::get(
+        getOperation()->getContext(),
+        ArrayRef<Attribute>(boundsAttrs.begin(), boundsAttrs.end())
+      ));
+    }
+  }];
+
+  let extraClassDeclaration = baseInlineClosedExtraClassDeclaration;
+}
+
+//===----------------------------------------------------------------------===//
+// Plan_InlineClosedGroupOp
+//===----------------------------------------------------------------------===//
+
+def Plan_InlineClosedGroupOp : Plan_InlineClosedGroupBase<"inline_closed_group", [
   AttrSizedOperandSegments,
   DestinationStyleOpInterface,
   SingleBlockImplicitTerminator<"plan::YieldOp">,
@@ -226,22 +256,10 @@ def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
                    CArg<"ArrayRef<BoundsAttr>", "{}">:$res_attrs)>
   ];
 
-  let extraClassDeclaration = baseExtraClassDeclaration # [{
+  let extraClassDeclaration = baseInlineClosedExtraClassDeclaration # [{
 
     MutableOperandRange getDpsInitsMutable() {
       return getOutsMutable();
-    }
-
-    /// Returns true if the `i-th` input argument has a tensor type.
-    bool argHasTensorType(unsigned inputIdx) {
-      assert(inputIdx < getInputs().size() && "input index out-of-bounds");
-      return isa<RankedTensorType>(getInputs()[inputIdx].getType());
-    }
-
-    /// Returns the i-th input argument's bounds attribute.
-    BoundsAttr getInputBoundsAttr(unsigned inputIdx) {
-      assert(inputIdx < getInputs().size() && "input index out-of-bounds");
-      return cast<BoundsAttr>(getInputAttrs()[inputIdx]);
     }
 
     ArrayRef<BlockArgument> getRegionOutArgs() {
@@ -255,16 +273,77 @@ def Plan_InlineClosedGroupOp : Plan_GroupOpBase<"inline_closed_group", [
         ArrayRef<Attribute>(boundsAttrs.begin(), boundsAttrs.end())
       ));
     }
+  }];
+}
 
-    /// Populate the `input_attrs` from an array of BoundsAttrs.
-    void setInputAttrsAttr(ArrayRef<BoundsAttr> boundsAttrs) {
-      setInputAttrsAttr(::mlir::ArrayAttr::get(
-        getOperation()->getContext(),
-        ArrayRef<Attribute>(boundsAttrs.begin(), boundsAttrs.end())
-      ));
-    }
+//===----------------------------------------------------------------------===//
+// InlineClosedAllocGroupOp
+//===----------------------------------------------------------------------===//
+
+def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_alloc_group", [
+  IsolatedFromAbove,
+  SingleBlockImplicitTerminator<"plan::YieldOp">,
+  DeclareOpInterfaceMethods<RegionBranchOpInterface,
+    ["getEntrySuccessorOperands"]>,
+  DeclareOpInterfaceMethods<OpAsmOpInterface,
+    ["getAsmBlockArgumentNames"]>
+]> {
+  let description = [{
+  The `plan.inline_closed_alloc_group` operation is a variant of the
+  `plan.inline_closed_group` operation that does not use destination-passing style
+  (DPS). It is isolated from above and explicitly captures input operands, but unlike
+  its DPS counterpart, it does not capture destination operands because its results must
+  be lowered to allocation(s). The allocations may or may not be of a size that can only 
+  be computed inside of the region.
+  This operation takes input operands and their corresponding bounds attributes, 
+  and produces results. The `input_attrs` hold bounds attribute information for 
+  the input operands. The absence of bounds information is allowed (`none` bounds).
+
+  The `target` attribute specifies the execution target for the group.    
+
+  #### Example
+
+  Consider the following simple program containing operations with dynamically shaped operands:
+
+  ```mlir
+  %0 = ... : tensor<?xf32> // A dynamically shaped operand
+  %1 = ... : index         // A dynamic calculation of %0's extent
+
+  %2 = plan.inline_closed_alloc_group target(#plan.cluster_target<tensorrt>)
+    inputs(%0, %1 : tensor<?xf32>, index)
+    in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]-> tensor<?xf32> {
+    %3 = plan.with_shape %0 (%1) : (tensor<?xf32>, index) -> tensor<?xf32>
+    %4 = stablehlo.exponential %3 : tensor<?xf32>
+    yield %4 : tensor<?xf32>
+  }
 
   }];
+  let arguments = (ins Variadic<AnyTypeOf<[AnyRankedTensor, AnySignlessIntegerOrIndex]>>:$inputs,
+                       BoundsAttrArray:$input_attrs,
+                       AnyAttr:$target);
+
+  let results = (outs Variadic<AnyTypeOf<[AnyRankedTensor]>>:$results);
+
+  let assemblyFormat = [{
+    `target` `(` $target `)` `\n`
+    `inputs` `(` ( $inputs^ `:` type($inputs) `)` ) : ( `)` ) ?  `\n`
+    `in_attrs` $input_attrs `\n`
+     attr-dict-with-keyword `->` type($results)
+     $body
+  }];
+
+  let hasVerifier = 1;
+
+  let skipDefaultBuilders = 1;
+
+  let builders = [
+    OpBuilder<(ins "TypeRange":$results, 
+                   "Attribute":$target,
+                   "ValueRange":$inputs,
+                   CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs)>,
+  ];
+
+  let extraClassDeclaration = baseInlineClosedExtraClassDeclaration;
 }
 
 //===----------------------------------------------------------------------===//
@@ -276,7 +355,7 @@ def Plan_YieldOp : Plan_Op<"yield", [
       Terminator,
       ReturnLike,
       ParentOneOf<["plan::InlineGroupOp",
-                   "plan::InlineClosedGroupOp"]>]> {
+                   "plan::InlineClosedGroupOp", "plan::InlineClosedAllocGroupOp"]>]> {
 
   let arguments = (ins Variadic<AnyType>:$results);
 

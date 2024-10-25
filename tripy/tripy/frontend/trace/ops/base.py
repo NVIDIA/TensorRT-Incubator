@@ -49,8 +49,11 @@ class BaseTraceOp(abc.ABC):
         *args and **kwargs are passed along to the trace operation's constructor.
         """
         op = cls(inputs, outputs, *args, **kwargs)
+
+        is_compile_tracer = any(inp.is_compile_tracer for inp in inputs)
         for out in op.outputs:
             out.producer = op
+            out.is_compile_tracer |= is_compile_tracer
 
         op.infer_dtypes()
         op.infer_rank()
@@ -81,8 +84,8 @@ class BaseTraceOp(abc.ABC):
         out_trace_tensors = [out.trace_tensor for out in outputs]
         op = cls.build_internal(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
 
-        # wrap shape outputs if necessary
-        res = op.infer_shape_output_idxs(inputs)
+        # wrap outputs in Shape or ShapeScalar if necessary
+        res = op.infer_tensor_variants(inputs)
         if not res:
             custom_err = "" if not res.error_details else " Further information: " + "\n".join(res.error_details)
             shape_arg_idxs = [i for i in range(len(inputs)) if isinstance(inputs[i], Shape)]
@@ -91,27 +94,28 @@ class BaseTraceOp(abc.ABC):
                 f"Error processing shape inputs in operator {cls.__name__}{custom_err}\n(Shape input indices: {shape_arg_msg}.)"
             )
 
-        shape = res.value.get("shape")
-        if shape is not None:
-            # for shape outputs, we infer the length
-            if len(shape) != 0:
-                inferred_lengths = op.infer_len()
+        assert all(
+            v in {None, Shape, ShapeScalar} for v in res.value
+        ), f"Invalid tensor variant returned by infer_tensor_variants: {res.value}"
 
-            for idx in shape:
-                outputs[idx] = Shape(outputs[idx])
-                if inferred_lengths[idx] is not None:
-                    out_trace_tensors[idx].shape = [inferred_lengths[idx]]
+        # If there are any shape outputs, we infer the length.
+        inferred_lengths = None
+        if any(typ == Shape for typ in res.value):
+            inferred_lengths = op.infer_len()
 
-        scalar_shape = res.value.get("scalar")
-        if scalar_shape is not None:
-            for idx in scalar_shape:
-                outputs[idx] = ShapeScalar(outputs[idx])
+        # Apply wrappers and update shapes if applicable.
+        for idx, typ in enumerate(res.value):
+            if typ is None:
+                continue
+            outputs[idx] = typ(outputs[idx])
+            if inferred_lengths is not None and inferred_lengths[idx] is not None:
+                out_trace_tensors[idx].shape = [inferred_lengths[idx]]
 
         if num_outputs == 1:
             return outputs[0]
         return outputs
 
-    def infer_shape_output_idxs(self, inputs: List["Tensor"]) -> Result:
+    def infer_tensor_variants(self, inputs: List["Tensor"]) -> Result:
         """
         Given the operator's inputs, this method returns a `Result` containing a dict of the operator's output indices
         that should be wrapped in `tp.Shape` or `tp.ShapeScalar`.
@@ -130,7 +134,8 @@ class BaseTraceOp(abc.ABC):
             inputs: The operator's (front-end `Tensor`) inputs
 
         Returns:
-            A `Result` containing, if successful, a list of indices of outputs that should be converted to `tp.Shape`.
+            A `Result` containing, if successful, a list where the `i`th item is a tensor variant (`tp.Shape` or `tp.ShapeScalar`) or `None`.
+            If a tensor variant, that indicates that output `i` should be wrapped in that type. If `None`, that indicates the output is a `Tensor`.
         """
         from tripy.frontend.shape import Shape
 
@@ -138,9 +143,9 @@ class BaseTraceOp(abc.ABC):
 
         if any(map(is_shape, inputs)):
             if all(map(is_shape, inputs)):
-                return Result.ok({"shape": list(range(len(self.outputs))), "scalar": []})
+                return Result.ok([Shape] * len(self.outputs))
             return Result.err(["Either all inputs must be tp.Shape or all must be tp.Tensor."])
-        return Result.ok({})
+        return Result.ok([None] * len(self.outputs))
 
     def infer_len(self) -> List[Optional[int]]:
         """

@@ -49,7 +49,7 @@ class TestDequantize:
             tp.TripyException,
             match="Unsupported data type for 'dequantize'.",
         ):
-            a = tp.dequantize(a, 0.9, tp.int32)
+            a = tp.dequantize(a, 1, tp.int32)
 
     def test_invalid_scale_per_channel(self):
         a = tp.Tensor([2, 4], dtype=tp.int8)
@@ -80,7 +80,7 @@ class TestDequantize:
 
     def test_invalid_scale_per_tensor(self):
         a = tp.Tensor(np.ones((4, 4), dtype=np.int8))
-        scale = [0.5] * 4
+        scale = tp.Tensor([0.5] * 4)
         with helper.raises(
             tp.TripyException,
             match="Scale must be a scalar tensor in per-tensor dequantize op",

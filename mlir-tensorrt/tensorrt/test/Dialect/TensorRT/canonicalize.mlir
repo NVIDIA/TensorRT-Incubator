@@ -1504,3 +1504,35 @@ func.func @swap_mha_matmul_operands_neg_2(%arg0: tensor<1x12x197x64xf16>, %arg1:
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x12x197x64xf16>, %[[arg1:.+]]: tensor<1x12x197x64xf16>)
 //       CHECK: %[[v0:.+]] = tensorrt.matrix_multiply {{{.*}}} ins(%[[arg0]], %[[arg1]] : {{.*}})
 //  CHECK-NEXT: return %[[v0]]
+
+
+// -----
+
+func.func @resize_absorb_cast(%arg0: tensor<1x144x7x7xf32>) -> tensor<?x?x?x?xf32> {
+  %c = tensorrt.constant dense<[1, 144, 256, 256]> : tensor<4xi32>
+  %cast = tensor.cast %arg0 : tensor<1x144x7x7xf32> to tensor<?x?x?x?xf32>
+  %0 = tensorrt.resize_cubic {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kHALF_PIXEL>, cubicCoeff = -7.500000e-01 : f32, selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>} %cast, %c : (tensor<?x?x?x?xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}
+
+// CHECK-LABEL: @resize_absorb_cast
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x144x7x7xf32>) -> tensor<?x?x?x?xf32>
+//       CHECK: %[[cst_i32:.+]] = tensorrt.constant dense<[1, 144, 256, 256]> : tensor<4xi32>
+//       CHECK: %[[v0:.+]] = tensorrt.resize_cubic {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kHALF_PIXEL>, cubicCoeff = -7.500000e-01 : f32, selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>} %[[arg0]], %[[cst_i32]] : (tensor<1x144x7x7xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
+//  CHECK-NEXT: return %[[v0]]
+
+// -----
+
+func.func @resize_no_absorb_invalid_cast(%arg0: tensor<1x144x?x?xf32>) -> tensor<?x?x?x?xf32> {
+  %c = tensorrt.constant dense<[1, 144, 256, 256]> : tensor<4xi32>
+  %cast = tensor.cast %arg0 : tensor<1x144x?x?xf32> to tensor<1x144x7x7xf32>
+  %0 = tensorrt.resize_cubic {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kHALF_PIXEL>, cubicCoeff = -7.500000e-01 : f32, selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>} %cast, %c : (tensor<1x144x7x7xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}
+
+// CHECK-LABEL: @resize_no_absorb_invalid_cast
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x144x?x?xf32>) -> tensor<?x?x?x?xf32>
+//       CHECK: %[[cst_i32:.+]] = tensorrt.constant dense<[1, 144, 256, 256]> : tensor<4xi32>
+//       CHECK: %[[cast:.+]] = tensor.cast %[[arg0]] : tensor<1x144x?x?xf32> to tensor<1x144x7x7xf32>
+//       CHECK: %[[v0:.+]] = tensorrt.resize_cubic {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kHALF_PIXEL>, cubicCoeff = -7.500000e-01 : f32, selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>} %[[cast]], %[[cst_i32]] : (tensor<1x144x7x7xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
+//  CHECK-NEXT: return %[[v0]]

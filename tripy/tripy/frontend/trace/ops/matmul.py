@@ -30,7 +30,7 @@ class MatrixMultiplication(BaseTraceOp):
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.frontend.shape import Shape
         from tripy.utils import Result
 
@@ -39,7 +39,7 @@ class MatrixMultiplication(BaseTraceOp):
         if (isinstance(inputs[0], Shape) and isinstance(inputs[1], Shape)) or (
             not isinstance(inputs[0], Shape) and not isinstance(inputs[1], Shape)
         ):
-            return Result.ok({})
+            return Result.ok([None])
         return Result.err(None)
 
     def infer_rank(self):
@@ -216,9 +216,9 @@ class MatrixMultiplication(BaseTraceOp):
 
 
 @TENSOR_METHOD_REGISTRY("__matmul__")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
 )
 def __matmul__(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
     """

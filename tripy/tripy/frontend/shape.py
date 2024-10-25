@@ -18,7 +18,7 @@
 from typing import Any, Optional, Sequence, Union
 
 import tripy.frontend.utils as frontend_utils
-from tripy import export, utils
+from tripy import constraints, export, utils
 from tripy.common.datatype import int32
 from tripy.common.exception import raise_error
 from tripy.frontend.tensor import Tensor
@@ -27,8 +27,8 @@ from tripy.frontend.tensor import Tensor
 @export.public_api(document_under="shape/index.rst")
 class Shape(Tensor):
     """
-    A Shape is a tensor used to represent a tensor shape.
-    Shapes are vectors (rank 1) of non-negative integers (using int32 as the datatype).
+    A Shape is a special type of tensor used to represent the shape of a :class:`Tensor` .
+    Shapes are vectors (i.e. rank 1 tenors) of non-negative integers of :class:`int32` data type.
 
     Note that Shapes are intended to be used in many cases like Python lists; hence `+` acts as concatenation
     on Shapes rather than elementwise addition and `*` acts as tiling rather than elementwise multiplication;
@@ -91,9 +91,13 @@ class Shape(Tensor):
                 )
             super().__init__(data=data, dtype=int32, name=name, device=device)
 
-    def as_tensor(self) -> Tensor:
+    @constraints.dtypes(constraints={constraints.RETURN_VALUE: "T1"}, variables={"T1": ["int32"]})
+    def as_tensor(self: "tripy.Shape") -> Tensor:
         """
         Return an ordinary Tripy :class:`Tensor` with the same contents as this :class:`Shape` . No copying is done.
+
+        Args:
+            self: This shape tensor.
 
         Returns:
             A :class:`Tensor` with the same underlying value as the current :class:`Shape` .
@@ -112,13 +116,14 @@ class Shape(Tensor):
         ret.stack_info = self.stack_info
         return ret
 
-    def add(self, other: Union["tripy.Shape", Tensor]) -> "tripy.Shape":
+    def add(self, other: Union["tripy.Shape", "tripy.ShapeScalar"]) -> "tripy.Shape":
         """
         The + operator for shapes is concatenation. This method is exposed to allow for elementwise addition,
         should it be necessary.
 
         Args:
-            other: Another :class:`Shape` or :class:`Tensor` .
+            other: Another :class:`Shape` or a :class:`ShapeScalar`. :class:`Tensor` is not permitted and should be
+                   explicitly converted if this is desired.
 
         Returns:
             The result of elementwise addition of this :class:`Shape` and `other`, returned as a :class:`Shape` .
@@ -135,13 +140,14 @@ class Shape(Tensor):
         """
         return super().__add__(other)
 
-    def multiply(self, other: Union["tripy.Shape", Tensor, Sequence[Union[int, "tripy.ShapeScalar"]]]) -> "tripy.Shape":
+    def multiply(self, other: Union["tripy.Shape", "tripy.ShapeScalar"]) -> "tripy.Shape":
         """
         The * operator for shapes is tiling. This method is exposed to allow for elementwise multiplication,
         should it be necessary.
 
         Args:
-            other: Another :class:`Shape` or :class:`Tensor` .
+            other: Another :class:`Shape` or a :class:`tripy.ShapeScalar`. :class:`Tensor` is not permitted and should be
+                   explicitly converted if this is desired.
 
         Returns:
             The result of elementwise multiplication of this :class:`Shape` and `other`, returned as a :class:`Shape` .

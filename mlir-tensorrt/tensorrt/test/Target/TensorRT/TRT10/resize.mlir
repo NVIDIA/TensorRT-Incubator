@@ -10,7 +10,7 @@ func.func @trt_resize_nearest_fp8(%arg0: tensor<10x10xf8E4M3FN>) -> tensor<20x20
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     nearestRounding = #tensorrt.resize_round_mode<kFLOOR>,
     selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>
-  } %dq : tensor<10x10xf32> to tensor<20x20xf32>
+  } %dq : (tensor<10x10xf32>) -> tensor<20x20xf32>
   return %result : tensor<20x20xf32>
 }
 

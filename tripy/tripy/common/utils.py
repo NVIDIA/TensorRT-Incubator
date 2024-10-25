@@ -16,11 +16,10 @@
 #
 
 import array
-import struct
 from typing import Any, List, Sequence
 
-from tripy.common.exception import raise_error
 import tripy.common.datatype
+from tripy.common.exception import raise_error
 
 
 def is_int32(data):
@@ -72,16 +71,3 @@ def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
 
 def is_empty(data: Sequence) -> bool:
     return isinstance(data, Sequence) and all(map(is_empty, data))
-
-
-def is_shape_empty(shape: Sequence[int]) -> bool:
-    """
-    A shape is considered empty if any of its dimensions is zero.
-
-    Args:
-        shape (Tuple[int, ...]): A tuple representing the shape of a tensor.
-
-    Returns:
-        bool: True if the shape represents an empty tensor, False otherwise.
-    """
-    return any(dim == 0 for dim in shape)

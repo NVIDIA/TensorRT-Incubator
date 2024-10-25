@@ -20,7 +20,7 @@ from typing import List
 import mlir_tensorrt.runtime.api as runtime
 
 from tripy.backend.api.stream import default_stream
-from tripy.backend.mlir.memref import create_empty_memref
+from tripy.backend.mlir.memref import create_memref
 from tripy.backend.mlir.utils import MLIRRuntimeClient, convert_runtime_dtype_to_tripy_dtype
 from tripy.backend.utils import TensorInfo
 from tripy.common import datatype, device
@@ -31,6 +31,7 @@ from tripy.utils import make_tuple
 
 class Executor:
     def __init__(self, executable: runtime.Executable) -> None:
+
         self.runtime_client = MLIRRuntimeClient()
         session_options = runtime.RuntimeSessionOptions(num_devices=1, device_id=0)
         self.session = runtime.RuntimeSession(session_options, executable)
@@ -47,15 +48,16 @@ class Executor:
     def _create_shape_memref(self, shape):
         shape = make_tuple(shape)
         if len(shape) == 0:
-            # create an empty memref
-            return self.runtime_client.create_memref(
-                shape=(0,), dtype=runtime.runtime.ScalarTypeCode.i64, stream=self.stream._active_cuda_stream
+            return create_memref(
+                shape=(0,),
+                dtype=datatype.int64,
+                device=device("cpu"),
             )
-        return self.runtime_client.create_memref(
-            convert_list_to_array(shape, datatype.int64),
+        return create_memref(
+            array=convert_list_to_array(shape, datatype.int64),
             shape=(len(shape),),
-            dtype=runtime.ScalarTypeCode.i64,
-            stream=self.stream._active_cuda_stream,
+            dtype=datatype.int64,
+            device=device("cpu"),
         )
 
     def _get_outputs_shape(self):
@@ -134,12 +136,8 @@ class Executor:
 
         # Allocate output memory and store buffer pointers.
         outputs = [
-            create_empty_memref(
-                shape=info.shape,
-                dtype=info.dtype,
-                device=info.device,
-                stream=self.stream._active_cuda_stream,
-                use_cache=False,
+            create_memref(
+                shape=info.shape, dtype=info.dtype, device=info.device, stream=self.stream._active_cuda_stream
             )
             for info in out_tensor_info
         ]

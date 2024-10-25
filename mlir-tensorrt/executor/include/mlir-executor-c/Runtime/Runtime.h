@@ -56,6 +56,22 @@ extern "C" {
 typedef struct MTRT_RuntimeClient MTRT_Runtimeclient;
 
 //===----------------------------------------------------------------------===//
+// MTRT_GlobalDebug
+//===----------------------------------------------------------------------===//
+
+/// Enables or disables global debug flag.
+MTRT_Status mtrtEnableGlobalDebug(bool enable);
+
+/// Retrieves the current state of the global debug flag.
+MTRT_Status mtrtIsGlobalDebugEnabled(bool *enable);
+
+/// Sets the current global debug type.
+MTRT_Status mtrtSetGlobalDebugType(const char *type);
+
+/// Sets multiple global debug types.
+MTRT_Status mtrtSetGlobalDebugTypes(const char **types, size_t n);
+
+//===----------------------------------------------------------------------===//
 // MTRT_Stream
 //===----------------------------------------------------------------------===//
 

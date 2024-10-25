@@ -295,7 +295,7 @@ void InlineGroupOp::getSuccessorRegions(
 }
 
 //===----------------------------------------------------------------------===//
-// InlineClosedGroupOp
+// InlineClosedGroupOp and InlineClosedAllocGroupOp Helpers
 //===----------------------------------------------------------------------===//
 
 static LogicalResult
@@ -371,36 +371,38 @@ verifyBoundsAttr(StringRef argOrResult, unsigned idx, Type type,
   return success();
 }
 
+static LogicalResult verifyBoundsAttrs(Operation *op, ValueRange operands,
+                                       ArrayAttr attrsArray, StringRef attrName,
+                                       StringRef boundName) {
+  SmallVector<BoundsAttr> attrs =
+      llvm::to_vector(attrsArray.getAsRange<BoundsAttr>());
+  if (attrs.size() != operands.size())
+    return op->emitOpError("expected number of ")
+           << attrName << " (" << operands.size() << ") to equal the number of "
+           << boundName << " BoundsAttrs (" << attrs.size() << ")";
+
+  for (auto [idx, type] : llvm::enumerate(TypeRange(operands))) {
+    BoundsAttr boundsAttr = attrs[idx];
+    if (failed(verifyBoundsAttr(attrName, idx, type, boundsAttr,
+                                [&]() { return op->emitOpError(); })))
+      return failure();
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// InlineClosedGroupOp
+//===----------------------------------------------------------------------===//
+
 LogicalResult InlineClosedGroupOp::verify() {
-  SmallVector<BoundsAttr> inputAttrs =
-      llvm::to_vector(getInputAttrs().getAsRange<BoundsAttr>());
-  if (inputAttrs.size() != getInputs().size())
-    return emitOpError("expected number of inputs (")
-           << getInputs().size()
-           << " to equal the number of input_attrs BoundsAttrs ("
-           << inputAttrs.size() << ")";
+  if (failed(verifyBoundsAttrs(getOperation(), getInputs(), getInputAttrs(),
+                               "inputs", "input_attrs")))
+    return failure();
 
-  for (auto [idx, type] : llvm::enumerate(TypeRange(getInputs()))) {
-    BoundsAttr boundsAttr = inputAttrs[idx];
-    if (failed(verifyBoundsAttr("input argument", idx, type, boundsAttr,
-                                [&]() { return emitOpError(); })))
-      return failure();
-  }
-
-  SmallVector<BoundsAttr> resAttrs =
-      llvm::to_vector(getResAttrs().getAsRange<BoundsAttr>());
-  if (resAttrs.size() != getNumResults())
-    return emitOpError("expected number of results (")
-           << getNumResults()
-           << ") to equal the number of res_attrs BoundsAttrs ("
-           << resAttrs.size() << ")";
-
-  for (auto [idx, type] : llvm::enumerate(getResultTypes())) {
-    BoundsAttr boundsAttr = resAttrs[idx];
-    if (failed(verifyBoundsAttr("result", idx, type, boundsAttr,
-                                [&]() { return emitOpError(); })))
-      return failure();
-  }
+  if (failed(verifyBoundsAttrs(getOperation(), getResults(), getResAttrs(),
+                               "results", "result_attrs")))
+    return failure();
 
   return success();
 }
@@ -463,6 +465,64 @@ void InlineClosedGroupOp::build(OpBuilder &b, OperationState &state,
   body->addArguments(TypeRange(inputs), getLocs(inputs));
   body->addArguments(TypeRange(outs), getLocs(outs));
   state.addTypes(TypeRange(outs));
+}
+
+//===----------------------------------------------------------------------===//
+// InlineClosedAllocGroupOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult InlineClosedAllocGroupOp::verify() {
+  Operation *op = getOperation();
+  // Check for res_attrs
+  if (op->hasAttr("res_attrs"))
+    return op->emitOpError("must not contain 'res_attrs' attribute");
+  return verifyBoundsAttrs(op, getInputs(), getInputAttrs(), "inputs",
+                           "input_attrs");
+}
+
+void InlineClosedAllocGroupOp::getSuccessorRegions(
+    RegionBranchPoint point, SmallVectorImpl<RegionSuccessor> &regions) {
+  // If the predecessor is the InlineClosedGroupOp, branch into the body.
+  if (point.isParent()) {
+    regions.push_back(RegionSuccessor(&getBody(), getBody().getArguments()));
+    return;
+  }
+  // Otherwise, the region branches back to the parent operation.
+  regions.push_back(RegionSuccessor(getResults()));
+}
+
+OperandRange
+InlineClosedAllocGroupOp::getEntrySuccessorOperands(RegionBranchPoint point) {
+  return getOperands();
+}
+
+void InlineClosedAllocGroupOp::getAsmBlockArgumentNames(
+    Region &region, OpAsmSetValueNameFn setNameFn) {
+  assert(region.getNumArguments() == getInputs().size() &&
+         "expected one block arg for each input argument");
+  for (BlockArgument arg : region.getArguments())
+    setNameFn(arg, "in");
+}
+
+void InlineClosedAllocGroupOp::build(OpBuilder &b, OperationState &state,
+                                     TypeRange resultTypes, Attribute target,
+                                     ValueRange inputs,
+                                     ArrayRef<BoundsAttr> input_attrs) {
+  state.addTypes(resultTypes);
+  state.addOperands(inputs);
+  state.getOrAddProperties<Properties>().target = target;
+  state.getOrAddProperties<Properties>().setInputAttrs(b.getArrayAttr(
+      SmallVector<Attribute>(input_attrs.begin(), input_attrs.end())));
+  Region *body = state.addRegion();
+  auto getLocs = [](ValueRange r) {
+    SmallVector<Location> locs;
+    locs.reserve(r.size());
+    for (Value v : r)
+      locs.push_back(v.getLoc());
+    return locs;
+  };
+  (void)body->emplaceBlock();
+  body->addArguments(TypeRange(inputs), getLocs(inputs));
 }
 
 //===----------------------------------------------------------------------===//

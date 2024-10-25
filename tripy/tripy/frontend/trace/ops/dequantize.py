@@ -15,12 +15,12 @@
 # limitations under the License.
 #
 
+import numbers
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Union, Sequence
 
 from tripy import constraints, export
 from tripy.common import datatype
-from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -38,15 +38,7 @@ class Dequantize(BaseTraceOp):
     @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
-        from tripy.flat_ir.ops import (
-            ConcatenateOp,
-            ConstantOp,
-            ConvertOp,
-            DivideOp,
-            DynamicBroadcastOp,
-            DynamicReshapeOp,
-            MulOp,
-        )
+        from tripy.flat_ir.ops import ConcatenateOp, ConvertOp, DivideOp, DynamicBroadcastOp, DynamicReshapeOp, MulOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
         # Represent quantize as convert(input, dtype) * scale
@@ -109,13 +101,14 @@ class Dequantize(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/quantization")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["int4", "int8", "float8"], "T2": ["float32", "float16", "bfloat16"]},
-    dtype_constraints={"input": "T1", "scale": "T2", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+@frontend_utils.convert_to_tensors(targets={"scale"})
+@constraints.dtypes(
+    constraints={"input": "T1", "scale": "T2", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+    variables={"T1": ["int4", "int8", "float8"], "T2": ["float32", "float16", "bfloat16"]},
 )
 def dequantize(
     input: "tripy.Tensor",
-    scale: "tripy.types.TensorLike",
+    scale: Union["tripy.Tensor", numbers.Number, Sequence[numbers.Number], Sequence[Sequence[numbers.Number]]],
     dtype: datatype.dtype,
     dim: Union[int, Any] = None,
 ) -> "tripy.Tensor":
@@ -186,11 +179,6 @@ def dequantize(
 
     .. seealso:: :func:`quantize`
     """
-    from tripy.frontend import Tensor
-
-    if not isinstance(scale, Tensor):
-        scale = Tensor(scale)
-
     op_utils.check_qdq_args(input, scale, dtype, dim, False)
 
     # See the note in quantize.py on why we don't just use frontend ops here.

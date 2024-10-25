@@ -125,10 +125,10 @@ class Theta(BaseTraceOp):
     dim: int
     dtype: datatype.dtype
 
-    # The `infer_shape_output_idxs` method should indicate which outputs of this operator represent shapes.
-    # The corresponding outputs will be wrapped as `tripy.Shape` objects instead of regular `tripy.Tensor`s.
+    # The `infer_tensor_variants` method should indicate which outputs of this operator represent shapes or shape scalars;
+    # the corresponding outputs will be wrapped as `tripy.Shape` or `tripy.ShapeScalar` objects instead of regular `tripy.Tensor`s.
     # Our `Theta` operation should never return shapes, so we can use the corresponding preexisting policy.
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
@@ -201,7 +201,7 @@ import tripy.frontend.utils as frontend_utils
 @export.public_api(document_under="tensor_operations")
 
 # The `convert_shape_inputs` decorator converts the specified function arguments into `tripy.Shape`s,
-# which would allow for using Python numbers and sequences. The `convert_inputs_to_tensors` decorator more generally converts
+# which would allow for using Python numbers and sequences. The `convert_to_tensors` decorator more generally converts
 # function arguments into Tripy tensors and is also commonly used in the codebase.
 @frontend_utils.convert_shape_inputs(["shape"])
 def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":

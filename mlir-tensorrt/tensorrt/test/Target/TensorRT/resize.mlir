@@ -16,6 +16,7 @@ func.func @trt_resize_nearest(%arg0: tensor<10x10xf32>) -> tensor<20x20xf32> {
 
 func.func @trt_resize_nearest_dynamic(
   %arg0: tensor<10x?xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min=[10, 1], opt=[10, 5], max=[10, 10]>}) -> tensor<20x?xf32> {
+
   %result = tensorrt.resize_nearest {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     scales = array<f32: 2.0, 3.0>,
@@ -29,7 +30,7 @@ func.func @trt_resize_nearest_dynamic(
 //  CHECK-SAME: tensorrt.engine
 
 func.func @trt_resize_nearest_output_shape(
-  %arg0: tensor<10x10xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32> {
+  %arg0: tensor<10x10xf32>, %arg1: tensor<2xi32> {tensorrt.host_tensor, tensorrt.value_bounds = #tensorrt.shape_profile<min=[10, 10], opt=[20, 20], max=[30, 30]>}) -> tensor<?x?xf32> {
   %result = tensorrt.resize_nearest {
     coordinateTransformation = #tensorrt.resize_coordinate_transformation<kASYMMETRIC>,
     nearestRounding = #tensorrt.resize_round_mode<kFLOOR>,

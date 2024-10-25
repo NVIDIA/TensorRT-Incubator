@@ -40,7 +40,7 @@ class Pooling(BaseTraceOp):
     stride: Sequence[int]
     padding: Sequence[Tuple[int]]
 
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank
@@ -141,11 +141,9 @@ class Pooling(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
-        "T1": ["float32", "float16", "int8"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "int8"]},
 )
 def maxpool(
     input: "tripy.Tensor",
@@ -202,11 +200,9 @@ def maxpool(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
-        "T1": ["float32", "float16", "int8"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "int8"]},
 )
 def avgpool(
     input: "tripy.Tensor",

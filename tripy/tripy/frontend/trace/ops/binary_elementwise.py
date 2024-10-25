@@ -25,6 +25,7 @@ from tripy import constraints, export
 from tripy.common import datatype
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.types import TensorLike
 
 
 @dataclass(repr=False)
@@ -49,32 +50,33 @@ class BinaryElementwise(BaseTraceOp):
             op_str = f"{self.kind}({self.inputs[0].name}, {self.inputs[1].name})"
         return f"{self.outputs[0].name} = {op_str}"
 
-    def infer_shape_output_idxs(self, inputs):
-        # permit one input to be a shape but require the output to be a shape
+    def infer_tensor_variants(self, inputs):
+        # To avoid issues, we do not permit both Shape and Tensor args and recommend explicit conversion if they do need to combined.
+        # ShapeScalar args can be broadcast up into Shapes and so do not pose an issue.
         from tripy.frontend.shape import Shape, ShapeScalar
         from tripy.utils import Result
 
         if any(map(lambda t: isinstance(t, Shape), inputs)):
-            # if there is a non-shape input, it must be rank 1 or 0 to avoid broadcasting
-            if not all(map(lambda t: t.rank <= 1, inputs)):
-                invalid_indices_message = ", ".join(
-                    map(
-                        lambda i: f"Index {i} (rank {inputs[i].rank})",
-                        filter(lambda i: inputs[i].rank > 1, range(len(inputs))),
-                    )
-                )
+            # Note: Most binary elementwise ops use the convert_inputs_to_tensors decorator, which also checks for this.
+            if any(map(lambda t: not isinstance(t, (Shape, ShapeScalar)), inputs)):
+                shape_arg_indices = [i for i, t in enumerate(inputs) if isinstance(t, Shape)]
+                tensor_arg_indices = [
+                    i for i, t in enumerate(inputs) if not isinstance(t, Shape) and not isinstance(t, ShapeScalar)
+                ]
                 return Result.err(
                     [
-                        "For binary elementwise operators on Shapes, all inputs must be of rank at most 1.",
-                        f"The following inputs have invalid ranks: {invalid_indices_message}",
+                        "Binary elementwise operators do not accept combinations of Shape and Tensor arguments."
+                        " Consider explicitly converting using tp.Shape or as_tensor."
+                        f" Indices of shape arguments: {', '.join(map(str, shape_arg_indices))}."
+                        f" Indices of tensor arguments: {', '.join(map(str, tensor_arg_indices))}.",
                     ]
                 )
-            return Result.ok({"shape": [0]})
+            return Result.ok([Shape])
         elif all(map(lambda t: isinstance(t, ShapeScalar), inputs)):
             # Binary operation on ShapeScalar should yield another ShapeScalar.
-            return Result.ok({"scalar": [0]})
+            return Result.ok([ShapeScalar])
         else:
-            return Result.ok({})
+            return Result.ok([None])
 
     def infer_len(self):
         # For the shape case, the result will be broadcast to the max of the input shapes
@@ -215,7 +217,7 @@ class Comparison(BinaryElementwise):
     kind: Kind.KindElem
 
     # the result of a comparison will be bool, so do not wrap
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.bool
@@ -230,16 +232,13 @@ class Comparison(BinaryElementwise):
 
 @TENSOR_METHOD_REGISTRY("__add__")
 @TENSOR_METHOD_REGISTRY("__radd__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     aliases=["__radd__"],
 )
-def __add__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __add__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise sum.
 
@@ -265,15 +264,12 @@ def __add__(
 
 
 @TENSOR_METHOD_REGISTRY("__sub__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
-def __sub__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __sub__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -299,12 +295,12 @@ def __sub__(
 
 
 @TENSOR_METHOD_REGISTRY("__rsub__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
-    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
-def __rsub__(self: "tripy.types.NestedNumberSequence", other: "tripy.types.TensorLike") -> "tripy.Tensor":
+def __rsub__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise subtraction.
 
@@ -330,15 +326,12 @@ def __rsub__(self: "tripy.types.NestedNumberSequence", other: "tripy.types.Tenso
 
 
 @TENSOR_METHOD_REGISTRY("__pow__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
 )
-def __pow__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __pow__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
@@ -364,12 +357,12 @@ def __pow__(
 
 
 @TENSOR_METHOD_REGISTRY("__rpow__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
-    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8"]},
 )
-def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rpow__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise exponentiation.
 
@@ -396,16 +389,13 @@ def __rpow__(self: numbers.Number, other: Union["tripy.Tensor", Any]) -> "tripy.
 
 @TENSOR_METHOD_REGISTRY("__mul__")
 @TENSOR_METHOD_REGISTRY("__rmul__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"]},
     aliases=["__rmul__"],
 )
-def __mul__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __mul__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise multiplication.
 
@@ -431,15 +421,12 @@ def __mul__(
 
 
 @TENSOR_METHOD_REGISTRY("__truediv__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
-def __truediv__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __truediv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
@@ -465,12 +452,12 @@ def __truediv__(
 
 
 @TENSOR_METHOD_REGISTRY("__rtruediv__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
-    dtype_constraints={"other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
-def __rtruediv__(self: numbers.Number, other: "tripy.types.TensorLike") -> "tripy.Tensor":
+def __rtruediv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise division.
 
@@ -496,12 +483,12 @@ def __rtruediv__(self: numbers.Number, other: "tripy.types.TensorLike") -> "trip
 
 
 @TENSOR_METHOD_REGISTRY("__floordiv__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64"]},
 )
-def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __floordiv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise floor division.
 
@@ -532,12 +519,12 @@ def __floordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", 
 
 
 @TENSOR_METHOD_REGISTRY("__rfloordiv__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64"]},
 )
-def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rfloordiv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an elementwise floor division.
 
@@ -568,12 +555,12 @@ def __rfloordiv__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor",
 
 
 @TENSOR_METHOD_REGISTRY("__mod__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
 )
-def __mod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __mod__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs a modulo operation.
 
@@ -599,12 +586,12 @@ def __mod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any])
 
 
 @TENSOR_METHOD_REGISTRY("__rmod__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
 )
-def __rmod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __rmod__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs a modulo operation.
 
@@ -629,9 +616,9 @@ def __rmod__(self: Union["tripy.Tensor", Any], other: Union["tripy.Tensor", Any]
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def maximum(lhs: "tripy.Tensor", rhs: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -659,9 +646,9 @@ def maximum(lhs: "tripy.Tensor", rhs: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"lhs": "T1", "rhs": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def minimum(lhs: "tripy.Tensor", rhs: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -689,18 +676,15 @@ def minimum(lhs: "tripy.Tensor", rhs: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @TENSOR_METHOD_REGISTRY("__lt__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __lt__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __lt__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs a 'less than' comparison.
 
@@ -726,18 +710,15 @@ def __lt__(
 
 
 @TENSOR_METHOD_REGISTRY("__le__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __le__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __le__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs a 'less than or equal' comparison.
 
@@ -763,18 +744,15 @@ def __le__(
 
 
 @TENSOR_METHOD_REGISTRY("__eq__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __eq__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __eq__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs an 'equal' comparison.
 
@@ -800,15 +778,15 @@ def __eq__(
 
 
 @TENSOR_METHOD_REGISTRY("__ne__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __ne__(self: "tripy.types.TensorLike", other: Union["tripy.Tensor", Any]) -> "tripy.Tensor":
+def __ne__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs a 'not equal' comparison.
 
@@ -834,18 +812,15 @@ def __ne__(self: "tripy.types.TensorLike", other: Union["tripy.Tensor", Any]) ->
 
 
 @TENSOR_METHOD_REGISTRY("__ge__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __ge__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __ge__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs a 'greater than or equal' comparison.
 
@@ -871,18 +846,15 @@ def __ge__(
 
 
 @TENSOR_METHOD_REGISTRY("__gt__")
-@frontend_utils.convert_inputs_to_tensors(sync_arg_types=[("self", "other")])
-@constraints.dtype_info(
-    dtype_variables={
+@frontend_utils.convert_to_tensors()
+@constraints.dtypes(
+    constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
+    variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
     },
-    dtype_constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
 )
-def __gt__(
-    self: "tripy.types.TensorLike",
-    other: "tripy.types.TensorLike",
-) -> "tripy.Tensor":
+def __gt__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
     Performs a 'greater than' comparison.
 
