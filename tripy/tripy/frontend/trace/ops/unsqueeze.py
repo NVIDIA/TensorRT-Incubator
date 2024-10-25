@@ -15,52 +15,13 @@
 # limitations under the License.
 #
 
-from dataclasses import dataclass
-
 from tripy import export, constraints
-from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
-from tripy.common.datatype import DATA_TYPES
-
-
-@dataclass(repr=False)
-class Unsqueeze(BaseTraceOp):
-
-    dim: int
-
-    # the result will not be rank 1 and so can't be a shape but we may want to unsqueeze shapes
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
-
-    def infer_dtypes(self):
-        self.outputs[0].dtype = self.inputs[0].dtype
-
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank + 1
-
-    def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import DynamicBroadcastOp
-
-        broadcast_dim = list(range(inputs[0].rank))
-        for idx in range(len(broadcast_dim)):
-            if idx >= self.dim:
-                broadcast_dim[idx] += 1
-
-        DynamicBroadcastOp.build(
-            [inputs[0], inputs[1]],
-            [outputs[0]],
-            broadcast_dim=broadcast_dim,
-        )
-
-
-# Two operand unsqueeze op to ensure that Trace op is 1:1 with Python code (for error messaging).
-def unsqueeze_two_operand(input, result_shape, dim):
-    return Unsqueeze.build([input, result_shape], dim)
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
@@ -85,6 +46,7 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
         assert np.array_equal(cp.from_dlpack(output).get(), np.expand_dims(cp.from_dlpack(input).get(), 1))
     """
     from tripy.frontend.trace.ops.concatenate import concatenate
+    from tripy.frontend.trace.ops.reshape import reshape
 
     from tripy.frontend import Shape
 
@@ -97,4 +59,4 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     else:
         input_shape = input.shape
         result_shape = concatenate([input_shape[:dim], Shape([1]), input_shape[dim:]], dim=0)
-    return unsqueeze_two_operand(input, result_shape, dim)
+    return reshape(input, result_shape)

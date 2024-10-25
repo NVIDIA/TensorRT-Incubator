@@ -30,7 +30,7 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTDialect
   MLIRTensorRTDuplicateFunctionElimination
   MLIRTensorRTExecutorDialect
-  MLIRTensorRTGenericClustering
+  MLIRExecutorGenericClustering
   MLIRTensorRTMemRefCastElimination
   MLIRTensorRTPlanAnalysis
   MLIRTensorRTPlanDialect

@@ -57,6 +57,8 @@ test = [
   "pytest-xdist==3.6.1",
   "pytest-benchmark==4.0.0",
   "pytest-lazy-fixture==0.6.3",
+  "pytest-mock==3.14.0",
+  "path.py==12.5.0",
   # Triton is required for torch.compile
   "triton==3.0.0",
   "snakeviz==2.2.0",

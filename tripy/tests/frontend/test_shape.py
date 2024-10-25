@@ -128,6 +128,7 @@ class TestShape:
         reshaped = tp.reshape(t, (len(values), 1))
         assert isinstance(reshaped, tp.Tensor)
         assert reshaped.rank == 2
+        assert reshaped.ndim == 2
         assert cp.from_dlpack(reshaped).tolist() == [[v] for v in values]
 
     def test_plus_override(self, values, other_values):
@@ -510,7 +511,8 @@ class TestShape:
 
     def test_binary_elementwise_broadcast_rejected(self, values):
         with raises(
-            tp.TripyException, match="For binary elementwise operators on Shapes, all inputs must be of rank at most 1"
+            tp.TripyException,
+            match=r"\_\_mul\_\_ expects tensor arguments to have matching class types, but got mixed `tp\.Tensor` and `tp\.Shape` arguments\.",
         ):
             tp.Shape(values).multiply(tp.Tensor([values, values]))
 

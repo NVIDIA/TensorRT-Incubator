@@ -20,6 +20,7 @@
 #include "mlir-tensorrt-dialect/Target/Passes.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
+#include "mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
@@ -52,6 +53,7 @@ int main(int argc, char **argv) {
   mlir::tensorrt::registerTensorRTTranslationPasses();
   mlir::registerTransformsPasses();
   mlir::tensorrt::registerTensorKindOpInterfaceExternalModels(registry);
+  mlir::tensorrt::registerTensorRTEncodingOpInterfaceExternalModels(registry);
   return mlir::asMainReturnCode(
       mlir::MlirOptMain(argc, argv, "Standalone optimizer driver\n", registry));
 }

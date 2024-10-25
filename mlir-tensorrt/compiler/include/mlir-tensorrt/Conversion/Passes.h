@@ -22,6 +22,7 @@
 #ifndef MLIR_TENSORRT_CONVERSION_PASSES_H
 #define MLIR_TENSORRT_CONVERSION_PASSES_H
 
+#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include <memory>
 #include <mlir/Pass/Pass.h>
 

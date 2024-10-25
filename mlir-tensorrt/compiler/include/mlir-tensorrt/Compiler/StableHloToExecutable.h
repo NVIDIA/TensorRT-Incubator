@@ -105,6 +105,8 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Get the mutable DebugOptions.
   DebugOptions &getDebugOptions() { return debugOptions; }
 
+  /// Return the hash of the options. Returns `nullopt` when the TensorRT
+  /// layer metadata callback is set since that can't be reliably hashed.
   std::optional<llvm::hash_code> getHash() const override;
 
   /// The host index bit-width.
@@ -125,6 +127,10 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
 
   /// Whether to disallow host tensors in TensorRT clusters.
   bool disallowHostTensorsInTensorRTClusters = false;
+
+  /// Use non-DPS style calling convention for entrypoint function
+  /// and backend types that support allocating results.
+  bool enableNonDPSReturns = false;
 
   /// Entrypoint function name.
   std::string entrypoint = "main";

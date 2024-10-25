@@ -25,6 +25,18 @@ func.func @enqueue(%arg0: memref<10xf32>, %arg1: memref<10xf32>, %ctx: !trtrt.co
 
 // -----
 
+func.func @enqueue_alloc(%arg0: memref<10xf32>, %ctx: !trtrt.context, %stream: !cuda.stream) -> memref<10xf32> {
+  %result = trtrt.enqueue_alloc %ctx stream(%stream) (%arg0) : (memref<10xf32>) -> (memref<10xf32>)
+  return %result : memref<10xf32>
+}
+
+// CHECK-LABEL: @enqueue_alloc
+//  CHECK-SAME: (%[[arg0:.+]]: memref<10xf32>, %[[arg1:.+]]: !trtrt.context, %[[arg2:.+]]: !cuda.stream) -> memref<10xf32> {
+//       CHECK: %[[v1:.+]] = trtrt.enqueue_alloc %[[arg1]] stream(%[[arg2]]) (%[[arg0]]) : (memref<10xf32>) -> memref<10xf32>
+//       CHECK: return %[[v1]] : memref<10xf32>
+
+// -----
+
 
 func.func @enqueue_host_tensor(%arg0: !trtrt.context, %arg1: !cuda.stream,
                 %arg2: tensor<1xf32>, %arg3: tensor<1xi32>, %arg4: tensor<1xf32>) -> tensor<1xf32> {

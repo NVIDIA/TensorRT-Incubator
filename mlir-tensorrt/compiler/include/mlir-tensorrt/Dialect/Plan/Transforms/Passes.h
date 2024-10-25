@@ -24,6 +24,7 @@
 #ifndef MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 #define MLIR_TENSORRT_DIALECT_PLAN_TRANSFORMS_PASSES_H
 
+#include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include <memory>
@@ -68,7 +69,8 @@ executorOneShotModuleBufferize(ModuleOp targetOp,
                                const ExecutorBufferizationOptions &options);
 
 /// Build a pipeline (targeting ModuleOp) for bufferization.
-void buildPlanBufferizationPipeline(OpPassManager &pm);
+void buildPlanBufferizationPipeline(
+    OpPassManager &pm, const plan::PlanAllocTensorsPassOptions &options);
 
 /// Build a post-bufferization pipeline that performs optimizations on memrefs.
 void buildPlanBufferOptimizationPipeline(OpPassManager &pm);

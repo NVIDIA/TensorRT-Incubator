@@ -40,14 +40,14 @@ class Reshape(BaseTraceOp):
         # not just its shape
         return [None]
 
-    def infer_shape_output_idxs(self, inputs):
+    def infer_tensor_variants(self, inputs):
         from tripy.frontend.shape import Shape
         from tripy.utils import Result
 
-        # Only wrap the reshaped output if the result is rank 1, otherwise don't wrap
+        # Only wrap the reshaped output if the result is rank 1
         if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok({"shape": [0]})
-        return Result.ok({})
+            return Result.ok([Shape])
+        return Result.ok([None])
 
     def infer_rank(self):
         if self.output_rank is None:
@@ -73,11 +73,9 @@ def reshape_impl(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Tensor":
     """
@@ -142,7 +140,11 @@ def reshape(input: "tripy.Tensor", shape: "tripy.types.ShapeLike") -> "tripy.Ten
     if isinstance(input, Shape) and len(shape) == 1 and isinstance(shape[0], int):
         output_len = shape[0]
 
-    return reshape_impl(input, shape, len(shape), output_len)
+    out = reshape_impl(input, shape, len(shape), output_len)
+    # If the output shape is known at compile time, assign it to prevent computing shape of trace tensor which is expensive to compute.
+    if all(map(lambda s: isinstance(s, int) and s > 0, shape)):
+        out.trace_tensor.shape = shape
+    return out
 
 
 @dataclass(repr=False)
@@ -156,7 +158,7 @@ class Squeeze(BaseTraceOp):
 
     # Even if given a shape input, the output should not be a shape because the result will not be rank 1.
     # We should permit this, though, since it may be useful to extract a dimension from a shape as a scalar.
-    infer_shape_output_idxs = op_utils.ShapeOutputIdxPolicies.never_return_shape
+    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
 
@@ -209,9 +211,9 @@ class Squeeze(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
 )
 def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Tensor":
     """
@@ -262,11 +264,9 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtype_info(
-    dtype_variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
-    },
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def flatten(input: "tripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "tripy.Tensor":
     """
@@ -306,6 +306,9 @@ def flatten(input: "tripy.Tensor", start_dim: int = 0, end_dim: int = -1) -> "tr
     """
 
     # Infer the actual dimensions to flatten based on start_dim and end_dim.
+    if start_dim < 0:
+        start_dim += input.rank
+
     if end_dim < 0:
         end_dim += input.rank
 

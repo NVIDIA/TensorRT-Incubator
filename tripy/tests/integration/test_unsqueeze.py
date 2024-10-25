@@ -35,3 +35,9 @@ class TestUnsqueezeOp:
         assert tp.allclose(out, tp.Tensor(ref_out))
 
         assert out.shape == ref_out.shape
+
+    def test_unsqueeze_compile(self):
+        def func(a):
+            return tp.unsqueeze(a, 3) == tp.Tensor(3, dtype=tp.float32)
+
+        c = tp.compile(func, args=[tp.InputInfo(((1, 2, 3), 2, 3), dtype=tp.float32)])

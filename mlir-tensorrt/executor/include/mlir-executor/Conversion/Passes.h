@@ -44,6 +44,9 @@ void populateMemRefToExecutorPatterns(RewritePatternSet &patterns,
                                       ExecutorTypeConverter &typeConverter,
                                       bool allowUncheckedMemrefCastConversion);
 
+void populateLinalgToExecutorPatterns(RewritePatternSet &patterns,
+                                      ExecutorTypeConverter &typeConverter);
+
 /// Populate arith-to-executor patterns.
 void populateArithToExecutorPatterns(RewritePatternSet &patterns,
                                      ExecutorTypeConverter &typeConverter);

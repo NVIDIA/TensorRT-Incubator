@@ -1,24 +1,5 @@
 // RUN: mlir-tensorrt-opt -split-input-file %s --convert-stablehlo-to-tensorrt -verify-diagnostics | FileCheck %s
 
-// I64 tensors should not convert without setting the
-// "allow-i64-to-i32-conversion" pass option.
-
-// expected-error @below {{failed to legalize operation 'func.func' that was explicitly marked illegal}}
-func.func @hlo_add_i64(%arg0: tensor<?xi64>) -> tensor<?xi64> {
-  %0 = stablehlo.add %arg0, %arg0 : tensor<?xi64>
-  return %0 : tensor<?xi64>
-}
-
-// -----
-
-// expected-error @below {{failed to legalize operation 'func.func' that was explicitly marked illegal}}
-func.func @hlo_iota_i64() -> tensor<128xi64> {
-  %0 = "stablehlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<128xi64>
-  return %0 : tensor<128xi64>
-}
-
-// -----
-
 func.func @stablehlo_all_reduce_region(%arg0 : tensor<f32>) -> tensor<f32> {
   %0 = "stablehlo.all_reduce"(%arg0) ({
   ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):

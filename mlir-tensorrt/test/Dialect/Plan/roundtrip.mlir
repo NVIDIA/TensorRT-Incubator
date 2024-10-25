@@ -84,6 +84,32 @@ func.func @inline_closed_group(%arg0: tensor<?xf32>, %arg1: index, %arg2: tensor
 
 // -----
 
+func.func @inline_closed_alloc_group(%arg0: tensor<?xf32>, %arg1: index) -> tensor<?xf32> {
+  %2 = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+    inputs(%arg0, %arg1 : tensor<?xf32>, index)
+    in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>] -> tensor<?xf32> {
+  ^bb0(%in0: tensor<?xf32>, %in1: index):
+    %2 = plan.with_shape %in0 (%in1) : (tensor<?xf32>, index) -> tensor<?xf32>
+    %res = stablehlo.exponential %2 : tensor<?xf32>
+    yield %res : tensor<?xf32>
+  }
+  return %2 : tensor<?xf32>
+}
+
+// CHECK-LABEL: func.func @inline_closed_alloc_group
+//       CHECK:  plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
+//  CHECK-NEXT:   inputs(%{{.+}}, %{{.+}} : tensor<?xf32>, index)
+//  CHECK-NEXT:   in_attrs [#plan.bounds<shape, [10], [20]>, #plan.bounds<none>]
+//  CHECK-NEXT:   -> tensor<?xf32> {
+//  CHECK-NEXT:  ^bb0(%in{{.*}}: tensor<?xf32>, %in{{.*}}: index):
+//  CHECK-NEXT:    %{{.+}} = with_shape %in{{.*}}(%in{{.*}}) :
+//  CHECK-NEXT:    %{{.+}} = stablehlo.exponential %{{.+}} : tensor<?xf32>
+//  CHECK-NEXT:    yield %{{.+}} : tensor<?xf32>
+//  CHECK-NEXT:  }
+//  CHECK-NEXT:  return
+
+// -----
+
 
 func.func @with_values(%arg0: tensor<4xi32>) -> tensor<4xi32> {
   %0 = arith.constant 0 : i32

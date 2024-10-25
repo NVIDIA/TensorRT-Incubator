@@ -2,12 +2,14 @@
 // RUN:   | executor-translate -mlir-to-runtime-executable \
 // RUN:   | executor-runner -input-type=rtexe | FileCheck %s
 
-func.func private @print_tensor(%arg0: memref<4xi4, strided<[?], offset: ?>>) {
+!memref_type = memref<4xi4, strided<[?], offset: ?>, #executor.memory_type<host>>
+
+func.func private @print_tensor(%arg0: !memref_type) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c4 = arith.constant 4 : index
   scf.for %i = %c0 to %c4 step %c1 {
-    %el = memref.load %arg0 [%i] : memref<4xi4, strided<[?], offset: ?>>
+    %el = memref.load %arg0 [%i] : !memref_type
     %el_i32 = arith.extsi %el : i4 to i32
     executor.print "[%d] = %d"(%i, %el_i32 : index, i32)
   }
@@ -37,10 +39,10 @@ func.func @main() -> i32 {
     scf.yield %updated0, %updated1 : tensor<4xi4>, tensor<4xi4>
   }
 
-  %memref = bufferization.to_memref %result#0 read_only : tensor<4xi4> -> memref<4xi4, strided<[?], offset: ?>>
-  func.call @print_tensor(%memref) : (memref<4xi4, strided<[?], offset: ?>>) -> ()
-  %memref1 = bufferization.to_memref %result#1 read_only : tensor<4xi4> -> memref<4xi4, strided<[?], offset: ?>>
-  func.call @print_tensor(%memref1) : (memref<4xi4, strided<[?], offset: ?>>) -> ()
+  %memref = bufferization.to_memref %result#0 read_only : tensor<4xi4> -> !memref_type
+  func.call @print_tensor(%memref) : (!memref_type) -> ()
+  %memref1 = bufferization.to_memref %result#1 read_only : tensor<4xi4> -> !memref_type
+  func.call @print_tensor(%memref1) : (!memref_type) -> ()
 
   %c0_i32 = arith.constant 0 : i32
   return %c0_i32 : i32

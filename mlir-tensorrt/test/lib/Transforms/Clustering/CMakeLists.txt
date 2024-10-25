@@ -1,27 +1,10 @@
-include_directories(${MLIR_TENSORRT_ROOT_DIR}/compiler/include)
-include_directories(${MLIR_TENSORRT_ROOT_BINARY_DIR}/compiler/include)
-include_directories(${MLIR_TENSORRT_ROOT_DIR}/executor/include)
-include_directories(${MLIR_TENSORRT_ROOT_BINARY_DIR}/executor/include)
-include_directories(${MLIR_INCLUDE_DIRS})
-
-add_mlir_tensorrt_test_library(MLIRTensorRTTestClustering
-  TestClustering.cpp
-  PARTIAL_SOURCES_INTENDED
-
-  LINK_LIBS PUBLIC
-  MLIRTensorRTGenericClustering
-  MLIRTensorRTPlanDialect
-  MLIRPass
-
-  PRIVATE
-  $<$<BOOL:${MLIR_TRT_ENABLE_HLO}>:MLIRTensorRTPlanDialect>
-  )
-
 get_property(MLIR_TENSORRT_TEST_LIBS GLOBAL PROPERTY MLIR_TENSORRT_TEST_LIBS)
 get_property(MLIR_TENSORRT_LIBS GLOBAL PROPERTY MLIR_TENSORRT_LIBS)
 get_property(MLIR_TENSORRT_DIALECT_LIBS GLOBAL PROPERTY MLIR_TENSORRT_DIALECT_LIBS)
 set(MLIR_TENSORRT_LIBS ${MLIR_TENSORRT_LIBS} ${MLIR_TENSORRT_DIALECT_LIBS} ${MLIR_TENSORRT_TEST_LIBS})
 list(REMOVE_DUPLICATES MLIR_TENSORRT_LIBS)
+include_directories("${MLIR_TENSORRT_ROOT_DIR}/executor/include")
+include_directories("${MLIR_TENSORRT_ROOT_BINARY_DIR}/executor/include")
 
 # Only build the benchmark if Google benchmark is available.
 if(TARGET benchmark)
@@ -30,6 +13,7 @@ if(TARGET benchmark)
     )
   target_link_libraries(mlir-tensorrt-clustering-benchmark PRIVATE
     ${MLIR_TENSORRT_LIBS}
+    MLIRExecutorGenericClustering
     benchmark
     )
   set_target_properties(mlir-tensorrt-clustering-benchmark

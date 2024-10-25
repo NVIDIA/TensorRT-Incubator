@@ -5,6 +5,7 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToTensorRT
 
   DEPENDS
   MLIRTensorRTConversionPassIncGen
+  MLIRTensorRTEnumConverterGen
 
   LINK_LIBS PUBLIC
   ChloOps

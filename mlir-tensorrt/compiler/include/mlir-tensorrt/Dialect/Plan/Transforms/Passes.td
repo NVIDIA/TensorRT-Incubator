@@ -248,11 +248,16 @@ def StablehloClusteringPass : Pass<"stablehlo-clustering", "::mlir::ModuleOp"> {
     Option<"entrypoint", "entrypoint", "std::string", "\"\"",
       "the name of the entrypoint function; if empty then the clustering runs"
       " on all functions">,
+    Option<"enableNonDPSReturns",
+      "enable-non-dps-returns", "bool", "false",
+      "allow backend clusters to directly allocate outputs">,      
     Option<"disallowHostTensorsInTensorRTClusters",
       "disallow-host-tensors-in-tensorrt-clusters", "bool", "false",
       "don't cluster host tensors in TensorRT clusters">,
     Option<"disableCreateShapeFuncPass", "disable-create-shape-func-pass", "bool", "false",
-      "don't apply create shape to func pass in TensorRT clusters">
+      "don't apply create shape to func pass in TensorRT clusters">,
+    Option<"trtMajorVersion", "trt-major-version", "int64_t", "NV_TENSORRT_MAJOR",
+    "terget TensorRT version for clustering">
   ];
 
   let dependentDialects = [
@@ -330,7 +335,10 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
     Option<"testPreWalkOrder", "test-pre-walk-order", "bool", "false",
       "(used only in testing) specifies to outline regions by walking in "
       " pre-order; used for verifying results are not sensitive "
-      "to traversal order">
+      "to traversal order">,
+    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool", 
+           /*default=*/"false", 
+           "Allow backend clusters to directly allocate outputs">
   ];
 
   let dependentDialects = [
@@ -426,6 +434,13 @@ def PlanAllocTensorsPass : Pass<"plan-alloc-tensors",
     "::mlir::bufferization::BufferizationDialect",
     "::mlir::plan::PlanDialect"
   ];
+
+  let options = [
+    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool", 
+           /*default=*/"false", 
+           "Allow backend clusters to directly allocate outputs">
+  ];
+
 }
 
 //===----------------------------------------------------------------------===//
