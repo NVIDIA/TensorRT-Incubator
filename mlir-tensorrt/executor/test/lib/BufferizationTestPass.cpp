@@ -53,12 +53,12 @@ public:
     }
   }
 };
+
 } // namespace
 
 namespace mlir::executor {
 void registerTestExecutorBufferizePass() {
   PassRegistration<ExecutorBufferizationTestPass>();
-
   PassPipelineRegistration<> executorBufferizationPipeline(
       "test-executor-bufferization-pipeline",
       "Run one-shot-bufferization and buffer deallocation pipelines",

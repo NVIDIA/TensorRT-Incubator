@@ -186,7 +186,6 @@ void EnqueueAllocOp::getEffects(
     effects.emplace_back(MemoryEffects::Read::get(), &operand,
                          SideEffects::DefaultResource::get());
   }
-
   bool resultRequireAllocation{false};
   for (OpResult result : getResults()) {
     if (!isa<MemRefType>(result.getType()))

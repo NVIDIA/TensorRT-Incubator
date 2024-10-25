@@ -410,7 +410,7 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = ++metadata->externalReferenceCount;
-  MTRT_DBG("Incremented external reference for pointer %d to %d", ptr, ref);
+  MTRT_DBGF("Incremented external reference for pointer 0x%lx to %d", ptr, ref);
 }
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
@@ -422,11 +422,12 @@ void AllocTracker::decrementExternalCount(uintptr_t ptr) {
          llvm::formatv("External reference count cannot be negative: {0}", ref)
              .str()
              .c_str());
-  MTRT_DBG("Decremented external reference for pointer %d to %d", ptr, ref);
+  MTRT_DBGF("Decremented external reference for pointer 0x%lx to %d", ptr, ref);
   if (ref == 0 && metadata->releasedInternally) {
-    MTRT_DBG("External reference to an internally released pointer %d is 0, "
-             "try deallocating pointer memory of size %lu",
-             ptr, ref, metadata->info.size);
+    MTRT_DBGF(
+        "External reference to an internally released pointer 0x%lx is 0, "
+        "try deallocating pointer memory of size %lu",
+        ptr, metadata->info.size);
     Status s = safeDeallocate(*this, metadata->info.ptr);
     if (!s.isOk())
       MTRT_DBGF("error while deallocating dangling memory: %s",
@@ -470,6 +471,7 @@ void AllocTracker::track(PointerInfo info) {
 void AllocTracker::untrack(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  MTRT_DBGF("AllocTracker is now untracking 0x%lx", ptr);
   map.erase(map.find(ptr));
 }
 

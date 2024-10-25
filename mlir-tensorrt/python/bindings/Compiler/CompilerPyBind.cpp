@@ -261,7 +261,8 @@ PYBIND11_MODULE(_api, m) {
           [](PyStableHLOToExecutableOptions &self, bool enabled,
              std::vector<std::string> debugTypes,
              std::optional<std::string> dumpIrTreeDir,
-             std::optional<std::string> dumpTensorRTDir) {
+             std::optional<std::string> dumpTensorRTDir,
+             std::optional<bool> dumpTextualPipeline) {
             // The strings are copied by the CAPI call, so we just need to
             // refence the C-strings temporarily.
             std::vector<const char *> literals;
@@ -270,12 +271,14 @@ PYBIND11_MODULE(_api, m) {
             THROW_IF_MTRT_ERROR(mtrtStableHloToExecutableOptionsSetDebugOptions(
                 self, enabled, literals.data(), literals.size(),
                 dumpIrTreeDir ? dumpIrTreeDir->c_str() : nullptr,
-                dumpTensorRTDir ? dumpTensorRTDir->c_str() : nullptr));
+                dumpTensorRTDir ? dumpTensorRTDir->c_str() : nullptr,
+                dumpTextualPipeline ? *dumpTextualPipeline : false));
           },
           py::arg("enabled"),
           py::arg("debug_types") = std::vector<std::string>{},
           py::arg("dump_ir_tree_dir") = py::none(),
-          py::arg("dump_tensorrt_dir") = py::none())
+          py::arg("dump_tensorrt_dir") = py::none(),
+          py::arg("dump_textual_pipeline") = py::none())
 
 #ifdef MLIR_TRT_TARGET_TENSORRT
       .def(
