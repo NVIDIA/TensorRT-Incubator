@@ -95,7 +95,7 @@ class BatchNorm(Module):
             x: The input tensor with shape :math:`(N, C, ...)`, where C is the feature dimension.
 
         Returns:
-            A tensor of the same shape as the input, with batch normalization applied using the precomputed running mean and variance.
+            A tensor of the same shape as the input.
         """
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
         from tripy.frontend.trace.ops.reshape import reshape
