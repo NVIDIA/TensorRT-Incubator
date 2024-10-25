@@ -46,10 +46,10 @@ class BatchNorm(Module):
     r"""The number of feature channels in the input tensor (the size of the second dimension)."""
 
     weight: Parameter
-    r"""The learnable scale parameter (γ) of shape `(num_features,)`."""
+    r"""The :math:`\gamma` parameter of shape :math:`[\text{num_features}]`."""
 
     bias: Parameter
-    r"""The learnable shift parameter (β) of shape `(num_features,)`."""
+    r"""The :math:`\beta` parameter of shape :math:`[\text{num_features}]`."""
 
     running_mean: Parameter
     r"""The running mean for the feature channels of shape :math:`[\text{num_features}]`."""
