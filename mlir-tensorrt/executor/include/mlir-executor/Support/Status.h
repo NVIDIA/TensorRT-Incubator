@@ -232,7 +232,7 @@ private:
   do {                                                                         \
     auto err = (rexpr);                                                        \
     if (!err.isOk()) {                                                         \
-      return ::mlirtrt::getInternalErrorStatus("{0}:{1} {3}", __FILE__,        \
+      return ::mlirtrt::getInternalErrorStatus("{0}:{1} {2}", __FILE__,        \
                                                __LINE__, err.getString());     \
     }                                                                          \
   } while (false);

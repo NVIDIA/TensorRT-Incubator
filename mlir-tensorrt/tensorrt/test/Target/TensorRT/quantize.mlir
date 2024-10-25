@@ -11,7 +11,6 @@ func.func @trt_quantize_per_tensor(%arg0: tensor<10x10xf32>) -> tensor<10x10xi8>
 // CHECK-LABEL: @trt_quantize_per_tensor
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_quantize_per_axis(%arg0: tensor<10x10xf32>) -> tensor<10x10xi8> {
   %scale = tensorrt.constant dense<[1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0]>:tensor<10xf32>
@@ -24,7 +23,6 @@ func.func @trt_quantize_per_axis(%arg0: tensor<10x10xf32>) -> tensor<10x10xi8> {
 // CHECK-LABEL: @trt_quantize_per_axis
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_quantize_quant_type(%arg: tensor<16x16xf32>) -> tensor<16x16x!quant.uniform<i8:f32, 1.0>> {
   %scale = tensorrt.constant dense<1.0> : tensor<f32>
@@ -35,7 +33,6 @@ func.func @trt_quantize_quant_type(%arg: tensor<16x16xf32>) -> tensor<16x16x!qua
 // CHECK-LABEL: @trt_quantize_quant_type
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_quantize_per_tensor_f16_scale(%arg0: tensor<10x10xf32>) -> tensor<10x10xi8> {
   %scale = tensorrt.constant dense<1.0>:tensor<f16>

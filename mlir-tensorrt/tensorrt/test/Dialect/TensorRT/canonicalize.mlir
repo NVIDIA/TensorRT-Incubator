@@ -672,6 +672,17 @@ func.func @expand_rank_const_elided() -> tensor<1x10x1xf32> {
 
 // -----
 
+func.func @reshape_const_dynamic(%arg0: tensor<2xi32>) -> tensor<?x5xf32> {
+  %0 = tensorrt.constant dense_resource<__elided__> : tensor<10xf32>
+  %1 = tensorrt.reshape %0 : tensor<10xf32> to tensor<?x5xf32>
+  return %1 : tensor<?x5xf32>
+}
+
+// CHECK-LABEL: @reshape_const_dynamic(%arg0: tensor<2xi32>) -> tensor<?x5xf32>
+// CHECK: tensorrt.reshape
+
+// -----
+
 func.func @identity_fold(%arg0: tensor<2x3xf32>) -> tensor<2x3xf32>{
     %0 = tensorrt.identity %arg0 : tensor<2x3xf32> to tensor<2x3xf32>
     %1 = tensorrt.unary {

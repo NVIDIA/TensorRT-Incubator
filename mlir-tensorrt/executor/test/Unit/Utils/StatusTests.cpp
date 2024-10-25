@@ -1,4 +1,4 @@
-//===- DeviceInfo.h ---------------------------------------------*- C++ -*-===//
+//===- StatusTests.cpp  ---------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -18,28 +18,28 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Utilities for enumerating CUDA device information.
+/// Tests for the Status object.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_SUPPORT_DEVICEINFO
-#define MLIR_TENSORRT_SUPPORT_DEVICEINFO
-
 #include "mlir-executor/Support/Status.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
-namespace mlirtrt {
+using namespace mlirtrt;
 
-/// Encapsulates information about a CUDA device.
-struct DeviceInfo {
-  int64_t computeCapability;
-  int64_t maxSharedMemoryPerBlockKb;
-  // Maximum number of 4-byte registers per block.
-  uint64_t maxRegistersPerBlock;
-};
+TEST(TestStatus, TestStatusMacros) {
+  auto result = []() -> Status {
+    auto internalErr =
+        mlirtrt::getInternalErrorStatus("some error - {0}", "some explanation");
+    RETURN_STATUS_IF_ERROR(internalErr);
+    return getOkStatus();
+  }();
 
-/// Infer target device information from the first visible CUDA device on the
-/// host.
-StatusOr<DeviceInfo> getDeviceInformationFromHost();
-
-} // namespace mlirtrt
-
-#endif // MLIR_TENSORRT_SUPPORT_DEVICEINFO
+  ASSERT_FALSE(result.isOk());
+  ASSERT_TRUE(result.isError());
+  ASSERT_EQ(result.getCode(), StatusCode::InternalError);
+  EXPECT_THAT(
+      result.getString(),
+      testing::MatchesRegex(
+          R"~(InternalError: (.*)/StatusTests\.cpp:([0-9]+) InternalError: some error - some explanation)~"));
+}

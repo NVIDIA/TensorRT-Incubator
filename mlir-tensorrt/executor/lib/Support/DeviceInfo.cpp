@@ -49,6 +49,7 @@ StatusOr<DeviceInfo> mlirtrt::getDeviceInformationFromHost() {
   DeviceInfo info;
   info.computeCapability = smVersion;
   info.maxSharedMemoryPerBlockKb = properties.sharedMemPerBlock / 1024;
+  info.maxRegistersPerBlock = properties.regsPerBlock;
   return info;
 #else
   return getInternalErrorStatus(

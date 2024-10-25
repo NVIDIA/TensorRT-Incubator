@@ -28,8 +28,11 @@
 
 namespace mlir::stablehlo {
 
-/// Register Stable HLO op implementations for TensorKindOpInterface.
+/// Register StableHlo op implementations for TensorKindOpInterface.
 void registerTensorKindOpInterfaceExternalModels(DialectRegistry &registry);
+
+/// Register StableHlo op implementations for ReifyRankedShapedTypeOpInterface.
+void registerTypeInferenceExternalModels(DialectRegistry &registry);
 
 } // namespace mlir::stablehlo
 

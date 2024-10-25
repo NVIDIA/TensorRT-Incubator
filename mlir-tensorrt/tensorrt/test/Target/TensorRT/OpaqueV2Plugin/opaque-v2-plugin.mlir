@@ -3,7 +3,7 @@
 
 func.func @test_opaque_v2_plugin_field_serialization(%arg0: tensor<1xf32>) -> tensor<1xf32> {
   %0 = tensorrt.opaque_plugin {
-    dso_path = "libTensorRTTestPlugins.so",
+    dso_path = "TensorRTTestPlugins.so",
     plugin_name = "TestV2Plugin1",
     plugin_version = "0",
     plugin_namespace = "",
@@ -30,7 +30,7 @@ func.func @test_opaque_v2_plugin_field_serialization(%arg0: tensor<1xf32>) -> te
 
 func.func @test_opaque_v2_plugin_field_creation_using_registry_and_dso(%arg0: tensor<1xf32>) -> tensor<1xf32> {
   %0 = tensorrt.opaque_plugin {
-    dso_path = "libTensorRTTestPlugins.so",
+    dso_path = "TensorRTTestPlugins.so",
     plugin_name = "TestV2Plugin1",
     plugin_version = "0",
     plugin_namespace = "",
