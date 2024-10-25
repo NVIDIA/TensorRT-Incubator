@@ -52,10 +52,10 @@ class BatchNorm(Module):
     r"""The learnable shift parameter (β) of shape `(num_features,)`."""
 
     running_mean: Parameter
-    r"""The precomputed running mean for the feature channels of shape `(num_features,)`."""
+    r"""The running mean for the feature channels of shape :math:`[\text{num_features}]`."""
 
     running_var: Parameter
-    r"""The precomputed running variance for the feature channels of shape `(num_features,)`."""
+    r"""The running variance for the feature channels of shape :math:`[\text{num_features}]`."""
 
     eps: float = 1e-5
     r""":math:`\epsilon` value added to the denominator to prevent division by zero during normalization."""
