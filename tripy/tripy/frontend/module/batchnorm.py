@@ -40,7 +40,6 @@ class BatchNorm(Module):
         - :math:`\sigma^2` is the precomputed running variance.
         - :math:`\gamma` and :math:`\beta` are learnable parameter vectors (wieight and bias).
 
-    This module is designed for evaluation purposes only, and it does not compute batch statistics.
     """
 
     num_features: int
