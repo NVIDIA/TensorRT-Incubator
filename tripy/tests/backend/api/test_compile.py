@@ -79,6 +79,10 @@ class TestCompile:
         with helper.raises(tp.TripyException, "Function must return 1 or more Tensors"):
             tp.compile(func, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
+    @pytest.mark.parametrize("func", [accepts_nothing])
+    def test_no_input_network(self, func):
+        tp.compile(func, args=[])
+
     def test_multiple_return_values(self):
         compiled_func = tp.compile(
             returns_multiple_tensors,
