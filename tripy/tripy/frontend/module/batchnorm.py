@@ -44,6 +44,12 @@ class BatchNorm(Module):
     num_features: int
     r"""The number of feature channels in the input tensor (the size of the second dimension)."""
 
+    dtype: datatype.dtype
+    r"""The data type used to perform the operation."""
+
+    eps: float
+    r""":math:`\epsilon` value added to the denominator to prevent division by zero during normalization."""
+
     weight: Parameter
     r"""The :math:`\gamma` parameter of shape :math:`[\text{num_features}]`."""
 
@@ -56,23 +62,20 @@ class BatchNorm(Module):
     running_var: Parameter
     r"""The running variance for the feature channels of shape :math:`[\text{num_features}]`."""
 
-    eps: float = 1e-5
-    r""":math:`\epsilon` value added to the denominator to prevent division by zero during normalization."""
-
-
-    def __init__(self, num_features: int, eps: float = 1e-5) -> None:
-        """
+    def __init__(self, num_features: int, dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:
+        r"""
         Args:
             num_features: The number of feature channels in the input tensor (the size of the second dimension).
+            dtype: The data type to use for the weight, bias, running_mean and running_var parameters.
             eps: :math:`\epsilon` value added to the denominator to prevent division by zero during normalization.
 
         .. code-block:: python
             :linenos:
             :caption: Example
 
-            batch_norm = tp.BatchNorm(3)
+            batch_norm = tp.BatchNorm(2)
 
-            input = tp.iota((2, 3, 1, 1))
+            input = tp.iota((1, 2, 1, 1))
             output = batch_norm(input)
         """
         super().__init__()
@@ -81,12 +84,12 @@ class BatchNorm(Module):
         self.eps = eps
 
         # Initialize learnable parameters (scale and shift)
-        self.weight = DefaultParameter((num_features,), dtype=datatype.float32)
-        self.bias = DefaultParameter((num_features,), dtype=datatype.float32)
+        self.weight = DefaultParameter((num_features,), dtype=dtype)
+        self.bias = DefaultParameter((num_features,), dtype=dtype)
 
         # Initialize running statistics (precomputed, not updated)
-        self.running_mean = DefaultParameter((num_features,), dtype=datatype.float32)
-        self.running_var = DefaultParameter((num_features,), dtype=datatype.float32)
+        self.running_mean = DefaultParameter((num_features,), dtype=dtype)
+        self.running_var = DefaultParameter((num_features,), dtype=dtype)
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
@@ -99,16 +102,17 @@ class BatchNorm(Module):
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
         from tripy.frontend.trace.ops.reshape import reshape
 
-        x_shape = (1, -1, *([1] * (len(x.shape) - 2)))
+        x_shape = (1, -1, *([1] * (x.rank - 2)))
+        
         # Use precomputed running mean and variance for normalization
         mean = reshape(self.running_mean, x_shape)
         var = reshape(self.running_var, x_shape)
 
         # Normalize the input
-        normalized = (x - mean) * rsqrt(var + self.eps)
+        x = (x - mean) * rsqrt(var + self.eps)
 
         # Apply the learned scaling (weight) and shifting (bias)
         weight = reshape(self.weight, x_shape)
         bias =  reshape(self.bias, x_shape)
         
-        return weight * normalized + bias
+        return weight * x + bias
