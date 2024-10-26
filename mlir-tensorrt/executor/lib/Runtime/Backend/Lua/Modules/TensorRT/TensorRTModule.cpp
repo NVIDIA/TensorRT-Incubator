@@ -156,7 +156,8 @@ public:
     return reinterpret_cast<void *>(mOutputPtr);
   }
 
-  void notifyShape(const char *name, const nvinfer1::Dims &dims) override {
+  void notifyShape(const char *name,
+                   const nvinfer1::Dims &dims) noexcept override {
     assert(name == mTensorName && "Tensor name mismatch");
     mOutputDims = dims;
   }
