@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Sequence, Tuple, Union
 
-from tripy import export, utils
+from tripy import export
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 

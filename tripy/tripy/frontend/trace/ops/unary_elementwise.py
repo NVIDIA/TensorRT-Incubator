@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from tripy import export, constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.exception import raise_error
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -36,6 +36,8 @@ class UnaryElementwise(BaseTraceOp):
         ABS = 7
 
     kind: Kind
+
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     # Note: shape inputs will fail because the StableHLO implementations of these ops
     # require float inputs but shapes are always int

@@ -33,14 +33,12 @@ class TestPermute:
     @pytest.mark.parametrize("perm", [(0,), (0, 1, 2)])
     def test_mistmatched_permutation_fails(self, perm):
         a = tp.ones((2, 3), dtype=tp.float32)
-        b = tp.permute(a, perm)
 
         with helper.raises(
             tp.TripyException,
-            match="TransposeOp operand rank 2 does not match permutation size",
-            has_stack_info_for=[a, b],
+            match="Invalid permutation.",
         ):
-            b.eval()
+            b = tp.permute(a, perm)
 
     def test_infer_rank(self):
         a = tp.ones((3, 2))

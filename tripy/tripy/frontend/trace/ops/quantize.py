@@ -25,12 +25,16 @@ from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
+from tripy.frontend.trace.ops import utils as op_utils
+
 
 @dataclass(repr=False)
 class Quantize(BaseTraceOp):
 
     dtype: datatype.dtype
     dim: int
+
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype

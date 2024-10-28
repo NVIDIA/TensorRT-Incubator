@@ -16,8 +16,9 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Optional
 
+import tripy.frontend.trace.ops.utils as op_utils
 from tripy import constraints, export, utils
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
@@ -32,24 +33,9 @@ class Iota(BaseTraceOp):
     dtype: datatype.dtype
 
     def infer_rank(self):
-        if self.output_rank is None:
-            if self.inputs[0].shape is None:
-                from tripy.backend.mlir.utils import ShapeContext
-
-                out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
-                assert len(out_shape) == 1
-                assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
-                self.output_rank = out_shape[0]
-            else:
-                self.output_rank = self.inputs[0].shape[0]
-
-        # Iota requires inputs[0] to be statically shaped
-        if self.inputs[0].shape is None:
-            self.inputs[0].shape = (self.output_rank,)
-
+        op_utils.InferRankPolicies.same_as_shape_of_shape_input()(self)
         if self.dim < 0:
-            self.dim += self.output_rank
-        self.outputs[0].rank = self.output_rank
+            self.dim += self.outputs[0].rank
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype

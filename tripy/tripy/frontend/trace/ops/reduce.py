@@ -44,13 +44,13 @@ class Reduce(BaseTraceOp):
     kind: Kind
 
     def infer_rank(self):
+        input_rank = self.inputs[0].rank
         if self.dim is None:
-            self.dim = list(range(self.inputs[0].rank))
+            self.dim = list(range(input_rank))
             self.outputs[0].rank = 0
         else:
-            self.dim = make_list(self.dim)
-            self.dim = [idx if idx >= 0 else idx + self.inputs[0].rank for idx in self.dim]
-            self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
+            self.dim = [idx if idx >= 0 else idx + input_rank for idx in make_list(self.dim)]
+            self.outputs[0].rank = input_rank - len(self.dim)
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp, ReduceOp

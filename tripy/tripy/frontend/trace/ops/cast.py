@@ -18,15 +18,15 @@
 from dataclasses import dataclass
 
 from tripy import constraints, export
+from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.trace.ops.utils import InferLenPolicies
 
 
 @dataclass(repr=False)
 class Cast(BaseTraceOp):
     dtype: "tripy.common.dtype"
 
-    infer_len = InferLenPolicies.infer_same_as_first_input
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype

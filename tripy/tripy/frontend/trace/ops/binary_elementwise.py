@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 
-import numbers
 from dataclasses import dataclass
-from typing import Any, Union
 
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
@@ -50,14 +48,7 @@ class BinaryElementwise(BaseTraceOp):
             op_str = f"{self.kind}({self.inputs[0].name}, {self.inputs[1].name})"
         return f"{self.outputs[0].name} = {op_str}"
 
-    def infer_len(self):
-        # For the shape case, the result will be broadcast to the max of the input shapes
-        input_lengths = []
-        for inp in self.inputs:
-            shape = op_utils.get_trace_shape(inp)
-            if len(shape) != 0:
-                input_lengths.append(shape[0])
-        return [max(input_lengths)]
+    infer_rank = op_utils.InferRankPolicies.max_of_inputs()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype

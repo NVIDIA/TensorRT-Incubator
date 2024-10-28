@@ -15,9 +15,8 @@
 # limitations under the License.
 #
 
-import numbers
 from dataclasses import dataclass
-from typing import Optional, Sequence, Union
+from typing import Optional
 
 import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
@@ -30,8 +29,9 @@ from tripy.types import ShapeLike, TensorLike
 
 @dataclass(repr=False)
 class Fill(BaseTraceOp):
-    output_rank: int
     dtype: datatype.dtype
+
+    infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
@@ -41,18 +41,8 @@ class Fill(BaseTraceOp):
 
         self.outputs[0].device = device(("gpu", 0))
 
-    def infer_rank(self):
-        if self.output_rank is None:
-            input_shape = op_utils.get_trace_shape(self.inputs[0])
-            assert len(input_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(input_shape)}"
-            assert (
-                input_shape[0] >= 0
-            ), f"Incorrect shape of shape tensor, expected shape to be positive, got {input_shape[0]}"
-            self.output_rank = input_shape[0]
-        self.outputs[0].rank = self.output_rank
-
     def to_flat_ir(self, inputs, outputs):
-        from tripy.flat_ir.ops import ConstantOp, ConvertOp, DynamicBroadcastOp
+        from tripy.flat_ir.ops import ConvertOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor
 
         const_val_tensor = None
@@ -106,7 +96,7 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "tripy.dtype" = datatype.fl
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.full([2, 3], 2, dtype=np.float32))
     """
-    return Fill.build([shape, value], output_rank=None, dtype=dtype)
+    return Fill.build([shape, value], dtype=dtype)
 
 
 @export.public_api(document_under="operations/initializers")
@@ -141,7 +131,5 @@ def full_like(input: "tripy.Tensor", value: TensorLike, dtype: Optional["tripy.d
         assert np.array_equal(cp.from_dlpack(output).get(), np.array([[2, 2], [2, 2]], dtype=np.float32))
     """
     return Fill.build(
-        [frontend_utils.tensor_from_shape_like(input.shape), value],
-        output_rank=input.rank,
-        dtype=utils.default(dtype, input.dtype),
+        [frontend_utils.tensor_from_shape_like(input.shape), value], dtype=utils.default(dtype, input.dtype)
     )

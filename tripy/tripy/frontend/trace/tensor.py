@@ -31,10 +31,12 @@ class TraceTensor:
     stack_info: utils.StackInfo
     dtype: "tripy.common.dtype"
     device: "tripy.common.device"
-    # TODO (pranavm): Replace rank field with shape.
-    rank: int
     producer: "BaseTraceOp"
-    shape: Optional[List[int]] = None
+    shape: List[int]
+    """
+    Indicates the shape of the tensor. Unknown dimensions are indicated by -1.
+    Generally, the shape will only be known for shape tensors.
+    """
 
     # Whether this tensor was constructed in order to trace a computation graph for the compiler.
     is_compile_tracer: bool = False
@@ -44,8 +46,7 @@ class TraceTensor:
 
     def __str__(self) -> str:
         return (
-            f"{self.name}: [rank=({self.rank}), "
-            + (f"shape=({self.shape}), " if self.shape is not None else "")
+            f"{self.name}: [shape=({self.shape}), "
             + (f"dtype=({self.dtype.name}), " if self.dtype is not None else "")
             + f"loc=({self.device})]"
         )
@@ -66,6 +67,15 @@ class TraceTensor:
             dtype=self.dtype,
             device=self.device,
             rank=self.rank,
-            shape=self.shape,
+            # Only set shape if known:
+            shape=self.shape if -1 not in self.shape else None,
         )
         return tensor
+
+    @property
+    def rank(self):
+        return len(self.shape)
+
+    @rank.setter
+    def rank(self, new_rank):
+        self.shape = [-1] * new_rank
