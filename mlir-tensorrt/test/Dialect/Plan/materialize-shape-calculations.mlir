@@ -1036,3 +1036,33 @@ func.func @direct_return_arg(%arg0: tensor<?xf32>) -> tensor<?xf32> {
 //   CHECK-DAG: %[[dim:.+]] = tensor.dim %[[arg0]], %[[v0]]
 //   CHECK-DAG: %[[arg0_:.+]] = plan.with_shape %[[arg0]](%[[dim]])
 //   CHECK-DAG: return %[[arg0_]]
+
+// -----
+
+func.func @conv_input_dynamnic(
+        %arg0: tensor<?x?x?x?xf32>,
+        %arg1: tensor<256x256x1x1xf32>) -> (tensor<?x?x?x?xf32>) {
+  %0 = stablehlo.convolution(%arg0, %arg1) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1],
+      window = {stride = [1, 1], pad = [[0, 0], [0, 0]], rhs_dilate = [1, 1]}
+      {batch_group_count = 1 : i64, feature_group_count = 1 : i64}
+      : (tensor<?x?x?x?xf32>, tensor<256x256x1x1xf32>) -> tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}
+
+// CHECK-LABEL: @conv_input_dynamnic
+// CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x?x?xf32>, %[[arg1:.+:]] tensor<256x256x1x1xf32>)
+//  CHECK-DAG: %[[c256:.+]] = arith.constant 256 : index
+//  CHECK-DAG: %[[c3:.+]] = arith.constant 3 : index
+//  CHECK-DAG: %[[c2:.+]] = arith.constant 2 : index
+//  CHECK-DAG: %[[c1:.+]] = arith.constant 1 : index
+//  CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
+//  CHECK-DAG: %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] : tensor<?x?x?x?xf32>
+//  CHECK-DAG: %[[dim_0:.+]] = tensor.dim %[[arg0]], %[[c1]] : tensor<?x?x?x?xf32>
+//  CHECK-DAG: %[[dim_1:.+]] = tensor.dim %[[arg0]], %[[c2]] : tensor<?x?x?x?xf32>
+//  CHECK-DAG: %[[dim_2:.+]] = tensor.dim %[[arg0]], %[[c3]] : tensor<?x?x?x?xf32>
+//  CHECK-DAG: %[[v0:.+]] = plan.with_shape %[[arg0]](%[[dim]], %[[dim_0]], %[[dim_1]], %[[dim_2]]) :
+//  CHECK-DAG: %[[v1:.+]] = stablehlo.convolution
+//  CHECK-DAG: %[[v2:.+]] = arith.maxsi %[[dim_1]], %[[c0]] : index
+//  CHECK-DAG: %[[v3:.+]] = arith.maxsi %[[dim_2]], %[[c0]] : index
+//  CHECK-DAG: %[[v4:.+]] = plan.with_shape %[[v1]](%[[dim]], %[[c256]], %[[v2]], %[[v3]]) :
+//  CHECK-DAG: return %[[v4]]

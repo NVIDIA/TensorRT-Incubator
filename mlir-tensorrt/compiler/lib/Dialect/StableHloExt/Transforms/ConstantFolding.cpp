@@ -911,6 +911,28 @@ struct ConcatSingleSegment : public OpRewritePattern<stablehlo::ConcatenateOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// ConstFoldGatherOnSplat
+//===----------------------------------------------------------------------===//
+
+/// Repalce `stablehlo.gather` with `stablehlo.constant` when the data operand
+/// is a splat constant and the result type is statically shaped.
+struct ConstFoldGatherOnSplat : public OpRewritePattern<stablehlo::GatherOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::GatherOp op,
+                                PatternRewriter &rewriter) const override {
+    SplatElementsAttr splatConst{};
+    RankedTensorType resultType = op.getType();
+    if (!resultType.hasStaticShape() ||
+        !matchPattern(op.getOperand(), m_Constant(&splatConst)))
+      return failure();
+    return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(
+        rewriter, op,
+        DenseElementsAttr::get(resultType,
+                               splatConst.getSplatValue<Attribute>()));
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Misc Patterns
 //===----------------------------------------------------------------------===//
 
@@ -1017,6 +1039,7 @@ public:
         ConstFoldConvert,
         ConstFoldDiv,
         ConstFoldFloor,
+        ConstFoldGatherOnSplat,
         ConstFoldReshape,
         ConstFoldSub,
         ConstFoldStablehloSlice,

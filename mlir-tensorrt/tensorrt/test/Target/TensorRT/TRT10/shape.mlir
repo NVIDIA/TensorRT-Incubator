@@ -17,7 +17,6 @@ func.func @tensorrt_shape_op_fp8(
   return %1 : tensor<2xi32>
 }
 
-// -----
 
 // CHECK-LABEL: @tensorrt_shape_op_bf16
 //  CHECK-SAME: tensorrt.engine

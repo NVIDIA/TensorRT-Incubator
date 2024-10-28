@@ -17,7 +17,6 @@ func.func @trt_matrix_multiply_fp8(%arg0: tensor<10x128x64xf8E4M3FN>, %arg1: ten
   return %0 : tensor<10x128x256xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_matrix_multiply_bf16
 //  CHECK-SAME: tensorrt.engine
@@ -30,7 +29,6 @@ func.func @trt_matrix_multiply_bf16(%arg0: tensor<10x128x64xbf16>, %arg1: tensor
   return %0 : tensor<10x128x256xbf16>
 }
 
-// -----
 
 func.func @trt_matrix_multiply_i4(%rhs: tensor<2x2xf32>) -> tensor<2x2xf32> {
     %scale = tensorrt.constant dense<1.0> : tensor<f32>

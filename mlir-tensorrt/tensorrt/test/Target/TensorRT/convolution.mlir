@@ -14,7 +14,6 @@ func.func @trt_2d_convolution(%arg0: tensor<1x32x128x128xf32>) -> tensor<1x64x12
   return %0 : tensor<1x64x128x128xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_2d_f16_convolution
 //  CHECK-SAME: tensorrt.engine

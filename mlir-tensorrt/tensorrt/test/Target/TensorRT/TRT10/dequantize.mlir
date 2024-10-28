@@ -12,8 +12,6 @@ func.func @dequantize_fp8(%arg0: tensor<10xf8E4M3FN>) -> tensor<10xf16>{
 // CHECK-LABEL: @dequantize_fp8
 //  CHECK-SAME: tensorrt.engine
 
-// -----
-
 func.func @dequantize_to_bf16(%arg0: tensor<10xf8E4M3FN>) -> tensor<10xbf16>{
   %scale = tensorrt.constant dense<1.000000e+00> : tensor<f32>
   %dq = tensorrt.dequantize in (%arg0: tensor<10xf8E4M3FN>) scale (%scale: tensor<f32>) -> tensor<10xbf16>
@@ -22,8 +20,6 @@ func.func @dequantize_to_bf16(%arg0: tensor<10xf8E4M3FN>) -> tensor<10xbf16>{
 
 // CHECK-LABEL: @dequantize_to_bf16
 //  CHECK-SAME: tensorrt.engine
-
-// -----
 
 func.func @dequantize_to_bf16_bf16_scale(%arg0: tensor<10xf8E4M3FN>) -> tensor<10xbf16>{
   %scale = tensorrt.constant dense<1.000000e+00> : tensor<bf16>

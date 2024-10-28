@@ -12,7 +12,6 @@ func.func @trt_identity_noop_fp8(%arg0: tensor<10x128x64xf8E4M3FN>) -> tensor<10
   return %0 : tensor<10x128x64xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_identity_fp8_cast_f32_i32_f32
 //  CHECK-SAME: tensorrt.engine
@@ -24,7 +23,6 @@ func.func @trt_identity_fp8_cast_f32_i32_f32(%arg0: tensor<10x128x64xf8E4M3FN>) 
   return %1 : tensor<10x128x64xf32>
 }
 
-// -----
 
 func.func @trt_identity_from_bf16(%arg0: tensor<10x128x64xbf16>) -> (tensor<10x128x64xf32>, tensor<10x128x64xf16>, tensor<10x128x64xi32>) {
   %1 = tensorrt.identity %arg0 : tensor<10x128x64xbf16> to tensor<10x128x64xf32>
@@ -36,7 +34,6 @@ func.func @trt_identity_from_bf16(%arg0: tensor<10x128x64xbf16>) -> (tensor<10x1
 // CHECK-LABEL: @trt_identity_from_bf16
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_identity_to_bf16(%arg0: tensor<10x128x64xf32>, %arg1: tensor<10x128x64xf16>, %arg2: tensor<10x128x64xi32>) -> (tensor<10x128x64xbf16>, tensor<10x128x64xbf16>, tensor<10x128x64xbf16>) {
   %1 = tensorrt.identity %arg0 : tensor<10x128x64xf32> to tensor<10x128x64xbf16>

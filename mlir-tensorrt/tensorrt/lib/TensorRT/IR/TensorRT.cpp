@@ -1479,13 +1479,16 @@ void tensorrt::TopKOp::build(OpBuilder &odsBuilder, OperationState &odsState,
 namespace {
 /// Fold reshape-like operations into `tensorrt.constant`.
 template <typename OpType>
-struct FoldConstExpandRank : public OpRewritePattern<OpType> {
+struct ConstFoldReshapePattern : public OpRewritePattern<OpType> {
   using OpRewritePattern<OpType>::OpRewritePattern;
   LogicalResult matchAndRewrite(OpType op,
                                 PatternRewriter &rewriter) const override {
+    if (!op.getType().hasStaticShape())
+      return failure();
     auto producer = op->getOperand(0).template getDefiningOp<ConstantOp>();
     if (!producer)
       return failure();
+
     // If the weights were elided, we can still notionally do this
     // transformation.
     if (std::optional<DenseResourceElementsHandle> elidedHandle =
@@ -1494,6 +1497,7 @@ struct FoldConstExpandRank : public OpRewritePattern<OpType> {
           op, DenseResourceElementsAttr::get(op.getType(), *elidedHandle));
       return success();
     }
+
     if (auto constAttr =
             dyn_cast<DenseElementsAttr>(producer.getWeightsAttr())) {
       rewriter.replaceOpWithNewOp<tensorrt::ConstantOp>(
@@ -1639,7 +1643,7 @@ tensorrt::CollapseRankOp::getReassociationIndices() {
 void tensorrt::CollapseRankOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ComposeTensorRTReassociativeReshapes<CollapseRankOp>,
-                 FoldConstExpandRank<CollapseRankOp>,
+                 ConstFoldReshapePattern<CollapseRankOp>,
                  TensorRTComposeCollapseOfExpandOp>(context);
 }
 
@@ -1711,7 +1715,7 @@ void tensorrt::ExpandRankOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ComposeTensorRTReassociativeReshapes<ExpandRankOp>,
                  TensorRTComposeExpandOfCollapseOp,
-                 FoldConstExpandRank<ExpandRankOp>>(context);
+                 ConstFoldReshapePattern<ExpandRankOp>>(context);
 }
 
 OpFoldResult tensorrt::ExpandRankOp::fold(FoldAdaptor adaptor) {
@@ -1777,7 +1781,7 @@ struct SimplifyReshapeToRankExpandCollapse
 
 void tensorrt::ReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<FoldConstExpandRank<ReshapeOp>, SimplifyReshapeReshape,
+  results.insert<ConstFoldReshapePattern<ReshapeOp>, SimplifyReshapeReshape,
                  SimplifyReshapeToRankExpandCollapse>(context);
 }
 

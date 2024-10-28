@@ -16,7 +16,6 @@ func.func @topk_fp8(%arg0: tensor<128x128xf8E4M3FN>) -> (tensor<128x1xf16>, tens
 // CHECK-LABEL: @topk_fp8
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @topk_bf16(%arg0: tensor<128x128xbf16>) -> (tensor<128x1xbf16>, tensor<128x1xi32>) {
   %0, %1 = tensorrt.top_k <kMAX> {

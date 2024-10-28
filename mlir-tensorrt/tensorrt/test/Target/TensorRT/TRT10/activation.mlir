@@ -14,8 +14,6 @@ func.func @trt_relu_fp8(%arg0: tensor<2x10xf8E4M3FN>) -> tensor<2x10xf16> {
   return %1 : tensor<2x10xf16>
 }
 
-// -----
-
 func.func @trt_relu_bf16(%arg0: tensor<2x10xbf16>) -> tensor<2x10xbf16> {
   %1 = tensorrt.activation {
     activationType = #tensorrt.activation_type<kRELU>
