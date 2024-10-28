@@ -1,0 +1,56 @@
+{
+  "version": 6,
+  "include": [],
+  "configurePresets": [
+    {
+      "name": "base",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "LLVM_ENABLE_ASSERTIONS": "ON",
+        "CPM_SOURCE_CACHE": "${sourceDir}/.cache.cpm",
+        "CPM_USE_NAMED_CACHE_DIRECTORIES": "ON"
+      }
+    },
+    {
+      "name": "ninja-llvm",
+      "displayName": "Ninja RelWithDebInfo LLVM",
+      "generator": "Ninja",
+      "binaryDir": "build",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "LLVM_USE_LINKER": "lld"
+      }
+    },
+    {
+      "name": "ninja-llvm-release",
+      "inherits": "ninja-llvm",
+      "displayName": "Ninja Release LLVM",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "ninja-llvm-debug",
+      "inherits": "ninja-llvm",
+      "displayName": "Ninja Release LLVM",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "ninja-gcc",
+      "displayName": "Ninja RelWithDebInfo GCC",
+      "generator": "Ninja",
+      "binaryDir": "build-gcc",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    }
+  ]
+}

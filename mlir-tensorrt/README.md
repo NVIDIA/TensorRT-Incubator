@@ -42,16 +42,14 @@ since we download LLVM-Project as a zip archive directly from GitHub
 at our pinned commit.
 
 ```sh
-# Note: we use clang and lld here. These are recommended.
-# However, GNU toolchains will also work,
-# clang toolchain is optional.
-cmake -B ./build -S . -G Ninja \
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
-    -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-    -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
-    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-    -DMLIR_TRT_USE_LINKER=lld
+# See CMakePresets.json for convenient CMake presets.
+# Preset 'ninja-llvm' uses the Ninja generator, clang, and
+# LLD, but GNU GCC toolchain is also supported (use preset
+# ninja-gcc).
+#
+# By default, the CMake build system will download a version
+# of TensorRT for you.
+cmake --preset ninja-llvm
 
 # Example build commands:
 
@@ -115,6 +113,39 @@ This will produce wheels under `build/mlir-tensorrt/wheels`:
 ```
 ninja -C build/mlir-tensorrt mlir-tensorrt-all-wheels
 ```
+
+## Configuring What TensorRT Version is Used
+
+Our CMake-based build system will by default attempt to download a
+version of TensorRT to use during building and testing. This is controlled
+by the CMake cache variable [`MLIR_TRT_DOWNLOAD_TENSORRT_VERSION`](./CMakeLists.txt#L58).
+
+To instead use a local TensorRT version, simply set the CMake
+cache variable [`MLIR_TRT_TENSORRT_DIR`](./CMakeLists.txt#L200) to the
+path to the TensorRT installation directory (containing directories `include`, `lib64`, and
+so on), and set `MLIR_TRT_DOWNLOAD_TENSORRT_VERSION` to the empty string.
+
+These variables are fed into the CMake function `find_tesnsorrt` which is invoked
+[here](./CMakeLists.txt#L199). Options `INSTALL_DIR` and `DOWNLOAD_VERSION` are
+mutually exclusive.
+
+All executables built by the project will link TensorRT dynamically and load it
+dynamically at runtime using the runtime environment's default dynamic library
+search mechanism. The LIT testing configurations used in the project set the
+dynamic library search path (e.g. the environment variable `LD_LIBRARY_PATH` on
+Linux systems) to ensure that the TensorRT version used during compilation is
+also used during testing.
+
+When invoking an executable (e.g. `mlir-tensorrt-opt`) directly outside of the
+LIT test runner, one should set the appropriate environment variables (e.g.
+`LD_LIBRARY_PATH`) to point to the TensorRT library which should be loaded at runtime.
+In general, if the project is compiled with TensorRT `X.Y` but version
+`X.Z` is loaded at runtime, with `Z > Y`, the software is expected to work, but
+no guarantees are currently made.
+
+
+
+
 
 
 
