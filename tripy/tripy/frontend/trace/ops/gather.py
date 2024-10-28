@@ -29,10 +29,6 @@ class Gather(BaseTraceOp):
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
 
-    def infer_len(self):
-        # in the shape case, the resulting shape is comprised _only_ of the selected indices
-        return [op_utils.get_trace_shape(self.inputs[1])[0]]
-
     def infer_dtypes(self):
         from tripy import int32
 
@@ -48,8 +44,6 @@ class Gather(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_devices(self):
-        from tripy.common import device
-
         self.outputs[0].device = self.inputs[0].device
 
     def to_flat_ir(self, inputs, outputs):

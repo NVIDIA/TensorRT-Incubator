@@ -21,21 +21,17 @@ from typing import Sequence
 from tripy import constraints, export
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
 class Concatenate(BaseTraceOp):
     dim: int
 
+    infer_rank = op_utils.InferRankPolicies.max_of_inputs()
+
     def infer_devices(self):
         self.outputs[0].device = self.inputs[0].device
-
-    def infer_len(self):
-        # for shapes, only have to sum the input shapes
-        from tripy.frontend.trace.ops import utils as op_utils
-
-        out_length = sum(map(lambda inp: op_utils.get_trace_shape(inp)[0], self.inputs))
-        return [out_length]
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConcatenateOp

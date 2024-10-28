@@ -25,10 +25,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 
 @dataclass(repr=False)
 class Where(BaseTraceOp):
-
-    def infer_len(self):
-        # broadcast to the largest of the input lengths
-        return [max(map(lambda inp: op_utils.get_trace_shape(inp)[0], self.inputs))]
+    infer_rank = op_utils.InferRankPolicies.max_of_inputs()
 
     def infer_dtypes(self):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"

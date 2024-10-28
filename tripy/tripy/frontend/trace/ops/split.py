@@ -36,24 +36,9 @@ class Split(BaseTraceOp):
             # + 1 because of the last split, which is [self.indices_or_sections[-1]:]
             return len(self.indices_or_sections) + 1
 
-    def infer_len(self):
-        # since this only runs in the shape case, this is rank 1
-        shape_len = op_utils.get_trace_shape(self.inputs[0])[0]
-        if isinstance(self.indices_or_sections, int):
-            # Note: Important to use //, as if the result is a float, MLIR compilation will fail
-            out_len = shape_len // self.indices_or_sections
-            ret = [out_len] * self.indices_or_sections
-            return ret
-
-        out_lengths = []
-        start_idx = 0
-        for idx in self.indices_or_sections:
-            out_len = idx - start_idx
-            start_idx = idx
-            out_lengths.append(out_len)
-        # final slice
-        out_lengths.append(shape_len - start_idx)
-        return out_lengths
+    def infer_rank(self):
+        for i in range(self.num_outputs()):
+            self.outputs[i].rank = self.inputs[0].rank
 
     def infer_devices(self):
         for i in range(self.num_outputs()):
@@ -62,10 +47,6 @@ class Split(BaseTraceOp):
     def infer_dtypes(self):
         for i in range(self.num_outputs()):
             self.outputs[i].dtype = self.inputs[0].dtype
-
-    def infer_rank(self):
-        for i in range(self.num_outputs()):
-            self.outputs[i].rank = self.inputs[0].rank
 
     # gets input_tensor[..., :,  :, start_idx: end_idx, :, :, ...], with the start and end slice only at the axis dimension
     def build_slice_of_target_dim(self, input_tensor, input_shape, device, start_idx, end_idx, output_tensor):

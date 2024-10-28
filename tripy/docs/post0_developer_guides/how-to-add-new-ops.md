@@ -125,6 +125,11 @@ class Theta(BaseTraceOp):
     dim: int
     dtype: datatype.dtype
 
+    # `infer_rank()` populates the rank of the output `TraceTensor`s.
+    # Here we use one of the predefined policies to set the output rank to the same as the shape (i.e. the length)
+    # of the shape operand.
+    infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input()
+
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
     # data types if they are all the same, so you may not need to implement this.
@@ -136,21 +141,6 @@ class Theta(BaseTraceOp):
     # devices if they are all the same, so you may not need to implement this either.
     def infer_devices(self):
         self.outputs[0].device = device("gpu")
-
-    # `infer_rank()` populates the rank of the output `TraceTensor`s.
-    # For most operators, the output rank will depend on the rank of `self.inputs`.
-    # In our case, since `Theta` generates a tensor, there is no input tensor.
-    def infer_rank(self):
-        from tripy.backend.mlir.utils import ShapeContext
-
-        # `self.inputs[0]` indicates the desired shape of the output.
-        # Here, we compute the number of elements in the shape tensor, which determines the rank of the output.
-        out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
-        assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
-        assert (
-            out_shape[0] >= 0
-        ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
-        self.outputs[0].rank = out_shape[0]
 
     # `to_flat_ir()` translates the `Trace` operator to a subgraph of
     # one or more `FlatIR` operators. In our case, it's just a 1:1

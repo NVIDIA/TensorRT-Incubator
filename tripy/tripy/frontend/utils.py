@@ -53,15 +53,20 @@ def tensor_from_shape_like(arg: ShapeLike) -> "tripy.Tensor":
     for elem in arg:
         if isinstance(elem, DimensionSize):
             empty_buffer()
-            # NOTE: We cannot use the reshape API here since it would lead to an infinite loop when attempting to convert
-            # the shape input to a tensor.
+            # NOTE: We cannot use the reshape API here since it would lead to an
+            # infinite loop when attempting to convert the shape input to a tensor.
             concat_tensors.append(Reshape.build([elem, Tensor([1])], 1))
         else:
             int_buffer.append(elem)
 
     empty_buffer()
 
-    return concatenate(concat_tensors, dim=0)
+    out = concatenate(concat_tensors, dim=0)
+    # We must set the shape of the shape tensor here since otherwise we will not be able
+    # to infer ranks in the frontend. Note that the reshape operations above will not result
+    # in a tensor with known shapes even though the new shape is actually known.
+    out.trace_tensor.shape = [len(arg)]
+    return out
 
 
 # Try to include correct column offsets for non-tensor arguments.

@@ -24,6 +24,7 @@ from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import ShapeLike
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -33,8 +34,7 @@ class Resize(BaseTraceOp):
     scales: Optional[Sequence[float]]
     align_corners: bool
 
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
