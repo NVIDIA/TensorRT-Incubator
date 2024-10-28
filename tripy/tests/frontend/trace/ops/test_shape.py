@@ -20,12 +20,9 @@ import tripy as tp
 
 class TestShape:
     def test_shape(self):
-        a = tp.ones((3, 4))
+        a = tp.Tensor([[1, 2], [3, 4]])
         shape_a = a.shape
         assert isinstance(a, tp.Tensor)
-        assert isinstance(shape_a, tp.Shape)
+        assert isinstance(shape_a, list)
 
-    def test_infer_rank(self):
-        a = tp.ones((3, 4))
-        shape_a = a.shape
-        assert shape_a.trace_tensor.rank == 1
+        assert shape_a == [2, 2]

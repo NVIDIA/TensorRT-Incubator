@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import pytest
 
 import tripy as tp
 from tests import helper
@@ -37,6 +36,13 @@ class TestExpand:
             match="The length of `sizes` must be greater or equal to input tensor's rank.",
         ):
             b = tp.expand(a, (2, 2))
+
+    def test_invalid_prepended_dim(self):
+        # We cannot use -1 if we are prepending a new dimension.
+        a = tp.ones((2,))
+
+        with helper.raises(tp.TripyException, match="Cannot use -1 for prepended dimension."):
+            b = tp.expand(a, (-1, 2))
 
     def test_invalid_mismatch_size(self):
         a = tp.ones((2, 1))

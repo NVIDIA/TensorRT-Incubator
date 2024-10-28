@@ -27,16 +27,17 @@ from tripy.frontend.trace.ops.flip import Flip
 from tripy.frontend.trace.ops.gather import Gather
 from tripy.frontend.trace.ops.iota import Iota
 from tripy.frontend.trace.ops.matmul import MatrixMultiplication
-from tripy.frontend.trace.ops.permute import Permute, Transpose
 from tripy.frontend.trace.ops.pad import Pad
+from tripy.frontend.trace.ops.permute import Permute, Transpose
 from tripy.frontend.trace.ops.plugin import Plugin
 from tripy.frontend.trace.ops.quantize import Quantize
 from tripy.frontend.trace.ops.reduce import ArgMinMax, Reduce
+from tripy.frontend.trace.ops.reshape import Reshape
 from tripy.frontend.trace.ops.resize import Resize
-from tripy.frontend.trace.ops.reshape import Reshape, Squeeze
-from tripy.frontend.trace.ops.shape import Shape
+from tripy.frontend.trace.ops.shape import GetDimensionSize
 from tripy.frontend.trace.ops.slice import Slice
 from tripy.frontend.trace.ops.split import Split
+from tripy.frontend.trace.ops.squeeze import Squeeze
 from tripy.frontend.trace.ops.storage import Storage
 from tripy.frontend.trace.ops.unary_elementwise import UnaryElementwise
 from tripy.frontend.trace.ops.where import Where

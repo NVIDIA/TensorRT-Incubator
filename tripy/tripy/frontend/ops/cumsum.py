@@ -24,7 +24,7 @@ from tripy.frontend import utils as frontend_utils
         "T1": ["float32", "float16", "bfloat16", "int32"],
     },
 )
-@frontend_utils.process_dim
+@frontend_utils.process_dim()
 def cumsum(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     Computes the cumulative sum of elements in the input along the dimension ``dim``.

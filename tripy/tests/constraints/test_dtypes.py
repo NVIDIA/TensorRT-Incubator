@@ -231,12 +231,12 @@ def test_dtype_constraints(test_data):
         _, _, _, return_dtype, _, positive_case, _ = test_data
         if positive_case:
             ret_val, namespace = _run_dtype_constraints_subtest(test_data)
-            if isinstance(ret_val, tp.Tensor):
+            if isinstance(ret_val, tp.Tensor) and return_dtype in namespace:
                 assert ret_val.dtype == namespace[return_dtype]
         else:
             with helper.raises(Exception):
                 ret_val, namespace = _run_dtype_constraints_subtest(test_data)
-                if isinstance(ret_val, tp.Tensor):
+                if isinstance(ret_val, tp.Tensor) and return_dtype in namespace:
                     assert ret_val.dtype == namespace[return_dtype]
 
 

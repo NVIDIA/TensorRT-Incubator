@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional, Sequence, Union
+from typing import Sequence, Union
 
 from tripy import constraints, utils
 from tripy.common.exception import raise_error
@@ -24,14 +24,12 @@ from tripy.frontend import utils as frontend_utils
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.utils import make_tuple
 from tripy.types import TensorLike
+from tripy.utils import make_tuple
 
 
 @dataclass(repr=False)
 class Slice(BaseTraceOp):
-    shape_slice: Optional[slice] = None  # only used for inferring the length of a shape result
-
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
@@ -42,45 +40,7 @@ class Slice(BaseTraceOp):
     def infer_len(self):
         # Only infer if we have concrete values to use. Note that the result is only a Shape if these are *slices*,
         # not single indices, so a slice is the only case that needs to be considered
-        if self.shape_slice is not None:
-            input_len = op_utils.get_trace_shape(self.inputs[0])[0]
-
-            def convert_to_positive_idx(idx):
-                return idx if idx >= 0 else input_len + idx
-
-            def clamp_bound(idx):
-                return 0 if idx < 0 else (idx if idx <= input_len else input_len)
-
-            stride = utils.default(self.shape_slice.step, 1)
-            if stride > 0:
-                start = 0 if self.shape_slice.start is None else convert_to_positive_idx(self.shape_slice.start)
-                stop = input_len if self.shape_slice.stop is None else convert_to_positive_idx(self.shape_slice.stop)
-            else:
-                # for negative stride, we compute the indices as they would be on the flipped list, see comments below
-                start = (
-                    0
-                    if self.shape_slice.start is None
-                    else input_len - convert_to_positive_idx(self.shape_slice.start) - 1
-                )
-                stop = (
-                    input_len
-                    if self.shape_slice.stop is None
-                    else input_len - convert_to_positive_idx(self.shape_slice.stop) - 1
-                )
-
-            start_point = clamp_bound(start)
-            end_point = clamp_bound(stop)
-            if start_point >= end_point:
-                return [0]
-
-            # - 1 because the end_point is exclusive. Use // so we round down
-            strides_in_range = (end_point - start_point - 1) // abs(stride)
-            # + 1 because we include the starting point and then make strides
-            return [1 + strides_in_range]
         return [None]
-
-    # we only care about the data input
-    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
 
     @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
@@ -179,8 +139,8 @@ class Slice(BaseTraceOp):
 
 @TENSOR_METHOD_REGISTRY("__getitem__")
 @constraints.dtypes(
-    constraints={"self": "self_dtype", constraints.RETURN_VALUE: "self_dtype"},
-    variables={"self_dtype": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+    constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
     self: "tripy.Tensor", index: Union[slice, int, "tripy.Tensor", Sequence[Union[slice, int, "tripy.Tensor"]]]
@@ -212,21 +172,15 @@ def __getitem__(
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
 
     """
-    from tripy.frontend.shape import Shape, ShapeScalar
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.gather import gather
-    from tripy.frontend.trace.ops.reshape import squeeze
+    from tripy.frontend.trace.ops.squeeze import squeeze
     from tripy.frontend.trace.ops.where import where
 
     # If a tensor is indexed by another tensor, this operation is equivalent to a gather operation.
     if isinstance(index, Tensor):
         return gather(self, 0, index)
-
-    # if we are taking a literal slice of a shape, we can pass on the slice to infer the length of the shape statically
-    shape_slice = None
-    if isinstance(self, Shape) and isinstance(index, slice):
-        shape_slice = index
 
     index = make_tuple(index)
     if len(index) > self.rank:
@@ -290,7 +244,7 @@ def __getitem__(
     if flip_dims:
         input_tensor = flip(input_tensor, dims=flip_dims)
 
-    out = slice_helper(input_tensor, *args, shape_slice=shape_slice)
+    out = slice_helper(input_tensor, *args)
 
     squeeze_dims = []
     for i, idx in enumerate(index):
@@ -301,11 +255,11 @@ def __getitem__(
     if squeeze_dims:
         out = squeeze(out, make_tuple(squeeze_dims))
 
-    return ShapeScalar(out) if isinstance(self, Shape) and out.rank == 0 else out
+    return out
 
 
 # Because the helper is called inside another function, we need to skip one entry in the call stack to find
 # the original call to user code.
 @frontend_utils.convert_to_tensors(skip_num_stack_entries=1)
-def slice_helper(tensor, *slice_params: TensorLike, shape_slice: Optional[slice] = None):
-    return Slice.build(inputs=[tensor, *slice_params], shape_slice=shape_slice)
+def slice_helper(tensor, *slice_params: TensorLike):
+    return Slice.build(inputs=[tensor, *slice_params])

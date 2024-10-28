@@ -115,8 +115,6 @@ class GroupNorm(Module):
         from tripy.frontend.trace.ops.reshape import reshape
 
         input_shape = x.shape
-        # TODO: #228 - WAR to prevent computing output rank in infer_rank for reshape
-        input_shape.trace_tensor.shape = (x.rank,)
 
         x = reshape(x, (x.shape[0], self.num_groups, -1))
         mean_val = mean(x, dim=-1, keepdim=True)
