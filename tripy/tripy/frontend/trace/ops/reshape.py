@@ -48,14 +48,29 @@ class Reshape(BaseTraceOp):
         else:
             self.outputs[0].rank = self.output_rank
 
-    # @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicReshapeOp
 
         DynamicReshapeOp.build(inputs, outputs)
 
 
+def infer_dimensions(input: "tripy.Tensor", shape: ShapeLike) -> ShapeLike:
+    num_unknown_dims = len([dim for dim in shape if op_utils.is_minus_one(dim)])
+    if num_unknown_dims > 1:
+        raise_error(f"The new shape can have at most one inferred dimension (denoted by -1)", [f"Got shape: {shape}."])
+
+    if num_unknown_dims == 1:
+        input_volume = math.prod(input.shape)
+        known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_minus_one(dim))
+        inferred_dim = input_volume / known_dims_volume
+
+        shape = [inferred_dim if op_utils.is_minus_one(dim) else dim for dim in shape]
+
+    return {"shape": shape}
+
+
 @export.public_api(document_under="operations/functions")
+@frontend_utils.convert_to_tensors(preprocess_args=infer_dimensions)
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
@@ -82,20 +97,4 @@ def reshape(input: "tripy.Tensor", shape: ShapeLike) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.reshape(cp.from_dlpack(input).get(), (1, 6)))
     """
-
-    num_unknown_dims = len([dim for dim in shape if op_utils.is_minus_one(dim)])
-    if num_unknown_dims > 1:
-        raise_error(f"The new shape can have at most one inferred dimension (denoted by -1)", [f"Got shape: {shape}."])
-
-    if num_unknown_dims == 1:
-        input_volume = math.prod(input.shape)
-        known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_minus_one(dim))
-        inferred_dim = input_volume / known_dims_volume
-
-        shape = [inferred_dim if op_utils.is_minus_one(dim) else dim for dim in shape]
-
-    @frontend_utils.convert_to_tensors(skip_num_stack_entries=1)
-    def reshape_impl(input: "tripy.Tensor", shape: ShapeLike, output_rank: int) -> "tripy.Tensor":
-        return Reshape.build([input, shape], output_rank)
-
-    return reshape_impl(input, shape, output_rank=len(shape))
+    return Reshape.build([input, shape], None)

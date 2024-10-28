@@ -126,7 +126,5 @@ def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int] = None) -> "tripy.Ten
         assert np.array_equal(cp.from_dlpack(output).get(), np.squeeze(cp.from_dlpack(input).get(), (0, 2)))
     """
 
-    if isinstance(dims, int):
-        dims = utils.make_tuple(dims)
-
+    dims = utils.make_tuple(dims)
     return Squeeze.build([input], dims, None)

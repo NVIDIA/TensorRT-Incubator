@@ -61,7 +61,35 @@ class Expand(BaseTraceOp):
         )
 
 
+def process_sizes(input: "tripy.Tensor", sizes: ShapeLike):
+    if len(sizes) < input.rank:
+        raise_error(
+            "The length of `sizes` must be greater or equal to input tensor's rank.",
+            [f"sizes has length: {len(sizes)}", f" input rank: {input.rank}"],
+        )
+
+    num_prepended = len(sizes) - input.rank
+    out_shape = list(sizes[:num_prepended]) + [
+        inp_dim if op_utils.is_minus_one(out_dim) else out_dim
+        for inp_dim, out_dim in zip(input.shape, sizes[num_prepended:])
+    ]
+
+    if any(op_utils.is_minus_one(dim) for dim in out_shape):
+        raise_error(
+            "Cannot use -1 for prepended dimension.",
+            [
+                f"{num_prepended} dimension(s) are going to be prepended since the `sizes` argument "
+                f"contains more elements than the number of dimensions in the input.\n"
+                f"Prepended dimensions may not contain -1 since there is no corresponding "
+                f"dimension in the input to copy from, but got: {sizes}"
+            ],
+        )
+
+    return {"sizes": out_shape}
+
+
 @export.public_api(document_under="operations/functions")
+@frontend_utils.convert_to_tensors(preprocess_args=process_sizes)
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
@@ -100,39 +128,4 @@ def expand(input: "tripy.Tensor", sizes: ShapeLike) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
     """
-
-    if len(sizes) < input.rank:
-        raise_error(
-            "The length of `sizes` must be greater or equal to input tensor's rank.",
-            [f"sizes has length: {len(sizes)}", f" input rank: {input.rank}"],
-        )
-
-    num_prepended = len(sizes) - input.rank
-    out_shape = list(sizes[:num_prepended]) + [
-        inp_dim if op_utils.is_minus_one(out_dim) else out_dim
-        for inp_dim, out_dim in zip(input.shape, sizes[num_prepended:])
-    ]
-
-    if any(op_utils.is_minus_one(dim) for dim in out_shape):
-        raise_error(
-            "Cannot use -1 for prepended dimension.",
-            [
-                f"{num_prepended} dimension(s) are going to be prepended since the `sizes` argument "
-                f"contains more elements than the number of dimensions in the input.\n"
-                f"Prepended dimensions may not contain -1 since there is no corresponding "
-                f"dimension in the input to copy from, but got: {sizes}"
-            ],
-        )
-
-    # only used for inferring the length of a shape output (hence, define only in rank-1 case)
-    out_len = None
-    if len(sizes) == 1 and isinstance(out_shape[0], int):
-        out_len = out_shape[0]
-
-    # TODO (pranavm): Remove output_rank/output_len here and elsewhere.
-    # We should be able to get the shape of the trace tensor for `shape` one infer_dynamic_shapes is implemented.
-    @frontend_utils.convert_to_tensors(skip_num_stack_entries=1)
-    def expand_impl(input: "tripy.Tensor", shape: ShapeLike, output_rank: int, output_len: Optional[int] = None):
-        return Expand.build([input, shape], output_rank, output_len)
-
-    return expand_impl(input, out_shape, output_rank=len(sizes), output_len=out_len)
+    return Expand.build([input, sizes], None, None)

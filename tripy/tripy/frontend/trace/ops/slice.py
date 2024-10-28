@@ -38,8 +38,6 @@ class Slice(BaseTraceOp):
         self.outputs[0].rank = self.inputs[0].rank
 
     def infer_len(self):
-        # Only infer if we have concrete values to use. Note that the result is only a Shape if these are *slices*,
-        # not single indices, so a slice is the only case that needs to be considered
         return [None]
 
     @frontend_utils.make_function
