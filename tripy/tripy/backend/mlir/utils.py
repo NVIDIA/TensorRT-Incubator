@@ -352,6 +352,7 @@ def cast_to_dynamic_ranked_tensor(input_tensor: ir.Value, always_insert_cast: bo
     return stablehlo.ConvertOp(result=dynamic_type, operand=input_tensor).result
 
 
+# TODO (pranavm): Remove ShapeContext
 class ShapeContext:
     _instance = None
 

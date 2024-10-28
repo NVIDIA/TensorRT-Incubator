@@ -51,7 +51,6 @@ class DimensionSize(Tensor):
                     details=[data],
                 )
 
-            # the shape of data should correspond to the given rank
             super().__init__(data=None, dtype=int32, name=name, device=data.device)
             # share the underlying data
             self.trace_tensor = data.trace_tensor

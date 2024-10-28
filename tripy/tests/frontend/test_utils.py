@@ -165,3 +165,16 @@ class TestConvertToTensors:
 
         with helper.raises(tp.TripyException, "Refusing to automatically cast"):
             func(tp.Tensor([1, 2], dtype=dtype), arg)
+
+    def test_preprocess_args(self):
+
+        def add_a_to_b(a, b):
+            return {"b": a + b}
+
+        @convert_to_tensors(preprocess_args=add_a_to_b)
+        def func(a: tp.types.TensorLike, b: tp.types.TensorLike):
+            return a, b
+
+        a, b = func(1, 2)
+
+        assert b.tolist() == 3

@@ -196,8 +196,8 @@ from tripy.types import ShapeLike
 # If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
 
-# The `convert_to_tensors` decorator converts automatically converts compatible arguments,
-# like `TensorLike` or `ShapeLike`s into tensors.
+# The `convert_to_tensors` decorator automatically converts compatible arguments,
+# like `TensorLike` or `ShapeLike`s, into tensors.
 @frontend_utils.convert_to_tensors()
 def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read

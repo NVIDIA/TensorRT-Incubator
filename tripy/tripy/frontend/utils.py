@@ -17,9 +17,8 @@
 
 import functools
 import inspect
-import numbers
 from collections import deque
-from typing import List, Set, Union
+from typing import Callable, List, Optional, Set, Union
 
 from tripy import utils
 from tripy.common.exception import raise_error
@@ -132,7 +131,9 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, skip_n
 
 # NOTE: Conversion to tensors needs to be done via a decorator so that we can add stack information
 # for non-tensors. Without having full context of the function signature, it is otherwise difficult to do so.
-def convert_to_tensors(targets: Set[str] = None, skip_num_stack_entries: int = 0):
+def convert_to_tensors(
+    targets: Set[str] = None, skip_num_stack_entries: int = 0, preprocess_args: Optional[Callable] = None
+):
     """
     Decorator that converts specified arguments to Tensors or DimensionSizes.
     If the argument can be converted to a DimensionSize, it is. Otherwise, it is
@@ -156,6 +157,11 @@ def convert_to_tensors(targets: Set[str] = None, skip_num_stack_entries: int = 0
             NOTE: When using this, make sure any extra arguments to the decorated function are
             passed as keyword arguments. Otherwise, the logic for determining column information
             will break.
+
+        preprocess_args: A callback used to preprocess arguments before potential conversion. If provided,
+            this is always called, regardless of whether the decorator actually needed to perform conversion.
+            This will be called with all arguments that were passed to the decorated function and should
+            return a dictionary of all updated arguments.
     """
 
     def impl(func):
@@ -183,6 +189,16 @@ def convert_to_tensors(targets: Set[str] = None, skip_num_stack_entries: int = 0
             from tripy.frontend.trace.ops.cast import cast
 
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
+
+            if preprocess_args is not None:
+                new_args = preprocess_args(*args, **kwargs)
+                # TODO (#311): Make this work for variadic arguments. If `name` appears multiple times in `all_args`, then
+                # we know we're dealing with a variadic argument. In that case, we could expect a list in `new_args` and
+                # then unpack it over the corresponding arguments in `all_args`.
+                for index in range(len(all_args)):
+                    name, _ = all_args[index]
+                    if name in new_args:
+                        all_args[index] = (name, new_args[name])
 
             # Materialize type variables from tensors.
             type_vars = {}
