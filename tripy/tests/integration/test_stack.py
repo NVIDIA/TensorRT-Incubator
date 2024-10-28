@@ -41,14 +41,14 @@ class TestStack:
         np_tensors = [np.ones(shape) for shape in tensor_shapes]
         expected = np.stack(np_tensors, axis=dim)
 
-        assert out.shape == expected.shape
+        assert out.shape == list(expected.shape)
         assert np.array_equal(cp.from_dlpack(out).get(), expected)
 
     def test_stack_different_ranks(self):
         tensors = [tp.ones((2, 3)), tp.ones((2, 3, 4))]
         with raises(
             tp.TripyException,
-            match="tp.stack expects all input tensors to have the same rank, got tensors of rank 2, 3",
+            match="Expected all input tensors to have the same rank.",
         ):
             tp.stack(tensors)
 

@@ -15,24 +15,23 @@
 # limitations under the License.
 #
 
+import numbers
 from dataclasses import dataclass
-from typing import Sequence, Union
+from typing import Optional, Sequence
 
-from tripy import export, constraints
+from tripy import constraints, export
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
-from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.types import ShapeLike
 
 
 @dataclass(repr=False)
 class Resize(BaseTraceOp):
 
     mode: str
-    scales: Sequence[float]
+    scales: Optional[Sequence[float]]
     align_corners: bool
-
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank
@@ -94,19 +93,24 @@ class Resize(BaseTraceOp):
             ResizeLinearOp.build(inputs, outputs, self.align_corners)
 
 
+def _check_mode(mode: str, align_corners: bool):
+    supported_modes = ("cubic", "linear", "nearest")
+    if mode not in supported_modes:
+        raise_error(
+            "Unsupported resize mode.",
+            [f"Supported modes are {supported_modes}, but got {mode}."],
+        )
+    if align_corners and mode not in ("cubic", "linear"):
+        raise_error("align_corners can only be set with `cubic` or `linear` mode.")
+
+
 @export.public_api(document_under="operations/functions")
+@frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "int8"]},
 )
-@frontend_utils.convert_shape_inputs(["output_shape"])
-def resize(
-    input: "tripy.Tensor",
-    mode: str,
-    output_shape: "tripy.types.ShapeLike" = None,
-    scales: Sequence[Union[int, float]] = None,
-    align_corners: bool = False,
-) -> "tripy.Tensor":
+def resize(input: "tripy.Tensor", mode: str, output_shape: ShapeLike, align_corners: bool = False) -> "tripy.Tensor":
     r"""
     Resizes the input tensor.
 
@@ -114,9 +118,46 @@ def resize(
         input: The input tensor.
         mode: The resize operation's algorithm. Must be one of: ["cubic", linear", "nearest"].
         output_shape: The output shape of the resize operation.
+        align_corners: If set to ``True``, the input and output tensors are aligned by the
+            center points of their corner pixels, preserving the values at the corner pixels.
+            If set to ``False``, the input and output tensors are aligned by the corner points of
+            their corner pixels. Only in effect when ``mode`` is ``"cubic"`` or ``"linear"``.
+
+    Returns:
+        The output tensor after the resize operation.
+
+    .. code-block:: python
+        :linenos:
+        :caption: Example
+
+        input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
+        output = tp.resize(input, "nearest", output_shape=(1, 1, 8, 8))
+
+        input_torch = torch.arange(16, dtype=torch.float32).reshape((1, 1, 4, 4)) # doc: omit
+        expected = torch.nn.functional.interpolate(input_torch, scale_factor=2.0, mode="nearest") # doc: omit
+
+        assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
+    """
+    _check_mode(mode, align_corners)
+    return Resize.build([input, output_shape], mode, scales=None, align_corners=align_corners)
+
+
+@export.public_api(document_under="operations/functions")
+@constraints.dtypes(
+    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+    variables={"T1": ["float32", "float16", "int8"]},
+)
+def resize(
+    input: "tripy.Tensor", mode: str, scales: Sequence[numbers.Number], align_corners: bool = False
+) -> "tripy.Tensor":
+    r"""
+    Resizes the input tensor.
+
+    Args:
+        input: The input tensor.
+        mode: The resize operation's algorithm. Must be one of: ["cubic", linear", "nearest"].
         scales: A sequence of scale factors for each dimension. Must have
-            the same length as input tensor's rank. Will be ignored if ``output_shape`` is
-            given.
+            the same length as input tensor's rank.
         align_corners: If set to ``True``, the input and output tensors are aligned by the
             center points of their corner pixels, preserving the values at the corner pixels.
             If set to ``False``, the input and output tensors are aligned by the corner points of
@@ -137,17 +178,6 @@ def resize(
 
         assert torch.allclose(torch.from_dlpack(output).to("cpu"), expected)
     """
-    supported_modes = ("cubic", "linear", "nearest")
-    if mode not in supported_modes:
-        raise_error(
-            "Unsupported resize mode.",
-            [f"Supported modes are {supported_modes}, but got {mode}."],
-        )
-    if align_corners and mode not in ("cubic", "linear"):
-        raise_error("align_corners can only be set with `cubic` or `linear` mode.")
-    if output_shape is None and scales is None:
-        raise_error("One of `output_shape` and `scale` must be given.")
+    _check_mode(mode, align_corners)
 
-    inputs = [input]
-    inputs.append(output_shape if output_shape is not None else input.shape)
-    return Resize.build(inputs, mode, scales, align_corners)
+    return Resize.build([input, frontend_utils.tensor_from_shape_like(input.shape)], mode, scales, align_corners)

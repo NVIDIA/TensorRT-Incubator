@@ -15,9 +15,11 @@
 # limitations under the License.
 #
 
-from typing import List, Union
 from dataclasses import dataclass
-from tripy import export, constraints
+from typing import Sequence
+
+from tripy import constraints, export
+from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -50,12 +52,12 @@ class Concatenate(BaseTraceOp):
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
 )
-def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor":
+def concatenate(tensors: Sequence["tripy.Tensor"], dim: int) -> "tripy.Tensor":
     r"""
     Returns a copy of the input tensor on the target device.
 
     Args:
-        tensors: List of tensors of the same type and having the same shape except in the concatenated dimension.
+        tensors: Sequence of tensors of the same type and having the same shape except in the concatenated dimension.
         dim: the dimension over which the tensors are concatenated.
 
     Returns:
@@ -72,4 +74,10 @@ def concatenate(tensors: List[Union["tripy.Tensor"]], dim: int) -> "tripy.Tensor
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.concatenate((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
     """
-    return Concatenate.build(tensors, dim)
+    if not tensors:
+        raise_error(f"Expected a non-empty list of tensors, got {tensors}")
+
+    if len(tensors) == 1:
+        return tensors[0]
+
+    return Concatenate.build(list(tensors), dim)

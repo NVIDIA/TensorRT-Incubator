@@ -27,9 +27,6 @@ from tripy.frontend.trace.ops import utils as op_utils
 class Permute(BaseTraceOp):
     permutation: Sequence[int]
 
-    # note that permuting a shape would not do anything
-    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
-
     infer_len = op_utils.InferLenPolicies.infer_same_as_first_input
 
     def to_flat_ir(self, inputs, outputs):

@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List, Union
-from tripy import export, constraints
+from typing import Sequence
+
+from tripy import constraints, export
 from tripy.common.exception import raise_error
 
 
@@ -25,12 +26,12 @@ from tripy.common.exception import raise_error
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
 )
-def stack(tensors: List[Union["tripy.Tensor"]], dim: int = 0) -> "tripy.Tensor":
+def stack(tensors: Sequence["tripy.Tensor"], dim: int = 0) -> "tripy.Tensor":
     """
     Stacks multiple tensors of same shape along a given dimension.
 
     Args:
-        tensors: List of tensors of the same shape.
+        tensors: Sequence of tensors of the same shape.
         dim: The dimension to insert.
 
     Returns:
@@ -48,16 +49,18 @@ def stack(tensors: List[Union["tripy.Tensor"]], dim: int = 0) -> "tripy.Tensor":
         assert np.array_equal(cp.from_dlpack(output).get(), np.stack((cp.from_dlpack(a).get(), cp.from_dlpack(b).get()), axis=0))
     """
 
-    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
+    from tripy.frontend.ops.unsqueeze import unsqueeze
     from tripy.frontend.trace.ops.concatenate import concatenate
 
     if not tensors:
-        raise_error(f"tp.stack expects a non-empty list of tensors, got {tensors}")
+        raise_error(f"Expected a non-empty list of tensors, got {tensors}")
 
     # Check if all tensors have the same rank
     if len(set(tensor.rank for tensor in tensors)) > 1:
         ranks = ", ".join(str(tensor.rank) for tensor in tensors)
-        raise_error(f"tp.stack expects all input tensors to have the same rank, got tensors of rank {ranks}")
+        raise_error(
+            f"Expected all input tensors to have the same rank.", [f"Note: Got tensors of multiple ranks: {ranks}."]
+        )
 
     expanded_tensors = [unsqueeze(tensor, dim=dim) for tensor in tensors]
     # Concatenate along the new dimension

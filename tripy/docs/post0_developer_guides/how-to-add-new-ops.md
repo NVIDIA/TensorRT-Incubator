@@ -125,11 +125,6 @@ class Theta(BaseTraceOp):
     dim: int
     dtype: datatype.dtype
 
-    # The `infer_tensor_variants` method should indicate which outputs of this operator represent shapes or shape scalars;
-    # the corresponding outputs will be wrapped as `tripy.Shape` or `tripy.ShapeScalar` objects instead of regular `tripy.Tensor`s.
-    # Our `Theta` operation should never return shapes, so we can use the corresponding preexisting policy.
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
     # data types if they are all the same, so you may not need to implement this.
@@ -190,6 +185,7 @@ it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 # doc: no-eval
 from tripy import export
 import tripy.frontend.utils as frontend_utils
+from tripy.types import ShapeLike
 
 # We can use the `export.public_api()` decorator to automatically export this function into the
 # top-level module. This means it will be accessible as `tripy.theta`.
@@ -200,11 +196,10 @@ import tripy.frontend.utils as frontend_utils
 # If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
 
-# The `convert_shape_inputs` decorator converts the specified function arguments into `tripy.Shape`s,
-# which would allow for using Python numbers and sequences. The `convert_to_tensors` decorator more generally converts
-# function arguments into Tripy tensors and is also commonly used in the codebase.
-@frontend_utils.convert_shape_inputs(["shape"])
-def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+# The `convert_to_tensors` decorator converts automatically converts compatible arguments,
+# like `TensorLike` or `ShapeLike`s into tensors.
+@frontend_utils.convert_to_tensors()
+def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here
     # adheres to all of these requirements. Non-compliant docstrings will, in most cases,

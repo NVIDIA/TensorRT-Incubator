@@ -16,14 +16,13 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
-from tripy import export, utils, constraints
+from tripy import constraints, export, utils
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
-from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.exception import raise_error
+from tripy.types import ShapeLike
 
 
 @dataclass(repr=False)
@@ -31,8 +30,6 @@ class Iota(BaseTraceOp):
     dim: int
     output_rank: int
     dtype: datatype.dtype
-
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_rank(self):
         if self.output_rank is None:
@@ -68,13 +65,11 @@ class Iota(BaseTraceOp):
         DynamicIotaOp.build(inputs, outputs, dim=self.dim)
 
 
-@frontend_utils.convert_shape_inputs(["shape"])
-def iota_impl(
-    shape: Union["tripy.Shape", Sequence[int]], dim: int, dtype: datatype.dtype, output_rank: int
-) -> "tripy.Tensor":
+def iota_impl(shape: "tripy.Tensor", dim: int, dtype: datatype.dtype, output_rank: int) -> "tripy.Tensor":
     from tripy.frontend.trace.ops.cast import cast
 
-    # Allocate a float32 tensor and cast the output to dtype. `tensorrt.linspace` op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values.
+    # Allocate a float32 tensor and cast the output to dtype.
+    # `tensorrt.linspace` op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values.
     if dtype not in (datatype.float32, datatype.int32, datatype.int64):
         result = Iota.build([shape], dim, output_rank, datatype.float32)
         return cast(result, dtype)
@@ -83,17 +78,14 @@ def iota_impl(
 
 
 @export.public_api(document_under="operations/initializers")
+@frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "bool"],
     },
 )
-def iota(
-    shape: "tripy.types.ShapeLike",
-    dim: int = 0,
-    dtype: datatype.dtype = datatype.float32,
-) -> "tripy.Tensor":
+def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
     Fills an output tensor with consecutive values starting from zero along the given dimension.
 
@@ -114,8 +106,7 @@ def iota(
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
-    output_rank = len(shape) if isinstance(shape, Sequence) else None
-    return iota_impl(shape, dim, dtype, output_rank)
+    return iota_impl(shape, dim, dtype, output_rank=None)
 
 
 @export.public_api(document_under="operations/initializers")
@@ -149,4 +140,9 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtyp
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
-    return iota_impl(input.shape, dim, utils.default(dtype, input.dtype), input.rank)
+    return iota_impl(
+        frontend_utils.tensor_from_shape_like(input.shape),
+        dim,
+        utils.default(dtype, input.dtype),
+        output_rank=input.rank,
+    )
