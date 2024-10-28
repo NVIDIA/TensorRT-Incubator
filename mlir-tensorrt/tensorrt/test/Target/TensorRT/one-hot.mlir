@@ -13,7 +13,6 @@ func.func @onehot_innermost_f32(%indices: tensor<3xi32>, %values: tensor<2xf32>)
 // CHECK-LABEL: onehot_innermost_f32
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @onehot_innermost_f16(%indices: tensor<3xi32>, %values: tensor<2xf16>) -> tensor<3x5xf16> {
   %depth = tensorrt.constant dense <5> : tensor<i32>

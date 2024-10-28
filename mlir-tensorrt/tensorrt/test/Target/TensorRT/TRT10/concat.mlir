@@ -10,8 +10,6 @@ func.func @trt_concat_fp8(%arg0: tensor<1x128x64xf8E4M3FN>, %arg1: tensor<1x128x
   return %0 : tensor<2x128x64xf8E4M3FN>
 }
 
-// -----
-
 // CHECK-LABEL: @trt_concat_fp8_dq
 //  CHECK-SAME: tensorrt.engine
 func.func @trt_concat_fp8_dq(%arg0: tensor<1x128x64xf8E4M3FN>, %arg1: tensor<1x128x64xf8E4M3FN>) -> tensor<2x128x64xf16> {
@@ -21,8 +19,6 @@ func.func @trt_concat_fp8_dq(%arg0: tensor<1x128x64xf8E4M3FN>, %arg1: tensor<1x1
   %2 = tensorrt.concatenation {axis = 0 : i32} ins(%0, %1 : tensor<1x128x64xf16>, tensor<1x128x64xf16>) -> tensor<2x128x64xf16>
   return %2 : tensor<2x128x64xf16>
 }
-
-// -----
 
 func.func @trt_concat_bf16(%arg0: tensor<1x128x64xbf16>, %arg1: tensor<1x128x64xbf16>) -> tensor<2x128x64xbf16> {
   %0 = tensorrt.concatenation {axis = 0 : i32} ins(%arg0, %arg1 : tensor<1x128x64xbf16>, tensor<1x128x64xbf16>) -> tensor<2x128x64xbf16>

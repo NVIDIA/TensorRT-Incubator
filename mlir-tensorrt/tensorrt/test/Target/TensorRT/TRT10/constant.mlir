@@ -13,8 +13,6 @@ func.func @constant_splat_int8() -> tensor<10xf16> {
 // CHECK-LABEL: @constant_splat_int8
 //  CHECK-SAME: tensorrt.engine
 
-// -----
-
 func.func @constant_fp8() -> (tensor<10xf16>, tensor<4xf16>) {
   %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<f32>
   %cst_f8_splat = tensorrt.constant dense<0.4> : tensor<10xf8E4M3FN>
@@ -26,8 +24,6 @@ func.func @constant_fp8() -> (tensor<10xf16>, tensor<4xf16>) {
 
 // CHECK-LABEL: @constant_fp8
 //  CHECK-SAME: tensorrt.engine
-
-// -----
 
 func.func @constant_bf16() -> (tensor<10xbf16>, tensor<4xbf16>) {
   %cst_bf16_splat = tensorrt.constant dense<0.4> : tensor<10xbf16>

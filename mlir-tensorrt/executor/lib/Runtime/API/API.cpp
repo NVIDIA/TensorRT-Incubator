@@ -414,9 +414,6 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
 }
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
-  if (!llvm::is_contained(map, ptr))
-    return;
-
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);

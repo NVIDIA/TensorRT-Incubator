@@ -12,7 +12,6 @@ func.func @trt_relu(%arg1: tensor<2x10xf16>, %arg2: tensor<2x10xf32>) -> (tensor
   } %arg2 : tensor<2x10xf32>
   return %1, %2: tensor<2x10xf16>, tensor<2x10xf32>
 }
-// -----
 
 // CHECK-LABEL: @trt_relu_i8
 //  CHECK-SAME: tensorrt.engine

@@ -121,6 +121,9 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Target device max shared memory per block (kilobytes)
   int64_t deviceMaxSharedMemoryPerBlockKb;
 
+  /// Target device maximum 4-byte register sper block.
+  uint64_t deviceMaxRegistersPerBlock;
+
   /// Whether to ignore `deviceX` options and instead infer them from the GPUs
   /// on the host system running the compilation.
   bool shouldInferDeviceOptionsFromHost = false;
