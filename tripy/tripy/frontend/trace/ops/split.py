@@ -17,11 +17,11 @@
 
 from dataclasses import dataclass
 from typing import Sequence, Union
-from tripy import export, utils, constraints
-from tripy.frontend import utils as frontend_utils
+
+from tripy import constraints, export, utils
+from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -104,11 +104,10 @@ class Split(BaseTraceOp):
             [input_tensor, start_index_tensor, limit_index_tensor, stride_index_tensor], [output_tensor]
         )
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import DivideOp, MulOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import int32
 
         input_tensor = inputs[0]
         device = input_tensor.device

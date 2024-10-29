@@ -35,7 +35,6 @@ class Quantize(BaseTraceOp):
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import (
