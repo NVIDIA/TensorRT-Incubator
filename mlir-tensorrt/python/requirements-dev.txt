@@ -1,6 +1,7 @@
 # Torch is required by `optimum`. This will let PIP select the CPU version.
 # The GPU version installs `nvidia-` pip packages which confuse JAX.
 -r requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
 numpy<2.0.0
 click
 matplotlib
@@ -13,3 +14,4 @@ nvidia-ml-py
 black
 build
 psutil
+torch==2.1.0+cpu

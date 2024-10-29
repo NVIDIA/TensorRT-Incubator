@@ -57,9 +57,9 @@ cmake --preset ninja-llvm
 ninja -C build all
 
 # Build and run tests
-ninja -C build/mlir-tensorrt check-mlir-executor
-ninja -C build/mlir-tensorrt check-mlir-tensorrt-dialect
-ninja -C build/mlir-tensorrt check-mlir-tensorrt
+ninja -C build check-mlir-executor
+ninja -C build check-mlir-tensorrt-dialect
+ninja -C build check-mlir-tensorrt
 
 # Build wheels (output in `build/wheels`)
 ninja -C build mlir-tensorrt-all-wheels
