@@ -26,30 +26,6 @@ func.func @main(%arg0: tensor<1x3x256x256xf32>, %arg1: tensor<1x3x256x256xf32>) 
 
 // -----
 
-tensorrt.module @trt_engines {
-  func.func @trt_func(%arg0: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> attributes {
-    "tensorrt.engine" = dense<0> : vector<8xi8>
-  } {
-    %cst_f32 = tensorrt.constant dense<0.00392156886> : tensor<1xf32>
-    %0 = tensorrt.shuffle {first_transpose = array<i64: 0>, reshape = array<i64: 1, 1, 1, 1>, second_transpose = array<i64: 0, 1, 2, 3>, zero_is_placeholder = false} ins(%cst_f32 : tensor<1xf32>) -> tensor<1x1x1x1xf32>
-    %1 = tensorrt.element_wise <kPROD>(%arg0, %0 : tensor<1x3x256x256xf32>, tensor<1x1x1x1xf32>) -> tensor<1x3x256x256xf32>
-    return %1 : tensor<1x3x256x256xf32>
-  }
-}
-func.func @main(%arg0: tensor<1x3x256x256xf32>, %arg1: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
-  %1 = tensorrt.call_alloc @trt_engines::@trt_func(%arg0 : tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
-  return %1 : tensor<1x3x256x256xf32>
-}
-
-// CHECK-LABEL: @main
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x3x256x256xf32>, %[[arg1:.+]]: tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32> {
-//       CHECK:     %[[v1:.+]] = trtrt.compile @trt_engines::@trt_func : !trtrt.context
-//       CHECK:     %[[v2:.+]] = cuda.get_global_stream 0
-//       CHECK:     %[[v3:.+]] = trtrt.enqueue_alloc %[[v1]] stream(%[[v2]]) (%[[arg0]]) : (tensor<1x3x256x256xf32>) -> tensor<1x3x256x256xf32>
-//       CHECK:     return %[[v3]] : tensor<1x3x256x256xf32>
-
-// -----
-
 // CHECK-LABEL: @convert_tensorrt_const
 //  CHECK-NEXT:   arith.constant
 //  CHECK-NEXT:   return

@@ -34,12 +34,16 @@ namespace stablehlo {
 /// without inserting a cast. This is true if:
 /// 1. All users are StableHLO operations, since the StableHLO dialect was
 ///    designed with this in mind, or
-/// 2. The operation passes a custom check defined by the `isCustomOp` lambda.
+/// 2. The operation passes a custom check defined by the `otherCases` lambda.
 /// For operations that don't meet these criteria, we conservatively require
 /// a cast to be inserted.
 bool canUpdateTypeWithoutCast(
-    Value result, const std::function<bool(Operation *)> &isCustomOp =
-                      [](Operation *) { return false; });
+    Value result, const std::function<bool(Operation *)> &otherCases = {});
+
+/// Same as `canUpdateTypeWithoutCast`, but inspects a single use instead of all
+/// uses.ø
+bool canUpdateTypeWithoutCast(
+    OpOperand &use, const std::function<bool(OpOperand &)> &otherCases = {});
 
 } // namespace stablehlo
 } // namespace mlir

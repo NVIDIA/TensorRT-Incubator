@@ -104,11 +104,7 @@ static FailureOr<Value> outlineQDQPatternToPrivateFuncAndAddComposite(
       rewriter.getContext(),
       {NamedAttribute(rewriter.getStringAttr("scale"), scaleAttr),
        NamedAttribute(rewriter.getStringAttr("axis"),
-                      rewriter.getI32IntegerAttr(qdqAxis)),
-       // `is_pointwise` attribute is used in shape materialization and tells
-       // that operation is pointwise.
-       NamedAttribute(rewriter.getStringAttr("is_pointwise"),
-                      rewriter.getUnitAttr())});
+                      rewriter.getI32IntegerAttr(qdqAxis))});
   return rewriter
       .create<stablehlo::CompositeOp>(
           funcReturn.getLoc(),

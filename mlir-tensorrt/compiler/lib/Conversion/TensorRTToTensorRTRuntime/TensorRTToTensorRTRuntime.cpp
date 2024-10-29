@@ -57,78 +57,6 @@ struct RewriteConstants : public OpRewritePattern<tensorrt::ConstantOp> {
   }
 };
 
-// Helper function to convert both CallOp and CallAllocOp
-static LogicalResult
-convertCallOp(Operation *op, IRRewriter &rewriter,
-              SymbolTableCollection &symbolTable, DataFlowSolver &solver,
-              ModuleOp module,
-              SmallVectorImpl<tensorrt::TensorRTModuleOp> &trtModules) {
-  MLIRContext *ctx = rewriter.getContext();
-  Location loc = op->getLoc();
-  ValueRange inputs;
-  ValueRange outputs;
-  func::FuncOp trtFunc;
-
-  if (auto callOp = dyn_cast<tensorrt::CallOp>(op)) {
-    trtFunc = callOp.getFuncCallee(symbolTable);
-    inputs = callOp.getInputs();
-    outputs = callOp.getOutputs();
-  } else if (auto callAllocOp = dyn_cast<tensorrt::CallAllocOp>(op)) {
-    trtFunc = callAllocOp.getFuncCallee(symbolTable);
-    inputs = callAllocOp.getInputs();
-    // CallAllocOp doesn't have outputs as operands
-  } else {
-    llvm_unreachable("unexpected type of operation. Only callOp and "
-                     "callAllocOp are supported.");
-    return failure();
-  }
-
-  solver.load<dataflow::DeadCodeAnalysis>();
-  solver.load<dataflow::SparseConstantPropagation>();
-  solver.load<TensorKindAnalysis>(symbolTable);
-  if (failed(solver.initializeAndRun(trtFunc)))
-    return trtFunc.emitError() << "failed to run TensorKindAnalysis";
-
-  // Check which tensors should be host tensors.
-  SmallVector<int64_t> hostTensorArgs;
-  for (auto [idx, arg] : llvm::enumerate(trtFunc.getArguments())) {
-    const TensorKindLattice *kind = solver.lookupState<TensorKindLattice>(arg);
-    RankedTensorType rtt = cast<RankedTensorType>(arg.getType());
-    // To be conservative, we only do this if type is i32 and num elements
-    // <= 8.
-    if (kind && !kind->getValue().isUninitialized() &&
-        kind->getValue().isHostVisible() &&
-        rtt.getElementType().isInteger(32) && rtt.getNumElements() <= 8)
-      hostTensorArgs.push_back(idx);
-  }
-
-  rewriter.setInsertionPoint(op);
-
-  Value executionContext = rewriter.create<trtrt::CompileOp>(
-      loc,
-      SymbolRefAttr::get(rewriter.getStringAttr(*trtModules.front().getName()),
-                         {FlatSymbolRefAttr::get(trtFunc)}));
-  Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
-
-  Operation *enqueueOp;
-  if (isa<tensorrt::CallOp>(op)) {
-    enqueueOp = rewriter.create<trtrt::EnqueueOp>(
-        loc, executionContext, stream, inputs, outputs,
-        /*host_tensors_args=*/hostTensorArgs.empty()
-            ? DenseI64ArrayAttr{}
-            : DenseI64ArrayAttr::get(ctx, hostTensorArgs));
-  } else {
-    enqueueOp = rewriter.create<trtrt::EnqueueAllocOp>(
-        loc, op->getResultTypes(), executionContext, stream, inputs,
-        /*host_tensors_args=*/hostTensorArgs.empty()
-            ? DenseI64ArrayAttr{}
-            : DenseI64ArrayAttr::get(ctx, hostTensorArgs));
-  }
-  rewriter.replaceOp(op, enqueueOp->getResults());
-
-  return success();
-}
-
 class ConvertTensorRTToRuntimePass
     : public mlir::impl::ConvertTensorRTToTensorRTRuntimePassBase<
           ConvertTensorRTToRuntimePass> {
@@ -155,19 +83,53 @@ class ConvertTensorRTToRuntimePass
       return signalPassFailure();
     }
 
-    SmallVector<Operation *> callOps;
-    module.walk([&](Operation *op) {
-      if (isa<tensorrt::CallOp, tensorrt::CallAllocOp>(op))
-        callOps.push_back(op);
-    });
+    SmallVector<tensorrt::CallOp> callOps;
+    module.walk(
+        [&](tensorrt::CallOp compileOp) { callOps.push_back(compileOp); });
 
     for (auto callOp : llvm::make_early_inc_range(callOps)) {
+      Location loc = callOp.getLoc();
+      func::FuncOp trtFunc = dyn_cast_or_null<func::FuncOp>(
+          module.lookupSymbol(callOp.getCallee()));
+
       SymbolTableCollection symbolTable;
       DataFlowSolver solver;
-      if (failed(convertCallOp(callOp, rewriter, symbolTable, solver, module,
-                               trtModules))) {
+      solver.load<dataflow::DeadCodeAnalysis>();
+      solver.load<dataflow::SparseConstantPropagation>();
+      solver.load<TensorKindAnalysis>(symbolTable);
+      if (failed(solver.initializeAndRun(trtFunc))) {
+        trtFunc.emitError() << "failed to run TensorKindAnalysis";
         return signalPassFailure();
       }
+
+      // Check which tensors should be host tensors.
+      SmallVector<int64_t> hostTensorArgs;
+      for (auto [idx, arg] : llvm::enumerate(trtFunc.getArguments())) {
+        const TensorKindLattice *kind =
+            solver.lookupState<TensorKindLattice>(arg);
+        RankedTensorType rtt = cast<RankedTensorType>(arg.getType());
+        // To be conservative, we only do this if type is i32 and num elements
+        // <= 8.
+        if (kind && !kind->getValue().isUninitialized() &&
+            kind->getValue().isHostVisible() &&
+            rtt.getElementType().isInteger(32) && rtt.getNumElements() <= 8)
+          hostTensorArgs.push_back(idx);
+      }
+
+      rewriter.setInsertionPoint(callOp);
+      Value executionContext = rewriter.create<trtrt::CompileOp>(
+          loc, SymbolRefAttr::get(
+                   rewriter.getStringAttr(trtModules.front().getSymName()),
+                   {FlatSymbolRefAttr::get(trtFunc)}));
+      Value stream = rewriter.create<cuda::GetGlobalStreamOp>(loc, 0);
+      auto enqueueOp = rewriter.create<trtrt::EnqueueOp>(
+          loc, executionContext, stream, callOp.getInputs(),
+          callOp.getOutputs(),
+          /*host_tensors_args=*/hostTensorArgs.empty()
+              ? DenseI64ArrayAttr{}
+              : DenseI64ArrayAttr::get(ctx, hostTensorArgs));
+      rewriter.setInsertionPointAfter(enqueueOp);
+      rewriter.replaceOp(callOp, enqueueOp->getResults());
     }
   }
 };

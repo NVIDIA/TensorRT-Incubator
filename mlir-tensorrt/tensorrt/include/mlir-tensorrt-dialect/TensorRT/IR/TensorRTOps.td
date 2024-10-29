@@ -130,58 +130,6 @@ def TensorRT_CallOp : TensorRT_Op<"call", [
 }
 
 //===----------------------------------------------------------------------===//
-// CallAllocOp
-//===----------------------------------------------------------------------===//
-
-def TensorRT_CallAllocOp : TensorRT_Op<"call_alloc", [
-  DeclareOpInterfaceMethods<SymbolUserOpInterface>,
-  CallOpInterface
-]> {
-  let summary = "calls a TensorRT engine defined in a `tensorrt.module` and allocates output tensors";
-
-  let description = [{
-    This operation calls a TensorRT engine and allocates output tensors. It will be converted to an
-    `enqueue_alloc` operation in a later pass.
-  }];
-
-  let arguments = (ins 
-    Variadic<AnyTypeOf<[AnyShaped, AnySignlessIntegerOrIndex]>>:$inputs,
-    SymbolRefAttr:$callee
-  );
-
-  let results = (outs Variadic<AnyTypeOf<[AnyMemRef, AnyTensor]>>:$results);
-
-  let assemblyFormat = [{
-    $callee `(` ($inputs^ `:` type($inputs))? `)`
-    attr-dict (`->` type($results)^)?
-  }];
-
-  let extraClassDeclaration = [{
-    /// Return the function representing the TRT engine that is being called.
-    func::FuncOp getFuncCallee(SymbolTableCollection &symbolTable);
-
-    //===------------------------------------------------------------------===//
-    // CallOpInterface
-    //===------------------------------------------------------------------===//
-    operand_range getArgOperands() {
-      return getInputs();
-    }
-
-    CallInterfaceCallable getCallableForCallee() {
-      return (*this)->getAttrOfType<SymbolRefAttr>("callee");
-    }
-
-    void setCalleeFromCallable(CallInterfaceCallable callee) {
-      (*this)->setAttr("callee", callee.get<SymbolRefAttr>());
-    }
-
-    MutableOperandRange getArgOperandsMutable() {
-      return getInputsMutable();
-    }
-  }];
-}
-
-//===----------------------------------------------------------------------===//
 // ActivationOp
 //===----------------------------------------------------------------------===//
 def TensorRT_ActivationOp : TensorRT_Op<"activation", [Pure,

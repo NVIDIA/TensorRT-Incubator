@@ -498,7 +498,7 @@ static LogicalResult createInlineClosedGroupOp(
   for (const DestinationOperandMaterializationResult &dest :
        destinationOperands) {
     auto boundsAttr = BoundsAttr::getChecked(
-        mlir::detail::getDefaultDiagnosticEmitFn(op->getLoc()),
+        mlir::detail::getDefaultDiagnosticEmitFn(closedGroupOp.getLoc()),
         rewriter.getContext(), BoundsKind::Shape,
         ArrayRef(dest.constantShapeLowerBound),
         ArrayRef(dest.constantShapeUpperBound));
@@ -627,7 +627,7 @@ public:
       return;
 
     IRRewriter rewriter(ctx);
-    for (InlineGroupOp groupOp : groupOps) {
+    for (InlineGroupOp groupOp : llvm::make_early_inc_range(groupOps)) {
       if (failed(createClosedGroupOp(rewriter, groupOp, solver,
                                      enableNonDPSReturns)))
         return signalPassFailure();

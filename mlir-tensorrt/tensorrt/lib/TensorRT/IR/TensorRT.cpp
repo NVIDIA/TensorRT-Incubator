@@ -193,35 +193,6 @@ LogicalResult CallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
 }
 
 //===----------------------------------------------------------------------===//
-// CallAllocOp
-//===----------------------------------------------------------------------===//
-
-func::FuncOp CallAllocOp::getFuncCallee(SymbolTableCollection &symbolTable) {
-  Operation *module = (*this)->getParentWithTrait<OpTrait::SymbolTable>();
-  assert(module && "expected call to be nested within symbol table");
-  return dyn_cast_or_null<func::FuncOp>(
-      symbolTable.lookupNearestSymbolFrom(module, getCallee()));
-}
-
-LogicalResult
-CallAllocOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
-  func::FuncOp kernel = getFuncCallee(symbolTable);
-  if (!kernel)
-    return emitOpError() << "no valid kernel found with symbol name "
-                         << getCallee();
-  FunctionType funcType = kernel.getFunctionType();
-
-  if (funcType.getNumInputs() != getInputs().size() ||
-      funcType.getNumResults() != getResultTypes().size() ||
-      !areTensorTypesCompatible(TypeRange(getInputs()), funcType.getInputs()))
-    return emitOpError()
-           << "callee has function type " << funcType
-           << " which is not compatible with input/result types of call";
-
-  return success();
-}
-
-//===----------------------------------------------------------------------===//
 // ElementwiseOp
 //===----------------------------------------------------------------------===//
 
@@ -1746,8 +1717,8 @@ struct SimplifyReshapeReshape : public OpRewritePattern<ReshapeOp> {
     auto reshapeDefOp = op.getInput().getDefiningOp<ReshapeOp>();
     if (!reshapeDefOp)
       return failure();
-    rewriter.replaceOpWithNewOp<ReshapeOp>(op, op.getType(),
-                                           reshapeDefOp.getInput());
+    rewriter.replaceOpWithNewOp<ReshapeOp>(
+        op, op.getType(), reshapeDefOp.getInput(), op.getShape());
     return success();
   }
 };

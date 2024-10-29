@@ -1088,3 +1088,40 @@ func.func @fold_gather_splat(%indices: tensor<42x1xi32>) -> tensor<42xf32> {
 // CHECK-LABEL: @fold_gather_splat
 // CHECK-NEXT: stablehlo.constant dense<4.0{{.*}}> : tensor<42xf32>
 // CHECK-NEXT: return
+
+// -----
+
+func.func @absorb_cast(%arg0: tensor<4xf32>, %arg1: tensor<4xf32>) -> tensor<?xf32> {
+  %0 = tensor.cast %arg0 : tensor<4xf32> to tensor<?xf32>
+  %1 = tensor.cast %arg1 : tensor<4xf32> to tensor<?xf32>
+  %2 = stablehlo.add %0, %1 : tensor<?xf32>
+  return %2 : tensor<?xf32>
+}
+
+// CHECK-LABEL: func.func @absorb_cast
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xf32>, %[[arg1:.+]]: tensor<4xf32>)
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.add %[[arg0]], %[[arg1]] : (tensor<4xf32>, tensor<4xf32>) -> tensor<?xf32>
+//   CHECK-DAG:     return %[[v0]] : tensor<?xf32>
+
+// -----
+
+func.func @dont_absorb_cast_into_composite(%arg0: tensor<4xf32>, %arg1: tensor<4xf32>) -> tensor<?xf32> {
+  %0 = tensor.cast %arg0 : tensor<4xf32> to tensor<?xf32>
+  %1 = tensor.cast %arg1 : tensor<4xf32> to tensor<?xf32>
+  %2 = stablehlo.composite "foo.bar" %0, %1 {
+    decomposition = @add
+  } : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+  return %2 : tensor<?xf32>
+}
+
+func.func private @add(%arg0: tensor<?xf32>, %arg1: tensor<?xf32>) -> tensor<?xf32> {
+  %0 = stablehlo.add %arg0, %arg1 : tensor<?xf32>
+  return %0 : tensor<?xf32>
+}
+
+// CHECK-LABEL: func.func @dont_absorb_cast_into_composite
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xf32>, %[[arg1:.+]]: tensor<4xf32>) -> tensor<?xf32> {
+//   CHECK-DAG:     %[[cast:.+]] = tensor.cast %[[arg0]] : tensor<4xf32> to tensor<?xf32>
+//   CHECK-DAG:     %[[cast_0:.+]] = tensor.cast %[[arg1]] : tensor<4xf32> to tensor<?xf32>
+//   CHECK-DAG:     %[[v0:.+]] = stablehlo.composite "foo.bar" %[[cast]], %[[cast_0]] {decomposition = @add} : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+//   CHECK-DAG:     return %[[v0]] : tensor<?xf32>

@@ -33,6 +33,7 @@
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir-tensorrt/Transforms/StablehloInputPreprocessing/StablehloPrepareScatter.h"
 #include "mlir-tensorrt/Transforms/StablehloMatchers/StablehloMatchers.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/Quant/QuantOps.h"
@@ -1850,8 +1851,7 @@ static RankedTensorType convertToLegalConstantType(RankedTensorType t) {
 }
 
 namespace {
-/// Convert `stablehlo` constant operation to tensorrt constant op.
-/// TODO: Should we remove template?
+/// Convert `(stablehlo|arith).constant` op to `tensorrt.constant`.
 template <typename HloOpType>
 struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
@@ -1872,7 +1872,11 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       return failure();
     RankedTensorType supportedConstantType =
         convertToLegalConstantType(convertedType);
-    ElementsAttr constValueAttr = op.getValue();
+
+    ElementsAttr constValueAttr = dyn_cast_or_null<ElementsAttr>(op.getValue());
+    if (!constValueAttr)
+      return failure();
+
     if (failed(convertConstant(rewriter, op, constValueAttr, originalType,
                                supportedConstantType)))
       return rewriter.notifyMatchFailure(op, "could not convert i32 type");
@@ -1882,8 +1886,8 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
     auto replaceRoot = [&](TypedValue<RankedTensorType> replacement) {
       // We may need an identity operation to convert back to boolean.
-      auto casted = HloConstantConverter::castTensor(
-          trtRewriter, targetTrtMajorVersion, convertedType, replacement);
+      auto casted = this->castTensor(trtRewriter, targetTrtMajorVersion,
+                                     convertedType, replacement);
       if (failed(casted))
         return failure();
       trtRewriter.replaceOp(op, *casted);
@@ -4347,8 +4351,7 @@ struct CompositeToQDQConverter
         this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     DictionaryAttr attr = op.getCompositeAttributes();
-    if (!attr.contains("axis") || !attr.contains("scale") ||
-        !attr.contains("is_pointwise"))
+    if (!attr.contains("axis") || !attr.contains("scale"))
       return failure();
 
     // Name of the composite op encodes TensorRT Q/DQ mode.
@@ -4513,13 +4516,14 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       HloUnaryOpToActivationConverter<stablehlo::TanhOp,
                                       tensorrt::ActivationType::kTANH>,
       RsqrtConverter, HloConstantConverter<stablehlo::ConstantOp>,
-      RealDynamicSliceConverter, HloSliceConverter<stablehlo::SliceOp>,
-      DynamicSliceConverter, ConvolutionConverter, ConvertScatterToTensorRT,
+      HloConstantConverter<arith::ConstantOp>, RealDynamicSliceConverter,
+      HloSliceConverter<stablehlo::SliceOp>, DynamicSliceConverter,
+      ConvolutionConverter, ConvertScatterToTensorRT,
       // clang-format off
       SingleDimSimpleGatherToTensorRTGatherPattern,
       ConvertScatterToTensorRTScatterElements,
       ConvertGatherToTensorRT,
-      ConvertGatherToTensorRTGatherNd,      
+      ConvertGatherToTensorRTGatherNd,
       CompositeToQDQConverter
     >(typeConverter, patterns.getContext(), PatternBenefit(1));
   // clang-format on
