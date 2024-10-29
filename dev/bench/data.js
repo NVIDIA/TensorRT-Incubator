@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730147276653,
+  "lastUpdate": 1730233619987,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -1428,6 +1428,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007465256872594293",
             "extra": "mean: 147.48787845710356 usec\nrounds: 7378"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "89140e32cbfba34053b1b95685c973ac8ba18461",
+          "message": "Removes `Shape` tensors",
+          "timestamp": "2024-10-29T18:44:25Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/306/commits/89140e32cbfba34053b1b95685c973ac8ba18461"
+        },
+        "date": 1730233619172,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5998.5272154476015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000335929668868222",
+            "extra": "mean: 166.70758739324674 usec\nrounds: 6360"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6482.688554105842,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006836264805337887",
+            "extra": "mean: 154.25698638054195 usec\nrounds: 7138"
           }
         ]
       }
