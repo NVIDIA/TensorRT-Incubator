@@ -102,7 +102,7 @@ class BatchNorm(Module):
         from tripy.frontend.trace.ops.unary_elementwise import rsqrt
         from tripy.frontend.trace.ops.reshape import reshape
 
-        x_shape = (1, -1, *([1] * (x.rank - 2)))
+        x_shape = (1, self.num_features, *([1] * (x.rank - 2)))
         
         # Use precomputed running mean and variance for normalization
         mean = reshape(self.running_mean, x_shape)

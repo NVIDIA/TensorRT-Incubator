@@ -9,7 +9,6 @@ DTYPES = [(torch.float32, tp.float32), (torch.float16, tp.float16)]
 
 class TestBatchNorm:
 
-    @pytest.mark.l1
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", [(2, 2, 2, 2)])
     def test_batchnorm_accuracy(self, torch_dtype, tp_dtype, input_shape):
@@ -33,12 +32,12 @@ class TestBatchNorm:
         tp_batchnorm.running_var = tp.Parameter(batchnorm.running_var.detach())
 
     
-        input = torch.randn(input_shape, dtype=torch_dtype)
+        input = torch.randn(input_shape, dtype=torch_dtype).to('cuda')
         tp_input = tp.Tensor(input, dtype=tp_dtype)
     
-        output = tp.copy(tp_batchnorm(tp_input), tp.device("cpu"))
+        output = tp_batchnorm(tp_input)
 
-        batchnorm.eval()
+        batchnorm.to('cuda').eval()
         with torch.no_grad():
             expected = batchnorm(input)
 
