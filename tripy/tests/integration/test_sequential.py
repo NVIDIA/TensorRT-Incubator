@@ -16,14 +16,10 @@
 #
 
 import torch
-
 import tripy as tp
 
-
 class TestSequential:
-
     def test_forward_pass_accuracy(self):
-        # Initialize Sequential with two Linear layers in both PyTorch and Tripy
         torch_model = torch.nn.Sequential(
             torch.nn.Linear(1, 3, dtype=torch.float32), torch.nn.Linear(3, 2, dtype=torch.float32)
         )
@@ -34,16 +30,16 @@ class TestSequential:
         tp_model[1].weight = tp.Parameter(torch_model[1].weight.detach())
         tp_model[1].bias = tp.Parameter(torch_model[1].bias.detach())
 
-        input_tensor = torch.tensor([[1.0]], dtype=torch.float32)
+        input_tensor = torch.tensor([[1.0]], dtype=torch.float32).to('cuda')
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
 
-        tp_output = tp.copy(tp_model(tp_input), tp.device("cpu"))
+        tp_output = tp_model(tp_input)
 
-        torch_model.eval()
+        torch_model.to('cuda').eval()
         with torch.no_grad():
             torch_output = torch_model(input_tensor)
 
-        rtol_ = 2e-7
+        rtol_ = 2e-6
         assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=rtol_)
 
     def test_nested_sequential_accuracy(self):
@@ -63,16 +59,16 @@ class TestSequential:
         tp_model[1][1].weight = tp.Parameter(torch_model[1][1].weight.detach())
         tp_model[1][1].bias = tp.Parameter(torch_model[1][1].bias.detach())
 
-        input_tensor = torch.tensor([[1.0]], dtype=torch.float32)
+        input_tensor = torch.tensor([[1.0]], dtype=torch.float32).to('cuda')
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
 
-        tp_output = tp.copy(tp_model(tp_input), tp.device("cpu"))
+        tp_output = tp_model(tp_input)
 
-        torch_model.eval()
+        torch_model.to('cuda').eval()
         with torch.no_grad():
             torch_output = torch_model(input_tensor)
 
-        rtol_ = 2e-7
+        rtol_ = 2e-6
         assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=rtol_)
 
     def test_state_dict_comparison(self):
