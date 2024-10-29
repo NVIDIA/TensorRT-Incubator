@@ -1,7 +1,8 @@
-from typing import Union, List, Dict, Iterator
+from typing import Union, Tuple, Dict, Iterator, Any
 from dataclasses import dataclass
 
 from tripy import export
+from tripy.frontend.module.parameter import Parameter
 from tripy.frontend.module import Module
 
 @export.public_api(document_under="modules/sequential.rst")
@@ -38,14 +39,14 @@ class Sequential(Module):
             output = model(x)
         """
         super().__init__()
-        self._modules = {}
+        self.modules = {}
 
         if len(modules) == 1 and isinstance(modules[0], dict):
             for name, module in modules[0].items():
-                self.add_module(name, module)
+                self.modules[name]= module
         else:
             for idx, module in enumerate(modules):
-                self.add_module(str(idx), module)
+                self.modules[str(idx)]= module
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
@@ -57,10 +58,26 @@ class Sequential(Module):
         Returns:
             Tensor: The output tensor after passing through each module in sequence.
         """
-        for module in self._modules.values():
+        for module in self.modules.values():
             x = module(x)
         return x
     
+    def __getattr__(self, name) -> Any:
+        """
+        Custom __getattr__ to search both in `modules` dictionary and in other attributes. This is for handling 
+        `module = operator.attrgetter(child_name)(module)` calls in tripy/frontend/module/module.py:load_state_dict
+        """
+        # Check if `name` is a key in the modules dictionary
+        if "modules" in self.__dict__ and name in self.modules:
+            return self.modules[name]
+        
+        # Fallback to regular attribute access if not found in modules
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute or module named '{name}'")
+
+
     def __len__(self) -> int:
         r"""
         Returns the total number of modules in the sequence.
@@ -75,8 +92,7 @@ class Sequential(Module):
             model = tp.Sequential(tp.Linear(1, 64), tp.Linear(64, 128))
             assert len(model) == 2
         """
-        return len(self._modules)
-
+        return len(self.modules)
 
     def __iter__(self) -> Iterator[Module]:
         r"""
@@ -93,7 +109,7 @@ class Sequential(Module):
             for layer in model:
                 print(layer)
         """
-        return iter(self._modules.values())
+        return iter(self.modules.values())
 
     def __getitem__(self, idx: Union[int, str]) -> Module:
         r"""
@@ -113,172 +129,47 @@ class Sequential(Module):
             :caption: Example
 
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
-            layer = model[1]
-            assert isinstance(layer, tp.Linear)
+            print(model[1])
         """
-        if isinstance(idx, int):
-            return list(self._modules.values())[idx]
-        elif isinstance(idx, str):
-            return self._modules[idx]
-        else:
-            raise TypeError("Index must be an int or str")
+        if not isinstance(idx, (int, str)):
+            raise TypeError("Index must be an int or str.")
 
-    def __setitem__(self, idx: Union[int, str], module: Module) -> None:
+        key = str(idx) if isinstance(idx, int) else idx
+
+        if key not in self.modules:
+            raise ValueError(f"Key {key} not found in modules.")
+
+        return self.modules[key]
+
+    def named_children(self) -> Iterator[Tuple[str, "Module"]]:
         r"""
-        Replaces a module at a specific index or name.
-
-        Args:
-            idx (Union[int, str]): The index or name of the module to replace.
-            module (Module): The new module to set at the specified position.
-
-        Raises:
-            TypeError: If `idx` is not an int or str, or if `module` is not an instance of `Module`.
+        Returns an iterator over all child modules in this `Sequential` container. 
+        Each child module is represented by its name and the module object itself.
         
+        Returns:
+            Iterator[Tuple[str, Module]]: An iterator over tuples containing 
+            the name and module of each child.
+
         .. code-block:: python
             :linenos:
             :caption: Example
 
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
-            model[1] = tp.Linear(3, 1)
-            assert isinstance(model[1], tp.Linear)
+            
+            for name, child in model.named_children():
+                print(f"{name}: {type(child).__name__}")
+
         """
-        if not isinstance(module, Module):
-            raise TypeError(f"{module} is not of type Module")
+       # Avoid accessing `modules` during `__init__`
+        if not getattr(self, "modules", None):
+            return
 
-        if isinstance(idx, int):
-            name = list(self._modules.keys())[idx]
-        elif isinstance(idx, str):
-            name = idx
-        else:
-            raise TypeError("Index must be an int or str")
+        for name, module in self.modules.items():
+            if isinstance(module, Module):
+                yield name, module
+            elif isinstance(module, Sequential):
+                # Traverse deeper into Sequential containers within Sequential
+                for child_name, child in module.named_children():
+                    yield f"{name}.{child_name}", child
 
-        self._modules[name] = module
-        setattr(self, name, module)
-
-    def __delitem__(self, idx: Union[int, str]) -> None:
-        r"""
-        Deletes a module by index or name.
-        
-        Args:
-            idx (Union[int, str]): The index or name of the module to delete.
-
-        Raises:
-            TypeError: If `idx` is not an int or str.
-        
-        .. code-block:: python
-            :linenos:
-            :caption: Example
-
-            model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
-            del model[1]
-            assert len(model) == 1
-        """
-        if isinstance(idx, int):
-            name = list(self._modules.keys())[idx]
-        elif isinstance(idx, str):
-            name = idx
-        else:
-            raise TypeError("Index must be an int or str")
-
-        del self._modules[name]
-        delattr(self, name)
-
-    def add_module(self, name: str, module: Module) -> None:
-        """
-        Adds a module with a specified name to the sequence.
-        
-        Args:
-            name (str): The name of the module to be added.
-            module (Module): The module to be added to the sequence.
-        
-        Returns:
-            None
-
-        Raises:
-            TypeError: If `module` is not an instance of `Module`.
-
-        .. code-block:: python
-            :linenos:
-            :caption: Example
-
-            model = tp.Sequential()
-            model.add_module("layer1", tp.Linear(1, 3))
-            model.add_module("layer2", tp.Linear(3, 2))
-
-            assert len(model) == 2
-        """
-        if not isinstance(module, Module):
-            raise TypeError(f"{module} is not of type Module")
-        
-        self._modules[name] = module
-        setattr(self, name, module)
-
-    def append(self, module: Module) -> "Sequential":
-        """
-        Appends a module to the end of the sequence using an auto-generated name.
-
-        Args:
-            module (Module): The module to append to the sequence.
-
-        Returns:
-            Sequential: The instance of `Sequential` with the added module, allowing for chaining.
-        
-        Raises:
-            TypeError: If `module` is not an instance of `Module`.
-
-        .. code-block:: python
-            :linenos:
-            :caption: Example
-
-            model = tp.Sequential()
-            model.append(tp.Linear(1, 3))
-            model.append(tp.Linear(3, 2))
-
-            assert len(model) == 2
-        """
-        self.add_module(str(len(self)), module)
-        return self
-   
-    def extend(self, *modules: Union[Module, Dict[str, Module]]) -> "Sequential":
-        r"""
-        Appends modules to the sequence, accepting either a dictionary of named modules
-        or individual modules as arguments.
-
-        Args:
-            *modules (Union[Module, Dict[str, Module]]): Additional modules to append to the sequence.
-                Can be individual modules as positional arguments or a single dictionary of named modules.
-        
-        Returns:
-            Sequential: The instance of `Sequential` with the added module, allowing for chaining.
-    
-        .. code-block:: python
-            :linenos:
-            :caption: Example
-
-            model = tp.Sequential(tp.Linear(1, 64))
-            model.extend(tp.Linear(64, 128), tp.Linear(128, 256))
-            assert len(model) == 3
-        """
-        if len(modules) == 1 and isinstance(modules[0], dict):
-            for name, module in modules[0].items():
-                self.add_module(name, module)
-        else:
-            for layer in modules:
-                self.append(layer)
-
-    def __str__(self) -> str:
-        r"""
-        Returns a string representation of the Sequential container, showing each module's name and type.
-
-        Returns:
-            str: The string representation of the Sequential container.
-        
-        .. code-block:: python
-            :linenos:
-            :caption: Example
-
-            model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
-            print(model)
-        """
-        module_str = "\n".join(f"({name}): {module}" for name, module in self._modules.items())
-        return f"{self.__class__.__name__}(\n{module_str}\n)"
+    # maybe handle named_parameters since currently just empty?
