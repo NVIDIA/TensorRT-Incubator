@@ -12,7 +12,6 @@ func.func @trt_slice_static_fp8(%arg0: tensor<1024x1024xf8E4M3FN>) -> tensor<128
   return %0 : tensor<128x128xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_slice_dynamic_fp8
 //  CHECK-SAME: tensorrt.engine
@@ -26,7 +25,6 @@ func.func @trt_slice_dynamic_fp8(%arg0: tensor<1024x1024xf8E4M3FN>) -> tensor<?x
   return %0 : tensor<?x?xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_slice_dynamic_bf16
 //  CHECK-SAME: tensorrt.engine

@@ -7,7 +7,7 @@ func.func @test_opaque_v2_plugin_creation_failure(%arg0: tensor<1xf32>) -> tenso
   // expected-error @below {{'tensorrt.opaque_plugin' op failed to encode operation}}
   // expected-error @below {{failed to encode block}}
   %0 = tensorrt.opaque_plugin {
-    dso_path = "libTensorRTTestPlugins.so",
+    dso_path = "TensorRTTestPlugins.so",
     plugin_name = "TestV2Plugin1",
     plugin_version = "0",
     plugin_namespace = "",

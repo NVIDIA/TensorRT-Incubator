@@ -43,8 +43,24 @@ config.tensorrt_dialect_libs_dir = os.path.join(config.tensorrt_dialect_obj_root
 config.substitutions.append(
     ("%tensorrt_dialect_libs", config.tensorrt_dialect_libs_dir)
 )
+
 if config.enable_asan:
     config.environment["ASAN_OPTIONS"] = "protect_shadow_gap=0,detect_leaks=0"
+
+
+def make_tool_with_preload_prefix(tool: str):
+    # Returns a tool prefixed with setting the right LD_PRELOAD for ensuring that the
+    # right ASAN runtime is loaded (in the case where shared libraries produced by the project are
+    # being dynamically loaded, e.g. PyBind modules).
+    return f"LD_PRELOAD=$({config.host_cxx} -print-file-name=libclang_rt.asan-{config.host_arch}.so) {tool}"
+
+
+LINUX_ASAN_ENABLED = "Linux" in config.host_os and config.enable_asan
+
+# If ASAN is enabled, then configure the Python executable to actually refer to a combination of setting LD_PRELOAD and invoking python.
+python_executable = config.python_executable
+if LINUX_ASAN_ENABLED:
+    python_executable = make_tool_with_preload_prefix(python_executable)
 
 # Tweak the PATH to include the tools dir.
 llvm_config.with_environment("PATH", config.llvm_tools_dir, append_path=True)
@@ -69,6 +85,7 @@ tools = [
         "%pick-one-gpu",
         f"CUDA_VISIBLE_DEVICES=$(python3 -m mlir_tensorrt.tools.gpu_tools pick-device)",
     ),
+    ToolSubst("%PYTHON", python_executable, unresolved="ignore"),
 ]
 
 llvm_config.add_tool_substitutions(tools, tool_dirs)
@@ -100,3 +117,18 @@ if trt_version_major == 9:
     config.available_features.add("tensorrt-version-eq-9")
 if trt_version_major >= 10:
     config.available_features.add("tensorrt-version-ge-10.0")
+if not config.enable_asan:
+    config.available_features.add("no-asan")
+
+
+def estimate_parallelism(mem_required: float) -> int:
+    try:
+        with gpu_tools.nvml_context() as devices:
+            return gpu_tools.estimate_parallelism_from_memory(devices, mem_required)
+    except:
+        return 1
+
+
+# Setup the parallelism groups.
+lit_config.parallelism_groups["translation-tests"] = estimate_parallelism(8.0)
+lit_config.parallelism_group = None

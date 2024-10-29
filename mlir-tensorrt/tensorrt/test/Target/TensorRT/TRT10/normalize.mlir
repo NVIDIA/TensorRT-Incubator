@@ -15,7 +15,6 @@ func.func @trt_batch_normalize_fp8(%inp: tensor<2x3x2x2xf8E4M3FN>, %scale: tenso
 // CHECK-LABEL: @trt_batch_normalize_fp8
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_batch_normalize_bf16(%inp: tensor<2x3x2x2xbf16>, %scale: tensor<1x3x1x1xbf16>, %bias: tensor<1x3x1x1xbf16>) -> tensor<2x3x2x2xbf16> {
     %0 = tensorrt.normalization {

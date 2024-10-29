@@ -193,6 +193,35 @@ LogicalResult CallOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
 }
 
 //===----------------------------------------------------------------------===//
+// CallAllocOp
+//===----------------------------------------------------------------------===//
+
+func::FuncOp CallAllocOp::getFuncCallee(SymbolTableCollection &symbolTable) {
+  Operation *module = (*this)->getParentWithTrait<OpTrait::SymbolTable>();
+  assert(module && "expected call to be nested within symbol table");
+  return dyn_cast_or_null<func::FuncOp>(
+      symbolTable.lookupNearestSymbolFrom(module, getCallee()));
+}
+
+LogicalResult
+CallAllocOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
+  func::FuncOp kernel = getFuncCallee(symbolTable);
+  if (!kernel)
+    return emitOpError() << "no valid kernel found with symbol name "
+                         << getCallee();
+  FunctionType funcType = kernel.getFunctionType();
+
+  if (funcType.getNumInputs() != getInputs().size() ||
+      funcType.getNumResults() != getResultTypes().size() ||
+      !areTensorTypesCompatible(TypeRange(getInputs()), funcType.getInputs()))
+    return emitOpError()
+           << "callee has function type " << funcType
+           << " which is not compatible with input/result types of call";
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // ElementwiseOp
 //===----------------------------------------------------------------------===//
 
@@ -1450,13 +1479,16 @@ void tensorrt::TopKOp::build(OpBuilder &odsBuilder, OperationState &odsState,
 namespace {
 /// Fold reshape-like operations into `tensorrt.constant`.
 template <typename OpType>
-struct FoldConstExpandRank : public OpRewritePattern<OpType> {
+struct ConstFoldReshapePattern : public OpRewritePattern<OpType> {
   using OpRewritePattern<OpType>::OpRewritePattern;
   LogicalResult matchAndRewrite(OpType op,
                                 PatternRewriter &rewriter) const override {
+    if (!op.getType().hasStaticShape())
+      return failure();
     auto producer = op->getOperand(0).template getDefiningOp<ConstantOp>();
     if (!producer)
       return failure();
+
     // If the weights were elided, we can still notionally do this
     // transformation.
     if (std::optional<DenseResourceElementsHandle> elidedHandle =
@@ -1465,6 +1497,7 @@ struct FoldConstExpandRank : public OpRewritePattern<OpType> {
           op, DenseResourceElementsAttr::get(op.getType(), *elidedHandle));
       return success();
     }
+
     if (auto constAttr =
             dyn_cast<DenseElementsAttr>(producer.getWeightsAttr())) {
       rewriter.replaceOpWithNewOp<tensorrt::ConstantOp>(
@@ -1610,7 +1643,7 @@ tensorrt::CollapseRankOp::getReassociationIndices() {
 void tensorrt::CollapseRankOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ComposeTensorRTReassociativeReshapes<CollapseRankOp>,
-                 FoldConstExpandRank<CollapseRankOp>,
+                 ConstFoldReshapePattern<CollapseRankOp>,
                  TensorRTComposeCollapseOfExpandOp>(context);
 }
 
@@ -1682,7 +1715,7 @@ void tensorrt::ExpandRankOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
   results.insert<ComposeTensorRTReassociativeReshapes<ExpandRankOp>,
                  TensorRTComposeExpandOfCollapseOp,
-                 FoldConstExpandRank<ExpandRankOp>>(context);
+                 ConstFoldReshapePattern<ExpandRankOp>>(context);
 }
 
 OpFoldResult tensorrt::ExpandRankOp::fold(FoldAdaptor adaptor) {
@@ -1748,7 +1781,7 @@ struct SimplifyReshapeToRankExpandCollapse
 
 void tensorrt::ReshapeOp::getCanonicalizationPatterns(
     RewritePatternSet &results, MLIRContext *context) {
-  results.insert<FoldConstExpandRank<ReshapeOp>, SimplifyReshapeReshape,
+  results.insert<ConstFoldReshapePattern<ReshapeOp>, SimplifyReshapeReshape,
                  SimplifyReshapeToRankExpandCollapse>(context);
 }
 

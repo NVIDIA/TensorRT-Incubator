@@ -11,7 +11,6 @@ func.func @random_uniform_static_low_high() -> tensor<1x2x3x4xf32> {
   return %0 : tensor<1x2x3x4xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @random_uniform_low_high_dynamic
 //  CHECK-SAME: tensorrt.engine
@@ -21,7 +20,6 @@ func.func @random_uniform_low_high_dynamic(%low: tensor<f32>, %high: tensor<f32>
   return %0 : tensor<1x2x3x4xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @random_uniform_default
 //  CHECK-SAME: tensorrt.engine

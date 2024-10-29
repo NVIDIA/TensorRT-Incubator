@@ -14,7 +14,6 @@ func.func @trt_unary_exp_op_fp8(%arg0: tensor<10x128x64xf8E4M3FN>) -> tensor<10x
   return %0 : tensor<10x128x64xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_unary_exp_op_bf16
 //  CHECK-SAME: tensorrt.engine

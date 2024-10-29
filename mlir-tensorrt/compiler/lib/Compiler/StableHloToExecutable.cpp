@@ -230,6 +230,8 @@ StableHLOToExecutableOptions::StableHLOToExecutableOptions(
                            "if '--device-infer-from-host=false'"));
   addOption("device-max-shared-memory-per-block-kb",
             deviceMaxSharedMemoryPerBlockKb, llvm::cl::init(0));
+  addOption("device-max-registers-per-block", deviceMaxRegistersPerBlock,
+            llvm::cl::init(0));
   addOption("device-infer-from-host", shouldInferDeviceOptionsFromHost,
             llvm::cl::init(true),
             llvm::cl::desc("Infers device information from host"));
@@ -268,6 +270,7 @@ Status StableHLOToExecutableOptions::inferDeviceOptionsFromHost() {
   int64_t smVersion = ccMajor * 10 + ccMinor;
   this->deviceComputeCapability = smVersion;
   this->deviceMaxSharedMemoryPerBlockKb = properties.sharedMemPerBlock / 1024;
+  this->deviceMaxRegistersPerBlock = properties.regsPerBlock;
   return Status::getOk();
 }
 
