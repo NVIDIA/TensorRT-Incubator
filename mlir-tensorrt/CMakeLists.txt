@@ -17,9 +17,9 @@ endif()
 if(MLIR_TRT_PACKAGE_CACHE_DIR)
   set(CPM_SOURCE_CACHE "${MLIR_TRT_PACKAGE_CACHE_DIR}" CACHE STRING "" FORCE)
   set(CPM_USE_NAMED_CACHE_DIRECTORIES ON CACHE BOOL "" FORCE)
-else()
-  message(WARNING "MLIR_TRT_PACKAGE_CACHE_DIR is not set. Downloaded packages will be \
-  stored in your build directory. It is highly recommended to specify a package cache directory outside of \
+elseif(NOT CPM_SOURCE_CACHE)
+  message(WARNING "CPM_SOURCE_CACHE is not set. Source code for third party C++ packages will be \
+  stored in your build directory. It is highly recommended to specify a CPM source cache directory outside of \
   your build directory (for example '$PWD/.cache.cpm')")
 endif()
 
@@ -55,7 +55,7 @@ mtrt_option(MLIR_TRT_ENABLE_EXECUTOR "Build the Executor dialect and MLIR-Tensor
 mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" ON)
 
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
-set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.0" CACHE STRING
+set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.2" CACHE STRING
    "Version of TensorRT to download and use. It overrides MLIR_TRT_TENSORRT_DIR.")
 set(MLIR_TRT_PACKAGE_CACHE_DIR "" CACHE STRING "Directory where to cache downloaded C++ packages")
 set(MLIR_TRT_USE_LINKER "" CACHE STRING "Specify a linker to use (e.g. LLD); this is just an alias for LLVM_USE_LINKER")
