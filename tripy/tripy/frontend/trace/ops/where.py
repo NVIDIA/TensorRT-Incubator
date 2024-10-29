@@ -20,7 +20,6 @@ from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import constraints, export
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -35,13 +34,9 @@ class Where(BaseTraceOp):
         assert len(self.inputs) == 3, "Select operation should have exactly 3 inputs!"
         self.outputs[0].dtype = self.inputs[1].dtype
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
-        from tripy.common.datatype import bool as tp_bool
-        from tripy.common.datatype import int32
-        from tripy.flat_ir.ops import CompareOp, MaxOp, SelectOp
+        from tripy.flat_ir.ops import SelectOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.frontend.trace.ops.binary_elementwise import Comparison
 
         # Unconditionally insert broadcast for all operands
         assert len(inputs) == 3, f"Where op expects 3 inputs but got {len(inputs)}."

@@ -18,11 +18,9 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils, constraints
-from tripy.frontend import utils as frontend_utils
+from tripy import constraints, utils
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -96,7 +94,6 @@ class MatrixMultiplication(BaseTraceOp):
 
             self.outputs[0].rank = output_rank
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import ConcatenateOp, DotOp, DynamicSliceOp

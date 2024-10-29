@@ -100,7 +100,6 @@ class BinaryElementwise(BaseTraceOp):
 
         return [broadcasted_input_0, broadcasted_input_1]
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import AddOp, DivideOp, FloorOp, MaxOp, MinOp, MulOp, PowOp, SubtractOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -187,7 +186,6 @@ class Comparison(BinaryElementwise):
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.bool
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import CompareOp
 

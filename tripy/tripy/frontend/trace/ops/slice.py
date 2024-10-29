@@ -40,7 +40,6 @@ class Slice(BaseTraceOp):
     def infer_len(self):
         return [None]
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import bool as tp_bool
         from tripy.common.datatype import int32

@@ -51,7 +51,6 @@ class Fill(BaseTraceOp):
             self.output_rank = input_shape[0]
         self.outputs[0].rank = self.output_rank
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp, ConvertOp, DynamicBroadcastOp
         from tripy.flat_ir.tensor import FlatIRTensor

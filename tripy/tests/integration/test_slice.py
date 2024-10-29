@@ -17,8 +17,7 @@
 
 import cupy as cp
 import numpy as np
-from functools import reduce
-
+import math
 import pytest
 
 import tripy as tp
@@ -92,8 +91,8 @@ class TestSliceOp:
 
         x_shape = (2, 2)
         y_shape = (4, 3, 2)
-        x_vol = reduce((lambda x, y: x * y), x_shape)
-        y_vol = reduce((lambda x, y: x * y), y_shape)
+        x_vol = math.prod(x_shape)
+        y_vol = math.prod(y_shape)
         x = tp.reshape(tp.arange(x_vol, dtype=tp.int32), x_shape)
         y = tp.reshape(tp.arange(y_vol), y_shape)
         x_cp = cp.arange(x_vol, dtype=cp.int32).reshape(x_shape)
