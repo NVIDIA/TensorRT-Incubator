@@ -74,3 +74,21 @@ class TestSequential:
 
         rtol_ = 2e-7
         assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=rtol_)
+
+    def test_state_dict_comparison(self):
+        torch_model = torch.nn.Sequential(
+            torch.nn.Linear(1, 3, dtype=torch.float32), torch.nn.Linear(3, 2, dtype=torch.float32)
+        )
+        tp_model = tp.Sequential(tp.Linear(1, 3, dtype=tp.float32), tp.Linear(3, 2, dtype=tp.float32))
+
+        tp_model[0].weight = tp.Parameter(torch_model[0].weight.detach())
+        tp_model[0].bias = tp.Parameter(torch_model[0].bias.detach())
+        tp_model[1].weight = tp.Parameter(torch_model[1].weight.detach())
+        tp_model[1].bias = tp.Parameter(torch_model[1].bias.detach())
+
+        torch_state_dict = torch_model.state_dict()
+        tp_state_dict = tp_model.state_dict()
+
+        for name, torch_param in torch_state_dict.items():
+            tp_param = tp_state_dict[name]
+            assert torch.allclose(torch_param, torch.from_dlpack(tp_param), rtol=1e-5), f"Mismatch in {name}"
