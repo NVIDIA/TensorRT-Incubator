@@ -71,7 +71,7 @@ def flush():
     sys.stderr.flush()
 
 
-def compile_asm(ASM):
+def compile_asm(ASM, use_pass_manager_api=False):
     with Context() as context:
         m = Module.parse(ASM)
         client = api.CompilerClient(context)
@@ -93,7 +93,18 @@ def compile_asm(ASM):
 
         print("running compilation (1)")
         flush()
-        exe = api.compiler_stablehlo_to_executable(client, m.operation.clone(), opts)
+        if use_pass_manager_api:
+            pm = api.compiler_populate_pass_manager(client, opts)
+            import pdb
+
+            pdb.set_trace()
+            compiled_module = pm.run(m.operation.clone())
+            exe = api.compiler_translate_to_executable(compiled_module)
+        else:
+            exe = api.compiler_stablehlo_to_executable(
+                client, m.operation.clone(), opts
+            )
+
         # Options don't change, so the cached pipeline should be re-used.
         print("running compilation (2)")
         flush()
@@ -126,7 +137,7 @@ def compile_asm(ASM):
 
 
 print("Compiling static asm")
-compile_asm(STATIC_ASM)
+compile_asm(STATIC_ASM, use_pass_manager_api=True)
 # CHECK-LABEL: Compiling static asm
 # CHECK-LABEL: running compilation (1)
 # CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder

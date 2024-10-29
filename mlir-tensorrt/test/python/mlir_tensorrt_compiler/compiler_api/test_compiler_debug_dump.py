@@ -1,4 +1,4 @@
-# RUN: %PYTHON %s 2>&1
+# RUN: %PYTHON %s 2>&1 | FileCheck %s
 # REQUIRES: host-has-at-least-1-gpus
 import os
 import tempfile
@@ -50,3 +50,10 @@ def compile_asm(ASM):
 
 
 compile_asm(ASM)
+
+# CHECK: builtin.module
+# CHECK: [translate-to-tensorrt] TranslateToTensorRTEnginePass is generating a new TensorRT builder
+# CHECK: [translate-to-tensorrt] timing cache path was not specified, creating a fresh timing cache
+# CHECK: [translate-to-tensorrt] deserializing TensorRT builder timing cache (0 bytes)
+# CHECK: [translate-to-tensorrt] Setting builder optimization level to 3
+# CHECK: [translate-to-tensorrt] replacing cache with updated data
