@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730233619987,
+  "lastUpdate": 1730234938050,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -1462,6 +1462,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006836264805337887",
             "extra": "mean: 154.25698638054195 usec\nrounds: 7138"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "99bd0cc41cccaf7ea66dfd3c316b57e3e0afee95",
+          "message": "[tripy] Batchnorm implementation from feature branch",
+          "timestamp": "2024-10-29T18:44:25Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/319/commits/99bd0cc41cccaf7ea66dfd3c316b57e3e0afee95"
+        },
+        "date": 1730234937232,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6123.229350002889,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003326099591080592",
+            "extra": "mean: 163.31251743812734 usec\nrounds: 6516"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6752.7684943717395,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007092974515426243",
+            "extra": "mean: 148.08741049444748 usec\nrounds: 7398"
           }
         ]
       }
