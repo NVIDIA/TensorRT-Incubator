@@ -25,28 +25,25 @@ import tripy as tp
 from tests import helper
 from textwrap import dedent
 
+
 class TestSequential:
     def test_basic_structure(self, sequential_network):
         assert len(sequential_network) == 2
 
         assert isinstance(sequential_network[0], tp.Linear)
-        assert  np.array_equal(cp.from_dlpack(sequential_network[0].weight),  cp.from_dlpack(sequential_network[0].weight))
-        assert  np.array_equal(cp.from_dlpack(sequential_network[0].bias),  cp.from_dlpack(sequential_network[0].bias))
+        assert np.array_equal(
+            cp.from_dlpack(sequential_network[0].weight), cp.from_dlpack(sequential_network[0].weight)
+        )
+        assert np.array_equal(cp.from_dlpack(sequential_network[0].bias), cp.from_dlpack(sequential_network[0].bias))
 
     def test_named_children(self, sequential_network):
         expected_names = [("0", sequential_network[0]), ("1", sequential_network[1])]
         assert list(sequential_network.named_children()) == expected_names
 
-    # not valid test since sequential_network.named_parameters() is empty
-    # def test_named_parameters(self, sequential_network):
-    #     param_names = [f"{i}.{name}" for i in range(len(sequential_network)) for name, _ in sequential_network[i].named_parameters()]
-    #     for name, _ in sequential_network.named_parameters(): # 
-    #         assert name in param_names
-
     def test_forward_pass(self, sequential_network):
         input_data = tp.Tensor([1.0])
         output = sequential_network(input_data)
-        assert output.shape == tp.Shape([1,2])
+        assert output.shape == tp.Shape([1, 2])
 
     def test_state_dict(self, sequential_network):
         state_dict = sequential_network.state_dict()
@@ -57,11 +54,9 @@ class TestSequential:
         assert list(state_dict.keys()) == expected_state_dict_keys
 
     def test_load_state_dict(self, sequential_network):
-        new_state_dict = {
-            "0.weight": tp.Parameter(tp.ones((3, 1)))
-        }
+        new_state_dict = {"0.weight": tp.Parameter(tp.ones((3, 1)))}
         sequential_network.load_state_dict(new_state_dict)
-        assert np.array_equal(cp.from_dlpack(sequential_network[0].weight),  cp.from_dlpack(new_state_dict["0.weight"]))
+        assert np.array_equal(cp.from_dlpack(sequential_network[0].weight), cp.from_dlpack(new_state_dict["0.weight"]))
 
     def test_modify_parameters(self, sequential_network):
         new_param = tp.Parameter(tp.ones((2, 3)))
@@ -90,6 +85,7 @@ class TestSequential:
         )
         assert str(sequential_network) == expected_str
 
+
 class TestNestedSequential:
     def test_basic_structure(self, nested_sequential_network):
         # Check that the top-level Sequential has two layers and that one of them is a nested Sequential
@@ -116,7 +112,9 @@ class TestNestedSequential:
             "1.1.weight": tp.Parameter(tp.ones((1, 3))),
         }
         nested_sequential_network.load_state_dict(new_state_dict)
-        assert np.array_equal(cp.from_dlpack(nested_sequential_network[1][1].weight),  cp.from_dlpack(new_state_dict["1.1.weight"]))
+        assert np.array_equal(
+            cp.from_dlpack(nested_sequential_network[1][1].weight), cp.from_dlpack(new_state_dict["1.1.weight"])
+        )
 
     def test_str_representation(self, nested_sequential_network):
         expected_str = dedent(
