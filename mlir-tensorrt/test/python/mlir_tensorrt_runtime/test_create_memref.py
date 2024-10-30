@@ -496,6 +496,29 @@ create_memref_from_dlpack(cp.ones(0, dtype=cp.int8), cp)
 # CHECK-NEXT: -- cupy.from_dlpack(): []
 
 
+def create_memref_dlpackview_from_dlpack(dl, module):
+    memref = client.create_memref_view_from_dlpack(dl)
+    dl = module.from_dlpack(memref)
+    print(f"-- Memref shape: {memref.shape}")
+    print(f"-- Memref dtype: {memref.dtype}")
+    print(f"-- {module.__name__}.from_dlpack(): {dl}")
+    return memref, dl
+
+
+print("Test keeping np.array, dlpack, memref view and dlpack view alive.")
+arr = np.array([1, 2, 3, 4], dtype=np.int32)
+dl = arr.__dlpack__()
+memref1, dl1 = create_memref_dlpackview_from_dlpack(dl, np)
+memref2, dl2 = create_memref_dlpackview_from_dlpack(dl, np)
+
+# CHECK-LABEL: Test keeping np.array, dlpack, memref view and dlpack view alive.
+# CHECK-NEXT: -- Memref shape: [4]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i32
+# CHECK-NEXT: -- numpy.from_dlpack(): [1 2 3 4]
+# CHECK-NEXT: -- Memref shape: [4]
+# CHECK-NEXT: -- Memref dtype: ScalarTypeCode.i32
+
+
 def create_dangling_memref():
     array = np.array([1, 2])
     dlpack_capsule = array.__dlpack__()

@@ -907,6 +907,9 @@ protected:
 /// RuntimeClient and be destroyed/deallocated through the appropriate method.
 class RuntimeClient {
 public:
+  /// Add destructor declaration
+  ~RuntimeClient();
+
   /// Creates the client. Enumerates CUDA devices on the machine. Creates the
   /// internal allocators.
   static StatusOr<std::unique_ptr<RuntimeClient>> create();
@@ -969,6 +972,17 @@ public:
     return pinnedMemoryAllocator;
   }
 
+  /// Track the DLPack tensors in RuntimeClient such that their deleters can be
+  /// reset when RuntimeClient is destructed.
+  void trackDLPackTensor(DLManagedTensor *tensor) {
+    dlPackTensors.insert(tensor);
+  }
+
+  /// Remove the DLPack tensor reference from tracking.
+  void removeDLPackTensorFromTracking(DLManagedTensor *tensor) {
+    dlPackTensors.erase(tensor);
+  }
+
 private:
   RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
       : devices(std::move(devices)) {}
@@ -977,6 +991,7 @@ private:
   PinnedMemoryAllocator pinnedMemoryAllocator;
   AllocTracker allocTracker;
   ResourceTracker resourceTracker;
+  std::set<DLManagedTensor *> dlPackTensors;
 };
 
 //===----------------------------------------------------------------------===//

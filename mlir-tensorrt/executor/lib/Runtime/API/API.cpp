@@ -387,6 +387,7 @@ AllocTracker::~AllocTracker() {
       MTRT_DBGF("error while deallocating dangling memory: %s",
                 s.getString().c_str());
   }
+
   if (totalSize > 0)
     MTRT_DBGF("freed %zu bytes of unfreed memory", totalSize);
 }
@@ -410,10 +411,11 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = ++metadata->externalReferenceCount;
-  MTRT_DBG("Incremented external reference for pointer %d to %d", ptr, ref);
+  MTRT_DBGF("Incremented external reference for pointer 0x%lx to %d", ptr, ref);
 }
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
+
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
@@ -422,11 +424,12 @@ void AllocTracker::decrementExternalCount(uintptr_t ptr) {
          llvm::formatv("External reference count cannot be negative: {0}", ref)
              .str()
              .c_str());
-  MTRT_DBG("Decremented external reference for pointer %d to %d", ptr, ref);
+  MTRT_DBGF("Decremented external reference for pointer 0x%lx to %d", ptr, ref);
   if (ref == 0 && metadata->releasedInternally) {
-    MTRT_DBG("External reference to an internally released pointer %d is 0, "
-             "try deallocating pointer memory of size %lu",
-             ptr, ref, metadata->info.size);
+    MTRT_DBGF(
+        "External reference to an internally released pointer 0x%lx is 0, "
+        "try deallocating pointer memory of size %lu",
+        ptr, metadata->info.size);
     Status s = safeDeallocate(*this, metadata->info.ptr);
     if (!s.isOk())
       MTRT_DBGF("error while deallocating dangling memory: %s",
@@ -463,8 +466,6 @@ void AllocTracker::track(PointerInfo info) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
     return;
   }
-  untrack(info.ptr);
-  map.insert(std::make_pair(info.ptr, std::move(value)));
 }
 
 void AllocTracker::untrack(uintptr_t ptr) {
@@ -559,6 +560,9 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
               ptr);
     return mlirtrt::Status::getOk();
   }
+
+  MTRT_DBGF("external count %d for ptr 0x%lx",
+            tracker.getExternalReferenceCount(ptr), ptr);
 
   if (tracker.getExternalReferenceCount(ptr) > 0) {
     // Destructor for external reference should truly free or delete this.
@@ -883,6 +887,7 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
 
 Status RuntimeClient::deallocate(std::unique_ptr<MemRefValue> value,
                                  std::optional<CudaStream> stream) {
+
   return safeDeallocate(
       allocTracker, reinterpret_cast<uintptr_t>(value->getMemory()), stream);
 }
@@ -1065,6 +1070,13 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
 #endif
+}
+
+RuntimeClient::~RuntimeClient() {
+  // Reset the deleter for all tracked dlPackTensors
+  for (auto *tensor : dlPackTensors) {
+    tensor->deleter = nullptr;
+  }
 }
 
 //===----------------------------------------------------------------------===//
