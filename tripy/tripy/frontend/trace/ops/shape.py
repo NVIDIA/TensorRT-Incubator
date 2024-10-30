@@ -64,6 +64,5 @@ def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
 
         assert shape == [8, 2]
     """
-    from tripy.frontend.dimension_size import DimensionSize
 
-    return [DimensionSize(GetDimensionSize.build([self], dim=index)) for index in range(self.rank)]
+    return [GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)]
