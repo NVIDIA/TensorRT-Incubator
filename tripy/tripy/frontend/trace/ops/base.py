@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from typing import List, Optional, Set, Union
 
 from tripy import utils
-from tripy.utils import Result
 
 
 @dataclass(repr=False)
@@ -60,7 +59,9 @@ class BaseTraceOp(abc.ABC):
         return op
 
     @classmethod
-    def build(cls, inputs: List["Tensor"], *args, num_outputs=1, **kwargs) -> Union["Tensor", List["Tensor"]]:
+    def build(
+        cls, inputs: List["Tensor"], *args, num_outputs=1, always_cast_to_dimension_size=False, **kwargs
+    ) -> Union["Tensor", List["Tensor"]]:
         """
         Builds a trace operation and binds its inputs to the trace tensors corresponding to the
         frontend tensors provided in `inputs` and creates `num_outputs` new frontend tensors for the
@@ -72,20 +73,29 @@ class BaseTraceOp(abc.ABC):
         of returning a list of output tensors.
         """
 
-        from tripy.frontend.tensor import Tensor
+        from tripy.common.datatype import int32
         from tripy.frontend.dimension_size import DimensionSize
-
-        # Operations that operate on only DimensionSize inputs will always yield a DimensionSize.
-        # For any mixed operations, DimensionSize must be casted up to Tensor.
-        TensorType = DimensionSize if all(isinstance(inp, DimensionSize) for inp in inputs) else Tensor
+        from tripy.frontend.tensor import Tensor
 
         # NOTE: If you change the stack depth where the tensors are constructed, update STACK_DEPTH_OF_BUILD in
         # the Tensor constructor!
-        outputs = [TensorType(None) for _ in range(num_outputs)]
+        outputs = [Tensor(None) for _ in range(num_outputs)]
 
         inp_trace_tensors = [inp.trace_tensor for inp in inputs]
         out_trace_tensors = [out.trace_tensor for out in outputs]
         cls.build_internal(inp_trace_tensors, out_trace_tensors, *args, **kwargs)
+
+        # Operations that operate on only DimensionSize inputs will always yield a DimensionSize.
+        # For any mixed operations, DimensionSize must be casted up to Tensor.
+        all_inputs_are_dimension_size = all(isinstance(inp, DimensionSize) for inp in inputs)
+        for index, out in enumerate(outputs):
+            if always_cast_to_dimension_size or (
+                all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0
+            ):
+                dim_size = DimensionSize(None)
+                dim_size.trace_tensor = out.trace_tensor
+                dim_size.stack_info = out.stack_info
+                outputs[index] = dim_size
 
         if num_outputs == 1:
             return outputs[0]

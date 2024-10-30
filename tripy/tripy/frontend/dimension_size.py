@@ -34,31 +34,9 @@ class DimensionSize(Tensor):
             data: The value of the DimensionSize, which should be a scalar integer.
             name: An optional name.
         """
-
-        from tripy.common.exception import raise_error
-
-        # This branch of the constructor is basically a backdoor for `.shape` to work.
-        # It is not generally possible to cast Tensors to DimensionSizes.
-        if isinstance(data, Tensor):
-            # these fields can be None in the case of an uninitialized tensor (like Tensor(None))
-            if data.trace_tensor.rank is not None and data.trace_tensor.rank != 0:
-                raise_error(
-                    f"Scalar shape tensors must be of rank 0, but input tensor is rank {data.rank}", details=[data]
-                )
-            if data.dtype is not None and data.dtype != int32:
-                raise_error(
-                    f"Scalar shape tensor must have int32 member, but input tensor has data type {data.dtype}",
-                    details=[data],
-                )
-
-            super().__init__(data=None, dtype=int32, name=name, device=data.device)
-            # share the underlying data
-            self.trace_tensor = data.trace_tensor
-            self.stack_info = data.stack_info
-        else:
-            # NOTE: We do not use isinstance here because bool is a subclass of int.
-            assert data is None or type(data) is int, "DimensionSize can only be created from integers"
-            super().__init__(data=data, dtype=int32, name=name)
+        # NOTE: We do not use isinstance here because bool is a subclass of int.
+        assert data is None or type(data) is int, "DimensionSize can only be created from integers"
+        super().__init__(data=data, dtype=int32, name=name)
 
     def __int__(self) -> int:
         return self.tolist()
