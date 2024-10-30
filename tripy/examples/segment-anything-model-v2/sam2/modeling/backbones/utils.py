@@ -34,13 +34,8 @@ def window_partition(x, window_size):
         (Hp, Wp): padded height and width before partition
     """
     B, H, W, C = x.shape
-
-    pad_h = (window_size - H % window_size) % window_size
-    pad_w = (window_size - W % window_size) % window_size
-    if pad_h > 0 or pad_w > 0:
-        x = tp.pad(x, padding_sizes=((0, 0), (0, pad_h), (0, pad_w), (0, 0)))
-    Hp, Wp = H + pad_h, W + pad_w
-
+    # padding is not triggered
+    Hp, Wp = H, W
     x = tp.reshape(x, (B, Hp // window_size, window_size, Wp // window_size, window_size, C))
     x = tp.permute(x, (0, 1, 3, 2, 4, 5))
     windows = tp.reshape(x, (-1, window_size, window_size, C))
@@ -59,14 +54,11 @@ def window_unpartition(windows, window_size, pad_hw, hw):
         x: unpartitioned sequences with [B, H, W, C].
     """
     Hp, Wp = pad_hw
-    H, W = hw
     B = windows.shape[0] // (Hp * Wp // window_size // window_size)
-    x = tp.reshape(x, (B, Hp // window_size, Wp // window_size, window_size, window_size, -1))
+
+    x = tp.reshape(windows, (B, Hp // window_size, Wp // window_size, window_size, window_size, -1))
     x = tp.permute(x, (0, 1, 3, 2, 4, 5))  # [B, Hp//window_size, window_size, Wp//window_size, window_size, C]
     x = tp.reshape(x, (B, Hp, Wp, -1))  # [B, Hp, Wp, C]
-    # This condition is nerver triggered in inference
-    # if Hp > H or Wp > W:
-    #     x = x[:, :H, :W, :]
     return x
 
 
@@ -82,6 +74,7 @@ class PatchEmbed(tp.Module):
         padding: Tuple[int, ...] = (3, 3),
         in_chans: int = 3,
         embed_dim: int = 768,
+        dtype: tp.dtype = tp.float32,
     ):
         """
         Args:
@@ -92,9 +85,17 @@ class PatchEmbed(tp.Module):
             embed_dim (int):  embed_dim (int): Patch embedding dimension.
         """
         super().__init__()
-        self.proj = tp.Conv(in_chans, embed_dim, kernel_dims=kernel_size, stride=stride, padding=padding)
+        padding = ((padding[0], padding[0]), (padding[1], padding[1]))
+        self.proj = tp.Conv(
+            in_chans,
+            embed_dim,
+            kernel_dims=kernel_size,
+            stride=stride,
+            padding=padding,
+            dtype=dtype,
+        )
 
-    def forward(self, x):
+    def __call__(self, x):
         x = self.proj(x)
         x = tp.permute(x, (0, 2, 3, 1))  # [B, C, H, W] -> [B, H, W, C]
         return x

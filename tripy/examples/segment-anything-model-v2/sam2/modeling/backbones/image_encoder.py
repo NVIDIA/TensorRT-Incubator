@@ -24,6 +24,7 @@ import tripy as tp
 
 
 class ImageEncoder(tp.Module):
+
     def __init__(
         self,
         trunk: tp.Module,
@@ -37,10 +38,27 @@ class ImageEncoder(tp.Module):
         assert (
             self.trunk.channel_list == self.neck.backbone_channel_list
         ), f"Channel dims of trunk and neck do not match. Trunk: {self.trunk.channel_list}, neck: {self.neck.backbone_channel_list}"
+        self.compiled_executable = None
 
-    def forward(self, sample: tp.Tensor):
+    def forward(self, x):
+        # __call__ returns a dict, not tensors
+        # thus we need to only compile this forward function
         # Forward through backbone
-        features, pos = self.neck(self.trunk(sample))
+        return self.neck(self.trunk(x))
+
+    def __call__(self, sample: tp.Tensor):
+        import torch
+
+        # Forward through backbone
+        if self.compiled_executable:
+            features_pos = self.compiled_executable(sample)
+        else:
+            features_pos = self.forward(sample)
+        for i in range(len(features_pos)):
+            features_pos[i] = torch.from_dlpack(features_pos[i]).to(torch.float32)
+        n = len(self.neck.backbone_channel_list)
+        features = list(features_pos[:n])
+        pos = list(features_pos[n:])
         if self.scalp > 0:
             # Discard the lowest resolution features
             features, pos = features[: -self.scalp], pos[: -self.scalp]
@@ -58,7 +76,7 @@ class FpnNeck(tp.Module):
 
     def __init__(
         self,
-        position_encoding: tp.Module,
+        position_encoding: tp.Module,  # TODO: replace this with shapes
         d_model: int,
         backbone_channel_list: List[int],
         kernel_size: int = 1,
@@ -67,13 +85,13 @@ class FpnNeck(tp.Module):
         fpn_interp_model: str = "bilinear",
         fuse_type: str = "sum",
         fpn_top_down_levels: Optional[List[int]] = None,
+        dtype: str = "float32",
     ):
         super().__init__()
-        self.position_encoding = position_encoding
+        self.dtype = getattr(tp, dtype)
         self.convs = []
         self.backbone_channel_list = backbone_channel_list
         for dim in backbone_channel_list:
-            # The weight name could be different, "convs.0.conv.0..."
             make_2d_tuple = lambda x: 2 * (x,)
             self.convs.append(
                 tp.Conv(
@@ -81,7 +99,7 @@ class FpnNeck(tp.Module):
                     out_channels=d_model,
                     kernel_dims=make_2d_tuple(kernel_size),
                     stride=make_2d_tuple(stride),
-                    padding=make_2d_tuple(padding),
+                    dtype=self.dtype,
                 )
             )
         self.fpn_interp_model = fpn_interp_model
@@ -92,7 +110,14 @@ class FpnNeck(tp.Module):
             fpn_top_down_levels = range(len(self.convs))
         self.fpn_top_down_levels = list(fpn_top_down_levels)
 
-    def forward(self, xs: List[tp.Tensor]):
+        # position embedding only depends on input shape
+        # so we generate static embeddings ahead of time
+        self.position_encoding = []
+        position_encoding_shapes = [[256, 256], [128, 128], [64, 64], [32, 32]]
+        for s in position_encoding_shapes:
+            self.position_encoding.append(position_encoding.generate_static_embedding([1, 256] + s, dtype=dtype))
+
+    def __call__(self, xs: List[tp.Tensor]):
 
         out = [None] * len(self.convs)
         pos = [None] * len(self.convs)
@@ -105,11 +130,10 @@ class FpnNeck(tp.Module):
             x = xs[i]
             lateral_features = self.convs[n - i](x)
             if i in self.fpn_top_down_levels and prev_features is not None:
-                b, c, h, w = prev_features.shape[0:2]
                 top_down_features = tp.resize(
-                    tp.cast(prev_features, tp.float32),  # is this cast really needed?
+                    tp.cast(prev_features, self.dtype),
                     mode=self.fpn_interp_model,
-                    output_shape=(b, c, h * 2, w * 2),
+                    output_shape=(1, 256, 64, 64),
                 )
                 prev_features = lateral_features + top_down_features
                 if self.fuse_type == "avg":
@@ -118,6 +142,6 @@ class FpnNeck(tp.Module):
                 prev_features = lateral_features
             x_out = prev_features
             out[i] = x_out
-            pos[i] = tp.cast(self.position_encoding(x_out), x_out.dtype)
+            pos[i] = tp.cast(self.position_encoding[i], x_out.dtype)
 
-        return out, pos
+        return *out, *pos

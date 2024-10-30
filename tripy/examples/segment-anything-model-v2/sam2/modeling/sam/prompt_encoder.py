@@ -12,12 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
 from typing import Optional, Tuple, Type
 
 import tripy as tp
@@ -82,7 +76,7 @@ class PromptEncoder(tp.Module):
           tp.Tensor: Positional encoding with shape
             1x(embed_dim)x(embedding_h)x(embedding_w)
         """
-        return self.pe_layer(self.image_embedding_size).unsqueeze(0)
+        return tp.unsqueeze(self.pe_layer(self.image_embedding_size), 0)
 
     def _embed_points(
         self,
@@ -93,19 +87,40 @@ class PromptEncoder(tp.Module):
         """Embeds point prompts."""
         points = points + 0.5  # Shift to center of pixel
         if pad:
-            padding_point = tp.zeros((points.shape[0], 1, 2))
-            padding_label = 0 - tp.ones((labels.shape[0], 1))
+            padding_point = tp.zeros((points.shape[0], 1, 2), dtype=points.dtype)
+            padding_label = 0 - tp.ones((labels.shape[0], 1), dtype=labels.dtype)
+            padding_label = tp.cast(padding_label, labels.dtype)
             points = tp.concatenate([points, padding_point], dim=1)
             labels = tp.concatenate([labels, padding_label], dim=1)
-        point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)
 
+        point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)
         labels = tp.unsqueeze(labels, 2)
         point_embedding = tp.where(labels == -1, tp.Tensor([0.0]), point_embedding)
-        point_embedding = tp.where(labels == -1, self.not_a_point_embed.weight, point_embedding)
-        point_embedding = tp.where(labels == 0, self.point_embeddings[0].weight, point_embedding)
-        point_embedding = tp.where(labels == 1, self.point_embeddings[1].weight, point_embedding)
-        point_embedding = tp.where(labels == 2, self.point_embeddings[2].weight, point_embedding)
-        point_embedding = tp.where(labels == 3, self.point_embeddings[3].weight, point_embedding)
+        point_embedding = tp.where(
+            labels == -1,
+            point_embedding + self.not_a_point_embed.weight,
+            point_embedding,
+        )
+        point_embedding = tp.where(
+            labels == 0,
+            point_embedding + self.point_embeddings[0].weight,
+            point_embedding,
+        )
+        point_embedding = tp.where(
+            labels == 1,
+            point_embedding + self.point_embeddings[1].weight,
+            point_embedding,
+        )
+        point_embedding = tp.where(
+            labels == 2,
+            point_embedding + self.point_embeddings[2].weight,
+            point_embedding,
+        )
+        point_embedding = tp.where(
+            labels == 3,
+            point_embedding + self.point_embeddings[3].weight,
+            point_embedding,
+        )
         return point_embedding
 
     def _embed_boxes(self, boxes: tp.Tensor) -> tp.Tensor:
@@ -147,6 +162,15 @@ class PromptEncoder(tp.Module):
         else:
             return 1
 
+    def __call__(
+        self,
+        points_x: Optional[tp.Tensor],
+        points_y: Optional[tp.Tensor],
+        boxes: Optional[tp.Tensor],
+        masks: Optional[tp.Tensor],
+    ) -> Tuple[tp.Tensor, tp.Tensor]:
+        return self.forward(points_x, points_y, boxes, masks)
+
     def forward(
         self,
         points_x: Optional[tp.Tensor],
@@ -187,7 +211,8 @@ class PromptEncoder(tp.Module):
         else:
             dense_embeddings = tp.reshape(self.no_mask_embed.weight, (1, -1, 1, 1))
             dense_embeddings = tp.expand(
-                dense_embeddings, (bs, -1, self.image_embedding_size[0], self.image_embedding_size[1])
+                dense_embeddings,
+                (bs, -1, self.image_embedding_size[0], self.image_embedding_size[1]),
             )
 
         return sparse_embeddings, dense_embeddings
