@@ -299,30 +299,30 @@ struct TileLikeBroadcastToSlice : public OpRewritePattern<BroadcastOp> {
       input = reshapeBroadcastInput(rewriter, op.getLoc(), op);
     TensorType inputType = input.getType();
 
-    // Create static_start and static_stride attributes
-    auto static_start = rewriter.getDenseI32ArrayAttr(
+    // Create staticStart and staticStride attributes
+    auto staticStart = rewriter.getDenseI32ArrayAttr(
         SmallVector<int32_t>(inputType.getRank(), 0));
-    auto static_stride = rewriter.getDenseI32ArrayAttr(
+    auto staticStride = rewriter.getDenseI32ArrayAttr(
         SmallVector<int32_t>(inputType.getRank(), 1));
 
     if (resultType.hasStaticShape()) {
       // For static shapes, use DenseI32ArrayAttr for size
       SmallVector<int32_t> size_vec =
-          llvm::to_vector(llvm::map_range(resultType.getShape(), [](int64_t x) {
+          llvm::map_to_vector(resultType.getShape(), [](int64_t x) {
             return static_cast<int32_t>(x);
-          }));
-      auto static_size = rewriter.getDenseI32ArrayAttr(size_vec);
+          });
+      auto staticSize = rewriter.getDenseI32ArrayAttr(size_vec);
 
       rewriter.replaceOpWithNewOp<SliceOp>(
           op, resultType, input, /*fill=*/Value(), /*start=*/Value(),
-          /*size=*/Value(), /*stride=*/Value(), static_start, static_size,
-          static_stride, tensorrt::SliceMode::kWRAP);
+          /*size=*/Value(), /*stride=*/Value(), staticStart, staticSize,
+          staticStride, tensorrt::SliceMode::kWRAP);
     } else {
       // For dynamic shapes, use the original op's shape operand
       rewriter.replaceOpWithNewOp<SliceOp>(
           op, resultType, input, /*fill=*/Value(), /*start=*/Value(),
-          op.getShape(), /*stride=*/Value(), static_start,
-          /*static_size=*/nullptr, static_stride, tensorrt::SliceMode::kWRAP);
+          op.getShape(), /*stride=*/Value(), staticStart,
+          /*staticSize=*/nullptr, staticStride, tensorrt::SliceMode::kWRAP);
     }
     return success();
   }
