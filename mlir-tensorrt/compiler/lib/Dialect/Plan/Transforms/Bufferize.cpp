@@ -22,9 +22,11 @@
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
+#include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/BufferizableOpInterface.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotModuleBufferize.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -33,6 +35,7 @@
 namespace mlir {
 namespace plan {
 #define GEN_PASS_DEF_PLANBUFFERIZEPASS
+#define GEN_PASS_DEF_PLANOWNERSHIPBASEDBUFFERDEALLOCATIONPASS
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h.inc"
 } // namespace plan
 } // namespace mlir
@@ -167,12 +170,12 @@ LogicalResult plan::executorOneShotModuleBufferize(
 }
 
 //===----------------------------------------------------------------------===//
-// ExecutorBufferizePass
+// PlanBufferizePass
 //===----------------------------------------------------------------------===//
 
 namespace {
-class ExecutorBufferizePass
-    : public plan::impl::PlanBufferizePassBase<ExecutorBufferizePass> {
+class PlanBufferizePass
+    : public plan::impl::PlanBufferizePassBase<PlanBufferizePass> {
 public:
   using Base::Base;
 
@@ -192,6 +195,37 @@ public:
     if (failed(executorOneShotModuleBufferize(
             op, ExecutorBufferizationOptions(op))))
       return signalPassFailure();
+  }
+};
+} // namespace
+
+//===----------------------------------------------------------------------===//
+// PlanOwnershipBasedBufferDeallocationPass
+//===----------------------------------------------------------------------===//
+
+namespace {
+
+/// The actual buffer deallocation pass that inserts and moves dealloc nodes
+/// into the right positions. Furthermore, it inserts additional clones if
+/// necessary. It uses the algorithm described at the top of the file.
+struct PlanOwnershipBasedBufferDeallocationPass
+    : public plan::impl::PlanOwnershipBasedBufferDeallocationPassBase<
+          PlanOwnershipBasedBufferDeallocationPass> {
+  using Base::Base;
+
+  void runOnOperation() override {
+    bufferization::DeallocationOptions options;
+    options.privateFuncDynamicOwnership = privateFuncDynamicOwnership;
+    SmallVector<func::FuncOp> hostFuncs =
+        llvm::to_vector(getOperation().getOps<func::FuncOp>());
+
+    for (auto func : hostFuncs) {
+      if (func.isExternal())
+        continue;
+
+      if (failed(bufferization::deallocateBuffersOwnershipBased(func, options)))
+        return signalPassFailure();
+    }
   }
 };
 } // namespace

@@ -38,6 +38,7 @@
 #include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/PassManager.h"
@@ -345,6 +346,9 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createDropEquivalentBufferResultsPass());
   plan::buildPlanBufferOptimizationPipeline(pm);
+  plan::buildPlanBufferDeallocationPipeline(
+      pm, bufferization::DeallocationOptions{
+              /*privateFuncDynamicOwnership=*/false});
 
   populateExtensionPasses(pm, opts, Phase::PostBufferization);
 

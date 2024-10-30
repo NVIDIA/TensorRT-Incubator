@@ -1746,8 +1746,8 @@ struct SimplifyReshapeReshape : public OpRewritePattern<ReshapeOp> {
     auto reshapeDefOp = op.getInput().getDefiningOp<ReshapeOp>();
     if (!reshapeDefOp)
       return failure();
-    rewriter.replaceOpWithNewOp<ReshapeOp>(op, op.getType(),
-                                           reshapeDefOp.getInput());
+    rewriter.replaceOpWithNewOp<ReshapeOp>(
+        op, op.getType(), reshapeDefOp.getInput(), op.getShape());
     return success();
   }
 };

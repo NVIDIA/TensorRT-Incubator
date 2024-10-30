@@ -27,6 +27,7 @@
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include <memory>
 #include <mlir/Pass/Pass.h>
 
@@ -74,6 +75,11 @@ void buildPlanBufferizationPipeline(
 
 /// Build a post-bufferization pipeline that performs optimizations on memrefs.
 void buildPlanBufferOptimizationPipeline(OpPassManager &pm);
+
+/// Build a pipeline (targeting ModuleOp) for ownership-based buffer
+/// deallocation.
+void buildPlanBufferDeallocationPipeline(
+    OpPassManager &pm, const bufferization::DeallocationOptions &options);
 
 /// Register PassPipelines associated with the Plan dialect.
 void registerPlanDialectPipelines();
