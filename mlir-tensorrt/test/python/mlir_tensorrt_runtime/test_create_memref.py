@@ -496,20 +496,25 @@ create_memref_from_dlpack(cp.ones(0, dtype=cp.int8), cp)
 # CHECK-NEXT: -- cupy.from_dlpack(): []
 
 
-def create_memref_dlpackview_from_dlpack(dl, module):
-    memref = client.create_memref_view_from_dlpack(dl)
-    dl = module.from_dlpack(memref)
-    print(f"-- Memref shape: {memref.shape}")
-    print(f"-- Memref dtype: {memref.dtype}")
-    print(f"-- {module.__name__}.from_dlpack(): {dl}")
-    return memref, dl
+def test_client_destroyed_before_external_dlpack(dl):
+    new_client = runtime.RuntimeClient()
+
+    def create_memref_dlpackview_from_dlpack(dl, module):
+        memref = new_client.create_memref_view_from_dlpack(dl)
+        dl = module.from_dlpack(memref)
+        print(f"-- Memref shape: {memref.shape}")
+        print(f"-- Memref dtype: {memref.dtype}")
+        print(f"-- {module.__name__}.from_dlpack(): {dl}")
+        return memref, dl
+
+    memref1, dl1 = create_memref_dlpackview_from_dlpack(dl, np)
+    memref2, dl2 = create_memref_dlpackview_from_dlpack(dl, np)
+    return memref1, dl1, memref2, dl2
 
 
 print("Test keeping np.array, dlpack, memref view and dlpack view alive.")
 arr = np.array([1, 2, 3, 4], dtype=np.int32)
-dl = arr.__dlpack__()
-memref1, dl1 = create_memref_dlpackview_from_dlpack(dl, np)
-memref2, dl2 = create_memref_dlpackview_from_dlpack(dl, np)
+m1, d1, m2, d2 = test_client_destroyed_before_external_dlpack(arr.__dlpack__())
 
 # CHECK-LABEL: Test keeping np.array, dlpack, memref view and dlpack view alive.
 # CHECK-NEXT: -- Memref shape: [4]

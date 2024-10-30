@@ -1072,6 +1072,14 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 #endif
 }
 
+void RuntimeClient::trackDLPackTensor(DLManagedTensor *tensor) {
+  dlPackTensors.insert(tensor);
+}
+
+void RuntimeClient::removeDLPackTensorFromTracking(DLManagedTensor *tensor) {
+  dlPackTensors.erase(tensor);
+}
+
 RuntimeClient::~RuntimeClient() {
   // Reset the deleter for all tracked dlPackTensors
   for (auto *tensor : dlPackTensors) {
