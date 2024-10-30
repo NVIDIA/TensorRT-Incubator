@@ -22,13 +22,14 @@ from tripy.common import datatype
 from tripy.frontend.module.module import Module
 from tripy.frontend.module.parameter import DefaultParameter, Parameter
 
+
 @export.public_api(document_under="operations/modules")
 @dataclass
 @utils.constant_fields(["num_features"])
 class BatchNorm(Module):
     r"""
     Applies batch normalization over an N-dimensional input tensor using precomputed statistics:
-    
+
     :math:`y = \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}} * \gamma + \beta`
 
     where:
@@ -103,7 +104,7 @@ class BatchNorm(Module):
         from tripy.frontend.trace.ops.reshape import reshape
 
         x_shape = (1, self.num_features, *([1] * (x.rank - 2)))
-        
+
         # Use precomputed running mean and variance for normalization
         mean = reshape(self.running_mean, x_shape)
         var = reshape(self.running_var, x_shape)
@@ -113,6 +114,6 @@ class BatchNorm(Module):
 
         # Apply the learned scaling (weight) and shifting (bias)
         weight = reshape(self.weight, x_shape)
-        bias =  reshape(self.bias, x_shape)
-        
+        bias = reshape(self.bias, x_shape)
+
         return weight * x + bias
