@@ -18,10 +18,10 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-from tripy import export, constraints
-from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy import constraints, export
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
+from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
@@ -81,52 +81,3 @@ def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
         )
 
     return Permute.build([input], perm)
-
-
-@dataclass(repr=False)
-class Transpose(Permute):
-    """
-    Represents a transpose operation.
-    """
-
-    dim0: int
-    dim1: int
-
-    def infer_rank(self):
-        perm = list(range(self.inputs[0].rank))
-        perm[self.dim0], perm[self.dim1] = perm[self.dim1], perm[self.dim0]
-        self.permutation = perm
-        super().infer_rank()
-
-
-@export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-)
-def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
-    """
-    Returns a new tensor that is a transposed version of the input tensor where
-    ``dim0`` and ``dim1`` are swapped.
-
-    Args:
-        input: The input tensor.
-        dim0: The first dimension to be transposed.
-        dim1: The second dimension to be transposed.
-
-    Returns:
-        A new tensor.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
-        output = tp.transpose(input, 0, 1)
-
-        assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
-    """
-    if input.rank < 2:
-        raise_error("Transpose input must have at least 2 dimensions.", [f"Note: Input had {input.rank} dimensions."])
-
-    return Transpose.build([input], None, dim0, dim1)
