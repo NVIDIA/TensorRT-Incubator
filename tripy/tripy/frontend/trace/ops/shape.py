@@ -59,6 +59,7 @@ def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
         :linenos:
         :caption: Example
 
+        # doc: print-locals input shape
         input = tp.ones((8, 2))
         shape = input.shape
 

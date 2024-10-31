@@ -67,8 +67,8 @@ def concatenate(tensors: Sequence["tripy.Tensor"], dim: int) -> "tripy.Tensor":
         :linenos:
         :caption: Example
 
-        a = tp.iota((2, 3), dtype=tp.float32)
-        b = tp.iota((4, 3), dtype=tp.float32)
+        a = tp.iota((1, 2), dtype=tp.float32)
+        b = tp.iota((2, 2), dtype=tp.float32)
 
         output = tp.concatenate([a, b], dim=0)
 
