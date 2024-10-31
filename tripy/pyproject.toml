@@ -65,6 +65,7 @@ test = [
   "coverage==7.4.1",
   "vulture==2.11",
   "tripy[doc_test_common]",
+  "nbval==0.11.0",
 ]
 
 [tool.black]

@@ -70,6 +70,7 @@ jobs:
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
           pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" -n 4 --durations=15 --ignore tests/performance
+          find . -name '*.ipynb' -print0 | xargs -0 pytest --nbval-lax
 
     - name: Run performance benchmarks
       uses: addnab/docker-run-action@v3
