@@ -18,7 +18,7 @@
 import functools
 import inspect
 from collections import deque
-from typing import Callable, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from tripy import utils
 from tripy.common.exception import raise_error
@@ -166,7 +166,8 @@ def convert_to_tensors(
         preprocess_args: A callback used to preprocess arguments before potential conversion. If provided,
             this is always called, regardless of whether the decorator actually needed to perform conversion.
             This will be called with all arguments that were passed to the decorated function and should
-            return a dictionary of all updated arguments.
+            return a dictionary of all updated arguments. For a variadic arg, the dictionary entry for the name
+            should have a list of all the updated values.
     """
 
     def impl(func):
@@ -196,14 +197,32 @@ def convert_to_tensors(
             all_args = utils.merge_function_arguments(func, *args, **kwargs)
 
             if preprocess_args is not None:
+
+                # Since a Python function can have at most one variadic arg and merge_function_arguments
+                # would list all the entries consecutively, it suffices to find the name and start index
+                # for the variadic arg to handle variadic args when preprocessing.
+                def find_variadic_name_and_start_idx(all_args: Sequence) -> Optional[Tuple[str, int]]:
+                    encountered_names = {}
+                    for i, (name, _) in enumerate(all_args):
+                        if name in encountered_names:
+                            return name, encountered_names[name]
+                        if name not in encountered_names:
+                            encountered_names[name] = i
+
+                    return None
+
+                var_arg_name, var_arg_start_idx = utils.default(
+                    find_variadic_name_and_start_idx(all_args), (None, None)
+                )
                 new_args = preprocess_args(*args, **kwargs)
-                # TODO (#311): Make this work for variadic arguments. If `name` appears multiple times in `all_args`, then
-                # we know we're dealing with a variadic argument. In that case, we could expect a list in `new_args` and
-                # then unpack it over the corresponding arguments in `all_args`.
                 for index in range(len(all_args)):
                     name, _ = all_args[index]
                     if name in new_args:
-                        all_args[index] = (name, new_args[name])
+                        if name == var_arg_name:
+                            assert var_arg_start_idx is not None
+                            all_args[index] = (name, new_args[name][index - var_arg_start_idx])
+                        else:
+                            all_args[index] = (name, new_args[name])
 
             # Materialize type variables from tensors.
             type_vars = {}
