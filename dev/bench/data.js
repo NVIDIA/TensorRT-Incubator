@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730414533187,
+  "lastUpdate": 1730414869326,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -2142,6 +2142,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006982765455477599",
             "extra": "mean: 148.97370915076817 usec\nrounds: 7409"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "34da357deb1f36f64b65ab126c42af18fec6a320",
+          "message": "Makes rank inference happen entirely in the frontend",
+          "timestamp": "2024-10-31T21:39:12Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/328/commits/34da357deb1f36f64b65ab126c42af18fec6a320"
+        },
+        "date": 1730414868507,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6145.393683679024,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033437415856448966",
+            "extra": "mean: 162.72350503041105 usec\nrounds: 6473"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6747.788216396663,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006892448645613479",
+            "extra": "mean: 148.1967080072354 usec\nrounds: 7404"
           }
         ]
       }
