@@ -37,41 +37,12 @@ from tripy.flat_ir.tensor import FlatIRTensor
 from tripy.utils import Result
 
 
-# Utility for error messages in wrap_shape_inputs
-def write_shape_input_indices_message(inputs: List["tripy.Tensor"]) -> str:
-    from tripy.frontend.shape import Shape
-
-    shape_indices = list(map(str, filter(lambda i: isinstance(inputs[i], Shape), range(len(inputs)))))
-    if not shape_indices:
-        return ""
-    if len(shape_indices) == 1:
-        return f"input with index {shape_indices[0]} is tp.Shape"
-    return f"inputs with indices {', '.join(shape_indices)} are tp.Shape"
+def is_minus_one(arg):
+    # Avoid doing an == with a Tensor
+    return isinstance(arg, int) and arg == -1
 
 
-##
-## Handling returning different tensor variants (Shape or ShapeScalars) from operators
-##
-
-
-# These are common policies to use for overring infer_tensor_variants
-class InferVariantPolicies:
-    def infer_from_first_input_only(self, inputs):
-        """
-        Treat the outputs as shapes if the *first* input is a shape.
-        """
-        from tripy.frontend.shape import Shape
-
-        if isinstance(inputs[0], Shape):
-            return Result.ok([Shape] * len(self.outputs))
-        return Result.ok([None] * len(self.outputs))
-
-    def never_return_shape(self, inputs):
-        """
-        Accepts shapes but the result is always no shape indices.
-        """
-        return Result.ok([None] * len(self.outputs))
-
+# TODO (pranavm): Remove get_trace_shape
 
 ##
 ## Inferring shape lengths (helpers)

@@ -16,7 +16,7 @@
 #
 
 import inspect
-from typing import ForwardRef, List, Optional, Union, get_args, get_origin
+from typing import ForwardRef, List, Optional, Sequence, Union, get_args, get_origin
 
 import tripy as tp
 from tripy.common import datatype
@@ -66,10 +66,10 @@ find_func = {
     "tripy.Tensor": tensor_builder,
     "tripy.types.TensorLike": tensor_builder,
     TensorLike: tensor_builder,
-    "tripy.Shape": tensor_builder,
     "tripy.dtype": dtype_builder,
     datatype.dtype: dtype_builder,
-    List[Union["tripy.Tensor"]]: tensor_list_builder,
+    List["tripy.Tensor"]: tensor_list_builder,
+    Sequence["tripy.Tensor"]: tensor_list_builder,
     "tripy.device": device_builder,
 }
 
@@ -151,8 +151,6 @@ default_constraints_all = {
     "maxpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
     "avgpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
     "zeros": {"shape": [3, 2]},
-    # Methods
-    "Shape.as_tensor": {"self": tp.Shape([1, 2, 3])},
 }
 
 

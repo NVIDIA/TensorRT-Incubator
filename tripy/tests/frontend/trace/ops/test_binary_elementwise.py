@@ -15,12 +15,12 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
 
 import tripy as tp
 from tests import helper
 from tripy.frontend.trace.ops import BinaryElementwise, Comparison
+
 
 _BINARY_OPS = [
     (BinaryElementwise.Kind.SUM, lambda a, b: a + b),
@@ -125,3 +125,14 @@ class TestBinaryElementwise:
             has_stack_info_for=[a, b, c],
         ):
             c.eval()
+
+    def test_dimension_size_inputs(self):
+        a = tp.Tensor([1, 2])
+
+        # Operations on only DimensionSizes will yield a DimensionSize
+        out = a.shape[0] + a.shape[0]
+        assert isinstance(out, tp.DimensionSize)
+
+        # Otherwise, a Tensor is yielded.
+        out = a + a.shape[0]
+        assert isinstance(out, tp.Tensor) and not isinstance(out, tp.DimensionSize)

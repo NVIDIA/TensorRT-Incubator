@@ -58,12 +58,12 @@ class GroupNorm(Module):
     def __init__(
         self, num_groups: int, num_channels: int, dtype: datatype.dtype = datatype.float32, eps: float = 1e-5
     ) -> None:
-        """
+        r"""
         Args:
             num_groups: The number of groups to split the channels into.
             num_channels: The number of channels expected in the input.
             dtype: The data type to use for the weight and bias parameters.
-            eps: :math:\epsilon value to prevent division by zero.
+            eps: :math:`\epsilon` value to prevent division by zero.
 
         .. code-block:: python
             :linenos:
@@ -115,8 +115,6 @@ class GroupNorm(Module):
         from tripy.frontend.trace.ops.reshape import reshape
 
         input_shape = x.shape
-        # TODO: #228 - WAR to prevent computing output rank in infer_rank for reshape
-        input_shape.trace_tensor.shape = (x.rank,)
 
         x = reshape(x, (x.shape[0], self.num_groups, -1))
         mean_val = mean(x, dim=-1, keepdim=True)

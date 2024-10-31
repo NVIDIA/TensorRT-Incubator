@@ -35,7 +35,7 @@ class TestResize:
         }[mode]
         expected = torch.nn.functional.interpolate(inp_torch, scale_factor=2, mode=torch_mode)
         out_torch = torch.from_dlpack(out_tp).to("cpu")
-        assert expected.shape == out_tp.shape
+        assert list(expected.shape) == out_tp.shape
         assert torch.allclose(out_torch, expected)
 
     @pytest.mark.parametrize("mode", ["nearest", "linear", "cubic"])
@@ -50,5 +50,5 @@ class TestResize:
         }[mode]
         expected = torch.nn.functional.interpolate(inp_torch, size=[8, 8], mode=torch_mode)
         out_torch = torch.from_dlpack(out_tp).to("cpu")
-        assert expected.shape == out_tp.shape
+        assert list(expected.shape) == out_tp.shape
         assert torch.allclose(out_torch, expected)

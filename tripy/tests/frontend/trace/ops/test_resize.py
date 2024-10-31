@@ -36,8 +36,3 @@ class TestResize:
         with helper.raises(tp.TripyException, match="align_corners can only be set with `cubic` or `linear` mode."):
             a = tp.ones((1, 1, 3, 4))
             out = tp.resize(a, "nearest", output_shape=(1, 1, 6, 8), align_corners=True)
-
-    def test_invalid_argument(self):
-        with helper.raises(tp.TripyException, match="One of `output_shape` and `scale` must be given."):
-            a = tp.ones((1, 1, 3, 4))
-            out = tp.resize(a, "linear")

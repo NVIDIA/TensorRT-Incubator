@@ -146,7 +146,7 @@ class Executable:
             elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):
                 expected_input_shapes = [info.shape_bounds for info in self.get_input_info()]
                 for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
-                    shape = tensor.shape.tolist()
+                    shape = tensor.shape
                     for i in range(len(shape)):
                         if shape[i] < expected_bounds[i][0] or shape[i] > expected_bounds[i][1]:
                             min_shape, max_shape = zip(*expected_bounds)

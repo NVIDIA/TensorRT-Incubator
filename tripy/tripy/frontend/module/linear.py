@@ -21,7 +21,7 @@ from typing import Optional
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter, DefaultParameter
+from tripy.frontend.module.parameter import DefaultParameter, Parameter
 
 
 @export.public_api(document_under="operations/modules")
@@ -110,10 +110,10 @@ class Linear(Module):
             A tensor of shape :math:`[*, \text{out_features}]`.
         """
         from tripy.common.exception import raise_error
-        from tripy.frontend.trace.ops.permute import transpose
-        from tripy.frontend.trace.ops.unsqueeze import unsqueeze
-        from tripy.frontend.trace.ops.quantize import quantize
         from tripy.frontend.trace.ops.dequantize import dequantize
+        from tripy.frontend.trace.ops.permute import transpose
+        from tripy.frontend.trace.ops.quantize import quantize
+        from tripy.frontend.ops.unsqueeze import unsqueeze
 
         if self.quant_dtype is not None:
             if self.input_scale:

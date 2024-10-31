@@ -34,7 +34,7 @@ class TestUnsqueezeOp:
         ref_out = np.expand_dims(inp, axis=axis)
         assert tp.allclose(out, tp.Tensor(ref_out))
 
-        assert out.shape == ref_out.shape
+        assert out.shape == list(ref_out.shape)
 
     def test_unsqueeze_compile(self):
         def func(a):
