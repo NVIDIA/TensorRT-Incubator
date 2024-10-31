@@ -533,6 +533,7 @@ def process_code_block_for_outputs_and_locals(
                 print(f"Exception occurred: {str(e)}")
                 code_locals = local_vars
             else:
+                print(err_msg)
                 raise
 
     new_locals = {
