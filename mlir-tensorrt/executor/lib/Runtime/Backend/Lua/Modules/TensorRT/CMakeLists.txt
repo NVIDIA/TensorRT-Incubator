@@ -15,3 +15,8 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeTensorRT
   nvtx3-cpp
   TensorRTHeaderOnly
 )
+
+target_include_directories(MLIRTensorRTExecutorRuntimeTensorRTModule
+  PRIVATE
+  ${MLIR_TENSORRT_ROOT_DIR}/tensorrt/include
+)

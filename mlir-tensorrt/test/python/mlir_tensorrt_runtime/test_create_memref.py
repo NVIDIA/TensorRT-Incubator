@@ -509,6 +509,8 @@ def test_client_destroyed_before_external_dlpack(dl):
 
     memref1, dl1 = create_memref_dlpackview_from_dlpack(dl, np)
     memref2, dl2 = create_memref_dlpackview_from_dlpack(dl, np)
+    del new_client
+    gc.collect()
     return memref1, dl1, memref2, dl2
 
 

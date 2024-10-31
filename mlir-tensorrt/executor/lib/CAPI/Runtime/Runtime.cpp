@@ -481,12 +481,14 @@ static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
   if (tensor) {
     delete[] tensor->dl_tensor.shape;
     delete[] tensor->dl_tensor.strides;
-    static_cast<RuntimeClient *>(tensor->manager_ctx)
-        ->removeDLPackTensorFromTracking(tensor);
-    static_cast<RuntimeClient *>(tensor->manager_ctx)
-        ->getAllocTracker()
-        .decrementExternalCount(
-            reinterpret_cast<uintptr_t>(tensor->dl_tensor.data));
+    if (tensor->manager_ctx) {
+      static_cast<RuntimeClient *>(tensor->manager_ctx)
+          ->removeDLPackTensorFromTracking(tensor);
+      static_cast<RuntimeClient *>(tensor->manager_ctx)
+          ->getAllocTracker()
+          .decrementExternalCount(
+              reinterpret_cast<uintptr_t>(tensor->dl_tensor.data));
+    }
     delete tensor;
   }
 }

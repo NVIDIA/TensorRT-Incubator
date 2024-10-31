@@ -1081,9 +1081,9 @@ void RuntimeClient::removeDLPackTensorFromTracking(DLManagedTensor *tensor) {
 }
 
 RuntimeClient::~RuntimeClient() {
-  // Reset the deleter for all tracked dlPackTensors
+  // Reset the manager_ctx for all tracked dlPackTensors
   for (auto *tensor : dlPackTensors) {
-    tensor->deleter = nullptr;
+    tensor->manager_ctx = nullptr;
   }
 }
 
