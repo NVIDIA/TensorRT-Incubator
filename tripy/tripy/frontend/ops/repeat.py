@@ -27,7 +27,6 @@ from tripy.frontend import utils as frontend_utils
         "T1": ["float32", "float16", "bfloat16", "int4", "float8", "int8", "int32", "int64", "bool"],
     },
 )
-@frontend_utils.process_dim()
 def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.DimensionSize"], dim: int) -> "tripy.Tensor":
     """
     Repeats each element of a tensor after itself along the specified dimension.
@@ -71,6 +70,8 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.DimensionSize"], di
     from tripy.frontend.ops.unsqueeze import unsqueeze
     from tripy.frontend.trace.ops.expand import expand
     from tripy.frontend.trace.ops.reshape import reshape
+
+    dim = frontend_utils.process_dim(dim, input.rank)
 
     if isinstance(repeats, int):
         if repeats < 0:

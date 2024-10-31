@@ -63,7 +63,7 @@ def iota_impl(shape: "tripy.Tensor", dim: int, dtype: datatype.dtype, output_ran
 @export.public_api(document_under="operations/initializers")
 @frontend_utils.convert_to_tensors(
     preprocess_args=lambda shape, dim=None, dtype=None: (
-        {"dim": dim if dim >= 0 else dim + len(shape)} if dim is not None else {}
+        {"dim": frontend_utils.process_dim(dim, len(shape))} if dim is not None else {}
     )
 )
 @constraints.dtypes(
@@ -104,7 +104,6 @@ def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float3
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "bool"],
     },
 )
-@frontend_utils.process_dim()
 def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with consecutive values
@@ -128,6 +127,8 @@ def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtyp
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
     """
+    dim = frontend_utils.process_dim(dim, input.rank)
+
     return iota_impl(
         frontend_utils.tensor_from_shape_like(input.shape),
         dim,
