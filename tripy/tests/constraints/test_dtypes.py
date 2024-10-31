@@ -36,7 +36,6 @@ from tripy.export import PUBLIC_APIS
 PUBLIC_API_TENSOR_FUNCTIONS = []
 PUBLIC_API_TENSOR_FUNCTION_NAMES = []
 for api in PUBLIC_APIS:
-    is_module = False
     if inspect.isfunction(api.obj):
         funcs = [api.obj]
     elif inspect.isclass(api.obj):

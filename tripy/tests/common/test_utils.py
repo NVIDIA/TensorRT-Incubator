@@ -16,21 +16,11 @@
 #
 
 import pytest
-import struct
-from collections import ChainMap
-from textwrap import dedent
-
-import cupy as cp
-import torch
+from tests import helper
 
 import tripy.common.datatype
-
-from tests import helper
 from tripy.common.exception import TripyException
-from tripy.common.utils import (
-    convert_list_to_array,
-    get_element_type,
-)
+from tripy.common.utils import convert_list_to_array, get_element_type
 
 
 def test_get_element_type():
