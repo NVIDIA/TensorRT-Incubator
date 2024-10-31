@@ -254,21 +254,6 @@ def constant_fields(field_names: Sequence[str]):
 ##
 
 
-def find_file_in_dir(file_name: str, search_directory: str) -> List:
-    """
-    Search for file_name recursively in the root_directory.
-
-    Args:
-        file_name: The file name or pattern with wildcards.
-        search_directory: The root directory from where to search for file_name.
-    Returns:
-        List of absolute path for matching files.
-    """
-    search_pattern = os.path.join(search_directory, "**", file_name)
-    matching_files = glob.glob(search_pattern, recursive=True)
-    return matching_files
-
-
 def warn_if_wrong_mode(file_like: typing.IO, mode: str):
     def binary(mode):
         return "b" in mode
@@ -456,31 +441,3 @@ def merge_function_arguments(func, *args, **kwargs):
     all_args = get_positional_arg_names(func, *args)
     all_args.extend(kwargs.items())
     return all_args
-
-
-def get_arg_by_name(name, func, *args, **kwargs):
-    if name in kwargs:
-        return kwargs[name]
-
-    args = dict(get_positional_arg_names(func, *args))
-    if name in args:
-        return args[name]
-
-    assert False, f"No such argument: {name}"
-
-
-def modify_arg(name, modify_func, func, *args, **kwargs):
-    """
-    Modifies an argument corresponding to the provided name if it is present.
-    `modify_func` should be a function that accepts the argument and returns the modified argument.
-    """
-    if name in kwargs:
-        kwargs[name] = modify_func(kwargs[name])
-
-    all_args = get_positional_arg_names(func, *args)
-    args = list(args)
-    for index, (arg_name, _) in enumerate(all_args):
-        if name == arg_name:
-            args[index] = modify_func(args[index])
-
-    return args, kwargs

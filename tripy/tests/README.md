@@ -74,13 +74,13 @@ detect dead code. *This **will** include false positives for our code, so be car
 You can run it with:
 
 ```bash
-vulture tripy tests --sort-by-size
+vulture . --sort-by-size
 ```
 
 To exclude false positives, use:
 
 ```bash
-vulture tripy tests --sort-by-size --min-confidence=100
+vulture . --sort-by-size --min-confidence=100
 ```
 
 
