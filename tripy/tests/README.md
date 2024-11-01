@@ -36,7 +36,7 @@ tests together.
 For example, to profile L0 tests, run:
 
 ```bash
-pytest tests/ -v -m "not l1 and not manual" --profile
+pytest tests/ -v -m "not l1 and not manual" --ignore tests/performance --profile
 ```
 
 You can visualize the results using `snakeviz`.
