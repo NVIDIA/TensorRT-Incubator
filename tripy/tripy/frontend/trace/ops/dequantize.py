@@ -17,13 +17,15 @@
 
 import numbers
 from dataclasses import dataclass
-from typing import Any, Union, Sequence
+from typing import Any, Sequence, Union
 
+import tripy.frontend.trace.ops.utils as op_utils
 from tripy import constraints, export
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -32,10 +34,11 @@ class Dequantize(BaseTraceOp):
     dtype: datatype.dtype
     dim: int
 
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
+
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import ConcatenateOp, ConvertOp, DivideOp, DynamicBroadcastOp, DynamicReshapeOp, MulOp

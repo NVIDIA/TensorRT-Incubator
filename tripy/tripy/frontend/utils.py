@@ -53,15 +53,20 @@ def tensor_from_shape_like(arg: ShapeLike) -> "tripy.Tensor":
     for elem in arg:
         if isinstance(elem, DimensionSize):
             empty_buffer()
-            # NOTE: We cannot use the reshape API here since it would lead to an infinite loop when attempting to convert
-            # the shape input to a tensor.
+            # NOTE: We cannot use the reshape API here since it would lead to an
+            # infinite loop when attempting to convert the shape input to a tensor.
             concat_tensors.append(Reshape.build([elem, Tensor([1])], 1))
         else:
             int_buffer.append(elem)
 
     empty_buffer()
 
-    return concatenate(concat_tensors, dim=0)
+    out = concatenate(concat_tensors, dim=0)
+    # We must set the shape of the shape tensor here since otherwise we will not be able
+    # to infer ranks in the frontend. Note that the reshape operations above will not result
+    # in a tensor with known shapes even though the new shape is actually known.
+    out.trace_tensor.shape = [len(arg)]
+    return out
 
 
 # Try to include correct column offsets for non-tensor arguments.
@@ -268,112 +273,6 @@ def convert_to_tensors(
         return wrapper
 
     return impl
-
-
-def make_function(func):
-    @functools.wraps(func)
-    def wrapped(*args, **kwargs):
-        from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.frontend.trace.ops.base import BaseTraceOp
-
-        # Determine if this is a method or a free function.
-        is_method = inspect.ismethod(func) or (inspect.isfunction(func) and args and isinstance(args[0], BaseTraceOp))
-
-        # Generate a unique name for free function.
-        fn_name = func.__qualname__ + "_" + str(id(func))
-
-        if is_method:
-            fn_name = args[0].__class__.__name__  # Use instance class name for methods i.e. `to_flat_ir`
-            inputs = kwargs.get("inputs", args[1] if len(args) > 1 else [])
-            outputs = kwargs.get("outputs", args[2] if len(args) > 2 else [])
-        else:
-            # Collect inputs from args and kwargs
-            inputs = [arg for arg in args if isinstance(arg, FlatIRTensor)]
-            inputs.extend([v for v in kwargs.values() if isinstance(v, FlatIRTensor)])
-            outputs = []
-
-        # Call the original function.
-        result = func(*args, **kwargs)
-
-        # For free functions, the result might be the output tensor.
-        if not is_method:
-            if isinstance(result, FlatIRTensor):
-                outputs = [result]
-            if isinstance(result, (list, tuple)) and all(isinstance(r, FlatIRTensor) for r in result):
-                outputs = list(result)
-
-        def collect_ops(inputs, outputs):
-            ops = []
-            visited_ops = set()
-            input_ids = {id(input_tensor) for input_tensor in inputs}
-            stack = [(output, None) for output in outputs]  # (tensor, parent_op)
-
-            while stack:
-                current, parent_op = stack.pop()
-
-                if parent_op and id(parent_op) not in visited_ops:
-                    ops.append(parent_op)
-                    visited_ops.add(id(parent_op))
-
-                if hasattr(current, "producer") and id(current) not in input_ids:
-                    producer = current.producer
-                    if id(producer) not in visited_ops:
-                        visited_ops.add(id(producer))
-                        ops.append(producer)
-                        if producer.inputs:
-                            stack.extend((input_tensor, producer) for input_tensor in producer.inputs)
-                        else:
-                            # Handle ops with no inputs
-                            stack.append((current, producer))
-
-            # Reverse ops to get them in the order they were originally executed.
-            ops.reverse()
-
-            return ops
-
-        # Trace back from outputs to inputs.
-        ops = collect_ops(inputs, outputs)
-
-        # Create a mapping of original tensors to their clones.
-        tensor_map = {
-            id(tensor): tensor.clone(reason_details=f"clone tensor {tensor} for function input/output")
-            for tensor in inputs + outputs
-        }
-
-        # Function to get or create a cloned tensor
-        def get_or_create_cloned_tensor(tensor):
-            if id(tensor) not in tensor_map:
-                tensor_map[id(tensor)] = tensor.clone(reason_details=f"clone tensor {tensor} inside a function.")
-            return tensor_map[id(tensor)]
-
-        # Update ops with cloned tensors.
-        for op in ops:
-            op.inputs = [get_or_create_cloned_tensor(input_tensor) for input_tensor in op.inputs]
-            op.outputs = [get_or_create_cloned_tensor(output_tensor) for output_tensor in op.outputs]
-            # Set the producer for each output
-            for output in op.outputs:
-                output.producer = op
-
-        # Update callee_inputs and callee_outputs
-        callee_inputs = [tensor_map[id(input_tensor)] for input_tensor in inputs]
-        callee_outputs = [tensor_map[id(output_tensor)] for output_tensor in outputs]
-
-        # Create a map from callee tensor to caller tensors.
-        for callee, caller in zip(callee_inputs + callee_outputs, inputs + outputs):
-            setattr(callee, "caller_tensor", caller)
-
-        # Finally create the flat ir function
-        flat_ir_function = FlatIRFunction(fn_name, callee_inputs, callee_outputs, ops)
-
-        # Set the producer of each output to be this FlatIRFunction.
-        for output in outputs:
-            output.producer = flat_ir_function
-
-        # Return the original result if it is a free function.
-        if not is_method:
-            return result
-
-    return wrapped
 
 
 def topological_sort(ops: List[Union["BaseTraceOp", BaseFlatIROp]]) -> List[Union["BaseTraceOp", BaseFlatIROp]]:

@@ -16,87 +16,32 @@
 #
 
 from dataclasses import dataclass
+from typing import Dict, List
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils, constraints
-from tripy.frontend import utils as frontend_utils
+from tripy import constraints
+from tripy.common.exception import raise_error
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
 class MatrixMultiplication(BaseTraceOp):
+
+    contracting_dim: Dict[str, List[int]]
+    batching_dim: Dict[str, List[int]]
+
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
     def infer_rank(self):
+        out_rank = max(self.inputs[0].rank, self.inputs[1].rank)
         if self.inputs[0].rank == 1 and self.inputs[1].rank == 1:
-            self.outputs[0].rank = 0
+            out_rank = 0
+        elif self.inputs[0].rank == 1 or self.inputs[1].rank == 1:
+            out_rank = 1
+        self.outputs[0].rank = out_rank
 
-        assert len(self.inputs) == 2, f"MatrixMultiplication expects exactly two inputs."
-        a_rank = self.inputs[0].rank
-        b_rank = self.inputs[1].rank
-
-        for index, rank in enumerate([a_rank, b_rank]):
-            if rank < 1:
-                utils.raise_error_io_info(
-                    self,
-                    "Input tensors must have at least 1 dimension.",
-                    details=[
-                        f"Inputs for operation: '@' must have at least one dimension, but input {index} has rank: {rank}"
-                    ],
-                )
-
-        if a_rank == 1 and b_rank == 1:
-            # case 1: both operands are 1-D
-            self.batching_dim = {"lhs": [], "rhs": []}
-            self.contracting_dim = {"lhs": [0], "rhs": [0]}
-            self.outputs[0].rank = 0
-        else:
-            # stablehlo dot_general requires same number of batching dims for lhs, rhs.
-
-            def compute_contracting_dims(rank_a, rank_b):
-                if rank_a < 1 or rank_b < 1:
-                    raise ValueError("Ranks must be at least 1")
-
-                def is_vector(rank):
-                    return rank == 1
-
-                def is_matrix(rank):
-                    return rank >= 2
-
-                if is_vector(rank_a) and is_vector(rank_b):
-                    # Vector-vector multiplication
-                    return [[0], [0]]
-
-                elif is_vector(rank_a) and is_matrix(rank_b):
-                    # Vector-matrix multiplication
-                    return [[0], [rank_b - 2]]
-
-                elif is_matrix(rank_a) and is_vector(rank_b):
-                    # Matrix-vector multiplication
-                    return [[rank_a - 1], [0]]
-
-                else:  # Both are matrices or higher-rank tensors
-                    # Matrix-matrix multiplication (or higher-rank tensor multiplication)
-                    output_rank = max(rank_a, rank_b)
-                    return [[output_rank - 1], [output_rank - 2]]
-
-            def get_batch_indices(rank):
-                return list(range(rank - 2))
-
-            output_rank = 1 if a_rank == 1 or b_rank == 1 else max(a_rank, b_rank)
-            self.batching_dim = {"lhs": get_batch_indices(output_rank), "rhs": get_batch_indices(output_rank)}
-            contracting_dim = compute_contracting_dims(a_rank, b_rank)
-            self.contracting_dim = {
-                "lhs": contracting_dim[0],
-                "rhs": contracting_dim[1],
-            }
-
-            self.outputs[0].rank = output_rank
-
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
         from tripy.flat_ir.ops import ConcatenateOp, DotOp, DynamicSliceOp
@@ -235,4 +180,52 @@ def __matmul__(self: "tripy.Tensor", other: "tripy.Tensor") -> "tripy.Tensor":
         output = a @ b
         assert np.array_equal(cp.from_dlpack(output).get(), cp.from_dlpack(a).get() @ cp.from_dlpack(b).get())
     """
-    return MatrixMultiplication.build([self, other])
+    lhs_rank = self.rank
+    rhs_rank = other.rank
+
+    for index, rank in enumerate([lhs_rank, rhs_rank]):
+        if rank < 1:
+            raise_error(
+                "Input tensors must have at least 1 dimension.",
+                details=[
+                    f"Inputs for operation: '@' must have at least one dimension, but input {index} has rank: {rank}."
+                ],
+            )
+
+    if lhs_rank == 1 and rhs_rank == 1:
+        # case 1: both operands are 1-D
+        batching_dim = {"lhs": [], "rhs": []}
+        contracting_dim = {"lhs": [0], "rhs": [0]}
+    else:
+        # stablehlo dot_general requires same number of batching dims for lhs, rhs.
+
+        def compute_contracting_dims(rank_a, rank_b):
+            is_vector = lambda rank: rank == 1
+            is_matrix = lambda rank: rank >= 2
+
+            if is_vector(rank_a) and is_vector(rank_b):
+                # Vector-vector multiplication
+                return [[0], [0]]
+            elif is_vector(rank_a) and is_matrix(rank_b):
+                # Vector-matrix multiplication
+                return [[0], [rank_b - 2]]
+            elif is_matrix(rank_a) and is_vector(rank_b):
+                # Matrix-vector multiplication
+                return [[rank_a - 1], [0]]
+            else:
+                # Matrix-matrix multiplication (or higher-rank tensor multiplication)
+                output_rank = max(rank_a, rank_b)
+                return [[output_rank - 1], [output_rank - 2]]
+
+        def get_batch_indices(rank):
+            return list(range(rank - 2))
+
+        output_rank = 1 if lhs_rank == 1 or rhs_rank == 1 else max(lhs_rank, rhs_rank)
+        batching_dim = {"lhs": get_batch_indices(output_rank), "rhs": get_batch_indices(output_rank)}
+        contracting_dim = compute_contracting_dims(lhs_rank, rhs_rank)
+        contracting_dim = {
+            "lhs": contracting_dim[0],
+            "rhs": contracting_dim[1],
+        }
+
+    return MatrixMultiplication.build([self, other], contracting_dim, batching_dim)

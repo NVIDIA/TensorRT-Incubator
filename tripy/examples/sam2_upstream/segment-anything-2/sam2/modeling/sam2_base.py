@@ -508,7 +508,11 @@ class SAM2Base(torch.nn.Module):
                 object_score_logits,
             ) = self.sam_mask_decoder(
                 image_embeddings=backbone_features,
-                image_pe=torch.from_dlpack(self.dense_pe.cuda()),
+                image_pe=(
+                    torch.from_dlpack(self.dense_pe.cuda())
+                    if isinstance(self.dense_pe, torch.Tensor)
+                    else torch.from_dlpack(self.dense_pe)
+                ),
                 sparse_prompt_embeddings=sparse_embeddings,
                 dense_prompt_embeddings=dense_embeddings,
                 multimask_output=multimask_output,

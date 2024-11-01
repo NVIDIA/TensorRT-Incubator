@@ -64,7 +64,7 @@ def get_component_configs(model, cfg):
                     ),
                 ),
                 tp.InputInfo(
-                    ((3277, 8196, 81925), 1, 64),
+                    ((4100, 16400, 28736), 1, 64),
                     getattr(
                         tp, getattr(cfg["model"].memory_attention, "dtype", "float32")
                     ),
@@ -76,12 +76,12 @@ def get_component_configs(model, cfg):
                     ),
                 ),
                 tp.InputInfo(
-                    ((3277, 8196, 81925), 1, 64),
+                    ((4100, 16400, 28736), 1, 64),
                     getattr(
                         tp, getattr(cfg["model"].memory_attention, "dtype", "float32")
                     ),
                 ),
-                tp.InputInfo(((1, 1641, 3282),), tp.int32),
+                tp.InputInfo(((4, 16, 64),), tp.int32),
             ],
             "skip_dtype_convert": ["ln", "norm"],
         },
