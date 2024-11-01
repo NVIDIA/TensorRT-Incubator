@@ -115,3 +115,39 @@ func.func @copy_host_to_device(%arg0: tensor<4xi32, #plan.memory_space<host>>,
 //  CHECK-SAME: (%[[arg0:.+]]: memref<4xi32, #plan.memory_space<host>>, %[[arg1:.+]]: memref<4xi32, #plan.memory_space<device>>)
 //  CHECK-NEXT:     memref.copy %[[arg0]], %[[arg1]] : memref<4xi32, #plan.memory_space<host>> to memref<4xi32, #plan.memory_space<device>>
 //  CHECK-NEXT:     return
+
+// -----
+
+func.func @copy_device_to_host(%arg0: tensor<4xi32, #plan.memory_space<device>>,
+                               %arg1: tensor<4xi32, #plan.memory_space<host>>)
+                               -> tensor<4xi32, #plan.memory_space<host>> {
+  %0 = bufferization.materialize_in_destination %arg0 in %arg1
+    : (tensor<4xi32, #plan.memory_space<device>>,
+       tensor<4xi32, #plan.memory_space<host>>)
+    -> tensor<4xi32, #plan.memory_space<host>>
+  return %0 : tensor<4xi32,#plan.memory_space<host>>
+}
+
+// CHECK-LABEL: @copy_device_to_host
+//  CHECK-SAME: (%[[arg0:.+]]: memref<4xi32, #plan.memory_space<device>>, %[[arg1:.+]]: memref<4xi32, #plan.memory_space<host>>)
+//  CHECK-NEXT:     memref.copy %[[arg0]], %[[arg1]] : memref<4xi32, #plan.memory_space<device>> to memref<4xi32, #plan.memory_space<host>>
+//  CHECK-NEXT:     return
+
+// -----
+
+func.func @copy_device_constant_to_host() -> (tensor<2xi32, #plan.memory_space<host>>) {
+  %0 = arith.constant dense<[1, 2]> : tensor<2xi32>
+  // Create output tensor in host space.
+  %1 = bufferization.alloc_tensor() {memory_space = #plan.memory_space<host>} : tensor<2xi32, #plan.memory_space<host>>
+  %2 = bufferization.materialize_in_destination %0 in %1  
+    : (tensor<2xi32>, 
+       tensor<2xi32, #plan.memory_space<host>>) 
+    -> tensor<2xi32, #plan.memory_space<host>>
+  return %2 : tensor<2xi32, #plan.memory_space<host>>
+}
+
+// CHECK-LABEL: @copy_device_constant_to_host()
+//  CHECK-NEXT:     %0 = memref.get_global @__constant_2xi32 : memref<2xi32, #plan.memory_space<device>>
+//  CHECK-NEXT:     %alloc = memref.alloc() {alignment = 16 : i64} : memref<2xi32, #plan.memory_space<host>>
+//  CHECK-NEXT:     memref.copy %0, %alloc : memref<2xi32, #plan.memory_space<device>> to memref<2xi32, #plan.memory_space<host>>
+//  CHECK-NEXT:     return
