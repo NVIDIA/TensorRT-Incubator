@@ -101,17 +101,12 @@ class BaseTraceOp(abc.ABC):
             return outputs[0]
         return outputs
 
-    # TODO (pranavm): Remove `infer_len`, and `infer_rank` - all we need is `infer_dynamic_shape`.
-    #   For shape tensors, we must be able to infer the shape - otherwise something has gone wrong! We could assert that in `build()`.
-    def infer_len(self) -> List[Optional[int]]:
+    @abc.abstractmethod
+    def infer_rank(self):
         """
-        Infers the length of all `tp.Shape` outputs. This is, essentially, the "shape" of the shape.
-        Returns `None` for outputs that are not `tp.Shape`s or whose length (shape) cannot be inferred.
-
-        Returns:
-            A list of inferred lengths for outputs that are `tp.Shape`s.
+        Infers the rank of the output.
         """
-        return [None for _ in self.outputs]
+        ...
 
     def infer_dtypes(self):
         """
@@ -126,16 +121,6 @@ class BaseTraceOp(abc.ABC):
         ), f"Default implementation cannot handle cases where inputs have different dtypes, but got {[inp.dtype for inp in self.inputs]}. Please override."
 
         self.outputs[0].dtype = self.inputs[0].dtype
-
-    def infer_rank(self):
-        """
-        Infers and updates rank for the output of the operation.
-        """
-        assert (
-            self.inputs and len(self.outputs) == 1
-        ), "Default implementation cannot handle cases where there are no inputs, multiple outputs."
-        # Max for all input ranks is done to account for rank broadcasting.
-        self.outputs[0].rank = max(inp.rank for inp in self.inputs)
 
     def infer_devices(self):
         """

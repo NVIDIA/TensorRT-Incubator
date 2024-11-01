@@ -28,10 +28,7 @@ from tripy.frontend.trace.ops import utils as op_utils
 class Flip(BaseTraceOp):
     dims: Sequence[int]
 
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank
-
-    infer_len = op_utils.InferLenPolicies.infer_same_as_first_input
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import FlipOp

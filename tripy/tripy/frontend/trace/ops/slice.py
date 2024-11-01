@@ -30,17 +30,11 @@ from tripy.utils import make_tuple
 
 @dataclass(repr=False)
 class Slice(BaseTraceOp):
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
+
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
 
-    def infer_rank(self):
-        # How can we compute the output rank in the case when start, size, stride tensors are dynamic?
-        self.outputs[0].rank = self.inputs[0].rank
-
-    def infer_len(self):
-        return [None]
-
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import bool as tp_bool
         from tripy.common.datatype import int32

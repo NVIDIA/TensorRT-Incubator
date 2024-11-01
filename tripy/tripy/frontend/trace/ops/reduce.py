@@ -23,7 +23,6 @@ from typing import Optional, Sequence, Union
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import constraints, export
 from tripy.common import datatype
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_list
 
@@ -45,15 +44,8 @@ class Reduce(BaseTraceOp):
     kind: Kind
 
     def infer_rank(self):
-        if self.dim is None:
-            self.dim = list(range(self.inputs[0].rank))
-            self.outputs[0].rank = 0
-        else:
-            self.dim = make_list(self.dim)
-            self.dim = [idx if idx >= 0 else idx + self.inputs[0].rank for idx in self.dim]
-            self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
+        self.outputs[0].rank = self.inputs[0].rank - len(self.dim)
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ConstantOp, ReduceOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -85,7 +77,6 @@ class ArgMinMax(Reduce):
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.int32
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import ArgMinMaxOp, ConstantOp
         from tripy.flat_ir.tensor import FlatIRTensor
@@ -118,11 +109,17 @@ class ArgMinMax(Reduce):
         )
 
 
+def adjust_dim(dim, input_rank):
+    if dim is None:
+        return list(range(input_rank))
+    return [idx if idx >= 0 else idx + input_rank for idx in make_list(dim)]
+
+
 def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Sequence], keepdim: bool):
     from tripy.frontend.ops.unsqueeze import unsqueeze
     from tripy.frontend.trace.ops.reshape import reshape
 
-    out = Reduce.build([input], dim, kind)
+    out = Reduce.build([input], adjust_dim(dim, input.rank), kind)
     if keepdim:
         if dim is None:
             out = reshape(out, (1,) * input.rank)
@@ -400,14 +397,14 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optiona
     from tripy.frontend.trace.ops.iota import iota_like
     from tripy.frontend.trace.ops.reshape import reshape
 
-    input_rank = tensor.rank
+    original_rank = tensor.rank
     if dim is None:
         tensor = reshape(tensor, (-1,))
     indices = iota_like(tensor, dim if dim else 0, datatype.int32)
-    out = ArgMinMax.build([tensor, indices], dim, kind)
+    out = ArgMinMax.build([tensor, indices], adjust_dim(dim, tensor.rank), kind)
     if keepdim:
         if dim is None:
-            out = reshape(out, (1,) * input_rank)
+            out = reshape(out, (1,) * original_rank)
         else:
             out = unsqueeze(out, dim)
     return out
@@ -426,7 +423,7 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
     Args:
         input: The input tensor.
         dim: The dimension along which to reduce.
-            If this is not provided, the argmax indice of the flattened input is returned.
+            If this is not provided, the index of the flattened input is returned.
         keepdim: Whether to retain reduced dimensions in the output.
             If this is False, reduced dimensions will be squeezed.
 
@@ -458,7 +455,7 @@ def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
     Args:
         input: The input tensor.
         dim: The dimension along which to reduce.
-            If this is not provided, the argmin indice of the flattened input is returned.
+            If this is not provided, the index of the flattened input is returned.
         keepdim: Whether to retain reduced dimensions in the output.
             If this is False, reduced dimensions will be squeezed.
 

@@ -16,8 +16,9 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Optional
 
+import tripy.frontend.trace.ops.utils as op_utils
 from tripy import constraints, export, utils
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
@@ -31,25 +32,7 @@ class Iota(BaseTraceOp):
     output_rank: int
     dtype: datatype.dtype
 
-    def infer_rank(self):
-        if self.output_rank is None:
-            if self.inputs[0].shape is None:
-                from tripy.backend.mlir.utils import ShapeContext
-
-                out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
-                assert len(out_shape) == 1
-                assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
-                self.output_rank = out_shape[0]
-            else:
-                self.output_rank = self.inputs[0].shape[0]
-
-        # Iota requires inputs[0] to be statically shaped
-        if self.inputs[0].shape is None:
-            self.inputs[0].shape = (self.output_rank,)
-
-        if self.dim < 0:
-            self.dim += self.output_rank
-        self.outputs[0].rank = self.output_rank
+    infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
@@ -78,7 +61,11 @@ def iota_impl(shape: "tripy.Tensor", dim: int, dtype: datatype.dtype, output_ran
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_to_tensors()
+@frontend_utils.convert_to_tensors(
+    preprocess_args=lambda shape, dim=None, dtype=None: (
+        {"dim": dim if dim >= 0 else dim + len(shape)} if dim is not None else {}
+    )
+)
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
@@ -117,6 +104,7 @@ def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float3
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "bool"],
     },
 )
+@frontend_utils.process_dim()
 def iota_like(input: "tripy.Tensor", dim: int = 0, dtype: Optional[datatype.dtype] = None) -> "tripy.Tensor":
     """
     Returns a tensor of the same shape and data type as the input tensor, with consecutive values

@@ -107,7 +107,7 @@ class Tensor(metaclass=TensorMeta):
 
         name = name if name is not None else Tensor._get_unique_name()
 
-        self.trace_tensor = TraceTensor(name, stack_info, None, device, None, None)
+        self.trace_tensor = TraceTensor(name, stack_info, dtype=None, device=device, producer=None, shape=None)
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
@@ -221,7 +221,10 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.utils import pretty_print
 
         data_list = self.tolist()
+
+        assert isinstance(self.trace_tensor.producer, Storage)
         data_shape = self.trace_tensor.producer.shape
+
         arr_str = pretty_print(data_list, data_shape)
         indentation = ""
         sep = ""
@@ -244,6 +247,8 @@ class Tensor(metaclass=TensorMeta):
 
     def __bool__(self):
         data = self.tolist()
+
+        assert isinstance(self.trace_tensor.producer, Storage)
         if any(dim != 1 for dim in self.trace_tensor.producer.shape):
             raise_error(
                 "Boolean value of a Tensor with more than one value is ambiguous",
