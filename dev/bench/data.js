@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730490385874,
+  "lastUpdate": 1730492763545,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -2346,6 +2346,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006899443517186175",
             "extra": "mean: 148.70356304220485 usec\nrounds: 7237"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "788c8a3f30bd7cda85c2db653bc2c5c8a85d96ec",
+          "message": "[Tripy] Handle variadic arguments in `preprocess_args` for the `convert_to_tensors` decorator",
+          "timestamp": "2024-11-01T10:27:12Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/329/commits/788c8a3f30bd7cda85c2db653bc2c5c8a85d96ec"
+        },
+        "date": 1730492762818,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6108.319761653958,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033962642493378186",
+            "extra": "mean: 163.7111413645491 usec\nrounds: 6492"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6726.307762706072,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000712262905247931",
+            "extra": "mean: 148.6699739706362 usec\nrounds: 7402"
           }
         ]
       }
