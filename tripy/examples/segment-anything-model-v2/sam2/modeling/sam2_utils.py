@@ -181,7 +181,7 @@ class LayerNorm2d(tp.Module):
         self.bias = DefaultParameter((num_channels,), tp.float32)
         self.eps = eps
 
-    def forward(self, x: tp.Tensor) -> tp.Tensor:
+    def __call__(self, x: tp.Tensor) -> tp.Tensor:
         u = tp.mean(x, dim=1, keepdim=True)
         s = tp.mean((x - u) ** 2, dim=1, keepdim=True)
         x = (x - u) / tp.sqrt(s + self.eps)
