@@ -14,7 +14,6 @@ func.func @trt_select_op_fp8(%arg0: tensor<128x128xf8E4M3FN>, %arg1: tensor<128x
   return %1 : tensor<128x128xf32>
 }
 
-// -----
 
 // CHECK-LABEL: @trt_select_op_bf16
 //  CHECK-SAME: tensorrt.engine

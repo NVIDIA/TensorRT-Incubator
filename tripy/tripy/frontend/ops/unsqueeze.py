@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from tripy import export, constraints
+from tripy import constraints, export
 
 
 @export.public_api(document_under="operations/functions")
@@ -45,18 +45,12 @@ def unsqueeze(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.expand_dims(cp.from_dlpack(input).get(), 1))
     """
-    from tripy.frontend.trace.ops.concatenate import concatenate
     from tripy.frontend.trace.ops.reshape import reshape
 
-    from tripy.frontend.shape import Shape
-
     if dim < 0:
+        # We cannot use process_dim here because we need to add an extra 1.
         dim = dim + input.rank + 1
 
-    # Add specical case for rank 0 since tensor.shape is not supported when rank is 0.
-    if input.rank == 0:
-        result_shape = Shape([1])
-    else:
-        input_shape = input.shape
-        result_shape = concatenate([input_shape[:dim], Shape([1]), input_shape[dim:]], dim=0)
+    input_shape = input.shape
+    result_shape = input_shape[:dim] + [1] + input_shape[dim:]
     return reshape(input, result_shape)

@@ -1068,3 +1068,23 @@ func.func @fold_sub() -> tensor<4xf32> {
 // CHECK-LABEL: func.func @fold_sub
 //       CHECK:     %[[cst:.+]] = stablehlo.constant dense<[-3.000000e-01, 6.000000e-01, -0.900000035, 0.840000033]> : tensor<4xf32>
 //       CHECK:     return %[[cst]] : tensor<4xf32>
+
+// -----
+
+func.func @fold_gather_splat(%indices: tensor<42x1xi32>) -> tensor<42xf32> {
+  %operand = stablehlo.constant dense<4.0> : tensor<33x34xf32>
+  %gather = "stablehlo.gather"(%operand, %indices) {
+    dimension_numbers = #stablehlo.gather<
+      collapsed_slice_dims = [0, 1],
+      index_vector_dim = 1,
+      offset_dims = [],
+      start_index_map = [0]
+    >,
+    slice_sizes = array<i64: 1, 1>
+  } : (tensor<33x34xf32>, tensor<42x1xi32>) -> tensor<42xf32>
+  return %gather : tensor<42xf32>
+}
+
+// CHECK-LABEL: @fold_gather_splat
+// CHECK-NEXT: stablehlo.constant dense<4.0{{.*}}> : tensor<42xf32>
+// CHECK-NEXT: return

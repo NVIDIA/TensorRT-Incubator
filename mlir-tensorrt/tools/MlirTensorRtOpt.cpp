@@ -36,6 +36,7 @@ void registerTestTensorKindAnalysisPass();
 #ifdef MLIR_TRT_ENABLE_HLO
 void registerTestBoundsAnalysisPass();
 #endif // MLIR_TRT_ENABLE_HLO
+void registerTestTensorRTShapeInferencePass();
 } // namespace mlir
 
 static void registerTestPasses() {
@@ -49,6 +50,7 @@ static void registerTestPasses() {
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   mlir::registerAllMlirTensorRtDialects(registry);
+  mlir::registerTestTensorRTShapeInferencePass();
 #ifdef MLIR_TRT_TARGET_TENSORRT
   mlir::tensorrt::registerTensorRTTranslationCLOpts();
   mlir::tensorrt::registerTensorRTTranslationPasses();

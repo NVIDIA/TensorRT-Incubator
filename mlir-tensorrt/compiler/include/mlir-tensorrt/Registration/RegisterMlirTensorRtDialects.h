@@ -101,6 +101,7 @@ inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
   registry.insert<mlir::stablehlo::StablehloDialect, mlir::chlo::ChloDialect,
                   scf::SCFDialect, vhlo::VhloDialect>();
   stablehlo::registerTensorKindOpInterfaceExternalModels(registry);
+  stablehlo::registerTypeInferenceExternalModels(registry);
 #endif // MLIR_TRT_ENABLE_HLO
 
 #ifdef MLIR_TRT_ENABLE_EXECUTOR

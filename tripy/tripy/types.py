@@ -42,6 +42,6 @@ ShapeLike = export.public_api(
     module=sys.modules[__name__],
     symbol="ShapeLike",
     doc="""
-        Type annotation for a parameter that is either a Tripy :class:`Shape` or Python sequence that can be automatically converted into one.
+        Type annotation for a parameter that represents a shape.
         """,
-)(Union["tripy.Shape", Sequence[Union[int, "tripy.ShapeScalar"]]])
+)(Sequence[Union[int, "tripy.DimensionSize"]])

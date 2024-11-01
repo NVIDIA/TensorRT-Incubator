@@ -15,8 +15,7 @@
 # limitations under the License.
 #
 
-from tripy import export, constraints
-import tripy.frontend.utils as frontend_utils
+from tripy import constraints, export
 
 
 @export.public_api(document_under="operations/functions")
@@ -48,10 +47,10 @@ def outer(vec1: "tripy.Tensor", vec2: "tripy.Tensor") -> "tripy.Tensor":
         t2 = torch.arange(4, dtype=torch.float32) # doc: omit
         torch_out = torch.outer(t1, t2) # doc: omit
         assert tp.allclose(output, tp.Tensor(torch_out))
-        assert output.shape == torch_out.shape
+        assert output.shape == list(torch_out.shape)
     """
-    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
     from tripy.common.exception import raise_error
+    from tripy.frontend.ops.unsqueeze import unsqueeze
 
     if vec1.rank != 1 or vec2.rank != 1:
         raise_error(

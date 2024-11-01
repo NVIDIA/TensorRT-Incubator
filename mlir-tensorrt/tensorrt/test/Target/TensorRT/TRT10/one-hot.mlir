@@ -18,7 +18,6 @@ func.func @onehot_innermost_f8(%indices: tensor<3xi32>, %values: tensor<2xf8E4M3
 // CHECK-LABEL: onehot_innermost_f8
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 
 func.func @onehot_innermost_bf16(%indices: tensor<3xi32>, %values: tensor<2xbf16>) -> tensor<3x5xbf16> {

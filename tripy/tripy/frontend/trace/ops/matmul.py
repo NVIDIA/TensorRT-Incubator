@@ -30,18 +30,6 @@ class MatrixMultiplication(BaseTraceOp):
     def __str__(self):
         return f"{self.outputs[0].name} = {' @ '.join([inp.name for inp in self.inputs])}"
 
-    def infer_tensor_variants(self, inputs):
-        from tripy.frontend.shape import Shape
-        from tripy.utils import Result
-
-        # If two shapes are multiplied (vector-vector), the result is a scalar, so we shouldn't wrap it.
-        # An alternative would be to prohibit this.
-        if (isinstance(inputs[0], Shape) and isinstance(inputs[1], Shape)) or (
-            not isinstance(inputs[0], Shape) and not isinstance(inputs[1], Shape)
-        ):
-            return Result.ok([None])
-        return Result.err(None)
-
     def infer_rank(self):
         if self.inputs[0].rank == 1 and self.inputs[1].rank == 1:
             self.outputs[0].rank = 0

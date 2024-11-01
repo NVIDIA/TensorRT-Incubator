@@ -25,8 +25,6 @@ func.func @trt_fp8_if(%cond: tensor<i1>, %arg1: tensor<10xf8E4M3FN>, %arg2: tens
 // CHECK-LABEL: @trt_fp8_if
 //  CHECK-SAME: tensorrt.engine
 
-// -----
-
 func.func @trt_bf16_if(%cond: tensor<i1>, %arg1: tensor<10xbf16>, %arg2: tensor<10xbf16>) -> tensor<10xbf16> {
   %result = tensorrt.if (%cond: tensor<i1>) -> tensor<10xbf16> {
       %add = tensorrt.element_wise <kSUM>(%arg1, %arg2 : tensor<10xbf16>, tensor<10xbf16>)

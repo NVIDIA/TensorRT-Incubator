@@ -32,6 +32,8 @@ namespace mlirtrt {
 struct DeviceInfo {
   int64_t computeCapability;
   int64_t maxSharedMemoryPerBlockKb;
+  // Maximum number of 4-byte registers per block.
+  uint64_t maxRegistersPerBlock;
 };
 
 /// Infer target device information from the first visible CUDA device on the

@@ -17,8 +17,6 @@ func.func @trt_einsum_fp8(%arg0: tensor<1x4x8x16xf8E4M3FN>, %arg1: tensor<1x4x16
   return %2 : tensor<1x4x8x32xf32>
 }
 
-// -----
-
 // CHECK-LABEL: @trt_einsum_fp16
 //  CHECK-SAME: tensorrt.engine
 func.func @trt_einsum_fp16(%arg0: tensor<1x4x8x16xbf16>, %arg1: tensor<1x4x16x32xbf16>,

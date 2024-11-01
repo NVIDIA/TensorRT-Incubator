@@ -58,9 +58,7 @@ class PositionEmbeddingRandom(tp.Module):
         pe = self._pe_encoding(tp.stack([x_embed, y_embed], dim=-1))
         return tp.permute(pe, (2, 0, 1))  # C x H x W
 
-    def forward_with_coords(
-        self, coords_input: tp.Tensor, image_size: Tuple[int, int]
-    ) -> tp.Tensor:
+    def forward_with_coords(self, coords_input: tp.Tensor, image_size: Tuple[int, int]) -> tp.Tensor:
         """Positionally encode points that are not normalized to [0,1]."""
         new_x_coords = coords_input[:, :, 0] / image_size[1]
         new_y_coords = coords_input[:, :, 1] / image_size[0]
@@ -70,24 +68,18 @@ class PositionEmbeddingRandom(tp.Module):
         return self._pe_encoding(tp.cast(new_coords, tp.float32))  # B x N x C
 
 
-def init_t_xy(end_x: tp.ShapeScalar, end_y: tp.ShapeScalar):
+def init_t_xy(end_x: tp.DimensionSize, end_y: tp.DimensionSize):
     t = tp.arange(end_x * end_y, dtype=tp.float32)
-    if isinstance(end_x, tp.ShapeScalar) and isinstance(end_y, tp.ShapeScalar):
+    if isinstance(end_x, tp.DimensionSize) and isinstance(end_y, tp.DimensionSize):
         end_x, end_y = tp.cast(end_x, tp.float32), tp.cast(end_y, tp.float32)
     t_x = t % end_x
     t_y = t // end_x
     return t_x, t_y
 
 
-def compute_axial_cis(
-    dim: int, end_x: tp.ShapeScalar, end_y: tp.ShapeScalar, theta: float = 10000.0
-):
-    freqs_x = 1.0 / (
-        theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim)
-    )
-    freqs_y = 1.0 / (
-        theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim)
-    )
+def compute_axial_cis(dim: int, end_x: tp.DimensionSize, end_y: tp.DimensionSize, theta: float = 10000.0):
+    freqs_x = 1.0 / (theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim))
+    freqs_y = 1.0 / (theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim))
 
     t_x, t_y = init_t_xy(end_x, end_y)
     freqs_x = tp.outer(t_x, freqs_x)
@@ -119,9 +111,7 @@ def apply_rotary_enc(
     # repeat freqs along seq_len dim to match k seq_len
     if repeat_freqs_k:
         r = xk_.shape[-3] // xq_.shape[-3]
-        freqs_cis = tp.flatten(
-            tp.expand(tp.unsqueeze(freqs_cis, 2), (-1, -1, r, -1, -1, -1)), 2, 3
-        )
+        freqs_cis = tp.flatten(tp.expand(tp.unsqueeze(freqs_cis, 2), (-1, -1, r, -1, -1, -1)), 2, 3)
 
     xk_out = tp.flatten(mul_as_complex(xk_, freqs_cis), 3)
     return tp.cast(xq_out, xq.dtype), tp.cast(xk_out, xk.dtype)

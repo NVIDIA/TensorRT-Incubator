@@ -16,14 +16,14 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional, Sequence, Union
+from typing import Optional
 
-from tripy import export, constraints
-from tripy.utils import Result
+from tripy import constraints, export
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.types import ShapeLike
 
 
 @dataclass(repr=False)
@@ -33,14 +33,6 @@ class Expand(BaseTraceOp):
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
-
-    def infer_tensor_variants(self, inputs) -> Result:
-        from tripy.frontend.shape import Shape
-
-        # wrap if the first input is a shape and the output is rank-1
-        if isinstance(inputs[0], Shape) and self.output_rank == 1:
-            return Result.ok([Shape])
-        return Result.ok([None])
 
     def infer_len(self):
         if self.output_len is not None:
@@ -69,19 +61,42 @@ class Expand(BaseTraceOp):
         )
 
 
-@frontend_utils.convert_shape_inputs(["shape"])
-def expand_impl(input: "tripy.Tensor", shape: Sequence, output_rank: int, output_len: Optional[int] = None):
-    return Expand.build([input, shape], output_rank, output_len)
+def process_sizes(input: "tripy.Tensor", sizes: ShapeLike):
+    if len(sizes) < input.rank:
+        raise_error(
+            "The length of `sizes` must be greater or equal to input tensor's rank.",
+            [f"sizes has length: {len(sizes)}", f" input rank: {input.rank}"],
+        )
+
+    num_prepended = len(sizes) - input.rank
+    out_shape = list(sizes[:num_prepended]) + [
+        inp_dim if op_utils.is_minus_one(out_dim) else out_dim
+        for inp_dim, out_dim in zip(input.shape, sizes[num_prepended:])
+    ]
+
+    if any(op_utils.is_minus_one(dim) for dim in out_shape):
+        raise_error(
+            "Cannot use -1 for prepended dimension.",
+            [
+                f"{num_prepended} dimension(s) are going to be prepended since the `sizes` argument "
+                f"contains more elements than the number of dimensions in the input.\n"
+                f"Prepended dimensions may not contain -1 since there is no corresponding "
+                f"dimension in the input to copy from, but got: {sizes}"
+            ],
+        )
+
+    return {"sizes": out_shape}
 
 
 @export.public_api(document_under="operations/functions")
+@frontend_utils.convert_to_tensors(preprocess_args=process_sizes)
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
     },
 )
-def expand(input: "tripy.Tensor", sizes: "tripy.types.ShapeLike") -> "tripy.Tensor":
+def expand(input: "tripy.Tensor", sizes: ShapeLike) -> "tripy.Tensor":
     """
     Returns a new tensor based on the input tensor with singleton dimensions expanded to a larger size.
 
@@ -113,29 +128,4 @@ def expand(input: "tripy.Tensor", sizes: "tripy.types.ShapeLike") -> "tripy.Tens
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
     """
-    from tripy.frontend.tensor import Tensor
-
-    if isinstance(sizes, Tensor):
-        return Expand.build([input, sizes], None)
-
-    if len(sizes) < input.rank:
-        raise_error(
-            "The length of `sizes` must be greater or equal to input tensor's rank.",
-            [f"sizes has length: {len(sizes)}", f" input rank: {input.rank}"],
-        )
-
-    idx_offset = len(sizes) - input.rank
-    out_shape = []
-    for i, size in enumerate(sizes):
-        if isinstance(size, int) and size == -1:
-            # keep the original dimension
-            out_shape.append(input.shape[i - idx_offset])
-            continue
-        out_shape.append(size)
-
-    # only used for inferring the length of a shape output (hence, define only in rank-1 case)
-    out_len = None
-    if len(sizes) == 1 and isinstance(out_shape[0], int):
-        out_len = out_shape[0]
-
-    return expand_impl(input, out_shape, len(sizes), out_len)
+    return Expand.build([input, sizes], None, None)

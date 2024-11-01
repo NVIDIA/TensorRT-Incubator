@@ -50,34 +50,6 @@ class BinaryElementwise(BaseTraceOp):
             op_str = f"{self.kind}({self.inputs[0].name}, {self.inputs[1].name})"
         return f"{self.outputs[0].name} = {op_str}"
 
-    def infer_tensor_variants(self, inputs):
-        # To avoid issues, we do not permit both Shape and Tensor args and recommend explicit conversion if they do need to combined.
-        # ShapeScalar args can be broadcast up into Shapes and so do not pose an issue.
-        from tripy.frontend.shape import Shape, ShapeScalar
-        from tripy.utils import Result
-
-        if any(map(lambda t: isinstance(t, Shape), inputs)):
-            # Note: Most binary elementwise ops use the convert_inputs_to_tensors decorator, which also checks for this.
-            if any(map(lambda t: not isinstance(t, (Shape, ShapeScalar)), inputs)):
-                shape_arg_indices = [i for i, t in enumerate(inputs) if isinstance(t, Shape)]
-                tensor_arg_indices = [
-                    i for i, t in enumerate(inputs) if not isinstance(t, Shape) and not isinstance(t, ShapeScalar)
-                ]
-                return Result.err(
-                    [
-                        "Binary elementwise operators do not accept combinations of Shape and Tensor arguments."
-                        " Consider explicitly converting using tp.Shape or as_tensor."
-                        f" Indices of shape arguments: {', '.join(map(str, shape_arg_indices))}."
-                        f" Indices of tensor arguments: {', '.join(map(str, tensor_arg_indices))}.",
-                    ]
-                )
-            return Result.ok([Shape])
-        elif all(map(lambda t: isinstance(t, ShapeScalar), inputs)):
-            # Binary operation on ShapeScalar should yield another ShapeScalar.
-            return Result.ok([ShapeScalar])
-        else:
-            return Result.ok([None])
-
     def infer_len(self):
         # For the shape case, the result will be broadcast to the max of the input shapes
         input_lengths = []
@@ -215,9 +187,6 @@ class Comparison(BinaryElementwise):
         GREATER = KindElem(" > ", "GT")
 
     kind: Kind.KindElem
-
-    # the result of a comparison will be bool, so do not wrap
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
 
     def infer_dtypes(self):
         self.outputs[0].dtype = datatype.bool

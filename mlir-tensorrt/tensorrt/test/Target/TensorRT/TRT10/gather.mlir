@@ -21,7 +21,6 @@ func.func @trt_gather_default_fp8(%arg0: tensor<10x20x30xf8E4M3FN>, %arg1: tenso
 // CHECK-LABEL: @trt_gather_default_fp8
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @trt_gather_default_bf16(%arg0: tensor<10x20x30xbf16>, %arg1: tensor<5xi32>, %arg2: tensor<10x5x30xbf16>) -> tensor<10x5x30xbf16> {
   %0 = tensorrt.gather {
@@ -35,7 +34,6 @@ func.func @trt_gather_default_bf16(%arg0: tensor<10x20x30xbf16>, %arg1: tensor<5
 // CHECK-LABEL: @trt_gather_default_bf16
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 func.func @gather_nd_scalar(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<16x17x4xi32>) -> tensor<16x17xf32> {
   %0 = tensorrt.gather_nd data(%arg0) indices(%arg1) : (tensor<1x2x3x4xf32>, tensor<16x17x4xi32>) -> tensor<16x17xf32>
@@ -45,7 +43,6 @@ func.func @gather_nd_scalar(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<16x17x4xi3
 // CHECK-LABEL: @gather_nd_scalar
 //  CHECK-SAME: tensorrt.engine
 
-// -----
 
 
 func.func @gather_nd(%arg0: tensor<1x2x3x4xf32>, %arg1: tensor<16x17x2xi32>) -> tensor<16x17x3x4xf32> {

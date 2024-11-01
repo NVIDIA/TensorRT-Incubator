@@ -145,3 +145,4 @@ add_library(MLIRTensorRTExecutorLibraries INTERFACE)
 target_link_libraries(MLIRTensorRTExecutorLibraries INTERFACE
   ${MLIR_EXECUTOR_LIBS})
 add_library(MLIRTensorRT::Executor ALIAS MLIRTensorRTExecutorLibraries)
+add_mlir_library_install(MLIRTensorRTExecutorLibraries)
