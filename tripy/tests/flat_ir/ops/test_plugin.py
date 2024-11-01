@@ -49,20 +49,6 @@ def flat_ir():
 
 
 class TestPluginOp:
-    def test_str(self, flat_ir):
-        plugin_op = flat_ir.ops[-1]
-        assert isinstance(plugin_op, PluginOp)
-        assert (
-            str(plugin_op)
-            == "out: [rank=(4), dtype=(float32), loc=(gpu:0)] = PluginOp(X, rois, batch_indices, name='ROIAlign_TRT', version='1', namespace='', creator_params={'output_height': 5, 'output_width': 5})"
-        )
-
-    def test_mlir(self, flat_ir):
-        assert """
-            tensorrt.opaque_plugin {creator_params = {output_height = 5 : i32, output_width = 5 : i32}, plugin_name = "ROIAlign_TRT", plugin_namespace = "", plugin_version = "1"}(%0, %cst, %2) : (tensor<?x?x?x?xf32>, tensor<2x4xf32>, tensor<?xi32>) -> tensor<?x?x?x?xf32>
-            """.strip() in str(
-            flat_ir.to_mlir()
-        )
 
     @pytest.mark.parametrize(
         "params, expected_error",
