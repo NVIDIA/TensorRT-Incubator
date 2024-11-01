@@ -194,26 +194,11 @@ def convert_to_tensors(
             from tripy.frontend.tensor import Tensor
             from tripy.frontend.trace.ops.cast import cast
 
-            all_args = utils.merge_function_arguments(func, *args, **kwargs)
+            all_args, var_arg_info = utils.merge_function_arguments(func, *args, **kwargs)
 
             if preprocess_args is not None:
 
-                # Since a Python function can have at most one variadic arg and merge_function_arguments
-                # would list all the entries consecutively, it suffices to find the name and start index
-                # for the variadic arg to handle variadic args when preprocessing.
-                def find_variadic_name_and_start_idx(all_args: Sequence) -> Optional[Tuple[str, int]]:
-                    encountered_names = {}
-                    for i, (name, _) in enumerate(all_args):
-                        if name in encountered_names:
-                            return name, encountered_names[name]
-                        if name not in encountered_names:
-                            encountered_names[name] = i
-
-                    return None
-
-                var_arg_name, var_arg_start_idx = utils.default(
-                    find_variadic_name_and_start_idx(all_args), (None, None)
-                )
+                var_arg_name, var_arg_start_idx = utils.default(var_arg_info, (None, None))
                 new_args = preprocess_args(*args, **kwargs)
                 for index in range(len(all_args)):
                     name, _ = all_args[index]
