@@ -256,8 +256,6 @@ def __getitem__(
     return out
 
 
-# Because the helper is called inside another function, we need to skip one entry in the call stack to find
-# the original call to user code.
-@frontend_utils.convert_to_tensors(skip_num_stack_entries=1)
+@frontend_utils.convert_to_tensors()
 def slice_helper(tensor, *slice_params: TensorLike):
     return Slice.build(inputs=[tensor, *slice_params])

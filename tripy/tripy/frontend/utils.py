@@ -65,7 +65,8 @@ def tensor_from_shape_like(arg: ShapeLike) -> "tripy.Tensor":
 
 
 # Try to include correct column offsets for non-tensor arguments.
-def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, skip_num_stack_entries, arg_names):
+def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_names):
+    from tripy import function_registry
     from tripy.frontend.tensor import Tensor
 
     assert isinstance(arg, Tensor), f"This function should only be called for objects that are already Tensor instances"
@@ -84,11 +85,23 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, skip_n
 
     # Find the first caller of this function that is NOT the function registry.
     # Also save the last dispatch target we see.
+
+    # Start from the registry. It will always be present except for tests,
+    # since the decorator is intended only for overrides of magic functions.
+    # This check supports cases like slice_helper, where the decorated function
+    # is used *inside* the override and hence the wrapped call would come *before*
+    # the call from the registry.
+    REGISTRY_STACK_DEPTH = WRAPPER_STACK_DEPTH
+    for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH:]):
+        if source_info.module == function_registry.__name__:
+            REGISTRY_STACK_DEPTH = WRAPPER_STACK_DEPTH + idx
+            break
+
     dispatch_target = None
-    for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH + skip_num_stack_entries :]):
+    for idx, source_info in enumerate(arg.stack_info[REGISTRY_STACK_DEPTH:]):
         dispatch_target = source_info._dispatch_target or dispatch_target
         if source_info.module not in utils.get_module_names_to_exclude_from_stack_info():
-            frame_index = idx + WRAPPER_STACK_DEPTH + skip_num_stack_entries
+            frame_index = idx + REGISTRY_STACK_DEPTH
             break
     else:
         # Fallback path is just to look at the user code
@@ -131,9 +144,7 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, skip_n
 
 # NOTE: Conversion to tensors needs to be done via a decorator so that we can add stack information
 # for non-tensors. Without having full context of the function signature, it is otherwise difficult to do so.
-def convert_to_tensors(
-    targets: Set[str] = None, skip_num_stack_entries: int = 0, preprocess_args: Optional[Callable] = None
-):
+def convert_to_tensors(targets: Set[str] = None, preprocess_args: Optional[Callable] = None):
     """
     Decorator that converts specified arguments to Tensors or DimensionSizes.
     If the argument can be converted to a DimensionSize, it is. Otherwise, it is
@@ -146,17 +157,6 @@ def convert_to_tensors(
     Args:
         targets: Names of arguments to convert to tensors. If not supplied, any arguments annotated
             with `TensorLike` or `ShapeLike` are converted.
-
-        skip_num_stack_entries: If the decorator is used on a function that is *called by*
-            a function that the user invokes, it will be necessary to skip stack entries
-            in order to get the column info from the user code. The number of entries skipped
-            should be equal to the nesting depth from a function called by user code
-            (if the decorated function is called by the user the depth is 0;
-            if the decorated function is called from a user function, the depth is 1; etc.).
-
-            NOTE: When using this, make sure any extra arguments to the decorated function are
-            passed as keyword arguments. Otherwise, the logic for determining column information
-            will break.
 
         preprocess_args: A callback used to preprocess arguments before potential conversion. If provided,
             this is always called, regardless of whether the decorator actually needed to perform conversion.
@@ -233,7 +233,6 @@ def convert_to_tensors(
                         name in kwargs,
                         len(args),
                         func.__name__,
-                        skip_num_stack_entries,
                         [name for name, _ in all_args],
                     )
 
