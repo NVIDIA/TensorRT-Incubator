@@ -14,7 +14,7 @@
 # limitations under the License.
 import base64
 import inspect
-from typing import Sequence, Union
+from typing import Sequence, Union, Tuple, Callable
 
 import mlir_tensorrt.runtime.api as runtime
 
@@ -37,13 +37,11 @@ class Executable:
     """
 
     # The constructor is intentionally undocumented because it is not meant to be called by users.
-    # TODO(#155): output_devices is not needed after they can be queried from executable
-    def __init__(self, executable, arg_names, output_devices):
+    def __init__(self, executable, arg_names):
         self._executable = executable
         self._executor = Executor(self._executable)
         self._arg_names = arg_names
         self._num_expected_args = len(arg_names)
-        self._output_devices = output_devices
         self._executable_signature = self._executable.get_signature("main")
 
         # Build a signature so the executable works with `inspect.signature`
@@ -51,7 +49,7 @@ class Executable:
         for name in self._arg_names:
             params.append(inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Tensor))
 
-        return_annotation = Tensor if self._executable_signature.get_num_output_args() == 1 else Sequence[Tensor]
+        return_annotation = Tensor if self._executable_signature.get_num_results() == 1 else Sequence[Tensor]
 
         self.__signature__ = inspect.Signature(params, return_annotation=return_annotation)
 
@@ -128,7 +126,7 @@ class Executable:
             tensor.eval()
 
         try:
-            executor_outputs = self._executor.execute(self._output_devices, input_tensors)
+            executor_outputs = self._executor.execute(input_tensors)
         except runtime.MTRTException as err:
             # TODO: Evaluate whether this should be moved into the executor
             if "function expects a memref type with element type" in str(err):
@@ -170,15 +168,22 @@ class Executable:
             output_tensors = output_tensors[0]
         return output_tensors
 
-    def _get_arg_info(self, idx):
-        arg = self._executable_signature.get_arg(idx)
-        arg = runtime.MemRefType(arg)
-        arg_bound = self._executable_signature.get_arg_bound(idx)
-        shape_bounds = tuple(zip(arg_bound.min(), arg_bound.max()))
-        if len(shape_bounds) == 0:
-            # For static shape arguments, get_arg_bound returns an empty list and we fallback to arg.shape
-            shape_bounds = tuple((x, x) for x in arg.shape)
-        return ArgInfo(shape_bounds, mlir_utils.convert_runtime_dtype_to_tripy_dtype(arg.dtype))
+    def _get_info(self, idx: int, get_item: Callable, get_bound: Callable) -> ArgInfo:
+        item = runtime.MemRefType(get_item(idx))
+        bound = get_bound(idx)
+        shape_bounds = tuple(zip(bound.min(), bound.max()))
+
+        if not shape_bounds:
+            # For static shape, fallback to item.shape
+            shape_bounds = tuple((x, x) for x in item.shape)
+
+        return ArgInfo(shape_bounds, mlir_utils.convert_runtime_dtype_to_tripy_dtype(item.dtype))
+
+    def _get_arg_info(self, idx: int) -> ArgInfo:
+        return self._get_info(idx, self._executable_signature.get_arg, self._executable_signature.get_arg_bound)
+
+    def _get_result_info(self, idx: int) -> ArgInfo:
+        return self._get_info(idx, self._executable_signature.get_result, self._executable_signature.get_res_bound)
 
     def get_input_info(self) -> Sequence[ArgInfo]:
         """
@@ -221,11 +226,10 @@ class Executable:
             compiled_add = tp.compile(add, args=[tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32)])
             print(compiled_add.get_output_info())
         """
-        output_info = []
-        offset = self._executable_signature.get_num_input_args()
-        for idx in range(self._executable_signature.get_num_output_args()):
-            output_info.append(self._get_arg_info(idx + offset))
-        return output_info
+        num_input_args = self._executable_signature.get_num_input_args()
+        num_results = self._executable_signature.get_num_results()
+
+        return [self._get_result_info(idx) for idx in range(num_results)]
 
     def save(self, path: str) -> None:
         """
@@ -289,7 +293,6 @@ class Executable:
 def encode_executable(executable):
     return {
         "arg_names": executable._arg_names,
-        "output_devices": executable._output_devices,
         "executable": base64.b64encode(executable._executable.serialize()).decode(),
     }
 
@@ -300,5 +303,4 @@ def decode_executable(executable_dict):
     return Executable(
         runtime.Executable(executable_bytes),
         executable_dict["arg_names"],
-        executable_dict["output_devices"],
     )
