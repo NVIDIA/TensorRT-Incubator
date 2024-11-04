@@ -73,10 +73,7 @@ class Sequential(Module):
             return self.modules[name]
 
         # Fallback to regular attribute access if not found in modules
-        try:
-            return super().__getattr__(name)
-        except AttributeError:
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute or module named '{name}'")
+        return super().__getattr__(name)
 
     def __len__(self) -> int:
         r"""
