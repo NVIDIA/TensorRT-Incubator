@@ -86,8 +86,11 @@ class Sequential(Module):
             :linenos:
             :caption: Example
 
+            # doc: print-locals model length
+            
             model = tp.Sequential(tp.Linear(1, 64), tp.Linear(64, 128))
-            assert len(model) == 2
+            length = len(model)
+            assert length == 2
         """
         return len(self.modules)
 
