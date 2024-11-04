@@ -107,41 +107,6 @@ def list_to_dense_attr(data: List, mlir_dtype):
     return attrs
 
 
-def get_mlir_quant_dtype(
-    origin_dtype: "tripy.dtype",
-    quant_dtype: "tripy.dtype",
-    scale: float,
-    zero_point: int,
-    storage_type_min: int,
-    storage_type_max: int,
-):
-    """
-    Converts a tripy data type to an MLIR quantized data type.
-
-    Args:
-        origin_dtype: original data type to be quantized
-        quant_dtype: target data type to quantize
-        dtype: One of int4, int8, float8
-        scale: scale value of quantized tensor
-        zero_point: zero point of quantized tensor
-        storage_type_min: min value of quantized dtype
-        storage_type_max: max value of quantized dtype
-    """
-    from mlir_tensorrt.compiler.dialects import quant
-
-    storage_type = get_mlir_dtype(quant_dtype)
-    expressed_type = get_mlir_dtype(origin_dtype)
-    return quant.UniformQuantizedType.get(
-        quant.UniformQuantizedType.FLAG_SIGNED,
-        storage_type,
-        expressed_type,
-        scale,
-        zero_point,
-        storage_type_min,
-        storage_type_max,
-    )
-
-
 def make_mlir_tensor(
     dtype: "tripy.common.dtype", shape: Optional[Sequence[int]] = None, rank: Optional[int] = None
 ) -> ir.RankedTensorType:
