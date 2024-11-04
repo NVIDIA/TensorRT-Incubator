@@ -93,53 +93,18 @@ def get_mlir_scalar_attr(mlir_dtype, value):
 
 
 def list_to_dense_attr(data: List, mlir_dtype):
-    from tripy.frontend.shape import ShapeScalar
+    from tripy.frontend.dimension_size import DimensionSize
 
     if isinstance(data, numbers.Number):
         return [get_mlir_scalar_attr(mlir_dtype, data)]
 
-    if isinstance(data, ShapeScalar):
+    if isinstance(data, DimensionSize):
         return [get_mlir_scalar_attr(mlir_dtype, data.tolist())]
 
     attrs = []
     for element in data:
         attrs.extend(list_to_dense_attr(element, mlir_dtype))
     return attrs
-
-
-def get_mlir_quant_dtype(
-    origin_dtype: "tripy.dtype",
-    quant_dtype: "tripy.dtype",
-    scale: float,
-    zero_point: int,
-    storage_type_min: int,
-    storage_type_max: int,
-):
-    """
-    Converts a tripy data type to an MLIR quantized data type.
-
-    Args:
-        origin_dtype: original data type to be quantized
-        quant_dtype: target data type to quantize
-        dtype: One of int4, int8, float8
-        scale: scale value of quantized tensor
-        zero_point: zero point of quantized tensor
-        storage_type_min: min value of quantized dtype
-        storage_type_max: max value of quantized dtype
-    """
-    from mlir_tensorrt.compiler.dialects import quant
-
-    storage_type = get_mlir_dtype(quant_dtype)
-    expressed_type = get_mlir_dtype(origin_dtype)
-    return quant.UniformQuantizedType.get(
-        quant.UniformQuantizedType.FLAG_SIGNED,
-        storage_type,
-        expressed_type,
-        scale,
-        zero_point,
-        storage_type_min,
-        storage_type_max,
-    )
 
 
 def make_mlir_tensor(
@@ -350,82 +315,6 @@ def cast_to_dynamic_ranked_tensor(input_tensor: ir.Value, always_insert_cast: bo
     dynamic_type = ir.RankedTensorType.get(dynamic_shape, input_type.element_type)
 
     return stablehlo.ConvertOp(result=dynamic_type, operand=input_tensor).result
-
-
-class ShapeContext:
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(ShapeContext, cls).__new__(cls)
-            from tripy.backend.mlir.compiler import Compiler
-
-            cls._instance.compiler = Compiler(trt_builder_opt_level=0)
-        return cls._instance
-
-    def __init__(self):
-        self.shape_caches = {}
-
-    @classmethod
-    def get_compiler(cls):
-        return cls._instance.compiler
-
-    @utils.log_time
-    def get_shape_of_dynamic_trace_tensor(self, trace_tensor):
-        from tripy.flat_ir.flat_ir import FlatIR
-        from tripy.frontend.utils import topological_sort
-        import copy
-
-        def traverse_backwards(tensor, visited_tensors, visited_producers):
-            """
-            Recurse back from tensor to the inputs to the graph and store the visited tensors and nodes.
-            """
-            if id(tensor) in visited_tensors:
-                return
-
-            visited_tensors[id(tensor)] = tensor
-            if tensor.producer is not None:
-                visited_producers[id(tensor.producer)] = tensor.producer
-                for input_tensor in tensor.producer.inputs:
-                    traverse_backwards(input_tensor, visited_tensors, visited_producers)
-
-        def find_inputs(graph_nodes):
-            """
-            Populates inputs of the topologically sorted graph.
-            """
-            id_graph_nodes = [id(n) for n in graph_nodes]
-            return [t for op in graph_nodes for t in op.inputs if id(t.producer) not in id_graph_nodes]
-
-        subgraph = FlatIR()
-        visited_tensors = {}
-        visited_producers = {}
-
-        traverse_backwards(trace_tensor, visited_tensors, visited_producers)
-        visited_producers = [v for _, v in visited_producers.items()]
-
-        visited_producers = topological_sort(visited_producers)
-        input_tensors = find_inputs(visited_producers)
-
-        subgraph.inputs = [subgraph.register_tensor(inp.to_flat_ir()) for inp in input_tensors]
-        subgraph.outputs = [subgraph.register_tensor(trace_tensor.to_flat_ir())]
-
-        for op in visited_producers:
-            inputs = [subgraph.register_tensor(inp.to_flat_ir()) for inp in op.inputs]
-            outputs = [subgraph.register_tensor(out.to_flat_ir()) for out in op.outputs]
-            # Pass shallow copies of inputs/outputs so that the op is free to modify them
-            op.to_flat_ir(copy.copy(inputs), copy.copy(outputs))
-            subgraph.integrate_subgraph(inputs, outputs)
-
-        mlir = subgraph.to_mlir()
-        mlir_str = mlir.__str__()
-        if mlir_str in self.shape_caches:
-            return self.shape_caches[mlir_str]
-        else:
-            func_output_types = self.get_compiler().infer_shapes(mlir, subgraph)
-            # Calculate the elapsed time
-            assert len(func_output_types.results) == 1
-            self.shape_caches[mlir_str] = func_output_types.results[0].shape
-            return func_output_types.results[0].shape
 
 
 def map_error_to_user_code_and_raise(flat_ir, exc, stderr):

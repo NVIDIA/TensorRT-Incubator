@@ -26,6 +26,7 @@
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
 #include <memory>
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -130,6 +131,7 @@ public:
     mOutputSize = size;
   }
 
+#if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
   void *reallocateOutputAsync(const char *name, void *memory, uint64_t size,
                               uint64_t alignment,
                               cudaStream_t stream) override {
@@ -155,6 +157,30 @@ public:
     }
     return reinterpret_cast<void *>(mOutputPtr);
   }
+#else
+  void *reallocateOutput(const char *name, void *memory, uint64_t size,
+                         uint64_t alignment) override {
+    assert((!mOutputPtr || reinterpret_cast<uintptr_t>(memory) == mOutputPtr) &&
+           "Output buffer mismatch");
+    assert(name == mTensorName && "Tensor name mismatch");
+    size = std::max(size, static_cast<uint64_t>(1));
+    if (size > mOutputSize) {
+      size = roundUp(size, alignment);
+      if (mOutputPtr)
+        mlirtrt::runtime::safeDeallocate(*mTracker, mOutputPtr);
+      mOutputPtr = 0;
+      mOutputSize = 0;
+      StatusOr<PointerInfo> memory = mlirtrt::runtime::allocate(
+          *mTracker, PointerType::device, size, alignment, std::nullopt);
+      if (memory.isOk()) {
+        mOutputPtr = (*memory).ptr;
+        mOutputSize = memory->size;
+      }
+      return reinterpret_cast<void *>(mOutputPtr);
+    }
+    return reinterpret_cast<void *>(mOutputPtr);
+  }
+#endif
 
   void notifyShape(const char *name,
                    const nvinfer1::Dims &dims) noexcept override {

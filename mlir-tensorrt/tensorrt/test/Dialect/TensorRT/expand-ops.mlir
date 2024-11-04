@@ -432,3 +432,23 @@ func.func @broadcast_to_slice_dynamic_to_dynamic_expand2(%arg0: tensor<?x?xf32>,
 //       CHECK:     %[[v4:.+]] = tensorrt.shuffle {first_transpose = array<i64: 0, 1>, second_transpose = array<i64: 0, 1, 2>, zero_is_placeholder = false} ins(%[[arg0]], %[[v3]] : tensor<?x?xf32>, tensor<3xi32>) -> tensor<?x1x?xf32>
 //       CHECK:     %[[v5:.+]] = tensorrt.slice %[[v4]][0, 0, 0][%[[arg1:.+]]: tensor<3xi32>][1, 1, 1] {mode = #tensorrt.slice_mode<kWRAP>} : tensor<?x1x?xf32> to tensor<?x?x?xf32>
 //       CHECK:     return %[[v5]] : tensor<?x?x?xf32>
+
+
+// -----
+
+func.func @broadcast_to_slice_preserve_type(%arg0: tensor<?x256x64xf32>, %shape: tensor<4xi32>) -> tensor<?x256x64x64xf32> {
+  %0 = tensorrt.broadcast %arg0 broadcast_dims<0,1,2> shape(%shape: tensor<4xi32>) : tensor<?x256x64xf32> to tensor<?x256x64x64xf32>
+  return %0 : tensor<?x256x64x64xf32>
+}
+
+// CHECK-LABEL: @broadcast_to_slice_preserve_type
+// CHECK-SAME: (%[[arg0:.+]]: tensor<?x256x64xf32>, %[[arg1:.+]]: tensor<4xi32>) -> tensor<?x256x64x64xf32>
+// CHECK:     %[[cst_i32:.+]] = tensorrt.constant dense<1> : tensor<1xi32>
+// CHECK:     %[[v0:.+]] = tensorrt.shape %[[arg0]] : tensor<?x256x64xf32> -> tensor<3xi32>
+// CHECK:     %[[v1:.+]] = tensorrt.slice %[[v0]][0][1][1] : tensor<3xi32> to tensor<1xi32>
+// CHECK:     %[[v2:.+]] = tensorrt.slice %[[v0]][1][1][1] : tensor<3xi32> to tensor<1xi32>
+// CHECK:     %[[v3:.+]] = tensorrt.slice %[[v0]][2][1][1] : tensor<3xi32> to tensor<1xi32>
+// CHECK:     %[[v4:.+]] = tensorrt.concatenation {axis = 0 : i32} ins(%[[v1]], %[[v2]], %[[v3]], %[[cst_i32]] : tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<4xi32>
+// CHECK:     %[[v5:.+]] = tensorrt.shuffle {first_transpose = array<i64: 0, 1, 2>, second_transpose = array<i64: 0, 1, 2, 3>, zero_is_placeholder = false} ins(%[[arg0]], %[[v4]] : tensor<?x256x64xf32>, tensor<4xi32>) -> tensor<?x256x64x1xf32>
+// CHECK:     %[[v6:.+]] = tensorrt.slice %[[v5]][0, 0, 0, 0][%[[arg1]]: tensor<4xi32>][1, 1, 1, 1] {mode = #tensorrt.slice_mode<kWRAP>} : tensor<?x256x64x1xf32> to tensor<?x256x64x64xf32>
+// CHECK:     return %[[v6]] : tensor<?x256x64x64xf32>

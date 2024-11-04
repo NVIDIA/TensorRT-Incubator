@@ -16,7 +16,7 @@
 #
 
 import inspect
-from typing import ForwardRef, List, Optional, Union, get_args, get_origin
+from typing import ForwardRef, List, Optional, Sequence, Union, get_args, get_origin
 
 import tripy as tp
 from tripy.common import datatype
@@ -26,7 +26,6 @@ from tripy.types import TensorLike
 def tensor_builder(init, dtype, namespace):
     if init is None:
         out = tp.ones(dtype=namespace[dtype], shape=(3, 2))
-        out.eval()
         return out
     elif not isinstance(init, tp.Tensor):
         return init
@@ -34,7 +33,8 @@ def tensor_builder(init, dtype, namespace):
     out = init
     if dtype is not None:
         out = tp.cast(out, dtype=namespace[dtype])
-    out.eval()
+        # Need to evaluate when casting because we run into MLIR-TRT bugs while deriving upper bounds.
+        out.eval()
     return out
 
 
@@ -47,8 +47,6 @@ def tensor_list_builder(init, dtype, namespace):
         out = [tp.ones(shape=(3, 2), dtype=namespace[dtype]) for _ in range(2)]
     else:
         out = [tp.cast(tens, dtype=namespace[dtype]) for tens in init]
-    for t in out:
-        t.eval()
     return out
 
 
@@ -66,10 +64,10 @@ find_func = {
     "tripy.Tensor": tensor_builder,
     "tripy.types.TensorLike": tensor_builder,
     TensorLike: tensor_builder,
-    "tripy.Shape": tensor_builder,
     "tripy.dtype": dtype_builder,
     datatype.dtype: dtype_builder,
-    List[Union["tripy.Tensor"]]: tensor_list_builder,
+    List["tripy.Tensor"]: tensor_list_builder,
+    Sequence["tripy.Tensor"]: tensor_list_builder,
     "tripy.device": device_builder,
 }
 
@@ -132,7 +130,7 @@ default_constraints_all = {
     "pad": {"pad": [(0, 1), (1, 0)]},
     "permute": {"perm": [1, 0]},
     "prod": {"dim": 0},
-    "quantize": {"scale": tp.Tensor([1, 1, 1]), "dim": 0},
+    "quantize": {"input": tp.ones((3, 2)), "scale": tp.Tensor([1, 1, 1]), "dim": 0},
     "repeat": {"repeats": 2, "dim": 0},
     "reshape": {"shape": [6]},
     "resize": {
@@ -151,8 +149,6 @@ default_constraints_all = {
     "maxpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
     "avgpool": {"input": tp.ones((1, 1, 8, 8)), "kernel_dims": [2, 2]},
     "zeros": {"shape": [3, 2]},
-    # Methods
-    "Shape.as_tensor": {"self": tp.Shape([1, 2, 3])},
 }
 
 

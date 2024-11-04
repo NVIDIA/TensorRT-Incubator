@@ -15,12 +15,11 @@
 # limitations under the License.
 #
 
-import pytest
-import numpy as np
+
+from tests import helper
 
 import tripy as tp
-from tests import helper
-from tripy.frontend.trace.ops import Reshape, Squeeze
+from tripy.frontend.trace.ops import Reshape
 
 
 class TestReshape:
@@ -36,31 +35,14 @@ class TestReshape:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Reshape)
 
+    def test_invalid_neg_dim_reshape(self):
+        shape = (1, 30)
+        new_shape = (-1, -1)
+        with helper.raises(tp.TripyException, match="The new shape can have at most one inferred dimension"):
+            a = tp.reshape(tp.ones(shape), new_shape)
+            print(a)
+
     def test_infer_rank(self):
         a = tp.Tensor([1, 2, 3, 4])
         a = tp.reshape(a, (1, 1, -1))
         assert a.trace_tensor.rank == 3
-
-
-class TestSqueeze:
-    def test_op_func(self):
-        a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
-        a = tp.squeeze(a, dims=(0, 1))
-        assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Squeeze)
-
-    def test_incorrect_dims(self):
-        a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
-        b = tp.squeeze(a, 2)
-
-        with helper.raises(
-            tp.TripyException,
-            match=r"number of output elements \(1\) doesn't match expected number of elements \(4\)",
-            has_stack_info_for=[a, b],
-        ):
-            b.eval()
-
-    def test_infer_rank(self):
-        a = tp.ones((3, 2, 1, 2))
-        b = tp.squeeze(a, 2)
-        assert b.trace_tensor.rank == 3

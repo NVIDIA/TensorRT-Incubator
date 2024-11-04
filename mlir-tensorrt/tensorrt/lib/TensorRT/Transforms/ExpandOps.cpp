@@ -284,10 +284,12 @@ struct BroadcastRemoveTranspose : public OpRewritePattern<BroadcastOp> {
 /// Convert specific broadcast operations to slice (copy) operations.
 struct TileLikeBroadcastToSlice : public OpRewritePattern<BroadcastOp> {
   using OpRewritePattern::OpRewritePattern;
+
   LogicalResult matchAndRewrite(BroadcastOp op,
                                 PatternRewriter &rewriter) const override {
     TensorValue input = op.getInput();
     TensorType resultType = op.getType();
+
     if (!op.getBroadcastDimsPermutation().isIdentity())
       return failure();
 
@@ -297,21 +299,31 @@ struct TileLikeBroadcastToSlice : public OpRewritePattern<BroadcastOp> {
       input = reshapeBroadcastInput(rewriter, op.getLoc(), op);
     TensorType inputType = input.getType();
 
-    SmallVector<int32_t> start(inputType.getRank(), 0);
-    SmallVector<int32_t> stride(start.size(), 1);
+    // Create staticStart and staticStride attributes
+    auto staticStart = rewriter.getDenseI32ArrayAttr(
+        SmallVector<int32_t>(inputType.getRank(), 0));
+    auto staticStride = rewriter.getDenseI32ArrayAttr(
+        SmallVector<int32_t>(inputType.getRank(), 1));
 
     if (resultType.hasStaticShape()) {
-      SmallVector<int32_t> size =
-          llvm::to_vector(llvm::map_range(resultType.getShape(), [](int64_t x) {
+      // For static shapes, use DenseI32ArrayAttr for size
+      SmallVector<int32_t> size_vec =
+          llvm::map_to_vector(resultType.getShape(), [](int64_t x) {
             return static_cast<int32_t>(x);
-          }));
-      rewriter.replaceOpWithNewOp<SliceOp>(op, input, start, size, stride,
-                                           tensorrt::SliceMode::kWRAP);
-      return success();
-    }
+          });
+      auto staticSize = rewriter.getDenseI32ArrayAttr(size_vec);
 
-    rewriter.replaceOpWithNewOp<SliceOp>(op, input, start, op.getShape(),
-                                         stride, tensorrt::SliceMode::kWRAP);
+      rewriter.replaceOpWithNewOp<SliceOp>(
+          op, resultType, input, /*fill=*/Value(), /*start=*/Value(),
+          /*size=*/Value(), /*stride=*/Value(), staticStart, staticSize,
+          staticStride, tensorrt::SliceMode::kWRAP);
+    } else {
+      // For dynamic shapes, use the original op's shape operand
+      rewriter.replaceOpWithNewOp<SliceOp>(
+          op, resultType, input, /*fill=*/Value(), /*start=*/Value(),
+          op.getShape(), /*stride=*/Value(), staticStart,
+          /*staticSize=*/nullptr, staticStride, tensorrt::SliceMode::kWRAP);
+    }
     return success();
   }
 };

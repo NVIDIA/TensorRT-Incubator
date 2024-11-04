@@ -53,7 +53,7 @@ class Parameter(Tensor):
         self.__dict__ = t.__dict__
 
     def _is_compatible_helper(self, original_shape, other_shape, original_dtype, other_dtype) -> Result:
-        if original_shape != other_shape:
+        if list(original_shape) != list(other_shape):
             return Result.err(
                 ["New parameter shape: ", other_shape, " is not compatible with current shape: ", original_shape]
             )
@@ -66,7 +66,7 @@ class Parameter(Tensor):
     def _is_compatible(self, other: "Parameter") -> Result:
         # Determines whether another parameter has the same shape and
         # data type as this one.
-        return self._is_compatible_helper(self.shape.tolist(), other.shape.tolist(), self.dtype, other.dtype)
+        return self._is_compatible_helper(self.shape, other.shape, self.dtype, other.dtype)
 
 
 class DefaultParameter(Parameter):
@@ -86,4 +86,4 @@ class DefaultParameter(Parameter):
         self._dtype = dtype
 
     def _is_compatible(self, other: "Parameter") -> Result:
-        return self._is_compatible_helper(tuple(self._shape), tuple(other.shape.tolist()), self._dtype, other.dtype)
+        return self._is_compatible_helper(self._shape, other.shape, self._dtype, other.dtype)

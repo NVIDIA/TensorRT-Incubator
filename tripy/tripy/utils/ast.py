@@ -16,9 +16,7 @@
 #
 
 import ast
-import inspect
-import textwrap
-from typing import Callable, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from tripy.utils.result import Result
 from tripy.utils.stack_info import SourceInfo
@@ -87,17 +85,13 @@ def get_ast_node_func_name(node) -> Optional[str]:
     return None
 
 
+# Gets the column offset of the argument at `index` to function called `func_name` in the provided `code` snippet.
 def get_arg_candidate_column_offsets(
-    code: str,
-    index: int,
-    num_total_positional_args: int,
-    func_name: str,
-    is_kwarg: bool,
-    list_index: Optional[int] = None,
+    code: str, index: int, num_positional: int, func_name: str, is_kwarg: bool, arg_names: List[str]
 ) -> Tuple[int, int]:
+
     candidates = []
 
-    # Gets the column offset of the argument at `index` to function called `func_name` in the provided `code` snippet.
     result = get_parsed_ast(code)
     if not result:
         return candidates
@@ -112,14 +106,14 @@ def get_arg_candidate_column_offsets(
             arg_node = node.left if index == 0 else node.right
         elif isinstance(node, ast.Call):
             if is_kwarg:
-                arg_node = node.keywords[index - num_total_positional_args]
+                arg_node = node.keywords[index - num_positional]
             else:
-                if len(node.args) == num_total_positional_args:
-                    arg_node = node.args[index]
-                else:
+                if "self" in arg_names:
                     # For methods, the `self` argument is omited from ast.Call.args
-                    assert len(node.args) == num_total_positional_args - 1
                     arg_node = node.args[index - 1]
+                else:
+                    arg_node = node.args[index]
+
         elif isinstance(node, ast.Subscript):
             # For slices, index into the fields if they are specified.
             # If it's not a slice or it's absent, it's best to indicate the whole expr
@@ -140,10 +134,6 @@ def get_arg_candidate_column_offsets(
                 arg_node = index_into_expr(element, index % 3)
             else:
                 arg_node = index_into_expr(node.slice, index)
-
-        # if the resulting arg node is a list or tuple literal, we might be able to narrow it down with a list index
-        if list_index is not None and isinstance(arg_node, (ast.List, ast.Tuple)) and list_index < len(arg_node.elts):
-            arg_node = arg_node.elts[list_index]
 
         if arg_node is not None:
             candidates.append((indentation + arg_node.col_offset, indentation + arg_node.end_col_offset))
@@ -189,25 +179,3 @@ def get_candidate_column_offsets(cur_frame: SourceInfo, callee: SourceInfo) -> L
             candidate_column_offsets.append((indentation + node.col_offset, indentation + node.end_col_offset))
 
     return candidate_column_offsets
-
-
-def find_node_in_method(method, node_finder: Callable) -> List[str]:
-    """
-    Returns a list of source line of code where node is found.
-
-    Args:
-        method: Source function where node is searched.
-        node_finder (Callable): User function that takes (node, source) and returns a bool whether node is found in ast or not.
-
-    Returns:
-        List[str]: List of source line of code
-    """
-    source = textwrap.dedent(inspect.getsource(method))
-    tree = ast.parse(source)
-    source = source.splitlines()
-    nodes_found = []
-    for node in ast.walk(tree):
-        if node_finder(node, source):
-            nodes_found.append(source[node.lineno - 1].strip())
-
-    return nodes_found

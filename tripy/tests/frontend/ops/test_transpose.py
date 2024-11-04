@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,26 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+from tests import helper
 
-import re
 import tripy as tp
-from tripy.frontend.trace import Trace
-from tripy.flat_ir.ops import DynamicBroadcastOp
 
 
-class TestBroadcastOp:
-    def test_str(self):
-        out = tp.full([2, 3], value=1.0)
-        out.name = "out"
+class TestTranspose:
+    def test_incorrect_number_of_arguments(self):
+        a = tp.ones((2, 3))
 
-        trace = Trace([out])
-        flat_ir = trace.to_flat_ir()
+        with helper.raises(tp.TripyException, match="Function expects 3 parameters, but 4 arguments were provided."):
+            b = tp.transpose(a, 1, 2, 3)
 
-        func_broadcast = flat_ir.ops[-1]
-        broadcast = func_broadcast.ops[-1]
-        assert isinstance(broadcast, DynamicBroadcastOp)
-        assert re.match(
-            r"t_inter[0-9]+: \[rank=\(2\), dtype=\(float32\), loc=\(gpu:0\)\] = DynamicBroadcastOp\(t_inter[0-9]+, t_inter[0-9]+, broadcast_dim=\[\]\)",
-            str(broadcast),
-        )
+    def test_infer_rank(self):
+        a = tp.ones((3, 2))
+        a = tp.transpose(a, 0, 1)
+        assert a.trace_tensor.rank == 2

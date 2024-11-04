@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 from typing import Union
+
 from tripy import constraints, export
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
@@ -26,8 +27,7 @@ from tripy.frontend import utils as frontend_utils
         "T1": ["float32", "float16", "bfloat16", "int4", "float8", "int8", "int32", "int64", "bool"],
     },
 )
-@frontend_utils.process_dim
-def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim: int) -> "tripy.Tensor":
+def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.DimensionSize"], dim: int) -> "tripy.Tensor":
     """
     Repeats each element of a tensor after itself along the specified dimension.
 
@@ -66,17 +66,17 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim:
         ref_out1 = np.repeat(np_inp, 2, 1) # doc: omit
         assert np.array_equal(ref_out1, np.from_dlpack(tp.copy(out1, device=tp.device("cpu"))))
     """
+    from tripy.frontend.dimension_size import DimensionSize
+    from tripy.frontend.ops.unsqueeze import unsqueeze
     from tripy.frontend.trace.ops.expand import expand
     from tripy.frontend.trace.ops.reshape import reshape
-    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
-    from tripy.frontend.tensor import Tensor
-    from tripy.frontend.shape import ShapeScalar, Shape
-    from tripy.frontend.trace.ops.concatenate import concatenate
+
+    dim = frontend_utils.process_dim(dim, input.rank)
 
     if isinstance(repeats, int):
         if repeats < 0:
             raise_error("`repeats` value must be non-negative.", [f"Got: repeats={repeats}."])
-        repeats = ShapeScalar(repeats)
+        repeats = DimensionSize(repeats)
 
     # By constraining repeats to be a single integer, we can use a very
     # simple implementation for repeat.
@@ -90,10 +90,8 @@ def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.ShapeScalar"], dim:
     #            [2],]     [2, 2],]
     #
     out = unsqueeze(input, dim + 1)
-    out = expand(out, input.shape[: dim + 1] + Shape([repeats]) + input.shape[dim + 1 :])
+    input_shape = input.shape
+    out = expand(out, input_shape[: dim + 1] + [repeats] + input_shape[dim + 1 :])
 
-    repeat_mask = [1] * input.rank
-    repeat_mask[dim] = repeats
-    new_shape = input.shape.multiply(Shape(repeat_mask))
-    out = reshape(out, new_shape)
-    return out
+    input_shape[dim] = input_shape[dim] * repeats
+    return reshape(out, input_shape)

@@ -24,7 +24,6 @@ from tripy.frontend import utils as frontend_utils
         "T1": ["float32", "float16", "bfloat16", "int32"],
     },
 )
-@frontend_utils.process_dim
 def cumsum(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     """
     Computes the cumulative sum of elements in the input along the dimension ``dim``.
@@ -73,6 +72,8 @@ def cumsum(input: "tripy.Tensor", dim: int) -> "tripy.Tensor":
     # GEMM described above, then tranpose the output back.
     from tripy.frontend.trace.ops.permute import permute
     from tripy.frontend.ops.tensor_initializers import triu, ones
+
+    dim = frontend_utils.process_dim(dim, input.rank)
 
     # For the examples in the comments that follow, assume the input shape is (3, 5, 7) and
     # we are applying cumsum over dim=1 (the dimension of length 5).

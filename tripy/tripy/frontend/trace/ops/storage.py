@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+import copy
+import numbers
 from dataclasses import dataclass
 from typing import List, Sequence, Set, Union
 
@@ -26,14 +28,13 @@ from tripy.backend.mlir import utils as mlir_utils
 from tripy.common import datatype
 from tripy.common import device as tp_device
 from tripy.common import utils as common_utils
-from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
 class Storage(BaseTraceOp):
 
-    data: Union["runtime.MemRefValue", Sequence]
+    data: Union[runtime.MemRefValue, Sequence[numbers.Number]]
     shape: Sequence[int]
     dtype: type
     device: tp_device
@@ -42,14 +43,14 @@ class Storage(BaseTraceOp):
         self,
         inputs: List["Tensor"],
         outputs: List["Tensor"],
-        data: Union["runtime.MemRefValue", Sequence],
+        data: Union[runtime.MemRefValue, Sequence[numbers.Number]],
         dtype: datatype = None,
         device: tp_device = None,
     ) -> None:
         super().__init__(inputs, outputs)
 
-        self.data = data
         if isinstance(data, runtime.MemRefValue):
+            self.data = data
             self.dtype = mlir_utils.convert_runtime_dtype_to_tripy_dtype(self.data.dtype)
             self.shape = tuple(data.shape)
             self.device = tp_device(("gpu" if data.address_space == runtime.PointerType.device else "cpu", 0))
@@ -62,13 +63,15 @@ class Storage(BaseTraceOp):
             self.device = utils.default(device, tp_device(("gpu", 0)))
             self.has_memref = True
         else:
+            # If the input was a sequence, we need to copy it so that we don't take changes made
+            # to the list after the Storage op was constructed.
+            self.data = copy.copy(data)
             self.dtype = dtype if dtype else common_utils.get_element_type(data)
             self.shape = tuple(utils.get_shape(data))
             self.device = utils.default(device, tp_device(("gpu", 0)))
             self.has_memref = False
 
-    # for storage, we will always consider the result to be an ordinary tensor
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
+        self.outputs[0].shape = list(self.shape)
 
     def str_skip_fields(self) -> Set[str]:
         # skip data if i) it is a MemRefValue or ii) its volume exceeds threshold
@@ -79,12 +82,13 @@ class Storage(BaseTraceOp):
     def __eq__(self, other) -> bool:
         return self.data == other.data if isinstance(other, Storage) else False
 
+    def infer_rank(self):
+        # In the storage op, we actually know the exact shape, which we've already set in the constructor.
+        # Hence, we don't need to set rank here (and doing so would overwrite the shape we set).
+        pass
+
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
-
-    def infer_rank(self):
-        self.outputs[0].rank = len(self.shape)
-        self.outputs[0].shape = self.shape
 
     def infer_devices(self):
         # TODO(#155): Fix allocation on host

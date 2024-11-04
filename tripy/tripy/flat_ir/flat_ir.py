@@ -177,10 +177,6 @@ class FlatIR:
         def _get_function_input_types(func: FlatIRFunction, mlir_tensor_map: Dict[str, ir.Value]) -> List[ir.Type]:
             """Get the input types for a function, converting to dynamic tensors if necessary."""
 
-            def convert_to_dynamic_tensor(rtt: ir.RankedTensorType) -> ir.RankedTensorType:
-                dynamic_shape = [ir.ShapedType.get_dynamic_size()] * rtt.rank
-                return ir.RankedTensorType.get(dynamic_shape, rtt.element_type)
-
             # Skip converting to dynamic tensor for Quantize/Dequantize scale operation.
             if "Quantize" in func.name or "Dequantize" in func.name:
                 return [
@@ -265,18 +261,15 @@ class FlatIR:
                 arg_attrs: List[Dict[str, ir.Attribute]] = []
                 for bound in self.shapes:
                     # TODO (#244): Support multiple profiles
-                    if bound.is_static():
-                        arg_attrs.append(ir.DictAttr.get({}))
-                    else:
-                        arg_attrs.append(
-                            ir.DictAttr.get(
-                                {
-                                    "tensorrt.shape_profile": ir.Attribute.parse(
-                                        f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
-                                    )
-                                }
-                            )
+                    arg_attrs.append(
+                        ir.DictAttr.get(
+                            {
+                                "tensorrt.shape_profile": ir.Attribute.parse(
+                                    f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                )
+                            }
                         )
+                    )
                 main_func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
 
         def to_mlir_impl():

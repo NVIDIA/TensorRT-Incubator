@@ -107,8 +107,7 @@ class Tensor(metaclass=TensorMeta):
 
         name = name if name is not None else Tensor._get_unique_name()
 
-        self.trace_tensor = TraceTensor(name, stack_info, None, None, None, None)
-        self.device = device
+        self.trace_tensor = TraceTensor(name, stack_info, dtype=None, device=device, producer=None, shape=None)
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
@@ -121,11 +120,11 @@ class Tensor(metaclass=TensorMeta):
             Storage.build_internal([], [self.trace_tensor], data)
         else:
             Storage.build_internal([], [self.trace_tensor], data, dtype, device)
+        # TODO(#155): Remove this hack:
+        self.trace_tensor.device = utils.default(device, self.trace_tensor.device)
 
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
-        #             Also make device as a property, similar to dtype
-        self.device = utils.default(device, self.trace_tensor.device)
         if dtype is not None and dtype != self.trace_tensor.dtype:
             from tripy.frontend.trace.ops.cast import cast
 
@@ -166,6 +165,10 @@ class Tensor(metaclass=TensorMeta):
     def ndim(self):
         return self.trace_tensor.rank
 
+    @property
+    def device(self):
+        return self.trace_tensor.device
+
     def eval(self) -> runtime.MemRefValue:
         if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
             # Exit early if the tensor has already been evaluated.
@@ -189,10 +192,11 @@ class Tensor(metaclass=TensorMeta):
         executor.stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
-        # Data is present now. Assign the underlying device type.
-        self.device = flat_ir.outputs[0].device
 
         Storage.build_internal([], [self.trace_tensor], data)
+        # TODO(#155): Remove this hack of overriding the device type.
+        self.trace_tensor.device = flat_ir.outputs[0].device
+
         self.trace_tensor.eval_stack_info = utils.get_stack_info()
         return data
 
@@ -217,7 +221,10 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.utils import pretty_print
 
         data_list = self.tolist()
+
+        assert isinstance(self.trace_tensor.producer, Storage)
         data_shape = self.trace_tensor.producer.shape
+
         arr_str = pretty_print(data_list, data_shape)
         indentation = ""
         sep = ""
@@ -240,6 +247,8 @@ class Tensor(metaclass=TensorMeta):
 
     def __bool__(self):
         data = self.tolist()
+
+        assert isinstance(self.trace_tensor.producer, Storage)
         if any(dim != 1 for dim in self.trace_tensor.producer.shape):
             raise_error(
                 "Boolean value of a Tensor with more than one value is ambiguous",

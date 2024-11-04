@@ -17,11 +17,11 @@
 
 from dataclasses import dataclass
 from typing import Sequence, Union
-from tripy import export, utils, constraints
-from tripy.frontend import utils as frontend_utils
+
+from tripy import constraints, export, utils
+from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
@@ -36,27 +36,9 @@ class Split(BaseTraceOp):
             # + 1 because of the last split, which is [self.indices_or_sections[-1]:]
             return len(self.indices_or_sections) + 1
 
-    # we only care about the data input
-    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
-
-    def infer_len(self):
-        # since this only runs in the shape case, this is rank 1
-        shape_len = op_utils.get_trace_shape(self.inputs[0])[0]
-        if isinstance(self.indices_or_sections, int):
-            # Note: Important to use //, as if the result is a float, MLIR compilation will fail
-            out_len = shape_len // self.indices_or_sections
-            ret = [out_len] * self.indices_or_sections
-            return ret
-
-        out_lengths = []
-        start_idx = 0
-        for idx in self.indices_or_sections:
-            out_len = idx - start_idx
-            start_idx = idx
-            out_lengths.append(out_len)
-        # final slice
-        out_lengths.append(shape_len - start_idx)
-        return out_lengths
+    def infer_rank(self):
+        for i in range(self.num_outputs()):
+            self.outputs[i].rank = self.inputs[0].rank
 
     def infer_devices(self):
         for i in range(self.num_outputs()):
@@ -65,10 +47,6 @@ class Split(BaseTraceOp):
     def infer_dtypes(self):
         for i in range(self.num_outputs()):
             self.outputs[i].dtype = self.inputs[0].dtype
-
-    def infer_rank(self):
-        for i in range(self.num_outputs()):
-            self.outputs[i].rank = self.inputs[0].rank
 
     # gets input_tensor[..., :,  :, start_idx: end_idx, :, :, ...], with the start and end slice only at the axis dimension
     def build_slice_of_target_dim(self, input_tensor, input_shape, device, start_idx, end_idx, output_tensor):
@@ -107,11 +85,10 @@ class Split(BaseTraceOp):
             [input_tensor, start_index_tensor, limit_index_tensor, stride_index_tensor], [output_tensor]
         )
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import DivideOp, MulOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import int32
 
         input_tensor = inputs[0]
         device = input_tensor.device
