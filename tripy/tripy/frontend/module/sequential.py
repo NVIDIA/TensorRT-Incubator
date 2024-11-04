@@ -99,7 +99,7 @@ class Sequential(Module):
         Returns an iterator over the modules in the sequence.
 
         Returns:
-            Iterator[Module]: An iterator over the modules.
+            An iterator over the modules.
 
         .. code-block:: python
             :linenos:
