@@ -117,5 +117,6 @@ class TestQuantize:
         input = tp.ones((4, 4))
         scale = tp.ones((4,))
         quantized = tp.quantize(input, scale, tp.int8, dim=0)
+        quantized_int32 = tp.cast(quantized, tp.int32)
 
-        assert bool(tp.all(quantized == tp.ones((4, 4), dtype=tp.int8)))
+        assert bool(tp.all(quantized_int32 == tp.ones((4, 4), dtype=tp.int32)))
