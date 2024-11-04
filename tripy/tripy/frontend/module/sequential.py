@@ -147,7 +147,7 @@ class Sequential(Module):
         Each child module is represented by its name and the module object itself.
 
         Returns:
-            Iterator[Tuple[str, Module]]: An iterator over tuples containing
+            An iterator over tuples containing
             the name and module of each child.
 
         .. code-block:: python
