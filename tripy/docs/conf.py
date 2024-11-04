@@ -55,7 +55,6 @@ nitpick_ignore = {
     ("py:class", "tripy.types.ShapeLike"),
     ("py:class", "tripy.types.TensorLike"),
     ("py:class", "Tensor"),
-    ("py:class", "Shape"),
 }
 nitpick_ignore_regex = {
     ("py:class", r"numbers\.Number"),
@@ -153,7 +152,7 @@ exclude_patterns = ["*.md"]
 seen_classes = set()
 
 
-def process_docstring(app, what, name, obj, options, lines):
+def process_docstring_impl(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
     name = name.lstrip("tripy.")
@@ -322,6 +321,14 @@ def process_docstring(app, what, name, obj, options, lines):
         )
         code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * helper.TAB_SIZE).splitlines()
         lines.extend(code_block_lines)
+
+
+def process_docstring(app, what, name, obj, options, lines):
+    try:
+        process_docstring_impl(app, what, name, obj, options, lines)
+    except:
+        print(f"Error while processing {what}: {name} ({obj})")
+        raise
 
 
 def setup(app):

@@ -16,11 +16,14 @@
 #
 
 from dataclasses import dataclass
-from typing import Sequence, Union, Tuple
-from tripy import export, constraints
-from tripy.frontend.trace.ops import utils as op_utils
-from tripy.frontend.trace.ops.base import BaseTraceOp
+from typing import Sequence, Union
+
+from tripy import constraints, export
 from tripy.common.exception import raise_error
+from tripy.frontend import utils as frontend_utils
+from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.types import ShapeLike
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -28,13 +31,10 @@ class Pad(BaseTraceOp):
 
     padding_value: Union[int, float]
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
-
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.common.datatype import int32
@@ -72,35 +72,13 @@ class Pad(BaseTraceOp):
         DynamicPadOp.build(inputs, outputs)
 
 
-def _convert_pad_sizes(padding_sizes):
-    from tripy.common.datatype import int32
-    from tripy.frontend.tensor import Tensor
-    from tripy.frontend.trace.ops.concatenate import concatenate
-    from tripy.frontend.trace.ops.unsqueeze import unsqueeze
-
-    if not any(isinstance(s, Tensor) for s in padding_sizes):
-        return Tensor(padding_sizes, dtype=int32)
-
-    sizes_1d = []
-    for size in padding_sizes:
-        if isinstance(size, Tensor):
-            assert size.rank == 0, f"Size expected to be of rank 0, got {size.rank}."
-            sizes_1d.append(unsqueeze(size, 0))
-        else:
-            sizes_1d.append(Tensor([size], dtype=int32))
-    return concatenate(sizes_1d, 0)
-
-
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bool", "int32"]},
 )
 def pad(
-    input: "tripy.Tensor",
-    pad: Sequence[Tuple[Union[int, "tripy.ShapeScalar"]]],
-    mode: str = "constant",
-    value: Union[int, float] = 0,
+    input: "tripy.Tensor", pad: Sequence[ShapeLike], mode: str = "constant", value: Union[int, float] = 0
 ) -> "tripy.Tensor":
     r"""
     Pads the input tensor.
@@ -108,7 +86,7 @@ def pad(
     Args:
         input: The input tensor.
         pad: A sequence of padding sizes of each dimension. Its length must be equal to the rank
-            of ``input``. Each element of ``pad`` is a tuple of integers or scalars ``(low, high)``,
+            of ``input``. Each element of ``pad`` is a tuple of integers or :class:`DimensionSize` s ``(low, high)``,
             which represents the padding sizes before the lowest index and after the highest index at
             the corresponding dimension.
         mode: The padding mode. Only "constant" is supported.
@@ -145,8 +123,8 @@ def pad(
     return Pad.build(
         [
             input,
-            _convert_pad_sizes(padding_low),
-            _convert_pad_sizes(padding_high),
+            frontend_utils.tensor_from_shape_like(padding_low),
+            frontend_utils.tensor_from_shape_like(padding_high),
         ],
         value,
     )

@@ -92,15 +92,6 @@ def config(name: str, value: Any):
         setattr(tp.config, name, old_value)
 
 
-def check_mlir(mlir, expected):
-    # Checks a given MLIR module against a string of the expected program.
-    # MLIR indents with 2 spaces; we'll replace it with 4 spaces so that it's
-    # easier to write the expected string.
-    mlir_str = mlir.operation.get_asm(large_elements_limit=32).replace(" " * 2, " " * 4).strip()
-    mlir_str = remove_sym_attr(mlir_str)
-    assert mlir_str == dedent(expected).strip()
-
-
 # Supported NumPy data types
 NUMPY_TO_TRIPY = {
     bool: tp.bool,
@@ -533,6 +524,7 @@ def process_code_block_for_outputs_and_locals(
                 print(f"Exception occurred: {str(e)}")
                 code_locals = local_vars
             else:
+                print(err_msg)
                 raise
 
     new_locals = {

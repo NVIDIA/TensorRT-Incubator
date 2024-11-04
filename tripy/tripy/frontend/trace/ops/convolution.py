@@ -17,10 +17,9 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from tripy import constraints
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import utils
+from tripy import constraints, utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -43,8 +42,6 @@ class Convolution(BaseTraceOp):
                 ],
             )
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
     def validate_inputs(self, tensor_shape, kernel_shape):
         if len(tensor_shape) != len(kernel_shape):
             utils.raise_error_io_info(
@@ -63,8 +60,7 @@ class Convolution(BaseTraceOp):
         self.verify_spatial_rank(self.lhs_dilation, rank, "lhs_dilation")
         self.verify_spatial_rank(self.rhs_dilation, rank, "rhs_dilation")
 
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype

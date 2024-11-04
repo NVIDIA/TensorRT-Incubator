@@ -16,9 +16,9 @@
 #
 
 import cupy as cp
+from tests import helper
 
 import tripy as tp
-from tests import helper
 from tripy.frontend.trace.ops import Slice
 
 
@@ -33,7 +33,7 @@ class TestSlice:
         with helper.raises(
             tp.TripyException,
             match=r"Input tensor has a rank of 2 but was attempted to be sliced with 3 indices",
-        ) as exc:
+        ):
             a = tp.Tensor([[1, 2], [3, 4]])
             b = a[:, :, 0:1]
             b.eval()
@@ -47,7 +47,6 @@ class TestSlice:
         a = tp.ones((2, 3, 4))
         assert a[0].shape == [3, 4]
         assert a[0:1].shape == [1, 3, 4]
-        assert cp.from_dlpack(a[0].shape).get().tolist() == [3, 4]
 
     def test_end_clamping(self):
         a = tp.ones((2, 3, 4))

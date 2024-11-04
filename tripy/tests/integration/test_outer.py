@@ -27,12 +27,12 @@ class TestOuter:
         t1 = torch.arange(5, dtype=torch.float32)
         t2 = torch.arange(4, dtype=torch.float32)
         torch_out = torch.outer(t1, t2)
+        assert output.shape == list(torch_out.shape)
         assert tp.allclose(output, tp.Tensor(torch_out))
-        assert output.shape == torch_out.shape
 
     def test_empty(self):
         v1 = tp.Tensor([])
         v2 = tp.arange(3, dtype=tp.float32)
         output = tp.outer(v1, v2)
 
-        assert output.shape == (0, 3)
+        assert output.shape == [0, 3]

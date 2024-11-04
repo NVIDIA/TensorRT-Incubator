@@ -23,7 +23,7 @@ from tests import helper
 
 import tripy as tp
 from tripy.common.exception import TripyException, _get_function_file_and_lines, _make_stack_info_message, raise_error
-from tripy.frontend.utils import convert_shape_inputs
+from tripy.frontend.utils import convert_to_tensors
 from tripy.utils import StackInfo, get_stack_info
 from tripy.utils.stack_info import SourceInfo
 
@@ -125,8 +125,8 @@ class TestRaiseError:
             in dedent(error_msg).strip()
         )
 
-    def test_convert_shape_inputs_is_excluded(self):
-        filename, start_line, end_line = _get_function_file_and_lines(convert_shape_inputs)
+    def test_convert_to_tensors_is_excluded(self):
+        filename, start_line, end_line = _get_function_file_and_lines(convert_to_tensors)
         tensor = tp.ones((2, 3))
 
         stack_info = tensor.stack_info
@@ -148,7 +148,7 @@ class TestRaiseError:
                 [0-9]+ |     return full\(shape, 1, dtype\)
                     |            ^^^^^^^^^^^^^^^^^^^^^ --- required from here
 
-                --> [a-z_/\.]+:[0-9]+ in test_convert_shape_inputs_is_excluded\(\)
+                --> [a-z_/\.]+:[0-9]+ in test_convert_to_tensors_is_excluded\(\)
                     |
                 [0-9]+ |         tensor = tp.ones\(\(2, 3\)\)
                     |                  ^^^^^^^^^^^^^^^ --- required from here

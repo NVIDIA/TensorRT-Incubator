@@ -17,20 +17,20 @@
 
 from dataclasses import dataclass
 
-from tripy import export, constraints
+import tripy.frontend.trace.ops.utils as op_utils
+from tripy import constraints, export
 from tripy.common.device import device
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.trace.ops.utils import InferLenPolicies
 
 
 @dataclass(repr=False)
 class Copy(BaseTraceOp):
     target: device
 
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
+
     def infer_devices(self):
         self.outputs[0].device = self.target
-
-    infer_len = InferLenPolicies.infer_same_as_first_input
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import CopyOp

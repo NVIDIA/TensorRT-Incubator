@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,34 +12,32 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
 import numpy as np
-import pytest
-from tests import helper
 
 import tripy as tp
-from tripy.frontend.trace.ops import Permute
+from tests import helper
+from tripy.frontend.trace.ops import Squeeze
 
 
-class TestPermute:
+class TestSqueeze:
     def test_op_func(self):
-        a = tp.Tensor(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))
-        a = tp.permute(a, (1, 0))
+        a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
+        a = tp.squeeze(a, dims=(0, 1))
         assert isinstance(a, tp.Tensor)
-        assert isinstance(a.trace_tensor.producer, Permute)
+        assert isinstance(a.trace_tensor.producer, Squeeze)
 
-    @pytest.mark.parametrize("perm", [(0,), (0, 1, 2)])
-    def test_mistmatched_permutation_fails(self, perm):
-        a = tp.ones((2, 3), dtype=tp.float32)
+    def test_incorrect_dims(self):
+        a = tp.Tensor(np.ones((1, 1, 4), dtype=np.int32))
+        b = tp.squeeze(a, 2)
 
         with helper.raises(
             tp.TripyException,
-            match="Invalid permutation.",
+            match=r"number of output elements \(1\) doesn't match expected number of elements \(4\)",
+            has_stack_info_for=[a, b],
         ):
-            b = tp.permute(a, perm)
+            b.eval()
 
     def test_infer_rank(self):
-        a = tp.ones((3, 2))
-        a = tp.permute(a, (1, 0))
-        assert a.trace_tensor.rank == 2
+        a = tp.ones((3, 2, 1, 2))
+        b = tp.squeeze(a, 2)
+        assert b.trace_tensor.rank == 3

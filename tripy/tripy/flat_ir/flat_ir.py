@@ -265,18 +265,15 @@ class FlatIR:
                 arg_attrs: List[Dict[str, ir.Attribute]] = []
                 for bound in self.shapes:
                     # TODO (#244): Support multiple profiles
-                    if bound.is_static():
-                        arg_attrs.append(ir.DictAttr.get({}))
-                    else:
-                        arg_attrs.append(
-                            ir.DictAttr.get(
-                                {
-                                    "tensorrt.shape_profile": ir.Attribute.parse(
-                                        f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
-                                    )
-                                }
-                            )
+                    arg_attrs.append(
+                        ir.DictAttr.get(
+                            {
+                                "tensorrt.shape_profile": ir.Attribute.parse(
+                                    f"#tensorrt.shape_profile<min={list(bound.min)}, opt={list(bound.opt)}, max={list(bound.max)}>"
+                                )
+                            }
                         )
+                    )
                 main_func_op.arg_attrs = ir.ArrayAttr.get(arg_attrs)
 
         def to_mlir_impl():

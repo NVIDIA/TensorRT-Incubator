@@ -15,8 +15,9 @@
 # limitations under the License.
 #
 
-import tripy as tp
 from tests import helper
+
+import tripy as tp
 from tripy.frontend.trace.ops import Iota
 
 

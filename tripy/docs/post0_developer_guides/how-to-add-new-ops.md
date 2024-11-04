@@ -125,10 +125,10 @@ class Theta(BaseTraceOp):
     dim: int
     dtype: datatype.dtype
 
-    # The `infer_tensor_variants` method should indicate which outputs of this operator represent shapes or shape scalars;
-    # the corresponding outputs will be wrapped as `tripy.Shape` or `tripy.ShapeScalar` objects instead of regular `tripy.Tensor`s.
-    # Our `Theta` operation should never return shapes, so we can use the corresponding preexisting policy.
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
+    # `infer_rank()` populates the rank of the output `TraceTensor`s.
+    # Here we use one of the predefined policies to set the output rank to the same as the shape (i.e. the length)
+    # of the shape operand.
+    infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input()
 
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
@@ -141,21 +141,6 @@ class Theta(BaseTraceOp):
     # devices if they are all the same, so you may not need to implement this either.
     def infer_devices(self):
         self.outputs[0].device = device("gpu")
-
-    # `infer_rank()` populates the rank of the output `TraceTensor`s.
-    # For most operators, the output rank will depend on the rank of `self.inputs`.
-    # In our case, since `Theta` generates a tensor, there is no input tensor.
-    def infer_rank(self):
-        from tripy.backend.mlir.utils import ShapeContext
-
-        # `self.inputs[0]` indicates the desired shape of the output.
-        # Here, we compute the number of elements in the shape tensor, which determines the rank of the output.
-        out_shape = ShapeContext().get_shape_of_dynamic_trace_tensor(self.inputs[0])
-        assert len(out_shape) == 1, f"Expected rank of shape tensor to be 1, got {len(out_shape)}"
-        assert (
-            out_shape[0] >= 0
-        ), f"Incorrect shape of shape tensor, expected shape to be positive, got {out_shape[0]}"
-        self.outputs[0].rank = out_shape[0]
 
     # `to_flat_ir()` translates the `Trace` operator to a subgraph of
     # one or more `FlatIR` operators. In our case, it's just a 1:1
@@ -190,6 +175,7 @@ it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 # doc: no-eval
 from tripy import export
 import tripy.frontend.utils as frontend_utils
+from tripy.types import ShapeLike
 
 # We can use the `export.public_api()` decorator to automatically export this function into the
 # top-level module. This means it will be accessible as `tripy.theta`.
@@ -200,11 +186,10 @@ import tripy.frontend.utils as frontend_utils
 # If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
 
-# The `convert_shape_inputs` decorator converts the specified function arguments into `tripy.Shape`s,
-# which would allow for using Python numbers and sequences. The `convert_to_tensors` decorator more generally converts
-# function arguments into Tripy tensors and is also commonly used in the codebase.
-@frontend_utils.convert_shape_inputs(["shape"])
-def theta(shape: Tuple[int], dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+# The `convert_to_tensors` decorator automatically converts compatible arguments,
+# like `TensorLike` or `ShapeLike`s, into tensors.
+@frontend_utils.convert_to_tensors()
+def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which you can read
     # about in the 'Docs README' (linked below). The docstring we've implemented here
     # adheres to all of these requirements. Non-compliant docstrings will, in most cases,
@@ -287,76 +272,6 @@ Now that we've implemented our operator, let's write tests for it. The structure
 [`tests/`](source:/tests/) directory mirrors that of the [`tripy/`](source:/tripy/) directory
 (you can read more about that [here](source:/tests/README.md)). We need to test both the `FlatIR`
 and `Trace` operators.
-
-### Testing The `FlatIR` Operator
-
-When testing our `FlatIR` operator, we essentially need to test two things:
-
-1. Is the string reprensetation of the operator correct? We need to make sure it is since this
-    is what will appear in the `FlatIR` dumps.
-
-2. Is the translation to MLIR correct?
-
-Since we implemented the `FlatIR` operator in [`tripy/flat_ir/ops`](source:/tripy/flat_ir/ops/), we'll
-add the corresponding test under [`tests/flat_ir/ops`](source:/tests/flat_ir/ops/). Create a new file
-there called `test_theta.py`.
-
-We'll start by defining a pytest fixture that will generate a `FlatIR` containing a `ThetaOp` for us.
-To do so, we can simply use the public API, generate a `Trace`, and convert to `FlatIR`:
-
-```py
-# doc: no-eval
-import pytest
-import re
-
-import tripy as tp
-from tests import helper
-from tripy.frontend.trace import Trace
-
-
-@pytest.fixture
-def flat_ir():
-    out = tp.theta((2, 3))
-    out.name = "out"
-
-    trace = Trace([out])
-    yield trace.to_flat_ir()
-```
-
-Now we can create a test class with our two tests:
-
-```py
-# doc: no-eval
-class TestThetaOp:
-    # This tests the string representation of our `FlatIR` operator.
-    # This may be hard to predict, so we suggest that you first `print(str(Theta))`,
-    # check if it looks correct, and then add the corresponding string to the test.
-    def test_str(self, flat_ir):
-        Theta = flat_ir.ops[-1]
-        assert isinstance(Theta, ThetaOp)
-        assert re.match(
-            r"out: \[rank=\(2\), dtype=\(float32\), loc=\(gpu:0\)\] = ThetaOp\(t[0-9]+, dim=0\)",
-            str(Theta),
-        )
-
-
-    # This tests conversion to MLIR by checking the generated MLIR module code. Once again,
-    # this is difficult to predict ahead of time, so you should print the MLIR module once,
-    # check if it looks correct, and then update the test accordingly.
-    def test_mlir(self, flat_ir):
-        helper.check_mlir(
-            flat_ir.to_mlir(),
-            """
-            module {
-                func.func @main() -> tensor<?x?xf32> {
-                    %c = stablehlo.constant dense<[2, 3]> : tensor<2xi32>
-                    %0 = stablehlo.dynamic_iota %c, dim = 0 : (tensor<2xi32>) -> tensor<?x?xf32>
-                    return %0 : tensor<?x?xf32>
-                }
-            }
-            """,
-        )
-```
 
 
 ### Testing The Trace Operator And Public API

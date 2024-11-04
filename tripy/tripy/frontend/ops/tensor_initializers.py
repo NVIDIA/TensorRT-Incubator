@@ -16,19 +16,17 @@
 #
 
 import numbers
-from typing import Optional, Sequence, Union
+from typing import Optional, Union
 
-from tripy import export, constraints
+from tripy import constraints, export
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.fill import full, full_like
 from tripy.frontend.trace.ops.iota import iota, iota_like
 from tripy.frontend.trace.ops.where import where
-from tripy.frontend import utils as frontend_utils
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_shape_inputs(["shape"])
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
@@ -63,7 +61,6 @@ def ones(
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_shape_inputs(["shape"])
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
@@ -288,9 +285,9 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
     },
 )
 def arange(
-    start: Union[numbers.Number, "tripy.ShapeScalar"],
-    stop: Union[numbers.Number, "tripy.ShapeScalar"],
-    step: Union[numbers.Number, "tripy.ShapeScalar"] = 1,
+    start: Union[numbers.Number, "tripy.DimensionSize"],
+    stop: Union[numbers.Number, "tripy.DimensionSize"],
+    step: Union[numbers.Number, "tripy.DimensionSize"] = 1,
     dtype: "tripy.dtype" = datatype.float32,
 ) -> "tripy.Tensor":
     r"""
@@ -322,9 +319,7 @@ def arange(
 
         assert tp.allclose(output, tp.Tensor(np.arange(2.3, 0.8, -0.2, dtype=np.float32)))
     """
-    from tripy.frontend import Tensor
-    from tripy.common.datatype import int32
-    from tripy.frontend.shape import ShapeScalar
+    from tripy.frontend.dimension_size import DimensionSize
 
     if isinstance(step, numbers.Number) and step == 0:
         raise_error("Step in arange cannot be 0.", [])
@@ -339,7 +334,7 @@ def arange(
             ],
         )
 
-    if not isinstance(size, ShapeScalar):
+    if not isinstance(size, DimensionSize):
         size = int(size)
     size = (size,)
 

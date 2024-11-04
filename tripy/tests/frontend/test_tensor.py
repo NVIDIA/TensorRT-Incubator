@@ -45,6 +45,16 @@ class TestTensor:
         assert isinstance(a, tp.Tensor)
         assert cp.from_dlpack(a).get().tolist() == []
 
+    def test_input_list_is_copied(self):
+        # Make sure that if we initialize the tensor with a list, the tensor
+        # contents are not modified if we update the list.
+        lst = [1, 2, 3]
+        a = tp.Tensor(lst, dtype=tp.int32)
+
+        lst.clear()
+        assert lst == []
+        assert a.tolist() == [1, 2, 3]
+
     @pytest.mark.parametrize("kind", ["cpu", "gpu"])
     def test_tensor_device(self, kind):
         a = tp.Tensor([1, 2, 3], device=tp.device(kind))

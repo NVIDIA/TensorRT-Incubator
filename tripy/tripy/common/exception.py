@@ -108,9 +108,9 @@ def _get_function_file_and_lines(func):
 
 
 def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
-    from tripy.frontend.utils import convert_to_tensors, convert_shape_inputs
+    from tripy.frontend.utils import convert_to_tensors
 
-    EXCLUDE_FUNCTIONS = [convert_to_tensors, convert_shape_inputs]
+    EXCLUDE_FUNCTIONS = [convert_to_tensors]
 
     exclude_file_lines = {}  # Maps filenames to ranges of lines that should be ignored.
     for func in EXCLUDE_FUNCTIONS:

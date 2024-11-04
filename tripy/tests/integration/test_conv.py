@@ -128,7 +128,7 @@ class TestConvolution:
         rtol_ = 4e-5 if tp_dtype == tp.float32 else 1e-3
         output_torch = torch.from_dlpack(output)
         assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert list(output_torch.shape) == list(expected.shape)
 
     @pytest.mark.parametrize("test_case", test_cases_2d)
     def test_convolution_2d(self, torch_dtype, tp_dtype, test_case):
@@ -183,7 +183,7 @@ class TestConvolution:
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 1.5e-3
         output_torch = torch.from_dlpack(output)
         assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert list(output_torch.shape) == list(expected.shape)
 
     @pytest.mark.parametrize("test_case", test_cases_3d)
     def test_convolution_3d(self, torch_dtype, tp_dtype, test_case):
@@ -250,7 +250,7 @@ class TestConvolution:
         rtol_ = 2e-4 if tp_dtype == tp.float32 else 1.4e-3  # 3d conv has greater accumulation error
         output_torch = torch.from_dlpack(output)
         assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert list(output_torch.shape) == list(expected.shape)
 
     def test_uneven_padding(self, torch_dtype, tp_dtype):
         input_torch = torch.arange(200, dtype=torch.float32, device=torch.device("cuda")).reshape(*(2, 4, 5, 5))
@@ -287,4 +287,4 @@ class TestConvolution:
         rtol_ = 2e-7 if tp_dtype == tp.float32 else 2e-3
         output_torch = torch.from_dlpack(output)
         assert torch.allclose(output_torch, expected, rtol=rtol_)
-        assert output_torch.shape == expected.shape
+        assert list(output_torch.shape) == list(expected.shape)

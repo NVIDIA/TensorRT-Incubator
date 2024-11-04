@@ -471,18 +471,16 @@ def get_arg_by_name(name, func, *args, **kwargs):
 
 def modify_arg(name, modify_func, func, *args, **kwargs):
     """
-    Modifies an argument corresponding to the provided name.
+    Modifies an argument corresponding to the provided name if it is present.
     `modify_func` should be a function that accepts the argument and returns the modified argument.
     """
     if name in kwargs:
         kwargs[name] = modify_func(kwargs[name])
-        return args, kwargs
 
     all_args = get_positional_arg_names(func, *args)
     args = list(args)
     for index, (arg_name, _) in enumerate(all_args):
         if name == arg_name:
             args[index] = modify_func(args[index])
-            return args, kwargs
 
-    assert False, f"No such argument: {name}"
+    return args, kwargs

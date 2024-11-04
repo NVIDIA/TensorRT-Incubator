@@ -23,6 +23,7 @@ from tripy import constraints, export, utils
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
+import tripy.frontend.trace.ops.utils as op_utils
 
 
 @dataclass(repr=False)
@@ -40,10 +41,7 @@ class Pooling(BaseTraceOp):
     stride: Sequence[int]
     padding: Sequence[Tuple[int]]
 
-    infer_tensor_variants = op_utils.InferVariantPolicies.never_return_shape
-
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype

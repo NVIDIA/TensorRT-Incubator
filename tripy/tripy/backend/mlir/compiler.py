@@ -75,22 +75,6 @@ class Compiler:
             opts = self._make_mlir_opts(self.trt_builder_opt_level)
             return compiler.compiler_stablehlo_to_executable(self.compiler_client, module.operation, opts)
 
-    @utils.log_time
-    def infer_shapes(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None):
-        try:
-            with redirect_stderr() as outfile:
-                refined_func_type = compiler.get_stablehlo_program_refined_signature(
-                    self.compiler_client, mlir_module.operation, "main"
-                )
-        except Exception as exc:
-            outfile.flush()
-            outfile.seek(0)
-            stderr = outfile.read()
-
-            map_error_to_user_code_and_raise(flat_ir, exc, stderr.decode())
-        else:
-            return refined_func_type
-
     # The optional flat_ir parameter is used to generate nicer error messages.
     @utils.log_time
     def compile(self, mlir_module: ir.Module, flat_ir: Optional["FlatIR"] = None) -> compiler.Executable:

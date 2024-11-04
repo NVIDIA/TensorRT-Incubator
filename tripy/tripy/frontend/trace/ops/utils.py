@@ -37,63 +37,47 @@ from tripy.flat_ir.tensor import FlatIRTensor
 from tripy.utils import Result
 
 
-# Utility for error messages in wrap_shape_inputs
-def write_shape_input_indices_message(inputs: List["tripy.Tensor"]) -> str:
-    from tripy.frontend.shape import Shape
-
-    shape_indices = list(map(str, filter(lambda i: isinstance(inputs[i], Shape), range(len(inputs)))))
-    if not shape_indices:
-        return ""
-    if len(shape_indices) == 1:
-        return f"input with index {shape_indices[0]} is tp.Shape"
-    return f"inputs with indices {', '.join(shape_indices)} are tp.Shape"
+def is_minus_one(arg):
+    # Avoid doing an == with a Tensor
+    return isinstance(arg, int) and arg == -1
 
 
 ##
-## Handling returning different tensor variants (Shape or ShapeScalars) from operators
+## Inferring shape helpers
 ##
 
 
-# These are common policies to use for overring infer_tensor_variants
-class InferVariantPolicies:
-    def infer_from_first_input_only(self, inputs):
-        """
-        Treat the outputs as shapes if the *first* input is a shape.
-        """
-        from tripy.frontend.shape import Shape
-
-        if isinstance(inputs[0], Shape):
-            return Result.ok([Shape] * len(self.outputs))
-        return Result.ok([None] * len(self.outputs))
-
-    def never_return_shape(self, inputs):
-        """
-        Accepts shapes but the result is always no shape indices.
-        """
-        return Result.ok([None] * len(self.outputs))
-
-
-##
-## Inferring shape lengths (helpers)
-##
-
-
-def get_trace_shape(input: "TraceTensor") -> Sequence[int]:
+def infer_broadcasted_shape(*input_shapes: Sequence[List[int]]):
     """
-    Given an operator input tensor, return its shape if it has already been given
-    or get its shape from the shape context if it's needed.
+    Given dynamic input shapes of trace tensors, infers a broadcasted shape.
+    This does not do any error checking since that can be done more reliably
+    later in the compiler.
     """
-    if input.shape is None:
-        from tripy.backend.mlir.utils import ShapeContext
-
-        # memoize while we're at it
-        input.shape = ShapeContext().get_shape_of_dynamic_trace_tensor(input)
-    return input.shape
+    max_rank = max(len(shape) for shape in input_shapes)
+    input_shapes = [[1] * (max_rank - len(shape)) + shape for shape in input_shapes]
+    return [max(dim) for dim in zip(*input_shapes)]
 
 
-class InferLenPolicies:
-    def infer_same_as_first_input(self):
-        return [get_trace_shape(self.inputs[0])[0]]
+class InferRankPolicies:
+    def same_as_input(idx=0):
+        def impl(self):
+            self.outputs[0].rank = self.inputs[idx].rank
+
+        return impl
+
+    def same_as_shape_of_shape_input(idx=0):
+        def impl(self):
+            assert len(self.inputs[idx].shape) == 1, "Expected this input to be a shape tensor"
+            assert isinstance(self.inputs[idx].shape[0], int), "Expected shape tensor length to be known"
+            self.outputs[0].rank = self.inputs[idx].shape[0]
+
+        return impl
+
+    def max_of_inputs():
+        def impl(self):
+            self.outputs[0].rank = max(inp.rank for inp in self.inputs)
+
+        return impl
 
 
 ##

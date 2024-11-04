@@ -18,70 +18,22 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-from tripy import export, constraints
-from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy import constraints, export
+from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
+from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
 @dataclass(repr=False)
 class Permute(BaseTraceOp):
     permutation: Sequence[int]
 
-    # note that permuting a shape would not do anything
-    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
-
-    infer_len = op_utils.InferLenPolicies.infer_same_as_first_input
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import TransposeOp
 
         TransposeOp.build(inputs, outputs, perm=self.permutation)
-
-
-@dataclass(repr=False)
-class Transpose(Permute):
-    """
-    Represents a transpose operation.
-    """
-
-    dim0: int
-    dim1: int
-
-    def infer_rank(self):
-        self.outputs[0].rank = self.inputs[0].rank
-        perm = list(range(self.inputs[0].rank))
-        perm[self.dim0], perm[self.dim1] = perm[self.dim1], perm[self.dim0]
-        self.permutation = perm
-
-
-@export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
-)
-def transpose(input: "tripy.Tensor", dim0: int, dim1: int) -> "tripy.Tensor":
-    """
-    Returns a new tensor that is a transposed version of the input tensor where
-    ``dim0`` and ``dim1`` are swapped.
-
-    Args:
-        input: The input tensor.
-        dim0: The first dimension to be transposed.
-        dim1: The second dimension to be transposed.
-
-    Returns:
-        A new tensor.
-
-    .. code-block:: python
-        :linenos:
-        :caption: Example
-
-        input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
-        output = tp.transpose(input, 0, 1)
-
-        assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
-    """
-    return Transpose.build([input], None, dim0, dim1)
 
 
 @export.public_api(document_under="operations/functions")
@@ -111,4 +63,21 @@ def permute(input: "tripy.Tensor", perm: Sequence[int]) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.transpose(np.arange(6, dtype=np.float32).reshape(2, 3), (1, 0)))
     """
+    if len(perm) != input.rank:
+        raise_error(
+            "Invalid permutation.",
+            [
+                "Permutation must have a number of elements equal to the number of dimensions in the input.\n"
+                f"Note: Permutation was: {perm}, which has {len(perm)} element(s), but input has {input.rank} dimension(s)."
+            ],
+        )
+
+    if list(sorted(perm)) != list(range(input.rank)):
+        raise_error(
+            "Invalid permutation.",
+            [
+                f"Permutation must contain every integer between 0 and {input.rank -1} exactly once, but permutation was: {perm}"
+            ],
+        )
+
     return Permute.build([input], perm)

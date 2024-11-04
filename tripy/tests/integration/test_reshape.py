@@ -20,8 +20,6 @@ import cupy as cp
 import pytest
 import tripy as tp
 
-from tests import helper
-
 
 class TestReshape:
     @pytest.mark.parametrize(
@@ -41,13 +39,6 @@ class TestReshape:
             new_shape = tuple(np.prod(shape) // -np.prod(new_shape) if d == -1 else d for d in new_shape)
         assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(new_shape).get())
 
-    def test_invalid_neg_dim_reshape(self):
-        shape = (1, 30)
-        new_shape = (-1, -1)
-        with helper.raises(tp.TripyException, match="Reshape operation size operand can have only one dimension as -1"):
-            a = tp.reshape(tp.ones(shape), new_shape)
-            print(a)
-
     def test_reshape_shape_tensor(self):
         a = tp.ones((2, 3, 4))
         b = tp.ones((2, 3, 2, 2))
@@ -58,55 +49,3 @@ class TestReshape:
         a = tp.ones((2, 3, 4))
         out = tp.reshape(a, (2, a.shape[1], a.shape[2] / 2, -1))
         assert np.array_equal(cp.from_dlpack(out).get(), np.ones((2, 3, 2, 2), dtype=np.float32))
-
-
-class TestFlatten:
-    @pytest.mark.parametrize(
-        "shape, start_dim, end_dim, expected_shape",
-        [
-            ((2, 3, 4), 0, -1, (24,)),  # Flatten all dimensions
-            ((2, 3, 4), 1, -1, (2, 12)),  # Flatten dimensions 1 through end
-            ((2, 3, 4), 1, 2, (2, 12)),  # Flatten dimensions 1 through 2
-            ((2, 3, 4), 0, 1, (6, 4)),  # Flatten dimensions 0 through 1
-            ((2, 3, 4, 5), 1, 3, (2, 60)),  # Flatten dimensions 1 through 3
-        ],
-    )
-    def test_flatten(self, shape, start_dim, end_dim, expected_shape):
-        cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
-        a = tp.Tensor(cp_a)
-        b = tp.flatten(a, start_dim=start_dim, end_dim=end_dim)
-        assert b.shape == expected_shape
-        assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(expected_shape).get())
-
-    def test_flatten_invalid_dims(self):
-        shape = (2, 3, 4)
-        with pytest.raises(tp.TripyException, match="Invalid dimensions"):
-            a = tp.ones(shape)
-            # Invalid because end_dim < start_dim
-            tp.flatten(a, start_dim=2, end_dim=1)
-
-    def test_flatten_single_dim(self):
-        shape = (2, 3, 4)
-        a = tp.ones(shape)
-        # Flattening a single dimension should not change the output
-        b = tp.flatten(a, start_dim=1, end_dim=1)
-        assert b.shape == (2, 3, 4)
-        assert np.array_equal(cp.from_dlpack(b).get(), np.ones(shape, dtype=np.float32))
-
-    def test_flatten_with_unknown_dims(self):
-        a = tp.ones((2, 3, 4, 5))
-        b = tp.flatten(a, start_dim=1, end_dim=-1)
-        assert np.array_equal(cp.from_dlpack(b).get(), np.ones((2, 60), dtype=np.float32))
-
-
-@pytest.mark.parametrize(
-    "operation", [lambda a: tp.reshape(a, (a.shape[0], a.shape[1], a.shape[2] // 2, 2)), lambda a: tp.flatten(a)]
-)
-def test_operation_with_no_trace_shape_inference(mocker, operation):
-    # This test ensures that Tripy does not unnecessarily compute shape of a trace tensor.
-    mock_function = mocker.patch("tripy.backend.mlir.utils.ShapeContext.get_shape_of_dynamic_trace_tensor")
-
-    a = tp.ones((2, 3, 4))
-    out = operation(a)
-    out.eval()
-    mock_function.assert_not_called()

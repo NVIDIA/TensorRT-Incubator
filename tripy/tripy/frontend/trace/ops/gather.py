@@ -18,25 +18,16 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import export, utils, constraints
-from tripy.frontend import utils as frontend_utils
+from tripy import constraints, export, utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.common.exception import raise_error
 
 
 @dataclass(repr=False)
 class Gather(BaseTraceOp):
     axis: int
 
-    # the output is a shape if the value input is a shape
-    infer_tensor_variants = op_utils.InferVariantPolicies.infer_from_first_input_only
-
     def infer_rank(self):
         self.outputs[0].rank = self.inputs[0].rank + self.inputs[1].rank - 1
-
-    def infer_len(self):
-        # in the shape case, the resulting shape is comprised _only_ of the selected indices
-        return [op_utils.get_trace_shape(self.inputs[1])[0]]
 
     def infer_dtypes(self):
         from tripy import int32
@@ -53,15 +44,12 @@ class Gather(BaseTraceOp):
         self.outputs[0].dtype = self.inputs[0].dtype
 
     def infer_devices(self):
-        from tripy.common import device
-
         self.outputs[0].device = self.inputs[0].device
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
+        from tripy.common.datatype import int32
         from tripy.flat_ir.ops import DynamicGatherOp, DynamicSliceOp
         from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.common.datatype import int32
 
         input_shape = op_utils.get_shape_of_tensor(inputs[0])
         zero_1d = op_utils.add_constant_tensor_from_list([0], inputs[0].device)

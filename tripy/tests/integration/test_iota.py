@@ -18,11 +18,11 @@
 import cupy as cp
 import numpy as np
 import pytest
+from tests import helper
 
 import tripy as tp
-
 from tripy.common.datatype import DATA_TYPES
-from tests import helper
+from tripy.frontend import utils as frontend_utils
 
 
 class TestIota:
@@ -89,7 +89,7 @@ class TestIota:
 
         # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
         a = tp.ones((2, 2))
-        out = Iota.build([a.shape], dim=0, output_rank=2, dtype=dtype)
+        out = Iota.build([frontend_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
 
         exception_str = "error: 'tensorrt.linspace' op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values"
         if dtype == tp.bool:
