@@ -28,7 +28,6 @@ class Sequential(Module):
             :linenos:
             :caption: Example
 
-            import tripy as tp
 
             # Sequential with layers passed as arguments
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
