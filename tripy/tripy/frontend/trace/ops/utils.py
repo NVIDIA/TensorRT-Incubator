@@ -42,29 +42,42 @@ def is_minus_one(arg):
     return isinstance(arg, int) and arg == -1
 
 
-# TODO (pranavm): Remove get_trace_shape
-
 ##
-## Inferring shape lengths (helpers)
+## Inferring shape helpers
 ##
 
 
-def get_trace_shape(input: "TraceTensor") -> Sequence[int]:
+def infer_broadcasted_shape(*input_shapes: Sequence[List[int]]):
     """
-    Given an operator input tensor, return its shape if it has already been given
-    or get its shape from the shape context if it's needed.
+    Given dynamic input shapes of trace tensors, infers a broadcasted shape.
+    This does not do any error checking since that can be done more reliably
+    later in the compiler.
     """
-    if input.shape is None:
-        from tripy.backend.mlir.utils import ShapeContext
-
-        # memoize while we're at it
-        input.shape = ShapeContext().get_shape_of_dynamic_trace_tensor(input)
-    return input.shape
+    max_rank = max(len(shape) for shape in input_shapes)
+    input_shapes = [[1] * (max_rank - len(shape)) + shape for shape in input_shapes]
+    return [max(dim) for dim in zip(*input_shapes)]
 
 
-class InferLenPolicies:
-    def infer_same_as_first_input(self):
-        return [get_trace_shape(self.inputs[0])[0]]
+class InferRankPolicies:
+    def same_as_input(idx=0):
+        def impl(self):
+            self.outputs[0].rank = self.inputs[idx].rank
+
+        return impl
+
+    def same_as_shape_of_shape_input(idx=0):
+        def impl(self):
+            assert len(self.inputs[idx].shape) == 1, "Expected this input to be a shape tensor"
+            assert isinstance(self.inputs[idx].shape[0], int), "Expected shape tensor length to be known"
+            self.outputs[0].rank = self.inputs[idx].shape[0]
+
+        return impl
+
+    def max_of_inputs():
+        def impl(self):
+            self.outputs[0].rank = max(inp.rank for inp in self.inputs)
+
+        return impl
 
 
 ##

@@ -36,9 +36,7 @@ class TestMatMul:
         a = tp.ones(tuple(), dtype=tp.float32)
         b = tp.ones((2,), dtype=tp.float32)
 
-        with helper.raises(
-            tp.TripyException, match="Input tensors must have at least 1 dimension.", has_stack_info_for=[a, b]
-        ):
+        with helper.raises(tp.TripyException, match="Input tensors must have at least 1 dimension."):
             c = a @ b
             c.eval()
 

@@ -28,9 +28,6 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 class GetDimensionSize(BaseTraceOp):
     dim: int
 
-    def infer_len(self):
-        return [1]
-
     def infer_rank(self):
         self.outputs[0].rank = 0
 

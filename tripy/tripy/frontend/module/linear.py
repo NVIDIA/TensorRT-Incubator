@@ -110,10 +110,10 @@ class Linear(Module):
             A tensor of shape :math:`[*, \text{out_features}]`.
         """
         from tripy.common.exception import raise_error
-        from tripy.frontend.trace.ops.dequantize import dequantize
-        from tripy.frontend.trace.ops.permute import transpose
-        from tripy.frontend.trace.ops.quantize import quantize
+        from tripy.frontend.ops.transpose import transpose
         from tripy.frontend.ops.unsqueeze import unsqueeze
+        from tripy.frontend.trace.ops.dequantize import dequantize
+        from tripy.frontend.trace.ops.quantize import quantize
 
         if self.quant_dtype is not None:
             if self.input_scale:

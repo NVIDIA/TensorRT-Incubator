@@ -71,6 +71,8 @@ class Storage(BaseTraceOp):
             self.device = utils.default(device, tp_device(("gpu", 0)))
             self.has_memref = False
 
+        self.outputs[0].shape = list(self.shape)
+
     def str_skip_fields(self) -> Set[str]:
         # skip data if i) it is a MemRefValue or ii) its volume exceeds threshold
         if not isinstance(self.data, Sequence) or utils.should_omit_constant_in_str(self.shape):
@@ -80,12 +82,13 @@ class Storage(BaseTraceOp):
     def __eq__(self, other) -> bool:
         return self.data == other.data if isinstance(other, Storage) else False
 
+    def infer_rank(self):
+        # In the storage op, we actually know the exact shape, which we've already set in the constructor.
+        # Hence, we don't need to set rank here (and doing so would overwrite the shape we set).
+        pass
+
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
-
-    def infer_rank(self):
-        self.outputs[0].rank = len(self.shape)
-        self.outputs[0].shape = self.shape
 
     def infer_devices(self):
         # TODO(#155): Fix allocation on host
