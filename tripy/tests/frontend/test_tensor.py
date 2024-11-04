@@ -225,8 +225,7 @@ class TestTensor:
         "devices",
         [
             ("cpu", "gpu"),
-            # TODO(#155)
-            # ("gpu", "cpu"),
+            ("gpu", "cpu"),
         ],
     )
     def test_explicit_copy(self, devices):
