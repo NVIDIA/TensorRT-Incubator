@@ -21,7 +21,7 @@ class Sequential(Module):
     def __init__(self, *modules: Union[Module, Dict[str, Module]]) -> None:
         r"""
         Args:
-            *modules (Union[Module, Dict[str, Module]]): The modules to include in the sequence.
+            *modules: The modules to include in the sequence.
                 Can be passed as individual positional arguments or as a single dictionary of named modules.
 
         .. code-block:: python
