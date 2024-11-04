@@ -31,22 +31,10 @@ class Reshape(BaseTraceOp):
 
     output_rank: int
 
+    infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input(1)
+
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
-
-    def infer_len(self):
-        # skip inference for now because it requires obtaining the concrete _value_ of the second input,
-        # not just its shape
-        return [None]
-
-    def infer_rank(self):
-        if self.output_rank is None:
-            shape_of_shape_input = op_utils.get_trace_shape(self.inputs[1])
-            assert len(shape_of_shape_input) == 1
-            assert shape_of_shape_input[0] >= 0, f"incorrect shape computation {shape_of_shape_input}"
-            self.outputs[0].rank = shape_of_shape_input[0]
-        else:
-            self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicReshapeOp

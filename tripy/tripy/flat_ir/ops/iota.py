@@ -19,7 +19,6 @@ from dataclasses import dataclass
 
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
-from tripy.backend.mlir.utils import is_any_dim_dynamic
 
 from tripy.flat_ir.ops.base import BaseFlatIROp
 
@@ -30,12 +29,6 @@ class DynamicIotaOp(BaseFlatIROp):
     dim: int
 
     def to_mlir(self, operands):
-        if is_any_dim_dynamic(operands[0]):
-            # Stablehlo requires shape tensor to be of known shape, force the shape of shape tensor to be the same as output rank which is inferred in infer_rank.
-            new_shape = [self.outputs[0].rank]
-            self.inputs[0].shape = new_shape
-            operands[0].set_type(ir.RankedTensorType.get(new_shape, operands[0].type.element_type))
-
         out_type = self.outputs[0].to_mlir()
         iota_dim = ir.IntegerAttr.get(type=ir.IntegerType.get_signless(64), value=self.dim)
         output = stablehlo.DynamicIotaOp(result=out_type, output_shape=operands[0], iota_dimension=iota_dim)

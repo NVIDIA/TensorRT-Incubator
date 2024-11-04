@@ -28,26 +28,10 @@ from tripy.types import ShapeLike
 
 @dataclass(repr=False)
 class Expand(BaseTraceOp):
-    output_rank: int
-    output_len: Optional[int] = None  # only used to help with infer_len for a shape input
+    infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input(1)
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.inputs[0].dtype
-
-    def infer_len(self):
-        if self.output_len is not None:
-            return [self.output_len]
-        # if we don't have a static output length, we can't infer without evaluating the input
-        return [None]
-
-    def infer_rank(self):
-        if self.output_rank is None:
-            out_shape = op_utils.get_trace_shape(self.inputs[1])
-            assert len(out_shape) == 1
-            assert out_shape[0] >= 0, f"incorrect shape computation {out_shape}"
-            self.output_rank = out_shape[0]
-
-        self.outputs[0].rank = self.output_rank
 
     def to_flat_ir(self, inputs, outputs):
         from tripy.flat_ir.ops import DynamicBroadcastOp
@@ -128,4 +112,4 @@ def expand(input: "tripy.Tensor", sizes: ShapeLike) -> "tripy.Tensor":
 
         assert np.array_equal(cp.from_dlpack(output).get(), np.broadcast_to(cp.from_dlpack(input).get(), (3, 1, 1)))
     """
-    return Expand.build([input, sizes], None, None)
+    return Expand.build([input, sizes])

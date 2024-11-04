@@ -28,7 +28,7 @@ from tripy.frontend.trace.ops.gather import Gather
 from tripy.frontend.trace.ops.iota import Iota
 from tripy.frontend.trace.ops.matmul import MatrixMultiplication
 from tripy.frontend.trace.ops.pad import Pad
-from tripy.frontend.trace.ops.permute import Permute, Transpose
+from tripy.frontend.trace.ops.permute import Permute
 from tripy.frontend.trace.ops.plugin import Plugin
 from tripy.frontend.trace.ops.quantize import Quantize
 from tripy.frontend.trace.ops.reduce import ArgMinMax, Reduce

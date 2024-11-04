@@ -17,7 +17,11 @@
 
 import pytest
 from tests import helper
+
 import tripy as tp
+from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
+from tripy.flat_ir.tensor import FlatIRTensor
+from tripy.frontend.trace import Trace
 
 
 # Tests to ensure that we're able to map errors from MLIR-TRT back to the Python code cleanly.
@@ -45,11 +49,6 @@ class TestErrorMapping:
             reshaped.eval()
 
     def test_reason_context(self):
-        from tripy.flat_ir.tensor import FlatIRTensor
-        from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
-        from tripy.common.exception import TripyException
-        from tripy.frontend.trace import Trace
-
         with FlatIRTensor.context(["This is the first level of context"]):
             with FlatIRTensor.context(["This is the second level of context"]):
                 # We need to emit an error from one of the internally created `FlatIRTensor`s to see the context
@@ -57,15 +56,14 @@ class TestErrorMapping:
                 b = tp.ones((1,))
                 trace = Trace([a + b])
                 flat_ir = trace.to_flat_ir()
-                func_binary = flat_ir.outputs[0].producer
-                producer = func_binary.ops[-1].inputs[0]
+                producer = flat_ir.outputs[0].producer.inputs[0]
                 flat_ir_inputs = ",".join(map(lambda i: i.name, producer.producer.inputs))
-                trace_inputs = ",".join(func_binary.trace_input_names)
-                trace_output = func_binary.trace_output_names[0]
+                trace_inputs = ",".join(producer.producer.trace_input_names)
+                trace_output = producer.producer.trace_output_names[0]
                 err_str = f'loc("{flat_ir_inputs};;<out>;;{producer.name};;<trace_in>;;{trace_inputs};;<trace_out>;;{trace_output}"): Test error'
 
                 with pytest.raises(
-                    TripyException,
-                    match=".*This is the first level of context\n    This is the second level of context.\n.*",
+                    tp.TripyException,
+                    match="This is the first level of context\n    This is the second level of context",
                 ) as exc:
                     map_error_to_user_code_and_raise(flat_ir, exc, err_str)

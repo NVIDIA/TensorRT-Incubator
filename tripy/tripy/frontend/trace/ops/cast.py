@@ -16,27 +16,27 @@
 #
 
 from dataclasses import dataclass
-from tripy import export, constraints
-from tripy.frontend import utils as frontend_utils
+
+from tripy import constraints, export
+from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
-from tripy.frontend.trace.ops.utils import InferLenPolicies
 
 
 @dataclass(repr=False)
 class Cast(BaseTraceOp):
     dtype: "tripy.common.dtype"
 
-    infer_len = InferLenPolicies.infer_same_as_first_input
+    infer_rank = op_utils.InferRankPolicies.same_as_input()
 
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
-    @frontend_utils.make_function
     def to_flat_ir(self, inputs, outputs):
-        from tripy.common.datatype import int32, int64, float32, bool as tp_bool
-        from tripy.flat_ir.ops import CompareOp, ConvertOp, ConstantOp, DynamicBroadcastOp
-        from tripy.flat_ir.tensor import FlatIRTensor
         import tripy.frontend.trace.ops.utils as op_utils
+        from tripy.common.datatype import bool as tp_bool
+        from tripy.common.datatype import float32, int32, int64
+        from tripy.flat_ir.ops import CompareOp, ConstantOp, ConvertOp, DynamicBroadcastOp
+        from tripy.flat_ir.tensor import FlatIRTensor
 
         # If we need to create a constant (namely for comparing with zero), it has to use one of these dtypes.
         # If the input is not one of these dtypes, the constant needs to be created in one of these and converted.
@@ -133,7 +133,8 @@ def cast(input: "tripy.Tensor", dtype: "tripy.dtype") -> "tripy.Tensor":
 
     .. seealso:: :func:`quantize`, :func:`dequantize`
     """
-    from tripy.common.datatype import bool as tp_bool, int8, float32
+    from tripy.common.datatype import bool as tp_bool
+    from tripy.common.datatype import float32, int8
     from tripy.frontend.trace.ops.dequantize import dequantize
     from tripy.frontend.trace.ops.quantize import quantize
     from tripy.frontend.trace.ops.utils import is_quantized_dtype
