@@ -113,10 +113,10 @@ class Sequential(Module):
         Accesses a module by index (int) or name (str).
 
         Args:
-            idx (Union[int, str]): The index or name of the module to retrieve.
+            idx: The index or name of the module to retrieve.
 
         Returns:
-            Module: The module at the specified index or name.
+            The module at the specified index or name.
 
         Raises:
             TypeError: If `idx` is not an int or str.
