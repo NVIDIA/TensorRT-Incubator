@@ -29,6 +29,12 @@ class CopyOp(BaseFlatIROp):
 
     target: nvtripy.common.device
 
+    def set_memory_space_attr(self, tensor, mem_space_attr):
+        current_type = tensor.type
+        # Set the encoding attribute on the operation's result
+        new_type = ir.RankedTensorType.get(current_type.shape, current_type.element_type, encoding=mem_space_attr)
+        tensor.set_type(new_type)
+
     def to_mlir(self, operands):
         from mlir_tensorrt.compiler.dialects import bufferization, tensor, arith
 
@@ -46,7 +52,10 @@ class CopyOp(BaseFlatIROp):
                 sliced_dims.append(dim)
 
         alloc_tensor = bufferization.alloc_tensor(inp_type, sliced_dims, memory_space=mem_space_attr)
+        self.set_memory_space_attr(alloc_tensor, mem_space_attr)
         result_tensor = bufferization.materialize_in_destination(inp_type, operands[0], alloc_tensor)
+        self.set_memory_space_attr(result_tensor, mem_space_attr)
         cast_tensor = tensor.cast(self.outputs[0].to_mlir(), result_tensor)
+        self.set_memory_space_attr(cast_tensor, mem_space_attr)
 
         return [cast_tensor]
