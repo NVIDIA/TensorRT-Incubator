@@ -57,7 +57,7 @@ class Sequential(Module):
             x: The input tensor to pass through the sequence of modules.
 
         Returns:
-            Tensor: The output tensor after passing through each module in sequence.
+            The output tensor after passing through each module in sequence.
         """
         for module in self.modules.values():
             x = module(x)
