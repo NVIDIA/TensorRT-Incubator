@@ -54,7 +54,7 @@ class Sequential(Module):
         Defines the forward pass by applying each module in the container sequentially to input `x`.
 
         Args:
-            x (Tensor): The input tensor to pass through the sequence of modules.
+            x: The input tensor to pass through the sequence of modules.
 
         Returns:
             Tensor: The output tensor after passing through each module in sequence.
