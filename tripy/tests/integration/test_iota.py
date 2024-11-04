@@ -82,16 +82,17 @@ class TestIota:
 
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_negative_no_casting(self, dtype):
-        from tripy.frontend.trace.ops.iota import Iota
+        with tp.logger.use_verbosity("ir"):
+            from tripy.frontend.trace.ops.iota import Iota
 
-        if dtype in [tp.float32, tp.int32, tp.int64]:
-            pytest.skip("tp.iota() supports float32, int32, and int64 without cast")
+            if dtype in [tp.float32, tp.int32, tp.int64]:
+                pytest.skip("tp.iota() supports float32, int32, and int64 without cast")
 
-        # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
-        a = tp.ones((2, 2))
-        out = Iota.build([frontend_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
+            # TODO: update the 'match' error msg when MLIR-TRT fixes dtype constraint
+            a = tp.ones((2, 2))
+            out = Iota.build([frontend_utils.tensor_from_shape_like(a.shape)], dim=0, output_rank=2, dtype=dtype)
 
-        exception_str = "error: 'tensorrt.linspace' op result #0 must be 0D/1D/2D/3D/4D/5D/6D/7D/8D tensor of 32-bit float or 32-bit signless integer values"
+        exception_str = "InternalError: failed to run compilation on module with symbol name."
         if dtype == tp.bool:
             exception_str = "InternalError: failed to run compilation"
         with helper.raises(

@@ -367,13 +367,14 @@ RuntimeSession::RuntimeSession(RuntimeSessionOptions options,
 //===----------------------------------------------------------------------===//
 
 AllocTracker::~AllocTracker() {
+  MTRT_DBGF("Destroying alloc tracker %p", static_cast<void *>(this));
   MTRT_DBGF("checking %u allocations", map.size());
   llvm::SmallVector<PointerInfo> ptrsToFree;
   ptrsToFree.reserve(map.size());
   for (const auto &[ptrVal, metadata] : map) {
     if (metadata->info.isInternallyManaged() &&
         metadata->externalReferenceCount.load() == 0) {
-      MTRT_DBGF("still live: 0x%lx type %d size %lu", ptrVal,
+      MTRT_DBGF("still live: 0x%lx type %d size %lx", ptrVal,
                 static_cast<int>(metadata->info.type), metadata->info.size);
       ptrsToFree.push_back(metadata->info);
     }
@@ -410,7 +411,7 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = ++metadata->externalReferenceCount;
-  MTRT_DBG("Incremented external reference for pointer %d to %d", ptr, ref);
+  MTRT_DBGF("Incremented external reference for 0x%lx to %d", ptr, ref);
 }
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
@@ -422,11 +423,12 @@ void AllocTracker::decrementExternalCount(uintptr_t ptr) {
          llvm::formatv("External reference count cannot be negative: {0}", ref)
              .str()
              .c_str());
-  MTRT_DBG("Decremented external reference for pointer %d to %d", ptr, ref);
+  MTRT_DBGF("Decremented external reference for pointer 0x%lx to %d", ptr, ref);
   if (ref == 0 && metadata->releasedInternally) {
-    MTRT_DBG("External reference to an internally released pointer %d is 0, "
-             "try deallocating pointer memory of size %lu",
-             ptr, ref, metadata->info.size);
+    MTRT_DBGF(
+        "External reference to an internally released pointer 0x%lx is 0, "
+        "try deallocating pointer memory of size %lx",
+        ptr, metadata->info.size);
     Status s = safeDeallocate(*this, metadata->info.ptr);
     if (!s.isOk())
       MTRT_DBGF("error while deallocating dangling memory: %s",
@@ -452,9 +454,11 @@ void AllocTracker::track(PointerInfo info) {
     assert((!contains(info.ptr) || get(info.ptr).isExternallyManaged()) &&
            "an internally managed pointer should not already be tracked");
   }
-  MTRT_DBGF("AllocTracker is now tracking 0x%lx size=%lu space=%s ownership=%s",
-            info.ptr, info.size, runtime::impl::EnumNamePointerType(info.type),
-            runtime::impl::EnumNamePointerOwner(info.owner));
+  MTRT_DBGF(
+      "AllocTracker %p is now tracking 0x%lx size=%lx space=%s ownership=%s",
+      static_cast<void *>(this), info.ptr, info.size,
+      runtime::impl::EnumNamePointerType(info.type),
+      runtime::impl::EnumNamePointerOwner(info.owner));
   auto value = std::make_unique<Metadata>();
   value->externalReferenceCount.store(0);
   value->releasedInternally = false;
@@ -468,6 +472,8 @@ void AllocTracker::track(PointerInfo info) {
 }
 
 void AllocTracker::untrack(uintptr_t ptr) {
+  MTRT_DBGF(
+      "AllocTracker %p is now untracking 0x%lx)", static_cast<void *>(this), ptr);
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   map.erase(map.find(ptr));
@@ -574,7 +580,7 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
 
   PointerInfo obj = tracker.get(ptr);
   if (obj.owner == PointerOwner::external) {
-    MTRT_DBGF("Untracking externally managed pointer 0x%lx", ptr);
+    MTRT_DBGF("Untracking externally managed 0x%lx", ptr);
     tracker.untrack(obj.ptr);
     return mlirtrt::Status::getOk();
   }
@@ -725,9 +731,15 @@ StatusOr<std::unique_ptr<MemRefValue>> MemRefValue::create(
   if (!::getFootprintInBytes(shape, strides, bitsPerElement).isOk())
     return getInvalidArgStatus(
         "only memrefs with non-negative strides are allowed");
-  if (!ptr)
-    return getInvalidArgStatus(
-        "MemRef objects must be created with a valid pointer");
+
+  auto is_empty_tensor = [](const llvm::ArrayRef<int64_t> &shape) -> bool {
+    return std::any_of(shape.begin(), shape.end(),
+                       [](int64_t s) { return s == 0; });
+  };
+
+  if (!ptr && !is_empty_tensor(shape)) return getInvalidArgStatus(
+      "MemRef objects must be created with a valid pointer for a non-empty "
+      "tensor");
 
   if (isDeviceVisible(addressSpace) && (!device || !*device))
     return getInvalidArgStatus("a specific device must be provided for MemRefs "

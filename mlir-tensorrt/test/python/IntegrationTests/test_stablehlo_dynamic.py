@@ -77,7 +77,10 @@ def infer_output_shape(client, session, exe, input_shape):
     outs = [client.create_memref(out_0, shape=shape, dtype=runtime.ScalarTypeCode.i64)]
 
     session.execute_function(
-        exe.get_signature("main").get_shape_func_name(), in_args=ins, out_args=outs
+        exe.get_signature("main").get_shape_func_name(),
+        in_args=ins,
+        out_args=outs,
+        client=client,
     )
 
     # Copy output shape from device to host. Also, convert to int32 type since shape calculation uses int64 type.
@@ -86,21 +89,23 @@ def infer_output_shape(client, session, exe, input_shape):
     return output_shape
 
 
-def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
+def test_program(
+    program: str, input_shape: Iterable[int], use_non_dps=False, debug: bool = False
+):
     # Build/parse the main function.
     with ir.Context() as context:
         m = ir.Module.parse(program)
 
         # Use the compiler API to compile to executable.
         client = compiler.CompilerClient(context)
-        opts = compiler.StableHLOToExecutableOptions(
-            client,
-            [
-                "--tensorrt-builder-opt-level=3",
-                "--tensorrt-strongly-typed=false",
-                "--entrypoint=main",
-            ],
-        )
+        c_opts = [
+            "--tensorrt-builder-opt-level=3",
+            "--tensorrt-strongly-typed=false",
+            "--entrypoint=main",
+        ]
+        if use_non_dps:
+            c_opts.append("--enable-non-dps-returns")
+        opts = compiler.StableHLOToExecutableOptions(client, c_opts)
         if debug:
             opts.set_debug_options(False, [], "tmp")
         exe = compiler.compiler_stablehlo_to_executable(client, m.operation, opts)
@@ -126,29 +131,66 @@ def test_program(program: str, input_shape: Iterable[int], debug: bool = True):
         np.ones(input_shape, dtype=np.float32).data, device=devices[0], stream=stream
     )
 
-    output_shape = infer_output_shape(client, session, exe, input_shape)
-
-    arg2 = client.create_memref(
-        np.zeros(output_shape, dtype=np.float32).data,
-        device=devices[0],
-        stream=stream,
-    )
-
-    session.execute_function(
-        "main", in_args=[arg0, arg1], out_args=[arg2], stream=stream
-    )
-    data = np.asarray(client.copy_to_host(arg2, stream=stream))
+    result = None
+    if use_non_dps:
+        results = session.execute_function(
+            "main", in_args=[arg0, arg1], stream=stream, client=client
+        )
+        result = results[0]
+    else:
+        output_shape = infer_output_shape(client, session, exe, input_shape)
+        result = client.create_memref(
+            np.zeros(output_shape, dtype=np.float32).data,
+            device=devices[0],
+            stream=stream,
+        )
+        session.execute_function(
+            "main",
+            in_args=[arg0, arg1],
+            out_args=[result],
+            stream=stream,
+            client=client,
+        )
+    data = np.asarray(client.copy_to_host(result, stream=stream))
     stream.sync()
 
     print(data)
 
 
 if __name__ == "__main__":
+    print("DPS style execution:")
     print("Test (3, ?, 2)")
     test_program(program1, (3, 4, 2))
     print("Test (?, 2)")
     test_program(program2, (4, 2))
+    print("Non DPS style execution:")
+    print("Test (3, ?, 2)")
+    test_program(program1, (3, 4, 2), use_non_dps=True)
+    print("Test (?, 2)")
+    test_program(program2, (4, 2), use_non_dps=True)
 
+# CHECK-LABEL: DPS style execution:
+# CHECK-LABEL: Test (3, ?, 2)
+#       CHECK: [{{\[}}[2. 2.]
+#       CHECK:   [2. 2.]
+#       CHECK:   [2. 2.]
+#       CHECK:   [2. 2.]]
+#       CHECK:  {{\[}}[2. 2.]
+#       CHECK:   [2. 2.]
+#       CHECK:   [2. 2.]
+#       CHECK:   [2. 2.]]
+#       CHECK:  {{\[}}[2. 2.]
+#       CHECK:   [2. 2.]
+#       CHECK:   [2. 2.]
+#       CHECK:   [2. 2.]]]
+
+# CHECK-LABEL: Test (?, 2)
+#       CHECK:  {{\[}}[2. 2.]
+#       CHECK:  [2. 2.]
+#       CHECK:  [2. 2.]
+#       CHECK:  [2. 2.]]
+
+# CHECK-LABEL: Non DPS style execution:
 # CHECK-LABEL: Test (3, ?, 2)
 #       CHECK: [{{\[}}[2. 2.]
 #       CHECK:   [2. 2.]

@@ -675,6 +675,16 @@ MTRT_ScalarValue mtrtRuntimeValueDynCastToScalar(MTRT_RuntimeValue v) {
   return wrap(static_cast<ScalarValue *>(x));
 }
 
+bool mtrtRuntimeValueIsMemRef(MTRT_RuntimeValue value) {
+  RuntimeValue *x = unwrap(value);
+  return x->getKind() == RuntimeValue::Kind::MemRef;
+}
+
+bool mtrtRuntimeValueIsScalar(MTRT_RuntimeValue value) {
+  RuntimeValue *x = unwrap(value);
+  return x->getKind() == RuntimeValue::Kind::Scalar;
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
@@ -721,7 +731,8 @@ MTRT_Status mtrtRuntimeSessionDestroy(MTRT_RuntimeSession session) {
 MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
-    const MTRT_RuntimeValue *outArgs, size_t numOutArgs, MTRT_Stream stream) {
+    const MTRT_RuntimeValue *outArgs, size_t numOutArgs,
+    MTRT_RuntimeValue *results, MTRT_Stream stream, MTRT_RuntimeClient client) {
   LuaRuntimeSession *cppSession =
       static_cast<LuaRuntimeSession *>(unwrap(session));
 
@@ -731,19 +742,36 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
   llvm::SmallVector<RuntimeValue *> outArgValues =
       llvm::map_to_vector(llvm::ArrayRef(outArgs, numOutArgs),
                           [](MTRT_RuntimeValue arg) { return unwrap(arg); });
-
-  StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>> result =
+  StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>> resultValues =
       executeFunctionWithLuaBackend(
           *cppSession, std::string_view(name.data, name.length), inArgValues,
           outArgValues,
           !mtrtStreamIsNull(stream)
               ? std::optional(unwrap(stream)->getRawStream())
-              : std::nullopt);
-  if (!result.isOk())
-    return wrap(result.getStatus());
+              : std::nullopt,
+          !mtrtRuntimeClientIsNull(client) ? std::optional(unwrap(client))
+                                           : std::nullopt);
+  if (!resultValues.isOk())
+    return wrap(resultValues.getStatus());
+
+  for (size_t i = 0; i < resultValues->size(); ++i)
+    results[i] = wrap((*resultValues)[i].release());
 
   return mtrtStatusGetOk();
 }
+
+MTRT_Status mtrtRuntimeSessionGetNumResults(MTRT_RuntimeSession session,
+                                            MTRT_StringView name,
+                                            int64_t *numResults) {
+  LuaRuntimeSession *cppSession =
+      static_cast<LuaRuntimeSession *>(unwrap(session));
+  *numResults = cppSession->getExecutable()
+                    .getFunction(std::string_view(name.data, name.length))
+                    .getSignature()
+                    .getNumResults();
+  return mtrtStatusGetOk();
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeClient
 //===----------------------------------------------------------------------===//

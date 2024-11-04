@@ -215,6 +215,11 @@ static inline bool mtrtRuntimeClientIsNull(MTRT_RuntimeClient client) {
   return !client.ptr;
 }
 
+/// Returns null client.
+static inline MTRT_RuntimeClient mtrtRuntimeClientGetNull() {
+  return MTRT_RuntimeClient{nullptr};
+}
+
 /// Creates a `MTRT_RuntimeClient`. Client must be alive for the lifetime of the
 /// program execution.
 /// The `stream` passed to the client is used by all underlying CUDA methods
@@ -308,6 +313,12 @@ static inline bool mtrtRuntimeValueIsNull(MTRT_RuntimeValue value) {
   return !value.ptr;
 }
 
+// Returns whether the RuntimeValue is MemRef.
+MLIR_CAPI_EXPORTED bool mtrtRuntimeValueIsMemRef(MTRT_RuntimeValue value);
+
+// Returns whether the RuntimeValue is Scalar.
+MLIR_CAPI_EXPORTED bool mtrtRuntimeValueIsScalar(MTRT_RuntimeValue value);
+
 /// Cast a MTRT_MemRefValue to a generic MTRT_RuntimeValue.
 MLIR_CAPI_EXPORTED MTRT_RuntimeValue
 mtrtMemRefCastToRuntimeValue(MTRT_MemRefValue memref);
@@ -391,16 +402,25 @@ static inline bool mtrtRuntimeSessionIsNull(MTRT_RuntimeSession session) {
   return !session.ptr;
 }
 
-/// Using `session`, execute the pubic function with the specified name.
-/// The `inArgs` and `outArgs` are arrays for input arguments and destination
-/// arguments, respectively. Input arguments may be MemRefs or scalars, but
-/// destination arguments must be MemRefs.
+/// Using `session`, execute the public function with the specified name.
+/// The `inArgs`, `outArgs`, and `results` are arrays for input arguments,
+/// output arguments, and return values, respectively. Arguments and results
+/// can be MemRefs, scalars, or other supported types. Both `outArgs` and
+/// `results` can be used simultaneously, allowing for functions that both
+/// modify arguments and return values.
 /// A stream may optionally be specified, otherwise pass the result of
 /// `mtrtStreamGetNull()`.
+///
+/// The `results` array must point to an array with at least the number of
+/// elements returned by mtrtRuntimeSessionGetNumResults for the given function.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
-    const MTRT_RuntimeValue *outArgs, size_t numOutArgs, MTRT_Stream stream);
+    const MTRT_RuntimeValue *outArgs, size_t numOutArgs,
+    MTRT_RuntimeValue *results, MTRT_Stream stream, MTRT_RuntimeClient client);
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtRuntimeSessionGetNumResults(
+    MTRT_RuntimeSession session, MTRT_StringView name, int64_t *numResults);
 
 //===----------------------------------------------------------------------===//
 // DLPack

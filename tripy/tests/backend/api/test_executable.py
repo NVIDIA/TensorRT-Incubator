@@ -87,7 +87,7 @@ class TestExecutable:
             assert param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
             assert param.annotation == tp.Tensor
 
-        assert signature.return_annotation == tp.Tensor
+        assert signature.return_annotation == Sequence[tp.Tensor]
 
     def test_signature_multiple_return_values(self, multiple_return_executable):
         signature = inspect.signature(multiple_return_executable)

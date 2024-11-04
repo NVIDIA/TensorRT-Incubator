@@ -185,11 +185,11 @@ class Tensor(metaclass=TensorMeta):
 
         compiler = Compiler(trt_builder_opt_level=0)
         executable = compiler.compile(mlir, flat_ir=flat_ir)
-        executor = Executor(executable)
+        self.executor = Executor(executable)
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
-        data = executor.execute([out.device for out in flat_ir.outputs])
-        executor.stream.synchronize()
+        data = self.executor.execute()
+        self.executor.stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
 
