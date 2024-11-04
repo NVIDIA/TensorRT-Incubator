@@ -80,7 +80,7 @@ class Sequential(Module):
         Returns the total number of modules in the sequence.
 
         Returns:
-            int: The number of modules in the sequence.
+            The number of modules in the sequence.
 
         .. code-block:: python
             :linenos:
