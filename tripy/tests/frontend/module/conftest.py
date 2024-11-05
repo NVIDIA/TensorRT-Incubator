@@ -139,12 +139,3 @@ def mixed_network():
 @pytest.fixture
 def complex_network():
     yield ComplexNetwork()
-
-@pytest.fixture
-def sequential_network():
-    yield tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
-
-
-@pytest.fixture
-def nested_sequential_network():
-    yield tp.Sequential(tp.Linear(2, 4), tp.Sequential(tp.Linear(4, 3), tp.Linear(3, 1)))

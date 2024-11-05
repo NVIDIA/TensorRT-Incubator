@@ -1,12 +1,31 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from typing import Union, Tuple, Dict, Iterator, Any
 from dataclasses import dataclass
+import copy
 
 from tripy import export
-from tripy.frontend.module.parameter import Parameter
 from tripy.frontend.module import Module
 
 
-@export.public_api(document_under="modules/sequential.rst")
+@export.public_api(
+    document_under="modules/sequential.rst",
+    autodoc_options=[
+        ":exclude-members: __getattr__",
+    ],
+)
 @dataclass
 class Sequential(Module):
     r"""
@@ -14,9 +33,6 @@ class Sequential(Module):
     container can accept either a list of modules or a dictionary of named modules. Modules are
     added in the order they are passed, and each is called sequentially during the forward pass.
     """
-
-    modules: Union[Module, Dict[str, Module]]
-    r"""The modules to include in the sequence"""
 
     def __init__(self, *modules: Union[Module, Dict[str, Module]]) -> None:
         r"""
@@ -26,41 +42,48 @@ class Sequential(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
+            :caption: Sequential with Positional Arguments
 
-
-            # Sequential with layers passed as arguments
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
 
-            # Sequential with named dictionary of layers
-            model_named = tp.Sequential({'layer1': tp.Linear(1, 3), 'layer2': tp.Linear(3, 2)})
+            input = tp.Tensor([1.0])
+            output = model(input)
 
-            x = tp.Tensor([1.0])
-            output = model(x)
+        .. code-block:: python
+            :linenos:
+            :caption: Sequential with a Dictionary
+
+            model = tp.Sequential({'layer1': tp.Linear(1, 3), 'layer2': tp.Linear(3, 2)})
+
+            input = tp.Tensor([1.0])
+            output = model(input)
         """
         super().__init__()
         self.modules = {}
 
+        # Disallow mixing modules/dicts
+        if any(isinstance(m, dict) for m in modules) and any(not isinstance(m, dict) for m in modules):
+            raise ValueError("Cannot mix dictionaries and individual modules in Sequential.")
+
         if len(modules) == 1 and isinstance(modules[0], dict):
-            for name, module in modules[0].items():
-                self.modules[name] = module
+            self.modules = copy.copy(modules[0])
         else:
             for idx, module in enumerate(modules):
                 self.modules[str(idx)] = module
 
-    def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
+    def __call__(self, input: "tripy.Tensor") -> "tripy.Tensor":
         r"""
-        Defines the forward pass by applying each module in the container sequentially to input `x`.
+        Defines the forward pass by applying each module in the container sequentially to `input`
 
         Args:
-            x: The input tensor to pass through the sequence of modules.
+            input: The input tensor to pass through the sequence of modules.
 
         Returns:
             The output tensor after passing through each module in sequence.
         """
         for module in self.modules.values():
-            x = module(x)
-        return x
+            input = module(input)
+        return input
 
     def __getattr__(self, name) -> Any:
         """
@@ -86,7 +109,7 @@ class Sequential(Module):
             :caption: Example
 
             # doc: print-locals model length
-            
+
             model = tp.Sequential(tp.Linear(1, 64), tp.Linear(64, 128))
             length = len(model)
             assert length == 2
@@ -142,7 +165,7 @@ class Sequential(Module):
 
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
         r"""
-        Returns an iterator over all child modules in this `Sequential` container.
+        Returns an iterator over all the first-order modules in this `Sequential` container.
         Each child module is represented by its name and the module object itself.
 
         Returns:
@@ -160,9 +183,4 @@ class Sequential(Module):
 
         """
         for name, module in self.modules.items():
-            if isinstance(module, Module):
-                yield name, module
-            elif isinstance(module, Sequential):
-                # Traverse deeper into Sequential containers within Sequential
-                for child_name, child in module.named_children():
-                    yield f"{name}.{child_name}", child
+            yield name, module

@@ -20,10 +20,26 @@
 
 import cupy as cp
 import numpy as np
+import pytest
 
 import tripy as tp
 from tests import helper
 from textwrap import dedent
+
+
+@pytest.fixture
+def sequential_network():
+    yield tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
+
+
+@pytest.fixture
+def dict_sequential_network():
+    yield tp.Sequential({"layer1": tp.Linear(1, 3), "layer2": tp.Linear(3, 2)})
+
+
+@pytest.fixture
+def nested_sequential_network():
+    yield tp.Sequential(tp.Linear(2, 4), tp.Sequential(tp.Linear(4, 3), tp.Linear(3, 1)))
 
 
 class TestSequential:
@@ -43,7 +59,7 @@ class TestSequential:
     def test_forward_pass(self, sequential_network):
         input_data = tp.Tensor([1.0])
         output = sequential_network(input_data)
-        assert output.shape == tp.Shape([1, 2])
+        assert output.shape == [1, 2]
 
     def test_state_dict(self, sequential_network):
         state_dict = sequential_network.state_dict()
@@ -73,17 +89,86 @@ class TestSequential:
             Sequential(
               0=
                 Linear(
-                 weight=shape(3, 1),
-                 bias=shape(3),
+                 weight=[3, 1],
+                 bias=[3],
                 ),
               1=
                 Linear(
-                 weight=shape(2, 3),
-                 bias=shape(2),
+                 weight=[2, 3],
+                 bias=[2],
                 ),
             )"""
         )
         assert str(sequential_network) == expected_str
+
+    def test_invalid_mixed_input(self):
+        with pytest.raises(ValueError, match="Cannot mix dictionaries and individual modules in Sequential"):
+            tp.Sequential({"layer1": tp.Linear(1, 3)}, tp.Linear(3, 2))
+
+
+class TestDictSequential:
+    def test_basic_structure(self, dict_sequential_network):
+        assert len(dict_sequential_network) == 2
+        assert isinstance(dict_sequential_network["layer1"], tp.Linear)
+        assert isinstance(dict_sequential_network["layer2"], tp.Linear)
+
+    def test_named_children(self, dict_sequential_network):
+        expected_names = [("layer1", dict_sequential_network["layer1"]), ("layer2", dict_sequential_network["layer2"])]
+        assert list(dict_sequential_network.named_children()) == expected_names
+
+    def test_forward_pass(self, dict_sequential_network):
+        input_data = tp.Tensor([[1.0]])
+        output = dict_sequential_network(input_data)
+        assert output.shape == [1, 2]
+
+    def test_state_dict(self, dict_sequential_network):
+        state_dict = dict_sequential_network.state_dict()
+        expected_keys = ["layer1.weight", "layer1.bias", "layer2.weight", "layer2.bias"]
+        assert list(state_dict.keys()) == expected_keys
+
+    def test_load_state_dict(self, dict_sequential_network):
+        new_state_dict = {
+            "layer1.weight": tp.Parameter(tp.ones((3, 1))),
+            "layer1.bias": tp.Parameter(tp.zeros((3,))),
+            "layer2.weight": tp.Parameter(tp.ones((2, 3))),
+            "layer2.bias": tp.Parameter(tp.zeros((2,))),
+        }
+        dict_sequential_network.load_state_dict(new_state_dict)
+        assert np.array_equal(
+            cp.from_dlpack(dict_sequential_network["layer1"].weight), cp.from_dlpack(new_state_dict["layer1.weight"])
+        )
+        assert np.array_equal(
+            cp.from_dlpack(dict_sequential_network["layer1"].bias), cp.from_dlpack(new_state_dict["layer1.bias"])
+        )
+        assert np.array_equal(
+            cp.from_dlpack(dict_sequential_network["layer2"].weight), cp.from_dlpack(new_state_dict["layer2.weight"])
+        )
+        assert np.array_equal(
+            cp.from_dlpack(dict_sequential_network["layer2"].bias), cp.from_dlpack(new_state_dict["layer2.bias"])
+        )
+
+    def test_modify_parameters(self, dict_sequential_network):
+        new_weight = tp.Parameter(tp.ones((2, 3)))
+        dict_sequential_network["layer2"].weight = new_weight
+        assert dict_sequential_network["layer2"].weight is new_weight
+
+    def test_str_representation(self, dict_sequential_network):
+        expected_str = dedent(
+            """\
+            Sequential(
+              layer1=
+                Linear(
+                 weight=[3, 1],
+                 bias=[3],
+                ),
+              layer2=
+                Linear(
+                 weight=[2, 3],
+                 bias=[2],
+                ),
+            )"""
+        )
+        assert str(dict_sequential_network) == expected_str
 
 
 class TestNestedSequential:
@@ -122,20 +207,20 @@ class TestNestedSequential:
             Sequential(
               0=
                 Linear(
-                 weight=shape(4, 2),
-                 bias=shape(4),
+                 weight=[4, 2],
+                 bias=[4],
                 ),
               1=
                 Sequential(
                   0=
                     Linear(
-                     weight=shape(3, 4),
-                     bias=shape(3),
+                     weight=[3, 4],
+                     bias=[3],
                     ),
                   1=
                     Linear(
-                     weight=shape(1, 3),
-                     bias=shape(1),
+                     weight=[1, 3],
+                     bias=[1],
                     ),
                 ),
             )"""
