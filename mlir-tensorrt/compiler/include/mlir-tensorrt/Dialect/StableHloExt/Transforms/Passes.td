@@ -23,6 +23,19 @@
 include "mlir/Pass/PassBase.td"
 
 //===----------------------------------------------------------------------===//
+// StablehloRaiseQDQPass
+//===----------------------------------------------------------------------===//
+
+def StablehloRaiseQDQPass : Pass<"stablehlo-raise-qdq"> {
+  let summary = "Recognizes Q(quantize) and DQ(dequantize) patterns in the StableHLO IR";
+  let description = [{
+    This pass matches Q(quantize) and DQ(dequantize) patterns in the StableHLO
+    IR and raises these patterns to `stablehlo.composite` op where
+    decomposition is a private function implementing Q or DQ.
+  }];
+}
+
+//===----------------------------------------------------------------------===//
 // ConstantFoldingPass
 //===----------------------------------------------------------------------===//
 
@@ -131,7 +144,7 @@ def CanonicalizeDotGeneralPass : Pass<"stablehlo-canonicalize-dot-general"> {
 // CanonicalizeGatherPass
 //===----------------------------------------------------------------------===//
 
-def CanonicalizeGatherPass : Pass<"stablehlo-ext-canonicalize-gather", "func::FuncOp"> {
+def CanonicalizeGatherPass : Pass<"stablehlo-ext-canonicalize-gather"> {
   let summary = "Rewrites gather into transposes, reshapes and a simple gather.";
   let dependentDialects = ["::mlir::tensor::TensorDialect"];
 }
@@ -154,7 +167,7 @@ def ExpandTuplesPass : Pass<"stablehlo-ext-expand-tuples", "ModuleOp"> {
 // CanonicalizeScatterPass
 //===----------------------------------------------------------------------===//
 
-def CanonicalizeScatterPass : Pass<"stablehlo-ext-canonicalize-scatter", "func::FuncOp"> {
+def CanonicalizeScatterPass : Pass<"stablehlo-ext-canonicalize-scatter"> {
   let summary = "Rewrites scatter into transposes, reshapes and a simple scatter.";
   let dependentDialects = ["stablehlo::StablehloDialect", "tensor::TensorDialect"];
 }
@@ -186,6 +199,35 @@ def LowerSpecialCustomCalls : Pass<"stablehlo-ext-lower-special-custom-calls"> {
        cases.
   }];
   let dependentDialects = ["::mlir::chlo::ChloDialect"];
+}
+
+//===----------------------------------------------------------------------===//
+// StablehloInputPreprocessingPass
+//===----------------------------------------------------------------------===//
+
+def StablehloInputPreprocessingPass : Pass<"tensorrt-stablehlo-input-preprocessing"> {
+  let summary = "Prepares Stable HLO dialect operations for conversion to TensorRT";
+
+  let description = [{
+   This pass contains a set of patterns for simplifying or transforming Stable HLO
+   input IR so that conversion to the TensorRT dialect is more straightforward.
+
+   In particular:
+
+    - Simplify certain patterns commonly found in IR emitted for JAX programs
+      but not covered by existing Stable HLO canonicalizations/transforms.
+
+    - Prepare convolutions to be NCHW/FCRS format and have at least two
+      "spatial" dimensions.
+
+    - Canonicalize `stablehlo.scatter` operations so that they can be converted to
+      `tensorrt.scatter` in a straightforward manner.
+  }];
+
+  let dependentDialects = [
+    "::mlir::tensor::TensorDialect",
+    "::mlir::stablehlo::StablehloDialect"
+  ];
 }
 
 

@@ -16,7 +16,7 @@ func.func @small_weights() -> tensor<4x4xf32> {
 
 //  CHECK-LABEL: small_weights
 //   CHECK-NEXT: %[[v0:.+]] = stablehlo.constant dense<2> : tensor<4x4xi4>
-//   CHECK-NEXT: %[[v1:.+]] = stablehlo.composite "tensorrt.block_dq" %[[v0]] {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<{{\[}}[5.000000e-01, 6.000000e-01, 0.699999988, 8.000000e-01], [5.000000e-01, 6.000000e-01, 0.699999988, 8.000000e-01]{{\]}}> : tensor<2x4xf32>}, decomposition = @block_dq} : (tensor<4x4xi4>) -> tensor<4x4xf32>
+//   CHECK-NEXT: %[[v1:.+]] = stablehlo.composite "tensorrt.block_dq" %[[v0]] {composite_attributes = {axis = -1 : i32, scale = dense<{{\[}}[5.000000e-01, 6.000000e-01, 0.699999988, 8.000000e-01], [5.000000e-01, 6.000000e-01, 0.699999988, 8.000000e-01]{{\]}}> : tensor<2x4xf32>}, decomposition = @block_dq} : (tensor<4x4xi4>) -> tensor<4x4xf32>
 //   CHECK-NEXT: return %[[v1]] : tensor<4x4xf32>
 //  CHECK-LABEL: private @block_dq
 //   CHECK-SAME: (%[[arg0:.+]]: tensor<4x4xi4>)
@@ -44,7 +44,7 @@ func.func @large_weights() -> tensor<258x256xf32> {
 
 //  CHECK-LABEL: large_weights
 //   CHECK-NEXT: %[[v0:.+]] = stablehlo.constant dense_resource<__elided__> : tensor<258x256xi4>
-//   CHECK-NEXT: %[[v1:.+]] = stablehlo.composite "tensorrt.block_dq" %[[v0]] {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense_resource<__elided__> : tensor<2x256xf32>}, decomposition = @block_dq} : (tensor<258x256xi4>) -> tensor<258x256xf32>
+//   CHECK-NEXT: %[[v1:.+]] = stablehlo.composite "tensorrt.block_dq" %[[v0]] {composite_attributes = {axis = -1 : i32, scale = dense_resource<__elided__> : tensor<2x256xf32>}, decomposition = @block_dq} : (tensor<258x256xi4>) -> tensor<258x256xf32>
 //   CHECK-NEXT: return %[[v1]] : tensor<258x256xf32>
 //  CHECK-LABEL: private @block_dq
 //   CHECK-SAME: attributes {plan.decomposition}

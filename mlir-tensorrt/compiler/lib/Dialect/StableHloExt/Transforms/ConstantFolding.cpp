@@ -24,6 +24,7 @@
 #include "mlir-tensorrt-dialect/Utils/ConstantFoldUtils.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt-dialect/Utils/StaticValueUtils.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/Utils.h"
 #include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -984,13 +985,25 @@ struct FixInvalidReturnWorkaround : public OpRewritePattern<func::ReturnOp> {
 /// Fold `stablehlo.op(..., tensor.cast(x)... )` to `stablehlo.op(..., x, ...)`
 /// if the cast is a generalizing cast (it is removing some static dims of the
 /// type of  `x` and replacing them with dynamic dimensions).
-template <typename OpType>
-struct AbsorbTensorCastProducer : public OpRewritePattern<OpType> {
-  using OpRewritePattern<OpType>::OpRewritePattern;
+struct AbsorbTensorCastProducer : public RewritePattern {
+  AbsorbTensorCastProducer(MLIRContext *ctx, PatternBenefit benefit = 1)
+      : RewritePattern(MatchAnyOpTypeTag{}, benefit, ctx) {}
 
-  LogicalResult matchAndRewrite(OpType op,
+  LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
-    auto hasGeneralizingCast = [](Value value) -> tensor::CastOp {
+    if (!isa<stablehlo::StablehloDialect>(op->getDialect()) ||
+        // Composite op types cannot be refined in-place.
+        isa<stablehlo::CompositeOp>(op))
+      return failure();
+
+    // For each operand, try to absorb the cast operation. For most StableHLO
+    // ops, this is legal, but for some operations that have additional
+    // constraints, the legality of this depends on which operand is being
+    // refined.
+    auto hasGeneralizingCast = [](OpOperand &operand) -> tensor::CastOp {
+      if (!canUpdateTypeWithoutCast(operand))
+        return nullptr;
+      Value value = operand.get();
       auto rtt = cast<RankedTensorType>(value.getType());
       auto castOp = value.getDefiningOp<tensor::CastOp>();
       if (!castOp)
@@ -1005,19 +1018,25 @@ struct AbsorbTensorCastProducer : public OpRewritePattern<OpType> {
     };
     bool changed = false;
     SmallVector<Value> newInputs;
-    for (Value v : op->getOperands()) {
+    for (OpOperand &v : op->getOpOperands()) {
       auto castOp = hasGeneralizingCast(v);
       changed |= castOp != nullptr;
-      newInputs.push_back(castOp ? castOp.getOperand() : v);
+      newInputs.push_back(castOp ? castOp.getOperand() : v.get());
     }
     if (!changed)
       return failure();
-    rewriter.modifyOpInPlace(
-        op, [&]() { op.getInputsMutable().assign(newInputs); });
+    rewriter.modifyOpInPlace(op, [&]() { op->setOperands(newInputs); });
     return success();
   }
 };
+} // namespace
 
+void stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(
+    RewritePatternSet &patterns) {
+  patterns.add<AbsorbTensorCastProducer>(patterns.getContext());
+}
+
+namespace {
 class ConstantFoldingPass
     : public stablehlo_ext::impl::ConstantFoldingPassBase<ConstantFoldingPass> {
 public:
@@ -1029,7 +1048,6 @@ public:
     RewritePatternSet patterns(ctx);
     // clang-format off
     patterns.insert<
-        AbsorbTensorCastProducer<ConcatenateOp>,
         BroadcastInDimOpCanon,
         CanonicalizeIotaToUnitRank,
         CombineConsecutiveTranspose,
@@ -1056,6 +1074,7 @@ public:
         SqrtOpFolder
       >(ctx);
     // clang-format on
+    populateStableHloAbsorbTensorCastPatterns(patterns);
     stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
     tensor::EmptyOp::getCanonicalizationPatterns(patterns, ctx);
     tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);

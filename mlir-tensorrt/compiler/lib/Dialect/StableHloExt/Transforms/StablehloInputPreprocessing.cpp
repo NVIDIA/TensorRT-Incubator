@@ -22,10 +22,8 @@
 /// it for conversion to the TensorRT dialect.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt-dialect/Utils/ConstantFoldUtils.h"
-#include "mlir-tensorrt/Transforms/Passes.h"
-#include "mlir-tensorrt/Transforms/StablehloInputPreprocessing/StablehloPrepareConvolution.h"
-#include "mlir-tensorrt/Transforms/StablehloInputPreprocessing/StablehloPrepareScatter.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/SCF/Transforms/Transforms.h"
@@ -37,20 +35,14 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
-#include "stablehlo/dialect/TypeInference.h"
-#include "stablehlo/transforms/Passes.h"
-#include "stablehlo/transforms/StablehloRefineShapes.h"
-#include "llvm/Support/Debug.h"
 
-#define DEBUG_TYPE "tensorrt-stablehlo-input-preprocessing"
-#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
-
-namespace mlir {
+namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_STABLEHLOINPUTPREPROCESSINGPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h.inc"
+} // namespace mlir::stablehlo_ext
 
 using namespace mlir;
+using namespace mlir::stablehlo;
 
 namespace {
 /// Fold trivial `stablehlo.logical_shift_right` when the shift has a greater
@@ -186,7 +178,7 @@ struct ConvertErfInvOpToStablehlo final : OpRewritePattern<chlo::ErfInvOp> {
 };
 
 class StablehloInputPreprocessing
-    : public mlir::impl::StablehloInputPreprocessingPassBase<
+    : public mlir::stablehlo_ext::impl::StablehloInputPreprocessingPassBase<
           StablehloInputPreprocessing> {
   using Base::Base;
 
@@ -196,9 +188,8 @@ class StablehloInputPreprocessing
     RewritePatternSet patterns(ctx);
     patterns.insert<StablehloRewriteTrivialLogicalRightShift,
                     ConvertErfInvOpToStablehlo>(ctx);
-    tensorrt::populateCanonicalizeStablehloConvolutionForTensorRTPatterns(
-        patterns);
-    tensorrt::populateCanonicalizeStablehloScatterForTensorRTPatterns(patterns);
+    stablehlo_ext::populateCanonicalizeStablehloConvolutionPatterns(patterns);
+    stablehlo_ext::populateCanonicalizeStablehloScatterPatterns(patterns);
     if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
       emitError(op->getLoc()) << "failed to run patterns in " << getArgument();
       return signalPassFailure();

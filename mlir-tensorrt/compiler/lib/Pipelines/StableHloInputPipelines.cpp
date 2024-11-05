@@ -35,7 +35,7 @@ static void buildStableHloSimplificationPipeline(OpPassManager &pm,
   // since the pattern is based on specific frontend patterns (e.g. JAX).
   pm.addPass(stablehlo_ext::createExpandTuplesPass());
   pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
-  pm.addPass(mlir::createStablehloRaiseQDQPass());
+  pm.addPass(stablehlo_ext::createStablehloRaiseQDQPass());
   pm.addPass(stablehlo_ext::createConstantFoldingPass());
   pm.addPass(stablehlo_ext::createGatherToSlicePass());
   pm.addPass(stablehlo_ext::createCanonicalizeShapesPass());
@@ -66,7 +66,8 @@ void mlir::buildStablehloPreProcessingPipeline(
   // Simplify StableHLO graph
   buildStableHloSimplificationPipeline(pm, opts.convertChloToStablehlo);
   pm.addPass(createCSEPass());
-  pm.addNestedPass<func::FuncOp>(mlir::createStablehloInputPreprocessingPass());
+  pm.addNestedPass<func::FuncOp>(
+      stablehlo_ext::createStablehloInputPreprocessingPass());
   if (opts.legalizeControlFlowToSCF)
     pm.addPass(mlir::createConvertStablehloToScfPass());
   pm.addPass(createCSEPass());

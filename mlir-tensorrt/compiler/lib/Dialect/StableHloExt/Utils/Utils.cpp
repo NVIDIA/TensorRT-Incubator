@@ -24,43 +24,53 @@ using namespace mlir;
 using namespace mlir::stablehlo;
 
 bool stablehlo::canUpdateTypeWithoutCast(
-    Value result, const std::function<bool(Operation *)> &isCustomOp) {
-  return llvm::all_of(result.getUsers(), [&](Operation *consumer) {
-    // There is one limitation to StableHlo ops being updated in place:
-    // all operations that accept shape tensor argument should have shape tensor
-    // with known rank.
+    OpOperand &use, const std::function<bool(OpOperand &)> &otherCases) {
+  Operation *consumer = use.getOwner();
+  Value value = use.get();
+  // There is one limitation to StableHlo ops being updated in place:
+  // all operations that accept shape tensor argument should have shape tensor
+  // with known rank.
+  if (isa<stablehlo::CompositeOp>(consumer))
+    return false;
 
-    if (auto iotaOp = dyn_cast<stablehlo::DynamicIotaOp>(consumer))
-      return false; // shape tensor is the only argument for iotaOp, always
-                    // insert a cast op.
+  if (auto iotaOp = dyn_cast<stablehlo::DynamicIotaOp>(consumer))
+    return false; // shape tensor is the only argument for iotaOp, always
+                  // insert a cast op.
 
-    if (auto sliceOp = dyn_cast<stablehlo::DynamicSliceOp>(consumer))
-      return sliceOp.getOperand() == result;
+  if (auto sliceOp = dyn_cast<stablehlo::DynamicSliceOp>(consumer))
+    return sliceOp.getOperand() == value;
 
-    if (auto dynamicUpdateSliceOp =
-            dyn_cast<stablehlo::DynamicUpdateSliceOp>(consumer))
-      return dynamicUpdateSliceOp.getOperand() == result;
+  if (auto dynamicUpdateSliceOp =
+          dyn_cast<stablehlo::DynamicUpdateSliceOp>(consumer))
+    return dynamicUpdateSliceOp.getOperand() == value;
 
-    if (auto dynamicBroadcastInDimOp =
-            dyn_cast<stablehlo::DynamicBroadcastInDimOp>(consumer))
-      return dynamicBroadcastInDimOp.getOperand() == result;
+  if (auto dynamicBroadcastInDimOp =
+          dyn_cast<stablehlo::DynamicBroadcastInDimOp>(consumer))
+    return dynamicBroadcastInDimOp.getOperand() == value;
 
-    if (auto reshapeOp = dyn_cast<stablehlo::DynamicReshapeOp>(consumer))
-      return reshapeOp.getOperand() == result;
+  if (auto reshapeOp = dyn_cast<stablehlo::DynamicReshapeOp>(consumer))
+    return reshapeOp.getOperand() == value;
 
-    if (auto sliceOp = dyn_cast<stablehlo::RealDynamicSliceOp>(consumer))
-      return sliceOp.getOperand().getType() == result.getType();
+  if (auto sliceOp = dyn_cast<stablehlo::RealDynamicSliceOp>(consumer))
+    return sliceOp.getOperand().getType() == value.getType();
 
-    if (auto padOp = dyn_cast<stablehlo::DynamicPadOp>(consumer))
-      return padOp.getOperand() == result;
+  if (auto padOp = dyn_cast<stablehlo::DynamicPadOp>(consumer))
+    return padOp.getOperand() == value;
 
-    if (auto gatherOp = dyn_cast<stablehlo::DynamicGatherOp>(consumer))
-      return gatherOp.getOperand() == result;
+  if (auto gatherOp = dyn_cast<stablehlo::DynamicGatherOp>(consumer))
+    return gatherOp.getOperand() == value;
 
-    if (auto convOp = dyn_cast<stablehlo::DynamicConvOp>(consumer))
-      return convOp.getOperand(0) == result;
+  if (auto convOp = dyn_cast<stablehlo::DynamicConvOp>(consumer))
+    return convOp.getOperand(0) == value;
 
-    return isa<stablehlo::StablehloDialect>(consumer->getDialect()) ||
-           isCustomOp(consumer);
+  return isa<stablehlo::StablehloDialect>(consumer->getDialect()) ||
+         (otherCases && otherCases(use));
+}
+
+bool stablehlo::canUpdateTypeWithoutCast(
+    Value result, const std::function<bool(Operation *)> &otherCases) {
+  return llvm::all_of(result.getUses(), [&](OpOperand &use) {
+    return canUpdateTypeWithoutCast(use) ||
+           (otherCases && otherCases(use.getOwner()));
   });
 }

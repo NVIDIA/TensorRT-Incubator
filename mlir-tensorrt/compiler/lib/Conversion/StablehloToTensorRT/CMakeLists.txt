@@ -9,12 +9,13 @@ add_mlir_tensorrt_library(MLIRTensorRTStablehloToTensorRT
 
   LINK_LIBS PUBLIC
   ChloOps
+  MLIRArithDialect
   MLIRFuncTransforms
   MLIRQuantDialect
   MLIRRewrite
   MLIRTensorRTConvertToTensorRTCommon
   MLIRTensorRTDialect
-  MLIRTensorRTStablehloInputPreprocessing
+  MLIRTensorRTStableHloExtUtils
   MLIRTensorRTStablehloMatchers
   MLIRTensorRTTensorRTUtils
   MLIRTransforms
