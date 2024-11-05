@@ -73,29 +73,22 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
 
     arg.stack_info.fetch_source_code()
 
-    # This is the stack depth in arg.stack_info where we find the decorated function.
+    # Look for a call to a registered function, since the decorator is intended only for front-end API methods,
+    # which appear in the registry (e.g., via @export.public_api). By looking for a registered function instead
+    # of just the decorated one, this supports cases like slice_helper, where the decorated function
+    # is used *inside* the registered function that would be called by the user (the decorated function would come
+    # before the user code in the stack).
+    #
+    # Also save the last dispatch target we see.
+    REGISTRY_STACK_DEPTH = 0
     for idx, source_info in enumerate(arg.stack_info):
-        if source_info.function == "wrapper" and source_info.module == __name__:
-            WRAPPER_STACK_DEPTH = idx + 1
+        if source_info.module == function_registry.__name__:
+            REGISTRY_STACK_DEPTH = idx + 1
             break
     else:
         assert (
             False
-        ), "`wrapper` function was not found in the call stack. Please update the check above if the name of the wrapper function has changed."
-
-    # Find the first caller of this function that is NOT the function registry.
-    # Also save the last dispatch target we see.
-
-    # Start from the registry. It will always be present except for tests,
-    # since the decorator is intended only for overrides of magic functions.
-    # This check supports cases like slice_helper, where the decorated function
-    # is used *inside* the override and hence the wrapped call would come *before*
-    # the call from the registry.
-    REGISTRY_STACK_DEPTH = WRAPPER_STACK_DEPTH
-    for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH:]):
-        if source_info.module == function_registry.__name__:
-            REGISTRY_STACK_DEPTH = WRAPPER_STACK_DEPTH + idx
-            break
+        ), "No call to the function registry was found in the call stack. Please update the check above if the name of the registry has changed."
 
     dispatch_target = None
     for idx, source_info in enumerate(arg.stack_info[REGISTRY_STACK_DEPTH:]):

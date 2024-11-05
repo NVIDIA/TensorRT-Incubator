@@ -141,5 +141,6 @@ def get_module_names_to_exclude_from_stack_info():
     """
     import tripy.function_registry
     import tripy.constraints
+    import tripy.frontend.utils
 
-    return {mod.__name__ for mod in [tripy.function_registry, tripy.constraints]}
+    return {mod.__name__ for mod in [tripy.function_registry, tripy.constraints, tripy.frontend.utils]}

@@ -21,6 +21,7 @@ from tests import helper
 import tripy as tp
 from tripy import constraints
 from tripy.frontend.utils import convert_to_tensors, tensor_from_shape_like
+from tripy.function_registry import FunctionRegistry
 
 
 @pytest.mark.parametrize(
@@ -39,8 +40,17 @@ def test_tensor_from_shape_like(shape, expected):
     assert tensor.tolist() == expected
 
 
+# For adding column info, the decorator assumes that the function registry will be in the call stack.
+# Since we normally expect to use the decorator with overrides of public API calls, this assumption
+# is generally reasonable, but it requires us to have to register the test methods here as well.
+@pytest.fixture()
+def registry():
+    yield FunctionRegistry()
+
+
 class TestConvertToTensors:
-    def test_no_effect_on_non_tensor_likes(self):
+    def test_no_effect_on_non_tensor_likes(self, registry):
+        @registry("func")
         @convert_to_tensors()
         def func(a: tp.Tensor, b: int):
             return a, b
@@ -51,7 +61,8 @@ class TestConvertToTensors:
         assert a is original_a
         assert b is 4
 
-    def test_tensor_likes(self):
+    def test_tensor_likes(self, registry):
+        @registry("func")
         @convert_to_tensors()
         def func(a: tp.types.TensorLike):
             return a
@@ -59,10 +70,11 @@ class TestConvertToTensors:
         a = func(1.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[2].column_range == (17, 20)
+        assert a.stack_info[4].column_range == (17, 20)
 
-    def test_converts_to_dimension_size(self):
+    def test_converts_to_dimension_size(self, registry):
         # The decorator should convert to DimensionSizes when possible.
+        @registry("func")
         @convert_to_tensors()
         def func(a: tp.types.TensorLike):
             return a
@@ -74,7 +86,8 @@ class TestConvertToTensors:
         a = func(1.0)
         assert type(a) is tp.Tensor
 
-    def test_shape_likes(self):
+    def test_shape_likes(self, registry):
+        @registry("func")
         @convert_to_tensors()
         def func(a: tp.types.ShapeLike):
             return a
@@ -95,7 +108,8 @@ class TestConvertToTensors:
         assert a.shape == [4]
         assert bool(tp.all(a == tp.Tensor([2, 2, 3, 5])))
 
-    def test_keyword_args(self):
+    def test_keyword_args(self, registry):
+        @registry("func")
         @convert_to_tensors()
         def func(a: tp.types.TensorLike):
             return a
@@ -103,9 +117,10 @@ class TestConvertToTensors:
         a = func(a=1.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[2].column_range == (17, 22)
+        assert a.stack_info[4].column_range == (17, 22)
 
-    def test_multiple_args(self):
+    def test_multiple_args(self, registry):
+        @registry("func")
         @convert_to_tensors()
         def func(a: tp.types.TensorLike, b: tp.types.TensorLike):
             return a, b
@@ -113,12 +128,13 @@ class TestConvertToTensors:
         a, b = func(1.0, 2.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[2].column_range == (20, 23)
+        assert a.stack_info[4].column_range == (20, 23)
 
         assert isinstance(b, tp.Tensor)
-        assert b.stack_info[2].column_range == (25, 28)
+        assert b.stack_info[4].column_range == (25, 28)
 
-    def test_args_out_of_order(self):
+    def test_args_out_of_order(self, registry):
+        @registry("func")
         @convert_to_tensors()
         def func(a: tp.types.TensorLike, b: tp.types.TensorLike):
             return a, b
@@ -126,15 +142,16 @@ class TestConvertToTensors:
         a, b = func(b=1.0, a=2.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[2].column_range == (27, 32)
+        assert a.stack_info[4].column_range == (27, 32)
         assert a.tolist() == 2.0
 
         assert isinstance(b, tp.Tensor)
-        assert b.stack_info[2].column_range == (20, 25)
+        assert b.stack_info[4].column_range == (20, 25)
         assert b.tolist() == 1.0
 
-    def test_cast_dtype(self):
+    def test_cast_dtype(self, registry):
         # When type constraints are included, the decorator should automatically cast when possible.
+        @registry("func")
         @convert_to_tensors()
         @constraints.dtypes(
             constraints={"a": "T1", "b": "T1", constraints.RETURN_VALUE: "T1"},
@@ -154,7 +171,8 @@ class TestConvertToTensors:
         assert b.dtype == tp.float16
 
     @pytest.mark.parametrize("arg, dtype", [(1.0, tp.int32), (1.0, tp.int64), (2, tp.bool)])
-    def test_refuse_unsafe_cast(self, arg, dtype):
+    def test_refuse_unsafe_cast(self, arg, dtype, registry):
+        @registry("func")
         @convert_to_tensors()
         @constraints.dtypes(
             constraints={"a": "T1", "b": "T1", constraints.RETURN_VALUE: "T1"},
@@ -166,11 +184,12 @@ class TestConvertToTensors:
         with helper.raises(tp.TripyException, "Refusing to automatically cast"):
             func(tp.Tensor([1, 2], dtype=dtype), arg)
 
-    def test_preprocess_args(self):
+    def test_preprocess_args(self, registry):
 
         def add_a_to_b(a, b):
             return {"b": a + b}
 
+        @registry("func")
         @convert_to_tensors(preprocess_args=add_a_to_b)
         def func(a: tp.types.TensorLike, b: tp.types.TensorLike):
             return a, b
