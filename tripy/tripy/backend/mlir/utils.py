@@ -56,10 +56,6 @@ class MLIRRuntimeClient:
         return cls._instance.context
 
 
-def get_max_upper_bounds():
-    return sys.maxsize
-
-
 def make_ir_context() -> ir.Context:
     ctx = MLIRContext()
     ctx.enable_multithreading(False)
@@ -149,10 +145,6 @@ def check_tensor_type_and_suggest_contiguous(obj):
         return "CuPy Array", "cp.ascontiguousarray(array) or array.copy(order='C')"
     else:
         return None, None
-
-
-def remove_sym_attr(mlir_text: str) -> str:
-    return re.sub(r"module @\S+ {", "module {", mlir_text)
 
 
 UNKNOWN_LOC = "unknown"
