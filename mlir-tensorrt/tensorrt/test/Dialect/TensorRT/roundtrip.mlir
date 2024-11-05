@@ -191,6 +191,33 @@ func.func @trt_convolution(%arg0: tensor<?x32x128x128xf32>, %arg1: tensor<64x32x
 
 // -----
 
+func.func @trt_convolution_dynamic_input(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<64x32x3x3xf32>) -> tensor<?x64x128x128xf32> {
+  %0 = tensorrt.convolution {
+    stride = array<i64: 1, 1>,
+    pre_padding = array<i64: 1, 1>,
+    post_padding = array<i64: 1, 1>
+  } in(%arg0 : tensor<?x?x?x?xf32>) kernel(%arg1: tensor<64x32x3x3xf32>) -> tensor<?x64x128x128xf32>
+  return %0 : tensor<?x64x128x128xf32>
+}
+// CHECK-LABEL: @trt_convolution_dynamic_input
+//       CHECK: tensorrt.convolution
+
+// -----
+
+func.func @trt_convolution_all_dynamic(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>, %arg2: tensor<4xf32>) -> tensor<?x?x128x128xf32> {
+  %0 = tensorrt.convolution {
+    stride = array<i64: 1, 1>,
+    pre_padding = array<i64: 1, 1>,
+    post_padding = array<i64: 1, 1>
+  } in(%arg0 : tensor<?x?x?x?xf32>) kernel(%arg1: tensor<?x?x?x?xf32>) bias(%arg2: tensor<4xf32>) -> tensor<?x?x128x128xf32>
+  return %0 : tensor<?x?x128x128xf32>
+}
+// CHECK-LABEL: @trt_convolution_all_dynamic
+//       CHECK: tensorrt.convolution
+
+
+// -----
+
 // Positive test for `tensorrt.activation`. Input is ranked tensor with unknown dimensions
 func.func @trt_activation(%arg0: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
   %0 = tensorrt.activation {

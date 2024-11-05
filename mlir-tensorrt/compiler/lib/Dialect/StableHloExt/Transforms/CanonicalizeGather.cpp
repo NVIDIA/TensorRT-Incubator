@@ -121,11 +121,12 @@ struct CanonicalizeGather : public OpRewritePattern<GatherOp> {
 
   LogicalResult matchAndRewrite(GatherOp gatherOp,
                                 PatternRewriter &rewriter) const override {
-    if (isCanonicalGather(gatherOp) ||
-        isSingleDimSimpleGatherWithExplicitIndexDim(gatherOp) ||
-        isSingleDimSimpleGatherWithImplicitIndexDim(gatherOp) ||
-        isSimpleLeadingMultiDimGather(gatherOp) ||
-        isSimpleLeadingMultiDimGatherWithDegenerateDims(gatherOp))
+    if (stablehlo_ext::isCanonicalGather(gatherOp) ||
+        stablehlo_ext::isSingleDimSimpleGatherWithExplicitIndexDim(gatherOp) ||
+        stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(gatherOp) ||
+        stablehlo_ext::isSimpleLeadingMultiDimGather(gatherOp) ||
+        stablehlo_ext::isSimpleLeadingMultiDimGatherWithDegenerateDims(
+            gatherOp))
       return failure();
     Location loc = gatherOp.getLoc();
 
@@ -146,11 +147,12 @@ struct CanonicalizeGather : public OpRewritePattern<GatherOp> {
 
     // Make the operand conform to start_index_map.
     auto [operandPermutation, operandPermutationInverse] =
-        makeOperandStartIndexPermutations(dims.getStartIndexMap(), operandRank);
+        stablehlo_ext::makeOperandStartIndexPermutations(
+            dims.getStartIndexMap(), operandRank);
 
     Value operand = rewriter.create<TransposeOp>(loc, gatherOp.getOperand(),
                                                  operandPermutation);
-    auto startIndices = canonicalizeStartIndices(
+    auto startIndices = stablehlo_ext::canonicalizeStartIndices(
         rewriter, loc, gatherOp.getStartIndices(), dims.getIndexVectorDim());
 
     // Permute the slice sizes according to start_index_map and compute the new

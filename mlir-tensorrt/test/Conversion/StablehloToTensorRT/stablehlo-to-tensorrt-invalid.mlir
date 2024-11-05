@@ -80,7 +80,7 @@ func.func @hlo_sort_invalid() -> tensor<4000xi32> {
 func.func @large_weight() -> tensor<258x256xf32> {
   %c = stablehlo.constant dense_resource<__elided__> : tensor<258x256xi4>
   // expected-error @below {{failed to legalize operation 'stablehlo.composite' that was explicitly marked illegal}}
-  %0 = stablehlo.composite "tensorrt.block_dq" %c {composite_attributes = {is_pointwise, scale = dense_resource<__elided__> : tensor<2x256xf32>}, decomposition = @block_dq} : (tensor<258x256xi4>) -> tensor<258x256xf32>
+  %0 = stablehlo.composite "tensorrt.block_dq" %c {composite_attributes = {scale = dense_resource<__elided__> : tensor<2x256xf32>}, decomposition = @block_dq} : (tensor<258x256xi4>) -> tensor<258x256xf32>
   return %0 : tensor<258x256xf32>
 }
 func.func private @block_dq(%arg0: tensor<258x256xi4>) -> tensor<258x256xf32> attributes {plan.decomposition} {
