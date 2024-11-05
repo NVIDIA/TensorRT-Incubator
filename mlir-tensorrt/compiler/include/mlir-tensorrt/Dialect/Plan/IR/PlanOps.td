@@ -293,13 +293,13 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
   `plan.inline_closed_group` operation that does not use destination-passing style
   (DPS). It is isolated from above and explicitly captures input operands, but unlike
   its DPS counterpart, it does not capture destination operands because its results must
-  be lowered to allocation(s). The allocations may or may not be of a size that can only 
+  be lowered to allocation(s). The allocations may or may not be of a size that can only
   be computed inside of the region.
-  This operation takes input operands and their corresponding bounds attributes, 
-  and produces results. The `input_attrs` hold bounds attribute information for 
+  This operation takes input operands and their corresponding bounds attributes,
+  and produces results. The `input_attrs` hold bounds attribute information for
   the input operands. The absence of bounds information is allowed (`none` bounds).
 
-  The `target` attribute specifies the execution target for the group.    
+  The `target` attribute specifies the execution target for the group.
 
   #### Example
 
@@ -337,7 +337,7 @@ def Plan_InlineClosedAllocGroupOp : Plan_InlineClosedGroupBase<"inline_closed_al
   let skipDefaultBuilders = 1;
 
   let builders = [
-    OpBuilder<(ins "TypeRange":$results, 
+    OpBuilder<(ins "TypeRange":$results,
                    "Attribute":$target,
                    "ValueRange":$inputs,
                    CArg<"ArrayRef<BoundsAttr>", "{}">:$input_attrs)>,
@@ -465,7 +465,7 @@ def Plan_ConstraintOp : Plan_Op<"constraint", [Pure]>{
   let summary =
     "Used for applying constraints to its memref operand using attributes.";
   let description = [{
-   This op is used to apply constraints to its memref operand using the 
+   This op is used to apply constraints to its memref operand using the
    attributes associated for dimension analysis passes.
   }];
 

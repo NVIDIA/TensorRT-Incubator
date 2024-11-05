@@ -103,6 +103,11 @@ public:
   std::pair<DenseElementsAttr, DenseElementsAttr>
   getAsElementsAttr(RankedTensorType type) const;
 
+  /// Returns DenseElementsAttr representation if the element ranges are all
+  /// constant (single-value) ranges, otherwise nullopt.
+  std::optional<DenseElementsAttr>
+  getConstantValues(RankedTensorType type) const;
+
 private:
   std::optional<SmallVector<ConstantIntRanges>> value;
 };

@@ -91,6 +91,19 @@ func.func @reshape_reshape(%arg0: tensor<10xf32>) -> tensor<1x2x5xf32> {
 
 // -----
 
+func.func @dynamic_reshape_reshape(%arg0: tensor<?xf32>, %arg1: tensor<3xi32>) -> tensor<?x4x?xf32> {
+  %0 = tensorrt.reshape %arg0 : tensor<?xf32> to tensor<?x4xf32>
+  %1 = tensorrt.reshape %0 shape(%arg1 : tensor<3xi32>) : tensor<?x4xf32> to tensor<?x4x?xf32>
+  return %1 : tensor<?x4x?xf32>
+}
+
+// CHECK-LABEL: @dynamic_reshape_reshape(
+//  CHECK-SAME:  %[[arg0:.+]]: tensor<?xf32>, %[[arg1:.+]]: tensor<3xi32>)
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.reshape %[[arg0]] shape(%[[arg1]]: tensor<3xi32>) : tensor<?xf32> to tensor<?x4x?xf32>
+//  CHECK-NEXT: return %[[v0]] :
+
+// -----
+
 func.func @reshape_noop_fold(%arg0: tensor<10xf32>) -> tensor<10xf32> {
   %0 = tensorrt.reshape %arg0 : tensor<10xf32> to tensor<10xf32>
   return %0 : tensor<10xf32>

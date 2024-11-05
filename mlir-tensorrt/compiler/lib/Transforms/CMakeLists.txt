@@ -2,8 +2,6 @@
 # depend on dialects defined in this project -- they can only depend on upstream
 # dialects.
 if(MLIR_TRT_ENABLE_HLO)
-  add_subdirectory(StablehloInputPreprocessing)
-  add_subdirectory(StablehloRaiseQDQ)
   add_subdirectory(StablehloMatchers)
 endif()
 
