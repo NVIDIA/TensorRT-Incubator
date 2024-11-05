@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730842551369,
+  "lastUpdate": 1730842725792,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -2788,6 +2788,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007122943811355846",
             "extra": "mean: 150.03702628721456 usec\nrounds: 7294"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "750eaf6443572adf55d5f581b939eea297ec327c",
+          "message": "[tripy] Sequential module feature branch",
+          "timestamp": "2024-11-05T19:06:44Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/321/commits/750eaf6443572adf55d5f581b939eea297ec327c"
+        },
+        "date": 1730842724995,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6150.558829506483,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003201227721280346",
+            "extra": "mean: 162.58685230399453 usec\nrounds: 6490"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6891.533294068448,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007080363205779684",
+            "extra": "mean: 145.1055893266454 usec\nrounds: 7459"
           }
         ]
       }
