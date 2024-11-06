@@ -156,14 +156,14 @@ class Module:
 
         return state_dict
 
-    def load_state_dict(self, state_dict: Dict[str, Parameter], strict: bool = True) -> Tuple[Set[str]]:
+    def load_state_dict(self, state_dict: Dict[str, Parameter], strict: bool = True) -> Tuple[Set[str], Set[str]]:
         r"""
         Loads parameters from the provided ``state_dict`` into the current module.
         This will recurse over any nested child modules.
 
         Args:
             state_dict: A dictionary mapping names to parameters.
-            strict: If True, keys in ``state_dict`` must exactly match those in this module, if not,
+            strict: If True, keys in ``state_dict`` must exactly match those in this module. If not,
                 an error will be raised.
 
         Returns:
@@ -215,9 +215,14 @@ class Module:
         missing_keys = expected_keys - provided_keys
         unexpected_keys = provided_keys - expected_keys
         if strict and (missing_keys or unexpected_keys):
+            details = []
+            if missing_keys:
+                details.append(f"Missing keys: {missing_keys}\n")
+            if unexpected_keys:
+                details.append(f"Unexpected keys: {unexpected_keys}")
             raise_error(
                 "state_dict is incompatible.",
-                f"Got missing keys=[{', '.join(missing_keys)}], unexpected_keys=[{', '.join(unexpected_keys)}].",
+                details,
             )
 
         for nested_attr_name, param in state_dict.items():
