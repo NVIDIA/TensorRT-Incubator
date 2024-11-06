@@ -73,28 +73,23 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
 
     arg.stack_info.fetch_source_code()
 
-    # Look for a call to a registered function, since the decorator is intended only for front-end API methods,
-    # which appear in the registry (e.g., via @export.public_api). By looking for a registered function instead
-    # of just the decorated one, this supports cases like slice_helper, where the decorated function
-    # is used *inside* the registered function that would be called by the user (the decorated function would come
-    # before the user code in the stack).
-    #
-    # Also save the last dispatch target we see.
-    REGISTRY_STACK_DEPTH = 0
+    # This is the stack depth in arg.stack_info where we find the decorated function.
     for idx, source_info in enumerate(arg.stack_info):
-        if source_info.module == function_registry.__name__:
-            REGISTRY_STACK_DEPTH = idx + 1
+        if source_info.function == "wrapper" and source_info.module == __name__:
+            WRAPPER_STACK_DEPTH = idx + 1
             break
     else:
         assert (
             False
-        ), "No call to the function registry was found in the call stack. Please update the check above if the name of the registry has changed."
+        ), "`wrapper` function was not found in the call stack. Please update the check above if the name of the wrapper function has changed."
 
+    # Find the first caller of this function that is NOT the function registry.
+    # Also save the last dispatch target we see.
     dispatch_target = None
-    for idx, source_info in enumerate(arg.stack_info[REGISTRY_STACK_DEPTH:]):
+    for idx, source_info in enumerate(arg.stack_info[WRAPPER_STACK_DEPTH:]):
         dispatch_target = source_info._dispatch_target or dispatch_target
         if source_info.module not in utils.get_module_names_to_exclude_from_stack_info():
-            frame_index = idx + REGISTRY_STACK_DEPTH
+            frame_index = idx + WRAPPER_STACK_DEPTH
             break
     else:
         # Fallback path is just to look at the user code
@@ -118,12 +113,6 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
         assert arg_index in [0, 1]
         arg_index = 0 if arg_index == 1 else 1
         dispatch_target = dispatch_target.replace("__r", "__")
-
-    # Special case for __getitem__: It is variadic. Argument 0 is the tensor,
-    # and all subsequent arguments are slice parameters (in start, stop, step order).
-    # Hence, we subtract one to get the index of the slice parameters
-    if dispatch_target == "__getitem__":
-        arg_index -= 1
 
     candidates = utils.get_arg_candidate_column_offsets(
         source_info.code, arg_index, num_positional, dispatch_target or func_name, is_kwarg, arg_names

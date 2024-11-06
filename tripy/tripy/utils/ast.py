@@ -130,12 +130,13 @@ def get_arg_candidate_column_offsets(
                 return node
 
             # If we have multiple dimensions specified, then we have a tuple of slices.
-            # Indices are given in as a list of start, stop, step
+            # NOTE: We subtract num_positional from the index because the slice arguments would
+            # be passed as *variadic arguments* to slice_helper and so would come after the positional argument
             if isinstance(node.slice, ast.Tuple):
-                element = node.slice.elts[index // 3]
-                arg_node = index_into_expr(element, index % 3)
+                element = node.slice.elts[(index - num_positional) // 3]
+                arg_node = index_into_expr(element, (index - num_positional) % 3)
             else:
-                arg_node = index_into_expr(node.slice, index)
+                arg_node = index_into_expr(node.slice, (index - num_positional))
 
         if arg_node is not None:
             candidates.append((indentation + arg_node.col_offset, indentation + arg_node.end_col_offset))

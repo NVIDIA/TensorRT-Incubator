@@ -258,4 +258,31 @@ def __getitem__(
 
 @frontend_utils.convert_to_tensors()
 def slice_helper(tensor, *slice_params: TensorLike):
+    from tripy.utils import get_arg_candidate_column_offsets
+
+    # The default behavior of convert_to_tensors will not add the correct column info to the slice params
+    # because this call occurs *inside* the overridden call to __getitem__, so we adjust the column info manually.
+    arg_names = ["tensor"] + ["slice_params"] * len(slice_params)
+    for arg_index, arg in enumerate(slice_params):
+        # Look for the call to __getitem__. We need to go one stack frame beyond to get to the *user* call of __getitem__.
+        frame_index = -1
+        for idx, source_info in enumerate(arg.stack_info):
+            if source_info._dispatch_target == "__getitem__":
+                frame_index = idx + 1
+                break
+
+        # convert_to_tensors should have taken care of this for us
+        assert frame_index >= 0, "No call to the __getitem__ dispatch found"
+
+        source_info = arg.stack_info[frame_index]
+
+        # Note: arg_index does not account for the positional arg, hence we add 1 for the index argument
+        candidates = get_arg_candidate_column_offsets(
+            source_info.code, 1 + arg_index, 1, "__getitem__", False, arg_names
+        )
+
+        # Now we can set the column range correctly
+        if len(candidates) == 1:
+            source_info.column_range = candidates[0]
+
     return Slice.build(inputs=[tensor, *slice_params])
