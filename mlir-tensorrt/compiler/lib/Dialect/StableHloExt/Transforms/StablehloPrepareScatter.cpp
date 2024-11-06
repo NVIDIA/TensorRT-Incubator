@@ -24,14 +24,10 @@
 /// `tensorrt.scatter` operation semantic.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/StablehloInputPreprocessing/StablehloPrepareScatter.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
-#include "mlir/Dialect/Utils/IndexingUtils.h"
-#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/Support/Debug.h"
 
@@ -39,6 +35,7 @@
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
 
 using namespace mlir;
+using namespace mlir::stablehlo;
 
 // Ensure that there are enough "inserted window dimensions" so that the window
 // update and the batch dims access disjoint areas of the result index space.
@@ -91,32 +88,6 @@ stablehloReshapeScatterUpdatesToAddInsertedDims(OpBuilder &b, Location loc,
   return failure();
 }
 
-bool tensorrt::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
-  if (llvm::any_of(scatterOp.getOperandTypes(), [](Type operandType) {
-        return !isa<RankedTensorType>(operandType);
-      }))
-    return false;
-  stablehlo::ScatterDimensionNumbersAttr dimsAttrs =
-      scatterOp.getScatterDimensionNumbers();
-  auto indicesType =
-      cast<RankedTensorType>(scatterOp.getScatterIndices().getType());
-  auto operandType =
-      cast<RankedTensorType>(scatterOp.getInputs().front().getType());
-  auto updateType =
-      cast<RankedTensorType>(scatterOp.getUpdates().front().getType());
-  auto isSeq = [](ArrayRef<int64_t> ar, int64_t start, int64_t end) {
-    return llvm::equal(ar, llvm::seq<int64_t>(start, end));
-  };
-  int64_t indexDepth = indicesType.getDimSize(indicesType.getRank() - 1);
-  return indicesType.getRank() == 2 && dimsAttrs.getIndexVectorDim() == 1 &&
-         isSeq(dimsAttrs.getUpdateWindowDims(), 1, updateType.getRank()) &&
-         isSeq(dimsAttrs.getScatterDimsToOperandDims(), 0,
-               indicesType.getDimSize(1)) &&
-         isSeq(dimsAttrs.getInsertedWindowDims(), 0, indexDepth) &&
-         ((operandType.getRank() - indexDepth) + (indicesType.getRank() - 1)) ==
-             updateType.getRank();
-}
-
 namespace {
 /// Simplify `stablehlo.scatter` to conform with `tensorrt.scatter`.
 struct StablehloCanonicalizeScatterToTensorRtScatterNdFormat
@@ -125,22 +96,20 @@ struct StablehloCanonicalizeScatterToTensorRtScatterNdFormat
   LogicalResult matchAndRewrite(stablehlo::ScatterOp op,
                                 PatternRewriter &rewriter) const override {
     // If we are already in canonical form, then there is nothing to do.
-    if (tensorrt::isCanonicalScatterNd(op))
+    if (stablehlo_ext::isCanonicalScatterNd(op))
       return failure();
 
     // Only proceed if we are in the StableHLO canonical form. This is covered
     // by the "stablehlo-ext-canonicalize-scatter" pass that runs before this
     // pass. All scatter ops should be in stablehlo canonical form at this
     // point.
-    if (!stablehlo::isCanonicalScatter(op))
+    if (!stablehlo_ext::isCanonicalScatter(op))
       return failure();
 
     RankedTensorType canonicalizedInputType =
         cast<RankedTensorType>(op.getInputs().front().getType());
     RankedTensorType canonicalizedIndexType =
         cast<RankedTensorType>(op.getScatterIndices().getType());
-
-    LLVM_DEBUG(DBGS() << "canonicalizing " << op << "\n");
 
     // Reshape the updates if possible.
     int64_t inputRank = canonicalizedInputType.getRank();
@@ -214,7 +183,7 @@ stablehloRewriteTensorExpandCollapseShape(OpType op,
   return success();
 }
 
-void tensorrt::populateCanonicalizeStablehloScatterForTensorRTPatterns(
+void stablehlo_ext::populateCanonicalizeStablehloScatterPatterns(
     RewritePatternSet &patterns) {
   patterns.add(
       stablehloRewriteTensorExpandCollapseShape<tensor::CollapseShapeOp>,

@@ -122,7 +122,7 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 
 // Quantize f32 -> int8
 func.func @main(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> {
-  %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
+  %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
   return %0 : tensor<2x3x300x300xi8>
 }
 func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> attributes {plan.decomposition} {
@@ -146,7 +146,7 @@ func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8
 // CHECK-LABEL: tensorrt.module @trt_engines
 // CHECK-LABEL: func.func @tensorrt_cluster
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<2x3x300x300xf32>
-//  CHECK-NEXT: %[[v0:.+]] = stablehlo.composite "tensorrt.pt_q" %[[arg0]] {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
+//  CHECK-NEXT: %[[v0:.+]] = stablehlo.composite "tensorrt.pt_q" %[[arg0]] {composite_attributes = {axis = -1 : i32, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
 //  CHECK-NEXT: return %[[v0]] : tensor<2x3x300x300xi8>
 
 // CHECK-LABEL: func.func private @pt_q

@@ -10,9 +10,11 @@
 
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "stablehlo/dialect/StablehloOps.h"
 
 using namespace mlir;
 using namespace mlir::stablehlo;
+using namespace mlir::stablehlo_ext;
 
 template <typename R>
 static bool isSeq(R &&range, int64_t start, int64_t size) {
@@ -21,7 +23,7 @@ static bool isSeq(R &&range, int64_t start, int64_t size) {
 }
 
 std::optional<int64_t>
-stablehlo::isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op) {
+stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op) {
   RankedTensorType operandType = op.getOperand().getType();
   RankedTensorType startIndicesType = op.getStartIndices().getType();
   RankedTensorType resultType = op.getType();
@@ -58,7 +60,7 @@ stablehlo::isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op) {
 }
 
 std::optional<int64_t>
-stablehlo::isSingleDimSimpleGatherWithExplicitIndexDim(GatherOp op) {
+stablehlo_ext::isSingleDimSimpleGatherWithExplicitIndexDim(GatherOp op) {
   RankedTensorType operandType = op.getOperand().getType();
   RankedTensorType startIndicesType = op.getStartIndices().getType();
   RankedTensorType resultType = op.getType();
@@ -95,7 +97,7 @@ stablehlo::isSingleDimSimpleGatherWithExplicitIndexDim(GatherOp op) {
   return dims.getStartIndexMap().front();
 }
 
-bool stablehlo::isSimpleLeadingMultiDimGather(stablehlo::GatherOp op) {
+bool stablehlo_ext::isSimpleLeadingMultiDimGather(stablehlo::GatherOp op) {
   RankedTensorType operandType = op.getOperand().getType();
   RankedTensorType indicesType = op.getStartIndices().getType();
   RankedTensorType resultType = op.getType();
@@ -142,7 +144,7 @@ bool stablehlo::isSimpleLeadingMultiDimGather(stablehlo::GatherOp op) {
   return true;
 }
 
-bool stablehlo::isSimpleLeadingMultiDimGatherWithDegenerateDims(
+bool stablehlo_ext::isSimpleLeadingMultiDimGatherWithDegenerateDims(
     stablehlo::GatherOp op) {
   RankedTensorType operandType = op.getOperand().getType();
   RankedTensorType indicesType = op.getStartIndices().getType();
@@ -189,6 +191,32 @@ bool stablehlo::isSimpleLeadingMultiDimGatherWithDegenerateDims(
   return true;
 }
 
+bool stablehlo_ext::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
+  if (llvm::any_of(scatterOp.getOperandTypes(), [](Type operandType) {
+        return !isa<RankedTensorType>(operandType);
+      }))
+    return false;
+  stablehlo::ScatterDimensionNumbersAttr dimsAttrs =
+      scatterOp.getScatterDimensionNumbers();
+  auto indicesType =
+      cast<RankedTensorType>(scatterOp.getScatterIndices().getType());
+  auto operandType =
+      cast<RankedTensorType>(scatterOp.getInputs().front().getType());
+  auto updateType =
+      cast<RankedTensorType>(scatterOp.getUpdates().front().getType());
+  auto isSeq = [](ArrayRef<int64_t> ar, int64_t start, int64_t end) {
+    return llvm::equal(ar, llvm::seq<int64_t>(start, end));
+  };
+  int64_t indexDepth = indicesType.getDimSize(indicesType.getRank() - 1);
+  return indicesType.getRank() == 2 && dimsAttrs.getIndexVectorDim() == 1 &&
+         isSeq(dimsAttrs.getUpdateWindowDims(), 1, updateType.getRank()) &&
+         isSeq(dimsAttrs.getScatterDimsToOperandDims(), 0,
+               indicesType.getDimSize(1)) &&
+         isSeq(dimsAttrs.getInsertedWindowDims(), 0, indexDepth) &&
+         ((operandType.getRank() - indexDepth) + (indicesType.getRank() - 1)) ==
+             updateType.getRank();
+}
+
 //===----------------------------------------------------------------------===//
 // Code below this point was adapted from the MLIR-HLO project (part of OpenXLA
 // project) `xla/mlir_hlo/mhlo/utils/mhlo_scatter_gather_utils.cc` and has the
@@ -206,7 +234,7 @@ getInversePermutation(llvm::ArrayRef<int64_t> permutation) {
   return inversePermutation;
 }
 
-bool stablehlo::isCanonicalScatter(ScatterOp scatterOp) {
+bool stablehlo_ext::isCanonicalScatter(ScatterOp scatterOp) {
   ScatterDimensionNumbersAttr dimsAttrs =
       scatterOp.getScatterDimensionNumbers();
   auto indicesType = scatterOp.getScatterIndices().getType();
@@ -220,7 +248,7 @@ bool stablehlo::isCanonicalScatter(ScatterOp scatterOp) {
                indicesType.getDimSize(1));
 }
 
-bool stablehlo::isCanonicalGather(GatherOp gatherOp) {
+bool stablehlo_ext::isCanonicalGather(GatherOp gatherOp) {
   const auto &startIndiceShape = gatherOp.getStartIndices().getType();
   const auto &dims = gatherOp.getDimensionNumbers();
 
@@ -234,8 +262,8 @@ bool stablehlo::isCanonicalGather(GatherOp gatherOp) {
 // order in the index vector.
 
 std::pair<SmallVector<int64_t>, SmallVector<int64_t>>
-stablehlo::makeOperandStartIndexPermutations(ArrayRef<int64_t> dimMap,
-                                             int operandRank) {
+stablehlo_ext::makeOperandStartIndexPermutations(ArrayRef<int64_t> dimMap,
+                                                 int operandRank) {
   SmallVector<int64_t> permutation{dimMap};
   permutation.reserve(operandRank);
   for (int i = 0; i < operandRank; ++i) {
@@ -245,9 +273,8 @@ stablehlo::makeOperandStartIndexPermutations(ArrayRef<int64_t> dimMap,
   return {permutation, getInversePermutation(permutation)};
 }
 
-Value stablehlo::insertDegenerateDimensions(OpBuilder &b, Location loc,
-                                            Value tensor,
-                                            ArrayRef<int64_t> dimsToInsert) {
+Value stablehlo_ext::insertDegenerateDimensions(
+    OpBuilder &b, Location loc, Value tensor, ArrayRef<int64_t> dimsToInsert) {
   assert(llvm::is_sorted(dimsToInsert) && "dimsToInsert must be sorted");
   if (dimsToInsert.empty())
     return tensor;
@@ -284,9 +311,9 @@ static Value ensureIndexVectorDimPosition(OpBuilder &b, Location loc,
   return b.create<TransposeOp>(loc, indices, permutation).getResult();
 }
 
-Value stablehlo::canonicalizeStartIndices(OpBuilder &b, Location loc,
-                                          Value indices,
-                                          int64_t indexVectorDim) {
+Value stablehlo_ext::canonicalizeStartIndices(OpBuilder &b, Location loc,
+                                              Value indices,
+                                              int64_t indexVectorDim) {
   indices = ensureIndexVectorDimPosition(b, loc, indices, indexVectorDim);
 
   int64_t indicesRank = mlir::cast<TensorType>(indices.getType()).getRank();

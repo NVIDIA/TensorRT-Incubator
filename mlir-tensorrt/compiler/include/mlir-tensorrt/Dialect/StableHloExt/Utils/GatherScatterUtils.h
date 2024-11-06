@@ -26,9 +26,19 @@
 #ifndef MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_GATHERSCATTERUTILS_H
 #define MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_GATHERSCATTERUTILS_H
 
-#include "stablehlo/dialect/StablehloOps.h"
+#include "mlir/IR/Value.h"
+#include <optional>
 
-namespace mlir::stablehlo {
+namespace mlir {
+
+class OpBuilder;
+
+namespace stablehlo {
+class GatherOp;
+class ScatterOp;
+
+} // namespace stablehlo
+namespace stablehlo_ext {
 
 //===----------------------------------------------------------------------===//
 // GatherOp Categorization
@@ -111,20 +121,22 @@ namespace mlir::stablehlo {
 
 /// Returns the "gather dimension" if `op` is a 'simple, single dimension'
 /// gather op with implicit index vector dimension (see above for definition).
-std::optional<int64_t> isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op);
+std::optional<int64_t>
+isSingleDimSimpleGatherWithImplicitIndexDim(stablehlo::GatherOp op);
 
 /// Returns the "gather dimension" if `op` is a 'simple, single dimension'
 /// gather op with explicit size-1 index vector dimension (see above for
 /// definition).
-std::optional<int64_t> isSingleDimSimpleGatherWithExplicitIndexDim(GatherOp op);
+std::optional<int64_t>
+isSingleDimSimpleGatherWithExplicitIndexDim(stablehlo::GatherOp op);
 
 /// Returns true if the `op` corresponds to a 'simple, leading multi-dimensional
 /// gather' (see definition above).
-bool isSimpleLeadingMultiDimGather(GatherOp op);
+bool isSimpleLeadingMultiDimGather(stablehlo::GatherOp op);
 
 /// Returns true if the `op` corresponds to a 'simple, leading multi-dimensional
 /// gather' (see definition above).
-bool isSimpleLeadingMultiDimGatherWithDegenerateDims(GatherOp op);
+bool isSimpleLeadingMultiDimGatherWithDegenerateDims(stablehlo::GatherOp op);
 
 //===----------------------------------------------------------------------===//
 // Code below this point was adapted from the MLIR-HLO project (part of OpenXLA
@@ -141,7 +153,11 @@ bool isSimpleLeadingMultiDimGatherWithDegenerateDims(GatherOp op);
 // - inserted_window_dims is []
 // - update_window_dims is [0, 1, ...]
 // - scatter_dims_to_operand_dims is [0, 1, ...]
-bool isCanonicalScatter(ScatterOp scatterOp);
+bool isCanonicalScatter(stablehlo::ScatterOp scatterOp);
+
+/// Returns true if the `scatterOp` has a configuration that corresponds to the
+/// ONNX ScatterNd operation semantic.
+bool isCanonicalScatterNd(stablehlo::ScatterOp scatterOp);
 
 // Checks if the gather has the following characteristics:
 // - start_indices is a two-dimensional tensor
@@ -149,7 +165,7 @@ bool isCanonicalScatter(ScatterOp scatterOp);
 // - collapsed_slice_dims is []
 // - offset_dims is [1, 2, ...]
 // - start_index_map is [0, 1, ...]
-bool isCanonicalGather(GatherOp gatherOp);
+bool isCanonicalGather(stablehlo::GatherOp gatherOp);
 
 /// Expands the shape of `tensor`, inserting degenerate dimensions.
 ///
@@ -176,6 +192,7 @@ makeOperandStartIndexPermutations(ArrayRef<int64_t> dimMap, int operandRank);
 Value canonicalizeStartIndices(OpBuilder &b, Location loc, Value indices,
                                int64_t indexVectorDim);
 
-} // namespace mlir::stablehlo
+} // namespace stablehlo_ext
+} // namespace mlir
 
 #endif // MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_GATHERSCATTERUTILS_H

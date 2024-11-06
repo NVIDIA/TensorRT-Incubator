@@ -250,7 +250,7 @@ def StablehloClusteringPass : Pass<"stablehlo-clustering", "::mlir::ModuleOp"> {
       " on all functions">,
     Option<"enableNonDPSReturns",
       "enable-non-dps-returns", "bool", "false",
-      "allow backend clusters to directly allocate outputs">,      
+      "allow backend clusters to directly allocate outputs">,
     Option<"disallowHostTensorsInTensorRTClusters",
       "disallow-host-tensors-in-tensorrt-clusters", "bool", "false",
       "don't cluster host tensors in TensorRT clusters">,
@@ -336,8 +336,8 @@ def CreateClosedRegionsPass : Pass<"plan-create-closed-regions", "::mlir::Module
       "(used only in testing) specifies to outline regions by walking in "
       " pre-order; used for verifying results are not sensitive "
       "to traversal order">,
-    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool", 
-           /*default=*/"false", 
+    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool",
+           /*default=*/"false",
            "Allow backend clusters to directly allocate outputs">
   ];
 
@@ -436,8 +436,8 @@ def PlanAllocTensorsPass : Pass<"plan-alloc-tensors",
   ];
 
   let options = [
-    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool", 
-           /*default=*/"false", 
+    Option<"enableNonDPSReturns", "enable-non-dps-returns", "bool",
+           /*default=*/"false",
            "Allow backend clusters to directly allocate outputs">
   ];
 
@@ -457,6 +457,31 @@ def PlanBufferizePass : Pass<"plan-bufferize", "::mlir::ModuleOp"> {
   let dependentDialects = [
     "::mlir::bufferization::BufferizationDialect",
     "::mlir::plan::PlanDialect"
+  ];
+}
+
+//===----------------------------------------------------------------------===//
+// PlanOwnershipBasedBufferDeallocationPass
+//===----------------------------------------------------------------------===//
+
+def PlanOwnershipBasedBufferDeallocationPass : Pass<
+      "plan-ownership-based-buffer-deallocation",
+      "::mlir::ModuleOp"> {
+  let summary = "Perform ownership-based buffer deallocation";
+
+  let description = [{
+    This pass runs the ownership-based buffer deallocation transformation. We
+    duplicate the pass stub locally from upstream since the upstream
+    transformation also runs on nested modules, but we limit deallocation to
+    just the host module.
+  }];
+
+  let options = [
+    Option<"privateFuncDynamicOwnership", "private-function-dynamic-ownership",
+           "bool", /*default=*/"false",
+           "Allows to add additional arguments to private functions to "
+           "dynamically pass ownership of memrefs to callees. This can enable "
+           "earlier deallocations.">,
   ];
 }
 
