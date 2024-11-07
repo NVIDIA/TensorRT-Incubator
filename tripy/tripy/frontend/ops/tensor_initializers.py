@@ -349,7 +349,9 @@ def arange(
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
     },
 )
-def arange(stop: Union[numbers.Number, "tripy.Tensor"], dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
+def arange(
+    stop: Union[numbers.Number, "tripy.DimensionSize"], dtype: "tripy.dtype" = datatype.float32
+) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
     :math:`[0, \text{stop})` incrementing by 1.

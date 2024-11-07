@@ -178,3 +178,17 @@ class TestConvertToTensors:
         a, b = func(1, 2)
 
         assert b.tolist() == 3
+
+    def test_variadic_args(self):
+
+        def increment(a, *args):
+            return {"a": a + 1, "args": list(map(lambda arg: arg + 1, args))}
+
+        @convert_to_tensors(preprocess_args=increment)
+        def func(a: tp.Tensor, *args):
+            return [a] + list(args)
+
+        a, b, c = func(tp.Tensor(1), tp.Tensor(2), tp.Tensor(3))
+        assert a.tolist() == 2
+        assert b.tolist() == 3
+        assert c.tolist() == 4
