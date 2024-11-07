@@ -20,13 +20,43 @@ user experience without compromising performance. Some of the features of Tripy 
 
 ## Installation
 
+<!-- Tripy: DOC: OMIT Start -->
+### Installing Prebuilt Wheels
+<!-- Tripy: DOC: OMIT End -->
+
 ```bash
 python3 -m pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
 python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
 ```
 
+***Important:** There is another package named `tripy` on PyPI.*
+*Note that it is **not** the package from this repository.*
+*Please use the instructions above to ensure you install the correct package.*
+
 <!-- Tripy: DOC: OMIT Start -->
-If you want to build from source, please follow the instructions in [CONTRIBUTING.md](./CONTRIBUTING.md).
+### Building Wheels From Source
+
+To get the latest changes in the repository, you can build Tripy wheels from source.
+
+1. Make sure `build` is installed:
+
+    ```bash
+    python3 -m pip install build
+    ```
+
+2. From the [`tripy` root directory](.), run:
+
+    ```bash
+    python3 -m build .
+    ```
+
+3. Install the wheel, which should have been created in the `dist/` directory.
+    From the [`tripy` root directory](.), run:
+
+    ```bash
+    python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html dist/tripy-*.whl
+    ```
+
 <!-- Tripy: DOC: OMIT End -->
 
 ## Quickstart
