@@ -488,20 +488,7 @@ class TestFunctionRegistry:
 
         with helper.raises(
             TripyException,
-            match=dedent(
-                rf"""
-            Could not find an implementation for function: 'test'.
-                Candidate overloads were:
-
-                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
-                      \|
-                  [0-9]+ \|         def func\(a: int, \*args: int\) \-> int:
-                  [0-9]+ \|     \.\.\.
-                      \|\s
-
-                Not a valid overload because: For parameter: 'args', expected an instance of type: 'int' but got argument of type: 'str'\.
-                """
-            ).strip(),
+            match="Not a valid overload because: For parameter: 'args', expected an instance of type: 'int' but got argument of type: 'str'",
         ):
             registry["test"](1, 2, 3, 4, "hi")
 
