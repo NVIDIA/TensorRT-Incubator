@@ -159,7 +159,7 @@ class Sequential(Module):
         key = str(idx) if isinstance(idx, int) else idx
 
         if key not in self.modules:
-            raise ValueError(f"Key {key} not found in modules.")
+            raise_error(f"Key: '{key}' not found in modules.", [f"Note: Available keys were: {list(self.modules.keys())}"])
 
         return self.modules[key]
 
