@@ -107,7 +107,7 @@ def _get_function_file_and_lines(func):
     return filename, start_line, start_line + len(lines)
 
 
-def _make_stack_info_message(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
+def str_from_stack_info(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
     from tripy.frontend.utils import convert_to_tensors
 
     EXCLUDE_FUNCTIONS = [convert_to_tensors]
@@ -187,9 +187,9 @@ def raise_error(summary: str, details: List[Any] = []):
     for detail in details:
         stack_info_message = None
         if hasattr(detail, "stack_info"):
-            stack_info_message = _make_stack_info_message(detail.stack_info)
+            stack_info_message = str_from_stack_info(detail.stack_info)
         elif isinstance(detail, utils.StackInfo):
-            stack_info_message = _make_stack_info_message(detail)
+            stack_info_message = str_from_stack_info(detail)
 
         if stack_info_message is not None:
             detail_msg += stack_info_message

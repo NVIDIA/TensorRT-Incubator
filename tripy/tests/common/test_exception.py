@@ -22,7 +22,7 @@ from textwrap import dedent
 from tests import helper
 
 import tripy as tp
-from tripy.common.exception import TripyException, _get_function_file_and_lines, _make_stack_info_message, raise_error
+from tripy.common.exception import TripyException, _get_function_file_and_lines, str_from_stack_info, raise_error
 from tripy.frontend.utils import convert_to_tensors
 from tripy.utils import StackInfo, get_stack_info
 from tripy.utils.stack_info import SourceInfo
@@ -112,7 +112,7 @@ class TestRaiseError:
             ]
         )
 
-        error_msg = _make_stack_info_message(stack_info, enable_color=False)
+        error_msg = str_from_stack_info(stack_info, enable_color=False)
         assert (
             dedent(
                 """
@@ -156,5 +156,5 @@ class TestRaiseError:
                 """
         ).strip()
 
-        actual = _make_stack_info_message(stack_info, enable_color=False)
+        actual = str_from_stack_info(stack_info, enable_color=False)
         assert re.search(expected, actual) is not None
