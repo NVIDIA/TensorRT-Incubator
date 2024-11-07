@@ -258,7 +258,9 @@ class TestFunctionRegistry:
         def func(*args: List[Any]):
             return sum(args)
 
+        assert registry["test"](1.0) == 1.0
         assert registry["test"](1.0, 2.0, 3.0) == 6.0
+        assert registry["test"]() == 0
 
     def test_variadic_keyword_args(self, registry):
         @registry("test")
@@ -468,6 +470,30 @@ class TestFunctionRegistry:
             ).strip(),
         ):
             registry["test"](["a", "b", "c"])
+
+    def test_error_variadic_positional_arg_mismatch(self, registry):
+        @registry("test")
+        def func(a: int, *args: int) -> int:
+            return a + sum(args)
+
+        with helper.raises(
+            TripyException,
+            match=dedent(
+                rf"""
+            Could not find an implementation for function: 'test'.
+                Candidate overloads were:
+
+                --> \x1b\[38;5;3m{__file__}\x1b\[0m:[0-9]+ in \x1b\[38;5;6mfunc\(\)\x1b\[0m
+                      \|
+                  [0-9]+ \|         def func\(a: int, \*args: int\) \-> int:
+                  [0-9]+ \|     \.\.\.
+                      \|\s
+
+                Not a valid overload because: For parameter: 'args', expected an instance of type: 'int' but got argument of type: 'str'\.
+                """
+            ).strip(),
+        ):
+            registry["test"](1, 2, 3, 4, "hi")
 
 
 @pytest.mark.parametrize(

@@ -197,14 +197,20 @@ class FuncOverload:
         annotations = self._get_annotations()
 
         # Check if we have too many positional arguments. We can only do this if there isn't a variadic positional argument.
-        if not any(annotation.kind == inspect.Parameter.VAR_POSITIONAL for annotation in annotations.values()) and len(
-            args
-        ) > len(annotations):
+        # The variadic argument, if present, is necessarily the last.
+        annotation_items = list(annotations.items())
+        has_variadic_arg = (
+            (annotation_items[-1][1].kind == inspect.Parameter.VAR_POSITIONAL) if annotation_items else False
+        )
+        if not has_variadic_arg and len(args) > len(annotations):
             return Result.err(
                 [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
-        for (name, annotation), arg in zip(annotations.items(), args):
+        positional_args_to_check = (
+            zip(annotation_items, args) if not has_variadic_arg else zip(annotation_items[:-1], args)
+        )
+        for (name, annotation), arg in positional_args_to_check:
             if not matches_type(name, annotation.type_info, arg):
                 return Result.err(
                     [
@@ -212,6 +218,18 @@ class FuncOverload:
                         f"but got argument of type: '{render_arg_type(arg)}'."
                     ]
                 )
+
+        # For checking the variadic argument, we check the annotation against every remaining positional arg.
+        if has_variadic_arg:
+            name, annotation = annotation_items[-1]
+            for arg in args[len(annotations) - 1 :]:
+                if not matches_type(name, annotation.type_info, arg):
+                    return Result.err(
+                        [
+                            f"For parameter: '{name}', expected an instance of type: '{sanitize_name(annotation.type_info)}' "
+                            f"but got argument of type: '{render_arg_type(arg)}'."
+                        ]
+                    )
 
         for name, arg in kwargs.items():
             if name in annotations:
