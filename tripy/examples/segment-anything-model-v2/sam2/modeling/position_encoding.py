@@ -144,16 +144,16 @@ class PositionEmbeddingRandom(tp.Module):
         return self._pe_encoding(tp.cast(new_coords, tp.float32))  # B x N x C
 
 
-def init_t_xy(end_x: tp.ShapeScalar, end_y: tp.ShapeScalar):
+def init_t_xy(end_x: tp.DimensionSize, end_y: tp.DimensionSize):
     t = tp.arange(end_x * end_y, dtype=tp.float32)
-    if isinstance(end_x, tp.ShapeScalar) and isinstance(end_y, tp.ShapeScalar):
+    if isinstance(end_x, tp.DimensionSize) and isinstance(end_y, tp.DimensionSize):
         end_x, end_y = tp.cast(end_x, tp.float32), tp.cast(end_y, tp.float32)
     t_x = t % end_x
     t_y = t // end_x
     return t_x, t_y
 
 
-def compute_axial_cis(dim: int, end_x: tp.ShapeScalar, end_y: tp.ShapeScalar, theta: float = 10000.0):
+def compute_axial_cis(dim: int, end_x: tp.DimensionSize, end_y: tp.DimensionSize, theta: float = 10000.0):
     freqs_x = 1.0 / (theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim))
     freqs_y = 1.0 / (theta ** (tp.cast(tp.arange(0, dim, 4)[: (dim // 4)], tp.float32) / dim))
 

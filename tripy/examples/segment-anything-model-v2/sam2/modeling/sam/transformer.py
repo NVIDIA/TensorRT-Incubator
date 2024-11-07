@@ -327,8 +327,8 @@ class RoPEAttention(Attention):
         v = self._separate_heads(v, self.num_heads)
 
         # Apply rotary position encoding
-        # w = h = tp.ShapeScalar(tp.cast(tp.sqrt(tp.cast(q.shape[-2], tp.float32)), tp.int32))  # DDS?
-        w = h = tp.ShapeScalar(64)  # Current demo always uses 64.
+        # w = h = tp.DimensionSize(tp.cast(tp.sqrt(tp.cast(q.shape[-2], tp.float32)), tp.int32))  # DDS?
+        w = h = tp.DimensionSize(64)  # Current demo always uses 64.
         self.freqs_cis = self.compute_cis(end_x=w, end_y=h)
         self.freqs_cis = tp.cast(self.freqs_cis, self.dtype)
 
