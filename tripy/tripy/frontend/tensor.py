@@ -26,10 +26,11 @@ import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.backend.mlir import memref
 from tripy.common import datatype
-from tripy.common.exception import raise_error
+from tripy.common.exception import raise_error, str_from_stack_info
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 from tripy.frontend.trace.tensor import TraceTensor
+from tripy.logging.logger import logger
 from tripy.utils.stack_info import StackInfo
 
 
@@ -198,6 +199,18 @@ class Tensor(metaclass=TensorMeta):
         self.trace_tensor.device = flat_ir.outputs[0].device
 
         self.trace_tensor.eval_stack_info = utils.get_stack_info()
+        if self.trace_tensor.is_compile_tracer:
+            logger.warning(
+                f"Tensor was evaluated while compiling which may cause unexpected behavior in the executable.\n"
+                f"For example, this could cause values to be baked into the executable or dynamic shapes to become static.\n"
+                f"If the result of the evaluation is not being used by other operations, you can safely ignore this warning.",
+                mode="once",
+            )
+            logger.warning(
+                f"Note: Tensor was evaluated while compiling here: {str_from_stack_info(self.trace_tensor.eval_stack_info)}",
+                mode="once",
+            )
+
         return data
 
     def tolist(self):
