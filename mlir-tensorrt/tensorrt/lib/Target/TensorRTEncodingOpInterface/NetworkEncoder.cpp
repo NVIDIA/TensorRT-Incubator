@@ -365,8 +365,13 @@ nvinfer1::ILayer *NvInferNetworkEncoder::addFillLayer(
     std::optional<double> alpha, std::optional<double> beta,
     nvinfer1::ITensor *dynamicAlpha, nvinfer1::ITensor *dynamicBeta) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
-  nvinfer1::IFillLayer *layer =
-      network->addFill(staticShape, fillOperation, elementType);
+  nvinfer1::IFillLayer *layer{nullptr};
+  if (dynamicShape != nullptr) {
+    nvinfer1::Dims emptyDims{};
+    layer = network->addFill(emptyDims, fillOperation, elementType);
+  } else {
+    layer = network->addFill(staticShape, fillOperation, elementType);
+  }
   return populateFillLayerParameters(layer, staticShape, dynamicShape, alpha,
                                      beta, dynamicAlpha, dynamicBeta);
 #else

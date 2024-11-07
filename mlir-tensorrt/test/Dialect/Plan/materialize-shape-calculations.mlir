@@ -531,14 +531,12 @@ func.func @real_dynamic_slice_add_negative(%arg0: tensor<i64>, %arg1: tensor<?x4
 
 // CHECK-LABEL: func.func @real_dynamic_slice_add_negative
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<i64>, %[[arg1:.+]]: tensor<?x4xf32>) -> tensor<?x4xf32> {
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<1> : tensor<2xi32>
+//   CHECK-DAG:     %[[cst_0:.+]] = arith.constant dense<0> : tensor<2xi32>
 //   CHECK-DAG:     %[[c4:.+]] = arith.constant 4 : index
-//   CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32
 //   CHECK-DAG:     %[[c4_i32:.+]] = arith.constant 4 : i32
-//   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
 //   CHECK-DAG:     %[[cn1_i64:.+]] = arith.constant -1 : i64
-//   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
 //   CHECK-DAG:     %[[c_0:.+]] = stablehlo.constant dense<4> : tensor<1xi32>
-//   CHECK-DAG:     %[[c_1:.+]] = stablehlo.constant dense<0> : tensor<1xi32>
 //   CHECK-DAG:     %[[c_2:.+]] = stablehlo.constant dense<-1> : tensor<i64>
 //   CHECK-DAG:     %[[arg1_:.+]] = plan.with_shape %[[arg1]]
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][] : tensor<i64>
@@ -546,8 +544,6 @@ func.func @real_dynamic_slice_add_negative(%arg0: tensor<i64>, %arg1: tensor<?x4
 //   CHECK-DAG:     %[[v1:.+]] = stablehlo.add %[[c_2]], %[[v0]] : tensor<i64>
 //   CHECK-DAG:     %[[v2:.+]] = arith.addi %[[extracted]], %[[cn1_i64]] : i64
 //   CHECK-DAG:     %[[v3:.+]] = plan.with_values %[[v1]](%[[v2]]) : tensor<i64>
-//   CHECK-DAG:     %[[v4:.+]] = stablehlo.concatenate %[[c_1]], %[[c_1]], dim = 0 : (tensor<1xi32>, tensor<1xi32>) -> tensor<2xi32>
-//   CHECK-DAG:     %[[v5:.+]] = plan.with_values %[[v4]](%[[c0_i32]], %[[c0_i32]]) : tensor<2xi32>
 //   CHECK-DAG:     %[[v6:.+]] = stablehlo.convert %[[v3]] : (tensor<i64>) -> tensor<i32>
 //   CHECK-DAG:     %[[v7:.+]] = arith.trunci %[[v2]] : i64 to i32
 //   CHECK-DAG:     %[[v8:.+]] = plan.with_values %[[v6]](%[[v7]]) : tensor<i32>
@@ -555,9 +551,7 @@ func.func @real_dynamic_slice_add_negative(%arg0: tensor<i64>, %arg1: tensor<?x4
 //   CHECK-DAG:     %[[v10:.+]] = plan.with_values %[[v9]](%[[v7]]) : tensor<1xi32>
 //   CHECK-DAG:     %[[v11:.+]] = stablehlo.concatenate %[[v10]], %[[c_0]], dim = 0 : (tensor<1xi32>, tensor<1xi32>) -> tensor<2xi32>
 //   CHECK-DAG:     %[[v12:.+]] = plan.with_values %[[v11]](%[[v7]], %[[c4_i32]]) : tensor<2xi32>
-//   CHECK-DAG:     %[[v13:.+]] = stablehlo.concatenate %[[c]], %[[c]], dim = 0 : (tensor<1xi32>, tensor<1xi32>) -> tensor<2xi32>
-//   CHECK-DAG:     %[[v14:.+]] = plan.with_values %[[v13]](%[[c1_i32]], %[[c1_i32]]) : tensor<2xi32>
-//   CHECK-DAG:     %[[v15:.+]] = stablehlo.real_dynamic_slice %[[arg1_]], %[[v5]], %[[v12]], %[[v14]] : (tensor<?x4xf32>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<?x4xf32>
+//   CHECK-DAG:     %[[v15:.+]] = stablehlo.real_dynamic_slice %[[arg1_]], %[[cst_0]], %[[v12]], %[[cst]] : (tensor<?x4xf32>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<?x4xf32>
 //   CHECK-DAG:     %[[v16:.+]] = plan.with_shape %[[v15]](%[[v7]], %[[c4]]) : (tensor<?x4xf32>, i32, index) -> tensor<?x4xf32>
 //   CHECK-DAG:     return %[[v16]] : tensor<?x4xf32>
 
@@ -580,20 +574,16 @@ func.func @real_dynamic_slice_stride_2(%arg0: tensor<i64>, %arg1: tensor<?x4xf32
 
 // CHECK-LABEL: func.func @real_dynamic_slice_stride_2
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<i64>, %[[arg1:.+]]: tensor<?x4xf32>) -> tensor<?x4xf32> {
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<[2, 1]> : tensor<2xi32>
 //   CHECK-DAG:     %[[c4:.+]] = arith.constant 4 : index
 //   CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32
 //   CHECK-DAG:     %[[c2_i32:.+]] = arith.constant 2 : i32
+//   CHECK-DAG:     %[[cst_0:.+]] = arith.constant dense<0> : tensor<2xi32>
 //   CHECK-DAG:     %[[c4_i32:.+]] = arith.constant 4 : i32
-//   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
-//   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
-//   CHECK-DAG:     %[[c_0:.+]] = stablehlo.constant dense<2> : tensor<1xi32>
 //   CHECK-DAG:     %[[c_1:.+]] = stablehlo.constant dense<4> : tensor<1xi32>
-//   CHECK-DAG:     %[[c_2:.+]] = stablehlo.constant dense<0> : tensor<1xi32>
 //   CHECK-DAG:     %[[arg1_:.+]] = plan.with_shape %[[arg1]]
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg0]][] : tensor<i64>
 //   CHECK-DAG:     %[[v0:.+]] = plan.with_values %[[arg0]](%[[extracted]]) : tensor<i64>
-//   CHECK-DAG:     %[[v1:.+]] = stablehlo.concatenate %[[c_2]], %[[c_2]], dim = 0 : (tensor<1xi32>, tensor<1xi32>) -> tensor<2xi32>
-//   CHECK-DAG:     %[[v2:.+]] = plan.with_values %[[v1]](%[[c0_i32]], %[[c0_i32]]) : tensor<2xi32>
 //   CHECK-DAG:     %[[v3:.+]] = stablehlo.convert %[[v0]] : (tensor<i64>) -> tensor<i32>
 //   CHECK-DAG:     %[[v4:.+]] = arith.trunci %[[extracted]] : i64 to i32
 //   CHECK-DAG:     %[[v5:.+]] = plan.with_values %[[v3]](%[[v4]]) : tensor<i32>
@@ -601,9 +591,7 @@ func.func @real_dynamic_slice_stride_2(%arg0: tensor<i64>, %arg1: tensor<?x4xf32
 //   CHECK-DAG:     %[[v7:.+]] = plan.with_values %[[v6]](%[[v4]]) : tensor<1xi32>
 //   CHECK-DAG:     %[[v8:.+]] = stablehlo.concatenate %[[v7]], %[[c_1]], dim = 0 : (tensor<1xi32>, tensor<1xi32>) -> tensor<2xi32>
 //   CHECK-DAG:     %[[v9:.+]] = plan.with_values %[[v8]](%[[v4]], %[[c4_i32]]) : tensor<2xi32>
-//   CHECK-DAG:     %[[v10:.+]] = stablehlo.concatenate %[[c_0]], %[[c]], dim = 0 : (tensor<1xi32>, tensor<1xi32>) -> tensor<2xi32>
-//   CHECK-DAG:     %[[v11:.+]] = plan.with_values %[[v10]](%[[c2_i32]], %[[c1_i32]]) : tensor<2xi32>
-//   CHECK-DAG:     %[[v12:.+]] = stablehlo.real_dynamic_slice %[[arg1_]], %[[v2]], %[[v9]], %[[v11]] : (tensor<?x4xf32>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<?x4xf32>
+//   CHECK-DAG:     %[[v12:.+]] = stablehlo.real_dynamic_slice %[[arg1_]], %[[cst_0]], %[[v9]], %[[cst]] : (tensor<?x4xf32>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<?x4xf32>
 //   CHECK-DAG:     %[[v13:.+]] = arith.addi %[[v4]], %[[c1_i32]] : i32
 //   CHECK-DAG:     %[[v14:.+]] = arith.divsi %[[v13]], %[[c2_i32]] : i32
 //   CHECK-DAG:     %[[v15:.+]] = plan.with_shape %[[v12]](%[[v14]], %[[c4]]) : (tensor<?x4xf32>, i32, index) -> tensor<?x4xf32>
@@ -802,16 +790,14 @@ func.func @zero_slice_slice(%arg4: tensor<1xi32>,
 
 // CHECK-LABEL: func.func @zero_slice_slice
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32>, %[[arg1:.+]]: tensor<1xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}, %[[arg2:.+]]: tensor<1xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}, %[[arg3:.+]]: tensor<1xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}, %[[arg4:.+]]: tensor<1xi32> {tensorrt.shape_profile = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}) -> tensor<?xi32> {
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<1> : tensor<1xi32>
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg3]][%[[c0]]] : tensor<1xi32>
-//   CHECK-DAG:     %[[v0:.+]] = plan.with_values %[[arg3]](%[[extracted]]) : tensor<1xi32>
 //   CHECK-DAG:     %[[extracted_0:.+]] = tensor.extract %[[arg2]][%[[c0]]] : tensor<1xi32>
-//   CHECK-DAG:     %[[v1:.+]] = plan.with_values %[[arg2]](%[[extracted_0]]) : tensor<1xi32>
 //   CHECK-DAG:     %[[extracted_1:.+]] = tensor.extract %[[arg1]][%[[c0]]] : tensor<1xi32>
-//   CHECK-DAG:     %[[v2:.+]] = plan.with_values %[[arg1]](%[[extracted_1]]) : tensor<1xi32>
-//   CHECK-DAG:     %[[v3:.+]] = stablehlo.real_dynamic_slice %[[arg4]], %[[v2]], %[[v1]], %[[v0]] : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<?xi32>
+//   CHECK-DAG:     %[[v3:.+]] = stablehlo.real_dynamic_slice %[[arg4]], %[[cst]], %[[cst]], %[[cst]] : (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<?xi32>
 //   CHECK-DAG:     %[[v4:.+]] = arith.subi %[[extracted_0]], %[[extracted_1]] : i32
 //   CHECK-DAG:     %[[v5:.+]] = arith.addi %[[extracted]], %[[v4]] : i32
 //   CHECK-DAG:     %[[v6:.+]] = arith.subi %[[v5]], %[[c1_i32]] : i32
@@ -977,55 +963,6 @@ func.func @simplify_extract_from_cast(%arg0: tensor<1xi32>, %arg1: tensor<1xi32>
 
 // -----
 
-func.func @stablehlo_composite_static_shapes(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> {
-  %cst = stablehlo.constant dense_resource<__elided__> : tensor<1x3x200x200xf32>
-  %0 = stablehlo.add %arg0, %cst : (tensor<?x3x?x?xf32>, tensor<1x3x200x200xf32>) -> tensor<1x3x200x200xf32>
-  %1 = stablehlo.composite "tensorrt.pt_q" %0 {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<1x3x200x200xf32>) -> tensor<?x3x?x?xi8>
-  return %1 : tensor<?x3x?x?xi8>
-}
-func.func private @pt_q(%arg0: tensor<1x3x200x200xf32>) -> tensor<?x3x?x?xi8> attributes {plan.decomposition} {
-  %0 = stablehlo.convert %arg0 : (tensor<1x3x200x200xf32>) -> tensor<?x3x?x?xi8>
-  return %0 : tensor<?x3x?x?xi8>
-}
-
-// CHECK-LABEL: stablehlo_composite_static_shapes
-//  CHECK-SAME: %[[arg0:.+]]: tensor<?x3x?x?xf32>
-//   CHECK-DAG: %[[v0:.+]] = arith.constant 200 : index
-//   CHECK-DAG: %[[v1:.+]] = arith.constant 3 : index
-//   CHECK-DAG: %[[v2:.+]] = arith.constant 1 : index
-//   CHECK-DAG: %[[v3:.+]] = stablehlo.constant
-//   CHECK-DAG: %[[arg0_:.+]] = plan.with_shape %[[arg0]]
-//   CHECK-DAG: %[[v4:.+]] = stablehlo.add %[[arg0_]], %[[v3]]
-//   CHECK-DAG: %[[v5:.+]] = stablehlo.composite "tensorrt.pt_q" %[[v4]] {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q}
-//   CHECK-DAG: %[[v6:.+]] = plan.with_shape %[[v5]](%[[v2]], %[[v1]], %[[v0]], %[[v0]])
-//  CHECK-NEXT: return %[[v6]]
-
-// -----
-
-func.func @stablehlo_composite_dynamic_shapes(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> {
-    %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8>
-    return %0 : tensor<?x3x?x?xi8>
-}
-func.func private @pt_q(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> attributes {plan.decomposition} {
-  %0 = stablehlo.convert %arg0 : (tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8>
-  return %0 : tensor<?x3x?x?xi8>
-}
-
-// CHECK-LABEL: stablehlo_composite_dynamic_shapes
-//  CHECK-SAME: %[[arg0:.+]]: tensor<?x3x?x?xf32>
-//   CHECK-DAG: %[[v0:.+]] = arith.constant 3 : index
-//   CHECK-DAG: %[[v1:.+]] = arith.constant 2 : index
-//   CHECK-DAG: %[[v2:.+]] = arith.constant 0 : index
-//   CHECK-DAG: %[[arg0_:.+]] = plan.with_shape %[[arg0]]
-//   CHECK-DAG: %[[v3:.+]] = stablehlo.composite "tensorrt.pt_q" %[[arg0_]] {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q}
-//   CHECK-DAG: %[[v4:.+]] = tensor.dim %[[arg0]], %[[v2]]
-//   CHECK-DAG: %[[v5:.+]] = tensor.dim %[[arg0]], %[[v1]]
-//   CHECK-DAG: %[[v6:.+]] = tensor.dim %[[arg0]], %[[v0]]
-//   CHECK-DAG: %[[v7:.+]] = plan.with_shape %[[v3]](%[[v4]], %[[v0]], %[[v5]], %[[v6]])
-//  CHECK-NEXT: return %[[v7]]
-
-// -----
-
 func.func @direct_return_arg(%arg0: tensor<?xf32>) -> tensor<?xf32> {
   return %arg0: tensor<?xf32>
 }
@@ -1066,3 +1003,23 @@ func.func @conv_input_dynamnic(
 //  CHECK-DAG: %[[v3:.+]] = arith.maxsi %[[dim_2]], %[[c0]] : index
 //  CHECK-DAG: %[[v4:.+]] = plan.with_shape %[[v1]](%[[dim]], %[[c256]], %[[v2]], %[[v3]]) :
 //  CHECK-DAG: return %[[v4]]
+
+// -----
+
+#profile = #tensorrt.shape_profile<min=[128, 128], opt=[256, 128], max=[512, 128]>
+
+func.func @refine_based_on_profile(%arg0: tensor<?x?xi32> {tensorrt.shape_profile = #profile})
+     -> tensor<?x?xi32> {
+  %result = "stablehlo.transpose"(%arg0) {permutation = array<i64: 1, 0>} : (tensor<?x?xi32>) -> tensor<?x?xi32>
+  return %result: tensor<?x?xi32>
+}
+
+// CHECK-LABEL: func.func @refine_based_on_profile
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xi32>
+//   CHECK-DAG:     %[[c128:.+]] = arith.constant 128 : index
+//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG:     %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] : tensor<?x?xi32>
+//   CHECK-DAG:     %[[v0:.+]] = plan.with_shape %[[arg0]](%[[dim]], %[[c128]]) : (tensor<?x?xi32>, index, index) -> tensor<?x?xi32>
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.transpose %[[v0]], dims = [1, 0] :
+//   CHECK-DAG:     %[[v2:.+]] = plan.with_shape %[[v1]](%[[c128]], %[[dim]]) : (tensor<?x?xi32>, index, index) -> tensor<?x?xi32>
+//   CHECK-DAG:     return %[[v2]] : tensor<?x?xi32>

@@ -24,7 +24,7 @@ import os
 import math
 import time
 import typing
-from typing import Any, List, Sequence, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from colored import Fore, Style
 
@@ -254,21 +254,6 @@ def constant_fields(field_names: Sequence[str]):
 ##
 
 
-def find_file_in_dir(file_name: str, search_directory: str) -> List:
-    """
-    Search for file_name recursively in the root_directory.
-
-    Args:
-        file_name: The file name or pattern with wildcards.
-        search_directory: The root directory from where to search for file_name.
-    Returns:
-        List of absolute path for matching files.
-    """
-    search_pattern = os.path.join(search_directory, "**", file_name)
-    matching_files = glob.glob(search_pattern, recursive=True)
-    return matching_files
-
-
 def warn_if_wrong_mode(file_like: typing.IO, mode: str):
     def binary(mode):
         return "b" in mode
@@ -430,10 +415,11 @@ class UniqueNameGen:
 ##
 ## Functions
 ##
-def get_positional_arg_names(func, *args):
+def get_positional_arg_names(func, *args) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
     # Returns the names of positional arguments by inspecting the function signature.
     # In the case of variadic positional arguments, we cannot determine names, so we use
-    # None instead.
+    # None instead. To assist in further processing, this function also returns the name
+    # and start index of the variadic args in a pair if present (None if not).
     signature = inspect.signature(func)
     arg_names = []
     varargs_name = None
@@ -447,40 +433,15 @@ def get_positional_arg_names(func, *args):
         arg_names.append(name)
 
     # For all variadic positional arguments, assign the name of the variadic group.
-    arg_names.extend([varargs_name] * (len(args) - len(arg_names)))
-    return list(zip(arg_names, args))
+    num_variadic_args = len(args) - len(arg_names)
+    variadic_start_idx = len(arg_names)
+    arg_names.extend([varargs_name] * num_variadic_args)
+    return list(zip(arg_names, args)), (varargs_name, variadic_start_idx) if num_variadic_args > 0 else None
 
 
-def merge_function_arguments(func, *args, **kwargs):
+def merge_function_arguments(func, *args, **kwargs) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
     # Merge positional and keyword arguments, trying to determine names where possible.
-    all_args = get_positional_arg_names(func, *args)
+    # Also returns a pair containing the variadic arg name and start index if present (None otherwise).
+    all_args, var_arg_info = get_positional_arg_names(func, *args)
     all_args.extend(kwargs.items())
-    return all_args
-
-
-def get_arg_by_name(name, func, *args, **kwargs):
-    if name in kwargs:
-        return kwargs[name]
-
-    args = dict(get_positional_arg_names(func, *args))
-    if name in args:
-        return args[name]
-
-    assert False, f"No such argument: {name}"
-
-
-def modify_arg(name, modify_func, func, *args, **kwargs):
-    """
-    Modifies an argument corresponding to the provided name if it is present.
-    `modify_func` should be a function that accepts the argument and returns the modified argument.
-    """
-    if name in kwargs:
-        kwargs[name] = modify_func(kwargs[name])
-
-    all_args = get_positional_arg_names(func, *args)
-    args = list(args)
-    for index, (arg_name, _) in enumerate(all_args):
-        if name == arg_name:
-            args[index] = modify_func(args[index])
-
-    return args, kwargs
+    return all_args, var_arg_info

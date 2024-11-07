@@ -18,7 +18,7 @@
 import functools
 import inspect
 from collections import deque
-from typing import Callable, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 from tripy import utils
 from tripy.common.exception import raise_error
@@ -166,7 +166,8 @@ def convert_to_tensors(
         preprocess_args: A callback used to preprocess arguments before potential conversion. If provided,
             this is always called, regardless of whether the decorator actually needed to perform conversion.
             This will be called with all arguments that were passed to the decorated function and should
-            return a dictionary of all updated arguments.
+            return a dictionary of all updated arguments. For a variadic arg, the dictionary entry for the name
+            should have a list of all the updated values.
     """
 
     def impl(func):
@@ -193,17 +194,20 @@ def convert_to_tensors(
             from tripy.frontend.tensor import Tensor
             from tripy.frontend.trace.ops.cast import cast
 
-            all_args = utils.merge_function_arguments(func, *args, **kwargs)
+            all_args, var_arg_info = utils.merge_function_arguments(func, *args, **kwargs)
 
             if preprocess_args is not None:
+
+                var_arg_name, var_arg_start_idx = utils.default(var_arg_info, (None, None))
                 new_args = preprocess_args(*args, **kwargs)
-                # TODO (#311): Make this work for variadic arguments. If `name` appears multiple times in `all_args`, then
-                # we know we're dealing with a variadic argument. In that case, we could expect a list in `new_args` and
-                # then unpack it over the corresponding arguments in `all_args`.
                 for index in range(len(all_args)):
                     name, _ = all_args[index]
                     if name in new_args:
-                        all_args[index] = (name, new_args[name])
+                        if name == var_arg_name:
+                            assert var_arg_start_idx is not None
+                            all_args[index] = (name, new_args[name][index - var_arg_start_idx])
+                        else:
+                            all_args[index] = (name, new_args[name])
 
             # Materialize type variables from tensors.
             type_vars = {}
@@ -315,37 +319,20 @@ def topological_sort(ops: List[Union["BaseTraceOp", BaseFlatIROp]]) -> List[Unio
 
 # Processes a `dim` (i.e. axis) argument related to a tensor.
 # If the dimension is negative, this will convert it to the corresponding positive index.
-#
-# NOTE: This is currently an extremely specialized decorator that expects an `input` tensor
-# argument and a `dim` argument for the axis.
-# In the future, we can generalize this and use it more broadly.
-def process_dim():
-    def process_dim_impl(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            input = utils.get_arg_by_name("input", func, *args, **kwargs)
+def process_dim(dim: int, input_rank: int) -> int:
+    new_dim = dim
+    if dim < 0:
+        new_dim = input_rank + dim
 
-            def process_dim(dim: int) -> int:
-                new_dim = dim
-                if dim < 0:
-                    new_dim = input.rank + dim
-
-                if new_dim < 0 or new_dim >= input.rank:
-                    raise_error(
-                        "Dimension argument is out of bounds.",
-                        [
-                            f"Note: provided dimension was: {dim}, while the tensor has a rank of: {input.rank}.\n"
-                            f"Dimension should be in the half-open interval: [{-input.rank}, {input.rank})."
-                        ],
-                    )
-                return new_dim
-
-            args, kwargs = utils.modify_arg("dim", process_dim, func, *args, **kwargs)
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    return process_dim_impl
+    if new_dim < 0 or new_dim >= input_rank:
+        raise_error(
+            "Dimension argument is out of bounds.",
+            [
+                f"Note: provided dimension was: {dim}, while the tensor has a rank of: {input_rank}.\n"
+                f"Dimension should be in the half-open interval: [{-input_rank}, {input_rank})."
+            ],
+        )
+    return new_dim
 
 
 def pretty_print(data_list, shape, threshold=1000, linewidth=10, edgeitems=3):

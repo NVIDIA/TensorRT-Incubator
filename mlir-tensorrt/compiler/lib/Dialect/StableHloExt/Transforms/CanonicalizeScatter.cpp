@@ -13,24 +13,20 @@
 /// Implementation of the `stablehlo-ext-canonicalize-scatter` pass.
 ///
 //===----------------------------------------------------------------------===//
-
-#include <memory>
-#include <numeric>
-#include <optional>
-#include <utility>
-
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/BuiltinAttributes.h"
-#include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/ADT/STLExtras.h"
+#include <optional>
+#include <utility>
 
 using namespace mlir;
 using namespace mlir::stablehlo;
+using namespace mlir::stablehlo_ext;
 
 namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_CANONICALIZESCATTERPASS
@@ -234,7 +230,7 @@ struct CanonicalizeScatterPass
     patterns.add<CanonicalizeScatterPattern>(ctx);
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(patterns)))) {
-      emitError(getOperation().getLoc())
+      emitError(getOperation()->getLoc())
           << "failed to apply patterns in " << getArgument();
       return signalPassFailure();
     }

@@ -34,7 +34,6 @@ import torch
 
 import tripy as tp
 from tripy import utils
-from tripy.backend.mlir.utils import remove_sym_attr
 from tripy.common.exception import _make_stack_info_message
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace

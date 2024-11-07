@@ -15,8 +15,6 @@ if(MLIR_TRT_ENABLE_HLO)
   )
   list(APPEND pipeline_deps_
     MLIRTensorRTStableHloExtTransforms
-    MLIRTensorRTStablehloInputPreprocessing
-    MLIRTensorRTStablehloRaiseQDQ
     MLIRTensorRTStablehloToSCF
     MLIRTensorRTStablehloToTensorRT
   )

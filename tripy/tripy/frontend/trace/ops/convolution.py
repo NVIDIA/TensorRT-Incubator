@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import constraints, utils
+from tripy import constraints
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -30,35 +30,6 @@ class Convolution(BaseTraceOp):
     groups: int
     lhs_dilation: Sequence[int]
     rhs_dilation: Sequence[int]
-
-    def verify_spatial_rank(self, attr, rank, string):
-        spatial_rank = rank - 2
-        if attr and len(attr) != spatial_rank:
-            utils.raise_error_io_info(
-                self,
-                f"Number of {string} values does not match number of spatial dimensions in the input.",
-                details=[
-                    f"Got {len(attr)} {string} value pairs but the number of spatial dimensions is: {spatial_rank}.",
-                ],
-            )
-
-    def validate_inputs(self, tensor_shape, kernel_shape):
-        if len(tensor_shape) != len(kernel_shape):
-            utils.raise_error_io_info(
-                self,
-                "Input tensor and kernel must have the same rank.",
-                details=[
-                    f"Input tensor for operation: 'convolution' has shape: {tensor_shape} [rank = {len(tensor_shape)}], "
-                    f"but should have the same rank as the kernel of shape: {kernel_shape} [rank = {len(kernel_shape)}]."
-                ],
-            )
-
-        rank = len(tensor_shape)
-
-        self.verify_spatial_rank(self.padding, rank, "padding")
-        self.verify_spatial_rank(self.stride, rank, "stride")
-        self.verify_spatial_rank(self.lhs_dilation, rank, "lhs_dilation")
-        self.verify_spatial_rank(self.rhs_dilation, rank, "rhs_dilation")
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()
 

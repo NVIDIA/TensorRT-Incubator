@@ -24,11 +24,13 @@
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
 #include "mlir/Analysis/DataFlowFramework.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/Transforms/Transforms.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -383,25 +385,6 @@ struct SimplifyExtractOfReshape : public OpRewritePattern<tensor::ExtractOp> {
   }
 };
 
-/// Replaces `tensor.dim(stablehlo.composite(x))` with
-/// `tensor.dim(x)` in the case where the attribute 'is_pointwise' is present.
-/// The attribute may be added in cases where stablehlo.composite was created at
-/// the frontend or by a separate compiler pass.
-struct ResolveDimOfCompositeOp : public OpRewritePattern<tensor::DimOp> {
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(tensor::DimOp op,
-                                PatternRewriter &rewriter) const override {
-    auto compositeOp = op.getSource().getDefiningOp<stablehlo::CompositeOp>();
-    if (!compositeOp ||
-        !compositeOp.getCompositeAttributesAttr().contains("is_pointwise"))
-      return failure();
-    rewriter.replaceOpWithNewOp<tensor::DimOp>(
-        op, compositeOp->getOperands().front(), op.getIndex());
-    return success();
-  }
-};
-
 /// Replaces `tensor.extract(stablehlo.get_dimension_size(...))` with a
 /// `tensor.dim` operation.
 struct SimplifyExtractOfDimSize : public OpRewritePattern<tensor::ExtractOp> {
@@ -587,7 +570,159 @@ struct ResolveDimOfInferShapedTypePattern
   }
 };
 
+/// Rewrite `tensor.dim` of `stablehlo.composite` by inlining a copy of the
+/// region (note that the inlining is purely used for shape calculation so
+/// we expect it to be elided).
+struct ResolveDimOfCompositeGeneric : public OpRewritePattern<tensor::DimOp> {
+  ResolveDimOfCompositeGeneric(MLIRContext *ctx,
+                               SymbolTableCollection &symbolTable)
+      : OpRewritePattern(ctx), symbolTable(symbolTable) {}
+
+  LogicalResult matchAndRewrite(tensor::DimOp dimOp,
+                                PatternRewriter &rewriter) const override {
+    auto compositeOp =
+        dimOp.getSource().getDefiningOp<stablehlo::CompositeOp>();
+    if (!compositeOp)
+      return failure();
+
+    std::optional<int64_t> dimIndex = dimOp.getConstantIndex();
+    if (!dimIndex)
+      return failure();
+
+    // Get the callable.
+    auto decomp = symbolTable.lookupSymbolIn<func::FuncOp>(
+        dimOp->getParentOfType<ModuleOp>(),
+        SymbolRefAttr::get(rewriter.getContext(),
+                           compositeOp.getDecomposition()));
+    if (!decomp)
+      return failure();
+
+    // Clone in the composite body.
+    Region &body = decomp.getBody();
+    if (!body.hasOneBlock())
+      return failure();
+
+    IRMapping mapping;
+    mapping.map(body.getArguments(), compositeOp->getOperands());
+    for (Operation &op : body.front().without_terminator()) {
+      Operation *clone = rewriter.clone(op, mapping);
+      mapping.map(op.getResults(), clone->getResults());
+    }
+
+    // Replace the dim op.
+    rewriter.modifyOpInPlace(dimOp, [&]() {
+      OpOperand &operand = dimOp.getSourceMutable();
+      operand.assign(mapping.lookup(body.front().getTerminator()->getOperand(
+          operand.getOperandNumber())));
+    });
+
+    return success();
+  }
+  SymbolTableCollection &symbolTable;
+};
+
+///===----------------------------------------------------------------------===//
+// IntegerRange-based Optimization Patterns
+//
+// The below patterns use our modified IntegerRangeAnalysis
+// (`ShapeIntegerRangeAnalysis`) to perform optimizations. The
+// ShapeIntegerRangeAnalysis can sometimes infer a narrower range for
+// operations like `tensor.dim` due to e.g. special function arg attributes
+// that encode the bounds information.
+//===----------------------------------------------------------------------===//
+
+/// Replaces `tensor.dim` with `arith.constant` if the range of the `tensor.dim`
+/// was narrowed to a constant value.
+struct ResolveTrivialDimOpPattern : public OpRewritePattern<tensor::DimOp> {
+  ResolveTrivialDimOpPattern(MLIRContext *context, DataFlowSolver &s)
+      : OpRewritePattern(context), solver(s) {}
+
+  LogicalResult matchAndRewrite(tensor::DimOp op,
+                                PatternRewriter &rewriter) const override {
+
+    auto *maybeResultRange =
+        solver.lookupState<dataflow::IntegerValueRangeLattice>(op.getResult());
+    if (!maybeResultRange || maybeResultRange->getValue().isUninitialized())
+      return failure();
+    const ConstantIntRanges &resultRange =
+        maybeResultRange->getValue().getValue();
+    const APInt &min = resultRange.umin();
+    const APInt &max = resultRange.umax();
+    if (min.getZExtValue() != max.getZExtValue())
+      return failure();
+    rewriter.replaceOpWithNewOp<arith::ConstantIndexOp>(op, max.getZExtValue());
+    return success();
+  }
+
+private:
+  DataFlowSolver &solver;
+};
+
+/// Replaces `plan.with_values` with `arith.constant` if the values are
+/// determined to be constant.
+struct SimplifyConstantWithValuesPattern
+    : public OpRewritePattern<plan::WithValuesOp> {
+  SimplifyConstantWithValuesPattern(MLIRContext *context, DataFlowSolver &s)
+      : OpRewritePattern(context), solver(s) {}
+
+  LogicalResult matchAndRewrite(plan::WithValuesOp op,
+                                PatternRewriter &rewriter) const override {
+    auto *maybeResultRange =
+        solver.lookupState<TensorValueBoundsLattice>(op.getResult());
+    if (!maybeResultRange || maybeResultRange->getValue().isUninitialized())
+      return failure();
+
+    std::optional<DenseElementsAttr> constVal =
+        maybeResultRange->getValue().getConstantValues(op.getType());
+    if (!constVal)
+      return failure();
+    rewriter.replaceOpWithNewOp<arith::ConstantOp>(op, *constVal);
+    return success();
+  }
+
+private:
+  DataFlowSolver &solver;
+};
+
+/// This rewrite listener handles updating the solver state as the IR is updated
+/// in the pattern-based rewrite driver.
+class DataFlowListener : public RewriterBase::Listener {
+public:
+  DataFlowListener(DataFlowSolver &s) : s(s) {}
+
+protected:
+  void notifyOperationErased(Operation *op) override {
+    s.eraseState(op);
+    for (Value res : op->getResults())
+      s.eraseState(res);
+  }
+
+  DataFlowSolver &s;
+};
 } // namespace
+
+/// Run the integer range analysis and perform rewrites based on the results.
+static LogicalResult applyIntegerRangeBasedOptimizations(Operation *op) {
+  // Simplify based on integer range analysis.
+  MLIRContext *ctx = op->getContext();
+  DataFlowSolver solver;
+  SymbolTableCollection symbolTable;
+  solver.load<dataflow::DeadCodeAnalysis>();
+  solver.load<dataflow::SparseConstantPropagation>();
+  solver.load<ShapeIntegerRangeAnalysis>();
+  solver.load<TensorValueBoundsAnalysis>();
+  if (failed(solver.initializeAndRun(op)))
+    return failure();
+
+  DataFlowListener listener(solver);
+  RewritePatternSet patterns(ctx);
+  patterns.add<ResolveTrivialDimOpPattern, SimplifyConstantWithValuesPattern>(
+      ctx, solver);
+  if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns))))
+    return failure();
+
+  return success();
+}
 
 /// Populate canonicalization patterns for all op types listed as template
 /// parameters.
@@ -595,6 +730,10 @@ template <typename... Ops>
 static void addCanonicalizationPatterns(RewritePatternSet &patterns) {
   (Ops::getCanonicalizationPatterns(patterns, patterns.getContext()), ...);
 }
+
+//===----------------------------------------------------------------------===//
+// MaterializeShapeCalculationsPass
+//===----------------------------------------------------------------------===//
 
 namespace {
 class MaterializeShapeCalculationsPass
@@ -608,19 +747,25 @@ public:
     IRRewriter rewriter(ctx);
 
     SymbolTableCollection symbolTable;
-    DataFlowSolver solver;
-    solver.load<dataflow::DeadCodeAnalysis>();
-    solver.load<dataflow::SparseConstantPropagation>();
-    solver.load<TensorKindAnalysis>(symbolTable);
-    if (failed(solver.initializeAndRun(op))) {
-      emitError(op->getLoc()) << "failed to run TensorKindAnalysis";
-      return signalPassFailure();
-    }
 
-    if (failed(addWithShapeOps(rewriter, solver, op))) {
-      emitError(op->getLoc())
-          << "failed to add shape reification operations in " << getArgument();
-      return signalPassFailure();
+    // Run TensorKindAnalysis and populate the `plan.with_shape|with_values`
+    // operations.
+    {
+      DataFlowSolver solver;
+      solver.load<dataflow::DeadCodeAnalysis>();
+      solver.load<dataflow::SparseConstantPropagation>();
+      solver.load<TensorKindAnalysis>(symbolTable);
+      if (failed(solver.initializeAndRun(op))) {
+        emitError(op->getLoc()) << "failed to run TensorKindAnalysis";
+        return signalPassFailure();
+      }
+
+      if (failed(addWithShapeOps(rewriter, solver, op))) {
+        emitError(op->getLoc())
+            << "failed to add shape reification operations in "
+            << getArgument();
+        return signalPassFailure();
+      }
     }
 
     LLVM_DEBUG(DBGS() << "after adding shape reification operations:\n"
@@ -631,6 +776,7 @@ public:
     FrozenRewritePatternSet patterns = [&] {
       RewritePatternSet patterns_(ctx);
       memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns_);
+      stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns_);
       // clang-format off
       addCanonicalizationPatterns<
         arith::AndIOp,
@@ -654,7 +800,6 @@ public:
       >(patterns_);
       patterns_.add<
         ResolveDimOfInferShapedTypePattern,
-        ResolveDimOfCompositeOp,
         SimplifyDimOfWithShapeOp,
         SimplifyExtractOfCast,
         SimplifyExtractOfConcat,
@@ -666,11 +811,14 @@ public:
         SimplifyExtractOfWithValuesRewrite,
         SimplifyRedundantMaxSI
       >(ctx);
+      patterns_.add<
+        ResolveDimOfCompositeGeneric
+      >(ctx, symbolTable);
       // clang-format on
       return patterns_;
     }();
 
-    auto applySimplifications = [&]() -> LogicalResult {
+    auto applySimplificationPatterns = [&]() -> LogicalResult {
       if (failed(applyPatternsAndFoldGreedily(op, patterns)))
         return emitError(op->getLoc())
                << "failed to run patterns in " << getArgument();
@@ -679,10 +827,14 @@ public:
 
     constexpr unsigned kSimplificationRounds = 2;
     for (unsigned i = 0; i < kSimplificationRounds; i++) {
-      if (failed(applySimplifications()))
+      if (failed(applySimplificationPatterns()))
         return signalPassFailure();
       DominanceInfo domInfo;
       mlir::eliminateCommonSubExpressions(rewriter, domInfo, getOperation());
+
+      // Simplify based on integer range analysis.
+      if (failed(applyIntegerRangeBasedOptimizations(op)))
+        return signalPassFailure();
     }
   }
 };

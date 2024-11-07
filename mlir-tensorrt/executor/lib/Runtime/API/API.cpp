@@ -466,6 +466,24 @@ void AllocTracker::track(PointerInfo info) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
     return;
   }
+
+  auto existingReferenceCount = map.at(info.ptr)->externalReferenceCount.load();
+
+  // If exisiting value in map is internally maanged and not yet released
+  // internally, we can just increment the reference count for the exisiting
+  // entry.
+  if (get(info.ptr).isInternallyManaged() &&
+      !map.at(info.ptr)->releasedInternally && existingReferenceCount > 0 &&
+      info.isExternallyManaged()) {
+    ++map.at(info.ptr)->externalReferenceCount;
+    return;
+  }
+
+  // In the default case when there is an exisiting value in map, we reuse the
+  // exisiting reference count for the new pointer.
+  value->externalReferenceCount = existingReferenceCount;
+  untrack(info.ptr);
+  map.insert(std::make_pair(info.ptr, std::move(value)));
 }
 
 void AllocTracker::untrack(uintptr_t ptr) {

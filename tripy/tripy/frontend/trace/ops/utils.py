@@ -43,19 +43,8 @@ def is_minus_one(arg):
 
 
 ##
-## Inferring shape helpers
+## infer_rank helpers
 ##
-
-
-def infer_broadcasted_shape(*input_shapes: Sequence[List[int]]):
-    """
-    Given dynamic input shapes of trace tensors, infers a broadcasted shape.
-    This does not do any error checking since that can be done more reliably
-    later in the compiler.
-    """
-    max_rank = max(len(shape) for shape in input_shapes)
-    input_shapes = [[1] * (max_rank - len(shape)) + shape for shape in input_shapes]
-    return [max(dim) for dim in zip(*input_shapes)]
 
 
 class InferRankPolicies:
@@ -175,29 +164,6 @@ def reshape_scalar_to_1d(input: "FlatIRTensor"):
 ##
 ## Broadcasting
 ##
-
-
-def get_broadcast_compatible_shapes(shape1, shape2):
-    # Make the shorter shape the same length as the longer shape by padding with ones
-    if len(shape1) > len(shape2):
-        shape2 = (1,) * (len(shape1) - len(shape2)) + shape2
-    elif len(shape2) > len(shape1):
-        shape1 = (1,) * (len(shape2) - len(shape1)) + shape1
-
-    return shape1, shape2
-
-
-def is_broadcast_compatible(shape1, shape2) -> Result:
-    # Now check each dimension pair
-    for index, (dim1, dim2) in enumerate(zip(shape1, shape2)):
-        if dim1 != dim2 and dim1 != 1 and dim2 != 1:
-            return Result.err(
-                [
-                    f"for tensor shapes: {shape1} and {shape2}, dimensions on axis {index}: '{dim1}' and '{dim2}' are not broadcast compatible"
-                ],
-            )
-
-    return Result.ok()
 
 
 # Given two shapes, compute the shape of the resulting broadcast. Assumes that the shapes are of equal rank
@@ -356,10 +322,6 @@ QUANTIZED_DTYPES = (tp_dtype.int8, tp_dtype.int4, tp_dtype.float8)
 
 def is_quantized_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
     return dtype in QUANTIZED_DTYPES
-
-
-def is_quantizable_dtype(dtype: "tripy.common.datatype.dtype") -> bool:
-    return dtype in QUANTIZABLE_DTYPES
 
 
 def get_clamp_min_max(element_dtype, quant_dtype):

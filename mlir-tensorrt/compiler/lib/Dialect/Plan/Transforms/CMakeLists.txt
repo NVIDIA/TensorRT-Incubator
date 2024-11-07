@@ -17,8 +17,8 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
 
   LINK_LIBS PUBLIC
 
-  StablehloOps
   MLIRBufferizationPipelines
+  MLIRExecutorGenericClustering
   MLIRFuncTransforms
   MLIRIR
   MLIRLinalgDialect
@@ -30,12 +30,13 @@ add_mlir_tensorrt_library(MLIRTensorRTPlanTransforms
   MLIRTensorRTDialect
   MLIRTensorRTDuplicateFunctionElimination
   MLIRTensorRTExecutorDialect
-  MLIRExecutorGenericClustering
   MLIRTensorRTMemRefCastElimination
   MLIRTensorRTPlanAnalysis
   MLIRTensorRTPlanDialect
+  MLIRTensorRTStableHloExtTransforms
   MLIRTensorRTStablehloScalarToArith
   MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTTensorRTRuntimeDialect
   MLIRTransforms
+  StablehloOps
 )

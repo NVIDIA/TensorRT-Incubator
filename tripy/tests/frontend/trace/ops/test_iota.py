@@ -34,9 +34,8 @@ class TestIota:
         assert isinstance(a.trace_tensor.producer, Iota)
 
     def test_invalid_dim(self):
-        a = tp.iota([2, 3], dim=3)
-        with helper.raises(tp.TripyException, match="iota dimension cannot go beyond the output rank"):
-            a.eval()
+        with helper.raises(tp.TripyException, match="Dimension argument is out of bounds."):
+            tp.iota([2, 3], dim=3)
 
     def test_infer_rank(self):
         a = tp.iota((2, 3, 4))

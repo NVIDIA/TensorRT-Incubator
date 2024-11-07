@@ -402,10 +402,15 @@ LogicalResult tensorrt::ArgMaxOp::verify() {
                              getValues().getType());
 }
 
-// impl end
+static bool dimsEqualIfStatic(int64_t lhs, int64_t rhs) {
+  if (ShapedType::isDynamic(lhs) || ShapedType::isDynamic(rhs))
+    return true;
+  return lhs == rhs;
+}
 
 LogicalResult tensorrt::ConvolutionOp::verify() {
-  // Convolution impl start
+  RankedTensorType inputType = getInput().getType();
+
   if (!getKernel() && !getKernelStatic().has_value())
     return emitOpError(
         "kernel operand or kernelStatic attribute must be specified");
@@ -432,31 +437,37 @@ LogicalResult tensorrt::ConvolutionOp::verify() {
             ? getKernelStaticAttr().getShapedType().getShape()
             : cast<RankedTensorType>(getKernel().getType()).getShape();
 
-    if (getInput().getType().getDimSize(1) % getNumGroups() != 0 ||
-        kernelShape[0] % getNumGroups() != 0)
+    std::optional<int64_t> inputChannels = {};
+    if (!inputType.isDynamicDim(1))
+      inputChannels = inputType.getDimSize(1);
+
+    if (inputChannels && (*inputChannels % getNumGroups() != 0 ||
+                          kernelShape[0] % getNumGroups() != 0))
       return emitOpError("both input channels and output channels must be "
                          "divisible by ")
              << getNumGroupsAttrName();
 
-    if (getInput().getType().getDimSize(1) / getNumGroups() != kernelShape[1])
+    if (!dimsEqualIfStatic(inputChannels ? *inputChannels / getNumGroups()
+                                         : ShapedType::kDynamic,
+                           kernelShape[1]))
       return emitOpError("for ")
              << getNumGroupsAttrName() << " = " << getNumGroups()
-             << " and input channels = " << getInput().getType().getDimSize(1)
+             << " and input channels = " << inputType.getDimSize(1)
              << ", second (idx = 1) kernel dimension should be "
-             << getInput().getType().getDimSize(1) / getNumGroups();
+             << inputType.getDimSize(1) / getNumGroups();
   }
 
-  if (getBias() != nullptr &&
-      (getBias().getType().getRank() != 1 ||
-       getBias().getType().getDimSize(0) != getType().getDimSize(1)))
-    return emitOpError(
-        "bias type should be a rank-1 tensor type with size "
-        "equal to the number of channels (dim 1) of the result tensor type");
+  if (getBias()) {
+    RankedTensorType biasType = getBias().getType();
+    if (biasType.getRank() != 1 ||
+        !dimsEqualIfStatic(biasType.getDimSize(0), getType().getDimSize(1)))
+      return emitOpError(
+          "bias type should be a rank-1 tensor type with size "
+          "equal to the number of channels (dim 1) of the result tensor type");
+  }
 
-  // Convolution impl end
   return success();
-} // LogicalResult tensorrt::ConvolutionOp::verify()
-
+}
 LogicalResult tensorrt::ActivationOp::verify() {
   ActivationType act = getActivationType();
   if ((getInput().getType().getElementType().isSignlessInteger(32) ||

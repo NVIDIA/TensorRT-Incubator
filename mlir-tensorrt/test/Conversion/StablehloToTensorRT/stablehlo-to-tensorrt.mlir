@@ -1964,7 +1964,7 @@ func.func @scatter_slice_update_i1_axis0(%arg0: tensor<1024x1xi1>, %arg1: tensor
 // -----
 
 func.func @quantize_pt_to_i8_static(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> {
-  %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
+  %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
   return %0 : tensor<2x3x300x300xi8>
 }
 func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> attributes {plan.decomposition} {
@@ -1988,7 +1988,7 @@ func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8
 // -----
 
 func.func @quantize_pc_to_i8_dynamic(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> {
-  %0 = stablehlo.composite "tensorrt.pc_q" %arg0 {composite_attributes = {axis = 1 : i32, is_pointwise, scale = dense_resource<__elided__> : tensor<3xf32>}, decomposition = @pc_q} : (tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8>
+  %0 = stablehlo.composite "tensorrt.pc_q" %arg0 {composite_attributes = {axis = 1 : i32, scale = dense_resource<__elided__> : tensor<3xf32>}, decomposition = @pc_q} : (tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8>
   return %0 : tensor<?x3x?x?xi8>
 }
 func.func private @pc_q(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> attributes {plan.decomposition} {
@@ -2021,7 +2021,7 @@ func.func private @pc_q(%arg0: tensor<?x3x?x?xf32>) -> tensor<?x3x?x?xi8> attrib
 
 func.func @quantize_pc_to_i8_eager() -> tensor<258x256xi8> {
   %cst = stablehlo.constant dense<1.000000e+00> : tensor<258x256xf32>
-  %0 = stablehlo.composite "tensorrt.pc_q" %cst {composite_attributes = {axis = 1 : i32, is_pointwise, scale = dense_resource<__elided__> : tensor<256xf32>}, decomposition = @pc_q} : (tensor<258x256xf32>) -> tensor<258x256xi8>
+  %0 = stablehlo.composite "tensorrt.pc_q" %cst {composite_attributes = {axis = 1 : i32, scale = dense_resource<__elided__> : tensor<256xf32>}, decomposition = @pc_q} : (tensor<258x256xf32>) -> tensor<258x256xi8>
   return %0 : tensor<258x256xi8>
 }
 func.func private @pc_q(%arg0: tensor<258x256xf32>) -> tensor<258x256xi8> attributes {plan.decomposition} {
@@ -2047,7 +2047,7 @@ func.func private @pc_q(%arg0: tensor<258x256xf32>) -> tensor<258x256xi8> attrib
 
 func.func @large_weight() -> tensor<258x256xf32> {
   %c = stablehlo.constant dense_resource<__elided__> : tensor<258x256xi4>
-  %0 = stablehlo.composite "tensorrt.block_dq" %c {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense_resource<__elided__> : tensor<2x256xf32>}, decomposition = @block_dq} : (tensor<258x256xi4>) -> tensor<258x256xf32>
+  %0 = stablehlo.composite "tensorrt.block_dq" %c {composite_attributes = {axis = -1 : i32, scale = dense_resource<__elided__> : tensor<2x256xf32>}, decomposition = @block_dq} : (tensor<258x256xi4>) -> tensor<258x256xf32>
   return %0 : tensor<258x256xf32>
 }
 func.func private @block_dq(%arg0: tensor<258x256xi4>) -> tensor<258x256xf32> attributes {plan.decomposition} {
@@ -2069,7 +2069,7 @@ func.func private @block_dq(%arg0: tensor<258x256xi4>) -> tensor<258x256xf32> at
 
 func.func @quantize_pt_bf16_to_fp8_static() -> tensor<2xf8E4M3FN> {
   %cst = stablehlo.constant dense<[1.000000e+00, 2.000000e+00]> : tensor<2xbf16>
-  %0 = stablehlo.composite "tensorrt.pt_q" %cst {composite_attributes = {axis = -1 : i32, is_pointwise, scale = dense<5.000000e-01> : tensor<bf16>}, decomposition = @pt_q} : (tensor<2xbf16>) -> tensor<2xf8E4M3FN>
+  %0 = stablehlo.composite "tensorrt.pt_q" %cst {composite_attributes = {axis = -1 : i32, scale = dense<5.000000e-01> : tensor<bf16>}, decomposition = @pt_q} : (tensor<2xbf16>) -> tensor<2xf8E4M3FN>
   return %0 : tensor<2xf8E4M3FN>
 }
 func.func private @pt_q(%arg0: tensor<2xbf16>) -> tensor<2xf8E4M3FN> attributes {plan.decomposition} {

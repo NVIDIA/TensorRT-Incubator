@@ -22,8 +22,9 @@
 /// tensorrt dialect.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/StablehloInputPreprocessing/StablehloPrepareConvolution.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/IR/PatternMatch.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 using namespace mlir;
@@ -223,7 +224,7 @@ public:
 };
 } // namespace
 
-void tensorrt::populateCanonicalizeStablehloConvolutionForTensorRTPatterns(
+void stablehlo_ext::populateCanonicalizeStablehloConvolutionPatterns(
     RewritePatternSet &patterns) {
   patterns.insert<StablehloRewriteConvolution>(patterns.getContext());
 }

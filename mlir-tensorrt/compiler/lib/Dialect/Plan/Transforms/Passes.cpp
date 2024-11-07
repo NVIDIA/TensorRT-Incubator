@@ -24,9 +24,11 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
 
@@ -66,10 +68,20 @@ void plan::buildPlanBufferizationPipeline(
 void plan::buildPlanBufferOptimizationPipeline(OpPassManager &pm) {
   pm.addNestedPass<func::FuncOp>(bufferization::createBufferLoopHoistingPass());
   pm.addNestedPass<func::FuncOp>(bufferization::createBufferHoistingPass());
-  bufferization::BufferDeallocationPipelineOptions opts;
-  opts.privateFunctionDynamicOwnership = false;
-  bufferization::buildBufferDeallocationPipeline(pm, opts);
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+}
+
+void plan::buildPlanBufferDeallocationPipeline(
+    OpPassManager &pm, const bufferization::DeallocationOptions &options) {
+  pm.addPass(memref::createExpandReallocPass(/*emitDeallocs=*/false));
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(plan::createPlanOwnershipBasedBufferDeallocationPass(
+      plan::PlanOwnershipBasedBufferDeallocationPassOptions{
+          options.privateFuncDynamicOwnership}));
+  pm.addPass(createCanonicalizerPass());
+  pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
+  pm.addPass(bufferization::createLowerDeallocationsPass());
+  pm.addPass(createCSEPass());
+  pm.addPass(createCanonicalizerPass());
 }
 
 namespace {
@@ -113,6 +125,21 @@ void plan::registerPlanDialectPipelines() {
             allocTensorOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
             buildPlanBufferizationPipeline(pm, allocTensorOpts);
             buildPlanBufferOptimizationPipeline(pm);
+            buildPlanBufferDeallocationPipeline(
+                pm, bufferization::DeallocationOptions{false});
+          });
+
+  PassPipelineRegistration<> bufferOptPipeline(
+      "plan-buffer-opt-pipeline", "perform post-bufferization optimizations",
+      [](OpPassManager &pm) { buildPlanBufferOptimizationPipeline(pm); });
+
+  PassPipelineRegistration<bufferization::BufferDeallocationPipelineOptions>
+      deallocationPipeline(
+          "plan-deallocation-pipeline",
+          "perform ownership-based buffer deallocation",
+          [](OpPassManager &pm,
+             const bufferization::BufferDeallocationPipelineOptions &opts) {
+            buildPlanBufferDeallocationPipeline(pm, opts);
           });
 
   PassPipelineRegistration<ClusteringPipelineCliOpts> segPipelineRegistration(

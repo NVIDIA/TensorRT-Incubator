@@ -177,10 +177,6 @@ class FlatIR:
         def _get_function_input_types(func: FlatIRFunction, mlir_tensor_map: Dict[str, ir.Value]) -> List[ir.Type]:
             """Get the input types for a function, converting to dynamic tensors if necessary."""
 
-            def convert_to_dynamic_tensor(rtt: ir.RankedTensorType) -> ir.RankedTensorType:
-                dynamic_shape = [ir.ShapedType.get_dynamic_size()] * rtt.rank
-                return ir.RankedTensorType.get(dynamic_shape, rtt.element_type)
-
             # Skip converting to dynamic tensor for Quantize/Dequantize scale operation.
             if "Quantize" in func.name or "Dequantize" in func.name:
                 return [

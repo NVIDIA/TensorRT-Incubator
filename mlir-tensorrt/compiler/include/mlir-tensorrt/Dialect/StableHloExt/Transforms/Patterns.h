@@ -1,4 +1,4 @@
-//===- StablehloPrepareScatter.h --------------------------------*- C++ -*-===//
+//===- Patterns.h -----------------------------------------------*- C++ -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -17,24 +17,25 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_TRANSFORMS_STABLEHLOINPUTPREPROCESSING_STABLEHLOPREPARESCATTER_H
-#define MLIR_TENSORRT_TRANSFORMS_STABLEHLOINPUTPREPROCESSING_STABLEHLOPREPARESCATTER_H
-
-#include "mlir/IR/PatternMatch.h"
+///
+/// Declarations for pattern sets related to StableHlo.
+///
+//===----------------------------------------------------------------------===//
 namespace mlir {
-namespace stablehlo {
-class ScatterOp;
-}
-namespace tensorrt {
-/// Returns true if the `scatterOp` has a configuration that corresponds to the
-/// ONNX ScatterNd operation semantic.
-bool isCanonicalScatterNd(stablehlo::ScatterOp scatterOp);
+class RewritePatternSet;
+namespace stablehlo_ext {
+
+/// Populate patterns that let `stablehlo` operations absorb generalizing
+/// `tensor.cast` producers.
+void populateStableHloAbsorbTensorCastPatterns(RewritePatternSet &patterns);
+
+/// Populate patterns to canonicalize `stablehlo.convolution`.
+void populateCanonicalizeStablehloConvolutionPatterns(
+    RewritePatternSet &patterns);
 
 /// Populate the pattern set with patterns to canonicalize `stablehlo.scatter`
 /// operations to correspond to `tensorrt.scatter`/`onnx.ScatterNd`.
-void populateCanonicalizeStablehloScatterForTensorRTPatterns(
-    RewritePatternSet &patterns);
-} // namespace tensorrt
-} // namespace mlir
+void populateCanonicalizeStablehloScatterPatterns(RewritePatternSet &patterns);
 
-#endif // MLIR_TENSORRT_TRANSFORMS_STABLEHLOINPUTPREPROCESSING_STABLEHLOPREPARESCATTER_H
+} // namespace stablehlo_ext
+} // namespace mlir
