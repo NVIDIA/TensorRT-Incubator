@@ -199,21 +199,25 @@ class FuncOverload:
         annotations = self._get_annotations()
 
         # Check if we have too many positional arguments. We can only do this if there isn't a variadic positional argument.
-        # The variadic argument, if present, is necessarily the last.
         annotation_items = list(annotations.items())
-        has_variadic_arg = (
-            (annotation_items[-1][1].kind == inspect.Parameter.VAR_POSITIONAL) if annotation_items else False
-        )
-        if not has_variadic_arg and len(args) > len(annotations):
+        variadic_idx = None
+        for idx, (_, annotation) in enumerate(annotation_items):
+            # there can only be at most one variadic arg and it must come after all positional args and before keyword-only args
+            if annotation.kind == inspect.Parameter.VAR_POSITIONAL:
+                variadic_idx = idx
+                break
+
+        if variadic_idx is None and len(args) > len(annotations):
             return Result.err(
                 [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
-        # If there is a variadic positional arg, we can copy the final annotation for the remaining args
-        if has_variadic_arg:
+        # If there is a variadic positional arg, we can copy the final annotation for the remaining args.
+        # Keyword-only args (only possible with a variadic arg) will appear in kwargs and don't need to be checked here.
+        if variadic_idx is not None:
             positional_args_to_check = chain(
-                zip(annotation_items[:-1], args),
-                map(lambda arg: (annotation_items[-1], arg), args[len(annotations) - 1 :]),
+                zip(annotation_items[:variadic_idx], args),
+                map(lambda arg: (annotation_items[variadic_idx], arg), args[len(annotations) - 1 :]),
             )
         else:
             positional_args_to_check = zip(annotation_items, args)

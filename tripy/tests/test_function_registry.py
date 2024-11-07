@@ -265,12 +265,12 @@ class TestFunctionRegistry:
     def test_variadic_positional_and_keyword_args(self, registry):
         # ensure the interaction succeeds
         @registry("test")
-        def func(a: int, *args: int, b: int, c: int):
-            return a + sum(args) + b + c
+        def func(a: int, *args: int, b: float, c: str):
+            return a + sum(args) + int(b) + len(c)
 
-        assert registry["test"](3, b=1, c=2) == 6
-        assert registry["test"](3, 4, b=1, c=2) == 10
-        assert registry["test"](3, 4, 5, b=1, c=2) == 15
+        assert registry["test"](3, b=1.0, c="ab") == 6
+        assert registry["test"](3, 4, b=1.0, c="ab") == 10
+        assert registry["test"](3, 4, 5, b=1.0, c="ab") == 15
 
     def test_variadic_keyword_args(self, registry):
         @registry("test")
