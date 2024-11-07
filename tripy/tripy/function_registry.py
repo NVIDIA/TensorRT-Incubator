@@ -147,6 +147,8 @@ class FuncOverload:
         return self.annotations
 
     def matches_arg_types(self, args, kwargs) -> "Result":
+        from itertools import chain
+
         from tripy.utils.result import Result
 
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
@@ -207,9 +209,15 @@ class FuncOverload:
                 [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
-        positional_args_to_check = (
-            zip(annotation_items, args) if not has_variadic_arg else zip(annotation_items[:-1], args)
-        )
+        # If there is a variadic positional arg, we can copy the final annotation for the remaining args
+        if has_variadic_arg:
+            positional_args_to_check = chain(
+                zip(annotation_items[:-1], args),
+                map(lambda arg: (annotation_items[-1], arg), args[len(annotations) - 1 :]),
+            )
+        else:
+            positional_args_to_check = zip(annotation_items, args)
+
         for (name, annotation), arg in positional_args_to_check:
             if not matches_type(name, annotation.type_info, arg):
                 return Result.err(
@@ -218,18 +226,6 @@ class FuncOverload:
                         f"but got argument of type: '{render_arg_type(arg)}'."
                     ]
                 )
-
-        # For checking the variadic argument, we check the annotation against every remaining positional arg.
-        if has_variadic_arg:
-            name, annotation = annotation_items[-1]
-            for arg in args[len(annotations) - 1 :]:
-                if not matches_type(name, annotation.type_info, arg):
-                    return Result.err(
-                        [
-                            f"For parameter: '{name}', expected an instance of type: '{sanitize_name(annotation.type_info)}' "
-                            f"but got argument of type: '{render_arg_type(arg)}'."
-                        ]
-                    )
 
         for name, arg in kwargs.items():
             if name in annotations:
