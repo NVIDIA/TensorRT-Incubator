@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731000851742,
+  "lastUpdate": 1731015708326,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -3366,6 +3366,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007070096863536507",
             "extra": "mean: 147.84462650643715 usec\nrounds: 7427"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "d5236c139af4c7b905f3795289167ffd3b35559f",
+          "message": "[Tripy] Check type annotations for variadic arguments in the function registry",
+          "timestamp": "2024-11-07T20:50:02Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/345/commits/d5236c139af4c7b905f3795289167ffd3b35559f"
+        },
+        "date": 1731015707523,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6024.268103572687,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000352379224480397",
+            "extra": "mean: 165.99526827282983 usec\nrounds: 6430"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6918.4656344386985,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007215052758373254",
+            "extra": "mean: 144.54071940781287 usec\nrounds: 7537"
           }
         ]
       }
