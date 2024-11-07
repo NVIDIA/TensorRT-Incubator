@@ -311,8 +311,8 @@ class Marker:
     @staticmethod
     def from_name(name: str) -> "Marker":
         return Marker(
-            matches_start_func=lambda line: line == f"<!-- Tripy: {name} Start -->",
-            matches_end_func=lambda line: line == f"<!-- Tripy: {name} End -->",
+            matches_start_func=lambda line: f"Tripy: {name} Start" in line,
+            matches_end_func=lambda line: f"Tripy: {name} End" in line,
         )
 
 
