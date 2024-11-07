@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731015885685,
+  "lastUpdate": 1731020793884,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -3434,6 +3434,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007012240585080379",
             "extra": "mean: 150.27557655462417 usec\nrounds: 7250"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "c9488fadace2cc9c39efb8f48253e28a65f7c2b8",
+          "message": "Adds release packaging pipeline and updates version to 0.0.3",
+          "timestamp": "2024-11-07T20:50:02Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/347/commits/c9488fadace2cc9c39efb8f48253e28a65f7c2b8"
+        },
+        "date": 1731020793139,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5993.768045979091,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000344082789625233",
+            "extra": "mean: 166.83995648961562 usec\nrounds: 6378"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6595.488194302583,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006808524138772972",
+            "extra": "mean: 151.61879917605427 usec\nrounds: 7245"
           }
         ]
       }
