@@ -105,7 +105,7 @@ def dtypes(
                 from tripy.common.datatype import dtype
                 from tripy.frontend.tensor import Tensor
 
-                merged_args = utils.merge_function_arguments(func, *args, **kwargs)
+                merged_args, _ = utils.merge_function_arguments(func, *args, **kwargs)
 
                 # The first arguments seen for each type variable. Other arguments with the same variable
                 # must use the same data types.

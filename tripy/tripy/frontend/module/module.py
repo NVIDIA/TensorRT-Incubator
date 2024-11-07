@@ -17,7 +17,7 @@
 
 import copy
 import operator
-from typing import Any, Dict, Iterator, List, Tuple, Union, Sequence, TypeVar
+from typing import Any, Dict, Iterator, List, Tuple, Union, Set, Sequence, TypeVar
 
 from tripy import export, utils
 from tripy.common.exception import raise_error, _make_stack_info_message
@@ -156,13 +156,20 @@ class Module:
 
         return state_dict
 
-    def load_state_dict(self, state_dict: Dict[str, Parameter]) -> None:
+    def load_state_dict(self, state_dict: Dict[str, Parameter], strict: bool = True) -> Tuple[Set[str], Set[str]]:
         r"""
         Loads parameters from the provided ``state_dict`` into the current module.
         This will recurse over any nested child modules.
 
         Args:
             state_dict: A dictionary mapping names to parameters.
+            strict: If True, keys in ``state_dict`` must exactly match those in this module. If not,
+                an error will be raised.
+
+        Returns:
+            A ``tuple`` of two ``set``\s of strings representing:
+            - missing_keys: keys that are expected by this module but not provided in ``state_dict``.
+            - unexpected_keys: keys that are not expected by this module but provided in ``state_dict``.
 
         .. code-block:: python
             :linenos:
@@ -203,7 +210,24 @@ class Module:
                     module = operator.attrgetter(child_name)(module)
             return module
 
+        expected_keys = set(self.state_dict())
+        provided_keys = set(state_dict)
+        missing_keys = expected_keys - provided_keys
+        unexpected_keys = provided_keys - expected_keys
+        if strict and (missing_keys or unexpected_keys):
+            details = []
+            if missing_keys:
+                details.append(f"Missing keys: {missing_keys}\n")
+            if unexpected_keys:
+                details.append(f"Unexpected keys: {unexpected_keys}")
+            raise_error(
+                "state_dict is incompatible.",
+                details,
+            )
+
         for nested_attr_name, param in state_dict.items():
+            if nested_attr_name in unexpected_keys:
+                continue
             submodule_name, _, param_name = nested_attr_name.rpartition(".")
             # If there is no submodule, it means we are accessing a parameter of self
             module = self
@@ -216,6 +240,9 @@ class Module:
                     # find module starting from the beginning
                     module = find_module(module, submodule_name.split("."))
 
+            if not isinstance(param, Parameter):
+                param = Parameter(param)
+
             if isinstance(module, Module):
                 _check_param_compatible(getattr(module, param_name), param, nested_attr_name)
                 setattr(module, param_name, param)
@@ -225,6 +252,7 @@ class Module:
             elif isinstance(module, dict):
                 _check_param_compatible(module[param_name], param, nested_attr_name)
                 module[param_name] = param
+        return (missing_keys, unexpected_keys)
 
     def named_children(self) -> Iterator[Tuple[str, "Module"]]:
         r"""

@@ -24,7 +24,7 @@ import os
 import math
 import time
 import typing
-from typing import Any, List, Sequence, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from colored import Fore, Style
 
@@ -415,10 +415,11 @@ class UniqueNameGen:
 ##
 ## Functions
 ##
-def get_positional_arg_names(func, *args):
+def get_positional_arg_names(func, *args) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
     # Returns the names of positional arguments by inspecting the function signature.
     # In the case of variadic positional arguments, we cannot determine names, so we use
-    # None instead.
+    # None instead. To assist in further processing, this function also returns the name
+    # and start index of the variadic args in a pair if present (None if not).
     signature = inspect.signature(func)
     arg_names = []
     varargs_name = None
@@ -432,12 +433,15 @@ def get_positional_arg_names(func, *args):
         arg_names.append(name)
 
     # For all variadic positional arguments, assign the name of the variadic group.
-    arg_names.extend([varargs_name] * (len(args) - len(arg_names)))
-    return list(zip(arg_names, args))
+    num_variadic_args = len(args) - len(arg_names)
+    variadic_start_idx = len(arg_names)
+    arg_names.extend([varargs_name] * num_variadic_args)
+    return list(zip(arg_names, args)), (varargs_name, variadic_start_idx) if num_variadic_args > 0 else None
 
 
-def merge_function_arguments(func, *args, **kwargs):
+def merge_function_arguments(func, *args, **kwargs) -> Tuple[List[Tuple[str, Any]], Optional[Tuple[str, int]]]:
     # Merge positional and keyword arguments, trying to determine names where possible.
-    all_args = get_positional_arg_names(func, *args)
+    # Also returns a pair containing the variadic arg name and start index if present (None otherwise).
+    all_args, var_arg_info = get_positional_arg_names(func, *args)
     all_args.extend(kwargs.items())
-    return all_args
+    return all_args, var_arg_info
