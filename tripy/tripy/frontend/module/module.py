@@ -20,7 +20,7 @@ import operator
 from typing import Any, Dict, Iterator, List, Tuple, Union, Set, Sequence, TypeVar
 
 from tripy import export, utils
-from tripy.common.exception import raise_error, _make_stack_info_message
+from tripy.common.exception import raise_error, str_from_stack_info
 from tripy.frontend.module.parameter import Parameter
 from tripy.logging import logger
 
@@ -111,7 +111,7 @@ class Module:
             ):
                 stack_info = utils.get_stack_info()
                 stack_info.fetch_source_code()
-                stack_info_msg = _make_stack_info_message(stack_info)
+                stack_info_msg = str_from_stack_info(stack_info)
 
                 logger.warning(
                     "A container of mixed types will not be registered with this module's state_dict()."
