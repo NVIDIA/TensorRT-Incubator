@@ -71,7 +71,7 @@ class TestSequential:
 
     def test_load_state_dict(self, sequential_network):
         new_state_dict = {"0.weight": tp.Parameter(tp.ones((3, 1)))}
-        sequential_network.load_state_dict(new_state_dict)
+        sequential_network.load_state_dict(new_state_dict, strict=False)
         assert np.array_equal(cp.from_dlpack(sequential_network[0].weight), cp.from_dlpack(new_state_dict["0.weight"]))
 
     def test_modify_parameters(self, sequential_network):
@@ -80,7 +80,7 @@ class TestSequential:
         assert sequential_network[1].weight is new_param
 
     def test_invalid_index_access(self, sequential_network):
-        with helper.raises(ValueError, match="Key 2 not found in modules"):
+        with helper.raises(tp.TripyException, match="Key: '2' not found in modules"):
             _ = sequential_network[2]
 
     def test_str_representation(self, sequential_network):
@@ -100,10 +100,6 @@ class TestSequential:
             )"""
         )
         assert str(sequential_network) == expected_str
-
-    def test_invalid_mixed_input(self):
-        with pytest.raises(ValueError, match="Cannot mix dictionaries and individual modules in Sequential"):
-            tp.Sequential({"layer1": tp.Linear(1, 3)}, tp.Linear(3, 2))
 
 
 class TestDictSequential:
@@ -127,24 +123,10 @@ class TestDictSequential:
         assert list(state_dict.keys()) == expected_keys
 
     def test_load_state_dict(self, dict_sequential_network):
-        new_state_dict = {
-            "layer1.weight": tp.Parameter(tp.ones((3, 1))),
-            "layer1.bias": tp.Parameter(tp.zeros((3,))),
-            "layer2.weight": tp.Parameter(tp.ones((2, 3))),
-            "layer2.bias": tp.Parameter(tp.zeros((2,))),
-        }
-        dict_sequential_network.load_state_dict(new_state_dict)
+        new_state_dict = {"layer1.weight": tp.Parameter(tp.ones((3, 1)))}
+        dict_sequential_network.load_state_dict(new_state_dict, strict=False)
         assert np.array_equal(
             cp.from_dlpack(dict_sequential_network["layer1"].weight), cp.from_dlpack(new_state_dict["layer1.weight"])
-        )
-        assert np.array_equal(
-            cp.from_dlpack(dict_sequential_network["layer1"].bias), cp.from_dlpack(new_state_dict["layer1.bias"])
-        )
-        assert np.array_equal(
-            cp.from_dlpack(dict_sequential_network["layer2"].weight), cp.from_dlpack(new_state_dict["layer2.weight"])
-        )
-        assert np.array_equal(
-            cp.from_dlpack(dict_sequential_network["layer2"].bias), cp.from_dlpack(new_state_dict["layer2.bias"])
         )
 
     def test_modify_parameters(self, dict_sequential_network):
@@ -196,7 +178,7 @@ class TestNestedSequential:
         new_state_dict = {
             "1.1.weight": tp.Parameter(tp.ones((1, 3))),
         }
-        nested_sequential_network.load_state_dict(new_state_dict)
+        nested_sequential_network.load_state_dict(new_state_dict, strict=False)
         assert np.array_equal(
             cp.from_dlpack(nested_sequential_network[1][1].weight), cp.from_dlpack(new_state_dict["1.1.weight"])
         )

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import copy
 
 from tripy import export
+from tripy.common.exception import raise_error
 from tripy.frontend.module import Module
 
 
@@ -61,10 +62,6 @@ class Sequential(Module):
         super().__init__()
         self.modules = {}
 
-        # Disallow mixing modules/dicts
-        if any(isinstance(m, dict) for m in modules) and any(not isinstance(m, dict) for m in modules):
-            raise ValueError("Cannot mix dictionaries and individual modules in Sequential.")
-
         if len(modules) == 1 and isinstance(modules[0], dict):
             self.modules = copy.copy(modules[0])
         else:
@@ -91,7 +88,7 @@ class Sequential(Module):
         `module = operator.attrgetter(child_name)(module)` calls in tripy/frontend/module/module.py:load_state_dict
         """
         # Check if `name` is a key in the modules dictionary
-        if "modules" in self.__dict__ and name in self.modules:
+        if name in self.modules:
             return self.modules[name]
 
         # Fallback to regular attribute access if not found in modules
@@ -153,13 +150,12 @@ class Sequential(Module):
             model = tp.Sequential(tp.Linear(1, 3), tp.Linear(3, 2))
             print(model[1])
         """
-        if not isinstance(idx, (int, str)):
-            raise TypeError("Index must be an int or str.")
-
         key = str(idx) if isinstance(idx, int) else idx
 
         if key not in self.modules:
-            raise_error(f"Key: '{key}' not found in modules.", [f"Note: Available keys were: {list(self.modules.keys())}"])
+            raise_error(
+                f"Key: '{key}' not found in modules.", [f"Note: Available keys were: {list(self.modules.keys())}"]
+            )
 
         return self.modules[key]
 
@@ -182,5 +178,8 @@ class Sequential(Module):
                 print(f"{name}: {type(child).__name__}")
 
         """
+        # Overriding the base implementation to prevent displaying every child module
+        # with the 'modules' prefix in the state_dict. This change ensures compatibility
+        # with PyTorch's naming conventions.
         for name, module in self.modules.items():
             yield name, module
