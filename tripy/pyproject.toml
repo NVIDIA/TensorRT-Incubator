@@ -22,8 +22,8 @@ Documentation = "https://nvidia.github.io/TensorRT-Incubator/"
 
 [build-system]
 requires = [
-  "setuptools>=45",
-  "wheel",
+  "setuptools==75.3.0",
+  "wheel==0.44.0",
   # For stubgen:
   "mypy==1.11.0",
 ]
@@ -34,8 +34,8 @@ dev = [
   "pre-commit==3.6.0",
 ]
 build = [
-  "setuptools>=45",
-  "wheel",
+  "setuptools==75.3.0",
+  "wheel==0.44.0",
   # For stubgen:
   "mypy==1.11.0",
 ]
