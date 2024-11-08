@@ -14,4 +14,4 @@ nvidia-ml-py
 black
 build
 psutil
-torch==2.1.0+cpu
+torch==2.2.0+cpu
