@@ -53,7 +53,7 @@ class Linear(Module):
     r"""The quantization scale for input"""
 
     weight_quant_dim: Optional[int]
-    r"""The quantization dimension for weight"""
+    r"""The dimension along which to apply the weight quantization scale."""
 
     def __init__(
         self,
@@ -61,8 +61,8 @@ class Linear(Module):
         out_features: int,
         bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
-        quant_dtype: datatype.dtype = None,
-        weight_quant_dim: int = None,
+        quant_dtype: Optional[datatype.dtype] = None,
+        weight_quant_dim: Optional[int] = None,
     ) -> None:
         """
         Args:
@@ -71,7 +71,7 @@ class Linear(Module):
             bias: Whether to include the bias term.
             dtype: The data type to use for the weight and bias parameters.
             quant_dtype: The data type for quantization.
-            weight_quant_dim: Quantization dimension of weights.
+            weight_quant_dim: The dimension along which to apply the weight quantization scale.
 
         .. code-block:: python
             :linenos:
@@ -100,6 +100,11 @@ class Linear(Module):
         self.weight_quant_dim = weight_quant_dim
         self.weight_scale = None
         self.input_scale = None
+        if quant_dtype is not None:
+            self.weight_scale = DefaultParameter(
+                shape=[self.weight._shape[weight_quant_dim]] if weight_quant_dim is not None else None, dtype=dtype
+            )
+            self.input_scale = DefaultParameter(shape=None, dtype=dtype)
 
     def __call__(self, x: "tripy.Tensor") -> "tripy.Tensor":
         r"""
