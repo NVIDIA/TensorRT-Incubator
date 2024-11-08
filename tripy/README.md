@@ -1,10 +1,11 @@
+
+# Tripy: A Python Programming Model For TensorRT
+
 <!-- Tripy: DOC: OMIT Start -->
-[**Installation**](#installation) | [**Quickstart**](#quickstart) | [**Documentation**](#documentation) | [**Examples**](#examples)
+[**Installation**](#installation) | [**Quickstart**](#quickstart) | [**Documentation**](https://nvidia.github.io/TensorRT-Incubator/) | [**Examples**](./examples) | [**Contributing**](./CONTRIBUTING.md)
 
 [![Tripy L1](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml/badge.svg)](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml)
 <!-- Tripy: DOC: OMIT End -->
-
-# Tripy: A Python Programming Model For TensorRT
 
 Tripy is a Python programming model for [TensorRT](https://developer.nvidia.com/tensorrt) that aims to provide an excellent
 user experience without compromising performance. Some of the features of Tripy include:
@@ -101,22 +102,3 @@ print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
 For more details, see the
 [Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/00-introduction-to-tripy.html)
 guide.
-
-
-<!-- Tripy: DOC: OMIT Start -->
-
-## Documentation
-
-The documentation is hosted [here](https://nvidia.github.io/TensorRT-Incubator/).
-
-
-## Examples
-
-The [examples](./examples/) directory includes end-to-end examples.
-
-
-## Contributing
-
-For information on how you can contribute to this project, see [CONTRIBUTING.md](./CONTRIBUTING.md)
-
-<!-- Tripy: DOC: OMIT End -->
