@@ -32,8 +32,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - uses: actions/configure-pages@v5
-
     - name: build-package
       run: |
         cd /tripy/
@@ -51,6 +49,9 @@ jobs:
       with:
         generate_release_notes: true
         files: /tripy/dist/tripy-*.whl
+        fail_on_unmatched_files: true
+
+    - uses: actions/configure-pages@v5
 
     - uses: actions/upload-pages-artifact@v3
       with:
