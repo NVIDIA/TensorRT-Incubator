@@ -31,8 +31,8 @@
 #include "mlir-tensorrt/Conversion/Patterns.h"
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
-#include "mlir-tensorrt/Transforms/StablehloInputPreprocessing/StablehloPrepareScatter.h"
 #include "mlir-tensorrt/Transforms/StablehloMatchers/StablehloMatchers.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/Quant/QuantOps.h"
@@ -1850,8 +1850,7 @@ static RankedTensorType convertToLegalConstantType(RankedTensorType t) {
 }
 
 namespace {
-/// Convert `stablehlo` constant operation to tensorrt constant op.
-/// TODO: Should we remove template?
+/// Convert `(stablehlo|arith).constant` op to `tensorrt.constant`.
 template <typename HloOpType>
 struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
@@ -1872,7 +1871,11 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       return failure();
     RankedTensorType supportedConstantType =
         convertToLegalConstantType(convertedType);
-    ElementsAttr constValueAttr = op.getValue();
+
+    ElementsAttr constValueAttr = dyn_cast_or_null<ElementsAttr>(op.getValue());
+    if (!constValueAttr)
+      return failure();
+
     if (failed(convertConstant(rewriter, op, constValueAttr, originalType,
                                supportedConstantType)))
       return rewriter.notifyMatchFailure(op, "could not convert i32 type");
@@ -1882,8 +1885,8 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
     auto replaceRoot = [&](TypedValue<RankedTensorType> replacement) {
       // We may need an identity operation to convert back to boolean.
-      auto casted = HloConstantConverter::castTensor(
-          trtRewriter, targetTrtMajorVersion, convertedType, replacement);
+      auto casted = this->castTensor(trtRewriter, targetTrtMajorVersion,
+                                     convertedType, replacement);
       if (failed(casted))
         return failure();
       trtRewriter.replaceOp(op, *casted);
@@ -3708,7 +3711,7 @@ struct ConvertScatterToTensorRT
     int64_t targetTrtMajorVersion =
         this->getTypeConverter()->getOptions().getTensorRTVersion();
 
-    if (!tensorrt::isCanonicalScatterNd(op))
+    if (!stablehlo_ext::isCanonicalScatterNd(op))
       return rewriter.notifyMatchFailure(
           op, "can only convert ops that are in ScatterNd format");
 
@@ -3869,7 +3872,7 @@ struct ConvertScatterToTensorRTScatterElements
 // lower it to a series of slices and concatenations. Return true if the slices
 // are partial.
 static bool isCanonicalGatherWithPartialSlices(stablehlo::GatherOp op) {
-  if (!stablehlo::isCanonicalGather(op))
+  if (!stablehlo_ext::isCanonicalGather(op))
     return false;
   TensorType operandType = op.getOperand().getType();
   ArrayRef<int64_t> sliceShape = op.getSliceSizes();
@@ -3902,7 +3905,7 @@ struct SingleDimSimpleGatherToTensorRTGatherPattern
       return failure();
 
     if (std::optional<int64_t> gatherDim =
-            stablehlo::isSingleDimSimpleGatherWithImplicitIndexDim(op)) {
+            stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(op)) {
       return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::GatherOp>(
                  op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
                  adaptor.getStartIndices(), *gatherDim)
@@ -3911,7 +3914,7 @@ struct SingleDimSimpleGatherToTensorRTGatherPattern
     }
 
     if (std::optional<int64_t> gatherDim =
-            stablehlo::isSingleDimSimpleGatherWithExplicitIndexDim(op)) {
+            stablehlo_ext::isSingleDimSimpleGatherWithExplicitIndexDim(op)) {
       // We just need to insert a reshape to remove the explicit index
       // dimension.
       auto indicesType =
@@ -3945,8 +3948,8 @@ struct ConvertGatherToTensorRT
     // offset_dims = [1, 2, ...].
     // Check to make sure we are not in "simple, single dim explicit index"
     // gather since that is a different pattern.
-    if (!stablehlo::isCanonicalGather(op) ||
-        stablehlo::isSingleDimSimpleGatherWithExplicitIndexDim(op))
+    if (!stablehlo_ext::isCanonicalGather(op) ||
+        stablehlo_ext::isSingleDimSimpleGatherWithExplicitIndexDim(op))
       return rewriter.notifyMatchFailure(op, "not stablehlo canonical gather");
 
     // Check that the indices shape at the "index vector dim" is 1. TensorRT's
@@ -3985,7 +3988,7 @@ struct ConvertGatherToTensorRTGatherNd
     if (!resultType)
       return failure();
 
-    if (stablehlo::isSimpleLeadingMultiDimGather(op)) {
+    if (stablehlo_ext::isSimpleLeadingMultiDimGather(op)) {
       return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::GatherNdOp>(
                  op, targetTrtMajorVersion, resultType,
                  /*data=*/adaptor.getOperand(),
@@ -3994,7 +3997,7 @@ struct ConvertGatherToTensorRTGatherNd
                  : failure();
     }
 
-    if (stablehlo::isSimpleLeadingMultiDimGatherWithDegenerateDims(op)) {
+    if (stablehlo_ext::isSimpleLeadingMultiDimGatherWithDegenerateDims(op)) {
       RankedTensorType indicesType = op.getStartIndices().getType();
       SmallVector<int64_t> resultShape(
           resultType.getShape().take_front(indicesType.getRank() - 1));
@@ -4038,7 +4041,8 @@ struct ConvertGatherWithPartialSlicesToTensorRT
       return failure();
     int64_t indexVectorSize = op.getStartIndices().getType().getDimSize(1);
     if (!isCanonicalGatherWithPartialSlices(op) ||
-        stablehlo::isSimpleLeadingMultiDimGather(op) || indexVectorSize != 1)
+        stablehlo_ext::isSimpleLeadingMultiDimGather(op) ||
+        indexVectorSize != 1)
       return rewriter.notifyMatchFailure(
           op, "not stablehlo canonical gather with partial slices and "
               "index_vector_dim size of 1");
@@ -4347,8 +4351,7 @@ struct CompositeToQDQConverter
         this->getTypeConverter()->getOptions().getTensorRTVersion();
 
     DictionaryAttr attr = op.getCompositeAttributes();
-    if (!attr.contains("axis") || !attr.contains("scale") ||
-        !attr.contains("is_pointwise"))
+    if (!attr.contains("axis") || !attr.contains("scale"))
       return failure();
 
     // Name of the composite op encodes TensorRT Q/DQ mode.
@@ -4513,13 +4516,14 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       HloUnaryOpToActivationConverter<stablehlo::TanhOp,
                                       tensorrt::ActivationType::kTANH>,
       RsqrtConverter, HloConstantConverter<stablehlo::ConstantOp>,
-      RealDynamicSliceConverter, HloSliceConverter<stablehlo::SliceOp>,
-      DynamicSliceConverter, ConvolutionConverter, ConvertScatterToTensorRT,
+      HloConstantConverter<arith::ConstantOp>, RealDynamicSliceConverter,
+      HloSliceConverter<stablehlo::SliceOp>, DynamicSliceConverter,
+      ConvolutionConverter, ConvertScatterToTensorRT,
       // clang-format off
       SingleDimSimpleGatherToTensorRTGatherPattern,
       ConvertScatterToTensorRTScatterElements,
       ConvertGatherToTensorRT,
-      ConvertGatherToTensorRTGatherNd,      
+      ConvertGatherToTensorRTGatherNd,
       CompositeToQDQConverter
     >(typeConverter, patterns.getContext(), PatternBenefit(1));
   // clang-format on

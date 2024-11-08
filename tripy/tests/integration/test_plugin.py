@@ -34,6 +34,7 @@ class TestPlugin:
 
         ref_out = tp.gelu(inp)
 
+        assert out.shape == ref_out.shape == inp.shape
         assert cp.allclose(cp.from_dlpack(out), cp.from_dlpack(ref_out))
 
     def test_dynamic_shape_gelu(self):
@@ -43,7 +44,11 @@ class TestPlugin:
         compiled_gelu = tp.compile(gelu, args=[tp.InputInfo((2, (1, 2, 3), 4), dtype=tp.float32)])
 
         inp = tp.iota((2, 1, 4))
-        assert tp.allclose(compiled_gelu(inp), tp.gelu(inp))
+        out = compiled_gelu(inp)
+        assert out.shape == inp.shape
+        assert tp.allclose(out, tp.gelu(inp))
 
         new_inp = tp.ones((2, 2, 4), dtype=tp.float32)
-        assert tp.allclose(compiled_gelu(new_inp), tp.gelu(new_inp))
+        out = compiled_gelu(new_inp)
+        assert out.shape == new_inp.shape
+        assert tp.allclose(out, tp.gelu(new_inp))

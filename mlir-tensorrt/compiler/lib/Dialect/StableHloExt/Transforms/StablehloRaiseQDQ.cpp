@@ -22,22 +22,19 @@
 /// in the StableHLO IR and raises these patterns to `stablehlo.composite` op
 /// where decomposition is a private function implementing Q or DQ.
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/IRMapping.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
-#include "llvm/Support/Debug.h"
 #include <string>
 
-#define DEBUG_TYPE "stablehlo-raise-qdq"
-#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
-
-namespace mlir {
+namespace mlir::stablehlo_ext {
 #define GEN_PASS_DEF_STABLEHLORAISEQDQPASS
-#include "mlir-tensorrt/Transforms/Passes.h.inc"
-} // namespace mlir
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h.inc"
+} // namespace mlir::stablehlo_ext
 
 using namespace mlir;
 
@@ -104,11 +101,7 @@ static FailureOr<Value> outlineQDQPatternToPrivateFuncAndAddComposite(
       rewriter.getContext(),
       {NamedAttribute(rewriter.getStringAttr("scale"), scaleAttr),
        NamedAttribute(rewriter.getStringAttr("axis"),
-                      rewriter.getI32IntegerAttr(qdqAxis)),
-       // `is_pointwise` attribute is used in shape materialization and tells
-       // that operation is pointwise.
-       NamedAttribute(rewriter.getStringAttr("is_pointwise"),
-                      rewriter.getUnitAttr())});
+                      rewriter.getI32IntegerAttr(qdqAxis))});
   return rewriter
       .create<stablehlo::CompositeOp>(
           funcReturn.getLoc(),
@@ -567,7 +560,8 @@ struct RaiseBlockDequantize : public OpRewritePattern<stablehlo::MulOp> {
 };
 
 class StablehloRaiseQDQPass
-    : public mlir::impl::StablehloRaiseQDQPassBase<StablehloRaiseQDQPass> {
+    : public mlir::stablehlo_ext::impl::StablehloRaiseQDQPassBase<
+          StablehloRaiseQDQPass> {
   using Base::Base;
 
   void runOnOperation() override {

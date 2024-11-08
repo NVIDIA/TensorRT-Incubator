@@ -194,6 +194,22 @@ BoundsArray::getAsElementsAttr(RankedTensorType type) const {
                         DenseElementsAttr::get(type, ubs));
 }
 
+/// Returns true if the element ranges are constant (single-value) ranges.
+std::optional<DenseElementsAttr>
+BoundsArray::getConstantValues(RankedTensorType type) const {
+  assert(!isUninitialized() && "expected initialized value");
+  assert(type.getNumElements() == static_cast<int64_t>(value->size()) &&
+         "specified tensor type's volume does not match lattice value volume");
+  SmallVector<APInt> lbs;
+  lbs.reserve(type.getNumElements());
+  for (const ConstantIntRanges &r : *value) {
+    if (r.smin() != r.smax())
+      return {};
+    lbs.push_back(r.smin());
+  }
+  return DenseElementsAttr::get(type, lbs);
+}
+
 //===----------------------------------------------------------------------===//
 // Utilities
 //===----------------------------------------------------------------------===//

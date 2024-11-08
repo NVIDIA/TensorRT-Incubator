@@ -151,7 +151,8 @@ def compile(
         return arg
 
     new_args = []
-    for name, arg in utils.get_positional_arg_names(func, *args):
+    positional_arg_info, _ = utils.get_positional_arg_names(func, *args)
+    for name, arg in positional_arg_info:
         new_args.append(process_arg(name, arg))
 
     new_kwargs = {}

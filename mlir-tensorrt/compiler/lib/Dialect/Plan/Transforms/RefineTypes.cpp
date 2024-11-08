@@ -25,6 +25,7 @@
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -351,6 +352,8 @@ class PlanRefineTypesPass
         TensorRTRefineTypeFromWithShapeGeneric
       >(ctx);
     // clang-format on
+    tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);
+    stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns);
     stablehlo::populateStablehloRefineShapesPatterns(&patterns, ctx);
     stablehlo::populateStablehloCanonicalizationPatterns(ctx, &patterns);
     if (failed(applyPatternsAndFoldGreedily(funcTarget, std::move(patterns),

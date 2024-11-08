@@ -105,6 +105,7 @@ class _Logger:
         self._indentation = 0
         self.verbosity: Union[str, Set[str], Dict[str, str], Dict[str, Set[str]]] = "info"
         self.enable_color = True
+        self._already_logged_hashes = set()
 
     @property
     def verbosity(self):
@@ -167,7 +168,9 @@ class _Logger:
         finally:
             self._indentation = old_indentation
 
-    def log(self, message: Union[str, Callable[[], str]], verbosity: str, stack_depth: int = 2) -> None:
+    def log(
+        self, message: Union[str, Callable[[], str]], verbosity: str, mode: str = "each", stack_depth: int = 2
+    ) -> None:
         """
         Logs a message to standard output.
 
@@ -178,6 +181,9 @@ class _Logger:
             message: The message to log. This can be provided as a callable in which case it will not
                 be called unless the message actually needs to be logged.
             verbosity: The verbosity at which to log this message.
+            mode: Indicates when or how to log the message. Available modes are:
+                - "each": Log the message each time.
+                - "once": Only log a message the first time it is seen.
             stack_depth: The stack depth to use when determining which file the message is being logged from.
         """
         assert (
@@ -202,6 +208,7 @@ class _Logger:
             return module_path(file_path)
 
         def should_log():
+
             path = None
             # Don't actually need to get the path if there are no non-default entries in the trie.
             if self.verbosity.has_non_default_entries:
@@ -210,6 +217,12 @@ class _Logger:
 
         if not should_log():
             return
+
+        if mode == "once":
+            message_hash = hash(message)
+            if message_hash in self._already_logged_hashes:
+                return
+            self._already_logged_hashes.add(message_hash)
 
         if callable(message):
             message = message()

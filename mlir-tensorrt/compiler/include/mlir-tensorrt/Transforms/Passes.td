@@ -23,49 +23,6 @@
 include "mlir/Pass/PassBase.td"
 
 #ifdef MLIR_TENSORRT_ENABLE_HLO
-
-//===----------------------------------------------------------------------===//
-// StablehloInputPreprocessingPass
-//===----------------------------------------------------------------------===//
-def StablehloInputPreprocessingPass : Pass<"tensorrt-stablehlo-input-preprocessing"> {
-  let summary = "Prepares Stable HLO dialect operations for conversion to TensorRT";
-
-  let description = [{
-   This pass contains a set of patterns for simplifying or transforming Stable HLO
-   input IR so that conversion to the TensorRT dialect is more straightforward.
-
-   In particular:
-
-    - Simplify certain patterns commonly found in IR emitted for JAX programs
-      but not covered by existing Stable HLO canonicalizations/transforms.
-
-    - Prepare convolutions to be NCHW/FCRS format and have at least two
-      "spatial" dimensions.
-
-    - Canonicalize `stablehlo.scatter` operations so that they can be converted to
-      `tensorrt.scatter` in a straightforward manner.
-  }];
-
-  let dependentDialects = [
-    "::mlir::tensor::TensorDialect",
-    "::mlir::stablehlo::StablehloDialect"
-  ];
-}
-
-//===----------------------------------------------------------------------===//
-// StablehloRaiseQDQPass
-//===----------------------------------------------------------------------===//
-
-def StablehloRaiseQDQPass : Pass<"stablehlo-raise-qdq"> {
-  let summary = "Recognizes Q(quantize) and DQ(dequantize) patterns in the StableHLO IR";
-  let description = [{
-    This pass matches Q(quantize) and DQ(dequantize) patterns in the StableHLO
-    IR and raises these patterns to `stablehlo.composite` op where
-    decomposition is a private function implementing Q or DQ.
-  }];
-
-}
-
 //===----------------------------------------------------------------------===//
 // TestStablehloMatchersPass to test different matchers for stablehlo
 //===----------------------------------------------------------------------===//

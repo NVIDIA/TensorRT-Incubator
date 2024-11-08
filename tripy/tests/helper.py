@@ -34,8 +34,7 @@ import torch
 
 import tripy as tp
 from tripy import utils
-from tripy.backend.mlir.utils import remove_sym_attr
-from tripy.common.exception import _make_stack_info_message
+from tripy.common.exception import str_from_stack_info
 from tripy.frontend import Tensor
 from tripy.frontend.trace import Trace
 
@@ -75,7 +74,7 @@ def raises(ExcType: type, match: Optional[str] = None, has_stack_info_for: Seque
     has_stack_info_for = has_stack_info_for or []
     for tensor in has_stack_info_for:
         # Stack info is indented since it's part of the `details` block in `raise_error`
-        expected_stack_info = indent(_make_stack_info_message(tensor.stack_info).strip(), " " * 4)
+        expected_stack_info = indent(str_from_stack_info(tensor.stack_info).strip(), " " * 4)
         assert expected_stack_info in error_msg, f"Missing stack information for tensor:\n{expected_stack_info}"
 
 
@@ -312,8 +311,8 @@ class Marker:
     @staticmethod
     def from_name(name: str) -> "Marker":
         return Marker(
-            matches_start_func=lambda line: line == f"<!-- Tripy: {name} Start -->",
-            matches_end_func=lambda line: line == f"<!-- Tripy: {name} End -->",
+            matches_start_func=lambda line: f"Tripy: {name} Start" in line,
+            matches_end_func=lambda line: f"Tripy: {name} End" in line,
         )
 
 

@@ -17,10 +17,8 @@
 
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 import tripy as tp
-from tripy import utils
 
 
 @dataclass

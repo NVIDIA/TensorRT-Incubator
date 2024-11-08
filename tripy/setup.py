@@ -33,7 +33,16 @@ class BuildPyCommand(build_py):
         package_name = self.distribution.metadata.name
         try:
             subprocess.run(
-                ["stubgen", "-m", package_name, "--include-docstrings", "--inspect-mode", "-o", self.build_lib],
+                [
+                    "stubgen",
+                    "-m",
+                    package_name,
+                    "--include-docstrings",
+                    "--inspect-mode",
+                    "--export-less",
+                    "-o",
+                    self.build_lib,
+                ],
                 check=True,
             )
         except subprocess.CalledProcessError as e:
