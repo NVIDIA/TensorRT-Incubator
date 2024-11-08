@@ -25,7 +25,7 @@ RUN apt-get update && \
 COPY .lldbinit /root/
 COPY pyproject.toml /tripy/pyproject.toml
 
-RUN pip install build .[docs,dev,test] \
+RUN pip install build .[docs,dev,test,build] \
     -f https://nvidia.github.io/TensorRT-Incubator/packages.html \
     --extra-index-url https://download.pytorch.org/whl \
     --extra-index-url https://pypi.nvidia.com
