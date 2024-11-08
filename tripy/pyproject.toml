@@ -21,12 +21,23 @@ Documentation = "https://nvidia.github.io/TensorRT-Incubator/"
 
 
 [build-system]
-requires = ["setuptools>=45", "wheel", "mypy==1.11.0"]
+requires = [
+  "setuptools>=45",
+  "wheel",
+  # For stubgen:
+  "mypy==1.11.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 dev = [
   "pre-commit==3.6.0",
+]
+build = [
+  "setuptools>=45",
+  "wheel",
+  # For stubgen:
+  "mypy==1.11.0",
 ]
 doc_test_common = [
   "torch==2.4.0+cu121",

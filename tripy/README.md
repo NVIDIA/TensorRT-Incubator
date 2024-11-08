@@ -47,7 +47,7 @@ To get the latest changes in the repository, you can build Tripy wheels from sou
 2. From the [`tripy` root directory](.), run:
 
     ```bash
-    python3 -m build .
+    python3 -m build . -w
     ```
 
 3. Install the wheel, which should have been created in the `dist/` directory.

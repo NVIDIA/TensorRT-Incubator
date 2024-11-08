@@ -21,3 +21,13 @@ This document explains how to release a new version of Tripy.
 
     This should trigger our release pipeline, which will build and deploy
     the documentation and create a GitHub release with the wheel.
+
+
+## Additional Notes
+
+The public build instructions use the usual isolated build flow to create the
+wheels. However, in our release pipelines, we would also like to include stub
+files in the generated wheels. `stubgen`, which we use in [setup.py](./setup.py)
+requires all dependencies of of the package to be installed for the `--inspect-mode`
+option to work. Obviously, this would be a bit circular for external users, but it
+is easy for us to do in the development container which already includes the dependencies.
