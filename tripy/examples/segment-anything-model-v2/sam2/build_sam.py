@@ -58,150 +58,114 @@ def get_component_configs(model, cfg):
             "compile_args": [
                 tp.InputInfo(
                     (4096, 1, 256),
-                    getattr(
-                        tp, getattr(cfg["model"].memory_attention, "dtype", "float32")
-                    ),
+                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
                 ),
                 tp.InputInfo(
-                    ((3277, 8196, 81925), 1, 64),
-                    getattr(
-                        tp, getattr(cfg["model"].memory_attention, "dtype", "float32")
-                    ),
+                    ((4100, 16400, 28736), 1, 64),
+                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
                 ),
                 tp.InputInfo(
                     (4096, 1, 256),
-                    getattr(
-                        tp, getattr(cfg["model"].memory_attention, "dtype", "float32")
-                    ),
+                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
                 ),
                 tp.InputInfo(
-                    ((3277, 8196, 81925), 1, 64),
-                    getattr(
-                        tp, getattr(cfg["model"].memory_attention, "dtype", "float32")
-                    ),
+                    ((4100, 16400, 28736), 1, 64),
+                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
                 ),
-                tp.InputInfo(((1, 1641, 3282),), tp.int32),
+                tp.InputInfo(((4, 16, 64),), tp.int32),
             ],
             "skip_dtype_convert": ["ln", "norm"],
         },
         "sam_mask_decoder_false": {
-            "enabled": True,
+            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
             "model": model.sam_mask_decoder,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # image_embeddings
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # image_pe
                 tp.InputInfo(
                     (1, 3, 256),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # sparse_prompt_embeddings
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # dense_prompt_embeddings
                 False,  # multimask_output
                 False,  # repeat_image
                 tp.InputInfo(
                     (1, 32, 256, 256),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # high_res_features_1
                 tp.InputInfo(
                     (1, 64, 128, 128),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # high_res_features_2
             ],
             "skip_dtype_convert": ["ln", "norm", "output_upscaling.1"],
         },
         "sam_mask_decoder_true": {
-            "enabled": True,
+            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
             "model": model.sam_mask_decoder,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # image_embeddings
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # image_pe
                 tp.InputInfo(
                     (1, 2, 256),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # sparse_prompt_embeddings
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # dense_prompt_embeddings
                 True,  # multimask_output
                 False,  # repeat_image
                 tp.InputInfo(
                     (1, 32, 256, 256),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # high_res_features_1
                 tp.InputInfo(
                     (1, 64, 128, 128),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 ),  # high_res_features_2
             ],
             "skip_dtype_convert": ["ln", "norm", "output_upscaling.1"],
             "skip_load_state_dict": True,
         },
         "sam_mask_decoder.conv_s0": {
-            "enabled": True,
+            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
             "model": model.sam_mask_decoder.conv_s0,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
                 tp.InputInfo(
                     (1, 256, 256, 256),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 )
             ],
             "skip_dtype_convert": [],
             "skip_load_state_dict": True,
         },
         "sam_mask_decoder.conv_s1": {
-            "enabled": True,
+            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
             "model": model.sam_mask_decoder.conv_s1,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
                 tp.InputInfo(
                     (1, 256, 128, 128),
-                    dtype=getattr(
-                        tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")
-                    ),
+                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
                 )
             ],
             "skip_dtype_convert": [],
@@ -219,7 +183,7 @@ def get_component_configs(model, cfg):
             "skip_dtype_convert": [],
         },
         "sam_prompt_encoder": {
-            "enabled": True,
+            "enabled": getattr(cfg["model"], "use_tripy_prompt_encoder", False),
             "model": model.sam_prompt_encoder,
             "dtype": "float32",  # TODO add fp16 to yaml
             "compile_args": [
@@ -238,7 +202,7 @@ def get_component_configs(model, cfg):
             },
         },
         "sam_prompt_encoder.get_dense_pe": {
-            "enabled": True,
+            "enabled": getattr(cfg["model"], "use_tripy_prompt_encoder", False),
             "model": model.sam_prompt_encoder.get_dense_pe,
             "dtype": "float32",  # TODO add fp16 to yaml
             "compile_args": [],
@@ -263,9 +227,7 @@ def get_component_configs(model, cfg):
                 # If it's a neck.convs key that contains 'conv.'
                 # neck.convs.0.conv.weight -> neck.convs.0.weight
                 ".".join(parts[:-2] + [parts[-1]])
-                if (parts := key.split("."))
-                and key.startswith("neck.convs")
-                and "conv." in key
+                if (parts := key.split(".")) and key.startswith("neck.convs") and "conv." in key
                 else key
             ),
             "special_handling": lambda original_model: {
@@ -333,9 +295,7 @@ def build_sam2(
         else:
             print(f"Compiling {comp_name}...")
             start = time.time()
-            compiled_model = tp.compile(
-                comp_info["model"], args=comp_info["compile_args"]
-            )
+            compiled_model = tp.compile(comp_info["model"], args=comp_info["compile_args"])
             print(f"Compilation took {time.time() - start:.2f}s")
             compiled_model.save(executable_file)
 
@@ -345,10 +305,7 @@ def build_sam2(
             old_model = old_model.__self__
 
         set_model_attr(model, comp_name, compiled_model)
-        if (
-            "special_handling" in comp_info
-            and comp_info["special_handling"] is not None
-        ):
+        if "special_handling" in comp_info and comp_info["special_handling"] is not None:
             comp_info["special_handling"](old_model)
 
     model = model.to(device)
@@ -409,9 +366,7 @@ def build_sam2_video_predictor(
         else:
             print(f"Compiling {comp_name}...")
             start = time.time()
-            compiled_model = tp.compile(
-                comp_info["model"], args=comp_info["compile_args"]
-            )
+            compiled_model = tp.compile(comp_info["model"], args=comp_info["compile_args"])
             print(f"Compilation took {time.time() - start:.2f}s")
             compiled_model.save(executable_file)
 
@@ -421,10 +376,7 @@ def build_sam2_video_predictor(
             old_model = old_model.__self__
 
         set_model_attr(model, comp_name, compiled_model)
-        if (
-            "special_handling" in comp_info
-            and comp_info["special_handling"] is not None
-        ):
+        if "special_handling" in comp_info and comp_info["special_handling"] is not None:
             comp_info["special_handling"](old_model)
 
     model = model.to(device)
@@ -446,9 +398,7 @@ def load_component_weights(comp_name, component_info, state_dict, checkpoint_dic
                 comp_name = comp_name[: -len(suffix)]
                 break
 
-        if not key.startswith(comp_name) or (
-            component_info.get("skip_load_state_dict") is True
-        ):
+        if not key.startswith(comp_name) or (component_info.get("skip_load_state_dict") is True):
             continue
 
         new_key = key.replace(f"{comp_name}.", "")
@@ -456,9 +406,7 @@ def load_component_weights(comp_name, component_info, state_dict, checkpoint_dic
             new_key = component_info["special_key_loading"](new_key)
         weight = checkpoint_dict[key]
 
-        should_convert = not any(
-            skip in key for skip in component_info["skip_dtype_convert"]
-        )
+        should_convert = not any(skip in key for skip in component_info["skip_dtype_convert"])
         if should_convert and component_info["dtype"] is not None:
             weight = weight.to(getattr(torch, component_info["dtype"]))
 
