@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731021389834,
+  "lastUpdate": 1731025955799,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -3502,6 +3502,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006901806222070683",
             "extra": "mean: 146.88227481933794 usec\nrounds: 7495"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "d798a020b8aa64ee664ab7b5747e6e29b58be117",
+          "message": "Fixes release pipeline, adds separate build flow to include stubs",
+          "timestamp": "2024-11-08T00:28:01Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/348/commits/d798a020b8aa64ee664ab7b5747e6e29b58be117"
+        },
+        "date": 1731025955018,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6038.992766112448,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003481870909703711",
+            "extra": "mean: 165.59052787932742 usec\nrounds: 6444"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6716.088272295698,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000738775691611465",
+            "extra": "mean: 148.89619663354716 usec\nrounds: 7399"
           }
         ]
       }
