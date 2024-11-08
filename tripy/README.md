@@ -57,6 +57,12 @@ To get the latest changes in the repository, you can build Tripy wheels from sou
     python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html dist/tripy-*.whl
     ```
 
+4. **[Optional]** To ensure that Tripy was installed correctly, you can run a sanity check:
+
+    ```bash
+    python3 -c "import tripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5"
+    ```
+
 <!-- Tripy: DOC: OMIT End -->
 
 ## Quickstart

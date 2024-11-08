@@ -21,7 +21,7 @@ import inspect
 import os
 import re
 import shutil
-import subprocess
+import subprocess as sp
 from collections import defaultdict
 from dataclasses import dataclass
 from textwrap import dedent, indent
@@ -190,14 +190,14 @@ def process_guide(guide_path: str, processed_guide_path: str):
     # We need to maintain all the code we've seen so far since future
     # code might rely on things that were already defined in previous code blocks.
     code_locals = {}
-    for block in blocks:
-        if block.lang.startswith("sh"):
-            subprocess.call(str(block), shell=True)
+    for index, block in enumerate(blocks):
+        print(f"Processing block {index} (lang={block.lang}) in: {guide_path}: ", end="")
 
-        if block.lang.startswith("py"):
+        should_eval = not block.has_marker("doc: no_eval")
+        if should_eval and block.lang.startswith("py"):
+            print("Evaluating Python block")
 
             def add_block(title, contents, lang):
-                print(f"Appending output block for code in: {guide_path}")
                 # Only include the "Output:" heading when the code block is actually rendered in the documentation.
                 return (
                     "\n"
@@ -221,8 +221,20 @@ def process_guide(guide_path: str, processed_guide_path: str):
             new_blocks.extend(local_var_lines)
             new_blocks.extend(output_lines)
 
-        elif not block.has_marker("doc: omit"):
-            new_blocks.append(block.raw_str())
+        else:
+            if should_eval and (block.lang.startswith("sh") or block.lang.startswith("bash")):
+                print("Evaluating shell block")
+                commands = str(block).splitlines()
+                for command in commands:
+                    status = sp.run(command.strip(), shell=True)
+                    status.check_returncode()
+
+            if not block.has_marker("doc: omit"):
+                print("Adding block")
+                # All non-Python blocks are appended as-is.
+                new_blocks.append(block.raw_str())
+            else:
+                print("Omitting block")
 
     with open(processed_guide_path, "w") as fout:
         fout.write("\n".join(new_blocks))
