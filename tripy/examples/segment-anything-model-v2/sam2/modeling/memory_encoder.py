@@ -177,7 +177,6 @@ class MemoryEncoder(tp.Module):
         super().__init__()
 
         self.mask_downsampler = mask_downsampler
-
         self.pix_feat_proj = tp.Conv(in_dim, in_dim, kernel_dims=(1, 1))
         self.fuser = fuser
         self.position_encoding = position_encoding

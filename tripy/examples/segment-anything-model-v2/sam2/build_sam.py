@@ -52,7 +52,7 @@ def get_component_configs(model, cfg):
     """
     return {
         "memory_attention": {
-            "enabled": isinstance(model.memory_attention, tp.Module),
+            "enabled": True,
             "model": model.memory_attention,
             "dtype": getattr(cfg["model"].memory_attention, "dtype", "float32"),
             "compile_args": [
@@ -77,7 +77,7 @@ def get_component_configs(model, cfg):
             "skip_dtype_convert": ["ln", "norm"],
         },
         "sam_mask_decoder_false": {
-            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
+            "enabled": True,
             "model": model.sam_mask_decoder,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
@@ -111,7 +111,7 @@ def get_component_configs(model, cfg):
             "skip_dtype_convert": ["ln", "norm", "output_upscaling.1"],
         },
         "sam_mask_decoder_true": {
-            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
+            "enabled": True,
             "model": model.sam_mask_decoder,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
@@ -146,7 +146,7 @@ def get_component_configs(model, cfg):
             "skip_load_state_dict": True,
         },
         "sam_mask_decoder.conv_s0": {
-            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
+            "enabled": True,
             "model": model.sam_mask_decoder.conv_s0,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
@@ -159,7 +159,7 @@ def get_component_configs(model, cfg):
             "skip_load_state_dict": True,
         },
         "sam_mask_decoder.conv_s1": {
-            "enabled": getattr(cfg["model"], "use_tripy_mask_decoder", False),
+            "enabled": True,
             "model": model.sam_mask_decoder.conv_s1,
             "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
             "compile_args": [
@@ -172,7 +172,7 @@ def get_component_configs(model, cfg):
             "skip_load_state_dict": True,
         },
         "memory_encoder": {
-            "enabled": isinstance(model.memory_encoder, tp.Module),
+            "enabled": True,
             "model": model.memory_encoder,
             "dtype": "float32",  # TODO add fp16 to yaml
             "compile_args": [
@@ -183,7 +183,7 @@ def get_component_configs(model, cfg):
             "skip_dtype_convert": [],
         },
         "sam_prompt_encoder": {
-            "enabled": getattr(cfg["model"], "use_tripy_prompt_encoder", False),
+            "enabled": True,
             "model": model.sam_prompt_encoder,
             "dtype": "float32",  # TODO add fp16 to yaml
             "compile_args": [
@@ -202,7 +202,7 @@ def get_component_configs(model, cfg):
             },
         },
         "sam_prompt_encoder.get_dense_pe": {
-            "enabled": getattr(cfg["model"], "use_tripy_prompt_encoder", False),
+            "enabled": True,
             "model": model.sam_prompt_encoder.get_dense_pe,
             "dtype": "float32",  # TODO add fp16 to yaml
             "compile_args": [],
@@ -210,7 +210,7 @@ def get_component_configs(model, cfg):
             "skip_load_state_dict": True,
         },
         "image_encoder.compiled_executable": {
-            "enabled": isinstance(model.image_encoder, tp.Module),
+            "enabled": True,
             "model": model.image_encoder.forward,
             "dtype": getattr(cfg["model"].image_encoder.trunk, "dtype", "float32"),
             "compile_args": [
@@ -286,6 +286,7 @@ def build_sam2(
 
     for comp_name, comp_info in components.items():
         if not comp_info["enabled"] or comp_name not in required_components_for_image:
+            print(comp_name)
             continue
 
         executable_file = os.path.join(saved_engines_path, comp_name)
@@ -452,7 +453,7 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
             comp_model = comp_model.__self__
         component_sd = comp_model.state_dict()
         converted_keys = load_component_weights(comp_name, comp_info, component_sd, sd)
-        comp_model.load_state_dict(component_sd)
+        comp_model.load_state_dict(component_sd, strict=False)
         if comp_name == "image_encoder.compiled_executable":
             comp_model.trunk.generate_static_pos_embed((256, 256))
 
