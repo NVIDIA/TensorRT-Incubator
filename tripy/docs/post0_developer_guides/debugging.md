@@ -1,9 +1,12 @@
 # Debugging MLIR-TensorRT backend
 
 1. Install new python bindings for compiler and runtime. Assuming `tripy/mlir-tensorrt` directory exists. No need to update `LD_LIBRARY_PATH`.
+
+<!-- Tripy: DOC: NO_EVAL Start -->
 	```bash
 	python3 -m pip install --force-reinstall mlir-tensorrt/build/wheels/trt100/**/*.whl
 	```
+<!-- Tripy: DOC: NO_EVAL End -->
 
 2. Set environment flags for debugging:
 
@@ -16,9 +19,11 @@
 3. Use LLDB for debugging MLIR-TensorRT backend.
 In order to use `lldb` in tripy container, launch the container with extra security options:
 
+<!-- Tripy: DOC: NO_EVAL Start -->
 ```bash
 docker run --gpus all --cap-add=SYS_PTRACE \
 	--security-opt seccomp=unconfined --security-opt apparmor=unconfined \
 	-p 8080:8080 -v $(pwd):/tripy/ -it --rm tripy:latest
 ```
+<!-- Tripy: DOC: NO_EVAL End -->
 See https://forums.swift.org/t/debugging-using-lldb/18046 for more details.

@@ -42,7 +42,7 @@ b = tp.arange(5)
 c = a + b + tp.tanh(a)
 end = time.time()
 
-print(f"Time to create 'c': {end - start:.3f} seconds.")
+print(f"Time to create 'c': {(end - start) * 1000:.3f} ms.")
 ```
 
 It looks like Tripy is very fast! While Tripy *execution* is very fast, compiling the program
@@ -57,7 +57,7 @@ start = time.time()
 print(c)
 end = time.time()
 
-print(f"Time to print 'c': {end - start:.3f} seconds.")
+print(f"Time to print 'c': {(end - start) * 1000:.3f} ms.")
 ```
 
 That is why the time to print `c` is so much higher than the time to create it.
@@ -127,8 +127,8 @@ out = mlp(inp)
 out.eval() # Recall that we need to evaluate in order to actually materialize `out`
 end = time.time()
 
-eager_time = (end - start)
-print(f"Eager mode time: {eager_time:.4f} seconds")
+eager_time = (end - start) * 1000
+print(f"Eager mode time: {eager_time:.4f} ms")
 
 ITERS = 10
 start = time.time()
@@ -137,8 +137,8 @@ for _ in range(ITERS):
     out.eval()
 end = time.time()
 
-compiled_time = (end - start) / ITERS
-print(f"Compiled mode average time: {(end - start) / ITERS:.4f} seconds")
+compiled_time = ((end - start) / ITERS) * 1000
+print(f"Compiled mode average time: {compiled_time:.4f} ms")
 # Make sure compiled mode is actually faster # doc: omit
 assert compiled_time < 0.01 * eager_time # doc: omit
 ```
