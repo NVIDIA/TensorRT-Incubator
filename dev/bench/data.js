@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731088563493,
+  "lastUpdate": 1731094810576,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -3604,6 +3604,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007046811734490962",
             "extra": "mean: 147.40997545478282 usec\nrounds: 7495"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "fe055ae6b0da1fbf16d8a37dab9d40c835756a61",
+          "message": "Fixes nanogpt, various other fixes",
+          "timestamp": "2024-11-08T18:32:59Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/352/commits/fe055ae6b0da1fbf16d8a37dab9d40c835756a61"
+        },
+        "date": 1731094809798,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5985.702402405311,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033960754133664424",
+            "extra": "mean: 167.06477081088383 usec\nrounds: 6409"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6630.6890405863605,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007019443705934374",
+            "extra": "mean: 150.81388885514207 usec\nrounds: 7318"
           }
         ]
       }
