@@ -344,7 +344,7 @@ MTRT_Status mtrtBoundsGetMax(MTRT_Bounds bounds, MTRT_ArrayRefI64 *maxBounds) {
 MTRT_FunctionSignature mtrtGetFunctionSignature(MTRT_Executable exec,
                                                 const char *name) {
   auto sig = const_cast<impl::FunctionSignature *>(
-      unwrap(exec)->getFunction(name).getSignature().view);
+      (*unwrap(exec)->getFunction(name)).getSignature().view);
   return wrap(sig);
 }
 

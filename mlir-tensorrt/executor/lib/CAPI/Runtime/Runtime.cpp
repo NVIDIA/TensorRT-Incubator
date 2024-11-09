@@ -28,6 +28,7 @@
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Status.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/Debug.h"
@@ -38,6 +39,17 @@
 #include <mutex>
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
 #include "cuda_runtime_api.h"
+#endif
+
+#if defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif
+#include "cuda_bf16.h"
+#include "cuda_fp16.h"
+#include "cuda_fp8.h"
+#if defined(__clang__)
+#pragma GCC diagnostic pop
 #endif
 
 struct MTRT_StreamImpl;
@@ -355,6 +367,8 @@ MTRT_Status mtrtMemRefCreateExternal(
 MTRT_Status mtrtMemRefValueDestroyAsync(MTRT_MemRefValue buffer,
                                         MTRT_Stream stream) {
   MemRefValue *memref = unwrap(buffer);
+  MTRT_DBGF("destroying memref pointer 0x%lx asynchronously",
+            memref->getMemory());
   Status s = memref->getClient()->deallocate(
       std::unique_ptr<MemRefValue>(memref),
       mtrtStreamIsNull(stream) ? std::nullopt
@@ -366,6 +380,7 @@ MTRT_Status mtrtMemRefValueDestroyAsync(MTRT_MemRefValue buffer,
 
 MTRT_Status mtrtMemRefValueDestroy(MTRT_MemRefValue buffer) {
   MemRefValue *memref = unwrap(buffer);
+  MTRT_DBGF("destroying memref pointer 0x%lx", memref->getMemory());
   Status s =
       memref->getClient()->deallocate(std::unique_ptr<MemRefValue>(memref));
   if (!s.isOk())
@@ -723,6 +738,16 @@ MTRT_ScalarValue mtrtRuntimeValueDynCastToScalar(MTRT_RuntimeValue v) {
   return wrap(static_cast<ScalarValue *>(x));
 }
 
+bool mtrtRuntimeValueIsMemRef(MTRT_RuntimeValue value) {
+  RuntimeValue *x = unwrap(value);
+  return x->getKind() == RuntimeValue::Kind::MemRef;
+}
+
+bool mtrtRuntimeValueIsScalar(MTRT_RuntimeValue value) {
+  RuntimeValue *x = unwrap(value);
+  return x->getKind() == RuntimeValue::Kind::Scalar;
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeSessionOptions
 //===----------------------------------------------------------------------===//
@@ -769,7 +794,8 @@ MTRT_Status mtrtRuntimeSessionDestroy(MTRT_RuntimeSession session) {
 MTRT_Status mtrtRuntimeSessionExecuteFunction(
     MTRT_RuntimeSession session, MTRT_StringView name,
     const MTRT_RuntimeValue *inArgs, size_t numInArgs,
-    const MTRT_RuntimeValue *outArgs, size_t numOutArgs, MTRT_Stream stream) {
+    const MTRT_RuntimeValue *outArgs, size_t numOutArgs,
+    MTRT_RuntimeValue *results, MTRT_Stream stream, MTRT_RuntimeClient client) {
   LuaRuntimeSession *cppSession =
       static_cast<LuaRuntimeSession *>(unwrap(session));
 
@@ -779,19 +805,38 @@ MTRT_Status mtrtRuntimeSessionExecuteFunction(
   llvm::SmallVector<RuntimeValue *> outArgValues =
       llvm::map_to_vector(llvm::ArrayRef(outArgs, numOutArgs),
                           [](MTRT_RuntimeValue arg) { return unwrap(arg); });
-
-  StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>> result =
+  StatusOr<llvm::SmallVector<std::unique_ptr<RuntimeValue>>> resultValues =
       executeFunctionWithLuaBackend(
           *cppSession, std::string_view(name.data, name.length), inArgValues,
           outArgValues,
           !mtrtStreamIsNull(stream)
               ? std::optional(unwrap(stream)->getRawStream())
-              : std::nullopt);
-  if (!result.isOk())
-    return wrap(result.getStatus());
+              : std::nullopt,
+          !mtrtRuntimeClientIsNull(client) ? std::optional(unwrap(client))
+                                           : std::nullopt);
+  if (!resultValues.isOk())
+    return wrap(resultValues.getStatus());
+
+  for (size_t i = 0; i < resultValues->size(); ++i)
+    results[i] = wrap((*resultValues)[i].release());
 
   return mtrtStatusGetOk();
 }
+
+MTRT_Status mtrtRuntimeSessionGetNumResults(MTRT_RuntimeSession session,
+                                            MTRT_StringView name,
+                                            int64_t *numResults) {
+  LuaRuntimeSession *cppSession =
+      static_cast<LuaRuntimeSession *>(unwrap(session));
+  StatusOr<FunctionView> func = cppSession->getExecutable().getFunction(
+      std::string_view(name.data, name.length));
+  if (func.isError()) {
+    return wrap(func.getStatus());
+  }
+  *numResults = (*func).getSignature().getNumResults();
+  return mtrtStatusGetOk();
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_RuntimeClient
 //===----------------------------------------------------------------------===//
@@ -835,5 +880,53 @@ MTRT_Status mtrtScalarValueGetType(MTRT_ScalarValue scalar,
                                    MTRT_ScalarTypeCode *code) {
   ScalarValue *cppScalar = unwrap(scalar);
   *code = static_cast<MTRT_ScalarTypeCode>(cppScalar->getType().getCode());
+  return mtrtStatusGetOk();
+}
+
+MTRT_Status mtrtScalarValueGet(MTRT_ScalarValue scalar, int64_t *data) {
+  ScalarValue *cppScalar = unwrap(scalar);
+  ScalarTypeCode code = cppScalar->getType().getCode();
+  switch (code) {
+  case ScalarTypeCode::f8e4m3fn:
+    *data = static_cast<int64_t>(cppScalar->get<__nv_fp8_e4m3>());
+    break;
+  case ScalarTypeCode::f16:
+    *data = static_cast<int64_t>(cppScalar->get<__half>());
+    break;
+  case ScalarTypeCode::bf16:
+    *data = static_cast<int64_t>(cppScalar->get<nv_bfloat16>());
+    break;
+  case ScalarTypeCode::f32:
+    *data = static_cast<int64_t>(cppScalar->get<float>());
+    break;
+  case ScalarTypeCode::f64:
+    *data = static_cast<int64_t>(cppScalar->get<double>());
+    break;
+  case ScalarTypeCode::i1:
+    *data = static_cast<int64_t>(cppScalar->get<int8_t>());
+    break;
+  case ScalarTypeCode::i4:
+    *data = static_cast<int64_t>(cppScalar->get<int8_t>());
+    break;
+  case ScalarTypeCode::i8:
+    *data = static_cast<int64_t>(cppScalar->get<int8_t>());
+    break;
+  case ScalarTypeCode::ui8:
+    *data = static_cast<int64_t>(cppScalar->get<uint8_t>());
+    break;
+  case ScalarTypeCode::i16:
+    *data = static_cast<int64_t>(cppScalar->get<int16_t>());
+    break;
+  case ScalarTypeCode::i32:
+    *data = static_cast<int64_t>(cppScalar->get<int32_t>());
+    break;
+  case ScalarTypeCode::i64:
+    *data = cppScalar->get<int64_t>();
+    break;
+  default:
+    return wrap(getInvalidArgStatus(
+        "function input argument with scalar type {0} is unsupported",
+        impl::EnumNameScalarTypeCode(code)));
+  }
   return mtrtStatusGetOk();
 }
