@@ -142,9 +142,12 @@ public:
     size = std::max(size, static_cast<uint64_t>(1));
     if (size > mOutputSize) {
       size = roundUp(size, alignment);
-      if (mOutputPtr)
+      if (mOutputPtr) {
+        MTRT_DBGF("tensorrt module output allocator deallocating 0x%lx",
+                  mOutputPtr);
         mlirtrt::runtime::safeDeallocate(*mTracker, mOutputPtr,
                                          CudaStreamPtr(stream));
+      }
       mOutputPtr = 0;
       mOutputSize = 0;
       StatusOr<PointerInfo> memory =
@@ -153,6 +156,16 @@ public:
       if (memory.isOk()) {
         mOutputPtr = (*memory).ptr;
         mOutputSize = memory->size;
+        // Mark the output pointer for release after consumption
+        // This is necessary because TensorRT-allocated pointers used in
+        // device-device or device-host copies may not be wrapped in a memref
+        // and tracked by the client. By marking it here, we ensure it will be
+        // explicitly freed after it's consumed in copy operations, preventing
+        // memory leaks.
+        mTracker->markForReleaseAfterConsumption(mOutputPtr);
+        MTRT_DBGF(
+            "tensorrt module output allocator allocating %lu bytes at 0x%lx",
+            mOutputSize, mOutputPtr);
       }
       return reinterpret_cast<void *>(mOutputPtr);
     }
