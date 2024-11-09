@@ -23,7 +23,7 @@ from typing import Tuple
 
 import tripy as tp
 
-from sam2.modeling.sam2_utils import LayerNorm2d, get_clones
+from sam2.modeling.sam2_utils import LayerNorm2d
 
 
 class Dummy(tp.Module):
@@ -119,11 +119,6 @@ class CXBlock(tp.Module):
         self.pwconv2 = tp.Linear(4 * dim, dim)
         self.gamma = tp.ones((dim,)) * layer_scale_init_value
 
-        # self.gamma = (
-        #     nn.Parameter(layer_scale_init_value * torch.ones((dim)), requires_grad=True)
-        #     if layer_scale_init_value > 0
-        #     else None
-        # )
         self.drop_path = Dummy()
 
     def __call__(self, x):
@@ -149,7 +144,7 @@ class Fuser(tp.Module):
     def __init__(self, layer, num_layers, dim=None, input_projection=False):
         super().__init__()
         self.proj = Dummy()
-        self.layers = get_clones(layer, num_layers)
+        self.layers = [layer for i in range(num_layers)]
 
         if input_projection:
             self.proj = tp.Conv(dim, dim, kernel_dims=(1, 1))

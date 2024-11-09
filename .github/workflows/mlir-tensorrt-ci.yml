@@ -69,7 +69,7 @@ jobs:
           print("Expected format is, ")
           print("<title>")
           print("<body>")
-          print("NOTE: Body should start on new line. `2 spaces + enter` for new line!")
+          print("NOTE: Body should start on new line. '2 spaces + enter' for new line!")
           print("NOTE: Body should be at least two lines.")
           sys.exit(1)
           EOF
