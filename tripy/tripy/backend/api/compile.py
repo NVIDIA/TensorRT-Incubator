@@ -53,9 +53,9 @@ def compile(
 
             The compiled function will have the following constraints:
 
-            - Only :class:`Tensor` parameters to the function can become runtime inputs. All other types of parameters,
-                even collections of :class:`Tensor` s (e.g. ``List[Tensor]`` or ``Dict[str, Tensor]``), will be baked into
-                the compiled function as constants.
+            - Only :class:`Tensor` parameters to the function can become runtime inputs.
+                All other types of parameters, even collections of :class:`Tensor` s (e.g. ``List[Tensor]`` or ``Dict[str, Tensor]``),
+                will be baked into the compiled function as constants.
 
         optimization_level: The optimization level to use when compiling. Higher optimization levels can lead to better
             runtime performance at the cost of longer compile times.
