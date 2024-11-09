@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731115396200,
+  "lastUpdate": 1731116949706,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -3808,6 +3808,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000702016755129134",
             "extra": "mean: 147.8403789497562 usec\nrounds: 7450"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "06a2aec1389bbd0e2f4621d9d2cc7f3654c11500",
+          "message": "Updates MLIR-TRT to 0.1.36",
+          "timestamp": "2024-11-09T01:41:38Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/356/commits/06a2aec1389bbd0e2f4621d9d2cc7f3654c11500"
+        },
+        "date": 1731116948896,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6118.92655104443,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003272040316060096",
+            "extra": "mean: 163.42735799456713 usec\nrounds: 6509"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6841.752733536502,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007107087302187712",
+            "extra": "mean: 146.16137690832622 usec\nrounds: 7429"
           }
         ]
       }
