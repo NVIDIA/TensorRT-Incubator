@@ -277,11 +277,11 @@ public:
                });
 
     for (func::FuncOp func : funcs) {
-      if (failed(
-              applyClusteringToFunc(rewriter, func, solver, schedule,
-                                    StablehloClusteringPassOptions{
-                                        entrypoint, enableNonDPSReturns,
-                                        /*disableCreateShapeFuncPass=*/false})))
+      if (failed(applyClusteringToFunc(
+              rewriter, func, solver, schedule,
+              StablehloClusteringPassOptions{
+                  entrypoint, forceEntrypointsReturnAllocs,
+                  /*disableCreateShapeFuncPass=*/false})))
         return signalPassFailure();
     }
 

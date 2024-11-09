@@ -24,6 +24,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
@@ -48,7 +49,8 @@ void plan::buildPlanSegmentationPipeline(
       plan::createPlanPopulateFunctionBoundsAttributesPass());
   pm.addPass(plan::createStablehloClusteringPass(opts));
   plan::CreateClosedRegionsPassOptions closedRegionOptions{};
-  closedRegionOptions.enableNonDPSReturns = opts.enableNonDPSReturns;
+  closedRegionOptions.forceEntrypointsReturnAllocs =
+      opts.forceEntrypointsReturnAllocs;
   pm.addPass(plan::createCreateClosedRegionsPass(closedRegionOptions));
   pm.addPass(plan::createOutlineClustersPass());
   pm.addPass(mlir::createFuncExtDuplicateFunctionEliminationPass());
@@ -80,6 +82,7 @@ void plan::buildPlanBufferDeallocationPipeline(
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
+  pm.addPass(mlir::createBufferizationToMemRefPass());
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
 }
