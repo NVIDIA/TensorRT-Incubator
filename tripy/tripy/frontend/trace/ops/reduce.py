@@ -135,7 +135,7 @@ def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Seque
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "float16", "bfloat16"]},
+    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def sum(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -232,7 +232,7 @@ def any(
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "float16", "bfloat16"]},
+    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def max(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -265,7 +265,7 @@ def max(
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "float16", "bfloat16"]},
+    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def prod(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -313,7 +313,7 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "float16", "bfloat16"]},
+    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def mean(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -413,7 +413,7 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optiona
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
 )
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
@@ -445,7 +445,7 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
 )
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
