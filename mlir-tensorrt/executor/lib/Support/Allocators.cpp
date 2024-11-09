@@ -206,7 +206,7 @@ static void cudaFreeHostWrapper(uintptr_t ptr) {
 #endif
 }
 
-std::vector<uintptr_t> PinnedMemoryAllocator::untrackedPtrs;
+std::vector<uintptr_t> PinnedMemoryAllocator::clientManagedPtrs;
 
 struct PinnedMemoryAllocator::BlockTracker {
   std::set<Block *, BlockComparison> blocks;
@@ -218,13 +218,14 @@ struct PinnedMemoryAllocator::BlockTracker {
         "[PinnedMemoryAllocator] Releasing block tracker that has %lu blocks",
         blocks.size());
     for (Block *block : blocks) {
-      if (std::find(PinnedMemoryAllocator::untrackedPtrs.begin(),
-                    PinnedMemoryAllocator::untrackedPtrs.end(),
-                    block->ptr) == PinnedMemoryAllocator::untrackedPtrs.end()) {
+      if (std::find(clientManagedPtrs.begin(), clientManagedPtrs.end(),
+                    block->ptr) == clientManagedPtrs.end()) {
         ALLOC_DBGF("[PinnedMemoryAllocator] releasing block %lu of size %lu",
                    block->ptr, block->size);
         cudaFreeHostWrapper(block->ptr);
       }
+      // Blocks found in clientManagedPtrs are not freed here, as they are now
+      // managed by the client
     }
   }
 };
@@ -251,7 +252,7 @@ StatusOr<PinnedMemoryBlock> PinnedMemoryAllocator::allocate(size_t size) {
   if (lowerBound != freeBlocks->set.end()) {
     Block *result = *lowerBound;
     freeBlocks->set.erase(result);
-    ALLOC_DBGF("re-using block %lu of size %lu", result->ptr, result->size);
+    ALLOC_DBGF("re-using block %lx of size %lu", result->ptr, result->size);
     return PinnedMemoryBlock{result->ptr, result->size};
   }
 
@@ -275,10 +276,11 @@ StatusOr<PinnedMemoryBlock> PinnedMemoryAllocator::allocate(size_t size) {
 #endif
 }
 
-// Free the given block.
+std::vector<uintptr_t> clientManagedPtrs;
+
 void PinnedMemoryAllocator::untrack(uintptr_t ptr) {
-  if (!llvm::is_contained(untrackedPtrs, ptr)) {
-    untrackedPtrs.emplace_back(ptr);
+  if (!llvm::is_contained(clientManagedPtrs, ptr)) {
+    clientManagedPtrs.emplace_back(ptr);
   }
 }
 

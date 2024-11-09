@@ -795,6 +795,12 @@ public:
   /// Returns true if the ptr is released internally.
   bool isReleasedInternally(uintptr_t ptr) const;
 
+  /// Mark pointer for release after consumption
+  void markForReleaseAfterConsumption(uintptr_t ptr);
+
+  /// Check if pointer is marked for release after consumption
+  bool isMarkedForReleaseAfterConsumption(uintptr_t ptr);
+
 private:
   struct Metadata {
     std::atomic<int32_t> externalReferenceCount = {0};
@@ -802,6 +808,7 @@ private:
     // if this is true then it should be truelly released and untracked
     // when decrementExternalCount causes count to go to zero
     bool releasedInternally{false};
+    bool releaseAfterConsumption{false};
     PointerInfo info;
   };
 
@@ -870,7 +877,7 @@ public:
 
   ExecutableView getExecutable() const { return executable; }
 
-  PinnedMemoryAllocator &getPinnedMemorAllocator() {
+  PinnedMemoryAllocator &getPinnedMemoryAllocator() {
     return *pinnedMemoryAllocator;
   }
 
@@ -968,7 +975,7 @@ public:
   ResourceTracker &getResourceTracker() { return resourceTracker; }
 
   /// Return the PinnedMemoryAllocator.
-  PinnedMemoryAllocator &getPinnedMemorAllocator() {
+  PinnedMemoryAllocator &getPinnedMemoryAllocator() {
     return pinnedMemoryAllocator;
   }
 

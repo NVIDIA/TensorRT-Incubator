@@ -396,6 +396,20 @@ AllocTracker::~AllocTracker() {
     MTRT_DBGF("freed %zu bytes of unfreed memory", totalSize);
 }
 
+void AllocTracker::markForReleaseAfterConsumption(uintptr_t ptr) {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  metadata->releaseAfterConsumption = true;
+}
+
+bool AllocTracker::isMarkedForReleaseAfterConsumption(uintptr_t ptr) {
+  assert(llvm::is_contained(map, ptr) &&
+         llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
+  std::unique_ptr<Metadata> const &metadata = map.at(ptr);
+  return metadata->releaseAfterConsumption;
+}
+
 void AllocTracker::markReleasedInternally(uintptr_t ptr) {
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
@@ -472,6 +486,7 @@ void AllocTracker::track(PointerInfo info) {
   auto value = std::make_unique<Metadata>();
   value->externalReferenceCount.store(0);
   value->releasedInternally = false;
+  value->releaseAfterConsumption = false;
   value->info = info;
   if (!contains(info.ptr)) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
@@ -669,6 +684,7 @@ ResourceTracker::~ResourceTracker() {
 
 void ResourceTracker::track(uintptr_t ptr, Deleter deleter) {
   assert(ptr && deleter && "expected valid ptr and deleter");
+  MTRT_DBGF("tracking resource at 0x%lx", ptr);
   tracker.insert(std::make_pair(ptr, deleter));
 }
 
@@ -985,7 +1001,7 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
     // TODO: Currently, this implementation supports only row major packed
     // canonical layout (no padding).
     StatusOr<mlirtrt::PinnedMemoryBlock> pinnedMemory =
-        this->getPinnedMemorAllocator().allocate(totalBufferSize);
+        this->getPinnedMemoryAllocator().allocate(totalBufferSize);
     if (!pinnedMemory.isOk())
       return pinnedMemory.getStatus();
 
@@ -1004,7 +1020,7 @@ RuntimeClient::copyToDevice(const MemRefValue &hostBufferImpl,
                         reinterpret_cast<cudaStream_t>(*cudaStream)));
 
     // Free pinned host memory asynchronously.
-    getPinnedMemorAllocator().freeAsync(pinnedMemory->ptr, *cudaStream);
+    getPinnedMemoryAllocator().freeAsync(pinnedMemory->ptr, *cudaStream);
   } else {
     MTRT_DBG("synchronously copying {0} (host) to {1} (device), size={2} bytes",
              hostBufferImpl.getVoidPtr(), (*deviceMemRef)->getVoidPtr(),

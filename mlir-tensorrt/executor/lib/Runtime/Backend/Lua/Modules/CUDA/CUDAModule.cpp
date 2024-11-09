@@ -432,6 +432,15 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                                                       cudaMemcpyDeviceToHost,
                                                       stream),
                                       state);
+        // Check if the source pointer is marked for release after consumption
+        if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
+          // This pointer was allocated by TensorRT and used in a device-device
+          // or device-host copy operation. It's not wrapped in a memref, so it
+          // won't be released by external memref destruction. We need to
+          // explicitly free it.
+          SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
+                                 state);
+        }
       };
 
   lua["__cuda_memcpy_host_pinned2device"] =
@@ -480,6 +489,15 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                                                       cudaMemcpyDeviceToHost,
                                                       stream),
                                       state);
+        // Check if the source pointer is marked for release after consumption
+        if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
+          // This pointer was allocated by TensorRT and used in a device-device
+          // or device-host copy operation. It's not wrapped in a memref, so it
+          // won't be released by external memref destruction. We need to
+          // explicitly free it.
+          SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
+                                 state);
+        }
       };
   lua["__cuda_memcpy_device2device"] = [allocTracker](
                                            sol::this_state state,
@@ -504,6 +522,15 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                                                   cudaMemcpyDeviceToDevice,
                                                   stream),
                                   state);
+    // Check if the source pointer is marked for release after consumption
+    if (allocTracker->isMarkedForReleaseAfterConsumption(src)) {
+      // This pointer was allocated by TensorRT and used in a device-device
+      // or device-host copy operation. It's not wrapped in a memref, so it
+      // won't be released by external memref destruction. We need to
+      // explicitly free it.
+      SET_LUA_ERROR_IF_ERROR(runtime::safeDeallocate(*allocTracker, src),
+                              state);
+    }
     return;
   };
 }

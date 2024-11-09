@@ -27,6 +27,7 @@
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
+#include "mlir-executor/Runtime/Support/Support.h"
 #include "mlir-executor/Support/Status.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/Debug.h"
@@ -325,6 +326,8 @@ MTRT_Status mtrtMemRefCreateExternal(
 MTRT_Status mtrtMemRefValueDestroyAsync(MTRT_MemRefValue buffer,
                                         MTRT_Stream stream) {
   MemRefValue *memref = unwrap(buffer);
+  MTRT_DBGF("destroying memref pointer 0x%lx asynchronously",
+            memref->getMemory());
   Status s = memref->getClient()->deallocate(
       std::unique_ptr<MemRefValue>(memref),
       mtrtStreamIsNull(stream) ? std::nullopt
@@ -336,6 +339,7 @@ MTRT_Status mtrtMemRefValueDestroyAsync(MTRT_MemRefValue buffer,
 
 MTRT_Status mtrtMemRefValueDestroy(MTRT_MemRefValue buffer) {
   MemRefValue *memref = unwrap(buffer);
+  MTRT_DBGF("destroying memref pointer 0x%lx", memref->getMemory());
   Status s =
       memref->getClient()->deallocate(std::unique_ptr<MemRefValue>(memref));
   if (!s.isOk())

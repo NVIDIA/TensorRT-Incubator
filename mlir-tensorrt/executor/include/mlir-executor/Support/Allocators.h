@@ -104,7 +104,11 @@ public:
   PinnedMemoryAllocator();
   ~PinnedMemoryAllocator();
 
-  /// Untracks
+  /// Marks a pointer as client-managed, deferring its deallocation
+  /// This method is used when a pinned memory pointer is returned to the client
+  /// and its lifecycle is no longer managed by the PinnedMemoryAllocator.
+  /// Pointers marked this way will not be automatically freed in the
+  /// allocator's destructor.
   void untrack(uintptr_t ptr);
 
   StatusOr<PinnedMemoryBlock> allocate(size_t size);
@@ -117,8 +121,8 @@ public:
 private:
   EventPool eventPool;
 
-  /// Tracks all the pointers which need not to freed up.
-  static std::vector<uintptr_t> untrackedPtrs;
+  /// Stores pointers to memory blocks that are now managed by the client.
+  static std::vector<uintptr_t> clientManagedPtrs;
 
   /// Tracks all blocks allocated by the allocator.
   struct BlockTracker;

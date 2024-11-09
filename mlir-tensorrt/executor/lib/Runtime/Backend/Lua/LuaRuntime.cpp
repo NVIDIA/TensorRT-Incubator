@@ -98,7 +98,7 @@ static void registerLuaRuntimeMethodsCommon(
 }
 
 void mlirtrt::runtime::registerLuaRuntimeMethods(
-    lua_State *state, const RuntimeSessionOptions &options,
+    lua_State *state, const RuntimeSessionOptions &options, 
     PinnedMemoryAllocator *pinnedMemoryAllocator, AllocTracker *allocTracker,
     ResourceTracker *resourceTracker) {
   registerLuaRuntimeMethodsCommon(state, pinnedMemoryAllocator, allocTracker,
@@ -152,7 +152,7 @@ LuaRuntimeSession::create(RuntimeSessionOptions options,
 
   // Register builtin methods.
   registerLuaRuntimeMethods(lua.lua_state(), session->getOptions(),
-                            &session->getPinnedMemorAllocator(),
+                            &session->getPinnedMemoryAllocator(),
                             &session->getAllocTracker(),
                             &session->getResourceTracker());
 
@@ -624,7 +624,7 @@ parseResults(const sol::protected_function_result &pfr,
               "This ptr is registered with the session and will now be tracked "
               "by the client as well.",
               allocPtr, static_cast<void *>(&session.getAllocTracker()),
-              static_cast<void *>(&session.getPinnedMemorAllocator()),
+              static_cast<void *>(&session.getPinnedMemoryAllocator()),
               static_cast<void *>(*client),
               static_cast<void *>(&(*client)->getAllocTracker()));
 
@@ -632,14 +632,14 @@ parseResults(const sol::protected_function_result &pfr,
     // ownership and have the client assume
     PointerInfo info = session.getAllocTracker().get(allocPtr);
     session.getAllocTracker().untrack(info.ptr);
+    (*client)->getAllocTracker().track(info);
 
-    // It is possible that pinned memory also tracks the memory for
-    // deallocation.
-    session.getPinnedMemorAllocator().untrack(info.ptr);
-
-    AllocTracker &allocator = (*client)->getAllocTracker();
-    // if (!allocator.contains(info.ptr))
-    allocator.track(info);
+    // Defer deallocation of this pinned memory pointer
+    // This pointer is likely still in use by the client and should not be
+    // immediately freed. By untracking it here, we ensure it won't be
+    // deallocated in the PinnedMemoryAllocator's destructor, allowing
+    // the client to manage its lifecycle.
+    session.getPinnedMemoryAllocator().untrack(info.ptr);
 
     // Create a memref so that client now tracks it.
     auto memref = MemRefValue::create(
@@ -649,9 +649,6 @@ parseResults(const sol::protected_function_result &pfr,
 
     if (!memref.isOk())
       return memref.getStatus();
-
-    // Increment external reference count since we are returning a memref
-    allocator.incrementExternalCount(info.ptr);
 
     results.push_back(std::move(*memref));
   }
