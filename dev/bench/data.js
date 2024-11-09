@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731104584964,
+  "lastUpdate": 1731115026109,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -3740,6 +3740,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007183399466780923",
             "extra": "mean: 148.73188781125157 usec\nrounds: 7477"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "d5fe92a40aaa747ab79b34735c9d2d1a0c82ce97",
+          "message": "Adds a new workflow to update package index",
+          "timestamp": "2024-11-08T23:27:48Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/354/commits/d5fe92a40aaa747ab79b34735c9d2d1a0c82ce97"
+        },
+        "date": 1731115025342,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6094.637647595853,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003315874047411444",
+            "extra": "mean: 164.0786635435938 usec\nrounds: 6466"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6672.552131033608,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007474825165790366",
+            "extra": "mean: 149.8676938542098 usec\nrounds: 7351"
           }
         ]
       }
