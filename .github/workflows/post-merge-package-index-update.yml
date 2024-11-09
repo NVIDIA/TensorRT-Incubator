@@ -1,0 +1,49 @@
+name: Post-merge package index update
+
+on:
+  push:
+    branches: [ "main" ]
+    paths: ['tripy/docs/packages.html']
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+    group: "pages"
+    cancel-in-progress: false
+
+jobs:
+  publish-package-index:
+    runs-on: tripy-self-hosted
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    container:
+      image: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
+      volumes:
+          - ${{ github.workspace }}/tripy:/tripy
+      options: --gpus all
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: build-docs
+      run: |
+          cd /tripy/
+          python3 docs/generate_rsts.py
+          sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
+          cp docs/packages.html build/docs/
+
+    - uses: actions/configure-pages@v5
+
+    - uses: actions/upload-pages-artifact@v3
+      with:
+          path: "/tripy/build/docs"
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
