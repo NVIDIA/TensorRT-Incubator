@@ -197,5 +197,4 @@ def compile(
     return Executable(
         executable,
         compiled_arg_names,
-        output_devices=[out.device for out in trace.outputs],
     )

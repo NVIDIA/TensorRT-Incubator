@@ -413,7 +413,7 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optiona
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
 )
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
@@ -445,7 +445,7 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int32", "bool", "int8"], "T2": ["int32"]},
+    variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
 )
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
