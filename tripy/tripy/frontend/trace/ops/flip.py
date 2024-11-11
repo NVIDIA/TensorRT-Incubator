@@ -40,7 +40,7 @@ class Flip(BaseTraceOp):
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
-        "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
     },
 )
 def flip(input: "tripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = None) -> "tripy.Tensor":

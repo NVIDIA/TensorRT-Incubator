@@ -95,12 +95,12 @@ class TestExecutable:
         assert signature.return_annotation == Sequence[tp.Tensor]
 
     def test_io_tensor_info(self, multiple_return_executable):
-        input_info = multiple_return_executable.get_input_info()
+        input_info = multiple_return_executable._get_input_info()
         assert len(input_info) == 2
         for i in range(2):
             assert input_info[i].shape_bounds == ((2, 2), (2, 2))
             assert input_info[i].dtype == tp.float32
-        output_info = multiple_return_executable.get_output_info()
+        output_info = multiple_return_executable._get_output_info()
         assert len(output_info) == 2
         for i in range(2):
             assert output_info[i].shape_bounds == ((2, 2), (2, 2))
@@ -112,8 +112,7 @@ class TestExecutable:
             single_return_executable.save(exe_file)
             assert os.path.exists(exe_file)
             loaded_executable = tp.Executable.load(exe_file)
-            assert loaded_executable.get_input_info() == single_return_executable.get_input_info()
-            assert loaded_executable.get_output_info() == single_return_executable.get_output_info()
+            assert loaded_executable.__signature__ == single_return_executable.__signature__
 
             inp = tp.iota((2, 2), dtype=tp.float32)
             out1 = single_return_executable(inp, inp)

@@ -72,7 +72,7 @@ def main():
         "--quant-mode",
         type=str,
         help="Quantization mode.",
-        choices=["int8-weight-only", "int4-weight-only", "fp8"],
+        choices=["int8-weight-only", "int4-weight-only"],
     )
 
     args = parser.parse_args()
@@ -97,6 +97,7 @@ def main():
     idx = tp.reshape(tp.Tensor(input_ids), shape=(1, len(input_ids)))
 
     # Compile the model before running inference.
+    print(f"Compiling the model (this may take a few seconds)...")
     compile_start_time = time.perf_counter()
     input_shape = (
         1,
@@ -137,7 +138,7 @@ def main():
     response = encoder.decode(torch.from_dlpack(idx[0, :]).tolist())
     end_time = time.perf_counter()
     print(f"Generating {args.max_new_tokens} tokens took {end_time - start_time} seconds.")
-    print(response)
+    print(f"\nResponse:\n{response}")
 
 
 if __name__ == "__main__":
