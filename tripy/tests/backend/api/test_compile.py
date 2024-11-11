@@ -168,16 +168,21 @@ class TestCompile:
         with helper.raises(tp.TripyException, match="Cannot evaluate a tensor while compiling."):
             tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
 
-    def test_allow_eval_if_tensor_unused_in_compile(self):
+    def test_allow_eval_if_tensor_unused_in_compile(self, capsys):
         # If the tensor is not actually used in the computation graph then we don't care if it's eval'd.
         def func(a):
             print(a.shape)
 
-            c = a - 1
+            c = a - int(a.shape[0])
             print(c)
             return a
 
-        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.int32)])
+        out, _ = capsys.readouterr()
+        print(f"\n{out}")
+
+        # Ensure that a warning is printed for each evaluation (2 prints + int).
+        assert out.count("Tensor was evaluated while compiling here:") == 3
 
     def test_allow_eval_for_non_input_to_compile(self):
         # We should allow non-inputs to be evaluated.

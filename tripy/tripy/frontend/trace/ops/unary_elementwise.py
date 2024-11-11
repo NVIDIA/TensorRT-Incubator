@@ -252,7 +252,7 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
 @export.public_api(document_under="operations/functions")
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32"]},
+    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
 def abs(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""

@@ -23,6 +23,7 @@ import torch
 import tripy as tp
 from tests.helper import raises, TORCH_DTYPES
 from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
+import cupy as cp
 
 
 class TestQuantize:
@@ -118,4 +119,4 @@ class TestQuantize:
         scale = tp.ones((4,))
         quantized = tp.quantize(input, scale, tp.int8, dim=0)
 
-        assert bool(tp.all(quantized == tp.ones((4, 4), dtype=tp.int8)))
+        assert bool(cp.all(cp.from_dlpack(quantized) == cp.ones((4, 4), dtype=cp.int8)))

@@ -1,10 +1,11 @@
+
+# Tripy: A Python Programming Model For TensorRT
+
 <!-- Tripy: DOC: OMIT Start -->
-[**Installation**](#installation) | [**Quickstart**](#quickstart) | [**Documentation**](#documentation) | [**Examples**](#examples)
+[**Installation**](#installation) | [**Getting Started**](#getting-started) | [**Documentation**](https://nvidia.github.io/TensorRT-Incubator/) | [**Examples**](./examples) | [**Contributing**](./CONTRIBUTING.md)
 
 [![Tripy L1](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml/badge.svg)](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml)
 <!-- Tripy: DOC: OMIT End -->
-
-# Tripy: A Python Programming Model For TensorRT
 
 Tripy is a Python programming model for [TensorRT](https://developer.nvidia.com/tensorrt) that aims to provide an excellent
 user experience without compromising performance. Some of the features of Tripy include:
@@ -20,67 +21,93 @@ user experience without compromising performance. Some of the features of Tripy 
 
 ## Installation
 
+<!-- Tripy: DOC: OMIT Start -->
+### Installing Prebuilt Wheels
+<!-- Tripy: DOC: OMIT End -->
+
 ```bash
 python3 -m pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
 python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
 ```
 
+***Important:** There is another package named `tripy` on PyPI.*
+*Note that it is **not** the package from this repository.*
+*Please use the instructions above to ensure you install the correct package.*
+
 <!-- Tripy: DOC: OMIT Start -->
-If you want to build from source, please follow the instructions in [CONTRIBUTING.md](./CONTRIBUTING.md).
+### Building Wheels From Source
+
+To get the latest changes in the repository, you can build Tripy wheels from source.
+
+1. Make sure `build` is installed:
+
+    ```bash
+    python3 -m pip install build
+    ```
+
+2. From the [`tripy` root directory](.), run:
+
+    ```bash
+    python3 -m build . -w
+    ```
+
+3. Install the wheel, which should have been created in the `dist/` directory.
+    From the [`tripy` root directory](.), run:
+
+    ```bash
+    python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html dist/tripy-*.whl
+    ```
+
+4. **[Optional]** To ensure that Tripy was installed correctly, you can run a sanity check:
+
+    ```bash
+    python3 -c "import tripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5"
+    ```
+
 <!-- Tripy: DOC: OMIT End -->
 
-## Quickstart
+## Getting Started
 
-In eager mode, Tripy works just like you'd expect:
-
-```py
-# doc: no-print-locals
-import tripy as tp
-
-a = tp.Tensor([1.0, 2.0])
-print(a + 1)
-```
-
-Tripy can also compile functions to generate efficient machine code for faster execution:
-
-```py
-# doc: no-print-locals
-def add(a, b):
-    return a + b
-
-# When compiling, we need to specify shape and data type constraints on the inputs:
-
-# a is a 1D dynamic shape tensor of shape (d,), where `d` can range from 1 to 5.
-# `[1, 2, 5]` indicates a range from 1 to 5, with optimization for `d = 2`.
-a_info = tp.InputInfo(shape=([1, 2, 5],), dtype=tp.float32)
-
-# `b` is a 1D tensor of shape (1,).
-b_info = tp.InputInfo((1,), dtype=tp.float32)
-
-compiled_add = tp.compile(add, args=[a_info, b_info])
-
-print(compiled_add(tp.Tensor([1., 2., 3.]), tp.Tensor([3.])))
-```
-
-For more details, see the
+We've included several guides in Tripy to make it easy to get started.
+We recommend starting with the
 [Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/00-introduction-to-tripy.html)
 guide.
 
+To get an idea of the look and feel of Tripy, let's take a look at a short code example.
+All of the features used in this example are explained in more detail in the
+introduction guide mentioned above.
 
-<!-- Tripy: DOC: OMIT Start -->
+```py
+# Define our model:
+class Model(tp.Module):
+    def __init__(self):
+        self.conv = tp.Conv(in_channels=1, out_channels=1, kernel_dims=[3, 3])
 
-## Documentation
-
-The documentation is hosted [here](https://nvidia.github.io/TensorRT-Incubator/).
-
-
-## Examples
-
-The [examples](./examples/) directory includes end-to-end examples.
+    def __call__(self, x):
+        x = self.conv(x)
+        x = tp.relu(x)
+        return x
 
 
-## Contributing
+# Initialize the model and populate weights:
+model = Model()
+model.load_state_dict(
+    {
+        "conv.weight": tp.ones((1, 1, 3, 3)),
+        "conv.bias": tp.ones((1,)),
+    }
+)
 
-For information on how you can contribute to this project, see [CONTRIBUTING.md](./CONTRIBUTING.md)
+inp = tp.ones((1, 1, 4, 4))
 
-<!-- Tripy: DOC: OMIT End -->
+# Eager mode:
+eager_out = model(inp)
+
+# Compiled mode:
+compiled_model = tp.compile(
+    model,
+    args=[tp.InputInfo(shape=(1, 1, 4, 4), dtype=tp.float32)],
+)
+
+compiled_out = compiled_model(inp)
+```

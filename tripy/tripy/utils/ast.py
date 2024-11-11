@@ -16,7 +16,7 @@
 #
 
 import ast
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 
 from tripy.utils.result import Result
 from tripy.utils.stack_info import SourceInfo
@@ -40,14 +40,25 @@ def get_parsed_ast(code: str) -> Result[Tuple[str, int]]:
     return Result.ok((parsed_ast, indentation))
 
 
-def get_callee_func_name(callee: SourceInfo):
-    callee_name = callee.function
+def get_callee_func_name_candidates(callee: SourceInfo) -> Set[str]:
     # Some functions (e.g. tensor methods) are routed through a function registry.
     # We don't actually care about the dispatch function, so we look at the `key`
     # to determine which underlying method we're actually calling.
     if callee._dispatch_target:
-        callee_name = callee._dispatch_target
-    return callee_name
+        candidates = {callee._dispatch_target}
+    else:
+        candidates = {callee.function}
+
+    # Some methods are called by other builtins:
+    SPECIAL_METHODS = {
+        "__repr__": {"repr", "print"},
+        "__str__": {"str"},
+        "__int__": {"int"},
+        "__bool__": {"bool"},
+    }
+    candidates.update(SPECIAL_METHODS.get(callee.function, set()))
+
+    return candidates
 
 
 def get_ast_node_func_name(node) -> Optional[str]:
@@ -144,7 +155,7 @@ def get_arg_candidate_column_offsets(
 # Grab column offsets for a given frame based on information from its callee.
 # This method is not perfect and is not required for Python 3.11+, where frames include column offsets.
 def get_candidate_column_offsets(cur_frame: SourceInfo, callee: SourceInfo) -> List[Tuple[int, int]]:
-    callee_name = get_callee_func_name(callee)
+    candidate_callee_names = get_callee_func_name_candidates(callee)
 
     candidate_column_offsets = []
 
@@ -165,8 +176,8 @@ def get_candidate_column_offsets(cur_frame: SourceInfo, callee: SourceInfo) -> L
 
         def check_name_matches():
             # We need special checking for __init__ methods since the AST node will just be the class name, e.g. `Tensor`.
-            if callee_name != "__init__":
-                return ast_node_name == callee_name
+            if "__init__" not in candidate_callee_names:
+                return ast_node_name in candidate_callee_names
 
             # We hardcode names of some common classes here to avoid creating an import dependency:
             if ast_node_name in {"Tensor"}:
