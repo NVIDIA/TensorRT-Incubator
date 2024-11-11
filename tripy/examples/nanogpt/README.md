@@ -38,7 +38,7 @@ for expected accuracy.
     <!--
     ```
     (?s).*?
-    What is the answer to life, the universe, and everything\? How can we get back at these questions\? And
+    What is the answer to life, the universe, and everything\? How can we know what's important? How can
     ```
      -->
     <!-- Tripy: TEST: EXPECTED_STDOUT End -->
