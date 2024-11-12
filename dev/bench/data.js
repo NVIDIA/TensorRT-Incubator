@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731442251481,
+  "lastUpdate": 1731442508165,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -4114,6 +4114,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007087953532173605",
             "extra": "mean: 148.5925423022645 usec\nrounds: 7403"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "3dae41863e7ab76c4cc68ffd8afef3abf0a20577",
+          "message": "[Tripy] Resnet50 feature branch PR",
+          "timestamp": "2024-11-12T19:14:18Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/322/commits/3dae41863e7ab76c4cc68ffd8afef3abf0a20577"
+        },
+        "date": 1731442507401,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6124.7147910384765,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003272667869307182",
+            "extra": "mean: 163.27290888110804 usec\nrounds: 6453"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6644.009141081506,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007494002745818961",
+            "extra": "mean: 150.51153283591375 usec\nrounds: 7410"
           }
         ]
       }
