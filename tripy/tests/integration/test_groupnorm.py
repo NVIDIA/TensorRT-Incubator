@@ -15,19 +15,16 @@
 # limitations under the License.
 #
 
-import numpy as np
-import torch
 import pytest
+import torch
 
 import tripy as tp
-from tripy.common.exception import TripyException
 
 DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
 
 
 class TestGroupNorm:
 
-    @pytest.mark.l1
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", [(1, 10, 2)])
     @pytest.mark.parametrize("num_groups", [2, 5])

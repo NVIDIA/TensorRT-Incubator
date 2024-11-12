@@ -28,7 +28,6 @@ DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
 
 class TestLayerNorm:
 
-    @pytest.mark.l1
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", [(2, 2, 2)])
     @pytest.mark.parametrize("normalized_shape", [(2, 2), (2,)])

@@ -13,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import numbers
-from dataclasses import dataclass
 from typing import Sequence, Tuple, Union
-
 
 from tripy import export
 from tripy.common.exception import raise_error
@@ -48,7 +46,8 @@ class InputInfo:
             :linenos:
             :caption: Dynamic Dimensions
 
-            # The first dimension will support values in the range [1, 3], optimizing for a size of 2.
+            # The first dimension will support values in the range [1, 3],
+            # optimizing for a size of 2.
             inp = tp.InputInfo(((1, 2, 3), 4), dtype=tp.float32)
             assert inp.shape_bounds.min == (1, 4)
             assert inp.shape_bounds.opt == (2, 4)
@@ -90,13 +89,3 @@ class InputInfo:
 
     def __str__(self) -> str:
         return f"InputInfo(min={self.shape_bounds.min}, opt={self.shape_bounds.opt}, max={self.shape_bounds.max}, dtype={self.dtype})"
-
-
-# TODO(MLIR-TRT #923): Can generalize `InputInfo` and drop this class.
-@export.public_api(document_under="compiling_code")
-@dataclass
-class ArgInfo:
-    shape_bounds: Sequence[Tuple[int, int]]
-    """A sequence of tuple(min, max) indicating the bounds of each dimension"""
-    dtype: "tripy.dtype"
-    """The datatype of the argument"""

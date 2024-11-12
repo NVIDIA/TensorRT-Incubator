@@ -330,8 +330,10 @@ AVAILABLE_MARKERS = {
     "test: expected_stdout": Marker.from_name("TEST: EXPECTED_STDOUT"),
     # Marks that a block should be run under pytest.
     "test: use_pytest": Marker.from_name("TEST: USE_PYTEST"),
-    # Indicates that a block should be omitted from the rendered documentation.
+    # Indicates that a block should be omitted from the rendered documentation. Such blocks may still be evaluated.
     "doc: omit": Marker.from_name("DOC: OMIT"),
+    # Indicates that a block should not be evaluated for the documentation.
+    "doc: no_eval": Marker.from_name("DOC: NO_EVAL"),
 }
 
 

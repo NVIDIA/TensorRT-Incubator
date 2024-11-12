@@ -16,7 +16,7 @@
 #
 
 import math
-from typing import Any, Sequence
+from typing import Any, Sequence, Optional
 
 from tripy import export
 from tripy.frontend.tensor import Tensor
@@ -76,14 +76,22 @@ class DefaultParameter(Parameter):
     Useful for initializing module parameters.
     """
 
-    def __init__(self, shape: Sequence[int], dtype: "tripy.dtype") -> None:
+    def __init__(self, shape: Optional[Sequence[int]], dtype: "tripy.dtype") -> None:
         from tripy.frontend.ops.tensor_initializers import arange
         from tripy.frontend.trace.ops.reshape import reshape
 
+        _is_shape_known = True
+        if shape is None:
+            _is_shape_known = False
+            shape = []
         super().__init__(reshape(arange(math.prod(shape), dtype), shape))
 
         self._shape = shape
         self._dtype = dtype
+        self._is_shape_known = _is_shape_known
 
     def _is_compatible(self, other: "Parameter") -> Result:
-        return self._is_compatible_helper(self._shape, other.shape, self._dtype, other.dtype)
+        shape = self._shape
+        if not self._is_shape_known:
+            shape = other.shape
+        return self._is_compatible_helper(shape, other.shape, self._dtype, other.dtype)

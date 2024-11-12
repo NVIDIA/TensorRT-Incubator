@@ -219,7 +219,7 @@ class Module:
             if missing_keys:
                 details.append(f"Missing keys: {missing_keys}\n")
             if unexpected_keys:
-                details.append(f"Unexpected keys: {unexpected_keys}")
+                details.append(f"Unexpected keys:\n{unexpected_keys}\n\nNote: Expected keys were:\n{expected_keys}")
             raise_error(
                 "state_dict is incompatible.",
                 details,

@@ -15,19 +15,18 @@
 # limitations under the License.
 #
 
-import cupy as cp
 import pytest
+from tests import helper
 
 import tripy as tp
-from tests import helper
 
 
 class TestLinear:
     def test_linear_params(self):
         linear = tp.Linear(20, 30)
         assert isinstance(linear, tp.Linear)
-        assert cp.from_dlpack(linear.weight).get().shape == (30, 20)
-        assert cp.from_dlpack(linear.bias).get().shape == (30,)
+        assert linear.weight.shape == [30, 20]
+        assert linear.bias.shape == [30]
 
     def test_mismatched_input_shapes(self):
         a = tp.ones((2, 3))
@@ -51,11 +50,11 @@ class TestLinear:
         assert isinstance(qlinear, tp.Linear)
         assert qlinear.dtype == tp.float32
         assert qlinear.quant_dtype == quant_dtype
-        assert cp.from_dlpack(qlinear.weight).get().shape == (30, 20)
-        assert qlinear.weight_scale is None
-        assert qlinear.input_scale is None
-        assert cp.from_dlpack(qlinear.bias).get().shape == (30,)
+        assert qlinear.weight.shape == [30, 20]
+        assert qlinear.bias.shape == [30]
         assert qlinear.weight_quant_dim == weight_quant_dim
+        assert isinstance(qlinear.weight_scale, tp.Parameter)
+        assert isinstance(qlinear.input_scale, tp.Parameter)
 
     def test_load_quantized_params_from_state_dict(self):
         qlinear = tp.Linear(
@@ -66,6 +65,6 @@ class TestLinear:
         )
 
         qlinear.load_state_dict(
-            {"weight_scale": tp.Parameter(tp.ones((20,))), "input_scale": tp.Parameter(tp.ones((20,)))},
+            {"weight_scale": tp.Parameter(tp.ones((30,))), "input_scale": tp.Parameter(tp.ones((20,)))},
             strict=False,
         )
