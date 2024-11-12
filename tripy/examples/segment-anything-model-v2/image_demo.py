@@ -12,39 +12,58 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# sudo apt-get update && sudo apt-get install ffmpeg libsm6 libxext6  -y
-import torch
-from sam2.build_sam import build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
+
+import cv2
 import os
+import time
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
-from PIL import Image
 import tripy as tp
+import matplotlib.pyplot as plt
+
+plt.switch_backend("agg")  # Switch to non-interactive backend
+from PIL import Image
+from typing import Tuple, Optional, Dict
+
+from sam2.build_sam import build_sam2
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 
-def show_mask(mask, ax, random_color=False, borders=True):
+def process_and_show_mask(
+    mask: np.ndarray, ax: plt.Axes, random_color: bool = False, borders: bool = True
+) -> np.ndarray:
+    """
+    Process and display a segmentation mask, returning the processed mask for testing.
+    """
+    # Generate mask color
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
         color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
+
+    # Process mask
     h, w = mask.shape[-2:]
     mask = mask.astype(np.uint8)
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-    if borders:
-        import cv2
 
+    if borders:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        # Try to smooth contours
         contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
         mask_image = cv2.drawContours(mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2)
+
     ax.imshow(mask_image)
+    return mask_image
 
 
-def show_points(coords, labels, ax, marker_size=375):
+def show_points(
+    coords: np.ndarray, labels: np.ndarray, ax: plt.Axes, marker_size: int = 375
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Display point prompts and return point coordinates for testing.
+    """
     pos_points = coords[labels == 1]
     neg_points = coords[labels == 0]
+
     ax.scatter(
         pos_points[:, 0],
         pos_points[:, 1],
@@ -64,92 +83,137 @@ def show_points(coords, labels, ax, marker_size=375):
         linewidth=1.25,
     )
 
+    return pos_points, neg_points
 
-def show_box(box, ax):
+
+def show_box(box: np.ndarray, ax: plt.Axes) -> Tuple[float, float, float, float]:
+    """
+    Display a bounding box and return its coordinates for testing.
+    """
     x0, y0 = box[0], box[1]
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2))
+    return x0, y0, w, h
 
 
-def show_masks(
-    image,
-    masks,
-    scores,
-    point_coords=None,
-    box_coords=None,
-    input_labels=None,
-    borders=True,
-):
+def process_predictions(
+    image: np.ndarray,
+    masks: np.ndarray,
+    scores: np.ndarray,
+    logits: np.ndarray,
+    point_coords: Optional[np.ndarray] = None,
+    box_coords: Optional[np.ndarray] = None,
+    input_labels: Optional[np.ndarray] = None,
+    save_path: Optional[str] = None,
+) -> Dict[str, np.ndarray]:
+    """
+    Process and visualize predictions, returning a dictionary containing processed masks, scores, and logits.
+    """
+    processed_masks = []
+
+    # Create output directory if it doesn't exist
+    if save_path:
+        os.makedirs(save_path, exist_ok=True)
+
     for i, (mask, score) in enumerate(zip(masks, scores)):
-        plt.figure(figsize=(10, 10))
-        plt.imshow(image)
-        show_mask(mask, plt.gca(), borders=borders)
+
+        fig, ax = plt.subplots(figsize=(10, 10))
+        ax.imshow(image)
+
+        processed_mask = process_and_show_mask(mask, ax)
+        processed_masks.append(processed_mask)
+
         if point_coords is not None:
-            assert input_labels is not None
-            show_points(point_coords, input_labels, plt.gca())
+            assert input_labels is not None, "Input labels required for point prompts"
+            show_points(point_coords, input_labels, ax)
+
         if box_coords is not None:
-            # boxes
-            show_box(box_coords, plt.gca())
+            show_box(box_coords, ax)
+
         if len(scores) > 1:
-            plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
-        plt.axis("off")
-        plt.show()
-        plt.savefig(f"mask{i}.png")
+            ax.set_title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
+
+        # plt.axis("off")
+        ax.axis("off")
+
+        if save_path:
+            plt.savefig(os.path.join(save_path, f"mask_{i}_score_{score:.3f}.png"), bbox_inches="tight", pad_inches=0)
+        plt.close(fig)
+
+    return {
+        "masks": np.array(processed_masks),
+        "scores": scores,
+        "logits": logits,
+    }
 
 
-torch.set_printoptions(threshold=10)
+def main(image_path: str, save_path: Optional[str] = None):
+    """
+    Main execution function.
 
-image = Image.open("truck.jpg")
-image = np.array(image.convert("RGB"))
-plt.figure(figsize=(10, 10))
-plt.imshow(image)
-plt.axis("on")
-plt.savefig("foo.png")
+    Args:
+        image_path (str): Path to input image
+        save_path (str, optional): Directory to save visualizations
+
+    Returns:
+        Dict[str, np.ndarray]: Processing results
+    """
+
+    # Load image
+    image = np.array(Image.open(image_path).convert("RGB"))
+
+    # Initialize SAM2 model
+    sam2_checkpoint = "./checkpoints/sam2.1_hiera_large.pt"
+    model_cfg = "sam2_hiera_l.yaml"
+    device = torch.device("cuda")
+    sam2_model = build_sam2(
+        model_cfg,
+        sam2_checkpoint,
+        device=device,
+    )
+
+    # Create predictor and process image
+    predictor = SAM2ImagePredictor(sam2_model)
+
+    predictor.set_image(image)
+
+    # Set input prompt
+    input_point = np.array([[500, 375]])
+    input_label = np.array([1])
+
+    # Time mask prediction
+    start = time.perf_counter()
+    masks, scores, logits = predictor.predict(
+        point_coords=input_point,
+        point_labels=input_label,
+        multimask_output=True,
+    )
+
+    # Synchronize CUDA operations
+    tp.default_stream().synchronize()
+    torch.cuda.synchronize()
+    prediction_time = (time.perf_counter() - start) * 1000
+    print(f"Prediction took {prediction_time:.2f}ms")
+
+    # Sort masks by confidence score
+    sorted_ind = np.argsort(scores)[::-1]
+    masks = masks[sorted_ind]
+    scores = scores[sorted_ind]
+    logits = logits[sorted_ind]
+
+    # Process and display results
+    results = process_predictions(
+        image,
+        masks,
+        scores,
+        logits,
+        point_coords=input_point,
+        input_labels=input_label,
+        save_path=save_path,
+    )
+
+    return results
 
 
-from sam2.build_sam import build_sam2
-from sam2.sam2_image_predictor import SAM2ImagePredictor
-
-sam2_checkpoint = "./checkpoints/sam2_hiera_large.pt"
-model_cfg = "sam2_hiera_l.yaml"
-device = torch.device("cuda")
-sam2_model = build_sam2(
-    model_cfg,
-    sam2_checkpoint,
-    device=device,
-)
-
-import time
-
-predictor = SAM2ImagePredictor(sam2_model)
-start = time.perf_counter()
-predictor.set_image(image)
-end = time.perf_counter()
-print(f"generate image embedding took {(end - start)*1000}")
-input_point = np.array([[500, 375]])
-input_label = np.array([1])
-
-start = time.perf_counter()
-masks, scores, logits = predictor.predict(
-    point_coords=input_point,
-    point_labels=input_label,
-    multimask_output=True,
-)
-tp.default_stream().synchronize()
-torch.cuda.synchronize()
-end = time.perf_counter()
-print(f"exec took {(end - start)*1000}")
-
-sorted_ind = np.argsort(scores)[::-1]
-masks = masks[sorted_ind]
-scores = scores[sorted_ind]
-logits = logits[sorted_ind]
-
-show_masks(
-    image,
-    masks,
-    scores,
-    point_coords=input_point,
-    input_labels=input_label,
-    borders=True,
-)
+if __name__ == "__main__":
+    main("truck.jpg", save_path="output")

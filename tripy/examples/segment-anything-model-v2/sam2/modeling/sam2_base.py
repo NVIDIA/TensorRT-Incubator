@@ -22,7 +22,6 @@ import torch
 import torch.distributed
 import torch.nn.functional as F
 import tripy as tp
-import nvtx
 
 from torch.nn.init import trunc_normal_
 
@@ -34,18 +33,6 @@ from sam2.modeling.sam2_utils import get_1d_sine_pe, TorchMLP, select_closest_co
 
 # a large negative value as a placeholder score for missing objects
 NO_OBJ_SCORE = -1024.0
-
-
-markers = {}
-events = {}
-
-
-def profile_start(name, color="blue"):
-    markers[name] = nvtx.start_range(message=name, color=color)
-
-
-def profile_stop(name):
-    nvtx.end_range(markers[name])
 
 
 class SAM2Base(torch.nn.Module):
@@ -845,7 +832,6 @@ class SAM2Base(torch.nn.Module):
                 mask_inputs = prev_sam_mask_logits
             multimask_output = self._use_multimask(is_init_cond_frame, point_inputs)
 
-            profile_start("forward_sam_heads")
             sam_outputs = self._forward_sam_heads(
                 backbone_features=pix_feat_with_mem,
                 point_inputs=point_inputs,
@@ -853,8 +839,6 @@ class SAM2Base(torch.nn.Module):
                 high_res_features=high_res_features,
                 multimask_output=multimask_output,
             )
-            tp.default_stream().synchronize()
-            profile_stop("forward_sam_heads")
 
         (
             _,

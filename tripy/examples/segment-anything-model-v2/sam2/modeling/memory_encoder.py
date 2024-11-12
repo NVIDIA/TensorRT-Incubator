@@ -36,11 +36,7 @@ class Dummy(tp.Module):
 
 class MaskDownSampler(tp.Module):
     """
-    Progressively downsample a mask by total_stride, each time by stride.
-    Note that LayerNorm is applied per *token*, like in ViT.
-
-    With each downsample (by a factor stride**2), channel capacity increases by the same factor.
-    In the end, we linearly project to embed_dim channels.
+    Progressively downsample a mask by total_stride.
     """
 
     def __init__(
@@ -85,15 +81,8 @@ class MaskDownSampler(tp.Module):
 
 
 class CXBlock(tp.Module):
-    r"""ConvNeXt Block. There are two equivalent implementations:
-    (1) DwConv -> LayerNorm (channels_first) -> 1x1 Conv -> GELU -> 1x1 Conv; all in (N, C, H, W)
-    (2) DwConv -> Permute to (N, H, W, C); LayerNorm (channels_last) -> Linear -> GELU -> Linear; Permute back
-    We use (2) as we find it slightly faster in PyTorch
-
-    Args:
-        dim (int): Number of input channels.
-        drop_path (float): Stochastic depth rate. Default: 0.0
-        layer_scale_init_value (float): Init value for Layer Scale. Default: 1e-6.
+    r"""ConvNeXt Block.
+    DwConv -> Permute to (N, H, W, C); LayerNorm (channels_last) -> Linear -> GELU -> Linear; Permute back
     """
 
     def __init__(
@@ -153,7 +142,6 @@ class Fuser(tp.Module):
         return self.forward(x)
 
     def forward(self, x):
-        # normally x: (N, C, H, W)
         x = self.proj(x)
         for layer in self.layers:
             x = layer(x)
@@ -193,8 +181,6 @@ class MemoryEncoder(tp.Module):
         masks: tp.Tensor,
         skip_mask_sigmoid: bool = False,
     ) -> Tuple[tp.Tensor, tp.Tensor]:
-        ## Process masks
-        # sigmoid, so that less domain shift from gt masks which are bool
         if not skip_mask_sigmoid:
             masks = tp.sigmoid(masks)
         masks = self.mask_downsampler(masks)

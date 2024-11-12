@@ -309,7 +309,6 @@ class RoPEAttention(Attention):
         self.compute_cis = partial(compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta)
         freqs_cis = self.compute_cis(end_x=feat_sizes[0], end_y=feat_sizes[1])
         self.freqs_cis = freqs_cis
-        print(f"rope_k_repeat : {rope_k_repeat}")
         self.rope_k_repeat = rope_k_repeat
 
     def __call__(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: tp.Tensor) -> Tensor:

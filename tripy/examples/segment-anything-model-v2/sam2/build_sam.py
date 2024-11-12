@@ -286,7 +286,6 @@ def build_sam2(
 
     for comp_name, comp_info in components.items():
         if not comp_info["enabled"] or comp_name not in required_components_for_image:
-            print(comp_name)
             continue
 
         executable_file = os.path.join(saved_engines_path, comp_name)

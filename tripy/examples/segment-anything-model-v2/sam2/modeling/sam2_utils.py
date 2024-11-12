@@ -94,7 +94,7 @@ def scaled_dot_product_attention(
     - Paper: https://arxiv.org/abs/1706.03762v7
     """
 
-    if is_causal:  # this path is not called in demoDiffusion
+    if is_causal:
         target_shape = query.shape[-2:-1] + key.shape[-2:-1]
         # TODO: #228: WAR to prevent computing output rank in infer_rank for reshape
         target_shape.trace_tensor.shape = (2,)
