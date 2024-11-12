@@ -32,12 +32,19 @@ class OpPassManager;
 struct StableHloInputOptions {
   /// Whether to lower Stablehlo control flow ops to SCF dialect ops.
   bool legalizeControlFlowToSCF = false;
-  /// Whether to lower chlo.erf into primitive stablehlo operations.
-  bool legalizeChloErfToStablehlo = false;
+
+  /// Whether to preserve 'chlo.erf' ops or lower them to 'stablehlo' ops.
+  /// By default, we preserve since it has a 1-1 correspondence with a TensorRT
+  /// op.
+  bool preserveChloErf = true;
+
+  /// Whether to preserve 'chlo.top_k' ops or lower them to 'stablehlo' ops.
+  /// By default, we preserve since it has a 1-1 correspondence with a TensorRT
+  /// op.
+  bool preserveChloTopK = true;
+
   /// Whether to disable running the inliner.
   bool disableInliner = false;
-  /// Whether to lower chlo to stablehlo.
-  bool convertChloToStablehlo = false;
 };
 
 /// Construct a pipeline for preprocessing StableHLO IR to convert it into the

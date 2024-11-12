@@ -288,17 +288,11 @@ translateAttribute(FBBuilder &fb, Attribute attr) {
   }
 
   if (auto vals = llvm::dyn_cast<executor::ValueBoundsAttr>(attr)) {
-    auto elemT = vals.getMin().getElementType();
-    assert(elemT == vals.getMax().getElementType());
-    if (!elemT.isInteger(64))
-      return emitError(UnknownLoc::get(attr.getContext()))
-             << "Unsupported element type " << elemT << " for attribute ("
-             << attr << ") in function metadata";
-
+    auto toI64 = [](const llvm::APInt &v) { return v.getSExtValue(); };
     auto min = fb.serialize<int64_t>(
-        llvm::to_vector(vals.getMin().getValues<int64_t>()));
+        llvm::map_to_vector(vals.getMin().getValues<APInt>(), toI64));
     auto max = fb.serialize<int64_t>(
-        llvm::to_vector(vals.getMax().getValues<int64_t>()));
+        llvm::map_to_vector(vals.getMax().getValues<APInt>(), toI64));
     return std::make_pair(rt::impl::Bounds::ValueBounds,
                           rt::impl::CreateValueBounds(fb, min, max).Union());
   }

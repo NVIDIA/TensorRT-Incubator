@@ -698,7 +698,7 @@ func.func @test_loop_concat(
 }
 
 // CHECK-LABEL: @test_loop_concat
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xf32>, %[[arg1:.+]]: tensor<1xi32>{{.*}}, %[[arg2:.+]]: tensor<?xf32>{{.*}}, %[[arg3:.+]]: tensor<1024xf32>)
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xf32>, %[[arg1:[a-zA-Z0-9]+]]: tensor<1xi32>{{.*}}, %[[arg2:[a-zA-Z0-9]+]]: tensor<?xf32>{{.*}}, %[[arg3:[a-zA-Z0-9]+]]: tensor<1024xf32>)
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //       CHECK:     %[[dim:.+]] = tensor.dim %[[arg2]], %[[c0]] : tensor<?xf32>
@@ -789,7 +789,7 @@ func.func @zero_slice_slice(%arg4: tensor<1xi32>,
 }
 
 // CHECK-LABEL: func.func @zero_slice_slice
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32>, %[[arg1:.+]]: tensor<1xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}, %[[arg2:.+]]: tensor<1xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}, %[[arg3:.+]]: tensor<1xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}, %[[arg4:.+]]: tensor<1xi32> {tensorrt.shape_profile = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>}) -> tensor<?xi32> {
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32>, %[[arg1:.+]]: tensor<1xi32> {plan.value_bounds = #plan.bounds<value, dense<1> : tensor<1xi32>, dense<1> : tensor<1xi32>>}, %[[arg2:.+]]: tensor<1xi32> {plan.value_bounds = #plan.bounds<value, dense<1> : tensor<1xi32>, dense<1> : tensor<1xi32>>}, %[[arg3:.+]]: tensor<1xi32> {plan.value_bounds = #plan.bounds<value, dense<1> : tensor<1xi32>, dense<1> : tensor<1xi32>>}, %[[arg4:.+]]: tensor<1xi32> {plan.shape_profile = #plan.bounds<shape, [1], [1]>})
 //   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<1> : tensor<1xi32>
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[c1_i32:.+]] = arith.constant 1 : i32

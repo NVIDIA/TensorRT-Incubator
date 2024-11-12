@@ -159,3 +159,76 @@ func.func @gather_negative(%arg0: tensor<1x1x64x12xf16> , %arg1: tensor<1xi32>) 
   } : (tensor<1x1x64x12xf16>, tensor<1xi32>) -> tensor<1x1x64x4xf16>
   return %2 : tensor<1x1x64x4xf16>
 }
+
+// -----
+
+func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>) -> tensor<?x?x256x256xi32> {
+  %c1 = stablehlo.constant dense<1> : tensor<1xi32>
+  %c256 = stablehlo.constant dense<256> : tensor<1xi32>
+  %dim = stablehlo.get_dimension_size %arg0, dim = 1 : (tensor<?x?x256x256xi32>) -> tensor<i32>
+  %dim.1 = stablehlo.reshape %dim : (tensor<i32>) -> tensor<1xi32>
+  %shape = stablehlo.concatenate %c1, %dim.1, %c256, %c256, dim = 0 :
+    (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<4xi32>
+  %0 = "stablehlo.dynamic_gather"(%arg0, %arg1, %shape) {
+    dimension_numbers = #stablehlo.gather<
+      offset_dims = [1, 2, 3],
+      collapsed_slice_dims = [0],
+      start_index_map = [0],
+      index_vector_dim = 1>,
+    indices_are_sorted = false, slice_sizes = array<i64: 1>
+  } : (tensor<?x?x256x256xi32>, tensor<?xi32>, tensor<4xi32>) -> tensor<?x?x256x256xi32>
+  return %0 : tensor<?x?x256x256xi32>
+}
+
+// CHECK-LABEL: func.func @simple_gather_dynamic
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x256x256xi32>, %[[arg1:.+]]: tensor<?xi32>)
+//   CHECK-DAG:     %[[v5:.+]] = tensorrt.gather {axis = 0 : i64} ins(%[[arg0]], %[[arg1]] : tensor<?x?x256x256xi32>, tensor<?xi32>) -> tensor<?x?x256x256xi32>
+//   CHECK-DAG:     return %[[v5]] : tensor<?x?x256x256xi32>
+
+// -----
+
+func.func @negative_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>) -> tensor<?x?x256x256xi32> {
+  %c1 = stablehlo.constant dense<1> : tensor<1xi32>
+  %c256 = stablehlo.constant dense<256> : tensor<1xi32>
+  // Wrong dimension index, should be dim = 1.
+  %dim = stablehlo.get_dimension_size %arg0, dim = 0 : (tensor<?x?x256x256xi32>) -> tensor<i32>
+  %dim.1 = stablehlo.reshape %dim : (tensor<i32>) -> tensor<1xi32>
+  %shape = stablehlo.concatenate %c1, %dim.1, %c256, %c256, dim = 0 :
+    (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<4xi32>
+  %0 = "stablehlo.dynamic_gather"(%arg0, %arg1, %shape) {
+    dimension_numbers = #stablehlo.gather<
+      offset_dims = [1, 2, 3],
+      collapsed_slice_dims = [0],
+      start_index_map = [0],
+      index_vector_dim = 1>,
+    indices_are_sorted = false, slice_sizes = array<i64: 1>
+  } : (tensor<?x?x256x256xi32>, tensor<?xi32>, tensor<4xi32>) -> tensor<?x?x256x256xi32>
+  return %0 : tensor<?x?x256x256xi32>
+}
+
+// CHECK-LABEL: func.func @negative_gather_dynamic(
+//   CHECK-NOT: tensorrt.gather
+
+// -----
+
+func.func @negative_gather_dynamic2(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>) -> tensor<?x?x256x256xi32> {
+  %c1 = stablehlo.constant dense<1> : tensor<1xi32>
+  %c256 = stablehlo.constant dense<256> : tensor<1xi32>
+  // Dimension size should be arg0, not arg1
+  %dim = stablehlo.get_dimension_size %arg1, dim = 0 : (tensor<?xi32>) -> tensor<i32>
+  %dim.1 = stablehlo.reshape %dim : (tensor<i32>) -> tensor<1xi32>
+  %shape = stablehlo.concatenate %c1, %dim.1, %c256, %c256, dim = 0 :
+    (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<4xi32>
+  %0 = "stablehlo.dynamic_gather"(%arg0, %arg1, %shape) {
+    dimension_numbers = #stablehlo.gather<
+      offset_dims = [1, 2, 3],
+      collapsed_slice_dims = [0],
+      start_index_map = [0],
+      index_vector_dim = 1>,
+    indices_are_sorted = false, slice_sizes = array<i64: 1>
+  } : (tensor<?x?x256x256xi32>, tensor<?xi32>, tensor<4xi32>) -> tensor<?x?x256x256xi32>
+  return %0 : tensor<?x?x256x256xi32>
+}
+
+// CHECK-LABEL: func.func @negative_gather_dynamic2(
+//   CHECK-NOT: tensorrt.gather

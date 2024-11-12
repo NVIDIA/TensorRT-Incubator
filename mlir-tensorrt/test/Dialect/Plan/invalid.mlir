@@ -38,6 +38,75 @@
 
 // -----
 
+#bounds = #plan.bounds<value, dense<10> : tensor<1x10xi32>, dense<20> : tensor<1x10xi32>>
+// expected-error @below {{'func.func' op arg #0 expected type of values bounds elements ('tensor<1x10xi32>') to be compatible with the type ('tensor<1x11xi32>')}}
+func.func @value_bounds_shape_mismatch(%arg0: tensor<1x11xi32> {plan.value_bounds = #bounds}) {
+  return
+}
+
+
+// -----
+
+#bounds = #plan.bounds<shape, [10], [20]>
+
+// expected-error @below {{'func.func' op arg #0 has type 'tensor<1x?xi32>', whose rank is not equal to the rank of the corresponding shape bounds #plan.bounds<shape, [10], [20]>}}
+func.func @value_bounds_shape_mismatch(%arg0: tensor<1x?xi32> {plan.shape_profile = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #plan.bounds<shape, [], []>
+func.func @value_bounds_shape_0d_match(%arg0: tensor<i32> {plan.shape_profile = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #plan.bounds<shape, [10], [20]>
+// expected-error @below {{'func.func' op expected only value bounds or none bounds for scalar arg #0 of type 'i32', but got #plan.bounds<shape, [10], [20]>}}
+func.func @value_bounds_shape_mismatch(%arg0: i32 {plan.shape_profile = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #plan.bounds<value,  dense<10> : tensor<1xi32>, dense<20> : tensor<1xi32>>
+
+// expected-error @below {{'func.func' op arg #0 expected type of values bounds elements ('tensor<1xi32>') to be compatible with the type ('tensor<i32>')}}
+func.func @value_bounds_0rank_shape_mismatch(%arg0: tensor<i32> {plan.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #plan.bounds<value, dense<10> : tensor<1x11xi32>, dense<20> : tensor<1x11xi32>>
+
+// expected-error @below {{'func.func' op arg #0 expected element type of value bounds elements ('i32') to be compatible with the type ('tensor<1x11xi64>')}}
+func.func @value_bounds_element_type_mismatch(%arg0: tensor<1x11xi64> {plan.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #plan.bounds<value, dense<10> : tensor<1xi32>,dense<20> : tensor<1xi32>>
+
+// expected-error @below {{'func.func' op arg #0 type expects rank-0 value bounds type, but got 'tensor<1xi32>'}}
+func.func @value_bounds_scalar_shape_mismatch(%arg0: i32 {plan.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #plan.bounds<value,  dense<10> : tensor<i32>, dense<20> : tensor<i32>>
+
+func.func @value_bounds_scalar_shape_ok(%arg0: i32 {plan.value_bounds = #bounds}) {
+  return
+}
+
+
+// -----
+
 func.func @plan_inline_group_mismatched_result_types(%arg0: tensor<10xf32>, %arg1: index) {
   // expected-error @below {{'plan.inline_group' op expected types of yielded operands ('tensor<10xf32>', 'index') to equal types of results ('index', 'tensor<10xf32>')}}
   plan.inline_group target(#plan.tensorrt_cluster<benefit=1, disallow_shape_tensor_calculations=false>) -> index, tensor<10xf32> {

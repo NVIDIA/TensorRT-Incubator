@@ -23,5 +23,6 @@ add_mlir_tensorrt_dialect_library(MLIRTensorRTPlanDialect
   MLIRTensorRTStablehloScalarToArith
   MLIRTensorRTStablehloToTensorRT
   MLIRTensorRTSupportStatus
+  MLIRTensorRTUtilsShapeInfo
   StablehloOps
 )

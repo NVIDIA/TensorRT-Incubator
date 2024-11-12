@@ -27,8 +27,12 @@
 #include "mlir-tensorrt/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Utils/ShapeInfo.h"
 #include "mlir/Analysis/DataFlowFramework.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Utils/StaticValueUtils.h"
 #include "stablehlo/dialect/ChloOps.h"
 #include "stablehlo/dialect/StablehloOps.h"
 #include "llvm/Support/Debug.h"
@@ -60,6 +64,8 @@ ClusteringOpts HostClusterKindAttr::getClusterKindOptions(
                                      ClusterRange) { return true; };
   opts.clusterTarget = *this;
   opts.isClusterableOp = [&solver](Operation *op) {
+    if (llvm::isa<plan::WithValuesOp>(op))
+      return true;
     return plan::detail::shouldRunOnHost(op, solver);
   };
   return opts;
@@ -106,7 +112,12 @@ HostClusterKindAttr::getClusterOutliningOptions(
 
 std::function<bool(const Cluster &)>
 HostClusterKindAttr::getClusterFilter() const {
-  return [](const Cluster &cluster) { return true; };
+  return [](const Cluster &cluster) {
+    return !llvm::all_of(cluster, [](Operation *op) {
+      return op->hasTrait<OpTrait::ConstantLike>() ||
+             llvm::isa<plan::WithValuesOp>(op);
+    });
+  };
 }
 
 //===----------------------------------------------------------------------===//
@@ -115,6 +126,69 @@ HostClusterKindAttr::getClusterFilter() const {
 
 std::string TensorRTClusterKindAttr::getClusterKindName() const {
   return "tensorrt";
+}
+
+static ShapeInfoCallbacks getShapeInfoCallbacks() {
+  ShapeInfoCallbacks shapeInfoCallbacks{};
+  shapeInfoCallbacks.isElementValueEqualToConstant =
+      [](TensorElementValue elementValue,
+         Attribute constValue) -> std::optional<bool> {
+    auto withValuesOp =
+        elementValue.getTensor().getDefiningOp<plan::WithValuesOp>();
+    if (!withValuesOp)
+      return {};
+    Value element = withValuesOp.getElements()[elementValue.getLinearIndex()];
+
+    Attribute intAttr = {};
+    if (!matchPattern(element, m_Constant(&intAttr)))
+      return {};
+    return intAttr == constValue;
+  };
+  shapeInfoCallbacks.isElementValueEqualToShapeDimExtent =
+      [](TensorElementValue elementValue,
+         TensorShapeDimExtent dimExtent) -> std::optional<bool> {
+    assert(elementValue.getTensor().getType().getElementType().isIntOrIndex() &&
+           "expected int or integer tensor");
+    auto withValuesOp =
+        elementValue.getTensor().getDefiningOp<plan::WithValuesOp>();
+    if (!withValuesOp)
+      return {};
+
+    /// Scalar value will be of type equivalent to `elementValue.tensor` element
+    /// type.
+    Value scalarValue =
+        withValuesOp.getElements()[elementValue.getLinearIndex()];
+
+    /// Check if it is statically known to be equal to the `dimExtent`.
+    IntegerAttr constInt = {};
+    if (std::optional<int64_t> staticSize = dimExtent.getConstantSize()) {
+      if (matchPattern(scalarValue, m_Constant(&constInt)))
+        return constInt.getValue().getSExtValue() == *staticSize;
+    }
+
+    /// Otherwise, we need to check equivalence of the dynamic values.
+    /// There are two cases to consider: either both have the same type, or
+    /// `plan.with_shape` may have index type scalars and `plan.with_values`
+    /// will have a more specific integer type that matches the shape tensor.
+    /// We can try to handle the later case where the conversion is done by
+    /// `arith.index_cast`.
+    /// TODO: we should change the shape materialization pass so that we infer
+    /// the desired shape tensor element type and have all `plan.with_shape`
+    /// materialize with that scalar type using casts.
+    if (auto withShape = dimExtent.tensor.getDefiningOp<plan::WithShapeOp>()) {
+      Value dimExtentValue = withShape.getShape()[dimExtent.dim];
+      if (dimExtentValue == scalarValue)
+        return true;
+      if (auto indexCastOp =
+              dyn_cast<arith::IndexCastOp>(scalarValue.getDefiningOp())) {
+        if (indexCastOp.getOperand() == dimExtentValue)
+          return true;
+      }
+    }
+
+    return {};
+  };
+  return shapeInfoCallbacks;
 }
 
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
@@ -151,7 +225,8 @@ ClusteringOpts TensorRTClusterKindAttr::getClusterKindOptions(
     loweringOptions.setTensorRTVersion(*trtMajorVersion);
     TensorRTTypeConverter typeConverter(ctx, loweringOptions);
     TensorRTConversionTarget target(*ctx, typeConverter);
-    populateStablehloToTensorRtConversionPattern(typeConverter, patterns);
+    populateStablehloToTensorRtConversionPattern(typeConverter, patterns,
+                                                 getShapeInfoCallbacks());
     populateChloToTensorRtLegalityAndPatterns(typeConverter, target, patterns);
 
     // Analyze the convertible operations.
