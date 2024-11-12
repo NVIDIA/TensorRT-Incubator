@@ -10,6 +10,9 @@
 
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
 using namespace mlir;
@@ -22,8 +25,10 @@ static bool isSeq(R &&range, int64_t start, int64_t size) {
                      llvm::seq<int64_t>(start, start + size));
 }
 
-std::optional<int64_t>
-stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op) {
+/// Common conditions shared by the static and dynamic versions of
+/// "isSingleDimSimpleGatherWithImplicitIndexDim".
+template <typename OpType>
+static bool isSingleDimSimpleGatherWithImplicitIndexDimImpl(OpType op) {
   RankedTensorType operandType = op.getOperand().getType();
   RankedTensorType startIndicesType = op.getStartIndices().getType();
   RankedTensorType resultType = op.getType();
@@ -31,31 +36,86 @@ stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op) {
   /// Sanity check the expected rank of the result.
   if (resultType.getRank() !=
       operandType.getRank() + startIndicesType.getRank() - 1)
-    return {};
+    return false;
 
   const auto &dims = op.getDimensionNumbers();
 
   // (C3) Check for implicit size-1 index vector.
   if (dims.getIndexVectorDim() != startIndicesType.getRank())
-    return {};
+    return false;
 
   // (C0) The dimension being gathered is the one that should be collapsed.
   if (dims.getStartIndexMap().size() != 1 ||
       dims.getStartIndexMap() != dims.getCollapsedSliceDims())
-    return {};
-
-  // (C1) The `slice_sizes` should equal the shape of the operand except
-  // along the gather dimension, which is size 1.
-  SmallVector<int64_t> expectedSliceSizes(op.getOperand().getType().getShape());
-  expectedSliceSizes[dims.getStartIndexMap()[0]] = 1;
-  if (!llvm::equal(expectedSliceSizes, op.getSliceSizes()))
-    return {};
+    return false;
 
   // (C2) The offset dims of the result are the trailing dimensions after the
   // start index result dimensions.
   if (!isSeq(dims.getOffsetDims(), startIndicesType.getRank(),
              resultType.getRank() - startIndicesType.getRank()))
+    return false;
+
+  return true;
+}
+
+std::optional<int64_t>
+stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(GatherOp op) {
+  if (!isSingleDimSimpleGatherWithImplicitIndexDimImpl(op))
     return {};
+
+  // (C1) The `slice_sizes` should equal the shape of the operand except
+  // along the gather dimension, which is size 1.
+  const auto &dims = op.getDimensionNumbers();
+  SmallVector<int64_t> expectedSliceSizes(op.getOperand().getType().getShape());
+  expectedSliceSizes[dims.getStartIndexMap()[0]] = 1;
+  if (!llvm::equal(expectedSliceSizes, op.getSliceSizes()))
+    return {};
+
+  return dims.getStartIndexMap().front();
+}
+
+std::optional<int64_t>
+stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(
+    DynamicGatherOp op, const ShapeInfoCallbacks &shapeInfoCallbacks) {
+
+  // The dynamic gather 3rd parameter is the "slice sizes". We want to
+  // ensure that "slice sizes" matches the operand shape in all dimensions
+  // except for those dropped using "collapsed_dims".
+  TypedValue<RankedTensorType> sliceSizes = op.getSliceSizes();
+  RankedTensorType sliceSizesType = sliceSizes.getType();
+
+  if (!isSingleDimSimpleGatherWithImplicitIndexDimImpl(op))
+    return {};
+
+  // (C1) The `slice_sizes` should equal the shape of the operand except
+  // along the gather dimension, which is size 1.
+  const auto &dims = op.getDimensionNumbers();
+  for (int64_t i = 0; i < sliceSizesType.getDimSize(0); i++) {
+    if (i == dims.getStartIndexMap()[0]) {
+      auto one =
+          IntegerAttr::get(op.getSliceSizes().getType().getElementType(), 1);
+      if (std::optional<bool> isEqualToOne =
+              shapeInfoCallbacks.isElementValueEqualToConstant(
+                  TensorElementValue(op.getSliceSizes(), i), one)) {
+        if (!*isEqualToOne)
+          return {};
+        continue;
+      }
+      return {};
+    }
+
+    if (std::optional<bool> isEquivalent =
+            shapeInfoCallbacks.isElementValueEqualToShapeDimExtent(
+                TensorElementValue(op.getSliceSizes(), i),
+                TensorShapeDimExtent(op.getOperand(), i))) {
+      if (!*isEquivalent)
+        return {};
+      continue;
+    }
+
+    return {};
+  }
+
   return dims.getStartIndexMap().front();
 }
 
@@ -217,6 +277,125 @@ bool stablehlo_ext::isCanonicalScatterNd(stablehlo::ScatterOp scatterOp) {
              updateType.getRank();
 }
 
+Value stablehlo_ext::createCollapsingReshape(
+    OpBuilder &b, Location loc, Value input,
+    ArrayRef<ReassociationIndices> reassociation) {
+  RankedTensorType inputType = cast<RankedTensorType>(input.getType());
+
+  std::vector<int64_t> newShape(reassociation.size());
+  for (auto [idx, re] : llvm::enumerate(reassociation)) {
+    int64_t dim = 1;
+    for (int64_t i : re) {
+      if (inputType.isDynamicDim(i)) {
+        dim = ShapedType::kDynamic;
+        break;
+      }
+      dim *= inputType.getDimSize(i);
+    }
+    newShape[idx] = dim;
+  }
+  auto resultType = inputType.clone(newShape);
+
+  assert(inputType.getRank() > resultType.getRank() &&
+         "input rank should be > result rank");
+  assert(static_cast<int64_t>(reassociation.size()) == resultType.getRank() &&
+         "invalid reassociation indices");
+
+  if (resultType.hasStaticShape())
+    return b.create<stablehlo::ReshapeOp>(loc, resultType, input);
+
+  // Calculate the shape.
+  Type i32Type = b.getI32Type();
+  RankedTensorType i32ScalarTensorType = RankedTensorType::get({}, i32Type);
+  SmallVector<Value> components;
+  for (const ReassociationIndices &indices : reassociation) {
+    Value vol = b.create<stablehlo::ConstantOp>(
+        loc,
+        DenseElementsAttr::get(i32ScalarTensorType, static_cast<int32_t>(1)));
+    for (int64_t index : indices) {
+      Value extent = b.create<stablehlo::GetDimensionSizeOp>(
+          loc, i32ScalarTensorType, input, index);
+      vol = b.create<stablehlo::MulOp>(loc, vol, extent);
+    }
+    components.push_back(b.create<stablehlo::ReshapeOp>(
+        loc, i32ScalarTensorType.clone({1}), vol));
+  }
+  Value shape = b.create<stablehlo::ConcatenateOp>(
+      loc, i32ScalarTensorType.clone({resultType.getRank()}), components,
+      /*dimension=*/0);
+  return b.create<stablehlo::DynamicReshapeOp>(loc, resultType, input, shape);
+}
+
+Value stablehlo_ext::createExpandingReshape(
+    OpBuilder &b, Location loc, RankedTensorType resultType, Value input,
+    ArrayRef<ReassociationIndices> reassociation) {
+  RankedTensorType inputType = cast<RankedTensorType>(input.getType());
+
+  assert(inputType.getRank() < resultType.getRank() &&
+         "input rank should be > result rank");
+  assert(static_cast<int64_t>(reassociation.size()) == inputType.getRank() &&
+         "invalid reassociation indices");
+
+  if (resultType.hasStaticShape())
+    return b.create<stablehlo::ReshapeOp>(loc, resultType, input);
+
+  // Calculate the shape.
+  Type i32Type = b.getI32Type();
+  RankedTensorType i32ScalarTensorType = RankedTensorType::get({}, i32Type);
+  SmallVector<Value> components;
+  for (auto [inputDim, resultIndices] : llvm::enumerate(reassociation)) {
+
+    // Calculate how many dynamic dimensions are in the group. This function
+    // only supports up to 1 dynamic dimension in each group, otherwise we can't
+    // calculate the shape.
+    int64_t numDynamicInGroup = 0;
+    int64_t divisor = 1;
+    for (int64_t resultDim : resultIndices) {
+      if (resultType.isDynamicDim(resultDim)) {
+        numDynamicInGroup += 1;
+        continue;
+      }
+      divisor *= resultType.getDimSize(resultDim);
+    }
+    assert(numDynamicInGroup <= 1 && "invalid reshape configuration requested");
+
+    for (int64_t resultDim : resultIndices) {
+      if (!resultType.isDynamicDim(resultDim)) {
+        components.push_back(b.create<stablehlo::ConstantOp>(
+            loc, DenseElementsAttr::get(
+                     i32ScalarTensorType.clone({1}),
+                     static_cast<int32_t>(resultType.getDimSize(resultDim)))));
+        continue;
+      }
+
+      Value extent = b.create<stablehlo::GetDimensionSizeOp>(
+          loc, i32ScalarTensorType, input, inputDim);
+
+      if (resultIndices.size() == 1 || divisor == 1) {
+        components.push_back(b.create<stablehlo::ReshapeOp>(
+            loc, i32ScalarTensorType.clone({1}), extent));
+        continue;
+      }
+
+      // In the case where we are factoring out multiple constant dimensions, we
+      // divide by the product of the other dimensions to get the expected
+      // extent.
+      extent = b.create<stablehlo::DivOp>(
+          loc, extent,
+          b.create<stablehlo::ConstantOp>(
+              loc, DenseElementsAttr::get(i32ScalarTensorType,
+                                          static_cast<int32_t>(divisor))));
+      components.push_back(b.create<stablehlo::ReshapeOp>(
+          loc, i32ScalarTensorType.clone({1}), extent));
+    }
+  }
+
+  Value shape = b.create<stablehlo::ConcatenateOp>(
+      loc, i32ScalarTensorType.clone({resultType.getRank()}), components,
+      /*dimension=*/0);
+  return b.create<stablehlo::DynamicReshapeOp>(loc, resultType, input, shape);
+}
+
 //===----------------------------------------------------------------------===//
 // Code below this point was adapted from the MLIR-HLO project (part of OpenXLA
 // project) `xla/mlir_hlo/mhlo/utils/mhlo_scatter_gather_utils.cc` and has the
@@ -278,17 +457,62 @@ Value stablehlo_ext::insertDegenerateDimensions(
   assert(llvm::is_sorted(dimsToInsert) && "dimsToInsert must be sorted");
   if (dimsToInsert.empty())
     return tensor;
-  TensorType type = mlir::cast<TensorType>(tensor.getType());
+  auto type = mlir::cast<RankedTensorType>(tensor.getType());
   SmallVector<int64_t> newShape{type.getShape()};
-  for (int64_t dim : dimsToInsert)
+
+  // Create an initial identity reassociation. We will update this as we insert
+  // the degenerate dimensions.
+  SmallVector<ReassociationIndices> reassociation;
+  for (unsigned i = 0; i < newShape.size(); i++) {
+    ReassociationIndices &back = reassociation.emplace_back();
+    back.push_back(i);
+  }
+
+  for (int64_t dim : dimsToInsert) {
     newShape.insert(newShape.begin() + dim, 1);
+
+    if (type.getRank() == 0)
+      continue;
+
+    /// Calculate which reassociation group this new degenerate dimension
+    /// belongs to and where the degenerate dimension should be inserted.
+    unsigned reassociationGroupIdx = 0;
+    unsigned insertionPositionWithinGroup = 0;
+    for (auto [idx, re] : llvm::enumerate(reassociation)) {
+      if (reassociationGroupIdx + re.size() > static_cast<unsigned>(dim)) {
+        insertionPositionWithinGroup = dim - reassociationGroupIdx;
+        reassociationGroupIdx = idx;
+        break;
+      }
+      reassociationGroupIdx += re.size();
+    }
+    reassociationGroupIdx =
+        std::min<unsigned>(reassociationGroupIdx, reassociation.size() - 1);
+
+    assert(reassociationGroupIdx < reassociation.size() &&
+           "invalid reassociation group");
+
+    reassociation[reassociationGroupIdx].insert(
+        reassociation[reassociationGroupIdx].begin() +
+            insertionPositionWithinGroup,
+        reassociation[reassociationGroupIdx][insertionPositionWithinGroup]);
+    // Update all indices to the right of where we inserted, for all groups.
+    for (int64_t &d :
+         llvm::MutableArrayRef<int64_t>(reassociation[reassociationGroupIdx])
+             .drop_front(insertionPositionWithinGroup + 1))
+      d += 1;
+
+    for (ReassociationIndices &other :
+         llvm::MutableArrayRef<ReassociationIndices>(reassociation)
+             .drop_front(reassociationGroupIdx + 1)) {
+      for (int64_t &d : other)
+        d += 1;
+    }
+  }
+
   auto newType = RankedTensorType::get(newShape, type.getElementType());
 
-  return b
-      .create<tensor::ExpandShapeOp>(
-          loc, newType, tensor,
-          *getReassociationIndicesForReshape(type, newType))
-      .getResult();
+  return createExpandingReshape(b, loc, newType, tensor, reassociation);
 }
 
 // Checks if the indexVectorDim is equal to the rank of `indices`. In that
@@ -315,8 +539,8 @@ Value stablehlo_ext::canonicalizeStartIndices(OpBuilder &b, Location loc,
                                               Value indices,
                                               int64_t indexVectorDim) {
   indices = ensureIndexVectorDimPosition(b, loc, indices, indexVectorDim);
-
-  int64_t indicesRank = mlir::cast<TensorType>(indices.getType()).getRank();
+  auto indicesType = cast<RankedTensorType>(indices.getType());
+  int64_t indicesRank = indicesType.getRank();
 
   if (indicesRank == 2)
     return indices;
@@ -327,6 +551,6 @@ Value stablehlo_ext::canonicalizeStartIndices(OpBuilder &b, Location loc,
   SmallVector<ReassociationIndices> reassociation{
       llvm::to_vector<2>(llvm::seq<int64_t>(0, indicesRank - 1)),
       {indicesRank - 1}};
-  return b.create<tensor::CollapseShapeOp>(loc, indices, reassociation)
-      .getResult();
+
+  return createCollapsingReshape(b, loc, indices, reassociation);
 }

@@ -15,6 +15,8 @@ def Plan_Dialect : Dialect {
 
   }];
   let cppNamespace = "::mlir::plan";
+  
+  let hasRegionArgAttrVerify = 1;
 
   let extraClassDeclaration = [{
 
@@ -70,6 +72,18 @@ def Plan_Dialect : Dialect {
     template <typename... Ops>
     void addExtensionOperations() {
       (addExtensionOperation<Ops>(), ...);
+    }
+
+    /// Return the name of the function arg/result attributes that encode
+    /// host tensor value bounds. It should have a type `plan::BoundsAttr`.
+    static StringRef getValueBoundsAttrName() {
+      return "plan.value_bounds";
+    }
+
+    /// Return the name of the function arg/result attributes that encode
+    /// the shape bounds. It should have a type `plan::BoundsAttr`.
+    static StringRef getShapeBoundsAttrName() {
+      return "plan.shape_profile";
     }
 
   private:

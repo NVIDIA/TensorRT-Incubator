@@ -24,6 +24,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/Utils/ShapeUtils.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Quant/QuantTypes.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "llvm/ADT/STLExtras.h"
@@ -1161,22 +1162,23 @@ LogicalResult OpaquePluginOp::verifyRegions() {
 // SelectOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult tensorrt::SelectOp::verify() {
-  // Select impl start
+LogicalResult tensorrt::SelectOp::verify() { return success(); }
 
-  // Select impl end
-  return success();
-} // LogicalResult tensorrt::SelectOp::verify()
+//===----------------------------------------------------------------------===//
+// AssertOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult tensorrt::AssertionOp::verify() {
-  // Assertion impl start
   const int64_t conditionRank = getCondition().getType().getRank();
   if (conditionRank > 1)
     return emitOpError("expected condition to be of rank 0 or 1");
 
-  // Assertion impl end
   return success();
-} // LogicalResult tensorrt::AssertionOp::verify()
+}
+
+//===----------------------------------------------------------------------===//
+// DequantizeOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult tensorrt::DequantizeOp::verify() {
   auto inputType = getInput().getType();
@@ -1219,8 +1221,31 @@ LogicalResult tensorrt::DequantizeOp::verify() {
             "tensor.");
     }
   }
+
+  // Sub-byte input types must have even final dimension. As of TensorRT 10.5,
+  // the only sub-byte element type supported is i4, and the typical use case is
+  // to dequantize i4 constants (weights). I4 weights must be packed, and while
+  // this could allow a range of valid constants shapes like '4x3xi4', TensorRT
+  // effectively makes an additional requirement that the last dimension must be
+  // vectorizable to `vector<2xi4>`.
+  Type quantizedElementType = inputType.getElementType();
+  if (auto quantType = dyn_cast<quant::QuantizedType>(quantizedElementType))
+    quantizedElementType = quantType.getStorageType();
+  if (!quantizedElementType.isIntOrFloat())
+    return emitOpError("expected element type to be int or float type");
+  if (quantizedElementType.getIntOrFloatBitWidth() < 8 &&
+      inputType.getDimSize(inputRank - 1) % 2 == 1)
+    return emitOpError(
+               "input tensor with sub-byte element type must have even final "
+               "dimension, but input tensor has final dimension of size ")
+           << inputType.getDimSize(inputRank - 1);
+
   return success();
-} // LogicalResult tensorrt::DequantizeOp::verify()
+}
+
+//===----------------------------------------------------------------------===//
+// ScatterOp
+//===----------------------------------------------------------------------===//
 
 LogicalResult tensorrt::ScatterOp::verify() {
   auto inputDataType = getData().getType();

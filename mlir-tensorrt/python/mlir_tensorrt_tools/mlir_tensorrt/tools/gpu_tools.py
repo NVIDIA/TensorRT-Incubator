@@ -6,7 +6,8 @@ tests which should be allowed to run in parallel.
 """
 
 from contextlib import contextmanager
-from typing import List, Tuple
+import time
+from typing import List, Optional, Tuple
 
 import click
 import numpy as np
@@ -73,16 +74,25 @@ def get_stats(devices: List[int]) -> Tuple[List[float], List[float], List[float]
     return avail_mem_gb, gpu_rates, mem_rates
 
 
-def select_device(devices: List[int]) -> int:
+def select_device(devices: List[int], required_memory: Optional[float] = None) -> int:
     """Selects the device (that is among those with the highest SM version
     if SM versions are not uniform) that has the most available GPU memory.
     """
     assert len(devices) > 0
-    avail_mem_gb, _, _ = get_stats(devices)
 
-    # All devices have same SM version.
-    # Check utilization rates.
-    max_mem = int(np.argmax(avail_mem_gb))
+    while True:
+        avail_mem_gb, _, _ = get_stats(devices)
+        avail_mem_gb = np.asarray(avail_mem_gb)
+
+        if required_memory and avail_mem_gb.max() * 1024.0 < required_memory:
+            time.sleep(1.0)
+            continue
+
+        # All devices have same SM version.
+        # Check utilization rates.
+        max_mem = int(np.argmax(avail_mem_gb))
+        break
+
     return max_mem
 
 
@@ -118,7 +128,13 @@ def cli():
 
 
 @cli.command("pick-device")
-def pick_device():
+@click.option(
+    "--required-memory",
+    help="causes the command to block until the specified amount of memory (in gigabytes) is available on some visible device",
+    required=False,
+    type=click.FLOAT,
+)
+def pick_device(required_memory: Optional[float]):
     with nvml_context() as devices:
         if len(devices) == 0:
             return

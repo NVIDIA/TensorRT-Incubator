@@ -308,3 +308,70 @@ func.func @coro_await() -> (i32) {
   %0:2 = executor.coro_await %coro (%c0, %c0_f32 : i32, f32) : (f32, i32) -> i32
   return %0#1 : i32
 }
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<1x10xi32>, max = dense<20> : tensor<1x10xi32>>
+
+
+// expected-error @below {{executor.value_bounds value bounds type 'tensor<1x10xi32>' is not compatible with the argument type 'tensor<1x11xi32>'}}
+func.func @value_bounds_shape_mismatch(%arg0: tensor<1x11xi32> {executor.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<1xi32>, max = dense<20> : tensor<1xi32>>
+
+
+// expected-error @below {{executor.value_bounds value bounds type 'tensor<1xi32>' is not compatible with the argument type 'tensor<i32>'}}
+func.func @value_bounds_0rank_shape_mismatch(%arg0: tensor<i32> {executor.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<1x10xi32>, max = dense<20> : tensor<1x10xi32>>
+
+
+// expected-error @below {{executor.value_bounds value bounds type 'tensor<1x10xi32>' is not compatible with the argument type 'tensor<1x11xi64>'}}
+func.func @value_bounds_element_type_mismatch(%arg0: tensor<1x11xi64> {executor.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<index>, max = dense<20> : tensor<index>>
+
+// We allow 'index' value type to be compatible with other integer types.
+func.func @value_bounds_element_type_index_compat(
+  %arg0: tensor<i64> {executor.value_bounds = #bounds},
+  %arg1: tensor<i32> {executor.value_bounds = #bounds},
+  %arg2: tensor<index> {executor.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<1xi32>, max = dense<20> : tensor<1xi32>>
+
+// expected-error @below {{executor.value_bounds bounds of type 'tensor<1xi32>' must be a 0-rank shaped type for scalar argument type 'i32'}}
+func.func @value_bounds_scalar_shape_mismatch(%arg0: i32 {executor.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<i32>, max = dense<20> : tensor<i32>>
+
+func.func @value_bounds_scalar_shape_ok(%arg0: i32 {executor.value_bounds = #bounds}) {
+  return
+}
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<i32>, max = dense<20> : tensor<i32>>
+
+func.func @dont_validate_bounds_to_non_shaped_or_scalar_type(%arg0: !executor.table<i32> {executor.value_bounds = #bounds}) {
+  return
+}

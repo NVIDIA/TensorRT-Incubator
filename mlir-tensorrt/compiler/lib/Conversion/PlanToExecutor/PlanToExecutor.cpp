@@ -41,10 +41,6 @@ namespace mlir {
 
 using namespace mlir;
 
-static constexpr llvm::StringRef kShapeBoundsAttrName =
-    "tensorrt.shape_profile";
-static constexpr llvm::StringRef kValueBoundsAttrName = "tensorrt.value_bounds";
-
 namespace {
 
 class GenericStructuralConverter : public ConversionPattern {
@@ -130,8 +126,7 @@ struct ConstantOpConverter : public OpConversionPattern<arith::ConstantOp> {
 
 /// Convert 'plan' dialect or 'tensorrt' dialect bounds into 'executor' bounds
 /// attributes.
-static Attribute convertArgOrResultAttr(OpBuilder &b, Attribute attr,
-                                        llvm::StringRef name) {
+static Attribute convertArgOrResultAttr(OpBuilder &b, Attribute attr) {
   MLIRContext *ctx = attr.getContext();
   if (auto planAttr = dyn_cast<plan::BoundsAttr>(attr)) {
     if (planAttr.isShapeBound())
@@ -141,29 +136,33 @@ static Attribute convertArgOrResultAttr(OpBuilder &b, Attribute attr,
       return executor::ValueBoundsAttr::get(ctx, planAttr.getMinValues(),
                                             planAttr.getMaxValues());
   }
-  if (auto trtAttr = dyn_cast<tensorrt::ShapeProfileAttr>(attr)) {
-    if (name == kValueBoundsAttrName)
-      return executor::ValueBoundsAttr::get(
-          ctx, b.getI64TensorAttr(trtAttr.getMin()),
-          b.getI64TensorAttr(trtAttr.getMax()));
-    if (name == kShapeBoundsAttrName)
-      return executor::DimensionBoundsAttr::get(
-          ctx, b.getDenseI64ArrayAttr(trtAttr.getMin()),
-          b.getDenseI64ArrayAttr(trtAttr.getMax()));
-  }
   return attr;
 }
 
-/// Convert 'plan' dialect or 'tensorrt' dialect bounds into 'executor' bounds
+/// Convert 'plan' dialect arg|result attributes into 'executor' dialect
 /// attributes for all function arg attrs and res attrs.
 static void convertArgAndResultAttrs(OpBuilder &b, func::FuncOp op) {
+  StringRef executorShapeBoundsAttrName =
+      mlir::executor::ExecutorDialect::getShapeBoundsAttrName();
+  StringRef executorValueBoundsAttrName =
+      mlir::executor::ExecutorDialect::getValueBoundsAttrName();
+
+  StringRef planShapeBoundsAttrName =
+      mlir::plan::PlanDialect::getShapeBoundsAttrName();
+  StringRef planValueBoundsAttrName =
+      mlir::plan::PlanDialect::getValueBoundsAttrName();
+
   for (unsigned idx = 0; idx < op.getNumArguments(); idx++) {
-    if (auto attr = op.getArgAttr(idx, kShapeBoundsAttrName))
-      op.setArgAttr(idx, kShapeBoundsAttrName,
-                    convertArgOrResultAttr(b, attr, kShapeBoundsAttrName));
-    if (auto attr = op.getArgAttr(idx, kValueBoundsAttrName))
-      op.setArgAttr(idx, kValueBoundsAttrName,
-                    convertArgOrResultAttr(b, attr, kValueBoundsAttrName));
+    if (auto attr = op.getArgAttr(idx, planShapeBoundsAttrName)) {
+      op.removeArgAttr(idx, planShapeBoundsAttrName);
+      op.setArgAttr(idx, executorShapeBoundsAttrName,
+                    convertArgOrResultAttr(b, attr));
+    }
+    if (auto attr = op.getArgAttr(idx, planValueBoundsAttrName)) {
+      op.removeArgAttr(idx, planValueBoundsAttrName);
+      op.setArgAttr(idx, executorValueBoundsAttrName,
+                    convertArgOrResultAttr(b, attr));
+    }
 
     if (auto attr = op.getArgAttr(idx, plan::PlanDialect::kResultArgAttrName)) {
       op.removeArgAttr(idx, plan::PlanDialect::kResultArgAttrName);
@@ -171,12 +170,16 @@ static void convertArgAndResultAttrs(OpBuilder &b, func::FuncOp op) {
     }
   }
   for (unsigned idx = 0; idx < op.getNumResults(); idx++) {
-    if (auto attr = op.getResultAttr(idx, kShapeBoundsAttrName))
-      op.setResultAttr(idx, kShapeBoundsAttrName,
-                       convertArgOrResultAttr(b, attr, kShapeBoundsAttrName));
-    if (auto attr = op.getResultAttr(idx, kValueBoundsAttrName))
-      op.setResultAttr(idx, kValueBoundsAttrName,
-                       convertArgOrResultAttr(b, attr, kValueBoundsAttrName));
+    if (auto attr = op.getResultAttr(idx, planShapeBoundsAttrName)) {
+      op.removeResultAttr(idx, b.getStringAttr(planShapeBoundsAttrName));
+      op.setResultAttr(idx, executorShapeBoundsAttrName,
+                       convertArgOrResultAttr(b, attr));
+    }
+    if (auto attr = op.getResultAttr(idx, planValueBoundsAttrName)) {
+      op.removeResultAttr(idx, b.getStringAttr(planValueBoundsAttrName));
+      op.setResultAttr(idx, executorValueBoundsAttrName,
+                       convertArgOrResultAttr(b, attr));
+    }
   }
 }
 
