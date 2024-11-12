@@ -255,10 +255,22 @@ class TestFunctionRegistry:
 
     def test_variadic_positional_args(self, registry):
         @registry("test")
-        def func(*args: List[Any]):
+        def func(*args: Any):
             return sum(args)
 
+        assert registry["test"](1.0) == 1.0
         assert registry["test"](1.0, 2.0, 3.0) == 6.0
+        assert registry["test"]() == 0
+
+    def test_variadic_positional_and_keyword_args(self, registry):
+        # ensure the interaction succeeds
+        @registry("test")
+        def func(a: int, *args: int, b: float, c: str):
+            return a + sum(args) + int(b) + len(c)
+
+        assert registry["test"](3, b=1.0, c="ab") == 6
+        assert registry["test"](3, 4, b=1.0, c="ab") == 10
+        assert registry["test"](3, 4, 5, b=1.0, c="ab") == 15
 
     def test_variadic_keyword_args(self, registry):
         @registry("test")
@@ -468,6 +480,17 @@ class TestFunctionRegistry:
             ).strip(),
         ):
             registry["test"](["a", "b", "c"])
+
+    def test_error_variadic_positional_arg_mismatch(self, registry):
+        @registry("test")
+        def func(a: int, *args: int) -> int:
+            return a + sum(args)
+
+        with helper.raises(
+            TripyException,
+            match="Not a valid overload because: For parameter: 'args', expected an instance of type: 'int' but got argument of type: 'str'",
+        ):
+            registry["test"](1, 2, 3, 4, "hi")
 
 
 @pytest.mark.parametrize(
