@@ -165,7 +165,7 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
 @constraints.dtypes(
     constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
-        "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
     },
 )
 def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
@@ -223,7 +223,7 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 @constraints.dtypes(
     constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
-        "T1": ["float32", "float16", "bfloat16", "int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
     },
 )
 def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
@@ -281,7 +281,7 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
 )
 def arange(
@@ -346,7 +346,7 @@ def arange(
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
-        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
 )
 def arange(

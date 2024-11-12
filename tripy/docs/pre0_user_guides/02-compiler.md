@@ -1,10 +1,11 @@
 # Using the Compiler
 
+Modules and functions can be compiled ahead of time for better runtime performance.
 
+*Note that the compiler imposes some requirements on the functions/modules it can compile.*
+*See {func}`tripy.compile` for details.*
 
-## Model Compilation And Deployment
-
-Let's walk through a simple example of a [GEGLU](https://arxiv.org/abs/2002.05202v1) module defined below:
+In this guide, we'll work with the [GEGLU](https://arxiv.org/abs/2002.05202v1) module defined below:
 
 ```py
 # doc: no-print-locals
@@ -19,70 +20,80 @@ class GEGLU(tp.Module):
         return x * tp.gelu(gate)
 ```
 
-To run `GEGLU` in eager mode:
+We can run this in eager mode like usual:
 
 ```py
-# doc: no-print-locals
+# doc: no-print-locals layer
 layer = GEGLU(2, 8)
+
 inp = tp.ones((1, 2))
 out = layer(inp)
 ```
 
-Now, let's try to optimize this model for inference using Tripy's {func}`tripy.compile`.
+## Compiling
 
-When we compile our module, we need to provide information about each input using {class}`tripy.InputInfo`.
-The first argument for `InputInfo` is `shape`, where we specify either the static or
-dynamic shape information for each dimension. In the example below, we assume the
-shape of `inp` is static (`(1, 2)`). The second argument specifies the `dtype` for the input:
+Let's optimize the module using {func}`tripy.compile`.
 
+When we compile in Tripy, we need to provide shape and data type information about each runtime input
+using the {class}`tripy.InputInfo` API. Other parameters to the function will be considered compile-time
+constants and will be folded into the compiled function.
+
+`GEGLU` only has one input, for which we'll create an `InputInfo` like so:
 ```py
 # doc: no-print-locals
 inp_info = tp.InputInfo(shape=(1, 2), dtype=tp.float32)
 ```
-Now, we can call the `compile` function to obtain a compiled function and use it for inference:
+
+Then we'll compile, which will give us a {class}`tripy.Executable` that we can run:
 
 ```py
-# doc: no-print-locals
+# doc: no-print-locals fast_geglu
 fast_geglu = tp.compile(layer, args=[inp_info])
-fast_geglu(inp).eval()
-```
 
-### Optimization Profiles
-
-In the example above, we assumed `inp` has a static shape of `(1, 2)`.
-Now, let's assume that the shape of `inp` can vary from `(1, 2)` to `(16, 2)`, with `(8, 2)`
-being the shape we'd like to optimize for. To express this constraint to the compiler,
-we can provide the range of shapes to `InputInfo` using `shape=([1, 8, 16], 2)`.
-This indicates to the compiler that the first dimension can vary from 1 to 16,
-and it should optimize for a size of 8.
-
-```py
-# doc: print-locals out out_change_shape
-inp_info = tp.InputInfo(shape=([1, 8, 16], 2), dtype=tp.float32)
-fast_geglu = tp.compile(layer, args=[inp_info])
 out = fast_geglu(inp)
-
-# Let's change the shape of input to (2, 2)
-inp = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32)
-out_change_shape = fast_geglu(inp)
 ```
 
-If we provide an input that does not comply with the dynamic shape constraint
-given to the compiler, `Tripy` will produce an error with relevant information:
+## Dynamic Shapes
 
-<!-- Tripy: TEST: IGNORE Start -->
+When we compiled above, we used a static shape of `(1, 2)` for the input.
+Tripy also supports specifying a range of possible values for each dimension like so:
+
+```py
+inp_info = tp.InputInfo(shape=([1, 8, 16], 2), dtype=tp.float32)
+```
+
+The shape we used above indicates that the 0th dimension should support a range of values
+from `1` to `16`, optimizing for a value of `8`. For the 1st dimension, we continue using
+a fixed value of `2`.
+
+Let's compile again with our updated `InputInfo` and try changing the input shape:
+
+```py
+# doc: no-print-locals fast_geglu
+fast_geglu = tp.compile(layer, args=[inp_info])
+
+# We'll run with the input we created above, which is of shape (1, 2)
+out0 = fast_geglu(inp)
+
+# Now let's try an input of shape (2, 2):
+inp1 = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32)
+out1 = fast_geglu(inp1)
+```
+
+If we try using a shape outside of the valid range, the executable will throw a nice error:
+
+<!-- Tripy: TEST: XFAIL Start -->
 ```py
 # doc: allow-exception
 inp = tp.ones((32, 2), dtype=tp.float32)
 print(fast_geglu(inp))
 ```
-<!-- Tripy: TEST: IGNORE End -->
+<!-- Tripy: TEST: XFAIL End -->
 
-### Saving The Executable
 
-A compiled executable can be saved to disk and then used for deployment.
+## Saving The Executable
 
-Saving an executable to disk:
+You can serialize and save executables like so:
 
 ```py
 # doc: no-print-locals
@@ -90,27 +101,17 @@ import tempfile # doc: omit
 import os
 
 out_dir = tempfile.mkdtemp() # doc: omit
+# Assuming `out_dir` is the directory where you'd like to save the executable:
 executable_file_path = os.path.join(out_dir, "executable.json")
 fast_geglu.save(executable_file_path)
 ```
 
-Reading an executable and running inference:
+Then you can load and run it again:
 
 ```py
-# doc: no-print-locals
+# doc: no-print-locals loaded_fast_geglu
 loaded_fast_geglu = tp.Executable.load(executable_file_path)
 
-inp = tp.Tensor([[1., 2.], [2., 3.]], dtype=tp.float32)
 out = loaded_fast_geglu(inp)
 os.remove(executable_file_path) # doc: omit
-```
-
-### Querying Executable Properties
-
-We can also query properties about the executable:
-
-```py
-# doc: print-locals input_info output_info
-input_info = loaded_fast_geglu.get_input_info()
-output_info = loaded_fast_geglu.get_output_info()
 ```

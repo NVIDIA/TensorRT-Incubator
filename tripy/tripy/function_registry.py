@@ -147,6 +147,8 @@ class FuncOverload:
         return self.annotations
 
     def matches_arg_types(self, args, kwargs) -> "Result":
+        from itertools import chain
+
         from tripy.utils.result import Result
 
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
@@ -197,14 +199,30 @@ class FuncOverload:
         annotations = self._get_annotations()
 
         # Check if we have too many positional arguments. We can only do this if there isn't a variadic positional argument.
-        if not any(annotation.kind == inspect.Parameter.VAR_POSITIONAL for annotation in annotations.values()) and len(
-            args
-        ) > len(annotations):
+        annotation_items = list(annotations.items())
+        variadic_idx = None
+        for idx, (_, annotation) in enumerate(annotation_items):
+            # there can only be at most one variadic arg and it must come after all positional args and before keyword-only args
+            if annotation.kind == inspect.Parameter.VAR_POSITIONAL:
+                variadic_idx = idx
+                break
+
+        if variadic_idx is None and len(args) > len(annotations):
             return Result.err(
                 [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
-        for (name, annotation), arg in zip(annotations.items(), args):
+        # If there is a variadic positional arg, we can copy the final annotation for the remaining args.
+        # Keyword-only args (only possible with a variadic arg) will appear in kwargs and don't need to be checked here.
+        if variadic_idx is not None:
+            positional_args_to_check = chain(
+                zip(annotation_items[:variadic_idx], args),
+                map(lambda arg: (annotation_items[variadic_idx], arg), args[len(annotations) - 1 :]),
+            )
+        else:
+            positional_args_to_check = zip(annotation_items, args)
+
+        for (name, annotation), arg in positional_args_to_check:
             if not matches_type(name, annotation.type_info, arg):
                 return Result.err(
                     [

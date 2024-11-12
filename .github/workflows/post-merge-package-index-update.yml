@@ -1,25 +1,24 @@
-# Builds Tripy wheels and documentation and deploys them to GitHub releases and pages respectively.
-name: Tripy Release Pipeline
+name: Post-merge package index update
 
 on:
   push:
-    tags:
-      - "tripy-v*.*.*"
+    branches: [ "main" ]
+    paths: ['tripy/docs/packages.html']
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+    contents: read
+    pages: write
+    id-token: write
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+    group: "pages"
+    cancel-in-progress: false
 
 jobs:
-  build-and-release:
+  publish-package-index:
     runs-on: tripy-self-hosted
     environment:
       name: github-pages
@@ -27,35 +26,23 @@ jobs:
     container:
       image: ghcr.io/nvidia/tensorrt-incubator/tripy:latest
       volumes:
-        - ${{ github.workspace }}/tripy:/tripy
+          - ${{ github.workspace }}/tripy:/tripy
       options: --gpus all
     steps:
     - uses: actions/checkout@v4
 
-    - name: build-package
-      run: |
-        cd /tripy/
-        python3 -m build . -w -n
-
     - name: build-docs
       run: |
-        cd /tripy/
-        python3 docs/generate_rsts.py
-        sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
-        cp docs/packages.html build/docs/
-
-    - name: Release
-      uses: softprops/action-gh-release@v2
-      with:
-        generate_release_notes: true
-        files: /tripy/dist/tripy-*.whl
-        fail_on_unmatched_files: true
+          cd /tripy/
+          python3 docs/generate_rsts.py
+          sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
+          cp docs/packages.html build/docs/
 
     - uses: actions/configure-pages@v5
 
     - uses: actions/upload-pages-artifact@v3
       with:
-        path: "/tripy/build/docs"
+          path: "/tripy/build/docs"
 
     - name: Deploy to GitHub Pages
       id: deployment

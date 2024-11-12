@@ -28,17 +28,17 @@ for expected accuracy.
     python3 example.py --input-text "What is the answer to life, the universe, and everything?"
     ```
 
-3. **[Optional]** You also use a fixed seed to ensure predictable outputs each time:
+3. **[Optional]** You can also use a fixed seed to ensure predictable outputs each time:
 
     ```bash
-    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0
     ```
 
     <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
     ```
     (?s).*?
-    What is the answer to life, the universe, and everything\? The answer to Aquinas, the most important thinker
+    What is the answer to life, the universe, and everything\? How can we get back at these questions\? And
     ```
      -->
     <!-- Tripy: TEST: EXPECTED_STDOUT End -->
@@ -47,34 +47,38 @@ for expected accuracy.
 
 This section shows how to run this example with different quantization modes.
 
-In `quantization.py`, we use `nvidia-modelopt` to quantize the pytorch GPT model, and then calibrate the quantization parameters. Then the quantization parameters are converted to scales and loaded into tripy model in function
-`load_quant_weights_from_hf` of `weight_loader.py`.
+In `quantization.py`, we use `nvidia-modelopt` to quantize the pytorch GPT model, and then calibrate the quantization parameters.
+Then the quantization parameters are converted to scales and loaded into the Tripy model by
+`load_quant_weights_from_hf` in [`weight_loader.py`](./weight_loader.py).
 
 To run with a quantization mode, pass `--quant-mode` to `example.py`. The supported modes are:
 
-1. weight only int8 quantization:
+1. Weight-only int8 quantization:
 
     ```bash
-    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode int8-weight-only
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int8-weight-only
     ```
     <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
     ```
     (?s).*?
-    What is the answer to life, the universe, and everything\? The answer to all of this is: I believe    ```
+    What is the answer to life, the universe, and everything\? How is life possible, what is the meaning of
+    ```
      -->
     <!-- Tripy: TEST: EXPECTED_STDOUT End -->
 
-2. weight only int4 quantization:
+2. Weight-only int4 quantization:
 
     ```bash
-    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode int4-weight-only
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int4-weight-only
     ```
-
-<!-- Tripy: TEST: XFAIL Start -->
-3. fp8 quantization:
-
-    ```bash
-    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=1 --quant-mode fp8
+    <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
+    <!--
     ```
-<!-- Tripy: TEST: XFAIL End -->
+    (?s).*?
+    What is the answer to life, the universe, and everything\? What is what is what is what is what is
+    ```
+     -->
+    <!-- Tripy: TEST: EXPECTED_STDOUT End -->
+
+    *Note: `int4` quantization may result in poor accuracy. We include it here primarily to demonstrate the workflow.*

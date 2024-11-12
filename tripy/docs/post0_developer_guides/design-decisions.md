@@ -129,6 +129,7 @@ Building our own stack has a few other advantages:
     exactly why the operation was inserted and which part of the user's Python code
     it originated from:
 
+<!-- Tripy: DOC: NO_EVAL Start -->
     ```bash
     --> example.py:11 in main()
         |
@@ -168,3 +169,4 @@ Building our own stack has a few other advantages:
         10  |     b = tp.ones((3, 3))
             |         ^^^^^^^^^^^^^^^
     ```
+<!-- Tripy: DOC: NO_EVAL End -->

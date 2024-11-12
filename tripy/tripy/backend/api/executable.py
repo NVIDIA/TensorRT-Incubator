@@ -14,18 +14,27 @@
 # limitations under the License.
 import base64
 import inspect
-from typing import Sequence, Union
+from typing import Sequence, Union, Tuple
 
 import mlir_tensorrt.runtime.api as runtime
 
 from tripy import export
-from tripy.backend.api.input_info import ArgInfo
 from tripy.backend.mlir import Executor
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.exception import raise_error
 from tripy.frontend import Tensor
+from tripy.function_registry import sanitize_name
 from tripy.utils import json as json_utils
-from tripy.utils.stack_info import StackInfo
+from dataclasses import dataclass
+
+
+# TODO(MLIR-TRT #923): Can generalize `InputInfo` and drop this class.
+@dataclass
+class ArgInfo:
+    shape_bounds: Sequence[Tuple[int, int]]
+    """A sequence of tuple(min, max) indicating the bounds of each dimension"""
+    dtype: "tripy.dtype"
+    """The datatype of the argument"""
 
 
 @export.public_api(document_under="compiling_code")
@@ -63,6 +72,51 @@ class Executable:
     def stream(self, stream):
         self._executor.stream = stream
 
+    def __str__(self) -> str:
+        params = [f"{name}: {sanitize_name(param.annotation)}" for name, param in self.__signature__.parameters.items()]
+        return f"Executable({', '.join(params)}) -> {sanitize_name(self.__signature__.return_annotation)}"
+
+    @staticmethod
+    def load(path: str) -> "tripy.Executable":
+        """
+        Loads a executable from the provided path.
+
+        Args:
+            path: The path from which to load the exectuable.
+
+        Returns:
+            The executable object loaded from the file.
+
+        .. code-block:: python
+            :linenos:
+            :caption: Save and load executable
+
+            import os
+            import tempfile # doc: omit
+
+            def add(a, b):
+                return a + b
+
+            # doc: no-print-locals compiled_add executable_file
+            compiled_add = tp.compile(
+                add,
+                args=[
+                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
+                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
+                ],
+            )
+
+
+            out_dir = tempfile.TemporaryDirectory().name # doc: omit
+            # Assuming `out_dir` is the directory containing the executable:
+            executable_file = os.path.join(out_dir, "executable.json")
+            compiled_add.save(executable_file) # doc: omit
+            assert os.path.exists(executable_file)
+            loaded_executable = tp.Executable.load(executable_file)
+        """
+
+        return json_utils.load(path)
+
     def __call__(self, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
         """
         Invokes the executable with the specified tensor arguments.
@@ -83,7 +137,13 @@ class Executable:
                 return a + b
 
             # doc: no-print-locals compiled_add
-            compiled_add = tp.compile(add, args=[tp.InputInfo((1,), dtype=tp.float32), tp.InputInfo((1,), dtype=tp.float32)])
+            compiled_add = tp.compile(
+                add,
+                args=[
+                    tp.InputInfo((1,), dtype=tp.float32),
+                    tp.InputInfo((1,), dtype=tp.float32),
+                ],
+            )
 
             a = tp.ones((1,), dtype=tp.float32)
             b = tp.ones((1,), dtype=tp.float32)
@@ -133,7 +193,7 @@ class Executable:
             # TODO: Evaluate whether this should be moved into the executor
             if "function expects a memref type with element type" in str(err):
                 # If the problem is a mismatched data type, we can provide a better error message than the executor can.
-                expected_input_dtypes = [info.dtype for info in self.get_input_info()]
+                expected_input_dtypes = [info.dtype for info in self._get_input_info()]
                 for tensor, dtype, arg_name in zip(input_tensors, expected_input_dtypes, self._arg_names):
                     if tensor.dtype != dtype:
                         raise_error(
@@ -144,7 +204,7 @@ class Executable:
                             ],
                         )
             elif "InternalError: failed to set input shape" in str(err) or "Runtime shape mismatch" in str(err):
-                expected_input_shapes = [info.shape_bounds for info in self.get_input_info()]
+                expected_input_shapes = [info.shape_bounds for info in self._get_input_info()]
                 for tensor, expected_bounds, arg_name in zip(input_tensors, expected_input_shapes, self._arg_names):
                     shape = tensor.shape
                     for i in range(len(shape)):
@@ -180,47 +240,13 @@ class Executable:
             shape_bounds = tuple((x, x) for x in arg.shape)
         return ArgInfo(shape_bounds, mlir_utils.convert_runtime_dtype_to_tripy_dtype(arg.dtype))
 
-    def get_input_info(self) -> Sequence[ArgInfo]:
-        """
-        Returns input tensors' information.
-
-        Returns:
-            A list containing one `ArgInfo` per input.
-
-        .. code-block:: python
-            :linenos:
-            :caption: Get input info
-
-            def add(a, b):
-                return a + b
-
-            # doc: no-print-locals compiled_add
-            compiled_add = tp.compile(add, args=[tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32)])
-            print(compiled_add.get_input_info())
-        """
+    def _get_input_info(self) -> Sequence[ArgInfo]:
         input_info = []
         for idx in range(self._executable_signature.get_num_input_args()):
             input_info.append(self._get_arg_info(idx))
         return input_info
 
-    def get_output_info(self) -> Sequence[ArgInfo]:
-        """
-        Returns output tensors' information.
-
-        Returns:
-            A list containing one `ArgInfo` per input.
-
-        .. code-block:: python
-            :linenos:
-            :caption: Get output info
-
-            def add(a, b):
-                return a + b
-
-            # doc: no-print-locals compiled_add
-            compiled_add = tp.compile(add, args=[tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32)])
-            print(compiled_add.get_output_info())
-        """
+    def _get_output_info(self) -> Sequence[ArgInfo]:
         output_info = []
         offset = self._executable_signature.get_num_input_args()
         for idx in range(self._executable_signature.get_num_output_args()):
@@ -229,60 +255,37 @@ class Executable:
 
     def save(self, path: str) -> None:
         """
-        Saves the compiled executable to the given file.
+        Saves this executable to the provided path.
 
         Args:
-            path: The name of file to save the executable.
+            path: The path at which to save the executable.
 
         .. code-block:: python
             :linenos:
             :caption: Save executable
 
-            import os, tempfile
+            import os
+            import tempfile # doc: omit
 
             def add(a, b):
                 return a + b
 
             # doc: no-print-locals compiled_add executable_file
-            compiled_add = tp.compile(add, args=[tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32)])
+            compiled_add = tp.compile(
+                add,
+                args=[
+                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
+                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
+                ],
+            )
 
-            with tempfile.TemporaryDirectory() as temp_dir:
-                executable_file = os.path.join(temp_dir, "executable.json")
-                compiled_add.save(executable_file)
-                assert os.path.exists(executable_file)
+            out_dir = tempfile.TemporaryDirectory().name # doc: omit
+            # Assuming `out_dir` is the desired output directory:
+            executable_file = os.path.join(out_dir, "executable.json")
+            compiled_add.save(executable_file)
+            assert os.path.exists(executable_file)
         """
         json_utils.save(self, path)
-
-    @classmethod
-    def load(cls, path: str) -> "tripy.Executable":
-        """
-        Loads a compiled executable from a given directory.
-
-        Args:
-            path: The name of file to load the exectuable from.
-
-        Returns:
-            The executable object loaded from the file.
-
-        .. code-block:: python
-            :linenos:
-            :caption: Save and load executable
-
-            import os, tempfile
-
-            def add(a, b):
-                return a + b
-
-            # doc: no-print-locals compiled_add executable_file
-            compiled_add = tp.compile(add, args=[tp.InputInfo(([1, 2, 3],), dtype=tp.float32), tp.InputInfo(([1, 2, 3],), dtype=tp.float32)])
-
-            with tempfile.TemporaryDirectory() as temp_dir:
-                executable_file = os.path.join(temp_dir, "executable.json")
-                compiled_add.save(executable_file)
-                assert os.path.exists(executable_file)
-                loaded_executable = tp.Executable.load(executable_file)
-        """
-        return json_utils.load(path)
 
 
 @json_utils.Encoder.register(Executable)

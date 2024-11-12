@@ -61,8 +61,8 @@ The quantization scales are not available unless the model was trained with QAT 
 We need to perform another step called calibration to compute the correct scales for each quantized layer.
 There are many ways to do calibration, one of which is using the `nvidia-modelopt` toolkit. To install it, run:
 
-```sh
-python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt==0.11.0 transformers==4.44.2 datasets==2.21.0
+```bash
+python3 -m pip install --extra-index-url https://pypi.nvidia.com nvidia-modelopt==0.11.0 transformers==4.46.2 datasets==2.21.0
 ```
 
 First, let's get the pre-trained GPT model from hugging face:

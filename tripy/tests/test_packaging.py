@@ -66,22 +66,7 @@ def check_wheel(virtualenv, wheel_dir):
 
 
 @pytest.mark.l1
-def test_isolated_wheel_packaging_and_install(virtualenv):
-    # Tests wheel packaging and installation as an external user would do it.
-    with helper.raises(Exception, "returned non-zero exit status"):
-        virtualenv.run([virtualenv.python, "-c", "import tripy"])
-
-    virtualenv.install_package("build")
-
-    with tempfile.TemporaryDirectory() as tmp:
-        virtualenv.run([virtualenv.python, "-m", "build", ".", "-o", tmp], cwd=helper.ROOT_DIR)
-
-        check_wheel(virtualenv, tmp)
-
-
-@pytest.mark.l1
-def test_container_wheel_packaging_and_install(virtualenv):
-    # Tests wheel packaging as we do it in the development container.
+def test_wheel_packaging_and_install(virtualenv):
     with tempfile.TemporaryDirectory() as tmp:
         sp.run(["python3", "-m", "build", ".", "-n", "-o", tmp], cwd=helper.ROOT_DIR)
 

@@ -38,8 +38,6 @@ def modelopt_quantize(model_hf, quant_mode):
         quant_cfg["quant_cfg"]["*input_quantizer"] = {
             "enable": False,
         }
-    elif quant_mode == "fp8":
-        quant_cfg = mtq.FP8_DEFAULT_CFG
     elif quant_mode == "int4-weight-only":
         quant_cfg = mtq.INT4_AWQ_CFG
     else:

@@ -101,8 +101,12 @@ def test_examples(example, sandboxed_install_run):
 
             block_text = str(block)
             if block.has_marker("test: expected_stdout"):
-                print("Checking command output against expected output:")
-                assert re.match(dedent(block_text).strip(), statuses[-1].stdout.strip())
+                print("Checking command output against expected output: ", end="")
+                out = statuses[-1].stdout.strip()
+                matched = re.match(dedent(block_text).strip(), out)
+                print("matched!" if matched else "did not match!")
+                print(f"==== STDOUT ====\n{out}")
+                assert matched
             else:
                 status = example.run(block_text, sandboxed_install_run)
 
