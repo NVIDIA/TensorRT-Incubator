@@ -79,18 +79,16 @@ class Sequential(Module):
             input = module(input)
         return input
 
-    def __getattr__(self, name: Union[str, int]) -> Any:
+    def __getattr__(self, name: str) -> Any:
         """
         Custom __getattr__ to search both in `modules` dictionary and in other attributes. This is for handling
         `module = operator.attrgetter(child_name)(module)` calls in tripy/frontend/module/module.py:load_state_dict
         """
-        key = str(name) if isinstance(name, int) else name
-
-        if key in self.modules:
-            return self.modules[key]
+        if name in self.modules:
+            return self.modules[name]
 
         # Fallback to regular attribute access if not found in modules
-        return super().__getattr__(key)
+        return super().__getattr__(name)
 
     def __len__(self) -> int:
         r"""
