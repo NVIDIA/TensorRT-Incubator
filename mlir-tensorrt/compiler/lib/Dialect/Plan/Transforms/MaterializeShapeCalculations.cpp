@@ -46,6 +46,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h"
 #include "stablehlo/dialect/StablehloOps.h"
+#include "stablehlo/transforms/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
@@ -856,6 +857,8 @@ public:
       RewritePatternSet patterns_(ctx);
       memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns_);
       stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns_);
+      stablehlo::populateStablehloCanonicalizeDynamismPatterns(&patterns_, ctx);
+
       // clang-format off
       addCanonicalizationPatterns<
         arith::AndIOp,
