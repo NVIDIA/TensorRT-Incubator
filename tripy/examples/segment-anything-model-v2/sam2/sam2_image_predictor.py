@@ -401,7 +401,7 @@ class SAM2ImagePredictor:
         high_res_features_1 = high_res_features[0].contiguous()
         high_res_features_2 = high_res_features[1].contiguous()
 
-        if self.model.sam_mask_decoder_true.get_input_info()[0].dtype == tp.float16:
+        if self.model.sam_mask_decoder_true._get_input_info()[0].dtype == tp.float16:
             image_embedding = image_embedding.half()
             image_pe = torch.from_dlpack(image_pe).half()
             sparse_embeddings = sparse_embeddings.half()
