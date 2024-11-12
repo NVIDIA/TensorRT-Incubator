@@ -182,12 +182,15 @@ class LayerNorm2d(tp.Module):
         self.eps = eps
 
     def __call__(self, x: tp.Tensor) -> tp.Tensor:
+        original_dtype = x.dtype
+        x = tp.cast(x, tp.float32)
         u = tp.mean(x, dim=1, keepdim=True)
         s = tp.mean((x - u) ** 2, dim=1, keepdim=True)
         x = (x - u) / tp.sqrt(s + self.eps)
         w = tp.unsqueeze(tp.unsqueeze(self.weight, 1), 2)
         b = tp.unsqueeze(tp.unsqueeze(self.bias, 1), 2)
         x = w * x + b
+        x = tp.cast(x, original_dtype)
         return x
 
 

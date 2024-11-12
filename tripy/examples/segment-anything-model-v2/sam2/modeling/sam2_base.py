@@ -106,10 +106,10 @@ class SAM2Base(torch.nn.Module):
         use_mlp_for_obj_ptr_proj: bool = False,
         # extra arguments used to construct the SAM mask decoder; if not None, it should be a dict of kwargs to be passed into `MaskDecoder` class.
         sam_mask_decoder_extra_args=None,
-        tripy_mask_decoder_dtype="float32",
+        model_precision="float32",
     ):
         super().__init__()
-        self.tripy_mask_decoder_dtype = getattr(tp, tripy_mask_decoder_dtype)
+        self.model_dtype = getattr(tp, model_precision)
         # Part 1: the image backbone
         self.image_encoder = image_encoder
         # Use level 0, 1, 2 for high-res setting, or just level 2 for the default setting
@@ -220,7 +220,7 @@ class SAM2Base(torch.nn.Module):
             embedding_dim=self.sam_prompt_embed_dim,
             mlp_dim=2048,
             num_heads=8,
-            dtype=self.tripy_mask_decoder_dtype,
+            dtype=self.model_dtype,
         )
         self.sam_mask_decoder = MaskDecoder(
             num_multimask_outputs=3,
@@ -233,7 +233,7 @@ class SAM2Base(torch.nn.Module):
             pred_obj_scores=self.pred_obj_scores,
             pred_obj_scores_mlp=self.pred_obj_scores_mlp,
             use_multimask_token_for_obj_ptr=self.use_multimask_token_for_obj_ptr,
-            dtype=self.tripy_mask_decoder_dtype,
+            dtype=self.model_dtype,
             **(self.sam_mask_decoder_extra_args or {}),
         )
         if self.use_obj_ptrs_in_encoder:
@@ -349,7 +349,7 @@ class SAM2Base(torch.nn.Module):
         dense_embeddings = torch.from_dlpack(dense_embeddings)
         self.dense_pe = self.sam_prompt_encoder.get_dense_pe()
 
-        if self.tripy_mask_decoder_dtype == tp.float16:
+        if self.model_dtype == tp.float16:
             backbone_features = backbone_features.half()
             self.dense_pe = (
                 self.dense_pe.half()
@@ -516,10 +516,9 @@ class SAM2Base(torch.nn.Module):
             object_score_logits,
         )
 
-    def forward_image(self, img_batch: torch.Tensor):
+    def forward_image(self, img_batch: tp.Tensor):
         """Get the image feature on the input batch."""
-        img_batch = img_batch.to(getattr(torch, self.image_encoder.trunk.dtype)).contiguous()
-        img_batch = tp.Tensor(img_batch)
+
         backbone_out = self.image_encoder(img_batch)
 
         if self.use_high_res_features_in_sam:
@@ -528,7 +527,7 @@ class SAM2Base(torch.nn.Module):
             conv_s0_in = backbone_out["backbone_fpn"][0].contiguous()
             conv_s1_in = backbone_out["backbone_fpn"][1].contiguous()
 
-            if self.tripy_mask_decoder_dtype == tp.float32:
+            if self.model_dtype == tp.float32:
                 conv_s0_in = tp.Tensor(conv_s0_in)
                 conv_s1_in = tp.Tensor(conv_s1_in)
             else:
@@ -762,16 +761,11 @@ class SAM2Base(torch.nn.Module):
         if self.sigmoid_bias_for_mem_enc != 0.0:
             mask_for_mem = mask_for_mem + self.sigmoid_bias_for_mem_enc
 
-        if isinstance(self.memory_encoder, tp.Module) or isinstance(self.memory_encoder, tp.Executable):
-            maskmem_features, maskmem_pos_enc = self.memory_encoder(
-                tp.Tensor(pix_feat.contiguous()), tp.Tensor(mask_for_mem.contiguous())
-            )  # sigmoid already applied
-            maskmem_features = torch.from_dlpack(maskmem_features)
-            maskmem_pos_enc = [torch.from_dlpack(maskmem_pos_enc)]
-        else:
-            maskmem_out = self.memory_encoder(pix_feat, mask_for_mem, skip_mask_sigmoid=True)  # sigmoid already applied
-            maskmem_features = maskmem_out["vision_features"]
-            maskmem_pos_enc = maskmem_out["vision_pos_enc"]
+        maskmem_features, maskmem_pos_enc = self.memory_encoder(
+            tp.Tensor(pix_feat.contiguous()), tp.Tensor(mask_for_mem.contiguous())
+        )  # sigmoid already applied
+        maskmem_features = torch.from_dlpack(maskmem_features)
+        maskmem_pos_enc = [torch.from_dlpack(maskmem_pos_enc)]
 
         return maskmem_features, maskmem_pos_enc
 

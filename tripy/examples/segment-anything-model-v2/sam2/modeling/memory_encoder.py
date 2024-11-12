@@ -47,8 +47,10 @@ class MaskDownSampler(tp.Module):
         padding=0,
         total_stride=16,
         activation=tp.gelu,
+        dtype="float32",
     ):
         super().__init__()
+        self.dtype = getattr(tp, dtype)
         num_layers = int(math.log2(total_stride) // math.log2(stride))
         assert stride**num_layers == total_stride
         self.encoder = []
@@ -62,13 +64,14 @@ class MaskDownSampler(tp.Module):
                     kernel_dims=(kernel_size, kernel_size),
                     stride=(stride, stride),
                     padding=((padding, padding), (padding, padding)),
+                    dtype=self.dtype,
                 )
             )
             self.encoder.append(LayerNorm2d(mask_out_chans))
             self.encoder.append(activation)
             mask_in_chans = mask_out_chans
 
-        self.encoder.append(tp.Conv(mask_out_chans, embed_dim, kernel_dims=(1, 1)))
+        self.encoder.append(tp.Conv(mask_out_chans, embed_dim, kernel_dims=(1, 1), dtype=self.dtype))
 
     def __call__(self, x):
         return self.forward(x)
@@ -93,20 +96,23 @@ class CXBlock(tp.Module):
         drop_path=0.0,
         layer_scale_init_value=1e-6,
         use_dwconv=True,
+        dtype="float32",
     ):
         super().__init__()
+        self.dtype = getattr(tp, dtype)
         self.dwconv = tp.Conv(
             dim,
             dim,
             kernel_dims=(kernel_size, kernel_size),
             padding=((padding, padding), (padding, padding)),
             groups=dim if use_dwconv else 1,
+            dtype=self.dtype,
         )  # depthwise conv
         self.norm = LayerNorm2d(dim, eps=1e-6)
-        self.pwconv1 = tp.Linear(dim, 4 * dim)  # pointwise/1x1 convs, implemented with linear layers
+        self.pwconv1 = tp.Linear(dim, 4 * dim, dtype=self.dtype)  # pointwise/1x1 convs, implemented with linear layers
         self.act = tp.gelu
-        self.pwconv2 = tp.Linear(4 * dim, dim)
-        self.gamma = tp.ones((dim,)) * layer_scale_init_value
+        self.pwconv2 = tp.Linear(4 * dim, dim, dtype=self.dtype)
+        self.gamma = tp.ones((dim,), dtype=self.dtype) * layer_scale_init_value
 
         self.drop_path = Dummy()
 
@@ -130,13 +136,14 @@ class CXBlock(tp.Module):
 
 
 class Fuser(tp.Module):
-    def __init__(self, layer, num_layers, dim=None, input_projection=False):
+    def __init__(self, layer, num_layers, dim=None, input_projection=False, dtype="float32"):
         super().__init__()
+        self.dtype = getattr(tp, dtype)
         self.proj = Dummy()
         self.layers = [layer for i in range(num_layers)]
 
         if input_projection:
-            self.proj = tp.Conv(dim, dim, kernel_dims=(1, 1))
+            self.proj = tp.Conv(dim, dim, kernel_dims=(1, 1), dtype=self.dtype)
 
     def __call__(self, x):
         return self.forward(x)
@@ -150,22 +157,18 @@ class Fuser(tp.Module):
 
 class MemoryEncoder(tp.Module):
     def __init__(
-        self,
-        out_dim,
-        mask_downsampler,
-        fuser,
-        position_encoding,
-        in_dim=256,  # in_dim of pix_feats
+        self, out_dim, mask_downsampler, fuser, position_encoding, in_dim=256, dtype="float32"  # in_dim of pix_feats
     ):
         super().__init__()
+        self.dtype = getattr(tp, dtype)
 
         self.mask_downsampler = mask_downsampler
-        self.pix_feat_proj = tp.Conv(in_dim, in_dim, kernel_dims=(1, 1))
+        self.pix_feat_proj = tp.Conv(in_dim, in_dim, kernel_dims=(1, 1), dtype=self.dtype)
         self.fuser = fuser
         self.position_encoding = position_encoding
         self.out_proj = Dummy()
         if out_dim != in_dim:
-            self.out_proj = tp.Conv(in_dim, out_dim, kernel_dims=(1, 1))
+            self.out_proj = tp.Conv(in_dim, out_dim, kernel_dims=(1, 1), dtype=self.dtype)
 
     def __call__(
         self,

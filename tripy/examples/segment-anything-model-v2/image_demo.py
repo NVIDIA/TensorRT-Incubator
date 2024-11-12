@@ -133,7 +133,6 @@ def process_predictions(
         if len(scores) > 1:
             ax.set_title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
 
-        # plt.axis("off")
         ax.axis("off")
 
         if save_path:

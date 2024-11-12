@@ -27,6 +27,7 @@ class PromptEncoder(tp.Module):
         input_image_size: Tuple[int, int],
         mask_in_chans: int,
         activation: Type[tp.Module] = tp.gelu,
+        dtype=tp.float32,
     ) -> None:
         """
         Encodes prompts for input to SAM's mask decoder.
