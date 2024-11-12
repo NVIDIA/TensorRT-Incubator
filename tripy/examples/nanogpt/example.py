@@ -82,7 +82,7 @@ def main():
     input_ids = encoder.encode(args.input_text, allowed_special={"<|endoftext|>"})
 
     TEMPERATURE = 0.8
-    TOP_K = 200
+    TOP_K = 10
 
     padded_seq_len = len(input_ids) + args.max_new_tokens
 
