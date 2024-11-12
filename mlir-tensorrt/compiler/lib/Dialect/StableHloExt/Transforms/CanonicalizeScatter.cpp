@@ -14,6 +14,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -101,7 +102,7 @@ static SmallVector<Value> reshapeUpdatesToEnsureSingleScatterDimension(
       reassociation.push_back({i});
 
     return llvm::map_to_vector(updates, [&](Value update) -> Value {
-      return b.create<tensor::CollapseShapeOp>(loc, update, reassociation);
+      return createCollapsingReshape(b, loc, update, reassociation);
     });
   }
   if (numScatterDims == 0) {
@@ -169,7 +170,7 @@ struct CanonicalizeScatterPattern : public OpRewritePattern<ScatterOp> {
 
   LogicalResult matchAndRewrite(ScatterOp scatterOp,
                                 PatternRewriter &rewriter) const override {
-    if (isCanonicalScatter(scatterOp))
+    if (isCanonicalScatter(scatterOp) || isCanonicalScatterNd(scatterOp))
       return failure();
 
     Location loc = scatterOp.getLoc();
@@ -220,6 +221,126 @@ struct CanonicalizeScatterPattern : public OpRewritePattern<ScatterOp> {
     return success();
   }
 };
+} // namespace
+
+// Ensure that there are enough "inserted window dimensions" so that the window
+// update and the batch dims access disjoint areas of the result index space.
+// This ensures we can map to `tensorr.scatter` or `onnx.scatter_nd`. This must
+// be called after ensuring that there is a single scatter batch dimension.
+static FailureOr<SmallVector<Value>>
+stablehloReshapeScatterUpdatesToAddInsertedDims(OpBuilder &b, Location loc,
+                                                ValueRange updates,
+                                                int64_t indexDepth,
+                                                int64_t inputRank) {
+  assert(indexDepth >= 1 && "expected non-zero index depth");
+  const size_t numScatterBatchDims = 1;
+  RankedTensorType updateType =
+      cast<RankedTensorType>(updates.front().getType());
+  const int64_t currUpdateSliceRank =
+      updateType.getRank() - numScatterBatchDims;
+  const int64_t expectedUpdateSliceRank = inputRank - indexDepth;
+  const int64_t expectedInsertWindowDims = indexDepth;
+  assert(expectedInsertWindowDims >= 1 &&
+         "expected positive number of window insert dims");
+
+  // No need to do anything.
+  if (expectedUpdateSliceRank == currUpdateSliceRank)
+    return llvm::to_vector(updates);
+
+  // Otherwise, we need to drop leading dimensions (hopefully). If leading
+  // dimensions are not unit dims, then we can't proceed.
+  if (currUpdateSliceRank > expectedUpdateSliceRank) {
+    const int64_t dimToDrop = currUpdateSliceRank - expectedUpdateSliceRank;
+
+    if (!llvm::all_equal(
+            updateType.getShape().drop_front(1).take_front(dimToDrop)) ||
+        updateType.getDimSize(1) != 1)
+      return failure();
+
+    RankedTensorType newShape =
+        RankedTensorType::Builder(updateType)
+            .setShape(updateType.getShape().drop_front(1 + dimToDrop))
+            .insertDim(updateType.getDimSize(0), 0);
+    return llvm::to_vector(llvm::map_range(updates, [&](Value update) -> Value {
+      return b.create<stablehlo::ReshapeOp>(loc, newShape, update);
+    }));
+  }
+
+  return failure();
+}
+
+namespace {
+
+/// Simplify `stablehlo.scatter` to conform with `tensorrt.scatter`.
+struct StablehloCanonicalizeScatterToTensorRtScatterNdFormat
+    : public OpRewritePattern<stablehlo::ScatterOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::ScatterOp op,
+                                PatternRewriter &rewriter) const override {
+
+    // Only proceed if we are in the StableHLO canonical form. This is covered
+    // by the "stablehlo-ext-canonicalize-scatter" pass that runs before this
+    // pass. All scatter ops should be in stablehlo canonical form at this
+    // point.
+    if (!stablehlo_ext::isCanonicalScatter(op))
+      return failure();
+
+    RankedTensorType canonicalizedInputType =
+        cast<RankedTensorType>(op.getInputs().front().getType());
+    RankedTensorType canonicalizedIndexType =
+        cast<RankedTensorType>(op.getScatterIndices().getType());
+
+    // Reshape the updates if possible.
+    int64_t inputRank = canonicalizedInputType.getRank();
+    int64_t indexDepth = canonicalizedIndexType.getDimSize(1);
+    FailureOr<SmallVector<Value>> canonicalizedUpdates =
+        stablehloReshapeScatterUpdatesToAddInsertedDims(
+            rewriter, op.getLoc(), op.getUpdates(), indexDepth, inputRank);
+    if (failed(canonicalizedUpdates))
+      return rewriter.notifyMatchFailure(op, "failed to canonicalize updates");
+
+    // Create the new scatter op.
+    auto canonicalizedUpdatesType =
+        cast<RankedTensorType>(canonicalizedUpdates->front().getType());
+    assert(((canonicalizedInputType.getRank() - indexDepth) +
+            (canonicalizedIndexType.getRank() - 1)) ==
+               canonicalizedUpdatesType.getRank() &&
+           "expected slice size to equal inputRank - index_depth");
+    auto newConfig = stablehlo::ScatterDimensionNumbersAttr::get(
+        getContext(),
+        /*updateWindowDims=*/
+        llvm::to_vector(
+            llvm::seq<int64_t>(1, canonicalizedUpdatesType.getRank())),
+        /*insertedWindowDims=*/
+        llvm::to_vector(llvm::seq<int64_t>(0, indexDepth)),
+        /*inputBatchingDims=*/{},
+        /*scatterIndicesBatchingDims=*/{},
+        /*scatterDimsToOperandDims=*/
+        llvm::to_vector(llvm::seq<int64_t>(0, indexDepth)), 1);
+    auto scatterOp = rewriter.create<stablehlo::ScatterOp>(
+        op.getLoc(), TypeRange(ValueRange(op.getInputs())), op.getInputs(),
+        op.getScatterIndices(), *canonicalizedUpdates, newConfig);
+    Region &region = scatterOp.getUpdateComputation();
+    rewriter.inlineRegionBefore(op.getUpdateComputation(), region,
+                                region.end());
+    rewriter.replaceOp(op, scatterOp.getResults());
+
+    scatterOp->setAttr("tensorrt.canonicalized_scatter",
+                       rewriter.getUnitAttr());
+
+    return success();
+  }
+};
+} // namespace
+
+void stablehlo_ext::populateCanonicalizeStablehloScatterPatterns(
+    RewritePatternSet &patterns) {
+  patterns.insert<CanonicalizeScatterPattern,
+                  StablehloCanonicalizeScatterToTensorRtScatterNdFormat>(
+      patterns.getContext());
+}
+
+namespace {
 
 struct CanonicalizeScatterPass
     : stablehlo_ext::impl::CanonicalizeScatterPassBase<
@@ -227,7 +348,7 @@ struct CanonicalizeScatterPass
   void runOnOperation() override {
     MLIRContext *ctx = &getContext();
     RewritePatternSet patterns(ctx);
-    patterns.add<CanonicalizeScatterPattern>(ctx);
+    populateCanonicalizeStablehloScatterPatterns(patterns);
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(patterns)))) {
       emitError(getOperation()->getLoc())

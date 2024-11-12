@@ -32,7 +32,6 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -908,8 +907,6 @@ protected:
 /// RuntimeClient and be destroyed/deallocated through the appropriate method.
 class RuntimeClient {
 public:
-  ~RuntimeClient();
-
   /// Creates the client. Enumerates CUDA devices on the machine. Creates the
   /// internal allocators.
   static StatusOr<std::unique_ptr<RuntimeClient>> create();
@@ -972,13 +969,6 @@ public:
     return pinnedMemoryAllocator;
   }
 
-  /// Track the DLPack tensors in RuntimeClient such that their deleters can be
-  /// reset when RuntimeClient is destructed.
-  void trackDLPackTensor(DLManagedTensor *tensor);
-
-  /// Remove the DLPack tensor reference from tracking.
-  void removeDLPackTensorFromTracking(DLManagedTensor *tensor);
-
 private:
   RuntimeClient(llvm::SmallVector<std::unique_ptr<Device>> devices)
       : devices(std::move(devices)) {}
@@ -987,7 +977,6 @@ private:
   PinnedMemoryAllocator pinnedMemoryAllocator;
   AllocTracker allocTracker;
   ResourceTracker resourceTracker;
-  llvm::SmallPtrSet<DLManagedTensor *, 16> dlPackTensors;
 };
 
 //===----------------------------------------------------------------------===//

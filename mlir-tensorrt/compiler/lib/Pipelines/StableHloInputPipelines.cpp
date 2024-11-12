@@ -29,8 +29,9 @@
 
 using namespace mlir;
 
-static void buildStableHloSimplificationPipeline(OpPassManager &pm,
-                                                 bool legalizeChlo) {
+static void buildStableHloSimplificationPipeline(
+    OpPassManager &pm,
+    const mlir::ConvertChloToStableHloExtPassOptions &chloToStablehloOptions) {
   // Some match-and-raise patterns should be performed before canonicalization,
   // since the pattern is based on specific frontend patterns (e.g. JAX).
   pm.addPass(stablehlo_ext::createExpandTuplesPass());
@@ -43,9 +44,7 @@ static void buildStableHloSimplificationPipeline(OpPassManager &pm,
   // We don't do the CHLO legalization until this point since we want to wait
   // until after `canonicalize-shapes` has run at least once. This reduces the
   // likelihood of generating `shape` dialect ops.
-  if (legalizeChlo)
-    pm.addNestedPass<func::FuncOp>(
-        stablehlo::createChloLegalizeToStablehloPass());
+  pm.addPass(mlir::createConvertChloToStableHloExtPass(chloToStablehloOptions));
 
   pm.addPass(stablehlo_ext::createCanonicalizeDotGeneralPass());
   pm.addPass(stablehlo_ext::createConstantFoldingPass());
@@ -64,10 +63,13 @@ void mlir::buildStablehloPreProcessingPipeline(
   pm.addPass(stablehlo_ext::createLowerSpecialCustomCalls());
 
   // Simplify StableHLO graph
-  buildStableHloSimplificationPipeline(pm, opts.convertChloToStablehlo);
+  buildStableHloSimplificationPipeline(
+      pm, ConvertChloToStableHloExtPassOptions{
+              /*preserveErf=*/opts.preserveChloErf,
+              /*preserveTopK=*/opts.preserveChloTopK,
+          });
   pm.addPass(createCSEPass());
-  pm.addNestedPass<func::FuncOp>(
-      stablehlo_ext::createStablehloInputPreprocessingPass());
+  pm.addPass(stablehlo_ext::createCanonicalizeConvolutionPass());
   if (opts.legalizeControlFlowToSCF)
     pm.addPass(mlir::createConvertStablehloToScfPass());
   pm.addPass(createCSEPass());
@@ -83,19 +85,19 @@ struct StableHloInputPipelineOptions
       *this, "legalize-control-flow-to-scf",
       llvm::cl::desc("lower StableHLO control flow ops to SCF"),
       llvm::cl::init(false)};
-  Option<bool> legalizeChloErfToStablehlo{
-      *this, "legalize-chlo-erf-to-stablehlo",
-      llvm::cl::desc(
-          "Whether to lower chlo.erf into primitive stablehlo operations"),
+
+  Option<bool> preserveChloErf{
+      *this, "preserve-chlo-erf",
+      llvm::cl::desc("don't lower chlo.erf to stablehlo"),
+      llvm::cl::init(true)};
+  Option<bool> preserveChloTopK{
+      *this, "preserve-chlo-topk",
+      llvm::cl::desc("don't lower chlo.top_k to stablehlo"),
       llvm::cl::init(true)};
   Option<bool> disableInliner{
       *this, "disable-inliner",
       llvm::cl::desc(
           "Whether to disable running the inliner as part of the pipeline"),
-      llvm::cl::init(false)};
-  Option<bool> convertChloToStablehlo{
-      *this, "convert-chlo-to-stablehlo",
-      llvm::cl::desc("Whether to lower chlo to stablehlo"),
       llvm::cl::init(false)};
 };
 } // namespace
@@ -108,15 +110,17 @@ void mlir::registerStableHloInputPipelines() {
       [](OpPassManager &pm, const StableHloInputPipelineOptions &opts) {
         StableHloInputOptions inputOpts;
         inputOpts.legalizeControlFlowToSCF = opts.legalizeControlFlowToSCF;
-        inputOpts.legalizeChloErfToStablehlo = opts.legalizeChloErfToStablehlo;
+        inputOpts.preserveChloErf = opts.preserveChloErf;
+        inputOpts.preserveChloTopK = opts.preserveChloTopK;
         inputOpts.disableInliner = opts.disableInliner;
-        inputOpts.convertChloToStablehlo = opts.convertChloToStablehlo;
         buildStablehloPreProcessingPipeline(pm, inputOpts);
       });
 
-  PassPipelineRegistration<>("stablehlo-simplification-pipeline",
-                             "Apply StableHLO simplification passes",
-                             [](OpPassManager &pm) {
-                               buildStableHloSimplificationPipeline(pm, false);
-                             });
+  PassPipelineRegistration<StableHloInputPipelineOptions>(
+      "stablehlo-simplification-pipeline",
+      "Apply StableHLO simplification passes",
+      [](OpPassManager &pm, const StableHloInputPipelineOptions &opts) {
+        buildStableHloSimplificationPipeline(
+            pm, {opts.preserveChloErf, opts.preserveChloTopK});
+      });
 }

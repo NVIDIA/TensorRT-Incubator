@@ -144,7 +144,7 @@ def TensorRT_CallAllocOp : TensorRT_Op<"call_alloc", [
     `enqueue_alloc` operation in a later pass.
   }];
 
-  let arguments = (ins 
+  let arguments = (ins
     Variadic<AnyTypeOf<[AnyShaped, AnySignlessIntegerOrIndex]>>:$inputs,
     SymbolRefAttr:$callee
   );
@@ -1037,8 +1037,13 @@ def TensorRT_LinspaceOp : TensorRT_Op<"linspace", [
     slice of the result along dimension `i`. Then the contents of
     `s` are given by:
 
-    `s[j] = start + step[i] * j` if `step` is a tensor or
-    `s[j] = start + step * j` if `step` is a scalar.
+    - If `step` is a tensor:
+
+      `s[coord...] = start + dot(step, [coord...])
+
+    - If `step` is a static scalar:
+
+      `s[j] = start + step * j`
 
     The inputs `start` and `step` must either both be given by
     tensor-typed SSA values or both be given by static attributes. One
@@ -1052,12 +1057,12 @@ def TensorRT_LinspaceOp : TensorRT_Op<"linspace", [
 
   let arguments = (ins
     Optional<1DTensorOf<[I32]>>:$shape,
-    Optional<0DTensorOf<[I32, F32]>>:$start,
-    Optional<1DTensorOf<[I32, F32]>>:$step,
+    Optional<0DTensorOf<[I32, I64, F32]>>:$start,
+    Optional<1DTensorOf<[I32, I64, F32]>>:$step,
     OptionalAttr<F64Attr>:$static_start,
     OptionalAttr<F64Attr>:$static_step
   );
-  let results = (outs TensorRT_RankedTensorOf<[I32, I64, F16, F32]>:$result);
+  let results = (outs TensorRT_RankedTensorOf<[I32, I64, F32]>:$result);
   let assemblyFormat = [{
     attr-dict
     `[`  ($start^ `:` type($start)) : ($static_start)? `]`
@@ -3238,7 +3243,7 @@ def TensorRT_DequantizeOp : TensorRT_Op<"dequantize",
   }];
 
   let arguments = (ins
-    TensorRT_RankedTensorOf<[TensorRT_I8, TensorRT_F8, TensorRT_I4]>:$input,
+    TensorRT_Non0RankedTensorOf<[TensorRT_I8, TensorRT_F8, TensorRT_I4]>:$input,
     TensorRankOf<[F32, F16, BF16], [0, 1, 2]>:$scale,
     OptionalAttr<I32Attr>:$axis
   );

@@ -387,7 +387,6 @@ AllocTracker::~AllocTracker() {
       MTRT_DBGF("error while deallocating dangling memory: %s",
                 s.getString().c_str());
   }
-
   if (totalSize > 0)
     MTRT_DBGF("freed %zu bytes of unfreed memory", totalSize);
 }
@@ -411,11 +410,10 @@ void AllocTracker::incrementExternalCount(uintptr_t ptr) {
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
   int32_t ref = ++metadata->externalReferenceCount;
-  MTRT_DBGF("Incremented external reference for pointer 0x%lx to %d", ptr, ref);
+  MTRT_DBG("Incremented external reference for pointer %d to %d", ptr, ref);
 }
 
 void AllocTracker::decrementExternalCount(uintptr_t ptr) {
-
   assert(llvm::is_contained(map, ptr) &&
          llvm::formatv("Untracked pointer {0}", ptr).str().c_str());
   std::unique_ptr<Metadata> const &metadata = map.at(ptr);
@@ -424,12 +422,11 @@ void AllocTracker::decrementExternalCount(uintptr_t ptr) {
          llvm::formatv("External reference count cannot be negative: {0}", ref)
              .str()
              .c_str());
-  MTRT_DBGF("Decremented external reference for pointer 0x%lx to %d", ptr, ref);
+  MTRT_DBG("Decremented external reference for pointer %d to %d", ptr, ref);
   if (ref == 0 && metadata->releasedInternally) {
-    MTRT_DBGF(
-        "External reference to an internally released pointer 0x%lx is 0, "
-        "try deallocating pointer memory of size %lu",
-        ptr, metadata->info.size);
+    MTRT_DBG("External reference to an internally released pointer %d is 0, "
+             "try deallocating pointer memory of size %lu",
+             ptr, ref, metadata->info.size);
     Status s = safeDeallocate(*this, metadata->info.ptr);
     if (!s.isOk())
       MTRT_DBGF("error while deallocating dangling memory: %s",
@@ -466,22 +463,6 @@ void AllocTracker::track(PointerInfo info) {
     map.insert(std::make_pair(info.ptr, std::move(value)));
     return;
   }
-
-  auto existingReferenceCount = map.at(info.ptr)->externalReferenceCount.load();
-
-  // If exisiting value in map is internally maanged and not yet released
-  // internally, we can just increment the reference count for the exisiting
-  // entry.
-  if (get(info.ptr).isInternallyManaged() &&
-      !map.at(info.ptr)->releasedInternally && existingReferenceCount > 0 &&
-      info.isExternallyManaged()) {
-    ++map.at(info.ptr)->externalReferenceCount;
-    return;
-  }
-
-  // In the default case when there is an exisiting value in map, we reuse the
-  // exisiting reference count for the new pointer.
-  value->externalReferenceCount = existingReferenceCount;
   untrack(info.ptr);
   map.insert(std::make_pair(info.ptr, std::move(value)));
 }
@@ -578,9 +559,6 @@ mlirtrt::Status runtime::safeDeallocate(AllocTracker &tracker, uintptr_t ptr,
               ptr);
     return mlirtrt::Status::getOk();
   }
-
-  MTRT_DBGF("external count %d for ptr 0x%lx",
-            tracker.getExternalReferenceCount(ptr), ptr);
 
   if (tracker.getExternalReferenceCount(ptr) > 0) {
     // Destructor for external reference should truly free or delete this.
@@ -905,7 +883,6 @@ StatusOr<std::unique_ptr<MemRefValue>> RuntimeClient::createExternalMemRef(
 
 Status RuntimeClient::deallocate(std::unique_ptr<MemRefValue> value,
                                  std::optional<CudaStream> stream) {
-
   return safeDeallocate(
       allocTracker, reinterpret_cast<uintptr_t>(value->getMemory()), stream);
 }
@@ -1088,21 +1065,6 @@ Status RuntimeClient::copyToHost(const MemRefValue &deviceMemRef,
 #else
   return getInternalErrorStatus("runtime not compiled with CUDA enabled");
 #endif
-}
-
-void RuntimeClient::trackDLPackTensor(DLManagedTensor *tensor) {
-  dlPackTensors.insert(tensor);
-}
-
-void RuntimeClient::removeDLPackTensorFromTracking(DLManagedTensor *tensor) {
-  dlPackTensors.erase(tensor);
-}
-
-RuntimeClient::~RuntimeClient() {
-  // Reset the manager_ctx for all tracked dlPackTensors
-  for (auto *tensor : dlPackTensors) {
-    tensor->manager_ctx = nullptr;
-  }
 }
 
 //===----------------------------------------------------------------------===//

@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -split-input-file | mlir-tensorrt-opt | FileCheck %s
+// RUN: mlir-tensorrt-opt %s -split-input-file | mlir-tensorrt-opt -split-input-file -mlir-print-local-scope | FileCheck %s
 
 
 func.func @plan_attrs() attributes {

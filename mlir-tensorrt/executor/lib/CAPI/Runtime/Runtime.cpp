@@ -481,14 +481,10 @@ static void dlpackManagedTensorDeleter(DLManagedTensor *tensor) {
   if (tensor) {
     delete[] tensor->dl_tensor.shape;
     delete[] tensor->dl_tensor.strides;
-    if (tensor->manager_ctx) {
-      static_cast<RuntimeClient *>(tensor->manager_ctx)
-          ->removeDLPackTensorFromTracking(tensor);
-      static_cast<RuntimeClient *>(tensor->manager_ctx)
-          ->getAllocTracker()
-          .decrementExternalCount(
-              reinterpret_cast<uintptr_t>(tensor->dl_tensor.data));
-    }
+    static_cast<RuntimeClient *>(tensor->manager_ctx)
+        ->getAllocTracker()
+        .decrementExternalCount(
+            reinterpret_cast<uintptr_t>(tensor->dl_tensor.data));
     delete tensor;
   }
 }
@@ -535,9 +531,6 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtMemRefValueGetDLPackManagedTensor(
   // Increment reference count to ensure memory is not released prematurely.
   memref.getClient()->getAllocTracker().incrementExternalCount(
       memref.getMemory());
-  // Track DLPackTensor in runtime client such that it's deleter can be
-  // reset when RuntimeClient is destroyed.
-  memref.getClient()->trackDLPackTensor(managedTensor.get());
 
   *outTensor = wrap(managedTensor.release());
   return mtrtStatusGetOk();

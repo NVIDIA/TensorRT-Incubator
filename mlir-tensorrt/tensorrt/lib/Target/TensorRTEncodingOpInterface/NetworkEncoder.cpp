@@ -341,6 +341,7 @@ nvinfer1::IFillLayer *populateFillLayerParameters(
     nvinfer1::ITensor *dynamicShape, std::optional<double> alpha,
     std::optional<double> beta, nvinfer1::ITensor *dynamicAlpha,
     nvinfer1::ITensor *dynamicBeta) {
+  assert(layer != nullptr && "expected valid layer");
   if (dynamicShape != nullptr)
     layer->setInput(0, *dynamicShape);
   else
@@ -360,18 +361,25 @@ nvinfer1::IFillLayer *populateFillLayerParameters(
 }
 
 nvinfer1::ILayer *NvInferNetworkEncoder::addFillLayer(
-    nvinfer1::DataType elementType, const nvinfer1::Dims &staticShape,
+    nvinfer1::DataType elementType, nvinfer1::Dims staticShape,
     nvinfer1::ITensor *dynamicShape, nvinfer1::FillOperation fillOperation,
     std::optional<double> alpha, std::optional<double> beta,
     nvinfer1::ITensor *dynamicAlpha, nvinfer1::ITensor *dynamicBeta) {
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(9, 1, 0)
-  nvinfer1::IFillLayer *layer{nullptr};
-  if (dynamicShape != nullptr) {
-    nvinfer1::Dims emptyDims{};
-    layer = network->addFill(emptyDims, fillOperation, elementType);
-  } else {
-    layer = network->addFill(staticShape, fillOperation, elementType);
+  if (dynamicShape) {
+    // Starting in TensorRT 10.5, TensorRT will give an error if we don't give a
+    // fully valid static result shape, even if we are about to override it with
+    // a dynamic shape.
+    nvinfer1::Dims shapeDims = dynamicShape->getDimensions();
+    assert(shapeDims.nbDims == 1 && shapeDims.d[0] > 0 &&
+           "invalid shape tensor shape");
+    staticShape.nbDims = shapeDims.d[0];
+    for (int32_t i = 0; i < shapeDims.nbDims; i++)
+      staticShape.d[i] = 1;
   }
+  nvinfer1::IFillLayer *layer =
+      network->addFill(staticShape, fillOperation, elementType);
+  assert(layer != nullptr && "expected valid layer");
   return populateFillLayerParameters(layer, staticShape, dynamicShape, alpha,
                                      beta, dynamicAlpha, dynamicBeta);
 #else
@@ -530,6 +538,11 @@ static void serializeSplatElements(DenseIntOrFPElementsAttr values,
                 values.getNumElements(), values.getSplatValue<int32_t>());
     return;
   }
+  if (rtt.getElementType().isInteger(64)) {
+    std::fill_n(reinterpret_cast<int64_t *>(data.data()),
+                values.getNumElements(), values.getSplatValue<int64_t>());
+    return;
+  }
   if (rtt.getElementType().isInteger(8)) {
     std::fill_n(reinterpret_cast<int8_t *>(data.data()),
                 values.getNumElements(), values.getSplatValue<int8_t>());
@@ -624,6 +637,9 @@ NvInferNetworkEncoder::getNvInferWeights(ElementsAttr values) {
   // We also handle elided attributes by generating weights filled with zeros.
   if (mlir::getElidedResourceElementsAttr(values)) {
     std::memset(reinterpret_cast<void *>(data.data()), 0, data.size());
+  } else if (rtt.getElementType().isInteger(64)) {
+    llvm::copy(values.getValues<int64_t>(),
+               reinterpret_cast<int64_t *>(data.data()));
   } else if (rtt.getElementType().isInteger(32)) {
     llvm::copy(values.getValues<int32_t>(),
                reinterpret_cast<int32_t *>(data.data()));

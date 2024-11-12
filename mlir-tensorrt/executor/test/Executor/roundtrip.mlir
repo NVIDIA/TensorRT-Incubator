@@ -682,3 +682,14 @@ func.func @coro_await() -> (i32) {
 //       CHECK:     %[[status:status.*]], %[[results:.+]] = executor.coro_await %[[v0]](%[[cst]], %[[c0_i32]] : f32, i32) : (f32, i32) -> i32
 //       CHECK:     %[[status_0:.+]], %[[results_1:.+]] = executor.coro_await %[[v0]]() : (f32, i32) -> i32
 //       CHECK:     return %[[results_1]] : i32
+
+// -----
+
+#bounds = #executor.value_bounds<min= dense<10> : tensor<1x10xi32>, max = dense<20> : tensor<1x10xi32>>
+
+func.func @value_bounds(%arg0: tensor<1x10xi32> {executor.value_bounds = #bounds}) {
+  return
+}
+
+// CHECK-LABEL: func.func @value_bounds
+//  CHECK-SAME: executor.value_bounds = #executor.value_bounds<min = dense<10> : tensor<1x10xi32>, max = dense<20> : tensor<1x10xi32>>

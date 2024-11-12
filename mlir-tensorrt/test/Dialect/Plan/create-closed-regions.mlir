@@ -10,31 +10,34 @@ func.func @test_simple_static(%arg0: tensor<10xf32>, %arg1: tensor<10xf32>) -> t
   return %0 : tensor<10xf32>
 }
 
+//       CHECK: #[[$nobounds:.+]] = #plan.bounds<none>
+//       CHECK: #[[$bounds1:.+]] = #plan.bounds<shape, [10], [10]>
 // CHECK-LABEL: @test_simple_static
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>) -> tensor<10xf32>
 //       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<10xf32>
 //       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]] : tensor<10xf32>, tensor<10xf32>)
 //       CHECK:      outs(%[[v0]] : tensor<10xf32>)
-//       CHECK:      in_attrs [#plan.bounds<none>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [10], [10]>] -> tensor<10xf32> {
+//       CHECK:      in_attrs [#[[$nobounds]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds1]]] -> tensor<10xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<10xf32>, %[[in_0:.+]]: tensor<10xf32>, %[[out:.+]]: tensor<10xf32>):
 //       CHECK:     return %[[v1]] : tensor<10xf32>
 
+//       CHECK-ALLOC: #[[$nobounds:.+]] = #plan.bounds<none>
 // CHECK-ALLOC-LABEL: @test_simple_static
 //  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<10xf32>, %[[arg1:.+]]: tensor<10xf32>) -> tensor<10xf32>
 //       CHECK-ALLOC:     %[[v1:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK-ALLOC:      inputs(%[[arg0]], %[[arg1]] : tensor<10xf32>, tensor<10xf32>)
-//       CHECK-ALLOC:      in_attrs [#plan.bounds<none>, #plan.bounds<none>]
+//       CHECK-ALLOC:      in_attrs [#[[$nobounds]], #[[$nobounds]]]
 //       CHECK-ALLOC:      -> tensor<10xf32> {
 //       CHECK-ALLOC:     ^bb0(%[[in:.+]]: tensor<10xf32>, %[[in_0:.+]]: tensor<10xf32>):
 //       CHECK-ALLOC:     return %[[v1]] : tensor<10xf32>
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1, 10], opt=[20, 10], max=[40, 10]>
+#profile0 = #plan.bounds<shape, [1, 10], [40, 10]>
 
-func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {tensorrt.shape_profile=#profile0}) -> tensor<?x10xf32> {
+func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {plan.shape_profile=#profile0}) -> tensor<?x10xf32> {
   %c10 = arith.constant 10 : index
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?x10xf32>
@@ -46,7 +49,9 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {tensorrt.shape_profi
   return %0 : tensor<?x10xf32>
 }
 
-//       CHECK: #[[$map:.+]] = affine_map<()[s0] -> (s0 * 10)>
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$arg0bounds:.+]] = #plan.bounds<shape, [1, 10], [40, 10]>
+//   CHECK-DAG: #[[$map:.+]] = affine_map<()[s0] -> (s0 * 10)>
 // CHECK-LABEL: @test_simple_shape_bound
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x10xf32> {{.*}}) -> tensor<?x10xf32> {
 //       CHECK:     %[[c10:.+]] = arith.constant 10 : index
@@ -61,14 +66,16 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {tensorrt.shape_profi
 //       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[dim]], %[[c10]] : tensor<?x10xf32>, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x10xf32>)
-//       CHECK:      in_attrs [#plan.bounds<shape, [1, 10], [40, 10]>, #plan.bounds<none>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [1, 10], [40, 10]>] -> tensor<?x10xf32> {
+//       CHECK:      in_attrs [#[[$arg0bounds]], #[[$nobounds]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$arg0bounds]]] -> tensor<?x10xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?x10xf32>, %[[in_1:.+]]: index, %[[in_2:.+]]: index, %[[out:.+]]: tensor<?x10xf32>):
 //       CHECK:       %[[v3:.+]] = stablehlo.exponential %[[in]] : tensor<?x10xf32>
 //       CHECK:       %[[v4:.+]] = with_shape %[[v3]](%[[in_1]], %[[in_2]]) :
 //       CHECK:       yield %[[v4]] : tensor<?x10xf32>
 //       CHECK:     return %[[v2]] : tensor<?x10xf32>
 
+//   CHECK-ALLOC-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-ALLOC-DAG: #[[$arg0bounds:.+]] = #plan.bounds<shape, [1, 10], [40, 10]>
 // CHECK-ALLOC-LABEL: @test_simple_shape_bound
 //  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<?x10xf32> {{.*}}) -> tensor<?x10xf32> {
 //       CHECK-ALLOC:     %[[c10:.+]] = arith.constant 10 : index
@@ -76,7 +83,7 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {tensorrt.shape_profi
 //       CHECK-ALLOC:     %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] : tensor<?x10xf32>
 //       CHECK-ALLOC:     %[[v2:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK-ALLOC:      inputs(%[[arg0]], %[[dim]], %[[c10]] : tensor<?x10xf32>, index, index)
-//       CHECK-ALLOC:      in_attrs [#plan.bounds<shape, [1, 10], [40, 10]>, #plan.bounds<none>, #plan.bounds<none>]
+//       CHECK-ALLOC:      in_attrs [#[[$arg0bounds]], #[[$nobounds]], #[[$nobounds]]]
 //       CHECK-ALLOC:      -> tensor<?x10xf32> {
 //       CHECK-ALLOC:     ^bb0(%[[in:.+]]: tensor<?x10xf32>, %[[in_1:.+]]: index, %[[in_2:.+]]: index):
 //       CHECK-ALLOC:       %[[v3:.+]] = stablehlo.exponential %[[in]] : tensor<?x10xf32>
@@ -86,11 +93,11 @@ func.func @test_simple_shape_bound(%arg0: tensor<?x10xf32> {tensorrt.shape_profi
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1], opt=[20], max=[40]>
-#profile1 = #tensorrt.shape_profile<min=[1, 1], opt=[5, 5], max=[40, 40]>
+#profile0 = #plan.bounds<shape, [1], [40]>
+#profile1 = #plan.bounds<value, dense<[1, 1]> : tensor<2xi32>, dense<[40, 40]> : tensor<2xi32>>
 
-func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0},
-                                %arg1: tensor<2xi32> {tensorrt.value_bounds = #profile1}) -> tensor<?x?xf32> {
+func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+                                %arg1: tensor<2xi32> {plan.value_bounds = #profile1}) -> tensor<?x?xf32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %extracted = tensor.extract %arg1[%c0] : tensor<2xi32>
@@ -105,7 +112,11 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {tensorrt.shape_profile = #
   return %2 : tensor<?x?xf32>
 }
 
-//       CHECK: #[[$map:.+]] = affine_map<()[s0, s1] -> (s0 * s1)>
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1], [40]>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<value, dense<1> : tensor<2xi32>, dense<40> : tensor<2xi32>>
+//   CHECK-DAG: #[[$map:.+]] = affine_map<()[s0, s1] -> (s0 * s1)>
+//   CHECK-DAG: #[[$bounds2:.+]] = #plan.bounds<shape, [1, 1], [40, 40]>
 // CHECK-LABEL: @test_dynamic_reshape
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.*}}, %[[arg1:.+]]: tensor<2xi32> {{.*}}) -> tensor<?x?xf32> {
 //       CHECK:     %[[c1:.+]] = arith.constant 1 : index
@@ -123,16 +134,20 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {tensorrt.shape_profile = #
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[v0]], %[[v1]] : tensor<?xf32>, tensor<2xi32>, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?xf32>)
 //  CHECK-NEXT:      in_attrs [
-//  CHECK-SAME:          #plan.bounds<shape, [1], [40]>,
-//  CHECK-SAME:          #plan.bounds<value, dense<1> : tensor<2xi32>, dense<40> : tensor<2xi32>>,
-//  CHECK-SAME:          #plan.bounds<none>, #plan.bounds<none>]
-//  CHECK-NEXT:      res_attrs [#plan.bounds<shape, [1, 1], [40, 40]>] -> tensor<?x?xf32>
+//  CHECK-SAME:          #[[$bounds0]],
+//  CHECK-SAME:          #[[$bounds1]],
+//  CHECK-SAME:          #[[$nobounds]], #[[$nobounds]]]
+//  CHECK-NEXT:      res_attrs [#[[$bounds2]]] -> tensor<?x?xf32>
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_1:.+]]: tensor<2xi32>, %[[in_2:.+]]: index, %[[in_3:.+]]: index, %[[out:.+]]: tensor<?x?xf32>):
 //       CHECK:       %[[v5:.+]] = stablehlo.dynamic_reshape %[[in]], %[[in_1]]
 //       CHECK:       %[[v6:.+]] = with_shape %[[v5]](%[[in_2]], %[[in_3]])
 //       CHECK:       yield %[[v6]] : tensor<?x?xf32>
 //       CHECK:     return %[[v4]] : tensor<?x?xf32>
 
+
+//   CHECK-ALLOC-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-ALLOC-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1], [40]>
+//   CHECK-ALLOC-DAG: #[[$bounds1:.+]] = #plan.bounds<value, dense<1> : tensor<2xi32>, dense<40> : tensor<2xi32>>
 // CHECK-ALLOC-LABEL: @test_dynamic_reshape
 //  CHECK-ALLOC-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.*}}, %[[arg1:.+]]: tensor<2xi32> {{.*}}) -> tensor<?x?xf32> {
 //       CHECK-ALLOC:     %[[c1:.+]] = arith.constant 1 : index
@@ -144,9 +159,9 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {tensorrt.shape_profile = #
 //       CHECK-ALLOC:     %[[v4:.+]] = plan.inline_closed_alloc_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK-ALLOC:      inputs(%[[arg0]], %[[arg1]], %[[v0]], %[[v1]] : tensor<?xf32>, tensor<2xi32>, index, index)
 //  CHECK-ALLOC-NEXT:      in_attrs [
-//  CHECK-ALLOC-SAME:          #plan.bounds<shape, [1], [40]>,
-//  CHECK-ALLOC-SAME:          #plan.bounds<value, dense<1> : tensor<2xi32>, dense<40> : tensor<2xi32>>,
-//  CHECK-ALLOC-SAME:          #plan.bounds<none>, #plan.bounds<none>]
+//  CHECK-ALLOC-SAME:          #[[$bounds0]],
+//  CHECK-ALLOC-SAME:          #[[$bounds1]],
+//  CHECK-ALLOC-SAME:          #[[$nobounds]], #[[$nobounds]]]
 //  CHECK-ALLOC-NEXT:     -> tensor<?x?xf32>
 //       CHECK-ALLOC:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_1:.+]]: tensor<2xi32>, %[[in_2:.+]]: index, %[[in_3:.+]]: index):
 //       CHECK-ALLOC:       %[[v5:.+]] = stablehlo.dynamic_reshape %[[in]], %[[in_1]]
@@ -156,10 +171,10 @@ func.func @test_dynamic_reshape(%arg0: tensor<?xf32> {tensorrt.shape_profile = #
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1, 1], opt=[20, 20], max=[40, 40]>
-#profile1 = #tensorrt.shape_profile<min=[1, 1], opt=[30, 50], max=[60, 100]>
+#profile0 = #plan.bounds<shape, [1, 1], [40, 40]>
+#profile1 = #plan.bounds<shape, [1, 1], [60, 100]>
 
-func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {tensorrt.shape_profile=#profile0}, %arg1: tensor<?x?xf32> {tensorrt.shape_profile=#profile1}) -> tensor<?x?xf32> {
+func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {plan.shape_profile=#profile0}, %arg1: tensor<?x?xf32> {plan.shape_profile=#profile1}) -> tensor<?x?xf32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %0 = stablehlo.constant dense<0.000000e+00> : tensor<1x1xf32>
@@ -188,7 +203,10 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {tensorrt.shape_profile=
   return %3 : tensor<?x?xf32>
 }
 
-//       CHECK: #[[$map:.+]] = affine_map<()[s0, s1] -> (s0 * s1)>
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1, 1], [40, 40]>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [1, 1], [60, 100]>
+//   CHECK-DAG: #[[$map:.+]] = affine_map<()[s0, s1] -> (s0 * s1)>
 // CHECK-LABEL: @test_get_dim_size_max
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32> {{.+}}, %[[arg1:.+]]: tensor<?x?xf32> {{.+}})
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
@@ -208,8 +226,11 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {tensorrt.shape_profile=
 //       CHECK:     %[[v5:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[v1]], %[[v2]] : tensor<?x?xf32>, tensor<?x?xf32>, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?xf32>)
-//       CHECK:      in_attrs [#plan.bounds<shape, [1, 1], [40, 40]>, #plan.bounds<shape, [1, 1], [60, 100]>, #plan.bounds<none>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [1, 1], [60, 100]>] -> tensor<?x?xf32>
+//       CHECK:      in_attrs [
+//  CHECK-SAME: #[[$bounds0]],
+//  CHECK-SAME: #[[$bounds1]],
+//  CHECK-SAME: #[[$nobounds]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds1]]] -> tensor<?x?xf32>
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?x?xf32>, %[[in_3:.+]]: tensor<?x?xf32>, %[[in_4:.+]]: index, %[[in_5:.+]]: index, %[[out:.+]]: tensor<?x?xf32>):
 //       CHECK:       %[[v18:.+]] = stablehlo.dynamic_broadcast_in_dim
 //       CHECK:       %[[v19:.+]] = with_shape %[[v18]](%[[in_4]], %[[in_5]]) :
@@ -220,14 +241,14 @@ func.func @test_get_dim_size_max(%arg0: tensor<?x?xf32> {tensorrt.shape_profile=
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1], opt=[50], max=[100]>
-#profile1 = #tensorrt.shape_profile<min=[1], opt=[50], max=[100]>
-#profile2 = #tensorrt.shape_profile<min=[1], opt=[1], max=[2]>
+#profile0 = #plan.bounds<shape, [1], [100]>
+#profile1 = #plan.bounds<value, dense<[1]> : tensor<1xindex>, dense<[100]> : tensor<1xindex>>
+#profile2 = #plan.bounds<value, dense<[1]> : tensor<1xindex>, dense<[2]> : tensor<1xindex>>
 
-func.func @real_dynamic_slice(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0},
-                              %arg1: tensor<1xindex> {tensorrt.value_bounds = #profile1},
-                              %arg2: tensor<1xindex> {tensorrt.value_bounds = #profile1},
-                              %arg3: tensor<1xindex> {tensorrt.value_bounds = #profile2}) -> tensor<?xf32> {
+func.func @real_dynamic_slice(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+                              %arg1: tensor<1xindex> {plan.value_bounds = #profile1},
+                              %arg2: tensor<1xindex> {plan.value_bounds = #profile1},
+                              %arg3: tensor<1xindex> {plan.value_bounds = #profile2}) -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %extracted = tensor.extract %arg1[%c0] : tensor<1xindex>
@@ -245,6 +266,11 @@ func.func @real_dynamic_slice(%arg0: tensor<?xf32> {tensorrt.shape_profile = #pr
   return %4 : tensor<?xf32>
 }
 
+//   CHECK-DAG:  #[[$bounds0:.+]] = #plan.bounds<shape, [1], [100]>
+//   CHECK-DAG:  #[[$bounds1:.+]] = #plan.bounds<value, dense<1> : tensor<1xindex>, dense<100> : tensor<1xindex>>
+//   CHECK-DAG:  #[[$bounds2:.+]] = #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>
+//   CHECK-DAG:  #[[$bounds3:.+]] = #plan.bounds<shape, [0], [100]>
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
 // CHECK-LABEL: @real_dynamic_slice
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.+}}, %[[arg1:.+]]: tensor<1xindex> {{.+}}, %[[arg2:.+]]: tensor<1xindex> {{.+}}, %[[arg3:.+]]: tensor<1xindex> {{.+}}) -> tensor<?xf32> {
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
@@ -262,12 +288,12 @@ func.func @real_dynamic_slice(%arg0: tensor<?xf32> {tensorrt.shape_profile = #pr
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[arg2]], %[[arg3]], %[[v3]] : tensor<?xf32>, tensor<1xindex>, tensor<1xindex>, tensor<1xindex>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
 //       CHECK:      in_attrs [
-//  CHECK-SAME:           #plan.bounds<shape, [1], [100]>,
-//  CHECK-SAME:           #plan.bounds<value, dense<1> : tensor<1xindex>, dense<100> : tensor<1xindex>>,
-//  CHECK-SAME:           #plan.bounds<value, dense<1> : tensor<1xindex>, dense<100> : tensor<1xindex>>,
-//  CHECK-SAME:           #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>,
-//  CHECK-SAME:           #plan.bounds<none>]
-//  CHECK-NEXT:      res_attrs [#plan.bounds<shape, [0], [100]>] -> tensor<?xf32> {
+//  CHECK-SAME:           #[[$bounds0]],
+//  CHECK-SAME:           #[[$bounds1]],
+//  CHECK-SAME:           #[[$bounds1]],
+//  CHECK-SAME:           #[[$bounds2]],
+//  CHECK-SAME:           #[[$nobounds]]]
+//  CHECK-NEXT:      res_attrs [#[[$bounds3]]] -> tensor<?xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_2:.+]]: tensor<1xindex>, %[[in_3:.+]]: tensor<1xindex>, %[[in_4:.+]]: tensor<1xindex>, %[[in_5:.+]]: index, %[[out:.+]]: tensor<?xf32>):
 //       CHECK:       %[[v6:.+]] = stablehlo.real_dynamic_slice %[[in]], %[[in_2]], %[[in_3]], %[[in_4]]
 //       CHECK:       %[[v7:.+]] = with_shape %[[v6]](%[[in_5]]) :
@@ -276,11 +302,11 @@ func.func @real_dynamic_slice(%arg0: tensor<?xf32> {tensorrt.shape_profile = #pr
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1, 128, 128], opt=[2, 256, 256], max=[4, 512, 512]>
-#profile1 = #tensorrt.shape_profile<min=[1, 128, 128], opt=[2, 256, 256], max=[4, 512, 512]>
+#profile0 = #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>
+#profile1 = #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>
 
-func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {tensorrt.shape_profile = #profile0},
-                           %arg1: tensor<?x?x?xf32> {tensorrt.shape_profile = #profile1})
+func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {plan.shape_profile = #profile0},
+                           %arg1: tensor<?x?x?xf32> {plan.shape_profile = #profile1})
                           -> tensor<?x?x?xf32> {
   %c2 = arith.constant 2 : index
   %c0 = arith.constant 0 : index
@@ -295,6 +321,8 @@ func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {tensorrt.shape_profile = #p
   return %0 : tensor<?x?x?xf32>
 }
 
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>
+//       CHECK: #[[$nobounds:.+]] = #plan.bounds<none>
 //       CHECK: #[[$map:.+]] = affine_map<()[s0, s1, s2] -> ((s0 * s1) * s2)>
 // CHECK-LABEL: @dot_general_c12
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x?xf32> {{.*}}, %[[arg1:.+]]: tensor<?x?x?xf32> {{.*}}) -> tensor<?x?x?xf32> {
@@ -311,8 +339,8 @@ func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {tensorrt.shape_profile = #p
 //       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[dim]], %[[dim_0]], %[[dim_1]] : tensor<?x?x?xf32>, tensor<?x?x?xf32>, index, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?x?xf32>)
-//       CHECK:      in_attrs [#plan.bounds<shape, [1, 128, 128], [4, 512, 512]>, #plan.bounds<shape, [1, 128, 128], [4, 512, 512]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [1, 128, 128], [4, 512, 512]>] -> tensor<?x?x?xf32> {
+//       CHECK:      in_attrs [#[[$bounds0]], #[[$bounds0]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds0]]] -> tensor<?x?x?xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?x?x?xf32>, %[[in_2:.+]]: tensor<?x?x?xf32>, %[[in_3:.+]]: index, %[[in_4:.+]]: index, %[[in_5:.+]]: index, %[[out]]: tensor<?x?x?xf32>):
 //       CHECK:       %[[v3:.+]] = stablehlo.dot_general %[[in]], %[[in_2]]
 //       CHECK:       %[[v4:.+]] = with_shape %[[v3]](%[[in_3]], %[[in_4]], %[[in_5]]) :
@@ -321,14 +349,14 @@ func.func @dot_general_c12(%arg0: tensor<?x?x?xf32> {tensorrt.shape_profile = #p
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1], opt=[10], max=[100]>
-#profile1 = #tensorrt.shape_profile<min=[1], opt=[1], max=[2]>
+#profile0 = #plan.bounds<shape, [1], [100]>
+#profile1 = #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>
 
-func.func @dynamic_pad(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0},
+func.func @dynamic_pad(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
                        %arg1: tensor<f32>,
-                       %arg2: tensor<1xindex> {tensorrt.value_bounds = #profile1},
-                       %arg3: tensor<1xindex> {tensorrt.value_bounds = #profile1},
-                       %arg4: tensor<1xindex> {tensorrt.value_bounds = #profile1}) -> tensor<?xf32> {
+                       %arg2: tensor<1xindex> {plan.value_bounds = #profile1},
+                       %arg3: tensor<1xindex> {plan.value_bounds = #profile1},
+                       %arg4: tensor<1xindex> {plan.value_bounds = #profile1}) -> tensor<?xf32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?xf32>
@@ -350,6 +378,10 @@ func.func @dynamic_pad(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0}
   return %8 : tensor<?xf32>
 }
 
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [3], [302]>
+//   CHECK-DAG: #[[$bounds2:.+]] = #plan.bounds<shape, [1], [100]>
 // CHECK-LABEL: @dynamic_pad
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.*}}, %[[arg1:.+]]: tensor<f32>, %[[arg2:.+]]: tensor<1xindex> {{.*}}, %[[arg3:.+]]: tensor<1xindex> {{.*}}, %[[arg4:.+]]: tensor<1xindex> {{.*}}) -> tensor<?xf32> {
 //       CHECK:     %[[c1:.+]] = arith.constant 1 : index
@@ -371,13 +403,13 @@ func.func @dynamic_pad(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0}
 //       CHECK:      inputs(%[[arg0]], %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]], %[[v6]] : tensor<?xf32>, tensor<f32>, tensor<1xindex>, tensor<1xindex>, tensor<1xindex>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
 //       CHECK:      in_attrs [
-//  CHECK-SAME:        #plan.bounds<shape, [1], [100]>,
-//  CHECK-SAME:        #plan.bounds<none>,
-//  CHECK-SAME:        #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>,
-//  CHECK-SAME:        #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>,
-//  CHECK-SAME:        #plan.bounds<value, dense<1> : tensor<1xindex>, dense<2> : tensor<1xindex>>,
-//  CHECK-SAME:        #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [3], [302]>] -> tensor<?xf32> {
+//  CHECK-SAME:        #[[$bounds2]],
+//  CHECK-SAME:        #[[$nobounds]],
+//  CHECK-SAME:        #[[$bounds0]],
+//  CHECK-SAME:        #[[$bounds0]],
+//  CHECK-SAME:        #[[$bounds0]],
+//  CHECK-SAME:        #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds1]]] -> tensor<?xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_2:.+]]: tensor<f32>, %[[in_3:.+]]: tensor<1xindex>, %[[in_4:.+]]: tensor<1xindex>, %[[in_5:.+]]: tensor<1xindex>, %[[in_6:.+]]: index, %[[out]]: tensor<?xf32>):
 //       CHECK:       %[[v9:.+]] = stablehlo.dynamic_pad %[[in]], %[[in_2]], %[[in_3]], %[[in_4]], %[[in_5]]
 //       CHECK:       %[[v10:.+]] = with_shape %[[v9]](%[[in_6]]) :
@@ -386,9 +418,9 @@ func.func @dynamic_pad(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0}
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1], opt=[2], max=[6]>
+#profile0 = #plan.bounds<shape, [1], [6]>
 
-func.func @broadcast(%arg0: tensor<?xi32> {tensorrt.shape_profile = #profile0}) -> tensor<1x2x?xi32> {
+func.func @broadcast(%arg0: tensor<?xi32> {plan.shape_profile = #profile0}) -> tensor<1x2x?xi32> {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
@@ -403,9 +435,9 @@ func.func @broadcast(%arg0: tensor<?xi32> {tensorrt.shape_profile = #profile0}) 
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1, 2, 3, 4], opt=[2, 4, 6, 8], max=[4, 8, 12, 16]>
+#profile0 = #plan.bounds<shape, [1, 2, 3, 4], [4, 8, 12, 16]>
 
-func.func @transpose(%arg0: tensor<?x?x?x?xi32> {tensorrt.shape_profile = #profile0}) -> tensor<?x?x?x?xi32> {
+func.func @transpose(%arg0: tensor<?x?x?x?xi32> {plan.shape_profile = #profile0}) -> tensor<?x?x?x?xi32> {
   %c2 = arith.constant 2 : index
   %c3 = arith.constant 3 : index
   %c0 = arith.constant 0 : index
@@ -422,7 +454,10 @@ func.func @transpose(%arg0: tensor<?x?x?x?xi32> {tensorrt.shape_profile = #profi
   return %0 : tensor<?x?x?x?xi32>
 }
 
-//       CHECK: #[[$map:.+]] = affine_map<()[s0, s1, s2, s3] -> (((s0 * s1) * s2) * s3)>
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1, 2, 3, 4], [4, 8, 12, 16]>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [2, 1, 4, 3], [8, 4, 16, 12]>
+//   CHECK-DAG: #[[$map:.+]] = affine_map<()[s0, s1, s2, s3] -> (((s0 * s1) * s2) * s3)>
 // CHECK-LABEL: @transpose
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x?x?xi32> {{.*}}) -> tensor<?x?x?x?xi32> {
 //       CHECK:     %[[c2:.+]] = arith.constant 2 : index
@@ -441,8 +476,8 @@ func.func @transpose(%arg0: tensor<?x?x?x?xi32> {tensorrt.shape_profile = #profi
 //       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[dim]], %[[dim_0]], %[[dim_1]], %[[dim_2]] : tensor<?x?x?x?xi32>, index, index, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?x?x?xi32>)
-//       CHECK:      in_attrs [#plan.bounds<shape, [1, 2, 3, 4], [4, 8, 12, 16]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [2, 1, 4, 3], [8, 4, 16, 12]>] -> tensor<?x?x?x?xi32> {
+//       CHECK:      in_attrs [#[[$bounds0]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds1]]]
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?x?x?x?xi32>, %[[in_3:.+]]: index, %[[in_4:.+]]: index, %[[in_5:.+]]: index, %[[in_6:.+]]: index, %[[out]]: tensor<?x?x?x?xi32>):
 //       CHECK:       %[[v3:.+]] = stablehlo.transpose %[[in]]
 //       CHECK:       %[[v4:.+]] = with_shape %[[v3]](%[[in_3]], %[[in_4]], %[[in_5]], %[[in_6]]) :
@@ -451,9 +486,9 @@ func.func @transpose(%arg0: tensor<?x?x?x?xi32> {tensorrt.shape_profile = #profi
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1], opt=[2], max=[6]>
+#profile0 = #plan.bounds<value, dense<1> : tensor<1xindex>, dense<6> : tensor<1xindex>>
 
-func.func @dynamic_iota(%arg0: tensor<1xindex> {tensorrt.value_bounds = #profile0}) -> tensor<?xf32> {
+func.func @dynamic_iota(%arg0: tensor<1xindex> {plan.value_bounds = #profile0}) -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %extracted = tensor.extract %arg0[%c0] : tensor<1xindex>
   %0 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<?xf32> {
@@ -463,6 +498,10 @@ func.func @dynamic_iota(%arg0: tensor<1xindex> {tensorrt.value_bounds = #profile
   }
   return %0 : tensor<?xf32>
 }
+
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1], [6]>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<value, dense<1> : tensor<1xindex>, dense<6> : tensor<1xindex>>
 
 // CHECK-LABEL: @dynamic_iota
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1xindex> {{.*}}) -> tensor<?xf32> {
@@ -474,9 +513,9 @@ func.func @dynamic_iota(%arg0: tensor<1xindex> {tensorrt.value_bounds = #profile
 //       CHECK:      inputs(%[[arg0]], %[[extracted]] : tensor<1xindex>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
 //       CHECK:      in_attrs [
-//  CHECK-SAME:        #plan.bounds<value, dense<1> : tensor<1xindex>, dense<6> : tensor<1xindex>>,
-//  CHECK-SAME:        #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [1], [6]>] -> tensor<?xf32> {
+//  CHECK-SAME:        #[[$bounds1]],
+//  CHECK-SAME:        #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds0]]] -> tensor<?xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<1xindex>, %[[in_0:.+]]: index, %[[out]]: tensor<?xf32>):
 //       CHECK:       %[[v2:.+]] = stablehlo.dynamic_iota %[[in]]
 //       CHECK:       %[[v3:.+]] = with_shape %[[v2]](%[[in_0]]) :
@@ -485,13 +524,13 @@ func.func @dynamic_iota(%arg0: tensor<1xindex> {tensorrt.value_bounds = #profile
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1], opt=[2], max=[6]>
-#profile1 = #tensorrt.shape_profile<min=[1, 4], opt=[2, 4], max=[6, 4]>
-#profile2 = #tensorrt.shape_profile<min=[2, 1, 4], opt=[2, 2, 4], max=[2, 6, 4]>
+#profile0 = #plan.bounds<value, dense<1> : tensor<i64>, dense<6> : tensor<i64>>
+#profile1 = #plan.bounds<shape, [1, 4], [6, 4]>
+#profile2 = #plan.bounds<shape, [2, 1, 4], [2, 6, 4]>
 
-func.func @add_dynamic(%arg0: tensor<i64> {tensorrt.value_bounds = #profile0},
-                       %arg1: tensor<?x4xf32> {tensorrt.shape_profile = #profile1},
-                       %arg2: tensor<2x?x4xf32> {tensorrt.shape_profile = #profile2}) -> tensor<2x?x4xf32> {
+func.func @add_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
+                       %arg1: tensor<?x4xf32> {plan.shape_profile = #profile1},
+                       %arg2: tensor<2x?x4xf32> {plan.shape_profile = #profile2}) -> tensor<2x?x4xf32> {
   %c2 = arith.constant 2 : index
   %c4 = arith.constant 4 : index
   %c1 = arith.constant 1 : index
@@ -522,6 +561,10 @@ func.func @add_dynamic(%arg0: tensor<i64> {tensorrt.value_bounds = #profile0},
   return %5 : tensor<2x?x4xf32>
 }
 
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<value, dense<1> : tensor<i32>, dense<6> : tensor<i32>>
+//   CHECK-DAG: #[[$bounds2:.+]] = #plan.bounds<shape, [1, 4], [6, 4]>
+//   CHECK-DAG: #[[$bounds3:.+]] = #plan.bounds<shape, [2, 1, 4], [2, 6, 4]>
 // CHECK-LABEL: @add_dynamic
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<i64> {{.*}}, %[[arg1:.+]]: tensor<?x4xf32> {{.*}}, %[[arg2:.+]]: tensor<2x?x4xf32> {{.*}}) -> tensor<2x?x4xf32> {
 //       CHECK:   %[[c2:.+]] = arith.constant 2 : index
@@ -544,20 +587,20 @@ func.func @add_dynamic(%arg0: tensor<i64> {tensorrt.value_bounds = #profile0},
 //       CHECK:   %[[v7:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:    inputs(%[[v3]], %[[arg1]], %[[c1]], %[[v4]], %[[c4]], %[[c2]], %[[arg2]] :
 //  CHECK-NEXT:    outs(%[[reshape]] : tensor<2x?x4xf32>)
-//  CHECK-NEXT:    in_attrs [#plan.bounds<value, dense<1> : tensor<i32>, dense<6> : tensor<i32>>, #plan.bounds<shape, [1, 4], [6, 4]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<shape, [2, 1, 4], [2, 6, 4]>]
-//  CHECK-NEXT:    res_attrs [#plan.bounds<shape, [2, 1, 4], [2, 6, 4]>] -> tensor<2x?x4xf32> {
+//  CHECK-NEXT:    in_attrs [#[[$bounds1]], #[[$bounds2]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$bounds3]]]
+//  CHECK-NEXT:    res_attrs [#[[$bounds3]]] -> tensor<2x?x4xf32> {
 //       CHECK:   return %[[v7]] : tensor<2x?x4xf32>
 
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min=[1], opt=[2], max=[6]>
-#profile1 = #tensorrt.shape_profile<min=[1, 1, 5, 1, 7], opt=[2, 2, 5, 2, 7], max=[6, 6, 5, 6, 7]>
+#profile0 = #plan.bounds<value, dense<1> : tensor<i64>, dense<6> : tensor<i64>>
+#profile1 = #plan.bounds<shape, [1, 1, 5, 1, 7], [6, 6, 5, 6, 7]>
 
-func.func @collapse_dynamic(%arg0: tensor<i64> {tensorrt.value_bounds = #profile0},
-                            %arg1: tensor<i64> {tensorrt.value_bounds = #profile0},
-                            %arg2: tensor<i64> {tensorrt.value_bounds = #profile0},
-                            %arg3: tensor<?x?x5x?x7xf32> {tensorrt.shape_profile = #profile1}) -> tensor<?x?x7xf32> {
+func.func @collapse_dynamic(%arg0: tensor<i64> {plan.value_bounds = #profile0},
+                            %arg1: tensor<i64> {plan.value_bounds = #profile0},
+                            %arg2: tensor<i64> {plan.value_bounds = #profile0},
+                            %arg3: tensor<?x?x5x?x7xf32> {plan.shape_profile = #profile1}) -> tensor<?x?x7xf32> {
   %c7 = arith.constant 7 : index
   %c5 = arith.constant 5 : index
   %0 = stablehlo.constant dense<7> : tensor<1xi32>
@@ -599,7 +642,11 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {tensorrt.value_bounds = #profile
   return %9 : tensor<?x?x7xf32>
 }
 
-
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<value, dense<1> : tensor<i32>, dense<6> : tensor<i32>>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [1, 5, 7], [6, 180, 7]>
+//   CHECK-DAG: #[[$bounds2:.+]] = #plan.bounds<value, dense<1> : tensor<i32>, dense<36> : tensor<i32>>
+//   CHECK-DAG: #[[$bounds3:.+]] = #plan.bounds<shape, [1, 1, 5, 1, 7], [6, 6, 5, 6, 7]>
 // CHECK-LABEL: @collapse_dynamic
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<i64> {{.+}}, %[[arg1:.+]]: tensor<i64> {{.*}}, %[[arg2:.+]]: tensor<i64> {{.*}}, %[[arg3:.+]]: tensor<?x?x5x?x7xf32> {{.*}}) -> tensor<?x?x7xf32> {
 //   CHECK-DAG:     %[[c7:.+]] = arith.constant 7 : index
@@ -627,10 +674,10 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {tensorrt.value_bounds = #profile
 //       CHECK:     %[[v11:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[v2]], %[[v3]], %[[arg3]], %[[v4]], %[[v8]], %[[c7]] : tensor<i32>, tensor<i32>, tensor<?x?x5x?x7xf32>, index, index, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?x?x7xf32>)
-//       CHECK:      in_attrs [#plan.bounds<value, dense<1> : tensor<i32>, dense<6> : tensor<i32>>,
-// CHECK-SAME:         #plan.bounds<value, dense<1> : tensor<i32>, dense<36> : tensor<i32>>,
-// CHECK-SAME:         #plan.bounds<shape, [1, 1, 5, 1, 7], [6, 6, 5, 6, 7]>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [1, 5, 7], [6, 180, 7]>] -> tensor<?x?x7xf32> {
+//       CHECK:      in_attrs [#[[$bounds0]],
+// CHECK-SAME:         #[[$bounds2]],
+// CHECK-SAME:         #[[$bounds3]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds1]]] -> tensor<?x?x7xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<i32>, %[[in_3:.+]]: tensor<i32>, %[[in_4:.+]]: tensor<?x?x5x?x7xf32>, %[[in_5:.+]]: index, %[[in_6:.+]]: index, %[[in_7:.+]]: index, %[[out]]: tensor<?x?x7xf32>):
 //       CHECK:       %[[v12:.+]] = stablehlo.constant dense<7> : tensor<1xi32>
 //       CHECK:       %[[v13:.+]] = stablehlo.reshape %[[in]] : (tensor<i32>) -> tensor<1xi32>
@@ -643,11 +690,11 @@ func.func @collapse_dynamic(%arg0: tensor<i64> {tensorrt.value_bounds = #profile
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min = [1], opt = [5], max = [10]>
-#profile1 = #tensorrt.shape_profile<min = [2], opt = [5], max = [6]>
+#profile0 = #plan.bounds<shape, [1], [10]>
+#profile1 = #plan.bounds<value, dense<2> : tensor<index>, dense<6> : tensor<index>>
 
-func.func @test_separated(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0},
-                                        %arg1: index {tensorrt.value_bounds  = #profile1})
+func.func @test_separated(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+                          %arg1: index {plan.value_bounds  = #profile1})
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?xf32>
@@ -666,6 +713,9 @@ func.func @test_separated(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profil
   return %1 : tensor<?xf32>
 }
 
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1], [10]>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [2], [6]>
 // CHECK-LABEL: @test_separated
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.*}}, %[[arg1:.+]]: index {{.*}}) -> tensor<?xf32> {
 //       CHECK:     %[[c0:.+]] = arith.constant 0 : index
@@ -675,8 +725,8 @@ func.func @test_separated(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profil
 //       CHECK:     %[[v1:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[dim]] : tensor<?xf32>, index)
 //       CHECK:      outs(%[[extracted_slice]] : tensor<?xf32>)
-//       CHECK:      in_attrs [#plan.bounds<shape, [1], [10]>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [1], [10]>] -> tensor<?xf32> {
+//       CHECK:      in_attrs [#[[$bounds0]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds0]]] -> tensor<?xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_2:.+]]: index, %[[out]]: tensor<?xf32>):
 //       CHECK:       %[[v5:.+]] = stablehlo.exponential %[[in]] : tensor<?xf32>
 //       CHECK:       %[[v6:.+]] = with_shape {tag = "with_shape0"} %[[v5]](%[[in_2]]) :
@@ -688,8 +738,8 @@ func.func @test_separated(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profil
 //       CHECK:     %[[v4:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[extracted_slice_0]], %[[arg1]] : tensor<?xf32>, index)
 //       CHECK:      outs(%[[extracted_slice_1]] : tensor<?xf32>)
-//       CHECK:      in_attrs [#plan.bounds<shape, [2], [6]>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [2], [6]>] -> tensor<?xf32> {
+//       CHECK:      in_attrs [#[[$bounds1]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds1]]] -> tensor<?xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_2:.+]]: index, %[[out]]: tensor<?xf32>):
 //       CHECK:       %[[v5:.+]] = stablehlo.exponential %[[in]] : tensor<?xf32>
 //       CHECK:       %[[v6:.+]] = with_shape {tag = "with_shape1"} %[[v5]](%[[in_2]]) :
@@ -703,9 +753,9 @@ func.func @test_separated(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profil
 // into its static version. Normally this would never occur, but we should still handle this
 // situation gracefully.
 
-#profile0 = #tensorrt.shape_profile<min = [1], opt = [1], max = [1]>
+#profile0 = #plan.bounds<shape, [1], [1]>
 
-func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0}) -> tensor<?xf32> {
+func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {plan.shape_profile = #profile0}) -> tensor<?xf32> {
   %0 = stablehlo.constant dense<[1]> : tensor<1xi32>
   %c1 = arith.constant 1 : index
   %1 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) -> tensor<?xf32> {
@@ -716,6 +766,8 @@ func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {tensorrt.shape_profile =
   return %1 : tensor<?xf32>
 }
 
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1], [1]>
 // CHECK-LABEL: @test_unneeded_dynamism
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.*}}) -> tensor<?xf32> {
 //       CHECK:     %[[v0:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
@@ -728,8 +780,8 @@ func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {tensorrt.shape_profile =
 //       CHECK:     %[[v2:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg0]], %[[c1]] : tensor<?xf32>, index)
 //       CHECK:      outs(%[[reshape]] : tensor<?xf32>)
-//       CHECK:      in_attrs [#plan.bounds<shape, [1], [1]>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [1], [1]>] -> tensor<?xf32> {
+//       CHECK:      in_attrs [#[[$bounds0]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds0]]] -> tensor<?xf32> {
 //       CHECK:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_1:.+]]: index, %[[out]]: tensor<?xf32>):
 //       CHECK:       %[[v3:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
 //       CHECK:       %[[v4:.+]] = stablehlo.dynamic_broadcast_in_dim %[[in]], %[[v3]]
@@ -739,14 +791,14 @@ func.func @test_unneeded_dynamism(%arg0: tensor<?xf32> {tensorrt.shape_profile =
 
 // -----
 
-#profile0 = #tensorrt.shape_profile<min = [1], opt = [5], max = [10]>
-#profile1 = #tensorrt.shape_profile<min = [2], opt = [5], max = [10]>
+#profile0 = #plan.bounds<shape, [1], [10]>
+#profile1 = #plan.bounds<shape, [2], [10]>
 
 // Connected regions verifies that the bounds analysis result is correctly updated
 // as we rewrite the IR.
 
-func.func @test_connected_regions(%arg0: tensor<?xf32> {tensorrt.shape_profile = #profile0},
-                                  %arg1: tensor<?xf32> {tensorrt.shape_profile = #profile1})
+func.func @test_connected_regions(%arg0: tensor<?xf32> {plan.shape_profile = #profile0},
+                                  %arg1: tensor<?xf32> {plan.shape_profile = #profile1})
     -> tensor<?xf32> {
   %c0 = arith.constant 0 : index
   %dim = tensor.dim %arg0, %c0 : tensor<?xf32>
@@ -764,6 +816,10 @@ func.func @test_connected_regions(%arg0: tensor<?xf32> {tensorrt.shape_profile =
   return %1 : tensor<?xf32>
 }
 
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<shape, [1], [10]>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [2], [10]>
+
 // CHECK-LABEL: func.func @test_connected_regions
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32> {{.*}}, %[[arg1:.+]]: tensor
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
@@ -773,8 +829,8 @@ func.func @test_connected_regions(%arg0: tensor<?xf32> {tensorrt.shape_profile =
 //       CHECK:     %[[v1:.+]] = plan.inline_closed_group
 //  CHECK-NEXT:      inputs(%[[arg0]], %[[dim]] :
 //  CHECK-NEXT:      outs(%[[extracted_slice]] :
-//  CHECK-NEXT:      in_attrs [#plan.bounds<shape, [1], [10]>, #plan.bounds<none>]
-//  CHECK-NEXT:      res_attrs [#plan.bounds<shape, [1], [10]>] -> tensor<?xf32> {
+//  CHECK-NEXT:      in_attrs [#[[$bounds0]], #[[$nobounds]]]
+//  CHECK-NEXT:      res_attrs [#[[$bounds0]]] -> tensor<?xf32> {
 //  CHECK-NEXT:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_2:.+]]: index, %[[out:.+]]: tensor<?xf32>):
 //  CHECK-NEXT:       %[[v4:.+]] = stablehlo.exponential %[[in]] : tensor<?xf32>
 //  CHECK-NEXT:       %[[v5:.+]] = with_shape %[[v4]](%[[in_2]]) :
@@ -785,8 +841,8 @@ func.func @test_connected_regions(%arg0: tensor<?xf32> {tensorrt.shape_profile =
 //       CHECK:     %[[v3:.+]] = plan.inline_closed_group
 //  CHECK-NEXT:      inputs(%[[v1]], %[[arg1]], %[[dim_0]] :
 //  CHECK-NEXT:      outs(%[[extracted_slice_1]] : tensor<?xf32>)
-//  CHECK-NEXT:      in_attrs [#plan.bounds<shape, [1], [10]>, #plan.bounds<shape, [2], [10]>, #plan.bounds<none>]
-//  CHECK-NEXT:      res_attrs [#plan.bounds<shape, [2], [10]>] -> tensor<?xf32> {
+//  CHECK-NEXT:      in_attrs [#[[$bounds0]], #[[$bounds1]], #[[$nobounds]]]
+//  CHECK-NEXT:      res_attrs [#[[$bounds1]]] -> tensor<?xf32> {
 //  CHECK-NEXT:     ^bb0(%[[in:.+]]: tensor<?xf32>, %[[in_2:.+]]: tensor<?xf32>, %[[in_3:.+]]: index, %[[out:.+]]: tensor<?xf32>):
 //  CHECK-NEXT:       %[[v4:.+]] = stablehlo.add %[[in]], %[[in_2]] : tensor<?xf32>
 //  CHECK-NEXT:       %[[v5:.+]] = with_shape %[[v4]](%[[in_3]]) :
@@ -798,13 +854,13 @@ func.func @test_connected_regions(%arg0: tensor<?xf32> {tensorrt.shape_profile =
 // Connected regions verifies that the bounds analysis result is correctly updated
 // as we rewrite the IR.
 
-#profile0 = #tensorrt.shape_profile<min=[0], opt=[64], max=[123]>
+#profile0 = #plan.bounds<value, dense<0> : tensor<i32>, dense<123> : tensor<i32>>
 
 
 func.func @test_connected_regions_host_values(
                   %arg0: tensor<128xf32>,
                   %arg1: tensor<4xf32>,
-                  %arg2: tensor<i32> {tensorrt.host_tensor, tensorrt.value_bounds = #profile0})
+                  %arg2: tensor<i32> {tensorrt.host_tensor, plan.value_bounds = #profile0})
                   -> tensor<128xf32> {
   %0:2 = plan.inline_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>) attributes {__cluster_target__ = #plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>} -> tensor<128xf32>, tensor<i32> {
     %1 = stablehlo.dynamic_update_slice %arg0, %arg1, %arg2 : (tensor<128xf32>, tensor<4xf32>, tensor<i32>) -> tensor<128xf32>
@@ -817,23 +873,29 @@ func.func @test_connected_regions_host_values(
   return %1 : tensor<128xf32>
 }
 
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<value, dense<0> : tensor<i32>, dense<123> : tensor<i32>>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [128], [128]>
+//   CHECK-DAG: #[[$bounds2:.+]] = #plan.bounds<shape, [], []>
 // CHECK-LABEL: @test_connected_regions_host_values
 //       CHECK:     %[[v2:.+]]:2 = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:        inputs({{.+}} : tensor<128xf32>, tensor<4xf32>, tensor<i32>)
 //  CHECK-NEXT:        outs(%{{.+}} : tensor<128xf32>, tensor<i32>)
-//  CHECK-NEXT:        in_attrs [#plan.bounds<none>, #plan.bounds<none>, #plan.bounds<value, dense<0> : tensor<i32>, dense<123> : tensor<i32>>]
-//  CHECK-NEXT:        res_attrs [#plan.bounds<shape, [128], [128]>, #plan.bounds<shape, [], []>] -> tensor<128xf32>, tensor<i32> {
+//  CHECK-NEXT:        in_attrs [#[[$nobounds]], #[[$nobounds]], #[[$bounds0]]]
+//  CHECK-NEXT:        res_attrs [#[[$bounds1]], #[[$bounds2]]] -> tensor<128xf32>, tensor<i32> {
 //       CHECK:     plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //  CHECK-NEXT:        inputs({{.*}}, %[[v2]]#1 : tensor<128xf32>, tensor<4xf32>, tensor<i32>)
 //  CHECK-NEXT:        outs(%[[v3]] : tensor<128xf32>)
-//  CHECK-NEXT:        in_attrs [#plan.bounds<none>, #plan.bounds<none>, #plan.bounds<value, dense<0> : tensor<i32>, dense<123> : tensor<i32>>]
-//  CHECK-NEXT:        res_attrs [#plan.bounds<shape, [128], [128]>] -> tensor<128xf32>
+//  CHECK-NEXT:        in_attrs [#[[$nobounds]], #[[$nobounds]], #[[$bounds0]]]
+//  CHECK-NEXT:        res_attrs [#[[$bounds1]]] -> tensor<128xf32>
 
 // -----
 
-func.func @shape_calc(%arg0: tensor<?xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min = [1], opt = [2], max = [4]>},
-                      %arg1: tensor<2xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1, 1], opt = [2, 2], max = [2, 2]>},
-                      %arg2: tensor<2xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1, 1], opt = [2, 2], max = [2, 2]>})
+
+func.func @shape_calc(%arg0: tensor<?xf32> {plan.shape_profile = #plan.bounds<shape,
+[1], [4]>},
+                      %arg1: tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<[1, 1]> : tensor<2xi32>, dense<[2, 2]> : tensor<2xi32>>},
+                      %arg2: tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<[1, 1]> : tensor<2xi32>, dense<[2, 2]> : tensor<2xi32>>})
                       -> tensor<?x?xf32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
@@ -867,9 +929,13 @@ func.func @shape_calc(%arg0: tensor<?xf32> {tensorrt.shape_profile = #tensorrt.s
   return %12 : tensor<?x?xf32>
 }
 
-//       CHECK: #[[$map:.+]] = affine_map<()[s0, s1] -> (s0 * s1)>
+//   CHECK-DAG: #[[$bounds0:.+]] = #plan.bounds<value, dense<1> : tensor<2xi32>, dense<2> : tensor<2xi32>>
+//   CHECK-DAG: #[[$bounds1:.+]] = #plan.bounds<shape, [4, 4], [16, 16]>
+//   CHECK-DAG: #[[$bounds2:.+]] = #plan.bounds<shape, [1], [4]>
+//   CHECK-DAG: #[[$nobounds:.+]] = #plan.bounds<none>
+//   CHECK-DAG: #[[$map:.+]] = affine_map<()[s0, s1] -> (s0 * s1)>
 // CHECK-LABEL: func.func @shape_calc
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min = [1], opt = [2], max = [4]>}, %[[arg1:.+]]: tensor<2xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1, 1], opt = [2, 2], max = [2, 2]>}, %[[arg2:.+]]: tensor<2xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [1, 1], opt = [2, 2], max = [2, 2]>}) -> tensor<?x?xf32> {
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32>{{.*}}, %[[arg1:.+]]: tensor<2xi32>{{.*}}, %[[arg2:.+]]: tensor<2xi32>{{.*}})
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg2]][%[[c0]]] : tensor<2xi32>
@@ -896,11 +962,11 @@ func.func @shape_calc(%arg0: tensor<?xf32> {tensorrt.shape_profile = #tensorrt.s
 //       CHECK:     %[[v14:.+]] = plan.inline_closed_group target(#plan.tensorrt_cluster<disallow_shape_tensor_calculations = false, benefit = 1>)
 //       CHECK:      inputs(%[[arg2]], %[[extracted]], %[[extracted_0]], %[[arg1]], %[[extracted_1]], %[[extracted_2]], %[[v0]], %[[v1]], %[[v2]], %[[v3]], %[[arg0]], %[[v7]], %[[v11]] :
 //       CHECK:      outs(%[[reshape]] : tensor<?x?xf32>)
-//       CHECK:      in_attrs [#plan.bounds<value, dense<1> : tensor<2xi32>, dense<2> : tensor<2xi32>>,
-//  CHECK-SAME:                #plan.bounds<none>, #plan.bounds<none>,
-//  CHECK-SAME:                #plan.bounds<value, dense<1> : tensor<2xi32>, dense<2> : tensor<2xi32>>,
-//  CHECK-SAME:                #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>, #plan.bounds<none>,
-//  CHECK-SAME:                #plan.bounds<none>, #plan.bounds<shape, [1], [4]>, #plan.bounds<none>, #plan.bounds<none>]
-//       CHECK:      res_attrs [#plan.bounds<shape, [4, 4], [16, 16]>] -> tensor<?x?xf32> {
+//       CHECK:      in_attrs [#[[$bounds0]],
+//  CHECK-SAME:                #[[$nobounds]], #[[$nobounds]],
+//  CHECK-SAME:                #[[$bounds0]],
+//  CHECK-SAME:                #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]], #[[$nobounds]],
+//  CHECK-SAME:                #[[$nobounds]], #[[$bounds2]], #[[$nobounds]], #[[$nobounds]]]
+//       CHECK:      res_attrs [#[[$bounds1]]] -> tensor<?x?xf32> {
 //       CHECK:     return %[[v14]] : tensor<?x?xf32>
 
