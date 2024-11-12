@@ -23,9 +23,6 @@ from tripy.frontend.module import Module
 
 @export.public_api(
     document_under="modules/sequential.rst",
-    autodoc_options=[
-        ":exclude-members: __getattr__",
-    ],
 )
 @dataclass
 class Sequential(Module):
@@ -82,17 +79,18 @@ class Sequential(Module):
             input = module(input)
         return input
 
-    def __getattr__(self, name) -> Any:
+    def __getattr__(self, name: Union[str, int]) -> Any:
         """
         Custom __getattr__ to search both in `modules` dictionary and in other attributes. This is for handling
         `module = operator.attrgetter(child_name)(module)` calls in tripy/frontend/module/module.py:load_state_dict
         """
-        # Check if `name` is a key in the modules dictionary
-        if name in self.modules:
-            return self.modules[name]
+        key = str(name) if isinstance(name, int) else name
+
+        if key in self.modules:
+            return self.modules[key]
 
         # Fallback to regular attribute access if not found in modules
-        return super().__getattr__(name)
+        return super().__getattr__(key)
 
     def __len__(self) -> int:
         r"""
