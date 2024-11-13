@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from examples.diffusion.helper import scaled_dot_product_attention, sequential
 from examples.diffusion.vae_model import Upsample, Downsample
 
+
 @dataclass
 class UNetConfig:
     io_channels: int = 4
@@ -46,15 +47,15 @@ class ResBlock(tp.Module):
         self.norm2 = tp.GroupNorm(32, out_channels, dtype=tp.float32)
         self.conv2 = tp.Conv(out_channels, out_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
         self.nonlinearity = tp.silu
-        self.conv_shortcut = tp.Conv(channels, out_channels, (1, 1), dtype=config.dtype) if channels != out_channels else lambda x: x
+        self.conv_shortcut = (
+            tp.Conv(channels, out_channels, (1, 1), dtype=config.dtype) if channels != out_channels else lambda x: x
+        )
 
     def __call__(self, x, emb):
         h = tp.cast(self.norm1(tp.cast(x, self.norm1.dtype)), x.dtype)
         h = self.conv1(self.nonlinearity(h))
         emb_out = self.time_emb_proj(self.nonlinearity(emb))
-        target_shape = emb_out.shape + (1, 1)
-        # TODO: #228: WAR to prevent computing output rank in infer_rank for reshape
-        target_shape.trace_tensor.shape = (emb_out.rank + 2,)
+        target_shape = emb_out.shape + [1, 1]
         h = h + tp.reshape(emb_out, target_shape)
         h = tp.cast(self.norm2(tp.cast(h, self.norm2.dtype)), h.dtype)
         h = self.conv2(self.nonlinearity(h))
@@ -78,7 +79,9 @@ class CrossAttention(tp.Module):
         q, k, v = [
             tp.transpose(tp.reshape(y, (x.shape[0], -1, self.num_heads, self.head_size)), 1, 2) for y in (q, k, v)
         ]
-        attention = tp.transpose(scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size, dtype=self.dtype), 1, 2)
+        attention = tp.transpose(
+            scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size, dtype=self.dtype), 1, 2
+        )
         h_ = tp.reshape(attention, (x.shape[0], -1, self.num_heads * self.head_size))
         out = sequential(h_, self.to_out)
         return out
@@ -151,6 +154,7 @@ class SpatialTransformer(tp.Module):  # Transformer2dModel in HF diffusers
         ret = self.proj_out(x) + x_in
         return ret
 
+
 def timestep_embedding(timesteps, dim, dtype, max_period=10000):
     half = dim // 2
     freqs = tp.exp(-math.log(max_period) * tp.arange(half, dtype=dtype) / half)
@@ -174,7 +178,10 @@ class CrossAttnDownBlock2D(tp.Module):
             SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads),
             SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads),
         ]
-        self.resnets = [ResBlock(config, start_channels, config.emb_channels, channels), ResBlock(config, channels, config.emb_channels, channels)]
+        self.resnets = [
+            ResBlock(config, start_channels, config.emb_channels, channels),
+            ResBlock(config, channels, config.emb_channels, channels),
+        ]
         self.downsamplers = [Downsample(config, channels)]
 
     def __call__(self, x, emb, context):
@@ -188,7 +195,10 @@ class CrossAttnDownBlock2D(tp.Module):
 
 class DownBlock2D(tp.Module):
     def __init__(self, config: UNetConfig, channels):
-        self.resnets = [ResBlock(config, channels, config.emb_channels, channels), ResBlock(config, channels, config.emb_channels, channels)]
+        self.resnets = [
+            ResBlock(config, channels, config.emb_channels, channels),
+            ResBlock(config, channels, config.emb_channels, channels),
+        ]
 
     def __call__(self, x, emb):
         temp = self.resnets[0](x, emb)
@@ -198,8 +208,13 @@ class DownBlock2D(tp.Module):
 
 class UNetMidBlock2DCrossAttn(tp.Module):
     def __init__(self, config: UNetConfig, channels):
-        self.attentions = [SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads)]
-        self.resnets = [ResBlock(config, channels, config.emb_channels, channels), ResBlock(config, channels, config.emb_channels, channels)]
+        self.attentions = [
+            SpatialTransformer(config, channels, config.context_dim, config.num_heads, channels // config.num_heads)
+        ]
+        self.resnets = [
+            ResBlock(config, channels, config.emb_channels, channels),
+            ResBlock(config, channels, config.emb_channels, channels),
+        ]
 
     def __call__(self, x, emb, context):
         x = self.resnets[0](x, emb)
@@ -259,7 +274,9 @@ class CrossAttnUpBlock2D(tp.Module):
 class UNetModel(tp.Module):
     def __init__(self, config: UNetConfig):
         self.config = config
-        self.conv_in = tp.Conv(config.io_channels, config.model_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.conv_in = tp.Conv(
+            config.io_channels, config.model_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
+        )
         self.time_embedding = TimestepEmbedding(config)
         down_channels = [config.model_channels * mult for mult in config.channel_mult]
         self.down_blocks = [
@@ -278,7 +295,9 @@ class UNetModel(tp.Module):
         ]
         self.conv_norm_out = tp.GroupNorm(32, config.model_channels, dtype=tp.float32)
         self.conv_act = tp.silu
-        self.conv_out = tp.Conv(config.model_channels, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype)
+        self.conv_out = tp.Conv(
+            config.model_channels, config.io_channels, (3, 3), padding=((1, 1), (1, 1)), dtype=config.dtype
+        )
 
     def __call__(self, x, timesteps=None, context=None):
         # TODO: real time embedding
@@ -307,4 +326,3 @@ class UNetModel(tp.Module):
         act = tp.cast(self.conv_norm_out(tp.cast(x, self.conv_norm_out.dtype)), x.dtype)
         act = self.conv_out(self.conv_act(act))
         return act
-
