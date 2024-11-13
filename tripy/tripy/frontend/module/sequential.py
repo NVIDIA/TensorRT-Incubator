@@ -27,8 +27,8 @@ from tripy.frontend.module import Module
 @dataclass
 class Sequential(Module):
     r"""
-    A module to stack multiple layers or modules in a sequential order. The `Sequential`
-    container can accept either a list of modules or a dictionary of named modules. Modules are
+    A module to stack multiple callable layers or modules in a sequential order. The `Sequential`
+    container can accept either a list of modules/callable objects or a dictionary of named modules/callable objects. Layers are
     added in the order they are passed, and each is called sequentially during the forward pass.
     """
 
@@ -54,6 +54,15 @@ class Sequential(Module):
             model = tp.Sequential({'layer1': tp.Linear(1, 3), 'layer2': tp.Linear(3, 2)})
 
             input = tp.Tensor([1.0])
+            output = model(input)
+
+        .. code-block:: python
+            :linenos:
+            :caption: Sequential with Callables
+
+            model = tp.Sequential(lambda x: tp.avgpool(x, kernel_dims=1, stride=1), tp.Linear(2, 3))
+
+            input = tp.Tensor([1.0, 2.0, 3.0])
             output = model(input)
         """
         super().__init__()
@@ -178,4 +187,5 @@ class Sequential(Module):
         # with the 'modules' prefix in the state_dict. This change ensures compatibility
         # with PyTorch's naming conventions.
         for name, module in self.modules.items():
-            yield name, module
+            if isinstance(module, Module):
+                yield name, module

@@ -54,7 +54,8 @@ class Module:
     Base class used to define neural network modules.
     You can nest modules by assigning them as attributes of other modules.
 
-    Child modules or :class:`tripy.Parameter` s may be contained in Python ``list``\s or ``dict``\s.
+    Child modules, :class:`tripy.Parameter` s, or other callables/lambda functions may be contained
+    in Python ``list``\s or ``dict``\s.
     If using ``dict``\s, the keys must be strings.
     Nested data structures (for example, ``list``\s of ``list``\s) are not supported.
     Taking child modules as an example, this is allowed:
@@ -65,6 +66,14 @@ class Module:
         self.dict_modules = {
             "linear": tp.Linear(2, 2),
             "layernorm": tp.LayerNorm(2),
+        }
+
+    This is another valid example with a wrapped tp.avgpool lambda function
+    ::
+        self.conv = tp.Conv(in_channels=2, out_channels=4, kernel_dims=(1,1), stride=(1,1))
+        self.dict_modules = {
+            "convolution": self.conv,
+            "pool": lambda x: tp.avgpool(x, kernel_dims=(1,1), stride=(1,1))
         }
 
     Whereas this is not supported:
