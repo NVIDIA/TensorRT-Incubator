@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731466159242,
+  "lastUpdate": 1731466399962,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -4352,6 +4352,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006997774056571819",
             "extra": "mean: 147.9759512907486 usec\nrounds: 7441"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "289ad3770a81d920845e18bb656466bc6426a0b5",
+          "message": "Improves docstrings for overloaded functions, updates README",
+          "timestamp": "2024-11-12T21:33:41Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/364/commits/289ad3770a81d920845e18bb656466bc6426a0b5"
+        },
+        "date": 1731466399154,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5933.906447844364,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000050026024835273966",
+            "extra": "mean: 168.52304780829064 usec\nrounds: 6416"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6609.418349975783,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000068321627610034",
+            "extra": "mean: 151.29924405581986 usec\nrounds: 7233"
           }
         ]
       }
