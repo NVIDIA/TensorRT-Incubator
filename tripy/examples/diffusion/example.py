@@ -27,7 +27,7 @@ import tripy as tp
 
 from transformers import CLIPTokenizer
 from examples.diffusion.clip_model import CLIPConfig
-from examples.diffusion.model import StableDiffusion, StableDiffusionConfig, get_alphas_cumprod
+from examples.diffusion.model import StableDiffusion, StableDiffusionConfig
 from examples.diffusion.weight_loader import load_from_diffusers
 
 
@@ -72,24 +72,34 @@ def compile_vae(model, dtype, verbose=False):
     return compile_model(model, inputs, verbose=verbose)
 
 
+# equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000):
+    betas = np.linspace(beta_start**0.5, beta_end**0.5, n_training_steps, dtype=np.float32) ** 2
+    alphas = 1.0 - betas
+    alphas_cumprod = np.cumprod(alphas, axis=0)
+    return alphas_cumprod
+
+
 def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance, dtype):
     timesteps = list(range(1, 1000, 1000 // steps))
     print(f"[I] Running diffusion for {steps} timesteps...")
-    alphas = get_alphas_cumprod(dtype=dtype)[tp.Tensor(timesteps)]
-    alphas_prev = tp.concatenate([tp.Tensor([1.0], dtype=dtype), alphas[:-1]], dim=0)
+    alphas = get_alphas_cumprod()[timesteps]
+    alphas_prev = np.concatenate(([1.0], alphas[:-1]))
+
+    model.stream = tp.Stream()
 
     for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
         t.set_description("idx: %1d, timestep: %3d" % (index, timestep))
-        tid = tp.Tensor([index])
         latent = model(
             unconditional_context,
             context,
             latent,
             tp.Tensor([timestep], dtype=dtype),
-            alphas[tid],
-            alphas_prev[tid],
+            tp.reshape(tp.Tensor(alphas[index], dtype=dtype), (1,)),
+            tp.reshape(tp.Tensor(alphas_prev[index], dtype=dtype), (1,)),
             tp.Tensor([guidance], dtype=dtype),
         )
+    model.stream.synchronize()
     return latent
 
 
@@ -301,11 +311,11 @@ def print_summary(denoising_steps, times):
 # TODO: Add torch compilation
 # TODO: Add Timing context (depends on how we measure perf)
 def main():
-    default_prompt = "a horse sized cat eating a bagel"
+    default_prompt = "a beautiful photograph of Mt. Fuji during cherry blossom"
     parser = argparse.ArgumentParser(
         description="Run Stable Diffusion", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--steps", type=int, default=10, help="Number of denoising steps in diffusion")
+    parser.add_argument("--steps", type=int, default=50, help="Number of denoising steps in diffusion")
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Phrase to render")
     parser.add_argument("--out", type=str, default=None, help="Output filepath")
     parser.add_argument("--fp16", action="store_true", help="Cast the weights to float16")
