@@ -3,9 +3,20 @@ add_custom_target(MLIRTensorRTExecutorUnitTests)
 set_target_properties(MLIRTensorRTExecutorUnitTests PROPERTIES FOLDER "MLIR-TensorRT Executor Unit Tests")
 
 # Use this function for populating GTest-based unit tests.
-function(add_mlir_executor_unittest name)
-  add_unittest(MLIRTensorRTExecutorUnitTests ${name} ${ARGN})
-  llvm_update_compile_flags(${name})
+function(add_mlir_executor_unittest target)
+  set(LLVM_LINK_COMPONENTS Support)
+  add_llvm_executable(${target} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+  add_dependencies(MLIRTensorRTExecutorUnitTests ${target})
+  llvm_update_compile_flags(${target})
+  if(TARGET gtest)
+    target_link_libraries(${target} PRIVATE
+     gtest gtest_main gmock)
+  elseif(TARGET llvm_gtest)
+    target_link_libraries(${target} PRIVATE
+      llvm_gtest llvm_gtest_main)
+  else()
+    message(FATAL_ERROR "No GTest library found")
+  endif()
 endfunction()
 
 if (EXISTS ${LLVM_THIRD_PARTY_DIR}/unittest/googletest/include/gtest/gtest.h)
