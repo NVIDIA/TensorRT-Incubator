@@ -124,9 +124,14 @@ struct LinspaceTensorKindOpInterfaceImpl
       Operation *op, ArrayRef<TensorKindLattice *> operands,
       ArrayRef<const TensorKindLattice *> results,
       llvm::function_ref<void(OpOperand &, TensorKind)> setOperandKind) const {
+    assert(results.size() == 1 && "expected single result lattice");
     auto linspaceOp = cast<LinspaceOp>(op);
     if (linspaceOp.getShape())
       setOperandKind(linspaceOp.getShapeMutable()[0], TensorKind::Host);
+
+    if (!results[0] || results[0]->getValue().isUninitialized())
+      return;
+
     if (linspaceOp.getStart())
       setOperandKind(linspaceOp.getStartMutable()[0],
                      results[0]->getValue().getKind());

@@ -91,10 +91,8 @@ public:
         llvm::none_of(
             func.getArgAttrs()->getAsRange<DictionaryAttr>(),
             [&](DictionaryAttr dict) {
-              return dict.getNamed(tensorrt::TensorRTDialect::
-                                       getShapeProfileArgAttrName()) ||
-                     dict.getNamed(tensorrt::TensorRTDialect::
-                                       getShapeTensorValueBoundsArgAttrName());
+              return dict.getNamed(PlanDialect::getShapeBoundsAttrName()) ||
+                     dict.getNamed(PlanDialect::getValueBoundsAttrName());
             }))
       return;
 
@@ -137,9 +135,8 @@ public:
               << "failed to compute lower/upper shape bounds attribute";
           return signalPassFailure();
         }
-        func.setResultAttr(
-            idx, tensorrt::TensorRTDialect::getShapeProfileArgAttrName(),
-            boundsAttr);
+        func.setResultAttr(idx, plan::PlanDialect::getShapeBoundsAttrName(),
+                           boundsAttr);
         continue;
       }
 
@@ -167,10 +164,8 @@ public:
         return signalPassFailure();
       }
 
-      func.setResultAttr(
-          idx,
-          tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName(),
-          boundsAttr);
+      func.setResultAttr(idx, plan::PlanDialect::getValueBoundsAttrName(),
+                         boundsAttr);
     }
   }
 };

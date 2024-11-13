@@ -763,6 +763,7 @@ func.func @trt_concatenation_dynamic_2(%arg0: tensor<?x?x768xf32>, %arg1: tensor
 // CHECK-LABEL: @trt_concatenation_dynamic_2
 //       CHECK: %[[v0:.+]] = tensorrt.concatenation {axis = 1 : i32} ins(%{{.+}}, %{{.+}} : tensor<?x?x768xf32>, tensor<?x?x?xf32>) -> tensor<?x?x768xf32>
 //       CHECK: return %[[v0]] : tensor<?x?x768xf32>
+
 // -----
 
 func.func @trt_select(%arg0: tensor<10x10xi1>, %arg1: tensor<1x10xf32>, %arg2: tensor<10x1xf32>) -> tensor<10x10xf32> {
@@ -784,6 +785,17 @@ func.func @trt_select2(%arg0: tensor<10x10xi1>, %arg1: tensor<1x1xf32>, %arg2: t
 
 // CHECK-LABEL: @trt_select2
 //  CHECK-NEXT:  tensorrt.select ins(%{{.+}}, %{{.+}}, %{{.+}} : tensor<10x10xi1>, tensor<1x1xf32>, tensor<1x1xf32>) -> tensor<10x10xf32>
+
+// -----
+
+func.func @trt_select3(%arg0: tensor<1x10xi1>, %arg1: tensor<10x10xf32>, %arg2: tensor<?x?xf32>) -> tensor<?x10xf32> {
+  %0 = tensorrt.select ins(%arg0, %arg1, %arg2: tensor<1x10xi1>, tensor<10x10xf32>, tensor<?x?xf32>)
+    -> tensor<?x10xf32>
+  return %0 : tensor<?x10xf32>
+}
+
+// CHECK-LABEL: @trt_select3
+//  CHECK-NEXT:  tensorrt.select
 
 // -----
 

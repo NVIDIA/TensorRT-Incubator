@@ -185,7 +185,8 @@ compiler::getStableHLOProgramRefinedSignature(
   {
     mlir::StableHloInputOptions opts{};
     opts.legalizeControlFlowToSCF = false;
-    opts.convertChloToStablehlo = false;
+    opts.preserveChloErf = true;
+    opts.preserveChloTopK = true;
     mlir::buildStablehloPreProcessingPipeline(pm, opts);
   }
 
@@ -382,7 +383,8 @@ void StableHloToExecutableTask::populatePassManager(
   // StableHLO Preprocessing
   mlir::StableHloInputOptions opts{};
   opts.legalizeControlFlowToSCF = false;
-  opts.convertChloToStablehlo = false;
+  opts.preserveChloErf = true;
+  opts.preserveChloTopK = true;
   mlir::buildStablehloPreProcessingPipeline(pm, opts);
 
   buildStablehloClusteringPipeline(pm, options);

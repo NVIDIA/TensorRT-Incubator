@@ -22,12 +22,20 @@
 /// tensorrt dialect.
 ///
 //===----------------------------------------------------------------------===//
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/dialect/StablehloOps.h"
 
+namespace mlir::stablehlo_ext {
+#define GEN_PASS_DEF_CANONICALIZECONVOLUTIONPASS
+#include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h.inc"
+} // namespace mlir::stablehlo_ext
+
 using namespace mlir;
+using namespace mlir::stablehlo;
 
 /// Expand (n, c, h) input to (n, c, 1, h) input.
 static Value stablehloExpandSpatialDims(OpBuilder &b, Location loc,
@@ -228,3 +236,23 @@ void stablehlo_ext::populateCanonicalizeStablehloConvolutionPatterns(
     RewritePatternSet &patterns) {
   patterns.insert<StablehloRewriteConvolution>(patterns.getContext());
 }
+
+namespace {
+class CanonicalizeConvolutionPass
+    : public stablehlo_ext::impl::CanonicalizeConvolutionPassBase<
+          CanonicalizeConvolutionPass> {
+public:
+  using Base::Base;
+  void runOnOperation() override {
+    Operation *op = getOperation();
+    MLIRContext *ctx = &getContext();
+    RewritePatternSet patterns(ctx);
+    stablehlo_ext::populateCanonicalizeStablehloConvolutionPatterns(patterns);
+    if (failed(applyPatternsAndFoldGreedily(op, std::move(patterns)))) {
+      emitError(op->getLoc())
+          << "failed to apply rewrite patterns in " << getArgument();
+      return signalPassFailure();
+    }
+  }
+};
+} // namespace

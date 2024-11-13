@@ -52,8 +52,8 @@ collapseSliceDims(RewriterBase &rewriter, Location loc,
     return {};
 
   return cast<TypedValue<RankedTensorType>>(
-      rewriter.create<tensor::CollapseShapeOp>(loc, input, *reassociations)
-          .getResult());
+      stablehlo_ext::createCollapsingReshape(rewriter, loc, input,
+                                             *reassociations));
 }
 
 // Expands the first dimension of `input` into the shape of `startIndices`,
@@ -86,13 +86,12 @@ expandBatchDimension(RewriterBase &rewriter, Location loc,
     return {};
   if (static_cast<int64_t>(newShape.size()) > input.getType().getRank())
     return cast<TypedValue<RankedTensorType>>(
-        rewriter
-            .create<tensor::ExpandShapeOp>(loc, newType, input, *reassociations)
-            .getResult());
+        stablehlo_ext::createExpandingReshape(rewriter, loc, newType, input,
+                                              *reassociations));
+
   return cast<TypedValue<RankedTensorType>>(
-      rewriter
-          .create<tensor::CollapseShapeOp>(loc, newType, input, *reassociations)
-          .getResult());
+      stablehlo_ext::createCollapsingReshape(rewriter, loc, input,
+                                             *reassociations));
 }
 
 static TypedValue<RankedTensorType>

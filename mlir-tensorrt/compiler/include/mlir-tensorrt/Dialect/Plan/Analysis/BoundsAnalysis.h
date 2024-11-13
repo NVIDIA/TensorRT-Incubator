@@ -74,6 +74,8 @@ public:
   static BoundsArray fromIntegerValueBounds(unsigned bitwidth,
                                             ArrayRef<int64_t> min,
                                             ArrayRef<int64_t> max);
+  static BoundsArray fromIntegerValueBounds(ArrayRef<llvm::APInt> min,
+                                            ArrayRef<llvm::APInt> max);
 
   /// For the given tensor-typed value, return the most conservative bounds for
   /// the shape of `v`. For each unknown dimension of the shape of `v` the

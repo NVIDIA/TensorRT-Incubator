@@ -4,6 +4,34 @@
 include "mlir/IR/OpBase.td"
 
 //===----------------------------------------------------------------------===//
+// TensorBoundsAttrInterface
+//===----------------------------------------------------------------------===//
+
+def TensorBoundsAttrInterface : AttrInterface<"TensorBoundsAttrInterface"> {
+  let cppNamespace = "::mlir::plan";
+  let methods = [
+    InterfaceMethod<
+      /*desc=*/"Return the shape bounds associated with the attribute",
+      /*retTy=*/"LogicalResult",
+      "getShapeBounds",
+      (ins "llvm::SmallVectorImpl<int64_t> &":$min,
+           "llvm::SmallVectorImpl<int64_t> &":$max),
+      /*body=*/"",
+      ""
+    >,
+    InterfaceMethod<
+      /*desc=*/"Return the integer value bounds associated with the attribute",
+      /*retTy=*/"LogicalResult",
+      "getIntegerValueBounds",
+      (ins "llvm::SmallVectorImpl<llvm::APInt> &":$min,
+           "llvm::SmallVectorImpl<llvm::APInt> &":$max),
+      /*body=*/"",
+      ""
+    >
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // ClusterKindInterface
 //===----------------------------------------------------------------------===//
 

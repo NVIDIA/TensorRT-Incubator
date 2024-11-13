@@ -235,7 +235,8 @@ struct AbsorbCastsIntoFuncReturnPattern
   }
 };
 
-struct WithShapeAbsorbCastPattern : public OpRewritePattern<WithShapeOp> {
+/// Push generalizing `tensor.cast` down below the `plan.with_shape`.
+struct WithShapeCastPushDownPattern : public OpRewritePattern<WithShapeOp> {
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(WithShapeOp op,
                                 PatternRewriter &rewriter) const override {
@@ -267,46 +268,14 @@ struct WithShapeAbsorbCastPattern : public OpRewritePattern<WithShapeOp> {
 /// `dims` yields an opportunity to refine the type of `with_shape`, then
 /// `stablehlo_op` can also be refined. The refinements are made (and casts are
 /// inserted if required).
-struct StableHloRefineTypeFromWithShapeGeneric
-    : public OpRewritePattern<WithShapeOp> {
+struct RefineTypeFromWithShapeGeneric : public OpRewritePattern<WithShapeOp> {
   using OpRewritePattern<WithShapeOp>::OpRewritePattern;
   LogicalResult matchAndRewrite(WithShapeOp withOp,
                                 PatternRewriter &rewriter) const override {
     auto producer = withOp.getOperand().getDefiningOp();
-    if (!producer || !producer->hasOneUse() ||
-        !isa<stablehlo::StablehloDialect>(producer->getDialect()))
-      return failure();
-
-    // Create a new shape and try to refine it.
-    std::optional<SmallVector<int64_t>> newShape =
-        getRefinedShape(withOp.getShape(), withOp.getOperand().getType());
-    if (!newShape)
-      return failure();
-
-    // Update type of the producer.
-    updateTypeInPlaceAndMaybeInsertCast(
-        rewriter, withOp.getOperand(),
-        withOp.getOperand().getType().clone(*newShape));
-
-    // Update type of the WithShapeOp.
-    updateTypeInPlaceAndMaybeInsertCast(rewriter, withOp.getResult(),
-                                        withOp.getType().clone(*newShape));
-    return success();
-  }
-};
-
-/// Given a pattern `plan.with_shape(tensorrt_op, dims...)`, if inspection of
-/// `dims` yields an opportunity to refine the type of `with_shape`, then
-/// `tensorrt_op` can also be refined. The refinements are made (and casts are
-/// inserted if required).
-struct TensorRTRefineTypeFromWithShapeGeneric
-    : public OpRewritePattern<WithShapeOp> {
-  using OpRewritePattern<WithShapeOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(WithShapeOp withOp,
-                                PatternRewriter &rewriter) const override {
-    auto producer = withOp.getOperand().getDefiningOp();
-    if (!producer || !producer->hasOneUse() ||
-        !isa<tensorrt::TensorRTDialect>(producer->getDialect()))
+    if (!producer ||
+        !isa_and_present<stablehlo::StablehloDialect,
+                         tensorrt::TensorRTDialect>(producer->getDialect()))
       return failure();
 
     // Create a new shape and try to refine it.
@@ -347,9 +316,8 @@ class PlanRefineTypesPass
         RefineDynamicBroadcast,
         RefineDynamicIota,
         SimplifyIdentityDynamicBroadcast,
-        StableHloRefineTypeFromWithShapeGeneric,
-        WithShapeAbsorbCastPattern,
-        TensorRTRefineTypeFromWithShapeGeneric
+        RefineTypeFromWithShapeGeneric,
+        WithShapeCastPushDownPattern
       >(ctx);
     // clang-format on
     tensor::CastOp::getCanonicalizationPatterns(patterns, ctx);
