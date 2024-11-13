@@ -114,7 +114,7 @@ class Module:
                 stack_info_msg = str_from_stack_info(stack_info)
 
                 logger.warning(
-                    "A container of mixed types will not be registered with this module's state_dict()."
+                    "A container of mixed types detected. The non-module members will not be registered with this module's state_dict()."
                     + (f"\nNote: container was set here: {stack_info_msg}" if stack_info_msg else "")
                 )
 
@@ -313,12 +313,14 @@ class Module:
         for name, value in vars(self).items():
             if isinstance(value, typ):
                 yield name, value
-            elif isinstance(value, List) and _is_homogeneous_container(value, typ):
+            elif isinstance(value, List):
                 for i, obj in enumerate(value):
-                    yield f"{name}.{i}", obj
-            elif isinstance(value, Dict) and _is_homogeneous_container(value.values(), typ):
+                    if isinstance(obj, typ):
+                        yield f"{name}.{i}", obj
+            elif isinstance(value, Dict):
                 for key, obj in value.items():
-                    yield f"{name}.{key}", obj
+                    if isinstance(obj, typ):
+                        yield f"{name}.{key}", obj
 
     def __str__(self):
         from textwrap import indent

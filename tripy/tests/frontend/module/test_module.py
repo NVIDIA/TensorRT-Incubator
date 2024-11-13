@@ -304,3 +304,77 @@ class TestComplexModule:
         assert module.nets["dict_net"].dummy_dict["op1"].nested.param is tensor
         assert module.nets["list_net"].dummy_list[0].nested.param is tensor
         assert module.nets["list_net"].dummy_list[1].nested.param is tensor
+
+
+class TestMixedContainerNetwork:
+    def test_basic_structure(self, mixed_container_network):
+        assert hasattr(mixed_container_network, "mixed_list")
+        assert hasattr(mixed_container_network, "mixed_dict")
+
+        assert isinstance(mixed_container_network.mixed_list, list)
+        assert isinstance(mixed_container_network.mixed_dict, dict)
+
+        assert any(isinstance(item, tp.Module) for item in mixed_container_network.mixed_list)
+        assert any(callable(item) and not isinstance(item, tp.Module) for item in mixed_container_network.mixed_list)
+
+        assert any(isinstance(value, tp.Module) for value in mixed_container_network.mixed_dict.values())
+        assert any(
+            callable(value) and not isinstance(value, tp.Module)
+            for value in mixed_container_network.mixed_dict.values()
+        )
+
+    def test_named_children(self, mixed_container_network):
+        children = list(mixed_container_network.named_children())
+        for _, child in children:
+            assert isinstance(child, tp.Module)
+
+    def test_forward_pass(self, mixed_container_network):
+        output = mixed_container_network()
+        assert output is not None  # Ensure output is produced
+
+    def test_state_dict(self, mixed_container_network):
+        tensor = tp.Parameter(tp.ones((2,)))
+        state_dict = {
+            "param": tensor,
+            "mixed_list.0.nested.param": tensor,
+            "mixed_list.2.nested.param": tensor,
+            "mixed_dict.dummy.nested.param": tensor,
+        }
+
+        missing_keys, unexpected_keys = mixed_container_network.load_state_dict(state_dict, strict=True)
+
+        assert not missing_keys
+        assert not unexpected_keys
+        assert mixed_container_network.param is state_dict["param"]
+        assert mixed_container_network.mixed_list[0].nested.param is state_dict["mixed_list.0.nested.param"]
+        assert mixed_container_network.mixed_list[2].nested.param is state_dict["mixed_list.2.nested.param"]
+        assert mixed_container_network.mixed_dict["dummy"].nested.param is state_dict["mixed_dict.dummy.nested.param"]
+
+    def test_print_structure(self, mixed_container_network):
+        assert str(mixed_container_network) == dedent(
+            """\
+            MixedContainerNetwork(
+              mixed_list.0=
+                DummyOp(
+                  nested=
+                    DummyNestedOp(
+                     param=[2],
+                    ),
+                ),
+              mixed_list.2=
+                DummyOp(
+                  nested=
+                    DummyNestedOp(
+                     param=[2],
+                    ),
+                ),
+              mixed_dict.dummy=
+                DummyOp(
+                  nested=
+                    DummyNestedOp(
+                     param=[2],
+                    ),
+                ),
+             param=[2],
+            )"""
+        )
