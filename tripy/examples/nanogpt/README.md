@@ -69,11 +69,14 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     ====
     (?s).*?
     What is the answer to life, the universe, and everything\? How is life possible, what is the meaning of
+    ====
+    (?s).*?
+    What is the answer to life, the universe, and everything\? How can one explain the existence of the universe to
     ```
      -->
     <!-- Tripy: TEST: EXPECTED_STDOUT End -->
 
-2. Weight-only int4 quantization:
+3. Weight-only int4 quantization:
 
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int4-weight-only
