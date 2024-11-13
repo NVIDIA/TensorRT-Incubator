@@ -73,32 +73,36 @@ def compile_vae(model, dtype, verbose=False):
 
 
 # equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000):
-    betas = np.linspace(beta_start**0.5, beta_end**0.5, n_training_steps, dtype=np.float32) ** 2
+def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000, dtype=np.float32):
+    betas = np.linspace(beta_start**0.5, beta_end**0.5, n_training_steps) ** 2
     alphas = 1.0 - betas
     alphas_cumprod = np.cumprod(alphas, axis=0)
-    return alphas_cumprod
+    return alphas_cumprod.astype(dtype)
 
 
 def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance, dtype):
-    timesteps = list(range(1, 1000, 1000 // steps))
+    np_type = np.float16 if dtype == tp.float16 else np.float32
+    idx_timesteps = list(range(1, 1000, 1000 // steps))
+    timesteps = np.array(idx_timesteps, dtype=np_type)
+    guidance = np.array([guidance], dtype=np_type)
+
     print(f"[I] Running diffusion for {steps} timesteps...")
-    alphas = get_alphas_cumprod()[timesteps]
-    alphas_prev = np.concatenate(([1.0], alphas[:-1]))
+    alphas = get_alphas_cumprod(dtype=np_type)[idx_timesteps]
+    alphas_prev = np.concatenate((np.array([1.0], dtype=np_type), alphas[:-1]))
 
     model.stream = tp.Stream()
-
     for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
         t.set_description("idx: %1d, timestep: %3d" % (index, timestep))
         latent = model(
             unconditional_context,
             context,
             latent,
-            tp.Tensor([timestep], dtype=dtype),
-            tp.reshape(tp.Tensor(alphas[index], dtype=dtype), (1,)),
-            tp.reshape(tp.Tensor(alphas_prev[index], dtype=dtype), (1,)),
-            tp.Tensor([guidance], dtype=dtype),
+            tp.Tensor(np.array([timestep])),
+            tp.Tensor(alphas[index : index + 1]),
+            tp.Tensor(alphas_prev[index : index + 1]),
+            tp.Tensor(guidance),
         )
+
     model.stream.synchronize()
     return latent
 
