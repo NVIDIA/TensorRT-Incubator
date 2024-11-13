@@ -292,7 +292,7 @@ def arange(
 ) -> "tripy.Tensor":
     r"""
     Returns a 1D tensor containing a sequence of numbers in the half-open interval
-    :math:`[0, \text{stop})` incrementing by :math:`\text{step}`.
+    :math:`[\text{start}, \text{stop})` incrementing by :math:`\text{step}`.
 
     Args:
         start: The inclusive lower bound of the values to generate. If a tensor is provided, it must be a scalar tensor.

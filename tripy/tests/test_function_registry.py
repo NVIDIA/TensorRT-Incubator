@@ -25,7 +25,7 @@ from tests import helper
 
 import tripy as tp
 from tripy import TripyException
-from tripy.function_registry import AnnotationInfo, FunctionRegistry, render_arg_type, sanitize_name
+from tripy.function_registry import AnnotationInfo, FunctionRegistry, type_str_from_arg, str_from_type_annotation
 
 
 @pytest.fixture()
@@ -199,10 +199,10 @@ class TestFunctionRegistry:
 
         func_overload = registry.overloads["test"][0]
 
-        assert not func_overload.annotations
+        assert not func_overload._annotations
         assert registry["test"](0) == 1
-        assert func_overload.annotations
-        assert func_overload.annotations["a"] == AnnotationInfo(int, False, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        assert func_overload._annotations
+        assert func_overload._annotations["a"] == AnnotationInfo(int, False, inspect.Parameter.POSITIONAL_OR_KEYWORD)
 
     def test_doc_of_non_overloaded_func(self, registry):
         # When there is no overload, the registry function should
@@ -224,10 +224,11 @@ class TestFunctionRegistry:
             """
             pass
 
+        # Tripy types should turn into class links
         @registry("test")
-        def func(a: float):
+        def func(a: Union[int, "tripy.Tensor"]):
             """
-            This func takes a float.
+            This func takes an int or a tensor.
             """
             pass
 
@@ -235,20 +236,34 @@ class TestFunctionRegistry:
         assert (
             registry["test"].__doc__
             == dedent(
-                """
+                r"""
                 *This function has multiple overloads:*
 
                 ----------
 
-                > **test** (*a*: :class:`int`) -> None
+                .. role:: sig-prename
+                    :class: sig-prename descclassname
+                .. role:: sig-name
+                    :class: sig-name descname
+
+                .. container:: func-overload-sig sig sig-object py
+
+                    :sig-prename:`tripy`\ .\ :sig-name:`test`\ (a: int) -> None
 
                 This func takes an int.
 
                 ----------
 
-                > **test** (*a*: :class:`float`) -> None
+                .. role:: sig-prename
+                    :class: sig-prename descclassname
+                .. role:: sig-name
+                    :class: sig-name descname
 
-                This func takes a float.
+                .. container:: func-overload-sig sig sig-object py
+
+                    :sig-prename:`tripy`\ .\ :sig-name:`test`\ (a: int | :class:`tripy.Tensor`) -> None
+
+                This func takes an int or a tensor.
                 """
             ).strip()
         )
@@ -379,7 +394,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Union\[int, float\]' but got argument of type: 'List\[str\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'int | float' but got argument of type: 'List\[str\]'\.
             """
             ).strip(),
         ):
@@ -403,7 +418,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int\]' but got argument of type: 'List\[Union\[(int, str)|(str, int)\]\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int\]' but got argument of type: 'List\[(int \| str)|(str \| int)\]'\.
             """
             ).strip(),
         ):
@@ -475,7 +490,7 @@ class TestFunctionRegistry:
                   [0-9]+ \|     \.\.\.
                       \|\s
 
-                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[Union\[int, float\]\]' but got argument of type: 'List\[str\]'\.
+                Not a valid overload because: For parameter: 'n', expected an instance of type: 'Sequence\[int | float\]' but got argument of type: 'List\[str\]'\.
             """
             ).strip(),
         ):
@@ -496,16 +511,16 @@ class TestFunctionRegistry:
 @pytest.mark.parametrize(
     "typ, expected",
     [
-        (tp.types.TensorLike, "Union[tripy.Tensor, numbers.Number]"),
-        (tp.types.ShapeLike, "Sequence[Union[int, tripy.DimensionSize]]"),
+        (tp.types.TensorLike, "tripy.Tensor | numbers.Number"),
+        (tp.types.ShapeLike, "Sequence[int | tripy.DimensionSize]"),
         (tp.Tensor, "Tensor"),
         (torch.Tensor, "torch.Tensor"),
         (int, "int"),
-        (Optional[int], "Optional[int]"),
+        (Optional[int], "int | None"),
     ],
 )
-def test_sanitize_name(typ, expected):
-    assert sanitize_name(typ) == expected
+def test_str_from_type_annotation(typ, expected):
+    assert str_from_type_annotation(typ) == expected
 
 
 @pytest.mark.parametrize(
@@ -517,5 +532,5 @@ def test_sanitize_name(typ, expected):
         ("hi", "str"),
     ],
 )
-def test_render_arg_type(typ, expected):
-    assert render_arg_type(typ) == expected
+def test_type_str_from_arg(typ, expected):
+    assert type_str_from_arg(typ) == expected
