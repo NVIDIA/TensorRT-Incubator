@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2024-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,6 +31,7 @@ from examples.diffusion.unet_model import UNetModel, UNetConfig
 from examples.diffusion.vae_model import AutoencoderKL, VAEConfig
 from examples.diffusion.helper import clamp
 
+
 @dataclass
 class StableDiffusionConfig:
     dtype: tp.dtype = tp.float32
@@ -43,17 +44,9 @@ class StableDiffusionConfig:
         self.unet_config = UNetConfig(dtype=self.dtype)
         self.vae_config = VAEConfig(dtype=self.dtype)
 
-# equivalent to LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=1000, dtype=tp.float32):
-    betas = np.linspace(beta_start**0.5, beta_end**0.5, n_training_steps, dtype=np.float32) ** 2
-    alphas = 1.0 - betas
-    alphas_cumprod = np.cumprod(alphas, axis=0)
-    return tp.cast(tp.Tensor(alphas_cumprod), dtype)
-
 
 class StableDiffusion(tp.Module):
     def __init__(self, config: StableDiffusionConfig):
-        self.alphas_cumprod = get_alphas_cumprod()
         self.model = namedtuple("DiffusionModel", ["diffusion_model"])(diffusion_model=UNetModel(config.unet_config))
         self.first_stage_model = AutoencoderKL(config.vae_config)
         self.cond_stage_model = namedtuple("CondStageModel", ["transformer"])(
@@ -97,5 +90,4 @@ class StableDiffusion(tp.Module):
     def __call__(self, unconditional_context, context, latent, timestep, alphas, alphas_prev, guidance):
         e_t = self.get_model_output(unconditional_context, context, latent, timestep, guidance)
         x_prev, _ = self.get_x_prev_and_pred_x0(latent, e_t, alphas, alphas_prev)
-        return x_prev  
-
+        return x_prev
