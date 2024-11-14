@@ -67,12 +67,16 @@
     }                                                                          \
   } while (false)
 
-#define SET_LUA_ERROR_IF_NCCL_ERROR(x, lstate)                                 \
+#define SET_LUA_ERROR_IF_NCCL_ERROR(x, lstate, comm)                           \
   do {                                                                         \
     ncclResult_t err = (x);                                                    \
-    if (err != ncclSuccess) {                                                  \
+    if (err != ncclSuccess && err != ncclInProgress) {                         \
       lua_State *L = lstate;                                                   \
-      luaL_error(L, ncclGetLastError(nullptr));                                \
+      std::string msg = llvm::formatv(                                         \
+          "{0}:{1} NCCL error [msg=\"{2}\" ncclGetLastError=\"{3}\"]",         \
+          __FILE__, __LINE__, ncclGetErrorString(err),                         \
+          comm ? ncclGetLastError(comm) : "");                                 \
+      luaL_error(L, msg.c_str());                                              \
     }                                                                          \
   } while (false)
 

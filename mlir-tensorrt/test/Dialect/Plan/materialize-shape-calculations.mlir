@@ -1061,3 +1061,30 @@ func.func @dynamic_gather_simplify(%arg0: tensor<?x?xf16>, %arg1: tensor<?xi32>,
 //   CHECK-DAG:     %[[v2:.+]] = "stablehlo.gather"(%[[v1]], %[[v0]])
 //   CHECK-DAG:     %[[v3:.+]] = plan.with_shape %[[v2]](%[[dim]], %[[c3_i32]])
 //   CHECK-DAG:     return %[[v3]] : tensor<?x?xf16>
+
+// -----
+
+#profile = #tensorrt.shape_profile<min = [1, 3, 1024, 1024], opt = [2, 3, 1024, 1024], max = [8, 3, 1024, 1024]>
+
+func.func @reduce_window_dynamic_input(%arg0: tensor<?x?x?x?xf32> {tensorrt.shape_profile = #profile}) -> tensor<?x?x?x?xf32> {
+  %cst = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+  %0 = "stablehlo.reduce_window"(%arg0, %cst) <{padding = dense<0> : tensor<4x2xi64>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 2, 2>}> ({
+  ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
+    %1 = stablehlo.maximum %arg1, %arg2 : tensor<f32>
+    stablehlo.return %1 : tensor<f32>
+  }) : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}
+
+// CHECK-LABEL: func.func @reduce_window_dynamic_input
+// CHECK-SAME: (%[[arg0:.+]]: tensor<?x?x?x?xf32>
+//  CHECK-DAG: %[[c512:.+]] = arith.constant 512 : index
+//  CHECK-DAG: %[[c1024:.+]] = arith.constant 1024 : index
+//  CHECK-DAG: %[[c3:.+]] = arith.constant 3 : index
+//  CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
+//  CHECK-DAG: %[[dim:.+]] = tensor.dim %[[arg0]], %[[c0]] : tensor<?x?x?x?xf32>
+//  CHECK-DAG: %[[v0:.+]] = plan.with_shape %[[arg0]](%[[dim]], %[[c3]], %[[c1024]], %[[c1024]]) :
+//  CHECK-DAG: %[[v1:.+]] = "stablehlo.reduce_window"
+//  CHECK-DAG: %[[v2:.+]] = arith.maxsi %[[dim]], %[[c0]] : index
+//  CHECK-DAG: %[[v3:.+]] = plan.with_shape %[[v1]](%[[v2]], %[[c3]], %[[c512]], %[[c512]]) :
+//  CHECK-DAG: return %[[v3]]
