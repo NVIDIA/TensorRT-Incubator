@@ -45,41 +45,6 @@
 namespace mlirtrt::compiler {
 
 //===----------------------------------------------------------------------===//
-// StableHLOProgramSignatureRefinementOptions
-//===----------------------------------------------------------------------===//
-
-struct StableHLOProgramSignatureRefinementOptions
-    : public mlir::OptionsContext {
-  /// Creates default compilation options.
-  StableHLOProgramSignatureRefinementOptions() {
-    this->addOption("func-name", funcName, llvm::cl::init("main"));
-    debugOptions.addToOptions(*this);
-  }
-
-  /// Set the entrypoint function name.
-  StableHLOProgramSignatureRefinementOptions &
-  setFuncName(const std::string &name) {
-    funcName = name;
-    return *this;
-  }
-
-  std::string funcName = "main";
-
-  DebugOptions debugOptions;
-};
-
-//===----------------------------------------------------------------------===//
-// StableHLO Signature Refinement Entrypoint
-//===----------------------------------------------------------------------===//
-
-/// Attempt to refine the function signature of a StableHLO program through
-/// canonicalization and constant folding. Returns the refined signature of the
-/// specified function of the module.
-mlirtrt::StatusOr<mlir::FunctionType> getStableHLOProgramRefinedSignature(
-    CompilerClient &client, mlir::ModuleOp module,
-    const StableHLOProgramSignatureRefinementOptions &options);
-
-//===----------------------------------------------------------------------===//
 // StableHLOToExecutableOptions
 //===----------------------------------------------------------------------===//
 
