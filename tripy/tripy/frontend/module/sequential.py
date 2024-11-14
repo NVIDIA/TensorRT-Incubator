@@ -60,9 +60,12 @@ class Sequential(Module):
             :linenos:
             :caption: Sequential with Callables
 
-            model = tp.Sequential(lambda x: tp.avgpool(x, kernel_dims=1, stride=1), tp.Linear(2, 3))
+            model = tp.Sequential(
+                tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1)),
+                lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
+            )
 
-            input = tp.Tensor([1.0, 2.0, 3.0])
+            input = tp.ones((1,2,2,2), dtype=tp.float32)
             output = model(input)
         """
         super().__init__()

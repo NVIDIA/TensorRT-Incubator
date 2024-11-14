@@ -68,12 +68,13 @@ class Module:
             "layernorm": tp.LayerNorm(2),
         }
 
-    This is another valid example with a wrapped tp.avgpool lambda function
+    This is another valid example with a wrapped :class:`tripy.avgpool` lambda function
     ::
-        self.conv = tp.Conv(in_channels=2, out_channels=4, kernel_dims=(1,1), stride=(1,1))
+
+        self.conv = tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1))
         self.dict_modules = {
             "convolution": self.conv,
-            "pool": lambda x: tp.avgpool(x, kernel_dims=(1,1), stride=(1,1))
+            "pool": lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
         }
 
     Whereas this is not supported:
