@@ -55,8 +55,9 @@ class Module:
     You can nest modules by assigning them as attributes of other modules.
 
     Child modules, :class:`tripy.Parameter` s, or other callables/lambda functions may be contained
-    in Python ``list``\s or ``dict``\s.
-    If using ``dict``\s, the keys must be strings.
+    in Python ``list``\ s or ``dict``\ s.
+    
+    If using ``dict``\ s, the keys must be strings.
     Nested data structures (for example, ``list``\s of ``list``\s) are not supported.
     Taking child modules as an example, this is allowed:
     ::
