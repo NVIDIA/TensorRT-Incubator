@@ -279,6 +279,67 @@ public:
     return success();
   }
 };
+
+class ReduceWindowReifyRankedShapedTypeOpInterfaceImpl
+    : public ReifyRankedShapedTypeOpInterface::ExternalModel<
+          ReduceWindowReifyRankedShapedTypeOpInterfaceImpl,
+          stablehlo::ReduceWindowOp> {
+public:
+  LogicalResult
+  reifyResultShapes(Operation *op_, OpBuilder &builder,
+                    ReifiedRankedShapedTypeDims &reifiedReturnShapes) const {
+    auto op = cast<stablehlo::ReduceWindowOp>(op_);
+    Location loc = op.getLoc();
+
+    FailureOr<SmallVector<std::pair<int64_t, int64_t>>> padding =
+        convertPaddingAttribute(op.getPadding(), loc);
+    if (failed(padding))
+      return failure();
+
+    // In ReduceWindowOp, size of window_dim, padding, stride and dilation all
+    // equal to input rank. So the output shape is inferred altogether.
+    SmallVector<int64_t> windowDims = llvm::to_vector(op.getWindowDimensions());
+    SmallVector<OpFoldResult> windowDimensionVals(windowDims.size());
+    for (size_t i = 0; i < windowDims.size(); i++)
+      windowDimensionVals[i] =
+          builder.createOrFold<arith::ConstantIndexOp>(loc, windowDims[i]);
+
+    FailureOr<SmallVector<DynamicWindowDimension>> windowOrErr =
+        getWindowDimensionInfo(
+            windowDimensionVals,
+            op.getWindowStrides().value_or(ArrayRef<int64_t>{}), *padding,
+            op.getBaseDilations().value_or(ArrayRef<int64_t>{}),
+            op.getWindowDilations().value_or(ArrayRef<int64_t>{}),
+            ArrayRef<bool>{}, loc);
+    if (failed(windowOrErr))
+      return failure();
+
+    int64_t inputRank = static_cast<int64_t>(windowDims.size());
+    SmallVector<OpFoldResult> inputDimVals(inputRank);
+    for (int64_t i = 0; i < inputRank; ++i)
+      inputDimVals[i] = getDimExtent(builder, loc, op.getInputs().front(), i);
+
+    SmallVector<OpFoldResult> resultShape =
+        inferWindowOutputShape(builder, loc, inputDimVals, *windowOrErr);
+
+    // Fixup the result to enforce the required convention for
+    // `reifyResultShapes` -- if the dimension is dynamic and we infer a static
+    // integer extent, we must still return a Value. Likewise, the above routine
+    // may produce a `Value` even though the result type already contains a
+    // known fixed extent.
+    RankedTensorType resultType = cast<RankedTensorType>(op.getType(0));
+    for (auto [idx, ofr] : llvm::enumerate(resultShape)) {
+      assert(ofr && "result shape is missing a value");
+      if (resultType.isDynamicDim(idx) && !ofr.is<Value>())
+        resultShape[idx] = getValueOrCreateConstantIndexOp(builder, loc, ofr);
+      if (!resultType.isDynamicDim(idx) && !ofr.is<Attribute>())
+        resultShape[idx] = builder.getIndexAttr(resultType.getDimSize(idx));
+    }
+
+    reifiedReturnShapes.emplace_back(std::move(resultShape));
+    return success();
+  }
+};
 } // namespace
 
 void stablehlo::registerTypeInferenceExternalModels(DialectRegistry &registry) {
@@ -286,5 +347,10 @@ void stablehlo::registerTypeInferenceExternalModels(DialectRegistry &registry) {
       +[](MLIRContext *ctx, stablehlo::StablehloDialect *dialect) {
         stablehlo::ConvolutionOp::attachInterface<
             ConvolutionReifyRankedShapedTypeOpInterfaceImpl>(*ctx);
+      });
+  registry.addExtension(
+      +[](MLIRContext *ctx, stablehlo::StablehloDialect *dialect) {
+        stablehlo::ReduceWindowOp::attachInterface<
+            ReduceWindowReifyRankedShapedTypeOpInterfaceImpl>(*ctx);
       });
 }
