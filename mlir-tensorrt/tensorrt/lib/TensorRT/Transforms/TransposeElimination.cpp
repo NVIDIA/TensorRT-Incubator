@@ -44,7 +44,10 @@ namespace tensorrt {
 using namespace mlir;
 using namespace mlir::tensorrt;
 
-static int64_t memoryCost(TensorType type) {
+static int64_t memoryCost(RankedTensorType type) {
+  // If the type is dynamic, then return max.
+  if (!type.hasStaticShape())
+    return std::numeric_limits<int64_t>::max();
   ArrayRef<int64_t> shape = type.getShape();
   return std::accumulate(shape.begin(), shape.end(), 1, std::multiplies<>());
 }
