@@ -35,8 +35,13 @@ namespace mlirtrt::runtime {
 // Debugging and logging tools
 //===----------------------------------------------------------------------===//
 
+/// Prints the given printf-style formatted data to stderr if the 'runtime'
+/// debug module is enabled. Has no effect in non-assert builds.
+/// Note that we prepend a space to assist with readability when the logs are
+/// prefixed by other text when wrapped by another runtime system (e.g.
+/// 'mpirun').
 #define MTRT_DBGF(fmt, ...)                                                    \
-  DEBUG_WITH_TYPE("runtime", fprintf(stderr, "%s:%d " fmt "\n", __FILE__,      \
+  DEBUG_WITH_TYPE("runtime", fprintf(stderr, " %s:%d " fmt "\n", __FILE__,     \
                                      __LINE__, __VA_ARGS__))
 
 template <typename... Args>
