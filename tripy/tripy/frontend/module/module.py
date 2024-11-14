@@ -97,6 +97,8 @@ class Module:
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Parameter) or name in dict(self.named_parameters()):
+            if not isinstance(value, Parameter):
+                value = Parameter(value)
             _check_param_compatible(getattr(self, name, None), value, name)
 
         super().__setattr__(name, value)
@@ -326,14 +328,13 @@ class Module:
         class_name = self.__class__.__name__
         module_str = f"{class_name}(\n"
 
-        # Add children with hierarchical indentation
-        for name, child in self.named_children():
-            c = indent(str(child), prefix="    ")
-            module_str += f"  {name}=\n{c},\n"
-
-        # Add parameters with hierarchical indentation
+        body_str = ""
         for name, param in self.named_parameters():
-            module_str += f" {name}={param.shape},\n"
+            body_str += f"{name}: Parameter = (shape={param.shape}, dtype={param.dtype}),\n"
 
+        for name, child in self.named_children():
+            body_str += f"{name}: Module = {str(child).strip()},\n"
+
+        module_str += indent(body_str, " " * 4)
         module_str += f")"
         return module_str

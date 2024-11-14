@@ -44,6 +44,12 @@ class TestModule:
         assert cp.from_dlpack(dict(network.named_parameters())["param"]).get().tolist() == [0.0, 1.0]
         assert "dummy1" not in dict(network.named_children())
 
+    def test_automatic_conversion_to_parameter_of_direct_attributes(self, network):
+        network.param = [0.0, 1.0]
+        assert isinstance(network.param, tp.Parameter)
+
+        assert "param" in dict(network.named_parameters())
+
     def test_incompatible_parameter_cannot_be_set(self, network):
         with helper.raises(
             tp.TripyException, match=r"New parameter shape: \[2, 3\] is not compatible with current shape: \[2\]"
@@ -130,25 +136,23 @@ class TestModule:
 
     def test_module_print(self, network):
         expected_output = dedent(
-            """\
+            """
             Network(
-              dummy1=
-                DummyOp(
-                  nested=
-                    DummyNestedOp(
-                     param=shape(2),
+                param: Parameter = (shape=[2], dtype=float32),
+                dummy1: Module = DummyOp(
+                    nested: Module = DummyNestedOp(
+                        param: Parameter = (shape=[2], dtype=float32),
                     ),
                 ),
-              dummy2=
-                DummyOp(
-                  nested=
-                    DummyNestedOp(
-                     param=shape(2),
+                dummy2: Module = DummyOp(
+                    nested: Module = DummyNestedOp(
+                        param: Parameter = (shape=[2], dtype=float32),
                     ),
                 ),
-             param=shape(2),
-            )"""
-        )
+            )
+            """
+        ).strip()
+        assert str(network) == expected_output
 
 
 class TestModuleWithList:

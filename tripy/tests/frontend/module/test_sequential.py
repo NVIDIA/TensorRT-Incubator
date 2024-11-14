@@ -81,20 +81,20 @@ class TestSequential:
 
     def test_str_representation(self, sequential_network):
         expected_str = dedent(
-            """\
+            """
             Sequential(
-              0=
-                Linear(
-                 weight=[3, 1],
-                 bias=[3],
+                0: Module = Linear(
+                    weight: Parameter = (shape=[3, 1], dtype=float32),
+                    bias: Parameter = (shape=[3], dtype=float32),
                 ),
-              1=
-                Linear(
-                 weight=[2, 3],
-                 bias=[2],
+                1: Module = Linear(
+                    weight: Parameter = (shape=[2, 3], dtype=float32),
+                    bias: Parameter = (shape=[2], dtype=float32),
                 ),
-            )"""
-        )
+            )
+            """
+        ).strip()
+
         assert str(sequential_network) == expected_str
 
 
@@ -130,20 +130,19 @@ class TestDictSequential:
 
     def test_str_representation(self, dict_sequential_network):
         expected_str = dedent(
-            """\
+            """
             Sequential(
-              layer1=
-                Linear(
-                 weight=[3, 1],
-                 bias=[3],
+                layer1: Module = Linear(
+                    weight: Parameter = (shape=[3, 1], dtype=float32),
+                    bias: Parameter = (shape=[3], dtype=float32),
                 ),
-              layer2=
-                Linear(
-                 weight=[2, 3],
-                 bias=[2],
+                layer2: Module = Linear(
+                    weight: Parameter = (shape=[2, 3], dtype=float32),
+                    bias: Parameter = (shape=[2], dtype=float32),
                 ),
-            )"""
-        )
+            )
+            """
+        ).strip()
         assert str(dict_sequential_network) == expected_str
 
 
@@ -177,26 +176,23 @@ class TestNestedSequential:
 
     def test_str_representation(self, nested_sequential_network):
         expected_str = dedent(
-            """\
+            """
             Sequential(
-              0=
-                Linear(
-                 weight=[4, 2],
-                 bias=[4],
+                0: Module = Linear(
+                    weight: Parameter = (shape=[4, 2], dtype=float32),
+                    bias: Parameter = (shape=[4], dtype=float32),
                 ),
-              1=
-                Sequential(
-                  0=
-                    Linear(
-                     weight=[3, 4],
-                     bias=[3],
+                1: Module = Sequential(
+                    0: Module = Linear(
+                        weight: Parameter = (shape=[3, 4], dtype=float32),
+                        bias: Parameter = (shape=[3], dtype=float32),
                     ),
-                  1=
-                    Linear(
-                     weight=[1, 3],
-                     bias=[1],
+                    1: Module = Linear(
+                        weight: Parameter = (shape=[1, 3], dtype=float32),
+                        bias: Parameter = (shape=[1], dtype=float32),
                     ),
                 ),
-            )"""
-        )
+            )
+            """
+        ).strip()
         assert str(nested_sequential_network) == expected_str
