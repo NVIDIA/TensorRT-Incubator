@@ -325,14 +325,20 @@ class TestMixedContainerNetwork:
 
     def test_named_children(self, mixed_container_network):
         children = list(mixed_container_network.named_children())
+
+        assert len(children) == 3
         for _, child in children:
             assert isinstance(child, tp.Module)
 
-    def test_forward_pass(self, mixed_container_network):
-        output = mixed_container_network()
-        assert output is not None  # Ensure output is produced
-
     def test_state_dict(self, mixed_container_network):
+        expected_keys = set(
+            ["param", "mixed_list.0.nested.param", "mixed_list.2.nested.param", "mixed_dict.dummy.nested.param"]
+        )
+
+        state_dict = mixed_container_network.state_dict()
+        assert set(state_dict.keys()) == expected_keys
+
+    def test_load_state_dict(self, mixed_container_network):
         tensor = tp.Parameter(tp.ones((2,)))
         state_dict = {
             "param": tensor,

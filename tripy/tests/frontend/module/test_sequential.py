@@ -42,6 +42,8 @@ def mixed_container_sequential_network():
     yield tp.Sequential(
         tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1, 1), stride=(1, 1)),
         lambda x: tp.avgpool(x, kernel_dims=(2, 2), stride=(1, 1)),
+        lambda x: tp.flatten(x, start_dim=1),
+        tp.Linear(2, 1),
     )
 
 
@@ -163,28 +165,32 @@ class TestDictSequential:
 
 class TestMixedContainerSequential:
     def test_basic_structure(self, mixed_container_sequential_network):
-        assert len(mixed_container_sequential_network) == 2
-        assert isinstance(mixed_container_sequential_network[0], tp.Conv)
+        assert len(mixed_container_sequential_network) == 4
+        assert isinstance(mixed_container_sequential_network[0], tp.Module)
         assert callable(mixed_container_sequential_network[1])
+        assert callable(mixed_container_sequential_network[2])
+        assert isinstance(mixed_container_sequential_network[3], tp.Module)
 
     def test_forward_pass(self, mixed_container_sequential_network):
         input_data = tp.Tensor(tp.ones((1, 2, 2, 2), dtype=tp.float32))
         output = mixed_container_sequential_network(input_data)
-        assert output.shape == [1, 2, 1, 1]
+        assert output.shape == [1, 1]
 
     def test_named_children(self, mixed_container_sequential_network):
-        expected_names = [("0", mixed_container_sequential_network[0])]
+        expected_names = [("0", mixed_container_sequential_network[0]), ("3", mixed_container_sequential_network[3])]
         assert list(mixed_container_sequential_network.named_children()) == expected_names
 
     def test_state_dict(self, mixed_container_sequential_network):
         state_dict = mixed_container_sequential_network.state_dict()
-        expected_keys = ["0.bias", "0.weight"]
-        assert list(state_dict.keys()) == expected_keys
+        expected_keys = set(["0.bias", "0.weight", "3.weight", "3.bias"])
+        assert set(state_dict.keys()) == expected_keys
 
     def test_load_state_dict(self, mixed_container_sequential_network):
         new_state_dict = {
             "0.weight": tp.Parameter(tp.ones((2, 2, 1, 1), dtype=tp.float32)),
             "0.bias": tp.Parameter(tp.zeros((2,), dtype=tp.float32)),
+            "3.weight": tp.Parameter(tp.zeros((1, 2), dtype=tp.float32)),
+            "3.bias": tp.Parameter(tp.zeros((1,), dtype=tp.float32)),
         }
         mixed_container_sequential_network.load_state_dict(new_state_dict, strict=False)
 
@@ -194,9 +200,14 @@ class TestMixedContainerSequential:
         assert np.array_equal(
             cp.from_dlpack(mixed_container_sequential_network[0].bias), cp.from_dlpack(new_state_dict["0.bias"])
         )
+        assert np.array_equal(
+            cp.from_dlpack(mixed_container_sequential_network[3].weight), cp.from_dlpack(new_state_dict["3.weight"])
+        )
+        assert np.array_equal(
+            cp.from_dlpack(mixed_container_sequential_network[3].bias), cp.from_dlpack(new_state_dict["3.bias"])
+        )
 
     def test_str_representation(self, mixed_container_sequential_network):
-        # Check if the string representation includes both Conv and lambda avgpool
         expected_str = dedent(
             """\
             Sequential(
@@ -205,9 +216,13 @@ class TestMixedContainerSequential:
                  bias=[2],
                  weight=[2, 2, 1, 1],
                 ),
+              3=
+                Linear(
+                 weight=[1, 2],
+                 bias=[1],
+                ),
             )"""
         )
-        print(str(mixed_container_sequential_network))
         assert str(mixed_container_sequential_network) == expected_str
 
 

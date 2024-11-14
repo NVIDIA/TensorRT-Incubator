@@ -56,7 +56,7 @@ class Module:
 
     Child modules, :class:`tripy.Parameter` s, or other callables/lambda functions may be contained
     in Python ``list``\ s or ``dict``\ s.
-    
+
     If using ``dict``\ s, the keys must be strings.
     Nested data structures (for example, ``list``\s of ``list``\s) are not supported.
     Taking child modules as an example, this is allowed:
@@ -72,9 +72,8 @@ class Module:
     This is another valid example with a wrapped :class:`tripy.avgpool` lambda function
     ::
 
-        self.conv = tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1))
         self.dict_modules = {
-            "convolution": self.conv,
+            "convolution": tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1)),
             "pool": lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
         }
 
