@@ -17,7 +17,6 @@ import os
 import tempfile
 from typing import Sequence
 
-import cupy as cp
 import pytest
 from tests import helper
 from tests.backend.api.conftest import *
@@ -117,4 +116,4 @@ class TestExecutable:
             inp = tp.iota((2, 2), dtype=tp.float32)
             out1 = single_return_executable(inp, inp)
             out2 = loaded_executable(inp, inp)
-            assert cp.array_equal(cp.from_dlpack(out1), cp.from_dlpack(out2))
+            assert tp.equal(out1, out2)

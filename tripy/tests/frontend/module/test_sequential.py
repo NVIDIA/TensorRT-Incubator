@@ -47,10 +47,6 @@ class TestSequential:
         assert len(sequential_network) == 2
 
         assert isinstance(sequential_network[0], tp.Linear)
-        assert np.array_equal(
-            cp.from_dlpack(sequential_network[0].weight), cp.from_dlpack(sequential_network[0].weight)
-        )
-        assert np.array_equal(cp.from_dlpack(sequential_network[0].bias), cp.from_dlpack(sequential_network[0].bias))
 
     def test_named_children(self, sequential_network):
         expected_names = [("0", sequential_network[0]), ("1", sequential_network[1])]
@@ -72,7 +68,7 @@ class TestSequential:
     def test_load_state_dict(self, sequential_network):
         new_state_dict = {"0.weight": tp.Parameter(tp.ones((3, 1)))}
         sequential_network.load_state_dict(new_state_dict, strict=False)
-        assert np.array_equal(cp.from_dlpack(sequential_network[0].weight), cp.from_dlpack(new_state_dict["0.weight"]))
+        assert tp.equal(sequential_network[0].weight, new_state_dict["0.weight"])
 
     def test_modify_parameters(self, sequential_network):
         new_param = tp.Parameter(tp.ones((2, 3)))
@@ -125,9 +121,7 @@ class TestDictSequential:
     def test_load_state_dict(self, dict_sequential_network):
         new_state_dict = {"layer1.weight": tp.Parameter(tp.ones((3, 1)))}
         dict_sequential_network.load_state_dict(new_state_dict, strict=False)
-        assert np.array_equal(
-            cp.from_dlpack(dict_sequential_network["layer1"].weight), cp.from_dlpack(new_state_dict["layer1.weight"])
-        )
+        assert tp.equal(dict_sequential_network["layer1"].weight, new_state_dict["layer1.weight"])
 
     def test_modify_parameters(self, dict_sequential_network):
         new_weight = tp.Parameter(tp.ones((2, 3)))
@@ -179,9 +173,7 @@ class TestNestedSequential:
             "1.1.weight": tp.Parameter(tp.ones((1, 3))),
         }
         nested_sequential_network.load_state_dict(new_state_dict, strict=False)
-        assert np.array_equal(
-            cp.from_dlpack(nested_sequential_network[1][1].weight), cp.from_dlpack(new_state_dict["1.1.weight"])
-        )
+        assert tp.equal(nested_sequential_network[1][1].weight, new_state_dict["1.1.weight"])
 
     def test_str_representation(self, nested_sequential_network):
         expected_str = dedent(
