@@ -40,12 +40,12 @@ class TestFlip:
         cp_a = cp.arange(16).reshape((4, 4)).astype(cp.float32)
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
         f = tp.flip(a, dims=[])
-        assert cp.array_equal(cp.from_dlpack(a), cp.from_dlpack(f))
+        assert tp.equal(a, f)
 
     def test_zero_rank(self):
         t = tp.Tensor(1)
         f = tp.flip(t)
-        assert cp.array_equal(cp.from_dlpack(t), cp.from_dlpack(f))
+        assert tp.equal(t, f)
 
     @pytest.mark.parametrize(
         "dims1, dims2",
@@ -56,4 +56,4 @@ class TestFlip:
         a = tp.Tensor(cp_a, device=tp.device("gpu"))
         f1 = tp.flip(a, dims=dims1)
         f2 = tp.flip(a, dims=dims2)
-        assert cp.array_equal(cp.from_dlpack(f1), cp.from_dlpack(f2))
+        assert tp.equal(f1, f2)
