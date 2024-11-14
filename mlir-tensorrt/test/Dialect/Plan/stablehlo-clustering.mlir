@@ -1,163 +1,133 @@
 // RUN: mlir-tensorrt-opt -split-input-file \
-// RUN:  -plan-segmentation-pipeline -cse -verify-diagnostics %s | FileCheck %s
+// RUN:  -stablehlo-clustering %s | FileCheck %s
 
-builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
-    #plan.host_cluster<benefit = 0>
-  ]
-} {
-  func.func @chlo_erf_to_trt_cluster(%arg0: tensor<1x197x3072xf32>) -> tensor<1x197x3072xf32> {
-    %0 = chlo.erf %arg0 : tensor<1x197x3072xf32> -> tensor<1x197x3072xf32>
-    return %0 : tensor<1x197x3072xf32>
-  }
+// Check that we can recognize `stablehlo.dynamic_gather` using `plan.with_shape|plan.with_values` to prove required shape/value equivalence
+// propositions.
+
+func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>, %arg2: tensor<4xi32>) -> tensor<?x?x256x256xi32> {
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %c256 = arith.constant 256 : i32
+  %dim.0 = tensor.dim %arg0, %c0 : tensor<?x?x256x256xi32>
+  %dim = tensor.dim %arg0, %c1 : tensor<?x?x256x256xi32>
+  %dim.1 = arith.index_cast %dim : index to i32
+  %c1_i32 = arith.constant 1 : i32
+  %data = plan.with_shape %arg0(%dim.0, %dim.1, %c256, %c256) : (tensor<?x?x256x256xi32>, index, i32, i32, i32) -> tensor<?x?x256x256xi32>
+  %slice_sizes = plan.with_values %arg2(%c1_i32, %dim.1, %c256, %c256) : tensor<4xi32>
+  %0 = "stablehlo.dynamic_gather"(%data, %arg1, %slice_sizes) {
+    dimension_numbers = #stablehlo.gather<
+      offset_dims = [1, 2, 3],
+      collapsed_slice_dims = [0],
+      start_index_map = [0],
+      index_vector_dim = 1>,
+    indices_are_sorted = false, slice_sizes = array<i64: 1>
+  } : (tensor<?x?x256x256xi32>, tensor<?xi32>, tensor<4xi32>) -> tensor<?x?x256x256xi32>
+  return %0 : tensor<?x?x256x256xi32>
 }
 
-//       CHECK: #[[$profile:.+]] = #tensorrt.shape_profile<min = [1, 197, 3072], opt = [1, 197, 3072], max = [1, 197, 3072]>
-// CHECK-LABEL: @chlo_erf_to_trt_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x197x3072xf32>)
-//       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<1x197x3072xf32>
-//       CHECK:     %[[v1:.+]] = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg0]] : tensor<1x197x3072xf32>) outs(%[[v0]] : tensor<1x197x3072xf32>) -> tensor<1x197x3072xf32>
-//       CHECK:     return %[[v1]] : tensor<1x197x3072xf32>
-
-//       CHECK: tensorrt.module @trt_engines
-// CHECK-LABEL: func.func @tensorrt_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x197x3072xf32>) -> (tensor<1x197x3072xf32> {tensorrt.shape_profile = #[[$profile]]}) attributes {cluster.tensorrt}
-//       CHECK:       %[[v0:.+]] = chlo.erf %[[arg0]]
-//       CHECK:       return %[[v0]]
+// CHECK-LABEL: func.func @simple_gather_dynamic(
+//       CHECK:     %[[v1:.+]] = plan.inline_group target(#plan.tensorrt_cluster<
+//  CHECK-NEXT:       with_shape
+//  CHECK-NEXT:       with_values
+//  CHECK-NEXT:       stablehlo.dynamic_gather
+//  CHECK-NEXT:       yield
 
 // -----
 
-builtin.module attributes {
+// Test that interleaved `plan.with_values` and `arith` dialect operations don't disrupt
+// the clustering of stablehlo ops that can be put into host clusters.
+
+builtin.module @host_clusters_with_values attributes {
   plan.cluster_kinds = [
     #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
     #plan.host_cluster<benefit = 0>
   ]
 } {
 
-func.func @reduce(%arg0: tensor<4xi32>, %arg1: tensor<i32>) -> (tensor<i32>, tensor<i1>) {
-  %0 = stablehlo.constant dense<0.000000e+00> : tensor<f32>
-  %1 = stablehlo.constant dense<1.000000e+00> : tensor<f32>
-  %2 = stablehlo.constant dense<0> : tensor<i32>
-  %3 = stablehlo.compare EQ, %2, %arg1 : (tensor<i32>, tensor<i32>) -> tensor<i1>
-  %4 = stablehlo.reduce(%arg0 init: %2) across dimensions = [0] : (tensor<4xi32>, tensor<i32>) -> tensor<i32>
-    reducer(%arg6: tensor<i32>, %arg7: tensor<i32>)  {
-    %27 = stablehlo.add %arg6, %arg7 : tensor<i32>
-    stablehlo.return %27 : tensor<i32>
-  }
-
-  return %4, %3 : tensor<i32>, tensor<i1>
-}
-
-}
-
-//       CHECK: #[[$profile:.+]] = #tensorrt.shape_profile<min = [], opt = [], max = []>
-// CHECK-LABEL: func.func @reduce
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>) -> (tensor<i32>, tensor<i1>) {
-//       CHECK:     %[[v0:.+]] = tensor.empty() : tensor<i1>
-//       CHECK:     %[[v1:.+]] = tensor.empty() : tensor<i32>
-//       CHECK:     %[[v2:.+]]:2 = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg1]], %[[arg0]] : tensor<i32>, tensor<4xi32>) outs(%[[v0]], %[[v1]] :
-//       CHECK:     return %[[v2]]#1, %[[v2]]#0 :
-//       CHECK: tensorrt.module @trt_engines
-// CHECK-LABEL: func.func @tensorrt_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<i32>, %[[arg1:.+]]: tensor<4xi32>) -> (tensor<i1> {tensorrt.shape_profile = #[[$profile]]}, tensor<i32> {tensorrt.shape_profile = #[[$profile]]}) attributes {cluster.tensorrt}
-//       CHECK:       stablehlo.constant
-//       CHECK:       stablehlo.compare
-//       CHECK:       stablehlo.reduce
-//       CHECK:       return
-
-// -----
-builtin.module attributes {
-  plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
-    #plan.host_cluster<benefit = 0>
-  ]
-} {
-
-func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
+func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
     -> (tensor<i32> {tensorrt.host_tensor}, tensor<i1> {tensorrt.host_tensor}) {
   %0 = stablehlo.constant dense<0.000000e+00> : tensor<f32>
   %1 = stablehlo.constant dense<1.000000e+00> : tensor<f32>
   %2 = stablehlo.constant dense<0> : tensor<i32>
+
+  %c0_i32 = arith.constant 0 : i32
   %3 = stablehlo.compare EQ, %2, %arg1 : (tensor<i32>, tensor<i32>) -> tensor<i1>
+  %extract = tensor.extract %arg1[] : tensor<i32>
+  %cmp = arith.cmpi eq, %c0_i32, %extract : i32
+  %with_values = plan.with_values %3(%cmp) : tensor<i1>
+
   %4 = stablehlo.reduce(%arg0 init: %2) across dimensions = [0] : (tensor<4xi32>, tensor<i32>) -> tensor<i32>
     reducer(%arg6: tensor<i32>, %arg7: tensor<i32>)  {
     %27 = stablehlo.add %arg6, %arg7 : tensor<i32>
     stablehlo.return %27 : tensor<i32>
   }
-  return %4, %3 : tensor<i32>, tensor<i1>
+  return %4, %with_values : tensor<i32>, tensor<i1>
 }
 
 }
 
-
-// CHECK-LABEL: func.func @small_reduce_host
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>) -> (tensor<i32> {tensorrt.host_tensor}, tensor<i1> {tensorrt.host_tensor})
-
-//   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
-//   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
-//   CHECK-DAG:     %[[c2:.+]] = arith.constant 2 : index
-//   CHECK-DAG:     %[[c3:.+]] = arith.constant 3 : index
+// CHECK-LABEL: module @host_clusters_with_values attributes
+// CHECK-LABEL: func.func @test
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>)
+//   CHECK-DAG:     %[[cst:.+]] = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+//   CHECK-DAG:     %[[cst_0:.+]] = stablehlo.constant dense<1.000000e+00> : tensor<f32>
+//   CHECK-DAG:     %[[c:.+]] = stablehlo.constant dense<0> : tensor<i32>
+//   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
+//   CHECK-DAG:     %[[c_1:.+]] = stablehlo.constant dense<0> : tensor<i32>
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg1]][] : tensor<i32>
-//   CHECK-DAG:     %[[extracted_0:.+]] = tensor.extract %[[arg0]][%[[c0]]] : tensor<4xi32>
-//   CHECK-DAG:     %[[extracted_1:.+]] = tensor.extract %[[arg0]][%[[c1]]] : tensor<4xi32>
-//   CHECK-DAG:     %[[extracted_2:.+]] = tensor.extract %[[arg0]][%[[c2]]] : tensor<4xi32>
-//   CHECK-DAG:     %[[extracted_3:.+]] = tensor.extract %[[arg0]][%[[c3]]] : tensor<4xi32>
-//       CHECK:     %[[v0:.+]]:2 = call @host_cluster(%[[extracted]], %[[extracted_0]], %[[extracted_1]], %[[extracted_2]], %[[extracted_3]]) :
-//       CHECK:     %[[from_elements:.+]] = tensor.from_elements %[[v0]]#0 : tensor<i1>
-//       CHECK:     %[[from_elements_4:.+]] = tensor.from_elements %[[v0]]#1 : tensor<i32>
-//       CHECK:     return %[[from_elements_4]], %[[from_elements]] : tensor<i32>, tensor<i1>
-// CHECK-LABEL: private @host_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: i32, %[[arg1:.+]]: i32, %[[arg2:.+]]: i32, %[[arg3:.+]]: i32, %[[arg4:.+]]: i32) -> (i1, i32) attributes {cluster.host}
-//   CHECK-DAG:     %[[v0:.+]] = stablehlo.constant dense<0> : tensor<i32>
-//   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[arg0]] : tensor<i32>
-//   CHECK-DAG:     %[[from_elements_0:.+]] = tensor.from_elements %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]] : tensor<4xi32>
-//       CHECK:     %[[v1:.+]] = stablehlo.compare  EQ, %[[v0]]
-//       CHECK:     %[[v2:.+]] = stablehlo.reduce(%[[from_elements_0]] init: %[[v0]]) applies stablehlo.add across dimensions = [0] :
-//       CHECK:     %[[extracted:.+]] = tensor.extract %[[v1]][]
-//       CHECK:     %[[extracted_1:.+]] = tensor.extract %[[v2]][]
-//       CHECK:     return %[[extracted]], %[[extracted_1]]
+//   CHECK-DAG:     %[[v0:.+]] = arith.cmpi eq, %[[c0_i32]], %[[extracted]] : i32
+//   CHECK-DAG:     %[[v1:.+]]:2 = plan.inline_group target(#plan.host_cluster<benefit = 0>)
+//   CHECK-DAG:       %[[v2:.+]] = stablehlo.compare  EQ, %[[c_1]], %[[arg1]] :
+//   CHECK-DAG:       %[[v3:.+]] = with_values %[[v2]](%[[v0]]) : tensor<i1>
+//   CHECK-DAG:       %[[v4:.+]] = stablehlo.reduce(%[[arg0]] init: %[[c]])
+//   CHECK-DAG:       yield %[[v3]], %[[v4]] : tensor<i1>, tensor<i32>
+//   CHECK-DAG:     return %[[v1]]#1, %[[v1]]#0 : tensor<i32>, tensor<i1>
 
 // -----
 
-// Quantize f32 -> int8
-func.func @main(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> {
-  %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
-  return %0 : tensor<2x3x300x300xi8>
+// Ensure that we don't create clusters containing 'plan.with_values' or
+// 'plan.with_shape' operations. This can cause some un-intended side-effects
+// if the compiler introduces extra ops to outline these clusters (e.g. scalar
+// host clusters create extra `tensor.extract` and `tensor.from_elements` at
+// the boundaries). These extra ops can block optimizations and
+// reduce performance.
+
+builtin.module attributes {
+  plan.cluster_kinds = [
+    #plan.host_cluster<benefit = 0>
+  ]
+} {
+
+func.func @host_cluster_filtering(%arg0: tensor<i32>, %arg1: i32)
+    -> (tensor<i32> {tensorrt.host_tensor}, tensor<i32> {tensorrt.host_tensora}) {
+  %0 = plan.with_values %arg0 (%arg1) : tensor<i32>
+  %1 = stablehlo.constant dense<1> : tensor<i32>
+  %c1_i32 = arith.constant 1 : i32
+  %2 = plan.with_values %1(%c1_i32) : tensor<i32>
+  return %0, %2 : tensor<i32>, tensor<i32>
 }
-func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> attributes {plan.decomposition} {
-  %cst = stablehlo.constant dense<-1.280000e+02> : tensor<f32>
-  %cst_0 = stablehlo.constant dense<1.270000e+02> : tensor<f32>
-  %cst_1 = stablehlo.constant dense<8.000000e-01> : tensor<f32>
-  %0 = stablehlo.broadcast_in_dim %cst_1, dims = [] : (tensor<f32>) -> tensor<2x3x300x300xf32>
-  %1 = stablehlo.divide %arg0, %0 : tensor<2x3x300x300xf32>
-  %2 = stablehlo.round_nearest_even %1 : tensor<2x3x300x300xf32>
-  %3 = stablehlo.clamp %cst, %2, %cst_0 : (tensor<f32>, tensor<2x3x300x300xf32>, tensor<f32>) -> tensor<2x3x300x300xf32>
-  %4 = stablehlo.convert %3 : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
-  return %4 : tensor<2x3x300x300xi8>
+
 }
 
-// CHECK-LABEL: func.func @main
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
-//  CHECK-NEXT: %[[v0:.+]] = tensor.empty() : tensor<2x3x300x300xi8>
-//  CHECK-NEXT: %[[v1:.+]] = tensorrt.call @trt_engines::@tensorrt_cluster(%[[arg0]] : tensor<2x3x300x300xf32>) outs(%[[v0]] : tensor<2x3x300x300xi8>) -> tensor<2x3x300x300xi8>
-//  CHECK-NEXT: return %[[v1]] : tensor<2x3x300x300xi8>
+// CHECK-LABEL: func.func @host_cluster_filtering
+//   CHECK-NOT:  plan.inline_group
 
-// CHECK-LABEL: tensorrt.module @trt_engines
-// CHECK-LABEL: func.func @tensorrt_cluster
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x3x300x300xf32>
-//  CHECK-NEXT: %[[v0:.+]] = stablehlo.composite "tensorrt.pt_q" %[[arg0]] {composite_attributes = {axis = -1 : i32, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
-//  CHECK-NEXT: return %[[v0]] : tensor<2x3x300x300xi8>
+// -----
 
-// CHECK-LABEL: func.func private @pt_q
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<2x3x300x300xf32>)
-//  CHECK-SAME: attributes {plan.decomposition}
-//  CHECK-NEXT: %[[v0:.+]] = stablehlo.constant dense<-1.280000e+02> : tensor<f32>
-//  CHECK-NEXT: %[[v1:.+]] = stablehlo.constant dense<1.270000e+02> : tensor<f32>
-//  CHECK-NEXT: %[[v2:.+]] = stablehlo.constant dense<8.000000e-01> : tensor<f32>
-//  CHECK-NEXT: %[[v3:.+]] = stablehlo.broadcast_in_dim %[[v2]], dims = [] : (tensor<f32>) -> tensor<2x3x300x300xf32>
-//  CHECK-NEXT: %[[v4:.+]] = stablehlo.divide %[[arg0]], %[[v3]] : tensor<2x3x300x300xf32>
-//  CHECK-NEXT: %[[v5:.+]] = stablehlo.round_nearest_even %[[v4]] : tensor<2x3x300x300xf32>
-//  CHECK-NEXT: %[[v6:.+]] = stablehlo.clamp %[[v0]], %[[v5]], %[[v1]]
-//  CHECK-NEXT: %[[v7:.+]] = stablehlo.convert %[[v6]]
-//  CHECK-NEXT: return %[[v7]] : tensor<2x3x300x300xi8>
+builtin.module attributes {
+  plan.cluster_kinds = [
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false>
+  ]
+} {
+
+func.func @tensorrt_cluster_filtering(%arg0: tensor<?xf32>, %arg1: i32, %arg2: tensor<i32>)
+    -> (tensor<?xf32>, tensor<i32> {tensorrt.host_tensor}) {
+  %0 = plan.with_shape %arg0 (%arg1) : (tensor<?xf32>, i32) -> tensor<?xf32>
+  %1 = plan.with_values %arg2 (%arg1) : tensor<i32>
+  return %0, %1 : tensor<?xf32>, tensor<i32>
+}
+
+}
+
+// CHECK-LABEL: func.func @tensorrt_cluster_filtering
+//   CHECK-NOT:  plan.inline_group

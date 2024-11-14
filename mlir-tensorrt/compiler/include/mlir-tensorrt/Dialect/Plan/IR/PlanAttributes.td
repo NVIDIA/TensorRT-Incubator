@@ -24,7 +24,8 @@ def Plan_HostClusterKindAttr : Plan_Attr<"HostClusterKind", "host_cluster",
 }
 
 
-def Plan_BoundsAttr : Plan_Attr<"Bounds", "bounds">{
+def Plan_BoundsAttr : Plan_Attr<"Bounds", "bounds", [
+    DeclareAttrInterfaceMethods<TensorBoundsAttrInterface>]>{
   let parameters = (ins
       EnumParameter<Plan_BoundsKind>:$kind,
       OptionalParameter<"DenseI64ArrayAttr">:$min_shape,
@@ -46,17 +47,17 @@ def Plan_BoundsAttr : Plan_Attr<"Bounds", "bounds">{
 
   let extraClassDeclaration = [{
     /// Returns true if this bounds is for shape dimension extents.
-    bool isShapeBound() {
+    bool isShapeBound() const {
       return getKind() == BoundsKind::Shape;
     }
 
     /// Returns true if this bounds is a 'none' bounds kind.
-    bool isNone() {
+    bool isNone() const {
       return getKind() == BoundsKind::None;
     }
 
     /// Returns true if this bounds is for values of a tensor.
-    bool isValueBound() {
+    bool isValueBound() const {
       return getKind() == BoundsKind::Value;
     }
 

@@ -58,6 +58,8 @@ def Executor_Dialect : Dialect {
   let useDefaultTypePrinterParser = 1;
   let useDefaultAttributePrinterParser = 1;
 
+  let hasRegionArgAttrVerify = 1;
+
   let extraClassDeclaration = [{
     Operation *materializeConstant(::mlir::OpBuilder &builder,
                                    ::mlir::Attribute value,
@@ -85,13 +87,13 @@ def Executor_Dialect : Dialect {
     /// Return the name of the function arg attr that encodes
     /// host tensor value bounds. It should have a type `executor::ValueBoundsAttr`.
     static StringRef getValueBoundsAttrName() {
-      return "tensorrt.value_bounds";
+      return "executor.value_bounds";
     }
 
     /// Return the name of the function arg attr that encodes
     /// the shape bounds. It should have a type `executor::DimensionBoundsAttr`.
     static StringRef getShapeBoundsAttrName() {
-      return "tensorrt.shape_profile";
+      return "executor.shape_profile";
     }
   }];
   // Temporary until CUDA ops are completely removed out of Executor dialect

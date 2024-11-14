@@ -25,6 +25,7 @@
 #define MLIR_TENSORRT_CONVERSION_HLOTOTENSORRT_HLOTOTENSORRT_H
 
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
+#include "mlir-tensorrt/Dialect/StableHloExt/Utils/GatherScatterUtils.h"
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
@@ -33,7 +34,8 @@ class ConversionTarget;
 // Collection of rewrite patterns for lowering of Stable HLO to TensorRT
 // dialect.
 void populateStablehloToTensorRtConversionPattern(
-    TensorRTTypeConverter &typeConverter, RewritePatternSet &patterns);
+    TensorRTTypeConverter &typeConverter, RewritePatternSet &patterns,
+    ShapeInfoCallbacks shapeInfoCallbacks = {});
 
 /// Populate patterns for convert Chlo ops to TensorRT ops.
 void populateChloToTensorRtLegalityAndPatterns(

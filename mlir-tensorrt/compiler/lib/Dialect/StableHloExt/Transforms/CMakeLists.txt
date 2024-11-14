@@ -1,4 +1,5 @@
 add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
+    CanonicalizeConvolution.cpp
     CanonicalizeDotGeneral.cpp
     CanonicalizeGather.cpp
     CanonicalizeScatter.cpp
@@ -7,9 +8,6 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtTransforms
     ExpandTuples.cpp
     GatherToSlice.cpp
     LowerSpecialCustomCalls.cpp
-    StablehloInputPreprocessing.cpp
-    StablehloPrepareConvolution.cpp
-    StablehloPrepareScatter.cpp
     StablehloRaiseQDQ.cpp
 
     LINK_LIBS PUBLIC

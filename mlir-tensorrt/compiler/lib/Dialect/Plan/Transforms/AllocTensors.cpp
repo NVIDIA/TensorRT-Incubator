@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
 #include "mlir-tensorrt-dialect/Interface/TensorKindOpInterface.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir/Analysis/DataFlow/ConstantPropagationAnalysis.h"
 #include "mlir/Analysis/DataFlow/DeadCodeAnalysis.h"
@@ -521,13 +522,14 @@ updateFunctionWithNewDpsArg(func::FuncOp func, Location loc, Type argType,
                       UnitAttr::get(ctx))});
   func.insertArgument(func.getNumArguments(), argType, argAttrs, loc);
 
-  if (auto boundsAttr =
-          func.getResultAttr(tiedResult, "tensorrt.shape_profile"))
-    func.setArgAttr(func.getNumArguments() - 1, "tensorrt.shape_profile",
-                    boundsAttr);
-  if (auto boundsAttr = func.getResultAttr(tiedResult, "tensorrt.value_bounds"))
-    func.setArgAttr(func.getNumArguments() - 1, "tensorrt.value_bounds",
-                    boundsAttr);
+  if (auto boundsAttr = func.getResultAttr(
+          tiedResult, plan::PlanDialect::getShapeBoundsAttrName()))
+    func.setArgAttr(func.getNumArguments() - 1,
+                    plan::PlanDialect::getShapeBoundsAttrName(), boundsAttr);
+  if (auto boundsAttr = func.getResultAttr(
+          tiedResult, plan::PlanDialect::getValueBoundsAttrName()))
+    func.setArgAttr(func.getNumArguments() - 1,
+                    plan::PlanDialect::getValueBoundsAttrName(), boundsAttr);
 
   return func.getArguments().back();
 }
