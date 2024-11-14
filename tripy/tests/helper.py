@@ -573,7 +573,8 @@ def process_code_block_for_outputs_and_locals(
 
             locals_str += f"\n>>> {name}"
             if isinstance(obj, tp.Module):
-                locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
+                locals_str += f"\n{obj}"
+                locals_str += f"\n>>> {name}.state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
             elif isinstance(obj, dict):
                 locals_str += f"\n{pretty_str_from_dict(obj)}"
             else:
