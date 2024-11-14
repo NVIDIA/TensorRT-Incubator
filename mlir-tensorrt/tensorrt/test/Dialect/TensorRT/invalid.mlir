@@ -857,6 +857,27 @@ func.func @trt_select(%arg0: tensor<10x10xi1>, %arg1: tensor<1x10xf32>, %arg2: t
 
 // -----
 
+func.func @valid_select_ds_infer(%arg0: tensor<?x?xi1>, %arg1: tensor<?x?xf16>, %arg2: tensor<1x1xf16>) -> tensor<?x?xf16> {
+  %0 = tensorrt.select ins(%arg0, %arg1, %arg2 : tensor<?x?xi1>, tensor<?x?xf16>, tensor<1x1xf16>) -> tensor<?x?xf16>
+  return %0 : tensor<?x?xf16>
+}
+
+// -----
+
+func.func @valid_select_ds_infer2(%arg0: tensor<1x?xi1>, %arg1: tensor<1x?xf16>, %arg2: tensor<1x1xf16>) -> tensor<?x?xf16> {
+  %0 = tensorrt.select ins(%arg0, %arg1, %arg2 : tensor<1x?xi1>, tensor<1x?xf16>, tensor<1x1xf16>) -> tensor<?x?xf16>
+  return %0 : tensor<?x?xf16>
+}
+
+// -----
+
+func.func @valid_select_ds_infer3(%arg0: tensor<1x?xi1>, %arg1: tensor<1x?xf16>, %arg2: tensor<1x1xf16>) -> tensor<1x1xf16> {
+  %0 = tensorrt.select ins(%arg0, %arg1, %arg2 : tensor<1x?xi1>, tensor<1x?xf16>, tensor<1x1xf16>) -> tensor<1x1xf16>
+  return %0 : tensor<1x1xf16>
+}
+
+// -----
+
 func.func @trt_softmax(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // expected-error @below {{'tensorrt.softmax' op expected axis to be non-negative and less than 2}}
   %0 = tensorrt.softmax {axis = 2 : i64} %arg0 : tensor<10x10xf32>
