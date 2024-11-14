@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731547739406,
+  "lastUpdate": 1731617922120,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -4556,6 +4556,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007385868477382335",
             "extra": "mean: 148.19093826783657 usec\nrounds: 7360"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "e2b04cdebe6f68100ace8d81de6b0cae9f291871",
+          "message": "Adds tp.equal, improves Module prints, fixes nanoGPT",
+          "timestamp": "2024-11-14T20:29:06Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/375/commits/e2b04cdebe6f68100ace8d81de6b0cae9f291871"
+        },
+        "date": 1731617921205,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6115.588459741236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003190602280210883",
+            "extra": "mean: 163.51656207460243 usec\nrounds: 6472"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6737.0871760918135,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007026944877795406",
+            "extra": "mean: 148.43210038141447 usec\nrounds: 7315"
           }
         ]
       }
