@@ -22,6 +22,7 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Analysis/TensorKindAnalysis.h"
+#include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Patterns.h"
@@ -45,6 +46,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "stablehlo/conversions/linalg/transforms/MapStablehloToScalarOp.h"
 #include "stablehlo/dialect/StablehloOps.h"
+#include "stablehlo/transforms/Passes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
@@ -731,6 +733,78 @@ static void addCanonicalizationPatterns(RewritePatternSet &patterns) {
   (Ops::getCanonicalizationPatterns(patterns, patterns.getContext()), ...);
 }
 
+/// Convert 'tensorrt' dialect arg/result bounds attribute into 'plan' bounds
+/// attribute.
+static Attribute convertArgOrResultAttr(OpBuilder &b, Type type,
+                                        tensorrt::ShapeProfileAttr trtAttr,
+                                        bool isValueBounds) {
+  MLIRContext *ctx = b.getContext();
+  if (isValueBounds) {
+    Type elementType = mlir::getElementTypeOrSelf(type);
+    assert(elementType.isIntOrIndex() && "expected int or index element type");
+    SmallVector<int64_t> boundsShape;
+    if (auto shapedType = dyn_cast<ShapedType>(type))
+      boundsShape = llvm::to_vector(shapedType.getShape());
+    auto boundsValueType = RankedTensorType::get(boundsShape, elementType);
+    auto convertI64ArrayToDenseElements = [&](ArrayRef<int64_t> i64Vals) {
+      return DenseElementsAttr::get(
+          boundsValueType,
+          llvm::map_to_vector(i64Vals, [&](int64_t i64Val) -> Attribute {
+            return b.getIntegerAttr(elementType, i64Val);
+          }));
+    };
+    return plan::BoundsAttr::get(
+        ctx, BoundsKind::Value, DenseI64ArrayAttr{}, DenseI64ArrayAttr{},
+        convertI64ArrayToDenseElements(trtAttr.getMin()),
+        convertI64ArrayToDenseElements(trtAttr.getMax()));
+  }
+  return plan::BoundsAttr::get(ctx, plan::BoundsKind::Shape, trtAttr.getMin(),
+                               trtAttr.getMax());
+}
+
+static void convertArgAndResultAttrs(OpBuilder &b, func::FuncOp op) {
+  StringRef tensorrtShapeBoundsAttrName =
+      mlir::tensorrt::TensorRTDialect::getShapeProfileArgAttrName();
+  StringRef tensorrtValueBoundsAttrName =
+      mlir::tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName();
+
+  StringRef planShapeBoundsAttrName =
+      mlir::plan::PlanDialect::getShapeBoundsAttrName();
+  StringRef planValueBoundsAttrName =
+      mlir::plan::PlanDialect::getValueBoundsAttrName();
+
+  for (unsigned idx = 0; idx < op.getNumArguments(); idx++) {
+    Type type = op.getArgumentTypes()[idx];
+    if (auto attr = op.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+            idx, tensorrtShapeBoundsAttrName)) {
+      op.removeArgAttr(idx, tensorrtShapeBoundsAttrName);
+      op.setArgAttr(idx, planShapeBoundsAttrName,
+                    convertArgOrResultAttr(b, type, attr, false));
+    }
+    if (auto attr = op.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
+            idx, tensorrtValueBoundsAttrName)) {
+      op.removeArgAttr(idx, tensorrtValueBoundsAttrName);
+      op.setArgAttr(idx, planValueBoundsAttrName,
+                    convertArgOrResultAttr(b, type, attr, true));
+    }
+  }
+  for (unsigned idx = 0; idx < op.getNumResults(); idx++) {
+    Type type = op.getResultTypes()[idx];
+    if (auto attr = op.getResultAttrOfType<tensorrt::ShapeProfileAttr>(
+            idx, tensorrtShapeBoundsAttrName)) {
+      op.removeArgAttr(idx, tensorrtShapeBoundsAttrName);
+      op.setResultAttr(idx, planShapeBoundsAttrName,
+                       convertArgOrResultAttr(b, type, attr, false));
+    }
+    if (auto attr = op.getResultAttrOfType<tensorrt::ShapeProfileAttr>(
+            idx, tensorrtValueBoundsAttrName)) {
+      op.removeArgAttr(idx, tensorrtValueBoundsAttrName);
+      op.setResultAttr(idx, planValueBoundsAttrName,
+                       convertArgOrResultAttr(b, type, attr, true));
+    }
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // MaterializeShapeCalculationsPass
 //===----------------------------------------------------------------------===//
@@ -745,8 +819,14 @@ public:
     Operation *op = getOperation();
     MLIRContext *ctx = &getContext();
     IRRewriter rewriter(ctx);
-
     SymbolTableCollection symbolTable;
+
+    /// Convert `tensorrt` dialect bounds func arg/result attributes.
+    /// TODO: should this be moved to a dedicated pass?
+    op->walk([&](func::FuncOp func) {
+      convertArgAndResultAttrs(rewriter, func);
+      return WalkResult::skip();
+    });
 
     // Run TensorKindAnalysis and populate the `plan.with_shape|with_values`
     // operations.
@@ -777,6 +857,8 @@ public:
       RewritePatternSet patterns_(ctx);
       memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns_);
       stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns_);
+      stablehlo::populateStablehloCanonicalizeDynamismPatterns(&patterns_, ctx);
+
       // clang-format off
       addCanonicalizationPatterns<
         arith::AndIOp,

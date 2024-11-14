@@ -116,10 +116,13 @@ tensorrt::getBroadcastedShape(ArrayRef<ArrayRef<int64_t>> shapes) {
     if (allEqual)
       return dimSizes.front();
 
-    // Some dims are '1', all other dims are equal to another fixed number.
+    // Some dims are '1', all other dims are equal to another fixed number or
+    // dynamic.
     std::optional<int64_t> nonUnitSize{};
     for (int64_t dimSize : dimSizes) {
       if (dimSize == 1)
+        continue;
+      if (ShapedType::isDynamic(dimSize))
         continue;
       if (nonUnitSize && dimSize == *nonUnitSize)
         continue;

@@ -934,6 +934,39 @@ struct ConstFoldGatherOnSplat : public OpRewritePattern<stablehlo::GatherOp> {
 };
 
 //===----------------------------------------------------------------------===//
+// LogicalRightShiftOp
+//===----------------------------------------------------------------------===//
+
+/// Fold trivial `stablehlo.logical_shift_right` when the shift has a greater
+/// width than the element type.
+struct RewriteTrivialLogicalRightShiftPattern
+    : public OpRewritePattern<stablehlo::ShiftRightLogicalOp> {
+  using OpRewritePattern::OpRewritePattern;
+  LogicalResult matchAndRewrite(stablehlo::ShiftRightLogicalOp op,
+                                PatternRewriter &rewriter) const override {
+    TensorType resultType = op.getType();
+
+    // Make sure we rule out index type, since 'getElementTypeBitWidth' will
+    // fail in that case.
+    if (resultType.isIndex() || !resultType.hasStaticShape())
+      return failure();
+
+    int64_t bitWidth = resultType.getElementTypeBitWidth();
+    ElementsAttr attr;
+
+    // Try to match a constant shift amount.
+    if (!matchPattern(op.getRhs(), m_Constant(&attr)) || !attr.isSplat())
+      return failure();
+
+    int64_t shiftAmount = attr.getSplatValue<APInt>().getSExtValue();
+    if (shiftAmount < bitWidth)
+      return failure();
+    return replaceOpWithNewOpAndMaybeCast<stablehlo::ConstantOp>(
+        rewriter, op, rewriter.getZeroAttr(resultType));
+  }
+};
+
+//===----------------------------------------------------------------------===//
 // Misc Patterns
 //===----------------------------------------------------------------------===//
 
@@ -991,7 +1024,7 @@ struct AbsorbTensorCastProducer : public RewritePattern {
 
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
-    if (!isa<stablehlo::StablehloDialect>(op->getDialect()) ||
+    if (!isa_and_present<stablehlo::StablehloDialect>(op->getDialect()) ||
         // Composite op types cannot be refined in-place.
         isa<stablehlo::CompositeOp>(op))
       return failure();
@@ -1066,6 +1099,7 @@ public:
         FixInvalidReturnWorkaround,
         FoldAndOp,
         FoldOrOp,
+        RewriteTrivialLogicalRightShiftPattern,
         RsqrtFolder,
         SimplifyReshapeBroadcastInDimReshape,
         SimplifyTrivialMinOrTrivalMax<MaxOp>,

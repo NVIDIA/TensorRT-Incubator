@@ -1481,14 +1481,42 @@ func.func @hlo_round_nearest_even(%arg0: tensor<2x2xf32>) -> tensor<2x2xf32> {
 
 // -----
 
-func.func @hlo_dynamic_iota(%arg0 : tensor<1xi32>) -> tensor<?xi32> {
+func.func @hlo_dynamic_iota_0(%arg0 : tensor<1xi32>) -> tensor<?xi32> {
   %0 = "stablehlo.dynamic_iota"(%arg0) {iota_dimension = 0 : i64} : (tensor<1xi32>) -> tensor<?xi32>
   return %0 : tensor<?xi32>
 }
 
-// CHECK-LABEL: @hlo_dynamic_iota
+// CHECK-LABEL: @hlo_dynamic_iota_0
 //       CHECK:  tensorrt.linspace
 //  CHECK-SAME:    [ 0.00{{.+}}] [%arg0 : tensor<1xi32>] [ 1.000{{.+}}] : tensor<?xi32>
+
+// -----
+
+func.func @dynamic_nd_iota_1(%arg0 : tensor<2xi32>) -> tensor<?x3xi32> {
+  %0 = "stablehlo.dynamic_iota"(%arg0) {iota_dimension = 1 : i64} : (tensor<2xi32>) -> tensor<?x3xi32>
+  return %0 : tensor<?x3xi32>
+}
+
+// CHECK-LABEL: func.func @dynamic_nd_iota_1
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2xi32>) -> tensor<?x3xi32> {
+//       CHECK:     %[[cst_i32:.+]] = tensorrt.constant dense<0> : tensor<i32>
+//       CHECK:     %[[cst_i32_0:.+]] = tensorrt.constant dense<[0, 1]> : tensor<2xi32>
+//       CHECK:     %[[v0:.+]] = tensorrt.linspace[%[[cst_i32]] : tensor<i32>] [%[[arg0]] : tensor<2xi32>] [%[[cst_i32_0]] : tensor<2xi32>] : tensor<?x3xi32>
+//       CHECK:     return %[[v0]] : tensor<?x3xi32>
+
+// -----
+
+func.func @dynamic_nd_iota_2(%arg0 : tensor<2xi32>) -> tensor<?x3xi32> {
+  %0 = "stablehlo.dynamic_iota"(%arg0) {iota_dimension = 0 : i64} : (tensor<2xi32>) -> tensor<?x3xi32>
+  return %0 : tensor<?x3xi32>
+}
+
+// CHECK-LABEL: func.func @dynamic_nd_iota_2
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<2xi32>) -> tensor<?x3xi32> {
+//       CHECK:     %[[cst_i32:.+]] = tensorrt.constant dense<0> : tensor<i32>
+//       CHECK:     %[[cst_i32_0:.+]] = tensorrt.constant dense<[1, 0]> : tensor<2xi32>
+//       CHECK:     %[[v0:.+]] = tensorrt.linspace[%[[cst_i32]] : tensor<i32>] [%[[arg0]] : tensor<2xi32>] [%[[cst_i32_0]] : tensor<2xi32>] : tensor<?x3xi32>
+//       CHECK:     return %[[v0]] : tensor<?x3xi32>
 
 // -----
 

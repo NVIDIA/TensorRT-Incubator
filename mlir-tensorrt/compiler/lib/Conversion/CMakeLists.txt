@@ -4,6 +4,7 @@ if(MLIR_TRT_ENABLE_HLO)
   add_subdirectory(StablehloToTensorRT)
   add_subdirectory(StablehloScalarToArith)
   add_subdirectory(StablehloToScf)
+  add_subdirectory(ChloToStablehloExt)
 endif()
 
 if(MLIR_TRT_TARGET_CPP)

@@ -1147,22 +1147,28 @@ void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
                  toArrayAttr(stride), sliceMode, fill);
 }
 
-void tensorrt::SliceOp::getCanonicalizationPatterns(RewritePatternSet &results,
-                                                    MLIRContext *context) {
-  results.add<SliceOp>(+[](SliceOp op, PatternRewriter &rewriter) {
+namespace {
+/// Move size|start dynamic arguments to static attributes if possible.
+struct SliceDynamicParameterToStaticPattern : public OpRewritePattern<SliceOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(SliceOp op,
+                                PatternRewriter &rewriter) const override {
+    // If the dynamic size parameter is foldable, fold to static parameter.
     DenseIntElementsAttr value;
     if (op.getSize() && matchPattern(op.getSize(), m_Constant(&value))) {
       rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
-          op, op.getInput(), op.getStartAsOpFoldResult(),
+          op, op.getType(), op.getInput(), op.getStartAsOpFoldResult(),
           rewriter.getDenseI32ArrayAttr(
               llvm::to_vector(value.getValues<int32_t>())),
           op.getStrideAsOpFoldResult(), op.getMode(), op.getFill());
       return success();
     }
 
+    // If the dynamic start parameter is foldable, fold to static parameter.
     if (op.getStart() && matchPattern(op.getStart(), m_Constant(&value))) {
       rewriter.replaceOpWithNewOp<tensorrt::SliceOp>(
-          op, op.getInput(),
+          op, op.getType(), op.getInput(),
           rewriter.getDenseI32ArrayAttr(
               llvm::to_vector(value.getValues<int32_t>())),
           op.getSizeAsOpFoldResult(), op.getStrideAsOpFoldResult(),
@@ -1171,7 +1177,13 @@ void tensorrt::SliceOp::getCanonicalizationPatterns(RewritePatternSet &results,
     }
 
     return failure();
-  });
+  }
+};
+} // namespace
+
+void tensorrt::SliceOp::getCanonicalizationPatterns(RewritePatternSet &results,
+                                                    MLIRContext *context) {
+  results.add<SliceDynamicParameterToStaticPattern>(context);
 }
 
 //===----------------------------------------------------------------------===//

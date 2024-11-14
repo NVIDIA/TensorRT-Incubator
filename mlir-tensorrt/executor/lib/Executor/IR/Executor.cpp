@@ -86,23 +86,21 @@ LogicalResult executor::ValueBoundsAttr::verify(
                           "matching types; found min type: "
                        << min.getType() << ", max type: " << max.getType();
 
-  if (!min.getType().getElementType().isIntOrIndex())
+  if (!min.getType().getElementType().isSignlessIntOrIndex())
     return emitError()
-           << "ValueBoundsAttr 'min' and 'max' value bounds type must "
-              "be either i64 or "
-              "an index";
+           << "ValueBoundsAttr 'min' and 'max' value bounds element type must "
+              "be a signless integer or "
+              "an index type";
 
   // Compare underlying values.
-  auto minV = min.getValues<int64_t>();
-  auto maxV = max.getValues<int64_t>();
-  for (unsigned i = 0; i < minV.size(); ++i) {
-    if (minV[i] < 0)
-      return emitError() << "ValueBoundsAttr min[" << i << "] : " << minV[i]
-                         << " must be greater than or equal to 0";
-    if (minV[i] > maxV[i])
-      return emitError() << "ValueBoundsAttr min[" << i << "] : " << minV[i]
+  auto mins = min.getValues<APInt>();
+  auto maxs = max.getValues<APInt>();
+  for (auto [i, minV, maxV] : llvm::enumerate(mins, maxs)) {
+    if (minV.sgt(maxV))
+      return emitError() << "ValueBoundsAttr min[" << i
+                         << "] : " << minV.getSExtValue()
                          << " must be less than equal to "
-                         << "max[" << i << "] : " << maxV[i];
+                         << "max[" << i << "] : " << maxV.getSExtValue();
   }
   return success();
 }
@@ -1616,6 +1614,65 @@ Operation *ExecutorDialect::materializeConstant(OpBuilder &builder,
   return builder.create<ConstantOp>(loc, type, typedAttr);
 }
 
+static LogicalResult verifyValueBoundsAttribute(Operation *op,
+                                                unsigned argIndex,
+                                                executor::ValueBoundsAttr attr,
+                                                StringRef attrName) {
+  auto func = dyn_cast<FunctionOpInterface>(op);
+  if (!func)
+    return op->emitError()
+           << attrName
+           << " should only be used for FunctionOpInterface argument "
+              "and result attributes";
+
+  ShapedType valuesType = attr.getMin().getType();
+
+  Type argType = func.getArgument(argIndex).getType();
+  if (auto shapedType = dyn_cast<ShapedType>(argType)) {
+    if (valuesType.getShape() != shapedType.getShape() ||
+        (valuesType.getElementType().isIndex() &&
+         !shapedType.getElementType().isIntOrIndex()) ||
+        (!valuesType.getElementType().isIndex() &&
+         shapedType.getElementType() != shapedType.getElementType()))
+      return op->emitError()
+             << attrName << " value bounds type " << valuesType
+             << " is not compatible with the argument type " << argType;
+
+    return success();
+  }
+
+  if (argType.isIntOrIndexOrFloat()) {
+    if (attr.getMin().getType().getRank() != 0)
+      return op->emitError()
+             << attrName << " bounds of type " << valuesType
+             << " must be a 0-rank shaped type for scalar argument type "
+             << argType;
+  }
+
+  // If the type is not a shaped type or scalar, then we don't do any
+  // validation. It may could correspond to whatever type that the memref was
+  // lowered into (e.g. pointer or table), so there's not much validation that
+  // is possible.
+  return success();
+}
+
+LogicalResult
+ExecutorDialect::verifyRegionArgAttribute(Operation *op, unsigned regionIndex,
+                                          unsigned argIndex,
+                                          NamedAttribute attribute) {
+  if (attribute.getName() == getValueBoundsAttrName()) {
+    auto boundsAttr = dyn_cast<ValueBoundsAttr>(attribute.getValue());
+    if (!boundsAttr)
+      return op->emitError()
+             << "expected named attribute \"" << getValueBoundsAttrName()
+             << "\" to be a \"#executor.value_bounds\" attribute containing "
+                "value bounds";
+    return verifyValueBoundsAttribute(op, argIndex, boundsAttr,
+                                      attribute.getName());
+  }
+
+  return success();
+}
 //===----------------------------------------------------------------------===//
 // TableGen'd dialect definition.
 //===----------------------------------------------------------------------===//

@@ -96,3 +96,91 @@ func.func @dynamic_input(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<1x1x1024x1024
 //   CHECK-DAG: %[[v6:.+]] = arith.addi %[[v5]], %[[c1]] : index
 //   CHECK-DAG: %[[v7:.+]] = arith.maxsi %[[v6]], %[[c0]] : index
 //   CHECK-DAG: return %[[dim]], %[[c256]], %[[v3]], %[[v7]] :
+
+// -----
+
+func.func @refine_reduce_window(%arg0 : tensor<4x3x1024x1024xf32>)
+        -> (index, index, index, index) {
+  %cst = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+  %result = "stablehlo.reduce_window"(%arg0, %cst) <{
+    padding = dense<1> : tensor<4x2xi64>, 
+    window_dimensions = array<i64: 1, 1, 2, 2>, 
+    window_strides = array<i64: 1, 1, 2, 2>, 
+    base_dilations = array<i64: 1, 1, 2, 2>,
+    window_dilations = array<i64: 1, 1, 2, 2>}> ({
+  ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
+    %1 = stablehlo.maximum %arg1, %arg2 : tensor<f32>
+    stablehlo.return %1 : tensor<f32>
+  }) : (tensor<4x3x1024x1024xf32>, tensor<f32>) -> tensor<?x?x?x?xf32>
+
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %c3 = arith.constant 3 : index
+  %d0 = tensor.dim %result, %c0 : tensor<?x?x?x?xf32>
+  %d1 = tensor.dim %result, %c1 : tensor<?x?x?x?xf32>
+  %d2 = tensor.dim %result, %c2 : tensor<?x?x?x?xf32>
+  %d3 = tensor.dim %result, %c3 : tensor<?x?x?x?xf32>
+  return %d0, %d1, %d2, %d3 : index, index, index, index
+}
+
+// CHECK-LABEL: @refine_reduce_window
+// CHECK-DAG:     %[[c6:.+]] = arith.constant 6 : index
+// CHECK-DAG:     %[[c5:.+]] = arith.constant 5 : index
+// CHECK-DAG:     %[[c1024:.+]] = arith.constant 1024 : index
+// CHECK-DAG:     return %[[c6]], %[[c5]], %[[c1024]], %[[c1024]] :
+
+// -----
+
+func.func @dynamic_reduce_window(%arg0 : tensor<4x3x?x?xf32>)
+        -> (index, index, index, index) {
+  %cst = stablehlo.constant dense<0.000000e+00> : tensor<f32>
+  %result = "stablehlo.reduce_window"(%arg0, %cst) <{padding = dense<0> : tensor<4x2xi64>, window_dimensions = array<i64: 1, 1, 2, 2>, window_strides = array<i64: 1, 1, 2, 2>}> ({
+  ^bb0(%arg1: tensor<f32>, %arg2: tensor<f32>):
+    %1 = stablehlo.maximum %arg1, %arg2 : tensor<f32>
+    stablehlo.return %1 : tensor<f32>
+  }) : (tensor<4x3x?x?xf32>, tensor<f32>) -> tensor<?x?x?x?xf32>
+
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %c3 = arith.constant 3 : index
+  %d0 = tensor.dim %result, %c0 : tensor<?x?x?x?xf32>
+  %d1 = tensor.dim %result, %c1 : tensor<?x?x?x?xf32>
+  %d2 = tensor.dim %result, %c2 : tensor<?x?x?x?xf32>
+  %d3 = tensor.dim %result, %c3 : tensor<?x?x?x?xf32>
+  return %d0, %d1, %d2, %d3 : index, index, index, index
+}
+
+// CHECK-LABEL: @dynamic_reduce_window
+// CHECK-SAME: (%[[arg0:.+]]: tensor<4x3x?x?xf32>)
+//   CHECK-DAG: %[[c1:.+]] = arith.constant 1 : index
+//   CHECK-DAG: %[[cn1:.+]] = arith.constant -1 : index
+//   CHECK-DAG: %[[cn2:.+]] = arith.constant -2 : index
+//   CHECK-DAG: %[[c0:.+]] = arith.constant 0 : index
+//   CHECK-DAG: %[[c4:.+]] = arith.constant 4 : index
+//   CHECK-DAG: %[[c3:.+]] = arith.constant 3 : index
+//   CHECK-DAG: %[[c2:.+]] = arith.constant 2 : index
+//   CHECK-DAG: %[[dim:.+]] = tensor.dim %[[arg0]], %[[c2]] : tensor<4x3x?x?xf32>
+//   CHECK-DAG: %[[v0:.+]] = arith.maxsi %[[dim]], %[[c0]]
+//   CHECK-DAG: %[[v1:.+]] = arith.addi %[[v0]], %[[cn2]] : index
+//   CHECK-DAG: %[[v2:.+]] = arith.cmpi slt, %[[v1]], %[[c0]] : index
+//   CHECK-DAG: %[[v3:.+]] = arith.subi %[[cn1]], %[[v1]] : index
+//   CHECK-DAG: %[[v4:.+]] = arith.select %[[v2]], %[[v3]], %[[v1]] : index
+//   CHECK-DAG: %[[v5:.+]] = arith.divsi %[[v4]], %[[c2]] : index
+//   CHECK-DAG: %[[v6:.+]] = arith.subi %[[cn1]], %[[v5]] : index
+//   CHECK-DAG: %[[v7:.+]] = arith.select %[[v2]], %[[v6]], %[[v5]] : index
+//   CHECK-DAG: %[[v8:.+]] = arith.addi %[[v7]], %[[c1]] : index
+//   CHECK-DAG: %[[v9:.+]] = arith.maxsi %[[v8]], %[[c0]]
+//   CHECK-DAG: %[[dim_0:.+]] = tensor.dim %[[arg0]], %[[c3]] : tensor<4x3x?x?xf32>
+//   CHECK-DAG: %[[v10:.+]] = arith.maxsi %[[dim_0]], %[[c0]]
+//   CHECK-DAG: %[[v11:.+]] = arith.addi %[[v10]], %[[cn2]] : index
+//   CHECK-DAG: %[[v12:.+]] = arith.cmpi slt, %[[v11]], %[[c0]] : index
+//   CHECK-DAG: %[[v13:.+]] = arith.subi %[[cn1]], %[[v11]] : index
+//   CHECK-DAG: %[[v14:.+]] = arith.select %[[v12]], %[[v13]], %[[v11]] : index
+//   CHECK-DAG: %[[v15:.+]] = arith.divsi %[[v14]], %[[c2]] : index
+//   CHECK-DAG: %[[v16:.+]] = arith.subi %[[cn1]], %[[v15]] : index
+//   CHECK-DAG: %[[v17:.+]] = arith.select %[[v12]], %[[v16]], %[[v15]] : index
+//   CHECK-DAG: %[[v18:.+]] = arith.addi %[[v17]], %[[c1]] : index
+//   CHECK-DAG: %[[v19:.+]] = arith.maxsi %[[v18]], %[[c0]]
+//   CHECK-DAG: return %[[c4]], %[[c3]], %[[v9]], %[[v19]] :

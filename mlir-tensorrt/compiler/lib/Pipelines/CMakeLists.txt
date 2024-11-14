@@ -14,6 +14,7 @@ if(MLIR_TRT_ENABLE_HLO)
     StableHloInputPipelines.cpp
   )
   list(APPEND pipeline_deps_
+    MLIRTensorRTChloToStablehloExt
     MLIRTensorRTStableHloExtTransforms
     MLIRTensorRTStablehloToSCF
     MLIRTensorRTStablehloToTensorRT

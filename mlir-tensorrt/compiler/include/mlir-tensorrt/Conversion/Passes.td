@@ -25,6 +25,7 @@ include "mlir/Pass/PassBase.td"
 //===----------------------------------------------------------------------===//
 // StablehloToTensorRT
 //===----------------------------------------------------------------------===//
+
 #ifdef MLIR_TENSORRT_ENABLE_HLO
 def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
   let summary = "Convert Stable HLO dialect to TensorRT dialect";
@@ -44,7 +45,30 @@ def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
     "target TensorRT version for conversion">
   ];
 }
+#endif // MLIR_TENSORRT_ENABLE_HLO
 
+//===----------------------------------------------------------------------===//
+// ChloToStableHloExt
+//===----------------------------------------------------------------------===//
+
+#ifdef MLIR_TENSORRT_ENABLE_HLO
+def ConvertChloToStableHloExtPass : Pass<"convert-chlo-to-stablehlo-ext"> {
+  let summary = "Convert specific CHLO operations to stablehlo";
+  let description = [{
+    This pass converts a CHLO operations to StableHlo while also allowing
+    for some CHLO operations to be preserved (see options).
+  }];
+  let dependentDialects = [
+    "::mlir::stablehlo::StablehloDialect"
+  ];
+
+  let options = [
+    Option<"preserveErf", "preserve-erf", "bool", "true",
+      "do not convert chlo.erf ops">,
+    Option<"preserveTopK", "preserve-topk", "bool", "true",
+      "do not convert chlo.topk ops">,
+  ];
+}
 #endif // MLIR_TENSORRT_ENABLE_HLO
 
 //===----------------------------------------------------------------------===//

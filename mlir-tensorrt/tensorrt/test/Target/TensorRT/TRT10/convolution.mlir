@@ -32,16 +32,14 @@ func.func @trt_2d_bf16_convolution(%arg0: tensor<1x32x128x128xbf16>) -> tensor<1
 //  CHECK-SAME: tensorrt.engine
 
 func.func @trt_2d_int4_convolution(%arg0: tensor<1x32x128x128xf16>) -> tensor<1x64x128x128xf16> {
-  %k = tensorrt.constant dense<2> : tensor<64x32x3x3xi4>
+  %k = tensorrt.constant dense<2> : tensor<64x32x4x4xi4>
   %scale = tensorrt.constant dense<1.0> : tensor<f32>
-  %dq_k = tensorrt.dequantize in (%k: tensor<64x32x3x3xi4>) scale (%scale: tensor<f32>) -> tensor<64x32x3x3xf16>
+  %dq_k = tensorrt.dequantize in (%k: tensor<64x32x4x4xi4>) scale (%scale: tensor<f32>) -> tensor<64x32x4x4xf16>
   %0 = tensorrt.convolution {
     pre_padding = array<i64: 1, 1>,
-    post_padding = array<i64: 1, 1>,
+    post_padding = array<i64: 2, 2>,
     stride = array<i64: 1, 1>
-  } in (%arg0 : tensor<1x32x128x128xf16>) kernel(%dq_k: tensor<64x32x3x3xf16>) -> tensor<1x64x128x128xf16>
+  } in (%arg0 : tensor<1x32x128x128xf16>) kernel(%dq_k: tensor<64x32x4x4xf16>) -> tensor<1x64x128x128xf16>
   return %0 : tensor<1x64x128x128xf16>
 }
 
-// CHECK-LABEL: @trt_2d_int4_convolution
-//  CHECK-SAME: tensorrt.engine

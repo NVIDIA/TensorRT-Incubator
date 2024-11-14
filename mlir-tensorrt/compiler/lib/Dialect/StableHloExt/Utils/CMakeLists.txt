@@ -5,4 +5,5 @@ add_mlir_tensorrt_library(MLIRTensorRTStableHloExtUtils
 
   LINK_LIBS PUBLIC
   MLIRTensorRTStableHloExtIR
+  MLIRTensorRTUtilsShapeInfo
   )

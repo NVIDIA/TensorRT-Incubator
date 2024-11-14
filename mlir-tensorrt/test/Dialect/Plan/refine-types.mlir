@@ -84,6 +84,34 @@ func.func @refine_add_with_shape(%arg0: tensor<?xf32>, %arg1: tensor<?xf32>) -> 
 //       CHECK:     %[[v0:.+]] = stablehlo.add %[[arg0]], %[[arg1]] :
 //       CHECK:     return %[[v0]] : tensor<1024xf32>
 
+// -----
+
+func.func @stablehlo_refine_with_shape_multi_user(%arg0: tensor<?xf32>, %arg1: tensor<?xf32>) -> (tensor<?xf32>, tensor<?xf32>) {
+  %c1024 = arith.constant 1024 : i32
+  %1 = stablehlo.add %arg0, %arg1 : tensor<?xf32>
+  %2 = plan.with_shape %1 (%c1024) : (tensor<?xf32>, i32) ->  tensor<?xf32>
+  return %2, %1 : tensor<?xf32>, tensor<?xf32>
+}
+
+// CHECK-LABEL: func.func @stablehlo_refine_with_shape_multi_user
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32>, %[[arg1:.+]]: tensor<?xf32>) -> (tensor<1024xf32>, tensor<1024xf32>) {
+//       CHECK:     %[[v0:.+]] = stablehlo.add %[[arg0]], %[[arg1]] : (tensor<?xf32>, tensor<?xf32>) -> tensor<1024xf32>
+//       CHECK:     return %[[v0]], %[[v0]] : tensor<1024xf32>, tensor<1024xf32>
+
+// -----
+
+func.func @tensorrt_refine_with_shape_multi_user(%arg0: tensor<?xf32>, %arg1: tensor<?xf32>) -> (tensor<?xf32>, tensor<?xf32>) {
+  %c1024 = arith.constant 1024 : i32
+  %1 = tensorrt.element_wise <kSUM>(%arg0, %arg1 : tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+  %2 = plan.with_shape %1 (%c1024) : (tensor<?xf32>, i32) ->  tensor<?xf32>
+  return %2, %1 : tensor<?xf32>, tensor<?xf32>
+}
+
+// CHECK-LABEL: func.func @tensorrt_refine_with_shape_multi_user
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?xf32>, %[[arg1:.+]]: tensor<?xf32>) -> (tensor<1024xf32>, tensor<1024xf32>) {
+//       CHECK:     %[[v0:.+]] = tensorrt.element_wise <kSUM>(%[[arg0]], %[[arg1]] : tensor<?xf32>, tensor<?xf32>) -> tensor<1024xf32>
+//       CHECK:     return %[[v0]], %[[v0]] :
+
 
 // -----
 
@@ -159,3 +187,5 @@ func.func @refine_tensorrt_resize_with_shape() -> tensor<?x?x?x?xf32> {
 // CHECK-SAME: -> tensor<1x1x8x8xf32>
 // CHECK: %[[v0:.*]] = tensorrt.resize_linear {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kALIGN_CORNERS>, selectorForSinglePixel = #tensorrt.resize_selector<kUPPER>} %cst, %c : (tensor<1x1x4x4xf32>, tensor<4xi32>) -> tensor<1x1x8x8xf32>
 // CHECK: return %[[v0]] : tensor<1x1x8x8xf32>
+
+

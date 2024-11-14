@@ -24,6 +24,7 @@
 #include "mlir-tensorrt/Dialect/Plan/Analysis/BoundsAnalysis.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir-tensorrt/Dialect/Plan/IR/PlanInterfaces.h"
 #include "mlir/Analysis/DataFlow/IntegerRangeAnalysis.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -42,16 +43,15 @@ using namespace mlir::plan;
 #define DEBUG_TYPE "plan-bounds-analysis"
 #define DBGS(x) llvm::dbgs() << " [" DEBUG_TYPE "][" x "] "
 
-static std::optional<tensorrt::ShapeProfileAttr>
-maybeGetFunctionArgBound(Value value, StringRef attrName) {
+template <typename T>
+std::optional<T> maybeGetFunctionArgBound(Value value, StringRef attrName) {
   BlockArgument source = dyn_cast<BlockArgument>(value);
   if (!source)
     return {};
   func::FuncOp func = dyn_cast<func::FuncOp>(source.getOwner()->getParentOp());
   if (!func)
     return {};
-  auto shapeProfile = func.getArgAttrOfType<tensorrt::ShapeProfileAttr>(
-      source.getArgNumber(), attrName);
+  auto shapeProfile = func.getArgAttrOfType<T>(source.getArgNumber(), attrName);
   if (!shapeProfile)
     return {};
   return shapeProfile;
@@ -134,6 +134,14 @@ BoundsArray BoundsArray::fromIntegerValueBounds(unsigned bitWidth,
     res.push_back(
         ConstantIntRanges::fromSigned(APInt(64, l).sextOrTrunc(bitWidth),
                                       APInt(64, r).sextOrTrunc(bitWidth)));
+  return BoundsArray(std::move(res));
+}
+
+BoundsArray BoundsArray::fromIntegerValueBounds(ArrayRef<llvm::APInt> min,
+                                                ArrayRef<llvm::APInt> max) {
+  SmallVector<ConstantIntRanges> res;
+  for (auto [l, r] : llvm::zip_equal(min, max))
+    res.push_back(ConstantIntRanges::fromSigned(l, r));
   return BoundsArray(std::move(res));
 }
 
@@ -274,16 +282,17 @@ void ShapeBoundsForwardAnalysis::setToEntryState(ShapeBoundsLattice *lattice) {
         lattice, lattice->join(BoundsArray::getMaxRangeForShapeBounds(
                      lattice->getAnchor())));
 
-  std::optional<tensorrt::ShapeProfileAttr> shapeProfile =
-      maybeGetFunctionArgBound(
-          lattice->getAnchor(),
-          tensorrt::TensorRTDialect::getShapeProfileArgAttrName());
+  std::optional<plan::TensorBoundsAttrInterface> shapeProfile =
+      maybeGetFunctionArgBound<plan::TensorBoundsAttrInterface>(
+          lattice->getAnchor(), plan::PlanDialect::getShapeBoundsAttrName());
+
   if (!shapeProfile)
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
-
+  SmallVector<int64_t> minBound, maxBound;
+  if (failed(shapeProfile->getShapeBounds(minBound, maxBound)))
+    return;
   return propagateIfChanged(
-      lattice, lattice->join(BoundsArray::fromShapeBounds(
-                   shapeProfile->getMin(), shapeProfile->getMax())));
+      lattice, lattice->join(BoundsArray::fromShapeBounds(minBound, maxBound)));
 }
 
 LogicalResult ShapeBoundsForwardAnalysis::visitOperation(
@@ -458,20 +467,23 @@ static std::optional<ConstantIntRanges>
 maybeGetValueBounds(Value value, std::optional<int64_t> linearIndex) {
   Type elType = cast<RankedTensorType>(value.getType()).getElementType();
   assert(elType.isSignlessIntOrIndex() && "expected integer or index type");
-  unsigned bitWidth = elType.isIndex() ? IndexType::kInternalStorageBitWidth
-                                       : elType.getIntOrFloatBitWidth();
-  std::optional<tensorrt::ShapeProfileAttr> bound = maybeGetFunctionArgBound(
-      value, tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName());
+  std::optional<plan::TensorBoundsAttrInterface> bound =
+      maybeGetFunctionArgBound<plan::TensorBoundsAttrInterface>(
+          value, plan::PlanDialect::getValueBoundsAttrName());
   if (!bound)
     return {};
-  ArrayRef<int64_t> min = bound->getMin();
-  ArrayRef<int64_t> max = bound->getMax();
+
+  SmallVector<APInt> mins, maxs;
+  if (failed(bound->getIntegerValueBounds(mins, maxs)))
+    return {};
+  auto comp = [](const llvm::APInt &lhs, const llvm::APInt &rhs) {
+    return lhs.sle(rhs);
+  };
   if (!linearIndex)
     return ConstantIntRanges::fromSigned(
-        APInt(bitWidth, *std::min_element(min.begin(), min.end())),
-        APInt(bitWidth, *std::max_element(max.begin(), max.end())));
-  return ConstantIntRanges::fromSigned(APInt(bitWidth, min[*linearIndex]),
-                                       APInt(bitWidth, max[*linearIndex]));
+        *std::min_element(mins.begin(), mins.end(), comp),
+        *std::max_element(maxs.begin(), maxs.end(), comp));
+  return ConstantIntRanges::fromSigned(mins[*linearIndex], maxs[*linearIndex]);
 }
 
 static ConstantIntRanges
@@ -540,19 +552,18 @@ static void inferResultRanges(tensor::DimOp dimOp,
                            ConstantIntRanges::fromSigned(intStatic, intStatic));
   }
 
-  std::optional<tensorrt::ShapeProfileAttr> shapeProfile =
-      maybeGetFunctionArgBound(
-          dimOp.getSource(),
-          tensorrt::TensorRTDialect::getShapeProfileArgAttrName());
+  std::optional<plan::BoundsAttr> shapeProfile =
+      maybeGetFunctionArgBound<plan::BoundsAttr>(
+          dimOp.getSource(), plan::PlanDialect::getShapeBoundsAttrName());
   if (!shapeProfile)
     return setResultRanges(dimOp.getResult(), getMaxDimRange());
 
   setResultRanges(dimOp.getResult(),
                   ConstantIntRanges::fromSigned(
                       APInt(IndexType::kInternalStorageBitWidth,
-                            shapeProfile->getMin()[*staticDimNum]),
+                            shapeProfile->getMinShape()[*staticDimNum]),
                       APInt(IndexType::kInternalStorageBitWidth,
-                            shapeProfile->getMax()[*staticDimNum])));
+                            shapeProfile->getMaxShape()[*staticDimNum])));
 }
 
 static void inferResultRanges(tensor::ExtractOp extractOp,
@@ -603,10 +614,9 @@ void ShapeIntegerRangeAnalysis::setToEntryState(
   if (!lattice->getAnchor().getType().isIntOrIndex())
     return propagateIfChanged(lattice, lattice->join(IntegerValueRange()));
 
-  std::optional<tensorrt::ShapeProfileAttr> shapeProfile =
-      maybeGetFunctionArgBound(
-          lattice->getAnchor(),
-          tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName());
+  std::optional<plan::BoundsAttr> shapeProfile =
+      maybeGetFunctionArgBound<plan::BoundsAttr>(
+          lattice->getAnchor(), plan::PlanDialect::getValueBoundsAttrName());
   if (!shapeProfile) {
     IntegerValueRange range =
         IntegerValueRange::getMaxRange(lattice->getAnchor());
@@ -614,15 +624,13 @@ void ShapeIntegerRangeAnalysis::setToEntryState(
       range = IntegerValueRange(truncateToNonNegative(range.getValue()));
     return propagateIfChanged(lattice, lattice->join(range));
   }
-  assert(shapeProfile->getMax().size() == 1 &&
+  assert(shapeProfile->getMaxValues().getNumElements() == 1 &&
          "expected one element for scalar value bounds");
-  Type intType = lattice->getAnchor().getType();
-  unsigned bitWidth = intType.isIndex() ? IndexType::kInternalStorageBitWidth
-                                        : intType.getIntOrFloatBitWidth();
+
   return propagateIfChanged(
       lattice, lattice->join(IntegerValueRange(ConstantIntRanges::fromSigned(
-                   APInt(bitWidth, shapeProfile->getMin()[0]),
-                   APInt(bitWidth, shapeProfile->getMax()[0])))));
+                   shapeProfile->getMinValues().getSplatValue<APInt>(),
+                   shapeProfile->getMaxValues().getSplatValue<APInt>()))));
 }
 
 /// Visit an operation. Invoke the transfer function on each operation that
@@ -716,18 +724,19 @@ void TensorValueBoundsAnalysis::setToEntryState(
   if (!shouldAnalyzeValueBounds(point))
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 
-  std::optional<tensorrt::ShapeProfileAttr> shapeProfile =
-      maybeGetFunctionArgBound(
-          point,
-          tensorrt::TensorRTDialect::getShapeTensorValueBoundsArgAttrName());
-  if (!shapeProfile)
+  std::optional<plan::BoundsAttr> shapeProfile =
+      maybeGetFunctionArgBound<plan::BoundsAttr>(
+          point, plan::PlanDialect::getValueBoundsAttrName());
+  if (!shapeProfile || !shapeProfile->isValueBound())
     return propagateIfChanged(lattice, lattice->join(BoundsArray()));
 
   return propagateIfChanged(
-      lattice, lattice->join(BoundsArray::fromIntegerValueBounds(
-                   ConstantIntRanges::getStorageBitwidth(
-                       mlir::getElementTypeOrSelf(point.getType())),
-                   shapeProfile->getMin(), shapeProfile->getMax())));
+      lattice,
+      lattice->join(BoundsArray::fromIntegerValueBounds(
+          llvm::to_vector(
+              shapeProfile->getMinValues().getValues<llvm::APInt>()),
+          llvm::to_vector(
+              shapeProfile->getMaxValues().getValues<llvm::APInt>()))));
 }
 
 static void maybePopulateConstantValueBounds(

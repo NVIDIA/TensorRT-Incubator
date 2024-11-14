@@ -25,6 +25,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Utils/IndexingUtils.h"
+#include "mlir/IR/Diagnostics.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpImplementation.h"
@@ -240,6 +241,7 @@ BoundsAttr BoundsAttr::get(MLIRContext *ctx, BoundsKind kind,
                          DenseIntElementsAttr::get(type, min),
                          DenseIntElementsAttr::get(type, max));
 }
+
 BoundsAttr
 BoundsAttr::getChecked(llvm::function_ref<InFlightDiagnostic()> emitError,
                        MLIRContext *ctx, BoundsKind kind, ArrayRef<int64_t> min,
@@ -260,6 +262,28 @@ BoundsAttr::getChecked(llvm::function_ref<InFlightDiagnostic()> emitError,
                       DenseI64ArrayAttr{}, minAttr, maxAttr);
   }
   return BoundsAttr::get(ctx);
+}
+
+LogicalResult BoundsAttr::getShapeBounds(SmallVectorImpl<int64_t> &min,
+                                         SmallVectorImpl<int64_t> &max) const {
+  ArrayRef<int64_t> minShape = getMinShape();
+  min.assign(minShape.begin(), minShape.end());
+  ArrayRef<int64_t> maxShape = getMaxShape();
+  max.assign(maxShape.begin(), maxShape.end());
+  return success();
+}
+
+LogicalResult
+BoundsAttr::getIntegerValueBounds(SmallVectorImpl<llvm::APInt> &min,
+                                  SmallVectorImpl<llvm::APInt> &max) const {
+  if (!isValueBound() || !getMinValues().getElementType().isIntOrIndex())
+    return failure();
+  auto mins = getMinValues().getValues<llvm::APInt>();
+  min.assign(mins.begin(), mins.end());
+
+  auto maxs = getMaxValues().getValues<llvm::APInt>();
+  max.assign(maxs.begin(), maxs.end());
+  return success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -306,9 +330,8 @@ verifyBoundsAttr(StringRef argOrResult, unsigned idx, Type type,
     if (boundsAttr.isNone())
       return success();
     if (boundsAttr.isShapeBound()) {
-      int64_t boundsLength = boundsAttr.getMinShape().size();
-      if (std::max<int64_t>(shapedType.getRank(), 1) !=
-          std::max<int64_t>(boundsLength, 1))
+      const int64_t boundsLength = boundsAttr.getMinShape().size();
+      if (shapedType.getRank() != boundsLength)
         return emitOpError()
                << argOrResult << " #" << idx << " has type " << type
                << ", whose rank is not equal to the rank of the "
@@ -324,18 +347,17 @@ verifyBoundsAttr(StringRef argOrResult, unsigned idx, Type type,
                               "only allowed for staticly shaped operands";
 
     if (boundsAttr.isValueBound()) {
-      Type elType = boundsAttr.getMinValues().getElementType();
+      Type elType = boundsAttr.getValuesType().getElementType();
       if (elType != shapedType.getElementType())
         return emitOpError()
                << argOrResult << " #" << idx
                << " expected element type of value bounds elements (" << elType
                << ") to be compatible with the type (" << type << ")";
-      if (boundsAttr.getMinValues().getType().getShape() !=
-          shapedType.getShape())
+      if (boundsAttr.getValuesType().getShape() != shapedType.getShape())
         return emitOpError()
                << argOrResult << " #" << idx
                << " expected type of values bounds elements ("
-               << boundsAttr.getMinValues().getType()
+               << boundsAttr.getValuesType()
                << ") to be compatible with the type (" << type << ")";
     }
 
@@ -351,21 +373,23 @@ verifyBoundsAttr(StringRef argOrResult, unsigned idx, Type type,
                            << argOrResult << " #" << idx << " of type " << type
                            << ", but got " << boundsAttr;
     if (boundsAttr.isValueBound()) {
-      int64_t numEls = boundsAttr.getMinValues().getNumElements();
-      if (numEls != 1)
+
+      if (boundsAttr.getValuesType().getRank() != 0)
         return emitOpError()
                << argOrResult << " #" << idx
-               << " expected number of values bounds elements (" << numEls
-               << ") to equal number of elements of the type (1)";
-      Type elType = boundsAttr.getMinValues().getElementType();
+               << " type expects rank-0 value bounds type, but got "
+               << boundsAttr.getValuesType();
+
+      Type elType = boundsAttr.getValuesType().getElementType();
       if (elType != type)
         return emitOpError()
                << argOrResult << " #" << idx
                << " expected element type of value bounds elements (" << elType
                << ") to be compatible with the type (" << type << ")";
     }
+    return success();
   }
-  // For all other types, the bounds kind must be none.
+
   if (!boundsAttr.isNone())
     return emitOpError() << "expected only 'none' bounds for type " << type;
   return success();
@@ -723,8 +747,23 @@ struct PlanInlinerInterface : public DialectInlinerInterface {
 #include "mlir-tensorrt/Dialect/Plan/IR/PlanOps.cpp.inc"
 
 //===----------------------------------------------------------------------===//
-// Dialect initialization
+// PlanDialect Definitions
 //===----------------------------------------------------------------------===//
+
+namespace {
+class PlanDialectOpAsmInterface : public OpAsmDialectInterface {
+  using OpAsmDialectInterface::OpAsmDialectInterface;
+  /// Tells MLIR assembly printer/parser that the BoundsAttr can be
+  /// aliased using #bounds[num]. This make the IR more readable.
+  AliasResult getAlias(Attribute attr, raw_ostream &os) const override {
+    if (isa<plan::BoundsAttr>(attr)) {
+      os << "bounds";
+      return AliasResult::OverridableAlias;
+    }
+    return AliasResult::NoAlias;
+  }
+};
+} // namespace
 
 void PlanDialect::initialize() {
   addOperations<
@@ -746,7 +785,7 @@ void PlanDialect::initialize() {
   (void)&generatedAttributePrinter;
   (void)&generatedAttributeParser;
 
-  addInterfaces<PlanInlinerInterface>();
+  addInterfaces<PlanInlinerInterface, PlanDialectOpAsmInterface>();
 }
 
 Attribute PlanDialect::parseAttribute(DialectAsmParser &parser,
@@ -770,4 +809,45 @@ void PlanDialect::printAttribute(Attribute attr,
   auto it = attrPrintingHooks.find(attr.getTypeID());
   assert(it != attrPrintingHooks.end() && "printing unknown type");
   it->getSecond()(attr, printer);
+}
+
+static LogicalResult verifyBoundsAttribute(Operation *op, unsigned argIndex,
+                                           plan::BoundsAttr attr,
+                                           StringRef attrName) {
+  auto func = dyn_cast<FunctionOpInterface>(op);
+  if (!func)
+    return success();
+
+  Type argType = func.getArgument(argIndex).getType();
+  return verifyBoundsAttr(
+      "arg", argIndex, argType, attr,
+      [&]() -> InFlightDiagnostic { return op->emitOpError(); });
+
+  return success();
+}
+
+LogicalResult PlanDialect::verifyRegionArgAttribute(Operation *op,
+                                                    unsigned regionIndex,
+                                                    unsigned argIndex,
+                                                    NamedAttribute attribute) {
+  if (attribute.getName() == getValueBoundsAttrName()) {
+    auto boundsAttr = dyn_cast<BoundsAttr>(attribute.getValue());
+    if (!boundsAttr || !boundsAttr.isValueBound())
+      return op->emitError()
+             << "expected named attribute \"" << getValueBoundsAttrName()
+             << "\" to be a \"#plan.bounds\" attribute containing value bounds";
+
+    return verifyBoundsAttribute(op, argIndex, boundsAttr, attribute.getName());
+  }
+
+  if (attribute.getName() == getShapeBoundsAttrName()) {
+    auto boundsAttr = dyn_cast<BoundsAttr>(attribute.getValue());
+    if (!boundsAttr || !boundsAttr.isShapeBound())
+      return op->emitError()
+             << "expected named attribute \"" << getShapeBoundsAttrName()
+             << "\" to be a \"#plan.bounds\" attribute containing shape bounds";
+    return verifyBoundsAttribute(op, argIndex, boundsAttr, attribute.getName());
+  }
+
+  return success();
 }

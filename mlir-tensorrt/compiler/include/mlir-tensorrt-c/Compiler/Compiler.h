@@ -108,38 +108,6 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerStableHLOToExecutable(
     MTRT_CompilerClient client, MlirOperation module,
     MTRT_StableHLOToExecutableOptions options, MTRT_Executable *result);
 
-//===----------------------------------------------------------------------===//
-// MTRT_StableHLOProgramSignatureRefinementOptions
-//===----------------------------------------------------------------------===//
-
-/// Options for compiling StableHLO MLIR to an Executable.
-typedef struct MTRT_StableHLOProgramSignatureRefinementOptions {
-  void *ptr;
-} MTRT_StableHLOProgramSignatureRefinementOptions;
-
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtStableHloProgramSignatureRefinementOptionsCreate(
-    MTRT_StringView funcName,
-    MTRT_StableHLOProgramSignatureRefinementOptions *options);
-
-MLIR_CAPI_EXPORTED MTRT_Status
-mtrtStableHloProgramSignatureRefinementOptionsDestroy(
-    MTRT_StableHLOProgramSignatureRefinementOptions options);
-
-static inline bool mtrtStableHloProgramSignatureRefinementOptionsIsNull(
-    MTRT_StableHLOProgramSignatureRefinementOptions options) {
-  return !options.ptr;
-}
-
-//===----------------------------------------------------------------------===//
-// Main StableHLO Program Signature Refinement API Functions
-//===----------------------------------------------------------------------===//
-
-/// Compiler StableHLO to Executable.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtGetStableHloProgramRefinedSignature(
-    MTRT_CompilerClient client, MlirOperation module,
-    MTRT_StableHLOProgramSignatureRefinementOptions options, MlirType *result);
-
 #ifdef __cplusplus
 }
 #endif
