@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import cv2
 import os
 import time
@@ -27,6 +28,12 @@ from typing import Tuple, Optional, Dict
 
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-b", "--batch", type=int, default=2,
+                    help="batch size of the input images, between [1, 4]")
+
+args = parser.parse_args()
 
 
 def process_and_show_mask(
@@ -133,7 +140,6 @@ def process_predictions(
         if len(scores) > 1:
             ax.set_title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
 
-        # plt.axis("off")
         ax.axis("off")
 
         if save_path:
@@ -161,6 +167,7 @@ def main(image_path: str, save_path: Optional[str] = None):
 
     # Load image
     image = np.array(Image.open(image_path).convert("RGB"))
+    image_list = [image] * args.batch
 
     # Initialize SAM2 model
     sam2_checkpoint = "./checkpoints/sam2.1_hiera_large.pt"
@@ -175,7 +182,7 @@ def main(image_path: str, save_path: Optional[str] = None):
     # Create predictor and process image
     predictor = SAM2ImagePredictor(sam2_model)
 
-    predictor.set_image_batch([image, image])
+    predictor.set_image_batch(image_list)
 
     # Set input prompt
     input_point = np.array([[500, 375]])
@@ -184,8 +191,8 @@ def main(image_path: str, save_path: Optional[str] = None):
     # Time mask prediction
     start = time.perf_counter()
     masks, scores, logits = predictor.predict_batch(
-        point_coords_batch=[input_point, input_point],
-        point_labels_batch=[input_label, input_label],
+        point_coords_batch=[input_point] * args.batch,
+        point_labels_batch=[input_label] * args.batch,
         multimask_output=True,
     )
     masks = masks[0]

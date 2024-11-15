@@ -37,40 +37,24 @@ class SAM2ImagePredictor:
         self,
         sam_model: SAM2Base,
         mask_threshold=0.0,
-        max_hole_area=0.0,
-        max_sprinkle_area=0.0,
         **kwargs,
     ) -> None:
         """
-        Uses SAM-2 to calculate the image embedding for an image, and then
-        allow repeated, efficient mask prediction given prompts.
-
-        Arguments:
-          sam_model (Sam-2): The model to use for mask prediction.
-          mask_threshold (float): The threshold to use when converting mask logits
-            to binary masks. Masks are thresholded at 0 by default.
-          max_hole_area (int): If max_hole_area > 0, we fill small holes in up to
-            the maximum area of max_hole_area in low_res_masks.
-          max_sprinkle_area (int): If max_sprinkle_area > 0, we remove small sprinkles up to
-            the maximum area of max_sprinkle_area in low_res_masks.
+        Compute image embedding for a given image and then perform mask prediction using the user provided prompt.
         """
         super().__init__()
         self.model = sam_model
-        self.dense_pe = self.model.sam_prompt_encoder.get_dense_pe()
+        self.device = torch.device("cuda")
 
+        # Transforms using torch
         self._transforms = SAM2Transforms(
             resolution=self.model.image_size,
-            mask_threshold=mask_threshold,
-            max_hole_area=max_hole_area,
-            max_sprinkle_area=max_sprinkle_area,
         )
 
         # Predictor state
         self._is_image_set = False
         self._features = None
         self._orig_hw = None
-        # Whether the predictor is set for single image or a batch of images
-        self._is_batch = False
 
         # Predictor config
         self.mask_threshold = mask_threshold
@@ -92,18 +76,12 @@ class SAM2ImagePredictor:
         masks to be predicted with the 'predict' method.
 
         Arguments:
-          image (np.ndarray or PIL Image): The input image to embed in RGB format. The image should be in HWC format if np.ndarray, or WHC format if PIL Image
-          with pixel values in [0, 255].
-          image_format (str): The color format of the image, in ['RGB', 'BGR'].
+          image (np.ndarray): The input image to embed in RGB format. The image should be in HWC format if np.ndarray.
         """
         self.reset_predictor()
         # Transform the image to the form expected by the model
         if isinstance(image, np.ndarray):
-            logging.info("For numpy array image, we assume (HxWxC) format")
             self._orig_hw = [image.shape[:2]]
-        elif isinstance(image, Image):
-            w, h = image.size
-            self._orig_hw = [(h, w)]
         else:
             raise NotImplementedError("Image format not supported")
 
@@ -113,9 +91,12 @@ class SAM2ImagePredictor:
         assert (
             len(input_image.shape) == 4 and input_image.shape[1] == 3
         ), f"input_image must be of size 1x3xHxW, got {input_image.shape}"
-        logging.info("Computing image embeddings for the provided image...")
+
+        input_image = tp.Tensor(input_image.to(getattr(torch, self.model.image_encoder.trunk.dtype)).contiguous())
         backbone_out = self.model.forward_image(input_image)
+
         _, vision_feats, _, _ = self.model._prepare_backbone_features(backbone_out)
+
         # Add no_mem_embed, which is added to the lowest rest feat. map during training on videos
         if self.model.directly_add_no_mem_embed:
             vision_feats[-1] = vision_feats[-1] + self.model.no_mem_embed
@@ -149,6 +130,7 @@ class SAM2ImagePredictor:
                 image, np.ndarray
             ), "Images are expected to be an np.ndarray in RGB format, and of shape  HWC"
             self._orig_hw.append(image.shape[:2])
+        assert len(set(self._orig_hw)) == 1, "Images in the batch must have the same size."
         # Transform the image to the form expected by the model
         img_batch = self._transforms.forward_batch(image_list)
         img_batch = img_batch.to(self.device)
@@ -157,7 +139,8 @@ class SAM2ImagePredictor:
             len(img_batch.shape) == 4 and img_batch.shape[1] == 3
         ), f"img_batch must be of size Bx3xHxW, got {img_batch.shape}"
         logging.info("Computing image embeddings for the provided images...")
-        backbone_out = self.model.forward_image(img_batch)
+        img_batch_tp = tp.Tensor(img_batch.to(getattr(torch, self.model.image_encoder.trunk.dtype)).contiguous())
+        backbone_out = self.model.forward_image(img_batch_tp)
         _, vision_feats, _, _ = self.model._prepare_backbone_features(backbone_out)
         # Add no_mem_embed, which is added to the lowest rest feat. map during training on videos
         if self.model.directly_add_no_mem_embed:
@@ -205,8 +188,6 @@ class SAM2ImagePredictor:
             box,
             mask_input,
             normalize_coords,
-            # assuming all images in the batch have the same size
-            # img_idx=img_idx,
         )
         masks, iou_predictions, low_res_masks = self._predict(
             unnorm_coords,
@@ -215,7 +196,6 @@ class SAM2ImagePredictor:
             mask_input,
             multimask_output,
             return_logits=return_logits,
-            # img_idx=img_idx,
         )
 
         def to_np_list(x):
@@ -388,12 +368,15 @@ class SAM2ImagePredictor:
             else:
                 concat_points = (box_coords, box_labels)
 
+        # Tripy sam_prompt_encoder bakes in boxes, and masks as None
+        if boxes is not None or mask_input is not None:
+            assert "Tripy implementation for sam_prompt_encoder assumes boxes and mask_input to be None, please fix build_sam.py."
+
         sparse_embeddings, dense_embeddings = self.model.sam_prompt_encoder(
             points_x=tp.Tensor(concat_points[0].contiguous()),
             points_y=tp.Tensor(concat_points[1].contiguous()),
-            # boxes=None,
-            # masks=tp.Tensor(mask_input) if mask_input is not None else None,
         )
+
         sparse_embeddings = torch.from_dlpack(sparse_embeddings)
         dense_embeddings = torch.from_dlpack(dense_embeddings)
 
@@ -433,21 +416,6 @@ class SAM2ImagePredictor:
             masks = masks > self.mask_threshold
 
         return masks, iou_predictions, low_res_masks
-
-    def get_image_embedding(self) -> torch.Tensor:
-        """
-        Returns the image embeddings for the currently set image, with
-        shape 1xCxHxW, where C is the embedding dimension and (H,W) are
-        the embedding spatial dimension of SAM (typically C=256, H=W=64).
-        """
-        if not self._is_image_set:
-            raise RuntimeError("An image must be set with .set_image(...) to generate an embedding.")
-        assert self._features is not None, "Features must exist if an image has been set."
-        return self._features["image_embed"]
-
-    @property
-    def device(self) -> torch.device:
-        return self.model.device
 
     def reset_predictor(self) -> None:
         """

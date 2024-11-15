@@ -52,27 +52,28 @@ def get_component_configs(model, cfg):
     """
     batchsize = (1, 2, 4)
     num_obj = (1, 2, 4)
+    model_precision = getattr(cfg["model"], "model_precision", "float32")
     return {
         "memory_attention": {
             "enabled": True,
             "model": model.memory_attention,
-            "dtype": getattr(cfg["model"].memory_attention, "dtype", "float32"),
+            "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
                     (4096, 1, 256),
-                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
+                    getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
                     ((4100, 16400, 28736), 1, 64),
-                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
+                    getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
                     (4096, 1, 256),
-                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
+                    getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
                     ((4100, 16400, 28736), 1, 64),
-                    getattr(tp, getattr(cfg["model"].memory_attention, "dtype", "float32")),
+                    getattr(tp, model_precision),
                 ),
                 tp.InputInfo(((4, 16, 64),), tp.int32),
             ],
@@ -81,33 +82,33 @@ def get_component_configs(model, cfg):
         "sam_mask_decoder_false": {
             "enabled": True,
             "model": model.sam_mask_decoder,
-            "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
+            "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # image_embeddings
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # image_pe
                 tp.InputInfo(
                     (1, 3, 256),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # sparse_prompt_embeddings
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # dense_prompt_embeddings
                 False,  # multimask_output
                 False,  # repeat_image
                 tp.InputInfo(
                     (1, 32, 256, 256),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # high_res_features_1
                 tp.InputInfo(
                     (1, 64, 128, 128),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # high_res_features_2
             ],
             "skip_dtype_convert": ["ln", "norm", "output_upscaling.1"],
@@ -115,33 +116,33 @@ def get_component_configs(model, cfg):
         "sam_mask_decoder_true": {
             "enabled": True,
             "model": model.sam_mask_decoder,
-            "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
+            "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
                     (batchsize, 256, 64, 64),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # image_embeddings
                 tp.InputInfo(
                     (1, 256, 64, 64),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # image_pe
                 tp.InputInfo(
                     (batchsize, 2, 256),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # sparse_prompt_embeddings
                 tp.InputInfo(
                     (batchsize, 256, 64, 64),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # dense_prompt_embeddings
                 True,  # multimask_output
                 False,  # repeat_image
                 tp.InputInfo(
                     (batchsize, 32, 256, 256),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # high_res_features_1
                 tp.InputInfo(
                     (batchsize, 64, 128, 128),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 ),  # high_res_features_2
             ],
             "skip_dtype_convert": ["ln", "norm", "output_upscaling.1"],
@@ -150,11 +151,11 @@ def get_component_configs(model, cfg):
         "sam_mask_decoder.conv_s0": {
             "enabled": True,
             "model": model.sam_mask_decoder.conv_s0,
-            "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
+            "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
                     (batchsize, 256, 256, 256),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 )
             ],
             "skip_dtype_convert": [],
@@ -163,11 +164,11 @@ def get_component_configs(model, cfg):
         "sam_mask_decoder.conv_s1": {
             "enabled": True,
             "model": model.sam_mask_decoder.conv_s1,
-            "dtype": getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32"),
+            "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
                     (batchsize, 256, 128, 128),
-                    dtype=getattr(tp, getattr(cfg["model"], "tripy_mask_decoder_dtype", "float32")),
+                    dtype=getattr(tp, model_precision),
                 )
             ],
             "skip_dtype_convert": [],
@@ -176,18 +177,18 @@ def get_component_configs(model, cfg):
         "memory_encoder": {
             "enabled": True,
             "model": model.memory_encoder,
-            "dtype": "float32",  # TODO add fp16 to yaml
+            "dtype": model_precision,  # TODO add fp16 to yaml
             "compile_args": [
-                tp.InputInfo((1, 256, 64, 64), tp.float32),
-                tp.InputInfo((1, 1, 1024, 1024), tp.float32),
+                tp.InputInfo((1, 256, 64, 64), getattr(tp, model_precision)),
+                tp.InputInfo((1, 1, 1024, 1024), getattr(tp, model_precision)),
                 True,
             ],
-            "skip_dtype_convert": [],
+            "skip_dtype_convert": ["ln", "norm"],
         },
         "sam_prompt_encoder": {
             "enabled": True,
             "model": model.sam_prompt_encoder,
-            "dtype": "float32",  # TODO add fp16 to yaml
+            "dtype": "float32",
             "compile_args": [
                 tp.InputInfo((batchsize, num_obj, 2), dtype=tp.float32),
                 tp.InputInfo((batchsize, num_obj), dtype=tp.int32),
@@ -206,7 +207,7 @@ def get_component_configs(model, cfg):
         "sam_prompt_encoder.get_dense_pe": {
             "enabled": True,
             "model": model.sam_prompt_encoder.get_dense_pe,
-            "dtype": "float32",  # TODO add fp16 to yaml
+            "dtype": model_precision,
             "compile_args": [],
             "skip_dtype_convert": [],
             "skip_load_state_dict": True,
@@ -214,13 +215,13 @@ def get_component_configs(model, cfg):
         "image_encoder.compiled_executable": {
             "enabled": True,
             "model": model.image_encoder.forward,
-            "dtype": getattr(cfg["model"].image_encoder.trunk, "dtype", "float32"),
+            "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
                     (batchsize, 3, 1024, 1024),
                     dtype=getattr(
                         tp,
-                        getattr(cfg["model"].image_encoder.trunk, "dtype", "float32"),
+                        model_precision,
                     ),
                 ),
             ],
