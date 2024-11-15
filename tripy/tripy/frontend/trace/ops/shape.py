@@ -65,13 +65,10 @@ def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
 
     from tripy.frontend.dimension_size import DimensionSize
 
-    # If the shape is statically known, we do not need to insert any operator calls.
-    if self.shape_memo is None:
-        if all(dim >= 0 for dim in self.trace_tensor.shape):
-            self.shape_memo = [DimensionSize(dim) for dim in self.trace_tensor.shape]
-        else:
-            self.shape_memo = [
-                GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True)
-                for index in range(self.rank)
-            ]
-    return self.shape_memo
+    # If the shape is statically known, we do not need to insert any operator calls and we can memoize.
+    if self.shape_memo is None and all(dim >= 0 for dim in self.trace_tensor.shape):
+        self.shape_memo = [DimensionSize(dim) for dim in self.trace_tensor.shape]
+
+    return self.shape_memo or [
+        GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)
+    ]
