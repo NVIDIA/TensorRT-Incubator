@@ -188,39 +188,43 @@ class SAM2ImagePredictor:
         assert self._is_batch, "This function should only be used when in batched mode"
         if not self._is_image_set:
             raise RuntimeError("An image must be set with .set_image_batch(...) before mask prediction.")
-        num_images = len(self._features["image_embed"])
-        all_masks = []
-        all_ious = []
-        all_low_res_masks = []
-        for img_idx in range(num_images):
-            # Transform input prompts
-            point_coords = point_coords_batch[img_idx] if point_coords_batch is not None else None
-            point_labels = point_labels_batch[img_idx] if point_labels_batch is not None else None
-            box = box_batch[img_idx] if box_batch is not None else None
-            mask_input = mask_input_batch[img_idx] if mask_input_batch is not None else None
-            mask_input, unnorm_coords, labels, unnorm_box = self._prep_prompts(
-                point_coords,
-                point_labels,
-                box,
-                mask_input,
-                normalize_coords,
-                img_idx=img_idx,
-            )
-            masks, iou_predictions, low_res_masks = self._predict(
-                unnorm_coords,
-                labels,
-                unnorm_box,
-                mask_input,
-                multimask_output,
-                return_logits=return_logits,
-                img_idx=img_idx,
-            )
-            masks_np = masks.squeeze(0).float().detach().cpu().numpy()
-            iou_predictions_np = iou_predictions.squeeze(0).float().detach().cpu().numpy()
-            low_res_masks_np = low_res_masks.squeeze(0).float().detach().cpu().numpy()
-            all_masks.append(masks_np)
-            all_ious.append(iou_predictions_np)
-            all_low_res_masks.append(low_res_masks_np)
+
+        def concat_batch(x):
+            if x is None:
+                return x
+            return np.concatenate(x, axis=0)
+
+        point_coords = concat_batch(point_coords_batch)
+        point_labels = concat_batch(point_labels_batch)
+        box = concat_batch(box_batch)
+        mask_input = concat_batch(mask_input_batch)
+
+        mask_input, unnorm_coords, labels, unnorm_box = self._prep_prompts(
+            point_coords,
+            point_labels,
+            box,
+            mask_input,
+            normalize_coords,
+            # assuming all images in the batch have the same size
+            # img_idx=img_idx,
+        )
+        masks, iou_predictions, low_res_masks = self._predict(
+            unnorm_coords,
+            labels,
+            unnorm_box,
+            mask_input,
+            multimask_output,
+            return_logits=return_logits,
+            # img_idx=img_idx,
+        )
+
+        def to_np_list(x):
+            x = x.float().detach().cpu().numpy()
+            return [xi for xi in x]
+
+        all_masks = to_np_list(masks)
+        all_ious = to_np_list(iou_predictions)
+        all_low_res_masks = to_np_list(low_res_masks)
 
         return all_masks, all_ious, all_low_res_masks
 
@@ -291,7 +295,10 @@ class SAM2ImagePredictor:
         return masks_np, iou_predictions_np, low_res_masks_np
 
     def _prep_prompts(self, point_coords, point_labels, box, mask_logits, normalize_coords, img_idx=-1):
-
+        """
+        point_coords: [B, 2] -> [B, 1, 2]
+        point_labels: [B] -> [B, 1]
+        """
         unnorm_coords, labels, unnorm_box, mask_input = None, None, None, None
         if point_coords is not None:
             assert point_labels is not None, "point_labels must be supplied if point_coords is supplied."
@@ -301,7 +308,7 @@ class SAM2ImagePredictor:
             )
             labels = torch.as_tensor(point_labels, dtype=torch.int, device=self.device)
             if len(unnorm_coords.shape) == 2:
-                unnorm_coords, labels = unnorm_coords[None, ...], labels[None, ...]
+                unnorm_coords, labels = unnorm_coords.unsqueeze(1), labels.unsqueeze(1)
         if box is not None:
             box = torch.as_tensor(box, dtype=torch.float, device=self.device)
             unnorm_box = self._transforms.transform_boxes(
@@ -392,14 +399,13 @@ class SAM2ImagePredictor:
 
         # Predict masks
         batched_mode = concat_points is not None and concat_points[0].shape[0] > 1  # multi object prediction
-        high_res_features = [feat_level[img_idx].unsqueeze(0) for feat_level in self._features["high_res_feats"]]
         self.dense_pe = self.model.sam_prompt_encoder.get_dense_pe()
-        image_embedding = self._features["image_embed"][img_idx].unsqueeze(0).contiguous()
+        image_embedding = self._features["image_embed"].contiguous()
         image_pe = self.dense_pe
         sparse_embeddings = sparse_embeddings.contiguous()
         dense_embeddings = dense_embeddings.contiguous()
-        high_res_features_1 = high_res_features[0].contiguous()
-        high_res_features_2 = high_res_features[1].contiguous()
+        high_res_features_1 = self._features["high_res_feats"][0].contiguous()
+        high_res_features_2 = self._features["high_res_feats"][1].contiguous()
 
         if self.model.sam_mask_decoder_true._get_input_info()[0].dtype == tp.float16:
             image_embedding = image_embedding.half()
