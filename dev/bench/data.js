@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731625594178,
+  "lastUpdate": 1731646658540,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -4760,6 +4760,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006861710490401794",
             "extra": "mean: 147.5948062494618 usec\nrounds: 7487"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "c405be638c603684b597c180c238d309e5e03bae",
+          "message": "[Tripy] Eliminate need for `skip_num_stack_entries` argument in `convert_to_tensors`",
+          "timestamp": "2024-11-14T23:17:20Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/333/commits/c405be638c603684b597c180c238d309e5e03bae"
+        },
+        "date": 1731646657637,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6121.713813674413,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033358992395351505",
+            "extra": "mean: 163.35294828161426 usec\nrounds: 6525"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6707.038152316176,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007037500454083222",
+            "extra": "mean: 149.09710922915576 usec\nrounds: 7363"
           }
         ]
       }
