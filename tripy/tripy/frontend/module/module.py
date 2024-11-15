@@ -40,10 +40,6 @@ def _check_param_compatible(original_param, new_param, param_name):
         )
 
 
-def _is_homogeneous_container(container: Sequence, typ: T):
-    return all(isinstance(elem, typ) for elem in container)
-
-
 def _contains_types(container: Sequence, types: type):
     return any(any(isinstance(elem, typ) for typ in types) for elem in container)
 
@@ -113,20 +109,6 @@ class Module:
         # avoid infinite recursion during initialization
         if value is None:
             return
-
-        if isinstance(value, List) or isinstance(value, Dict):
-            container = value if isinstance(value, List) else value.values()
-            if _contains_types(container, [Parameter, Module]) and (
-                not _is_homogeneous_container(container, Parameter) and not _is_homogeneous_container(container, Module)
-            ):
-                stack_info = utils.get_stack_info()
-                stack_info.fetch_source_code()
-                stack_info_msg = str_from_stack_info(stack_info)
-
-                logger.warning(
-                    "A container of mixed types detected. The non-module members will not be registered with this module's state_dict()."
-                    + (f"\nNote: container was set here: {stack_info_msg}" if stack_info_msg else "")
-                )
 
     def state_dict(self) -> Dict[str, Parameter]:
         r"""
