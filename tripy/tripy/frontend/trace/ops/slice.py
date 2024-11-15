@@ -266,14 +266,15 @@ def slice_helper(tensor, *slice_params: TensorLike):
     # Look for the stack frame index to __getitem__. We need to go one stack frame beyond to get to the *user* call of __getitem__.
     # It will be the same for all the slice params
     frame_index = -1
-    if slice_params:
-        for idx, source_info in enumerate(slice_params[0].stack_info):
-            if source_info._dispatch_target == "__getitem__":
-                frame_index = idx + 1
-                break
+    assert slice_params
 
-        # convert_to_tensors should have taken care of this for us
-        assert frame_index >= 0, "No call to the __getitem__ dispatch found"
+    for idx, source_info in enumerate(slice_params[0].stack_info):
+        if source_info._dispatch_target == "__getitem__":
+            frame_index = idx + 1
+            break
+
+    # convert_to_tensors should have taken care of this for us
+    assert frame_index >= 0, "No call to the __getitem__ dispatch found"
 
     arg_names = ["tensor"] + ["slice_params"] * len(slice_params)
     for arg_index, arg in enumerate(slice_params):
