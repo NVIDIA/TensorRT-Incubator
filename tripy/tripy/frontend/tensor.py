@@ -109,6 +109,8 @@ class Tensor(metaclass=TensorMeta):
         name = name if name is not None else Tensor._get_unique_name()
 
         self.trace_tensor = TraceTensor(name, stack_info, dtype=None, device=device, producer=None, shape=None)
+        # we can memoize calls to the shape method, especially if the shape is statically known
+        self.shape_memo = None
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
