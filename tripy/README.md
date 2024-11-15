@@ -7,16 +7,19 @@
 [![Tripy L1](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml/badge.svg)](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml)
 <!-- Tripy: DOC: OMIT End -->
 
-Tripy is a Python programming model for [TensorRT](https://developer.nvidia.com/tensorrt) that aims to provide an excellent
-user experience without compromising performance. Some of the features of Tripy include:
+Tripy is a Python programming model for [TensorRT](https://developer.nvidia.com/tensorrt) that aims to provide
+an excellent user experience without compromising performance. Some of the goals of Tripy are:
 
 - **Intuitive API**: Tripy doesn't reinvent the wheel: If you have used NumPy or
     PyTorch before, Tripy APIs should feel familiar.
 
 - **Excellent Error Messages**: When something goes wrong, Tripy tries to provide
     informative and actionable error messages. Even in cases where the error comes
-    from deep within the software stack, Tripy is able to map it back to the Python code
-    that caused it.
+    from deep within the software stack, Tripy is usually able to map it back to the
+    related Python code.
+
+- **Friendly Documentation**: The documentation is meant to be accessible and comprehensive,
+    with plenty of examples to illustrate important points.
 
 
 ## Installation
@@ -72,6 +75,11 @@ We've included several guides in Tripy to make it easy to get started.
 We recommend starting with the
 [Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/00-introduction-to-tripy.html)
 guide.
+
+Other features covered in our guides include:
+
+- [Compiling code (including dynamic shape support)](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/02-compiler.html)
+- [Quantization](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/01-quantization.html)
 
 To get an idea of the look and feel of Tripy, let's take a look at a short code example.
 All of the features used in this example are explained in more detail in the

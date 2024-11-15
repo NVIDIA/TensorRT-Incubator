@@ -325,25 +325,6 @@ PYBIND11_MODULE(_api, m) {
       },
       py::arg("client"), py::arg("module"), py::arg("options"));
 
-  m.def(
-      "get_stablehlo_program_refined_signature",
-      [](PyCompilerClient &client, MlirOperation module, std::string funcName) {
-        MlirType signature{nullptr};
-        MTRT_StableHLOProgramSignatureRefinementOptions options{nullptr};
-        MTRT_Status status =
-            mtrtStableHloProgramSignatureRefinementOptionsCreate(
-                mtrtStringViewCreate(funcName.c_str(), funcName.size()),
-                &options);
-        THROW_IF_MTRT_ERROR(status);
-        status = mtrtGetStableHloProgramRefinedSignature(client, module,
-                                                         options, &signature);
-        THROW_IF_MTRT_ERROR(status);
-        status = mtrtStableHloProgramSignatureRefinementOptionsDestroy(options);
-        THROW_IF_MTRT_ERROR(status);
-        return signature;
-      },
-      py::arg("client"), py::arg("module"), py::arg("func_name"));
-
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #if MLIR_TRT_COMPILE_TIME_TENSORRT_VERSION_GTE(10, 0, 0)
   bindTensorRTPluginAdaptorObjects(m);

@@ -23,7 +23,7 @@ from tripy.backend.mlir import Executor
 from tripy.backend.mlir import utils as mlir_utils
 from tripy.common.exception import raise_error
 from tripy.frontend import Tensor
-from tripy.function_registry import sanitize_name
+from tripy.function_registry import str_from_type_annotation
 from tripy.utils import json as json_utils
 from dataclasses import dataclass
 
@@ -73,8 +73,11 @@ class Executable:
         self._executor.stream = stream
 
     def __str__(self) -> str:
-        params = [f"{name}: {sanitize_name(param.annotation)}" for name, param in self.__signature__.parameters.items()]
-        return f"Executable({', '.join(params)}) -> {sanitize_name(self.__signature__.return_annotation)}"
+        params = [
+            f"{name}: {str_from_type_annotation(param.annotation)}"
+            for name, param in self.__signature__.parameters.items()
+        ]
+        return f"Executable({', '.join(params)}) -> {str_from_type_annotation(self.__signature__.return_annotation)}"
 
     @staticmethod
     def load(path: str) -> "tripy.Executable":
