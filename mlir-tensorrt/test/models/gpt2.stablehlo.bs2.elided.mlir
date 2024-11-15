@@ -1,4 +1,4 @@
-module @jit_generate attributes {mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32} {
+module @gpt2_bs2 attributes {mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32} {
   func.func public @main(%arg0: tensor<2x6xi32> {mhlo.sharding = "{replicated}"}, %arg1: tensor<2x6xi32> {mhlo.sharding = "{replicated}"}) -> (tensor<2x20xi32> {jax.result_info = ""}) {
     %0 = stablehlo.constant dense<0> : tensor<1xi32>
     %1 = stablehlo.constant dense<768> : tensor<i32>

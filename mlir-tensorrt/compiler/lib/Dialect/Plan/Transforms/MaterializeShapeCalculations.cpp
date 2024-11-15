@@ -361,6 +361,9 @@ struct SimplifyExtractOfReshape : public OpRewritePattern<tensor::ExtractOp> {
     if (!reshapeOp)
       return failure();
 
+    if (!reshapeOp.getOperand().getType().hasStaticShape())
+      return failure();
+
     std::optional<SmallVector<int64_t>> coords =
         getConstantIntValues(getAsOpFoldResult(op.getIndices()));
     if (!coords)

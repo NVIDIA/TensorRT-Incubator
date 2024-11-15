@@ -1,4 +1,4 @@
-module @jit_generate_fn attributes {mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32} {
+module @whisper_jax attributes {mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32} {
   func.func public @main(%arg0: tensor<1x80x3000xf32> {jax.arg_info = "input_features", mhlo.sharding = "{replicated}"}) -> (tensor<1x448xi32> {jax.result_info = ""}) {
     %0 = stablehlo.constant dense_resource<__elided__> : tensor<3x80x384xf32>
     %1 = stablehlo.constant dense_resource<__elided__> : tensor<384xf32>
