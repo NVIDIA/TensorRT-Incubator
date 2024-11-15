@@ -175,7 +175,8 @@ def main(image_path: str, save_path: Optional[str] = None):
     # Create predictor and process image
     predictor = SAM2ImagePredictor(sam2_model)
 
-    predictor.set_image(image)
+    # predictor.set_image(image)
+    predictor.set_image_batch([image])
 
     # Set input prompt
     input_point = np.array([[500, 375]])
@@ -183,11 +184,19 @@ def main(image_path: str, save_path: Optional[str] = None):
 
     # Time mask prediction
     start = time.perf_counter()
-    masks, scores, logits = predictor.predict(
-        point_coords=input_point,
-        point_labels=input_label,
+    # masks, scores, logits = predictor.predict(
+    #     point_coords=input_point,
+    #     point_labels=input_label,
+    #     multimask_output=True,
+    # )
+    masks, scores, logits = predictor.predict_batch(
+        point_coords_batch=[input_point],
+        point_labels_batch=[input_label],
         multimask_output=True,
     )
+    masks = masks[0]
+    scores = scores[0]
+    logits = logits[0]
 
     # Synchronize CUDA operations
     tp.default_stream().synchronize()
