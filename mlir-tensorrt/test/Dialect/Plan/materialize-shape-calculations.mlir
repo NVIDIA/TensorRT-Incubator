@@ -1088,3 +1088,27 @@ func.func @reduce_window_dynamic_input(%arg0: tensor<?x?x?x?xf32> {tensorrt.shap
 //  CHECK-DAG: %[[v2:.+]] = arith.maxsi %[[dim]], %[[c0]] : index
 //  CHECK-DAG: %[[v3:.+]] = plan.with_shape %[[v1]](%[[v2]], %[[c3]], %[[c512]], %[[c512]]) :
 //  CHECK-DAG: return %[[v3]]
+
+// -----
+
+func.func @simplify_extract_of_reshape_negative(%arg0: tensor<1x?x3x4xf32>) -> f32 {
+  %c0 = arith.constant 0: index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %1 = stablehlo.reshape %arg0 : (tensor<1x?x3x4xf32>) -> tensor<1x6x4xf32>
+  %2 = tensor.extract %1[%c0, %c1, %c2] : tensor<1x6x4xf32>
+  return %2 : f32
+}
+
+// CHECK-LABEL: simplify_extract_of_reshape_negative
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x?x3x4xf32>)
+//  CHECK-NEXT: %[[c4:.+]] = arith.constant 4 : index
+//  CHECK-NEXT: %[[c3:.+]] = arith.constant 3 : index
+//  CHECK-NEXT: %[[c2:.+]] = arith.constant 2 : index
+//  CHECK-NEXT: %[[c1:.+]] = arith.constant 1 : index
+//  CHECK-NEXT: %[[c0:.+]] = arith.constant 0 : index
+//  CHECK-NEXT: %[[dim:.+]] = tensor.dim %[[arg0]], %[[c1]] : tensor<1x?x3x4xf32>
+//  CHECK-NEXT: %[[v0:.+]] = plan.with_shape %[[arg0]](%[[c1]], %[[dim]], %[[c3]], %[[c4]])
+//  CHECK-NEXT: %[[v1:.+]] = stablehlo.reshape %[[v0]]
+//  CHECK-NEXT: %[[extracted:.+]] = tensor.extract %[[v1]][%[[c0]], %[[c1]], %[[c2]]]
+//  CHECK-NEXT: return %extracted 
