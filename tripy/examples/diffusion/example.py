@@ -29,6 +29,7 @@ from transformers import CLIPTokenizer
 from examples.diffusion.clip_model import CLIPConfig
 from examples.diffusion.model import StableDiffusion, StableDiffusionConfig
 from examples.diffusion.weight_loader import load_from_diffusers
+import nvtx
 
 
 def compile_model(model, inputs, verbose=False):
@@ -168,8 +169,10 @@ def tripy_diffusion(args):
 
     print("[I] Getting CLIP conditional and unconditional context...", end=" ")
     clip_run_start = time.perf_counter()
+    clip_compiled.stream = tp.Stream()
     context = clip_compiled(prompt)
     unconditional_context = clip_compiled(unconditional_prompt)
+    clip_compiled.stream.synchronize()
     clip_run_end = time.perf_counter()
     print(f"took {clip_run_end - clip_run_start} seconds.")
 
@@ -179,6 +182,8 @@ def tripy_diffusion(args):
     torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype).to("cuda")
     latent = tp.Tensor(torch_latent)
 
+    pr = nvtx.Profile()
+    pr.enable()
     diffusion_run_start = time.perf_counter()
     latent = run_diffusion_loop(unet_compiled, unconditional_context, context, latent, args.steps, args.guidance, dtype)
     diffusion_run_end = time.perf_counter()
@@ -186,9 +191,12 @@ def tripy_diffusion(args):
 
     # Upsample latent space to image with autoencoder
     print(f"[I] Decoding latent...", end=" ")
+    vae_compiled.stream = tp.Stream()
     vae_run_start = time.perf_counter()
     x = vae_compiled(latent)
+    vae_compiled.stream.synchronize()
     vae_run_end = time.perf_counter()
+    pr.disable()
     print(f"took {vae_run_end - vae_run_start} seconds.")
 
     # Evaluate output
@@ -319,7 +327,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Run Stable Diffusion", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--steps", type=int, default=50, help="Number of denoising steps in diffusion")
+    parser.add_argument("--steps", type=int, default=30, help="Number of denoising steps in diffusion")
     parser.add_argument("--prompt", type=str, default=default_prompt, help="Phrase to render")
     parser.add_argument("--out", type=str, default=None, help="Output filepath")
     parser.add_argument("--fp16", action="store_true", help="Cast the weights to float16")
