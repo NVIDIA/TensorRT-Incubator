@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1731687570400,
+  "lastUpdate": 1731817081950,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -4862,6 +4862,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006980322173051444",
             "extra": "mean: 148.87848073693306 usec\nrounds: 7530"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "8e3a4f4b7ac71505501ba8964f280bef960975fc",
+          "message": "[Tripy] Return the shape immediately if it is statically known instead of producing a trace operator.",
+          "timestamp": "2024-11-16T22:10:41Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/379/commits/8e3a4f4b7ac71505501ba8964f280bef960975fc"
+        },
+        "date": 1731817081063,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6168.293526200989,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000941534080965553",
+            "extra": "mean: 162.1193926249313 usec\nrounds: 6539"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6999.08153130217,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000880928166420028",
+            "extra": "mean: 142.87588957603575 usec\nrounds: 7484"
           }
         ]
       }
