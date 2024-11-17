@@ -164,6 +164,7 @@ def __getitem__(
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
 
     """
+    from tripy.frontend.dimension_size import DimensionSize
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.gather import gather
@@ -187,20 +188,23 @@ def __getitem__(
     flip_dims = []
     for i, idx in enumerate(index):
 
+        # t.shape could potentially return ints, so we would want to convert in those cases
+        shape_dim = DimensionSize(t_shape[i]) if not isinstance(t_shape[i], Tensor) else t_shape[i]
+
         def convert_to_positive_idx(index: Union[int, Tensor]) -> Union[int, Tensor]:
             # Base condition for t_shape[i] else the frontend will recurse infinitely.
             if isinstance(index, int):
-                return index if index >= 0 else index + t_shape[i]
+                return index if index >= 0 else index + shape_dim
             else:
-                return where(index >= 0, index, t_shape[i] + index)
+                return where(index >= 0, index, shape_dim + index)
 
         # when dealing with a slice (not a single index), we clamp the start and end bounds to [0, t_shape[i]]
         # because out of bounds indices for a *slice* mean that the dim should be empty, not an error
         def clamp_bound(bound: Union[int, Tensor]) -> Union[int, Tensor]:
             if isinstance(bound, int):
-                return 0 if bound < 0 else where(bound > t_shape[i], t_shape[i], Tensor([bound]))
+                return 0 if bound < 0 else where(bound > shape_dim, shape_dim, Tensor([bound]))
             else:
-                return where(bound < 0, Tensor([0]), where(bound > t_shape[i], t_shape[i], bound))
+                return where(bound < 0, Tensor([0]), where(bound > shape_dim, shape_dim, bound))
 
         if isinstance(idx, int) or isinstance(idx, Tensor):
             args.append(convert_to_positive_idx(idx))
@@ -215,13 +219,13 @@ def __getitem__(
             # of the flipped list and goes to index len(l) - 3 of the flipped list.
             if idx.step is not None and idx.step < 0:
                 flip_dims.append(i)
-                adjusted_start = 0 if idx.start is None else t_shape[i] - convert_to_positive_idx(idx.start) - 1
-                adjusted_stop = t_shape[i] if idx.stop is None else t_shape[i] - convert_to_positive_idx(idx.stop) - 1
+                adjusted_start = 0 if idx.start is None else shape_dim - convert_to_positive_idx(idx.start) - 1
+                adjusted_stop = shape_dim if idx.stop is None else shape_dim - convert_to_positive_idx(idx.stop) - 1
                 args.append(clamp_bound(adjusted_start))
                 args.append(clamp_bound(adjusted_stop))
             else:
                 args.append(clamp_bound(convert_to_positive_idx(utils.default(idx.start, 0))))
-                args.append(clamp_bound(convert_to_positive_idx(utils.default(idx.stop, t_shape[i]))))
+                args.append(clamp_bound(convert_to_positive_idx(utils.default(idx.stop, shape_dim))))
             args.append(abs(utils.default(idx.step, 1)))
         else:
             raise_error(

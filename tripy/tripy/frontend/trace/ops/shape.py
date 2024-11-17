@@ -16,12 +16,12 @@
 #
 
 from dataclasses import dataclass
-from typing import List
 
 from tripy import constraints
 from tripy.common.datatype import DATA_TYPES
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.types import ShapeLike
 
 
 @dataclass(repr=False)
@@ -45,7 +45,7 @@ class GetDimensionSize(BaseTraceOp):
 @TENSOR_METHOD_REGISTRY("shape")
 @property
 @constraints.dtypes(constraints={"self": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
-def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
+def shape(self: "tripy.Tensor") -> ShapeLike:
     """
     Represents the shape of the tensor.
 
@@ -63,12 +63,8 @@ def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
         assert shape == [8, 2]
     """
 
-    from tripy.frontend.dimension_size import DimensionSize
+    # If the shape is statically known, we do not need to insert any operator calls.
+    if all(dim >= 0 for dim in self.trace_tensor.shape):
+        return self.trace_tensor.shape
 
-    # If the shape is statically known, we do not need to insert any operator calls and we can memoize.
-    if self.shape_memo is None and all(dim >= 0 for dim in self.trace_tensor.shape):
-        self.shape_memo = [DimensionSize(dim) for dim in self.trace_tensor.shape]
-
-    return self.shape_memo or [
-        GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)
-    ]
+    return [GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)]
