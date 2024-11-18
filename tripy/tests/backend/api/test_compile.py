@@ -31,8 +31,7 @@ class TestCompile:
         inp = tp.ones((2, 2), dtype=tp.float32)
         out = compiled_gelu(inp)
 
-        # TODO (#225): Replace with tp.all
-        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(tp.relu(inp)))
+        assert tp.equal(out, tp.relu(inp))
 
     def test_module(self):
         layernorm = tp.LayerNorm(2)
@@ -41,7 +40,7 @@ class TestCompile:
         inp = tp.ones((2, 2), dtype=tp.float32)
         out = compiled_layernorm(inp)
 
-        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(layernorm(inp)))
+        assert tp.equal(out, layernorm(inp))
 
     def test_compile_arg_order_irrelevant(self):
         # The order of arguments we specify to `compile` should not affect the order
@@ -214,4 +213,4 @@ class TestCompiledOps:
 
         out = compiled_linear(a)
 
-        assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+        assert tp.equal(out, linear(a))

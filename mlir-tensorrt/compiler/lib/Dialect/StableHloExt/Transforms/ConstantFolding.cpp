@@ -1065,7 +1065,6 @@ struct AbsorbTensorCastProducer : public RewritePattern {
 };
 } // namespace
 
-
 /// Populates patterns that are temporarily reproduced here from upstream
 /// commits we have not yet integrated.
 static void populateFutureUpstreamPatterns(RewritePatternSet &patterns);

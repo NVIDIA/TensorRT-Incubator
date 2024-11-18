@@ -361,7 +361,6 @@ struct SimplifyExtractOfReshape : public OpRewritePattern<tensor::ExtractOp> {
     if (!reshapeOp)
       return failure();
 
-    // Skip if either shape has dynamic dimensions
     if (!reshapeOp.getOperand().getType().hasStaticShape())
       return failure();
 
