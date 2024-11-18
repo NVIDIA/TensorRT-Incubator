@@ -364,27 +364,21 @@ class TestMixedContainerNetwork:
         assert str(mixed_container_network) == dedent(
             """\
             MixedContainerNetwork(
-              mixed_list.0=
-                DummyOp(
-                  nested=
-                    DummyNestedOp(
-                     param=[2],
+                param: Parameter = (shape=[2], dtype=float32),
+                mixed_list.0: Module = DummyOp(
+                    nested: Module = DummyNestedOp(
+                        param: Parameter = (shape=[2], dtype=float32),
                     ),
                 ),
-              mixed_list.2=
-                DummyOp(
-                  nested=
-                    DummyNestedOp(
-                     param=[2],
+                mixed_list.2: Module = DummyOp(
+                    nested: Module = DummyNestedOp(
+                        param: Parameter = (shape=[2], dtype=float32),
                     ),
                 ),
-              mixed_dict.dummy=
-                DummyOp(
-                  nested=
-                    DummyNestedOp(
-                     param=[2],
+                mixed_dict.dummy: Module = DummyOp(
+                    nested: Module = DummyNestedOp(
+                        param: Parameter = (shape=[2], dtype=float32),
                     ),
                 ),
-             param=[2],
             )"""
         )

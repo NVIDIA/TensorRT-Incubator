@@ -204,15 +204,13 @@ class TestMixedContainerSequential:
         expected_str = dedent(
             """\
             Sequential(
-              0=
-                Conv(
-                 bias=[2],
-                 weight=[2, 2, 1, 1],
+                0: Module = Conv(
+                    bias: Parameter = (shape=[2], dtype=float32),
+                    weight: Parameter = (shape=[2, 2, 1, 1], dtype=float32),
                 ),
-              3=
-                Linear(
-                 weight=[1, 2],
-                 bias=[1],
+                3: Module = Linear(
+                    weight: Parameter = (shape=[1, 2], dtype=float32),
+                    bias: Parameter = (shape=[1], dtype=float32),
                 ),
             )"""
         )
