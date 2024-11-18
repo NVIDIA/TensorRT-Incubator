@@ -133,7 +133,7 @@ class FpnNeck(tp.Module):
                 top_down_features = tp.resize(
                     tp.cast(prev_features, self.dtype),
                     mode=self.fpn_interp_model,
-                    output_shape=(1, 256, 64, 64),
+                    output_shape=(prev_features.shape[0], 256, 64, 64),
                 )
                 prev_features = lateral_features + top_down_features
                 if self.fuse_type == "avg":

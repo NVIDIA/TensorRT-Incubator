@@ -107,6 +107,106 @@ class SAM2ImagePredictor:
         ][::-1]
         self._features = {"image_embed": feats[-1], "high_res_feats": feats[:-1]}
         self._is_image_set = True
+        logging.info("Image embeddings computed.")
+
+    @torch.no_grad()
+    def set_image_batch(
+        self,
+        image_list: List[Union[np.ndarray]],
+    ) -> None:
+        """
+        Calculates the image embeddings for the provided image batch, allowing
+        masks to be predicted with the 'predict_batch' method.
+
+        Arguments:
+          image_list (List[np.ndarray]): The input images to embed in RGB format. The image should be in HWC format if np.ndarray
+          with pixel values in [0, 255].
+        """
+        self.reset_predictor()
+        assert isinstance(image_list, list)
+        self._orig_hw = []
+        for image in image_list:
+            assert isinstance(
+                image, np.ndarray
+            ), "Images are expected to be an np.ndarray in RGB format, and of shape  HWC"
+            self._orig_hw.append(image.shape[:2])
+        assert len(set(self._orig_hw)) == 1, "Images in the batch must have the same size."
+        # Transform the image to the form expected by the model
+        img_batch = self._transforms.forward_batch(image_list)
+        img_batch = img_batch.to(self.device)
+        batch_size = img_batch.shape[0]
+        assert (
+            len(img_batch.shape) == 4 and img_batch.shape[1] == 3
+        ), f"img_batch must be of size Bx3xHxW, got {img_batch.shape}"
+        logging.info("Computing image embeddings for the provided images...")
+        img_batch_tp = tp.Tensor(img_batch.to(getattr(torch, self.model.image_encoder.trunk.dtype)).contiguous())
+        backbone_out = self.model.forward_image(img_batch_tp)
+        _, vision_feats, _, _ = self.model._prepare_backbone_features(backbone_out)
+        # Add no_mem_embed, which is added to the lowest rest feat. map during training on videos
+        if self.model.directly_add_no_mem_embed:
+            vision_feats[-1] = vision_feats[-1] + self.model.no_mem_embed
+
+        feats = [
+            feat.permute(1, 2, 0).view(batch_size, -1, *feat_size)
+            for feat, feat_size in zip(vision_feats[::-1], self._bb_feat_sizes[::-1])
+        ][::-1]
+        self._features = {"image_embed": feats[-1], "high_res_feats": feats[:-1]}
+        self._is_image_set = True
+        self._is_batch = True
+        logging.info("Image embeddings computed.")
+
+    def predict_batch(
+        self,
+        point_coords_batch: List[np.ndarray] = None,
+        point_labels_batch: List[np.ndarray] = None,
+        box_batch: List[np.ndarray] = None,
+        mask_input_batch: List[np.ndarray] = None,
+        multimask_output: bool = True,
+        return_logits: bool = False,
+        normalize_coords=True,
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+        """This function is very similar to predict(...), however it is used for batched mode, when the model is expected to generate predictions on multiple images.
+        It returns a tuple of lists of masks, ious, and low_res_masks_logits.
+        """
+        assert self._is_batch, "This function should only be used when in batched mode"
+        if not self._is_image_set:
+            raise RuntimeError("An image must be set with .set_image_batch(...) before mask prediction.")
+
+        def concat_batch(x):
+            if x is None:
+                return x
+            return np.concatenate(x, axis=0)
+
+        point_coords = concat_batch(point_coords_batch)
+        point_labels = concat_batch(point_labels_batch)
+        box = concat_batch(box_batch)
+        mask_input = concat_batch(mask_input_batch)
+
+        mask_input, unnorm_coords, labels, unnorm_box = self._prep_prompts(
+            point_coords,
+            point_labels,
+            box,
+            mask_input,
+            normalize_coords,
+        )
+        masks, iou_predictions, low_res_masks = self._predict(
+            unnorm_coords,
+            labels,
+            unnorm_box,
+            mask_input,
+            multimask_output,
+            return_logits=return_logits,
+        )
+
+        def to_np_list(x):
+            x = x.float().detach().cpu().numpy()
+            return [xi for xi in x]
+
+        all_masks = to_np_list(masks)
+        all_ious = to_np_list(iou_predictions)
+        all_low_res_masks = to_np_list(low_res_masks)
+
+        return all_masks, all_ious, all_low_res_masks
 
     def predict(
         self,
@@ -175,7 +275,10 @@ class SAM2ImagePredictor:
         return masks_np, iou_predictions_np, low_res_masks_np
 
     def _prep_prompts(self, point_coords, point_labels, box, mask_logits, normalize_coords, img_idx=-1):
-
+        """
+        point_coords: [B, 2] -> [B, 1, 2]
+        point_labels: [B] -> [B, 1]
+        """
         unnorm_coords, labels, unnorm_box, mask_input = None, None, None, None
         if point_coords is not None:
             assert point_labels is not None, "point_labels must be supplied if point_coords is supplied."
@@ -185,7 +288,7 @@ class SAM2ImagePredictor:
             )
             labels = torch.as_tensor(point_labels, dtype=torch.int, device=self.device)
             if len(unnorm_coords.shape) == 2:
-                unnorm_coords, labels = unnorm_coords[None, ...], labels[None, ...]
+                unnorm_coords, labels = unnorm_coords.unsqueeze(1), labels.unsqueeze(1)
         if box is not None:
             box = torch.as_tensor(box, dtype=torch.float, device=self.device)
             unnorm_box = self._transforms.transform_boxes(
@@ -279,14 +382,13 @@ class SAM2ImagePredictor:
 
         # Predict masks
         batched_mode = concat_points is not None and concat_points[0].shape[0] > 1  # multi object prediction
-        high_res_features = [feat_level[img_idx].unsqueeze(0) for feat_level in self._features["high_res_feats"]]
         self.dense_pe = self.model.sam_prompt_encoder.get_dense_pe()
-        image_embedding = self._features["image_embed"][img_idx].unsqueeze(0).contiguous()
+        image_embedding = self._features["image_embed"].contiguous()
         image_pe = self.dense_pe
         sparse_embeddings = sparse_embeddings.contiguous()
         dense_embeddings = dense_embeddings.contiguous()
-        high_res_features_1 = high_res_features[0].contiguous()
-        high_res_features_2 = high_res_features[1].contiguous()
+        high_res_features_1 = self._features["high_res_feats"][0].contiguous()
+        high_res_features_2 = self._features["high_res_feats"][1].contiguous()
 
         if self.model.sam_mask_decoder_true._get_input_info()[0].dtype == tp.float16:
             image_embedding = image_embedding.half()
