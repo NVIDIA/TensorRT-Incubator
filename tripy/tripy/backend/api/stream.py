@@ -61,7 +61,7 @@ class Stream:
             input = tp.ones((2, 2), dtype=tp.float32)
             output = compiled_linear(input)
 
-            assert cp.array_equal(cp.from_dlpack(output), cp.from_dlpack(linear(input)))
+            assert tp.equal(output, linear(input))
         """
         if priority != 0:
             raise_error(

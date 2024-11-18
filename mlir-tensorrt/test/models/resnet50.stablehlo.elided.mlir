@@ -1,4 +1,4 @@
-module @jit__unnamed_wrapped_function_ attributes {jax.uses_shape_polymorphism = false, mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32} {
+module @resnet50 attributes {jax.uses_shape_polymorphism = false, mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32} {
   func.func public @main(%arg0: tensor<16x3x224x224xf16> {mhlo.layout_mode = "default"}) -> (tensor<16x1000xf16> {mhlo.layout_mode = "default"}) {
     %0 = stablehlo.constant dense_resource<__elided__> : tensor<7x7x3x64xf32>
     %1 = stablehlo.constant dense_resource<__elided__> : tensor<64xf32>

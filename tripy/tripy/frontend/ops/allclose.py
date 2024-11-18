@@ -15,24 +15,20 @@
 # limitations under the License.
 #
 
-from tripy import export, constraints
-from tripy.common.exception import raise_error
+from tripy import constraints, export
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"a": "T1", "b": "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16"]},
-)
-def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
+@constraints.dtypes(constraints={"input": "T1", "other": "T1"}, variables={"T1": ["float32", "float16", "bfloat16"]})
+def allclose(input: "tripy.Tensor", other: "tripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
     r"""
-    Returns true if the following equation is true for every element in ``a`` and ``b`` :
+    Returns ``True`` if the following equation is true for every element in ``input`` and ``other`` :
 
-    :math:`|a_i - b_i| <= (\text{atol} + \text{rtol} * |b_i|)`
+    :math:`|\text{input}_i - \text{other}_i| <= (\text{atol} + \text{rtol} * |\text{other}_i|)`
 
     Args:
-        a: First tensor to compare.
-        b: Second tensor to compare.
+        input: First tensor to compare.
+        other: Second tensor to compare.
         rtol: The relative tolerance.
         atol: The absolute tolerance.
 
@@ -55,8 +51,8 @@ def allclose(a: "tripy.Tensor", b: "tripy.Tensor", rtol: float = 1e-05, atol: fl
         out = tp.allclose(tp.Tensor([1e-7]), tp.Tensor([1.2e-7]))
         assert not out
     """
-    from tripy.frontend.trace.ops.unary_elementwise import abs
     from tripy.frontend.trace.ops.reduce import all
+    from tripy.frontend.trace.ops.unary_elementwise import abs
 
-    compare = abs(a - b) <= (atol + rtol * abs(b))
+    compare = abs(input - other) <= (atol + rtol * abs(other))
     return bool(all(compare))

@@ -57,10 +57,6 @@ class TestSequential:
         assert len(sequential_network) == 2
 
         assert isinstance(sequential_network[0], tp.Linear)
-        assert np.array_equal(
-            cp.from_dlpack(sequential_network[0].weight), cp.from_dlpack(sequential_network[0].weight)
-        )
-        assert np.array_equal(cp.from_dlpack(sequential_network[0].bias), cp.from_dlpack(sequential_network[0].bias))
 
     def test_named_children(self, sequential_network):
         expected_names = [("0", sequential_network[0]), ("1", sequential_network[1])]
@@ -82,7 +78,7 @@ class TestSequential:
     def test_load_state_dict(self, sequential_network):
         new_state_dict = {"0.weight": tp.Parameter(tp.ones((3, 1)))}
         sequential_network.load_state_dict(new_state_dict, strict=False)
-        assert np.array_equal(cp.from_dlpack(sequential_network[0].weight), cp.from_dlpack(new_state_dict["0.weight"]))
+        assert tp.equal(sequential_network[0].weight, new_state_dict["0.weight"])
 
     def test_modify_parameters(self, sequential_network):
         new_param = tp.Parameter(tp.ones((2, 3)))
@@ -95,20 +91,20 @@ class TestSequential:
 
     def test_str_representation(self, sequential_network):
         expected_str = dedent(
-            """\
+            """
             Sequential(
-              0=
-                Linear(
-                 weight=[3, 1],
-                 bias=[3],
+                0: Module = Linear(
+                    weight: Parameter = (shape=[3, 1], dtype=float32),
+                    bias: Parameter = (shape=[3], dtype=float32),
                 ),
-              1=
-                Linear(
-                 weight=[2, 3],
-                 bias=[2],
+                1: Module = Linear(
+                    weight: Parameter = (shape=[2, 3], dtype=float32),
+                    bias: Parameter = (shape=[2], dtype=float32),
                 ),
-            )"""
-        )
+            )
+            """
+        ).strip()
+
         assert str(sequential_network) == expected_str
 
 
@@ -135,9 +131,7 @@ class TestDictSequential:
     def test_load_state_dict(self, dict_sequential_network):
         new_state_dict = {"layer1.weight": tp.Parameter(tp.ones((3, 1)))}
         dict_sequential_network.load_state_dict(new_state_dict, strict=False)
-        assert np.array_equal(
-            cp.from_dlpack(dict_sequential_network["layer1"].weight), cp.from_dlpack(new_state_dict["layer1.weight"])
-        )
+        assert tp.equal(dict_sequential_network["layer1"].weight, new_state_dict["layer1.weight"])
 
     def test_modify_parameters(self, dict_sequential_network):
         new_weight = tp.Parameter(tp.ones((2, 3)))
@@ -146,20 +140,19 @@ class TestDictSequential:
 
     def test_str_representation(self, dict_sequential_network):
         expected_str = dedent(
-            """\
+            """
             Sequential(
-              layer1=
-                Linear(
-                 weight=[3, 1],
-                 bias=[3],
+                layer1: Module = Linear(
+                    weight: Parameter = (shape=[3, 1], dtype=float32),
+                    bias: Parameter = (shape=[3], dtype=float32),
                 ),
-              layer2=
-                Linear(
-                 weight=[2, 3],
-                 bias=[2],
+                layer2: Module = Linear(
+                    weight: Parameter = (shape=[2, 3], dtype=float32),
+                    bias: Parameter = (shape=[2], dtype=float32),
                 ),
-            )"""
-        )
+            )
+            """
+        ).strip()
         assert str(dict_sequential_network) == expected_str
 
 
@@ -252,32 +245,27 @@ class TestNestedSequential:
             "1.1.weight": tp.Parameter(tp.ones((1, 3))),
         }
         nested_sequential_network.load_state_dict(new_state_dict, strict=False)
-        assert np.array_equal(
-            cp.from_dlpack(nested_sequential_network[1][1].weight), cp.from_dlpack(new_state_dict["1.1.weight"])
-        )
+        assert tp.equal(nested_sequential_network[1][1].weight, new_state_dict["1.1.weight"])
 
     def test_str_representation(self, nested_sequential_network):
         expected_str = dedent(
-            """\
+            """
             Sequential(
-              0=
-                Linear(
-                 weight=[4, 2],
-                 bias=[4],
+                0: Module = Linear(
+                    weight: Parameter = (shape=[4, 2], dtype=float32),
+                    bias: Parameter = (shape=[4], dtype=float32),
                 ),
-              1=
-                Sequential(
-                  0=
-                    Linear(
-                     weight=[3, 4],
-                     bias=[3],
+                1: Module = Sequential(
+                    0: Module = Linear(
+                        weight: Parameter = (shape=[3, 4], dtype=float32),
+                        bias: Parameter = (shape=[3], dtype=float32),
                     ),
-                  1=
-                    Linear(
-                     weight=[1, 3],
-                     bias=[1],
+                    1: Module = Linear(
+                        weight: Parameter = (shape=[1, 3], dtype=float32),
+                        bias: Parameter = (shape=[1], dtype=float32),
                     ),
                 ),
-            )"""
-        )
+            )
+            """
+        ).strip()
         assert str(nested_sequential_network) == expected_str
