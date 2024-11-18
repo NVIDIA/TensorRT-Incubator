@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Tuple, Union
 
 from tripy import export
 from tripy.common.exception import TripyException
@@ -36,7 +36,7 @@ class device:
     kind: str
     index: int
 
-    def __init__(self, device: str) -> None:
+    def __init__(self, device: Union[str, Tuple[str, int]]) -> None:
         r"""
         Args:
             device: A string consisting of the device kind and an optional index.

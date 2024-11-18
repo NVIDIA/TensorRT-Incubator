@@ -116,7 +116,11 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             column_range=None,
         )
         if source_info.module == tripy.function_registry.__name__ and source_info.function == "wrapper":
-            source_info._dispatch_target = frame.f_locals["key"]
+            # If it comes from a decorated function, the format will be Class.method and we should strip out the class name.
+            target_name = frame.f_locals["key"]
+            if "." in frame.f_locals["key"]:
+                target_name = target_name.split(".")[-1]
+            source_info._dispatch_target = target_name
 
         try:
             # In Python 3.11, frames contain column offset information.

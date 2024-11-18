@@ -152,10 +152,10 @@ class Conv(ConvBase):
         in_channels: int,
         out_channels: int,
         kernel_dims: Sequence[int],
-        padding: Sequence[Sequence[int]] = None,
-        stride: Sequence[int] = None,
+        padding: Optional[Sequence[Sequence[int]]] = None,
+        stride: Optional[Sequence[int]] = None,
         groups: int = None,
-        dilation: Sequence[int] = None,
+        dilation: Optional[Sequence[int]] = None,
         bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
     ) -> None:

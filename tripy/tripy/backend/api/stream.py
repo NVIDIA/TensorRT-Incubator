@@ -102,7 +102,7 @@ class Stream:
         """
         self._active_cuda_stream.sync()
 
-    def __eq__(self, other):
+    def __eq__(self, other: "tripy.Stream"):
         if not isinstance(other, Stream):
             return False
         return self._active_cuda_stream == other._active_cuda_stream

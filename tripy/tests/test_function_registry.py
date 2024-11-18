@@ -152,6 +152,19 @@ class TestFunctionRegistry:
         assert registry["test"](0) == 1
         assert registry["test"](0, 0) == -1
 
+    def test_register_class(self, registry):
+        @registry("class")
+        class C:
+            def f1(self, a: int):
+                return a + 1
+
+            def f2(self, a: int):
+                return a - 1
+
+        inst_c = C()
+        assert registry["class.C.f1"](inst_c, 1) == 2
+        assert registry["class.C.f2"](inst_c, 1) == 0
+
     def test_ambiguous_overload_raises_error(self, registry):
         @registry("test")
         def func(a: int):

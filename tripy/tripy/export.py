@@ -94,7 +94,7 @@ def public_api(
 
         symbol = symbol or obj.__name__
         # Leverage the function registry to provide type checking and function overloading capabilities.
-        if inspect.isfunction(obj):
+        if inspect.isfunction(obj) or inspect.isclass(obj):
             obj = PUBLIC_API_FUNCTION_REGISTRY(symbol)(obj)
 
         qualname = f"{module.__name__}.{symbol}"
