@@ -148,11 +148,12 @@ class Module:
         state_dict = copy.copy(dict(self.named_parameters()))
 
         for child_name, child in self.named_children():
-            child_state_dict = child.state_dict()
-            for name, param in child_state_dict.items():
-                # We add a prefix for any parameters coming from nested modules
-                # so they can be disambiguated correctly in higher level modules.
-                state_dict[f"{child_name}.{name}"] = param
+            if isinstance(child, Module):
+                child_state_dict = child.state_dict()
+                for name, param in child_state_dict.items():
+                    # We add a prefix for any parameters coming from nested modules
+                    # so they can be disambiguated correctly in higher level modules.
+                    state_dict[f"{child_name}.{name}"] = param
 
         return state_dict
 

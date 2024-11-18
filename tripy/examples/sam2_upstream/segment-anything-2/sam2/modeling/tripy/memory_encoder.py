@@ -56,11 +56,11 @@ class MaskDownSampler(tp.Module):
         super().__init__()
         num_layers = int(math.log2(total_stride) // math.log2(stride))
         assert stride**num_layers == total_stride
-        self.encoder = []
+        encoder = []
         mask_in_chans, mask_out_chans = 1, 1
         for _ in range(num_layers):
             mask_out_chans = mask_in_chans * (stride**2)
-            self.encoder.append(
+            encoder.append(
                 tp.Conv(
                     mask_in_chans,
                     mask_out_chans,
@@ -69,11 +69,12 @@ class MaskDownSampler(tp.Module):
                     padding=((padding, padding), (padding, padding)),
                 )
             )
-            self.encoder.append(LayerNorm2d(mask_out_chans))
-            self.encoder.append(activation)
+            encoder.append(LayerNorm2d(mask_out_chans))
+            encoder.append(activation)
             mask_in_chans = mask_out_chans
 
-        self.encoder.append(tp.Conv(mask_out_chans, embed_dim, kernel_dims=(1, 1)))
+        encoder.append(tp.Conv(mask_out_chans, embed_dim, kernel_dims=(1, 1)))
+        self.encoder = tp.Sequential(*encoder)
 
     def __call__(self, x):
         return self.forward(x)
@@ -115,9 +116,7 @@ class CXBlock(tp.Module):
             groups=dim if use_dwconv else 1,
         )  # depthwise conv
         self.norm = LayerNorm2d(dim, eps=1e-6)
-        self.pwconv1 = tp.Linear(
-            dim, 4 * dim
-        )  # pointwise/1x1 convs, implemented with linear layers
+        self.pwconv1 = tp.Linear(dim, 4 * dim)  # pointwise/1x1 convs, implemented with linear layers
         self.act = tp.gelu
         self.pwconv2 = tp.Linear(4 * dim, dim)
         self.gamma = tp.ones((dim,)) * layer_scale_init_value
@@ -152,7 +151,7 @@ class Fuser(tp.Module):
     def __init__(self, layer, num_layers, dim=None, input_projection=False):
         super().__init__()
         self.proj = Dummy()
-        self.layers = get_clones(layer, num_layers)
+        self.layers = tp.Sequential(*[layer for _ in range(num_layers)])  # get_clones(layer, num_layers)
 
         if input_projection:
             self.proj = tp.Conv(dim, dim, kernel_dims=(1, 1))

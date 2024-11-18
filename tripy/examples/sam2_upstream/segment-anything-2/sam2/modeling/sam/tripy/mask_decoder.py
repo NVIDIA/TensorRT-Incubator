@@ -366,6 +366,8 @@ class MaskDecoder(tp.Module):
 
             return result
 
+        # best_multimask_logits = multimask_logits[batch_inds, best_scores_inds]
+        # best_multimask_iou_scores = multimask_iou_scores[batch_inds, best_scores_inds]
         best_multimask_logits = advanced_indexing(multimask_logits, batch_inds, best_scores_inds)
         best_multimask_iou_scores = advanced_indexing(multimask_iou_scores, batch_inds, best_scores_inds)
 

@@ -280,6 +280,47 @@ public:
   }
 };
 
+class SelectReifyRankedShapedTypeOpInterfaceImpl
+    : public ReifyRankedShapedTypeOpInterface::ExternalModel<
+          SelectReifyRankedShapedTypeOpInterfaceImpl,
+          stablehlo::SelectOp> {
+    
+  public:
+  LogicalResult
+  reifyResultShapes(Operation *op_, OpBuilder &builder,
+                    ReifiedRankedShapedTypeDims &reifiedReturnShapes) const {
+                    
+    auto op = cast<stablehlo::SelectOp>(op_);
+    Location loc = op.getLoc();
+
+    // Get result type
+    auto resultType = cast<RankedTensorType>(op.getResult().getType());
+    int64_t rank = resultType.getRank();
+
+    // Collect dimension values
+    SmallVector<OpFoldResult> dims(rank);
+    for (int64_t i = 0; i < rank; ++i) {
+      // For each dimension, if it's static in the result type, use that
+      if (!resultType.isDynamicDim(i)) {
+        dims[i] = builder.getIndexAttr(resultType.getDimSize(i));
+        continue;
+      }
+
+      // For dynamic dimensions, we need to compute the broadcasted size
+      // The operands are: pred, on_true, on_false
+      Value trueVal = builder.createOrFold<tensor::DimOp>(loc, op.getOperand(1), i);
+      Value falseVal = builder.createOrFold<tensor::DimOp>(loc, op.getOperand(2), i);
+      
+      // The result dimension should be the max of the two values
+      Value maxDim = builder.create<arith::MaxSIOp>(loc, trueVal, falseVal);
+      dims[i] = maxDim;
+    }
+    reifiedReturnShapes.emplace_back(std::move(dims));
+    return success();
+
+  }
+  
+};
 class ReduceWindowReifyRankedShapedTypeOpInterfaceImpl
     : public ReifyRankedShapedTypeOpInterface::ExternalModel<
           ReduceWindowReifyRankedShapedTypeOpInterfaceImpl,
@@ -353,4 +394,10 @@ void stablehlo::registerTypeInferenceExternalModels(DialectRegistry &registry) {
         stablehlo::ReduceWindowOp::attachInterface<
             ReduceWindowReifyRankedShapedTypeOpInterfaceImpl>(*ctx);
       });
+  registry.addExtension(
+      +[](MLIRContext *ctx, stablehlo::StablehloDialect *dialect) {
+        stablehlo::SelectOp::attachInterface<
+            SelectReifyRankedShapedTypeOpInterfaceImpl>(*ctx);
+      });
+    
 }

@@ -356,9 +356,13 @@ struct SimplifyExtractOfReshape : public OpRewritePattern<tensor::ExtractOp> {
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter &rewriter) const override {
-    SmallVector<Value> operands;
+
     auto reshapeOp = op.getTensor().getDefiningOp<stablehlo::ReshapeOp>();
     if (!reshapeOp)
+      return failure();
+
+    // Skip if either shape has dynamic dimensions
+    if (!reshapeOp.getOperand().getType().hasStaticShape())
       return failure();
 
     std::optional<SmallVector<int64_t>> coords =
@@ -366,17 +370,15 @@ struct SimplifyExtractOfReshape : public OpRewritePattern<tensor::ExtractOp> {
     if (!coords)
       return failure();
 
-    // Get lienar coords.
     SmallVector<int64_t> resultBasis =
         mlir::computeSuffixProduct(reshapeOp.getType().getShape());
     SmallVector<int64_t> operandBasis =
         mlir::computeSuffixProduct(reshapeOp.getOperand().getType().getShape());
 
-    int64_t lienarIndex = mlir::linearize(*coords, resultBasis);
+    int64_t linearIndex = mlir::linearize(*coords, resultBasis);
     SmallVector<int64_t> operandCoords =
-        mlir::delinearize(lienarIndex, operandBasis);
+        mlir::delinearize(linearIndex, operandBasis);
 
-    // Find linear offset within in the operand shape.
     rewriter.replaceOpWithNewOp<tensor::ExtractOp>(
         op, reshapeOp.getOperand(),
         llvm::map_to_vector(operandCoords, [&](int64_t c) -> Value {
@@ -384,6 +386,7 @@ struct SimplifyExtractOfReshape : public OpRewritePattern<tensor::ExtractOp> {
         }));
 
     return success();
+
   }
 };
 
@@ -858,7 +861,6 @@ public:
       memref::populateResolveRankedShapedTypeResultDimsPatterns(patterns_);
       stablehlo_ext::populateStableHloAbsorbTensorCastPatterns(patterns_);
       stablehlo::populateStablehloCanonicalizeDynamismPatterns(&patterns_, ctx);
-
       // clang-format off
       addCanonicalizationPatterns<
         arith::AndIOp,
