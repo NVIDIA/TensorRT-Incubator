@@ -227,6 +227,7 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 
   lua["__cuda_stream_sync"] = [](sol::this_state state, CudaStreamPtr stream) {
+    MTRT_DBG("__cuda_stream_sync @ {0}", reinterpret_cast<void *>(stream.ptr));
     ADD_CUDA_MODULE_RANGE("cuda_stream_sync");
     SET_LUA_ERROR_IF_CUDART_ERROR(cudaStreamSynchronize(stream), state);
   };
@@ -439,7 +440,8 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                      size_t srcOffset, uintptr_t dest, size_t destOffset,
                      size_t numBytes) {
         ADD_CUDA_MODULE_RANGE("cuda_memcpy_host_pinned2device");
-        MTRT_DBGF("cuda_memcpy_h2d %lu bytes from 0x%lx + %lu to 0x%lx + %lu",
+        MTRT_DBGF("__cuda_memcpy_host_pinned2device: %lu bytes from 0x%lx + "
+                  "%lu to 0x%lx + %lu",
                   numBytes, src, srcOffset, dest, destOffset);
         void *srcPtr = reinterpret_cast<void *>(src + srcOffset);
         void *dstPtr = reinterpret_cast<void *>(dest + destOffset);
@@ -475,7 +477,9 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
                  "expected src to be a device ptr and dest to be a host ptr");
         }
 #endif
-        MTRT_DBGF("executor_memcpy device-host %lu bytes", numBytes);
+        MTRT_DBGF("__cuda_memcpy_device2host_pinned: %lu bytes from 0x%lx + "
+                  "%lu to 0x%lx + %lu",
+                  numBytes, src, srcOffset, dest, destOffset);
         SET_LUA_ERROR_IF_CUDART_ERROR(cudaMemcpyAsync(dstPtr, srcPtr, numBytes,
                                                       cudaMemcpyDeviceToHost,
                                                       stream),
