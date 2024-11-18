@@ -296,22 +296,24 @@ def prod(
 
 
 def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False, apply_to_divisor=None):
-    from tripy.frontend.dimension_size import DimensionSize
     from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.cast import cast
 
     sum_val = sum(tensor, dim=dim, keepdim=keepdim)
 
     # compute number of elements in the array and divide by number of elements in dims
-
-    # Need to convert shape to DimensionSize if it isn't already for the MLIR lowering to work
-    shape = [d if isinstance(d, Tensor) else DimensionSize(d) for d in tensor.shape]
+    shape = tensor.shape
     num_elements = math.prod(shape if dim is None else [shape[d] for d in make_list(dim)])
 
     if apply_to_divisor:
         num_elements = apply_to_divisor(num_elements)
 
-    return sum_val / (cast(num_elements, sum_val.dtype))
+    num_elements = (
+        cast(num_elements, sum_val.dtype)
+        if isinstance(num_elements, Tensor)
+        else Tensor(num_elements, dtype=sum_val.dtype)
+    )
+    return sum_val / num_elements
 
 
 @export.public_api(document_under="operations/functions")
