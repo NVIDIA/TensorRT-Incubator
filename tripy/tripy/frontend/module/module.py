@@ -40,10 +40,6 @@ def _check_param_compatible(original_param, new_param, param_name):
         )
 
 
-def _is_homogeneous_container(container: Sequence, typ: T):
-    return all(isinstance(elem, typ) for elem in container)
-
-
 def _contains_types(container: Sequence, types: type):
     return any(any(isinstance(elem, typ) for typ in types) for elem in container)
 
@@ -54,8 +50,10 @@ class Module:
     Base class used to define neural network modules.
     You can nest modules by assigning them as attributes of other modules.
 
-    Child modules or :class:`tripy.Parameter` s may be contained in Python ``list``\s or ``dict``\s.
-    If using ``dict``\s, the keys must be strings.
+    Child modules, :class:`tripy.Parameter` s, or other callables/lambda functions may be contained
+    in Python ``list``\ s or ``dict``\ s.
+
+    If using ``dict``\ s, the keys must be strings.
     Nested data structures (for example, ``list``\s of ``list``\s) are not supported.
     Taking child modules as an example, this is allowed:
     ::
@@ -65,6 +63,14 @@ class Module:
         self.dict_modules = {
             "linear": tp.Linear(2, 2),
             "layernorm": tp.LayerNorm(2),
+        }
+
+    This is another valid example with a wrapped :class:`tripy.avgpool` lambda function
+    ::
+
+        self.dict_modules = {
+            "convolution": tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1)),
+            "pool": lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
         }
 
     Whereas this is not supported:
@@ -97,26 +103,14 @@ class Module:
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Parameter) or name in dict(self.named_parameters()):
+            if not isinstance(value, Parameter):
+                value = Parameter(value)
             _check_param_compatible(getattr(self, name, None), value, name)
 
         super().__setattr__(name, value)
         # avoid infinite recursion during initialization
         if value is None:
             return
-
-        if isinstance(value, List) or isinstance(value, Dict):
-            container = value if isinstance(value, List) else value.values()
-            if _contains_types(container, [Parameter, Module]) and (
-                not _is_homogeneous_container(container, Parameter) and not _is_homogeneous_container(container, Module)
-            ):
-                stack_info = utils.get_stack_info()
-                stack_info.fetch_source_code()
-                stack_info_msg = str_from_stack_info(stack_info)
-
-                logger.warning(
-                    "A container of mixed types will not be registered with this module's state_dict()."
-                    + (f"\nNote: container was set here: {stack_info_msg}" if stack_info_msg else "")
-                )
 
     def state_dict(self) -> Dict[str, Parameter]:
         r"""
@@ -313,12 +307,14 @@ class Module:
         for name, value in vars(self).items():
             if isinstance(value, typ):
                 yield name, value
-            elif isinstance(value, List) and _is_homogeneous_container(value, typ):
+            elif isinstance(value, List):
                 for i, obj in enumerate(value):
-                    yield f"{name}.{i}", obj
-            elif isinstance(value, Dict) and _is_homogeneous_container(value.values(), typ):
+                    if isinstance(obj, typ):
+                        yield f"{name}.{i}", obj
+            elif isinstance(value, Dict):
                 for key, obj in value.items():
-                    yield f"{name}.{key}", obj
+                    if isinstance(obj, typ):
+                        yield f"{name}.{key}", obj
 
     def __str__(self):
         from textwrap import indent
@@ -326,14 +322,13 @@ class Module:
         class_name = self.__class__.__name__
         module_str = f"{class_name}(\n"
 
-        # Add children with hierarchical indentation
-        for name, child in self.named_children():
-            c = indent(str(child), prefix="    ")
-            module_str += f"  {name}=\n{c},\n"
-
-        # Add parameters with hierarchical indentation
+        body_str = ""
         for name, param in self.named_parameters():
-            module_str += f" {name}={param.shape},\n"
+            body_str += f"{name}: Parameter = (shape={param.shape}, dtype={param.dtype}),\n"
 
+        for name, child in self.named_children():
+            body_str += f"{name}: Module = {str(child).strip()},\n"
+
+        module_str += indent(body_str, " " * 4)
         module_str += f")"
         return module_str

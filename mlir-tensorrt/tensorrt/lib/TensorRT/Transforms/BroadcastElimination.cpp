@@ -120,6 +120,65 @@ struct PushDownBroadcastReduceRankOp : public OpRewritePattern<CollapseRankOp> {
 };
 } // namespace
 
+static Value expandRank(RewriterBase &rewriter, Location loc,
+                        TypedValue<RankedTensorType> input,
+                        ArrayRef<int64_t> reorderedBroadcastDims,
+                        RankedTensorType resultType) {
+  RankedTensorType inputType = input.getType();
+  // For <= 1 dynamic dims, no need to do dynamic reshape.
+  if (input.getType().getNumDynamicDims() <= 1) {
+    SmallVector<int64_t> staticShape(resultType.getRank());
+
+    unsigned inputIdx = 0;
+    for (unsigned i = 0, e = staticShape.size(); i < e; i++) {
+      if (inputIdx < reorderedBroadcastDims.size() &&
+          i == reorderedBroadcastDims[inputIdx]) {
+        staticShape[i] = inputType.getDimSize(inputIdx++);
+        continue;
+      }
+      staticShape[i] = 1;
+    }
+    return rewriter.create<ReshapeOp>(loc, resultType.clone(staticShape),
+                                      input);
+  }
+
+  // Otherwise, we need to do dynamic reshape.
+  auto shape = rewriter.create<tensorrt::ShapeOp>(loc, input);
+  SmallVector<Value> shapeComponents(resultType.getRank());
+  SmallVector<int64_t> staticShape(resultType.getRank());
+  unsigned inputIdx = 0;
+  for (unsigned i = 0, e = shapeComponents.size(); i < e; i++) {
+    if (inputIdx < reorderedBroadcastDims.size() &&
+        i == reorderedBroadcastDims[inputIdx]) {
+      if (!inputType.isDynamicDim(inputIdx)) {
+        staticShape[i] = inputType.getDimSize(inputIdx);
+        shapeComponents[i] = rewriter.create<tensorrt::ConstantOp>(
+            loc, rewriter.getI32TensorAttr(
+                     {static_cast<int32_t>(inputType.getDimSize(inputIdx++))}));
+        continue;
+      }
+      shapeComponents[i] = rewriter.create<tensorrt::SliceOp>(
+          loc, shape,
+          /*offset=*/ArrayRef<int32_t>{static_cast<int32_t>(inputIdx++)},
+          ArrayRef<int32_t>{1}, ArrayRef<int32_t>{1});
+      staticShape[i] = ShapedType::kDynamic;
+      continue;
+    }
+    staticShape[i] = 1;
+    shapeComponents[i] = rewriter.create<tensorrt::ConstantOp>(
+        loc, rewriter.getI32TensorAttr(
+                 {static_cast<int32_t>(inputType.getDimSize(1))}));
+  }
+  auto newShape = rewriter.create<tensorrt::ConcatenationOp>(
+      loc,
+      RankedTensorType::get(static_cast<int64_t>(shapeComponents.size()),
+                            rewriter.getI32Type()),
+      shapeComponents, /*axis=*/0);
+
+  return rewriter.create<ReshapeOp>(loc, resultType.clone(staticShape), input,
+                                    newShape);
+}
+
 namespace {
 /// Create transpose + expand_rank on the input of a `tensorrt.broadcast` so
 /// that the result has the same rank as the `tensorrt.broadcast` result and the
@@ -157,8 +216,9 @@ struct SimplifyBroadcast : public OpRewritePattern<BroadcastOp> {
         }
         expandedShape[i] = 1;
       }
-      Value expanded = rewriter.create<ExpandRankOp>(
-          loc, resultType.clone(expandedShape), transposeOp);
+
+      Value expanded = expandRank(rewriter, loc, transposeOp,
+                                  reorderedBroadcastDims, resultType);
       rewriter.replaceOpWithNewOp<BroadcastOp>(
           op, op.getType(), expanded, op.getShape(),
           llvm::to_vector(llvm::seq<int64_t>(0, resultType.getRank())));
@@ -341,6 +401,8 @@ public:
     patterns.add<SimplifyBroadcast, ElementwiseAbsorbBroadcast,
                  PushDownBroadcastReduceRankOp, SelectAbsorbBroadcast,
                  MatMulAbsorbBroadcast>(&getContext());
+    tensorrt::ReshapeOp::getCanonicalizationPatterns(patterns,
+                                                     patterns.getContext());
     if (failed(applyPatternsAndFoldGreedily(getOperation(),
                                             std::move(patterns)))) {
       emitError(getOperation()->getLoc())

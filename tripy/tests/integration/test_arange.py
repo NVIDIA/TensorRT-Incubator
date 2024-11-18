@@ -15,9 +15,9 @@
 
 import cupy as cp
 import numpy as np
-import tripy as tp
 from tests import helper
-import pytest
+
+import tripy as tp
 
 
 class TestArange:

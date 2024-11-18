@@ -36,7 +36,7 @@ class TestParameter:
         tensor = tp.Tensor([1, 2, 3])
         param = tp.Parameter(tensor)
 
-        assert np.array_equal(cp.from_dlpack(param).get(), cp.from_dlpack(tensor).get())
+        assert tp.equal(param, tensor)
 
     def test_can_construct_from_non_tensor(self):
         param = tp.Parameter([1, 2, 3])

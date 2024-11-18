@@ -95,7 +95,7 @@ def CanonicalizeShapesPass : Pass<"stablehlo-ext-canonicalize-shapes", "ModuleOp
   }];
 
   let options = [
-    Option<"maxIterations", "max-iterations", "int64_t", "4",
+    Option<"maxIterations", "max-iterations", "int64_t", "8",
       "the maximum number of iterations to run the dynamism simplification and "
       "shape refinement if a fixed-point is not reached">
   ];

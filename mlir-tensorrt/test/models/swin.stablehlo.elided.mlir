@@ -1,4 +1,4 @@
-module @jit_run attributes {mhlo.cross_program_prefetches = [], mhlo.is_dynamic = false, mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32, mhlo.use_auto_spmd_partitioning = false} {
+module @swin attributes {mhlo.cross_program_prefetches = [], mhlo.is_dynamic = false, mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32, mhlo.use_auto_spmd_partitioning = false} {
   func.func @main(%arg0: tensor<1x224x224x3xf32>) -> tensor<1x1000xf32> {
     %cst = stablehlo.constant dense_resource<__elided__> : tensor<1x1000xf32>
     %cst_0 = stablehlo.constant dense_resource<__elided__> : tensor<1024x1000xf32>

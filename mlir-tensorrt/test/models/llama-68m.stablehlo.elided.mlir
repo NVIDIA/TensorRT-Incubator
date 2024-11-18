@@ -1,4 +1,4 @@
-module @jit_generate attributes {mhlo.cross_program_prefetches = [], mhlo.is_dynamic = false, mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32, mhlo.use_auto_spmd_partitioning = false} {
+module @llama_68m attributes {mhlo.cross_program_prefetches = [], mhlo.is_dynamic = false, mhlo.num_partitions = 1 : i32, mhlo.num_replicas = 1 : i32, mhlo.use_auto_spmd_partitioning = false} {
   func.func @main(%arg0: tensor<1x9xi32> {mhlo.sharding = "{replicated}"}, %arg1: tensor<1x9xi32> {mhlo.sharding = "{replicated}"}) -> tensor<1x20xi32> {
     %0 = stablehlo.constant dense<1.000000e+00> : tensor<1x1x3072xf32>
     %1 = stablehlo.constant dense<-3.40282347E+38> : tensor<1x1x1x20xf32>

@@ -109,6 +109,34 @@ class ComplexNetwork(tp.Module):
         return out1 + out2
 
 
+class MixedContainerNetwork(tp.Module):
+    def __init__(self):
+        super().__init__()
+        self.param = tp.Parameter(tp.ones((2,), dtype=tp.float32))
+
+        # Define a mixed list with both modules and lambda functions
+        self.mixed_list = [
+            DummyOp(tp.zeros((2,), dtype=tp.float32)),
+            lambda: tp.ones((2,), dtype=tp.float32),
+            DummyOp(tp.zeros((2,), dtype=tp.float32)),
+        ]
+
+        # Define a mixed dictionary with modules and lambda functions
+        self.mixed_dict = {
+            "scale": lambda: tp.ones((2,), dtype=tp.float32),
+            "dummy": DummyOp(tp.zeros((2,), dtype=tp.float32)),
+        }
+
+    def __call__(self):
+        out = self.param
+        for op in self.mixed_list:
+            out = out + op()
+        for _, op in self.mixed_dict.items():
+            out = out + op()
+
+        return out
+
+
 @pytest.fixture(params=[(Network, ())])
 def all_network_modes(request):
     call_args = request.param[1]
@@ -139,3 +167,8 @@ def mixed_network():
 @pytest.fixture
 def complex_network():
     yield ComplexNetwork()
+
+
+@pytest.fixture
+def mixed_container_network():
+    yield MixedContainerNetwork()
