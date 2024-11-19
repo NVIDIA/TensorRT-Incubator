@@ -79,7 +79,7 @@ class Storage(BaseTraceOp):
             return {"data"}
         return set()
 
-    def __eq__(self, other: "tripy.Storage") -> bool:
+    def __eq__(self, other) -> bool:
         return self.data == other.data if isinstance(other, Storage) else False
 
     def infer_rank(self):
