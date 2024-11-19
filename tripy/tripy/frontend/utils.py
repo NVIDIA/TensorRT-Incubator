@@ -102,6 +102,10 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
         if frame_index is not None:
             dispatch_target = arg.stack_info[frame_index - 1]._dispatch_target
 
+    # The function registry might prepend a class name to the dispatch target. We will strip it out here in order to match it.
+    if dispatch_target is not None and "." in dispatch_target:
+        dispatch_target = dispatch_target.split(".")[-1]
+
     source_info = arg.stack_info[frame_index]
 
     # The reverse binary ops need special handling since they will be swapped out for the non-reverse
