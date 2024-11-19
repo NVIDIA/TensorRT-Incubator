@@ -120,7 +120,7 @@ class Executable:
 
         return json_utils.load(path)
 
-    def __call__(self, *args, **kwargs) -> Union[Tensor, Sequence[Tensor]]:
+    def __call__(self, *args: Tensor, **kwargs: Tensor) -> Union[Tensor, Sequence[Tensor]]:
         """
         Invokes the executable with the specified tensor arguments.
 
