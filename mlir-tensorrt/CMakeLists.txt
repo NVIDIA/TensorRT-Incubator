@@ -55,7 +55,7 @@ mtrt_option(MLIR_TRT_ENABLE_EXECUTOR "Build the Executor dialect and MLIR-Tensor
 mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" ON)
 
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
-set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.2" CACHE STRING
+set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.5" CACHE STRING
    "Version of TensorRT to download and use. It overrides MLIR_TRT_TENSORRT_DIR.")
 set(MLIR_TRT_PACKAGE_CACHE_DIR "" CACHE STRING "Directory where to cache downloaded C++ packages")
 set(MLIR_TRT_USE_LINKER "" CACHE STRING "Specify a linker to use (e.g. LLD); this is just an alias for LLVM_USE_LINKER")
