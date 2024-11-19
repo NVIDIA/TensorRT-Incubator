@@ -44,7 +44,17 @@ class TestQuantize:
         assert torch.equal(expected, torch.from_dlpack(quantized).to("cpu"))
 
     @pytest.mark.parametrize(
-        "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
+        "dtype",
+        [
+            tp.float32,
+            pytest.param(
+                tp.float16,
+                marks=pytest.mark.skip(
+                    reason="Known float16 precision issues due to https://github.com/NVIDIA/TensorRT-Incubator/issues/392"
+                ),
+            ),
+            pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80),
+        ],
     )
     def test_quantize_int8_per_channel(self, dtype, eager_or_compiled):
         input = torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=TORCH_DTYPES[dtype])

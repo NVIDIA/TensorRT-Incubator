@@ -49,17 +49,13 @@ class TestIota:
         "shape, dim",
         [
             ((2, 3), 1),
-            ((2, 3), None),
+            ((2, 3), 0),
             ((2, 3), -1),
             ((2, 3, 4), 2),
         ],
     )
     def test_iota(self, dtype, shape, dim, eager_or_compiled):
-        if dim:
-            output = eager_or_compiled(tp.iota, shape, dim, dtype[1])
-        else:
-            output = eager_or_compiled(tp.iota, shape, dtype=dtype[1])
-
+        output = eager_or_compiled(tp.iota, shape, dim, dtype[1])
         assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype[0], shape, dim))
 
     @pytest.mark.parametrize("dtype", DTYPE_PARAMS)
