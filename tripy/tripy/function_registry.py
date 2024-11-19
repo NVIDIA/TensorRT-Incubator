@@ -373,18 +373,13 @@ class FunctionRegistry(dict):
                 self[key] = func
             # For classes, we apply the wrapper to all methods.
             elif inspect.isclass(func):
-                for member in dir(func):
-                    # Ignore properties and functions not defined in the class (we will use the presence of a docstring as a proxy for that).
-                    # It does not suffice to check just that the method is inherited because some decorators like @dataclass add methods
-                    # that are not documented or annotated and do not use inheritance to do so.
-                    # We need to check hasattr first because dir can list some properties even if they're not defined (e.g.,  __abstractmethods__).
-                    if (
-                        not hasattr(func, member)
-                        or not inspect.isfunction(getattr(func, member))
-                        or getattr(func, member).__doc__ is None
-                    ):
-                        continue
-                    setattr(func, member, self(f"{key}.{member}")(getattr(func, member)))
+                # Ignore properties and functions not defined in the class (we will use the presence of a docstring as a proxy for that).
+                # It does not suffice to check just that the method is inherited because some decorators like @dataclass add methods
+                # that are not documented or annotated and do not use inheritance to do so.
+                for name, member in inspect.getmembers(
+                    func, predicate=lambda m: inspect.isfunction(m) and m.__doc__ is not None
+                ):
+                    setattr(func, name, self(f"{key}.{name}")(member))
                 self[key] = func
             else:
                 self.overloads[key].append(FuncOverload(func))
