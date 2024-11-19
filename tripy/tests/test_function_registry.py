@@ -156,14 +156,20 @@ class TestFunctionRegistry:
         @registry("class")
         class C:
             def f1(self, a: int):
+                """
+                Need to have a docstring or else it won't be registered."
+                """
                 return a + 1
 
             def f2(self, a: int):
+                """
+                Obligatory docstring.
+                """
                 return a - 1
 
         inst_c = C()
-        assert registry["class.C.f1"](inst_c, 1) == 2
-        assert registry["class.C.f2"](inst_c, 1) == 0
+        assert registry["class.f1"](inst_c, 1) == 2
+        assert registry["class.f2"](inst_c, 1) == 0
 
     def test_ambiguous_overload_raises_error(self, registry):
         @registry("test")
