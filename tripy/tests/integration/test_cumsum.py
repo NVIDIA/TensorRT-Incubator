@@ -30,11 +30,10 @@ class TestCumsum:
             ([[[1, 2], [3, 4]], [[5, 6], [7, 8]]], 0, [[[1, 2], [3, 4]], [[6, 8], [10, 12]]]),
         ],
     )
-    def test_cumsum(self, data, dim, expected):
+    def test_cumsum(self, data, dim, expected, eager_or_compiled):
         inp = tp.Tensor(data, dtype=tp.float32)
 
-        out = tp.cumsum(inp, dim=dim)
-
+        out = eager_or_compiled(tp.cumsum, inp, dim=dim)
         expected = tp.Tensor(expected, dtype=tp.float32)
         assert tp.allclose(out, expected)
         assert out.shape == expected.shape

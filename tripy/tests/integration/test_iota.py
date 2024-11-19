@@ -54,11 +54,11 @@ class TestIota:
             ((2, 3, 4), 2),
         ],
     )
-    def test_iota(self, dtype, shape, dim):
+    def test_iota(self, dtype, shape, dim, eager_or_compiled):
         if dim:
-            output = tp.iota(shape, dim, dtype[1])
+            output = eager_or_compiled(tp.iota, shape, dim, dtype[1])
         else:
-            output = tp.iota(shape, dtype=dtype[1])
+            output = eager_or_compiled(tp.iota, shape, dtype=dtype[1])
 
         assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype[0], shape, dim))
 
@@ -72,11 +72,11 @@ class TestIota:
             ((2, 3, 4), 2),
         ],
     )
-    def test_iota_like(self, dtype, shape, dim):
+    def test_iota_like(self, dtype, shape, dim, eager_or_compiled):
         if dim:
-            output = tp.iota_like(tp.ones(shape), dim, dtype[1])
+            output = eager_or_compiled(tp.iota_like, tp.ones(shape), dim, dtype[1])
         else:
-            output = tp.iota_like(tp.ones(shape), dtype=dtype[1])
+            output = eager_or_compiled(tp.iota_like, tp.ones(shape), dtype=dtype[1])
 
         assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota(dtype[0], shape, dim))
 
@@ -98,12 +98,12 @@ class TestIota:
         ):
             print(out)
 
-    def test_iota_from_shape_tensor(self):
+    def test_iota_from_shape_tensor(self, eager_or_compiled):
         a = tp.ones((2, 2))
-        output = tp.iota(a.shape)
+        output = eager_or_compiled(tp.iota, a.shape)
         assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota("float32", (2, 2), 0))
 
-    def test_iota_from_mixed_seqence(self):
+    def test_iota_from_mixed_seqence(self, eager_or_compiled):
         a = tp.ones((2, 2))
-        output = tp.iota((3, a.shape[0]))
+        output = eager_or_compiled(tp.iota, (3, a.shape[0]))
         assert np.array_equal(cp.from_dlpack(output).get(), self._compute_ref_iota("float32", (3, 2), 0))

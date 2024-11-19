@@ -29,7 +29,7 @@ class TestGroupNorm:
     @pytest.mark.parametrize("input_shape", [(1, 10, 2)])
     @pytest.mark.parametrize("num_groups", [2, 5])
     @pytest.mark.parametrize("num_channels", [10])
-    def test_groupnorm_accuracy(self, torch_dtype, tp_dtype, input_shape, num_groups, num_channels):
+    def test_groupnorm_accuracy(self, torch_dtype, tp_dtype, input_shape, num_groups, num_channels, eager_or_compiled):
         eps = 1e-5
         groupnorm = torch.nn.GroupNorm(
             num_groups=num_groups,
@@ -50,7 +50,7 @@ class TestGroupNorm:
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = tp.copy(tp_groupnorm(tp_input), tp.device("cpu"))
+        output = eager_or_compiled(tp.copy, tp_groupnorm(tp_input), tp.device("cpu"))
         with torch.no_grad():
             expected = groupnorm(input)
 
