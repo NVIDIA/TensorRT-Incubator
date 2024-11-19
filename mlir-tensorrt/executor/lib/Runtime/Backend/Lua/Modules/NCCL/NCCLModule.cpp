@@ -268,6 +268,10 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
   lua["__nccl_all_reduce_" #opsuffix "_" #typesuffix] =                        \
       [](sol::this_state state, ExecPtr sendbuff, ExecPtr recvbuff,            \
          size_t count, uintptr_t communicator, CudaStreamPtr stream) {         \
+        MTRT_DBG("__nccl_all_reduce_" #opsuffix "_" #typesuffix                \
+                 ": count={0} send={1} recv={2}",                              \
+                 count, reinterpret_cast<void *>(sendbuff),                    \
+                 reinterpret_cast<void *>(recvbuff));                          \
         auto comm = reinterpret_cast<NcclCommunicator *>(communicator);        \
         SET_LUA_ERROR_IF_NCCL_ERROR(                                           \
             ncclAllReduce(reinterpret_cast<void *>(sendbuff),                  \
@@ -285,6 +289,10 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
   lua["__nccl_reduce_scatter_" #opsuffix "_" #typesuffix] =                    \
       [](sol::this_state state, ExecPtr sendbuff, ExecPtr recvbuff,            \
          size_t recvcount, uintptr_t communicator, CudaStreamPtr stream) {     \
+        MTRT_DBG("__nccl_reduce_scatter_" #opsuffix "_" #typesuffix            \
+                 ": count={0} sendbuff={1} recvbuff={2}",                      \
+                 recvcount, reinterpret_cast<void *>(sendbuff),                \
+                 reinterpret_cast<void *>(recvbuff));                          \
         auto *comm = reinterpret_cast<NcclCommunicator *>(communicator);       \
         SET_LUA_ERROR_IF_NCCL_ERROR(                                           \
             ncclReduceScatter(reinterpret_cast<void *>(sendbuff),              \
@@ -338,6 +346,13 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
                              size_t numBytes, uintptr_t communicator,
                              CudaStreamPtr stream) {
     auto *comm = reinterpret_cast<NcclCommunicator *>(communicator);
+    MTRT_DBG("__nccl_permute[{6}/{7}]: send {0} bytes @ {1} to {2}, recv {0} "
+             "bytes @ "
+             "{3} from {4}, comm @{5}",
+             numBytes, reinterpret_cast<void *>(sendbuff), sendId,
+             reinterpret_cast<void *>(recvbuff), recvId,
+             reinterpret_cast<void *>(comm->comm), comm->rank, comm->numRanks);
+
     if (recvId == -1) {
       // Zero out recvbuff if not receiving.
       SET_LUA_ERROR_IF_CUDA_ERROR(

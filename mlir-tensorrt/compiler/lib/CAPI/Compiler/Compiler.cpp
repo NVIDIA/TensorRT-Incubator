@@ -90,12 +90,12 @@ MTRT_Status mtrtCompilerClientCreate(MlirContext context,
   if (!cppClient.isOk())
     return wrap(cppClient.getStatus());
 
-  *client = MTRT_CompilerClient{cppClient->release()};
+  *client = wrap(cppClient->release());
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
-  delete reinterpret_cast<MTRT_CompilerClient *>(client.ptr);
+  delete unwrap(client);
   return mtrtStatusGetOk();
 }
 
