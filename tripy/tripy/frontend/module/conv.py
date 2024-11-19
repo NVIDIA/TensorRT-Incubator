@@ -154,7 +154,7 @@ class Conv(ConvBase):
         kernel_dims: Sequence[int],
         padding: Optional[Sequence[Sequence[int]]] = None,
         stride: Optional[Sequence[int]] = None,
-        groups: int = None,
+        groups: Optional[int] = None,
         dilation: Optional[Sequence[int]] = None,
         bias: bool = True,
         dtype: datatype.dtype = datatype.float32,
