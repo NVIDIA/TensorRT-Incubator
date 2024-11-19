@@ -35,4 +35,4 @@ jobs:
     - name: l1-test
       run: |
         cd /tripy/
-        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l1 and not manual" -n 4 --durations=15 --ignore tests/performance
+        pytest --nb-test-files --cov=tripy/ --cov-config=.coveragerc tests/  examples/ -v -m "l1 and not manual" -n 4 --durations=15 --ignore tests/performance
