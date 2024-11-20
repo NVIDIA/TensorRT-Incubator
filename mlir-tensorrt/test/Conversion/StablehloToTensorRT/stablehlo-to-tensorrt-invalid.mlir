@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt -split-input-file %s --convert-stablehlo-to-tensorrt="trt-major-version=10" -verify-diagnostics | FileCheck %s
+// RUN: mlir-tensorrt-opt -split-input-file %s --convert-stablehlo-to-tensorrt -verify-diagnostics | FileCheck %s
 
 func.func @stablehlo_all_reduce_region(%arg0 : tensor<f32>) -> tensor<f32> {
   %0 = "stablehlo.all_reduce"(%arg0) ({

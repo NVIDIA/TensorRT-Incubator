@@ -1,5 +1,5 @@
 // RUN: mlir-tensorrt-opt -split-input-file \
-// RUN:  -plan-segmentation-pipeline=trt-major-version=10 -cse -verify-diagnostics %s | FileCheck %s
+// RUN:  -plan-segmentation-pipeline -cse -verify-diagnostics %s | FileCheck %s
 
 builtin.module attributes {
   plan.cluster_kinds = [

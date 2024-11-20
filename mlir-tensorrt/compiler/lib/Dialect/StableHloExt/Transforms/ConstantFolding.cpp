@@ -1038,7 +1038,11 @@ struct AbsorbTensorCastProducer : public RewritePattern {
       if (!canUpdateTypeWithoutCast(operand))
         return nullptr;
       Value value = operand.get();
-      auto rtt = cast<RankedTensorType>(value.getType());
+      // Not all stablehlo operands are tensors -- some can have types like
+      // 'tuple' or special quantized types.
+      auto rtt = dyn_cast<RankedTensorType>(value.getType());
+      if (!rtt)
+        return nullptr;
       auto castOp = value.getDefiningOp<tensor::CastOp>();
       if (!castOp)
         return nullptr;
@@ -1273,7 +1277,27 @@ class SimplifyConcatOfConcatPattern
   }
 };
 
+// Pattern: broadcast_in_dim(splat, _) -> constant(splat)
+struct FoldBroadcastInDimSplatPattern final
+    : OpRewritePattern<mlir::stablehlo::BroadcastInDimOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::stablehlo::BroadcastInDimOp op,
+                                PatternRewriter &rewriter) const override {
+    TypedValue<RankedTensorType> operand = op.getOperand();
+
+    if (SplatElementsAttr cstAttr;
+        matchPattern(operand, m_Constant(&cstAttr))) {
+      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
+          op, SplatElementsAttr::get(op.getType(),
+                                     cstAttr.getSplatValue<Attribute>()));
+      return success();
+    }
+    return failure();
+  }
+};
+
 void populateFutureUpstreamPatterns(RewritePatternSet &patterns) {
-  patterns.add<SimplifySliceOfConcat, SimplifyConcatOfConcatPattern>(
-      patterns.getContext());
+  patterns.add<SimplifySliceOfConcat, SimplifyConcatOfConcatPattern,
+               FoldBroadcastInDimSplatPattern>(patterns.getContext());
 }

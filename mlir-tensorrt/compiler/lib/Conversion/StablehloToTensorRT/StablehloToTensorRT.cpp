@@ -2818,15 +2818,10 @@ struct PadConverter : public ConvertHloOpToTensorRTPattern<stablehlo::PadOp> {
     auto padLowHighSum = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
         loc, targetTrtMajorVersion, shapeTensorType, padLowConst, padHighConst,
         tensorrt::ElementWiseOperation::kSUM);
-    if (!padLowHighSum)
-      return failure();
     Value size = padLowHighSum.getResult();
-    auto sumWithResult = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+    size = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
         loc, targetTrtMajorVersion, shapeTensorType, size, shape.getResult(),
         tensorrt::ElementWiseOperation::kSUM);
-    if (!sumWithResult)
-      return failure();
-    size = sumWithResult.getResult();
 
     SmallVector<int32_t> stride(inputType.getRank(), 1);
     return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
@@ -3863,7 +3858,7 @@ struct ConvertScatterToTensorRTScatterElements
     if (!constOneTuple)
       return failure();
 
-    auto newIndices = trtRewriter.checkAndCreate<tensorrt::LinspaceOp>(
+    Value newIndices = trtRewriter.checkAndCreate<tensorrt::LinspaceOp>(
         op->getLoc(), targetTrtMajorVersion,
         newUpdateType.clone(rewriter.getI32Type()), Value(), startIndex,
         constOneTuple, FloatAttr(), FloatAttr());
@@ -3889,7 +3884,7 @@ struct ConvertScatterToTensorRTScatterElements
       auto newOp = trtRewriter.checkAndCreate<tensorrt::ScatterElementsOp>(
           op->getLoc(), targetTrtMajorVersion,
           /*data*/ convertToI32(adaptor.getInputs().front()),
-          /*indices*/ newIndices.getResult(),
+          /*indices*/ newIndices,
           /*updates*/ convertToI32(newUpdates),
           /*axis*/ rewriter.getI64IntegerAttr(axis));
       if (!newOp)
@@ -3899,8 +3894,7 @@ struct ConvertScatterToTensorRTScatterElements
       auto newOp = trtRewriter.checkAndCreate<tensorrt::ScatterElementsOp>(
           op->getLoc(), targetTrtMajorVersion,
           /*data*/ adaptor.getInputs().front(),
-          /*indices*/ newIndices.getResult(),
-          /*updates*/ newUpdates.getResult(),
+          /*indices*/ newIndices, /*updates*/ newUpdates.getResult(),
           /*axis*/ rewriter.getI64IntegerAttr(axis));
       if (!newOp)
         return failure();
@@ -4333,32 +4327,24 @@ struct DynamicUpdateSliceToConcatConverter
     // start and shape to be the values appropriate for !hasNonZeroUpdateStart
     // (static case). We will update them in the condition block.
     // Calculate the slice start = update offset + update size.
-    auto sliceStart = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
-        loc, targetTrtMajorVersion, updateStartOffset,
-        tensorrt::createConstShapeTensor(
-            rewriter, loc,
-            {static_cast<int32_t>(updateType.getDimSize(*concatAxis))}),
-        tensorrt::ElementWiseOperation::kSUM);
-    if (!sliceStart)
-      return failure();
-    TypedValue<RankedTensorType> concatDimOffset = sliceStart.getResult();
-
+    TypedValue<RankedTensorType> concatDimOffset =
+        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+            loc, targetTrtMajorVersion, updateStartOffset,
+            tensorrt::createConstShapeTensor(
+                rewriter, loc,
+                {static_cast<int32_t>(updateType.getDimSize(*concatAxis))}),
+            tensorrt::ElementWiseOperation::kSUM);
     TypedValue<RankedTensorType> endOffset = tensorrt::scatterShapeTensor(
         rewriter, loc, SmallVector<int64_t>(updateType.getRank(), 0),
         *concatAxis, concatDimOffset);
     // Calculate the slice size = result shape - update offset.
-    auto finalPartDimSizeOp =
+    TypedValue<RankedTensorType> finalPartDimSize =
         trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
             loc, targetTrtMajorVersion,
             tensorrt::createConstShapeTensor(
                 rewriter, loc,
                 {static_cast<int32_t>(resultType.getDimSize(*concatAxis))}),
             concatDimOffset, tensorrt::ElementWiseOperation::kSUB);
-    if (!finalPartDimSizeOp)
-      return failure();
-    TypedValue<RankedTensorType> finalPartDimSize =
-        finalPartDimSizeOp.getResult();
-
     TypedValue<RankedTensorType> endShape = tensorrt::scatterShapeTensor(
         rewriter, loc, resultType.getShape(), *concatAxis, finalPartDimSize);
 
