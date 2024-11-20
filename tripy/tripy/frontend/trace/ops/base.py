@@ -92,7 +92,7 @@ class BaseTraceOp(abc.ABC):
             if always_cast_to_dimension_size or (
                 all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0
             ):
-                dim_size = DimensionSize(None)
+                dim_size = DimensionSize.create_empty()
                 dim_size.trace_tensor = out.trace_tensor
                 dim_size.stack_info = out.stack_info
                 outputs[index] = dim_size

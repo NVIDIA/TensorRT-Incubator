@@ -28,15 +28,23 @@ class DimensionSize(Tensor):
     A 0D, :class:`int32` tensor that represents a scalar value extracted from the shape of a tensor.
     """
 
-    def __init__(self, data: Optional[int], name: Optional[str] = None) -> None:
+    def __init__(self, data: int, name: Optional[str] = None) -> None:
         r"""
         Args:
             data: The value of the DimensionSize, which should be a scalar integer.
             name: An optional name.
         """
         # NOTE: We do not use isinstance here because bool is a subclass of int.
-        assert data is None or type(data) is int, "DimensionSize can only be created from integers"
+        assert type(data) is int, "DimensionSize can only be created from integers"
         super().__init__(data=data, dtype=int32, name=name)
+
+    # Internal use only, leave undocumented so it's not exported.
+    # Used to create a DimensionSize with None as the data, which we do not want in the public constructor.
+    @staticmethod
+    def create_empty(name: Optional[str] = None) -> "tripy.DimensionSize":
+        instance = DimensionSize.__new__(DimensionSize)
+        super(DimensionSize, instance).__init__(data=None, dtype=int32, name=name)
+        return instance
 
     def __int__(self) -> int:
         return self.tolist()
