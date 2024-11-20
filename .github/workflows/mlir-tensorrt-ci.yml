@@ -148,7 +148,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
@@ -191,7 +191,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF \
@@ -209,8 +209,8 @@ jobs:
 
             bash build_and_test.sh
 
-      # Run LIT tests with TensorRT 9
-      - name: Run MLIR-TensorRT lit tests with TensorRT 9
+      # Run LIT tests with TensorRT 8
+      - name: Run MLIR-TensorRT lit tests with TensorRT 8
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
@@ -235,7 +235,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=9.2.0.5 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=8.6.1.6 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
@@ -324,7 +324,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
@@ -367,7 +367,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF \
@@ -385,8 +385,8 @@ jobs:
 
             bash build_and_test.sh
 
-      # Run LIT tests with TensorRT 9
-      - name: Run MLIR-TensorRT lit tests with TensorRT 9
+      # Run LIT tests with TensorRT 8
+      - name: Run MLIR-TensorRT lit tests with TensorRT 8
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
@@ -411,7 +411,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
               -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=9.2.0.5 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=8.6.1.6 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
