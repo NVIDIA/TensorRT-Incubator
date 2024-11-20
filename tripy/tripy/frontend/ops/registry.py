@@ -32,7 +32,7 @@ def register_tensor_method(name: str):
     """
 
     # We make a special exception for "shape" since we actually do want that to be a property
-    allowed_methods = ["numpy", "cupy", "shape"]
+    allowed_methods = ["shape"]
     assert name in allowed_methods or name.startswith(
         "__"
     ), f"The tensor method registry should only be used for magic methods, but was used for: {name}"
