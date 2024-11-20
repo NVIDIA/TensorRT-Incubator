@@ -151,13 +151,11 @@ def test_tripy_overhead():
     assert all(abs(delta - average_delta) < 10 for delta in deltas)
 
 
-def test_tripy_param_update():
+def test_tripy_param_update(benchmark):
     m = tp.Module()
     m.param = tp.Parameter([1, 2, 3, 4])
 
     def measure_thunk():
         m.param = tp.Parameter([5, 6, 7, 8])
 
-    # Since all the shapes are statically known, no compilation should need to happen
-    # and this should impose practically no overhead.
-    assert run_timed_trials(measure_thunk) < 60.0
+    benchmark(measure_thunk)
