@@ -43,8 +43,8 @@ class TensorMeta(type):
         # we run the risk of overwriting overridden methods.
         if name == "Tensor":
             # Add methods specified by individual ops to this class.
-            for method_name in TENSOR_METHOD_REGISTRY:
-                setattr(new, method_name, TENSOR_METHOD_REGISTRY[method_name])
+            for method_name, method_impl in TENSOR_METHOD_REGISTRY.items():
+                setattr(new, method_name, method_impl)
 
         return new
 

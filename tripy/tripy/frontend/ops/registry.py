@@ -15,23 +15,30 @@
 # limitations under the License.
 #
 
-from typing import Any
-
-from tripy.function_registry import FunctionRegistry
-
+from typing import Any, Callable
 
 # We use the tensor method registry to define methods on the `Tensor` class out of line.
 # This lets the method live alongside the trace operation and makes it a bit more modular
 # to add new operations. This can only be used for magic methods.
-class TensorMethodRegistry(FunctionRegistry):
-    def __call__(self, key: Any):
-        # We make a special exception for "shape" since we actually do want that to be a property
-        allowed_methods = ["numpy", "cupy", "shape"]
-        assert (
-            key in allowed_methods or key.startswith("__") and key.endswith("__")
-        ), f"The tensor method registry should only be used for magic methods, but was used for: {key}"
-
-        return super().__call__(key)
+TENSOR_METHOD_REGISTRY = {}
 
 
-TENSOR_METHOD_REGISTRY = TensorMethodRegistry()
+def register_tensor_method(name: str):
+    """
+    Decorator to add the method to the tensor method registry with the name specified.
+    This does not use the FunctionRegistry decorator because every tensor method would also be
+    registered in the public function registry and we would prefer to avoid having overhead
+    from having to dispatch overloads and check types twice.
+    """
+
+    # We make a special exception for "shape" since we actually do want that to be a property
+    allowed_methods = ["numpy", "cupy", "shape"]
+    assert name in allowed_methods or name.startswith(
+        "__"
+    ), f"The tensor method registry should only be used for magic methods, but was used for: {name}"
+
+    def impl(func: Callable[..., Any]) -> Callable[..., Any]:
+        TENSOR_METHOD_REGISTRY[name] = func
+        return func
+
+    return impl

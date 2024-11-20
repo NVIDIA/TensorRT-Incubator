@@ -21,7 +21,7 @@ from typing import Sequence, Union
 from tripy import constraints, utils
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import TensorLike
@@ -129,7 +129,7 @@ class Slice(BaseTraceOp):
         DynamicSliceOp.build([data_tensor, start_index_tensor, limit_index_tensor, stride_index_tensor], outputs)
 
 
-@TENSOR_METHOD_REGISTRY("__getitem__")
+@register_tensor_method("__getitem__")
 @constraints.dtypes(
     constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
