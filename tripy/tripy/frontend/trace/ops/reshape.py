@@ -49,8 +49,7 @@ def infer_dimensions(input: "tripy.Tensor", shape: ShapeLike) -> ShapeLike:
         raise_error(f"The new shape can have at most one inferred dimension (denoted by -1)", [f"Got shape: {shape}."])
 
     if num_unknown_dims == 1:
-        input_shape = input.shape
-        input_volume = math.prod(input_shape)
+        input_volume = math.prod(input.shape)
         known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_minus_one(dim))
         inferred_dim = input_volume / known_dims_volume
 
