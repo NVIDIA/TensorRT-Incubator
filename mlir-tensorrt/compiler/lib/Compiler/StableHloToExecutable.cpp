@@ -31,6 +31,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -519,6 +520,12 @@ static StableHLOToExecutableOptions populateStablehloClusteringPipelineOpts(
   opts.shouldInferDeviceOptionsFromHost = cliOpts.inferDeviceOptionsFromHost;
   opts.entrypoint = cliOpts.entrypoint;
   return opts;
+}
+
+void mlirtrt::compiler::registerStableHloToExecutableTask() {
+  registerOption("stable-hlo-to-executable",
+                 optionsCreateFromArgs<StableHLOToExecutableOptions,
+                                       StableHloToExecutableTask>);
 }
 
 void mlirtrt::compiler::registerStablehloClusteringPipelines() {
