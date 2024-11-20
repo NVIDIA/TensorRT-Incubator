@@ -1,6 +1,7 @@
 add_mlir_tensorrt_library(MLIRTensorRTCompilerClient
     Client.cpp
     Extension.cpp
+    OptionsRegistry.cpp
     PARTIAL_SOURCES_INTENDED
 
     LINK_LIBS PUBLIC

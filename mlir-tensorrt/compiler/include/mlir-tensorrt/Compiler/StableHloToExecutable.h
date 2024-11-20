@@ -189,6 +189,9 @@ public:
                                const StableHLOToExecutableOptions &options);
 };
 
+/// Register the task/options with the client's registry.
+void registerStableHloToExecutableTask();
+
 //===----------------------------------------------------------------------===//
 // Pipeline Registrations
 //===----------------------------------------------------------------------===//
