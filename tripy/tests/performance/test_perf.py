@@ -135,9 +135,6 @@ def test_tripy_overhead():
         def measure_thunk():
             return compiled_one_io(*inputs)
 
-        for _ in range(warm_up_runs):
-            compiled_one_io(*inputs)
-
         return run_timed_trials(measure_thunk, warm_up_runs=warm_up_runs, iterations=iterations)
 
     assert measure_overhead(1) < 60.0
