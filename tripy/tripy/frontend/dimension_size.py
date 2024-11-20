@@ -34,8 +34,6 @@ class DimensionSize(Tensor):
             data: The value of the DimensionSize, which should be a scalar integer.
             name: An optional name.
         """
-        # NOTE: We do not use isinstance here because bool is a subclass of int.
-        assert type(data) is int, "DimensionSize can only be created from integers"
         super().__init__(data=data, dtype=int32, name=name)
 
     # Internal use only, leave undocumented so it's not exported.
