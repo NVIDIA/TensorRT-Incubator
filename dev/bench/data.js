@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732139544171,
+  "lastUpdate": 1732148601295,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -5243,6 +5243,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007145515062814178",
             "extra": "mean: 145.40019300760747 usec\nrounds: 7561"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "5203fde4c4d754fc4c912aff027473d233d780ea",
+          "message": "Add compile fixture to test integration ops with compile mode",
+          "timestamp": "2024-11-20T21:57:31Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/387/commits/5203fde4c4d754fc4c912aff027473d233d780ea"
+        },
+        "date": 1732148600450,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6077.31636845702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000032419022025175225",
+            "extra": "mean: 164.5463127755338 usec\nrounds: 6459"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6727.780894778269,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006980507974065436",
+            "extra": "mean: 148.6374208137701 usec\nrounds: 7458"
           }
         ]
       }
