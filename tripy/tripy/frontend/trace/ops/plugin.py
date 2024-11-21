@@ -80,10 +80,11 @@ def plugin(
         out = tp.plugin(
             "CustomGeluPluginDynamic",
             [inp],
-            # GELU has a single output which always has the same rank and data type as the input.
+            # GELU has a single output which always has the same rank and data
+            # type as the input.
             output_info=[(inp.rank, inp.dtype)],
-            # The GELU plugin expects a `type_id` parameter indicating the precision to use.
-            # `0` indicates float32.
+            # The GELU plugin expects a `type_id` parameter indicating the precision
+            # to use. `0` indicates float32.
             type_id=0,
         )
 
