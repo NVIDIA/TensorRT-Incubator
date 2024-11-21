@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732148601295,
+  "lastUpdate": 1732160757711,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -5277,6 +5277,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006980507974065436",
             "extra": "mean: 148.6374208137701 usec\nrounds: 7458"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "fa1f52318628fb31816a16fa100e764782a7a9f7",
+          "message": "[Tripy] Return the shape immediately if it is statically known instead of producing a trace operator.",
+          "timestamp": "2024-11-21T00:28:11Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/379/commits/fa1f52318628fb31816a16fa100e764782a7a9f7"
+        },
+        "date": 1732160756703,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6104.398759566138,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003213767535818591",
+            "extra": "mean: 163.81629696666042 usec\nrounds: 6517"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6879.262277240794,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007246949884337945",
+            "extra": "mean: 145.3644242215301 usec\nrounds: 7678"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 6899.9829369006875,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000023864329748574885",
+            "extra": "mean: 144.9278946259506 usec\nrounds: 7541"
           }
         ]
       }
