@@ -3,7 +3,6 @@
 This document explains the overall architecture of Tripy.
 
 
-
 ## Overview
 
 The main technical requirement of Tripy is twofold:
