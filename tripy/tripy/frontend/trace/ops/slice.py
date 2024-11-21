@@ -166,6 +166,7 @@ def __getitem__(
     """
     from tripy.frontend.dimension_size import DimensionSize
     from tripy.frontend.tensor import Tensor
+    from tripy.frontend.trace.ops.binary_elementwise import maximum, minimum as tensor_min
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.gather import gather
     from tripy.frontend.trace.ops.squeeze import squeeze
@@ -198,14 +199,17 @@ def __getitem__(
         # when dealing with a slice (not a single index), we clamp the start and end bounds to [0, t_shape[i]]
         # because out of bounds indices for a *slice* mean that the dim should be empty, not an error
         def clamp_bound(bound: Union[int, Tensor]) -> Union[int, Tensor]:
-            if isinstance(bound, int) and bound < 0:
-                return 0
+            if isinstance(bound, int):  #  and bound < 0:
+                if bound < 0:
+                    return 0
 
-            # the dimension needs to be a tensor for the condition to where
+                if isinstance(t_shape[i], int):
+                    return min(bound, t_shape[i])
+                return tensor_min(t_shape[i], Tensor([bound]))
+
+            # need the shame dimension to be a tensor to use as an argument to min and max
             shape_dim = t_shape[i] if isinstance(t_shape[i], Tensor) else DimensionSize(t_shape[i])
-            if isinstance(bound, int):
-                return where(bound > shape_dim, shape_dim, Tensor([bound]))
-            return where(bound < 0, Tensor([0]), where(bound > shape_dim, shape_dim, bound))
+            return maximum(Tensor([0]), tensor_min(shape_dim, bound))
 
         if isinstance(idx, int) or isinstance(idx, Tensor):
             args.append(convert_to_positive_idx(idx))
