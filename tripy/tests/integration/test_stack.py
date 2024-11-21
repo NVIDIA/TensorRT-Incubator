@@ -33,9 +33,9 @@ class TestStack:
             ([(2, 3, 4)], 0),
         ],
     )
-    def test_stack(self, tensor_shapes, dim):
+    def test_stack(self, tensor_shapes, dim, eager_or_compiled):
         tensors = [tp.ones(shape) for shape in tensor_shapes]
-        out = tp.stack(tensors, dim=dim)
+        out = eager_or_compiled(tp.stack, tensors, dim=dim)
 
         # Create numpy arrays for comparison
         np_tensors = [np.ones(shape) for shape in tensor_shapes]
@@ -44,13 +44,13 @@ class TestStack:
         assert out.shape == list(expected.shape)
         assert np.array_equal(cp.from_dlpack(out).get(), expected)
 
-    def test_stack_different_ranks(self):
+    def test_stack_different_ranks(self, eager_or_compiled):
         tensors = [tp.ones((2, 3)), tp.ones((2, 3, 4))]
         with raises(
             tp.TripyException,
             match="Expected all input tensors to have the same rank.",
         ):
-            tp.stack(tensors)
+            eager_or_compiled(tp.stack, tensors)
 
     def test_stack_different_shapes(self):
         a = tp.ones((2, 3))

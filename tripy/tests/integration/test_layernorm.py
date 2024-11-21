@@ -31,7 +31,7 @@ class TestLayerNorm:
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", [(2, 2, 2)])
     @pytest.mark.parametrize("normalized_shape", [(2, 2), (2,)])
-    def test_layernorm_accuracy(self, torch_dtype, tp_dtype, input_shape, normalized_shape):
+    def test_layernorm_accuracy(self, torch_dtype, tp_dtype, input_shape, normalized_shape, eager_or_compiled):
         eps = 1e-5
         layernorm = torch.nn.LayerNorm(
             normalized_shape=normalized_shape,
@@ -51,7 +51,7 @@ class TestLayerNorm:
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = tp.copy(tp_layernorm(tp_input), tp.device("cpu"))
+        output = eager_or_compiled(tp.copy, tp_layernorm(tp_input), tp.device("cpu"))
         with torch.no_grad():
             expected = layernorm(input)
 
