@@ -51,7 +51,9 @@ def infer_dimensions(input: "tripy.Tensor", shape: ShapeLike) -> ShapeLike:
     if num_unknown_dims == 1:
         input_volume = math.prod(input.shape)
         known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_minus_one(dim))
-        inferred_dim = input_volume / known_dims_volume
+        inferred_dim = (
+            input_volume // known_dims_volume
+        )  # If we have scalars, the floor div ensures the result is an int.
 
         shape = [inferred_dim if op_utils.is_minus_one(dim) else dim for dim in shape]
 

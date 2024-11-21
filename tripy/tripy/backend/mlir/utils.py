@@ -85,7 +85,6 @@ def get_mlir_scalar_attr(mlir_dtype, value):
     # MLIR represents float dtypes as FloatAttr
     # and non-float dtypes as IntegerAttr
     attr_func = ir.IntegerAttr.get if isinstance(mlir_dtype, ir.IntegerType) else ir.FloatAttr.get
-    value = int(value) if isinstance(mlir_dtype, ir.IntegerType) else float(value)
     return attr_func(mlir_dtype, value)
 
 
