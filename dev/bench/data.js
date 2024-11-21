@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732223202112,
+  "lastUpdate": 1732225934931,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -5461,6 +5461,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000687448870176629",
             "extra": "mean: 149.3965908300035 usec\nrounds: 7451"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "6fd693dacbf6826bd5b4928aa47f318b33d3d314",
+          "message": "[Tripy] Change function registry to also register methods of registered classes",
+          "timestamp": "2024-11-21T00:28:11Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/388/commits/6fd693dacbf6826bd5b4928aa47f318b33d3d314"
+        },
+        "date": 1732225934057,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 4765.925245274582,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005221329162265114",
+            "extra": "mean: 209.8228462545653 usec\nrounds: 5449"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 4748.863123514764,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000044662403847402216",
+            "extra": "mean: 210.57671572977924 usec\nrounds: 5300"
           }
         ]
       }
