@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732160757711,
+  "lastUpdate": 1732161017548,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -5318,6 +5318,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000023864329748574885",
             "extra": "mean: 144.9278946259506 usec\nrounds: 7541"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "cc302397650d1066613cdacf8c1ff448bc938f4f",
+          "message": "[Tripy] Return the shape immediately if it is statically known instead of producing a trace operator.",
+          "timestamp": "2024-11-21T00:28:11Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/379/commits/cc302397650d1066613cdacf8c1ff448bc938f4f"
+        },
+        "date": 1732161016705,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6066.191816647702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003254663431128011",
+            "extra": "mean: 164.84806782002153 usec\nrounds: 6473"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6605.507035123587,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007155253041608748",
+            "extra": "mean: 151.38883278492946 usec\nrounds: 7460"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 7068.517697787177,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000022247563521774548",
+            "extra": "mean: 141.4723769190043 usec\nrounds: 7663"
           }
         ]
       }
