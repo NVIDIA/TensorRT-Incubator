@@ -21,7 +21,7 @@ import tripy as tp
 
 
 class TestSequential:
-    def test_basic_forward_pass_accuracy(self):
+    def test_basic_forward_pass_accuracy(self, eager_or_compiled):
         torch_model = torch.nn.Sequential(
             torch.nn.Linear(1, 3, dtype=torch.float32, device="cuda"),
             torch.nn.Linear(3, 2, dtype=torch.float32, device="cuda"),
@@ -36,7 +36,7 @@ class TestSequential:
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
 
-        tp_output = tp_model(tp_input)
+        tp_output = eager_or_compiled(tp_model, tp_input)
 
         torch_model.eval()
         with torch.no_grad():
@@ -45,7 +45,7 @@ class TestSequential:
         rtol_ = 2e-6
         assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=rtol_)
 
-    def test_dict_forward_pass_accuracy(self):
+    def test_dict_forward_pass_accuracy(self, eager_or_compiled):
         torch_model = torch.nn.Sequential(
             torch.nn.Linear(1, 3, dtype=torch.float32, device="cuda"),
             torch.nn.Linear(3, 2, dtype=torch.float32, device="cuda"),
@@ -63,7 +63,7 @@ class TestSequential:
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
 
-        tp_output = tp_model(tp_input)
+        tp_output = eager_or_compiled(tp_model, tp_input)
 
         torch_model.eval()
         with torch.no_grad():
@@ -74,7 +74,7 @@ class TestSequential:
             torch.from_dlpack(tp_output), torch_output, rtol=rtol_
         ), "Forward pass outputs do not match."
 
-    def test_nested_forward_pass_accuracy(self):
+    def test_nested_forward_pass_accuracy(self, eager_or_compiled):
         torch_model = torch.nn.Sequential(
             torch.nn.Linear(1, 3, dtype=torch.float32, device="cuda"),
             torch.nn.Sequential(
@@ -97,7 +97,7 @@ class TestSequential:
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
 
-        tp_output = tp_model(tp_input)
+        tp_output = eager_or_compiled(tp_model, tp_input)
 
         torch_model.eval()
         with torch.no_grad():
