@@ -76,6 +76,7 @@ class MaskDecoder(tp.Module):
         self.dtype = dtype
 
         self.num_multimask_outputs = num_multimask_outputs
+        self.activation = activation
 
         self.iou_token = tp.Embedding(1, transformer_dim, dtype=dtype)
         self.num_mask_tokens = num_multimask_outputs + 1
@@ -279,8 +280,8 @@ class MaskDecoder(tp.Module):
 
         # Upscale mask embeddings and predict masks using the mask tokens
         src = tp.reshape(tp.transpose(src, 1, 2), (b, c, h, w))
-        act1 = tp.gelu
-        act2 = tp.gelu
+        act1 = self.activation
+        act2 = self.activation
 
         if not self.use_high_res_features:
             dc1, ln1, _, dc2, _ = self.output_upscaling

@@ -67,6 +67,7 @@ class PromptEncoder(tp.Module):
             tp.Conv(mask_in_chans, embed_dim, kernel_dims=(1, 1)),
         ]
         self.no_mask_embed = tp.Embedding(1, embed_dim)
+        self.dtype = dtype
 
     def get_dense_pe(self) -> tp.Tensor:
         """
@@ -77,7 +78,8 @@ class PromptEncoder(tp.Module):
           tp.Tensor: Positional encoding with shape
             1x(embed_dim)x(embedding_h)x(embedding_w)
         """
-        return tp.unsqueeze(self.pe_layer(self.image_embedding_size), 0)
+        dense_pe = tp.unsqueeze(self.pe_layer(self.image_embedding_size), 0)
+        return tp.cast(dense_pe, self.dtype)
 
     def _embed_points(
         self,
@@ -216,4 +218,6 @@ class PromptEncoder(tp.Module):
                 (bs, -1, self.image_embedding_size[0], self.image_embedding_size[1]),
             )
 
+        sparse_embeddings = tp.cast(sparse_embeddings, self.dtype)
+        dense_embeddings = tp.cast(dense_embeddings, self.dtype)
         return sparse_embeddings, dense_embeddings

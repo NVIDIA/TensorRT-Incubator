@@ -187,23 +187,10 @@ class SAM2Base(torch.nn.Module):
         self.add_all_frames_to_correct_as_cond = add_all_frames_to_correct_as_cond
         self.max_cond_frames_in_attn = max_cond_frames_in_attn
 
-    @property
-    def device(self):
-        return next(self.parameters()).device
-
-    def forward(self, *args, **kwargs):
-        raise NotImplementedError(
-            "Please use the corresponding methods in SAM2VideoPredictor for inference."
-            "See notebooks/video_predictor_example.ipynb for an example."
-        )
-
     def _build_sam_heads(self):
         """Build SAM-style prompt encoder and mask decoder."""
         self.sam_prompt_embed_dim = self.hidden_dim
         self.sam_image_embedding_size = self.image_size // self.backbone_stride
-
-        # build PromptEncoder and MaskDecoder from SAM
-        # (their hyperparameters like `mask_in_chans=16` are from SAM code)
 
         self.sam_prompt_encoder = PromptEncoder(
             embed_dim=self.sam_prompt_embed_dim,
@@ -213,6 +200,7 @@ class SAM2Base(torch.nn.Module):
             ),
             input_image_size=(self.image_size, self.image_size),
             mask_in_chans=16,
+            dtype=self.model_dtype,
         )
 
         transformer = TwoWayTransformer(
@@ -303,7 +291,7 @@ class SAM2Base(torch.nn.Module):
         assert backbone_features.size(2) == self.sam_image_embedding_size
         assert backbone_features.size(3) == self.sam_image_embedding_size
 
-        # a) Handle point prompts
+        # Handle point prompts
         if point_inputs is not None:
             sam_point_coords = point_inputs["point_coords"]
             sam_point_labels = point_inputs["point_labels"]
@@ -313,37 +301,14 @@ class SAM2Base(torch.nn.Module):
             sam_point_coords = torch.zeros(B, 1, 2, device=device)
             sam_point_labels = -torch.ones(B, 1, dtype=torch.int32, device=device)
 
-        # b) Handle mask prompts
-        if mask_inputs is not None:
-            # If mask_inputs is provided, downsize it into low-res mask input if needed
-            # and feed it as a dense mask prompt into the SAM mask encoder
-            assert len(mask_inputs.shape) == 4 and mask_inputs.shape[:2] == (B, 1)
-            if mask_inputs.shape[-2:] != self.sam_prompt_encoder.mask_input_size:
-                sam_mask_prompt = F.interpolate(
-                    mask_inputs.float(),
-                    size=self.sam_prompt_encoder.mask_input_size,
-                    align_corners=False,
-                    mode="bilinear",
-                    antialias=True,  # use antialias for downsampling
-                )
-            else:
-                sam_mask_prompt = mask_inputs
-        else:
-            # Otherwise, simply feed None (and SAM's prompt encoder will add
-            # a learned `no_mask_embed` to indicate no mask input in this case).
-            sam_mask_prompt = None
-
         # TODO: remove the tripy->torch conversions between
         #       prompt_encoder and mask_decoder
         sam_point_coords = tp.Tensor(sam_point_coords.contiguous())
         sam_point_labels = tp.Tensor(sam_point_labels.contiguous())
-        # sam_mask_prompt = tp.Tensor(sam_mask_prompt.contiguous())
 
         sparse_embeddings, dense_embeddings = self.sam_prompt_encoder(
             points_x=sam_point_coords,
             points_y=sam_point_labels,
-            # boxes=None,
-            # masks=None,#sam_mask_prompt,
         )
         sparse_embeddings = torch.from_dlpack(sparse_embeddings)
         dense_embeddings = torch.from_dlpack(dense_embeddings)
