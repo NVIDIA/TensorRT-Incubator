@@ -47,9 +47,10 @@ from tripy.flat_ir.ops.base import BaseFlatIROp
 class ThetaOp(BaseFlatIROp):
     dim: int
 
-    # `to_mlir()` is the trickiest bit. As the name implies, the method is meant to lower the
-    # `FlatIR` operator into MLIR. To figure out which MLIR operators to use, refer to
-    # the 'MLIR Python API Guide' (linked below).
+    # `to_mlir()` is the trickiest bit. As the name implies, the method is
+    # meant to lower the `FlatIR` operator into MLIR. To figure out which
+    # MLIR operators to use, refer to the 'MLIR Python API Guide'
+    # (linked below).
     def to_mlir(self, operands):
         out_type = self.outputs[0].to_mlir()
         theta_dim = ir.IntegerAttr.get(type=ir.IntegerType.get_signless(64), value=self.dim)
@@ -116,29 +117,31 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 
 
-# Just like with `FlatIR` operators, all `Trace` operators are implemented as `dataclass`es.
-# As before, we want `repr=False` here.
+# Just like with `FlatIR` operators, all `Trace` operators are implemented
+# as `dataclass`es. As before, we want `repr=False` here.
 @dataclass(repr=False)
 class Theta(BaseTraceOp):
-    # Notice that we do *not* need to define a constructor and can rely on the default
-    # implementation provided by `dataclass`.
+    # Notice that we do *not* need to define a constructor and can rely on
+    # the default implementation provided by `dataclass`.
     dim: int
     dtype: datatype.dtype
 
     # `infer_rank()` populates the rank of the output `TraceTensor`s.
-    # Here we use one of the predefined policies to set the output rank to the same as the shape (i.e. the length)
-    # of the shape operand.
+    # Here we use one of the predefined policies to set the output rank
+    # to the same as the shape (i.e. the length) of the shape operand.
     infer_rank = op_utils.InferRankPolicies.same_as_shape_of_shape_input()
 
     # *Optional* `infer_dtypes()` populates the data types of the
     # output `TraceTensor`s. The default implementation copies the input
-    # data types if they are all the same, so you may not need to implement this.
+    # data types if they are all the same, so you may not need to implement
+    # this.
     def infer_dtypes(self):
         self.outputs[0].dtype = self.dtype
 
     # *Optional* `infer_devices()` populates the devices of the
     # output `TraceTensor`s. The default implementation copies the input
-    # devices if they are all the same, so you may not need to implement this either.
+    # devices if they are all the same, so you may not need to implement
+    # this either.
     def infer_devices(self):
         self.outputs[0].device = device("gpu")
 
@@ -177,30 +180,35 @@ from tripy import export
 import tripy.frontend.utils as frontend_utils
 from tripy.types import ShapeLike
 
-# We can use the `export.public_api()` decorator to automatically export this function into the
-# top-level module. This means it will be accessible as `tripy.theta`.
+# We can use the `export.public_api()` decorator to automatically export this
+# function into the top-level module. This means it will be accessible as
+# `tripy.theta`.
 #
-# This decorator also controls how the API is exposed in the documentation - the `document_under`
-# option determines where in the documentation hierarchy this API will show up.
+# This decorator also controls how the API is exposed in the documentation -
+# the `document_under` option determines where in the documentation hierarchy
+# this API will show up.
 #
-# If we needed to provide any special autodoc options, we could use the `autodoc_options` parameter.
+# If we needed to provide any special autodoc options, we could use the
+# `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
 
-# The `convert_to_tensors` decorator automatically converts compatible arguments,
-# like `TensorLike` or `ShapeLike`s, into tensors.
+# The `convert_to_tensors` decorator automatically converts compatible
+# arguments, like `TensorLike` or `ShapeLike`s, into tensors.
 @frontend_utils.convert_to_tensors()
 def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
-    # For any public facing interfaces, we have documentation requirements which you can read
-    # about in the 'Docs README' (linked below). The docstring we've implemented here
-    # adheres to all of these requirements. Non-compliant docstrings will, in most cases,
-    # cause test failures; however, you should still manually ensure you're writing high-quality
-    # docstrings.
+    # For any public facing interfaces, we have documentation requirements which
+    # you can read about in the 'Docs README' (linked below). The docstring
+    # we've implemented here adheres to all of these requirements. Non-compliant
+    # docstrings will, in most cases, cause test failures; however, you should
+    # still manually ensure you're writing high-quality docstrings.
     #
-    # The examples in docstrings are run as part of our tests, so you should also add
-    # assertions to make sure things are functionally correct. In this case, we check
-    # that the `output` we create in the code example is what we expect.
+    # The examples in docstrings are run as part of our tests, so you should
+    # also add assertions to make sure things are functionally correct. In this
+    # case, we check that the `output` we create in the code example is what we
+    # expect.
     """
-    Fills an output tensor with consecutive values starting from zero along the given dimension.
+    Fills an output tensor with consecutive values starting from zero
+    along the given dimension.
 
     Args:
         shape: The desired shape.
@@ -217,12 +225,15 @@ def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float
 
         output = tp.theta([3])
 
-        assert np.array_equal(cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32))
+        assert np.array_equal(
+            cp.from_dlpack(output).get(), np.arange(0, 3, dtype=np.float32)
+        )
     """
 
-    # Next we build the trace operator. The `build()` function is also responsible for constructing
-    # the output frontend Tensors. All of the arguments that follow the inputs
-    # are forwarded directly to the constructor of the `Trace` operator.
+    # Next we build the trace operator. The `build()` function is also
+    # responsible for constructing the output frontend Tensors. All of the
+    # arguments that follow the inputs are forwarded directly to the
+    # constructor of the `Trace` operator.
     return Theta.build([shape], dim, dtype)
 
 ```

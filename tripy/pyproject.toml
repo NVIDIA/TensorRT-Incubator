@@ -40,6 +40,7 @@ build = [
   "mypy==1.11.0",
 ]
 doc_test_common = [
+  "black==24.10.0",
   "torch==2.4.0+cu121",
   "numpy==1.25.0",
   # cupy requires NVRTC but does not specify it as a package dependency
@@ -96,5 +97,4 @@ testpaths = [
 addopts = "--strict-markers"
 markers = [
     "l1: Indicates that the test should only be run in nightlies.",
-    "manual: Disables tests in automation",
 ]
