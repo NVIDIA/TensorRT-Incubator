@@ -29,12 +29,16 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
-    def test_dequantize_int8_per_tensor(self, dtype):
+    def test_dequantize_int8_per_tensor(self, dtype, eager_or_compiled):
         data = [4, 8]
         input_tp = tp.Tensor(data, dtype=tp.int8)
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
-        dequantized = tp.dequantize(input_tp, scale_tp, dtype)
+
+        def func(input):
+            return tp.dequantize(input, scale_tp, dtype)
+
+        dequantized = eager_or_compiled(func, input_tp)
         expected = torch.tensor(data) * scale
         output = torch.from_dlpack(dequantized)
         assert torch.allclose(expected, output.to("cpu"))
@@ -42,7 +46,7 @@ class TestDequantize:
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
-    def test_dequantize_int8_per_channel(self, dtype):
+    def test_dequantize_int8_per_channel(self, dtype, eager_or_compiled):
         # TODO: Fix in #153
         if dtype == tp.float16:
             pytest.skip("TRT does not support fp16->int8 per-channel dequant.")
@@ -50,7 +54,11 @@ class TestDequantize:
         input_tp = tp.Tensor(data, dtype=tp.int8)
         scale = torch.tensor([0.8, 0.9], dtype=TORCH_DTYPES[dtype])
         scale_tp = tp.Tensor(scale, dtype=dtype)
-        dequantized = tp.dequantize(input_tp, scale_tp, dtype, dim=0)
+
+        def func(input):
+            return tp.dequantize(input, scale_tp, dtype, dim=0)
+
+        dequantized = eager_or_compiled(func, input_tp)
         expected = torch.tensor(data) * scale.reshape((2, 1))
         output = torch.from_dlpack(dequantized)
         assert torch.allclose(expected, output.to("cpu"))
