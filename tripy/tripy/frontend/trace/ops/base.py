@@ -79,7 +79,7 @@ class BaseTraceOp(abc.ABC):
 
         # NOTE: If you change the stack depth where the tensors are constructed, update STACK_DEPTH_OF_BUILD in
         # the Tensor constructor!
-        outputs = [Tensor(None) for _ in range(num_outputs)]
+        outputs = [Tensor.create_directly(None) for _ in range(num_outputs)]
 
         inp_trace_tensors = [inp.trace_tensor for inp in inputs]
         out_trace_tensors = [out.trace_tensor for out in outputs]
@@ -92,7 +92,7 @@ class BaseTraceOp(abc.ABC):
             if always_cast_to_dimension_size or (
                 all_inputs_are_dimension_size and out.dtype == int32 and out.rank == 0
             ):
-                dim_size = DimensionSize.create_empty()
+                dim_size = DimensionSize.create_directly(None)
                 dim_size.trace_tensor = out.trace_tensor
                 dim_size.stack_info = out.stack_info
                 outputs[index] = dim_size

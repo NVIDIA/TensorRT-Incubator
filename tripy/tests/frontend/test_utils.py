@@ -59,7 +59,7 @@ class TestConvertToTensors:
         a = func(1.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (17, 20)
+        assert a.stack_info[3].column_range == (17, 20)
 
     def test_converts_to_dimension_size(self):
         # The decorator should convert to DimensionSizes when possible.
@@ -103,7 +103,7 @@ class TestConvertToTensors:
         a = func(a=1.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (17, 22)
+        assert a.stack_info[3].column_range == (17, 22)
 
     def test_multiple_args(self):
         @convert_to_tensors()
@@ -113,10 +113,10 @@ class TestConvertToTensors:
         a, b = func(1.0, 2.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (20, 23)
+        assert a.stack_info[3].column_range == (20, 23)
 
         assert isinstance(b, tp.Tensor)
-        assert b.stack_info[4].column_range == (25, 28)
+        assert b.stack_info[3].column_range == (25, 28)
 
     def test_args_out_of_order(self):
         @convert_to_tensors()
@@ -126,11 +126,11 @@ class TestConvertToTensors:
         a, b = func(b=1.0, a=2.0)
 
         assert isinstance(a, tp.Tensor)
-        assert a.stack_info[4].column_range == (27, 32)
+        assert a.stack_info[3].column_range == (27, 32)
         assert a.tolist() == 2.0
 
         assert isinstance(b, tp.Tensor)
-        assert b.stack_info[4].column_range == (20, 25)
+        assert b.stack_info[3].column_range == (20, 25)
         assert b.tolist() == 1.0
 
     def test_cast_dtype(self):
