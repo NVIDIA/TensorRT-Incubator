@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732161283842,
+  "lastUpdate": 1732214517689,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -5393,6 +5393,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00004406755814134844",
             "extra": "mean: 202.3930799997328 usec\nrounds: 5469"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "c590a8d9228b310e6a349bbf48c4fc3b9cb627f9",
+          "message": "Update mlir-tensorrt dependency version in Tripy",
+          "timestamp": "2024-11-21T00:28:11Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/399/commits/c590a8d9228b310e6a349bbf48c4fc3b9cb627f9"
+        },
+        "date": 1732214516811,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5941.452997509103,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004918934627931883",
+            "extra": "mean: 168.30899788641605 usec\nrounds: 6422"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6648.044613147404,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006878873343127624",
+            "extra": "mean: 150.42016986804893 usec\nrounds: 7313"
           }
         ]
       }
