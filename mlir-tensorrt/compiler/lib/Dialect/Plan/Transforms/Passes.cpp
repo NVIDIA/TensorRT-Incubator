@@ -24,6 +24,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
+#include "mlir/Conversion/BufferizationToMemRef/BufferizationToMemRef.h"
 #include "mlir/Dialect/Bufferization/IR/BufferDeallocationOpInterface.h"
 #include "mlir/Dialect/Bufferization/Pipelines/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
@@ -80,6 +81,7 @@ void plan::buildPlanBufferDeallocationPipeline(
   pm.addPass(createCanonicalizerPass());
   pm.addPass(bufferization::createBufferDeallocationSimplificationPass());
   pm.addPass(bufferization::createLowerDeallocationsPass());
+  pm.addPass(mlir::createBufferizationToMemRefPass());
   pm.addPass(createCSEPass());
   pm.addPass(createCanonicalizerPass());
 }
@@ -103,31 +105,21 @@ struct ClusteringPipelineCliOpts
       llvm::cl::init(NV_TENSORRT_MAJOR)};
 };
 
-struct PlanBufferizationPipelineCliOpts
-    : public PassPipelineOptions<PlanBufferizationPipelineCliOpts> {
-  Option<bool> enableNonDPSReturns{
-      *this, "enable-non-dps-returns",
-      llvm::cl::desc("allow backend clusters to directly allocate outputs"),
-      llvm::cl::init(false)};
-};
-
 } // namespace
 
 // Register pipelines.
 
 void plan::registerPlanDialectPipelines() {
-  PassPipelineRegistration<PlanBufferizationPipelineCliOpts>
-      executorBufferizationPipeline(
-          "plan-bufferize-pipeline",
-          "perform bufferization and standard pre/post processing passes",
-          [](OpPassManager &pm, const PlanBufferizationPipelineCliOpts &opts) {
-            PlanAllocTensorsPassOptions allocTensorOpts{};
-            allocTensorOpts.enableNonDPSReturns = opts.enableNonDPSReturns;
-            buildPlanBufferizationPipeline(pm, allocTensorOpts);
-            buildPlanBufferOptimizationPipeline(pm);
-            buildPlanBufferDeallocationPipeline(
-                pm, bufferization::DeallocationOptions{false});
-          });
+  PassPipelineRegistration<> executorBufferizationPipeline(
+      "plan-bufferize-pipeline",
+      "perform bufferization and standard pre/post processing passes",
+      [](OpPassManager &pm) {
+        PlanAllocTensorsPassOptions allocTensorOpts{};
+        buildPlanBufferizationPipeline(pm, allocTensorOpts);
+        buildPlanBufferOptimizationPipeline(pm);
+        buildPlanBufferDeallocationPipeline(
+            pm, bufferization::DeallocationOptions{false});
+      });
 
   PassPipelineRegistration<> bufferOptPipeline(
       "plan-buffer-opt-pipeline", "perform post-bufferization optimizations",
