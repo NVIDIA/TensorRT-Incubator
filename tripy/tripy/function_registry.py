@@ -21,7 +21,7 @@ from collections import OrderedDict, defaultdict
 from collections.abc import Sequence as ABCSequence
 from dataclasses import dataclass
 from textwrap import dedent, indent
-from typing import Any, Callable, Dict, ForwardRef, List, Sequence, Tuple, Union, get_args, get_origin
+from typing import Any, Callable, Dict, ForwardRef, List, Optional, Sequence, Tuple, Union, get_args, get_origin
 
 
 def get_type_name(typ):
@@ -356,14 +356,21 @@ class FunctionRegistry(dict):
 
         raise_overload_error("Could not find an implementation", self.overloads[key], mismatch_reasons)
 
-    def __call__(self, key: Any):
+    def __call__(self, key: Any, bypass_dispatch: Optional[Union[bool, Sequence[str]]] = None):
         """
         Registers a function with this function registry.
         This function allows instances of the class to be used as decorators.
 
         Args:
             key: The key under which to register the function.
+
+            bypass_dispatch: Has no effect if the value is None or False.
+               If the decorator is applied to a function and the value is true, this will add the decorated function to the registry but does not
+               attempt to dispatch overloads. This option avoids overhead but does not perform automatic type-checking or allow for choosing between overloads.
+               If the decorator is applied to a class and the value is true, dispatch will be bypassed for all methods.
+               If the decorator is applied to a class and the value is a list of method names, dispatch will be bypassed for the listed methods only.
         """
+        bypass_dispatch = bypass_dispatch or False
 
         def impl(func):
             # Cannot dispatch on properties, so we just use func directly.
@@ -379,10 +386,24 @@ class FunctionRegistry(dict):
                 for name, member in inspect.getmembers(
                     func, predicate=lambda m: inspect.isfunction(m) and m.__doc__ is not None
                 ):
-                    setattr(func, name, self(f"{key}.{name}")(member))
+                    bypass_func = bypass_dispatch if isinstance(bypass_dispatch, bool) else name in bypass_dispatch
+                    setattr(func, name, self(f"{key}.{name}", bypass_dispatch=bypass_func)(member))
                 self[key] = func
             else:
+                if bypass_dispatch and key in self:
+                    from tripy.common.exception import raise_error
+
+                    raise_error(
+                        f"Attempting to add key {key} into a function registry with dispatch disabled, but there is already an overload present."
+                    )
+
                 self.overloads[key].append(FuncOverload(func))
+
+                if bypass_dispatch:
+                    self[key] = func
+                    self[key].is_dispatch_disabled = True  # added to avoid later adding an overload
+                    return func
+
                 # The dispatch function needs to look and feel like the underlying function to make docs
                 # work correctly. When there are multiple overloads, we concatenate the docstrings together
                 # for the dispatch function.
@@ -395,6 +416,10 @@ class FunctionRegistry(dict):
 
                     self[key] = wrapper
                 else:
+                    assert not hasattr(
+                        self[key], "is_dispatch_disabled"
+                    ), f"Dispatch was disabled for key {key}, but a second overload was registered for it."
+
                     # By deleting __wrapped__, we undo parts of what `functools.wraps` does.
                     # This allows us to omit signature information in the docs and prepend our
                     # own to the docstrings.
