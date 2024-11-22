@@ -78,7 +78,8 @@ def compile(
 
         # doc: no-print-locals compiled_add
 
-        # Support shapes in the range of (1, 2) to (3, 2), optimizing for a shape of (2, 2)
+        # Support shapes in the range of (1, 2) to (3, 2), optimizing for a
+        # shape of (2, 2)
         compiled_add = tp.compile(
             add,
             args=[
@@ -92,7 +93,8 @@ def compile(
 
         small_out = compiled_add(small_a, small_b)
 
-        # Now we can reuse the compiled function for any shapes within the range:
+        # Now we can reuse the compiled function for any shapes within the
+        # range:
         big_a = tp.ones((3, 2), dtype=tp.float32)
         big_b = tp.ones((3, 2), dtype=tp.float32)
 

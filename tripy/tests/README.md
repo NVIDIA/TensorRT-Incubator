@@ -18,13 +18,12 @@ You can also provide marker arguments to only run specific test cadences
 L0 tests, use:
 
 ```bash
-pytest tests/ -v -m "not l1 and not manual" -n 4 --dist worksteal --ignore tests/performance
-pytest tests/performance -v -m "not l1 and not manual"
+pytest tests/ -v -m "not l1" -n 4 --dist worksteal --ignore tests/performance
+pytest tests/performance -v -m "not l1"
 ```
 
-Note that the L0/L1 tests can be parallelized, which is not necessarily
-true of `manual` tests. In that case, performance tests are run separately
-because they must run serially to ensure accurate measurements.
+Note that the L0/L1 tests can be parallelized. In that case, performance tests
+are run separately because they must run serially to ensure accurate measurements.
 
 ## Profiling
 
@@ -36,7 +35,7 @@ tests together.
 For example, to profile L0 tests, run:
 
 ```bash
-pytest tests/ -v -m "not l1 and not manual" --ignore tests/performance --profile
+pytest tests/ -v -m "not l1" --ignore tests/performance --profile
 ```
 
 You can visualize the results using `snakeviz`.
