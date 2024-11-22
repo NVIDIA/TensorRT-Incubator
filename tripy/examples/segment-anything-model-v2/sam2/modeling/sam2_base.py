@@ -301,8 +301,6 @@ class SAM2Base(torch.nn.Module):
             sam_point_coords = torch.zeros(B, 1, 2, device=device)
             sam_point_labels = -torch.ones(B, 1, dtype=torch.int32, device=device)
 
-        # TODO: remove the tripy->torch conversions between
-        #       prompt_encoder and mask_decoder
         sam_point_coords = tp.Tensor(sam_point_coords.contiguous())
         sam_point_labels = tp.Tensor(sam_point_labels.contiguous())
 
@@ -310,31 +308,15 @@ class SAM2Base(torch.nn.Module):
             points_x=sam_point_coords,
             points_y=sam_point_labels,
         )
-        sparse_embeddings = torch.from_dlpack(sparse_embeddings)
-        dense_embeddings = torch.from_dlpack(dense_embeddings)
         self.dense_pe = self.sam_prompt_encoder.get_dense_pe()
-
-        if self.model_dtype == tp.float16:
-            backbone_features = backbone_features.half()
-            self.dense_pe = (
-                self.dense_pe.half()
-                if not isinstance(self.dense_pe, tp.Tensor)
-                else torch.from_dlpack(self.dense_pe).half()
-            )
-            sparse_embeddings = sparse_embeddings.half()
-            dense_embeddings = dense_embeddings.half()
-            hres_1 = high_res_features[0].half()
-            hres_2 = high_res_features[1].half()
-        else:
-            hres_1 = high_res_features[0]
-            hres_2 = high_res_features[1]
+        hres_1 = high_res_features[0]
+        hres_2 = high_res_features[1]
+        if self.model.model_dtype == tp.float16:
+            image_embedding = image_embedding.half()
+            hres_1 = hres_1.half()
+            hres_2 = hres_2.half()
 
         tp_backbone_features = tp.Tensor(backbone_features.contiguous())
-        tp_image_pe = (
-            tp.Tensor(self.dense_pe.contiguous()) if not isinstance(self.dense_pe, tp.Tensor) else self.dense_pe
-        )
-        tp_sparse = tp.Tensor(sparse_embeddings.contiguous())
-        tp_dense = tp.Tensor(dense_embeddings.contiguous())
         hres_1 = tp.Tensor(hres_1.contiguous())
         hres_2 = tp.Tensor(hres_2.contiguous())
 
@@ -346,9 +328,9 @@ class SAM2Base(torch.nn.Module):
                 object_score_logits,
             ) = self.sam_mask_decoder_true(
                 image_embeddings=tp_backbone_features,
-                image_pe=tp_image_pe,
-                sparse_prompt_embeddings=tp_sparse,
-                dense_prompt_embeddings=tp_dense,
+                image_pe=self.dense_pe,
+                sparse_prompt_embeddings=sparse_embeddings,
+                dense_prompt_embeddings=dense_embeddings,
                 high_res_features_1=hres_1,
                 high_res_features_2=hres_2,
             )
@@ -361,9 +343,9 @@ class SAM2Base(torch.nn.Module):
                 object_score_logits,
             ) = self.sam_mask_decoder_false(
                 image_embeddings=tp_backbone_features,
-                image_pe=tp_image_pe,
-                sparse_prompt_embeddings=tp_sparse,
-                dense_prompt_embeddings=tp_dense,
+                image_pe=self.dense_pe,
+                sparse_prompt_embeddings=sparse_embeddings,
+                dense_prompt_embeddings=dense_embeddings,
                 high_res_features_1=hres_1,
                 high_res_features_2=hres_2,
             )
