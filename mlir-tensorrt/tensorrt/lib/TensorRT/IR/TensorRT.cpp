@@ -1137,6 +1137,17 @@ void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
 }
 
 void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                              Type result, Value input, ArrayRef<int32_t> start,
+                              ArrayRef<int32_t> size, ArrayRef<int32_t> stride,
+                              SliceMode sliceMode, Value fill) {
+  auto toArrayAttr = [&](ArrayRef<int32_t> arr) {
+    return OpFoldResult(DenseI32ArrayAttr::get(odsBuilder.getContext(), arr));
+  };
+  SliceOp::build(odsBuilder, odsState, result, input, toArrayAttr(start),
+                 toArrayAttr(size), toArrayAttr(stride), sliceMode, fill);
+}
+
+void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
                               Value input, ArrayRef<int32_t> start, Value size,
                               ArrayRef<int32_t> stride, SliceMode sliceMode,
                               Value fill) {

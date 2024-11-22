@@ -1931,13 +1931,13 @@ struct ConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
 namespace {
 /// Convert `stablehlo.slice` op to `tensorrt.slice` operation.
-template <typename HloOpType>
-struct HloSliceConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
-  using ConvertHloOpToTensorRTPattern<HloOpType>::ConvertHloOpToTensorRTPattern;
-  LogicalResult matchAndRewrite(
-      HloOpType op,
-      typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override {
+struct HloSliceConverter
+    : public ConvertHloOpToTensorRTPattern<stablehlo::SliceOp> {
+  using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
+  LogicalResult
+  matchAndRewrite(stablehlo::SliceOp op,
+                  typename ConvertHloOpToTensorRTPattern::OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     TensorRTConversionPatternRewriter trtRewriter(rewriter);
     int64_t targetTrtMajorVersion =
         this->getTypeConverter()->getOptions().getTensorRTVersion();
@@ -1950,19 +1950,26 @@ struct HloSliceConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
     if (failed(startIndices))
       return rewriter.notifyMatchFailure(
           op, "could not convert i64 offsets to i32");
+    FailureOr<SmallVector<int32_t>> limitIndices =
+        truncateI64ToI32(loc, op.getLimitIndices());
+    if (failed(limitIndices))
+      return rewriter.notifyMatchFailure(
+          op, "could not convert i64 offsets to i32");
     FailureOr<SmallVector<int32_t>> strides =
         truncateI64ToI32(loc, op.getStrides());
     if (failed(strides))
       return rewriter.notifyMatchFailure(op,
                                          "could not convert i64 stride to i32");
-    FailureOr<SmallVector<int32_t>> i32Shape =
-        truncateI64ToI32(loc, op.getType().getShape());
-    if (failed(i32Shape))
-      return rewriter.notifyMatchFailure(op,
-                                         "could not convert i64 shape to i32");
+
+    // Result shape is `ceil((limit_indices - start_indices)/stride)`
+    SmallVector<int32_t> i32Shape(limitIndices->size());
+    for (size_t i = 0; i < limitIndices->size(); i++) {
+      i32Shape[i] = llvm::divideCeil(
+          (((*limitIndices)[i] - (*startIndices)[i])), (*strides)[i]);
+    }
     auto sliceOp = trtRewriter.checkAndCreate<mlir::tensorrt::SliceOp>(
-        op.getLoc(), targetTrtMajorVersion, adaptor.getOperand(), *startIndices,
-        *i32Shape, *strides);
+        op.getLoc(), targetTrtMajorVersion, op.getType(), adaptor.getOperand(),
+        *startIndices, i32Shape, *strides);
     if (!sliceOp)
       return failure();
 
@@ -4628,8 +4635,8 @@ void mlir::populateStablehloToTensorRtConversionPattern(
                                       tensorrt::ActivationType::kTANH>,
       RsqrtConverter, ConstantConverter<stablehlo::ConstantOp>,
       ConstantConverter<arith::ConstantOp>, RealDynamicSliceConverter,
-      HloSliceConverter<stablehlo::SliceOp>, DynamicSliceConverter,
-      ConvolutionConverter, ConvertScatterToTensorRT,
+      HloSliceConverter, DynamicSliceConverter, ConvolutionConverter,
+      ConvertScatterToTensorRT,
       // clang-format off
       SingleDimSimpleGatherToTensorRTGatherPattern,
       ConvertScatterToTensorRTScatterElements,
