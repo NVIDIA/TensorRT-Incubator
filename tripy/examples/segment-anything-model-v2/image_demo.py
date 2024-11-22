@@ -30,8 +30,7 @@ from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-b", "--batch", type=int, default=2,
-                    help="batch size of the input images, between [1, 4]")
+parser.add_argument("-b", "--batch", type=int, default=2, help="batch size of the input images, between [1, 4]")
 
 args = parser.parse_args()
 
@@ -182,28 +181,52 @@ def main(image_path: str, save_path: Optional[str] = None):
     # Create predictor and process image
     predictor = SAM2ImagePredictor(sam2_model)
 
-    predictor.set_image_batch(image_list)
-
     # Set input prompt
     input_point = np.array([[500, 375]])
     input_label = np.array([1])
 
-    # Time mask prediction
-    start = time.perf_counter()
-    masks, scores, logits = predictor.predict_batch(
-        point_coords_batch=[input_point] * args.batch,
-        point_labels_batch=[input_label] * args.batch,
-        multimask_output=True,
-    )
+    def time_function(func, num_warmup=5, num_runs=100, description=""):
+        # Warmup runs
+        for _ in range(num_warmup):
+            func()
+
+        tp.default_stream().synchronize()
+        torch.cuda.synchronize()
+
+        # Actual timing
+        start = time.perf_counter()
+        for _ in range(num_runs):
+            output = func()
+
+        tp.default_stream().synchronize()
+        torch.cuda.synchronize()
+        end = time.perf_counter()
+
+        avg_time_ms = (end - start) * 1000 / num_runs
+        print(
+            f"{description} took {avg_time_ms:.2f} ms per run (averaged over {num_runs} runs, with {num_warmup} warmup runs)"
+        )
+
+        return output
+
+    def generate_embedding():
+        predictor.set_image_batch(image_list)
+        return None
+
+    def predict_masks():
+        return predictor.predict_batch(
+            point_coords_batch=[input_point] * args.batch,
+            point_labels_batch=[input_label] * args.batch,
+            multimask_output=True,
+        )
+
+    predictor.reset_predictor()
+    time_function(generate_embedding, description="Generating image embedding")
+    masks, scores, logits = time_function(predict_masks, description="Predicting masks")
+
     masks = masks[0]
     scores = scores[0]
     logits = logits[0]
-
-    # Synchronize CUDA operations
-    tp.default_stream().synchronize()
-    torch.cuda.synchronize()
-    prediction_time = (time.perf_counter() - start) * 1000
-    print(f"Prediction took {prediction_time:.2f}ms")
 
     # Sort masks by confidence score
     sorted_ind = np.argsort(scores)[::-1]
