@@ -166,7 +166,7 @@ def __getitem__(
     """
     from tripy.frontend.dimension_size import DimensionSize
     from tripy.frontend.tensor import Tensor
-    from tripy.frontend.trace.ops.binary_elementwise import maximum, minimum as tensor_min
+    from tripy.frontend.trace.ops.binary_elementwise import maximum, minimum
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.gather import gather
     from tripy.frontend.trace.ops.squeeze import squeeze
@@ -205,11 +205,11 @@ def __getitem__(
 
                 if isinstance(t_shape[i], int):
                     return min(bound, t_shape[i])
-                return tensor_min(t_shape[i], Tensor([bound]))
+                return minimum(t_shape[i], Tensor([bound]))
 
             # need the shame dimension to be a tensor to use as an argument to min and max
             shape_dim = t_shape[i] if isinstance(t_shape[i], Tensor) else DimensionSize(t_shape[i])
-            return maximum(Tensor([0]), tensor_min(shape_dim, bound))
+            return maximum(Tensor([0]), minimum(shape_dim, bound))
 
         if isinstance(idx, int) or isinstance(idx, Tensor):
             args.append(convert_to_positive_idx(idx))
