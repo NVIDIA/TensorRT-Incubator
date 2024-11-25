@@ -179,13 +179,20 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
+        from tripy.frontend import global_cache
 
         trace = Trace([self])
-        flat_ir = trace.to_flat_ir()
-        mlir = flat_ir.to_mlir()
+        trace_key = str(trace)
 
-        compiler = Compiler(trt_builder_opt_level=0)
-        executable = compiler.compile(mlir, flat_ir=flat_ir)
+        executable = global_cache.get(trace_key)
+        if executable is None:
+            flat_ir = trace.to_flat_ir()
+            mlir = flat_ir.to_mlir()
+
+            compiler = Compiler(trt_builder_opt_level=0)
+            executable = compiler.compile(mlir, flat_ir=flat_ir)
+            global_cache.set(trace_key, executable)
+
         executor = Executor(executable)
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
