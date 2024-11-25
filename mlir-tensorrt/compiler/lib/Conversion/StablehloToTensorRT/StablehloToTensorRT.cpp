@@ -2404,14 +2404,53 @@ struct ConvertDynamicIota
 
     auto resultType = dyn_cast_or_null<RankedTensorType>(
         this->getTypeConverter()->convertType(op.getType()));
-    if (!resultType || resultType.getRank() != 1)
+    if (!resultType)
       return failure();
+
+    // For rank-1 iota, we don't need to worry about creating a dynamic
+    // "step" tensor.
+    if (resultType.getRank() == 1)
+      return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::LinspaceOp>(
+                 op, targetTrtMajorVersion, resultType,
+                 /*shape=*/adaptor.getOutputShape(), /*start=*/Value(),
+                 /*step=*/Value(),
+                 /*static_start=*/rewriter.getF64FloatAttr(0.0),
+                 /*static_step=*/rewriter.getF64FloatAttr(1.0))
+                 ? success()
+                 : failure();
+
+    // For greater thank rank-1 iota, we generate use a 1-d constant
+    // "step tensor". `tensorrt.linspace` has the following semantic:
+    // `result[coord...] = start + dot(step, [coord...])`.
+    const uint64_t dim = op.getIotaDimension();
+    SmallVector<Attribute> stepValues(
+        resultType.getRank(),
+        rewriter.getZeroAttr(resultType.getElementType()));
+    stepValues[dim] = rewriter.getOneAttr(resultType.getElementType());
+
+    RankedTensorType stepTensorType = resultType.clone({resultType.getRank()});
+    RankedTensorType startTensorType = resultType.clone(ArrayRef<int64_t>{});
+
+    auto constStart = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op.getLoc(), targetTrtMajorVersion, startTensorType,
+        DenseElementsAttr::get(
+            startTensorType,
+            rewriter.getZeroAttr(resultType.getElementType())));
+    if (!constStart)
+      return failure();
+
+    auto constStep = trtRewriter.checkAndCreate<tensorrt::ConstantOp>(
+        op.getLoc(), targetTrtMajorVersion, stepTensorType,
+        DenseElementsAttr::get(stepTensorType, stepValues));
+    if (!constStep)
+      return failure();
+
     return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::LinspaceOp>(
                op, targetTrtMajorVersion, resultType,
-               /*shape=*/adaptor.getOutputShape(), /*start=*/Value(),
-               /*step=*/Value(),
-               /*static_start=*/rewriter.getF64FloatAttr(0.0),
-               /*static_step=*/rewriter.getF64FloatAttr(1.0))
+               /*shape=*/adaptor.getOutputShape(), /*start=*/constStart,
+               /*step=*/constStep,
+               /*static_start=*/FloatAttr{},
+               /*static_step=*/FloatAttr{})
                ? success()
                : failure();
   }
@@ -2779,10 +2818,15 @@ struct PadConverter : public ConvertHloOpToTensorRTPattern<stablehlo::PadOp> {
     auto padLowHighSum = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
         loc, targetTrtMajorVersion, shapeTensorType, padLowConst, padHighConst,
         tensorrt::ElementWiseOperation::kSUM);
+    if (!padLowHighSum)
+      return failure();
     Value size = padLowHighSum.getResult();
-    size = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+    auto sumWithResult = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
         loc, targetTrtMajorVersion, shapeTensorType, size, shape.getResult(),
         tensorrt::ElementWiseOperation::kSUM);
+    if (!sumWithResult)
+      return failure();
+    size = sumWithResult.getResult();
 
     SmallVector<int32_t> stride(inputType.getRank(), 1);
     return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::SliceOp>(
@@ -3819,7 +3863,7 @@ struct ConvertScatterToTensorRTScatterElements
     if (!constOneTuple)
       return failure();
 
-    Value newIndices = trtRewriter.checkAndCreate<tensorrt::LinspaceOp>(
+    auto newIndices = trtRewriter.checkAndCreate<tensorrt::LinspaceOp>(
         op->getLoc(), targetTrtMajorVersion,
         newUpdateType.clone(rewriter.getI32Type()), Value(), startIndex,
         constOneTuple, FloatAttr(), FloatAttr());
@@ -3845,7 +3889,7 @@ struct ConvertScatterToTensorRTScatterElements
       auto newOp = trtRewriter.checkAndCreate<tensorrt::ScatterElementsOp>(
           op->getLoc(), targetTrtMajorVersion,
           /*data*/ convertToI32(adaptor.getInputs().front()),
-          /*indices*/ newIndices,
+          /*indices*/ newIndices.getResult(),
           /*updates*/ convertToI32(newUpdates),
           /*axis*/ rewriter.getI64IntegerAttr(axis));
       if (!newOp)
@@ -3855,7 +3899,8 @@ struct ConvertScatterToTensorRTScatterElements
       auto newOp = trtRewriter.checkAndCreate<tensorrt::ScatterElementsOp>(
           op->getLoc(), targetTrtMajorVersion,
           /*data*/ adaptor.getInputs().front(),
-          /*indices*/ newIndices, /*updates*/ newUpdates.getResult(),
+          /*indices*/ newIndices.getResult(),
+          /*updates*/ newUpdates.getResult(),
           /*axis*/ rewriter.getI64IntegerAttr(axis));
       if (!newOp)
         return failure();
@@ -3931,6 +3976,48 @@ struct SingleDimSimpleGatherToTensorRTGatherPattern
     }
     return failure();
   }
+};
+
+/// Convert `stablehlo.dynamic_gather` that represents a 'Simple, Single
+/// Dimension Gather' with implicit index dimension to `tensorrt.gather`.
+struct SingleDimSimpleDynamicGatherToTensorRTGatherPattern
+    : public ConvertHloOpToTensorRTPattern<stablehlo::DynamicGatherOp> {
+
+  SingleDimSimpleDynamicGatherToTensorRTGatherPattern(
+      const ShapeInfoCallbacks &shapeInfoCallbacks,
+      TensorRTTypeConverter &typeConverter, MLIRContext *ctx,
+      PatternBenefit benefit = 1)
+      : ConvertHloOpToTensorRTPattern(typeConverter, ctx, benefit),
+        shapeInfoCallbacks(shapeInfoCallbacks) {}
+
+  using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
+  LogicalResult
+  matchAndRewrite(stablehlo::DynamicGatherOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    TensorRTConversionPatternRewriter trtRewriter(rewriter);
+    int64_t targetTrtMajorVersion =
+        this->getTypeConverter()->getOptions().getTensorRTVersion();
+    RankedTensorType resultType = dyn_cast_or_null<RankedTensorType>(
+        typeConverter->convertType(op.getType()));
+    if (!resultType)
+      return failure();
+
+    std::optional<int64_t> gatherDim =
+        stablehlo_ext::isSingleDimSimpleGatherWithImplicitIndexDim(
+            op, shapeInfoCallbacks);
+    if (!gatherDim)
+      return rewriter.notifyMatchFailure(op, "not a correct gather op");
+
+    return trtRewriter.checkAndReplaceOpWithNewOp<tensorrt::GatherOp>(
+               op, targetTrtMajorVersion, resultType, adaptor.getOperand(),
+               adaptor.getStartIndices(), *gatherDim)
+               ? success()
+               : rewriter.notifyMatchFailure(op,
+                                             "could not create a valid TRT op");
+  }
+
+protected:
+  ShapeInfoCallbacks shapeInfoCallbacks;
 };
 
 struct ConvertGatherToTensorRT
@@ -4246,24 +4333,32 @@ struct DynamicUpdateSliceToConcatConverter
     // start and shape to be the values appropriate for !hasNonZeroUpdateStart
     // (static case). We will update them in the condition block.
     // Calculate the slice start = update offset + update size.
-    TypedValue<RankedTensorType> concatDimOffset =
-        trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
-            loc, targetTrtMajorVersion, updateStartOffset,
-            tensorrt::createConstShapeTensor(
-                rewriter, loc,
-                {static_cast<int32_t>(updateType.getDimSize(*concatAxis))}),
-            tensorrt::ElementWiseOperation::kSUM);
+    auto sliceStart = trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
+        loc, targetTrtMajorVersion, updateStartOffset,
+        tensorrt::createConstShapeTensor(
+            rewriter, loc,
+            {static_cast<int32_t>(updateType.getDimSize(*concatAxis))}),
+        tensorrt::ElementWiseOperation::kSUM);
+    if (!sliceStart)
+      return failure();
+    TypedValue<RankedTensorType> concatDimOffset = sliceStart.getResult();
+
     TypedValue<RankedTensorType> endOffset = tensorrt::scatterShapeTensor(
         rewriter, loc, SmallVector<int64_t>(updateType.getRank(), 0),
         *concatAxis, concatDimOffset);
     // Calculate the slice size = result shape - update offset.
-    TypedValue<RankedTensorType> finalPartDimSize =
+    auto finalPartDimSizeOp =
         trtRewriter.checkAndCreate<tensorrt::ElementWiseOp>(
             loc, targetTrtMajorVersion,
             tensorrt::createConstShapeTensor(
                 rewriter, loc,
                 {static_cast<int32_t>(resultType.getDimSize(*concatAxis))}),
             concatDimOffset, tensorrt::ElementWiseOperation::kSUB);
+    if (!finalPartDimSizeOp)
+      return failure();
+    TypedValue<RankedTensorType> finalPartDimSize =
+        finalPartDimSizeOp.getResult();
+
     TypedValue<RankedTensorType> endShape = tensorrt::scatterShapeTensor(
         rewriter, loc, resultType.getShape(), *concatAxis, finalPartDimSize);
 
@@ -4453,7 +4548,8 @@ public:
 } // namespace
 
 void mlir::populateStablehloToTensorRtConversionPattern(
-    TensorRTTypeConverter &typeConverter, RewritePatternSet &patterns) {
+    TensorRTTypeConverter &typeConverter, RewritePatternSet &patterns,
+    ShapeInfoCallbacks shapeInfoCallbacks) {
   // Add larger patterns with a higher
   // benefit so that they run first.
   patterns.add<SortToTopK, ConvertReduceWindow>(
@@ -4527,4 +4623,66 @@ void mlir::populateStablehloToTensorRtConversionPattern(
       CompositeToQDQConverter
     >(typeConverter, patterns.getContext(), PatternBenefit(1));
   // clang-format on
+
+  if (!shapeInfoCallbacks.isElementValueEqualToConstant)
+    shapeInfoCallbacks.isElementValueEqualToConstant =
+        [](TensorElementValue elementValue,
+           Attribute constValue) -> std::optional<bool> {
+      RankedTensorType shapeTensorType = elementValue.getTensor().getType();
+      if (shapeTensorType.getRank() != 1 ||
+          !shapeTensorType.getElementType().isIntOrIndex())
+        return {};
+
+      auto concatOp =
+          elementValue.getTensor().getDefiningOp<stablehlo::ConcatenateOp>();
+      if (!concatOp || static_cast<int64_t>(concatOp.getOperands().size()) !=
+                           shapeTensorType.getDimSize(0))
+        return {};
+
+      Value element = concatOp.getOperands()[elementValue.getLinearIndex()];
+      SplatElementsAttr splat = {};
+      if (!matchPattern(element, m_Constant(&splat)))
+        return {};
+      return splat.getSplatValue<Attribute>() == constValue;
+    };
+
+  if (!shapeInfoCallbacks.isElementValueEqualToShapeDimExtent)
+    shapeInfoCallbacks.isElementValueEqualToShapeDimExtent =
+        [](TensorElementValue elementValue,
+           TensorShapeDimExtent dimExtent) -> std::optional<bool> {
+      RankedTensorType shapeTensorType = elementValue.getTensor().getType();
+      RankedTensorType valueTensorType = dimExtent.tensor.getType();
+
+      if (shapeTensorType.getRank() != 1 ||
+          !shapeTensorType.getElementType().isIntOrIndex())
+        return {};
+
+      auto concatOp =
+          elementValue.getTensor().getDefiningOp<stablehlo::ConcatenateOp>();
+      if (!concatOp || static_cast<int64_t>(concatOp.getOperands().size()) !=
+                           shapeTensorType.getDimSize(0))
+        return {};
+
+      Value element = concatOp.getOperands()[elementValue.getLinearIndex()];
+
+      DenseElementsAttr splat = {};
+      if (!valueTensorType.isDynamicDim(dimExtent.dim) &&
+          matchPattern(element, m_Constant(&splat)))
+        return splat.getSplatValue<llvm::APInt>().getSExtValue() ==
+               valueTensorType.getDimSize(dimExtent.dim);
+
+      if (!matchPattern(element, m_Op<stablehlo::ReshapeOp>(
+                                     m_Op<stablehlo::GetDimensionSizeOp>())))
+        return {};
+
+      auto dimSizeOp = element.getDefiningOp<stablehlo::ReshapeOp>()
+                           .getOperand()
+                           .getDefiningOp<stablehlo::GetDimensionSizeOp>();
+      return dimSizeOp.getOperand() == dimExtent.tensor &&
+             dimSizeOp.getDimension() == static_cast<unsigned>(dimExtent.dim);
+    };
+
+  patterns.add<SingleDimSimpleDynamicGatherToTensorRTGatherPattern>(
+      shapeInfoCallbacks, typeConverter, patterns.getContext(),
+      PatternBenefit(1));
 }

@@ -44,8 +44,6 @@ using namespace mlir;
 DEFINE_C_API_PTR_METHODS(MTRT_CompilerClient, CompilerClient)
 DEFINE_C_API_PTR_METHODS(MTRT_StableHLOToExecutableOptions,
                          StableHLOToExecutableOptions)
-DEFINE_C_API_PTR_METHODS(MTRT_StableHLOProgramSignatureRefinementOptions,
-                         StableHLOProgramSignatureRefinementOptions)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -92,12 +90,12 @@ MTRT_Status mtrtCompilerClientCreate(MlirContext context,
   if (!cppClient.isOk())
     return wrap(cppClient.getStatus());
 
-  *client = MTRT_CompilerClient{cppClient->release()};
+  *client = wrap(cppClient->release());
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
-  delete reinterpret_cast<MTRT_CompilerClient *>(client.ptr);
+  delete unwrap(client);
   return mtrtStatusGetOk();
 }
 
@@ -252,46 +250,6 @@ MTRT_Status mtrtCompilerStableHLOToExecutable(
                             exe.getString().c_str());
 
   result->ptr = (*exe).release();
-
-  return mtrtStatusGetOk();
-}
-
-//===----------------------------------------------------------------------===//
-// Main StableHLO Program Signature Refinement Functions
-//===----------------------------------------------------------------------===//
-
-MTRT_Status mtrtStableHloProgramSignatureRefinementOptionsCreate(
-    MTRT_StringView funcName,
-    MTRT_StableHLOProgramSignatureRefinementOptions *options) {
-  auto result = std::make_unique<StableHLOProgramSignatureRefinementOptions>();
-  result->setFuncName(std::string(funcName.data, funcName.length));
-  *options = wrap(result.release());
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status mtrtStableHloProgramSignatureRefinementOptionsDestroy(
-    MTRT_StableHLOProgramSignatureRefinementOptions options) {
-  delete unwrap(options);
-  return mtrtStatusGetOk();
-}
-
-MTRT_Status mtrtGetStableHloProgramRefinedSignature(
-    MTRT_CompilerClient client, MlirOperation module,
-    MTRT_StableHLOProgramSignatureRefinementOptions options, MlirType *result) {
-  ModuleOp moduleOp = llvm::dyn_cast<ModuleOp>(unwrap(module));
-  if (!moduleOp)
-    return mtrtStatusCreate(
-        MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
-        "StableHLO program signature refinement expects a ModuleOp");
-
-  StatusOr<FunctionType> funcType =
-      compiler::getStableHLOProgramRefinedSignature(*unwrap(client), moduleOp,
-                                                    *unwrap(options));
-  if (!funcType.isOk())
-    return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
-                            funcType.getString().c_str());
-
-  *result = wrap(mlir::Type(*funcType));
 
   return mtrtStatusGetOk();
 }

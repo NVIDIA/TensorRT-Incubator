@@ -38,7 +38,7 @@ for expected accuracy.
     <!--
     ```
     (?s).*?
-    What is the answer to life, the universe, and everything\? How can we know what's important? How can
+    What is the answer to life, the universe, and everything\? (How can we know what's real\? How can|The answer to the questions that)
     ```
      -->
     <!-- Tripy: TEST: EXPECTED_STDOUT End -->
@@ -62,7 +62,7 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     <!--
     ```
     (?s).*?
-    What is the answer to life, the universe, and everything\? How is life possible, what is the meaning of
+    What is the answer to life, the universe, and everything\? (The answer to the questions that|How is life possible, what is the meaning of|How can)
     ```
      -->
     <!-- Tripy: TEST: EXPECTED_STDOUT End -->

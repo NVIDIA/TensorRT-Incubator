@@ -194,11 +194,12 @@ public:
   /// Adds IFillLayer to the network. This switches between different
   /// APIs depending on the compile-time TensorRT version and whether or not
   /// the strongly-typed flags is enabled.
-  nvinfer1::ILayer *addFillLayer(
-      nvinfer1::DataType elementType, const nvinfer1::Dims &staticShape,
-      nvinfer1::ITensor *dynamicShape, nvinfer1::FillOperation fillOperation,
-      std::optional<double> alpha, std::optional<double> beta,
-      nvinfer1::ITensor *dynamicAlpha, nvinfer1::ITensor *dynamicBeta);
+  nvinfer1::ILayer *
+  addFillLayer(nvinfer1::DataType elementType, nvinfer1::Dims staticShape,
+               nvinfer1::ITensor *dynamicShape,
+               nvinfer1::FillOperation fillOperation,
+               std::optional<double> alpha, std::optional<double> beta,
+               nvinfer1::ITensor *dynamicAlpha, nvinfer1::ITensor *dynamicBeta);
 
   /// Adds a TensorRT plugin.
   FailureOr<nvinfer1::ILayer *>

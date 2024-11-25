@@ -34,11 +34,11 @@ class TestGatherOp:
             ((2, 3, 4), 1, (2)),
         ],
     )
-    def test_gather(self, x_shape, axis, indices):
+    def test_gather(self, x_shape, axis, indices, eager_or_compiled):
         x = np.arange(np.prod(x_shape)).reshape(x_shape)
         indices_tp = tp.Tensor(indices)
         a = tp.Tensor(x)
         a = tp.cast(a, tp.int32)
-        out = tp.gather(a, axis, indices_tp)
-        out.eval()
+        out = eager_or_compiled(tp.gather, a, axis, indices_tp)
+
         assert np.array_equal(cp.from_dlpack(out).get(), np.take(x, indices, axis))

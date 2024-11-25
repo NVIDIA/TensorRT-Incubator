@@ -1,27 +1,4 @@
-// RUN: mlir-tensorrt-opt %s -tensorrt-stablehlo-input-preprocessing -split-input-file | FileCheck %s
-
-func.func @conv2d_nchw_kcrs_padded(
-    %arg0: tensor<1x2x32x64xf32>,
-    %arg1: tensor<128x2x3x3xf32>)
-  -> tensor<1x128x28x62xf32> {
-  %0 = stablehlo.convolution(%arg0, %arg1)
-    dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1],
-    window = {stride = [1, 1], pad=[[0, 0], [0, 0]], rhs_dilate = [2, 1]} {
-    batch_group_count = 1 : i64,
-    feature_group_count = 1 : i64
-  } : (tensor<1x2x32x64xf32>, tensor<128x2x3x3xf32>)
-    -> tensor<1x128x28x62xf32>
-  func.return %0 : tensor<1x128x28x62xf32>
-}
-
-// CHECK-LABEL: @conv2d_nchw_kcrs_padded
-//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x2x32x64xf32>, %[[arg1:.+]]: tensor<128x2x3x3xf32>) -> tensor<1x128x28x62xf32> {
-//       CHECK:     %[[v0:.+]] = stablehlo.convolution(%[[arg0]], %[[arg1]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1],
-//  CHECK-SAME:       window = {stride = [1, 1], pad = {{\[}}[0, 0], [0, 0]], rhs_dilate = [2, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64}
-//  CHECK-SAME:       : (tensor<1x2x32x64xf32>, tensor<128x2x3x3xf32>) -> tensor<1x128x28x62xf32>
-//       CHECK:     return %[[v0]] : tensor<1x128x28x62xf32>
-
-// -----
+// RUN: mlir-tensorrt-opt %s -stablehlo-ext-canonicalize-convolution -split-input-file | FileCheck %s
 
 func.func @conv2d_nhwc_rsck_no_padding_dilated(
     %arg0: tensor<1x32x64x2xf32>,
@@ -46,6 +23,29 @@ func.func @conv2d_nhwc_rsck_no_padding_dilated(
 //  CHECK-SAME:        {batch_group_count = 1 : i64, feature_group_count = 1 : i64} : (tensor<1x2x32x64xf32>, tensor<128x2x3x3xf32>) -> tensor<1x128x28x62xf32>
 //       CHECK:     %[[v3:.+]] = stablehlo.transpose %[[v2]], dims = [0, 2, 3, 1] : (tensor<1x128x28x62xf32>) -> tensor<1x28x62x128xf32>
 //       CHECK:     return %[[v3]] : tensor<1x28x62x128xf32>
+
+// -----
+
+func.func @conv2d_nchw_kcrs_padded(
+    %arg0: tensor<1x2x32x64xf32>,
+    %arg1: tensor<128x2x3x3xf32>)
+  -> tensor<1x128x28x62xf32> {
+  %0 = stablehlo.convolution(%arg0, %arg1)
+    dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1],
+    window = {stride = [1, 1], pad=[[0, 0], [0, 0]], rhs_dilate = [2, 1]} {
+    batch_group_count = 1 : i64,
+    feature_group_count = 1 : i64
+  } : (tensor<1x2x32x64xf32>, tensor<128x2x3x3xf32>)
+    -> tensor<1x128x28x62xf32>
+  func.return %0 : tensor<1x128x28x62xf32>
+}
+
+// CHECK-LABEL: @conv2d_nchw_kcrs_padded
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x2x32x64xf32>, %[[arg1:.+]]: tensor<128x2x3x3xf32>) -> tensor<1x128x28x62xf32> {
+//       CHECK:     %[[v0:.+]] = stablehlo.convolution(%[[arg0]], %[[arg1]]) dim_numbers = [b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1],
+//  CHECK-SAME:       window = {stride = [1, 1], pad = {{\[}}[0, 0], [0, 0]], rhs_dilate = [2, 1]} {batch_group_count = 1 : i64, feature_group_count = 1 : i64}
+//  CHECK-SAME:       : (tensor<1x2x32x64xf32>, tensor<128x2x3x3xf32>) -> tensor<1x128x28x62xf32>
+//       CHECK:     return %[[v0]] : tensor<1x128x28x62xf32>
 
 // -----
 

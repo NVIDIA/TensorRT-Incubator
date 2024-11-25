@@ -27,6 +27,7 @@ import re
 from textwrap import dedent, indent
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
+import black
 import cupy as cp
 import numpy as np
 import pytest
@@ -117,20 +118,25 @@ TORCH_DTYPES = {
 }
 
 
-class DocstringCodeBlock(str):
-    def code(self) -> str:
-        # Special directives can be used in the code blocks and they should be
-        # excluded from the actual code.
-        def is_directive(line):
-            if not line.strip().startswith(":"):
-                return False
-            tokens = line.strip().split(" ")
-            if not tokens:
-                return False
-            return tokens[0].endswith(":")
+def get_code_bounds(lines):
+    # Returns the start and end index of lines of pure code in a block. The block may contain backticks
+    # or RST markup indicating a code block.
+    code_start = len(lines)
+    code_end = 0
+    BLOCK_MARKUP = {"```", ".. code-block::", ":"}
+    for index, line in enumerate(lines):
+        line = line.strip()
+        if line and not any(line.startswith(markup) for markup in BLOCK_MARKUP):
+            code_start = min(index, code_start)
 
-        text = self.replace(".. code-block:: python", "", 1)
-        return "\n".join([line for line in text.splitlines() if not is_directive(line)])
+        if line != "```":
+            code_end = max(index, code_end)
+    code_end += 1
+    return code_start, code_end
+
+
+class DocstringCodeBlock(str):
+    pass
 
 
 def consolidate_code_blocks(doc):
@@ -241,45 +247,6 @@ def get_all_tripy_interfaces():
     return all_objects
 
 
-def get_all_docstrings_with_examples():
-    def get_qualname(obj):
-        if isinstance(obj, property):
-            return obj.fget.__qualname__
-        return obj.__qualname__
-
-    # Because of our complicated method registration logic, the free function and method
-    # might both be recognized as separate objects by `get_all_tripy_interfaces()`.
-    # In order to avoid redundant testing, we compare the docstrings directly instead.
-    seen_docstring_hashes = set()
-    docstrings = []
-    ids = []
-    tripy_interfaces = get_all_tripy_interfaces()
-    for obj in tripy_interfaces:
-        if not obj.__doc__:
-            print(f"Skipping {get_qualname(obj)} because no docstring was present")
-            continue
-
-        doc_hash = hash(obj.__doc__)
-        if doc_hash in seen_docstring_hashes:
-            print(f"Skipping {get_qualname(obj)} because it duplicates the docstring of another interface")
-            continue
-        seen_docstring_hashes.add(doc_hash)
-
-        blocks = [
-            dedent(block.code())
-            for block in consolidate_code_blocks(obj.__doc__)
-            if isinstance(block, DocstringCodeBlock)
-        ]
-        if blocks is None:
-            print(f"Skipping {get_qualname(obj)} because no example was present in the docstring")
-            continue
-
-        docstrings.extend(blocks)
-        ids.extend([f"{get_qualname(obj)}:{idx}" for idx in range(len(blocks))])
-
-    return docstrings, ids
-
-
 ##
 ## Working with READMEs
 ##
@@ -379,12 +346,11 @@ class MarkerTracker:
 
 
 class ReadmeCodeBlock:
-    def __init__(self, markers: Set[Marker], lang: str):
+    def __init__(self, markers: Set[Marker], lang: str, line_number: int):
         self.content: str = None
         self.markers = markers
         self.lang = lang
-        self.start_line = ""
-        self.end_line = ""
+        self.line_number = line_number
 
     def add(self, line: str):
         if self.content is None:
@@ -396,7 +362,10 @@ class ReadmeCodeBlock:
         return AVAILABLE_MARKERS[name] in self.markers
 
     def __str__(self):
-        return self.content or ""
+        content = self.content or ""
+        lines = content.splitlines()
+        start, end = get_code_bounds(lines)
+        return "\n".join(lines[start:end])
 
     def __bool__(self):
         return bool(self.content)
@@ -404,35 +373,36 @@ class ReadmeCodeBlock:
     # Returns the original raw contents of the block.
     # This will include the backticks that were stripped out by the consolidation function.
     def raw_str(self) -> str:
-        contents = str(self)
-        if self.lang == "text":
-            return contents
-        return f"{self.start_line}\n{contents}\n{self.end_line}"
+        return self.content or ""
 
 
 # Extract any ``` blocks from the README at the specified path
 def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBlock]:
     cmd_blocks = []
-    current_block = ReadmeCodeBlock(markers=set(), lang="text")
+    current_block = ReadmeCodeBlock(markers=set(), lang="text", line_number=0)
     with MarkerTracker(readme_path) as tracker:
         previous_markers = copy.copy(tracker.active_markers)
-        for line in tracker:
+        for index, line in enumerate(tracker):
             # We use copy here so we don't accidentally alias.
             if tracker.entering(AVAILABLE_MARKERS["command"]):
                 # Append previous text block before creating a new block for the command.
                 cmd_blocks.append(copy.copy(current_block))
                 lang = line.strip().partition("```")[-1]
-                current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang=lang)
-                current_block.start_line = line
+                current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang=lang, line_number=index)
+                current_block.add(line)
             elif tracker.exiting(AVAILABLE_MARKERS["command"]):
-                current_block.end_line = line
+                current_block.add(line)
                 cmd_blocks.append(copy.copy(current_block))
                 # Create new text block for contents between command blocks
-                current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang="text")
+                current_block = ReadmeCodeBlock(
+                    markers=copy.copy(tracker.active_markers), lang="text", line_number=index
+                )
             elif tracker.active_markers != previous_markers:
                 cmd_blocks.append(copy.copy(current_block))
                 # When markers change, create a new text block
-                current_block = ReadmeCodeBlock(markers=copy.copy(tracker.active_markers), lang="text")
+                current_block = ReadmeCodeBlock(
+                    markers=copy.copy(tracker.active_markers), lang="text", line_number=index
+                )
             else:
                 current_block.add(line)
 
@@ -453,7 +423,6 @@ ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 def process_code_block_for_outputs_and_locals(
     block: str,
-    code: str,
     format_contents: Callable[[str, str, str], str],
     err_msg: str = "",
     local_vars: Dict[str, Any] = None,
@@ -483,7 +452,7 @@ def process_code_block_for_outputs_and_locals(
     # Set of variables *not* to print
     no_print_vars = set()
 
-    code_block_lines = []
+    stripped_code_block_lines = []  # All code except what was requested to be omitted.
     output_lines = []
     local_var_lines = []
 
@@ -510,12 +479,54 @@ def process_code_block_for_outputs_and_locals(
         if any(block_line.strip().startswith(tag) for tag in REMOVE_TAGS) or block_line.endswith(OMIT_COMMENT):
             continue
 
-        code_block_lines.append(block_line)
+        stripped_code_block_lines.append(block_line)
+
+    # Format the code portion of the block with black. We use a shorter
+    # line length so it doesn't overflow in the rendered docs:
+    MAX_LINE_LENGTH = 80
+    stripped_code_start, stripped_code_end = get_code_bounds(stripped_code_block_lines)
+    stripped_code_lines = stripped_code_block_lines[stripped_code_start:stripped_code_end]
+
+    indentation = len(stripped_code_lines[0]) - len(stripped_code_lines[0].lstrip())
+    try:
+        stripped_code_lines = indent(
+            black.format_file_contents(
+                dedent("\n".join(stripped_code_lines)), fast=False, mode=black.Mode(line_length=MAX_LINE_LENGTH)
+            )
+            + "\n",
+            prefix=" " * indentation,
+        ).splitlines()
+    except black.NothingChanged:
+        pass
+
+    # Check that comments don't exceed maximum line length. Note that `black` will not automatically split
+    # comments, so this needs to be done manually. Without this, each code block will become a scrollable
+    # element, making it very annoying to read. It is also annoying to fix this manually, but it is a one
+    # time cost and makes the reading experience so much better.
+    too_long_lines = []
+    for line in stripped_code_lines:
+        # The indentation of the code block doesn't show up in the rendered documentation
+        # (indentation *within* the block obviously will.)
+        if len(line) - indentation > MAX_LINE_LENGTH:
+            too_long_lines.append(f">| {line}")
+    too_long_lines = "\n".join(too_long_lines)
+    assert (
+        not too_long_lines
+    ), f"{err_msg}One or more lines exceed maximum line length ({MAX_LINE_LENGTH} characters). Note: lines were:\n{too_long_lines}\n"
+
+    stripped_code_block_lines = (
+        stripped_code_block_lines[:stripped_code_start]
+        + stripped_code_lines
+        + stripped_code_block_lines[stripped_code_end:]
+    )
 
     if not should_eval:
-        return code_block_lines, local_var_lines, output_lines, local_vars
+        return stripped_code_block_lines, local_var_lines, output_lines, local_vars
 
-    code = dedent(code)
+    # When we run the code, we need to get the original code, not the strpiped one.
+    block_lines = block.splitlines()
+    code_start, code_end = get_code_bounds(block_lines)
+    code = dedent("\n".join(block_lines[code_start:code_end]))
 
     with capture_output() as outfile:
         try:
@@ -573,7 +584,8 @@ def process_code_block_for_outputs_and_locals(
 
             locals_str += f"\n>>> {name}"
             if isinstance(obj, tp.Module):
-                locals_str += f".state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
+                locals_str += f"\n{obj}"
+                locals_str += f"\n>>> {name}.state_dict()\n{pretty_str_from_dict(obj.state_dict())}"
             elif isinstance(obj, dict):
                 locals_str += f"\n{pretty_str_from_dict(obj)}"
             else:
@@ -603,4 +615,4 @@ def process_code_block_for_outputs_and_locals(
         stdout = ANSI_ESCAPE.sub("", stdout)
         output_lines = split_block_lines("Output:", stdout, lang="")
 
-    return code_block_lines, local_var_lines, output_lines, code_locals
+    return stripped_code_block_lines, local_var_lines, output_lines, code_locals

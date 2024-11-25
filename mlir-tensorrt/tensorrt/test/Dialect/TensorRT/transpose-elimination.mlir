@@ -51,6 +51,25 @@ func.func @transpose_pushdown_noop(%arg0: tensor<2x2xf32>, %arg1: tensor<2x2xf32
 
 // -----
 
+#map = affine_map<(d0, d1, d2) -> (d0, d2, d1)>
+
+func.func @tranpose_pushdown_dynamic(%arg0: tensor<?x80x80xf32>) -> tensor<?x80x80xf32> {
+  %cst_f32 = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1xf32>
+  %1 = tensorrt.transpose {permutation = #map} %arg0 : tensor<?x80x80xf32> to tensor<?x80x80xf32>
+  %2 = tensorrt.element_wise <kSUB>(%cst_f32, %1 : tensor<1x1x1xf32>, tensor<?x80x80xf32>) -> tensor<?x80x80xf32>
+  return %2 : tensor<?x80x80xf32>
+}
+
+//       CHECK: #[[$map:.+]] = affine_map<(d0, d1, d2) -> (d0, d2, d1)>
+// CHECK-LABEL: func.func @tranpose_pushdown_dynamic
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x80x80xf32>) -> tensor<?x80x80xf32
+//   CHECK-DAG:     %[[cst_f32:.+]] = tensorrt.constant dense<1.000000e+00> : tensor<1x1x1xf32>
+//   CHECK-DAG:     %[[v0:.+]] = tensorrt.element_wise <kSUB>(%[[cst_f32]], %[[arg0]] : tensor<1x1x1xf32>, tensor<?x80x80xf32>) -> tensor<?x80x80xf32>
+//   CHECK-DAG:     %[[v1:.+]] = tensorrt.transpose {permutation = #[[$map]]} %[[v0]] : tensor<?x80x80xf32> to tensor<?x80x80xf32>
+//   CHECK-DAG:     return %[[v1]] : tensor<?x80x80xf32>
+
+// -----
+
 func.func @transpose_pushdown_switch(%arg0: tensor<2x2xf32>, %arg1: tensor<1x2xf32>) -> tensor<2x2xf32> {
   %1 = tensorrt.transpose {permutation = affine_map<(d0, d1)->(d1, d0)>} %arg0 : tensor<2x2xf32> to tensor<2x2xf32>
   %2 = tensorrt.element_wise <kSUM> (%1, %arg1: tensor<2x2xf32>, tensor<1x2xf32>) -> tensor<2x2xf32>

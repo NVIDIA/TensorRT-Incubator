@@ -20,8 +20,8 @@ import inspect
 from collections import OrderedDict, defaultdict
 from collections.abc import Sequence as ABCSequence
 from dataclasses import dataclass
-from textwrap import dedent
-from typing import Any, Callable, Dict, ForwardRef, List, Sequence, Union, get_args, get_origin
+from textwrap import dedent, indent
+from typing import Any, Callable, Dict, ForwardRef, List, Sequence, Tuple, Union, get_args, get_origin
 
 
 def get_type_name(typ):
@@ -41,23 +41,31 @@ def get_type_name(typ):
     return module_name + typ.__qualname__
 
 
-def sanitize_name(annotation):
-    if get_origin(annotation) is Union and annotation._name == "Optional":
-        types = get_args(annotation)
-        return f"{annotation.__name__}[{sanitize_name(types[0])}]"
+def str_from_type_annotation(annotation, postprocess_annotation=None):
+    postprocess_annotation = postprocess_annotation or (lambda x: x)
 
-    if get_origin(annotation) in {Union, ABCSequence}:
+    if annotation is type(None):
+        return postprocess_annotation("None")
+
+    if isinstance(annotation, str):
+        return postprocess_annotation(annotation)
+
+    if get_origin(annotation) is Union:
+        types = list(get_args(annotation))
+        return " | ".join(str_from_type_annotation(typ, postprocess_annotation) for typ in types)
+
+    if get_origin(annotation) in {ABCSequence, List, Tuple}:
         types = get_args(annotation)
-        return f"{annotation.__name__}[{', '.join(sanitize_name(typ) for typ in types)}]"
+        return f"{annotation.__name__}[{', '.join(str_from_type_annotation(typ, postprocess_annotation) for typ in types)}]"
 
     if isinstance(annotation, ForwardRef):
-        return annotation.__forward_arg__
+        return postprocess_annotation(str(annotation.__forward_arg__))
 
     # typing module annotations are likely to be better when pretty-printed due to including subscripts
-    return annotation if annotation.__module__ == "typing" else get_type_name(annotation)
+    return postprocess_annotation(str(annotation) if annotation.__module__ == "typing" else get_type_name(annotation))
 
 
-def render_arg_type(arg: Any) -> str:
+def type_str_from_arg(arg: Any) -> str:
     # it is more useful to report more detailed types for sequences/tuples in error messages
     from typing import List, Tuple
 
@@ -65,12 +73,12 @@ def render_arg_type(arg: Any) -> str:
         if len(arg) == 0:
             return "List"
         # catch inconsistencies this way
-        arg_types = {render_arg_type(member) for member in arg}
+        arg_types = {type_str_from_arg(member) for member in arg}
         if len(arg_types) == 1:
             return f"List[{list(arg_types)[0]}]"
-        return f"List[Union[{', '.join(arg_types)}]]"
+        return f"List[{' | '.join(arg_types)}]"
     if isinstance(arg, Tuple):
-        return f"Tuple[{', '.join(map(render_arg_type, arg))}]"
+        return f"Tuple[{', '.join(map(type_str_from_arg, arg))}]"
 
     return get_type_name(type(arg))
 
@@ -89,7 +97,7 @@ class FuncOverload:
         # We *cannot* populate this at `__init__` time since that will be evaluated when the function
         # is first defined, at which point the required types in the annotations may not be accessible.
         # Instead, we populate this the first time the function is called.
-        self.annotations = None
+        self._annotations = None
 
     def __str__(self) -> str:
         from tripy.utils.utils import code_pretty_str
@@ -112,41 +120,45 @@ class FuncOverload:
         return pretty_code + "\n"
 
     def _get_annotations(self):
-        if self.annotations is None:
-            # Maps parameter names to their type annotations and a boolean indicating whether they are optional.
-            self.annotations: Dict[str, AnnotationInfo] = OrderedDict()
-            signature = inspect.signature(self.func)
-            for name, param in signature.parameters.items():
-                if name == "self":
-                    # Not likely to pass in the wrong `self` parameter, so we
-                    # don't require an annotation for it.
-                    annotation = Any
-                else:
-                    assert (param.annotation and param.annotation is not signature.empty) or param.kind in {
-                        inspect.Parameter.VAR_POSITIONAL,
-                        inspect.Parameter.VAR_KEYWORD,
-                    }, f"Non-variadic function parameters must have type annotations, but parameter: '{name}' of function: '{self.func.__name__}' has no type annotation!"
-                    annotation = param.annotation
-                    # In cases where a type is not available at the time of function definition, the type
-                    # annotation may be provided as a string. Since we need the actual type, we just
-                    # eval it here.
-                    if isinstance(annotation, str):
-                        try:
-                            # Import tripy so we can evaluate types from within tripy.
-                            import tripy
+        if self._annotations is not None:
+            return self._annotations
 
-                            annotation = eval(annotation)
-                        except Exception as e:
-                            raise NameError(
-                                f"Error while evaluating type annotation: '{annotation}' for parameter: '{name}' of function: '{self.func.__name__}'."
-                                f"\nNote: Error was: {e}"
-                            )
+        # Maps parameter names to their type annotations and a boolean indicating whether they are optional.
+        self._annotations: Dict[str, AnnotationInfo] = OrderedDict()
+        signature = inspect.signature(self.func)
+        for name, param in signature.parameters.items():
+            if name == "self":
+                # Not likely to pass in the wrong `self` parameter, so we
+                # don't require an annotation for it.
+                annotation = Any
+            else:
+                assert (param.annotation and param.annotation is not signature.empty) or param.kind in {
+                    inspect.Parameter.VAR_POSITIONAL,
+                    inspect.Parameter.VAR_KEYWORD,
+                }, f"Non-variadic function parameters must have type annotations, but parameter: '{name}' of function: '{self.func.__name__}' has no type annotation!"
+                annotation = param.annotation
+                # In cases where a type is not available at the time of function definition, the type
+                # annotation may be provided as a string. Since we need the actual type, we just
+                # eval it here.
+                if isinstance(annotation, str):
+                    try:
+                        # Import tripy so we can evaluate types from within tripy.
+                        import tripy
 
-                self.annotations[name] = AnnotationInfo(annotation, param.default is not signature.empty, param.kind)
+                        annotation = eval(annotation)
+                    except Exception as e:
+                        raise NameError(
+                            f"Error while evaluating type annotation: '{annotation}' for parameter: '{name}' of function: '{self.func.__name__}'."
+                            f"\nNote: Error was: {e}"
+                        )
 
-        return self.annotations
+            self._annotations[name] = AnnotationInfo(annotation, param.default is not signature.empty, param.kind)
+
+        return self._annotations
 
     def matches_arg_types(self, args, kwargs) -> "Result":
+        from itertools import chain
+
         from tripy.utils.result import Result
 
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
@@ -197,19 +209,35 @@ class FuncOverload:
         annotations = self._get_annotations()
 
         # Check if we have too many positional arguments. We can only do this if there isn't a variadic positional argument.
-        if not any(annotation.kind == inspect.Parameter.VAR_POSITIONAL for annotation in annotations.values()) and len(
-            args
-        ) > len(annotations):
+        annotation_items = list(annotations.items())
+        variadic_idx = None
+        for idx, (_, annotation) in enumerate(annotation_items):
+            # there can only be at most one variadic arg and it must come after all positional args and before keyword-only args
+            if annotation.kind == inspect.Parameter.VAR_POSITIONAL:
+                variadic_idx = idx
+                break
+
+        if variadic_idx is None and len(args) > len(annotations):
             return Result.err(
                 [f"Function expects {len(annotations)} parameters, but {len(args)} arguments were provided."],
             )
 
-        for (name, annotation), arg in zip(annotations.items(), args):
+        # If there is a variadic positional arg, we can copy the final annotation for the remaining args.
+        # Keyword-only args (only possible with a variadic arg) will appear in kwargs and don't need to be checked here.
+        if variadic_idx is not None:
+            positional_args_to_check = chain(
+                zip(annotation_items[:variadic_idx], args),
+                map(lambda arg: (annotation_items[variadic_idx], arg), args[len(annotations) - 1 :]),
+            )
+        else:
+            positional_args_to_check = zip(annotation_items, args)
+
+        for (name, annotation), arg in positional_args_to_check:
             if not matches_type(name, annotation.type_info, arg):
                 return Result.err(
                     [
-                        f"For parameter: '{name}', expected an instance of type: '{sanitize_name(annotation.type_info)}' "
-                        f"but got argument of type: '{render_arg_type(arg)}'."
+                        f"For parameter: '{name}', expected an instance of type: '{str_from_type_annotation(annotation.type_info)}' "
+                        f"but got argument of type: '{type_str_from_arg(arg)}'."
                     ]
                 )
 
@@ -219,8 +247,8 @@ class FuncOverload:
                 if not matches_type(name, typ, arg):
                     return Result.err(
                         [
-                            f"For parameter: '{name}', expected an instance of type: '{sanitize_name(typ)}' "
-                            f"but got argument of type: '{render_arg_type(arg)}'."
+                            f"For parameter: '{name}', expected an instance of type: '{str_from_type_annotation(typ)}' "
+                            f"but got argument of type: '{type_str_from_arg(arg)}'."
                         ]
                     )
             elif not any(annotation.kind == inspect.Parameter.VAR_KEYWORD for annotation in annotations.values()):
@@ -369,30 +397,50 @@ class FunctionRegistry(dict):
                         if not f.__doc__:
                             return ""
 
+                        roles = ""
+
+                        def add_role(name, *additional_classes):
+                            nonlocal roles
+
+                            classes = [name] + list(additional_classes)
+                            roles += f".. role:: {name}\n    :class: {' '.join(classes)}\n"
+
+                        add_role("sig-prename", "descclassname")
+                        add_role("sig-name", "descname")
+
+                        # We cannot use `FuncOverload._get_annotations()` here because it is too early to be able
+                        # to import tripy to evaluate annotations.
                         signature = inspect.signature(f)
 
-                        def str_from_annotation(annotation):
-                            if isinstance(annotation, str):
-                                ret = annotation
-                            else:
-                                ret = annotation.__qualname__
-                            return f":class:`{ret}`"
+                        postprocess_annotation = lambda annotation: (
+                            f":class:`{annotation}`" if annotation.startswith("tripy.") else annotation
+                        )
 
                         def make_param_str(param):
-                            param_str = f"*{param.name}*: {str_from_annotation(param.annotation)}"
+                            param_str = (
+                                f"{param.name}: {str_from_type_annotation(param.annotation, postprocess_annotation)}"
+                            )
                             if param.default != signature.empty:
                                 param_str += f" = {param.default}"
                             return param_str
 
-                        sig_str = f"> **{key}** ({', '.join(make_param_str(param) for param in signature.parameters.values() if param.name != 'self')}) -> "
+                        sig_str = rf":sig-prename:`tripy`\ .\ :sig-name:`{key}`\ ({', '.join(make_param_str(param) for param in signature.parameters.values() if param.name != 'self')}) -> "
 
                         if signature.return_annotation != signature.empty:
-                            sig_str += f"{str_from_annotation(signature.return_annotation)}"
+                            sig_str += (
+                                f"{str_from_type_annotation(signature.return_annotation, postprocess_annotation)}"
+                            )
                         else:
                             sig_str += "None"
 
                         section_divider = "-" * 10
-                        return (f"""\n\n{section_divider}\n\n{sig_str}\n{dedent(f.__doc__)}""").strip()
+                        indent_prefix = " " * 4
+                        # We add a special `func-overload-sig` class here so we can correct the documentation
+                        # styling for signatures of overloaded functions.
+                        overload_doc = (
+                            f"""\n\n{section_divider}\n\n{dedent(roles).strip()}\n\n.. container:: func-overload-sig sig sig-object py\n\n{indent(sig_str, indent_prefix)}\n{dedent(f.__doc__)}"""
+                        ).strip()
+                        return overload_doc
 
                     # The first time we add an overload, we need to retroactively process the existing docstring
                     # to add signature information.

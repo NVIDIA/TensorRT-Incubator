@@ -217,10 +217,12 @@ private:
     }                                                                          \
   } while (false);
 
+/// Causes returning an InternalError status from the current scope if the NCCL
+/// result is not ncclSuccess or ncclInProgress.
 #define RETURN_ERROR_IF_NCCL_ERROR(x, comm)                                    \
   do {                                                                         \
     ncclResult_t err = (x);                                                    \
-    if (err != ncclSuccess) {                                                  \
+    if (err != ncclSuccess && err != ncclInProgress) {                         \
       return getInternalErrorStatus(                                           \
           "{0}:{1} NCCL error [msg=\"{2}\" ncclGetLastError=\"{3}\"]",         \
           __FILE__, __LINE__, ncclGetErrorString(err),                         \

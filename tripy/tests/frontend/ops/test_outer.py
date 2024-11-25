@@ -14,7 +14,10 @@
 # limitations under the License.
 
 from tests import helper
+
 import tripy as tp
+
+
 class TestOuter:
     def test_invalid_rank_fails(self):
         a = tp.ones((5, 1))

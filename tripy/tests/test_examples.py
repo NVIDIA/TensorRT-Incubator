@@ -99,18 +99,20 @@ def test_examples(example, sandboxed_install_run):
             if block.has_marker("test: ignore") or not block.has_marker("command"):
                 continue
 
-            block_text = str(block)
+            code = str(block)
             if block.has_marker("test: expected_stdout"):
                 print("Checking command output against expected output: ", end="")
                 out = statuses[-1].stdout.strip()
-                matched = re.match(dedent(block_text).strip(), out)
+                matched = re.match(dedent(code).strip(), out)
                 print("matched!" if matched else "did not match!")
                 print(f"==== STDOUT ====\n{out}")
                 assert matched
             else:
-                status = example.run(block_text, sandboxed_install_run)
+                status = example.run(code, sandboxed_install_run)
 
-                details = f"Note: Command was: {block_text}.\n==== STDOUT ====\n{status.stdout}\n==== STDERR ====\n{status.stderr}"
+                details = (
+                    f"Note: Command was: {code}.\n==== STDOUT ====\n{status.stdout}\n==== STDERR ====\n{status.stderr}"
+                )
                 if block.has_marker("test: xfail"):
                     assert not status.success, f"Command that was expected to fail did not fail. {details}"
                 else:

@@ -1,6 +1,6 @@
 [project]
 name = "tripy"
-version = "0.0.3"
+version = "0.0.5"
 authors = [{name = "NVIDIA", email="svc_tensorrt@nvidia.com"}]
 description = "Tripy: A Python Programming Model For TensorRT"
 readme = "README.md"
@@ -8,8 +8,8 @@ requires-python = ">= 3.9"
 license = {text = "Apache 2.0"}
 dependencies = [
   "tensorrt~=10.0",
-  "mlir-tensorrt-compiler==0.1.36+cuda12.trt102",
-  "mlir-tensorrt-runtime==0.1.36+cuda12.trt102",
+  "mlir-tensorrt-compiler==0.1.37+cuda12.trt102",
+  "mlir-tensorrt-runtime==0.1.37+cuda12.trt102",
   "colored==2.2.3",
 ]
 
@@ -40,6 +40,7 @@ build = [
   "mypy==1.11.0",
 ]
 doc_test_common = [
+  "black==24.10.0",
   "torch==2.4.0+cu121",
   "numpy==1.25.0",
   # cupy requires NVRTC but does not specify it as a package dependency
@@ -96,5 +97,4 @@ testpaths = [
 addopts = "--strict-markers"
 markers = [
     "l1: Indicates that the test should only be run in nightlies.",
-    "manual: Disables tests in automation",
 ]

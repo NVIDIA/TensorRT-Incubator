@@ -21,3 +21,14 @@ section {
     margin-top: 2rem;
     margin-bottom: 2rem;
 }
+
+.func-overload-sig {
+    padding-left: 3em !important;
+    color: var(--color-api-overall);
+    font-style: normal;
+}
+
+.func-overload-sig p {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}

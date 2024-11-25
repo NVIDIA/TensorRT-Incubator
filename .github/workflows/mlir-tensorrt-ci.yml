@@ -6,14 +6,18 @@ on:
       - main
     types: [synchronize, opened, reopened, ready_for_review]
     paths: ["mlir-tensorrt/**"]
+  push:
+    branches:
+      - main
+    paths: ["mlir-tensorrt/**"]
 
 env:
   DEFAULT_IMAGE: ghcr.io/nvidia/tensorrt-incubator/mlir-tensorrt:cuda12.5-ubuntu-llvm17
   REGISTRY: ghcr.io
 
 jobs:
-  mlir-tensorrt-tests:
-    if: github.event.pull_request.draft == false
+  mlir-tensorrt-test-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     # `ubuntu-latest` is a CPU runner.
     # If selected, tests requiring GPU are not run.
     runs-on: ubuntu-latest
@@ -128,9 +132,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           run: |
-            export CCACHE_BASEDIR="$PWD"
-            export CCACHE_DIR="$PWD/ccache"
-            export CCACHE_COMPILERCHECK=content
+            export CCACHE_DIR="/ccache"
             export CCACHE_MAXSIZE=10G
             ccache --zero-stats || true
             ccache --show-stats || true
@@ -144,9 +146,9 @@ jobs:
 
             cmake -B ./build -S . -G Ninja \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
+              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
@@ -173,9 +175,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           run: |
-            export CCACHE_BASEDIR="$PWD"
-            export CCACHE_DIR="$PWD/ccache"
-            export CCACHE_COMPILERCHECK=content
+            export CCACHE_DIR="/ccache"
             export CCACHE_MAXSIZE=10G
             ccache --zero-stats || true
             ccache --show-stats || true
@@ -189,9 +189,9 @@ jobs:
 
             cmake -B ./build -S . -G Ninja \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
+              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.2 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF \
@@ -209,8 +209,8 @@ jobs:
 
             bash build_and_test.sh
 
-      # Run LIT tests with TensorRT 9
-      - name: Run MLIR-TensorRT lit tests with TensorRT 9
+      # Run LIT tests with TensorRT 8
+      - name: Run MLIR-TensorRT lit tests with TensorRT 8
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
@@ -219,9 +219,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           run: |
-            export CCACHE_BASEDIR="$PWD"
-            export CCACHE_DIR="$PWD/ccache"
-            export CCACHE_COMPILERCHECK=content
+            export CCACHE_DIR="/ccache"
             export CCACHE_MAXSIZE=10G
             ccache --zero-stats || true
             ccache --show-stats || true
@@ -235,9 +233,185 @@ jobs:
 
             cmake -B ./build -S . -G Ninja \
               -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=${PWD}/.cache.cpm \
+              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
               -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=9.2.0.5 \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=8.6.1.6 \
+              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+              -DMLIR_TRT_USE_LINKER=lld \
+              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
+
+            ninja -C build all
+
+            ninja -C build check-mlir-executor
+            ninja -C build check-mlir-tensorrt-dialect
+            ninja -C build check-mlir-tensorrt
+
+            cd ..
+            ccache --show-stats || true
+            EOF
+
+            bash build_and_test.sh
+
+  mlir-tensorrt-test-main:
+    if: github.event_name == 'push'
+    # `ubuntu-latest` is a CPU runner.
+    # If selected, tests requiring GPU are not run.
+    runs-on: ubuntu-latest
+
+    steps:
+      # Free some disk space, otherwise we get OOM error.
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet "$AGENT_TOOLSDIRECTORY" /usr/local/lib/android /opt/ghc \
+            /usr/local/share/powershell /usr/share/swift /usr/local/.ghcup \
+            /usr/lib/jvm
+
+          sudo apt-get purge microsoft-edge-stable || true
+          sudo apt-get purge google-cloud-cli || true
+          sudo apt-get purge dotnet-sdk-* || true
+          sudo apt-get purge google-chrome-stable || true
+
+          sudo apt-get autoremove -y
+          sudo apt-get autoclean -y
+
+      # Value of `github.workspace` is /home/runner/work/{repo_name}/{repo-name}
+      # i.e. /home/runner/work/TensorRT-Incubator/TensorRT-Incubator in our case.
+      # After this action, repo is cloned inside above path.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      # Create cache folders
+      - name: Create cache folder
+        run: |
+          mkdir -p ${{ github.workspace }}/ccache
+          mkdir -p ${{ github.workspace }}/.ccache.cpm
+
+      # Create cache action
+      - name: Create cache action
+        id: core-build-cache
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-mlir-tensorrt-core-build
+          path: |
+            ${{ github.workspace }}/ccache
+            ${{ github.workspace }}/.ccache.cpm
+
+      # Run LIT tests with TensorRT 10
+      - name: Run MLIR-TensorRT lit tests with TensorRT 10
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ env.DEFAULT_IMAGE }}
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          run: |
+            export CCACHE_DIR="/ccache"
+            export CCACHE_MAXSIZE=10G
+            ccache --zero-stats || true
+            ccache --show-stats || true
+
+            cd mlir-tensorrt
+            cat > build_and_test.sh <<EOF
+            #!/bin/bash
+            set -e
+
+            python3 -m pip install -r python/requirements-dev.txt
+
+            cmake -B ./build -S . -G Ninja \
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
+              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
+              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+              -DMLIR_TRT_USE_LINKER=lld \
+              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
+
+            ninja -C build all
+
+            ninja -C build check-mlir-executor
+            ninja -C build check-mlir-tensorrt-dialect
+            ninja -C build check-mlir-tensorrt
+
+            cd ..
+            ccache --show-stats || true
+            EOF
+
+            bash build_and_test.sh
+
+      # Run LIT tests with TensorRT 10 & ASAN
+      - name: Run MLIR-TensorRT lit tests with TensorRT 10, ASAN enabled
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ env.DEFAULT_IMAGE }}
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          run: |
+            export CCACHE_DIR="/ccache"
+            export CCACHE_MAXSIZE=10G
+            ccache --zero-stats || true
+            ccache --show-stats || true
+
+            cd mlir-tensorrt
+            cat > build_and_test.sh <<EOF
+            #!/bin/bash
+            set -e
+
+            python3 -m pip install -r python/requirements-dev.txt
+
+            cmake -B ./build -S . -G Ninja \
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
+              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
+              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+              -DMLIR_TRT_USE_LINKER=lld \
+              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF \
+              -DENABLE_ASAN=ON
+
+            ninja -C build all
+
+            ninja -C build check-mlir-executor
+            ninja -C build check-mlir-tensorrt-dialect
+            ninja -C build check-mlir-tensorrt
+
+            cd ..
+            ccache --show-stats || true
+            EOF
+
+            bash build_and_test.sh
+
+      # Run LIT tests with TensorRT 8
+      - name: Run MLIR-TensorRT lit tests with TensorRT 8
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ${{ env.DEFAULT_IMAGE }}
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          run: |
+            export CCACHE_DIR="/ccache"
+            export CCACHE_MAXSIZE=10G
+            ccache --zero-stats || true
+            ccache --show-stats || true
+
+            cd mlir-tensorrt
+            cat > build_and_test.sh <<EOF
+            #!/bin/bash
+            set -e
+
+            python3 -m pip install -r python/requirements-dev.txt
+
+            cmake -B ./build -S . -G Ninja \
+              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
+              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
+              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=8.6.1.6 \
               -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
               -DMLIR_TRT_USE_LINKER=lld \
               -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF

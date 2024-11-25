@@ -145,67 +145,6 @@ public:
 } // namespace
 
 //===----------------------------------------------------------------------===//
-// StableHLO Signature Refinement Entrypoint
-//===----------------------------------------------------------------------===//
-
-mlirtrt::StatusOr<mlir::FunctionType>
-compiler::getStableHLOProgramRefinedSignature(
-    CompilerClient &client, mlir::ModuleOp module,
-    const StableHLOProgramSignatureRefinementOptions &options) {
-
-#ifndef NDEBUG
-  //===----------------------------------------------------------------------===//
-  // Set debug options.
-  //===----------------------------------------------------------------------===//
-  if (options.debugOptions.enableLLVMDebugFlag) {
-    SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
-                            [](const std::string &x) { return x.c_str(); });
-    llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
-                               debugTypeLiterals.size());
-    llvm::DebugFlag = true;
-  }
-#endif
-
-  //===----------------------------------------------------------------------===//
-  // Setup pass manager
-  //===----------------------------------------------------------------------===//
-
-  mlir::PassManager pm(module->getContext());
-  if (failed(setupPassManager(pm, options.debugOptions))) {
-    /// TODO: Ignored. This can fail if pass manager static CL options were not
-    /// registered/initialized. This happens through invocation of e.g. this
-    /// function in e.g. Python bindings or standalone calls to C++ or C API
-    /// without doing all the typical static CL setup. We should instead be
-    /// accepting a PassManager here that has already been setup to the caller's
-    /// specifications.
-  }
-
-  // Add pre-processing passes.
-  {
-    mlir::StableHloInputOptions opts{};
-    opts.legalizeControlFlowToSCF = false;
-    opts.convertChloToStablehlo = false;
-    mlir::buildStablehloPreProcessingPipeline(pm, opts);
-  }
-
-  // Run pass pipeline.
-  if (mlir::failed(pm.run(module)))
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to run compilation pipeline");
-
-  // Get the signature.
-  auto func = llvm::dyn_cast_or_null<func::FuncOp>(
-      module.lookupSymbol(options.funcName));
-  if (!func)
-    return getInvalidArgStatus(
-        "function with name {0} does not exist in the MLIR module",
-        options.funcName);
-
-  return func.getFunctionType();
-}
-
-//===----------------------------------------------------------------------===//
 // StableHLOToExecutableOptions
 //===----------------------------------------------------------------------===//
 
@@ -382,7 +321,8 @@ void StableHloToExecutableTask::populatePassManager(
   // StableHLO Preprocessing
   mlir::StableHloInputOptions opts{};
   opts.legalizeControlFlowToSCF = false;
-  opts.convertChloToStablehlo = false;
+  opts.preserveChloErf = true;
+  opts.preserveChloTopK = true;
   mlir::buildStablehloPreProcessingPipeline(pm, opts);
 
   buildStablehloClusteringPipeline(pm, options);

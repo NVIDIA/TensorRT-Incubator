@@ -109,29 +109,33 @@ tensorrt::getBroadcastedShape(ArrayRef<ArrayRef<int64_t>> shapes) {
     // shapes are broadcastable. Don't fail because we can't say for sure it's
     // invalid.
     const bool allEqual = llvm::all_equal(dimSizes);
-    if (allEqual && dimSizes.front() == ShapedType::kDynamic)
-      return ShapedType::kDynamic;
 
-    // Dimensions are all equal to a static size.
+    // Dimensions are all equal to a fixed value or dynamic.
     if (allEqual)
       return dimSizes.front();
 
-    // Some dims are '1', all other dims are equal to another fixed number.
+    // Mixture of fixed or unkown extents.
     std::optional<int64_t> nonUnitSize{};
     for (int64_t dimSize : dimSizes) {
+      // Extent of 1 is always valid.
       if (dimSize == 1)
         continue;
+      // Dynamic extent is always valid.
+      if (ShapedType::isDynamic(dimSize))
+        continue;
+      // If a extent > 1 is present, check that it matches any previously seen
+      // static >1 extent.
       if (nonUnitSize && dimSize == *nonUnitSize)
         continue;
       if (nonUnitSize && dimSize != *nonUnitSize)
         return failure();
       nonUnitSize = dimSize;
     }
-    if (nonUnitSize)
-      return *nonUnitSize;
 
-    // No other case is valid.
-    return failure();
+    // Return the size >1 is seen, otherwise return dynamic indicator. An
+    // inferred size of 1 is only possible if all extents are 1; this case is
+    // captured by the check before the loop.
+    return nonUnitSize ? *nonUnitSize : ShapedType::kDynamic;
   };
 
   for (auto dim : llvm::seq<unsigned>(0, rank)) {

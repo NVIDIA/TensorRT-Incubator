@@ -39,11 +39,11 @@ def test_enqueue_work_on_stream():
 
     out = compiled_linear(a)
     tp.default_stream().synchronize()
-    assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+    assert tp.equal(out, linear(a))
 
     stream = tp.Stream()
     compiled_linear.stream = stream
     out = compiled_linear(a)
     # stream sync below is not required since from_dlpack method will eval() the tensor which will call stream sync anyway.
     compiled_linear.stream.synchronize()
-    assert cp.array_equal(cp.from_dlpack(out), cp.from_dlpack(linear(a)))
+    assert tp.equal(out, linear(a))

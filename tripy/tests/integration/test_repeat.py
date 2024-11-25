@@ -30,18 +30,18 @@ class TestRepeat:
             (0, 1),
         ],
     )
-    def test_repeat(self, repeats, dim):
+    def test_repeat(self, repeats, dim, eager_or_compiled):
         inp = np.arange(4, dtype=np.int32).reshape((2, 2))
 
-        out = tp.repeat(tp.Tensor(inp), repeats, dim)
+        out = eager_or_compiled(tp.repeat, tp.Tensor(inp), repeats, dim)
         expected = np.repeat(inp, repeats, dim)
 
         assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)
 
-    def test_repeat_shape_scalar(self):
+    def test_repeat_shape_scalar(self, eager_or_compiled):
         inp = np.arange(4, dtype=np.int32).reshape((2, 2))
         s = tp.ones((1, 2))
-        out = tp.repeat(tp.Tensor(inp), s.shape[1], 0)
+        out = eager_or_compiled(tp.repeat, tp.Tensor(inp), repeats=s.shape[1], dim=0)
         expected = np.repeat(inp, 2, 0)
 
         assert np.array_equal(np.from_dlpack(tp.copy(out, device=tp.device("cpu"))), expected)

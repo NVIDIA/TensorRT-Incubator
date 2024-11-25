@@ -29,6 +29,20 @@ func.func @trt_gather_default1(%arg0: tensor<10x20x30xf32>, %arg1: tensor<2x5xi3
 // CHECK-LABEL: @trt_gather_default1
 //  CHECK-SAME: tensorrt.engine
 
+func.func @trt_gather_default_dynamic(%arg0: tensor<10x20x30xf32>,
+                %arg1: tensor<?x5xi32> {tensorrt.shape_profile = #tensorrt.shape_profile<min=[1, 5], opt=[2, 5], max=[4, 5]>},
+                %arg2: tensor<10x?x5x30xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min=[10, 1, 5, 30], opt=[10, 2, 5, 30], max=[10, 4, 5, 30]>})
+                -> tensor<10x?x5x30xf32> {
+  %0 = tensorrt.gather {
+    axis = 1 : i64
+  } ins(%arg0, %arg1 : tensor<10x20x30xf32>, tensor<?x5xi32>) -> tensor<10x?x5x30xf32>
+  %1 = tensorrt.element_wise <kSUM>(%0, %arg2 : tensor<10x?x5x30xf32>, tensor<10x?x5x30xf32>) -> tensor<10x?x5x30xf32>
+  return %1 : tensor<10x?x5x30xf32>
+}
+
+// CHECK-LABEL: @trt_gather_default_dynamic
+//  CHECK-SAME: tensorrt.engine
+
 func.func @trt_gather_default_i32(%arg0: tensor<10x20x30xi32>, %arg1: tensor<2x5xi32>,
                 %arg2: tensor<10x2x5x30xi32>) -> tensor<10x2x5x30xi32> {
   %0 = tensorrt.gather {

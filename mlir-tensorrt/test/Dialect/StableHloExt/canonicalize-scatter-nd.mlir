@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt %s --tensorrt-stablehlo-input-preprocessing --stablehlo-aggressive-simplification -split-input-file | FileCheck %s
+// RUN: mlir-tensorrt-opt %s --stablehlo-ext-canonicalize-scatter --stablehlo-aggressive-simplification -split-input-file | FileCheck %s
 
 
 func.func @whisper_jax_scatter(%arg0: tensor<1x51865xf32>) -> tensor<1x51865xf32> {
@@ -25,7 +25,7 @@ func.func @whisper_jax_scatter(%arg0: tensor<1x51865xf32>) -> tensor<1x51865xf32
 // CHECK-LABEL: @whisper_jax_scatter
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<1x51865xf32>)
 //   CHECK-DAG:     %[[v0:.+]] = stablehlo.constant dense<0xFF800000> : tensor<1x1xf32>
-//   CHECK-DAG:     %[[cst:.+]] = stablehlo.constant dense<50257> : tensor<1x1xi32>
+//   CHECK-DAG:     %[[cst:.+]] = arith.constant dense<50257> : tensor<1x1xi32>
 //       CHECK:     %[[v1:.+]] = stablehlo.reshape %[[arg0]]
 //       CHECK:     %[[v2:.+]] = "stablehlo.scatter"(%[[v1]], %[[cst]], %[[v0]])
 //  CHECK-SAME:       indices_are_sorted = false
@@ -77,9 +77,9 @@ func.func @whisper_jax_scatter2(%arg0: tensor<1x51865xf32>, %arg1: tensor<88x1xi
 // -----
 
 func.func @stablehlo_scatter_canonicalize(%arg0: tensor<3x3xf32>, %arg1: tensor<3x3xf32>, %arg2: tensor<2xi32>, %arg3: tensor<2x3xf32>, %arg4: tensor<2x3xf32>) -> tensor<3x3xf32> {
-  %expanded = tensor.expand_shape %arg2 [[0, 1]] output_shape [2, 1] : tensor<2xi32> into tensor<2x1xi32>
-  %expanded_0 = tensor.expand_shape %arg3 [[0], [1, 2]] output_shape [2, 1, 3] : tensor<2x3xf32> into tensor<2x1x3xf32>
-  %expanded_1 = tensor.expand_shape %arg4 [[0], [1, 2]] output_shape [2, 1, 3] : tensor<2x3xf32> into tensor<2x1x3xf32>
+  %expanded   = stablehlo.reshape %arg2 : (tensor<2xi32>) -> tensor<2x1xi32>
+  %expanded_0 = stablehlo.reshape %arg3 : (tensor<2x3xf32>) -> tensor<2x1x3xf32>
+  %expanded_1 = stablehlo.reshape %arg4 : (tensor<2x3xf32>) -> tensor<2x1x3xf32>
   %0:2 = "stablehlo.scatter"(%arg0, %arg1, %expanded, %expanded_0, %expanded_1) ({
   ^bb0(%arg5: tensor<f32>, %arg6: tensor<f32>, %arg7: tensor<f32>, %arg8: tensor<f32>):
     stablehlo.return %arg5, %arg7 : tensor<f32>, tensor<f32>

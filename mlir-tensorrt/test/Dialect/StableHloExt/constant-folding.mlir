@@ -402,6 +402,22 @@ func.func @concat_simplify_single_operand_requires_cast(%arg0: tensor<4xi32>) ->
 
 // -----
 
+func.func @concat_slice_concat(%arg0: tensor<1xi32>, %arg1: tensor<3xi32>, %arg2: tensor<1xi32>) -> tensor<5xi32> {
+  %0 = stablehlo.concatenate %arg0, %arg1, %arg2, dim = 0 : (tensor<1xi32>, tensor<3xi32>, tensor<1xi32>) -> tensor<5xi32>
+  %1 = stablehlo.slice %0 [1:5] : (tensor<5xi32>) -> tensor<4xi32>
+  %2 = stablehlo.constant dense<1> : tensor<1xi32>
+  %3 = stablehlo.concatenate %2, %1, dim = 0 : (tensor<1xi32>, tensor<4xi32>) -> tensor<5xi32>
+  return %3 : tensor<5xi32>
+}
+
+// CHECK-LABEL: func.func @concat_slice_concat
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32>, %[[arg1:.+]]: tensor<3xi32>, %[[arg2:.+]]: tensor<1xi32>) -> tensor<5xi32>
+//       CHECK:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
+//       CHECK:     %[[v0:.+]] = stablehlo.concatenate %[[c]], %[[arg1]], %[[arg2]], dim = 0
+//       CHECK:     return %[[v0]] : tensor<5xi32>
+
+// -----
+
 func.func @bitwise_or_fold_lhs(%arg0: tensor<5xi8>, %arg1: tensor<5xi1>, %arg2: tensor<5xi32>) -> (tensor<5xi8>, tensor<5xi1>, tensor<5xi32>, tensor<5xi32>){
     %0 = stablehlo.constant dense<[255, 255, 255, 255, 255]> : tensor<5xi8>
     %1 = stablehlo.or %0, %arg0 : tensor<5xi8>

@@ -1560,3 +1560,44 @@ func.func @resize_no_absorb_invalid_cast(%arg0: tensor<1x144x?x?xf32>) -> tensor
 //       CHECK: %[[cast:.+]] = tensor.cast %[[arg0]] : tensor<1x144x?x?xf32> to tensor<1x144x7x7xf32>
 //       CHECK: %[[v0:.+]] = tensorrt.resize_cubic {coordinateTransformation = #tensorrt.resize_coordinate_transformation<kHALF_PIXEL>, cubicCoeff = -7.500000e-01 : f32, selectorForSinglePixel = #tensorrt.resize_selector<kFORMULA>} %[[cast]], %[[cst_i32]] : (tensor<1x144x7x7xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
 //  CHECK-NEXT: return %[[v0]]
+
+// -----
+
+func.func @slice_canon_dynamic_size(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
+  %size = tensorrt.constant dense<[2, 2]> : tensor<2xi32>
+  %0 = tensorrt.slice %arg0 [0, 0][%size: tensor<2xi32>][1, 1] : tensor<?x?xf32> to tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: func.func @slice_canon_dynamic_size
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32>)
+//  CHECK-NEXT:     %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 0][2, 2][1, 1] : tensor<?x?xf32> to tensor<?x?xf32>
+//  CHECK-NEXT:     return %[[v0]] : tensor<?x?xf32>
+
+// -----
+
+func.func @slice_canon_static_type_dynamic_size(%arg0: tensor<?x?xf32>) -> tensor<2x2xf32> {
+  %size = tensorrt.constant dense<[2, 2]> : tensor<2xi32>
+  %0 = tensorrt.slice %arg0 [0, 0][%size: tensor<2xi32>][1, 1] : tensor<?x?xf32> to tensor<2x2xf32>
+  return %0 : tensor<2x2xf32>
+}
+
+// CHECK-LABEL: func.func @slice_canon_static_type_dynamic_size
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32>) -> tensor<2x2xf32> {
+//       CHECK:     %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 0][2, 2][1, 1] : tensor<?x?xf32> to tensor<2x2xf32>
+//       CHECK:     return %[[v0]] : tensor<2x2xf32>
+
+// -----
+
+func.func @slice_canon_dynamic_start(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32> {
+  %start = tensorrt.constant dense<[0, 1]> : tensor<2xi32>
+  %0 = tensorrt.slice %arg0 [%start: tensor<2xi32>][%arg1: tensor<2xi32>][1, 1] : tensor<?x?xf32> to tensor<?x?xf32>
+  return %0 : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: func.func @slice_canon_dynamic_start
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<?x?xf32>, %[[arg1:.+]]: tensor<2xi32>)
+//       CHECK:     %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 1][%[[arg1:.+]]: tensor<2xi32>][1, 1] : tensor<?x?xf32> to tensor<?x?xf32>
+//       CHECK:     return %[[v0]] : tensor<?x?xf32>
+
+

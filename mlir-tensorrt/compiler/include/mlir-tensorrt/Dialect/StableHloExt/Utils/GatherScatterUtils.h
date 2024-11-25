@@ -26,6 +26,8 @@
 #ifndef MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_GATHERSCATTERUTILS_H
 #define MLIR_TENSORRT_DIALECT_STABLEHLOEXT_UTILS_GATHERSCATTERUTILS_H
 
+#include "mlir-tensorrt/Utils/ShapeInfo.h"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/Value.h"
 #include <optional>
 
@@ -34,6 +36,7 @@ namespace mlir {
 class OpBuilder;
 
 namespace stablehlo {
+class DynamicGatherOp;
 class GatherOp;
 class ScatterOp;
 
@@ -125,6 +128,15 @@ std::optional<int64_t>
 isSingleDimSimpleGatherWithImplicitIndexDim(stablehlo::GatherOp op);
 
 /// Returns the "gather dimension" if `op` is a 'simple, single dimension'
+/// gather op with implicit index vector dimension (see above for definition).
+/// This version works for `stablehlo.dynamic_gather` using pattern matching
+/// against the expected canonical form when the operand shape along some
+/// "offset dimensions" is dynamic.
+std::optional<int64_t> isSingleDimSimpleGatherWithImplicitIndexDim(
+    stablehlo::DynamicGatherOp op,
+    const ShapeInfoCallbacks &shapeInfoCallbacks);
+
+/// Returns the "gather dimension" if `op` is a 'simple, single dimension'
 /// gather op with explicit size-1 index vector dimension (see above for
 /// definition).
 std::optional<int64_t>
@@ -137,6 +149,21 @@ bool isSimpleLeadingMultiDimGather(stablehlo::GatherOp op);
 /// Returns true if the `op` corresponds to a 'simple, leading multi-dimensional
 /// gather' (see definition above).
 bool isSimpleLeadingMultiDimGatherWithDegenerateDims(stablehlo::GatherOp op);
+
+/// Attempts to construct a `stablehlo.reshape` if result type is statically
+/// shaped, otherwise creates `stablehlo.dynamic_reshape`.
+Value createCollapsingReshape(OpBuilder &b, Location loc, Value input,
+                              ArrayRef<ReassociationIndices> reassociation);
+
+/// Attempts to construct a `stablehlo.reshape` if `resultType` is statically
+/// shaped, otherwise creates a `stablehlo.dynamic_reshape`.
+Value createExpandingReshape(OpBuilder &b, Location loc,
+                             RankedTensorType resultType, Value input,
+                             ArrayRef<ReassociationIndices> reassociation);
+
+/// Returns true if the `scatterOp` has a configuration that corresponds to the
+/// ONNX ScatterNd operation semantic.
+bool isCanonicalScatterNd(stablehlo::ScatterOp scatterOp);
 
 //===----------------------------------------------------------------------===//
 // Code below this point was adapted from the MLIR-HLO project (part of OpenXLA
@@ -154,10 +181,6 @@ bool isSimpleLeadingMultiDimGatherWithDegenerateDims(stablehlo::GatherOp op);
 // - update_window_dims is [0, 1, ...]
 // - scatter_dims_to_operand_dims is [0, 1, ...]
 bool isCanonicalScatter(stablehlo::ScatterOp scatterOp);
-
-/// Returns true if the `scatterOp` has a configuration that corresponds to the
-/// ONNX ScatterNd operation semantic.
-bool isCanonicalScatterNd(stablehlo::ScatterOp scatterOp);
 
 // Checks if the gather has the following characteristics:
 // - start_indices is a two-dimensional tensor

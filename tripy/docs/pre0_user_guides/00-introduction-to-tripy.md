@@ -12,7 +12,7 @@ It aims to be fast, easy to debug, and provide an easy-to-use Pythonic interface
 a = tp.arange(5)
 c = a + 1.5
 print(c)
-assert np.array_equal(cp.from_dlpack(c).get(), np.arange(5, dtype=np.float32) + 1.5) # doc: omit
+assert cp.array_equal(cp.from_dlpack(c), cp.arange(5, dtype=np.float32) + 1.5) # doc: omit
 ```
 
 This should look familiar if you've used linear algebra or deep learning libraries like

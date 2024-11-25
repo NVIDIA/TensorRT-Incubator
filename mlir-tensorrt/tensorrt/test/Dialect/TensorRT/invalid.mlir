@@ -857,6 +857,27 @@ func.func @trt_select(%arg0: tensor<10x10xi1>, %arg1: tensor<1x10xf32>, %arg2: t
 
 // -----
 
+func.func @valid_select_ds_infer(%arg0: tensor<?x?xi1>, %arg1: tensor<?x?xf16>, %arg2: tensor<1x1xf16>) -> tensor<?x?xf16> {
+  %0 = tensorrt.select ins(%arg0, %arg1, %arg2 : tensor<?x?xi1>, tensor<?x?xf16>, tensor<1x1xf16>) -> tensor<?x?xf16>
+  return %0 : tensor<?x?xf16>
+}
+
+// -----
+
+func.func @valid_select_ds_infer2(%arg0: tensor<1x?xi1>, %arg1: tensor<1x?xf16>, %arg2: tensor<1x1xf16>) -> tensor<?x?xf16> {
+  %0 = tensorrt.select ins(%arg0, %arg1, %arg2 : tensor<1x?xi1>, tensor<1x?xf16>, tensor<1x1xf16>) -> tensor<?x?xf16>
+  return %0 : tensor<?x?xf16>
+}
+
+// -----
+
+func.func @valid_select_ds_infer3(%arg0: tensor<1x?xi1>, %arg1: tensor<1x?xf16>, %arg2: tensor<1x1xf16>) -> tensor<1x1xf16> {
+  %0 = tensorrt.select ins(%arg0, %arg1, %arg2 : tensor<1x?xi1>, tensor<1x?xf16>, tensor<1x1xf16>) -> tensor<1x1xf16>
+  return %0 : tensor<1x1xf16>
+}
+
+// -----
+
 func.func @trt_softmax(%arg0: tensor<10x10xf32>) -> tensor<10x10xf32> {
   // expected-error @below {{'tensorrt.softmax' op expected axis to be non-negative and less than 2}}
   %0 = tensorrt.softmax {axis = 2 : i64} %arg0 : tensor<10x10xf32>
@@ -1713,6 +1734,26 @@ func.func @trt_dequantize(%arg0: tensor<10x10xi8>, %arg1: tensor<2xf32>) -> tens
 
 // -----
 
+func.func @trt_dequanize_non_zero_input_rank(%arg0: tensor<f16>) -> tensor<f16> {
+  %k = tensorrt.constant dense<2> : tensor<i8>
+  %scale = tensorrt.constant dense<1.0> : tensor<f16>
+  // expected-error @below {{'tensorrt.dequantize' op operand #0 must be 1D/2D/3D/4D/5D/6D/7D/8D tensor of allowed TensorRT tensor i8 element types or f8E4M3FN type or 4-bit signless integer values, but got 'tensor<i8>'}}
+  %dq_k = tensorrt.dequantize in (%k: tensor<i8>) scale (%scale: tensor<f16>) -> tensor<f16>
+  return %dq_k : tensor<f16>
+}
+
+// -----
+
+func.func @trt_subbyte_dequantize_even_final_dim(%arg0: tensor<4x3xf16>) -> tensor<4x3xf16> {
+  %k = tensorrt.constant dense<2> : tensor<4x3xi4>
+  %scale = tensorrt.constant dense<1.0> : tensor<f16>
+  // expected-error @below {{'tensorrt.dequantize' op input tensor with sub-byte element type must have even final dimension, but input tensor has final dimension of size 3}}
+  %dq_k = tensorrt.dequantize in (%k: tensor<4x3xi4>) scale (%scale: tensor<f16>) -> tensor<4x3xf16>
+  return %dq_k : tensor<4x3xf16>
+}
+
+// -----
+
 
 func.func @trt_matrix_multiply_trans_vec(%arg0: tensor<1x1x1x50x10xf32>, %arg1: tensor<1x4x240x50xf32>) -> tensor<1x1x240x10xf32> {
   // expected-error @below {{'tensorrt.matrix_multiply' op inferred type(s) 'tensor<1x4x240x10xf32>' are incompatible with return type(s) of operation 'tensor<1x1x240x10xf32>'}}
@@ -2460,13 +2501,13 @@ func.func @trt_fill_linspace_i32(%arg0: tensor<i32>, %arg1: tensor<4xi32>) -> te
 
 // -----
 
-func.func @trt_fill_linspace_dynamic_f16() -> tensor<1024x1024xf16> {
+func.func @trt_linspace_mismatched_types() -> tensor<1024x1024xf32> {
   %shape = tensorrt.constant dense<[1024, 1024]>:tensor<2xi32>
-  %start = tensorrt.constant dense<0.0>:tensor<f16>
-  %step = tensorrt.constant dense<[1.0,1.0]>:tensor<2xf16>
-  // expected-error @below {{'tensorrt.linspace' op operand #1 must be 0D tensor of 32-bit signless integer or 32-bit float values, but got 'tensor<f16>'}}
-  %0 = tensorrt.linspace [%start:tensor<f16>][%shape:tensor<2xi32>][%step:tensor<2xf16>] : tensor<1024x1024xf16>
-  return %0 : tensor<1024x1024xf16>
+  %start = tensorrt.constant dense<0> : tensor<i32>
+  %step = tensorrt.constant dense<[1.0,1.0]>:tensor<2xf32>
+  // expected-error @below {{'tensorrt.linspace' op start and step tensor types must have the same element type}}
+  %0 = tensorrt.linspace [%start: tensor<i32>][%shape: tensor<2xi32>][%step: tensor<2xf32>] : tensor<1024x1024xf32>
+  return %0 : tensor<1024x1024xf32>
 }
 
 // -----

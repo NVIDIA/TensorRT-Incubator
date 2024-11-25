@@ -82,18 +82,18 @@ func.func @convert_extract(%arg0: tensor<2xf32, #plan.memory_space<host>>) -> f3
 
 // -----
 
-func.func @bounds_attr_conversion(%arg0: tensor<?x?xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min = [10, 10], opt = [20, 20], max = [30, 30]>},
-                        %arg1: tensor<2xi32> {tensorrt.value_bounds = #tensorrt.shape_profile<min = [2, 2], opt = [5, 5], max = [10, 10]>})
-                        -> (tensor<?x?xf32> {tensorrt.shape_profile = #plan.bounds<shape, [10, 10], [30, 30]>},
-                            tensor<2xi32> {tensorrt.value_bounds = #plan.bounds<value, dense<2> : tensor<1xi64>, dense<10> : tensor<1xi64>>}) {
+func.func @bounds_attr_conversion(%arg0: tensor<?x?xf32> {plan.shape_profile = #plan.bounds<shape, [10, 10], [30, 30]>},
+                        %arg1: tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<[2, 2]>:tensor<2xi32>,dense<[10, 10]>:tensor<2xi32>>})
+                        -> (tensor<?x?xf32> {plan.shape_profile = #plan.bounds<shape, [10, 10], [30, 30]>},
+                            tensor<2xi32> {plan.value_bounds = #plan.bounds<value, dense<2> : tensor<1xi32>, dense<10> : tensor<1xi32>>}) {
   return %arg0, %arg1 : tensor<?x?xf32>, tensor<2xi32>
 }
 
 // CHECK-LABEL: func.func @bounds_attr_conversion
-//  CHECK-SAME: tensor<?x?xf32> {tensorrt.shape_profile = #executor.dim_bounds<min = [10, 10], max = [30, 30]>}
-//  CHECK-SAME: tensor<2xi32> {tensorrt.value_bounds = #executor.value_bounds<min = dense<2> : tensor<2xi64>, max = dense<10> : tensor<2xi64>>})
-//  CHECK-SAME:  (tensor<?x?xf32> {tensorrt.shape_profile = #executor.dim_bounds<min = [10, 10], max = [30, 30]>}
-//  CHECK-SAME:   tensor<2xi32> {tensorrt.value_bounds = #executor.value_bounds<min = dense<2> : tensor<1xi64>, max = dense<10> : tensor<1xi64>>})
+//  CHECK-SAME: tensor<?x?xf32> {executor.shape_profile = #executor.dim_bounds<min = [10, 10], max = [30, 30]>}
+//  CHECK-SAME: tensor<2xi32> {executor.value_bounds = #executor.value_bounds<min = dense<2> : tensor<2xi32>, max = dense<10> : tensor<2xi32>>})
+//  CHECK-SAME:  (tensor<?x?xf32> {executor.shape_profile = #executor.dim_bounds<min = [10, 10], max = [30, 30]>}
+//  CHECK-SAME:   tensor<2xi32> {executor.value_bounds = #executor.value_bounds<min = dense<2> : tensor<1xi32>, max = dense<10> : tensor<1xi32>>})
 
 // -----
 

@@ -143,6 +143,10 @@ def TensorRT_I4 : I<4>;
 class TensorRT_RankedTensorOf<list<Type> allowedTypes>
   : TensorRankOf<allowedTypes, [0, 1, 2, 3, 4, 5, 6, 7, 8]>;
 
+// Describes a TensorRT Tensor whose rank must be greater than 0.
+class TensorRT_Non0RankedTensorOf<list<Type> allowedTypes>
+  : TensorRankOf<allowedTypes, [1, 2, 3, 4, 5, 6, 7, 8]>;
+
 def TensorRT_Tensor : TensorRT_RankedTensorOf<
       [I1, TensorRT_I8, I32, I64, F16, BF16, F32]>;
 
