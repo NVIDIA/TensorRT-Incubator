@@ -64,7 +64,8 @@ def shape(self: "tripy.Tensor") -> ShapeLike:
     """
 
     # If the shape is statically known, we do not need to insert any operator calls.
-    if all(dim >= 0 for dim in self.trace_tensor.shape):
+    # However, if we are tracing, it might still be necessary to insert calls in the final program, so we will keep it.
+    if all(dim >= 0 for dim in self.trace_tensor.shape) and not self.trace_tensor.is_compile_tracer:
         return self.trace_tensor.shape
 
     return [GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)]
