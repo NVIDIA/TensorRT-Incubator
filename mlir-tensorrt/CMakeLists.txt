@@ -183,7 +183,9 @@ if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
     VERSION 1.6.4
     GIT_TAG 1456dfa1e1a83aab0cc717714ba3695886f60302
     GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
-    PATCHES "${MLIR_TENSORRT_ROOT_DIR}/build_tools/stablehlo.patch"
+    PATCHES 
+      "${MLIR_TENSORRT_ROOT_DIR}/build_tools/stablehlo.patch"
+      "${MLIR_TENSORRT_ROOT_DIR}/build_tools/stablehlo_aggressive_folder.patch"
     OPTIONS
       "STABLEHLO_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
       "STABLEHLO_BUILD_EMBEDDED ON"
