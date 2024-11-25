@@ -25,3 +25,7 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 ### Video segmentation pipeline
 
 TBD
+
+
+## License
+The SAM2 model checkpoints and associated model code are sourced from Meta's [SAM2 repository](https://github.com/facebookresearch/sam2/tree/main) and are licensed under the Apache 2.0 license (included as LICENSE_sam2 in our sample).

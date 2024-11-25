@@ -32,8 +32,6 @@ from sam2.sam2_image_predictor import SAM2ImagePredictor
 parser = argparse.ArgumentParser()
 parser.add_argument("-b", "--batch", type=int, default=2, help="batch size of the input images, between [1, 4]")
 
-args = parser.parse_args()
-
 
 def process_and_show_mask(
     mask: np.ndarray, ax: plt.Axes, random_color: bool = False, borders: bool = True
@@ -163,6 +161,8 @@ def main(image_path: str, save_path: Optional[str] = None):
     Returns:
         Dict[str, np.ndarray]: Processing results
     """
+
+    args = parser.parse_args()
 
     # Load image
     image = np.array(Image.open(image_path).convert("RGB"))

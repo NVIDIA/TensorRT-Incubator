@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 
@@ -164,8 +165,8 @@ class SAM2ImagePredictor:
         _, unnorm_coords, labels, _ = self._prep_prompts(
             point_coords,
             point_labels,
-            None, # box
-            None, # mask_input
+            None,  # box
+            None,  # mask_input
             normalize_coords,
         )
         masks, iou_predictions, low_res_masks = self._predict(

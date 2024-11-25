@@ -394,6 +394,9 @@ def load_component_weights(comp_name, component_info, state_dict, checkpoint_dic
     """
 
     converted_keys = 0
+    if component_info.get("skip_load_state_dict"):
+        return converted_keys
+
     for key in checkpoint_dict:
         # Remove _true/_false suffixes if present
         for suffix in ["_true", "_false", ".compiled_executable"]:
@@ -401,7 +404,7 @@ def load_component_weights(comp_name, component_info, state_dict, checkpoint_dic
                 comp_name = comp_name[: -len(suffix)]
                 break
 
-        if not key.startswith(comp_name) or (component_info.get("skip_load_state_dict") is True):
+        if not key.startswith(comp_name):
             continue
 
         new_key = key.replace(f"{comp_name}.", "")
@@ -437,7 +440,7 @@ def _load_checkpoint(model, ckpt_path, cfg=None):
     # Process each component
     for comp_name, comp_info in components.items():
 
-        if not comp_info["enabled"] or comp_info.get("skip_load_state_dict") is True:
+        if not comp_info["enabled"] or comp_info.get("skip_load_state_dict"):
             continue
 
         # Skip if compiled model exists
