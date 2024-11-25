@@ -17,9 +17,8 @@
 
 import subprocess
 
-from setuptools import setup, find_packages
+from setuptools import setup
 from setuptools.command.build_py import build_py
-from setuptools.discovery import FlatLayoutPackageFinder
 
 
 class BuildPyCommand(build_py):
@@ -50,10 +49,5 @@ class BuildPyCommand(build_py):
             print(f"Error generating stubs: {e}")
 
 
-default_excludes = list(FlatLayoutPackageFinder.DEFAULT_EXCLUDE) + ["notebooks"]
-
 if __name__ == "__main__":
-    setup(
-        cmdclass={"build_py": BuildPyCommand},
-        packages=find_packages(exclude=default_excludes),  # Use the dynamically updated exclude list
-    )
+    setup(cmdclass={"build_py": BuildPyCommand})
