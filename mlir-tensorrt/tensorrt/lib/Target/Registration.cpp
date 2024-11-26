@@ -24,7 +24,7 @@
 #include "mlir-tensorrt-dialect/TensorRT/Target/TensorRTEncodingImpl.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Quant/QuantOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Tools/mlir-translate/Translation.h"
 #include "llvm/Support/raw_ostream.h"
@@ -47,7 +47,7 @@ void registerToTensorRTTranslation() {
       [](DialectRegistry &registry) {
         tensorrt::registerTensorRTTranslationCLOpts();
         registry.insert<tensorrt::TensorRTDialect, func::FuncDialect,
-                        quant::QuantizationDialect, arith::ArithDialect>();
+                        quant::QuantDialect, arith::ArithDialect>();
       });
 }
 } // namespace mlir

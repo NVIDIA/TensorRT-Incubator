@@ -344,8 +344,8 @@ LogicalResult ShapeBoundsForwardAnalysis::visitOperation(
     SmallVector<const IntegerValueRangeLattice *> result;
     result.reserve(scalars.size());
     for (Value v : scalars)
-      result.emplace_back(
-          this->getOrCreateFor<IntegerValueRangeLattice>(op, v));
+      result.emplace_back(this->getOrCreateFor<IntegerValueRangeLattice>(
+          getProgramPointAfter(op), v));
     return result;
   };
 
@@ -405,8 +405,8 @@ LogicalResult ShapeBoundsBackwardsAnalysis::visitOperation(
     SmallVector<const IntegerValueRangeLattice *> result;
     result.reserve(scalars.size());
     for (Value v : scalars)
-      result.emplace_back(
-          this->getOrCreateFor<IntegerValueRangeLattice>(op, v));
+      result.emplace_back(this->getOrCreateFor<IntegerValueRangeLattice>(
+          getProgramPointAfter(op), v));
     return result;
   };
 
@@ -831,8 +831,8 @@ LogicalResult TensorValueBoundsAnalysis::visitOperation(
     SmallVector<const IntegerValueRangeLattice *> result;
     result.reserve(scalars.size());
     for (Value v : scalars)
-      result.emplace_back(
-          this->getOrCreateFor<IntegerValueRangeLattice>(op, v));
+      result.emplace_back(this->getOrCreateFor<IntegerValueRangeLattice>(
+          getProgramPointAfter(op), v));
     return result;
   };
 

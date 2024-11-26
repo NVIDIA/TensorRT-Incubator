@@ -15,7 +15,7 @@ def Plan_Dialect : Dialect {
 
   }];
   let cppNamespace = "::mlir::plan";
-  
+
   let hasRegionArgAttrVerify = 1;
 
   let extraClassDeclaration = [{
@@ -32,6 +32,10 @@ def Plan_Dialect : Dialect {
     /// Attribute attached to functions which specifies what type of cluster the outlined
     /// function originated from.
     static constexpr llvm::StringLiteral kFuncTargetKind = "plan.cluster_kind";
+
+    /// Attribute attached to top-level modules which dictate which cluster kinds
+    /// should be used to drive compilation.
+    static constexpr llvm::StringLiteral kModuleClusterKindsAttrName = "plan.cluster_kinds";
 
     /// The name of the function argument attribute that indicates an argument
     /// is tied with a result. Arguments tagged in this manner are associated
