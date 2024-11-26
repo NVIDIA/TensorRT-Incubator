@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732661904882,
+  "lastUpdate": 1732662230975,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -6230,6 +6230,40 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0017619480848306923",
             "extra": "mean: 165.57329757202643 usec\nrounds: 7620"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "901c72e099105f75b563aa0a441ffba44f29a2d5",
+          "message": "[Tripy] Add tripy for setup tools to pass L1 test",
+          "timestamp": "2024-11-26T22:31:32Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/413/commits/901c72e099105f75b563aa0a441ffba44f29a2d5"
+        },
+        "date": 1732662230214,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5959.0230533275935,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009613419280756623",
+            "extra": "mean: 167.81274229868725 usec\nrounds: 6416"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6450.442253615068,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009464041792690496",
+            "extra": "mean: 155.02812996109884 usec\nrounds: 7135"
           }
         ]
       }
