@@ -138,6 +138,19 @@ class TestCompile:
         out = compiled_add(tp.ones((3, 1), dtype=tp.float32), tp.ones((3, 1), dtype=tp.float32))
         assert cp.array_equal(cp.from_dlpack(out), cp.ones((3, 1), dtype=cp.float32) * 2)
 
+    # if we specify dynamic shapes in compilation, they should not be fixed afterwards
+    def test_dynamic_shapes_not_fixed(self):
+        def func(inp):
+            s = inp.shape[0] + inp.shape[1] + inp.shape[2]
+            return tp.ones([s], dtype=tp.float32)
+
+        compiled_ones = tp.compile(func, args=[tp.InputInfo(((1, 2, 5), (1, 2, 5), (1, 2, 5)), dtype=tp.float32)])
+
+        for shape in ((1, 1, 1), (3, 3, 3), (2, 4, 5), (5, 2, 1)):
+            inp = tp.ones(shape, dtype=tp.float32)
+            out = compiled_ones(inp)
+            assert out.shape == [sum(shape)]
+
     def test_error_if_evaling_input_during_compile(self):
         def func(a):
             print(a)

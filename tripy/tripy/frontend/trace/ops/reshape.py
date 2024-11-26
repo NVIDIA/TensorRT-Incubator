@@ -43,6 +43,7 @@ class Reshape(BaseTraceOp):
 
 
 def infer_dimensions(input: "tripy.Tensor", shape: ShapeLike) -> ShapeLike:
+
     num_unknown_dims = len([dim for dim in shape if op_utils.is_minus_one(dim)])
     if num_unknown_dims > 1:
         raise_error(f"The new shape can have at most one inferred dimension (denoted by -1)", [f"Got shape: {shape}."])
@@ -50,7 +51,9 @@ def infer_dimensions(input: "tripy.Tensor", shape: ShapeLike) -> ShapeLike:
     if num_unknown_dims == 1:
         input_volume = math.prod(input.shape)
         known_dims_volume = math.prod(dim for dim in shape if not op_utils.is_minus_one(dim))
-        inferred_dim = input_volume / known_dims_volume
+        inferred_dim = (
+            input_volume // known_dims_volume
+        )  # If we have scalars, the floor div ensures the result is an int.
 
         shape = [inferred_dim if op_utils.is_minus_one(dim) else dim for dim in shape]
 
