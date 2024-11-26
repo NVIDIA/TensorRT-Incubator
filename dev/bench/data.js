@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732660114366,
+  "lastUpdate": 1732661904882,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -6189,6 +6189,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006903612677861432",
             "extra": "mean: 145.19134429769485 usec\nrounds: 7425"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "0dcee9d120a52720429cda218827ad5a250134e1",
+          "message": "[Tripy] Return the shape immediately if it is statically known instead of producing a trace operator.",
+          "timestamp": "2024-11-26T20:57:25Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/379/commits/0dcee9d120a52720429cda218827ad5a250134e1"
+        },
+        "date": 1732661904027,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6097.84997577812,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003461725631390008",
+            "extra": "mean: 163.9922274198611 usec\nrounds: 6519"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6666.943028532187,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007023642982195218",
+            "extra": "mean: 149.99378211578372 usec\nrounds: 7351"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 6039.621211052994,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0017619480848306923",
+            "extra": "mean: 165.57329757202643 usec\nrounds: 7620"
           }
         ]
       }
