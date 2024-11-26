@@ -143,6 +143,8 @@ def process_predictions(
             plt.savefig(os.path.join(save_path, f"mask_{i}_score_{score:.3f}.png"), bbox_inches="tight", pad_inches=0)
         plt.close(fig)
 
+    print(f"Scores for each prediction: {' '.join(map(str, scores))}")
+
     return {
         "masks": np.array(processed_masks),
         "scores": scores,
@@ -189,17 +191,16 @@ def main(image_path: str, save_path: Optional[str] = None):
         # Warmup runs
         for _ in range(num_warmup):
             func()
-
-        tp.default_stream().synchronize()
-        torch.cuda.synchronize()
+            tp.default_stream().synchronize()
+            torch.cuda.synchronize()
 
         # Actual timing
         start = time.perf_counter()
         for _ in range(num_runs):
             output = func()
+            tp.default_stream().synchronize()
+            torch.cuda.synchronize()
 
-        tp.default_stream().synchronize()
-        torch.cuda.synchronize()
         end = time.perf_counter()
 
         avg_time_ms = (end - start) * 1000 / num_runs
@@ -244,7 +245,6 @@ def main(image_path: str, save_path: Optional[str] = None):
         input_labels=input_label,
         save_path=save_path,
     )
-
     return results
 
 
