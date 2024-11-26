@@ -52,6 +52,7 @@ class ImageEncoder(tp.Module):
         # Forward through backbone
         if self.compiled_executable:
             features_pos = self.compiled_executable(sample)
+            tp.default_stream().synchronize()
         else:
             features_pos = self.forward(sample)
         for i in range(len(features_pos)):

@@ -183,7 +183,8 @@ def get_component_configs(model, cfg):
                 tp.InputInfo((1, 1, 1024, 1024), getattr(tp, model_precision)),
                 True,
             ],
-            "skip_dtype_convert": ["ln", "norm"],
+            "skip_dtype_convert": ["ln", "norm"]
+            + [f"encoder.{i}.{param}" for i in range(1, 40, 3) for param in ("weight", "bias")],
         },
         "sam_prompt_encoder": {
             "enabled": True,
