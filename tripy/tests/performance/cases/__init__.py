@@ -38,7 +38,6 @@ def __discover_modules():
                     for submod in pkgutil.iter_modules(mod.__path__)
                 ]
             )
-            print(mods)
 
 
 modules = list(__discover_modules())[1:]
