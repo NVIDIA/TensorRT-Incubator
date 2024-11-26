@@ -803,6 +803,9 @@ public:
         continue;
       }
 
+      LLVM_DEBUG(DBGS() << "starting to build TensorRT engine for function "
+                        << func.getName() << "\n");
+
       FailureOr<TensorRTEngineResult> engineResult =
           buildFunction(func, *builderContext, *timingCache, translationOptions,
                         layerMetadataCallback);
@@ -811,6 +814,10 @@ public:
                          << "' to a TensorRT engine";
         return signalPassFailure();
       }
+
+      LLVM_DEBUG(DBGS() << "done building TensorRT engine for function "
+                        << func.getName() << "\n");
+
       const std::unique_ptr<nvinfer1::IHostMemory> &serializedEngine =
           engineResult->serializedEngine;
 
