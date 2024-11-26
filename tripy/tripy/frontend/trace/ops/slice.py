@@ -199,7 +199,7 @@ def __getitem__(
         # when dealing with a slice (not a single index), we clamp the start and end bounds to [0, t_shape[i]]
         # because out of bounds indices for a *slice* mean that the dim should be empty, not an error
         def clamp_bound(bound: Union[int, Tensor]) -> Union[int, Tensor]:
-            if isinstance(bound, int):  #  and bound < 0:
+            if isinstance(bound, int):
                 if bound < 0:
                     return 0
 
