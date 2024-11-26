@@ -117,6 +117,7 @@ class Tensor(metaclass=TensorMeta):
         return instance
 
     # No docstring because this should be used only internally. Handles the logic for initializing a new instance.
+    # We separate this from __init__ because __init__ calls into the registry and rejects None values, which we use internally.
     @staticmethod
     def raw_init(
         instance: Any,
