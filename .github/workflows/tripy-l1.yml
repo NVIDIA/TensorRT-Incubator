@@ -40,5 +40,6 @@ jobs:
     - name: notebook-test
       run: |
         unset PYTHONPATH
+        pip uninstall tripy -y
         cd /tripy/
         pytest --nb-test-files notebooks/
