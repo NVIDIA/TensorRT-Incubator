@@ -51,8 +51,6 @@ using namespace mlir::plan;
 // HostClusterKindAttr
 //===----------------------------------------------------------------------===//
 
-std::string HostClusterKindAttr::getClusterKindName() const { return "host"; }
-
 int64_t HostClusterKindAttr::getClusterBenefit() const { return getBenefit(); }
 
 /// ClusteringOpts that identifies groups of `stablehlo` ops that can be
@@ -123,10 +121,6 @@ HostClusterKindAttr::getClusterFilter() const {
 //===----------------------------------------------------------------------===//
 // TensorRTClusterKindAttr
 //===----------------------------------------------------------------------===//
-
-std::string TensorRTClusterKindAttr::getClusterKindName() const {
-  return "tensorrt";
-}
 
 static ShapeInfoCallbacks getShapeInfoCallbacks() {
   ShapeInfoCallbacks shapeInfoCallbacks{};

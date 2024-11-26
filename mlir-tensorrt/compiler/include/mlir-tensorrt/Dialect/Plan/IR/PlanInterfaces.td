@@ -39,14 +39,6 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
     let cppNamespace = "::mlir::plan";
     let methods = [
         InterfaceMethod<
-            /*desc=*/"Return the name of the cluster",
-            /*retTy-*/"std::string",
-            "getClusterKindName",
-            /*args=*/(ins ),
-            /*body=*/"",
-            ""
-        >,
-        InterfaceMethod<
             /*desc=*/"Return the clustering options for the cluster",
             /*retTy-*/"::mlir::ClusteringOpts",
             "getClusterKindOptions",
