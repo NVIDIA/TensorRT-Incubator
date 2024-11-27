@@ -39,7 +39,9 @@ jobs:
     
     - name: notebook-test
       run: |
+        cd /tripy/
         unset PYTHONPATH
         pip uninstall tripy -y
-        cd /tripy/
+        pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
+        pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
         pytest --nb-test-files notebooks/
