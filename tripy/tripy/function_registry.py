@@ -358,8 +358,10 @@ class FunctionRegistry(dict):
 
     def __call__(self, key: Any, bypass_dispatch: Optional[Union[bool, Sequence[str]]] = None):
         """
-        Registers a function with this function registry.
+        Registers a function or class with this function registry.
         This function allows instances of the class to be used as decorators.
+        If the decorator is applied to a class, all _documented_ methods of the class will be added into the registry as well,
+        with the method name appended to the key in the format "key.{method name}".
 
         Args:
             key: The key under which to register the function.
