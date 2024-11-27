@@ -49,7 +49,7 @@ class Parameter(Tensor):
         t = tensor
         # for convenience, this will convert other dlpack-supporting representations too
         if not isinstance(t, Tensor):
-            t = Tensor.create_directly(t)
+            t = Tensor(t)
         self.__dict__ = t.__dict__
 
     def _is_compatible_helper(self, original_shape, other_shape, original_dtype, other_dtype) -> Result:
