@@ -360,28 +360,27 @@ OneToNTypeConverter stablehlo_ext::getScalarizationTypeConverter() {
           scalars.push_back(extractScalarFromTensor(builder, loc, input, i));
         return scalars;
       });
-  typeConverter.addSourceMaterialization(
-      [](OpBuilder &builder, Type resultType, ValueRange inputs,
-         Location loc) -> std::optional<Value> {
-        RankedTensorType intermediateTensorType =
-            cast<RankedTensorType>(resultType);
+  typeConverter.addSourceMaterialization([](OpBuilder &builder, Type resultType,
+                                            ValueRange inputs,
+                                            Location loc) -> Value {
+    RankedTensorType intermediateTensorType =
+        cast<RankedTensorType>(resultType);
 
-        // If we are converting back to a sign-full type, then make sure we
-        // create the 'from_elements' type using the signless type.
-        Type elType = intermediateTensorType.getElementType();
-        if (isa<IntegerType>(elType) && !elType.isSignlessInteger()) {
-          intermediateTensorType =
-              intermediateTensorType.clone(IntegerType::get(
-                  elType.getContext(), elType.getIntOrFloatBitWidth()));
-        }
-        Value fromElements = builder.create<tensor::FromElementsOp>(
-            loc, intermediateTensorType, inputs);
-        if (fromElements.getType() == resultType)
-          return fromElements;
-        return builder
-            .create<UnrealizedConversionCastOp>(loc, resultType, fromElements)
-            .getResult(0);
-      });
+    // If we are converting back to a sign-full type, then make sure we
+    // create the 'from_elements' type using the signless type.
+    Type elType = intermediateTensorType.getElementType();
+    if (isa<IntegerType>(elType) && !elType.isSignlessInteger()) {
+      intermediateTensorType = intermediateTensorType.clone(IntegerType::get(
+          elType.getContext(), elType.getIntOrFloatBitWidth()));
+    }
+    Value fromElements = builder.create<tensor::FromElementsOp>(
+        loc, intermediateTensorType, inputs);
+    if (fromElements.getType() == resultType)
+      return fromElements;
+    return builder
+        .create<UnrealizedConversionCastOp>(loc, resultType, fromElements)
+        .getResult(0);
+  });
   return typeConverter;
 }
 
