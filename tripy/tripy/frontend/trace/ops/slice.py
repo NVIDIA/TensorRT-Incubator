@@ -21,7 +21,7 @@ from typing import Sequence, Union
 from tripy import constraints, utils
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import TensorLike
@@ -129,7 +129,7 @@ class Slice(BaseTraceOp):
         DynamicSliceOp.build([data_tensor, start_index_tensor, limit_index_tensor, stride_index_tensor], outputs)
 
 
-@TENSOR_METHOD_REGISTRY("__getitem__")
+@register_tensor_method("__getitem__")
 @constraints.dtypes(
     constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
@@ -261,6 +261,7 @@ def __getitem__(
 
 @frontend_utils.convert_to_tensors()
 def slice_helper(tensor, *slice_params: TensorLike):
+    from tripy import function_registry
     from tripy.utils import get_arg_candidate_column_offsets
 
     # The default behavior of convert_to_tensors will not add the correct column info to the slice params
@@ -271,19 +272,26 @@ def slice_helper(tensor, *slice_params: TensorLike):
     frame_index = -1
     assert slice_params
 
+    # Internal WAR: the constraints decorator is applied before the function registry decorator, so in the constraints tests,
+    # we will not find the Tensor.__getitem__ decorator. We can use a fallback in that case.
+    function_registry_wrapper_found = False
     for idx, source_info in enumerate(slice_params[0].stack_info):
-        if source_info._dispatch_target == "__getitem__":
+        if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
+            function_registry_wrapper_found = True
+        if source_info._dispatch_target == "Tensor.__getitem__":
             frame_index = idx + 1
             break
 
-    # convert_to_tensors should have taken care of this for us
-    assert frame_index >= 0, "No call to the __getitem__ dispatch found"
+    assert not function_registry_wrapper_found or frame_index >= 0, "No call to the Tensor.__getitem__ dispatch found"
+    if not function_registry_wrapper_found:
+        frame_index = slice_params[0].stack_info.get_first_user_frame_index()
 
     arg_names = ["tensor"] + ["slice_params"] * len(slice_params)
     for arg_index, arg in enumerate(slice_params):
         source_info = arg.stack_info[frame_index]
 
         # Note: arg_index does not account for the positional arg, hence we add 1 for the index argument
+        # Also, strip the "Tensor" prefix from the dispatch target.
         candidates = get_arg_candidate_column_offsets(
             source_info.code, 1 + arg_index, 1, "__getitem__", False, arg_names
         )

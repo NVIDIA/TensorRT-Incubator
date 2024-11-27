@@ -21,7 +21,7 @@ from typing import Dict, List
 import tripy.frontend.trace.ops.utils as op_utils
 from tripy import constraints
 from tripy.common.exception import raise_error
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -148,7 +148,7 @@ class MatrixMultiplication(BaseTraceOp):
         )
 
 
-@TENSOR_METHOD_REGISTRY("__matmul__")
+@register_tensor_method("__matmul__")
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bfloat16", "int32"]},

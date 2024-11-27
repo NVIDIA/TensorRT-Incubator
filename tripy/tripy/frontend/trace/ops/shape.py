@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from tripy import constraints
 from tripy.common.datatype import DATA_TYPES
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import ShapeLike
 
@@ -42,7 +42,7 @@ class GetDimensionSize(BaseTraceOp):
         GetDimensionSizeOp.build(inputs, outputs, self.dim)
 
 
-@TENSOR_METHOD_REGISTRY("shape")
+@register_tensor_method("shape")
 @property
 @constraints.dtypes(constraints={"self": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
 def shape(self: "tripy.Tensor") -> ShapeLike:
