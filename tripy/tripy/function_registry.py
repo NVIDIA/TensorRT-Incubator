@@ -392,12 +392,9 @@ class FunctionRegistry(dict):
                     setattr(func, name, self(f"{key}.{name}", bypass_dispatch=bypass_func)(member))
                 self[key] = func
             else:
-                if bypass_dispatch and key in self:
-                    from tripy.common.exception import raise_error
-
-                    raise_error(
-                        f"Attempting to add key {key} into a function registry with dispatch disabled, but there is already an overload present."
-                    )
+                assert not (
+                    bypass_dispatch and key in self
+                ), f"Attempting to add key {key} into a function registry with dispatch disabled, but there is already an overload present."
 
                 self.overloads[key].append(FuncOverload(func))
 
