@@ -15,17 +15,17 @@
 # limitations under the License.
 #
 
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Optional
 
 from tripy import export, utils
 from tripy.common import datatype
-from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter, DefaultParameter
-from tripy.frontend.trace.ops import utils as op_utils
-
 from tripy.common.exception import raise_error
+from tripy.frontend.module.module import Module
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
+from tripy.frontend.trace.ops import utils as op_utils
 
 
 @dataclass
@@ -38,7 +38,7 @@ class ConvBase(Module):
     stride: Sequence[int]
     groups: int
     dilation: Sequence[int]
-    bias: Optional[Parameter]
+    bias: Optional[Tensor]
 
     def __init__(
         self,
@@ -108,7 +108,7 @@ class Conv(ConvBase):
     dtype: datatype.dtype
     r"""The data type to use for the convolution weights."""
 
-    weight: Parameter
+    weight: Tensor
     r"""The kernel of shape :math:`(\text{out_channels}, \frac{\text{in_channels}}{\text{groups}}, *\text{kernel_dims})`."""
 
     padding: Sequence[Sequence[int]]
@@ -142,7 +142,7 @@ class Conv(ConvBase):
     For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
     """
 
-    bias: Optional[Parameter]
+    bias: Optional[Tensor]
     r"""
     The bias term to add to the output. The bias has a shape of :math:`(\text{out_channels},)`.
     """

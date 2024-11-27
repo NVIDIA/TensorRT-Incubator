@@ -22,7 +22,8 @@ from typing import Optional
 from tripy import export
 from tripy.common import datatype
 from tripy.frontend.module.conv import ConvBase
-from tripy.frontend.module.parameter import DefaultParameter, Parameter
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
 
 
 @export.public_api(document_under="operations/modules", autodoc_options=[":no-show-inheritance:"])
@@ -45,7 +46,7 @@ class ConvTranspose(ConvBase):
     dtype: datatype.dtype
     r"""The data type to use for the convolution weights."""
 
-    weight: Parameter
+    weight: Tensor
     r"""
     The kernel of shape :math:`(\text{in_channels}, \frac{\text{out_channels}}{\text{groups}}, *\text{kernel_dims})`.
     """
@@ -86,7 +87,7 @@ class ConvTranspose(ConvBase):
     For each dimension with value :math:`x`, :math:`x-1` zeros are inserted between kernel weights.
     """
 
-    bias: Optional[Parameter]
+    bias: Optional[Tensor]
     r"""
     The bias term to add to the output. The bias has a shape of :math:`(\text{out_channels},)`.
     """

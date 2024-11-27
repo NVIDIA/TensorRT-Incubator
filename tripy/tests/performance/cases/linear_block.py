@@ -36,7 +36,7 @@ def linear_block(tripy_dtype, torch_dtype):
             for layer in self.layers:
                 # Adjust the weights to prevent FP16 overflows:
                 weight = np.tile(np.array([[-1, 1], [1, -1]], dtype=TRIPY_TO_NUMPY[tripy_dtype]), (128, 128))
-                layer.weight = tp.Parameter(weight)
+                layer.weight = tp.Tensor(weight)
 
         def __call__(self, input):
             for layer in self.layers:

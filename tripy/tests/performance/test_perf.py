@@ -153,10 +153,10 @@ def test_tripy_overhead():
 
 def test_tripy_param_update(benchmark):
     m = tp.Module()
-    m.param = tp.Parameter([1, 2, 3, 4])
+    m.param = tp.Tensor([1, 2, 3, 4])
 
     # Leave the instantiation outside of the measured section to avoid overhead from registry calls.
-    new_param = tp.Parameter([5, 6, 7, 8])
+    new_param = tp.Tensor([5, 6, 7, 8])
 
     def measure_thunk():
         m.param = new_param

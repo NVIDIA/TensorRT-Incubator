@@ -20,7 +20,8 @@ from dataclasses import dataclass
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter, DefaultParameter
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
 
 
 @export.public_api(document_under="operations/modules")
@@ -35,7 +36,7 @@ class Embedding(Module):
     dtype: datatype.dtype
     r"""The data type used to perform the operation"""
 
-    weight: Parameter
+    weight: Tensor
     r"""The embedding lookup table of shape :math:`[\text{num_embeddings}, \text{embedding_dim}]`."""
 
     def __init__(self, num_embeddings: int, embedding_dim: int, dtype: datatype.dtype = datatype.float32) -> None:
