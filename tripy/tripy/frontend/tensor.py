@@ -181,17 +181,16 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace import Trace
         from tripy.frontend import global_cache
 
+        # TODO: set the inputs for trace by walking backward, and pass it to line below
         trace = Trace([self])
-        trace_key = str(trace)
-
-        executable = global_cache.get(trace_key)
+        executable = global_cache.get(trace)
         if executable is None:
             flat_ir = trace.to_flat_ir()
             mlir = flat_ir.to_mlir()
 
             compiler = Compiler(trt_builder_opt_level=0)
             executable = compiler.compile(mlir, flat_ir=flat_ir)
-            global_cache.set(trace_key, executable)
+            global_cache.set(trace, executable)
 
         executor = Executor(executable)
         # Upon computing the value of this tensor, we switch it to have a `Storage`

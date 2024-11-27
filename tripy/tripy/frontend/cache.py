@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import re
+from typing import List
 
 
 class ExecutableCache:
@@ -21,32 +21,53 @@ class ExecutableCache:
     def __init__(self):
         self._cache = {}
 
-    def _normalize_key(self, key: str) -> str:
-        """Normalize the key by ordering all tensors with names matching t\d*
-        and renaming them sequentially as t0, t1, t2, etc.
+    def _normalize_ops(self, ops: List["BaseTraceOp"]) -> str:
         """
-        # Find all tensor identifiers (e.g., t90, t91)
-        tensors = sorted(set(re.findall(r"t\d+", key)), key=lambda x: int(x[1:]))
+        Normalize the key by renaming all tensor names (inputs, outputs, intermediates)
+        in the trace to sequential names (t0, t1, ..., tn) while preserving the structure
+        of the operations.
+        """
+        tensor_map = {}
+        next_tensor_id = 0
 
-        # Map old tensor names to new sequential names
-        tensor_map = {tensor: f"t{i}" for i, tensor in enumerate(tensors)}
+        def get_or_assign_tensor_name(tensor_name: str) -> str:
+            """Assign a new name to the tensor or retrieve the existing one."""
+            nonlocal next_tensor_id
+            if tensor_name not in tensor_map:
+                tensor_map[tensor_name] = f"t{next_tensor_id}"
+                next_tensor_id += 1
+            return tensor_map[tensor_name]
 
-        # Replace old tensor names in the key with the normalized names
-        normalized_key = key
-        for old, new in tensor_map.items():
-            normalized_key = re.sub(rf"\b{old}\b", new, normalized_key)
+        # Build tensor_map by processing all ops
+        for op in ops:
+            for t in op.inputs + op.outputs:
+                get_or_assign_tensor_name(t.name)
 
-        return normalized_key
+        # Generate normalized string for each op
+        normalized_ops = []
+        for op in ops:
+            op_repr = str(op)
+            for old_name, new_name in tensor_map.items():
+                op_repr = op_repr.replace(old_name, new_name)  # bug: do shallow copy
+            normalized_ops.append(op_repr)
 
-    def get(self, key: str):
+        return "\n".join(normalized_ops)
+
+    def _generate_key(self, trace: "Trace") -> str:
+        """
+        Generate a hashable key for the trace by normalizing its operations.
+        """
+        return self._normalize_ops(trace.ops)
+
+    def get(self, trace: "Trace"):
         """Retrieve an executable from the cache."""
-        normalized_key = self._normalize_key(key)
-        return self._cache.get(normalized_key, None)
+        key = self._generate_key(trace)
+        return self._cache.get(key, None)
 
-    def set(self, key: str, value):
+    def set(self, trace: "Trace", value):
         """Store an executable in the cache."""
-        normalized_key = self._normalize_key(key)
-        self._cache[normalized_key] = value
+        key = self._generate_key(trace)
+        self._cache[key] = value
 
     def clear(self):
         """Clear the entire cache."""
