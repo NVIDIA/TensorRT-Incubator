@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732674897333,
+  "lastUpdate": 1732682187461,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -6387,6 +6387,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000021111300118485194",
             "extra": "mean: 142.8420136670102 usec\nrounds: 7621"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "742e97dba1e5a5f5112d8d4f05e0eb19f2be5dca",
+          "message": "[Tripy] Change function registry to also register methods of registered classes",
+          "timestamp": "2024-11-27T02:31:56Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/388/commits/742e97dba1e5a5f5112d8d4f05e0eb19f2be5dca"
+        },
+        "date": 1732682186649,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6210.957764735892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000031803155119696595",
+            "extra": "mean: 161.00576398663097 usec\nrounds: 6569"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6839.4212247034175,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007015858380973088",
+            "extra": "mean: 146.21120225613296 usec\nrounds: 7494"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 5620.687838033026,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000254833208739137",
+            "extra": "mean: 177.91416794816212 usec\nrounds: 6122"
           }
         ]
       }
