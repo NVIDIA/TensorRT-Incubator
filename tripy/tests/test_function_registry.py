@@ -371,6 +371,34 @@ class TestFunctionRegistry:
         assert registry["test"](None) == None
         assert registry["test"](1) == 1
 
+    def test_error_dispatch_already_disabled(self, registry):
+        @registry("test", bypass_dispatch=True)
+        def func(n: int):
+            return n + 1
+
+        with helper.raises(
+            AssertionError,
+            match="Dispatch was disabled for key 'test', but a second overload was registered for it.",
+        ):
+
+            @registry("test")
+            def func(f: float):
+                return f + 1.0
+
+    def test_error_bypass_if_already_dispatched(self, registry):
+        @registry("test")
+        def func(n: int):
+            return n + 1
+
+        with helper.raises(
+            AssertionError,
+            match="Attempting to add key 'test' into a function registry with dispatch disabled, but there is already an overload present.",
+        ):
+
+            @registry("test", bypass_dispatch=True)
+            def func(f: float):
+                return f + 1.0
+
     def test_error_sequence(self, registry):
         @registry("test")
         def func(n: Sequence[int]) -> int:

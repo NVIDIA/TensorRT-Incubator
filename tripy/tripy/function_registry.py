@@ -394,7 +394,7 @@ class FunctionRegistry(dict):
             else:
                 assert not (
                     bypass_dispatch and key in self
-                ), f"Attempting to add key {key} into a function registry with dispatch disabled, but there is already an overload present."
+                ), f"Attempting to add key '{key}' into a function registry with dispatch disabled, but there is already an overload present."
 
                 self.overloads[key].append(FuncOverload(func))
 
@@ -417,7 +417,7 @@ class FunctionRegistry(dict):
                 else:
                     assert not hasattr(
                         self[key], "is_dispatch_disabled"
-                    ), f"Dispatch was disabled for key {key}, but a second overload was registered for it."
+                    ), f"Dispatch was disabled for key '{key}', but a second overload was registered for it."
 
                     # By deleting __wrapped__, we undo parts of what `functools.wraps` does.
                     # This allows us to omit signature information in the docs and prepend our
