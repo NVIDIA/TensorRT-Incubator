@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732682187461,
+  "lastUpdate": 1732684089851,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -6428,6 +6428,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000254833208739137",
             "extra": "mean: 177.91416794816212 usec\nrounds: 6122"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "bbb8edfa50118dc642cad478321fa5be51b7a82c",
+          "message": "[Tripy] Change function registry to also register methods of registered classes",
+          "timestamp": "2024-11-27T02:31:56Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/388/commits/bbb8edfa50118dc642cad478321fa5be51b7a82c"
+        },
+        "date": 1732684089096,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6158.326707773475,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003249396055989394",
+            "extra": "mean: 162.38177145388036 usec\nrounds: 6545"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6742.229762502721,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007023341500385606",
+            "extra": "mean: 148.31888488309232 usec\nrounds: 7511"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 21941.294821521715,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000025223892710202686",
+            "extra": "mean: 45.576161668413604 usec\nrounds: 23013"
           }
         ]
       }
