@@ -1,9 +1,9 @@
 // RUN: mlir-tensorrt-opt -split-input-file \
-// RUN:  -plan-segmentation-pipeline=trt-major-version=10 -cse -verify-diagnostics %s | FileCheck %s
+// RUN:  -plan-segmentation-pipeline -cse -verify-diagnostics %s | FileCheck %s
 
 builtin.module attributes {
   plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
     #plan.host_cluster<benefit = 0>
   ]
 } {
@@ -30,7 +30,7 @@ builtin.module attributes {
 
 builtin.module attributes {
   plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
     #plan.host_cluster<benefit = 0>
   ]
 } {
@@ -69,7 +69,7 @@ func.func @reduce(%arg0: tensor<4xi32>, %arg1: tensor<i32>) -> (tensor<i32>, ten
 // -----
 builtin.module attributes {
   plan.cluster_kinds = [
-    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true>,
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
     #plan.host_cluster<benefit = 0>
   ]
 } {
@@ -93,7 +93,6 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 
 // CHECK-LABEL: func.func @small_reduce_host
 //  CHECK-SAME: (%[[arg0:.+]]: tensor<4xi32>, %[[arg1:.+]]: tensor<i32>) -> (tensor<i32> {tensorrt.host_tensor}, tensor<i1> {tensorrt.host_tensor})
-
 //   CHECK-DAG:     %[[c0:.+]] = arith.constant 0 : index
 //   CHECK-DAG:     %[[c1:.+]] = arith.constant 1 : index
 //   CHECK-DAG:     %[[c2:.+]] = arith.constant 2 : index
@@ -112,29 +111,39 @@ func.func @small_reduce_host(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //   CHECK-DAG:     %[[v0:.+]] = stablehlo.constant dense<0> : tensor<i32>
 //   CHECK-DAG:     %[[from_elements:.+]] = tensor.from_elements %[[arg0]] : tensor<i32>
 //   CHECK-DAG:     %[[from_elements_0:.+]] = tensor.from_elements %[[arg1]], %[[arg2]], %[[arg3]], %[[arg4]] : tensor<4xi32>
-//       CHECK:     %[[v1:.+]] = stablehlo.compare  EQ, %[[v0]]
-//       CHECK:     %[[v2:.+]] = stablehlo.reduce(%[[from_elements_0]] init: %[[v0]]) applies stablehlo.add across dimensions = [0] :
-//       CHECK:     %[[extracted:.+]] = tensor.extract %[[v1]][]
-//       CHECK:     %[[extracted_1:.+]] = tensor.extract %[[v2]][]
-//       CHECK:     return %[[extracted]], %[[extracted_1]]
+//   CHECK-DAG:     %[[v1:.+]] = stablehlo.compare  EQ, %[[v0]]
+//   CHECK-DAG:     %[[v2:.+]] = stablehlo.reduce(%[[from_elements_0]] init: %[[v0]]) applies stablehlo.add across dimensions = [0] :
+//   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[v1]][]
+//   CHECK-DAG:     %[[extracted_1:.+]] = tensor.extract %[[v2]][]
+//   CHECK-DAG:     return %[[extracted]], %[[extracted_1]]
 
 // -----
 
-// Quantize f32 -> int8
-func.func @main(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> {
-  %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
-  return %0 : tensor<2x3x300x300xi8>
-}
-func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> attributes {plan.decomposition} {
-  %cst = stablehlo.constant dense<-1.280000e+02> : tensor<f32>
-  %cst_0 = stablehlo.constant dense<1.270000e+02> : tensor<f32>
-  %cst_1 = stablehlo.constant dense<8.000000e-01> : tensor<f32>
-  %0 = stablehlo.broadcast_in_dim %cst_1, dims = [] : (tensor<f32>) -> tensor<2x3x300x300xf32>
-  %1 = stablehlo.divide %arg0, %0 : tensor<2x3x300x300xf32>
-  %2 = stablehlo.round_nearest_even %1 : tensor<2x3x300x300xf32>
-  %3 = stablehlo.clamp %cst, %2, %cst_0 : (tensor<f32>, tensor<2x3x300x300xf32>, tensor<f32>) -> tensor<2x3x300x300xf32>
-  %4 = stablehlo.convert %3 : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
-  return %4 : tensor<2x3x300x300xi8>
+builtin.module attributes {
+  plan.cluster_kinds = [
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version=10>,
+    #plan.host_cluster<benefit = 0>
+  ]
+} {
+
+  // Quantize f32 -> int8
+  func.func @main(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> {
+    %0 = stablehlo.composite "tensorrt.pt_q" %arg0 {composite_attributes = {axis = -1 : i32, scale = dense<8.000000e-01> : tensor<f32>}, decomposition = @pt_q} : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
+    return %0 : tensor<2x3x300x300xi8>
+  }
+
+  func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8> attributes {plan.decomposition} {
+    %cst = stablehlo.constant dense<-1.280000e+02> : tensor<f32>
+    %cst_0 = stablehlo.constant dense<1.270000e+02> : tensor<f32>
+    %cst_1 = stablehlo.constant dense<8.000000e-01> : tensor<f32>
+    %0 = stablehlo.broadcast_in_dim %cst_1, dims = [] : (tensor<f32>) -> tensor<2x3x300x300xf32>
+    %1 = stablehlo.divide %arg0, %0 : tensor<2x3x300x300xf32>
+    %2 = stablehlo.round_nearest_even %1 : tensor<2x3x300x300xf32>
+    %3 = stablehlo.clamp %cst, %2, %cst_0 : (tensor<f32>, tensor<2x3x300x300xf32>, tensor<f32>) -> tensor<2x3x300x300xf32>
+    %4 = stablehlo.convert %3 : (tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8>
+    return %4 : tensor<2x3x300x300xi8>
+  }
+
 }
 
 // CHECK-LABEL: func.func @main
@@ -164,24 +173,29 @@ func.func private @pt_q(%arg0: tensor<2x3x300x300xf32>) -> tensor<2x3x300x300xi8
 
 // -----
 
-builtin.module @simple_gather_dynamic {
-func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>) -> tensor<?x?x256x256xi32> {
-  %c1 = stablehlo.constant dense<1> : tensor<1xi32>
-  %c256 = stablehlo.constant dense<256> : tensor<1xi32>
-  %dim = stablehlo.get_dimension_size %arg0, dim = 1 : (tensor<?x?x256x256xi32>) -> tensor<i32>
-  %dim.1 = stablehlo.reshape %dim : (tensor<i32>) -> tensor<1xi32>
-  %shape = stablehlo.concatenate %c1, %dim.1, %c256, %c256, dim = 0 :
-    (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<4xi32>
-  %0 = "stablehlo.dynamic_gather"(%arg0, %arg1, %shape) {
-    dimension_numbers = #stablehlo.gather<
-      offset_dims = [1, 2, 3],
-      collapsed_slice_dims = [0],
-      start_index_map = [0],
-      index_vector_dim = 1>,
-    indices_are_sorted = false, slice_sizes = array<i64: 1>
-  } : (tensor<?x?x256x256xi32>, tensor<?xi32>, tensor<4xi32>) -> tensor<?x?x256x256xi32>
-  return %0 : tensor<?x?x256x256xi32>
-}
+builtin.module @simple_gather_dynamic attributes {
+  plan.cluster_kinds = [
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version=10>,
+    #plan.host_cluster<benefit = 0>
+  ]
+} {
+  func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>) -> tensor<?x?x256x256xi32> {
+    %c1 = stablehlo.constant dense<1> : tensor<1xi32>
+    %c256 = stablehlo.constant dense<256> : tensor<1xi32>
+    %dim = stablehlo.get_dimension_size %arg0, dim = 1 : (tensor<?x?x256x256xi32>) -> tensor<i32>
+    %dim.1 = stablehlo.reshape %dim : (tensor<i32>) -> tensor<1xi32>
+    %shape = stablehlo.concatenate %c1, %dim.1, %c256, %c256, dim = 0 :
+      (tensor<1xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<4xi32>
+    %0 = "stablehlo.dynamic_gather"(%arg0, %arg1, %shape) {
+      dimension_numbers = #stablehlo.gather<
+        offset_dims = [1, 2, 3],
+        collapsed_slice_dims = [0],
+        start_index_map = [0],
+        index_vector_dim = 1>,
+      indices_are_sorted = false, slice_sizes = array<i64: 1>
+    } : (tensor<?x?x256x256xi32>, tensor<?xi32>, tensor<4xi32>) -> tensor<?x?x256x256xi32>
+    return %0 : tensor<?x?x256x256xi32>
+  }
 }
 
 //       CHECK: #[[$map:.+]] = affine_map<()[s0, s1] -> ((s0 * s1) * 65536)>

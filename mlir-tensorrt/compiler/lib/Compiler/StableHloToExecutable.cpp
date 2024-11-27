@@ -244,8 +244,6 @@ void StableHloToExecutableTask::buildStablehloClusteringPipeline(
   populateExtensionPasses(pm, opts, Phase::PreClustering);
 
   plan::StablehloClusteringPassOptions clusteringOpts{};
-  clusteringOpts.disallowHostTensorsInTensorRTClusters =
-      opts.disallowHostTensorsInTensorRTClusters;
   clusteringOpts.entrypoint = opts.entrypoint;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
@@ -335,6 +333,24 @@ void StableHloToExecutableTask::populatePassManager(
   mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
 }
 
+/// If the module does not have a 'plan.cluster_kinds' attribute which guides
+/// the compiler backend choices, then populate it with default options
+/// (TensorRT + host clusters).
+static void
+maybePopulateDefaultClusterKinds(mlir::ModuleOp module,
+                                 const StableHLOToExecutableOptions &options) {
+  if (!module->hasAttr(plan::PlanDialect::kModuleClusterKindsAttrName)) {
+    SmallVector<Attribute> clusterKinds;
+    clusterKinds.push_back(mlir::plan::TensorRTClusterKindAttr::get(
+        module->getContext(), options.disallowHostTensorsInTensorRTClusters, 10,
+        NV_TENSORRT_MAJOR));
+    clusterKinds.push_back(
+        mlir::plan::HostClusterKindAttr::get(module->getContext(), 9));
+    module->setAttr(plan::PlanDialect::kModuleClusterKindsAttrName,
+                    ArrayAttr::get(module->getContext(), clusterKinds));
+  }
+}
+
 StatusOr<std::unique_ptr<runtime::Executable>>
 StableHloToExecutableTask::compileStableHLOToExecutable(
     mlir::ModuleOp module, const StableHLOToExecutableOptions &options) {
@@ -343,6 +359,8 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     options.print(llvm::dbgs());
     llvm::dbgs() << "\n";
   });
+
+  maybePopulateDefaultClusterKinds(module, options);
 
 #ifndef NDEBUG
   //===----------------------------------------------------------------------===//
@@ -409,6 +427,8 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     options.print(llvm::dbgs());
     llvm::dbgs() << "\n";
   });
+
+  maybePopulateDefaultClusterKinds(module, options);
 
 #ifndef NDEBUG
   if (options.debugOptions.enableLLVMDebugFlag) {

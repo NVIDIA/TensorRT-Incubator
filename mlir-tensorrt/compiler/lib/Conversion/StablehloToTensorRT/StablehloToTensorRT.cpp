@@ -35,7 +35,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
-#include "mlir/Dialect/Quant/QuantOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/IR/BuiltinAttributes.h"
 #include "mlir/IR/DialectResourceBlobManager.h"
 #include "mlir/IR/Matchers.h"
@@ -1852,7 +1852,7 @@ static RankedTensorType convertToLegalConstantType(RankedTensorType t) {
 namespace {
 /// Convert `(stablehlo|arith).constant` op to `tensorrt.constant`.
 template <typename HloOpType>
-struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
+struct ConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
   using ConvertHloOpToTensorRTPattern<HloOpType>::ConvertHloOpToTensorRTPattern;
 
@@ -1860,11 +1860,14 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
       HloOpType op,
       typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
       ConversionPatternRewriter &rewriter) const override {
+    auto originalType = dyn_cast<RankedTensorType>(op.getType());
+    if (!originalType)
+      return failure();
+
     TensorRTConversionPatternRewriter trtRewriter(rewriter);
     int64_t targetTrtMajorVersion =
         this->getTypeConverter()->getOptions().getTensorRTVersion();
 
-    auto originalType = cast<RankedTensorType>(op.getType());
     auto convertedType = dyn_cast_or_null<RankedTensorType>(
         this->getTypeConverter()->convertType(originalType));
     if (!convertedType)
@@ -1928,13 +1931,13 @@ struct HloConstantConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
 
 namespace {
 /// Convert `stablehlo.slice` op to `tensorrt.slice` operation.
-template <typename HloOpType>
-struct HloSliceConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
-  using ConvertHloOpToTensorRTPattern<HloOpType>::ConvertHloOpToTensorRTPattern;
-  LogicalResult matchAndRewrite(
-      HloOpType op,
-      typename ConvertHloOpToTensorRTPattern<HloOpType>::OpAdaptor adaptor,
-      ConversionPatternRewriter &rewriter) const override {
+struct HloSliceConverter
+    : public ConvertHloOpToTensorRTPattern<stablehlo::SliceOp> {
+  using ConvertHloOpToTensorRTPattern::ConvertHloOpToTensorRTPattern;
+  LogicalResult
+  matchAndRewrite(stablehlo::SliceOp op,
+                  typename ConvertHloOpToTensorRTPattern::OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
     TensorRTConversionPatternRewriter trtRewriter(rewriter);
     int64_t targetTrtMajorVersion =
         this->getTypeConverter()->getOptions().getTensorRTVersion();
@@ -1947,19 +1950,26 @@ struct HloSliceConverter : public ConvertHloOpToTensorRTPattern<HloOpType> {
     if (failed(startIndices))
       return rewriter.notifyMatchFailure(
           op, "could not convert i64 offsets to i32");
+    FailureOr<SmallVector<int32_t>> limitIndices =
+        truncateI64ToI32(loc, op.getLimitIndices());
+    if (failed(limitIndices))
+      return rewriter.notifyMatchFailure(
+          op, "could not convert i64 offsets to i32");
     FailureOr<SmallVector<int32_t>> strides =
         truncateI64ToI32(loc, op.getStrides());
     if (failed(strides))
       return rewriter.notifyMatchFailure(op,
                                          "could not convert i64 stride to i32");
-    FailureOr<SmallVector<int32_t>> i32Shape =
-        truncateI64ToI32(loc, op.getType().getShape());
-    if (failed(i32Shape))
-      return rewriter.notifyMatchFailure(op,
-                                         "could not convert i64 shape to i32");
+
+    // Result shape is `ceil((limit_indices - start_indices)/stride)`
+    SmallVector<int32_t> i32Shape(limitIndices->size());
+    for (size_t i = 0; i < limitIndices->size(); i++) {
+      i32Shape[i] = llvm::divideCeil(
+          (((*limitIndices)[i] - (*startIndices)[i])), (*strides)[i]);
+    }
     auto sliceOp = trtRewriter.checkAndCreate<mlir::tensorrt::SliceOp>(
-        op.getLoc(), targetTrtMajorVersion, adaptor.getOperand(), *startIndices,
-        *i32Shape, *strides);
+        op.getLoc(), targetTrtMajorVersion, op.getType(), adaptor.getOperand(),
+        *startIndices, i32Shape, *strides);
     if (!sliceOp)
       return failure();
 
@@ -2324,9 +2334,21 @@ struct ConvertSelect
                                  falseOperand);
     }
 
+    Value pred = adaptor.getPred();
+    RankedTensorType predType = cast<RankedTensorType>(pred.getType());
+    if (predType.getRank() == 0 && predType.getRank() != trueType.getRank()) {
+      tensorrt::ExpandRankOp expandOp =
+          trtRewriter.checkAndCreate<tensorrt::ExpandRankOp>(
+              op.getLoc(), targetTrtMajorVersion,
+              predType.clone(SmallVector<int64_t>(trueType.getRank(), 1)),
+              pred);
+      if (!expandOp)
+        return failure();
+      pred = expandOp.getResult();
+    }
+
     auto selectOp = trtRewriter.checkAndCreate<tensorrt::SelectOp>(
-        op.getLoc(), targetTrtMajorVersion, adaptor.getPred(), trueOperand,
-        falseOperand);
+        op.getLoc(), targetTrtMajorVersion, pred, trueOperand, falseOperand);
     if (!selectOp)
       return failure();
     auto selectOpResult = selectOp.getResult();
@@ -4611,10 +4633,10 @@ void mlir::populateStablehloToTensorRtConversionPattern(
                                       tensorrt::ActivationType::kSIGMOID>,
       HloUnaryOpToActivationConverter<stablehlo::TanhOp,
                                       tensorrt::ActivationType::kTANH>,
-      RsqrtConverter, HloConstantConverter<stablehlo::ConstantOp>,
-      HloConstantConverter<arith::ConstantOp>, RealDynamicSliceConverter,
-      HloSliceConverter<stablehlo::SliceOp>, DynamicSliceConverter,
-      ConvolutionConverter, ConvertScatterToTensorRT,
+      RsqrtConverter, ConstantConverter<stablehlo::ConstantOp>,
+      ConstantConverter<arith::ConstantOp>, RealDynamicSliceConverter,
+      HloSliceConverter, DynamicSliceConverter, ConvolutionConverter,
+      ConvertScatterToTensorRT,
       // clang-format off
       SingleDimSimpleGatherToTensorRTGatherPattern,
       ConvertScatterToTensorRTScatterElements,

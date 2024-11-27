@@ -1928,3 +1928,15 @@ func.func @jnp_cumsum_2d_f16(%arg0: tensor<1x134xf16>) -> tensor<1x134xf16> {
 //       CHECK-SAME: pre_padding = array<i64: 0, 133>
 //       CHECK-SAME: in(%[[v1]] : tensor<1x1x1x134xf16>) kernel(%[[v2]] : tensor<1x1x1x134xf16>) -> tensor<1x1x1x134xf16>
 //       CHECK:  %[[v4:.+]] = tensorrt.reshape %[[v3]] : tensor<1x1x1x134xf16> to tensor<1x134xf16>
+
+// -----
+
+func.func @slice_conversion_dynamic(%arg0: tensor<1x?x256xf16>) -> tensor<1x?x256xf16>{
+    %16 = "stablehlo.slice"(%arg0) <{limit_indices = array<i64: 1, 6, 256>, start_indices = array<i64: 0, 2, 0>, strides = array<i64: 1, 1, 1>}> : (tensor<1x?x256xf16>) -> tensor<1x?x256xf16>
+    return %16: tensor<1x?x256xf16>
+}
+
+// CHECK-LABEL: @slice_conversion_dynamic
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1x?x256xf16>) -> tensor<1x?x256xf16>
+//  CHECK-NEXT: %[[v0:.+]] = tensorrt.slice %[[arg0]][0, 2, 0][1, 4, 256][1, 1, 1] : tensor<1x?x256xf16> to tensor<1x?x256xf16>
+//  CHECK-NEXT: return %[[v0]] : tensor<1x?x256xf16>

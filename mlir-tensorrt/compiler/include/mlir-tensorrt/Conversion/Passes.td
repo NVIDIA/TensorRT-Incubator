@@ -34,7 +34,7 @@ def ConvertStablehloToTensorRTPass : Pass<"convert-stablehlo-to-tensorrt"> {
   }];
   let dependentDialects = [
     "::mlir::tensorrt::TensorRTDialect",
-    "::mlir::quant::QuantizationDialect",
+    "::mlir::quant::QuantDialect",
   ];
   let options = [
     Option<"convertLoops", "convert-loops", "bool", "false",

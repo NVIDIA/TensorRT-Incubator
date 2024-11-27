@@ -251,11 +251,12 @@ func.func @memref_cast(%arg0: !srcType) -> (!dstType, !dstType1, !dstType2) {
 
 // CHECK-LABEL: @memref_cast
 //  CHECK-SAME: (%[[arg0:.+]]: memref<6xf32, strided<[2], offset: 2>>)
-//       CHECK:     %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : memref<6xf32, strided<[2], offset: 2>> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
-//       CHECK:     %[[v1:.+]] = builtin.unrealized_conversion_cast %[[v0]]
-//       CHECK:     %[[v2:.+]] = builtin.unrealized_conversion_cast %[[v0]]
-//       CHECK:     %[[v3:.+]] = builtin.unrealized_conversion_cast %[[v0]]
-//       CHECK:     return %[[v1]], %[[v2]], %[[v3]]
+//   CHECK-DAG:  %[[v0:.+]] = builtin.unrealized_conversion_cast %[[arg0]] : memref<6xf32, strided<[2], offset: 2>> to !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32>
+//   CHECK-DAG:  %[[v1:.+]] = builtin.unrealized_conversion_cast %[[v0]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> to memref<6xf32, strided<[?], offset: ?>>
+//   CHECK-DAG:  %[[v2:.+]] = builtin.unrealized_conversion_cast %[[v0]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> to memref<6xf32, strided<[2], offset: ?>>
+//   CHECK-DAG:  %[[v3:.+]] = builtin.unrealized_conversion_cast %[[v0]] : !executor.table<!executor.ptr<host>, !executor.ptr<host>, i32, i32, i32> to memref<6xf32, strided<[?], offset: 2>>
+//   CHECK-DAG:  return %[[v3]], %[[v2]], %[[v1]] :
+
 
 // -----
 
