@@ -21,7 +21,7 @@ import tripy.frontend.trace.ops.utils as op_utils
 import tripy.frontend.utils as frontend_utils
 from tripy import constraints, export
 from tripy.common import datatype
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import TensorLike
 
@@ -184,8 +184,8 @@ class Comparison(BinaryElementwise):
         CompareOp.build(inputs, outputs, compare_direction=self.kind.compare_direction)
 
 
-@TENSOR_METHOD_REGISTRY("__add__")
-@TENSOR_METHOD_REGISTRY("__radd__")
+@register_tensor_method("__add__")
+@register_tensor_method("__radd__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -217,7 +217,7 @@ def __add__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUM)
 
 
-@TENSOR_METHOD_REGISTRY("__sub__")
+@register_tensor_method("__sub__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -248,7 +248,7 @@ def __sub__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.SUB)
 
 
-@TENSOR_METHOD_REGISTRY("__rsub__")
+@register_tensor_method("__rsub__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -279,7 +279,7 @@ def __rsub__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.SUB)
 
 
-@TENSOR_METHOD_REGISTRY("__pow__")
+@register_tensor_method("__pow__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -310,7 +310,7 @@ def __pow__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.POW)
 
 
-@TENSOR_METHOD_REGISTRY("__rpow__")
+@register_tensor_method("__rpow__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -341,8 +341,8 @@ def __rpow__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.POW)
 
 
-@TENSOR_METHOD_REGISTRY("__mul__")
-@TENSOR_METHOD_REGISTRY("__rmul__")
+@register_tensor_method("__mul__")
+@register_tensor_method("__rmul__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -374,7 +374,7 @@ def __mul__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MUL)
 
 
-@TENSOR_METHOD_REGISTRY("__truediv__")
+@register_tensor_method("__truediv__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -405,7 +405,7 @@ def __truediv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV)
 
 
-@TENSOR_METHOD_REGISTRY("__rtruediv__")
+@register_tensor_method("__rtruediv__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -436,7 +436,7 @@ def __rtruediv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV)
 
 
-@TENSOR_METHOD_REGISTRY("__floordiv__")
+@register_tensor_method("__floordiv__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -472,7 +472,7 @@ def __floordiv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     # return BinaryElementwise.build([self, other], BinaryElementwise.Kind.FLOOR_DIV)
 
 
-@TENSOR_METHOD_REGISTRY("__rfloordiv__")
+@register_tensor_method("__rfloordiv__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -508,7 +508,7 @@ def __rfloordiv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     # return BinaryElementwise.build([other, self], BinaryElementwise.Kind.FLOOR_DIV)
 
 
-@TENSOR_METHOD_REGISTRY("__mod__")
+@register_tensor_method("__mod__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -539,7 +539,7 @@ def __mod__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return BinaryElementwise.build([self, other], BinaryElementwise.Kind.MOD)
 
 
-@TENSOR_METHOD_REGISTRY("__rmod__")
+@register_tensor_method("__rmod__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
@@ -629,7 +629,7 @@ def minimum(lhs: "tripy.Tensor", rhs: "tripy.Tensor") -> "tripy.Tensor":
     return BinaryElementwise.build([lhs, rhs], BinaryElementwise.Kind.MINIMUM)
 
 
-@TENSOR_METHOD_REGISTRY("__lt__")
+@register_tensor_method("__lt__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
@@ -663,7 +663,7 @@ def __lt__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return Comparison.build([self, other], Comparison.Kind.LESS)
 
 
-@TENSOR_METHOD_REGISTRY("__le__")
+@register_tensor_method("__le__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
@@ -697,7 +697,7 @@ def __le__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return Comparison.build([self, other], Comparison.Kind.LESS_EQUAL)
 
 
-@TENSOR_METHOD_REGISTRY("__eq__")
+@register_tensor_method("__eq__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
@@ -731,7 +731,7 @@ def __eq__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return Comparison.build([self, other], Comparison.Kind.EQUAL)
 
 
-@TENSOR_METHOD_REGISTRY("__ne__")
+@register_tensor_method("__ne__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
@@ -765,7 +765,7 @@ def __ne__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return Comparison.build([self, other], Comparison.Kind.NOT_EQUAL)
 
 
-@TENSOR_METHOD_REGISTRY("__ge__")
+@register_tensor_method("__ge__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},
@@ -799,7 +799,7 @@ def __ge__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     return Comparison.build([self, other], Comparison.Kind.GREATER_EQUAL)
 
 
-@TENSOR_METHOD_REGISTRY("__gt__")
+@register_tensor_method("__gt__")
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T2"},

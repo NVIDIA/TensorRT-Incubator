@@ -21,7 +21,8 @@ from tripy.common.exception import raise_error
 _default_stream_instances = {}
 
 
-@export.public_api(document_under="compiling_code")
+# Stream.synchronize is important for performance, so we would prefer to avoid overhead.
+@export.public_api(document_under="compiling_code", bypass_dispatch=["synchronize"])
 class Stream:
     """
     Represents a CUDA stream that can be used to manage concurrent operations.
@@ -102,7 +103,7 @@ class Stream:
         """
         self._active_cuda_stream.sync()
 
-    def __eq__(self, other):
+    def __eq__(self, other: "tripy.Stream"):
         if not isinstance(other, Stream):
             return False
         return self._active_cuda_stream == other._active_cuda_stream

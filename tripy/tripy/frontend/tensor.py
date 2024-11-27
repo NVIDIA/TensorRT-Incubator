@@ -43,8 +43,8 @@ class TensorMeta(type):
         # we run the risk of overwriting overridden methods.
         if name == "Tensor":
             # Add methods specified by individual ops to this class.
-            for method_name in TENSOR_METHOD_REGISTRY:
-                setattr(new, method_name, TENSOR_METHOD_REGISTRY[method_name])
+            for method_name, method_impl in TENSOR_METHOD_REGISTRY.items():
+                setattr(new, method_name, method_impl)
 
         return new
 
@@ -98,7 +98,35 @@ class Tensor(metaclass=TensorMeta):
 
             tensor = tp.Tensor([1.0, 2.0, 3.0], dtype=tp.float32)
         """
+        # We use None internally but users should not be permitted to do it
+        assert data is not None, "Data argument to Tensor must not be None"
+        Tensor.raw_init(self, data, dtype, device, name, fetch_stack_info)
 
+    # Left undocumented because this should only be used internally.
+    # Produces a new instance of a Tensor but avoids calling into the function registry, unlike the normal constructor.
+    @staticmethod
+    def create_directly(
+        data: Any,
+        dtype: Optional["tripy.dtype"] = None,
+        device: Optional["tripy.device"] = None,
+        name: Optional[str] = None,
+        fetch_stack_info: bool = True,
+    ):
+        instance = Tensor.__new__(Tensor)
+        Tensor.raw_init(instance, data, dtype, device, name, fetch_stack_info)
+        return instance
+
+    # No docstring because this should be used only internally. Handles the logic for initializing a new instance.
+    # We separate this from __init__ because __init__ calls into the registry and rejects None values, which we use internally.
+    @staticmethod
+    def raw_init(
+        instance: Any,
+        data: Any,
+        dtype: Optional["tripy.dtype"] = None,
+        device: Optional["tripy.device"] = None,
+        name: Optional[str] = None,
+        fetch_stack_info: bool = True,
+    ):
         stack_info = StackInfo([])
         if fetch_stack_info:
             # We include code for everything above the `BaseTraceOp.build` function, which is called at most
@@ -108,7 +136,7 @@ class Tensor(metaclass=TensorMeta):
 
         name = name if name is not None else Tensor._get_unique_name()
 
-        self.trace_tensor = TraceTensor(name, stack_info, dtype=None, device=device, producer=None, shape=None)
+        instance.trace_tensor = TraceTensor(name, stack_info, dtype=None, device=device, producer=None, shape=None)
 
         # Note: It is important that we are able to call the Tensor constructor with no arguments
         # since this is used internally.
@@ -118,18 +146,18 @@ class Tensor(metaclass=TensorMeta):
         if hasattr(data, "__dlpack__"):
             if not isinstance(data, runtime.MemRefValue):
                 data = memref.create_memref_view(data)
-            Storage.build_internal([], [self.trace_tensor], data)
+            Storage.build_internal([], [instance.trace_tensor], data)
         else:
-            Storage.build_internal([], [self.trace_tensor], data, dtype, device)
+            Storage.build_internal([], [instance.trace_tensor], data, dtype, device)
         # TODO(#155): Remove this hack:
-        self.trace_tensor.device = utils.default(device, self.trace_tensor.device)
+        instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
 
         # Explicit cast if necessary
         # TODO(#155): Add copy as well when host allocation is fixed
-        if dtype is not None and dtype != self.trace_tensor.dtype:
+        if dtype is not None and dtype != instance.trace_tensor.dtype:
             from tripy.frontend.trace.ops.cast import cast
 
-            self.trace_tensor = cast(self, dtype=dtype).trace_tensor
+            instance.trace_tensor = cast(instance, dtype=dtype).trace_tensor
 
     def __getattr__(self, name: str):
         import tripy as tp
