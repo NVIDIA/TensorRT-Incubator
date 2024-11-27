@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732670938458,
+  "lastUpdate": 1732671326616,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -6305,6 +6305,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0017789780834857544",
             "extra": "mean: 163.28082368854993 usec\nrounds: 7567"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "2386beaf1fa7c2a257560d76a637d9b28b648efa",
+          "message": "Revert \"[Tripy] Add tripy for setup tools to pass L1 test (#413)\"",
+          "timestamp": "2024-11-27T00:20:35Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/415/commits/2386beaf1fa7c2a257560d76a637d9b28b648efa"
+        },
+        "date": 1732671325794,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6140.721356876769,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003210359517190384",
+            "extra": "mean: 162.84731742145186 usec\nrounds: 6507"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6854.140628997753,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007678444559287144",
+            "extra": "mean: 145.8972107705682 usec\nrounds: 7525"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 7029.863983935583,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000020644051423066266",
+            "extra": "mean: 142.25026291905044 usec\nrounds: 7495"
           }
         ]
       }
