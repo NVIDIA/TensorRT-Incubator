@@ -76,12 +76,12 @@ class TestSequential:
         assert list(state_dict.keys()) == expected_state_dict_keys
 
     def test_load_state_dict(self, sequential_network):
-        new_state_dict = {"0.weight": tp.Parameter(tp.ones((3, 1)))}
+        new_state_dict = {"0.weight": tp.ones((3, 1))}
         sequential_network.load_state_dict(new_state_dict, strict=False)
         assert tp.equal(sequential_network[0].weight, new_state_dict["0.weight"])
 
     def test_modify_parameters(self, sequential_network):
-        new_param = tp.Parameter(tp.ones((2, 3)))
+        new_param = tp.ones((2, 3))
         sequential_network[1].weight = new_param
         assert sequential_network[1].weight is new_param
 
@@ -129,12 +129,12 @@ class TestDictSequential:
         assert list(state_dict.keys()) == expected_keys
 
     def test_load_state_dict(self, dict_sequential_network):
-        new_state_dict = {"layer1.weight": tp.Parameter(tp.ones((3, 1)))}
+        new_state_dict = {"layer1.weight": tp.ones((3, 1))}
         dict_sequential_network.load_state_dict(new_state_dict, strict=False)
         assert tp.equal(dict_sequential_network["layer1"].weight, new_state_dict["layer1.weight"])
 
     def test_modify_parameters(self, dict_sequential_network):
-        new_weight = tp.Parameter(tp.ones((2, 3)))
+        new_weight = tp.ones((2, 3))
         dict_sequential_network["layer2"].weight = new_weight
         assert dict_sequential_network["layer2"].weight is new_weight
 
@@ -180,10 +180,10 @@ class TestMixedContainerSequential:
 
     def test_load_state_dict(self, mixed_container_sequential_network):
         new_state_dict = {
-            "0.weight": tp.Parameter(tp.ones((2, 2, 1, 1), dtype=tp.float32)),
-            "0.bias": tp.Parameter(tp.zeros((2,), dtype=tp.float32)),
-            "3.weight": tp.Parameter(tp.zeros((1, 2), dtype=tp.float32)),
-            "3.bias": tp.Parameter(tp.zeros((1,), dtype=tp.float32)),
+            "0.weight": tp.ones((2, 2, 1, 1), dtype=tp.float32),
+            "0.bias": tp.zeros((2,), dtype=tp.float32),
+            "3.weight": tp.zeros((1, 2), dtype=tp.float32),
+            "3.bias": tp.zeros((1,), dtype=tp.float32),
         }
         mixed_container_sequential_network.load_state_dict(new_state_dict, strict=False)
 
@@ -240,7 +240,7 @@ class TestNestedSequential:
     def test_load_state_dict_nested(self, nested_sequential_network):
         # Loading state dict with parameters for both top-level and nested modules
         new_state_dict = {
-            "1.1.weight": tp.Parameter(tp.ones((1, 3))),
+            "1.1.weight": tp.ones((1, 3)),
         }
         nested_sequential_network.load_state_dict(new_state_dict, strict=False)
         assert tp.equal(nested_sequential_network[1][1].weight, new_state_dict["1.1.weight"])

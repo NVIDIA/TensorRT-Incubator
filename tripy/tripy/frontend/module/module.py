@@ -17,21 +17,47 @@
 
 import copy
 import operator
-from typing import Any, Dict, Iterator, List, Set, Tuple, TypeVar, Union
+from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 
-from tripy import export
+from tripy import export, utils
 from tripy.common.exception import raise_error
-from tripy.frontend.module.parameter import Parameter
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
+from tripy.function_registry import type_str_from_arg
 from tripy.logging import logger
-
-T = TypeVar("T")
 
 
 def _check_param_compatible(original_param, new_param, param_name):
-    if not isinstance(original_param, Parameter):
+    # We want to check the incoming parameter type even when the original parameter is not a tensor.
+    if not isinstance(new_param, Tensor):
+        raise_error(
+            "Unrecognized type for module parameter.",
+            f"Expected a tensor for parameter: '{param_name}', but got: {type_str_from_arg(new_param)}",
+        )
+
+    if not isinstance(original_param, Tensor):
+        # Allow values to be initialized to non-tensor types and changed later.
+        # Note that this is required for the constructor to work since `original_param` will not be set.
         return
 
-    is_compatible = original_param._is_compatible(new_param)
+    is_compatible = utils.Result.ok()
+
+    skip_shape_comparison = isinstance(original_param, DefaultParameter) and not original_param.is_shape_known
+    if not skip_shape_comparison:
+        original_shape = original_param.shape
+        new_shape = new_param.shape
+        if original_shape != new_shape:
+            is_compatible = utils.Result.err(
+                ["New parameter shape: ", new_shape, " is not compatible with current shape: ", original_shape]
+            )
+
+    original_dtype = original_param.dtype
+    new_dtype = new_param.dtype
+    if original_dtype != new_dtype:
+        is_compatible = utils.Result.err(
+            ["New parameter dtype: ", new_dtype, " is not compatible with current dtype: ", original_dtype]
+        )
+
     if not is_compatible:
         raise_error(
             f"For parameter: {param_name}, new parameter is not compatible with the existing parameter.",
@@ -45,7 +71,7 @@ class Module:
     Base class used to define neural network modules.
     You can nest modules by assigning them as attributes of other modules.
 
-    Child modules, :class:`tripy.Parameter` s, or other callables/lambda functions may be contained
+    Child modules, :class:`tripy.Tensor` s, or other callables/lambda functions may be contained
     in Python ``list``\ s or ``dict``\ s.
 
     If using ``dict``\ s, the keys must be strings.
@@ -83,7 +109,7 @@ class Module:
         class AddBias(tp.Module):
             def __init__(self):
                 super().__init__()
-                self.bias = tp.Parameter(tp.Tensor([1.0, 1.0], dtype=tp.float32))
+                self.bias = tp.Tensor([1.0, 1.0], dtype=tp.float32)
 
             def __call__(self, x):
                 return x + self.bias
@@ -97,17 +123,12 @@ class Module:
     """
 
     def __setattr__(self, name: str, value: Any) -> None:
-        if isinstance(value, Parameter) or name in dict(self.named_parameters()):
-            if not isinstance(value, Parameter):
-                value = Parameter(value)
+        if isinstance(value, Tensor):
             _check_param_compatible(getattr(self, name, None), value, name)
 
         super().__setattr__(name, value)
-        # avoid infinite recursion during initialization
-        if value is None:
-            return
 
-    def state_dict(self) -> Dict[str, Parameter]:
+    def state_dict(self) -> Dict[str, Tensor]:
         r"""
         Returns a dictionary mapping names to parameters in the module.
         This will recurse over any nested child modules.
@@ -124,7 +145,7 @@ class Module:
             class MyModule(tp.Module):
                 def __init__(self):
                     super().__init__()
-                    self.param = tp.Parameter(tp.ones((2,), dtype=tp.float32))
+                    self.param = tp.ones((2,), dtype=tp.float32)
                     self.linear1 = tp.Linear(2, 2)
                     self.linear2 = tp.Linear(2, 2)
 
@@ -145,7 +166,7 @@ class Module:
 
         return state_dict
 
-    def load_state_dict(self, state_dict: Dict[str, Parameter], strict: bool = True) -> Tuple[Set[str], Set[str]]:
+    def load_state_dict(self, state_dict: Dict[str, Tensor], strict: bool = True) -> Tuple[Set[str], Set[str]]:
         r"""
         Loads parameters from the provided ``state_dict`` into the current module.
         This will recurse over any nested child modules.
@@ -169,7 +190,7 @@ class Module:
             class MyModule(tp.Module): # doc: omit
                 def __init__(self): # doc: omit
                     super().__init__() # doc: omit
-                    self.param = tp.Parameter(tp.ones((2,), dtype=tp.float32)) # doc: omit
+                    self.param = tp.ones((2,), dtype=tp.float32) # doc: omit
                     self.linear1 = tp.Linear(2, 2) # doc: omit
                     self.linear2 = tp.Linear(2, 2) # doc: omit
             module = MyModule() # doc: omit
@@ -178,7 +199,7 @@ class Module:
             # Using the `module` and `state_dict` from the `state_dict()` example:
             print(f"Before: {module.param}")
 
-            state_dict["param"] = tp.Parameter(tp.zeros((2,), dtype=tp.float32))
+            state_dict["param"] = tp.zeros((2,), dtype=tp.float32)
             module.load_state_dict(state_dict)
 
             print(f"After: {module.param}")
@@ -229,9 +250,6 @@ class Module:
                     # find module starting from the beginning
                     module = find_module(module, submodule_name.split("."))
 
-            if not isinstance(param, Parameter):
-                param = Parameter(param)
-
             if isinstance(module, Module):
                 _check_param_compatible(getattr(module, param_name), param, nested_attr_name)
                 setattr(module, param_name, param)
@@ -272,7 +290,7 @@ class Module:
         """
         yield from self._iterate_members_of_type(Module)
 
-    def named_parameters(self) -> Iterator[Tuple[str, Parameter]]:
+    def named_parameters(self) -> Iterator[Tuple[str, Tensor]]:
         r"""
         Returns:
             An iterator over tuples containing the name of a parameter and the parameter itself.
@@ -286,8 +304,8 @@ class Module:
             class Linear(tp.Module):
                 def __init__(self):
                     super().__init__()
-                    self.alpha = tp.Parameter(1)
-                    self.beta = tp.Parameter(2)
+                    self.alpha = tp.Tensor(1)
+                    self.beta = tp.Tensor(2)
 
             linear = Linear()
 
@@ -296,9 +314,9 @@ class Module:
 
             assert [name for name, _ in linear.named_parameters()] == ["alpha", "beta"]
         """
-        yield from self._iterate_members_of_type(Parameter)
+        yield from self._iterate_members_of_type(Tensor)
 
-    def _iterate_members_of_type(self, typ: T) -> Iterator[Tuple[str, T]]:
+    def _iterate_members_of_type(self, typ: type) -> Iterator[Tuple[str, Any]]:
         for name, value in vars(self).items():
             if isinstance(value, typ):
                 yield name, value
