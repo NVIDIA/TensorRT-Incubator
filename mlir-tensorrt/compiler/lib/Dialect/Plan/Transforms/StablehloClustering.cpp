@@ -91,7 +91,7 @@ applyClusteringToFunc(RewriterBase &rewriter, func::FuncOp func,
                       const StablehloClusteringPassOptions &opts) {
   ClusteringPatternSet<ClusteringRewriter> patterns;
   for (const auto &[idx, target] : llvm::enumerate(clusters)) {
-    if (target.getClusterKindName() == "tensorrt") {
+    if (isa<TensorRTClusterKindAttr>(target)) {
       patterns.add(target.getClusterKindOptions(solver, opts.trtMajorVersion),
                    createInlineGroupOp, isOpInClusterRegion,
                    target.getClusterFilter(),
