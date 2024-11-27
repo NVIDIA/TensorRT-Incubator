@@ -272,18 +272,19 @@ def slice_helper(tensor, *slice_params: TensorLike):
     assert slice_params
 
     for idx, source_info in enumerate(slice_params[0].stack_info):
-        if source_info._dispatch_target == "__getitem__":
+        if source_info._dispatch_target == "Tensor.__getitem__":
             frame_index = idx + 1
             break
 
     # convert_to_tensors should have taken care of this for us
-    assert frame_index >= 0, "No call to the __getitem__ dispatch found"
+    assert frame_index >= 0, "No call to the Tensor.__getitem__ dispatch found"
 
     arg_names = ["tensor"] + ["slice_params"] * len(slice_params)
     for arg_index, arg in enumerate(slice_params):
         source_info = arg.stack_info[frame_index]
 
         # Note: arg_index does not account for the positional arg, hence we add 1 for the index argument
+        # Also, strip the "Tensor" prefix from the dispatch target.
         candidates = get_arg_candidate_column_offsets(
             source_info.code, 1 + arg_index, 1, "__getitem__", False, arg_names
         )
