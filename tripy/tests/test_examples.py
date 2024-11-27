@@ -80,7 +80,10 @@ class Example:
         return os.path.relpath(self.path, EXAMPLES_ROOT)
 
 
-EXAMPLES = [Example(["nanogpt"]), Example(["segment-anything-model-v2"])]
+EXAMPLES = [
+    Example(["nanogpt"]),
+    Example(["segment-anything-model-v2"], artifact_names=["truck.jpg", "saved_engines/", "output/", "checkpoints/"]),
+]
 
 
 @pytest.mark.l1

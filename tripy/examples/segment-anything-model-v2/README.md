@@ -12,6 +12,7 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 
     ```bash
     sudo apt-get update && sudo apt-get install ffmpeg libsm6 libxext6  -y
+    wget -O truck.jpg https://raw.githubusercontent.com/facebookresearch/sam2/main/notebooks/images/truck.jpg
     mkdir checkpoints && cd checkpoints && wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt
     python3 -m pip install -r requirements.txt
     ```
