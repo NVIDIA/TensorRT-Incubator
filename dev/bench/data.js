@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1732730882895,
+  "lastUpdate": 1732741534351,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -6510,6 +6510,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000021850626854627138",
             "extra": "mean: 142.6291699587419 usec\nrounds: 7656"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "79e1f01dcfed5f45bcb3b9801fdbfa70277b9bc4",
+          "message": "SAM2: image pipeline",
+          "timestamp": "2024-11-27T20:27:41Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/358/commits/79e1f01dcfed5f45bcb3b9801fdbfa70277b9bc4"
+        },
+        "date": 1732741533525,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6179.1204951422,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003185807284425833",
+            "extra": "mean: 161.83532928127292 usec\nrounds: 6545"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6907.361264136902,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007135536623438171",
+            "extra": "mean: 144.77308508417119 usec\nrounds: 7498"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 21965.108057397727,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002180214644657418",
+            "extra": "mean: 45.526750762476006 usec\nrounds: 22695"
           }
         ]
       }
