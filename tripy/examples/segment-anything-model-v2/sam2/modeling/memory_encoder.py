@@ -74,12 +74,8 @@ class MaskDownSampler(tp.Module):
         self.encoder.append(tp.Conv(mask_out_chans, embed_dim, kernel_dims=(1, 1), dtype=self.dtype))
 
     def __call__(self, x):
-        return self.forward(x)
-
-    def forward(self, x):
         for l in self.encoder:
             x = l(x)
-
         return x
 
 
@@ -117,9 +113,6 @@ class CXBlock(tp.Module):
         self.drop_path = Dummy()
 
     def __call__(self, x):
-        return self.forward(x)
-
-    def forward(self, x):
         input = x
         x = self.dwconv(x)
         x = self.norm(x)
@@ -146,9 +139,6 @@ class Fuser(tp.Module):
             self.proj = tp.Conv(dim, dim, kernel_dims=(1, 1), dtype=self.dtype)
 
     def __call__(self, x):
-        return self.forward(x)
-
-    def forward(self, x):
         x = self.proj(x)
         for layer in self.layers:
             x = layer(x)
@@ -171,14 +161,6 @@ class MemoryEncoder(tp.Module):
             self.out_proj = tp.Conv(in_dim, out_dim, kernel_dims=(1, 1), dtype=self.dtype)
 
     def __call__(
-        self,
-        pix_feat: tp.Tensor,
-        masks: tp.Tensor,
-        skip_mask_sigmoid: bool = False,
-    ):
-        return self.forward(pix_feat, masks, skip_mask_sigmoid)
-
-    def forward(
         self,
         pix_feat: tp.Tensor,
         masks: tp.Tensor,

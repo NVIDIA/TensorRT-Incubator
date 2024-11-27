@@ -87,18 +87,12 @@ EXAMPLES = [Example(["nanogpt"]), Example(["segment-anything-model-v2"])]
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
 def test_examples(example, sandboxed_install_run):
 
-    def test_with_tolerance(number, value, tolerance):
-        tolerance = float(tolerance) / 100
-        lower = float(number) * (1 - tolerance)
-        upper = float(number) * (1 + tolerance)
-        try:
-            return lower <= float(value) <= upper
-        except ValueError:
-            return False
+    def test_with_tolerance(expected, actual, tolerance):
+        return (abs(float(actual) - float(expected)) / float(expected)) * 100 <= float(tolerance)
 
     def process_tolerances(expected_output):
         specs = []
-        placeholder_regex = r"{(\d+\.?\d*)±(\d+)%}"
+        placeholder_regex = r"{(\d+\.?\d*)~(\d+)%}"
         pattern = expected_output
 
         # Replace tolerance patterns with more flexible capture group

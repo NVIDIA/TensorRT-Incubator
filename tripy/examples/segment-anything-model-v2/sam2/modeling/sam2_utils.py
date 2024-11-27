@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import copy
-from typing import Optional
+from typing import Optional, Callable
 
 import torch
 import torch.nn as nn
@@ -150,7 +150,7 @@ class MLP(tp.Module):
         hidden_dim: int,
         output_dim: int,
         num_layers: int,
-        activation: tp.Module = tp.relu,
+        activation: Callable[[tp.Tensor], tp.Tensor] = tp.relu,
         sigmoid_output: bool = False,
         dtype=tp.float32,
     ) -> None:
