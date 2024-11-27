@@ -155,7 +155,10 @@ def test_tripy_param_update(benchmark):
     m = tp.Module()
     m.param = tp.Parameter([1, 2, 3, 4])
 
+    # Leave the instantiation outside of the measured section to avoid overhead from registry calls.
+    new_param = tp.Parameter([5, 6, 7, 8])
+
     def measure_thunk():
-        m.param = tp.Parameter([5, 6, 7, 8])
+        m.param = new_param
 
     benchmark(measure_thunk)

@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-executor/Transforms/Clustering/Clustering.h"
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
+#include "mlir-tensorrt-dialect/Utils/TensorRTVersion.h"
 #include "mlir-tensorrt/Conversion/StablehloScalarToArith/StablehloScalarToArith.h"
 #include "mlir-tensorrt/Conversion/StablehloToTensorRT/StablehloToTensorRT.h"
 #include "mlir-tensorrt/Conversion/TensorRTCommon/ConvertToTensorRTCommon.h"
@@ -55,8 +56,9 @@ int64_t HostClusterKindAttr::getClusterBenefit() const { return getBenefit(); }
 
 /// ClusteringOpts that identifies groups of `stablehlo` ops that can be
 /// converted to scalars and will be clustered into scalar cluster.
-ClusteringOpts HostClusterKindAttr::getClusterKindOptions(
-    DataFlowSolver &solver, std::optional<int64_t> trtMajorVersion) const {
+FailureOr<ClusteringOpts>
+HostClusterKindAttr::getClusterKindOptions(Operation *op,
+                                           DataFlowSolver &solver) const {
   ClusteringOpts opts;
   opts.mergeIndependentClusters = [](Operation *, ClusterRange, Operation *,
                                      ClusterRange) { return true; };
@@ -67,10 +69,6 @@ ClusteringOpts HostClusterKindAttr::getClusterKindOptions(
     return plan::detail::shouldRunOnHost(op, solver);
   };
   return opts;
-}
-
-std::unique_ptr<Pass> HostClusterKindAttr::getClusterKindPass() const {
-  return nullptr;
 }
 
 /// Determines whether a cluster being outlined should clone a constant or
@@ -185,11 +183,18 @@ static ShapeInfoCallbacks getShapeInfoCallbacks() {
   return shapeInfoCallbacks;
 }
 
+/// Return true if the op is an input dialect operation.
+static bool isStableHloOrChloOp(Operation *op) {
+  return llvm::isa_and_present<stablehlo::StablehloDialect, chlo::ChloDialect,
+                               tensorrt::TensorRTDialect>(op->getDialect());
+}
+
 /// ClusteringOpts that identifies groups of TensorRT operations and will be
 /// clustered into one TensorRT function (which is eventually translated to a
 /// engine).
-ClusteringOpts TensorRTClusterKindAttr::getClusterKindOptions(
-    DataFlowSolver &solver, std::optional<int64_t> trtMajorVersion) const {
+FailureOr<ClusteringOpts>
+TensorRTClusterKindAttr::getClusterKindOptions(Operation *op,
+                                               DataFlowSolver &solver) const {
   // Any properties used in the returned lambdas must be copied by value,
   // otherwise it will not work correctly.
   bool disallowShapeTensorCalculations = getDisallowShapeTensorCalculations();
@@ -198,10 +203,32 @@ ClusteringOpts TensorRTClusterKindAttr::getClusterKindOptions(
   opts.mergeIndependentClusters = [](Operation *, ClusterRange, Operation *,
                                      ClusterRange) { return true; };
   opts.clusterTarget = *this;
+
+  std::optional<int64_t> tensorrtMajorVersion = getTensorrtMajorVersion();
+  if (!tensorrtMajorVersion)
+    tensorrtMajorVersion = NV_TENSORRT_MAJOR;
+
+  MLIRContext *ctx = op->getContext();
+  RewritePatternSet patterns(ctx);
+  LowerToTensorRTOptions loweringOptions;
+  loweringOptions.setTensorRTVersion(*tensorrtMajorVersion);
+  TensorRTTypeConverter typeConverter(ctx, loweringOptions);
+  TensorRTConversionTarget target(*ctx, typeConverter);
+  populateStablehloToTensorRtConversionPattern(typeConverter, patterns,
+                                               getShapeInfoCallbacks());
+  populateChloToTensorRtLegalityAndPatterns(typeConverter, target, patterns);
+
+  // Analyze the convertible operations.
+  ConversionConfig conversionConfig;
+  DenseSet<Operation *> legalizedOps;
+  conversionConfig.legalizableOps = &legalizedOps;
+  if (failed(applyAnalysisConversion(op, target, std::move(patterns),
+                                     conversionConfig)))
+    return emitError(op->getLoc())
+           << "failed to apply TensorRT conversion analysis";
+
   opts.isClusterableOp = [solver = &solver, disallowShapeTensorCalculations,
-                          trtMajorVersion](Operation *op) {
-    if (!trtMajorVersion.has_value())
-      return false;
+                          legalizedOps](Operation *op) {
     if (op->hasTrait<OpTrait::ConstantLike>())
       return false;
     if (llvm::isa<plan::WithShapeOp>(op))
@@ -210,40 +237,25 @@ ClusteringOpts TensorRTClusterKindAttr::getClusterKindOptions(
       return !disallowShapeTensorCalculations;
     if (llvm::isa<tensorrt::TensorRTOpInterface>(op))
       return true;
-    if (!llvm::isa<stablehlo::StablehloDialect, chlo::ChloDialect>(
-            op->getDialect()))
+    if (!isStableHloOrChloOp(op))
       return false;
-    MLIRContext *ctx = op->getContext();
-    RewritePatternSet patterns(ctx);
-    LowerToTensorRTOptions loweringOptions;
-    loweringOptions.setTensorRTVersion(*trtMajorVersion);
-    TensorRTTypeConverter typeConverter(ctx, loweringOptions);
-    TensorRTConversionTarget target(*ctx, typeConverter);
-    populateStablehloToTensorRtConversionPattern(typeConverter, patterns,
-                                                 getShapeInfoCallbacks());
-    populateChloToTensorRtLegalityAndPatterns(typeConverter, target, patterns);
-
-    // Analyze the convertible operations.
-    ConversionConfig conversionConfig;
-    DenseSet<Operation *> legalizedOps;
-    conversionConfig.legalizableOps = &legalizedOps;
-    if (failed(applyAnalysisConversion(op, target, std::move(patterns),
-                                       conversionConfig)))
-      emitError(op->getLoc()) << "failed to apply TensorRT conversion analysis";
-
     if (!legalizedOps.contains(op))
       return false;
-
+    // Don't cluster operations inside of stablehlo ops with regions.
+    // For example, if we set `disallowShapeTensorCalculations`, then
+    // a parent `stablehlo.reduce` might not be clustered even though it was
+    // converted. The operations inside the `stablehlo.reduce` are considered
+    // legalized since the parent was legalized, but we don't want to cluster
+    // them since they weren't directly replaced.
+    Operation *parent = op->getParentOp();
+    if (parent && isStableHloOrChloOp(parent) && legalizedOps.contains(parent))
+      return false;
     if (!disallowShapeTensorCalculations)
       return true;
-
     return !plan::detail::shouldRunOnHost(op, *solver);
   };
-  return opts;
-}
 
-std::unique_ptr<Pass> TensorRTClusterKindAttr::getClusterKindPass() const {
-  return nullptr;
+  return opts;
 }
 
 int64_t TensorRTClusterKindAttr::getClusterBenefit() const {

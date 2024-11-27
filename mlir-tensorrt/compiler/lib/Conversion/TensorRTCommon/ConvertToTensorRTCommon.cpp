@@ -72,20 +72,18 @@ TensorRTTypeConverter::TensorRTTypeConverter(
   // Add generic source and target materializations to handle cases where
   // non-TensorRT-valid types persist afterconversion.
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               ValueRange inputs, Location loc) -> Value {
     // TODO: revise this for complex number support.
     if (inputs.size() != 1)
-      return std::nullopt;
+      return Value();
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               ValueRange inputs, Location loc) -> Value {
     // TODO: revise this for complex number support.
     if (inputs.size() != 1)
-      return std::nullopt;
+      return Value();
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });

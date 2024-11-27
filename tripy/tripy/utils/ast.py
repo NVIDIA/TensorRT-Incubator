@@ -45,7 +45,11 @@ def get_callee_func_name_candidates(callee: SourceInfo) -> Set[str]:
     # We don't actually care about the dispatch function, so we look at the `key`
     # to determine which underlying method we're actually calling.
     if callee._dispatch_target:
-        candidates = {callee._dispatch_target}
+        dispatch_target = callee._dispatch_target
+        # The function registry may have prepended a class name. If so, strip it out.
+        if "." in dispatch_target:
+            dispatch_target = dispatch_target.split(".")[-1]
+        candidates = {dispatch_target}
     else:
         candidates = {callee.function}
 

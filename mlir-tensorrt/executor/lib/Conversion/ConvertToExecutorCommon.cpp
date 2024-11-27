@@ -180,8 +180,7 @@ ExecutorTypeConverter::ExecutorTypeConverter(
   });
 
   addArgumentMaterialization([&](OpBuilder &b, MemRefType memrefType,
-                                 ValueRange components,
-                                 Location loc) -> std::optional<Value> {
+                                 ValueRange components, Location loc) -> Value {
     ImplicitLocOpBuilder builder(loc, b);
     if (options.memrefArgPassingConvention ==
         MemRefArgPassingConvention::Packed) {
@@ -201,14 +200,12 @@ ExecutorTypeConverter::ExecutorTypeConverter(
   });
 
   addSourceMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               ValueRange inputs, Location loc) -> Value {
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });
   addTargetMaterialization([&](OpBuilder &builder, Type resultType,
-                               ValueRange inputs,
-                               Location loc) -> std::optional<Value> {
+                               ValueRange inputs, Location loc) -> Value {
     return builder.create<UnrealizedConversionCastOp>(loc, resultType, inputs)
         .getResult(0);
   });

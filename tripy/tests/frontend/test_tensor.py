@@ -124,7 +124,7 @@ class TestTensor:
             file=inspect.getsourcefile(tp.Tensor),
             # We don't check line number within tp.Tensor because it's difficult to determine.
             line=a.stack_info[0].line,
-            function=tp.Tensor.__init__.__name__,
+            function=tp.Tensor.raw_init.__name__,
             code=None,
             _dispatch_target="",
             column_range=None,

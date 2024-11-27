@@ -124,12 +124,13 @@ if(PROJECT_IS_TOP_LEVEL)
   elseif(MLIR_TRT_LLVM_COMMIT)
     mtrt_llvm_project(
       NAME llvm_project
-      VERSION 0.0.20240812
+      VERSION 0.0.20241126
       URL "https://github.com/llvm/llvm-project/archive/${MLIR_TRT_LLVM_COMMIT}.zip"
       EXCLUDE_FROM_ALL TRUE
       SOURCE_SUBDIR "llvm"
-      PATCHES "${CMAKE_SOURCE_DIR}/build_tools/llvm-project.patch"
-
+      PATCHES
+        "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir/000_fix_bufferization_tensor_encoding_memory_spaces.patch"
+        "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/mlir/001-mlir-Add-a-null-pointer-check-in-symbol-lookup-11516.patch"
       OPTIONS
         "LLVM_ENABLE_PROJECTS mlir"
         "MLIR_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
@@ -180,12 +181,11 @@ include(HandleLLVMOptions)
 # Download Stablehlo if it isn't provided by a parent project.
 if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
   mtrt_add_stablehlo(
-    VERSION 1.6.4
-    GIT_TAG 1456dfa1e1a83aab0cc717714ba3695886f60302
+    VERSION 1.8.0
+    GIT_TAG 6e403b1aa6a71f5eaa09cc720e4ad42f692745e6
     GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
-    PATCHES 
-      "${MLIR_TENSORRT_ROOT_DIR}/build_tools/stablehlo.patch"
-      "${MLIR_TENSORRT_ROOT_DIR}/build_tools/stablehlo_aggressive_folder.patch"
+    PATCHES
+      "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/stablehlo/0001-transforms-Fix-simplification-patterns-for-stablehlo.patch"
     OPTIONS
       "STABLEHLO_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
       "STABLEHLO_BUILD_EMBEDDED ON"
