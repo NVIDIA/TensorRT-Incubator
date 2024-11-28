@@ -463,8 +463,7 @@ def process_code_block_for_outputs_and_locals(
         stripped_code_lines = indent(
             black.format_file_contents(
                 dedent("\n".join(stripped_code_lines)), fast=False, mode=black.Mode(line_length=MAX_LINE_LENGTH)
-            )
-            + "\n",
+            ),
             prefix=" " * indentation,
         ).splitlines()
     except black.NothingChanged:
