@@ -292,7 +292,8 @@ def process_docstring_impl(app, what, name, obj, options, lines):
             strip_assertions=True,
         )
 
-        code_block_lines += local_var_lines + output_lines
+        # Sphinx requires a new line after markup
+        code_block_lines += ["\n"] + local_var_lines + output_lines
 
         # Grab the caption from the example code block.
         for line in code_block_lines:
