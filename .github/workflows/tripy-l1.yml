@@ -36,3 +36,12 @@ jobs:
       run: |
         cd /tripy/
         pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "l1 and not manual" -n 4 --durations=15 --ignore tests/performance
+    
+    - name: notebook-test
+      run: |
+        cd /tripy/
+        unset PYTHONPATH
+        pip uninstall tripy -y
+        pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
+        pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
+        pytest --nb-test-files notebooks/
