@@ -80,7 +80,7 @@ class Example:
         return os.path.relpath(self.path, EXAMPLES_ROOT)
 
 
-EXAMPLES = [Example(["nanogpt"])]
+EXAMPLES = [Example(["nanogpt"]), Example(["diffusion"])]
 
 
 @pytest.mark.l1
