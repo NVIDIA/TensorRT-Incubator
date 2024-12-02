@@ -152,7 +152,6 @@ public:
 StableHLOToExecutableOptions::StableHLOToExecutableOptions(
     TaskExtensionRegistry extensions)
     : extensions(std::move(extensions)) {
-  debugOptions.addToOptions(*this);
 
   // Link in options for all extensions.
   for (auto &[id, ext] : this->extensions)
@@ -308,7 +307,7 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
 
 void StableHloToExecutableTask::populatePassManager(
     mlir::PassManager &pm, const StableHLOToExecutableOptions &options) {
-  if (failed(setupPassManager(pm, options.debugOptions))) {
+  if (failed(setupPassManager(pm, options.get<DebugOptions>()))) {
     /// TODO: Ignored. This can fail if pass manager static CL options were not
     /// registered/initialized. This happens through invocation of e.g. this
     /// function in e.g. Python bindings or standalone calls to C++ or C API
@@ -367,9 +366,9 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   //===----------------------------------------------------------------------===//
   // Set debug options.
   //===----------------------------------------------------------------------===//
-  if (options.debugOptions.enableLLVMDebugFlag) {
+  if (options.get<DebugOptions>().enableLLVMDebugFlag) {
     SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
+        llvm::map_to_vector(options.get<DebugOptions>().llvmDebugTypes,
                             [](const std::string &x) { return x.c_str(); });
     llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
                                debugTypeLiterals.size());
@@ -382,7 +381,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   //===----------------------------------------------------------------------===//
 
   StableHloToExecutableTask runner(module->getContext(), options);
-  if (failed(setupPassManager(runner, options.debugOptions))) {
+  if (failed(setupPassManager(runner, options.get<DebugOptions>()))) {
     /// TODO: Ignored. This can fail if pass manager static CL options were not
     /// registered/initialized. This happens through invocation of e.g. this
     /// function in e.g. Python bindings or standalone calls to C++ or C API
@@ -408,7 +407,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
 
 #ifndef NDEBUG
   // Turn debugging back off if we turned it on.
-  if (options.debugOptions.enableLLVMDebugFlag)
+  if (options.get<DebugOptions>().enableLLVMDebugFlag)
     llvm::DebugFlag = false;
 #endif
 
@@ -432,9 +431,9 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   maybePopulateDefaultClusterKinds(module, options);
 
 #ifndef NDEBUG
-  if (options.debugOptions.enableLLVMDebugFlag) {
+  if (options.get<DebugOptions>().enableLLVMDebugFlag) {
     SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
+        llvm::map_to_vector(options.get<DebugOptions>().llvmDebugTypes,
                             [](const std::string &x) { return x.c_str(); });
     llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
                                debugTypeLiterals.size());
@@ -449,7 +448,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     runner = &client.getOrCreatePassManager<StableHloToExecutableTask>(options);
   else {
     pm.reset(new StableHloToExecutableTask(client.getContext(), options));
-    CompilerClient::setupPassManagerLogging(*pm, options.debugOptions);
+    CompilerClient::setupPassManagerLogging(*pm, options.get<DebugOptions>());
     runner = pm.get();
   }
 
@@ -469,7 +468,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
 
 #ifndef NDEBUG
   // Turn debugging back off if we turned it on.
-  if (options.debugOptions.enableLLVMDebugFlag)
+  if (options.get<DebugOptions>().enableLLVMDebugFlag)
     llvm::DebugFlag = false;
 #endif
 
