@@ -116,7 +116,7 @@ public:
     auto it = cachedPassManagers.find(key);
     if (it == cachedPassManagers.end()) {
       auto pm = std::make_unique<CompilationTaskType>(context, options);
-      setupPassManagerLogging(*pm, options.debugOptions);
+      setupPassManagerLogging(*pm, options.template get<DebugOptions>());
       auto *ptr = pm.get();
       cachedPassManagers[key] = std::move(pm);
       return *ptr;
