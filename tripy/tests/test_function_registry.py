@@ -152,6 +152,25 @@ class TestFunctionRegistry:
         assert registry["test"](0) == 1
         assert registry["test"](0, 0) == -1
 
+    def test_register_class(self, registry):
+        @registry("class")
+        class C:
+            def f1(self, a: int):
+                """
+                Need to have a docstring or else it won't be registered."
+                """
+                return a + 1
+
+            def f2(self, a: int):
+                """
+                Obligatory docstring.
+                """
+                return a - 1
+
+        inst_c = C()
+        assert registry["class.f1"](inst_c, 1) == 2
+        assert registry["class.f2"](inst_c, 1) == 0
+
     def test_ambiguous_overload_raises_error(self, registry):
         @registry("test")
         def func(a: int):
@@ -351,6 +370,34 @@ class TestFunctionRegistry:
 
         assert registry["test"](None) == None
         assert registry["test"](1) == 1
+
+    def test_error_dispatch_already_disabled(self, registry):
+        @registry("test", bypass_dispatch=True)
+        def func(n: int):
+            return n + 1
+
+        with helper.raises(
+            AssertionError,
+            match="Dispatch was disabled for key 'test', but a second overload was registered for it.",
+        ):
+
+            @registry("test")
+            def func(f: float):
+                return f + 1.0
+
+    def test_error_bypass_if_already_dispatched(self, registry):
+        @registry("test")
+        def func(n: int):
+            return n + 1
+
+        with helper.raises(
+            AssertionError,
+            match="Attempting to add key 'test' into a function registry with dispatch disabled, but there is already an overload present.",
+        ):
+
+            @registry("test", bypass_dispatch=True)
+            def func(f: float):
+                return f + 1.0
 
     def test_error_sequence(self, registry):
         @registry("test")

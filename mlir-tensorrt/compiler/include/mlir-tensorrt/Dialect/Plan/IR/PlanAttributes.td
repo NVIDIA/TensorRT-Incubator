@@ -12,7 +12,10 @@ class Plan_Attr<string name, string attrMnemonic, list<Trait> traits = []>
 def Plan_TensorRTClusterKindAttr : Plan_Attr<"TensorRTClusterKind", "tensorrt_cluster",
       [DeclareAttrInterfaceMethods<ClusterKindAttrInterface,
         ["getClusterFilter"]>]> {
-  let parameters = (ins "bool":$disallow_shape_tensor_calculations, "int64_t":$benefit);
+  let parameters = (ins
+    "bool":$disallow_shape_tensor_calculations,
+    "int64_t":$benefit,
+    OptionalParameter<"std::optional<int64_t>">:$tensorrt_major_version);
   let assemblyFormat = "`<` struct(params) `>`";
 }
 

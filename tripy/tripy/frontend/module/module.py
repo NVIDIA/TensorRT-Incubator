@@ -17,13 +17,12 @@
 
 import copy
 import operator
-from typing import Any, Dict, Iterator, List, Tuple, Union, Set, Sequence, TypeVar
+from typing import Any, Dict, Iterator, List, Set, Tuple, TypeVar, Union
 
-from tripy import export, utils
-from tripy.common.exception import raise_error, str_from_stack_info
+from tripy import export
+from tripy.common.exception import raise_error
 from tripy.frontend.module.parameter import Parameter
 from tripy.logging import logger
-
 
 T = TypeVar("T")
 
@@ -38,10 +37,6 @@ def _check_param_compatible(original_param, new_param, param_name):
             f"For parameter: {param_name}, new parameter is not compatible with the existing parameter.",
             details=is_compatible.error_details,
         )
-
-
-def _contains_types(container: Sequence, types: type):
-    return any(any(isinstance(elem, typ) for typ in types) for elem in container)
 
 
 @export.public_api(document_under="modules/index.rst")

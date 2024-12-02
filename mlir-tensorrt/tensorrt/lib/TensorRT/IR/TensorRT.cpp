@@ -27,8 +27,8 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/CommonFolders.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Quant/QuantOps.h"
-#include "mlir/Dialect/Quant/QuantTypes.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
+#include "mlir/Dialect/Quant/IR/QuantTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/IR/DialectImplementation.h"
@@ -1133,6 +1133,17 @@ void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
     return OpFoldResult(DenseI32ArrayAttr::get(odsBuilder.getContext(), arr));
   };
   SliceOp::build(odsBuilder, odsState, input, toArrayAttr(start),
+                 toArrayAttr(size), toArrayAttr(stride), sliceMode, fill);
+}
+
+void tensorrt::SliceOp::build(OpBuilder &odsBuilder, OperationState &odsState,
+                              Type result, Value input, ArrayRef<int32_t> start,
+                              ArrayRef<int32_t> size, ArrayRef<int32_t> stride,
+                              SliceMode sliceMode, Value fill) {
+  auto toArrayAttr = [&](ArrayRef<int32_t> arr) {
+    return OpFoldResult(DenseI32ArrayAttr::get(odsBuilder.getContext(), arr));
+  };
+  SliceOp::build(odsBuilder, odsState, result, input, toArrayAttr(start),
                  toArrayAttr(size), toArrayAttr(stride), sliceMode, fill);
 }
 

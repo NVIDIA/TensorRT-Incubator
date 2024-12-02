@@ -91,17 +91,17 @@ applyClusteringToFunc(RewriterBase &rewriter, func::FuncOp func,
                       const StablehloClusteringPassOptions &opts) {
   ClusteringPatternSet<ClusteringRewriter> patterns;
   for (const auto &[idx, target] : llvm::enumerate(clusters)) {
-    if (target.getClusterKindName() == "tensorrt") {
-      patterns.add(target.getClusterKindOptions(solver, opts.trtMajorVersion),
-                   createInlineGroupOp, isOpInClusterRegion,
+    FailureOr<ClusteringOpts> opts = target.getClusterKindOptions(func, solver);
+    if (failed(opts))
+      return failure();
+    if (isa<TensorRTClusterKindAttr>(target))
+      patterns.add(*opts, createInlineGroupOp, isOpInClusterRegion,
                    target.getClusterFilter(),
                    PatternBenefit(target.getClusterBenefit()));
-    } else {
-      patterns.add(target.getClusterKindOptions(solver, std::nullopt),
-                   createInlineGroupOp, isOpInClusterRegion,
+    else
+      patterns.add(*opts, createInlineGroupOp, isOpInClusterRegion,
                    target.getClusterFilter(),
                    PatternBenefit(target.getClusterBenefit()));
-    }
   }
 
   for (const std::unique_ptr<ClusteringRewriter> &rewrite : patterns) {
@@ -257,24 +257,19 @@ public:
     // If the `plan.cluster_kinds` already exists on the module, use that,
     // otherwise, populate defaults.
     SmallVector<ClusterKindAttrInterface> schedule;
-    if (ArrayAttr clusterKind =
-            module->getAttrOfType<ArrayAttr>("plan.cluster_kinds")) {
+    if (ArrayAttr clusterKind = module->getAttrOfType<ArrayAttr>(
+            plan::PlanDialect::kModuleClusterKindsAttrName)) {
       for (Attribute kind : clusterKind) {
         auto kindAttr = llvm::dyn_cast<ClusterKindAttrInterface>(kind);
         if (!kind) {
           emitError(module.getLoc())
-              << "in 'plan.cluster_kinds' found attribute " << kind
+              << "in '" << plan::PlanDialect::kModuleClusterKindsAttrName
+              << "' found attribute " << kind
               << ", but it is not a ClusterKindAttrInterface";
           return signalPassFailure();
         }
         schedule.push_back(kindAttr);
       }
-    } else {
-      // Use default cluster kind schedule.
-      schedule.push_back(TensorRTClusterKindAttr::get(
-          module->getContext(), this->disallowHostTensorsInTensorRTClusters,
-          10));
-      schedule.push_back(HostClusterKindAttr::get(module->getContext(), 9));
     }
     llvm::sort(schedule,
                [](ClusterKindAttrInterface lhs, ClusterKindAttrInterface rhs) {
@@ -282,10 +277,11 @@ public:
                });
 
     for (func::FuncOp func : funcs) {
-      if (failed(applyClusteringToFunc(
-              rewriter, func, solver, schedule,
-              StablehloClusteringPassOptions{entrypoint, enableNonDPSReturns,
-                                             false, false, trtMajorVersion})))
+      if (failed(
+              applyClusteringToFunc(rewriter, func, solver, schedule,
+                                    StablehloClusteringPassOptions{
+                                        entrypoint, enableNonDPSReturns,
+                                        /*disableCreateShapeFuncPass=*/false})))
         return signalPassFailure();
     }
 

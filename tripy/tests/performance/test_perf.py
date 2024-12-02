@@ -14,6 +14,7 @@
 # limitations under the License.
 import time
 from textwrap import dedent
+from typing import Callable
 
 import pytest
 import torch
@@ -23,6 +24,22 @@ from tests.performance.cases import *
 from tests.performance.conftest import PERF_CASES
 
 import tripy as tp
+
+
+def run_timed_trials(thunk: Callable[[], None], warm_up_runs=10, iterations=1000):
+    """
+    Returns the average time measured for calls to the thunk (the function intended to be timed)
+    in microseconds. First performs the specified number of untimed warm-ups.
+    """
+
+    for _ in range(warm_up_runs):
+        thunk()
+
+    start = time.perf_counter_ns()
+    for _ in range(iterations):
+        thunk()
+    end = time.perf_counter_ns()
+    return (end - start) / (iterations * 1000.0)
 
 
 @pytest.mark.parametrize("perf_case", PERF_CASES)
@@ -115,15 +132,10 @@ def test_tripy_overhead():
         for input in inputs:
             input.eval()
 
-        for _ in range(warm_up_runs):
-            compiled_one_io(*inputs)
+        def measure_thunk():
+            return compiled_one_io(*inputs)
 
-        start = time.perf_counter_ns()
-        for _ in range(iterations):
-            compiled_one_io(*inputs)
-        end = time.perf_counter_ns()
-
-        return (end - start) / (iterations * 1000.0)
+        return run_timed_trials(measure_thunk, warm_up_runs=warm_up_runs, iterations=iterations)
 
     assert measure_overhead(1) < 60.0
 
@@ -137,3 +149,16 @@ def test_tripy_overhead():
     # Ensure all deltas are within a few microseconds of each other
     average_delta = sum(deltas) / float(len(deltas))
     assert all(abs(delta - average_delta) < 10 for delta in deltas)
+
+
+def test_tripy_param_update(benchmark):
+    m = tp.Module()
+    m.param = tp.Parameter([1, 2, 3, 4])
+
+    # Leave the instantiation outside of the measured section to avoid overhead from registry calls.
+    new_param = tp.Parameter([5, 6, 7, 8])
+
+    def measure_thunk():
+        m.param = new_param
+
+    benchmark(measure_thunk)

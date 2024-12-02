@@ -39,20 +39,22 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
     let cppNamespace = "::mlir::plan";
     let methods = [
         InterfaceMethod<
-            /*desc=*/"Return the name of the cluster",
-            /*retTy-*/"std::string",
-            "getClusterKindName",
-            /*args=*/(ins ),
-            /*body=*/"",
-            ""
-        >,
-        InterfaceMethod<
-            /*desc=*/"Return the clustering options for the cluster",
-            /*retTy-*/"::mlir::ClusteringOpts",
+            /*desc=*/[{
+              Returns the clustering options for this cluster kind. The
+              scope of the clustering is restricted to `op`, so `op` can
+              be utilized to perform e.g. analysis conversion and use
+              the results in the callbacks returned from this method.
+
+              The `solver` is provided in order to query the results of
+              SparseConstantPropagation and TensorKindAnalysis.
+            }],
+            /*retTy-*/"FailureOr<::mlir::ClusteringOpts>",
             "getClusterKindOptions",
-            /*args=*/(ins "::mlir::DataFlowSolver &":$solver, "std::optional<int64_t>":$trtMajorVersion),
+            /*args=*/(ins
+              "::mlir::Operation *":$op,
+              "::mlir::DataFlowSolver &":$solver),
             /*body=*/"",
-            ""
+            /*defaultImplementation=*/""
         >,
         InterfaceMethod<
             /*desc=*/"Return the region outlining options for the cluster",
@@ -60,14 +62,6 @@ def ClusterKindAttrInterface : AttrInterface<"ClusterKindAttrInterface"> {
             "getClusterOutliningOptions",
             (ins "::mlir::MLIRContext*":$context, "::mlir::SymbolTable&":$moduleSymbolTable),
             "",
-            ""
-        >,
-        InterfaceMethod<
-            /*desc=*/"Return the pass used to process the cluster kind",
-            /*retTy-*/"std::unique_ptr<::mlir::Pass>",
-            "getClusterKindPass",
-            /*args=*/(ins ),
-            /*body=*/"",
             ""
         >,
         InterfaceMethod<

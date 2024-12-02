@@ -218,35 +218,6 @@ def discover_tripy_objects():
         ]
 
 
-# In order to test docstrings, we need to recursively discover all submodules
-# and any classes/functions contained in those submodules.
-
-
-# Returns a list of all classes, functions, and methods defined in Tripy.
-def get_all_tripy_interfaces():
-    all_objects = set()
-    for obj in discover_tripy_objects():
-        all_objects.add(obj)
-        all_objects.update(
-            {
-                member
-                for _, member in inspect.getmembers(
-                    obj,
-                    lambda member: inspect.isfunction(member)
-                    or isinstance(member, property)
-                    or inspect.isclass(member),
-                )
-            }
-        )
-
-    # Some sanity checks to make sure we're actually getting all the objects we expect
-    assert Tensor in all_objects
-    assert Tensor.shape in all_objects
-    assert Trace in all_objects
-
-    return all_objects
-
-
 ##
 ## Working with READMEs
 ##

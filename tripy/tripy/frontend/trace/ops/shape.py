@@ -16,12 +16,12 @@
 #
 
 from dataclasses import dataclass
-from typing import List
 
 from tripy import constraints
 from tripy.common.datatype import DATA_TYPES
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops.base import BaseTraceOp
+from tripy.types import ShapeLike
 
 
 @dataclass(repr=False)
@@ -42,10 +42,10 @@ class GetDimensionSize(BaseTraceOp):
         GetDimensionSizeOp.build(inputs, outputs, self.dim)
 
 
-@TENSOR_METHOD_REGISTRY("shape")
+@register_tensor_method("shape")
 @property
 @constraints.dtypes(constraints={"self": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
-def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
+def shape(self: "tripy.Tensor") -> ShapeLike:
     """
     Represents the shape of the tensor.
 
@@ -62,5 +62,10 @@ def shape(self: "tripy.Tensor") -> List["tripy.DimensionSize"]:
 
         assert shape == [8, 2]
     """
+
+    # If the shape is statically known, we do not need to insert any operator calls.
+    # However, if we are tracing, it might still be necessary to insert calls in the final program, so we will keep it.
+    if all(dim >= 0 for dim in self.trace_tensor.shape) and not self.trace_tensor.is_compile_tracer:
+        return self.trace_tensor.shape
 
     return [GetDimensionSize.build([self], dim=index, always_cast_to_dimension_size=True) for index in range(self.rank)]
