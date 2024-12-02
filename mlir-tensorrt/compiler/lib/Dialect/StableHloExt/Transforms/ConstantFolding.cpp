@@ -1038,7 +1038,11 @@ struct AbsorbTensorCastProducer : public RewritePattern {
       if (!canUpdateTypeWithoutCast(operand))
         return nullptr;
       Value value = operand.get();
-      auto rtt = cast<RankedTensorType>(value.getType());
+      // Not all stablehlo operands are tensors -- some can have types like
+      // 'tuple' or special quantized types.
+      auto rtt = dyn_cast<RankedTensorType>(value.getType());
+      if (!rtt)
+        return nullptr;
       auto castOp = value.getDefiningOp<tensor::CastOp>();
       if (!castOp)
         return nullptr;
@@ -1139,7 +1143,8 @@ public:
 ///
 //===----------------------------------------------------------------------===//
 
-///
+namespace {
+
 /// In cases where a concat is fed into a slice, it
 /// is possible the concat can be simplified or bypassed. This checks which
 /// inputs to the concat are used by the slice, either reducing the number of
@@ -1272,8 +1277,28 @@ class SimplifyConcatOfConcatPattern
     return success();
   }
 };
+// Pattern: broadcast_in_dim(splat, _) -> constant(splat)
+struct FoldBroadcastInDimSplatPattern final
+    : OpRewritePattern<mlir::stablehlo::BroadcastInDimOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mlir::stablehlo::BroadcastInDimOp op,
+                                PatternRewriter &rewriter) const override {
+    TypedValue<RankedTensorType> operand = op.getOperand();
+
+    if (SplatElementsAttr cstAttr;
+        matchPattern(operand, m_Constant(&cstAttr))) {
+      rewriter.replaceOpWithNewOp<mlir::stablehlo::ConstantOp>(
+          op, SplatElementsAttr::get(op.getType(),
+                                     cstAttr.getSplatValue<Attribute>()));
+      return success();
+    }
+    return failure();
+  }
+};
+} // namespace
 
 void populateFutureUpstreamPatterns(RewritePatternSet &patterns) {
-  patterns.add<SimplifySliceOfConcat, SimplifyConcatOfConcatPattern>(
-      patterns.getContext());
+  patterns.add<SimplifySliceOfConcat, SimplifyConcatOfConcatPattern,
+               FoldBroadcastInDimSplatPattern>(patterns.getContext());
 }

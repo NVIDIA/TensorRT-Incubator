@@ -62,30 +62,33 @@ class device:
             assert gpu_1.kind == "gpu"
             assert gpu_1.index == 1
         """
-        try:
-            # Fast constructor for the critical path. If a Tuple[str, int] is provided, then
-            # we bypass all the logic to parse the information from a string.
-            self.kind, self.index = device
-        except ValueError:
-            kind, _, index = device.partition(":")
-            kind = kind.lower()
+        kind, _, index = device.partition(":")
+        kind = kind.lower()
 
-            if index:
-                try:
-                    index = int(index)
-                except ValueError:
-                    raise TripyException(f"Could not interpret: {index} as an integer")
-            else:
-                index = 0
+        if index:
+            try:
+                index = int(index)
+            except ValueError:
+                raise TripyException(f"Could not interpret: {index} as an integer")
+        else:
+            index = 0
 
-            if index < 0:
-                raise TripyException(f"Device index must be a non-negative integer, but was: {index}")
+        if index < 0:
+            raise TripyException(f"Device index must be a non-negative integer, but was: {index}")
 
-            if kind not in _VALID_KINDS:
-                raise TripyException(f"Unrecognized device kind: {kind}. Choose from: {list(_VALID_KINDS)}")
+        if kind not in _VALID_KINDS:
+            raise TripyException(f"Unrecognized device kind: {kind}. Choose from: {list(_VALID_KINDS)}")
 
-            self.kind = kind
-            self.index = index
+        self.kind = kind
+        self.index = index
+
+    # Not putting a docstring so it's not exported. Takes a device name and index directly, sets without validation.
+    @staticmethod
+    def create_directly(kind: str, index: int) -> "tp.device":
+        instance = device.__new__(device)
+        instance.kind = kind
+        instance.index = index
+        return instance
 
     def __str__(self) -> str:
         return f"{self.kind}:{self.index}"

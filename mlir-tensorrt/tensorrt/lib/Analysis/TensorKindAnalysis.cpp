@@ -193,7 +193,8 @@ LogicalResult TensorKindAnalysis::visitOperation(
         if (isa<RankedTensorType>(operand.get().getType()))
           setInferredType(operand, result->getValue());
       }
-      addDependency(const_cast<TensorKindLattice *>(result), op);
+      addDependency(const_cast<TensorKindLattice *>(result),
+                    getProgramPointAfter(op));
     }
     return success();
   }

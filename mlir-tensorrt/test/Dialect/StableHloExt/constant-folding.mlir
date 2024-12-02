@@ -1141,3 +1141,19 @@ func.func private @add(%arg0: tensor<?xf32>, %arg1: tensor<?xf32>) -> tensor<?xf
 //   CHECK-DAG:     %[[cast_0:.+]] = tensor.cast %[[arg1]] : tensor<4xf32> to tensor<?xf32>
 //   CHECK-DAG:     %[[v0:.+]] = stablehlo.composite "foo.bar" %[[cast]], %[[cast_0]] {decomposition = @add} : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
 //   CHECK-DAG:     return %[[v0]] : tensor<?xf32>
+
+
+// -----
+
+// This is a regression check for where we previously had a crash/failure. Not change should be
+// made.
+
+func.func @tuple_regression_check(%arg0: tuple<tensor<1xf32>, tensor<1xf32>>) -> tensor<1xf32> {
+  %0 = stablehlo.get_tuple_element %arg0[0] : (tuple<tensor<1xf32>, tensor<1xf32>>) -> tensor<1xf32>
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL: func.func @tuple_regression_check
+//  CHECK-SAME: (%[[arg0:.+]]: tuple<tensor<1xf32>, tensor<1xf32>>)
+//       CHECK:     %[[v0:.+]] = stablehlo.get_tuple_element %[[arg0]][0] : (tuple<tensor<1xf32>, tensor<1xf32>>) -> tensor<1xf32>
+//       CHECK:     return %[[v0]] : tensor<1xf32>
