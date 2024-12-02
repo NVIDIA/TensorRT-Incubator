@@ -130,18 +130,27 @@ def test_examples(example, sandboxed_install_run):
             code = str(block)
             if block.has_marker("test: expected_stdout"):
                 out = statuses[-1].stdout.strip()
-                expected = dedent(code).strip()
-                pattern, specs = process_tolerances(expected)
+                # expected = dedent(code).strip()
+                expected_outs = dedent(code).split("====")
+                for expected in expected_outs:
+                    pattern, specs = process_tolerances(expected)
 
-                match = re.search(pattern, out)
-                if match and specs:
-                    # Check if captured numbers are within tolerance
-                    matched = all(
-                        test_with_tolerance(expected, actual, tolerance)
-                        for (expected, tolerance), actual in zip(specs, match.groups())
-                    )
-                else:
-                    matched = bool(match)
+                    # Apply the DOTALL flag to allow `.` to match newlines
+                    compiled_pattern = re.compile(pattern, re.DOTALL)
+                    match = compiled_pattern.search(out)
+
+                    # match = re.search(pattern, out)
+                    if match and specs:
+                        # Check if captured numbers are within tolerance
+                        matched = all(
+                            test_with_tolerance(expected, actual, tolerance)
+                            for (expected, tolerance), actual in zip(specs, match.groups())
+                        )
+                    else:
+                        matched = bool(match)
+
+                    if matched:
+                        break
 
                 print("matched!" if matched else "did not match!")
                 print(f"==== STDOUT ====\n{out}")
