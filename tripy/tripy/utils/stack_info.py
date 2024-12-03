@@ -119,14 +119,16 @@ def get_stack_info(include_code_index: int = None) -> StackInfo:
             source_info._dispatch_target = frame.f_locals["key"]
 
         try:
-            # In Python 3.11, frames contain column offset information.
             frame.f_code.co_positions
         except AttributeError:
             pass
         else:
-            # There are twice as many instructions as co_positions()
-            _, _, start, end = frame.f_code.co_positions()[frame.f_lasti // 2]
-            source_info.column_range = (start, end)
+            # For 3.11+, positions is an iterator of (line, end_line, column, end_column)
+            for pos in frame.f_code.co_positions():
+                if pos[0] == frame.f_lineno:
+                    _, _, start, end = pos
+                    source_info.column_range = (start, end)
+                    break
 
         stack_info.append(source_info)
         frame = frame.f_back

@@ -85,7 +85,7 @@ This means we need to make some special considerations:
     For example:
 
     ```md
-    {class}`tripy.Parameter`
+    {class}`tripy.Tensor`
     ```
 
     `<api_kind>` can take on any value that is a valid role provided by
