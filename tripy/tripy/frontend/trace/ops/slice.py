@@ -261,6 +261,7 @@ def __getitem__(
 
 @constraints.dtypes(convert_tensor_and_shape_likes=True)
 def slice_helper(tensor, *slice_params: TensorLike):
+    from tripy import function_registry
     from tripy.utils import get_arg_candidate_column_offsets
 
     # The default behavior of the tensor conversion will not add the correct column info to the slice params
@@ -271,12 +272,19 @@ def slice_helper(tensor, *slice_params: TensorLike):
     frame_index = -1
     assert slice_params
 
+    # Internal WAR: the constraints decorator is applied before the function registry decorator, so in the constraints tests,
+    # we will not find the Tensor.__getitem__ decorator. We can use a fallback in that case.
+    function_registry_wrapper_found = False
     for idx, source_info in enumerate(slice_params[0].stack_info):
+        if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
+            function_registry_wrapper_found = True
         if source_info._dispatch_target == "Tensor.__getitem__":
             frame_index = idx + 1
             break
 
-    assert frame_index >= 0, "No call to the Tensor.__getitem__ dispatch found"
+    assert not function_registry_wrapper_found or frame_index >= 0, "No call to the Tensor.__getitem__ dispatch found"
+    if not function_registry_wrapper_found:
+        frame_index = slice_params[0].stack_info.get_first_user_frame_index()
 
     arg_names = ["tensor"] + ["slice_params"] * len(slice_params)
     for arg_index, arg in enumerate(slice_params):
