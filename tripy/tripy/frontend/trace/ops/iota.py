@@ -61,16 +61,15 @@ def iota_impl(shape: "tripy.Tensor", dim: int, dtype: datatype.dtype, output_ran
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_to_tensors(
-    preprocess_args=lambda shape, dim=None, dtype=None: (
-        {"dim": frontend_utils.process_dim(dim, len(shape))} if dim is not None else {}
-    )
-)
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
+    convert_tensor_and_shape_likes=True,
+    conversion_preprocess_func=lambda shape, dim=None, dtype=None: (
+        {"dim": frontend_utils.process_dim(dim, len(shape))} if dim is not None else {}
+    ),
 )
 def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     """
