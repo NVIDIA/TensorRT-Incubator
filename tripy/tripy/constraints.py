@@ -280,8 +280,10 @@ def dtypes(
         }
         shape_likes = {name for name, param in signature.parameters.items() if param.annotation is ShapeLike}
 
-        for key in [func.__qualname__] + aliases:
-            TYPE_VERIFICATION[key] = verif_info
+        # if no dtype constraints have been specified at all, do not add to the table so we don't generate invalid tests
+        if constraints or variables or exceptions:
+            for key in [func.__qualname__] + aliases:
+                TYPE_VERIFICATION[key] = verif_info
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
