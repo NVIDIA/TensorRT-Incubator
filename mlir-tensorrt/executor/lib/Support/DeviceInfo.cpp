@@ -23,26 +23,32 @@
 
 using namespace mlirtrt;
 
+static Status makeCudaStringError(cudaError_t errCode,
+                                  llvm::StringRef context) {
+  // Create a detailed error message using llvm::createStringError
+  return getInternalErrorStatus("{0}: {1}", context,
+                                cudaGetErrorString(errCode));
+}
+
 StatusOr<DeviceInfo> mlirtrt::getDeviceInformationFromHost() {
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
   cudaDeviceProp properties;
   cudaError_t err = cudaGetDeviceProperties(&properties, 0);
   if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device properties");
+    return makeCudaStringError(err, "failed to get cuda device properties");
 
   int ccMajor = 0;
   int ccMinor = 0;
   err = cudaDeviceGetAttribute(
       &ccMajor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor, 0);
   if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device compute capability");
+    return makeCudaStringError(err,
+                               "failed to get cuda device compute capability");
   err = cudaDeviceGetAttribute(
       &ccMinor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor, 0);
   if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device compute capability");
+    return makeCudaStringError(err,
+                               "failed to get cuda device compute capability");
 
   // We want SM version as a single number.
   int64_t smVersion = ccMajor * 10 + ccMinor;
