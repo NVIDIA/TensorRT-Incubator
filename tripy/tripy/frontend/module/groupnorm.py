@@ -19,10 +19,10 @@ from dataclasses import dataclass
 
 from tripy import export, utils
 from tripy.common import datatype
-from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import Parameter, DefaultParameter
-
 from tripy.common.exception import raise_error
+from tripy.frontend.module.module import Module
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
 
 
 @export.public_api(document_under="operations/modules")
@@ -46,10 +46,10 @@ class GroupNorm(Module):
     dtype: datatype.dtype
     r"""The data type used to perform the operation."""
 
-    weight: Parameter
+    weight: Tensor
     r"""The :math:`\gamma` parameter of shape :math:`[\text{num_channels}]`."""
 
-    bias: Parameter
+    bias: Tensor
     r"""The :math:`\beta` parameter of shape :math:`[\text{num_channels}]`."""
 
     eps: float
@@ -111,8 +111,8 @@ class GroupNorm(Module):
             A tensor of the same shape as the input.
         """
         from tripy.frontend.trace.ops.reduce import mean, var
-        from tripy.frontend.trace.ops.unary_elementwise import rsqrt
         from tripy.frontend.trace.ops.reshape import reshape
+        from tripy.frontend.trace.ops.unary_elementwise import rsqrt
 
         input_shape = x.shape
 

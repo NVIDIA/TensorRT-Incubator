@@ -17,6 +17,7 @@
 #include "mlir-tensorrt-c/Compiler/Compiler.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "pybind11/pybind11.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/raw_ostream.h"
 #include <pybind11/attr.h>
@@ -50,6 +51,17 @@ public:
 
   static constexpr auto kMethodTable = CAPITable<MTRT_CompilerClient>{
       mtrtCompilerClientIsNull, mtrtCompilerClientDestroy};
+};
+
+/// Python object type wrapper for `MTRT_OptionsContext`.
+class PyOptionsContext
+    : public PyMTRTWrapper<PyOptionsContext, MTRT_OptionsContext> {
+public:
+  using PyMTRTWrapper::PyMTRTWrapper;
+  DECLARE_WRAPPER_CONSTRUCTORS(PyOptionsContext);
+
+  static constexpr auto kMethodTable = CAPITable<MTRT_OptionsContext>{
+      mtrtOptionsConextIsNull, mtrtOptionsContextDestroy};
 };
 
 /// Python object type wrapper for `MTRT_StableHLOToExecutableOptions`.
@@ -239,6 +251,36 @@ PYBIND11_MODULE(_api, m) {
         THROW_IF_MTRT_ERROR(s);
         return new PyCompilerClient(client);
       }));
+
+  py::class_<PyOptionsContext>(m, "OptionsContext", py::module_local())
+      .def(py::init<>([](PyCompilerClient &client,
+                         const std::string &optionsType,
+                         const std::vector<std::string> &args) {
+             std::vector<MlirStringRef> refs(args.size());
+             for (unsigned i = 0; i < args.size(); i++)
+               refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
+
+             MTRT_OptionsContext options;
+             MTRT_Status s = mtrtOptionsContextCreateFromArgs(
+                 client, &options,
+                 mlirStringRefCreate(optionsType.data(), optionsType.size()),
+                 refs.data(), refs.size());
+             THROW_IF_MTRT_ERROR(s);
+             return new PyOptionsContext(options);
+           }),
+           py::arg("client"), py::arg("options_type"), py::arg("args"))
+
+      .def("__repr__", [](PyOptionsContext &self) {
+        auto callback = [](MlirStringRef data, void *initialString) {
+          *reinterpret_cast<std::string *>(initialString) +=
+              llvm::StringRef(data.data, data.length);
+        };
+
+        std::string result("Options[");
+        mtrtOptionsContextPrint(self, callback, &result);
+        result += "]";
+        return result;
+      });
 
   py::class_<PyStableHLOToExecutableOptions>(m, "StableHLOToExecutableOptions",
                                              py::module_local())

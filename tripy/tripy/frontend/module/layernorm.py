@@ -21,7 +21,8 @@ from typing import Tuple, Union
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import DefaultParameter, Parameter
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
 
 
 @export.public_api(document_under="operations/modules")
@@ -45,10 +46,10 @@ class LayerNorm(Module):
     normalized_shape: Tuple[int]
     r"""Defines the shape of the input tensor that is to be normalized over."""
 
-    weight: Parameter
+    weight: Tensor
     r"""The :math:`\gamma` parameter of shape :math:`\text{normalized_shape}`."""
 
-    bias: Parameter
+    bias: Tensor
     r"""The :math:`\beta` parameter of shape :math:`\text{normalized_shape}`."""
 
     eps: float

@@ -60,7 +60,7 @@ class TestQuantLinear:
                 scale = [1.0] * out_feat
             elif quant_dim == 1:
                 scale = [1.0] * in_feat
-            return tp.Parameter(scale)
+            return tp.Tensor(scale)
 
         class Network(tp.Module):
             def __init__(self):
@@ -115,13 +115,13 @@ class TestQuantLinear:
         ids=["block-wise", "per-tensor", "per-channel-0", "per-channel-1"],
     )
     def test_quant_linear_int4_weight_only(self, weight_quant_dim, scale, eager_or_compiled):
-        scale = tp.Parameter(scale)
+        scale = tp.Tensor(scale)
 
         linear = tp.Linear(4, 8, quant_dtype=tp.int4, weight_quant_dim=weight_quant_dim)
         linear.weight_scale = scale
         # HACK: Use ones for stable accuracy.
-        linear.weight = tp.Parameter(tp.ones((8, 4)))
-        linear.bias = tp.Parameter(tp.ones((8,)))
+        linear.weight = tp.ones((8, 4))
+        linear.bias = tp.ones((8,))
 
         np_weight = cp.from_dlpack(linear.weight).get()
         np_bias = cp.from_dlpack(linear.bias).get()

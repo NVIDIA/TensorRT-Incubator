@@ -36,25 +36,19 @@ class TestModule:
         network.new_attr = True
         assert hasattr(network, "new_attr")
 
-        network.new_param = tp.Parameter(0.0)
+        network.new_param = tp.Tensor(0.0)
         assert "new_param" in dict(network.named_parameters())
 
-        network.param = tp.Parameter([0.0, 1.0])
+        network.param = tp.Tensor([0.0, 1.0])
         network.dummy1 = None
         assert cp.from_dlpack(dict(network.named_parameters())["param"]).get().tolist() == [0.0, 1.0]
         assert "dummy1" not in dict(network.named_children())
-
-    def test_automatic_conversion_to_parameter_of_direct_attributes(self, network):
-        network.param = [0.0, 1.0]
-        assert isinstance(network.param, tp.Parameter)
-
-        assert "param" in dict(network.named_parameters())
 
     def test_incompatible_parameter_cannot_be_set(self, network):
         with helper.raises(
             tp.TripyException, match=r"New parameter shape: \[2, 3\] is not compatible with current shape: \[2\]"
         ):
-            network.param = tp.Parameter(tp.ones((2, 3)))
+            network.param = tp.ones((2, 3))
 
     def test_named_children(self, network):
         # Children should only return immediate children
@@ -70,7 +64,7 @@ class TestModule:
         }
 
     def test_strict_load_state_dict(self, network):
-        tensor = tp.Parameter(tp.zeros((2,), dtype=tp.float32))
+        tensor = tp.zeros((2,), dtype=tp.float32)
         state_dict = {"param": tensor, "param1": tensor}
         with helper.raises(
             tp.TripyException,
@@ -79,7 +73,7 @@ class TestModule:
             network.load_state_dict(state_dict)
 
     def test_non_strict_load_state_dict(self, network):
-        tensor = tp.Parameter(tp.zeros((2,), dtype=tp.float32))
+        tensor = tp.zeros((2,), dtype=tp.float32)
         state_dict = {"param": tensor, "param1": tensor}
         missing_keys, unexpected_keys = network.load_state_dict(state_dict, strict=False)
         assert missing_keys == {"dummy1.nested.param", "dummy2.nested.param"}
@@ -89,7 +83,7 @@ class TestModule:
         self,
         network,
     ):
-        state_dict = {"param": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
+        state_dict = {"param": tp.zeros((2,), dtype=tp.float32)}
         network.load_state_dict(state_dict, strict=False)
         assert network.param is state_dict["param"]
 
@@ -97,15 +91,24 @@ class TestModule:
         self,
         network,
     ):
-        state_dict = {"dummy1.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
+        state_dict = {"dummy1.nested.param": tp.arange(2, dtype=tp.float32)}
         network.load_state_dict(state_dict, strict=False)
         assert network.dummy1.nested.param is state_dict["dummy1.nested.param"]
+
+    def test_load_state_dict_with_non_tensor_fails(
+        self,
+        network,
+    ):
+        state_dict = {"param": [0, 0]}
+
+        with helper.raises(tp.TripyException, match=r"Expected a tensor for parameter: 'param', but got: List\[int\]"):
+            network.load_state_dict(state_dict, strict=False)
 
     def test_load_state_dict_with_different_shapes_fails(
         self,
         network,
     ):
-        state_dict = {"param": tp.Parameter(tp.zeros((3,), dtype=tp.float32))}
+        state_dict = {"param": tp.zeros((3,), dtype=tp.float32)}
 
         with helper.raises(
             tp.TripyException, match=r"New parameter shape: \[3\] is not compatible with current shape: \[2\]"
@@ -116,7 +119,7 @@ class TestModule:
         self,
         network,
     ):
-        state_dict = {"param": tp.Parameter(tp.ones((2,), dtype=tp.float16))}
+        state_dict = {"param": tp.ones((2,), dtype=tp.float16)}
 
         with helper.raises(
             tp.TripyException, match="New parameter dtype: float16 is not compatible with current dtype: float32"
@@ -124,8 +127,8 @@ class TestModule:
             network.load_state_dict(state_dict, strict=False)
 
     def test_mixed_collections_not_registered(self, network):
-        network.mix_param_list = [True, tp.Parameter(1)]
-        network.mix_param_dict = {0: True, "a": tp.Parameter(1)}
+        network.mix_param_list = [True, tp.Tensor(1)]
+        network.mix_param_dict = {0: True, "a": tp.Tensor(1)}
         network.mix_module_list = [True, tp.Module()]
         network.mix_module_dict = {0: True, "a": tp.Module()}
 
@@ -177,7 +180,7 @@ class TestModuleWithList:
         self,
         list_network,
     ):
-        state_dict = {"params.0": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
+        state_dict = {"params.0": tp.zeros((2,), dtype=tp.float32)}
         list_network.load_state_dict(state_dict, strict=False)
         assert list_network.params[0] is state_dict["params.0"]
 
@@ -185,18 +188,18 @@ class TestModuleWithList:
         self,
         list_network,
     ):
-        state_dict = {"dummy_list.0.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
+        state_dict = {"dummy_list.0.nested.param": tp.arange(2, dtype=tp.float32)}
         list_network.load_state_dict(state_dict, strict=False)
         assert list_network.dummy_list[0].nested.param is state_dict["dummy_list.0.nested.param"]
 
     def test_modify_list_param(self, list_network):
-        new_param = tp.Parameter(5.0)
+        new_param = tp.Tensor(5.0)
         list_network.params[0] = new_param
         assert dict(list_network.named_parameters())["params.0"] is new_param
 
     def test_add_list_params(self, list_network):
-        param0 = tp.Parameter(0.0)
-        param1 = tp.Parameter(1.0)
+        param0 = tp.Tensor(0.0)
+        param1 = tp.Tensor(1.0)
         list_network.new_params = [param0, param1]
         tripy_params = dict(list_network.named_parameters())
         assert tripy_params["new_params.0"] is param0
@@ -229,7 +232,7 @@ class TestModuleWithDict:
         self,
         dict_network,
     ):
-        state_dict = {"params.param": tp.Parameter(tp.zeros((2,), dtype=tp.float32))}
+        state_dict = {"params.param": tp.zeros((2,), dtype=tp.float32)}
         dict_network.load_state_dict(state_dict, strict=False)
         assert dict_network.params["param"] is state_dict["params.param"]
 
@@ -237,18 +240,18 @@ class TestModuleWithDict:
         self,
         dict_network,
     ):
-        state_dict = {"dummy_dict.op0.nested.param": tp.Parameter(tp.arange(2, dtype=tp.float32))}
+        state_dict = {"dummy_dict.op0.nested.param": tp.arange(2, dtype=tp.float32)}
         dict_network.load_state_dict(state_dict, strict=False)
         assert dict_network.dummy_dict["op0"].nested.param is state_dict["dummy_dict.op0.nested.param"]
 
     def test_modify_dict_param(self, dict_network):
-        new_param = tp.Parameter(5.0)
+        new_param = tp.Tensor(5.0)
         dict_network.params["param"] = new_param
         assert dict(dict_network.named_parameters())["params.param"] is new_param
 
     def test_add_dict_params(self, dict_network):
-        param0 = tp.Parameter(0.0)
-        param1 = tp.Parameter(1.0)
+        param0 = tp.Tensor(0.0)
+        param1 = tp.Tensor(1.0)
         dict_network.new_params = {"param0": param0, "param1": param1}
         tripy_params = dict(dict_network.named_parameters())
         assert tripy_params["new_params.param0"] is param0
@@ -268,7 +271,7 @@ class TestMixedModule:
     def test_state_dict(self, mixed_network):
         module = mixed_network
         print(module.state_dict())
-        tensor = tp.Parameter(tp.ones((2,)))
+        tensor = tp.ones((2,))
         external_state_dict = {
             "mixed_list.0.nested.param": tensor,
             "mixed_list.1.param": tensor,
@@ -292,7 +295,7 @@ class TestComplexModule:
 
     def test_state_dict(self, complex_network):
         module = complex_network
-        tensor = tp.Parameter(tp.ones((2,)))
+        tensor = tp.ones((2,))
         external_state_dict = {
             "nets.dict_net.params.param": tensor,
             "nets.dict_net.dummy_dict.op0.nested.param": tensor,
@@ -343,7 +346,7 @@ class TestMixedContainerNetwork:
         assert set(state_dict.keys()) == expected_keys
 
     def test_load_state_dict(self, mixed_container_network):
-        tensor = tp.Parameter(tp.ones((2,)))
+        tensor = tp.ones((2,))
         state_dict = {
             "param": tensor,
             "mixed_list.0.nested.param": tensor,

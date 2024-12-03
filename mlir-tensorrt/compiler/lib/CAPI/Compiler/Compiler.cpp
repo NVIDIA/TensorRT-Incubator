@@ -26,11 +26,14 @@
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Support/Status.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
+#include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
+#include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
 #include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/CAPI/IR.h"
+#include "mlir/CAPI/Utils.h"
 #include "llvm/ADT/StringExtras.h"
 
 using namespace mlirtrt;
@@ -44,6 +47,7 @@ using namespace mlir;
 DEFINE_C_API_PTR_METHODS(MTRT_CompilerClient, CompilerClient)
 DEFINE_C_API_PTR_METHODS(MTRT_StableHLOToExecutableOptions,
                          StableHLOToExecutableOptions)
+DEFINE_C_API_PTR_METHODS(MTRT_OptionsContext, OptionsContext)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -96,6 +100,40 @@ MTRT_Status mtrtCompilerClientCreate(MlirContext context,
 
 MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
   delete unwrap(client);
+  return mtrtStatusGetOk();
+}
+
+//===----------------------------------------------------------------------===//
+// MTRT_OptionsContext
+//===----------------------------------------------------------------------===//
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtOptionsContextCreateFromArgs(
+    MTRT_CompilerClient client, MTRT_OptionsContext *options,
+    MlirStringRef optionsType, const MlirStringRef *argv, unsigned argc) {
+  std::vector<llvm::StringRef> argvStrRef(argc);
+  for (unsigned i = 0; i < argc; i++)
+    argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
+
+  auto result = createOptions(
+      *unwrap(client), llvm::StringRef(optionsType.data, optionsType.length),
+      argvStrRef);
+  if (!result.isOk())
+    return wrap(result.getStatus());
+
+  *options = wrap(result->release());
+  return mtrtStatusGetOk();
+}
+
+MLIR_CAPI_EXPORTED void mtrtOptionsContextPrint(MTRT_OptionsContext options,
+                                                MlirStringCallback append,
+                                                void *userData) {
+  mlir::detail::CallbackOstream stream(append, userData);
+  unwrap(options)->print(stream);
+}
+
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtOptionsContextDestroy(MTRT_OptionsContext options) {
+  delete unwrap(options);
   return mtrtStatusGetOk();
 }
 
