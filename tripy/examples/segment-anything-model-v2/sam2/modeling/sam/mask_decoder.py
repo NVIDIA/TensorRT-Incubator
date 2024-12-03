@@ -345,30 +345,8 @@ class MaskDecoder(tp.Module):
         batch_inds = tp.arange(multimask_iou_scores.shape[0], dtype=self.dtype)
         batch_inds = tp.cast(batch_inds, tp.int32)
 
-        def advanced_indexing(tensor, first_index, second_index):
-            # Step 1: Use the first_index to select rows
-            step1 = tp.gather(tensor, dim=0, index=first_index)
-
-            # Step 2: Prepare for the second gather operation
-            batch_size = first_index.shape[0]
-            row_indices = tp.arange(batch_size, dtype=tp.int32)
-
-            # Step 3: Combine row_indices and second_index
-            combined_indices = tp.stack([row_indices, second_index], dim=1)
-
-            # Step 4: Flatten the tensor
-            flattened = tp.flatten(step1)
-
-            # Step 5: Calculate flat indices
-            flat_indices = combined_indices[:, 0] * batch_size + combined_indices[:, 1]
-
-            # Step 6: Gather using flat indices
-            result = tp.gather(flattened, dim=0, index=flat_indices)
-
-            return result
-
-        best_multimask_logits = advanced_indexing(multimask_logits, batch_inds, best_scores_inds)
-        best_multimask_iou_scores = advanced_indexing(multimask_iou_scores, batch_inds, best_scores_inds)
+        best_multimask_logits = multimask_logits[batch_inds, best_scores_inds]
+        best_multimask_iou_scores = multimask_iou_scores[batch_inds, best_scores_inds]
 
         best_multimask_logits = tp.unsqueeze(best_multimask_logits, 1)
         best_multimask_iou_scores = tp.unsqueeze(best_multimask_iou_scores, 1)

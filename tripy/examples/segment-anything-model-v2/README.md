@@ -26,8 +26,6 @@ This is an implementation of SAM2 model ([original repository](https://github.co
     <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
     ```
-    Generating image embedding took {137.81~10%} ms per run (averaged over 100 runs, with 5 warmup runs)
-    Predicting masks took {37.78~10%} ms per run (averaged over 100 runs, with 5 warmup runs)
     Scores for each prediction: {0.78759766~5%} {0.640625~5%} {0.05099487~5%}
     ```
      -->
