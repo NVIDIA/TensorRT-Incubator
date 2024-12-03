@@ -104,10 +104,11 @@ class Dequantize(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/quantization")
-@frontend_utils.convert_to_tensors(targets={"scale"})
 @constraints.dtypes(
     constraints={"input": "T1", "scale": "T2", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
     variables={"T1": ["int4", "int8", "float8"], "T2": ["float32", "float16", "bfloat16"]},
+    convert_tensor_and_shape_likes=True,
+    conversion_targets={"scale"},
 )
 def dequantize(
     input: "tripy.Tensor",

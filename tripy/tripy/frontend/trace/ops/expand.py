@@ -73,12 +73,13 @@ def process_sizes(input: "tripy.Tensor", sizes: ShapeLike):
 
 
 @export.public_api(document_under="operations/functions")
-@frontend_utils.convert_to_tensors(preprocess_args=process_sizes)
 @constraints.dtypes(
     constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
     },
+    convert_tensor_and_shape_likes=True,
+    conversion_preprocess_func=process_sizes,
 )
 def expand(input: "tripy.Tensor", sizes: ShapeLike) -> "tripy.Tensor":
     """

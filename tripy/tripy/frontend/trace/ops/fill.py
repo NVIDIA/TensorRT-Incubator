@@ -69,12 +69,12 @@ class Fill(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
+    convert_tensor_and_shape_likes=True,
 )
 def full(shape: ShapeLike, value: TensorLike, dtype: "tripy.dtype" = datatype.float32) -> "tripy.Tensor":
     """
@@ -100,13 +100,13 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "tripy.dtype" = datatype.fl
 
 
 @export.public_api(document_under="operations/initializers")
-@frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
+    convert_tensor_and_shape_likes=True,
 )
 def full_like(input: "tripy.Tensor", value: TensorLike, dtype: Optional["tripy.dtype"] = None) -> "tripy.Tensor":
     """

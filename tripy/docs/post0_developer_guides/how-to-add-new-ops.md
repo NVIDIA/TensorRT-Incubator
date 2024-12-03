@@ -176,8 +176,7 @@ it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
 
 ```py
 # doc: no-eval
-from tripy import export
-import tripy.frontend.utils as frontend_utils
+from tripy import constraints, export
 from tripy.types import ShapeLike
 
 # We can use the `export.public_api()` decorator to automatically export this
@@ -192,9 +191,9 @@ from tripy.types import ShapeLike
 # `autodoc_options` parameter.
 @export.public_api(document_under="tensor_operations")
 
-# The `convert_to_tensors` decorator automatically converts compatible
+# We can use the `constraints.dtypes` decorator to automatically convert compatible
 # arguments, like `TensorLike` or `ShapeLike`s, into tensors.
-@frontend_utils.convert_to_tensors()
+@constraints.dtypes(convert_tensor_and_shape_likes=True)
 def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which
     # you can read about in the 'Docs README' (linked below). The docstring
