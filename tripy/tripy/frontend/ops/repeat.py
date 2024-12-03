@@ -18,6 +18,7 @@ from typing import Union
 from tripy import constraints, export
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
+from tripy.types import IntLike
 
 
 @export.public_api(document_under="operations/functions")
@@ -27,7 +28,7 @@ from tripy.frontend import utils as frontend_utils
         "T1": ["float32", "float16", "bfloat16", "int4", "float8", "int8", "int32", "int64", "bool"],
     },
 )
-def repeat(input: "tripy.Tensor", repeats: Union[int, "tripy.DimensionSize"], dim: int) -> "tripy.Tensor":
+def repeat(input: "tripy.Tensor", repeats: IntLike, dim: int) -> "tripy.Tensor":
     """
     Repeats each element of a tensor after itself along the specified dimension.
 
