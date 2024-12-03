@@ -22,10 +22,16 @@ class TestInput:
     @pytest.mark.parametrize(
         "shape, expected_min, expected_opt, expected_max",
         [
+            # int:
             # min/opt/max explicitly specified
-            ([(1, 2, 3)], (1,), (2,), (3,)),
+            ([(1, 2, 3)], [1], [2], [3]),
             # Only one value specified
-            ([1], (1,), (1,), (1,)),
+            ([1], [1], [1], [1]),
+            # `DimensionSize`s:
+            # min/opt/max explicitly specified
+            ([(tp.DimensionSize(1), tp.DimensionSize(2), tp.DimensionSize(3))], [1], [2], [3]),
+            # Only one value specified
+            ([tp.DimensionSize(1)], [1], [1], [1]),
         ],
     )
     def test_shapes_normalized(self, shape, expected_min, expected_opt, expected_max):
@@ -41,14 +47,14 @@ class TestInput:
             # Not a number
             (
                 (tp.int32, 1),
-                "Shape values should be either a single number or a Tuple specifying min/opt/max bounds.",
+                "Shape values should be either a single integer-like value or a 3-element tuple specifying min/opt/max bounds.",
             ),
             # Too few elements in dimension
             (((1, 1), 1), "Incorrect number of shape values provided"),
             # Too many elements in dimension
             (((1, 1, 1, 1), 1), "Incorrect number of shape values provided"),
             # Tuple containing a non-number
-            (((tp.int32, 1, 1), 1), "Shape values must be numbers"),
+            (((tp.int32, 1, 1), 1), "Shape values must be integers or `DimensionSize`s."),
         ],
     )
     def test_invalid_shape(self, shape, expected_error):

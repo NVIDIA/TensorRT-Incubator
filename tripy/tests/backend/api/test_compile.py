@@ -20,16 +20,17 @@ from tests import helper
 from tests.backend.api.conftest import *
 
 import tripy as tp
+from tripy.frontend.trace.ops.storage import Storage
 
 
 class TestCompile:
     # TODO (#246): Verify that it's actually compiling somehow here and below.
     # Need to return something programatically queriable from compile to do this.
     def test_function(self):
-        compiled_gelu = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
+        compiled_relu = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-        inp = tp.ones((2, 2), dtype=tp.float32)
-        out = compiled_gelu(inp)
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        out = compiled_relu(inp)
 
         assert tp.equal(out, tp.relu(inp))
 
@@ -37,10 +38,20 @@ class TestCompile:
         layernorm = tp.LayerNorm(2)
         compiled_layernorm = tp.compile(layernorm, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-        inp = tp.ones((2, 2), dtype=tp.float32)
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
         out = compiled_layernorm(inp)
 
         assert tp.equal(out, layernorm(inp))
+
+    def test_can_compile_using_shape_of_tensor(self):
+        # Since InputInfo allows `DimensionSize`s, we should be able to use the shape of a tensor as
+        # the shape of the InputInfo.
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        shape = inp.shape
+
+        compiled_relu = tp.compile(tp.relu, args=[tp.InputInfo(shape, inp.dtype)])
+        out = compiled_relu(inp)
+        assert tp.equal(out, tp.relu(inp))
 
     def test_compile_arg_order_irrelevant(self):
         # The order of arguments we specify to `compile` should not affect the order
