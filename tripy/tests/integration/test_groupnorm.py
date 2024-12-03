@@ -44,8 +44,8 @@ class TestGroupNorm:
             dtype=tp_dtype,
         )
 
-        tp_groupnorm.weight = tp.Parameter(groupnorm.weight.detach())
-        tp_groupnorm.bias = tp.Parameter(groupnorm.bias.detach())
+        tp_groupnorm.weight = tp.Tensor(groupnorm.weight.detach())
+        tp_groupnorm.bias = tp.Tensor(groupnorm.bias.detach())
 
         input = torch.arange(torch.prod(torch.Tensor(input_shape))).reshape(input_shape).to(torch_dtype)
         tp_input = tp.Tensor(input, dtype=tp_dtype)

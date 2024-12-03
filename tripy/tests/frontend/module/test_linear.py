@@ -53,8 +53,8 @@ class TestLinear:
         assert qlinear.weight.shape == [30, 20]
         assert qlinear.bias.shape == [30]
         assert qlinear.weight_quant_dim == weight_quant_dim
-        assert isinstance(qlinear.weight_scale, tp.Parameter)
-        assert isinstance(qlinear.input_scale, tp.Parameter)
+        assert isinstance(qlinear.weight_scale, tp.Tensor)
+        assert isinstance(qlinear.input_scale, tp.Tensor)
 
     def test_load_quantized_params_from_state_dict(self):
         qlinear = tp.Linear(
@@ -65,6 +65,6 @@ class TestLinear:
         )
 
         qlinear.load_state_dict(
-            {"weight_scale": tp.Parameter(tp.ones((30,))), "input_scale": tp.Parameter(tp.ones((20,)))},
+            {"weight_scale": tp.ones((30,)), "input_scale": tp.ones((20,))},
             strict=False,
         )

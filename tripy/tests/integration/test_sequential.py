@@ -28,10 +28,10 @@ class TestSequential:
         )
         tp_model = tp.Sequential(tp.Linear(1, 3, dtype=tp.float32), tp.Linear(3, 2, dtype=tp.float32))
 
-        tp_model[0].weight = tp.Parameter(torch_model[0].weight.detach())
-        tp_model[0].bias = tp.Parameter(torch_model[0].bias.detach())
-        tp_model[1].weight = tp.Parameter(torch_model[1].weight.detach())
-        tp_model[1].bias = tp.Parameter(torch_model[1].bias.detach())
+        tp_model[0].weight = tp.Tensor(torch_model[0].weight.detach())
+        tp_model[0].bias = tp.Tensor(torch_model[0].bias.detach())
+        tp_model[1].weight = tp.Tensor(torch_model[1].weight.detach())
+        tp_model[1].bias = tp.Tensor(torch_model[1].bias.detach())
 
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
@@ -55,10 +55,10 @@ class TestSequential:
             {"layer1": tp.Linear(1, 3, dtype=tp.float32), "layer2": tp.Linear(3, 2, dtype=tp.float32)}
         )
 
-        tp_model["layer1"].weight = tp.Parameter(torch_model[0].weight.detach())
-        tp_model["layer1"].bias = tp.Parameter(torch_model[0].bias.detach())
-        tp_model["layer2"].weight = tp.Parameter(torch_model[1].weight.detach())
-        tp_model["layer2"].bias = tp.Parameter(torch_model[1].bias.detach())
+        tp_model["layer1"].weight = tp.Tensor(torch_model[0].weight.detach())
+        tp_model["layer1"].bias = tp.Tensor(torch_model[0].bias.detach())
+        tp_model["layer2"].weight = tp.Tensor(torch_model[1].weight.detach())
+        tp_model["layer2"].bias = tp.Tensor(torch_model[1].bias.detach())
 
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
@@ -87,12 +87,12 @@ class TestSequential:
             tp.Sequential(tp.Linear(3, 4, dtype=tp.float32), tp.Linear(4, 2, dtype=tp.float32)),
         )
 
-        tp_model[0].weight = tp.Parameter(torch_model[0].weight.detach())
-        tp_model[0].bias = tp.Parameter(torch_model[0].bias.detach())
-        tp_model[1][0].weight = tp.Parameter(torch_model[1][0].weight.detach())
-        tp_model[1][0].bias = tp.Parameter(torch_model[1][0].bias.detach())
-        tp_model[1][1].weight = tp.Parameter(torch_model[1][1].weight.detach())
-        tp_model[1][1].bias = tp.Parameter(torch_model[1][1].bias.detach())
+        tp_model[0].weight = tp.Tensor(torch_model[0].weight.detach())
+        tp_model[0].bias = tp.Tensor(torch_model[0].bias.detach())
+        tp_model[1][0].weight = tp.Tensor(torch_model[1][0].weight.detach())
+        tp_model[1][0].bias = tp.Tensor(torch_model[1][0].bias.detach())
+        tp_model[1][1].weight = tp.Tensor(torch_model[1][1].weight.detach())
+        tp_model[1][1].bias = tp.Tensor(torch_model[1][1].bias.detach())
 
         input_tensor = torch.tensor([[1.0]], dtype=torch.float32, device="cuda")
         tp_input = tp.Tensor(input_tensor, dtype=tp.float32)
@@ -112,10 +112,10 @@ class TestSequential:
         )
         tp_model = tp.Sequential(tp.Linear(1, 3, dtype=tp.float32), tp.Linear(3, 2, dtype=tp.float32))
 
-        tp_model[0].weight = tp.Parameter(torch_model[0].weight.detach())
-        tp_model[0].bias = tp.Parameter(torch_model[0].bias.detach())
-        tp_model[1].weight = tp.Parameter(torch_model[1].weight.detach())
-        tp_model[1].bias = tp.Parameter(torch_model[1].bias.detach())
+        tp_model[0].weight = tp.Tensor(torch_model[0].weight.detach())
+        tp_model[0].bias = tp.Tensor(torch_model[0].bias.detach())
+        tp_model[1].weight = tp.Tensor(torch_model[1].weight.detach())
+        tp_model[1].bias = tp.Tensor(torch_model[1].bias.detach())
 
         torch_state_dict = torch_model.state_dict()
         tp_state_dict = tp_model.state_dict()
@@ -138,10 +138,10 @@ class TestSequential:
             {"layer1": tp.Linear(1, 3, dtype=tp.float32), "layer2": tp.Linear(3, 2, dtype=tp.float32)}
         )
 
-        tp_model["layer1"].weight = tp.Parameter(torch_model[0].weight.detach())
-        tp_model["layer1"].bias = tp.Parameter(torch_model[0].bias.detach())
-        tp_model["layer2"].weight = tp.Parameter(torch_model[1].weight.detach())
-        tp_model["layer2"].bias = tp.Parameter(torch_model[1].bias.detach())
+        tp_model["layer1"].weight = tp.Tensor(torch_model[0].weight.detach())
+        tp_model["layer1"].bias = tp.Tensor(torch_model[0].bias.detach())
+        tp_model["layer2"].weight = tp.Tensor(torch_model[1].weight.detach())
+        tp_model["layer2"].bias = tp.Tensor(torch_model[1].bias.detach())
 
         torch_state_dict = torch_model.state_dict()
         tp_state_dict = tp_model.state_dict()
@@ -161,12 +161,12 @@ class TestSequential:
             tp.Sequential(tp.Linear(3, 4, dtype=tp.float32), tp.Linear(4, 2, dtype=tp.float32)),
         )
 
-        tp_model[0].weight = tp.Parameter(torch_model[0].weight.detach())
-        tp_model[0].bias = tp.Parameter(torch_model[0].bias.detach())
-        tp_model[1][0].weight = tp.Parameter(torch_model[1][0].weight.detach())
-        tp_model[1][0].bias = tp.Parameter(torch_model[1][0].bias.detach())
-        tp_model[1][1].weight = tp.Parameter(torch_model[1][1].weight.detach())
-        tp_model[1][1].bias = tp.Parameter(torch_model[1][1].bias.detach())
+        tp_model[0].weight = tp.Tensor(torch_model[0].weight.detach())
+        tp_model[0].bias = tp.Tensor(torch_model[0].bias.detach())
+        tp_model[1][0].weight = tp.Tensor(torch_model[1][0].weight.detach())
+        tp_model[1][0].bias = tp.Tensor(torch_model[1][0].bias.detach())
+        tp_model[1][1].weight = tp.Tensor(torch_model[1][1].weight.detach())
+        tp_model[1][1].bias = tp.Tensor(torch_model[1][1].bias.detach())
 
         torch_state_dict = torch_model.state_dict()
         tp_state_dict = tp_model.state_dict()

@@ -92,7 +92,9 @@ class Executor:
 
             output_device = output_devices[index]
             if not output_device:
-                output_device = device(("gpu" if memref.address_space == runtime.PointerType.device else "cpu", 0))
+                output_device = device.create_directly(
+                    "gpu" if memref.address_space == runtime.PointerType.device else "cpu", 0
+                )
 
             runtime_shape = [rs if dim < 0 else dim for dim, rs in zip(memref.shape, outputs_runtime_shape[index])]
             outputs_tensor_info.append(

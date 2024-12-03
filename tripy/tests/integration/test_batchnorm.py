@@ -37,10 +37,10 @@ class TestBatchNorm:
         )
 
         # Use Tripy's parameters and ensure they match the dtype
-        tp_batchnorm.weight = tp.Parameter(batchnorm.weight.detach())
-        tp_batchnorm.bias = tp.Parameter(batchnorm.bias.detach())
-        tp_batchnorm.running_mean = tp.Parameter(batchnorm.running_mean.detach())
-        tp_batchnorm.running_var = tp.Parameter(batchnorm.running_var.detach())
+        tp_batchnorm.weight = tp.Tensor(batchnorm.weight.detach())
+        tp_batchnorm.bias = tp.Tensor(batchnorm.bias.detach())
+        tp_batchnorm.running_mean = tp.Tensor(batchnorm.running_mean.detach())
+        tp_batchnorm.running_var = tp.Tensor(batchnorm.running_var.detach())
 
         input = torch.randn(input_shape, dtype=torch_dtype).to("cuda")
         tp_input = tp.Tensor(input, dtype=tp_dtype)

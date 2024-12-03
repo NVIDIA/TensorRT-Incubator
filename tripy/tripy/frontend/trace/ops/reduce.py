@@ -296,6 +296,7 @@ def prod(
 
 
 def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim: bool = False, apply_to_divisor=None):
+    from tripy.frontend.tensor import Tensor
     from tripy.frontend.trace.ops.cast import cast
 
     sum_val = sum(tensor, dim=dim, keepdim=keepdim)
@@ -307,7 +308,12 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
     if apply_to_divisor:
         num_elements = apply_to_divisor(num_elements)
 
-    return sum_val / (cast(num_elements, sum_val.dtype))
+    num_elements = (
+        cast(num_elements, sum_val.dtype)
+        if isinstance(num_elements, Tensor)
+        else Tensor(num_elements, dtype=sum_val.dtype)
+    )
+    return sum_val / num_elements
 
 
 @export.public_api(document_under="operations/functions")

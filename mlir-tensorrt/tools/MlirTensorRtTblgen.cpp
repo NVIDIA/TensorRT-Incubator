@@ -71,7 +71,7 @@ using ::mlir::tblgen::strfmt;
 static bool emitEnumConverters(const llvm::RecordKeeper &recordKeeper,
                                raw_ostream &outputStream) {
   raw_indented_ostream os(outputStream);
-  std::vector<Record *> defs =
+  ArrayRef<const Record *> defs =
       recordKeeper.getAllDerivedDefinitions("TensorRT_I32EnumAttr");
 
   std::string enumDeclsStr;
@@ -327,7 +327,7 @@ static void emitOperandReplacement(FmtContext &ctx, raw_indented_ostream &os,
 static bool emitLayerAddDefinitions(const llvm::RecordKeeper &recordKeeper,
                                     raw_ostream &outputStream) {
   raw_indented_ostream os(outputStream);
-  std::vector<Record *> defs = recordKeeper.getAllDerivedDefinitions("Op");
+  ArrayRef<const Record *> defs = recordKeeper.getAllDerivedDefinitions("Op");
 
   /// The signature for the encoding.
   StringRef encodeOpSignature =
@@ -441,7 +441,7 @@ static void printMultilineDocString(llvm::raw_ostream &os,
 static bool emitEnumDefs(const llvm::RecordKeeper &recordKeeper,
                          raw_ostream &outputStream, bool useC) {
   raw_indented_ostream os(outputStream);
-  std::vector<Record *> defs =
+  ArrayRef<const Record *> defs =
       recordKeeper.getAllDerivedDefinitions("EnumSpec");
 
   {
@@ -469,7 +469,7 @@ static bool emitEnumDefs(const llvm::RecordKeeper &recordKeeper,
 
       llvm::interleave(
           def->getValueAsListOfDefs("cases"), os,
-          [&](Record *caseDef) {
+          [&](const Record *caseDef) {
             if (useC)
               os << "MTRT_" << className << "_"
                  << caseDef->getValueAsString("symbol");
@@ -518,7 +518,7 @@ static bool emitEnumDefs(const llvm::RecordKeeper &recordKeeper,
          << "(std::string_view str) {\n";
       os.indent();
 
-      for (Record *enumCase : def->getValueAsListOfDefs("cases")) {
+      for (const Record *enumCase : def->getValueAsListOfDefs("cases")) {
         if (enumCase->getValueAsString("symbol").contains("_SIZE"))
           continue;
         llvm::StringRef name = enumCase->getValueAsString("symbol");
@@ -542,7 +542,7 @@ static bool emitEnumDefs(const llvm::RecordKeeper &recordKeeper,
       os.indent();
 
       os << "switch(val) {\n";
-      for (Record *enumCase : def->getValueAsListOfDefs("cases")) {
+      for (const Record *enumCase : def->getValueAsListOfDefs("cases")) {
         if (enumCase->getValueAsString("symbol").contains("_SIZE"))
           continue;
         os << "case " << className

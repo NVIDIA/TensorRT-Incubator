@@ -35,7 +35,7 @@ def tensor_from_shape_like(arg: ShapeLike) -> "tripy.Tensor":
     from tripy.frontend.trace.ops.reshape import Reshape
 
     if not arg:
-        return Tensor([], dtype=int32)
+        return Tensor.create_directly([], dtype=int32)
 
     concat_tensors = []
 
@@ -47,7 +47,7 @@ def tensor_from_shape_like(arg: ShapeLike) -> "tripy.Tensor":
         if not int_buffer:
             return
 
-        concat_tensors.append(Tensor(int_buffer, dtype=int32))
+        concat_tensors.append(Tensor.create_directly(int_buffer, dtype=int32))
         int_buffer.clear()
 
     for elem in arg:
@@ -55,7 +55,7 @@ def tensor_from_shape_like(arg: ShapeLike) -> "tripy.Tensor":
             empty_buffer()
             # NOTE: We cannot use the reshape API here since it would lead to an
             # infinite loop when attempting to convert the shape input to a tensor.
-            concat_tensors.append(Reshape.build([elem, Tensor([1])], 1))
+            concat_tensors.append(Reshape.build([elem, Tensor.create_directly([1])], 1))
         else:
             int_buffer.append(elem)
 
@@ -101,6 +101,10 @@ def _add_column_info(arg, arg_index, is_kwarg, num_positional, func_name, arg_na
         frame_index = arg.stack_info.get_first_user_frame_index()
         if frame_index is not None:
             dispatch_target = arg.stack_info[frame_index - 1]._dispatch_target
+
+    # The function registry might prepend a class name to the dispatch target. We will strip it out here in order to match it.
+    if dispatch_target is not None and "." in dispatch_target:
+        dispatch_target = dispatch_target.split(".")[-1]
 
     source_info = arg.stack_info[frame_index]
 
@@ -216,7 +220,7 @@ def convert_to_tensors(targets: Set[str] = None, preprocess_args: Optional[Calla
                         # Python integers can always be casted to the most restrictive type, which is DimensionSize in Tripy.
                         # DimensionSize can always be casted up to Tensor if needed, but the reverse is not true.
                         # NOTE: We do not use isinstance here because bool is a subclass of int.
-                        arg = DimensionSize(arg) if type(arg) is int else Tensor(arg)
+                        arg = DimensionSize.create_directly(arg) if type(arg) is int else Tensor.create_directly(arg)
 
                     _add_column_info(
                         arg,

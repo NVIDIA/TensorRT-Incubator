@@ -20,7 +20,8 @@ from dataclasses import dataclass
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import DefaultParameter, Parameter
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
 
 
 @export.public_api(document_under="operations/modules")
@@ -51,16 +52,16 @@ class BatchNorm(Module):
     eps: float
     r""":math:`\epsilon` value added to the denominator to prevent division by zero during normalization."""
 
-    weight: Parameter
+    weight: Tensor
     r"""The :math:`\gamma` parameter of shape :math:`[\text{num_features}]`."""
 
-    bias: Parameter
+    bias: Tensor
     r"""The :math:`\beta` parameter of shape :math:`[\text{num_features}]`."""
 
-    running_mean: Parameter
+    running_mean: Tensor
     r"""The running mean for the feature channels of shape :math:`[\text{num_features}]`."""
 
-    running_var: Parameter
+    running_var: Tensor
     r"""The running variance for the feature channels of shape :math:`[\text{num_features}]`."""
 
     def __init__(self, num_features: int, dtype: datatype.dtype = datatype.float32, eps: float = 1e-5) -> None:

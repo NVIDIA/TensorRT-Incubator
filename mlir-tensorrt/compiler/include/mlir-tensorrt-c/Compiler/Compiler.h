@@ -52,6 +52,29 @@ static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient options) {
 }
 
 //===----------------------------------------------------------------------===//
+// MTRT_OptionsContext
+//===----------------------------------------------------------------------===//
+
+typedef struct MTRT_OptionsContext {
+  void *ptr;
+} MTRT_OptionsContext;
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtOptionsContextCreateFromArgs(
+    MTRT_CompilerClient client, MTRT_OptionsContext *options,
+    MlirStringRef optionsType, const MlirStringRef *argv, unsigned argc);
+
+MLIR_CAPI_EXPORTED void mtrtOptionsContextPrint(MTRT_OptionsContext options,
+                                                MlirStringCallback append,
+                                                void *userData);
+
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtOptionsContextDestroy(MTRT_OptionsContext options);
+
+static inline bool mtrtOptionsConextIsNull(MTRT_OptionsContext options) {
+  return !options.ptr;
+}
+
+//===----------------------------------------------------------------------===//
 // MTRT_StableHLOToExecutableOptions
 //===----------------------------------------------------------------------===//
 
