@@ -75,8 +75,9 @@ void StableHLOToExecutableTensorRTExtension::populatePasses(
 
   if (phase == Phase::ExecutorLowering) {
     ConvertTensorRTRuntimeToExecutorPassOptions toExecutorOpts;
-    toExecutorOpts.indexBitwidth = options.executorIndexBitwidth;
-    toExecutorOpts.usePackedMemRefCConv = options.executorUsePackedMemRefCConv;
+    toExecutorOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
+    toExecutorOpts.usePackedMemRefCConv =
+        options.get<ExecutorOptions>().usePackedMemRefCConv;
     pm.addPass(createConvertTensorRTRuntimeToExecutorPass(toExecutorOpts));
     return;
   }
