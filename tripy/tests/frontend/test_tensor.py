@@ -127,7 +127,7 @@ class TestTensor:
             function=tp.Tensor.raw_init.__name__,
             code=None,
             _dispatch_target="",
-            column_range=None,
+            column_range=(25, 30) if sys.version_info >= (3, 11) else None,
         )
         assert a.stack_info[a.stack_info.get_first_user_frame_index()] == SourceInfo(
             __name__,
@@ -136,7 +136,7 @@ class TestTensor:
             function=build_func.__name__,
             code=inspect.getsource(build_func).rstrip(),
             _dispatch_target="",
-            column_range=None,
+            column_range=(0, 0) if sys.version_info >= (3, 11) else None,
         )
 
     def test_eval_of_storage_tensor_is_nop(self):
