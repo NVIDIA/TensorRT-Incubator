@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733253762535,
+  "lastUpdate": 1733254516631,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7125,6 +7125,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000021571783191777317",
             "extra": "mean: 44.1289425072576 usec\nrounds: 23619"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "6762f238b7f5757930d63bc481b593fac4077e07",
+          "message": "Fix get_stack_info for python3.12",
+          "timestamp": "2024-12-03T17:40:01Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/421/commits/6762f238b7f5757930d63bc481b593fac4077e07"
+        },
+        "date": 1733254515842,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6189.9941793688495,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003245995603102282",
+            "extra": "mean: 161.55104044087534 usec\nrounds: 6533"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6763.433547692884,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006922745852476967",
+            "extra": "mean: 147.8538959462559 usec\nrounds: 7442"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22201.718357871076,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000023738332444785566",
+            "extra": "mean: 45.04155867041141 usec\nrounds: 23030"
           }
         ]
       }
