@@ -29,6 +29,14 @@ class TestSlice:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Slice)
 
+    def test_slice_of_inline_output(self):
+        a = tp.Tensor([1, 2, 3, 4])
+        # The start and stop params use clamp bound, but the step parameter doesn't.
+        # The result is that the stack traces for the slice params are of different lengths.
+        s = (a + a)[:]
+        assert isinstance(s, tp.Tensor)
+        assert isinstance(s.trace_tensor.producer, Slice)
+
     def test_incorrect_index_size(self):
         with helper.raises(
             tp.TripyException,
