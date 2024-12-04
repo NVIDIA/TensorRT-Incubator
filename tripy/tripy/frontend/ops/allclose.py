@@ -19,7 +19,9 @@ from tripy import constraints, export
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(constraints={"input": "T1", "other": "T1"}, variables={"T1": ["float32", "float16", "bfloat16"]})
+@constraints.interface(
+    dtype_constraints={"input": "T1", "other": "T1"}, variables={"T1": ["float32", "float16", "bfloat16"]}
+)
 def allclose(input: "tripy.Tensor", other: "tripy.Tensor", rtol: float = 1e-05, atol: float = 1e-08) -> bool:
     r"""
     Returns ``True`` if the following equation is true for every element in ``input`` and ``other`` :

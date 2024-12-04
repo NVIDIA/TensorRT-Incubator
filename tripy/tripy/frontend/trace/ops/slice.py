@@ -130,8 +130,8 @@ class Slice(BaseTraceOp):
 
 
 @register_tensor_method("__getitem__")
-@constraints.dtypes(
-    constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
@@ -259,7 +259,7 @@ def __getitem__(
     return out
 
 
-@constraints.dtypes(convert_tensor_and_shape_likes=True)
+@constraints.interface(convert_tensor_and_shape_likes=True)
 def slice_helper(tensor, *slice_params: TensorLike):
     from tripy import function_registry
     from tripy.utils import get_arg_candidate_column_offsets

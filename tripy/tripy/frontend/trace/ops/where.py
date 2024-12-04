@@ -91,8 +91,8 @@ class Where(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"condition": "T2", "input": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],
@@ -130,8 +130,8 @@ def where(condition: "tripy.Tensor", input: "tripy.Tensor", other: "tripy.Tensor
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"input": "T1", "mask": "T2", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["bool"],

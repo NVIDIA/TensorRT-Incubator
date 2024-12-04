@@ -18,7 +18,7 @@
 import inspect
 import functools
 from collections import namedtuple
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Sequence
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Sequence, Union
 
 from tripy import config, utils
 from tripy.common.exception import raise_error
@@ -124,7 +124,9 @@ def get_arg_dtype(arg, func_name, arg_name) -> utils.Result["tripy.dtype"]:
     return utils.Result.ok(arg_dtype)
 
 
-def convert_input_types(func, args, kwargs, conversion_targets, conversion_preprocess_func, constraints, shape_likes):
+def convert_input_types(
+    func, args, kwargs, conversion_targets, conversion_preprocess_func, dtype_constraints, shape_likes
+):
     from tripy.common.datatype import bool as tp_bool
     from tripy.common.datatype import floating, integer
     from tripy.frontend.dimension_size import DimensionSize
@@ -150,10 +152,10 @@ def convert_input_types(func, args, kwargs, conversion_targets, conversion_prepr
     # Materialize type variables from tensors.
     type_vars = {}
     for name, arg in all_args:
-        if name in constraints:
+        if name in dtype_constraints:
             dtype_result = get_arg_dtype(arg, func.__qualname__, name)
             if dtype_result:
-                type_vars[constraints[name]] = dtype_result.value
+                type_vars[dtype_constraints[name]] = dtype_result.value
 
     new_args = []
     new_kwargs = {}
@@ -184,8 +186,8 @@ def convert_input_types(func, args, kwargs, conversion_targets, conversion_prepr
             )
 
             dtype = None
-            if name in constraints and constraints[name] in type_vars:
-                dtype = type_vars[constraints[name]]
+            if name in dtype_constraints and dtype_constraints[name] in type_vars:
+                dtype = type_vars[dtype_constraints[name]]
 
             if dtype is not None:
                 # Refuse to do unsafe casts like float -> int.
@@ -210,23 +212,26 @@ def convert_input_types(func, args, kwargs, conversion_targets, conversion_prepr
     return new_args, new_kwargs
 
 
-def dtypes(
-    constraints: Dict[str, str] = {},
+def interface(
+    dtype_constraints: Dict[str, str] = {},
     variables: Dict[str, List[str]] = {},
-    exceptions: List[Dict[str, str]] = [],
+    dtype_exceptions: List[Dict[str, str]] = [],
     aliases: List[str] = [],
-    convert_tensor_and_shape_likes: bool = False,
-    conversion_targets: Set[str] = None,
+    convert_tensor_and_shape_likes: Union[bool, Set[str]] = False,
     conversion_preprocess_func: Optional[Callable] = None,
 ):
     """
-    Specifies data type constraints for the decorated function. If `convert_tensor_and_shape_likes` is
-    set to true, the decorated function will also convert the specified arguments to Tensors or DimensionSizes.
+    Decorator for specifying constraints and transformations on front-end inputs. To avoid having to
+    layer too many decorators, it is preferable to extend this decorator with further functionality
+    than to add and apply further decorators.
+
+    The supported constraints are for data type constraints and for converting `TensorLike` and `ShapeLike`
+    inputs into `Tensor`s or `DimensionSize`s.
 
     NOTE: When annotating a new API, you should also update `tests/constraints/object_builders.py`.
 
     Args:
-        constraints: Maps parameters and return values to data type constraint variables.
+        dtype_constraints: Maps parameters and return values to data type constraint variables.
             Use the special value `constraints.RETURN_VALUE` to denote return values.
             For example:
                 {"input": "T1", "other": T2, constraints.RETURN_VALUE: "T1"}
@@ -235,7 +240,7 @@ def dtypes(
             For example:
                 {"T1": ["float32", "float16"], "T2": ["int32", "int64"]}
 
-        exceptions: Indicates specific combinations of data types that are not supported by the API.
+        dtype_exceptions: Indicates specific combinations of data types that are not supported by the API.
             For example:
                 [
                     {"T1": "float16", "T2": "int32"},
@@ -245,16 +250,13 @@ def dtypes(
             (e.g. `__add__` and `__radd__`), this will enable type information to be added to the
             documentation for the aliases as well.
 
-        convert_tensor_and_shape_likes: If set to True, this decorator will also convert
-            arguments to `Tensor` or `DimensionSize`. If the argument can be converted to a
-            `DimensionSize`, it is. Otherwise, it is converted to a `Tensor`.
+        convert_tensor_and_shape_likes: If False or an empty set, no argument types will be converted.
+            If True, all arguments with the `TensorLike` or `ShapeLike` annotations will be
+            converted into `Tensor`s or, whenever possible, `DimensionSize`. If the argument
+            is a set of argument names, conversions will be done only for those arguments.
 
-            The conversions will respect any datatype constraints, casting the TensorLike values as necessary,
+            The conversions will respect any datatype constraints, casting the `TensorLike` values as necessary,
             but will raise an exception for lossy casts like float to int (but *not* for, e.g., `float32` to `float16`).
-
-        conversion_targets: If `convert_tensor_and_shape_likes` is true, only the arguments named in the list
-            will be converted to `Tensor` or `DimensionSize`. If not supplied, any arguments annotated
-            with `TensorLike` or `ShapeLike` are converted if convert_tensor_and_shape_likes is true.
 
         conversion_preprocess_func: If `convert_tensor_and_shape_likes` is true, this argument is a callback that is
             used to preprocess the arguments before potential conversion. In this case, if provided, the callback
@@ -266,22 +268,22 @@ def dtypes(
     """
 
     def decorator(func):
-        nonlocal conversion_targets
-
         from tripy.types import ShapeLike, TensorLike
 
-        return_dtype = constraints.get(RETURN_VALUE, None)
+        return_dtype = dtype_constraints.get(RETURN_VALUE, None)
         VerifInfo = namedtuple("VerifInfo", ["obj", "inputs", "exceptions", "return_dtype", "dtypes", "constraints"])
-        verif_info = VerifInfo(func, {}, exceptions, return_dtype, variables, constraints)
+        verif_info = VerifInfo(func, {}, dtype_exceptions, return_dtype, variables, dtype_constraints)
 
         signature = inspect.signature(func)
-        conversion_targets = conversion_targets or {
-            name for name, param in signature.parameters.items() if param.annotation in {TensorLike, ShapeLike}
-        }
+        conversion_targets = (
+            convert_tensor_and_shape_likes
+            if isinstance(convert_tensor_and_shape_likes, Set)
+            else {name for name, param in signature.parameters.items() if param.annotation in {TensorLike, ShapeLike}}
+        )
         shape_likes = {name for name, param in signature.parameters.items() if param.annotation is ShapeLike}
 
         # if no dtype constraints have been specified at all, do not add to the table so we don't generate invalid tests
-        if constraints or variables or exceptions:
+        if dtype_constraints or variables or dtype_exceptions:
             for key in [func.__qualname__] + aliases:
                 TYPE_VERIFICATION[key] = verif_info
 
@@ -289,7 +291,7 @@ def dtypes(
         def wrapper(*args, **kwargs):
             if convert_tensor_and_shape_likes:
                 args, kwargs = convert_input_types(
-                    func, args, kwargs, conversion_targets, conversion_preprocess_func, constraints, shape_likes
+                    func, args, kwargs, conversion_targets, conversion_preprocess_func, dtype_constraints, shape_likes
                 )
 
             if config.enable_dtype_checking:
@@ -303,7 +305,7 @@ def dtypes(
                 type_var_first_args: Dict[str, Tuple[str, dtype, Any]] = {}
 
                 for name, arg in merged_args:
-                    if name not in constraints:
+                    if name not in dtype_constraints:
                         continue
 
                     if arg is None:
@@ -311,7 +313,7 @@ def dtypes(
                         # be disallowed by the function registry's type checking.
                         continue
 
-                    type_var = constraints[name]
+                    type_var = dtype_constraints[name]
 
                     arg_dtype = get_arg_dtype(arg, func.__qualname__, name)
                     if not arg_dtype:

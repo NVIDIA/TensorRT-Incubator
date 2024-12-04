@@ -105,8 +105,8 @@ def _check_mode(mode: str, align_corners: bool):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "int8"]},
     convert_tensor_and_shape_likes=True,
 )
@@ -143,8 +143,8 @@ def resize(input: "tripy.Tensor", mode: str, output_shape: ShapeLike, align_corn
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "int8"]},
 )
 def resize(

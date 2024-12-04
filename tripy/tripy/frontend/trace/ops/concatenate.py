@@ -42,8 +42,8 @@ class Concatenate(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"tensors": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"tensors": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },

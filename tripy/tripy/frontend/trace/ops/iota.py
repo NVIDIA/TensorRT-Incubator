@@ -61,8 +61,8 @@ def iota_impl(shape: "tripy.Tensor", dim: int, dtype: datatype.dtype, output_ran
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtypes(
-    constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
@@ -96,8 +96,8 @@ def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float3
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.dtypes(
-    constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
+@constraints.interface(
+    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
     variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],

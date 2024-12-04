@@ -17,7 +17,7 @@ from tripy.common.datatype import DATA_TYPES
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(constraints={"input": "T1", "other": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
+@constraints.interface(dtype_constraints={"input": "T1", "other": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
 def equal(input: "tripy.Tensor", other: "tripy.Tensor") -> bool:
     r"""
     Returns ``True`` if ``input`` and ``other`` have the same shape and elements.
