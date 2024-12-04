@@ -272,3 +272,27 @@ class TestTensor:
     )
     def test_tolist(self, tensor, expected):
         assert np.allclose(tensor.tolist(), expected)
+
+    # testing the invariant that stack trace of build is not past the limit
+    @pytest.mark.parametrize(
+        "tensor",
+        [
+            tp.Tensor([1, 2, 3]),
+            tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]),
+            # This case should trigger datatype conversions.
+            (4 * tp.Tensor([1, 2, 3])) + (3 * tp.Tensor([4, 5, 6])),
+            # Slice is an interesting case because it adds slice_helper to the stack.
+            # Additionally, the use of slices may also require more ops, increasing the total stack depth.
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[:],
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[0:],
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[:3],
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[0:3:1],
+            (tp.Tensor([[1], [2], [3]]) + tp.Tensor([[4], [5], [6]]))[0],
+        ],
+    )
+    def test_stack_depth_of_build(self, tensor):
+        if any(info.function == "build" for info in tensor.stack_info):
+            # + 1 for inclusive bound
+            assert any(
+                info.function == "build" for info in tensor.stack_info[: tp.frontend.tensor.STACK_DEPTH_OF_BUILD + 1]
+            )
