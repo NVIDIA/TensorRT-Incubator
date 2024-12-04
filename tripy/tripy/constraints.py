@@ -124,8 +124,17 @@ def get_arg_dtype(arg, func_name, arg_name) -> utils.Result["tripy.dtype"]:
     return utils.Result.ok(arg_dtype)
 
 
+# Performs type conversions if needed. Returns updated values of args, kwargs, and merged args
 def convert_input_types(
-    func, args, kwargs, conversion_targets, conversion_preprocess_func, dtype_constraints, shape_likes
+    func,
+    args,
+    kwargs,
+    merged_args,
+    var_arg_info,
+    conversion_targets,
+    conversion_preprocess_func,
+    dtype_constraints,
+    shape_likes,
 ):
     from tripy.common.datatype import bool as tp_bool
     from tripy.common.datatype import floating, integer
@@ -135,23 +144,21 @@ def convert_input_types(
 
     from tripy.frontend.trace.ops.cast import cast
 
-    all_args, var_arg_info = utils.merge_function_arguments(func, *args, **kwargs)
-
     if conversion_preprocess_func is not None:
         var_arg_name, var_arg_start_idx = utils.default(var_arg_info, (None, None))
         new_args = conversion_preprocess_func(*args, **kwargs)
-        for index in range(len(all_args)):
-            name, _ = all_args[index]
+        for index in range(len(merged_args)):
+            name, _ = merged_args[index]
             if name in new_args:
                 if name == var_arg_name:
                     assert var_arg_start_idx is not None
-                    all_args[index] = (name, new_args[name][index - var_arg_start_idx])
+                    merged_args[index] = (name, new_args[name][index - var_arg_start_idx])
                 else:
-                    all_args[index] = (name, new_args[name])
+                    merged_args[index] = (name, new_args[name])
 
     # Materialize type variables from tensors.
     type_vars = {}
-    for name, arg in all_args:
+    for name, arg in merged_args:
         if name in dtype_constraints:
             dtype_result = get_arg_dtype(arg, func.__qualname__, name)
             if dtype_result:
@@ -159,9 +166,12 @@ def convert_input_types(
 
     new_args = []
     new_kwargs = {}
-    for index, (name, arg) in enumerate(all_args):
+    new_merged_args = []
+    for index, (name, arg) in enumerate(merged_args):
 
         def add_arg(arg):
+            # need to keep merged args up to date to reuse in the future
+            new_merged_args.append((name, arg))
             if name not in kwargs:
                 new_args.append(arg)
             else:
@@ -182,7 +192,7 @@ def convert_input_types(
                 name in kwargs,
                 len(args),
                 func.__name__,
-                [name for name, _ in all_args],
+                [name for name, _ in merged_args],
             )
 
             dtype = None
@@ -209,7 +219,7 @@ def convert_input_types(
 
         add_arg(arg)
 
-    return new_args, new_kwargs
+    return new_args, new_kwargs, new_merged_args
 
 
 def interface(
@@ -289,16 +299,24 @@ def interface(
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            merged_args, var_arg_info = utils.merge_function_arguments(func, *args, **kwargs)
+
             if convert_tensor_and_shape_likes:
-                args, kwargs = convert_input_types(
-                    func, args, kwargs, conversion_targets, conversion_preprocess_func, dtype_constraints, shape_likes
+                args, kwargs, merged_args = convert_input_types(
+                    func,
+                    args,
+                    kwargs,
+                    merged_args,
+                    var_arg_info,
+                    conversion_targets,
+                    conversion_preprocess_func,
+                    dtype_constraints,
+                    shape_likes,
                 )
 
             if config.enable_dtype_checking:
                 from tripy.common.datatype import dtype
                 from tripy.frontend.tensor import Tensor
-
-                merged_args, _ = utils.merge_function_arguments(func, *args, **kwargs)
 
                 # The first arguments seen for each type variable. Other arguments with the same variable
                 # must use the same data types.
