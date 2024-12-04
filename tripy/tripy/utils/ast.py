@@ -143,7 +143,7 @@ def get_arg_candidate_column_offsets(
                         return node.lower
                     elif index == 1 and node.upper is not None:
                         return node.upper
-                    elif node.step is not None:
+                    elif index == 2 and node.step is not None:
                         return node.step
                 return node
 
