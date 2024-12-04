@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733301104383,
+  "lastUpdate": 1733335905894,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7248,6 +7248,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000004059469193270545",
             "extra": "mean: 45.71187895012563 usec\nrounds: 23359"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "f4c2068ca1fc967798fb6f80b64f8f4d13728a1a",
+          "message": "Combine the functionality of the `convert_to_tensors` decorator and the `dtypes` constraint.",
+          "timestamp": "2024-12-04T00:12:11Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/420/commits/f4c2068ca1fc967798fb6f80b64f8f4d13728a1a"
+        },
+        "date": 1733335905108,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6245.153569614931,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000032321141402095055",
+            "extra": "mean: 160.12416489890398 usec\nrounds: 6558"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 7011.096789959951,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007328737707647484",
+            "extra": "mean: 142.63103619279977 usec\nrounds: 7678"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22547.902830948336,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000018541942004657274",
+            "extra": "mean: 44.35002259400553 usec\nrounds: 23892"
           }
         ]
       }
