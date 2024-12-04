@@ -268,26 +268,38 @@ def slice_helper(tensor, *slice_params: TensorLike):
     # because this call occurs *inside* the overridden call to __getitem__, so we adjust the column info manually.
 
     # Look for the stack frame index to __getitem__. We need to go one stack frame beyond to get to the *user* call of __getitem__.
-    # It will be the same for all the slice params
-    frame_index = -1
+    def find_frame_index(arg):
+        # Internal WAR: the constraints decorator is applied before the function registry decorator, so in the constraints tests,
+        # we will not find the Tensor.__getitem__ decorator. We can use a fallback in that case.
+        frame_index = -1
+        function_registry_wrapper_found = False
+        for idx, source_info in enumerate(arg.stack_info):
+            if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
+                function_registry_wrapper_found = True
+            if source_info._dispatch_target == "Tensor.__getitem__":
+                frame_index = idx + 1
+                break
+
+        assert (
+            not function_registry_wrapper_found or frame_index >= 0
+        ), "No call to the Tensor.__getitem__ dispatch found"
+        return frame_index if function_registry_wrapper_found else arg.stack_info.get_first_user_frame_index()
+
     assert slice_params
 
-    # Internal WAR: the constraints decorator is applied before the function registry decorator, so in the constraints tests,
-    # we will not find the Tensor.__getitem__ decorator. We can use a fallback in that case.
-    function_registry_wrapper_found = False
-    for idx, source_info in enumerate(slice_params[0].stack_info):
-        if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
-            function_registry_wrapper_found = True
-        if source_info._dispatch_target == "Tensor.__getitem__":
-            frame_index = idx + 1
-            break
-
-    assert not function_registry_wrapper_found or frame_index >= 0, "No call to the Tensor.__getitem__ dispatch found"
-    if not function_registry_wrapper_found:
-        frame_index = slice_params[0].stack_info.get_first_user_frame_index()
+    # The frame index will *usually* be the same across params, but in some cases (when clamping bounds for slices),
+    # the step parameters might have shorter stack depths.
+    frame_index = find_frame_index(slice_params[0])
 
     arg_names = ["tensor"] + ["slice_params"] * len(slice_params)
     for arg_index, arg in enumerate(slice_params):
+        arg_frame_index = frame_index
+        if (
+            arg_frame_index > len(arg.stack_info)
+            or arg.stack_info[arg_frame_index]._dispatch_target != "Tensor.__getitem__"
+        ):
+            arg_frame_index = find_frame_index(arg)
+
         source_info = arg.stack_info[frame_index]
 
         # Note: arg_index does not account for the positional arg, hence we add 1 for the index argument
