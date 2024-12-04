@@ -19,8 +19,8 @@ from tripy import constraints, export
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"vec1": "T1", "vec2": "T1", constraints.RETURN_VALUE: "T1"},
+@constraints.interface(
+    dtype_constraints={"vec1": "T1", "vec2": "T1", constraints.RETURN_VALUE: "T1"},
     variables={"T1": ["float32", "float16", "bfloat16", "int32"]},
 )
 def outer(vec1: "tripy.Tensor", vec2: "tripy.Tensor") -> "tripy.Tensor":
