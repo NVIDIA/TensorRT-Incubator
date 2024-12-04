@@ -32,25 +32,25 @@ class Trace:
 
     def __init__(
         self,
-        tensors: Sequence["tripy.Tensor"],
-        inputs: Sequence["tripy.Tensor"] = [],
+        tensors: Sequence["tripy.frontend.trace.tensor.TraceTensor"],
+        inputs: Sequence["tripy.frontend.trace.tensor.TraceTensor"] = [],
         shapes: Sequence[ShapeBounds] = None,
     ) -> None:
         """
         Args:
-            tensors: The tensor(s) to evaluate. These are effectively the desired outputs.
-            inputs: Input tensors.
-            shapes: The shape profile, consisting of min, opt, and max shapes for each input tensors.
+            tensors: The output TraceTensor(s) to evaluate.
+            inputs: Input TraceTensor(s).
+            shapes: The shape profile, consisting of min, opt, and max shapes for each input tensor.
                     Must be in the same order as `inputs`.
         """
         self.ops: List["BaseTraceOp"] = []
-        self.inputs: List[TraceTensor] = [inp.trace_tensor for inp in inputs]
-        self.outputs: List[TraceTensor] = [tensor.trace_tensor for tensor in tensors]
+        self.inputs: List[TraceTensor] = inputs
+        self.outputs: List[TraceTensor] = tensors
         self.shapes = shapes
 
-        exprs = [tensor.trace_tensor.producer for tensor in tensors]
+        exprs = [tensor.producer for tensor in tensors]
 
-        input_op_ids = set(id(inp.trace_tensor.producer) for inp in inputs)
+        input_op_ids = set(id(inp.producer) for inp in inputs)
         seen_op_ids: Set[int] = set()
 
         # Check all tensors for duplicate names. We currently rely on tensor names being
@@ -89,6 +89,11 @@ class Trace:
 
     def __str__(self) -> str:
         layer_strs: List[str] = []
+        if self.shapes:
+            layer_strs.append("input shapes:")
+            for shape in self.shapes:
+                layer_strs.append(f"    {str(shape)}")
+
         if len(self.inputs):
             layer_strs.append("inputs:")
         for inp in self.inputs:

@@ -209,11 +209,15 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace import Trace
         from tripy.frontend import global_cache
 
-        # TODO: set the inputs for trace by walking backward, and pass it to line below
-        trace = Trace([self])
+        # Collect input TraceTensors
+        inputs = self._collect_storage_tensors()
+
+        # Create a Trace using TraceTensors for outputs and inputs
+        trace = Trace([self.trace_tensor], inputs=inputs)
+
         executable = global_cache.get(trace)
+        flat_ir = trace.to_flat_ir()
         if executable is None:
-            flat_ir = trace.to_flat_ir()
             mlir = flat_ir.to_mlir()
 
             compiler = Compiler(trt_builder_opt_level=0)
@@ -246,6 +250,25 @@ class Tensor(metaclass=TensorMeta):
             )
 
         return data
+
+    def _collect_storage_tensors(self):
+        visited = set()
+        inputs = []
+
+        def dfs(trace_tensor):
+            if id(trace_tensor) in visited:
+                return
+            visited.add(id(trace_tensor))
+
+            producer = trace_tensor.producer
+            if isinstance(producer, Storage) or producer is None:
+                inputs.append(trace_tensor)
+            else:
+                for inp in producer.inputs:
+                    dfs(inp)
+
+        dfs(self.trace_tensor)
+        return inputs
 
     def tolist(self):
         data_memref = self.eval()
