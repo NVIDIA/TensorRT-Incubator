@@ -300,7 +300,7 @@ def slice_helper(tensor, *slice_params: TensorLike):
         ):
             arg_frame_index = find_frame_index(arg)
 
-        source_info = arg.stack_info[frame_index]
+        source_info = arg.stack_info[arg_frame_index]
 
         # Note: arg_index does not account for the positional arg, hence we add 1 for the index argument
         # Also, strip the "Tensor" prefix from the dispatch target.
