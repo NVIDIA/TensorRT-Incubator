@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import constraints, export, utils
+from tripy import export, utils, wrappers
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -88,9 +88,9 @@ class Gather(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", "index": "T2", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "index": "T2", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float8", "float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["int32"],
     },

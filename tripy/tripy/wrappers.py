@@ -224,10 +224,10 @@ def convert_input_types(
 
 def interface(
     dtype_constraints: Dict[str, str] = {},
-    variables: Dict[str, List[str]] = {},
+    dtype_variables: Dict[str, List[str]] = {},
     dtype_exceptions: List[Dict[str, str]] = [],
     aliases: List[str] = [],
-    convert_tensor_and_shape_likes: Union[bool, Set[str]] = False,
+    convert_to_tensors: Union[bool, Set[str]] = False,
     conversion_preprocess_func: Optional[Callable] = None,
 ):
     """
@@ -242,11 +242,11 @@ def interface(
 
     Args:
         dtype_constraints: Maps parameters and return values to data type constraint variables.
-            Use the special value `constraints.RETURN_VALUE` to denote return values.
+            Use the special value `wrappers.RETURN_VALUE` to denote return values.
             For example:
-                {"input": "T1", "other": T2, constraints.RETURN_VALUE: "T1"}
+                {"input": "T1", "other": T2, wrappers.RETURN_VALUE: "T1"}
 
-        variables: Maps data type constraints variables to their supported data types.
+        dtype_variables: Maps data type constraints variables to their supported data types.
             For example:
                 {"T1": ["float32", "float16"], "T2": ["int32", "int64"]}
 
@@ -260,7 +260,7 @@ def interface(
             (e.g. `__add__` and `__radd__`), this will enable type information to be added to the
             documentation for the aliases as well.
 
-        convert_tensor_and_shape_likes: If False or an empty set, no argument types will be converted.
+        convert_to_tensors: If False or an empty set, no argument types will be converted.
             If True, all arguments with the `TensorLike` or `ShapeLike` annotations will be
             converted into `Tensor`s or, whenever possible, `DimensionSize`. If the argument
             is a set of argument names, conversions will be done only for those arguments.
@@ -268,7 +268,7 @@ def interface(
             The conversions will respect any datatype constraints, casting the `TensorLike` values as necessary,
             but will raise an exception for lossy casts like float to int (but *not* for, e.g., `float32` to `float16`).
 
-        conversion_preprocess_func: If `convert_tensor_and_shape_likes` is true, this argument is a callback that is
+        conversion_preprocess_func: If `convert_to_tensors` is true, this argument is a callback that is
             used to preprocess the arguments before potential conversion. In this case, if provided, the callback
             will be called regardless of whether the decorator performs any conversions.
 
@@ -282,18 +282,18 @@ def interface(
 
         return_dtype = dtype_constraints.get(RETURN_VALUE, None)
         VerifInfo = namedtuple("VerifInfo", ["obj", "inputs", "exceptions", "return_dtype", "dtypes", "constraints"])
-        verif_info = VerifInfo(func, {}, dtype_exceptions, return_dtype, variables, dtype_constraints)
+        verif_info = VerifInfo(func, {}, dtype_exceptions, return_dtype, dtype_variables, dtype_constraints)
 
         signature = inspect.signature(func)
         conversion_targets = (
-            convert_tensor_and_shape_likes
-            if isinstance(convert_tensor_and_shape_likes, Set)
+            convert_to_tensors
+            if isinstance(convert_to_tensors, Set)
             else {name for name, param in signature.parameters.items() if param.annotation in {TensorLike, ShapeLike}}
         )
         shape_likes = {name for name, param in signature.parameters.items() if param.annotation is ShapeLike}
 
         # if no dtype constraints have been specified at all, do not add to the table so we don't generate invalid tests
-        if dtype_constraints or variables or dtype_exceptions:
+        if dtype_constraints or dtype_variables or dtype_exceptions:
             for key in [func.__qualname__] + aliases:
                 TYPE_VERIFICATION[key] = verif_info
 
@@ -301,7 +301,7 @@ def interface(
         def wrapper(*args, **kwargs):
             merged_args, var_arg_info = utils.merge_function_arguments(func, *args, **kwargs)
 
-            if convert_tensor_and_shape_likes:
+            if convert_to_tensors:
                 args, kwargs, merged_args = convert_input_types(
                     func,
                     args,
@@ -339,7 +339,7 @@ def interface(
                     arg_dtype = arg_dtype.value
 
                     # Check if the type is supported at all
-                    supported_dtypes = variables[type_var]
+                    supported_dtypes = dtype_variables[type_var]
                     if arg_dtype.name not in supported_dtypes:
                         raise_error(
                             f"Unsupported data type for '{func.__qualname__}'.",

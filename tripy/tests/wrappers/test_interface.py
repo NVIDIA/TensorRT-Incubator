@@ -24,12 +24,12 @@ from typing import List
 import pytest
 from tests import helper
 from tests.conftest import skip_if_older_than_sm89
-from tests.constraints.object_builders import create_obj
+from tests.wrappers.object_builders import create_obj
 
 import tripy as tp
-from tripy import constraints
+from tripy import wrappers
 from tripy.common.datatype import DATA_TYPES
-from tripy.constraints import TYPE_VERIFICATION
+from tripy.wrappers import TYPE_VERIFICATION
 from tripy.export import PUBLIC_APIS
 
 # Get all functions/methods which have tensors in the type signature
@@ -239,7 +239,7 @@ def test_dtype_constraints(test_data):
                     assert ret_val.dtype == namespace[return_dtype]
 
 
-@constraints.interface(dtype_constraints={"tensors": "T1"}, variables={"T1": ["float32"]})
+@wrappers.interface(dtype_constraints={"tensors": "T1"}, dtype_variables={"T1": ["float32"]})
 def sequence_func(tensors: List[tp.Tensor]):
     return
 
@@ -255,7 +255,7 @@ class TestDtypes:
 
 class TestTensorConversion:
     def test_no_effect_on_non_tensor_likes(self):
-        @constraints.interface(convert_tensor_and_shape_likes=True)
+        @wrappers.interface(convert_to_tensors=True)
         def func(a: tp.Tensor, b: int):
             return a, b
 
@@ -266,7 +266,7 @@ class TestTensorConversion:
         assert b is 4
 
     def test_tensor_likes(self):
-        @constraints.interface(convert_tensor_and_shape_likes=True)
+        @wrappers.interface(convert_to_tensors=True)
         def func(a: tp.types.TensorLike):
             return a
 
@@ -277,7 +277,7 @@ class TestTensorConversion:
 
     def test_converts_to_dimension_size(self):
         # The decorator should convert to DimensionSizes when possible.
-        @constraints.interface(convert_tensor_and_shape_likes=True)
+        @wrappers.interface(convert_to_tensors=True)
         def func(a: tp.types.TensorLike):
             return a
 
@@ -289,7 +289,7 @@ class TestTensorConversion:
         assert type(a) is tp.Tensor
 
     def test_shape_likes(self):
-        @constraints.interface(convert_tensor_and_shape_likes=True)
+        @wrappers.interface(convert_to_tensors=True)
         def func(a: tp.types.ShapeLike):
             return a
 
@@ -310,7 +310,7 @@ class TestTensorConversion:
         assert bool(tp.all(a == tp.Tensor([2, 2, 3, 5])))
 
     def test_keyword_args(self):
-        @constraints.interface(convert_tensor_and_shape_likes=True)
+        @wrappers.interface(convert_to_tensors=True)
         def func(a: tp.types.TensorLike):
             return a
 
@@ -320,7 +320,7 @@ class TestTensorConversion:
         assert a.stack_info[4].column_range == (17, 22)
 
     def test_multiple_args(self):
-        @constraints.interface(convert_tensor_and_shape_likes=True)
+        @wrappers.interface(convert_to_tensors=True)
         def func(a: tp.types.TensorLike, b: tp.types.TensorLike):
             return a, b
 
@@ -333,7 +333,7 @@ class TestTensorConversion:
         assert b.stack_info[4].column_range == (25, 28)
 
     def test_args_out_of_order(self):
-        @constraints.interface(convert_tensor_and_shape_likes=True)
+        @wrappers.interface(convert_to_tensors=True)
         def func(a: tp.types.TensorLike, b: tp.types.TensorLike):
             return a, b
 
@@ -349,10 +349,10 @@ class TestTensorConversion:
 
     def test_cast_dtype(self):
         # When type constraints are included, the decorator should automatically cast when possible.
-        @constraints.interface(
-            dtype_constraints={"a": "T1", "b": "T1", constraints.RETURN_VALUE: "T1"},
-            variables={"T1": ["float16"]},
-            convert_tensor_and_shape_likes=True,
+        @wrappers.interface(
+            dtype_constraints={"a": "T1", "b": "T1", wrappers.RETURN_VALUE: "T1"},
+            dtype_variables={"T1": ["float16"]},
+            convert_to_tensors=True,
         )
         def func(a: tp.Tensor, b: tp.types.TensorLike):
             return a, b
@@ -369,10 +369,10 @@ class TestTensorConversion:
 
     @pytest.mark.parametrize("arg, dtype", [(1.0, tp.int32), (1.0, tp.int64), (2, tp.bool)])
     def test_refuse_unsafe_cast(self, arg, dtype):
-        @constraints.interface(
-            dtype_constraints={"a": "T1", "b": "T1", constraints.RETURN_VALUE: "T1"},
-            variables={"T1": ["int32", "int64"]},
-            convert_tensor_and_shape_likes=True,
+        @wrappers.interface(
+            dtype_constraints={"a": "T1", "b": "T1", wrappers.RETURN_VALUE: "T1"},
+            dtype_variables={"T1": ["int32", "int64"]},
+            convert_to_tensors=True,
         )
         def func(a: tp.Tensor, b: tp.types.TensorLike):
             return a, b
@@ -385,7 +385,7 @@ class TestTensorConversion:
         def add_a_to_b(a, b):
             return {"b": a + b}
 
-        @constraints.interface(convert_tensor_and_shape_likes=True, conversion_preprocess_func=add_a_to_b)
+        @wrappers.interface(convert_to_tensors=True, conversion_preprocess_func=add_a_to_b)
         def func(a: tp.types.TensorLike, b: tp.types.TensorLike):
             return a, b
 
@@ -398,7 +398,7 @@ class TestTensorConversion:
         def increment(a, *args):
             return {"a": a + 1, "args": list(map(lambda arg: arg + 1, args))}
 
-        @constraints.interface(convert_tensor_and_shape_likes=True, conversion_preprocess_func=increment)
+        @wrappers.interface(convert_to_tensors=True, conversion_preprocess_func=increment)
         def func(a: tp.Tensor, *args):
             return [a] + list(args)
 

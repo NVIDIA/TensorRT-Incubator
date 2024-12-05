@@ -19,7 +19,7 @@ import numbers
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -105,10 +105,10 @@ def _check_mode(mode: str, align_corners: bool):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "int8"]},
-    convert_tensor_and_shape_likes=True,
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "int8"]},
+    convert_to_tensors=True,
 )
 def resize(input: "tripy.Tensor", mode: str, output_shape: ShapeLike, align_corners: bool = False) -> "tripy.Tensor":
     r"""
@@ -143,9 +143,9 @@ def resize(input: "tripy.Tensor", mode: str, output_shape: ShapeLike, align_corn
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "int8"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "int8"]},
 )
 def resize(
     input: "tripy.Tensor", mode: str, scales: Sequence[numbers.Number], align_corners: bool = False

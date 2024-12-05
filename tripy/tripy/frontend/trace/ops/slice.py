@@ -18,9 +18,8 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from tripy import constraints, utils
+from tripy import utils, wrappers
 from tripy.common.exception import raise_error
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -130,9 +129,9 @@ class Slice(BaseTraceOp):
 
 
 @register_tensor_method("__getitem__")
-@constraints.interface(
-    dtype_constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+@wrappers.interface(
+    dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
     self: "tripy.Tensor", index: Union[slice, int, "tripy.Tensor", Sequence[Union[slice, int, "tripy.Tensor"]]]
@@ -259,7 +258,7 @@ def __getitem__(
     return out
 
 
-@constraints.interface(convert_tensor_and_shape_likes=True)
+@wrappers.interface(convert_to_tensors=True)
 def slice_helper(tensor, *slice_params: TensorLike):
     from tripy import function_registry
     from tripy.utils import get_arg_candidate_column_offsets

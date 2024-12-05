@@ -124,14 +124,14 @@ class TestRaiseError:
             in dedent(error_msg).strip()
         )
 
-    def test_constraints_is_excluded(self):
-        from tripy import constraints
+    def test_wrappers_is_excluded(self):
+        from tripy import wrappers
 
         tensor = tp.ones((2, 3))
 
         stack_info = tensor.stack_info
 
-        assert any(frame.module == constraints.__name__ for frame in stack_info)
+        assert any(frame.module == wrappers.__name__ for frame in stack_info)
 
         # Make sure that no extraneous wrapper code is included
         expected = dedent(
@@ -146,7 +146,7 @@ class TestRaiseError:
                 [0-9]+ |     return full\(shape, 1, dtype\)
                     |            ^^^^^^^^^^^^^^^^^^^^^ --- required from here
 
-                --> [a-z_/\.]+:[0-9]+ in test_constraints_is_excluded\(\)
+                --> [a-z_/\.]+:[0-9]+ in test_wrappers_is_excluded\(\)
                     |
                 [0-9]+ |         tensor = tp.ones\(\(2, 3\)\)
                     |                  ^^^^^^^^^^^^^^^ --- required from here
