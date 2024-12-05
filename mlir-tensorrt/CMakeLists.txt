@@ -186,6 +186,7 @@ if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
     GIT_REPOSITORY "https://github.com/openxla/stablehlo.git"
     PATCHES
       "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/stablehlo/0001-transforms-Fix-simplification-patterns-for-stablehlo.patch"
+      "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/stablehlo/0002-Fix-a-couple-missing-checks-for-static-shapes-in-sta.patch"
     OPTIONS
       "STABLEHLO_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
       "STABLEHLO_BUILD_EMBEDDED ON"

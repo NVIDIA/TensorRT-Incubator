@@ -17,7 +17,7 @@ env:
 
 jobs:
   mlir-tensorrt-test-pr:
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     # `ubuntu-latest` is a CPU runner.
     # If selected, tests requiring GPU are not run.
     runs-on: ubuntu-latest
@@ -110,320 +110,55 @@ jobs:
       - name: Create cache folder
         run: |
           mkdir -p ${{ github.workspace }}/ccache
-          mkdir -p ${{ github.workspace }}/.ccache.cpm
+          mkdir -p ${{ github.workspace }}/.cache.cpm
 
       # Create cache action
       - name: Create cache action
         id: core-build-cache
         uses: actions/cache@v4
         with:
-          key: ${{ runner.os }}-mlir-tensorrt-core-build
+          key: ${{ runner.os }}-mlir-tensorrt-cache-${{ hashFiles('mlir-tensorrt/**/*.cpp', 'mlir-tensorrt/**/*.h', 'mlir-tensorrt/build_tools/**/*') }}
+          restore-keys: |
+            ${{ runner.os }}-mlir-tensorrt-cache-
           path: |
             ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.ccache.cpm
+            ${{ github.workspace }}/.cache.cpm
 
       # Run LIT tests with TensorRT 10
       - name: Run MLIR-TensorRT lit tests with TensorRT 10
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           run: |
-            export CCACHE_DIR="/ccache"
-            export CCACHE_MAXSIZE=10G
-            ccache --zero-stats || true
-            ccache --show-stats || true
-
             cd mlir-tensorrt
-            cat > build_and_test.sh <<EOF
-            #!/bin/bash
-            set -e
-
-            python3 -m pip install -r python/requirements-dev.txt
-
-            cmake -B ./build -S . -G Ninja \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
-              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
-              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-              -DMLIR_TRT_USE_LINKER=lld \
-              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
-
-            ninja -C build all
-
-            ninja -C build check-mlir-executor
-            ninja -C build check-mlir-tensorrt-dialect
-            ninja -C build check-mlir-tensorrt
-
-            cd ..
-            ccache --show-stats || true
-            EOF
-
-            bash build_and_test.sh
+            ./build_tools/scripts/cicd_build.sh
 
       # Run LIT tests with TensorRT 10 & ASAN
       - name: Run MLIR-TensorRT lit tests with TensorRT 10, ASAN enabled
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           run: |
-            export CCACHE_DIR="/ccache"
-            export CCACHE_MAXSIZE=10G
-            ccache --zero-stats || true
-            ccache --show-stats || true
-
             cd mlir-tensorrt
-            cat > build_and_test.sh <<EOF
-            #!/bin/bash
-            set -e
-
-            python3 -m pip install -r python/requirements-dev.txt
-
-            cmake -B ./build -S . -G Ninja \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
-              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
-              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-              -DMLIR_TRT_USE_LINKER=lld \
-              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF \
-              -DENABLE_ASAN=ON
-
-            ninja -C build all
-
-            ninja -C build check-mlir-executor
-            ninja -C build check-mlir-tensorrt-dialect
-            ninja -C build check-mlir-tensorrt
-
-            cd ..
-            ccache --show-stats || true
-            EOF
-
-            bash build_and_test.sh
+            ENABLE_ASAN=ON ./build_tools/scripts/cicd_build.sh
 
       # Run LIT tests with TensorRT 8
       - name: Run MLIR-TensorRT lit tests with TensorRT 8
         uses: addnab/docker-run-action@v3
         with:
           image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
+          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.cache.cpm:/.cache.cpm
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
           run: |
-            export CCACHE_DIR="/ccache"
-            export CCACHE_MAXSIZE=10G
-            ccache --zero-stats || true
-            ccache --show-stats || true
-
             cd mlir-tensorrt
-            cat > build_and_test.sh <<EOF
-            #!/bin/bash
-            set -e
-
-            python3 -m pip install -r python/requirements-dev.txt
-
-            cmake -B ./build -S . -G Ninja \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
-              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=8.6.1.6 \
-              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-              -DMLIR_TRT_USE_LINKER=lld \
-              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
-
-            ninja -C build all
-
-            ninja -C build check-mlir-executor
-            ninja -C build check-mlir-tensorrt-dialect
-            ninja -C build check-mlir-tensorrt
-
-            cd ..
-            ccache --show-stats || true
-            EOF
-
-            bash build_and_test.sh
-
-  mlir-tensorrt-test-main:
-    if: github.event_name == 'push'
-    # `ubuntu-latest` is a CPU runner.
-    # If selected, tests requiring GPU are not run.
-    runs-on: ubuntu-latest
-
-    steps:
-      # Free some disk space, otherwise we get OOM error.
-      - name: Free disk space
-        run: |
-          sudo rm -rf \
-            /usr/share/dotnet "$AGENT_TOOLSDIRECTORY" /usr/local/lib/android /opt/ghc \
-            /usr/local/share/powershell /usr/share/swift /usr/local/.ghcup \
-            /usr/lib/jvm
-
-          sudo apt-get purge microsoft-edge-stable || true
-          sudo apt-get purge google-cloud-cli || true
-          sudo apt-get purge dotnet-sdk-* || true
-          sudo apt-get purge google-chrome-stable || true
-
-          sudo apt-get autoremove -y
-          sudo apt-get autoclean -y
-
-      # Value of `github.workspace` is /home/runner/work/{repo_name}/{repo-name}
-      # i.e. /home/runner/work/TensorRT-Incubator/TensorRT-Incubator in our case.
-      # After this action, repo is cloned inside above path.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 5
-
-      # Create cache folders
-      - name: Create cache folder
-        run: |
-          mkdir -p ${{ github.workspace }}/ccache
-          mkdir -p ${{ github.workspace }}/.ccache.cpm
-
-      # Create cache action
-      - name: Create cache action
-        id: core-build-cache
-        uses: actions/cache@v4
-        with:
-          key: ${{ runner.os }}-mlir-tensorrt-core-build
-          path: |
-            ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.ccache.cpm
-
-      # Run LIT tests with TensorRT 10
-      - name: Run MLIR-TensorRT lit tests with TensorRT 10
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            export CCACHE_DIR="/ccache"
-            export CCACHE_MAXSIZE=10G
-            ccache --zero-stats || true
-            ccache --show-stats || true
-
-            cd mlir-tensorrt
-            cat > build_and_test.sh <<EOF
-            #!/bin/bash
-            set -e
-
-            python3 -m pip install -r python/requirements-dev.txt
-
-            cmake -B ./build -S . -G Ninja \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
-              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
-              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-              -DMLIR_TRT_USE_LINKER=lld \
-              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
-
-            ninja -C build all
-
-            ninja -C build check-mlir-executor
-            ninja -C build check-mlir-tensorrt-dialect
-            ninja -C build check-mlir-tensorrt
-
-            cd ..
-            ccache --show-stats || true
-            EOF
-
-            bash build_and_test.sh
-
-      # Run LIT tests with TensorRT 10 & ASAN
-      - name: Run MLIR-TensorRT lit tests with TensorRT 10, ASAN enabled
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            export CCACHE_DIR="/ccache"
-            export CCACHE_MAXSIZE=10G
-            ccache --zero-stats || true
-            ccache --show-stats || true
-
-            cd mlir-tensorrt
-            cat > build_and_test.sh <<EOF
-            #!/bin/bash
-            set -e
-
-            python3 -m pip install -r python/requirements-dev.txt
-
-            cmake -B ./build -S . -G Ninja \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
-              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=10.5 \
-              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-              -DMLIR_TRT_USE_LINKER=lld \
-              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF \
-              -DENABLE_ASAN=ON
-
-            ninja -C build all
-
-            ninja -C build check-mlir-executor
-            ninja -C build check-mlir-tensorrt-dialect
-            ninja -C build check-mlir-tensorrt
-
-            cd ..
-            ccache --show-stats || true
-            EOF
-
-            bash build_and_test.sh
-
-      # Run LIT tests with TensorRT 8
-      - name: Run MLIR-TensorRT lit tests with TensorRT 8
-        uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ env.DEFAULT_IMAGE }}
-          options: -v ${{ github.workspace }}/mlir-tensorrt:/mlir-tensorrt -v ${{ github.workspace }}/ccache:/ccache -v ${{ github.workspace }}/.ccache.cpm:/.ccache.cpm
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          run: |
-            export CCACHE_DIR="/ccache"
-            export CCACHE_MAXSIZE=10G
-            ccache --zero-stats || true
-            ccache --show-stats || true
-
-            cd mlir-tensorrt
-            cat > build_and_test.sh <<EOF
-            #!/bin/bash
-            set -e
-
-            python3 -m pip install -r python/requirements-dev.txt
-
-            cmake -B ./build -S . -G Ninja \
-              -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-              -DMLIR_TRT_PACKAGE_CACHE_DIR=/.cache.cpm \
-              -DMLIR_TRT_ENABLE_ASSERTIONS=ON \
-              -DMLIR_TRT_DOWNLOAD_TENSORRT_VERSION=8.6.1.6 \
-              -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-              -DMLIR_TRT_USE_LINKER=lld \
-              -DMLIR_EXECUTOR_ENABLE_GPU_INTEGRATION_TESTS=OFF
-
-            ninja -C build all
-
-            ninja -C build check-mlir-executor
-            ninja -C build check-mlir-tensorrt-dialect
-            ninja -C build check-mlir-tensorrt
-
-            cd ..
-            ccache --show-stats || true
-            EOF
-
-            bash build_and_test.sh
+            DOWNLOAD_TENSORRT_VERSION="8.6.1.6" ./build_tools/scripts/cicd_build.sh
