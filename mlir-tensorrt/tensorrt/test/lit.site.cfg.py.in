@@ -25,7 +25,7 @@ config.gpu_tools_package_path = os.path.join(
 )
 config.gpu_tools_script = os.path.join(
     "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@",
-    "../python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
+    "test/gpu_tools.py",
 )
 
 def load_gpu_tools_module():
@@ -46,5 +46,4 @@ import lit.llvm
 lit.llvm.initialize(lit_config, config)
 
 # Let the main config do the real work.
-lit_config.load_config(config, "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@/test/lit.cfg.py")
-
+lit_config.load_config(config, "@MLIR_TENSORRT_DIALECT_SOURCE_DIR@" + "/test/lit.cfg.py")

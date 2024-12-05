@@ -31,7 +31,7 @@ config.suffixes = {".mlir", ".py", ".test"}
 config.test_source_root = os.path.dirname(__file__)
 config.gpu_tools_script = os.path.join(
     config.test_source_root,
-    "../python/mlir_tensorrt_tools/mlir_tensorrt/tools/gpu_tools.py",
+    "gpu_tools.py",
 )
 
 
@@ -59,7 +59,7 @@ def estimate_paralllelism(mem_required: float) -> int:
 config.test_exec_root = os.path.join(config.mlir_tensorrt_obj_root, "test")
 
 # mlir_tensorrt_tools_dir: binary output path for tool executables
-config.mlir_tensorrt_tools_dir = os.path.join(config.mlir_tensorrt_obj_root, "bin")
+config.mlir_tensorrt_tools_dir = os.path.join(config.mlir_tensorrt_obj_root)
 
 # Add additional expansions that can be used in the `RUN:` commands.
 config.substitutions.append(("%PATH%", config.environment["PATH"]))
