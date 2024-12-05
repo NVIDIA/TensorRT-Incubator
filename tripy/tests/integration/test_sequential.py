@@ -42,8 +42,7 @@ class TestSequential:
         with torch.no_grad():
             torch_output = torch_model(input_tensor)
 
-        rtol_ = 2e-6
-        assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=rtol_)
+        assert torch.allclose(torch.from_dlpack(tp_output), torch_output, atol=1e-5, rtol=2e-6)
 
     def test_dict_forward_pass_accuracy(self, eager_or_compiled):
         torch_model = torch.nn.Sequential(

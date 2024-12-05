@@ -225,3 +225,23 @@ builtin.module @simple_gather_dynamic attributes {
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.concatenate %[[c]], %[[v1]], %[[c_0]], %[[c_0]]
 //   CHECK-DAG:       %[[v3:.+]] = "stablehlo.dynamic_gather"(%[[arg1]], %[[arg0]], %[[v2]])
 //   CHECK-DAG:       return %[[v3]] : tensor<?x?x256x256xi32>
+
+// -----
+
+builtin.module attributes {
+  plan.cluster_kinds = [
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=true, tensorrt_major_version=10>,
+    #plan.host_cluster<benefit = 0>
+  ]
+} {
+  func.func @static_type_refinement() -> tensor<?x?xi32>{
+    %c_0 = stablehlo.constant dense<1> : tensor<1x1xi32>
+    %c_1 = stablehlo.constant dense<2> : tensor<1x1xi32>
+    %0 = stablehlo.subtract %c_0, %c_1 : (tensor<1x1xi32>, tensor<1x1xi32>) -> tensor<?x?xi32>
+    return %0 : tensor<?x?xi32>
+  }
+}
+
+// CHECK-LABEL: func.func @static_type_refinement() -> tensor<1x1xi32>
+// CHECK-LABEL: tensorrt.module
+// CHECK: stablehlo.subtract {{.*}} : tensor<1x1xi32>
