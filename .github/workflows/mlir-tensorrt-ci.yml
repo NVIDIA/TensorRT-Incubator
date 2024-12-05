@@ -47,6 +47,7 @@ jobs:
           fetch-depth: 5
 
       - name: Validate commit message
+        if: ${{ github.event_name == 'pull_request' }}
         env:
           PR_HEAD_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -83,6 +84,7 @@ jobs:
       # Run initial format check
       - name: Run python format and clang check
         uses: addnab/docker-run-action@v3
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           image: ${{ env.DEFAULT_IMAGE }}
           options: -v ${{ github.workspace }}:/tensorrt-incubator
