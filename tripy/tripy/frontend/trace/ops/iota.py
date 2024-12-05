@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import constraints, export, utils
+from tripy import export, utils, wrappers
 from tripy.common import datatype
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -61,12 +61,12 @@ def iota_impl(shape: "tripy.Tensor", dim: int, dtype: datatype.dtype, output_ran
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
-    convert_tensor_and_shape_likes=True,
+    convert_to_tensors=True,
     conversion_preprocess_func=lambda shape, dim=None, dtype=None: (
         {"dim": frontend_utils.process_dim(dim, len(shape))} if dim is not None else {}
     ),
@@ -96,9 +96,9 @@ def iota(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float3
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },

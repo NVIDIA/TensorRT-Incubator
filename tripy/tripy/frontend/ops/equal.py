@@ -12,12 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common.datatype import DATA_TYPES
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(dtype_constraints={"input": "T1", "other": "T1"}, variables={"T1": list(DATA_TYPES.keys())})
+@wrappers.interface(dtype_constraints={"input": "T1", "other": "T1"}, dtype_variables={"T1": list(DATA_TYPES.keys())})
 def equal(input: "tripy.Tensor", other: "tripy.Tensor") -> bool:
     r"""
     Returns ``True`` if ``input`` and ``other`` have the same shape and elements.

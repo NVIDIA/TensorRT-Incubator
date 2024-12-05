@@ -19,9 +19,8 @@ import numbers
 from dataclasses import dataclass
 from typing import Any, Sequence, Union
 
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common import datatype
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -131,10 +130,10 @@ class Quantize(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/quantization")
-@constraints.interface(
-    dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int4", "int8", "float8"]},
-    convert_tensor_and_shape_likes={"scale"},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "scale": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"], "T2": ["int4", "int8", "float8"]},
+    convert_to_tensors={"scale"},
 )
 def quantize(
     input: "tripy.Tensor",

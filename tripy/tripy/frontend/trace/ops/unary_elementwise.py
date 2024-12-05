@@ -18,7 +18,7 @@
 import enum
 from dataclasses import dataclass
 
-from tripy import export, constraints
+from tripy import export, wrappers
 from tripy.frontend.trace.ops.base import BaseTraceOp
 import tripy.frontend.trace.ops.utils as op_utils
 
@@ -59,9 +59,9 @@ class UnaryElementwise(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def exp(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""
@@ -88,9 +88,9 @@ def exp(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -115,9 +115,9 @@ def tanh(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def sin(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -142,9 +142,9 @@ def sin(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def cos(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -169,9 +169,9 @@ def cos(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
 )
 def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -196,9 +196,9 @@ def rsqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
 )
 def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -223,9 +223,9 @@ def sqrt(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def log(input: "tripy.Tensor") -> "tripy.Tensor":
     """
@@ -250,9 +250,9 @@ def log(input: "tripy.Tensor") -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64"]},
 )
 def abs(input: "tripy.Tensor") -> "tripy.Tensor":
     r"""

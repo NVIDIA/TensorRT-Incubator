@@ -18,7 +18,7 @@
 import numbers
 from typing import Optional, Union
 
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops.fill import full, full_like
@@ -27,9 +27,9 @@ from tripy.frontend.trace.ops.where import where
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
 )
@@ -61,9 +61,9 @@ def ones(
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int4", "int32", "int64", "bool"],
     },
 )
@@ -95,9 +95,9 @@ def zeros(
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
@@ -128,9 +128,9 @@ def ones_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) -> 
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"input": "T1", "dtype": "T2", constraints.RETURN_VALUE: "T2"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "dtype": "T2", wrappers.RETURN_VALUE: "T2"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
         "T2": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
@@ -162,9 +162,9 @@ def zeros_like(input: "tripy.Tensor", dtype: Optional[datatype.dtype] = None) ->
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"tensor": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
     },
 )
@@ -220,9 +220,9 @@ def tril(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"tensor": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"tensor": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int32", "int64", "bool"],
     },
 )
@@ -278,9 +278,9 @@ def triu(tensor: "tripy.Tensor", diagonal: int = 0) -> "tripy.Tensor":
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
 )
@@ -343,9 +343,9 @@ def arange(
 
 
 @export.public_api(document_under="operations/initializers")
-@constraints.interface(
-    dtype_constraints={"dtype": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"dtype": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int8", "int32", "int64", "bool"],
     },
 )

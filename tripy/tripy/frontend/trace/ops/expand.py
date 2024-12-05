@@ -16,11 +16,9 @@
 #
 
 from dataclasses import dataclass
-from typing import Optional
 
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common.exception import raise_error
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import ShapeLike
@@ -73,12 +71,12 @@ def process_sizes(input: "tripy.Tensor", sizes: ShapeLike):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"],
     },
-    convert_tensor_and_shape_likes=True,
+    convert_to_tensors=True,
     conversion_preprocess_func=process_sizes,
 )
 def expand(input: "tripy.Tensor", sizes: ShapeLike) -> "tripy.Tensor":

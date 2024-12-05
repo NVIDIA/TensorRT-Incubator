@@ -19,7 +19,7 @@ import enum
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-from tripy import constraints, export, utils
+from tripy import export, utils, wrappers
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -139,9 +139,9 @@ class Pooling(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "int8"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "int8"]},
 )
 def maxpool(
     input: "tripy.Tensor",
@@ -198,9 +198,9 @@ def maxpool(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "int8"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "int8"]},
 )
 def avgpool(
     input: "tripy.Tensor",

@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common.device import device
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -39,9 +39,9 @@ class Copy(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
     },
 )

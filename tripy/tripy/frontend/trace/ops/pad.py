@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common.exception import raise_error
 from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -73,9 +73,9 @@ class Pad(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.interface(
-    dtype_constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bool", "int32"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bool", "int32"]},
 )
 def pad(
     input: "tripy.Tensor", pad: Sequence[ShapeLike], mode: str = "constant", value: Union[int, float] = 0
