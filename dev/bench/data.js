@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733501293354,
+  "lastUpdate": 1733505461968,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7494,6 +7494,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000021714034031563905",
             "extra": "mean: 45.13863344219621 usec\nrounds: 23256"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "9d3ea4edb2bf855bf320a2ca77c12f9385761c7c",
+          "message": "Fix weight loader for nanogpt by not asserting on exactly same state …",
+          "timestamp": "2024-12-05T19:18:15Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/428/commits/9d3ea4edb2bf855bf320a2ca77c12f9385761c7c"
+        },
+        "date": 1733505461189,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6027.4491756331945,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003410529269679822",
+            "extra": "mean: 165.9076619082314 usec\nrounds: 6463"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6744.355634997746,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007393515804248291",
+            "extra": "mean: 148.27213363583758 usec\nrounds: 7345"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 21604.14240184177,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002571126746902297",
+            "extra": "mean: 46.287419393919066 usec\nrounds: 23059"
           }
         ]
       }
