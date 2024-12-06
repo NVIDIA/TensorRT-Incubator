@@ -18,9 +18,8 @@
 import math
 from dataclasses import dataclass
 
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common.exception import raise_error
-from tripy.frontend import utils as frontend_utils
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import ShapeLike
@@ -61,10 +60,11 @@ def infer_dimensions(input: "tripy.Tensor", shape: ShapeLike) -> ShapeLike:
 
 
 @export.public_api(document_under="operations/functions")
-@frontend_utils.convert_to_tensors(preprocess_args=infer_dimensions)
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+    convert_to_tensors=True,
+    conversion_preprocess_func=infer_dimensions,
 )
 def reshape(input: "tripy.Tensor", shape: ShapeLike) -> "tripy.Tensor":
     """

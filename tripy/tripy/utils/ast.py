@@ -123,9 +123,14 @@ def get_arg_candidate_column_offsets(
             if is_kwarg:
                 arg_node = node.keywords[index - num_positional]
             else:
+                # For methods, the `self` argument is omitted from ast.Call.args
                 if "self" in arg_names:
-                    # For methods, the `self` argument is omited from ast.Call.args
-                    arg_node = node.args[index - 1]
+                    index -= 1
+                # If the final argument is a starred object, then we treat any args
+                # past the end as pointing to the starred object (this would be a variadic call,
+                # and the starred object would be a catchall)
+                if index >= len(node.args) and isinstance(node.args[-1], ast.Starred):
+                    arg_node = node.args[-1]
                 else:
                     arg_node = node.args[index]
 
@@ -138,7 +143,7 @@ def get_arg_candidate_column_offsets(
                         return node.lower
                     elif index == 1 and node.upper is not None:
                         return node.upper
-                    elif node.step is not None:
+                    elif index == 2 and node.step is not None:
                         return node.step
                 return node
 
