@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733369991139,
+  "lastUpdate": 1733455241187,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7330,6 +7330,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000253903221164618",
             "extra": "mean: 44.33307397544318 usec\nrounds: 23392"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "e80787a1a33ff07f248baa1f4146ef8c7f7cafc6",
+          "message": "Combine the functionality of the `convert_to_tensors` decorator and the `dtypes` constraint.",
+          "timestamp": "2024-12-05T19:18:15Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/420/commits/e80787a1a33ff07f248baa1f4146ef8c7f7cafc6"
+        },
+        "date": 1733455240439,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6149.901992692187,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003197235431882706",
+            "extra": "mean: 162.60421730106938 usec\nrounds: 6533"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6837.835105370186,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007057414517182246",
+            "extra": "mean: 146.2451177295335 usec\nrounds: 7435"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22706.69702613586,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000198669213665841",
+            "extra": "mean: 44.03987065353363 usec\nrounds: 23797"
           }
         ]
       }
