@@ -502,13 +502,13 @@ def process_code_block_for_outputs_and_locals(
         with capture_output() as outfile:
             code_locals = exec_code(code, local_vars)
     except Exception as e:
-        print(
-            f"Exception occurred while executing code block: {type(e).__name__}: {e}\n"
-            f"Note: Code block was:\n\n{block}"
-        )
         if allow_exception:
             code_locals = local_vars
         else:
+            print(
+                f"Exception occurred while executing code block: {type(e).__name__}: {e}\n"
+                f"Note: Code block was:\n\n{block}"
+            )
             print(err_msg)
             raise
 
