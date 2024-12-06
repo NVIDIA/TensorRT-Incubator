@@ -17,7 +17,7 @@
 
 import enum
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence
 
 from tripy import constraints, export, utils
 from tripy.common.exception import raise_error
@@ -39,7 +39,7 @@ class Pooling(BaseTraceOp):
     kind: Kind
     kernel_dims: Sequence[int]
     stride: Sequence[int]
-    padding: Sequence[Tuple[int]]
+    padding: Sequence[Sequence[int]]
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()
 
@@ -147,7 +147,7 @@ def maxpool(
     input: "tripy.Tensor",
     kernel_dims: Sequence[int],
     stride: Optional[Sequence[int]] = None,
-    padding: Optional[Sequence[Tuple[int]]] = None,
+    padding: Optional[Sequence[Sequence[int]]] = None,
 ) -> "tripy.Tensor":
     r"""
     Applies a max pooling over the input tensor.
@@ -206,7 +206,7 @@ def avgpool(
     input: "tripy.Tensor",
     kernel_dims: Sequence[int],
     stride: Optional[Sequence[int]] = None,
-    padding: Optional[Sequence[Tuple[int]]] = None,
+    padding: Optional[Sequence[Sequence[int]]] = None,
 ) -> "tripy.Tensor":
     r"""
     Applies an average pooling over the input tensor.

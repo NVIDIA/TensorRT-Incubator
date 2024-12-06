@@ -63,25 +63,8 @@ class InputInfo:
         for elem in shape:
             if is_int_like(elem):
                 elem = (elem,) * 3
-            elif isinstance(elem, Sequence):
-                if not all(is_int_like(val) for val in elem):
-                    raise_error(
-                        "Shape values must be integers or `DimensionSize`s.",
-                        [f"Shape: {shape} contains an element of incorrect type: {repr(elem)}"],
-                    )
-                if len(elem) != 3:
-                    raise_error(
-                        "Incorrect number of shape values provided.",
-                        [
-                            f"Exactly 3 shape values must be provided for each dimension (min/opt/max)"
-                            f" but got: {len(elem)} values in shape: {shape}. "
-                        ],
-                    )
-            else:
-                raise_error(
-                    "Shape values should be either a single integer-like value or a 3-element tuple specifying min/opt/max bounds.",
-                    [f"Shape: {shape} contains an invalid element: {elem}"],
-                )
+
+            assert len(elem) == 3 and all(is_int_like(val) for val in elem)
 
             min_shape.append(elem[0])
             opt_shape.append(elem[1])

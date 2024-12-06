@@ -18,10 +18,10 @@
 import functools
 import inspect
 from collections import OrderedDict, defaultdict
-from collections.abc import Sequence as ABCSequence
+from collections.abc import Sequence as ABCSequence, Callable as ABCCallable
 from dataclasses import dataclass
 from textwrap import dedent, indent
-from typing import Any, Callable, Dict, ForwardRef, List, Optional, Sequence, Tuple, Union, get_args, get_origin
+from typing import Any, Callable, Dict, ForwardRef, List, Optional, Sequence, Union, get_args, get_origin
 
 
 def get_type_name(typ):
@@ -32,10 +32,12 @@ def get_type_name(typ):
     except AttributeError:
         pass
     else:
-        # Don't attach prefix for built-in types or Tripy types.
+        # Modify prefix for built-in types or Tripy types.
         # If we include modules for Tripy, they will include all submodules, which can be confusing
         # e.g. Tensor will be something like "tripy.frontend.tensor.Tensor"
-        if any(module_name.startswith(skip_module) for skip_module in {"builtins", "tripy"}):
+        if module_name.startswith("tripy"):
+            module_name = "tripy."
+        if module_name.startswith("builtins"):
             module_name = ""
 
     return module_name + typ.__qualname__
@@ -54,9 +56,17 @@ def str_from_type_annotation(annotation, postprocess_annotation=None):
         types = list(get_args(annotation))
         return " | ".join(str_from_type_annotation(typ, postprocess_annotation) for typ in types)
 
-    if get_origin(annotation) in {ABCSequence, List, Tuple}:
+    if get_origin(annotation) in {ABCSequence, list, tuple}:
         types = get_args(annotation)
         return f"{annotation.__name__}[{', '.join(str_from_type_annotation(typ, postprocess_annotation) for typ in types)}]"
+
+    if get_origin(annotation) is ABCCallable:
+        params, ret = get_args(annotation)
+        return f"{annotation.__name__}[[{', '.join(map(str_from_type_annotation, params))}], {str_from_type_annotation(ret)}]"
+
+    if get_origin(annotation) is dict:
+        key_annotations, value_annotations = get_args(annotation)
+        return f"Dict[{str_from_type_annotation( key_annotations)}, {str_from_type_annotation( value_annotations)}]"
 
     if isinstance(annotation, ForwardRef):
         return postprocess_annotation(str(annotation.__forward_arg__))
@@ -72,13 +82,16 @@ def type_str_from_arg(arg: Any) -> str:
     if isinstance(arg, List):
         if len(arg) == 0:
             return "List"
-        # catch inconsistencies this way
-        arg_types = {type_str_from_arg(member) for member in arg}
-        if len(arg_types) == 1:
-            return f"List[{list(arg_types)[0]}]"
+        arg_types = sorted({type_str_from_arg(member) for member in arg})
         return f"List[{' | '.join(arg_types)}]"
-    if isinstance(arg, Tuple):
+    elif isinstance(arg, Tuple):
         return f"Tuple[{', '.join(map(type_str_from_arg, arg))}]"
+    elif isinstance(arg, Dict):
+        if len(arg) == 0:
+            return "Dict"
+        key_types = sorted({type_str_from_arg(key) for key in arg.keys()})
+        value_types = sorted({type_str_from_arg(value) for value in arg.values()})
+        return f"Dict[{' | '.join(key_types)}, {' | '.join(value_types)}]"
 
     return get_type_name(type(arg))
 
@@ -162,6 +175,8 @@ class FuncOverload:
         from tripy.utils.result import Result
 
         def matches_type(name: str, annotation: type, arg: Any) -> bool:
+            if annotation is Any:
+                return True
 
             # In cases where a type is not available at the time of function definition, the type
             # annotation may be provided as a string. Since we need the actual type, we just
@@ -180,7 +195,7 @@ class FuncOverload:
                 return any(map(lambda type_arg: matches_type(name, type_arg, arg), get_args(annotation)))
 
             # note: get_origin for typing.Sequence normalizes it into collections.abc.Sequence, see spec for get_origin
-            if get_origin(annotation) is ABCSequence:
+            if get_origin(annotation) in {ABCSequence, list}:
                 # in the context of Tripy, it does not make sense to consider strings as sequences
                 if not isinstance(arg, Sequence) or isinstance(arg, str):
                     return False
@@ -190,8 +205,35 @@ class FuncOverload:
                     return all(map(lambda member: matches_type(name, seq_arg[0], member), arg))
                 return True
 
+            if get_origin(annotation) is ABCCallable:
+                # Note: Callables passed in may not have type annotations, so it there is no general way
+                # to validate that they accept the right types.
+                return callable(arg)
+
             if get_origin(annotation) is Union and annotation._name == "Optional":
                 return arg is None or matches_type(arg, get_args(annotation)[0])
+
+            if get_origin(annotation) is dict:
+                if not isinstance(arg, Dict):
+                    return False
+
+                key_annotation, value_annotation = get_args(annotation)
+                return all(
+                    matches_type(name, key_annotation, key) and matches_type(name, value_annotation, value)
+                    for key, value in arg.items()
+                )
+
+            if get_origin(annotation) is tuple:
+                if not isinstance(arg, tuple):
+                    return False
+
+                tuple_annotations = get_args(annotation)
+                if len(tuple_annotations) != len(arg):
+                    return False
+                return all(
+                    matches_type(name, tuple_annotation, tuple_arg)
+                    for tuple_annotation, tuple_arg in zip(tuple_annotations, arg)
+                )
 
             # Forward references can be used for recursive type definitions. Warning: Has the potential for infinite looping if there is no base case!
             if isinstance(annotation, ForwardRef):
@@ -200,11 +242,7 @@ class FuncOverload:
 
                 return matches_type(name, eval(annotation.__forward_arg__), arg)
 
-            try:
-                return isinstance(arg, annotation)
-            except TypeError:
-                # When the type annotation includes a subscripted generic that we do not handle above, isinstance does not work
-                return True
+            return isinstance(arg, annotation)
 
         annotations = self._get_annotations()
 

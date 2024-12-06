@@ -16,7 +16,7 @@
 #
 
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Sequence, Union
 
 from tripy import export, utils
 from tripy.common import datatype
@@ -43,7 +43,7 @@ class LayerNorm(Module):
     dtype: datatype.dtype
     r"""The data type used to perform the operation."""
 
-    normalized_shape: Tuple[int]
+    normalized_shape: Sequence[int]
     r"""Defines the shape of the input tensor that is to be normalized over."""
 
     weight: Tensor
@@ -56,7 +56,7 @@ class LayerNorm(Module):
     """A value added to the denominator to prevent division by zero."""
 
     def __init__(
-        self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5
+        self, normalized_shape: Union[int, Sequence[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5
     ) -> None:
         r"""
         Args:
