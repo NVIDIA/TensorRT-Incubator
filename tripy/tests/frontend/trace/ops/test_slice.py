@@ -37,6 +37,26 @@ class TestSlice:
         assert isinstance(s, tp.Tensor)
         assert isinstance(s.trace_tensor.producer, Slice)
 
+        # input 0 is a + a, so it's not one of the slice params
+        slice_inputs = s.trace_tensor.producer.inputs[1:]
+        assert len(slice_inputs) == 3
+
+        assert any(frame.function == "clamp_bound" for frame in slice_inputs[0].stack_info)
+        assert any(frame.function == "clamp_bound" for frame in slice_inputs[1].stack_info)
+        assert not any(frame.function == "clamp_bound" for frame in slice_inputs[2].stack_info)
+
+        # Consequently, the frame corresponding to the caller is at different depths.
+        def index_of_caller(trace_input):
+            for i, frame in enumerate(trace_input.stack_info):
+                if frame.function == TestSlice.test_slice_of_inline_output.__name__:
+                    return i
+            return -1
+
+        caller_idxs = [index_of_caller(inp) for inp in slice_inputs]
+        assert all(idx != -1 for idx in caller_idxs)
+        assert caller_idxs[0] == caller_idxs[1]
+        assert caller_idxs[2] != caller_idxs[1]
+
     def test_incorrect_index_size(self):
         with helper.raises(
             tp.TripyException,
