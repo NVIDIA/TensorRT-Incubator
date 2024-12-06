@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733514325170,
+  "lastUpdate": 1733517855428,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7617,6 +7617,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002583748850509184",
             "extra": "mean: 44.22937928546791 usec\nrounds: 23380"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "4c42bcadb469b427259e6efa1a900ba97b72cc05",
+          "message": "Fixes type checking, nanoGPT",
+          "timestamp": "2024-12-05T19:18:15Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/429/commits/4c42bcadb469b427259e6efa1a900ba97b72cc05"
+        },
+        "date": 1733517854434,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6169.054733438091,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000031842109433090225",
+            "extra": "mean: 162.09938851404672 usec\nrounds: 6529"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6654.4383625818045,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006865579164199413",
+            "extra": "mean: 150.2756424378417 usec\nrounds: 7382"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22933.297021157236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002472705162830085",
+            "extra": "mean: 43.60472020562262 usec\nrounds: 23991"
           }
         ]
       }
