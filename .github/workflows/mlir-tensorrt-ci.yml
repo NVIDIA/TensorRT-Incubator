@@ -124,7 +124,8 @@ jobs:
             ${{ runner.os }}-mlir-tensorrt-cache-
           path: |
             ${{ github.workspace }}/ccache
-            ${{ github.workspace }}/.cache.cpm
+            ${{ github.workspace }}/.cache.cpm/*
+            !${{ github.workspace }}/.cache.cpm/tensorrt
 
       # Run LIT tests with TensorRT 10
       - name: Run MLIR-TensorRT lit tests with TensorRT 10
