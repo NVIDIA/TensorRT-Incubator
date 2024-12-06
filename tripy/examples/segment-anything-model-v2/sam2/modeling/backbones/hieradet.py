@@ -238,10 +238,8 @@ class Hiera(tp.Module):
 
         # Windowed positional embedding (https://arxiv.org/abs/2311.05613)
         self.window_pos_embed_bkg_spatial_size = window_pos_embed_bkg_spatial_size
-        self.pos_embed = tp.Parameter(tp.zeros((1, embed_dim, *self.window_pos_embed_bkg_spatial_size), dtype=tp_dtype))
-        self.pos_embed_window = tp.Parameter(
-            tp.zeros((1, embed_dim, self.window_spec[0], self.window_spec[0]), dtype=tp_dtype)
-        )
+        self.pos_embed = tp.zeros((1, embed_dim, *self.window_pos_embed_bkg_spatial_size), dtype=tp_dtype)
+        self.pos_embed_window = tp.zeros((1, embed_dim, self.window_spec[0], self.window_spec[0]), dtype=tp_dtype)
         self.pos_embed_torch = None
 
         cur_stage = 1

@@ -422,7 +422,7 @@ def load_component_weights(comp_name, component_info, state_dict, checkpoint_dic
         if should_convert and component_info["dtype"] is not None:
             weight = weight.to(getattr(torch, component_info["dtype"]))
 
-        state_dict[new_key] = tp.Parameter(weight.contiguous())
+        state_dict[new_key] = tp.Tensor(weight.contiguous())
         converted_keys += 1
 
     return converted_keys
