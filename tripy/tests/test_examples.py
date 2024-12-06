@@ -80,12 +80,40 @@ class Example:
         return os.path.relpath(self.path, EXAMPLES_ROOT)
 
 
-EXAMPLES = [Example(["nanogpt"])]
+EXAMPLES = [
+    Example(["nanogpt"]),
+    Example(["segment-anything-model-v2"], artifact_names=["truck.jpg", "saved_engines/", "output/", "checkpoints/"]),
+]
 
 
 @pytest.mark.l1
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
 def test_examples(example, sandboxed_install_run):
+
+    def test_with_tolerance(expected, actual, tolerance):
+        return (abs(float(actual) - float(expected)) / float(expected)) * 100 <= float(tolerance)
+
+    def process_tolerances(expected_output):
+        specs = []
+        placeholder_regex = r"{(\d+\.?\d*)~(\d+)%}"
+        pattern = expected_output
+
+        # Replace tolerance patterns with more flexible capture group
+        matches = list(re.finditer(placeholder_regex, pattern))
+        for match in matches:
+            specs.append((match.group(1), match.group(2)))
+            pattern = pattern.replace(match.group(0), r"(\d+\.?\d*)", 1)
+
+        # Escape parentheses but not our capture group
+        pattern = pattern.replace("(", r"\(")
+        pattern = pattern.replace(")", r"\)")
+        pattern = pattern.replace(r"\(\d+\.?\d*\)", r"(\d+\.?\d*)")
+
+        # Make whitespace flexible
+        pattern = pattern.replace(" ", r"\s+")
+
+        return pattern.strip(), specs
+
     with open(example.readme, "r", encoding="utf-8") as f:
         contents = f.read()
         # Check that the README has all the expected sections.
@@ -101,9 +129,29 @@ def test_examples(example, sandboxed_install_run):
 
             code = str(block)
             if block.has_marker("test: expected_stdout"):
-                print("Checking command output against expected output: ", end="")
                 out = statuses[-1].stdout.strip()
-                matched = re.match(dedent(code).strip(), out)
+                # expected = dedent(code).strip()
+                expected_outs = dedent(code).split("====")
+                for expected in expected_outs:
+                    pattern, specs = process_tolerances(expected)
+
+                    # Apply the DOTALL flag to allow `.` to match newlines
+                    compiled_pattern = re.compile(pattern, re.DOTALL)
+                    match = compiled_pattern.search(out)
+
+                    # match = re.search(pattern, out)
+                    if match and specs:
+                        # Check if captured numbers are within tolerance
+                        matched = all(
+                            test_with_tolerance(expected, actual, tolerance)
+                            for (expected, tolerance), actual in zip(specs, match.groups())
+                        )
+                    else:
+                        matched = bool(match)
+
+                    if matched:
+                        break
+
                 print("matched!" if matched else "did not match!")
                 print(f"==== STDOUT ====\n{out}")
                 assert matched
