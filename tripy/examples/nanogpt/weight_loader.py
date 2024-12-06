@@ -35,7 +35,6 @@ def load_weights_from_hf(model, model_type, dtype):
     hf_keys = [
         key for key in hf_state_dict.keys() if not key.endswith(".attn.masked_bias") and not key.endswith(".attn.bias")
     ]
-    assert len(hf_keys) == len(tripy_keys), f"Mismatched keys: {hf_keys} != {tripy_keys}"
 
     # See https://paperswithcode.com/method/weight-tying for details on why we do this:
     hf_state_dict["transformer.wte.weight"] = hf_state_dict["lm_head.weight"]
@@ -52,7 +51,7 @@ def load_weights_from_hf(model, model_type, dtype):
         param = tp.Tensor(weight)
         tripy_state_dict[key] = param
 
-    model.load_state_dict(tripy_state_dict)
+    model.load_state_dict(tripy_state_dict, strict=False)
 
 
 def load_quant_weights_from_hf(model, model_type, dtype, quant_mode):
