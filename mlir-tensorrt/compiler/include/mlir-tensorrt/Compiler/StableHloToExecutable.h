@@ -33,6 +33,7 @@
 
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-dialect/Utils/OptionsBundle.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/Options.h"
@@ -50,7 +51,7 @@ namespace mlirtrt::compiler {
 
 class StableHloToExecutableTask;
 
-struct StableHLOToExecutableOptions : public mlir::OptionsContext {
+struct StableHLOToExecutableOptions : public mlir::OptionsBundle<DebugOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
   StableHLOToExecutableOptions(TaskExtensionRegistry extensions);
@@ -66,9 +67,6 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
   /// Infer target device information from the first visible CUDA device on the
   /// host executing this code.
   Status inferDeviceOptionsFromHost();
-
-  /// Get the mutable DebugOptions.
-  DebugOptions &getDebugOptions() { return debugOptions; }
 
   /// Return the hash of the options. Returns `nullopt` when the TensorRT
   /// layer metadata callback is set since that can't be reliably hashed.
@@ -102,8 +100,6 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
 
   /// Entrypoint function name.
   std::string entrypoint = "main";
-
-  DebugOptions debugOptions;
 
   std::function<std::string(mlir::Operation *)> layerMetadataCallback{nullptr};
 

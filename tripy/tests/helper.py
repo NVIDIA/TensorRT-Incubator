@@ -498,16 +498,19 @@ def process_code_block_for_outputs_and_locals(
     code_start, code_end = get_code_bounds(block_lines)
     code = dedent("\n".join(block_lines[code_start:code_end]))
 
-    with capture_output() as outfile:
-        try:
+    try:
+        with capture_output() as outfile:
             code_locals = exec_code(code, local_vars)
-        except Exception as e:
-            if allow_exception:
-                print(f"Exception occurred: {str(e)}")
-                code_locals = local_vars
-            else:
-                print(err_msg)
-                raise
+    except Exception as e:
+        print(
+            f"Exception occurred while executing code block: {type(e).__name__}: {e}\n"
+            f"Note: Code block was:\n\n{block}"
+        )
+        if allow_exception:
+            code_locals = local_vars
+        else:
+            print(err_msg)
+            raise
 
     new_locals = {
         key: value for key, value in code_locals.items() if key not in local_vars or value is not local_vars[key]
