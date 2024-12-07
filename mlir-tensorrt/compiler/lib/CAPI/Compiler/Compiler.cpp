@@ -224,12 +224,12 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     const char *dumpTensorRTDir) {
 
   StableHLOToExecutableOptions *cppOpts = unwrap(options);
-  cppOpts->debugOptions.enableLLVMDebugFlag = enableDebugging;
+  cppOpts->get<DebugOptions>().enableLLVMDebugFlag = enableDebugging;
   for (unsigned i = 0; i < debugTypeSizes; i++)
-    cppOpts->debugOptions.llvmDebugTypes.emplace_back(debugTypes[i]);
+    cppOpts->get<DebugOptions>().llvmDebugTypes.emplace_back(debugTypes[i]);
 
   if (dumpIrTreeDir)
-    cppOpts->debugOptions.dumpIRPath = std::string(dumpIrTreeDir);
+    cppOpts->get<DebugOptions>().dumpIRPath = std::string(dumpIrTreeDir);
 
   return mtrtStatusGetOk();
 }

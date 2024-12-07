@@ -105,8 +105,8 @@ class Executable:
             compiled_add = tp.compile(
                 add,
                 args=[
-                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
-                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
+                    tp.InputInfo(shape=((1, 2, 3),), dtype=tp.float32),
+                    tp.InputInfo(shape=((1, 2, 3),), dtype=tp.float32),
                 ],
             )
 
@@ -278,8 +278,8 @@ class Executable:
             compiled_add = tp.compile(
                 add,
                 args=[
-                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
-                    tp.InputInfo(([1, 2, 3],), dtype=tp.float32),
+                    tp.InputInfo(shape=((1, 2, 3),), dtype=tp.float32),
+                    tp.InputInfo(shape=((1, 2, 3),), dtype=tp.float32),
                 ],
             )
 

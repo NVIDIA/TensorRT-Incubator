@@ -17,7 +17,7 @@
 
 import inspect
 from textwrap import dedent
-from typing import Any, Dict, List, Sequence, Union, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import pytest
 import torch
@@ -25,7 +25,7 @@ from tests import helper
 
 import tripy as tp
 from tripy import TripyException
-from tripy.function_registry import AnnotationInfo, FunctionRegistry, type_str_from_arg, str_from_type_annotation
+from tripy.function_registry import AnnotationInfo, FunctionRegistry, str_from_type_annotation, type_str_from_arg
 
 
 @pytest.fixture()
@@ -423,6 +423,31 @@ class TestFunctionRegistry:
         ):
             registry["test"]([1.0, 2.0, 3.0])
 
+    @pytest.mark.parametrize(
+        "arg",
+        [
+            # Not a dictionary:
+            0,
+            # Dictionary, but wrong types:
+            {0: 1},
+            # Dictionary with mostly right types except one:
+            {"a": 0, 1: 1},
+        ],
+    )
+    def test_error_dict(self, registry, arg):
+        @registry("test")
+        def func(n: Dict[str, int]) -> int:
+            return 0
+
+        # Check that we can call it with the right types:
+        assert func({"a": 0, "b": 1}) == 0
+
+        with helper.raises(
+            TripyException,
+            match=r"Not a valid overload because: For parameter: 'n', expected an instance of type: 'Dict\[str, int\]' but got argument of type:",
+        ):
+            registry["test"](arg)
+
     def test_error_union(self, registry):
         @registry("test")
         def func(n: Union[int, float]) -> int:
@@ -558,12 +583,17 @@ class TestFunctionRegistry:
 @pytest.mark.parametrize(
     "typ, expected",
     [
+        (tp.types.IntLike, "int | tripy.DimensionSize"),
+        (Tuple[tp.types.IntLike], "Tuple[int | tripy.DimensionSize]"),
+        (List[tp.types.IntLike], "List[int | tripy.DimensionSize]"),
+        (Dict[str, tp.Tensor], "Dict[str, tripy.Tensor]"),
         (tp.types.TensorLike, "tripy.Tensor | numbers.Number"),
         (tp.types.ShapeLike, "Sequence[int | tripy.DimensionSize]"),
-        (tp.Tensor, "Tensor"),
+        (tp.Tensor, "tripy.Tensor"),
         (torch.Tensor, "torch.Tensor"),
         (int, "int"),
         (Optional[int], "int | None"),
+        (Callable[[int], int], "Callable[[int], int]"),
     ],
 )
 def test_str_from_type_annotation(typ, expected):
@@ -573,10 +603,14 @@ def test_str_from_type_annotation(typ, expected):
 @pytest.mark.parametrize(
     "typ, expected",
     [
-        (tp.Tensor([1, 2, 3]), "Tensor"),
+        (tp.Tensor([1, 2, 3]), "tripy.Tensor"),
         (torch.tensor([1, 2, 3]), "torch.Tensor"),
         (0, "int"),
         ("hi", "str"),
+        ([0, 1, 2], "List[int]"),
+        ([0, "1", 2], "List[int | str]"),
+        ({0: 1}, "Dict[int, int]"),
+        ({0: 1, "a": "b"}, "Dict[int | str, int | str]"),
     ],
 )
 def test_type_str_from_arg(typ, expected):
