@@ -169,10 +169,15 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreate(
   auto result =
       std::make_unique<StableHLOToExecutableOptions>(std::move(extensions));
 
-  /// Populate device options from host information.
-  Status inferStatus = result->inferDeviceOptionsFromHost();
-  if (!inferStatus.isOk())
-    return wrap(inferStatus);
+  llvm::Error finalizeStatus = result->finalize();
+
+  std::optional<std::string> errMsg{};
+  llvm::handleAllErrors(
+      std::move(finalizeStatus),
+      [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
+
+  if (errMsg)
+    return wrap(getInternalErrorStatus(errMsg->c_str()));
 
   *options = wrap(result.release());
   return mtrtStatusGetOk();
@@ -209,10 +214,15 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
         "failed to parse options string {0} due to error: {1}", line, err));
   }
 
-  /// Populate device options from host information.
-  Status inferStatus = result->inferDeviceOptionsFromHost();
-  if (!inferStatus.isOk())
-    return wrap(inferStatus);
+  llvm::Error finalizeStatus = result->finalize();
+
+  std::optional<std::string> errMsg{};
+  llvm::handleAllErrors(
+      std::move(finalizeStatus),
+      [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
+
+  if (errMsg)
+    return wrap(getInternalErrorStatus(errMsg->c_str()));
 
   *options = wrap(result.release());
   return mtrtStatusGetOk();

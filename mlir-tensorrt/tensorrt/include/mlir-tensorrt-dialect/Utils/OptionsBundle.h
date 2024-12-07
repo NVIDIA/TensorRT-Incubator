@@ -21,6 +21,7 @@
 #define MLIR_TENSORRT_DIALECT_UTILS_OPTIONS_BUNDLE
 
 #include "mlir-tensorrt-dialect/Utils/Options.h"
+#include "llvm/Support/Error.h"
 #include <tuple>
 
 namespace mlir {
@@ -46,6 +47,19 @@ public:
   template <typename OptionsProviderT>
   OptionsProviderT &get() {
     return std::get<OptionsProviderT>(optionProviders);
+  }
+
+  llvm::Error finalize() override {
+    llvm::Error result = llvm::Error::success();
+    std::apply(
+        [&](auto &...optionProvider) {
+          ((result = std::move(llvm::joinErrors(std::move(result),
+                                                optionProvider.finalize()))),
+           ...);
+        },
+        optionProviders);
+
+    return result;
   }
 
 private:

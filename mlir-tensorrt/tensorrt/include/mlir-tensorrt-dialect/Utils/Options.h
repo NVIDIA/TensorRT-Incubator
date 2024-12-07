@@ -155,6 +155,12 @@ public:
   /// as a cache key.
   virtual std::optional<llvm::hash_code> getHash() const;
 
+  /// Update options, if needed, after parsing. This method can be used to
+  /// modify options based on the values of other options or can be used to
+  /// populate options that were not provided using arbitrarily complex logic
+  /// (instead of just a default value).
+  virtual llvm::Error finalize() = 0;
+
 private:
   struct OptionInfo {
     std::unique_ptr<llvm::cl::Option> option;
