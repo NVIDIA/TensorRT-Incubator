@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733518363688,
+  "lastUpdate": 1733531644024,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7699,6 +7699,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000026006400429746015",
             "extra": "mean: 45.01349196532024 usec\nrounds: 23166"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "a0028f5ec7a6eca77d256454d18ea56fe8d986e0",
+          "message": "Upgrade tripy version to 0.0.6",
+          "timestamp": "2024-12-06T23:41:10Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/424/commits/a0028f5ec7a6eca77d256454d18ea56fe8d986e0"
+        },
+        "date": 1733531643305,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6108.698915914094,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000032035580680909045",
+            "extra": "mean: 163.70098015386668 usec\nrounds: 6476"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6775.8583487476035,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000705360875815992",
+            "extra": "mean: 147.58277822983595 usec\nrounds: 7395"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22631.613200654447,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000026991408754619072",
+            "extra": "mean: 44.185979635383774 usec\nrounds: 23658"
           }
         ]
       }
