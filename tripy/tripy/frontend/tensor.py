@@ -207,13 +207,23 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
+        from tripy.frontend import global_cache
 
-        trace = Trace([self])
+        # Collect input TraceTensors
+        inputs = self._collect_storage_tensors()
+
+        # Create a Trace using TraceTensors for outputs and inputs
+        trace = Trace([self.trace_tensor], inputs=inputs)
+
+        executable = global_cache.get(trace)
         flat_ir = trace.to_flat_ir()
-        mlir = flat_ir.to_mlir()
+        if executable is None:
+            mlir = flat_ir.to_mlir()
 
-        compiler = Compiler(trt_builder_opt_level=0)
-        executable = compiler.compile(mlir, flat_ir=flat_ir)
+            compiler = Compiler(trt_builder_opt_level=0)
+            executable = compiler.compile(mlir, flat_ir=flat_ir)
+            global_cache.set(trace, executable)
+
         executor = Executor(executable)
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
@@ -240,6 +250,25 @@ class Tensor(metaclass=TensorMeta):
             )
 
         return data
+
+    def _collect_storage_tensors(self):
+        visited = set()
+        inputs = []
+
+        def dfs(trace_tensor):
+            if id(trace_tensor) in visited:
+                return
+            visited.add(id(trace_tensor))
+
+            producer = trace_tensor.producer
+            if isinstance(producer, Storage) or producer is None:
+                inputs.append(trace_tensor)
+            else:
+                for inp in producer.inputs:
+                    dfs(inp)
+
+        dfs(self.trace_tensor)
+        return inputs
 
     def tolist(self):
         data_memref = self.eval()
