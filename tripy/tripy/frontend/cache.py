@@ -12,9 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import hashlib
 from typing import List
 
-from copy import copy
+from copy import deepcopy
 
 
 class ExecutableCache:
@@ -31,9 +32,10 @@ class ExecutableCache:
         """
         tensor_map = {}
         next_tensor_id = 0
+        print("before\n", str(trace))
 
         # Create a shallow copy of the trace
-        trace_copy = copy(trace)
+        trace_copy = deepcopy(trace)
 
         def get_or_assign_tensor_name(tensor):
             """Assign a new name to the tensor or retrieve the existing one."""
@@ -60,13 +62,16 @@ class ExecutableCache:
         for out in trace_copy.outputs:
             out.name = get_or_assign_tensor_name(out)
 
+        print("after\n", str(trace_copy))
         return str(trace_copy)
 
     def _generate_key(self, trace: "Trace") -> str:
         """
-        Generate a hashable key for the trace by normalizing its entire structure.
+        Generate a hashable key for the trace by normalizing its entire structure
+        and hashing the resulting string.
         """
-        return self._normalize_trace(trace)
+        normalized_trace = self._normalize_trace(trace)
+        return hashlib.sha256(normalized_trace.encode("utf-8")).hexdigest()
 
     def get(self, trace: "Trace"):
         """Retrieve an executable from the cache."""

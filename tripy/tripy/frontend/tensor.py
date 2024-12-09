@@ -25,8 +25,11 @@ import tripy.frontend.ops
 import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.backend.mlir import memref
+from tripy.backend.mlir.memref import create_memref
 from tripy.common import datatype
+from tripy.common.shape_bounds import ShapeBounds
 from tripy.common.exception import raise_error, str_from_stack_info
+from tripy.common.utils import convert_list_to_array
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
 from tripy.frontend.trace.tensor import TraceTensor
@@ -211,9 +214,10 @@ class Tensor(metaclass=TensorMeta):
 
         # Collect input TraceTensors
         inputs = self._collect_storage_tensors()
+        input_shapes = [ShapeBounds(min=tuple(inp.shape), opt=tuple(inp.shape), max=tuple(inp.shape)) for inp in inputs]
 
         # Create a Trace using TraceTensors for outputs and inputs
-        trace = Trace([self.trace_tensor], inputs=inputs)
+        trace = Trace([self.trace_tensor], inputs=inputs, shapes=input_shapes)
 
         executable = global_cache.get(trace)
         flat_ir = trace.to_flat_ir()
@@ -225,9 +229,21 @@ class Tensor(metaclass=TensorMeta):
             global_cache.set(trace, executable)
 
         executor = Executor(executable)
+
+        # Convert all inputs to memref
+        for inp in inputs:
+            if not isinstance(inp.producer.data, runtime.MemRefValue):
+                values = [inp.producer.data] if isinstance(inp.producer.data, int) else inp.producer.data
+                inp.producer.data = create_memref(
+                    array=convert_list_to_array(values, dtype=inp.dtype),
+                    shape=inp.shape,
+                    dtype=inp.dtype,
+                    device=inp.device,
+                )
+
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
-        data = executor.execute([out.device for out in flat_ir.outputs])
+        data = executor.execute([out.device for out in flat_ir.outputs], inputs)
         executor.stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
@@ -261,7 +277,7 @@ class Tensor(metaclass=TensorMeta):
             visited.add(id(trace_tensor))
 
             producer = trace_tensor.producer
-            if isinstance(producer, Storage) or producer is None:
+            if isinstance(producer, Storage):
                 inputs.append(trace_tensor)
             else:
                 for inp in producer.inputs:
