@@ -67,7 +67,6 @@ class CausalSelfAttention(tp.Module):
             tp.tril(tp.ones((config.block_size, config.block_size), dtype=config.dtype)),
             (1, 1, config.block_size, config.block_size),
         )
-        self.zeros = tp.zeros((1, 1, self.seq_len, self.seq_len), dtype=config.dtype)
 
     def __call__(self, x: tp.Tensor):
         B, T = x.shape[0:2]
@@ -87,11 +86,7 @@ class CausalSelfAttention(tp.Module):
 
         k_t = tp.transpose(k, -2, -1)
         att = (q @ k_t) * (1.0 / math.sqrt(self.embedding_size // self.num_heads))
-        att = tp.masked_fill(
-            att,
-            self.bias[:, :, :T, :T] == self.zeros[:, :, :T, :T],
-            float("-inf"),
-        )
+        att = tp.masked_fill(att, self.bias[:, :, :T, :T] == 0, float("-inf"))
 
         att = tp.softmax(att, dim=-1)
 
@@ -135,18 +130,18 @@ class Block(tp.Module):
 class Transformer(tp.Module):
     def __init__(self, config):
         super().__init__()
+        self.seq_len = config.seq_len
         self.wte = tp.Embedding(config.vocab_size, config.embedding_size, dtype=config.dtype)
         self.wpe = tp.Embedding(config.block_size, config.embedding_size, dtype=config.dtype)
-        self.h = [Block(config) for _ in range(config.num_layers)]
+        self.h = tp.Sequential(*[Block(config) for _ in range(config.num_layers)])
         self.ln_f = tp.LayerNorm(config.embedding_size)
-        self.pos = tp.reshape(tp.arange(0, config.seq_len, dtype=tp.int32), (1, config.seq_len))
 
     def __call__(self, idx):
         tok_emb = self.wte(idx)  # token embeddings of shape (batch_size, seq_len, embedding_size)
-        pos_emb = self.wpe(self.pos[:, : idx.shape[1]])  # position embeddings of shape (seq_len, embedding_size)
+        pos = tp.unsqueeze(tp.arange(self.seq_len, dtype=tp.int32)[: idx.shape[1]], 0)
+        pos_emb = self.wpe(pos)  # position embeddings of shape (seq_len, embedding_size)
         x = tok_emb + pos_emb  # (batch_size, seq_len, embedding_size)
-        for block in self.h:
-            x = block(x)
+        x = self.h(x)
         x = tp.cast(self.ln_f(tp.cast(x, self.ln_f.dtype)), x.dtype)
         return x
 

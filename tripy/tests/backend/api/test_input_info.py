@@ -22,10 +22,16 @@ class TestInput:
     @pytest.mark.parametrize(
         "shape, expected_min, expected_opt, expected_max",
         [
+            # int:
             # min/opt/max explicitly specified
-            ([(1, 2, 3)], (1,), (2,), (3,)),
+            ([(1, 2, 3)], [1], [2], [3]),
             # Only one value specified
-            ([1], (1,), (1,), (1,)),
+            ([1], [1], [1], [1]),
+            # `DimensionSize`s:
+            # min/opt/max explicitly specified
+            ([(tp.DimensionSize(1), tp.DimensionSize(2), tp.DimensionSize(3))], [1], [2], [3]),
+            # Only one value specified
+            ([tp.DimensionSize(1)], [1], [1], [1]),
         ],
     )
     def test_shapes_normalized(self, shape, expected_min, expected_opt, expected_max):
@@ -36,21 +42,21 @@ class TestInput:
         assert inp.shape_bounds.max == expected_max
 
     @pytest.mark.parametrize(
-        "shape, expected_error",
+        "shape",
         [
             # Not a number
-            (
-                (tp.int32, 1),
-                "Shape values should be either a single number or a Tuple specifying min/opt/max bounds.",
-            ),
+            (tp.int32, 1),
             # Too few elements in dimension
-            (((1, 1), 1), "Incorrect number of shape values provided"),
+            ((1, 1), 1),
             # Too many elements in dimension
-            (((1, 1, 1, 1), 1), "Incorrect number of shape values provided"),
+            ((1, 1, 1, 1), 1),
             # Tuple containing a non-number
-            (((tp.int32, 1, 1), 1), "Shape values must be numbers"),
+            ((tp.int32, 1, 1), 1),
         ],
     )
-    def test_invalid_shape(self, shape, expected_error):
-        with helper.raises(tp.TripyException, expected_error):
+    def test_invalid_shape(self, shape):
+        with helper.raises(
+            tp.TripyException,
+            r"Not a valid overload because: For parameter: 'shape', expected an instance of type: 'Sequence\[int \| tripy.DimensionSize | Tuple\[int \| tripy.DimensionSize, int \| tripy.DimensionSize, int \| tripy.DimensionSize\]\]' but got argument of type: ",
+        ):
             tp.InputInfo(shape=shape, dtype=tp.float32)
