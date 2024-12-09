@@ -512,7 +512,7 @@ def __rfloordiv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
+    variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def __mod__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
@@ -543,7 +543,7 @@ def __mod__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
 @frontend_utils.convert_to_tensors()
 @constraints.dtypes(
     constraints={"self": "T1", "other": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8"]},
+    variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def __rmod__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     """
