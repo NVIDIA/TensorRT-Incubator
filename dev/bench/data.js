@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733531644024,
+  "lastUpdate": 1733771482184,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7740,6 +7740,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000026991408754619072",
             "extra": "mean: 44.185979635383774 usec\nrounds: 23658"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "9ea5a4fd78c5950ae4c9be518f8c500c4cedeb88",
+          "message": "Update mlir-tensorrt version to 0.1.38",
+          "timestamp": "2024-12-09T17:59:20Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/431/commits/9ea5a4fd78c5950ae4c9be518f8c500c4cedeb88"
+        },
+        "date": 1733771481240,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6058.816163906684,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003222634277892916",
+            "extra": "mean: 165.04874433344858 usec\nrounds: 6366"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6718.081788981925,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006804606161474162",
+            "extra": "mean: 148.85201332917126 usec\nrounds: 7245"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22545.22848533403,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000019306096069527457",
+            "extra": "mean: 44.355283453903034 usec\nrounds: 23650"
           }
         ]
       }
