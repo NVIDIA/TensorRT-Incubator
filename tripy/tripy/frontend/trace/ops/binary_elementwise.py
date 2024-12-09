@@ -467,9 +467,7 @@ def __floordiv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     from tripy.common.datatype import int32
     from tripy.frontend.trace.ops.cast import cast
 
-    return cast(cast(BinaryElementwise.build([self, other], BinaryElementwise.Kind.DIV), int32), self.dtype)
-    # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
-    # return BinaryElementwise.build([self, other], BinaryElementwise.Kind.FLOOR_DIV)
+    return BinaryElementwise.build([self, other], BinaryElementwise.Kind.FLOOR_DIV)
 
 
 @register_tensor_method("__rfloordiv__")
@@ -503,9 +501,7 @@ def __rfloordiv__(self: "tripy.Tensor", other: TensorLike) -> "tripy.Tensor":
     from tripy.common.datatype import int32
     from tripy.frontend.trace.ops.cast import cast
 
-    return cast(cast(BinaryElementwise.build([other, self], BinaryElementwise.Kind.DIV), int32), self.dtype)
-    # Use the below code when https://github.com/NVIDIA/TensorRT-Incubator/issues/208 is fixed
-    # return BinaryElementwise.build([other, self], BinaryElementwise.Kind.FLOOR_DIV)
+    return BinaryElementwise.build([other, self], BinaryElementwise.Kind.FLOOR_DIV)
 
 
 @register_tensor_method("__mod__")
