@@ -23,6 +23,7 @@
 #define REGISTRATION_REGISTERMLIRTENSORRTPASSES_H
 
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
+#include "mlir-tensorrt/Compiler/TensorRTToExecutable.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Transforms/Passes.h"
 #include "mlir/Conversion/Passes.h"
@@ -51,6 +52,12 @@ inline void registerAllMlirTensorRtPasses() {
   registerMLIRTensorRTGenericTransformsPasses();
   mlir::registerTransformsPasses();
   mlir::registerConvertPDLToPDLInterp();
+
+  // TODO (pranavm): Check if this needs to be conditional - the TRT passes
+  // above are not.
+#ifdef MLIR_TRT_TARGET_TENSORRT
+  mlirtrt::compiler::registerTensorRTToExecutableTask();
+#endif
 
 #ifdef MLIR_TRT_ENABLE_HLO
   mlirtrt::compiler::registerStableHloToExecutableTask();

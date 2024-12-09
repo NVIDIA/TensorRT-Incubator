@@ -127,6 +127,18 @@ public:
   llvm::Error finalizeImpl();
 };
 
+struct EntrypointOptions : public OptionsProvider<EntrypointOptions> {
+public:
+  /// Entrypoint function name.
+  std::string entrypoint = "main";
+
+public:
+  void addToOptions(mlir::OptionsContext &context) {
+    context.addOption("entrypoint", entrypoint, llvm::cl::init("main"),
+                      llvm::cl::desc("entrypoint function name"));
+  }
+};
+
 } // namespace mlirtrt::compiler
 
 #endif // MLIR_TENSORRT_COMPILER_OPTIONS
