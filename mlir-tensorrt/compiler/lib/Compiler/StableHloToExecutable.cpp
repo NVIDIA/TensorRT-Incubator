@@ -28,10 +28,10 @@
 #include "mlir-executor/Support/Status.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir-tensorrt/Compiler/OptionsRegistry.h"
+#include "mlir-tensorrt/Compiler/PassManagerUtils.h"
 #include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
@@ -59,25 +59,6 @@ using namespace mlirtrt::compiler;
 using namespace mlir;
 
 #ifdef MLIR_TRT_ENABLE_HLO
-
-//===----------------------------------------------------------------------===//
-// Common helpers
-//===----------------------------------------------------------------------===//
-
-static mlir::LogicalResult setupPassManager(mlir::PassManager &pm,
-                                            const DebugOptions &options) {
-  pm.enableVerifier(true);
-  mlir::applyDefaultTimingPassManagerCLOptions(pm);
-  if (failed(mlir::applyPassManagerCLOptions(pm)))
-    return mlir::failure();
-  if (!options.dumpIRPath.empty()) {
-    pm.enableIRPrintingToFileTree(
-        [](Pass *, Operation *) { return false; },
-        [](Pass *, Operation *) { return true; }, true, false, false,
-        options.dumpIRPath, OpPrintingFlags().elideLargeElementsAttrs(32));
-  }
-  return mlir::success();
-}
 
 //===----------------------------------------------------------------------===//
 // Adhoc Passes
@@ -162,9 +143,6 @@ StablehloToExecutableOptions::StablehloToExecutableOptions(
       disallowHostTensorsInTensorRTClusters, llvm::cl::init(false),
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)"));
-
-  addOption("entrypoint", entrypoint, llvm::cl::init("main"),
-            llvm::cl::desc("entrypoint function name"));
 }
 
 //===----------------------------------------------------------------------===//
@@ -189,7 +167,7 @@ void StablehloToExecutableTask::buildStablehloClusteringPipeline(
   populateExtensionPasses(pm, opts, Phase::PreClustering);
 
   plan::StablehloClusteringPassOptions clusteringOpts{};
-  clusteringOpts.entrypoint = opts.entrypoint;
+  clusteringOpts.entrypoint = opts.get<EntrypointOptions>().entrypoint;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
   // Compile outlined funcs marked with `cluster.host`. The HLO in these
@@ -465,7 +443,7 @@ static StablehloToExecutableOptions populateStablehloClusteringPipelineOpts(
       cliOpts.deviceMaxSharedMemoryPerBlockKb;
   opts.get<DeviceOptions>().shouldInferFromHost =
       cliOpts.inferDeviceOptionsFromHost;
-  opts.entrypoint = cliOpts.entrypoint;
+  opts.get<EntrypointOptions>().entrypoint = cliOpts.entrypoint;
   return opts;
 }
 
