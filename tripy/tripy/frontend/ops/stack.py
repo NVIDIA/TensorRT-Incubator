@@ -23,7 +23,7 @@ from tripy.common.exception import raise_error
 @constraints.dtypes(
     constraints={"tensors": "T1", constraints.RETURN_VALUE: "T1"},
     variables={
-        "T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"],
+        "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },
 )
 def stack(tensors: Sequence["tripy.Tensor"], dim: int = 0) -> "tripy.Tensor":
