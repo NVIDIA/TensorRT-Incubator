@@ -12,24 +12,29 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 
     ```bash
     sudo apt-get update && sudo apt-get install ffmpeg libsm6 libxext6  -y
-    wget -O truck.jpg https://raw.githubusercontent.com/facebookresearch/sam2/main/notebooks/images/truck.jpg
     python3 -m pip install -r requirements.txt
+    ```
+
+2. Retrieve an example image and the checkpoint:
+
+    ```bash
+    wget -O truck.jpg https://raw.githubusercontent.com/facebookresearch/sam2/main/notebooks/images/truck.jpg
     mkdir checkpoints && cd checkpoints && wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt
     ```
 
-2. Run the example:
+3. Run the example:
 
     ```bash
     python3 image_demo.py
     ```
 
-    <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
+    Tripy: TEST: EXPECTED_STDOUT Start
     ```
     Scores for each prediction: {0.78759766~5%} {0.640625~5%} {0.05099487~5%}
     ```
-     -->
-    <!-- Tripy: TEST: EXPECTED_STDOUT End -->
+    Tripy: TEST: EXPECTED_STDOUT End
+    -->
 
 ### Video segmentation pipeline
 

@@ -15,14 +15,14 @@
 
 from typing import Sequence
 
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common.exception import raise_error
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"tensors": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"tensors": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int4", "int8", "int32", "int64", "bool"],
     },
 )

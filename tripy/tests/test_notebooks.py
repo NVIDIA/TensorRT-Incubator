@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -13,24 +12,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+import glob
+import os
 
 import pytest
-import tripy as tp
-from tripy.frontend.utils import tensor_from_shape_like
+from tests import helper
+
+NOTEBOOKS_ROOT = os.path.join(helper.ROOT_DIR, "notebooks")
+
+NOTEBOOKS = glob.glob(os.path.join(NOTEBOOKS_ROOT, "*.ipynb"))
+# Paranoid check:
+assert os.path.join(NOTEBOOKS_ROOT, "resnet50.ipynb") in NOTEBOOKS
 
 
-@pytest.mark.parametrize(
-    "shape, expected",
-    [
-        ([1, 2, 3], [1, 2, 3]),
-        ([tp.DimensionSize(1), tp.DimensionSize(2)], [1, 2]),
-        ([], []),
-        ([1, tp.DimensionSize(2), 3], [1, 2, 3]),
-        ([1, tp.DimensionSize(2), 3, 4], [1, 2, 3, 4]),
-    ],
-)
-def test_tensor_from_shape_like(shape, expected):
-    tensor = tensor_from_shape_like(shape)
-
-    assert tensor.tolist() == expected
+# Like our example, we want to test notebooks with both the release package and TOT.
+@pytest.mark.l1
+@pytest.mark.l1_release_package
+@pytest.mark.parametrize("notebook_path", NOTEBOOKS)
+def test_notebooks(nb_regression, notebook_path):
+    nb_regression.check(notebook_path)

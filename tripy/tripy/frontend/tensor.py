@@ -37,6 +37,11 @@ from tripy.logging.logger import logger
 from tripy.utils.stack_info import StackInfo
 
 
+# We include code for everything above the `BaseTraceOp.build` function, which is called at most
+# this many stack frames above the constructor.
+STACK_DEPTH_OF_BUILD = 5
+
+
 class TensorMeta(type):
     def __new__(cls, name, bases, dct):
         new = type.__new__(cls, name, bases, dct)
@@ -132,9 +137,6 @@ class Tensor(metaclass=TensorMeta):
     ):
         stack_info = StackInfo([])
         if fetch_stack_info:
-            # We include code for everything above the `BaseTraceOp.build` function, which is called at most
-            # this many stack frames above the constructor.
-            STACK_DEPTH_OF_BUILD = 4
             stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
 
         name = name if name is not None else Tensor._get_unique_name()
