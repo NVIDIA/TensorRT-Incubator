@@ -53,7 +53,7 @@ class StableHloToExecutableTask;
 
 struct StableHLOToExecutableOptions
     : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions,
-                                 EntrypointOptions> {
+                                 CommonCompilationOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
   StableHLOToExecutableOptions(TaskExtensionRegistry extensions);

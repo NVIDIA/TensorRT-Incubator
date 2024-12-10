@@ -48,7 +48,7 @@ struct TensorRTOptions
 
 struct TensorRTToExecutableOptions
     : public mlir::OptionsBundle<DeviceOptions, DebugOptions, ExecutorOptions,
-                                 EntrypointOptions, TensorRTOptions> {
+                                 CommonCompilationOptions, TensorRTOptions> {
 
   TensorRTToExecutableOptions(TaskExtensionRegistry extensions);
 };

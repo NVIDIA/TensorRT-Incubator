@@ -127,7 +127,8 @@ public:
   llvm::Error finalizeImpl();
 };
 
-struct EntrypointOptions : public OptionsProvider<EntrypointOptions> {
+struct CommonCompilationOptions
+    : public OptionsProvider<CommonCompilationOptions> {
 public:
   /// Entrypoint function name.
   std::string entrypoint = "main";

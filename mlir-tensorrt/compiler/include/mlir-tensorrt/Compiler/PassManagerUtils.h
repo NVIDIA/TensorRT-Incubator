@@ -21,9 +21,6 @@
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/Pass/PassManager.h"
 
-using namespace mlirtrt::compiler;
-using namespace mlir;
-
 //===----------------------------------------------------------------------===//
 // Common helpers
 //===----------------------------------------------------------------------===//
