@@ -18,8 +18,8 @@ You can also provide marker arguments to only run specific test cadences
 L0 tests, use:
 
 ```bash
-pytest tests/ -v -m "not l1" -n 4 --dist worksteal --ignore tests/performance
-pytest tests/performance -v -m "not l1"
+pytest tests/ -v -m "not l1 and not l1_release_package" -n 4 --dist worksteal --ignore tests/performance
+pytest tests/performance -v -m "not l1 and not l1_release_package"
 ```
 
 Note that the L0/L1 tests can be parallelized. In that case, performance tests
@@ -35,7 +35,7 @@ tests together.
 For example, to profile L0 tests, run:
 
 ```bash
-pytest tests/ -v -m "not l1" --ignore tests/performance --profile
+pytest tests/ -v -m "not l1 and not l1_release_package" --ignore tests/performance --profile
 ```
 
 You can visualize the results using `snakeviz`.
