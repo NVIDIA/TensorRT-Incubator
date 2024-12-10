@@ -20,6 +20,9 @@
 #ifndef MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE
 #define MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE
 
+// TODO (pranavm): MLIR_TRT_TARGET_TENSORRT is only needed because we pull in
+// the TranslateToTensorRT.h header. If we move the translation options, we
+// won't need it.
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/Utils/Options.h"
