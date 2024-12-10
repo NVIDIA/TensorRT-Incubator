@@ -12,15 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from tripy import constraints, export
+from tripy import export, wrappers
 
 from tripy.frontend import utils as frontend_utils
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16", "int32"],
     },
 )

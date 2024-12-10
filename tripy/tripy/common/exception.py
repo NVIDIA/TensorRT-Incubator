@@ -108,28 +108,8 @@ def _get_function_file_and_lines(func):
 
 
 def str_from_stack_info(stack_info: "utils.StackInfo", enable_color: bool = True) -> Optional[str]:
-    from tripy.frontend.utils import convert_to_tensors
-
-    EXCLUDE_FUNCTIONS = [convert_to_tensors]
-
-    exclude_file_lines = {}  # Maps filenames to ranges of lines that should be ignored.
-    for func in EXCLUDE_FUNCTIONS:
-        filename, start_line, end_line = _get_function_file_and_lines(func)
-        exclude_file_lines[filename] = (start_line, end_line)
-
     def should_exclude(source_info):
-        if source_info.code is None:
-            return True
-
-        # Exclude frames from some modules that are not very useful to users:
-        if source_info.module in utils.get_module_names_to_exclude_from_stack_info():
-            return True
-
-        if source_info.file not in exclude_file_lines:
-            return False
-
-        start_line, end_line = exclude_file_lines[source_info.file]
-        return source_info.line >= start_line and source_info.line <= end_line
+        return source_info.code is None or source_info.module in utils.get_module_names_to_exclude_from_stack_info()
 
     frame_strs = []
     num_frames_printed = 0

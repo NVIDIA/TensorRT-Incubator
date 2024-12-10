@@ -20,8 +20,7 @@ import math
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
-import tripy.frontend.trace.ops.utils as op_utils
-from tripy import constraints, export
+from tripy import export, wrappers
 from tripy.common import datatype
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.utils import make_list
@@ -133,9 +132,9 @@ def _reduce_impl(input: "tripy.Tensor", kind: Reduce.Kind, dim: Union[int, Seque
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def sum(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -166,9 +165,9 @@ def sum(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["bool"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["bool"]},
 )
 def all(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -198,9 +197,9 @@ def all(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["bool"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["bool"]},
 )
 def any(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -230,9 +229,9 @@ def any(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def max(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -263,9 +262,9 @@ def max(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def prod(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -317,9 +316,9 @@ def mean_impl(tensor: "tripy.Tensor", dim: Union[int, Sequence] = None, keepdim:
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "int32", "int64", "float16", "bfloat16"]},
 )
 def mean(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False
@@ -350,9 +349,9 @@ def mean(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16"]},
 )
 def var(
     input: "tripy.Tensor", dim: Optional[Union[int, Sequence[int]]] = None, keepdim: bool = False, correction: int = 1
@@ -417,9 +416,9 @@ def _arg_min_max_impl(tensor: "tripy.Tensor", kind: ArgMinMax.Kind, dim: Optiona
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T2"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
 )
 def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
@@ -449,9 +448,9 @@ def argmax(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = Fal
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T2"},
-    variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T2"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "int32"], "T2": ["int32"]},
 )
 def argmin(input: "tripy.Tensor", dim: Optional[int] = None, keepdim: bool = False) -> "tripy.Tensor":
     """
