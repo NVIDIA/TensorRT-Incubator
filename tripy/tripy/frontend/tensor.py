@@ -36,7 +36,7 @@ from tripy.utils.stack_info import StackInfo
 
 # We include code for everything above the `BaseTraceOp.build` function, which is called at most
 # this many stack frames above the constructor.
-STACK_DEPTH_OF_BUILD = 4
+STACK_DEPTH_OF_BUILD = 5
 
 
 class TensorMeta(type):
