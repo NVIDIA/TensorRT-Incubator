@@ -28,13 +28,13 @@ This is an implementation of SAM2 model ([original repository](https://github.co
     python3 image_demo.py
     ```
 
-    <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
+    Tripy: TEST: EXPECTED_STDOUT Start
     ```
     Scores for each prediction: {0.78759766~5%} {0.640625~5%} {0.05099487~5%}
     ```
-     -->
-    <!-- Tripy: TEST: EXPECTED_STDOUT End -->
+    Tripy: TEST: EXPECTED_STDOUT End
+    -->
 
 ### Video segmentation pipeline
 
