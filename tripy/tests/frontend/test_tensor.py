@@ -278,6 +278,7 @@ class TestTensor:
         "tensor",
         [
             tp.Tensor([1, 2, 3]),
+            tp.ones((2, 2)),
             tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]),
             # This case should trigger datatype conversions.
             (4 * tp.Tensor([1, 2, 3])) + (3 * tp.Tensor([4, 5, 6])),
@@ -291,8 +292,24 @@ class TestTensor:
         ],
     )
     def test_stack_depth_of_build(self, tensor):
-        if any(info.function == "build" for info in tensor.stack_info):
-            # + 1 for inclusive bound
-            assert any(
-                info.function == "build" for info in tensor.stack_info[: tp.frontend.tensor.STACK_DEPTH_OF_BUILD + 1]
-            )
+        tensor.stack_info.fetch_source_code()
+
+        # Ensure that we do not include code for any frame until after the caller of `Tensor.build`
+        build_caller = len(tensor.stack_info)
+        for index, source_info in enumerate(tensor.stack_info):
+            if source_info.function == "build":
+                build_caller = index + 1
+                break
+
+        for index, source_info in enumerate(tensor.stack_info):
+            # Once we reach user code we can stop checking
+            if source_info.file == __file__:
+                assert source_info.code is not None
+                break
+
+            # We should include code starting one frame past the *caller* of `build`, i.e. we
+            # should not see a call to `build` in the code stack trace we display.
+            if index > build_caller:
+                assert source_info.code is not None
+            else:
+                assert source_info.code is None
