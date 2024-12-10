@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1733783798379,
+  "lastUpdate": 1733818096435,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -7822,6 +7822,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000002102158860114655",
             "extra": "mean: 43.75303670594075 usec\nrounds: 23769"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "efd985add03589d18e80d66ef8909631cc0de6f6",
+          "message": "Combine the functionality of the `convert_to_tensors` decorator and the `dtypes` constraint.",
+          "timestamp": "2024-12-09T23:17:43Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/420/commits/efd985add03589d18e80d66ef8909631cc0de6f6"
+        },
+        "date": 1733818095654,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6105.963960007558,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003208040026028898",
+            "extra": "mean: 163.7743043604146 usec\nrounds: 6452"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6852.824639131749,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007091255195744412",
+            "extra": "mean: 145.92522830508324 usec\nrounds: 7377"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22775.13192460843,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002119776629192323",
+            "extra": "mean: 43.90753929813703 usec\nrounds: 23625"
           }
         ]
       }
