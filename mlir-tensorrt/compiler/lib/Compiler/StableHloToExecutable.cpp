@@ -167,7 +167,7 @@ void StablehloToExecutableTask::buildStablehloClusteringPipeline(
   populateExtensionPasses(pm, opts, Phase::PreClustering);
 
   plan::StablehloClusteringPassOptions clusteringOpts{};
-  clusteringOpts.entrypoint = opts.get<EntrypointOptions>().entrypoint;
+  clusteringOpts.entrypoint = opts.get<CommonCompilationOptions>().entrypoint;
   plan::buildPlanSegmentationPipeline(pm, clusteringOpts);
 
   // Compile outlined funcs marked with `cluster.host`. The HLO in these
@@ -443,7 +443,7 @@ static StablehloToExecutableOptions populateStablehloClusteringPipelineOpts(
       cliOpts.deviceMaxSharedMemoryPerBlockKb;
   opts.get<DeviceOptions>().shouldInferFromHost =
       cliOpts.inferDeviceOptionsFromHost;
-  opts.get<EntrypointOptions>().entrypoint = cliOpts.entrypoint;
+  opts.get<CommonCompilationOptions>().entrypoint = cliOpts.entrypoint;
   return opts;
 }
 
