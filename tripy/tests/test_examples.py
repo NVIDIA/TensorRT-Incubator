@@ -93,30 +93,32 @@ EXAMPLES = [
 @pytest.mark.l1_release_package
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
 def test_examples(example, sandboxed_install_run):
-
-    def test_with_tolerance(expected, actual, tolerance):
-        return (abs(float(actual) - float(expected)) / float(expected)) * 100 <= float(tolerance)
-
     def process_tolerances(expected_output):
-        specs = []
-        placeholder_regex = r"{(\d+\.?\d*)~(\d+)%}"
-        pattern = expected_output
+        # Adjusts the expected output into a regex that will be more lenient when matching
+        # values with tolerances. The actual tolerance checks are done separately.
+        tolerance_specs = []
+        tolerance_regex = r"{(\d+\.?\d*)~(\d+)%}"
 
         # Replace tolerance patterns with more flexible capture group
-        matches = list(re.finditer(placeholder_regex, pattern))
+        matches = list(re.finditer(tolerance_regex, expected_output))
+
+        if not matches:
+            # If there are no tolerance values, don't modify the expected output:
+            return expected_output, tolerance_specs
+
         for match in matches:
-            specs.append((match.group(1), match.group(2)))
-            pattern = pattern.replace(match.group(0), r"(\d+\.?\d*)", 1)
+            tolerance_specs.append((match.group(1), match.group(2)))
+            expected_output = expected_output.replace(match.group(0), r"(\d+\.?\d*)", 1)
 
         # Escape parentheses but not our capture group
-        pattern = pattern.replace("(", r"\(")
-        pattern = pattern.replace(")", r"\)")
-        pattern = pattern.replace(r"\(\d+\.?\d*\)", r"(\d+\.?\d*)")
+        expected_output = expected_output.replace("(", r"\(")
+        expected_output = expected_output.replace(")", r"\)")
+        expected_output = expected_output.replace(r"\(\d+\.?\d*\)", r"(\d+\.?\d*)")
 
         # Make whitespace flexible
-        pattern = pattern.replace(" ", r"\s+")
+        expected_output = expected_output.replace(" ", r"\s+")
 
-        return pattern.strip(), specs
+        return expected_output.strip(), tolerance_specs
 
     with open(example.readme, "r", encoding="utf-8") as f:
         contents = f.read()
@@ -133,31 +135,26 @@ def test_examples(example, sandboxed_install_run):
 
             code = str(block)
             if block.has_marker("test: expected_stdout"):
-                out = statuses[-1].stdout.strip()
-                # expected = dedent(code).strip()
-                expected_outs = dedent(code).split("====")
-                for expected in expected_outs:
-                    pattern, specs = process_tolerances(expected)
+                print("Checking command output against expected output: ", end="")
+                actual = statuses[-1].stdout.strip()
+                expected = dedent(code).strip()
 
-                    # Apply the DOTALL flag to allow `.` to match newlines
-                    compiled_pattern = re.compile(pattern, re.DOTALL)
-                    match = compiled_pattern.search(out)
+                expected, tolerance_specs = process_tolerances(expected)
+                # Apply the DOTALL flag to allow `.` to match newlines
+                expected = re.compile(expected, re.DOTALL)
+                match = expected.search(actual)
 
-                    # match = re.search(pattern, out)
-                    if match and specs:
-                        # Check if captured numbers are within tolerance
-                        matched = all(
-                            test_with_tolerance(expected, actual, tolerance)
-                            for (expected, tolerance), actual in zip(specs, match.groups())
-                        )
-                    else:
-                        matched = bool(match)
-
-                    if matched:
-                        break
+                # We always want to check if the text matched what we expected:
+                matched = bool(match)
+                # Additionally, check that numbers are within tolerance values if they were specified:
+                if tolerance_specs:
+                    matched = matched and all(
+                        (abs(float(actual) - float(expected)) / float(expected)) * 100 <= float(tolerance)
+                        for (expected, tolerance), actual in zip(tolerance_specs, match.groups())
+                    )
 
                 print("matched!" if matched else "did not match!")
-                print(f"==== STDOUT ====\n{out}")
+                print(f"==== STDOUT ====\n{actual}")
                 assert matched
             else:
                 status = example.run(code, sandboxed_install_run)
