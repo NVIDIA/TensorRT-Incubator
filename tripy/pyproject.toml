@@ -99,4 +99,5 @@ testpaths = [
 addopts = "--strict-markers"
 markers = [
     "l1: Indicates that the test should only be run in nightlies.",
+    "l1_release_package: Indicates that the test should be run in nightlies using the public build of Tripy."
 ]

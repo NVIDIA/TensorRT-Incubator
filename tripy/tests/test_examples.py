@@ -86,7 +86,11 @@ EXAMPLES = [
 ]
 
 
+# We want to test our examples with both the latest commit and public build.
+# This is because we always want the examples to work with pip-installable build, but also
+# don't want them to break on TOT.
 @pytest.mark.l1
+@pytest.mark.l1_release_package
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
 def test_examples(example, sandboxed_install_run):
 
