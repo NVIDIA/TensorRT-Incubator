@@ -34,10 +34,12 @@
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "mlir/Transforms/Passes.h"
 
+#ifdef MLIR_TRT_ENABLE_TESTING
 namespace mlir {
 void registerTestTensorKindAnalysisPass();
 void registerTestTensorRTShapeInferencePass();
 } // namespace mlir
+#endif // MLIR_TRT_ENABLE_TESTING
 
 int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
@@ -45,8 +47,10 @@ int main(int argc, char **argv) {
                   mlir::tensor::TensorDialect, mlir::arith::ArithDialect,
                   mlir::affine::AffineDialect, mlir::quant::QuantDialect,
                   mlir::scf::SCFDialect>();
+#ifdef MLIR_TRT_ENABLE_TESTING
   mlir::registerTestTensorKindAnalysisPass();
   mlir::registerTestTensorRTShapeInferencePass();
+#endif // MLIR_TRT_ENABLE_TESTING
   mlir::func::registerInlinerExtension(registry);
   mlir::tensorrt::registerTensorRTTranslationCLOpts();
   mlir::tensorrt::registerTensorRTPasses();
