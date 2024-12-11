@@ -95,8 +95,8 @@ class TestTrace:
             str(trace)
             == dedent(
                 """
-                a = storage(data=[0], shape=(1,), dtype=int32, device=gpu:0)
-                b = storage(data=[1], shape=(1,), dtype=int32, device=gpu:0)
+                a = storage(shape=(1,), dtype=int32, device=gpu:0)
+                b = storage(shape=(1,), dtype=int32, device=gpu:0)
                 c = a + b
                 outputs:
                     c: [shape=([-1]), dtype=(int32), loc=(gpu:0)]
