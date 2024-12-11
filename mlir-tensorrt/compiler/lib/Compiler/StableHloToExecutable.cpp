@@ -30,7 +30,7 @@
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
-#include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
@@ -152,7 +152,6 @@ public:
 StableHLOToExecutableOptions::StableHLOToExecutableOptions(
     TaskExtensionRegistry extensions)
     : extensions(std::move(extensions)) {
-  debugOptions.addToOptions(*this);
 
   // Link in options for all extensions.
   for (auto &[id, ext] : this->extensions)
@@ -163,56 +162,9 @@ StableHLOToExecutableOptions::StableHLOToExecutableOptions(
       disallowHostTensorsInTensorRTClusters, llvm::cl::init(false),
       llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
                      "calculations (but they can still be inputs)"));
-  addOption("executor-index-bitwidth", executorIndexBitwidth,
-            llvm::cl::init(64));
-  addOption("device-compute-capability", deviceComputeCapability,
-            llvm::cl::init(64),
-            llvm::cl::desc("Sets the device compute capbility. Only relevant "
-                           "if '--device-infer-from-host=false'"));
-  addOption("device-max-shared-memory-per-block-kb",
-            deviceMaxSharedMemoryPerBlockKb, llvm::cl::init(0));
-  addOption("device-max-registers-per-block", deviceMaxRegistersPerBlock,
-            llvm::cl::init(0));
-  addOption("device-infer-from-host", shouldInferDeviceOptionsFromHost,
-            llvm::cl::init(true),
-            llvm::cl::desc("Infers device information from host"));
+
   addOption("entrypoint", entrypoint, llvm::cl::init("main"),
             llvm::cl::desc("entrypoint function name"));
-}
-
-StableHLOToExecutableOptions &StableHLOToExecutableOptions::setDeviceOptions(
-    int64_t computeCapability, int64_t maxSharedMemoryPerBlockKb) {
-  deviceMaxSharedMemoryPerBlockKb = maxSharedMemoryPerBlockKb;
-  deviceComputeCapability = computeCapability;
-  return *this;
-}
-
-Status StableHLOToExecutableOptions::inferDeviceOptionsFromHost() {
-  cudaDeviceProp properties;
-  cudaError_t err = cudaGetDeviceProperties(&properties, 0);
-  if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device properties");
-
-  int ccMajor = 0;
-  int ccMinor = 0;
-  err = cudaDeviceGetAttribute(
-      &ccMajor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor, 0);
-  if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device compute capability");
-  err = cudaDeviceGetAttribute(
-      &ccMinor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor, 0);
-  if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device compute capability");
-
-  // We want SM version as a single number.
-  int64_t smVersion = ccMajor * 10 + ccMinor;
-  this->deviceComputeCapability = smVersion;
-  this->deviceMaxSharedMemoryPerBlockKb = properties.sharedMemPerBlock / 1024;
-  this->deviceMaxRegistersPerBlock = properties.regsPerBlock;
-  return Status::getOk();
 }
 
 std::optional<llvm::hash_code> StableHLOToExecutableOptions::getHash() const {
@@ -299,8 +251,9 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
   populateExtensionPasses(pm, opts, Phase::ExecutorLowering);
 
   ConvertCUDAToExecutorPassOptions cudaToExecutorOpts;
-  cudaToExecutorOpts.indexBitwidth = opts.executorIndexBitwidth;
-  cudaToExecutorOpts.usePackedMemRefCConv = opts.executorUsePackedMemRefCConv;
+  cudaToExecutorOpts.indexBitwidth = opts.get<ExecutorOptions>().indexBitwidth;
+  cudaToExecutorOpts.usePackedMemRefCConv =
+      opts.get<ExecutorOptions>().usePackedMemRefCConv;
   pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
 
   pm.addPass(createDropNestedModulesPass());
@@ -308,7 +261,7 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
 
 void StableHloToExecutableTask::populatePassManager(
     mlir::PassManager &pm, const StableHLOToExecutableOptions &options) {
-  if (failed(setupPassManager(pm, options.debugOptions))) {
+  if (failed(setupPassManager(pm, options.get<DebugOptions>()))) {
     /// TODO: Ignored. This can fail if pass manager static CL options were not
     /// registered/initialized. This happens through invocation of e.g. this
     /// function in e.g. Python bindings or standalone calls to C++ or C API
@@ -329,7 +282,7 @@ void StableHloToExecutableTask::populatePassManager(
   buildPostClusteringPipeline(pm, options);
 
   mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
-  stdToExecOpts.indexBitwidth = options.executorIndexBitwidth;
+  stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;
   stdToExecOpts.usePackedMemRefCConv = true;
   mlir::executor::buildExecutorLoweringPipeline(pm, stdToExecOpts);
 }
@@ -367,9 +320,9 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   //===----------------------------------------------------------------------===//
   // Set debug options.
   //===----------------------------------------------------------------------===//
-  if (options.debugOptions.enableLLVMDebugFlag) {
+  if (options.get<DebugOptions>().enableLLVMDebugFlag) {
     SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
+        llvm::map_to_vector(options.get<DebugOptions>().llvmDebugTypes,
                             [](const std::string &x) { return x.c_str(); });
     llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
                                debugTypeLiterals.size());
@@ -382,7 +335,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   //===----------------------------------------------------------------------===//
 
   StableHloToExecutableTask runner(module->getContext(), options);
-  if (failed(setupPassManager(runner, options.debugOptions))) {
+  if (failed(setupPassManager(runner, options.get<DebugOptions>()))) {
     /// TODO: Ignored. This can fail if pass manager static CL options were not
     /// registered/initialized. This happens through invocation of e.g. this
     /// function in e.g. Python bindings or standalone calls to C++ or C API
@@ -408,7 +361,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
 
 #ifndef NDEBUG
   // Turn debugging back off if we turned it on.
-  if (options.debugOptions.enableLLVMDebugFlag)
+  if (options.get<DebugOptions>().enableLLVMDebugFlag)
     llvm::DebugFlag = false;
 #endif
 
@@ -432,9 +385,9 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   maybePopulateDefaultClusterKinds(module, options);
 
 #ifndef NDEBUG
-  if (options.debugOptions.enableLLVMDebugFlag) {
+  if (options.get<DebugOptions>().enableLLVMDebugFlag) {
     SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.debugOptions.llvmDebugTypes,
+        llvm::map_to_vector(options.get<DebugOptions>().llvmDebugTypes,
                             [](const std::string &x) { return x.c_str(); });
     llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
                                debugTypeLiterals.size());
@@ -449,7 +402,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
     runner = &client.getOrCreatePassManager<StableHloToExecutableTask>(options);
   else {
     pm.reset(new StableHloToExecutableTask(client.getContext(), options));
-    CompilerClient::setupPassManagerLogging(*pm, options.debugOptions);
+    CompilerClient::setupPassManagerLogging(*pm, options.get<DebugOptions>());
     runner = pm.get();
   }
 
@@ -469,7 +422,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
 
 #ifndef NDEBUG
   // Turn debugging back off if we turned it on.
-  if (options.debugOptions.enableLLVMDebugFlag)
+  if (options.get<DebugOptions>().enableLLVMDebugFlag)
     llvm::DebugFlag = false;
 #endif
 
@@ -514,10 +467,12 @@ static StableHLOToExecutableOptions populateStablehloClusteringPipelineOpts(
   extensions.getOrCreateExtension<StableHLOToExecutableTensorRTExtension>();
 
   StableHLOToExecutableOptions opts(std::move(extensions));
-  opts.deviceComputeCapability = cliOpts.deviceComputeCapability;
-  opts.deviceMaxSharedMemoryPerBlockKb =
+  opts.get<DeviceOptions>().info.computeCapability =
+      cliOpts.deviceComputeCapability;
+  opts.get<DeviceOptions>().info.maxSharedMemoryPerBlockKb =
       cliOpts.deviceMaxSharedMemoryPerBlockKb;
-  opts.shouldInferDeviceOptionsFromHost = cliOpts.inferDeviceOptionsFromHost;
+  opts.get<DeviceOptions>().shouldInferFromHost =
+      cliOpts.inferDeviceOptionsFromHost;
   opts.entrypoint = cliOpts.entrypoint;
   return opts;
 }

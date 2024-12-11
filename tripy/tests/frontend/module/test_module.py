@@ -101,7 +101,10 @@ class TestModule:
     ):
         state_dict = {"param": [0, 0]}
 
-        with helper.raises(tp.TripyException, match=r"Expected a tensor for parameter: 'param', but got: List\[int\]"):
+        with helper.raises(
+            tp.TripyException,
+            match=r"Not a valid overload because: For parameter: 'state_dict', expected an instance of type: 'Dict\[str, tripy.Tensor\]' but got argument of type: 'Dict\[str, List\[int\]\]'.",
+        ):
             network.load_state_dict(state_dict, strict=False)
 
     def test_load_state_dict_with_different_shapes_fails(

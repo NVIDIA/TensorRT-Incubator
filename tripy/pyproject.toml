@@ -1,6 +1,6 @@
 [project]
 name = "tripy"
-version = "0.0.5"
+version = "0.0.6"
 authors = [{name = "NVIDIA", email="svc_tensorrt@nvidia.com"}]
 description = "Tripy: A Python Programming Model For TensorRT"
 readme = "README.md"
@@ -8,8 +8,8 @@ requires-python = ">= 3.9"
 license = {text = "Apache 2.0"}
 dependencies = [
   "tensorrt~=10.0",
-  "mlir-tensorrt-compiler==0.1.37+cuda12.trt102",
-  "mlir-tensorrt-runtime==0.1.37+cuda12.trt102",
+  "mlir-tensorrt-compiler==0.1.38+cuda12.trt105",
+  "mlir-tensorrt-runtime==0.1.38+cuda12.trt105",
   "colored==2.2.3",
 ]
 
@@ -99,4 +99,5 @@ testpaths = [
 addopts = "--strict-markers"
 markers = [
     "l1: Indicates that the test should only be run in nightlies.",
+    "l1_release_package: Indicates that the test should be run in nightlies using the public build of Tripy."
 ]

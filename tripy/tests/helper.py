@@ -503,10 +503,12 @@ def process_code_block_for_outputs_and_locals(
             code_locals = exec_code(code, local_vars)
         except Exception as e:
             if allow_exception:
-                print(f"Exception occurred: {str(e)}")
+                # We print the error message here so it can be captured in `outfile`
+                # and displayed in the output in cases where we actually expect exceptions.
+                print(e)
                 code_locals = local_vars
             else:
-                print(err_msg)
+                print(f"{err_msg}\n" f"Note: Code block was:\n\n{block}")
                 raise
 
     new_locals = {

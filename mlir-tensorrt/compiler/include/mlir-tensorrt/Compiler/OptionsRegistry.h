@@ -32,6 +32,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Error.h"
 #include <functional>
 
 namespace mlirtrt::compiler {
@@ -71,14 +72,16 @@ optionsCreateFromArgs(const CompilerClient &client,
         llvm::iterator_range(args), err);
   }
 
-  // TODO: Figure out whether to add a method in the base class like
-  // "finalizeOptions" or a callback here, or something else if
-  // `inferDeviceOptionsFromHost` is unique to StableHLO.
-  //
-  // Populate device options from host information.
-  Status inferStatus = result->inferDeviceOptionsFromHost();
-  if (!inferStatus.isOk())
-    return inferStatus;
+  llvm::Error finalizeStatus = result->finalize();
+
+  std::optional<std::string> errMsg{};
+  llvm::handleAllErrors(
+      std::move(finalizeStatus),
+      [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
+
+  if (errMsg)
+    return getInternalErrorStatus("failed to initialize options: %s",
+                                  errMsg->c_str());
 
   return std::unique_ptr<mlir::OptionsContext>(result.release());
 }

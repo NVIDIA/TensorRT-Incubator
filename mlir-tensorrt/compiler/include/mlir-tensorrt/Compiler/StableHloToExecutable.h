@@ -33,9 +33,10 @@
 
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Support/Status.h"
+#include "mlir-tensorrt-dialect/Utils/OptionsBundle.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
-#include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/TypeID.h"
@@ -50,48 +51,15 @@ namespace mlirtrt::compiler {
 
 class StableHloToExecutableTask;
 
-struct StableHLOToExecutableOptions : public mlir::OptionsContext {
+struct StableHLOToExecutableOptions
+    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
   StableHLOToExecutableOptions(TaskExtensionRegistry extensions);
 
-  /// Set the target device compute capability (SM version) and max shared
-  /// memory per block (in kilobytes). The `maxSharedMemoryPerBlockKb` is the
-  /// maximum shared memory per block allowed for kernels and is passed to the
-  /// TensorRT builder.
-  StableHLOToExecutableOptions &
-  setDeviceOptions(int64_t computeCapability,
-                   int64_t maxSharedMemoryPerBlockKb);
-
-  /// Infer target device information from the first visible CUDA device on the
-  /// host executing this code.
-  Status inferDeviceOptionsFromHost();
-
-  /// Get the mutable DebugOptions.
-  DebugOptions &getDebugOptions() { return debugOptions; }
-
   /// Return the hash of the options. Returns `nullopt` when the TensorRT
   /// layer metadata callback is set since that can't be reliably hashed.
   std::optional<llvm::hash_code> getHash() const override;
-
-  /// The host index bit-width.
-  int64_t executorIndexBitwidth{64};
-
-  /// Whether to pass memref's as struct/table in function calls.
-  bool executorUsePackedMemRefCConv{true};
-
-  /// Target device compute capability (SM version)
-  int64_t deviceComputeCapability;
-
-  /// Target device max shared memory per block (kilobytes)
-  int64_t deviceMaxSharedMemoryPerBlockKb;
-
-  /// Target device maximum 4-byte register sper block.
-  uint64_t deviceMaxRegistersPerBlock;
-
-  /// Whether to ignore `deviceX` options and instead infer them from the GPUs
-  /// on the host system running the compilation.
-  bool shouldInferDeviceOptionsFromHost = false;
 
   /// Whether to disallow host tensors in TensorRT clusters.
   bool disallowHostTensorsInTensorRTClusters = false;
@@ -102,8 +70,6 @@ struct StableHLOToExecutableOptions : public mlir::OptionsContext {
 
   /// Entrypoint function name.
   std::string entrypoint = "main";
-
-  DebugOptions debugOptions;
 
   std::function<std::string(mlir::Operation *)> layerMetadataCallback{nullptr};
 

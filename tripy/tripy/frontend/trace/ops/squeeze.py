@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Sequence, Tuple, Union
 
-from tripy import constraints, export, utils
+from tripy import export, utils, wrappers
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
@@ -50,17 +50,17 @@ class Squeeze(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int8", "int32", "int64", "bool"]},
 )
-def squeeze(input: "tripy.Tensor", dims: Union[Tuple, int]) -> "tripy.Tensor":
+def squeeze(input: "tripy.Tensor", dims: Union[Sequence[int], int]) -> "tripy.Tensor":
     """
     Returns a new tensor with all specified singleton dimensions of the input tensor removed.
 
     Args:
         input: The input tensor.
-        dims: The singleton dimensions to be removed.
+        dims: The singleton dimension(s) to be removed.
               If this is not provided, all dimensions of size 1 are removed.
 
     Raises:

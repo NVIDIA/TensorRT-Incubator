@@ -28,7 +28,7 @@ from tests import helper
 
 import tripy as tp
 from tripy.common.datatype import DATA_TYPES
-from tripy.constraints import TYPE_VERIFICATION
+from tripy.wrappers import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 

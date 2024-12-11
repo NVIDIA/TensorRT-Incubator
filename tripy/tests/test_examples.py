@@ -80,12 +80,46 @@ class Example:
         return os.path.relpath(self.path, EXAMPLES_ROOT)
 
 
-EXAMPLES = [Example(["nanogpt"])]
+EXAMPLES = [
+    Example(["nanogpt"]),
+    Example(["segment-anything-model-v2"], artifact_names=["truck.jpg", "saved_engines/", "output/", "checkpoints/"]),
+]
 
 
+# We want to test our examples with both the latest commit and public build.
+# This is because we always want the examples to work with pip-installable build, but also
+# don't want them to break on TOT.
 @pytest.mark.l1
+@pytest.mark.l1_release_package
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda case: str(case))
 def test_examples(example, sandboxed_install_run):
+    def process_tolerances(expected_output):
+        # Adjusts the expected output into a regex that will be more lenient when matching
+        # values with tolerances. The actual tolerance checks are done separately.
+        tolerance_specs = []
+        tolerance_regex = r"{(\d+\.?\d*)~(\d+)%}"
+
+        # Replace tolerance patterns with more flexible capture group
+        matches = list(re.finditer(tolerance_regex, expected_output))
+
+        if not matches:
+            # If there are no tolerance values, don't modify the expected output:
+            return expected_output, tolerance_specs
+
+        for match in matches:
+            tolerance_specs.append((match.group(1), match.group(2)))
+            expected_output = expected_output.replace(match.group(0), r"(\d+\.?\d*)", 1)
+
+        # Escape parentheses but not our capture group
+        expected_output = expected_output.replace("(", r"\(")
+        expected_output = expected_output.replace(")", r"\)")
+        expected_output = expected_output.replace(r"\(\d+\.?\d*\)", r"(\d+\.?\d*)")
+
+        # Make whitespace flexible
+        expected_output = expected_output.replace(" ", r"\s+")
+
+        return expected_output.strip(), tolerance_specs
+
     with open(example.readme, "r", encoding="utf-8") as f:
         contents = f.read()
         # Check that the README has all the expected sections.
@@ -102,10 +136,25 @@ def test_examples(example, sandboxed_install_run):
             code = str(block)
             if block.has_marker("test: expected_stdout"):
                 print("Checking command output against expected output: ", end="")
-                out = statuses[-1].stdout.strip()
-                matched = re.match(dedent(code).strip(), out)
+                actual = statuses[-1].stdout.strip()
+                expected = dedent(code).strip()
+
+                expected, tolerance_specs = process_tolerances(expected)
+                # Apply the DOTALL flag to allow `.` to match newlines
+                expected = re.compile(expected, re.DOTALL)
+                match = expected.search(actual)
+
+                # We always want to check if the text matched what we expected:
+                matched = bool(match)
+                # Additionally, check that numbers are within tolerance values if they were specified:
+                if tolerance_specs:
+                    matched = matched and all(
+                        (abs(float(actual) - float(expected)) / float(expected)) * 100 <= float(tolerance)
+                        for (expected, tolerance), actual in zip(tolerance_specs, match.groups())
+                    )
+
                 print("matched!" if matched else "did not match!")
-                print(f"==== STDOUT ====\n{out}")
+                print(f"==== STDOUT ====\n{actual}")
                 assert matched
             else:
                 status = example.run(code, sandboxed_install_run)

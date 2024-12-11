@@ -17,9 +17,9 @@
 
 import enum
 from dataclasses import dataclass
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence
 
-from tripy import constraints, export, utils
+from tripy import export, utils, wrappers
 from tripy.common.exception import raise_error
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
@@ -39,7 +39,7 @@ class Pooling(BaseTraceOp):
     kind: Kind
     kernel_dims: Sequence[int]
     stride: Sequence[int]
-    padding: Sequence[Tuple[int]]
+    padding: Sequence[Sequence[int]]
 
     infer_rank = op_utils.InferRankPolicies.same_as_input()
 
@@ -139,15 +139,15 @@ class Pooling(BaseTraceOp):
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "int8"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "int8"]},
 )
 def maxpool(
     input: "tripy.Tensor",
     kernel_dims: Sequence[int],
     stride: Optional[Sequence[int]] = None,
-    padding: Optional[Sequence[Tuple[int]]] = None,
+    padding: Optional[Sequence[Sequence[int]]] = None,
 ) -> "tripy.Tensor":
     r"""
     Applies a max pooling over the input tensor.
@@ -198,15 +198,15 @@ def maxpool(
 
 
 @export.public_api(document_under="operations/functions")
-@constraints.dtypes(
-    constraints={"input": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "int8"]},
+@wrappers.interface(
+    dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "int8"]},
 )
 def avgpool(
     input: "tripy.Tensor",
     kernel_dims: Sequence[int],
     stride: Optional[Sequence[int]] = None,
-    padding: Optional[Sequence[Tuple[int]]] = None,
+    padding: Optional[Sequence[Sequence[int]]] = None,
 ) -> "tripy.Tensor":
     r"""
     Applies an average pooling over the input tensor.

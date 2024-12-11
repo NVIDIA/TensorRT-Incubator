@@ -83,8 +83,8 @@ def compile(
         compiled_add = tp.compile(
             add,
             args=[
-                tp.InputInfo(([1, 2, 3], 2), dtype=tp.float32),
-                tp.InputInfo(([1, 2, 3], 2), dtype=tp.float32),
+                tp.InputInfo(shape=((1, 2, 3), 2), dtype=tp.float32),
+                tp.InputInfo(shape=((1, 2, 3), 2), dtype=tp.float32),
             ],
         )
 
