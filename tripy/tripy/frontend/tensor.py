@@ -214,34 +214,34 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.trace import Trace
         from tripy.frontend import global_cache
 
-        # Collect input TraceTensors
-        inputs = self._collect_storage_tensors()
+        # Collect inputs
+        inputs = self._collect_storage_tensors()  # TODO: how to test real inputs? not shape inputs
         input_shapes = [ShapeBounds(min=tuple(inp.shape), opt=tuple(inp.shape), max=tuple(inp.shape)) for inp in inputs]
 
-        # Create a Trace using TraceTensors for outputs and inputs
         trace = Trace([self.trace_tensor], inputs=inputs, shapes=input_shapes)
+        output_devices = [out.device for out in trace.outputs]
 
-        executable = global_cache.get(trace)
-        flat_ir = trace.to_flat_ir()
+        executable = global_cache.get(trace, devices=output_devices)
         if executable is None:
+            flat_ir = trace.to_flat_ir()
             mlir = flat_ir.to_mlir()
 
             compiler = Compiler(trt_builder_opt_level=0)
             executable = compiler.compile(mlir, flat_ir=flat_ir)
-            global_cache.set(trace, executable)
+            global_cache.set(trace, executable=executable, devices=output_devices)
 
         executor = Executor(executable)
 
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
-        data = executor.execute([out.device for out in flat_ir.outputs], inputs)
+        data = executor.execute(output_devices, inputs)
         executor.stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
 
         Storage.build_internal([], [self.trace_tensor], data)
         # TODO(#155): Remove this hack of overriding the device type.
-        self.trace_tensor.device = flat_ir.outputs[0].device
+        self.trace_tensor.device = trace.outputs[0].device
 
         self.trace_tensor.eval_stack_info = utils.get_stack_info()
         if self.trace_tensor.is_compile_tracer:

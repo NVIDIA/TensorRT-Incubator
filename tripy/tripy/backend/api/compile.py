@@ -166,6 +166,7 @@ def compile(
     compiled_arg_names = [name for name in signature.parameters.keys() if name in input_names]
 
     trace_outputs = utils.make_list(func(*new_args, **new_kwargs))
+    trace_outputs = [tensor.trace_tensor for tensor in trace_outputs]
 
     if not trace_outputs:
         raise_error(
@@ -181,7 +182,7 @@ def compile(
             )
 
     # Order of trace inputs also needs to match that of the compiled_arg_names
-    trace_inputs = [trace_input_map[name] for name in compiled_arg_names]
+    trace_inputs = [trace_input_map[name].trace_tensor for name in compiled_arg_names]
     trace = Trace(trace_outputs, trace_inputs, shapes=shapes)
 
     for op in trace.ops:

@@ -76,36 +76,6 @@ class Storage(BaseTraceOp):
         # breakpoint()
         self.outputs[0].shape = list(self.shape)
 
-    def __deepcopy__(self, memo):
-        if id(self) in memo:
-            return memo[id(self)]
-
-        """
-        # Create a dictionary of field values, deepcopy all fields except `data`
-        field_values = {
-            f.name: (copy.deepcopy(getattr(self, f.name), memo) if f.name != "data" else getattr(self, f.name))
-            for f in fields(self)
-            if hasattr(self, f.name)  # Ensure the attribute exists
-        }
-
-        # Create a new instance using the field values that match the constructor signature
-        constructor_fields = {k: v for k, v in field_values.items() if k in self.__init__.__code__.co_varnames}
-        copied_obj = self.__class__(**constructor_fields)
-        """
-
-        copied_obj = self.__class__(
-            **{
-                "inputs": [copy.deepcopy(inp, memo) for inp in self.inputs],
-                "outputs": [copy.deepcopy(out, memo) for out in self.outputs],
-                "data": self.data,
-                "dtype": copy.deepcopy(self.dtype),
-                "device": copy.deepcopy(self.device),
-            }
-        )
-
-        memo[id(self)] = copied_obj
-        return copied_obj
-
     def str_skip_fields(self) -> Set[str]:
         # skip data if i) it is a MemRefValue or ii) its volume exceeds threshold
         if not isinstance(self.data, Sequence) or utils.should_omit_constant_in_str(self.shape):
