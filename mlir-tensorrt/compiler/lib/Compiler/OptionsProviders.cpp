@@ -22,8 +22,35 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "cuda_runtime_api.h"
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "llvm/Support/Error.h"
+
+mlirtrt::Status mlirtrt::compiler::DeviceOptions::inferFromHost() {
+  cudaDeviceProp properties;
+  cudaError_t err = cudaGetDeviceProperties(&properties, 0);
+  if (err != cudaSuccess)
+    return getStatusWithMsg(StatusCode::InternalError,
+                            "failed to get cuda device properties");
+  int ccMajor = 0;
+  int ccMinor = 0;
+  err = cudaDeviceGetAttribute(
+      &ccMajor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor, 0);
+  if (err != cudaSuccess)
+    return getStatusWithMsg(StatusCode::InternalError,
+                            "failed to get cuda device compute capability");
+  err = cudaDeviceGetAttribute(
+      &ccMinor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor, 0);
+  if (err != cudaSuccess)
+    return getStatusWithMsg(StatusCode::InternalError,
+                            "failed to get cuda device compute capability");
+  // We want SM version as a single number.
+  int64_t smVersion = ccMajor * 10 + ccMinor;
+  info.computeCapability = smVersion;
+  info.maxSharedMemoryPerBlockKb = properties.sharedMemPerBlock / 1024;
+  info.maxRegistersPerBlock = properties.regsPerBlock;
+  return Status::getOk();
+}
 
 llvm::Error mlirtrt::compiler::DeviceOptions::finalizeImpl() {
   if (shouldInferFromHost) {

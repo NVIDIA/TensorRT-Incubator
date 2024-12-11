@@ -84,6 +84,17 @@ public:
 
   ~PyStableHLOToExecutableOptions() { callback = nullptr; }
 };
+
+/// Python object type wrapper for `MlirPassManager`.
+class PyStableHloPipeline
+    : public PyMTRTWrapper<PyStableHloPipeline, MlirPassManager> {
+public:
+  using PyMTRTWrapper::PyMTRTWrapper;
+  DECLARE_WRAPPER_CONSTRUCTORS(PyStableHloPipeline);
+
+  static constexpr auto kMethodTable =
+      CAPITable<MlirPassManager>{mtrtStableHloPipelineIsNull, nullptr};
+};
 } // namespace
 
 //===----------------------------------------------------------------------===//
@@ -354,6 +365,27 @@ PYBIND11_MODULE(_api, m) {
           py::arg("callback"), py::keep_alive<1, 2>{})
 #endif
       ;
+
+  py::class_<PyStableHloPipeline>(m, "StableHloPipeline", py::module_local())
+      .def(py::init<>([](PyCompilerClient &client,
+                         PyStableHLOToExecutableOptions &options) {
+             MlirPassManager pm{};
+             MTRT_Status status =
+                 mtrtStableHloPipelineGetCached(client, options, &pm);
+             THROW_IF_MTRT_ERROR(status);
+             return new PyStableHloPipeline(pm);
+           }),
+           py::arg("client"), py::arg("options"));
+
+  m.def(
+      "get_executable",
+      [](PyStableHloPipeline &pm, MlirOperation module) {
+        MTRT_Executable exe{nullptr};
+        MTRT_Status status = mtrtCompilerGetExecutable(pm, module, &exe);
+        THROW_IF_MTRT_ERROR(status);
+        return new PyExecutable(exe);
+      },
+      py::arg("pm"), py::arg("module"));
 
   m.def(
       "compiler_stablehlo_to_executable",
