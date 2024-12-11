@@ -25,6 +25,7 @@
 #include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Support/Status.h"
+#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
@@ -277,8 +278,56 @@ MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
 }
 
 //===----------------------------------------------------------------------===//
+// StableHloPipeline APIs
+//===----------------------------------------------------------------------===//
+
+MTRT_Status
+mtrtStableHloPipelineGetCached(MTRT_CompilerClient client,
+                               MTRT_StableHLOToExecutableOptions options,
+                               MlirPassManager *result) {
+
+  mlir::PassManager *runner{};
+  if (unwrap(options)->getHash()) {
+    runner = &unwrap(client)->getOrCreatePassManager<StableHloToExecutableTask>(
+        *unwrap(options));
+    result->ptr = runner;
+    return mtrtStatusGetOk();
+  }
+  return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
+                          "options cannot be hashed");
+}
+
+//===----------------------------------------------------------------------===//
 // Main StableHLO Compiler API Functions
 //===----------------------------------------------------------------------===//
+
+MTRT_Status mtrtCompilerGetExecutable(MlirPassManager pm, MlirOperation module,
+                                      MTRT_Executable *result) {
+
+  ModuleOp moduleOp = llvm::dyn_cast<ModuleOp>(unwrap(module));
+  if (!moduleOp)
+    return mtrtStatusCreate(
+        MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
+        "StableHLO-to-Executable compilation expects a ModuleOp");
+
+  // Setup pass manager
+  mlir::PassManager *runner = static_cast<mlir::PassManager *>(pm.ptr);
+  if (failed(runner->run(moduleOp)))
+    return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
+                            "failed to run MLIR compilation pipeline");
+
+  // Translate to Runtime Executable
+  FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
+      mlir::translateToRuntimeExecutable(unwrap(module));
+  if (failed(exeStorage))
+    return mtrtStatusCreate(
+        MTRT_StatusCode::MTRT_StatusCode_InternalError,
+        "failed to perform MLIR-to-RuntimeExecutable translation");
+
+  result->ptr =
+      std::make_unique<runtime::Executable>(std::move(*exeStorage)).release();
+  return mtrtStatusGetOk();
+}
 
 MTRT_Status mtrtCompilerStableHLOToExecutable(
     MTRT_CompilerClient client, MlirOperation module,

@@ -16,6 +16,8 @@ __all__ = [
     "StableHLOToExecutableOptions",
     "Type",
     "bf16",
+    "PyStableHloPipeline",
+    "get_executable",
     "compiler_stablehlo_to_executable",
     "device",
     "f16",
@@ -292,6 +294,12 @@ class StableHLOToExecutableOptions:
 class Type:
     def __init__(self, cast_from_type: Type) -> None: ...
 
+class PyStableHloPipeline:
+    def __init__(
+        self, arg0: CompilerClient, arg1: StableHLOToExecutableOptions
+    ) -> None: ...
+
+def get_executable(client: CompilerClient, module: Operation) -> Executable: ...
 def compiler_stablehlo_to_executable(
     client: CompilerClient, module: Operation, options: StableHLOToExecutableOptions
 ) -> Executable: ...

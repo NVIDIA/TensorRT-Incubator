@@ -6,6 +6,7 @@ set_target_properties(MLIRTensorRTExecutorUnitTests PROPERTIES FOLDER "MLIR-Tens
 function(add_mlir_executor_unittest target)
   set(LLVM_LINK_COMPONENTS Support)
   add_llvm_executable(${target} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+  set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
   add_dependencies(MLIRTensorRTExecutorUnitTests ${target})
   llvm_update_compile_flags(${target})
   if(TARGET gtest)

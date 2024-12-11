@@ -108,6 +108,7 @@ public:
   /// Whether to ignore `deviceX` options and instead infer them from the GPUs
   /// on the host system running the compilation.
   bool shouldInferFromHost = false;
+  Status inferFromHost();
 
 public:
   void addToOptions(mlir::OptionsContext &context) {

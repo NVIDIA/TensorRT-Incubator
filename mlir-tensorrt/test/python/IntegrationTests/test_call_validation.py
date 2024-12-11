@@ -19,6 +19,13 @@ func.func @main(%arg0: f32) -> f32 {
 }
 """
 
+empty_memref_io = """
+func.func @main(%arg0: tensor<5x?x4xf32> {tensorrt.shape_profile = #tensorrt.shape_profile<min = [5, 0, 4], opt = [5, 3, 4], max = [5, 3, 4]>}) -> tensor<5x?x4xf32> {
+  %1 = stablehlo.add %arg0, %arg0 : (tensor<5x?x4xf32>, tensor<5x?x4xf32>) -> tensor<5x?x4xf32>
+  func.return %1 : tensor<5x?x4xf32>
+}
+"""
+
 
 class Test:
     def __init__(self, program: str):
@@ -97,6 +104,9 @@ if __name__ == "__main__":
     t = Test(main_scalar_io)
     print("TEST: function with no output arguments")
     t.execute(t.create_memref((5, 3), np.int32))
+    t = Test(empty_memref_io)
+    print("TEST: empty tensor validation")
+    t.execute(t.create_memref((5, 0, 4), np.float32))
 
 # CHECK-LABEL: TEST: runtime shape mismatch
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: Runtime shape mismatch. Expected [-9223372036854775808, 3, 4] but received [5, 4, 2]
@@ -113,3 +123,5 @@ if __name__ == "__main__":
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: Input argument 0 validation failed against corresponding function signature arg 0. Reason: InvalidArgument: function expects a memref type but received scalar type
 # CHECK-LABEL: TEST: function with no output arguments
 #       CHECK: MTRTException: InvalidArgument: InvalidArgument: function expects 0 output args (destination args) but received 1
+# CHECK-LABEL: TEST: empty tensor validation
+#       CHECK: Test passed succesfully
