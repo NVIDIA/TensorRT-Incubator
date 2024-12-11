@@ -75,8 +75,7 @@ def plugin(
         :linenos:
         :caption: Example
 
-        # TODO: We add `+ 1` as a hack to work around MLIR-TRT Issue #915. We should be able to remove it once fixed # doc: omit
-        inp = tp.iota((2, 1, 4)) + 1
+        inp = tp.iota((2, 1, 4))
         out = tp.plugin(
             "CustomGeluPluginDynamic",
             [inp],
