@@ -47,8 +47,8 @@ class TestStorage:
 
     def test_empty_list(self):
         data = [[]]
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data, dtype=tp.float16)
-        assert storage.dtype == tp.float16
+        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        assert storage.dtype == tp.float32
         assert storage.shape == (1, 0)
         assert storage.device.kind == "gpu"
 

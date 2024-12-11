@@ -21,7 +21,6 @@ import re
 import mlir_tensorrt.runtime.api as runtime
 
 from tripy.backend.mlir import utils as mlir_utils
-from tripy.common import datatype
 from tripy.common import device as tp_device
 from tripy.utils import raise_error
 

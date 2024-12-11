@@ -44,7 +44,6 @@ class Storage(BaseTraceOp):
         inputs: List["Tensor"],
         outputs: List["Tensor"],
         data: Union[runtime.MemRefValue, Sequence[numbers.Number]],
-        dtype: datatype = None,
         device: tp_device = None,
     ) -> None:
         super().__init__(inputs, outputs)
@@ -56,19 +55,18 @@ class Storage(BaseTraceOp):
             self.device = tp_device.create_directly(
                 "gpu" if data.address_space == runtime.PointerType.device else "cpu", 0
             )
-        elif common_utils.is_empty(data):
-            # special case: empty tensor
-            self.dtype = utils.default(dtype, datatype.float32)
-            self.shape = tuple(utils.get_shape(data))
-            self.data = memref.create_memref(shape=self.shape, dtype=self.dtype)
-            self.device = utils.default(device, tp_device.create_directly("gpu", 0))
         else:
-            self.dtype = dtype if dtype else common_utils.get_element_type(data)
+            if common_utils.is_empty(data):
+                self.dtype = datatype.float32
+                data_array = None
+            else:
+                self.dtype = common_utils.get_element_type(data)
+                data_array = common_utils.convert_list_to_array(utils.flatten_list(data), dtype=self.dtype)
             self.shape = tuple(utils.get_shape(data))
             self.data = memref.create_memref(
                 shape=self.shape,
                 dtype=self.dtype,
-                array=common_utils.convert_list_to_array(utils.flatten_list(data), dtype=self.dtype),
+                array=data_array,
             )
             self.device = utils.default(device, tp_device.create_directly("gpu", 0))
 
