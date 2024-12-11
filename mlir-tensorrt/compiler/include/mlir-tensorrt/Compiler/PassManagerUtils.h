@@ -25,5 +25,6 @@
 // Common helpers
 //===----------------------------------------------------------------------===//
 
-mlir::LogicalResult setupPassManager(mlir::PassManager &pm,
-                                     const DebugOptions &options);
+mlir::LogicalResult
+setupPassManager(mlir::PassManager &pm,
+                 const mlirtrt::compiler::DebugOptions &options);
