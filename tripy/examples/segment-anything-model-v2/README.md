@@ -6,15 +6,20 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 
 ## Running The Example
 
-### Image pipeline
-
 1. Install prerequisites:
 
     ```bash
     sudo apt-get update && sudo apt-get install ffmpeg libsm6 libxext6  -y
-    wget -O truck.jpg https://raw.githubusercontent.com/facebookresearch/sam2/main/notebooks/images/truck.jpg
     python3 -m pip install -r requirements.txt
     mkdir checkpoints && cd checkpoints && wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt
+    ```
+
+### Image pipeline
+
+1. Download the test image:
+
+    ```bash
+    wget -q -O truck.jpg https://raw.githubusercontent.com/facebookresearch/sam2/main/notebooks/images/truck.jpg
     ```
 
 2. Run the example:
@@ -33,7 +38,23 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 
 ### Video segmentation pipeline
 
-TBD
+1. Download the test video:
+
+    ```bash
+    mkdir -p bedroom
+    for i in $(seq -f "%05g" 0 199); do
+        while [ ! -f "bedroom/${i}.jpg" ] || ! jpeginfo -c "bedroom/${i}.jpg" >/dev/null 2>&1; do
+            wget -q -O "bedroom/${i}.jpg" --retry-connrefused --tries=0 --timeout=5 -c "https://raw.githubusercontent.com/facebookresearch/sam2/main/notebooks/videos/bedroom/${i}.jpg"
+            sleep 0.01
+        done
+    done
+    ```
+
+2. Run the example:
+    
+    ```bash
+    python3 video_demo.py
+    ```
 
 
 ## License

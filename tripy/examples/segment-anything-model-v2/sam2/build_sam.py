@@ -65,19 +65,19 @@ def get_component_configs(model, cfg):
             "dtype": model_precision,
             "compile_args": [
                 tp.InputInfo(
-                    (4096, 1, 256),
+                    (4096, (1, 2, 8), 256),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    ((4100, 16400, 28736), 1, 64),
+                    ((4100, 16400, 28736), (1, 2, 8), 64),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    (4096, 1, 256),
+                    (4096, (1, 2, 8), 256),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(
-                    ((4100, 16400, 28736), 1, 64),
+                    ((4100, 16400, 28736), (1, 2, 8), 64),
                     getattr(tp, model_precision),
                 ),
                 tp.InputInfo(((4, 16, 64),), tp.int32),
@@ -182,10 +182,10 @@ def get_component_configs(model, cfg):
         "memory_encoder": {
             "enabled": True,
             "model": model.memory_encoder,
-            "dtype": model_precision,  # TODO add fp16 to yaml
+            "dtype": "float32",  # TODO add fp16 to yaml
             "compile_args": [
-                tp.InputInfo((1, 256, 64, 64), getattr(tp, model_precision)),
-                tp.InputInfo((1, 1, 1024, 1024), getattr(tp, model_precision)),
+                tp.InputInfo((batchsize, 256, 64, 64), tp.float32),
+                tp.InputInfo((batchsize, num_obj, 1024, 1024), tp.float32),
                 True,
             ],
             "skip_dtype_convert": ["ln", "norm"]

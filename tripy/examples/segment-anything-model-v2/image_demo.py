@@ -28,76 +28,10 @@ from typing import Tuple, Optional, Dict
 
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
+from demo_utils import process_and_show_mask, show_box, show_points
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-b", "--batch", type=int, default=2, help="batch size of the input images, between [1, 4]")
-
-
-def process_and_show_mask(
-    mask: np.ndarray, ax: plt.Axes, random_color: bool = False, borders: bool = True
-) -> np.ndarray:
-    """
-    Process and display a segmentation mask, returning the processed mask for testing.
-    """
-    # Generate mask color
-    if random_color:
-        color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
-    else:
-        color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
-
-    # Process mask
-    h, w = mask.shape[-2:]
-    mask = mask.astype(np.uint8)
-    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-
-    if borders:
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
-        mask_image = cv2.drawContours(mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2)
-
-    ax.imshow(mask_image)
-    return mask_image
-
-
-def show_points(
-    coords: np.ndarray, labels: np.ndarray, ax: plt.Axes, marker_size: int = 375
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Display point prompts and return point coordinates for testing.
-    """
-    pos_points = coords[labels == 1]
-    neg_points = coords[labels == 0]
-
-    ax.scatter(
-        pos_points[:, 0],
-        pos_points[:, 1],
-        color="green",
-        marker="*",
-        s=marker_size,
-        edgecolor="white",
-        linewidth=1.25,
-    )
-    ax.scatter(
-        neg_points[:, 0],
-        neg_points[:, 1],
-        color="red",
-        marker="*",
-        s=marker_size,
-        edgecolor="white",
-        linewidth=1.25,
-    )
-
-    return pos_points, neg_points
-
-
-def show_box(box: np.ndarray, ax: plt.Axes) -> Tuple[float, float, float, float]:
-    """
-    Display a bounding box and return its coordinates for testing.
-    """
-    x0, y0 = box[0], box[1]
-    w, h = box[2] - box[0], box[3] - box[1]
-    ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor="green", facecolor=(0, 0, 0, 0), lw=2))
-    return x0, y0, w, h
 
 
 def process_predictions(
