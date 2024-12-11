@@ -32,7 +32,7 @@ class ExecutableCache:
         """
         tensor_map = {}
         next_tensor_id = 0
-        print("before\n", str(trace))
+        # print("before\n", str(trace))
 
         # Create a shallow copy of the trace
         trace_copy = deepcopy(trace)
@@ -62,7 +62,7 @@ class ExecutableCache:
         for out in trace_copy.outputs:
             out.name = get_or_assign_tensor_name(out)
 
-        print("after\n", str(trace_copy))
+        # print("after\n", str(trace_copy))
         return str(trace_copy)
 
     def _generate_key(self, trace: "Trace") -> str:

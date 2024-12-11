@@ -17,13 +17,14 @@ from tripy.frontend import Trace
 from tripy.frontend import global_cache
 from time import perf_counter
 
+
 inp = tp.ones((1, 1), dtype=tp.float32)
 inp.name = "foo"
 
 layer = tp.Linear(1, 2)
 out = layer(inp)
 
-trace = Trace([out])
+trace = Trace([out.trace_tensor])
 
 breakpoint()  # global_cache.get(trace)
 
@@ -43,7 +44,7 @@ out2 = layer2(inp2)
 out2.name = "mother"
 
 
-trace2 = Trace([out2])
+trace2 = Trace([out2.trace_tensor])
 
 breakpoint()  # global_cache.get(trace2)
 

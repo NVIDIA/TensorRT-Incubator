@@ -230,17 +230,6 @@ class Tensor(metaclass=TensorMeta):
 
         executor = Executor(executable)
 
-        # Convert all inputs to memref
-        for inp in inputs:
-            if not isinstance(inp.producer.data, runtime.MemRefValue):
-                values = [inp.producer.data] if isinstance(inp.producer.data, int) else inp.producer.data
-                inp.producer.data = create_memref(
-                    array=convert_list_to_array(values, dtype=inp.dtype),
-                    shape=inp.shape,
-                    dtype=inp.dtype,
-                    device=inp.device,
-                )
-
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
         data = executor.execute([out.device for out in flat_ir.outputs], inputs)
@@ -277,7 +266,7 @@ class Tensor(metaclass=TensorMeta):
             visited.add(id(trace_tensor))
 
             producer = trace_tensor.producer
-            if isinstance(producer, Storage):
+            if isinstance(producer, Storage) and utils.should_omit_constant_in_str(producer.shape):
                 inputs.append(trace_tensor)
             else:
                 for inp in producer.inputs:
