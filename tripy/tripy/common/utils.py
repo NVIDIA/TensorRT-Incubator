@@ -16,7 +16,7 @@
 #
 
 import array
-from typing import Any, List, Sequence
+from typing import Any, List, Sequence, Tuple
 
 import tripy.common.datatype
 from tripy.common.exception import raise_error
@@ -67,6 +67,14 @@ def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
         raise ValueError(f"Unsupported type: {dtype}")
 
     return array.array(TYPE_TO_FORMAT[dtype], values)
+
+def get_array_supported_types() -> Tuple["tripy.common.datatype"]:
+    return (
+        tripy.common.datatype.bool,
+        tripy.common.datatype.int32,
+        tripy.common.datatype.int64,
+        tripy.common.datatype.float32,
+    )
 
 
 def is_empty(data: Sequence) -> bool:

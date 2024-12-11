@@ -26,6 +26,7 @@ import tripy.frontend.trace.ops
 from tripy import export, utils
 from tripy.backend.mlir import memref
 from tripy.common import datatype
+from tripy.common import utils as common_utils
 from tripy.common.exception import raise_error, str_from_stack_info
 from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
 from tripy.frontend.trace.ops import Storage
@@ -150,7 +151,7 @@ class Tensor(metaclass=TensorMeta):
                 data = memref.create_memref_view(data)
             Storage.build_internal([], [instance.trace_tensor], data)
         else:
-            Storage.build_internal([], [instance.trace_tensor], data, dtype, device)
+            Storage.build_internal([], [instance.trace_tensor], data, None, device)
         # TODO(#155): Remove this hack:
         instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
 
@@ -201,7 +202,7 @@ class Tensor(metaclass=TensorMeta):
         return self.trace_tensor.device
 
     def eval(self) -> runtime.MemRefValue:
-        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
+        if isinstance(self.trace_tensor.producer, Storage):
             # Exit early if the tensor has already been evaluated.
             # This happens before the imports below so we don't incur extra overhead.
             return self.trace_tensor.producer.data

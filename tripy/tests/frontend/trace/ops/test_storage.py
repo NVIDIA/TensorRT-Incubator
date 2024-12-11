@@ -34,7 +34,6 @@ class TestStorage:
         module = np if device == "cpu" else cp
         data = memref.create_memref_view(module.ones((2, 2), dtype=module.float32))
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
-        assert storage.has_memref is True
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == device
@@ -42,7 +41,6 @@ class TestStorage:
     def test_from_list(self):
         data = [[1.0, 2.0], [3.0, 4.0]]
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
-        assert storage.has_memref is False
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
@@ -50,7 +48,6 @@ class TestStorage:
     def test_empty_list(self):
         data = [[]]
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data, dtype=tp.float16)
-        assert storage.has_memref is True
         assert storage.dtype == tp.float16
         assert storage.shape == (1, 0)
         assert storage.device.kind == "gpu"
