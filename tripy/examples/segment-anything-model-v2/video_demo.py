@@ -140,6 +140,7 @@ def main(video_dir: str, save_path: Optional[str] = None):
     print(f"Video segmentation took {(end - start)}s")
 
     if save_path:
+        os.makedirs(save_path, exist_ok=True)
         # render the segmentation results every few frames
         vis_frame_stride = 30
         for out_frame_idx in range(0, len(frame_names), vis_frame_stride):
