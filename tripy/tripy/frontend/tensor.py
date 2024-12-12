@@ -34,6 +34,11 @@ from tripy.logging.logger import logger
 from tripy.utils.stack_info import StackInfo
 
 
+# We include code for everything above the `BaseTraceOp.build` function, which is called at most
+# this many stack frames above the constructor.
+STACK_DEPTH_OF_BUILD = 5
+
+
 class TensorMeta(type):
     def __new__(cls, name, bases, dct):
         new = type.__new__(cls, name, bases, dct)
@@ -129,9 +134,6 @@ class Tensor(metaclass=TensorMeta):
     ):
         stack_info = StackInfo([])
         if fetch_stack_info:
-            # We include code for everything above the `BaseTraceOp.build` function, which is called at most
-            # this many stack frames above the constructor.
-            STACK_DEPTH_OF_BUILD = 4
             stack_info = utils.get_stack_info(include_code_index=STACK_DEPTH_OF_BUILD)
 
         name = name if name is not None else Tensor._get_unique_name()
@@ -148,7 +150,7 @@ class Tensor(metaclass=TensorMeta):
                 data = memref.create_memref_view(data)
             Storage.build_internal([], [instance.trace_tensor], data)
         else:
-            Storage.build_internal([], [instance.trace_tensor], data, dtype, device)
+            Storage.build_internal([], [instance.trace_tensor], data, device)
         # TODO(#155): Remove this hack:
         instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
 
@@ -199,7 +201,7 @@ class Tensor(metaclass=TensorMeta):
         return self.trace_tensor.device
 
     def eval(self) -> runtime.MemRefValue:
-        if isinstance(self.trace_tensor.producer, Storage) and self.trace_tensor.producer.has_memref:
+        if isinstance(self.trace_tensor.producer, Storage):
             # Exit early if the tensor has already been evaluated.
             # This happens before the imports below so we don't incur extra overhead.
             return self.trace_tensor.producer.data

@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import tripy.frontend.trace.ops.utils as op_utils
-from tripy import constraints
+from tripy import wrappers
 from tripy.frontend.trace.ops.base import BaseTraceOp
 
 
@@ -50,9 +50,9 @@ class Convolution(BaseTraceOp):
         )
 
 
-@constraints.dtypes(
-    constraints={"input": "T1", "weight": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={
+@wrappers.interface(
+    dtype_constraints={"input": "T1", "weight": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={
         "T1": ["float32", "float16", "bfloat16"],
     },
 )

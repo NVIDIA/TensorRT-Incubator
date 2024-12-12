@@ -25,6 +25,7 @@
 #define MLIR_TENSORRT_C_COMPILER_COMPILER
 
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
@@ -123,8 +124,24 @@ static inline bool mtrtStableHloToExecutableOptionsIsNull(
 }
 
 //===----------------------------------------------------------------------===//
+// StableHloPipeline APIs
+//===----------------------------------------------------------------------===//
+
+static inline bool mtrtStableHloPipelineIsNull(MlirPassManager pm) {
+  return !pm.ptr;
+}
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloPipelineGetCached(
+    MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions options,
+    MlirPassManager *result);
+
+//===----------------------------------------------------------------------===//
 // Main StableHLO Compiler API Functions
 //===----------------------------------------------------------------------===//
+
+/// Get Executable using StableHloPassManager.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerGetExecutable(
+    MlirPassManager pm, MlirOperation module, MTRT_Executable *result);
 
 /// Compiler StableHLO to Executable.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerStableHLOToExecutable(

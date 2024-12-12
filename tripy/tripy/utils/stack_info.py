@@ -142,6 +142,6 @@ def get_module_names_to_exclude_from_stack_info():
     or trying to retrieve column information from code.
     """
     import tripy.function_registry
-    import tripy.constraints
+    import tripy.wrappers
 
-    return {mod.__name__ for mod in [tripy.function_registry, tripy.constraints]}
+    return {mod.__name__ for mod in [tripy.function_registry, tripy.wrappers]}
