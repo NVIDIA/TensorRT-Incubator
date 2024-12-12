@@ -23,6 +23,7 @@ import mlir_tensorrt.runtime.api as runtime
 # Import ops to populate the registry before we define our Tensor class
 import tripy.frontend.ops
 import tripy.frontend.trace.ops
+from tripy import config
 from tripy import export, utils
 from tripy.backend.mlir import memref
 from tripy.backend.mlir.memref import create_memref
@@ -221,14 +222,16 @@ class Tensor(metaclass=TensorMeta):
         trace = Trace([self.trace_tensor], inputs=inputs, shapes=input_shapes)
         output_devices = [out.device for out in trace.outputs]
 
-        executable = global_cache.get(trace, devices=output_devices)
+        executable = global_cache.get(trace, devices=output_devices) if config.eager_cache else None
         if executable is None:
             flat_ir = trace.to_flat_ir()
             mlir = flat_ir.to_mlir()
 
             compiler = Compiler(trt_builder_opt_level=0)
             executable = compiler.compile(mlir, flat_ir=flat_ir)
-            global_cache.set(trace, executable=executable, devices=output_devices)
+
+            if config.eager_cache:
+                global_cache.set(trace, executable=executable, devices=output_devices)
 
         executor = Executor(executable)
 

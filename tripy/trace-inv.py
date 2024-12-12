@@ -26,13 +26,13 @@ out = layer(inp)
 
 trace = Trace([out.trace_tensor])
 
-breakpoint()  # global_cache.get(trace)
+# breakpoint()  # global_cache.get(trace)
 
 start = perf_counter()
 out.eval()
 print(f"time it took {perf_counter()-start}")
 
-breakpoint()  # global_cache.get(trace)
+# breakpoint()  # global_cache.get(trace)
 
 
 inp2 = tp.ones((1, 1), dtype=tp.float32)
@@ -46,10 +46,10 @@ out2.name = "mother"
 
 trace2 = Trace([out2.trace_tensor])
 
-breakpoint()  # global_cache.get(trace2)
+# breakpoint()  # global_cache.get(trace2)
 
 start = perf_counter()
 out2.eval()
 print(f"time it took {perf_counter()-start}")
 
-breakpoint()  # global_cache.get(trace2)
+# breakpoint()  # global_cache.get(trace2)

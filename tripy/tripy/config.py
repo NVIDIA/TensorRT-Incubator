@@ -38,6 +38,8 @@ mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/",
 enable_tensorrt_debug = os.environ.get("TRIPY_TRT_DEBUG_ENABLED", "0") == "1"
 tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "tripy", "tensorrt-dumps"))
 
+eager_cache = os.environ.get("TRIPY_EAGER_CACHE", "0") == "1"
+
 timing_cache_file_path: str = export.public_api(
     document_under="config.rst",
     autodoc_options=[":no-value:"],
