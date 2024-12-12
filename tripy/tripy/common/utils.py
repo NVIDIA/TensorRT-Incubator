@@ -68,6 +68,5 @@ def convert_list_to_array(values: List[Any], dtype: str) -> bytes:
 
     return array.array(TYPE_TO_FORMAT[dtype], values)
 
-
 def is_empty(data: Sequence) -> bool:
     return isinstance(data, Sequence) and all(map(is_empty, data))
