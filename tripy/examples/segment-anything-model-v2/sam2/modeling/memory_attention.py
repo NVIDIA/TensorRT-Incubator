@@ -25,7 +25,7 @@
 from typing import Optional
 
 from sam2.modeling.sam.transformer import RoPEAttention
-from sam2.modeling.sam2_utils import get_activation_fn
+from sam2.modeling.sam2_utils import get_activation_fn, get_clones
 
 import tripy as tp
 
@@ -124,7 +124,7 @@ class MemoryAttention(tp.Module):
     ):
         super().__init__()
         self.d_model = d_model
-        self.layers = [layer for i in range(num_layers)]
+        self.layers = get_clones(layer, num_layers)
         self.num_layers = num_layers
         self.norm = tp.LayerNorm(d_model)
         self.pos_enc_at_input = pos_enc_at_input
