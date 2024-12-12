@@ -184,13 +184,6 @@ def compile(
     trace_inputs = [trace_input_map[name] for name in compiled_arg_names]
     trace = Trace(trace_outputs, trace_inputs, shapes=shapes)
 
-    for op in trace.ops:
-        for tensor in op.inputs + op.outputs:
-            if tensor.is_compile_tracer and tensor.eval_stack_info is not None:
-                raise_error(
-                    "Cannot evaluate a tensor while compiling.", ["Tensor was evaluated here:", tensor.eval_stack_info]
-                )
-
     flat_ir = trace.to_flat_ir()
     mlir = flat_ir.to_mlir()
     compiler = MLIRCompiler(trt_builder_opt_level=optimization_level)

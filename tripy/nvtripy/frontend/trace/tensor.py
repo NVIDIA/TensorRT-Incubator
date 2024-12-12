@@ -40,9 +40,6 @@ class TraceTensor:
 
     # Whether this tensor was constructed in order to trace a computation graph for the compiler.
     is_compile_tracer: bool = False
-    # Stack information for the point at which this tensor was evaluated if it was.
-    # This is useful in the compiler to disallow evaluation during tracing.
-    eval_stack_info: Optional[utils.StackInfo] = None
 
     def __str__(self) -> str:
         return (

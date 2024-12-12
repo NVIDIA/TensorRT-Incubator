@@ -224,11 +224,15 @@ class Tensor(metaclass=TensorMeta):
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
 
-        Storage.build_internal([], [self.trace_tensor], data)
+        # If we are tracing, we should not replace the tensor with a storage op. However, even so,
+        # evaluating while tracing could introduce errors (e.g., if the evaluated value is used to create a constant
+        # that is in the graph) and is likely also to slow down compilation, so we still give warnings in that case.
+        if not self.trace_tensor.is_compile_tracer:
+            Storage.build_internal([], [self.trace_tensor], data)
+
         # TODO(#155): Remove this hack of overriding the device type.
         self.trace_tensor.device = flat_ir.outputs[0].device
 
-        self.trace_tensor.eval_stack_info = utils.get_stack_info()
         if self.trace_tensor.is_compile_tracer:
             logger.warning(
                 f"Tensor was evaluated while compiling which may cause unexpected behavior in the executable.\n"
@@ -237,7 +241,7 @@ class Tensor(metaclass=TensorMeta):
                 mode="once",
             )
             logger.warning(
-                f"Note: Tensor was evaluated while compiling here: {str_from_stack_info(self.trace_tensor.eval_stack_info)}",
+                f"Note: Tensor was evaluated while compiling here: {str_from_stack_info(utils.get_stack_info())}",
                 mode="once",
             )
 
@@ -265,8 +269,15 @@ class Tensor(metaclass=TensorMeta):
 
         data_list = self.tolist()
 
-        assert isinstance(self.trace_tensor.producer, Storage)
-        data_shape = self.trace_tensor.producer.shape
+        if isinstance(self.trace_tensor.producer, Storage):
+            data_shape = self.trace_tensor.producer.shape
+        else:
+            from nvtripy.utils.utils import get_shape
+
+            # If the producer isn't a storage after evaluating, we must be tracing.
+            # This situation is inadvisable and the user would have been warned.
+            assert self.trace_tensor.is_compile_tracer
+            data_shape = get_shape(data_list)
 
         arr_str = pretty_print(data_list, data_shape)
         indentation = ""

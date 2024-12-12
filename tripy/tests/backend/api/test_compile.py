@@ -162,24 +162,29 @@ class TestCompile:
             out = compiled_ones(inp)
             assert out.shape == [sum(shape)]
 
-    def test_error_if_evaling_input_during_compile(self):
+    def test_no_error_if_evaling_input_during_compile(self, capsys):
         def func(a):
             print(a)
+            # Also check that the producer has not been updated after the eval
+            assert not isinstance(a.trace_tensor.producer, Storage)
             return a + 1
 
-        with helper.raises(tp.TripyException, match="Cannot evaluate a tensor while compiling."):
-            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+        # Make sure that there was a warning.
+        out, _ = capsys.readouterr()
+        assert "Tensor was evaluated while compiling here:" in out
 
-    def test_error_if_evaling_intermediate_tensor_during_compile(self):
+    def test_no_error_if_evaling_intermediate_tensor_during_compile(self, capsys):
         def func(a):
             b = a + 1
             print(b)
             return b
 
-        with helper.raises(tp.TripyException, match="Cannot evaluate a tensor while compiling."):
-            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+        out, _ = capsys.readouterr()
+        assert "Tensor was evaluated while compiling here:" in out
 
-    def test_error_if_evaling_in_nested_func_during_compile(self):
+    def test_no_error_if_evaling_in_nested_func_during_compile(self, capsys):
         def add(a, b):
             c = a + b
             print(c)
@@ -188,24 +193,9 @@ class TestCompile:
         def func(a):
             return add(a, 1)
 
-        with helper.raises(tp.TripyException, match="Cannot evaluate a tensor while compiling."):
-            tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
-
-    def test_allow_eval_if_tensor_unused_in_compile(self, capsys):
-        # If the tensor is not actually used in the computation graph then we don't care if it's eval'd.
-        def func(a):
-            print(a.shape)
-
-            c = a - int(a.shape[0])
-            print(c)
-            return a
-
-        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.int32)])
+        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
         out, _ = capsys.readouterr()
-        print(f"\n{out}")
-
-        # Ensure that a warning is printed for each evaluation (2 prints + int).
-        assert out.count("Tensor was evaluated while compiling here:") == 3
+        assert "Tensor was evaluated while compiling here:" in out
 
     def test_allow_eval_for_non_input_to_compile(self):
         # We should allow non-inputs to be evaluated.
