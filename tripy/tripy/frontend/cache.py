@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import hashlib
-from typing import List
+from typing import List, Dict, Any
 
 import mlir_tensorrt.runtime.api as runtime
 
@@ -24,56 +24,87 @@ class ExecutableCache:
     def __init__(self):
         self._cache = {}
 
+    def _assign_tensor_name(
+        self,
+        tensor: "tripy.frontend.trace.tensor.TraceTensor",
+        tensor_map: Dict[int, str],
+        next_id: List[int],
+        backup_map: Dict[int, str] = None,
+    ) -> str:
+        """
+        Assign or retrieve a tensor name.
+
+        Args:
+            tensor: The tensor to name
+            tensor_map: Mapping of tensor ids to names (clean or original)
+            next_id: Mutable list for tracking next tensor ID
+            backup_map: Mapping to store original names
+
+        Returns:
+            str: The assigned or retrieved tensor name
+        """
+        t_id = id(tensor)
+
+        # If tensor not in map, assign new name
+        if t_id not in tensor_map:
+            new_name = f"t{next_id[0]}"
+            tensor_map[t_id] = new_name
+            if backup_map is not None:
+                backup_map[t_id] = tensor.name
+            next_id[0] += 1
+
+        return tensor_map[t_id]
+
+    def _update_trace_names(
+        self, trace: "Trace", tensor_map: Dict[int, str], next_id: List[int], backup_map: Dict[int, str] = None
+    ) -> None:
+        """
+        Update names for inputs, outputs, and operations in the trace.
+
+        Args:
+            trace: The trace to update
+            tensor_map: Mapping of tensor ids to names
+            next_id: Mutable list for tracking next tensor ID
+            backup_map: Mapping of original tensor names
+        """
+        # Update input names
+        for inp in trace.inputs:
+            inp.name = self._assign_tensor_name(inp, tensor_map, next_id, backup_map)
+
+        # Update operation input and output names
+        for op in trace.ops:
+            for inp in op.inputs:
+                inp.name = self._assign_tensor_name(inp, tensor_map, next_id, backup_map)
+            for out in op.outputs:
+                out.name = self._assign_tensor_name(out, tensor_map, next_id, backup_map)
+
+        # Update output names
+        for out in trace.outputs:
+            out.name = self._assign_tensor_name(out, tensor_map, next_id, backup_map)
+
     def _normalize_trace(self, trace: "Trace") -> str:
         """
-        Normalize the trace by renaming all tensor names (inputs, outputs, intermediates)
-        and operations to sequential names (t0, t1, ..., tn) while preserving the structure.
-        Use a clean function to avoid deep copies and return the normalized trace as a string.
+        Normalize the trace by renaming all tensor names while preserving the structure.
+
+        Args:
+            trace: The trace to normalize
+
+        Returns:
+            str: Normalized trace as a string
         """
-        clean_tensor_map = {}
-        original_tensor_map = {}
-        next_tensor_id = 0
+        # Initialize maps and next tensor ID
+        tensor_map: Dict[int, str] = {}
+        backup_tensor_map: Dict[int, str] = {}
+        next_tensor_id: List[int] = [0]
 
-        original_str = str(trace)
+        # Clean trace names with sequential names
+        self._update_trace_names(trace, tensor_map, next_tensor_id, backup_tensor_map)
 
-        def get_or_assign_tensor_name(tensor):
-            """Assign a new name to the tensor or retrieve the existing one."""
-            nonlocal next_tensor_id, clean_tensor_map, original_tensor_map
-            t_id = id(tensor)
-            if t_id not in clean_tensor_map:
-                clean_name = f"t{next_tensor_id}"
-                clean_tensor_map[t_id] = clean_name
-                original_tensor_map[t_id] = tensor.name
-                next_tensor_id += 1
-            return clean_tensor_map[t_id]
-
-        def clean_trace(trace, tensor_map):
-            """Rename tensors in the trace using the provided map."""
-            for inp in trace.inputs:
-                inp.name = get_or_assign_tensor_name(inp)
-            for op in trace.ops:
-                for inp in op.inputs:
-                    inp.name = get_or_assign_tensor_name(inp)
-                for out in op.outputs:
-                    out.name = get_or_assign_tensor_name(out)
-            for out in trace.outputs:
-                out.name = get_or_assign_tensor_name(out)
-
-        def restore_original_names(trace, tensor_map):
-            """Restore the original tensor names using the map."""
-            for inp in trace.inputs:
-                inp.name = tensor_map.get(id(inp), inp.name)
-            for op in trace.ops:
-                for inp in op.inputs:
-                    inp.name = tensor_map.get(id(inp), inp.name)
-                for out in op.outputs:
-                    out.name = tensor_map.get(id(out), out.name)
-            for out in trace.outputs:
-                out.name = tensor_map.get(id(out), out.name)
-
-        clean_trace(trace, clean_tensor_map)
+        # Get normalized trace string
         trace_str = str(trace)
-        restore_original_names(trace, original_tensor_map)
+
+        # Restore original names
+        self._update_trace_names(trace, backup_tensor_map, next_tensor_id)
 
         return trace_str
 
