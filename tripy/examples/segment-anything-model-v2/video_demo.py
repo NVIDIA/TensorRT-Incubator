@@ -34,6 +34,20 @@ import os
 import time
 
 
+def compute_mask_properties(mask):
+    # Ensure we have a boolean array
+    test_mask = np.asarray(mask, dtype=bool)
+
+    # Calculate basic stats
+    volume = np.sum(test_mask)
+
+    # Calculate centroid (center of mass)
+    indices = np.where(test_mask)
+    assert volume > 0
+    centroid = tuple(float(np.mean(idx)) for idx in indices)
+    return volume, centroid
+
+
 def main(video_dir: str, save_path: Optional[str] = None):
     """
     Main execution function.
@@ -134,7 +148,7 @@ def main(video_dir: str, save_path: Optional[str] = None):
     video_segments = {}  # video_segments contains the per-frame segmentation results
     for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
         video_segments[out_frame_idx] = {
-            out_obj_id: (out_mask_logits[i] > 0.0) for i, out_obj_id in enumerate(out_obj_ids)
+            out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy() for i, out_obj_id in enumerate(out_obj_ids)
         }
     end = time.perf_counter()
     print(f"Video segmentation took {(end - start)}s")
@@ -148,8 +162,16 @@ def main(video_dir: str, save_path: Optional[str] = None):
             plt.title(f"frame {out_frame_idx}")
             plt.imshow(Image.open(os.path.join(video_dir, frame_names[out_frame_idx])))
             for out_obj_id, out_mask in video_segments[out_frame_idx].items():
-                show_mask(out_mask.cpu().numpy(), plt.gca(), obj_id=out_obj_id)
+                vol, centre = compute_mask_properties(out_mask)
+                show_mask(out_mask, plt.gca(), obj_id=out_obj_id)
             plt.savefig(os.path.join(save_path, f"video_final_mask_{out_frame_idx}.png"))
+
+    # Print the properties of the mask generated for the final image for integration testing.
+    for last_frame_obj_id, last_frame_obj_mask in video_segments[
+        len(frame_names) - (len(frame_names) % vis_frame_stride)
+    ].items():
+        vol, centre = compute_mask_properties(last_frame_obj_mask)
+        print(f"Last frame object {last_frame_obj_id} has mask properties: volume {vol}, centre {centre}")
 
 
 if __name__ == "__main__":

@@ -45,6 +45,15 @@ This is an implementation of SAM2 model ([original repository](https://github.co
     python3 video_demo.py
     ```
 
+    <!--
+    Tripy: TEST: EXPECTED_STDOUT Start
+    ```
+    Last frame object 2 has mask properties: volume {16338~5%}, centre (0.0, {95.80028155220957~5%}, {133.8682825315216~5%})
+    Last frame object 3 has mask properties: volume {4415~5%}, centre (0.0, {161.95605889014723~5%}, {421.4523216308041~5%})
+    ```
+    Tripy: TEST: EXPECTED_STDOUT End
+    -->
+
 
 ## License
 The SAM2 model checkpoints and associated model code are sourced from Meta's [SAM2 repository](https://github.com/facebookresearch/sam2/tree/main) and are licensed under the Apache 2.0 license (included as LICENSE_sam2 in our sample).
