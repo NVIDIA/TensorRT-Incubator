@@ -34,37 +34,30 @@ model:
     d_model: 256
     pos_enc_at_input: true
     dtype: float16
-    layer:
-      _target_: sam2.modeling.memory_attention.MemoryAttentionLayer
-      activation: relu
-      dim_feedforward: 2048
-      dropout: 0.1
-      dtype: float16
-      pos_enc_at_attn: false
-      self_attention:
-        _target_: sam2.modeling.sam.transformer.RoPEAttention
-        rope_theta: 10000.0
-        feat_sizes: [32, 32]
-        embedding_dim: 256
-        num_heads: 1
-        downsample_rate: 1
-        dropout: 0.1
-        dtype: float16
-      d_model: 256
-      pos_enc_at_cross_attn_keys: true
-      pos_enc_at_cross_attn_queries: false
-      cross_attention:
-        _target_: sam2.modeling.sam.transformer.RoPEAttention
-        rope_theta: 10000.0
-        feat_sizes: [32, 32]
-        rope_k_repeat: True
-        embedding_dim: 256
-        num_heads: 1
-        downsample_rate: 1
-        dropout: 0.1
-        kv_in_dim: 64
-        dtype: float16
     num_layers: 4
+    # memory attention layer
+    activation: relu
+    dim_feedforward: 2048
+    dropout: 0.1
+    pos_enc_at_attn: false
+    pos_enc_at_cross_attn_keys: true
+    pos_enc_at_cross_attn_queries: false
+    # self rope attention
+    sa_rope_theta: 10000.0
+    sa_feat_sizes: [32, 32]
+    sa_embedding_dim: 256
+    sa_num_heads: 1
+    sa_downsample_rate: 1
+    sa_dropout: 0.1
+    # cross rope attention
+    ca_rope_theta: 10000.0
+    ca_feat_sizes: [32, 32]
+    ca_rope_k_repeat: True
+    ca_embedding_dim: 256
+    ca_num_heads: 1
+    ca_downsample_rate: 1
+    ca_dropout: 0.1
+    ca_kv_in_dim: 64
 
   memory_encoder:
       _target_: sam2.modeling.memory_encoder.MemoryEncoder
