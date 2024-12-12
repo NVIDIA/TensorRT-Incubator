@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 
 plt.switch_backend("agg")  # Switch to non-interactive backend
 from PIL import Image
-from typing import Tuple, Optional, Dict
+from typing import Optional, Dict
 
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor

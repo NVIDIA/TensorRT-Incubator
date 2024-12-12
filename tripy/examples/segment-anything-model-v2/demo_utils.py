@@ -17,26 +17,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 plt.switch_backend("agg")  # Switch to non-interactive backend
-from typing import Tuple
+from typing import Tuple, Optional
 
 
 def process_and_show_mask(
-    mask: np.ndarray, ax: plt.Axes, random_color: bool = False, borders: bool = True
+    mask: np.ndarray, ax: plt.Axes, obj_id: Optional[int] = None, random_color: bool = False, borders: bool = False
 ) -> np.ndarray:
-    """
-    Process and display a segmentation mask, returning the processed mask for testing.
-    """
     # Generate mask color
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
-        color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
+        if obj_id is not None:
+            cmap = plt.get_cmap("tab10")
+            color = np.array([*cmap(obj_id)[:3], 0.6])
+        else:
+            color = np.array([30 / 255, 144 / 255, 255 / 255, 0.6])
 
     # Process mask
     h, w = mask.shape[-2:]
     mask = mask.astype(np.uint8)
     mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
 
+    # Add borders if requested
     if borders:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
