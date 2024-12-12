@@ -34,7 +34,7 @@ from tripy.frontend.trace.ops.base import BaseTraceOp
 @dataclass(repr=False)
 class Storage(BaseTraceOp):
 
-    data: Union[runtime.MemRefValue, Sequence[numbers.Number]]
+    data: runtime.MemRefValue
     shape: Sequence[int]
     dtype: type
     device: tp_device
@@ -44,7 +44,6 @@ class Storage(BaseTraceOp):
         inputs: List["Tensor"],
         outputs: List["Tensor"],
         data: Union[runtime.MemRefValue, Sequence[numbers.Number]],
-        dtype: datatype = None,
         device: tp_device = None,
     ) -> None:
         super().__init__(inputs, outputs)
@@ -56,31 +55,27 @@ class Storage(BaseTraceOp):
             self.device = tp_device.create_directly(
                 "gpu" if data.address_space == runtime.PointerType.device else "cpu", 0
             )
-            self.has_memref = True
-        elif common_utils.is_empty(data):
-            # special case: empty tensor
-            self.dtype = utils.default(dtype, datatype.float32)
-            self.shape = tuple(utils.get_shape(data))
-            self.data = memref.create_memref(shape=self.shape, dtype=self.dtype)
-            self.device = utils.default(device, tp_device.create_directly("gpu", 0))
-            self.has_memref = True
         else:
-            # If the input was a sequence, we need to copy it so that we don't take changes made
-            # to the list after the Storage op was constructed.
-            self.data = copy.copy(data)
-            self.dtype = dtype if dtype else common_utils.get_element_type(data)
+            if common_utils.is_empty(data):
+                self.dtype = datatype.float32
+                data_array = None
+            else:
+                self.dtype = common_utils.get_element_type(data)
+                data_array = common_utils.convert_list_to_array(utils.flatten_list(data), dtype=self.dtype)
             self.shape = tuple(utils.get_shape(data))
+            self.data = memref.create_memref(
+                shape=self.shape,
+                dtype=self.dtype,
+                array=data_array,
+            )
             self.device = utils.default(device, tp_device.create_directly("gpu", 0))
-            self.has_memref = False
 
         # breakpoint()
         self.outputs[0].shape = list(self.shape)
 
     def str_skip_fields(self) -> Set[str]:
-        # skip data if i) it is a MemRefValue or ii) its volume exceeds threshold
-        if not isinstance(self.data, Sequence) or utils.should_omit_constant_in_str(self.shape):
-            return {"data"}
-        return set()
+        # skip data since it is always a memref value
+        return {"data"}
 
     def __eq__(self, other) -> bool:
         return self.data == other.data if isinstance(other, Storage) else False

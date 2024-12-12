@@ -461,20 +461,24 @@ static Status validateArgsTypesAgainstFuncArgs(const RuntimeValue *runArg,
     }
 
     if (view.getStrides() != value->getStrides()) {
-      for (unsigned i = 0; i < view.getStrides().size(); ++i) {
-        if (value->getStrides()[i] < 0)
-          return getInvalidArgStatus(
-              "all strides must be non-negative but received shape [{0:$[, ]}]",
-              value->getStrides());
-        if (view.getStrides()[i] >= 0 &&
-            view.getStrides()[i] != value->getStrides()[i])
-          // Allow the special case of non-canonical stride for unit dimensions
-          // See https://github.com/pytorch/pytorch/issues/99803 for more detail
-          if (value->getShape()[i] != 1 || value->getStrides()[i] != 1)
-            return getInvalidArgStatus(
-                "Runtime stride mismatch. Expected [{0:$[, ]}] "
-                "but received [{1:$[, ]}]",
-                view.getStrides(), value->getStrides());
+      bool isEmpty = llvm::is_contained(view.getShape(), 0);
+      if (!isEmpty) { // Allow any non-canonical stride for empty tensor
+        for (unsigned i = 0; i < view.getStrides().size(); ++i) {
+          if (value->getStrides()[i] < 0)
+            return getInvalidArgStatus("all strides must be non-negative but "
+                                       "received shape [{0:$[, ]}]",
+                                       value->getStrides());
+          if (view.getStrides()[i] >= 0 &&
+              view.getStrides()[i] != value->getStrides()[i])
+            // Allow the special case of non-canonical stride for unit
+            // dimensions See https://github.com/pytorch/pytorch/issues/99803
+            // for more detail
+            if (value->getShape()[i] != 1 || value->getStrides()[i] != 1)
+              return getInvalidArgStatus(
+                  "Runtime stride mismatch. Expected [{0:$[, ]}] "
+                  "but received [{1:$[, ]}]",
+                  view.getStrides(), value->getStrides());
+        }
       }
     }
 
