@@ -149,9 +149,7 @@ class Tensor(metaclass=TensorMeta):
         if data is None:
             return
 
-        Storage.build_internal(
-            [], [instance.trace_tensor], data, device=device if not hasattr(data, "__dlpack__") else None
-        )
+        Storage.build_internal([], [instance.trace_tensor], data)
 
         # TODO(#155): Remove this hack:
         instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
@@ -269,9 +267,7 @@ class Tensor(metaclass=TensorMeta):
             visited.add(id(trace_tensor))
 
             producer = trace_tensor.producer
-            if isinstance(producer, Storage) and utils.should_lift_storage_op_as_input(
-                trace_tensor.dtype, producer.shape
-            ):
+            if isinstance(producer, Storage) and utils.should_lift_storage_op_as_input(producer.shape):
                 inputs.append(trace_tensor)
             else:
                 for inp in producer.inputs:

@@ -57,7 +57,7 @@ class TestStorage:
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
-        assert storage.data_str == ""
+        assert storage.data_str == "[[1. 1.]\n [1. 1.]]"
 
     def test_from_list_int(self):
         data = [[1, 2], [3, 4]]
@@ -73,7 +73,7 @@ class TestStorage:
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
-        assert storage.data_str == ""
+        assert storage.data_str == "[[1.0, 2.0], [3.0, 4.0]]"
 
     def test_empty_list(self):
         data = [[]]
