@@ -80,3 +80,9 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     ```
     Tripy: TEST: EXPECTED_STDOUT End
     -->
+
+3. float8 quantization:
+
+    ```bash
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode float8
+    ```
