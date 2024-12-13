@@ -34,12 +34,5 @@ def scaled_dot_product_attention(
     return tp.cast(tp.softmax((qk + attn_mask) if attn_mask is not None else qk, -1), query.dtype) @ value
 
 
-def sequential(input: tp.Tensor, ll: List[Callable[[tp.Tensor], tp.Tensor]]):
-    """
-    Applies a sequence of functions to `self` chaining the output of each function to the input of the next.
-    """
-    return reduce(lambda x, f: f(x), ll, input)
-
-
 def clamp(tensor: tp.Tensor, min: int, max: int):
     return tp.minimum(tp.maximum(tensor, tp.ones_like(tensor) * min), tp.ones_like(tensor) * max)
