@@ -22,7 +22,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import copy
 from typing import Optional, Callable
 
 import torch
@@ -212,10 +211,6 @@ def get_activation_fn(activation):
     if activation == "glu":
         return tp.glu
     raise RuntimeError(f"activation should be relu/gelu, not {activation}.")
-
-
-def get_clones(module, N):
-    return [copy.deepcopy(module) for _ in range(N)]
 
 
 def cartesian_via_polar(abs, angles):

@@ -305,6 +305,9 @@ class SAM2Base(torch.nn.Module):
             sam_point_coords = torch.zeros(B, 1, 2, device=device)
             sam_point_labels = -torch.ones(B, 1, dtype=torch.int32, device=device)
 
+        # b) Handle mask prompts
+        # Issue #445 will add mask_input support.
+
         sam_point_coords = tp.Tensor(sam_point_coords.contiguous())
         sam_point_labels = tp.Tensor(sam_point_labels.contiguous())
 
@@ -315,12 +318,12 @@ class SAM2Base(torch.nn.Module):
         self.dense_pe = self.sam_prompt_encoder.get_dense_pe()
         hres_1 = high_res_features[0]
         hres_2 = high_res_features[1]
-        if self.model.model_dtype == tp.float16:
-            image_embedding = image_embedding.half()
+        if self.model_dtype == tp.float16:
+            image_embedding = backbone_features.half()
             hres_1 = hres_1.half()
             hres_2 = hres_2.half()
 
-        tp_backbone_features = tp.Tensor(backbone_features.contiguous())
+        tp_backbone_features = tp.Tensor(image_embedding.contiguous())
         hres_1 = tp.Tensor(hres_1.contiguous())
         hres_2 = tp.Tensor(hres_2.contiguous())
 
@@ -469,7 +472,9 @@ class SAM2Base(torch.nn.Module):
 
     def forward_image(self, img_batch: tp.Tensor):
         """Get the image feature on the input batch."""
-
+        if not isinstance(img_batch, tp.Tensor):
+            img_batch = img_batch.to(getattr(torch, self.image_encoder.trunk.dtype)).contiguous()
+            img_batch = tp.Tensor(img_batch)
         backbone_out = self.image_encoder(img_batch)
 
         if self.use_high_res_features_in_sam:
@@ -713,7 +718,7 @@ class SAM2Base(torch.nn.Module):
             mask_for_mem = mask_for_mem + self.sigmoid_bias_for_mem_enc
 
         maskmem_features, maskmem_pos_enc = self.memory_encoder(
-            tp.Tensor(pix_feat.contiguous()), tp.Tensor(mask_for_mem.contiguous())
+            tp.Tensor(pix_feat.float().contiguous()), tp.Tensor(mask_for_mem.contiguous())
         )  # sigmoid already applied
         maskmem_features = torch.from_dlpack(maskmem_features)
         maskmem_pos_enc = [torch.from_dlpack(maskmem_pos_enc)]
@@ -798,7 +803,6 @@ class SAM2Base(torch.nn.Module):
         current_out["pred_masks"] = low_res_masks
         current_out["pred_masks_high_res"] = high_res_masks
         current_out["obj_ptr"] = obj_ptr
-
         # Finally run the memory encoder on the predicted mask to encode
         # it into a new memory feature (that can be used in future frames)
         if run_mem_encoder and self.num_maskmem > 0:
