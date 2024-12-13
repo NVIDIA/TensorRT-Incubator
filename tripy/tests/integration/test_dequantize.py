@@ -62,12 +62,12 @@ class TestDequantize:
         output = torch.from_dlpack(dequantized)
         assert torch.allclose(expected, output.to("cpu"))
 
-    # TODO(#161): Update fp8 test to use frontend representation
+    # TODO(#161): Update float8 test to use frontend representation
     @pytest.mark.parametrize(
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    def test_dequantize_fp8_per_tensor(self, dtype):
+    def test_dequantize_float8_per_tensor(self, dtype):
         data_value = [1.0, 1.0]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
         scale = torch.tensor(0.5, dtype=TORCH_DTYPES[dtype])
@@ -83,7 +83,7 @@ class TestDequantize:
         "dtype", [tp.float32, tp.float16, pytest.param(tp.bfloat16, marks=skip_if_older_than_sm80)]
     )
     @skip_if_older_than_sm89
-    def test_dequantize_fp8_per_channel(self, dtype):
+    def test_dequantize_float8_per_channel(self, dtype):
         data_value = [[1.0, 1.0], [1.0, 1.0]]
         input_tp = tp.Tensor(data_value, dtype=tp.float8)
         scale = torch.tensor([0.8, 0.9], dtype=TORCH_DTYPES[dtype])
