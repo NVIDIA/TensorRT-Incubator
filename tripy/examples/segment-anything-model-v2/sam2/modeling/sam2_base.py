@@ -306,7 +306,7 @@ class SAM2Base(torch.nn.Module):
             sam_point_labels = -torch.ones(B, 1, dtype=torch.int32, device=device)
 
         # b) Handle mask prompts
-        # TODO : file issue to add mask_input support!
+        # Issue #445 will add mask_input support.
 
         sam_point_coords = tp.Tensor(sam_point_coords.contiguous())
         sam_point_labels = tp.Tensor(sam_point_labels.contiguous())
