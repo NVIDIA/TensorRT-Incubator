@@ -22,7 +22,7 @@ import torch
 import tripy as tp
 from dataclasses import dataclass
 
-from examples.diffusion.helper import scaled_dot_product_attention, sequential
+from examples.diffusion.helper import scaled_dot_product_attention
 from examples.diffusion.vae_model import Upsample, Downsample
 
 
@@ -70,7 +70,7 @@ class CrossAttention(tp.Module):
         self.to_v = tp.Linear(context_dim, n_heads * d_head, bias=False, dtype=config.dtype)
         self.num_heads = n_heads
         self.head_size = d_head
-        self.to_out = [tp.Linear(n_heads * d_head, query_dim, dtype=config.dtype)]
+        self.to_out = tp.Sequential(tp.Linear(n_heads * d_head, query_dim, dtype=config.dtype),)
         self.dtype = config.dtype
 
     def __call__(self, x, context=None):
@@ -83,7 +83,7 @@ class CrossAttention(tp.Module):
             scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size, dtype=self.dtype), 1, 2
         )
         h_ = tp.reshape(attention, (x.shape[0], -1, self.num_heads * self.head_size))
-        out = sequential(h_, self.to_out)
+        out = self.to_out(h_)
         return out
 
 
@@ -108,14 +108,14 @@ class Dummy(tp.Module):
 
 class FeedForward(tp.Module):
     def __init__(self, config: UNetConfig, dim, mult=4):
-        self.net = [
+        self.net = tp.Sequential(
             GEGLU(config, dim, dim * mult),
             Dummy(),  # Accounts for Dropout layer, needed for weight loading
             tp.Linear(dim * mult, dim, dtype=config.dtype),
-        ]
+        )
 
     def __call__(self, x):
-        return sequential(x, self.net)
+        return self.net(x)
 
 
 class BasicTransformerBlock(tp.Module):
