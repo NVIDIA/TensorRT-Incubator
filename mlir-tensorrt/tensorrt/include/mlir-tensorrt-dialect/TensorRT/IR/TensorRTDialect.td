@@ -52,7 +52,7 @@ def TensorRT_Dialect : Dialect {
     // Arith dialect is required since OpaquePluginOp can use arith ops in its
     // shape calculation region.
     "::mlir::arith::ArithDialect",
-    "::mlir::quant::QuantizationDialect"
+    "::mlir::quant::QuantDialect"
   ];
 }
 

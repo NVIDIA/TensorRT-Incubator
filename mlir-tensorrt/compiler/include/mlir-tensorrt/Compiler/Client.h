@@ -28,7 +28,7 @@
 #define MLIR_TENSORRT_COMPILER_CLIENT
 
 #include "mlir-executor/Support/Status.h"
-#include "mlir-tensorrt/Compiler/Options.h"
+#include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/TypeID.h"
@@ -116,7 +116,7 @@ public:
     auto it = cachedPassManagers.find(key);
     if (it == cachedPassManagers.end()) {
       auto pm = std::make_unique<CompilationTaskType>(context, options);
-      setupPassManagerLogging(*pm, options.debugOptions);
+      setupPassManagerLogging(*pm, options.template get<DebugOptions>());
       auto *ptr = pm.get();
       cachedPassManagers[key] = std::move(pm);
       return *ptr;

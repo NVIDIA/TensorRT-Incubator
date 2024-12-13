@@ -17,8 +17,9 @@
 
 import subprocess
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.command.build_py import build_py
+from setuptools.discovery import FlatLayoutPackageFinder
 
 
 class BuildPyCommand(build_py):
@@ -49,5 +50,14 @@ class BuildPyCommand(build_py):
             print(f"Error generating stubs: {e}")
 
 
+# Dynamically update the package exclusion list to include "notebooks".
+# This ensures that non-essential directories like "examples" and "tests" are excluded,
+# while allowing for dynamic discovery of other sub-packages.
+# Explicitly setting "tripy" as the only included package in pyproject.toml caused failures in Level 1 testing.
+default_excludes = list(FlatLayoutPackageFinder.DEFAULT_EXCLUDE) + ["notebooks"]
+
 if __name__ == "__main__":
-    setup(cmdclass={"build_py": BuildPyCommand})
+    setup(
+        cmdclass={"build_py": BuildPyCommand},
+        packages=find_packages(exclude=default_excludes),  # Use the dynamically updated exclude list
+    )

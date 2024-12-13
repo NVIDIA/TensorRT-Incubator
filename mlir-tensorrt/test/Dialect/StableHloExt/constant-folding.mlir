@@ -402,6 +402,22 @@ func.func @concat_simplify_single_operand_requires_cast(%arg0: tensor<4xi32>) ->
 
 // -----
 
+func.func @concat_slice_concat(%arg0: tensor<1xi32>, %arg1: tensor<3xi32>, %arg2: tensor<1xi32>) -> tensor<5xi32> {
+  %0 = stablehlo.concatenate %arg0, %arg1, %arg2, dim = 0 : (tensor<1xi32>, tensor<3xi32>, tensor<1xi32>) -> tensor<5xi32>
+  %1 = stablehlo.slice %0 [1:5] : (tensor<5xi32>) -> tensor<4xi32>
+  %2 = stablehlo.constant dense<1> : tensor<1xi32>
+  %3 = stablehlo.concatenate %2, %1, dim = 0 : (tensor<1xi32>, tensor<4xi32>) -> tensor<5xi32>
+  return %3 : tensor<5xi32>
+}
+
+// CHECK-LABEL: func.func @concat_slice_concat
+//  CHECK-SAME: (%[[arg0:.+]]: tensor<1xi32>, %[[arg1:.+]]: tensor<3xi32>, %[[arg2:.+]]: tensor<1xi32>) -> tensor<5xi32>
+//       CHECK:     %[[c:.+]] = stablehlo.constant dense<1> : tensor<1xi32>
+//       CHECK:     %[[v0:.+]] = stablehlo.concatenate %[[c]], %[[arg1]], %[[arg2]], dim = 0
+//       CHECK:     return %[[v0]] : tensor<5xi32>
+
+// -----
+
 func.func @bitwise_or_fold_lhs(%arg0: tensor<5xi8>, %arg1: tensor<5xi1>, %arg2: tensor<5xi32>) -> (tensor<5xi8>, tensor<5xi1>, tensor<5xi32>, tensor<5xi32>){
     %0 = stablehlo.constant dense<[255, 255, 255, 255, 255]> : tensor<5xi8>
     %1 = stablehlo.or %0, %arg0 : tensor<5xi8>
@@ -1125,3 +1141,19 @@ func.func private @add(%arg0: tensor<?xf32>, %arg1: tensor<?xf32>) -> tensor<?xf
 //   CHECK-DAG:     %[[cast_0:.+]] = tensor.cast %[[arg1]] : tensor<4xf32> to tensor<?xf32>
 //   CHECK-DAG:     %[[v0:.+]] = stablehlo.composite "foo.bar" %[[cast]], %[[cast_0]] {decomposition = @add} : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
 //   CHECK-DAG:     return %[[v0]] : tensor<?xf32>
+
+
+// -----
+
+// This is a regression check for where we previously had a crash/failure. Not change should be
+// made.
+
+func.func @tuple_regression_check(%arg0: tuple<tensor<1xf32>, tensor<1xf32>>) -> tensor<1xf32> {
+  %0 = stablehlo.get_tuple_element %arg0[0] : (tuple<tensor<1xf32>, tensor<1xf32>>) -> tensor<1xf32>
+  return %0 : tensor<1xf32>
+}
+
+// CHECK-LABEL: func.func @tuple_regression_check
+//  CHECK-SAME: (%[[arg0:.+]]: tuple<tensor<1xf32>, tensor<1xf32>>)
+//       CHECK:     %[[v0:.+]] = stablehlo.get_tuple_element %[[arg0]][0] : (tuple<tensor<1xf32>, tensor<1xf32>>) -> tensor<1xf32>
+//       CHECK:     return %[[v0]] : tensor<1xf32>

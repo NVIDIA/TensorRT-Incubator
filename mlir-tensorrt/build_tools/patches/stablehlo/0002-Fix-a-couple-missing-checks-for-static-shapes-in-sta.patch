@@ -1,0 +1,118 @@
+From fb0378d09cebb74da6ca253f6b41241a26bab43e Mon Sep 17 00:00:00 2001
+From: Christopher Bate <cbate@nvidia.com>
+Date: Wed, 27 Nov 2024 00:10:11 +0000
+Subject: [PATCH] Fix a couple missing checks for static shapes in
+ `stablehlo-aggressive-folder`
+
+---
+ .../stablehlo_aggressive_folder.mlir          | 27 +++++++++++++------
+ .../transforms/StablehloAggressiveFolder.cpp  |  9 +++++++
+ 2 files changed, 28 insertions(+), 8 deletions(-)
+
+diff --git a/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir b/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir
+index 5b21a10d..c90c89c6 100644
+--- a/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir
++++ b/stablehlo/tests/transforms/stablehlo_aggressive_folder.mlir
+@@ -4,14 +4,17 @@
+ // AddOp
+ 
+ // CHECK-LABEL: @add_fold_cst
+-func.func @add_fold_cst() -> (tensor<i32>, tensor<f32>) {
++func.func @add_fold_cst() -> (tensor<i32>, tensor<f32>, tensor<?xf32>) {
+   %cst = stablehlo.constant dense<1> : tensor<i32>
+   %cst_1 = stablehlo.constant dense<1.0> : tensor<f32>
++  %cst_2 = stablehlo.constant dense<2.0> : tensor<1xf32>
+   // CHECK: stablehlo.constant dense<2> : tensor<i32>
+   // CHECK: stablehlo.constant dense<2.0{{.*}}> : tensor<f32>
++  // CHECK: stablehlo.add
+   %0 = stablehlo.add %cst, %cst : tensor<i32>
+   %1 = stablehlo.add %cst_1, %cst_1 : tensor<f32>
+-  return %0, %1 : tensor<i32>, tensor<f32>
++  %2 = stablehlo.add %cst_2, %cst_2 : (tensor<1xf32>, tensor<1xf32>) ->  tensor<?xf32>
++  return %0, %1, %2 : tensor<i32>, tensor<f32>, tensor<?xf32>
+ }
+ 
+ // -----
+@@ -106,14 +109,17 @@ func.func @concatenate_fold() -> (tensor<6xi32>, tensor<3xi32>, tensor<3x3xi32>,
+ // MulOp
+ 
+ // CHECK-LABEL: @mul_fold_cst
+-func.func @mul_fold_cst() -> (tensor<i32>, tensor<f32>) {
++func.func @mul_fold_cst() -> (tensor<i32>, tensor<f32>, tensor<?xf32>) {
+   %cst = stablehlo.constant dense<2> : tensor<i32>
+   %cst_1 = stablehlo.constant dense<2.0> : tensor<f32>
++  %cst_2 = stablehlo.constant dense<2.0> : tensor<1xf32>
+   // CHECK: stablehlo.constant dense<4> : tensor<i32>
+   // CHECK: stablehlo.constant dense<4.0{{.*}}> : tensor<f32>
++  // CHECK: stablehlo.multiply
+   %0 = stablehlo.multiply %cst, %cst : tensor<i32>
+   %1 = stablehlo.multiply %cst_1, %cst_1 : tensor<f32>
+-  return %0, %1 : tensor<i32>, tensor<f32>
++  %2 = stablehlo.multiply %cst_2, %cst_2 : (tensor<1xf32>, tensor<1xf32>) -> tensor<?xf32>
++  return %0, %1, %2 : tensor<i32>, tensor<f32>, tensor<?xf32>
+ }
+ 
+ // -----
+@@ -122,16 +128,21 @@ func.func @mul_fold_cst() -> (tensor<i32>, tensor<f32>) {
+ // SubtractOp
+ 
+ // CHECK-LABEL: @subtract_fold_cst
+-func.func @subtract_fold_cst() -> (tensor<i32>, tensor<f32>) {
++func.func @subtract_fold_cst() -> (tensor<i32>, tensor<f32>, tensor<?xf32>) {
+   %cst = stablehlo.constant dense<1> : tensor<i32>
+   %cst_1 = stablehlo.constant dense<3> : tensor<i32>
+   %cst_2 = stablehlo.constant dense<1.0> : tensor<f32>
+   %cst_3 = stablehlo.constant dense<3.0> : tensor<f32>
+-  // CHECK: stablehlo.constant dense<2> : tensor<i32>
+-  // CHECK: stablehlo.constant dense<2.0{{.*}}> : tensor<f32>
++  %cst_4 = stablehlo.constant dense<4.0> : tensor<1xf32>
++  %cst_5 = stablehlo.constant dense<5.0> : tensor<1xf32>
++  // CHECK: %[[V1:.+]] = stablehlo.constant dense<2> : tensor<i32>
++  // CHECK: %[[V2:.+]] = stablehlo.constant dense<2.0{{.*}}> : tensor<f32>
++  // CHECK: %[[V3:.+]] = stablehlo.subtract
++  // CHECK: return %[[V1]], %[[V2]], %[[V3]]
+   %0 = stablehlo.subtract %cst_1, %cst : tensor<i32>
+   %1 = stablehlo.subtract %cst_3, %cst_2 : tensor<f32>
+-  return %0, %1 : tensor<i32>, tensor<f32>
++  %2 = stablehlo.subtract %cst_4, %cst_5 : (tensor<1xf32>, tensor<1xf32>) -> tensor<?xf32>
++  return %0, %1, %2 : tensor<i32>, tensor<f32>, tensor<?xf32>
+ }
+ 
+ // -----
+diff --git a/stablehlo/transforms/StablehloAggressiveFolder.cpp b/stablehlo/transforms/StablehloAggressiveFolder.cpp
+index a9107514..dadc14fb 100644
+--- a/stablehlo/transforms/StablehloAggressiveFolder.cpp
++++ b/stablehlo/transforms/StablehloAggressiveFolder.cpp
+@@ -257,6 +257,9 @@ struct FoldAddOpPattern final : OpRewritePattern<mlir::stablehlo::AddOp> {
+ 
+   LogicalResult matchAndRewrite(mlir::stablehlo::AddOp op,
+                                 PatternRewriter& rewriter) const override {
++    if (failed(validateResultTypeForEval(rewriter, op, op.getType())))
++      return failure();
++
+     Value lhs = op.getLhs();
+     Value rhs = op.getRhs();
+ 
+@@ -548,6 +551,9 @@ struct FoldMulOpPattern final : OpRewritePattern<mlir::stablehlo::MulOp> {
+ 
+   LogicalResult matchAndRewrite(mlir::stablehlo::MulOp op,
+                                 PatternRewriter& rewriter) const override {
++    if (failed(validateResultTypeForEval(rewriter, op, op.getType())))
++      return failure();
++
+     auto elemType = op.getType().getElementType();
+     Value lhs = op.getLhs();
+     Value rhs = op.getRhs();
+@@ -747,6 +753,9 @@ struct FoldSubtractOpPattern final
+ 
+   LogicalResult matchAndRewrite(mlir::stablehlo::SubtractOp op,
+                                 PatternRewriter& rewriter) const override {
++    if (failed(validateResultTypeForEval(rewriter, op, op.getType())))
++      return failure();
++
+     Value lhs = op.getLhs();
+     Value rhs = op.getRhs();
+ 
+-- 
+2.47.0
+

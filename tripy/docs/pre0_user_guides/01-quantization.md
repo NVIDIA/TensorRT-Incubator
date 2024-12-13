@@ -19,7 +19,7 @@ quant_linear = tp.Linear(
 ```
 
 As described in {class}`tripy.Linear`, the quantized linear module has
-2 additional {class}`tripy.Parameter`s compared to a normal linear layer:
+2 additional parameters compared to a normal linear layer:
 
 1. `weight_scale`: The quantization scale for `weight`.
 
@@ -33,8 +33,8 @@ Let's fill the scale parameters with dummy data:
 
 ```py
 # doc: print-locals quant_linear
-quant_linear.weight_scale = tp.Parameter(1.0)
-quant_linear.input_scale = tp.Parameter(1.0)
+quant_linear.weight_scale = tp.Tensor(1.0)
+quant_linear.input_scale = tp.Tensor(1.0)
 ```
 
 and run a forward pass to see the result:
@@ -42,6 +42,7 @@ and run a forward pass to see the result:
 ```py
 x = tp.iota((3, 4), dtype=tp.float32)
 out = quant_linear(x)
+assert tp.equal(out, tp.Tensor([[0.0000, 1.0000], [6.0000, 23.0000], [12.0000, 45.0000]])) # doc: omit
 ```
 
 The result still has a data type of {class}`tripy.float32`, but internally, TensorRT quantized the
@@ -144,7 +145,7 @@ weight_only_qlinear = tp.Linear(
 quantizer = model.transformer.h[0].attn.c_attn.weight_quantizer
 scale = convert_to_scale(quantizer.export_amax(), quantizer.maxbound)
 scale = scale.squeeze().contiguous()
-weight_only_qlinear.weight_scale = tp.Parameter(scale)
+weight_only_qlinear.weight_scale = tp.Tensor(scale)
 ```
 
 For an example of how to load weights from a quantized model, refer to

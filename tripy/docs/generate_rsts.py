@@ -208,9 +208,8 @@ def process_guide(guide_path: str, processed_guide_path: str):
             code_block_lines, local_var_lines, output_lines, code_locals = (
                 helper.process_code_block_for_outputs_and_locals(
                     block.raw_str(),
-                    str(block),
                     format_contents=add_block,
-                    err_msg=f"Error while executing code block from {guide_path}.",
+                    err_msg=f"Error while executing code block {index} (line {block.line_number}) from {guide_path}. ",
                     local_vars=code_locals,
                 )
             )

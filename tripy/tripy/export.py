@@ -17,7 +17,7 @@
 
 import inspect
 from dataclasses import dataclass
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Sequence, Union
 from types import ModuleType
 from textwrap import dedent
 from tripy.function_registry import FunctionRegistry
@@ -45,6 +45,7 @@ def public_api(
     module: ModuleType = None,
     symbol: str = None,
     doc: str = None,
+    bypass_dispatch: Optional[Union[bool, Sequence[str]]] = None,
 ):
     """
     Decorator that exports a function/class to the public API under the top-level module and
@@ -78,6 +79,12 @@ def public_api(
 
         doc: Optional docstring. This is useful in cases where the docstring cannot be provided as normal.
             For example, global variables sometimes don't register docstrings correctly.
+
+        bypass_dispatch: Has no effect if it is False or None.
+            If True and applied to a function, this disables the function registry's overload dispatching and type-checking functionality
+            for that function, which may be useful for reducing overhead. If True and applied to a class, this will bypass dispatch
+            for all methods. If the argument is a list of method names and applied to a class, this will bypass dispatch
+            for the listed methods only.
     """
     assert not autodoc_options or (
         ":no-members:" not in autodoc_options or ":no-special-members:" in autodoc_options
@@ -94,8 +101,8 @@ def public_api(
 
         symbol = symbol or obj.__name__
         # Leverage the function registry to provide type checking and function overloading capabilities.
-        if inspect.isfunction(obj):
-            obj = PUBLIC_API_FUNCTION_REGISTRY(symbol)(obj)
+        if inspect.isfunction(obj) or inspect.isclass(obj):
+            obj = PUBLIC_API_FUNCTION_REGISTRY(symbol, bypass_dispatch=bypass_dispatch)(obj)
 
         qualname = f"{module.__name__}.{symbol}"
         if inspect.ismodule(obj):

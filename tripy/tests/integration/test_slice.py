@@ -69,25 +69,31 @@ class TestSliceOp:
             ((5,), lambda t: t[-12:-5:-1]),
         ],
     )
-    def test_static_slice_op(self, dims_a, slice_func):
+    def test_static_slice_op(self, dims_a, slice_func, eager_or_compiled):
         a_cp = cp.arange(np.prod(dims_a)).reshape(dims_a).astype(np.float32)
         a = tp.Tensor(a_cp, device=tp.device("gpu"))
 
         def func(a):
             return slice_func(a)
 
-        out = func(a)
+        out = eager_or_compiled(func, a)
         assert np.array_equal(cp.from_dlpack(out).get(), slice_func(a_cp).get())
 
-    def test_slice_as_gather(self):
+    def test_slice_as_gather(self, eager_or_compiled):
         x_data = [0, 1, 2]
         y_data = [3, 4, 5]
         x = tp.Tensor(x_data)
         y = tp.Tensor(y_data)
+
+        def slice(y, x):
+            return y[x]
+
+        output = eager_or_compiled(slice, y, x)
+
         x_cp = cp.array(x_data)
         y_cp = cp.array(y_data)
 
-        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())
+        assert np.array_equal(cp.from_dlpack(output).get(), y_cp[x_cp].get())
 
         x_shape = (2, 2)
         y_shape = (4, 3, 2)
@@ -95,7 +101,9 @@ class TestSliceOp:
         y_vol = math.prod(y_shape)
         x = tp.reshape(tp.arange(x_vol, dtype=tp.int32), x_shape)
         y = tp.reshape(tp.arange(y_vol), y_shape)
+        output = eager_or_compiled(slice, y, x)
+
         x_cp = cp.arange(x_vol, dtype=cp.int32).reshape(x_shape)
         y_cp = cp.arange(y_vol).reshape(y_shape)
 
-        assert np.array_equal(cp.from_dlpack(y[x]).get(), y_cp[x_cp].get())
+        assert np.array_equal(cp.from_dlpack(output).get(), y_cp[x_cp].get())

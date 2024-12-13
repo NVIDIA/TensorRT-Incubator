@@ -42,7 +42,6 @@ ALL_DOC_CODE_BLOCKS = {
 
 # Guides may use inline pytest tests or regular Python code snippets.
 INLINE_PYTESTS = {}
-CODE_BLOCKS = {}
 
 for readme, code_blocks in ALL_DOC_CODE_BLOCKS.items():
     if not code_blocks:
@@ -54,7 +53,6 @@ for readme, code_blocks in ALL_DOC_CODE_BLOCKS.items():
         assert not any(
             block.has_marker("test: use_pytest") for block in code_blocks
         ), "Guides must not mix Pytest code blocks with non-Pytest code blocks"
-        CODE_BLOCKS[readme] = code_blocks
 
 
 @pytest.mark.parametrize(
@@ -68,21 +66,3 @@ def test_inline_pytest(code_blocks):
     f.write(code)
     f.flush()
     assert pytest.main([f.name, "-vv", "-s"]) == 0
-
-
-@pytest.mark.manual  # Code snippets in guides are executed during doc generation.
-@pytest.mark.parametrize(
-    "code_blocks",
-    CODE_BLOCKS.values(),
-    ids=CODE_BLOCKS.keys(),
-)
-def test_python_code_snippets(code_blocks):
-    code_locals = {}
-    for block in code_blocks:
-        print(f"Checking code block:\n{str(block)}")
-        try:
-            new_locals = helper.exec_code(str(block), code_locals)
-            # Update code_locals with new variables
-            code_locals.update(new_locals)
-        except Exception as e:
-            raise AssertionError(f"Error while executing code block: {str(e)}") from e

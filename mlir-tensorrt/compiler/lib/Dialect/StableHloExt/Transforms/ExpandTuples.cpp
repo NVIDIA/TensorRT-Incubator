@@ -61,21 +61,21 @@ public:
           return success();
         });
 
-    typeConverter.addArgumentMaterialization(
-        [](OpBuilder &builder, Type type, ValueRange inputs,
-           Location loc) -> std::optional<Value> {
-          if (!isa<TupleType>(type))
-            return std::nullopt;
-          return builder.create<stablehlo::TupleOp>(loc, type, inputs);
-        });
+    typeConverter.addArgumentMaterialization([](OpBuilder &builder, Type type,
+                                                ValueRange inputs,
+                                                Location loc) -> Value {
+      if (!isa<TupleType>(type))
+        return Value();
+      return builder.create<stablehlo::TupleOp>(loc, type, inputs);
+    });
 
-    typeConverter.addSourceMaterialization(
-        [](OpBuilder &builder, Type type, ValueRange inputs,
-           Location loc) -> std::optional<Value> {
-          if (!isa<TupleType>(type))
-            return std::nullopt;
-          return builder.create<stablehlo::TupleOp>(loc, type, inputs);
-        });
+    typeConverter.addSourceMaterialization([](OpBuilder &builder, Type type,
+                                              ValueRange inputs,
+                                              Location loc) -> Value {
+      if (!isa<TupleType>(type))
+        return Value();
+      return builder.create<stablehlo::TupleOp>(loc, type, inputs);
+    });
 
     typeConverter.addTargetMaterialization(
         [this](OpBuilder &builder, TypeRange resultTypes, Value input,

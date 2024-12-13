@@ -29,6 +29,34 @@ class TestSlice:
         assert isinstance(a, tp.Tensor)
         assert isinstance(a.trace_tensor.producer, Slice)
 
+    def test_slice_of_inline_output(self):
+        a = tp.Tensor([1, 2, 3, 4])
+        # The start and stop params use clamp bound, but the step parameter doesn't.
+        # The result is that the stack traces for the slice params are of different lengths.
+        s = (a + a)[3:4:]
+        assert isinstance(s, tp.Tensor)
+        assert isinstance(s.trace_tensor.producer, Slice)
+
+        # input 0 is a + a, so it's not one of the slice params
+        slice_inputs = s.trace_tensor.producer.inputs[1:]
+        assert len(slice_inputs) == 3
+
+        assert any(frame.function == "clamp_bound" for frame in slice_inputs[0].stack_info)
+        assert any(frame.function == "clamp_bound" for frame in slice_inputs[1].stack_info)
+        assert not any(frame.function == "clamp_bound" for frame in slice_inputs[2].stack_info)
+
+        # Consequently, the frame corresponding to the caller is at different depths.
+        def index_of_caller(trace_input):
+            for i, frame in enumerate(trace_input.stack_info):
+                if frame.function == TestSlice.test_slice_of_inline_output.__name__:
+                    return i
+            return -1
+
+        caller_idxs = [index_of_caller(inp) for inp in slice_inputs]
+        assert all(idx != -1 for idx in caller_idxs)
+        assert caller_idxs[0] == caller_idxs[1]
+        assert caller_idxs[2] != caller_idxs[1]
+
     def test_incorrect_index_size(self):
         with helper.raises(
             tp.TripyException,

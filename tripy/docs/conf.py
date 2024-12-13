@@ -28,7 +28,7 @@ from tests import helper
 
 import tripy as tp
 from tripy.common.datatype import DATA_TYPES
-from tripy.constraints import TYPE_VERIFICATION
+from tripy.wrappers import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -286,14 +286,14 @@ def process_docstring_impl(app, what, name, obj, options, lines):
 
         code_block_lines, local_var_lines, output_lines, _ = helper.process_code_block_for_outputs_and_locals(
             block,
-            block.code(),
             format_contents=lambda title, contents, lang: f"\n\n.. code-block:: {lang}\n"
             + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * helper.TAB_SIZE),
-            err_msg=f"Failed while processing docstring for: {what}: {name} ({obj})",
+            err_msg=f"Failed while processing docstring for: {what}: {name} ({obj}): ",
             strip_assertions=True,
         )
 
-        code_block_lines += local_var_lines + output_lines
+        # Sphinx requires a new line after markup
+        code_block_lines += ["\n"] + local_var_lines + output_lines
 
         # Grab the caption from the example code block.
         for line in code_block_lines:

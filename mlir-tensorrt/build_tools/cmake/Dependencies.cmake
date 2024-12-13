@@ -86,11 +86,15 @@ function(download_tensorrt)
   if(ARG_VERSION VERSION_EQUAL "10.2")
     set(ARG_VERSION "10.2.0.19")
   endif()
+  # Canonicalize "10.5" version by setting it to the latest public TRT 10.5 version.
+  if(ARG_VERSION VERSION_EQUAL "10.5")
+    set(ARG_VERSION "10.5.0.18")
+  endif()
 
   set(downloadable_versions
-    "9.0.1.4" "9.1.0.4" "9.2.0.5"
+     "8.6.1.6" "9.0.1.4" "9.1.0.4" "9.2.0.5"
     "10.0.0.6" "10.1.0.27"
-    "10.2.0.19"
+    "10.2.0.19" "10.5.0.18"
   )
 
   if(NOT ARG_VERSION IN_LIST downloadable_versions)
@@ -99,6 +103,28 @@ function(download_tensorrt)
   endif()
 
   set(TRT_VERSION "${ARG_VERSION}")
+
+  # Handle TensorRT 8 versions. These are publicly accessible download links.
+  if(ARG_VERSION VERSION_LESS 9.0.0 AND ARG_VERSION VERSION_GREATER 8.0.0)
+    string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" trt_short_version ${ARG_VERSION})
+    set(CUDA_VERSION "12.0")
+    set(OS "linux")
+    EXECUTE_PROCESS(COMMAND uname -m
+                    COMMAND tr -d '\n'
+                    OUTPUT_VARIABLE ARCH)
+    if(ARCH STREQUAL "arm64")
+      set(ARCH "aarch64")
+      set(OS "Ubuntu-20.04")
+    elseif(ARCH STREQUAL "amd64")
+      set(ARCH "x86_64")
+      set(OS "Linux")
+    elseif(ARCH STREQUAL "aarch64")
+      set(OS "Ubuntu-20.04")
+    elseif(NOT (ARCH STREQUAL "x86_64"))
+      message(FATAL_ERROR "Direct download not available for architecture: ${ARCH}")
+    endif()
+    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_short_version}/tars/TensorRT-${TRT_VERSION}.${OS}.${ARCH}-gnu.cuda-${CUDA_VERSION}.tar.gz") 
+  endif()
 
   # Handle TensorRT 9 versions. These are publicly accessible download links.
   if(ARG_VERSION VERSION_LESS 10.0.0 AND ARG_VERSION VERSION_GREATER 9.0.0)
@@ -137,6 +163,10 @@ function(download_tensorrt)
     set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.2.0/tars/TensorRT-10.2.0.19.Linux.x86_64-gnu.cuda-12.5.tar.gz")
   endif()
 
+  if(ARG_VERSION VERSION_EQUAL 10.5.0.18)
+    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.5.0/tars/TensorRT-10.5.0.18.Linux.x86_64-gnu.cuda-12.6.tar.gz")
+  endif()
+
   if(NOT _url)
     message(FATAL_ERROR "Could not determine TensorRT download URL")
   endif()
@@ -144,12 +174,12 @@ function(download_tensorrt)
   message(STATUS "TensorRT Download URL: ${_url}")
 
   CPMAddPackage(
-    NAME TensorRT9
+    NAME TensorRT
     VERSION "${TRT_VERSION}"
     URL ${_url}
     DOWNLOAD_ONLY
   )
-  set("${ARG_OUT_VAR}" "${TensorRT9_SOURCE_DIR}" PARENT_SCOPE)
+  set("${ARG_OUT_VAR}" "${TensorRT_SOURCE_DIR}" PARENT_SCOPE)
 endfunction()
 
 #-------------------------------------------------------------------------------------

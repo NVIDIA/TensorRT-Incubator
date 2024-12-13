@@ -99,21 +99,7 @@ class TestReadme:
                 raise
 
 
-DOCSTRING_TEST_CASES, DOCSTRING_IDS = helper.get_all_docstrings_with_examples()
-
-
 class TestDocstrings:
-    @pytest.mark.manual  # This is already tested during doc generation.
-    @pytest.mark.parametrize("example_code", DOCSTRING_TEST_CASES, ids=DOCSTRING_IDS)
-    def test_examples_in_docstrings(self, example_code):
-        assert example_code, "Example code is empty! Is the formatting correct? Refer to `tests/README.md`."
-        for banned_module in ["numpy", "cupy", "tripy", "torch"]:
-            assert (
-                f"import {banned_module}" not in example_code
-            ), f"Avoid importing {banned_module} in example docstrings"
-            assert f"from {banned_module}" not in example_code, f"Avoid importing {banned_module} in example docstrings"
-
-        helper.exec_code(example_code)
 
     @pytest.mark.parametrize("api", PUBLIC_APIS, ids=lambda public_api: public_api.qualname)
     def test_all_public_apis_have_docstrings(self, api):

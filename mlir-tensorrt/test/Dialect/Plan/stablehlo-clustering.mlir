@@ -4,6 +4,13 @@
 // Check that we can recognize `stablehlo.dynamic_gather` using `plan.with_shape|plan.with_values` to prove required shape/value equivalence
 // propositions.
 
+builtin.module attributes {
+  plan.cluster_kinds = [
+    #plan.tensorrt_cluster<benefit = 1, disallow_shape_tensor_calculations=false, tensorrt_major_version = 10>,
+    #plan.host_cluster<benefit = 0>
+  ]
+} {
+
 func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?xi32>, %arg2: tensor<4xi32>) -> tensor<?x?x256x256xi32> {
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
@@ -23,6 +30,8 @@ func.func @simple_gather_dynamic(%arg0: tensor<?x?x256x256xi32>, %arg1: tensor<?
     indices_are_sorted = false, slice_sizes = array<i64: 1>
   } : (tensor<?x?x256x256xi32>, tensor<?xi32>, tensor<4xi32>) -> tensor<?x?x256x256xi32>
   return %0 : tensor<?x?x256x256xi32>
+}
+
 }
 
 // CHECK-LABEL: func.func @simple_gather_dynamic(
@@ -75,7 +84,7 @@ func.func @test(%arg0: tensor<4xi32>, %arg1: tensor<i32>)
 //   CHECK-DAG:     %[[c0_i32:.+]] = arith.constant 0 : i32
 //   CHECK-DAG:     %[[c_1:.+]] = stablehlo.constant dense<0> : tensor<i32>
 //   CHECK-DAG:     %[[extracted:.+]] = tensor.extract %[[arg1]][] : tensor<i32>
-//   CHECK-DAG:     %[[v0:.+]] = arith.cmpi eq, %[[c0_i32]], %[[extracted]] : i32
+//   CHECK-DAG:     %[[v0:.+]] = arith.cmpi eq
 //   CHECK-DAG:     %[[v1:.+]]:2 = plan.inline_group target(#plan.host_cluster<benefit = 0>)
 //   CHECK-DAG:       %[[v2:.+]] = stablehlo.compare  EQ, %[[c_1]], %[[arg1]] :
 //   CHECK-DAG:       %[[v3:.+]] = with_values %[[v2]](%[[v0]]) : tensor<i1>

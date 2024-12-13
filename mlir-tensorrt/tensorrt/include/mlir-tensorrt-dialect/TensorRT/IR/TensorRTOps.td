@@ -1628,6 +1628,11 @@ def TensorRT_SliceOp : TensorRT_Op<"slice", [
                    "ArrayRef<int32_t>":$size, "ArrayRef<int32_t>":$stride,
                    CArg<"SliceMode", "SliceMode::kDEFAULT">:$sliceMode,
                    CArg<"Value", "Value()">:$fill)>,
+    // Same as above but result shape is provided and not inferred.
+    OpBuilder<(ins "Type":$result, "Value":$input, "ArrayRef<int32_t>":$start,
+                   "ArrayRef<int32_t>":$size, "ArrayRef<int32_t>":$stride,
+                   CArg<"SliceMode", "SliceMode::kDEFAULT">:$sliceMode,
+                   CArg<"Value", "Value()">:$fill)>,
     // Builder using static array for start/stride and Value for size.
     OpBuilder<(ins "Value":$input, "ArrayRef<int32_t>":$start,
                    "Value":$size, "ArrayRef<int32_t>":$stride,

@@ -1,4 +1,4 @@
-// RUN: mlir-tensorrt-opt -split-input-file %s --convert-stablehlo-to-tensorrt=convert-loops | FileCheck %s
+// RUN: mlir-tensorrt-opt -split-input-file %s --convert-stablehlo-to-tensorrt="convert-loops=true trt-major-version=10" | FileCheck %s
 
 func.func @while() -> tensor<i32> {
   %arg0 = stablehlo.constant dense<0> : tensor<i32>

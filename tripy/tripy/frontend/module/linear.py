@@ -21,7 +21,8 @@ from typing import Optional
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import DefaultParameter, Parameter
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
 
 
 @export.public_api(document_under="operations/modules")
@@ -37,19 +38,19 @@ class Linear(Module):
     dtype: datatype.dtype
     r"""The data type used to perform the operation"""
 
-    weight: Parameter
+    weight: Tensor
     r"""The :math:`W` matrix of shape :math:`[\text{out_features}, \text{in_features}]`"""
 
-    bias: Optional[Parameter]
+    bias: Optional[Tensor]
     r"""The :math:`b` matrix of shape :math:`[1, \text{out_features}]`"""
 
     quant_dtype: Optional[datatype.dtype]
     r"""The quantization data type"""
 
-    weight_scale: Optional[Parameter]
+    weight_scale: Optional[Tensor]
     r"""The quantization scale for weight"""
 
-    input_scale: Optional[Parameter]
+    input_scale: Optional[Tensor]
     r"""The quantization scale for input"""
 
     weight_quant_dim: Optional[int]

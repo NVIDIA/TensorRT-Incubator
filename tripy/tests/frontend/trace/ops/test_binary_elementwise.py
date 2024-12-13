@@ -127,12 +127,13 @@ class TestBinaryElementwise:
             c.eval()
 
     def test_dimension_size_inputs(self):
-        a = tp.Tensor([1, 2])
+        d = tp.DimensionSize(1)
 
         # Operations on only DimensionSizes will yield a DimensionSize
-        out = a.shape[0] + a.shape[0]
+        out = d + d
         assert isinstance(out, tp.DimensionSize)
 
         # Otherwise, a Tensor is yielded.
-        out = a + a.shape[0]
+        a = tp.Tensor([1, 2])
+        out = a + d
         assert isinstance(out, tp.Tensor) and not isinstance(out, tp.DimensionSize)

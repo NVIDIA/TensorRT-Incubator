@@ -2,7 +2,7 @@
 # Tripy: A Python Programming Model For TensorRT
 
 <!-- Tripy: DOC: OMIT Start -->
-[**Installation**](#installation) | [**Getting Started**](#getting-started) | [**Documentation**](https://nvidia.github.io/TensorRT-Incubator/) | [**Examples**](./examples) | [**Contributing**](./CONTRIBUTING.md)
+[**Installation**](#installation) | [**Getting Started**](#getting-started) | [**Documentation**](https://nvidia.github.io/TensorRT-Incubator/) | [**Notebooks**](./notebooks) | [**Examples**](./examples) | [**Contributing**](./CONTRIBUTING.md)
 
 [![Tripy L1](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml/badge.svg)](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml)
 <!-- Tripy: DOC: OMIT End -->

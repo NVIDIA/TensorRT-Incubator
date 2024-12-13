@@ -29,29 +29,29 @@ class TestFlatten:
             ((2, 3, 4, 5), 1, 3, (2, 60)),  # Flatten dimensions 1 through 3
         ],
     )
-    def test_flatten(self, shape, start_dim, end_dim, expected_shape):
+    def test_flatten(self, shape, start_dim, end_dim, expected_shape, eager_or_compiled):
         cp_a = cp.arange(np.prod(shape)).reshape(shape).astype(np.float32)
         a = tp.Tensor(cp_a)
-        b = tp.flatten(a, start_dim=start_dim, end_dim=end_dim)
+        b = eager_or_compiled(tp.flatten, a, start_dim=start_dim, end_dim=end_dim)
         assert b.shape == list(expected_shape)
         assert np.array_equal(cp.from_dlpack(b).get(), cp_a.reshape(expected_shape).get())
 
-    def test_flatten_invalid_dims(self):
+    def test_flatten_invalid_dims(self, eager_or_compiled):
         shape = (2, 3, 4)
         with pytest.raises(tp.TripyException, match="Invalid dimensions"):
             a = tp.ones(shape)
             # Invalid because end_dim < start_dim
-            tp.flatten(a, start_dim=2, end_dim=1)
+            eager_or_compiled(tp.flatten, a, start_dim=2, end_dim=1)
 
-    def test_flatten_single_dim(self):
+    def test_flatten_single_dim(self, eager_or_compiled):
         shape = (2, 3, 4)
         a = tp.ones(shape)
         # Flattening a single dimension should not change the output
-        b = tp.flatten(a, start_dim=1, end_dim=1)
+        b = eager_or_compiled(tp.flatten, a, start_dim=1, end_dim=1)
         assert b.shape == [2, 3, 4]
         assert np.array_equal(cp.from_dlpack(b).get(), np.ones(shape, dtype=np.float32))
 
-    def test_flatten_with_unknown_dims(self):
+    def test_flatten_with_unknown_dims(self, eager_or_compiled):
         a = tp.ones((2, 3, 4, 5))
-        b = tp.flatten(a, start_dim=1, end_dim=-1)
+        b = eager_or_compiled(tp.flatten, a, start_dim=1, end_dim=-1)
         assert np.array_equal(cp.from_dlpack(b).get(), np.ones((2, 60), dtype=np.float32))

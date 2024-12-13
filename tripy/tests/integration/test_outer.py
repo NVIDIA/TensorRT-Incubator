@@ -19,10 +19,10 @@ import torch
 
 
 class TestOuter:
-    def test_outer(self):
+    def test_outer(self, eager_or_compiled):
         v1 = tp.arange(5, dtype=tp.float32)
         v2 = tp.arange(4, dtype=tp.float32)
-        output = tp.outer(v1, v2)
+        output = eager_or_compiled(tp.outer, v1, v2)
 
         t1 = torch.arange(5, dtype=torch.float32)
         t2 = torch.arange(4, dtype=torch.float32)
@@ -30,9 +30,9 @@ class TestOuter:
         assert output.shape == list(torch_out.shape)
         assert tp.allclose(output, tp.Tensor(torch_out))
 
-    def test_empty(self):
+    def test_empty(self, eager_or_compiled):
         v1 = tp.Tensor([])
         v2 = tp.arange(3, dtype=tp.float32)
-        output = tp.outer(v1, v2)
+        output = eager_or_compiled(tp.outer, v1, v2)
 
         assert output.shape == [0, 3]

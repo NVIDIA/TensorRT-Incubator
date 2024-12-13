@@ -26,7 +26,7 @@ class TestBatchNorm:
 
     @pytest.mark.parametrize("torch_dtype, tp_dtype", DTYPES)
     @pytest.mark.parametrize("input_shape", [(2, 2, 2, 2)])
-    def test_batchnorm_accuracy(self, torch_dtype, tp_dtype, input_shape):
+    def test_batchnorm_accuracy(self, torch_dtype, tp_dtype, input_shape, eager_or_compiled):
         eps = 1e-5
         num_features = input_shape[1]  # Number of channels in the input tensor
         batchnorm = torch.nn.BatchNorm2d(num_features=num_features, eps=eps, dtype=torch_dtype)
@@ -37,15 +37,15 @@ class TestBatchNorm:
         )
 
         # Use Tripy's parameters and ensure they match the dtype
-        tp_batchnorm.weight = tp.Parameter(batchnorm.weight.detach())
-        tp_batchnorm.bias = tp.Parameter(batchnorm.bias.detach())
-        tp_batchnorm.running_mean = tp.Parameter(batchnorm.running_mean.detach())
-        tp_batchnorm.running_var = tp.Parameter(batchnorm.running_var.detach())
+        tp_batchnorm.weight = tp.Tensor(batchnorm.weight.detach())
+        tp_batchnorm.bias = tp.Tensor(batchnorm.bias.detach())
+        tp_batchnorm.running_mean = tp.Tensor(batchnorm.running_mean.detach())
+        tp_batchnorm.running_var = tp.Tensor(batchnorm.running_var.detach())
 
         input = torch.randn(input_shape, dtype=torch_dtype).to("cuda")
         tp_input = tp.Tensor(input, dtype=tp_dtype)
 
-        output = tp_batchnorm(tp_input)
+        output = eager_or_compiled(tp_batchnorm, tp_input)
 
         batchnorm.to("cuda").eval()
         with torch.no_grad():

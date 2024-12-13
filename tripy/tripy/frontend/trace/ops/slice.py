@@ -18,10 +18,9 @@
 from dataclasses import dataclass
 from typing import Sequence, Union
 
-from tripy import constraints, utils
+from tripy import utils, wrappers
 from tripy.common.exception import raise_error
-from tripy.frontend import utils as frontend_utils
-from tripy.frontend.ops.registry import TENSOR_METHOD_REGISTRY
+from tripy.frontend.ops.registry import register_tensor_method
 from tripy.frontend.trace.ops import utils as op_utils
 from tripy.frontend.trace.ops.base import BaseTraceOp
 from tripy.types import TensorLike
@@ -129,10 +128,10 @@ class Slice(BaseTraceOp):
         DynamicSliceOp.build([data_tensor, start_index_tensor, limit_index_tensor, stride_index_tensor], outputs)
 
 
-@TENSOR_METHOD_REGISTRY("__getitem__")
-@constraints.dtypes(
-    constraints={"self": "T1", constraints.RETURN_VALUE: "T1"},
-    variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
+@register_tensor_method("__getitem__")
+@wrappers.interface(
+    dtype_constraints={"self": "T1", wrappers.RETURN_VALUE: "T1"},
+    dtype_variables={"T1": ["float32", "float16", "bfloat16", "float8", "int4", "int8", "int32", "int64", "bool"]},
 )
 def __getitem__(
     self: "tripy.Tensor", index: Union[slice, int, "tripy.Tensor", Sequence[Union[slice, int, "tripy.Tensor"]]]
@@ -164,7 +163,9 @@ def __getitem__(
         assert np.array_equal(cp.from_dlpack(output).get(), np.arange(10)[8:2:-1])
 
     """
+    from tripy.frontend.dimension_size import DimensionSize
     from tripy.frontend.tensor import Tensor
+    from tripy.frontend.trace.ops.binary_elementwise import maximum, minimum
     from tripy.frontend.trace.ops.flip import flip
     from tripy.frontend.trace.ops.gather import gather
     from tripy.frontend.trace.ops.squeeze import squeeze
@@ -198,9 +199,16 @@ def __getitem__(
         # because out of bounds indices for a *slice* mean that the dim should be empty, not an error
         def clamp_bound(bound: Union[int, Tensor]) -> Union[int, Tensor]:
             if isinstance(bound, int):
-                return 0 if bound < 0 else where(bound > t_shape[i], t_shape[i], Tensor([bound]))
-            else:
-                return where(bound < 0, Tensor([0]), where(bound > t_shape[i], t_shape[i], bound))
+                if bound < 0:
+                    return 0
+
+                if isinstance(t_shape[i], int):
+                    return min(bound, t_shape[i])
+                return minimum(t_shape[i], Tensor([bound]))
+
+            # need the shame dimension to be a tensor to use as an argument to min and max
+            shape_dim = t_shape[i] if isinstance(t_shape[i], Tensor) else DimensionSize(t_shape[i])
+            return maximum(Tensor([0]), minimum(shape_dim, bound))
 
         if isinstance(idx, int) or isinstance(idx, Tensor):
             args.append(convert_to_positive_idx(idx))
@@ -250,8 +258,57 @@ def __getitem__(
     return out
 
 
-# Because the helper is called inside another function, we need to skip one entry in the call stack to find
-# the original call to user code.
-@frontend_utils.convert_to_tensors(skip_num_stack_entries=1)
+@wrappers.interface(convert_to_tensors=True)
 def slice_helper(tensor, *slice_params: TensorLike):
+    from tripy import function_registry
+    from tripy.utils import get_arg_candidate_column_offsets
+
+    # The default behavior of the tensor conversion will not add the correct column info to the slice params
+    # because this call occurs *inside* the overridden call to __getitem__, so we adjust the column info manually.
+
+    # Look for the stack frame index to __getitem__. We need to go one stack frame beyond to get to the *user* call of __getitem__.
+    def find_frame_index(arg):
+        # Internal WAR: the constraints decorator is applied before the function registry decorator, so in the constraints tests,
+        # we will not find the Tensor.__getitem__ decorator. We can use a fallback in that case.
+        frame_index = -1
+        function_registry_wrapper_found = False
+        for idx, source_info in enumerate(arg.stack_info):
+            if source_info.module == function_registry.__name__ and source_info.function == "wrapper":
+                function_registry_wrapper_found = True
+            if source_info._dispatch_target == "Tensor.__getitem__":
+                frame_index = idx + 1
+                break
+
+        assert (
+            not function_registry_wrapper_found or frame_index >= 0
+        ), "No call to the Tensor.__getitem__ dispatch found"
+        return frame_index if function_registry_wrapper_found else arg.stack_info.get_first_user_frame_index()
+
+    assert slice_params
+
+    # The frame index will *usually* be the same across params, but in some cases (when clamping bounds for slices),
+    # the step parameters might have shorter stack depths.
+    frame_index = find_frame_index(slice_params[0])
+
+    arg_names = ["tensor"] + ["slice_params"] * len(slice_params)
+    for arg_index, arg in enumerate(slice_params):
+        arg_frame_index = frame_index
+        if (
+            arg_frame_index > len(arg.stack_info)
+            or arg.stack_info[arg_frame_index]._dispatch_target != "Tensor.__getitem__"
+        ):
+            arg_frame_index = find_frame_index(arg)
+
+        source_info = arg.stack_info[arg_frame_index]
+
+        # Note: arg_index does not account for the positional arg, hence we add 1 for the index argument
+        # Also, strip the "Tensor" prefix from the dispatch target.
+        candidates = get_arg_candidate_column_offsets(
+            source_info.code, 1 + arg_index, 1, "__getitem__", False, arg_names
+        )
+
+        # Now we can set the column range correctly
+        if len(candidates) == 1:
+            source_info.column_range = candidates[0]
+
     return Slice.build(inputs=[tensor, *slice_params])

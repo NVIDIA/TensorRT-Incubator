@@ -103,7 +103,7 @@ def main():
         1,
         # We can specify dynamic dimensions by using a sequence indicating the min/opt/max values that
         # a dimension should support:
-        [1, len(input_ids), padded_seq_len],
+        (1, len(input_ids), padded_seq_len),
     )
     model = tp.compile(model, args=[tp.InputInfo(input_shape, dtype=tp.int32)])
     compile_end_time = time.perf_counter()

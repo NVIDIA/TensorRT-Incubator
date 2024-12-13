@@ -34,14 +34,13 @@ for expected accuracy.
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0
     ```
 
-    <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
+    Tripy: TEST: EXPECTED_STDOUT Start
     ```
-    (?s).*?
-    What is the answer to life, the universe, and everything\? (How can we know what's real\? How can|The answer to the questions that)
+    (?s).*?What is the answer to life, the universe, and everything\? (How can we know what's real\? How can|The answer to the questions that are asked of us)
     ```
-     -->
-    <!-- Tripy: TEST: EXPECTED_STDOUT End -->
+    Tripy: TEST: EXPECTED_STDOUT End
+    -->
 
 ### Running with Quantization
 
@@ -58,27 +57,26 @@ To run with a quantization mode, pass `--quant-mode` to `example.py`. The suppor
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int8-weight-only
     ```
-    <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
+    Tripy: TEST: EXPECTED_STDOUT Start
     ```
-    (?s).*?
-    What is the answer to life, the universe, and everything\? (The answer to the questions that|How is life possible, what is the meaning of|How can)
+    (?s).*?What is the answer to life, the universe, and everything\? (The answer to the questions that|How is life possible, what is the meaning of|How can)
     ```
-     -->
-    <!-- Tripy: TEST: EXPECTED_STDOUT End -->
+    Tripy: TEST: EXPECTED_STDOUT End
+    -->
 
 2. Weight-only int4 quantization:
+
+    *Note: `int4` quantization may result in poor accuracy for this model.*
+        *We include it here primarily to demonstrate the workflow.*
 
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int4-weight-only
     ```
-    <!-- Tripy: TEST: EXPECTED_STDOUT Start -->
     <!--
+    Tripy: TEST: EXPECTED_STDOUT Start
     ```
-    (?s).*?
-    What is the answer to life, the universe, and everything\? What is what is what is what is what is
+    (?s).*?What is the answer to life, the universe, and everything\? What is what is what is what is what is
     ```
-     -->
-    <!-- Tripy: TEST: EXPECTED_STDOUT End -->
-
-    *Note: `int4` quantization may result in poor accuracy. We include it here primarily to demonstrate the workflow.*
+    Tripy: TEST: EXPECTED_STDOUT End
+    -->

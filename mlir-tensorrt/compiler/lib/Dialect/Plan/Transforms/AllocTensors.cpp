@@ -94,9 +94,16 @@ private:
           solver, original, replacement);
       remapLatticeState<dataflow::Executable>(solver, original, replacement);
     }
+    solver.eraseState(solver.getProgramPointAfter(op));
   }
   void notifyOperationReplaced(Operation *op, Operation *replacement) override {
     notifyOperationReplaced(op, replacement->getResults());
+  }
+
+  void notifyOperationErased(Operation *op) override {
+    solver.eraseState(solver.getProgramPointAfter(op));
+    for (Value res : op->getResults())
+      solver.eraseState(res);
   }
 
   DataFlowSolver &solver;

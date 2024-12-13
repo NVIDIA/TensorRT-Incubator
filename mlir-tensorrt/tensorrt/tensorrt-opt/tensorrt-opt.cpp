@@ -26,7 +26,7 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/Extensions/InlinerExtension.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Quant/QuantOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/MLIRContext.h"
@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
   mlir::DialectRegistry registry;
   registry.insert<mlir::tensorrt::TensorRTDialect, mlir::func::FuncDialect,
                   mlir::tensor::TensorDialect, mlir::arith::ArithDialect,
-                  mlir::affine::AffineDialect, mlir::quant::QuantizationDialect,
+                  mlir::affine::AffineDialect, mlir::quant::QuantDialect,
                   mlir::scf::SCFDialect>();
   mlir::registerTestTensorKindAnalysisPass();
   mlir::registerTestTensorRTShapeInferencePass();

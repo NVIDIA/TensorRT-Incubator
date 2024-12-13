@@ -59,7 +59,7 @@ When we compiled above, we used a static shape of `(1, 2)` for the input.
 Tripy also supports specifying a range of possible values for each dimension like so:
 
 ```py
-inp_info = tp.InputInfo(shape=([1, 8, 16], 2), dtype=tp.float32)
+inp_info = tp.InputInfo(shape=((1, 8, 16), 2), dtype=tp.float32)
 ```
 
 The shape we used above indicates that the 0th dimension should support a range of values

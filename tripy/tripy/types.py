@@ -33,15 +33,26 @@ TensorLike = export.public_api(
     module=sys.modules[__name__],
     symbol="TensorLike",
     doc="""
-        Type annotation for a parameter that is either a Tripy :class:`Tensor` or a Python number that can be automatically converted into one.
+        A Tripy :class:`Tensor` or a Python number that can be automatically converted into one.
         """,
 )(Union["tripy.Tensor", numbers.Number])
+
+
+IntLike = export.public_api(
+    document_under="types.rst",
+    module=sys.modules[__name__],
+    symbol="IntLike",
+    doc="""
+        An integer-like object.
+        """,
+)(Union[int, "tripy.DimensionSize"])
+
 
 ShapeLike = export.public_api(
     document_under="types.rst",
     module=sys.modules[__name__],
     symbol="ShapeLike",
     doc="""
-        Type annotation for a parameter that represents a shape.
+        A shape of a :class:`Tensor` .
         """,
-)(Sequence[Union[int, "tripy.DimensionSize"]])
+)(Sequence[IntLike])

@@ -20,16 +20,17 @@ from tests import helper
 from tests.backend.api.conftest import *
 
 import tripy as tp
+from tripy.frontend.trace.ops.storage import Storage
 
 
 class TestCompile:
     # TODO (#246): Verify that it's actually compiling somehow here and below.
     # Need to return something programatically queriable from compile to do this.
     def test_function(self):
-        compiled_gelu = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
+        compiled_relu = tp.compile(tp.relu, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-        inp = tp.ones((2, 2), dtype=tp.float32)
-        out = compiled_gelu(inp)
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        out = compiled_relu(inp)
 
         assert tp.equal(out, tp.relu(inp))
 
@@ -37,10 +38,20 @@ class TestCompile:
         layernorm = tp.LayerNorm(2)
         compiled_layernorm = tp.compile(layernorm, args=[tp.InputInfo((2, 2), dtype=tp.float32)])
 
-        inp = tp.ones((2, 2), dtype=tp.float32)
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
         out = compiled_layernorm(inp)
 
         assert tp.equal(out, layernorm(inp))
+
+    def test_can_compile_using_shape_of_tensor(self):
+        # Since InputInfo allows `DimensionSize`s, we should be able to use the shape of a tensor as
+        # the shape of the InputInfo.
+        inp = tp.iota((2, 2), dtype=tp.float32) - 1
+        shape = inp.shape
+
+        compiled_relu = tp.compile(tp.relu, args=[tp.InputInfo(shape, inp.dtype)])
+        out = compiled_relu(inp)
+        assert tp.equal(out, tp.relu(inp))
 
     def test_compile_arg_order_irrelevant(self):
         # The order of arguments we specify to `compile` should not affect the order
@@ -137,6 +148,19 @@ class TestCompile:
 
         out = compiled_add(tp.ones((3, 1), dtype=tp.float32), tp.ones((3, 1), dtype=tp.float32))
         assert cp.array_equal(cp.from_dlpack(out), cp.ones((3, 1), dtype=cp.float32) * 2)
+
+    # if we specify dynamic shapes in compilation, they should not be fixed afterwards
+    def test_dynamic_shapes_not_fixed(self):
+        def func(inp):
+            s = inp.shape[0] + inp.shape[1] + inp.shape[2]
+            return tp.ones([s], dtype=tp.float32)
+
+        compiled_ones = tp.compile(func, args=[tp.InputInfo(((1, 2, 5), (1, 2, 5), (1, 2, 5)), dtype=tp.float32)])
+
+        for shape in ((1, 1, 1), (3, 3, 3), (2, 4, 5), (5, 2, 1)):
+            inp = tp.ones(shape, dtype=tp.float32)
+            out = compiled_ones(inp)
+            assert out.shape == [sum(shape)]
 
     def test_error_if_evaling_input_during_compile(self):
         def func(a):

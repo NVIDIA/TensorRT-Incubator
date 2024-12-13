@@ -69,7 +69,7 @@ jobs:
         image: ${{ env.l0_image }}
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
-          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1 and not manual" -n 4 --durations=15 --ignore tests/performance
+          pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1" -n 4 --durations=15 --ignore tests/performance
 
     - name: Run performance benchmarks
       uses: addnab/docker-run-action@v3
@@ -77,7 +77,7 @@ jobs:
         image: ${{ env.l0_image }}
         options: --gpus all -v ${{ github.workspace }}/tripy:/tripy
         run: |
-          pytest tests/performance -v -m "not l1 and not manual" --benchmark-warmup=on --benchmark-json benchmark.json
+          pytest tests/performance -v -m "not l1" --benchmark-warmup=on --benchmark-json benchmark.json
 
     - name: Store benchmark result
       uses: benchmark-action/github-action-benchmark@v1

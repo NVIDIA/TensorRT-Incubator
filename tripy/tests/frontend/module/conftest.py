@@ -25,7 +25,7 @@ import tripy as tp
 class DummyNestedOp(tp.Module):
     def __init__(self, tensor):
         super().__init__()
-        self.param = tp.Parameter(tensor)
+        self.param = tensor
 
     def __call__(self):
         return self.param
@@ -43,7 +43,7 @@ class DummyOp(tp.Module):
 class Network(tp.Module):
     def __init__(self):
         super().__init__()
-        self.param = tp.Parameter(tp.ones((2,), dtype=tp.float32))
+        self.param = tp.ones((2,), dtype=tp.float32)
         self.dummy1 = DummyOp(tp.zeros((2,), dtype=tp.float32))
         self.dummy2 = DummyOp(tp.arange(2, dtype=tp.float32))
 
@@ -54,7 +54,7 @@ class Network(tp.Module):
 class ListNetwork(tp.Module):
     def __init__(self):
         super().__init__()
-        self.params = [tp.Parameter(tp.ones((2,), dtype=tp.float32))]
+        self.params = [tp.ones((2,), dtype=tp.float32)]
         self.dummy_list = [DummyOp(tp.zeros((2,), dtype=tp.float32)), DummyOp(tp.arange(2, dtype=tp.float32))]
 
     def __call__(self):
@@ -67,7 +67,7 @@ class ListNetwork(tp.Module):
 class DictNetwork(tp.Module):
     def __init__(self):
         super().__init__()
-        self.params = {"param": tp.Parameter(tp.ones((2,), dtype=tp.float32))}
+        self.params = {"param": tp.ones((2,), dtype=tp.float32)}
         self.dummy_dict = {
             "op0": DummyOp(tp.zeros((2,), dtype=tp.float32)),
             "op1": DummyOp(tp.arange(2, dtype=tp.float32)),
@@ -109,6 +109,34 @@ class ComplexNetwork(tp.Module):
         return out1 + out2
 
 
+class MixedContainerNetwork(tp.Module):
+    def __init__(self):
+        super().__init__()
+        self.param = tp.ones((2,), dtype=tp.float32)
+
+        # Define a mixed list with both modules and lambda functions
+        self.mixed_list = [
+            DummyOp(tp.zeros((2,), dtype=tp.float32)),
+            lambda: tp.ones((2,), dtype=tp.float32),
+            DummyOp(tp.zeros((2,), dtype=tp.float32)),
+        ]
+
+        # Define a mixed dictionary with modules and lambda functions
+        self.mixed_dict = {
+            "scale": lambda: tp.ones((2,), dtype=tp.float32),
+            "dummy": DummyOp(tp.zeros((2,), dtype=tp.float32)),
+        }
+
+    def __call__(self):
+        out = self.param
+        for op in self.mixed_list:
+            out = out + op()
+        for _, op in self.mixed_dict.items():
+            out = out + op()
+
+        return out
+
+
 @pytest.fixture(params=[(Network, ())])
 def all_network_modes(request):
     call_args = request.param[1]
@@ -139,3 +167,8 @@ def mixed_network():
 @pytest.fixture
 def complex_network():
     yield ComplexNetwork()
+
+
+@pytest.fixture
+def mixed_container_network():
+    yield MixedContainerNetwork()

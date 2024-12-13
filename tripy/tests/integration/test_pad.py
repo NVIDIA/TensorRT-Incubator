@@ -29,19 +29,19 @@ class TestPad:
             (((1, 2), (2, 3)), 1),
         ],
     )
-    def test_pad_constant(self, pad, value):
+    def test_pad_constant(self, pad, value, eager_or_compiled):
         inp = np.arange(4, dtype=np.int32).reshape((2, 2))
 
-        out = tp.pad(tp.Tensor(inp), pad, value=value)
+        out = eager_or_compiled(tp.pad, tp.Tensor(inp), pad, value=value)
         expected = np.pad(inp, pad, constant_values=value)
 
         assert np.array_equal(cp.from_dlpack(out).get(), expected)
 
-    def test_pad_tensor(self):
+    def test_pad_tensor(self, eager_or_compiled):
         inp = np.arange(6, dtype=np.float32).reshape((2, 3))
 
         inp_tp = tp.Tensor(inp)
-        out = tp.pad(tp.Tensor(inp), ((0, inp_tp.shape[0]), (inp_tp.shape[1], 0)))
+        out = eager_or_compiled(tp.pad, tp.Tensor(inp), ((0, inp_tp.shape[0]), (inp_tp.shape[1], 0)))
         expected = np.pad(inp, ((0, 2), (3, 0)))
 
         assert np.array_equal(cp.from_dlpack(out).get(), expected)

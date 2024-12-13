@@ -44,6 +44,12 @@ jobs:
         sphinx-build build/doc_sources build/docs -c docs/ -j 4 -W -n
         cp docs/packages.html build/docs/
 
+    # We want to make sure all functional tests, including L1, are passing before we release the wheel.
+    - name : test
+      run: |
+        cd /tripy/
+        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -n 4 --durations=15 --ignore tests/performance
+
     - name: Release
       uses: softprops/action-gh-release@v2
       with:

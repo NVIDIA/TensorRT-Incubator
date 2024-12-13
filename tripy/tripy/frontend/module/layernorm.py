@@ -16,12 +16,13 @@
 #
 
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Sequence, Union
 
 from tripy import export, utils
 from tripy.common import datatype
 from tripy.frontend.module.module import Module
-from tripy.frontend.module.parameter import DefaultParameter, Parameter
+from tripy.frontend.module.parameter import DefaultParameter
+from tripy.frontend.tensor import Tensor
 
 
 @export.public_api(document_under="operations/modules")
@@ -42,20 +43,20 @@ class LayerNorm(Module):
     dtype: datatype.dtype
     r"""The data type used to perform the operation."""
 
-    normalized_shape: Tuple[int]
+    normalized_shape: Sequence[int]
     r"""Defines the shape of the input tensor that is to be normalized over."""
 
-    weight: Parameter
+    weight: Tensor
     r"""The :math:`\gamma` parameter of shape :math:`\text{normalized_shape}`."""
 
-    bias: Parameter
+    bias: Tensor
     r"""The :math:`\beta` parameter of shape :math:`\text{normalized_shape}`."""
 
     eps: float
     """A value added to the denominator to prevent division by zero."""
 
     def __init__(
-        self, normalized_shape: Union[int, Tuple[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5
+        self, normalized_shape: Union[int, Sequence[int]], dtype: datatype.dtype = datatype.float32, eps: float = 1e-5
     ) -> None:
         r"""
         Args:

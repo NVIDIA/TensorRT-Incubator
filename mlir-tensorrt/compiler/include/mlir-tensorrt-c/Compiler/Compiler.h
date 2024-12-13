@@ -25,6 +25,7 @@
 #define MLIR_TENSORRT_C_COMPILER_COMPILER
 
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
@@ -48,6 +49,29 @@ MLIR_CAPI_EXPORTED MTRT_Status
 mtrtCompilerClientDestroy(MTRT_CompilerClient client);
 
 static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient options) {
+  return !options.ptr;
+}
+
+//===----------------------------------------------------------------------===//
+// MTRT_OptionsContext
+//===----------------------------------------------------------------------===//
+
+typedef struct MTRT_OptionsContext {
+  void *ptr;
+} MTRT_OptionsContext;
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtOptionsContextCreateFromArgs(
+    MTRT_CompilerClient client, MTRT_OptionsContext *options,
+    MlirStringRef optionsType, const MlirStringRef *argv, unsigned argc);
+
+MLIR_CAPI_EXPORTED void mtrtOptionsContextPrint(MTRT_OptionsContext options,
+                                                MlirStringCallback append,
+                                                void *userData);
+
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtOptionsContextDestroy(MTRT_OptionsContext options);
+
+static inline bool mtrtOptionsConextIsNull(MTRT_OptionsContext options) {
   return !options.ptr;
 }
 
@@ -100,8 +124,24 @@ static inline bool mtrtStableHloToExecutableOptionsIsNull(
 }
 
 //===----------------------------------------------------------------------===//
+// StableHloPipeline APIs
+//===----------------------------------------------------------------------===//
+
+static inline bool mtrtStableHloPipelineIsNull(MlirPassManager pm) {
+  return !pm.ptr;
+}
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloPipelineGetCached(
+    MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions options,
+    MlirPassManager *result);
+
+//===----------------------------------------------------------------------===//
 // Main StableHLO Compiler API Functions
 //===----------------------------------------------------------------------===//
+
+/// Get Executable using StableHloPassManager.
+MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerGetExecutable(
+    MlirPassManager pm, MlirOperation module, MTRT_Executable *result);
 
 /// Compiler StableHLO to Executable.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerStableHLOToExecutable(

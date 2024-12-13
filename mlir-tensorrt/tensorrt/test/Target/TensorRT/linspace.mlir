@@ -51,16 +51,3 @@ func.func @dynamic_nd_iota_2(%arg0: tensor<2xi32> {
   %0 = tensorrt.linspace[%cst_i32 : tensor<i32>] [%arg0 : tensor<2xi32>] [%cst_i32_0 : tensor<2xi32>] : tensor<?x3xi32>
   return %0 : tensor<?x3xi32>
 }
-
-// CHECK-LABEL: @dynamic_nd_iota_3
-//  CHECK-SAME: tensorrt.engine
-func.func @dynamic_nd_iota_3(%arg0: tensor<2xi32> {
-  tensorrt.value_bounds = #tensorrt.shape_profile<min=[1, 3], opt=[4, 3], max=[12, 3]>,
-  tensorrt.host_tensor
-}) -> tensor<?x3xi64> {
-  %cst_f16 = tensorrt.constant dense<0> : tensor<i64>
-  %cst_f16_0 = tensorrt.constant dense<[0, 1]> : tensor<2xi64>
-  %0 = tensorrt.linspace[%cst_f16 : tensor<i64>] [%arg0 : tensor<2xi32>] [%cst_f16_0 : tensor<2xi64>] : tensor<?x3xi64>
-  return %0 : tensor<?x3xi64>
-}
-

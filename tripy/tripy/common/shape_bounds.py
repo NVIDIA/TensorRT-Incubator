@@ -18,12 +18,14 @@
 from dataclasses import dataclass
 from typing import Sequence
 
+from tripy.types import IntLike
+
 
 @dataclass
 class ShapeBounds:
-    min: Sequence[int]
-    opt: Sequence[int]
-    max: Sequence[int]
+    min: Sequence[IntLike]
+    opt: Sequence[IntLike]
+    max: Sequence[IntLike]
 
     def is_static(self):
         return self.min == self.opt == self.max

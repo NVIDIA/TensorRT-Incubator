@@ -124,10 +124,10 @@ class TestTensor:
             file=inspect.getsourcefile(tp.Tensor),
             # We don't check line number within tp.Tensor because it's difficult to determine.
             line=a.stack_info[0].line,
-            function=tp.Tensor.__init__.__name__,
+            function=tp.Tensor.raw_init.__name__,
             code=None,
             _dispatch_target="",
-            column_range=None,
+            column_range=(25, 30) if sys.version_info >= (3, 11) else None,
         )
         assert a.stack_info[a.stack_info.get_first_user_frame_index()] == SourceInfo(
             __name__,
@@ -136,7 +136,7 @@ class TestTensor:
             function=build_func.__name__,
             code=inspect.getsource(build_func).rstrip(),
             _dispatch_target="",
-            column_range=None,
+            column_range=(0, 0) if sys.version_info >= (3, 11) else None,
         )
 
     def test_eval_of_storage_tensor_is_nop(self):
@@ -272,3 +272,44 @@ class TestTensor:
     )
     def test_tolist(self, tensor, expected):
         assert np.allclose(tensor.tolist(), expected)
+
+    # testing the invariant that stack trace of build is not past the limit
+    @pytest.mark.parametrize(
+        "tensor",
+        [
+            tp.Tensor([1, 2, 3]),
+            tp.ones((2, 2)),
+            tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]),
+            # This case should trigger datatype conversions.
+            (4 * tp.Tensor([1, 2, 3])) + (3 * tp.Tensor([4, 5, 6])),
+            # Slice is an interesting case because it adds slice_helper to the stack.
+            # Additionally, the use of slices may also require more ops, increasing the total stack depth.
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[:],
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[0:],
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[:3],
+            (tp.Tensor([1, 2, 3]) + tp.Tensor([4, 5, 6]))[0:3:1],
+            (tp.Tensor([[1], [2], [3]]) + tp.Tensor([[4], [5], [6]]))[0],
+        ],
+    )
+    def test_stack_depth_of_build(self, tensor):
+        tensor.stack_info.fetch_source_code()
+
+        # Ensure that we do not include code for any frame until after the caller of `Tensor.build`
+        build_caller = len(tensor.stack_info)
+        for index, source_info in enumerate(tensor.stack_info):
+            if source_info.function == "build":
+                build_caller = index + 1
+                break
+
+        for index, source_info in enumerate(tensor.stack_info):
+            # Once we reach user code we can stop checking
+            if source_info.file == __file__:
+                assert source_info.code is not None
+                break
+
+            # We should include code starting one frame past the *caller* of `build`, i.e. we
+            # should not see a call to `build` in the code stack trace we display.
+            if index > build_caller:
+                assert source_info.code is not None
+            else:
+                assert source_info.code is None

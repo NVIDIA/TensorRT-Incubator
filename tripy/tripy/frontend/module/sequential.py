@@ -12,30 +12,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Union, Tuple, Dict, Iterator, Any
-from dataclasses import dataclass
 import copy
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, Iterator, Tuple, Union
 
 from tripy import export
 from tripy.common.exception import raise_error
 from tripy.frontend.module import Module
 
+ModuleLike = Union[Module, Callable[["tripy.Tensor"], "tripy.Tensor"]]
 
-@export.public_api(
-    document_under="modules/sequential.rst",
-)
+
+@export.public_api(document_under="modules/sequential.rst")
 @dataclass
 class Sequential(Module):
     r"""
-    A module to stack multiple layers or modules in a sequential order. The `Sequential`
-    container can accept either a list of modules or a dictionary of named modules. Modules are
-    added in the order they are passed, and each is called sequentially during the forward pass.
+    A module to stack multiple callable layers or modules in a sequential order. The `Sequential`
+    container can accept either a list of modules/callable objects or a dictionary of named modules/callable objects.
+    Layers are added in the order they are passed, and each is called sequentially during the forward pass.
     """
 
-    def __init__(self, *modules: Union[Module, Dict[str, Module]]) -> None:
+    def __init__(self, *modules: Union[ModuleLike, Dict[str, ModuleLike]]) -> None:
         r"""
         Args:
-            *modules: The modules to include in the sequence.
+            *modules: The module(s) or callable(s) to include in the sequence.
+                These must take exactly one input and return exactly one output.
                 Can be passed as individual positional arguments or as a single dictionary of named modules.
 
         .. code-block:: python
@@ -54,6 +55,18 @@ class Sequential(Module):
             model = tp.Sequential({'layer1': tp.Linear(1, 3), 'layer2': tp.Linear(3, 2)})
 
             input = tp.Tensor([1.0])
+            output = model(input)
+
+        .. code-block:: python
+            :linenos:
+            :caption: Sequential with Callables
+
+            model = tp.Sequential(
+                tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1)),
+                lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
+            )
+
+            input = tp.ones((1,2,2,2), dtype=tp.float32)
             output = model(input)
         """
         super().__init__()
@@ -178,4 +191,5 @@ class Sequential(Module):
         # with the 'modules' prefix in the state_dict. This change ensures compatibility
         # with PyTorch's naming conventions.
         for name, module in self.modules.items():
-            yield name, module
+            if isinstance(module, Module):
+                yield name, module

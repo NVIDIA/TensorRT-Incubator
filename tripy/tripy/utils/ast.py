@@ -45,7 +45,11 @@ def get_callee_func_name_candidates(callee: SourceInfo) -> Set[str]:
     # We don't actually care about the dispatch function, so we look at the `key`
     # to determine which underlying method we're actually calling.
     if callee._dispatch_target:
-        candidates = {callee._dispatch_target}
+        dispatch_target = callee._dispatch_target
+        # The function registry may have prepended a class name. If so, strip it out.
+        if "." in dispatch_target:
+            dispatch_target = dispatch_target.split(".")[-1]
+        candidates = {dispatch_target}
     else:
         candidates = {callee.function}
 
@@ -119,9 +123,14 @@ def get_arg_candidate_column_offsets(
             if is_kwarg:
                 arg_node = node.keywords[index - num_positional]
             else:
+                # For methods, the `self` argument is omitted from ast.Call.args
                 if "self" in arg_names:
-                    # For methods, the `self` argument is omited from ast.Call.args
-                    arg_node = node.args[index - 1]
+                    index -= 1
+                # If the final argument is a starred object, then we treat any args
+                # past the end as pointing to the starred object (this would be a variadic call,
+                # and the starred object would be a catchall)
+                if index >= len(node.args) and isinstance(node.args[-1], ast.Starred):
+                    arg_node = node.args[-1]
                 else:
                     arg_node = node.args[index]
 
@@ -134,17 +143,18 @@ def get_arg_candidate_column_offsets(
                         return node.lower
                     elif index == 1 and node.upper is not None:
                         return node.upper
-                    elif node.step is not None:
+                    elif index == 2 and node.step is not None:
                         return node.step
                 return node
 
             # If we have multiple dimensions specified, then we have a tuple of slices.
-            # Indices are given in as a list of start, stop, step
+            # NOTE: We subtract num_positional from the index because the slice arguments would
+            # be passed as *variadic arguments* to slice_helper and so would come after the positional argument
             if isinstance(node.slice, ast.Tuple):
-                element = node.slice.elts[index // 3]
-                arg_node = index_into_expr(element, index % 3)
+                element = node.slice.elts[(index - num_positional) // 3]
+                arg_node = index_into_expr(element, (index - num_positional) % 3)
             else:
-                arg_node = index_into_expr(node.slice, index)
+                arg_node = index_into_expr(node.slice, (index - num_positional))
 
         if arg_node is not None:
             candidates.append((indentation + arg_node.col_offset, indentation + arg_node.end_col_offset))

@@ -57,9 +57,7 @@ cmake --preset ninja-llvm
 ninja -C build all
 
 # Build and run tests
-ninja -C build check-mlir-executor
-ninja -C build check-mlir-tensorrt-dialect
-ninja -C build check-mlir-tensorrt
+ninja -C build check-all-mlir-tensorrt
 
 # Build wheels (output in `build/wheels`)
 ninja -C build mlir-tensorrt-all-wheels
@@ -101,9 +99,7 @@ cmake -B ./build/mlir-tensorrt -S . -G Ninja \
     -DMLIR_DIR=build/llvm-project/lib/cmake/mlir \
     -DCMAKE_PLATFORM_NO_VERSIONED_SONAME=ON
 ninja -C build/mlir-tensorrt all
-ninja -C build/mlir-tensorrt check-mlir-executor
-ninja -C build/mlir-tensorrt check-mlir-tensorrt-dialect
-ninja -C build/mlir-tensorrt check-mlir-tensorrt
+ninja -C build/mlir-tensorrt check-all-mlir-tensorrt
 ```
 
 3. Build Python binding wheels

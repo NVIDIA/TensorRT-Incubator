@@ -12,12 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import numbers
 from typing import Sequence, Tuple, Union
 
 from tripy import export
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
+from tripy.frontend.dimension_size import DimensionSize
+from tripy.types import IntLike
 
 
 @export.public_api(document_under="compiling_code")
@@ -26,7 +27,7 @@ class InputInfo:
     Captures information about an input to a compiled function.
     """
 
-    def __init__(self, shape: Sequence[Union[int, Tuple[int, int, int]]], dtype: "tripy.dtype") -> None:
+    def __init__(self, shape: Sequence[Union[IntLike, Tuple[IntLike, IntLike, IntLike]]], dtype: "tripy.dtype") -> None:
         """
         Args:
             shape: The shape of the input.
@@ -38,9 +39,9 @@ class InputInfo:
             :caption: Example
 
             inp = tp.InputInfo((2, 4), dtype=tp.float32)
-            assert inp.shape_bounds.min == (2, 4)
-            assert inp.shape_bounds.opt == (2, 4)
-            assert inp.shape_bounds.max == (2, 4)
+            assert inp.shape_bounds.min == [2, 4]
+            assert inp.shape_bounds.opt == [2, 4]
+            assert inp.shape_bounds.max == [2, 4]
 
         .. code-block:: python
             :linenos:
@@ -49,42 +50,27 @@ class InputInfo:
             # The first dimension will support values in the range [1, 3],
             # optimizing for a size of 2.
             inp = tp.InputInfo(((1, 2, 3), 4), dtype=tp.float32)
-            assert inp.shape_bounds.min == (1, 4)
-            assert inp.shape_bounds.opt == (2, 4)
-            assert inp.shape_bounds.max == (3, 4)
+            assert inp.shape_bounds.min == [1, 4]
+            assert inp.shape_bounds.opt == [2, 4]
+            assert inp.shape_bounds.max == [3, 4]
         """
+        is_int_like = lambda arg: any(isinstance(arg, typ) for typ in {int, DimensionSize})
+
         # TODO (#252): Allow `shape` to be a shape tensor
         min_shape = []
         opt_shape = []
         max_shape = []
         for elem in shape:
-            if isinstance(elem, numbers.Number):
+            if is_int_like(elem):
                 elem = (elem,) * 3
-            elif isinstance(elem, Sequence):
-                if not all(isinstance(val, numbers.Number) for val in elem):
-                    raise_error(
-                        "Shape values must be numbers.",
-                        [f"Shape: {shape} contains an element: {repr(elem)} with non-numerical value(s)"],
-                    )
-                if len(elem) != 3:
-                    raise_error(
-                        "Incorrect number of shape values provided.",
-                        [
-                            f"Exactly 3 shape values must be provided for each dimension (min/opt/max)"
-                            f" but got: {len(elem)} values in shape: {shape}. "
-                        ],
-                    )
-            else:
-                raise_error(
-                    "Shape values should be either a single number or a Tuple specifying min/opt/max bounds.",
-                    [f"Shape: {shape} contains an invalid element: {elem}"],
-                )
+
+            assert len(elem) == 3 and all(is_int_like(val) for val in elem)
 
             min_shape.append(elem[0])
             opt_shape.append(elem[1])
             max_shape.append(elem[2])
 
-        self.shape_bounds = ShapeBounds(tuple(min_shape), tuple(opt_shape), tuple(max_shape))
+        self.shape_bounds = ShapeBounds(min_shape, opt_shape, max_shape)
         self.dtype = dtype
 
     def __str__(self) -> str:

@@ -163,7 +163,7 @@ public:
 
   static py::object createFromCapsule(py::object capsule) {
     if constexpr (cFuncTable.capsuleToCApi == nullptr) {
-      throw py::value_error("boject cannot be converted from opaque capsule");
+      throw py::value_error("object cannot be converted from opaque capsule");
     } else {
       MTRT_StableHLOToExecutableOptions cObj =
           cFuncTable.capsuleToCApi(capsule.ptr());

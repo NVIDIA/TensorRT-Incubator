@@ -25,12 +25,16 @@
 #include "mlir-c/IR.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Support/Status.h"
+#include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
+#include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
+#include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
 #include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/CAPI/IR.h"
+#include "mlir/CAPI/Utils.h"
 #include "llvm/ADT/StringExtras.h"
 
 using namespace mlirtrt;
@@ -44,6 +48,7 @@ using namespace mlir;
 DEFINE_C_API_PTR_METHODS(MTRT_CompilerClient, CompilerClient)
 DEFINE_C_API_PTR_METHODS(MTRT_StableHLOToExecutableOptions,
                          StableHLOToExecutableOptions)
+DEFINE_C_API_PTR_METHODS(MTRT_OptionsContext, OptionsContext)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -90,12 +95,46 @@ MTRT_Status mtrtCompilerClientCreate(MlirContext context,
   if (!cppClient.isOk())
     return wrap(cppClient.getStatus());
 
-  *client = MTRT_CompilerClient{cppClient->release()};
+  *client = wrap(cppClient->release());
   return mtrtStatusGetOk();
 }
 
 MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
-  delete reinterpret_cast<MTRT_CompilerClient *>(client.ptr);
+  delete unwrap(client);
+  return mtrtStatusGetOk();
+}
+
+//===----------------------------------------------------------------------===//
+// MTRT_OptionsContext
+//===----------------------------------------------------------------------===//
+
+MLIR_CAPI_EXPORTED MTRT_Status mtrtOptionsContextCreateFromArgs(
+    MTRT_CompilerClient client, MTRT_OptionsContext *options,
+    MlirStringRef optionsType, const MlirStringRef *argv, unsigned argc) {
+  std::vector<llvm::StringRef> argvStrRef(argc);
+  for (unsigned i = 0; i < argc; i++)
+    argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
+
+  auto result = createOptions(
+      *unwrap(client), llvm::StringRef(optionsType.data, optionsType.length),
+      argvStrRef);
+  if (!result.isOk())
+    return wrap(result.getStatus());
+
+  *options = wrap(result->release());
+  return mtrtStatusGetOk();
+}
+
+MLIR_CAPI_EXPORTED void mtrtOptionsContextPrint(MTRT_OptionsContext options,
+                                                MlirStringCallback append,
+                                                void *userData) {
+  mlir::detail::CallbackOstream stream(append, userData);
+  unwrap(options)->print(stream);
+}
+
+MLIR_CAPI_EXPORTED MTRT_Status
+mtrtOptionsContextDestroy(MTRT_OptionsContext options) {
+  delete unwrap(options);
   return mtrtStatusGetOk();
 }
 
@@ -131,10 +170,15 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreate(
   auto result =
       std::make_unique<StableHLOToExecutableOptions>(std::move(extensions));
 
-  /// Populate device options from host information.
-  Status inferStatus = result->inferDeviceOptionsFromHost();
-  if (!inferStatus.isOk())
-    return wrap(inferStatus);
+  llvm::Error finalizeStatus = result->finalize();
+
+  std::optional<std::string> errMsg{};
+  llvm::handleAllErrors(
+      std::move(finalizeStatus),
+      [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
+
+  if (errMsg)
+    return wrap(getInternalErrorStatus(errMsg->c_str()));
 
   *options = wrap(result.release());
   return mtrtStatusGetOk();
@@ -171,10 +215,15 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
         "failed to parse options string {0} due to error: {1}", line, err));
   }
 
-  /// Populate device options from host information.
-  Status inferStatus = result->inferDeviceOptionsFromHost();
-  if (!inferStatus.isOk())
-    return wrap(inferStatus);
+  llvm::Error finalizeStatus = result->finalize();
+
+  std::optional<std::string> errMsg{};
+  llvm::handleAllErrors(
+      std::move(finalizeStatus),
+      [&errMsg](const llvm::StringError &err) { errMsg = err.getMessage(); });
+
+  if (errMsg)
+    return wrap(getInternalErrorStatus(errMsg->c_str()));
 
   *options = wrap(result.release());
   return mtrtStatusGetOk();
@@ -186,12 +235,12 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     const char *dumpTensorRTDir) {
 
   StableHLOToExecutableOptions *cppOpts = unwrap(options);
-  cppOpts->debugOptions.enableLLVMDebugFlag = enableDebugging;
+  cppOpts->get<DebugOptions>().enableLLVMDebugFlag = enableDebugging;
   for (unsigned i = 0; i < debugTypeSizes; i++)
-    cppOpts->debugOptions.llvmDebugTypes.emplace_back(debugTypes[i]);
+    cppOpts->get<DebugOptions>().llvmDebugTypes.emplace_back(debugTypes[i]);
 
   if (dumpIrTreeDir)
-    cppOpts->debugOptions.dumpIRPath = std::string(dumpIrTreeDir);
+    cppOpts->get<DebugOptions>().dumpIRPath = std::string(dumpIrTreeDir);
 
   return mtrtStatusGetOk();
 }
@@ -229,8 +278,56 @@ MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
 }
 
 //===----------------------------------------------------------------------===//
+// StableHloPipeline APIs
+//===----------------------------------------------------------------------===//
+
+MTRT_Status
+mtrtStableHloPipelineGetCached(MTRT_CompilerClient client,
+                               MTRT_StableHLOToExecutableOptions options,
+                               MlirPassManager *result) {
+
+  mlir::PassManager *runner{};
+  if (unwrap(options)->getHash()) {
+    runner = &unwrap(client)->getOrCreatePassManager<StableHloToExecutableTask>(
+        *unwrap(options));
+    result->ptr = runner;
+    return mtrtStatusGetOk();
+  }
+  return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
+                          "options cannot be hashed");
+}
+
+//===----------------------------------------------------------------------===//
 // Main StableHLO Compiler API Functions
 //===----------------------------------------------------------------------===//
+
+MTRT_Status mtrtCompilerGetExecutable(MlirPassManager pm, MlirOperation module,
+                                      MTRT_Executable *result) {
+
+  ModuleOp moduleOp = llvm::dyn_cast<ModuleOp>(unwrap(module));
+  if (!moduleOp)
+    return mtrtStatusCreate(
+        MTRT_StatusCode::MTRT_StatusCode_InvalidArgument,
+        "StableHLO-to-Executable compilation expects a ModuleOp");
+
+  // Setup pass manager
+  mlir::PassManager *runner = static_cast<mlir::PassManager *>(pm.ptr);
+  if (failed(runner->run(moduleOp)))
+    return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
+                            "failed to run MLIR compilation pipeline");
+
+  // Translate to Runtime Executable
+  FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
+      mlir::translateToRuntimeExecutable(unwrap(module));
+  if (failed(exeStorage))
+    return mtrtStatusCreate(
+        MTRT_StatusCode::MTRT_StatusCode_InternalError,
+        "failed to perform MLIR-to-RuntimeExecutable translation");
+
+  result->ptr =
+      std::make_unique<runtime::Executable>(std::move(*exeStorage)).release();
+  return mtrtStatusGetOk();
+}
 
 MTRT_Status mtrtCompilerStableHLOToExecutable(
     MTRT_CompilerClient client, MlirOperation module,

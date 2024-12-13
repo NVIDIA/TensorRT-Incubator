@@ -29,7 +29,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Linalg/IR/ValueBoundsOpInterfaceImpl.h"
 #include "mlir/Dialect/PDL/IR/PDL.h"
-#include "mlir/Dialect/Quant/QuantOps.h"
+#include "mlir/Dialect/Quant/IR/Quant.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -94,7 +94,7 @@ inline void registerAllMlirTensorRtDialects(DialectRegistry &registry) {
   // register dialects if absolutely necessary (i.e. they appear in the input
   // IR).
   registry.insert<arith::ArithDialect, pdl::PDLDialect, shape::ShapeDialect,
-                  tensor::TensorDialect, mlir::quant::QuantizationDialect,
+                  tensor::TensorDialect, mlir::quant::QuantDialect,
                   scf::SCFDialect, transform::TransformDialect>();
 
 #ifdef MLIR_TRT_ENABLE_HLO

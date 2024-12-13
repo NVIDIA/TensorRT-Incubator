@@ -1,7 +1,7 @@
 add_mlir_tensorrt_library(MLIRTensorRTTensorRTToTensorRTRuntime
   TensorRTToTensorRTRuntime.cpp
 
-  LINK_LIBS
+  LINK_LIBS PUBLIC
   MLIRTensorRTExecutorUtils
   MLIRTensorRTDialect
   MLIRTensorRTTensorRTRuntimeDialect
