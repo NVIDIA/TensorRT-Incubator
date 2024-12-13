@@ -38,7 +38,7 @@ class Storage(BaseTraceOp):
     shape: Sequence[int]
     dtype: type
     device: tp_device
-    data_str: str = ""
+    # data_str: str = ""
 
     def __init__(
         self,
