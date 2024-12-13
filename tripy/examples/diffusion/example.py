@@ -29,7 +29,6 @@ from transformers import CLIPTokenizer
 from examples.diffusion.clip_model import CLIPConfig
 from examples.diffusion.model import StableDiffusion, StableDiffusionConfig
 from examples.diffusion.weight_loader import load_from_diffusers
-import nvtx
 
 
 def compile_model(model, inputs, verbose=False):
@@ -84,24 +83,23 @@ def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=100
 def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance, dtype):
     np_type = np.float16 if dtype == tp.float16 else np.float32
     idx_timesteps = list(range(1, 1000, 1000 // steps))
-    timesteps = np.array(idx_timesteps, dtype=np_type)
     guidance = np.array([guidance], dtype=np_type)
 
     print(f"[I] Running diffusion for {steps} timesteps...")
     alphas = get_alphas_cumprod(dtype=np_type)[idx_timesteps]
     alphas_prev = np.concatenate((np.array([1.0], dtype=np_type), alphas[:-1]))
+    guidance = tp.Tensor(guidance)
 
     model.stream = tp.Stream()
-    for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
-        t.set_description("idx: %1d, timestep: %3d" % (index, timestep))
+    for index in tqdm(range(len(idx_timesteps))):
         latent = model(
             unconditional_context,
             context,
             latent,
-            tp.Tensor(np.array([timestep])),
+            tp.Tensor(np.array([idx_timesteps[index]], dtype=np_type)),
             tp.Tensor(alphas[index : index + 1]),
             tp.Tensor(alphas_prev[index : index + 1]),
-            tp.Tensor(guidance),
+            guidance,
         )
 
     model.stream.synchronize()
@@ -172,18 +170,15 @@ def tripy_diffusion(args):
     clip_compiled.stream = tp.Stream()
     context = clip_compiled(prompt)
     unconditional_context = clip_compiled(unconditional_prompt)
-    clip_compiled.stream.synchronize()
     clip_run_end = time.perf_counter()
     print(f"took {clip_run_end - clip_run_start} seconds.")
 
     # Backbone of diffusion - the UNet
     if args.seed is not None:
         torch.manual_seed(args.seed)
-    torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype).to("cuda")
+    torch_latent = torch.randn((1, 4, 64, 64), dtype=torch_dtype)
     latent = tp.Tensor(torch_latent)
 
-    pr = nvtx.Profile()
-    pr.enable()
     diffusion_run_start = time.perf_counter()
     latent = run_diffusion_loop(unet_compiled, unconditional_context, context, latent, args.steps, args.guidance, dtype)
     diffusion_run_end = time.perf_counter()
@@ -194,13 +189,10 @@ def tripy_diffusion(args):
     vae_compiled.stream = tp.Stream()
     vae_run_start = time.perf_counter()
     x = vae_compiled(latent)
-    vae_compiled.stream.synchronize()
     vae_run_end = time.perf_counter()
-    pr.disable()
     print(f"took {vae_run_end - vae_run_start} seconds.")
 
     # Evaluate output
-    x.eval()
     run_end_time = time.perf_counter()
     print(f"[I] Full script took {run_end_time - run_start_time} seconds.")
 
