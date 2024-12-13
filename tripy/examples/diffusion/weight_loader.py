@@ -37,7 +37,7 @@ def load_weights_from_hf(model, hf_model, dtype, debug=False):
         weight = hf_state_dict[key]
         if "norm" not in key:
             weight = weight.to(torch_dtype)
-        param = tp.Parameter(weight)
+        param = tp.Tensor(weight.contiguous())
         tripy_state_dict[key.removeprefix("text_model.")] = param
 
     model.load_state_dict(tripy_state_dict)

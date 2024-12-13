@@ -83,6 +83,7 @@ def get_alphas_cumprod(beta_start=0.00085, beta_end=0.0120, n_training_steps=100
 def run_diffusion_loop(model, unconditional_context, context, latent, steps, guidance, dtype):
     np_type = np.float16 if dtype == tp.float16 else np.float32
     idx_timesteps = list(range(1, 1000, 1000 // steps))
+    timesteps = np.array(idx_timesteps, dtype=np_type)
     guidance = np.array([guidance], dtype=np_type)
 
     print(f"[I] Running diffusion for {steps} timesteps...")
@@ -91,12 +92,12 @@ def run_diffusion_loop(model, unconditional_context, context, latent, steps, gui
     guidance = tp.Tensor(guidance)
 
     model.stream = tp.Stream()
-    for index in tqdm(range(len(idx_timesteps))):
+    for index, timestep in (t := tqdm(list(enumerate(timesteps))[::-1])):
         latent = model(
             unconditional_context,
             context,
             latent,
-            tp.Tensor(np.array([idx_timesteps[index]], dtype=np_type)),
+            tp.Tensor(np.array([timestep])),
             tp.Tensor(alphas[index : index + 1]),
             tp.Tensor(alphas_prev[index : index + 1]),
             guidance,
