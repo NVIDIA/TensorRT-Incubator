@@ -244,7 +244,7 @@ class Tensor(metaclass=TensorMeta):
 
         Storage.build_internal([], [self.trace_tensor], data)
         # TODO(#155): Remove this hack of overriding the device type.
-        self.trace_tensor.device = trace.outputs[0].device
+        self.trace_tensor.device = output_devices[0]
 
         self.trace_tensor.eval_stack_info = utils.get_stack_info()
         if self.trace_tensor.is_compile_tracer:

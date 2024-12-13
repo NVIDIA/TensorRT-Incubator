@@ -43,7 +43,7 @@ def flat_ir():
     )
     out.name = "out"
 
-    trace = Trace([out])
+    trace = Trace([out.trace_tensor])
     flat_ir = trace.to_flat_ir()
     yield flat_ir
 

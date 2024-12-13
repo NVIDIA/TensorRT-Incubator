@@ -28,7 +28,7 @@ class TestTrace:
     def test_single_layer_structure(self):
         a = tp.Tensor([0], name="a")
 
-        trace = Trace([a])
+        trace = Trace([a.trace_tensor])
 
         assert len(trace.ops) == 1
         layer = trace.ops[0]
@@ -45,7 +45,7 @@ class TestTrace:
         c = a + b
         c.name = "c"
 
-        trace = Trace([c])
+        trace = Trace([c.trace_tensor])
 
         assert len(trace.ops) == 3
         names = {layer.outputs[0].name for layer in trace.ops}
@@ -59,7 +59,7 @@ class TestTrace:
         c = a + b
         c.name = "c"
 
-        trace = Trace([c])
+        trace = Trace([c.trace_tensor])
 
         assert len(trace.ops) == 3
 
@@ -75,7 +75,7 @@ class TestTrace:
         # Our implementation should not do that.
         d = c + c
 
-        trace = Trace([d])
+        trace = Trace([d.trace_tensor])
 
         # If we end up tracing `c` twice, we'll end up with 7 layers: [a, b, a, b, c, c, d].
         # Without duplication, we should just have [a, b, c, d].
@@ -88,7 +88,7 @@ class TestTrace:
         c = a + b
         c.name = "c"
 
-        trace = Trace([c])
+        trace = Trace([c.trace_tensor])
 
         print(trace)  # Makes it easier to debug when the test fails.
         assert (
@@ -111,7 +111,7 @@ class TestTrace:
 
         c = a + b
 
-        trace = Trace([c])
+        trace = Trace([c.trace_tensor])
 
         assert trace.ops[-1].outputs[0].dtype == a.trace_tensor.producer.dtype
         assert trace.ops[-1].outputs[0].device == tp.device("gpu")
@@ -127,7 +127,7 @@ class TestTrace:
         d.name = "d"
 
         # The order c,d is important to test topological sort correctness, since if its d,c the dependencies are managed automatically.
-        trace = Trace([c, d])
+        trace = Trace([c.trace_tensor, d.trace_tensor])
         print(trace)
         assert (
             str(trace)
@@ -147,7 +147,7 @@ class TestTrace:
     def test_input_output(self):
         a = tp.Tensor([1, 1])
         # a is an input
-        trace = Trace([a], [a])
+        trace = Trace([a.trace_tensor], [a.trace_tensor])
         assert len(trace.inputs) == 1
         assert len(trace.outputs) == 1
         assert len(trace.ops) == 0
@@ -161,7 +161,7 @@ class TestTrace:
 
         c = a + b
         c.name = "c"
-        trace = Trace([c], [a, b])
+        trace = Trace([c.trace_tensor], [a.trace_tensor, b.trace_tensor])
         print(trace)
         assert (
             str(trace)
@@ -184,7 +184,7 @@ class TestTrace:
 
         c = a + b
         c.name = "c"
-        trace = Trace([c], [a])
+        trace = Trace([c.trace_tensor], [a.trace_tensor])
         print(trace)
         assert (
             str(trace)
@@ -214,4 +214,4 @@ class TestTrace:
             match="Found distinct tensors with the same name: 'a'.",
             has_stack_info_for=[a, b],
         ):
-            Trace([c])
+            Trace([c.trace_tensor])

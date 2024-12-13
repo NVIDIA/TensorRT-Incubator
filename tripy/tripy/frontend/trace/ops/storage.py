@@ -38,6 +38,7 @@ class Storage(BaseTraceOp):
     shape: Sequence[int]
     dtype: type
     device: tp_device
+    data_str: str = ""
 
     def __init__(
         self,
@@ -70,7 +71,9 @@ class Storage(BaseTraceOp):
             )
             self.device = utils.default(device, tp_device.create_directly("gpu", 0))
 
-        # breakpoint()
+        # if not utils.should_omit_constant_in_str(self.data.shape):
+        #     self.data_str = str(self.data)
+
         self.outputs[0].shape = list(self.shape)
 
     def str_skip_fields(self) -> Set[str]:
