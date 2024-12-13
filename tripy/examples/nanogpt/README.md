@@ -76,3 +76,9 @@ Use `--quant-mode` in `example.py` to enable quantization. Supported modes:
     ```
     Tripy: TEST: EXPECTED_STDOUT End
     -->
+
+3. float8 quantization:
+
+    ```bash
+    python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode float8
+    ```
