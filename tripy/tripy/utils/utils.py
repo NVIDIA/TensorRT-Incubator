@@ -29,6 +29,7 @@ from typing import Any, List, Optional, Sequence, Tuple, Union
 from colored import Fore, Style
 
 from tripy import constants
+from tripy.common import datatype
 from tripy.common.exception import raise_error
 from tripy.logging import logger
 
@@ -201,6 +202,15 @@ def get_shape(data):
 
 def should_omit_constant_in_str(shape):
     return math.prod(shape) >= constants.CONSTANT_IR_PRINT_VOLUME_THRESHOLD
+
+
+def should_lift_storage_op_as_input(dtype, shape):
+    is_shape_dtype = dtype in (
+        datatype.int32,
+        datatype.int64,
+    )
+
+    return not is_shape_dtype or math.prod(shape) >= constants.STROGE_OP_PRINT_VOLUME_THRESHOLD
 
 
 def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:

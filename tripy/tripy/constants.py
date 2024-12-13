@@ -15,7 +15,9 @@
 # limitations under the License.
 #
 
-CONSTANT_IR_PRINT_VOLUME_THRESHOLD = 64
+CONSTANT_IR_PRINT_VOLUME_THRESHOLD = 5
+STROGE_OP_PRINT_VOLUME_THRESHOLD = 64
+
 """
 A volume threshold for displaying constants in IR logging messages.
 Constants with volumes greater than this threshold will be omitted from logging messages.

@@ -37,20 +37,51 @@ class TestStorage:
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == device
+        assert storage.data_str == ""
 
-    def test_from_list(self):
+    @pytest.mark.parametrize("dtype", ["int64", "int32"])
+    def test_from_dlpack_int(self, dtype):
+        cp_dtype = cp.int64 if dtype == "int64" else cp.int32
+        tripy_dtype = tp.int64 if dtype == "int64" else tp.int32
+
+        data = cp.ones((2, 2), dtype=cp_dtype)
+        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        assert storage.dtype == tripy_dtype
+        assert storage.shape == (2, 2)
+        assert storage.device.kind == "gpu"
+        assert storage.data_str == "[[1 1]\n [1 1]]"
+
+    def test_from_dlpack_float(self):
+        data = cp.ones((2, 2), dtype=cp.float32)
+        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        assert storage.dtype == tp.float32
+        assert storage.shape == (2, 2)
+        assert storage.device.kind == "gpu"
+        assert storage.data_str == ""
+
+    def test_from_list_int(self):
+        data = [[1, 2], [3, 4]]
+        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        assert storage.dtype == tp.int32
+        assert storage.shape == (2, 2)
+        assert storage.device.kind == "gpu"
+        assert storage.data_str == "[[1, 2], [3, 4]]"
+
+    def test_from_list_float(self):
         data = [[1.0, 2.0], [3.0, 4.0]]
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
+        assert storage.data_str == ""
 
     def test_empty_list(self):
         data = [[]]
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
-        assert storage.dtype == tp.float32
+        assert storage.dtype == tp.int32
         assert storage.shape == (1, 0)
         assert storage.device.kind == "gpu"
+        assert storage.data_str == "[[]]"
 
     def test_infer_rank(self):
         arr = [1.0, 2.0, 3.0]

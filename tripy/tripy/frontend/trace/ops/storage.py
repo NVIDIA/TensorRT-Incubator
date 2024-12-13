@@ -15,10 +15,8 @@
 # limitations under the License.
 #
 
-import copy
-import numbers
-from dataclasses import dataclass, fields
-from typing import List, Sequence, Set, Union
+from dataclasses import dataclass
+from typing import List, Sequence, Set, Any
 
 import mlir_tensorrt.runtime.api as runtime
 
@@ -38,16 +36,23 @@ class Storage(BaseTraceOp):
     shape: Sequence[int]
     dtype: type
     device: tp_device
-    # data_str: str = ""
+    data_str: str = ""
 
     def __init__(
         self,
         inputs: List["Tensor"],
         outputs: List["Tensor"],
-        data: Union[runtime.MemRefValue, Sequence[numbers.Number]],
+        data: Any,
         device: tp_device = None,
     ) -> None:
         super().__init__(inputs, outputs)
+
+        original_data = data
+        is_memref = isinstance(data, runtime.MemRefValue)
+
+        # Handle if data is dlpacked but not memref yet
+        if hasattr(data, "__dlpack__") and not isinstance(data, runtime.MemRefValue):
+            data = memref.create_memref_view(data)
 
         if isinstance(data, runtime.MemRefValue):
             self.data = data
@@ -58,7 +63,7 @@ class Storage(BaseTraceOp):
             )
         else:
             if common_utils.is_empty(data):
-                self.dtype = datatype.float32
+                self.dtype = datatype.int32
                 data_array = None
             else:
                 self.dtype = common_utils.get_element_type(data)
@@ -71,8 +76,10 @@ class Storage(BaseTraceOp):
             )
             self.device = utils.default(device, tp_device.create_directly("gpu", 0))
 
-        # if not utils.should_omit_constant_in_str(self.data.shape):
-        #     self.data_str = str(self.data)
+        # Set data_str only for non memref original data objects that won't be treated as Trace
+        # inputs (all inputs that are not shape tensors). This is used in eager mode cache key generation for look ups
+        if not is_memref and not utils.should_lift_storage_op_as_input(self.dtype, self.shape):
+            self.data_str = str(original_data)
 
         self.outputs[0].shape = list(self.shape)
 
