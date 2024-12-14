@@ -22,7 +22,7 @@ class ExecutableCache:
     """Global cache for storing compiled executables."""
 
     def __init__(self):
-        self._cache = {}
+        self._cache: Dict[str, runtime.Executable] = {}
 
     def _assign_tensor_name(
         self,
@@ -35,13 +35,13 @@ class ExecutableCache:
         Assign or retrieve a tensor name.
 
         Args:
-            tensor: The tensor to name
-            tensor_map: Mapping of tensor ids to names (clean or original)
-            next_id: Mutable list for tracking next tensor ID
-            backup_map: Mapping to store original names
+            tensor (TraceTensor): The tensor to name.
+            tensor_map (Dict[int, str]): Mapping of tensor ids to names (clean or original).
+            next_id (List[int]): Mutable list for tracking next tensor ID.
+            backup_map (Dict[int, str], optional): Mapping to store original names. Defaults to None.
 
         Returns:
-            str: The assigned or retrieved tensor name
+            str: The assigned or retrieved tensor name.
         """
         t_id = id(tensor)
 
@@ -62,10 +62,10 @@ class ExecutableCache:
         Update names for inputs, outputs, and operations in the trace.
 
         Args:
-            trace: The trace to update
-            tensor_map: Mapping of tensor ids to names
-            next_id: Mutable list for tracking next tensor ID
-            backup_map: Mapping of original tensor names
+            trace (Trace): The trace to update.
+            tensor_map (Dict[int, str]): Mapping of tensor ids to names.
+            next_id (List[int]): Mutable list for tracking next tensor ID.
+            backup_map (Dict[int, str], optional): Mapping of original tensor names. Defaults to None.
         """
         # Update input names
         for inp in trace.inputs:
@@ -87,10 +87,10 @@ class ExecutableCache:
         Normalize the trace by renaming all tensor names while preserving the structure.
 
         Args:
-            trace: The trace to normalize
+            trace (Trace): The trace to normalize.
 
         Returns:
-            str: Normalized trace as a string
+            str: Normalized trace as a string.
         """
         # Initialize maps and next tensor ID
         tensor_map: Dict[int, str] = {}
@@ -109,18 +109,45 @@ class ExecutableCache:
         return trace_str
 
     def _generate_key(self, trace: "Trace", devices: List["tripy.common.device"]) -> str:
+        """
+        Generate a unique key for a given trace and device configuration.
+
+        Args:
+            trace (Trace): The trace for which to generate the key.
+            devices (List[Device]): List of devices associated with the trace.
+
+        Returns:
+            str: A unique hash key representing the trace and devices.
+        """
         normalized_trace = self._normalize_trace(trace)
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
         return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
-    def get(self, trace: "Trace", devices: List["tripy.common.device"]):
+    def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> runtime.Executable:
+        """
+        Retrieve a cached executable for the given trace and devices.
+
+        Args:
+            trace (Trace): The trace used as a key.
+            devices (List[Device]): List of devices associated with the trace.
+
+        Returns:
+            Executable: The cached executable, or None if not found.
+        """
         key = self._generate_key(trace, devices)
         return self._cache.get(key, None)
 
-    def set(self, trace: "Trace", executable: runtime.Executable, devices: List["tripy.common.device"]):
+    def set(self, trace: "Trace", executable: runtime.Executable, devices: List["tripy.common.device"]) -> None:
+        """
+        Cache an executable for the given trace and devices.
+
+        Args:
+            trace (Trace): The trace used as a key.
+            executable (Executable): The executable to cache.
+            devices (List[Device]): List of devices associated with the trace.
+        """
         key = self._generate_key(trace, devices)
         self._cache[key] = executable
 
-    def size(self) -> int:
-        """Return the number of items in the cache."""
-        return len(self._cache)
+
+global_cache = ExecutableCache()

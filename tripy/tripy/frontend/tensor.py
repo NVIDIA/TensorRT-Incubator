@@ -149,7 +149,9 @@ class Tensor(metaclass=TensorMeta):
         if data is None:
             return
 
-        Storage.build_internal([], [instance.trace_tensor], data)
+        Storage.build_internal(
+            [], [instance.trace_tensor], data, device=device if not hasattr(data, "__dlpack__") else None
+        )
 
         # TODO(#155): Remove this hack:
         instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
@@ -209,10 +211,10 @@ class Tensor(metaclass=TensorMeta):
         from tripy.backend.mlir.compiler import Compiler
         from tripy.backend.mlir.executor import Executor
         from tripy.frontend.trace import Trace
-        from tripy.frontend import global_cache
+        from tripy.frontend.cache import global_cache
 
         # Collect inputs
-        inputs = self._collect_storage_tensors()  # TODO: how to test real inputs? not shape inputs
+        inputs = Trace._collect_storage_tensors(self.trace_tensor)  # TODO: how to test real inputs? not shape inputs
         input_shapes = [ShapeBounds(min=tuple(inp.shape), opt=tuple(inp.shape), max=tuple(inp.shape)) for inp in inputs]
 
         trace = Trace([self.trace_tensor], inputs=inputs, shapes=input_shapes)
@@ -256,25 +258,6 @@ class Tensor(metaclass=TensorMeta):
             )
 
         return data
-
-    def _collect_storage_tensors(self):
-        visited = set()
-        inputs = []
-
-        def dfs(trace_tensor):
-            if id(trace_tensor) in visited:
-                return
-            visited.add(id(trace_tensor))
-
-            producer = trace_tensor.producer
-            if isinstance(producer, Storage) and utils.should_lift_storage_op_as_input(producer.shape):
-                inputs.append(trace_tensor)
-            else:
-                for inp in producer.inputs:
-                    dfs(inp)
-
-        dfs(self.trace_tensor)
-        return inputs
 
     def tolist(self):
         data_memref = self.eval()

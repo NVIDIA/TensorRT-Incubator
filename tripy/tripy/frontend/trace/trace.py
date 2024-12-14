@@ -18,8 +18,10 @@
 import copy
 from typing import List, Sequence, Set
 
+from tripy import utils
 from tripy.common.exception import raise_error
 from tripy.common.shape_bounds import ShapeBounds
+from tripy.frontend.trace.ops import Storage
 from tripy.frontend.trace.tensor import TraceTensor
 from tripy.frontend.utils import topological_sort
 from tripy.logging import logger
@@ -104,6 +106,26 @@ class Trace:
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
+
+    @staticmethod
+    def _collect_storage_tensors(trace_tensor):
+        visited = set()
+        inputs = []
+
+        def dfs(trace_tensor):
+            if id(trace_tensor) in visited:
+                return
+            visited.add(id(trace_tensor))
+
+            producer = trace_tensor.producer
+            if isinstance(producer, Storage) and utils.should_lift_storage_op_as_input(producer.shape):
+                inputs.append(trace_tensor)
+            else:
+                for inp in producer.inputs:
+                    dfs(inp)
+
+        dfs(trace_tensor)
+        return inputs
 
     def to_flat_ir(self):
         from tripy.flat_ir.flat_ir import FlatIR

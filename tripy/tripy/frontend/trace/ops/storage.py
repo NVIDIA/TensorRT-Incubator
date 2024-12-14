@@ -63,7 +63,7 @@ class Storage(BaseTraceOp):
             )
         else:
             if common_utils.is_empty(data):
-                self.dtype = datatype.int32
+                self.dtype = datatype.float32
                 data_array = None
             else:
                 self.dtype = common_utils.get_element_type(data)

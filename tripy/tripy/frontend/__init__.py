@@ -17,6 +17,3 @@
 
 from tripy.frontend.tensor import Tensor
 from tripy.frontend.trace import Trace
-from tripy.frontend.cache import ExecutableCache
-
-global_cache = ExecutableCache()
