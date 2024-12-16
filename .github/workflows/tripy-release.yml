@@ -21,6 +21,10 @@ concurrency:
 jobs:
   build-and-release:
     runs-on: tripy-self-hosted
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -56,6 +60,11 @@ jobs:
         generate_release_notes: true
         files: /tripy/dist/tripy-*.whl
         fail_on_unmatched_files: true
+
+    - name: Publish To PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: /tripy/dist/
 
     - uses: actions/configure-pages@v5
 
