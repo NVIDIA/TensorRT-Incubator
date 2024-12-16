@@ -125,7 +125,7 @@ class ExecutableCache:
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
         return utils.md5(key.encode("utf-8"))
 
-    def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> runtime.Executable:
+    def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> Optional[runtime.Executable]:
         """
         Retrieve a cached executable for the given trace and devices.
 
@@ -137,7 +137,7 @@ class ExecutableCache:
             Executable: The cached executable, or None if not found.
         """
         key = self._generate_key(trace, devices)
-        return self._cache.get(key, None)
+        return self._cache.get(key)
 
     def set(self, trace: "Trace", executable: runtime.Executable, devices: List["tripy.common.device"]) -> None:
         """
