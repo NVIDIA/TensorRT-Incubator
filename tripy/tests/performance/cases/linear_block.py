@@ -17,7 +17,7 @@ import torch
 from tests.helper import TRIPY_TO_NUMPY
 from tests.performance.conftest import PerfParam, perf_fixture
 
-import tripy as tp
+import nvtripy as tp
 
 
 @perf_fixture(

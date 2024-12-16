@@ -15,7 +15,7 @@
 import pytest
 from tests import helper
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestInput:
@@ -57,6 +57,6 @@ class TestInput:
     def test_invalid_shape(self, shape):
         with helper.raises(
             tp.TripyException,
-            r"Not a valid overload because: For parameter: 'shape', expected an instance of type: 'Sequence\[int \| tripy.DimensionSize | Tuple\[int \| tripy.DimensionSize, int \| tripy.DimensionSize, int \| tripy.DimensionSize\]\]' but got argument of type: ",
+            r"Not a valid overload because: For parameter: 'shape', expected an instance of type: 'Sequence\[int \| nvtripy.DimensionSize | Tuple\[int \| nvtripy.DimensionSize, int \| nvtripy.DimensionSize, int \| nvtripy.DimensionSize\]\]' but got argument of type: ",
         ):
             tp.InputInfo(shape=shape, dtype=tp.float32)

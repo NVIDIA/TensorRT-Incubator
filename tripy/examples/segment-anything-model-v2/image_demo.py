@@ -19,7 +19,7 @@ import os
 import time
 import numpy as np
 import torch
-import tripy as tp
+import nvtripy as tp
 import matplotlib.pyplot as plt
 
 plt.switch_backend("agg")  # Switch to non-interactive backend

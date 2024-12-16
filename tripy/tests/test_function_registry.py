@@ -23,9 +23,9 @@ import pytest
 import torch
 from tests import helper
 
-import tripy as tp
-from tripy import TripyException
-from tripy.function_registry import AnnotationInfo, FunctionRegistry, str_from_type_annotation, type_str_from_arg
+import nvtripy as tp
+from nvtripy import TripyException
+from nvtripy.function_registry import AnnotationInfo, FunctionRegistry, str_from_type_annotation, type_str_from_arg
 
 
 @pytest.fixture()
@@ -245,7 +245,7 @@ class TestFunctionRegistry:
 
         # Tripy types should turn into class links
         @registry("test")
-        def func(a: Union[int, "tripy.Tensor"]):
+        def func(a: Union[int, "nvtripy.Tensor"]):
             """
             This func takes an int or a tensor.
             """
@@ -267,7 +267,7 @@ class TestFunctionRegistry:
 
                 .. container:: func-overload-sig sig sig-object py
 
-                    :sig-prename:`tripy`\ .\ :sig-name:`test`\ (a: int) -> None
+                    :sig-prename:`nvtripy`\ .\ :sig-name:`test`\ (a: int) -> None
 
                 This func takes an int.
 
@@ -280,7 +280,7 @@ class TestFunctionRegistry:
 
                 .. container:: func-overload-sig sig sig-object py
 
-                    :sig-prename:`tripy`\ .\ :sig-name:`test`\ (a: int | :class:`tripy.Tensor`) -> None
+                    :sig-prename:`nvtripy`\ .\ :sig-name:`test`\ (a: int | :class:`nvtripy.Tensor`) -> None
 
                 This func takes an int or a tensor.
                 """
@@ -583,13 +583,13 @@ class TestFunctionRegistry:
 @pytest.mark.parametrize(
     "typ, expected",
     [
-        (tp.types.IntLike, "int | tripy.DimensionSize"),
-        (Tuple[tp.types.IntLike], "Tuple[int | tripy.DimensionSize]"),
-        (List[tp.types.IntLike], "List[int | tripy.DimensionSize]"),
-        (Dict[str, tp.Tensor], "Dict[str, tripy.Tensor]"),
-        (tp.types.TensorLike, "tripy.Tensor | numbers.Number"),
-        (tp.types.ShapeLike, "Sequence[int | tripy.DimensionSize]"),
-        (tp.Tensor, "tripy.Tensor"),
+        (tp.types.IntLike, "int | nvtripy.DimensionSize"),
+        (Tuple[tp.types.IntLike], "Tuple[int | nvtripy.DimensionSize]"),
+        (List[tp.types.IntLike], "List[int | nvtripy.DimensionSize]"),
+        (Dict[str, tp.Tensor], "Dict[str, nvtripy.Tensor]"),
+        (tp.types.TensorLike, "nvtripy.Tensor | numbers.Number"),
+        (tp.types.ShapeLike, "Sequence[int | nvtripy.DimensionSize]"),
+        (tp.Tensor, "nvtripy.Tensor"),
         (torch.Tensor, "torch.Tensor"),
         (int, "int"),
         (Optional[int], "int | None"),
@@ -603,7 +603,7 @@ def test_str_from_type_annotation(typ, expected):
 @pytest.mark.parametrize(
     "typ, expected",
     [
-        (tp.Tensor([1, 2, 3]), "tripy.Tensor"),
+        (tp.Tensor([1, 2, 3]), "nvtripy.Tensor"),
         (torch.tensor([1, 2, 3]), "torch.Tensor"),
         (0, "int"),
         ("hi", "str"),

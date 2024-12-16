@@ -21,7 +21,7 @@ generation, such as where in the documentation hierarchy the API should be docum
 The `generate_rsts.py` script uses this information to automatically generate a directory
 structure and populate it with `.rst` files.
 
-For more information, see the docstring for [`export.public_api()`](../tripy/export.py).
+For more information, see the docstring for [`export.public_api()`](../nvtripy/export.py).
 
 ### Docstrings
 
@@ -70,7 +70,7 @@ This means we need to make some special considerations:
     Myst can replace them with URLs to our remote repository. Otherwise, the links will
     cause the relevant file to be downloaded. For example:
     ```
-    [Fill operation](source:/tripy/frontend/trace/ops/fill.py)
+    [Fill operation](source:/nvtripy/frontend/trace/ops/fill.py)
     ```
 
     Links to markdown files are an exception; if a markdown file is part of the *rendered*
@@ -85,7 +85,7 @@ This means we need to make some special considerations:
     For example:
 
     ```md
-    {class}`tripy.Tensor`
+    {class}`nvtripy.Tensor`
     ```
 
     `<api_kind>` can take on any value that is a valid role provided by
@@ -101,11 +101,11 @@ Code examples in public facing docstrings and guides are preprocessed before
 documentation is generated. Specifically:
 
 - Any code examples are executed so that their output can be
-    displayed after the code block. Several modules, including `tripy` (as `tp`),
+    displayed after the code block. Several modules, including `nvtripy` (as `tp`),
     `numpy` (as `np`), `cupy` (as `cp`), and `torch` are automatically imported
     and can be used in code examples.
 
-- The values of any `tripy` type local variables are appended to the output.
+- The values of any `nvtripy` type local variables are appended to the output.
     You can customize this behavior:
 
     - To only display certain variables, add `# doc: print-locals` followed by a space

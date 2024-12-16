@@ -24,7 +24,7 @@
 
 from typing import Optional, Tuple, Type
 
-import tripy as tp
+import nvtripy as tp
 from sam2.modeling.position_encoding import PositionEmbeddingRandom
 from sam2.modeling.sam2_utils import LayerNorm2d
 

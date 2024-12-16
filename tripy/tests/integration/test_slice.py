@@ -20,7 +20,7 @@ import numpy as np
 import math
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestSliceOp:

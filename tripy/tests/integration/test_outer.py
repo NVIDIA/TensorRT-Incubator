@@ -14,7 +14,7 @@
 # limitations under the License.
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 import torch
 
 

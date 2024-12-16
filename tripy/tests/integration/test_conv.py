@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import pytest
 import torch
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
 
 DTYPES = [

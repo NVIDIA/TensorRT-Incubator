@@ -15,7 +15,7 @@
 
 from tests import helper
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestOuter:

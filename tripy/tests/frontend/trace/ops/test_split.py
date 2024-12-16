@@ -17,9 +17,9 @@
 
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace.ops import Split
+from nvtripy.frontend.trace.ops import Split
 
 
 def validate_splits(splits, expected_shapes):

@@ -16,9 +16,9 @@
 #
 
 import re
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace.ops import Where
+from nvtripy.frontend.trace.ops import Where
 
 
 class TestWhere:

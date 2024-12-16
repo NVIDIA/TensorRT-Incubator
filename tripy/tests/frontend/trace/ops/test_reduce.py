@@ -17,8 +17,8 @@
 
 import pytest
 
-import tripy as tp
-from tripy.frontend.trace.ops import Reduce, BinaryElementwise, ArgMinMax
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import Reduce, BinaryElementwise, ArgMinMax
 
 
 class TestReduce:

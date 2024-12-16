@@ -23,7 +23,7 @@ import torch
 from tests.performance.cases import *
 from tests.performance.conftest import PERF_CASES
 
-import tripy as tp
+import nvtripy as tp
 
 
 def run_timed_trials(thunk: Callable[[], None], warm_up_runs=10, iterations=1000):

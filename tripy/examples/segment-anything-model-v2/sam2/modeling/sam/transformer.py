@@ -25,8 +25,8 @@
 from functools import partial
 from typing import Tuple, Type
 
-import tripy as tp
-from tripy import Tensor
+import nvtripy as tp
+from nvtripy import Tensor
 from sam2.modeling.sam2_utils import MLP, scaled_dot_product_attention
 from sam2.modeling.position_encoding import apply_rotary_enc, compute_axial_cis
 

@@ -17,8 +17,8 @@
 
 import pytest
 
-import tripy as tp
-from tripy.frontend.trace.ops import Copy
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import Copy
 
 
 @pytest.mark.parametrize("src, dst", [("cpu", "gpu"), ("gpu", "cpu")])

@@ -27,9 +27,9 @@ from dataclasses import dataclass
 from textwrap import dedent, indent
 from typing import Dict, List, Set
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.export import PUBLIC_APIS
+from nvtripy.export import PUBLIC_APIS
 
 
 @dataclass

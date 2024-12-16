@@ -3,7 +3,7 @@
 This document explains how to release a new version of Tripy.
 
 1. Update version numbers in [`pyproject.toml`](./pyproject.toml) and
-    [`__init__.py`](./tripy/__init__.py) (make sure they match!).
+    [`__init__.py`](./nvtripy/__init__.py) (make sure they match!).
 
     Often, updates to Tripy will also require updates to dependencies,
     like MLIR-TRT, so make sure to update those version numbers as well.

@@ -2,7 +2,7 @@
 
 The tests directory includes both unit and integration tests. For the former, the file
 structure is meant to exactly mirror the structure of the code. That means, for example
-that `tripy/path/to/<file>.py` will have all of its unit tests in `tests/path/to/test_<file>.py`.
+that `nvtripy/path/to/<file>.py` will have all of its unit tests in `tests/path/to/test_<file>.py`.
 The `tests/integration` directory captures the latter group of tests.
 
 
@@ -59,7 +59,7 @@ http://localhost:8080/snakeviz/%2Ftripy%2Fprof%2Fcombined.prof
 You can generate code coverage reports locally by running:
 
 ```bash
-pytest --cov=tripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
+pytest --cov=nvtripy/ --cov-report=html --cov-config=.coveragerc tests/ -v
 ```
 
 To view the report, open the `htmlcov/index.html` file from the root directory in a browser.
@@ -85,7 +85,7 @@ vulture . --sort-by-size --min-confidence=100
 
 ## Adding Tests
 
-When modifying or adding new files in `tripy`, make sure that you also modify or add the corresponding
+When modifying or adding new files in `nvtripy`, make sure that you also modify or add the corresponding
 unit test files under `tests`. For integration tests, you can find an appropriate file in
 `tests/integration` or create a new one if none of the existing files fit your needs.
 
@@ -126,7 +126,7 @@ The code block format is:
 
 Any caption other than `Example` will have a prefix of `Example: ` prepended to it.
 
-**NOTE: The docstrings must *not* import `tripy`, `numpy`, or `torch`. They will be imported**
+**NOTE: The docstrings must *not* import `nvtripy`, `numpy`, or `torch`. They will be imported**
     **automatically as `tp`, `np`, and `torch` respectively. Any other modules will need to be imported.**
 
 

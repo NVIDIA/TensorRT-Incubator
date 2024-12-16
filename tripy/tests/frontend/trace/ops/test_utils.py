@@ -17,7 +17,7 @@
 
 import pytest
 
-from tripy.frontend.trace.ops.utils import get_broadcast_in_dim
+from nvtripy.frontend.trace.ops.utils import get_broadcast_in_dim
 
 
 class TestGetBroadcastInDim:

@@ -21,7 +21,7 @@ import inspect
 import pytest
 
 from tests import helper
-from tripy.frontend.module import Module
+from nvtripy.frontend.module import Module
 
 MODULE_TYPES = sorted(
     {

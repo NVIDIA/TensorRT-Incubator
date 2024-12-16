@@ -16,8 +16,8 @@
 #
 
 import pytest
-import tripy as tp
-from tripy.frontend.utils import tensor_from_shape_like
+import nvtripy as tp
+from nvtripy.frontend.utils import tensor_from_shape_like
 
 
 @pytest.mark.parametrize(

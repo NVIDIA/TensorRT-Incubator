@@ -21,10 +21,10 @@ from textwrap import dedent
 
 from tests import helper
 
-import tripy as tp
-from tripy.common.exception import TripyException, _get_function_file_and_lines, str_from_stack_info, raise_error
-from tripy.utils import StackInfo, get_stack_info
-from tripy.utils.stack_info import SourceInfo
+import nvtripy as tp
+from nvtripy.common.exception import TripyException, _get_function_file_and_lines, str_from_stack_info, raise_error
+from nvtripy.utils import StackInfo, get_stack_info
+from nvtripy.utils.stack_info import SourceInfo
 
 
 @dataclass
@@ -46,8 +46,8 @@ class TestRaiseError:
         stack_info = StackInfo(
             [
                 SourceInfo(
-                    module="tripy.frontend.tensor",
-                    file="/tripy/tripy/frontend/tensor.py",
+                    module="nvtripy.frontend.tensor",
+                    file="/nvtripy/nvtripy/frontend/tensor.py",
                     line=52,
                     function="_finalize",
                     code="",
@@ -55,8 +55,8 @@ class TestRaiseError:
                     column_range=None,
                 ),
                 SourceInfo(
-                    module="tripy.frontend.tensor",
-                    file="/tripy/tripy/frontend/tensor.py",
+                    module="nvtripy.frontend.tensor",
+                    file="/nvtripy/nvtripy/frontend/tensor.py",
                     line=74,
                     function="build",
                     code="",
@@ -64,8 +64,8 @@ class TestRaiseError:
                     column_range=None,
                 ),
                 SourceInfo(
-                    module="tripy.frontend.trace.ops.binary_elementwise",
-                    file="/tripy/tripy/frontend/ops/binary_elementwise.py",
+                    module="nvtripy.frontend.trace.ops.binary_elementwise",
+                    file="/nvtripy/nvtripy/frontend/ops/binary_elementwise.py",
                     line=175,
                     function="sub",
                     code="",
@@ -73,8 +73,8 @@ class TestRaiseError:
                     column_range=None,
                 ),
                 SourceInfo(
-                    module="tripy.frontend.utils",
-                    file="/tripy/tripy/frontend/utils.py",
+                    module="nvtripy.frontend.utils",
+                    file="/nvtripy/nvtripy/frontend/utils.py",
                     line=23,
                     function="wrapper",
                     code="            return func(*new_args, **new_kwargs)",
@@ -82,8 +82,8 @@ class TestRaiseError:
                     column_range=None,
                 ),
                 SourceInfo(
-                    module="tripy.utils.function_registry",
-                    file="/tripy/tripy/utils/function_registry.py",
+                    module="nvtripy.utils.function_registry",
+                    file="/nvtripy/nvtripy/utils/function_registry.py",
                     line=143,
                     function="__call__",
                     code="        return self.func(*args, **kwargs)",
@@ -91,8 +91,8 @@ class TestRaiseError:
                     column_range=None,
                 ),
                 SourceInfo(
-                    module="tripy.utils.function_registry",
-                    file="/tripy/tripy/utils/function_registry.py",
+                    module="nvtripy.utils.function_registry",
+                    file="/nvtripy/nvtripy/utils/function_registry.py",
                     line=237,
                     function="wrapper",
                     code="                        return self.find_overload(key, args, kwargs)(*args, **kwargs)",
@@ -101,7 +101,7 @@ class TestRaiseError:
                 ),
                 SourceInfo(
                     module="__main__",
-                    file="/tripy/tmp.py",
+                    file="/nvtripy/tmp.py",
                     line=3,
                     function="<module>",
                     code="a = tp.zeros((2, 3)) - tp.ones((2, 4))",
@@ -115,7 +115,7 @@ class TestRaiseError:
         assert (
             dedent(
                 """
-                --> /tripy/tmp.py:3 in <module>()
+                --> /nvtripy/tmp.py:3 in <module>()
                       |
                     3 | a = tp.zeros((2, 3)) - tp.ones((2, 4))
                       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -125,7 +125,7 @@ class TestRaiseError:
         )
 
     def test_wrappers_is_excluded(self):
-        from tripy import wrappers
+        from nvtripy import wrappers
 
         tensor = tp.ones((2, 3))
 

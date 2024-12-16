@@ -17,8 +17,8 @@
 
 import pytest
 
-import tripy as tp
-from tripy import utils
+import nvtripy as tp
+from nvtripy import utils
 from tests import helper
 from collections import defaultdict
 

@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 import torch
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestReduceOp:

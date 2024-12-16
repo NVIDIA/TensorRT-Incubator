@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import tripy as tp
-from tripy.frontend.trace.ops import Pad
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import Pad
 from tests import helper
 
 

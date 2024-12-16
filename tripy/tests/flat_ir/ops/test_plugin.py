@@ -21,11 +21,11 @@ import mlir_tensorrt.compiler.api as compiler
 import pytest
 from mlir_tensorrt.compiler import ir
 
-import tripy as tp
-from tripy.backend.mlir import utils as mlir_utils
-from tripy.flat_ir.ops import PluginOp
-from tripy.flat_ir.ops.plugin import plugin_field_to_attr
-from tripy.frontend.trace import Trace
+import nvtripy as tp
+from nvtripy.backend.mlir import utils as mlir_utils
+from nvtripy.flat_ir.ops import PluginOp
+from nvtripy.flat_ir.ops.plugin import plugin_field_to_attr
+from nvtripy.frontend.trace import Trace
 from typing import Sequence
 from tests import helper
 

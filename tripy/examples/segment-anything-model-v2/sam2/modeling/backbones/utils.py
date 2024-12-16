@@ -24,7 +24,7 @@
 
 from typing import Tuple
 
-import tripy as tp
+import nvtripy as tp
 
 
 def window_partition(x, window_size):

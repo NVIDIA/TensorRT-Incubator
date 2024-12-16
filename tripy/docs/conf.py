@@ -26,9 +26,9 @@ from textwrap import indent
 
 from tests import helper
 
-import tripy as tp
-from tripy.common.datatype import DATA_TYPES
-from tripy.wrappers import TYPE_VERIFICATION
+import nvtripy as tp
+from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.wrappers import TYPE_VERIFICATION
 
 PARAM_PAT = re.compile(":param .*?:")
 
@@ -52,8 +52,8 @@ autodoc_typehints_format = "short"
 python_use_unqualified_type_names = True
 
 nitpick_ignore = {
-    ("py:class", "tripy.types.ShapeLike"),
-    ("py:class", "tripy.types.TensorLike"),
+    ("py:class", "nvtripy.types.ShapeLike"),
+    ("py:class", "nvtripy.types.TensorLike"),
     ("py:class", "Tensor"),
 }
 nitpick_ignore_regex = {
@@ -155,7 +155,7 @@ seen_classes = set()
 def process_docstring_impl(app, what, name, obj, options, lines):
     doc = "\n".join(lines).strip()
     blocks = helper.consolidate_code_blocks(doc)
-    name = name.lstrip("tripy.")
+    name = name.lstrip("nvtripy.")
 
     # Check signature for functions/methods and class constructors.
     if what in {"function", "method"} or (what == "class" and name in seen_classes):
@@ -265,9 +265,9 @@ def process_docstring_impl(app, what, name, obj, options, lines):
         # `tp.Module`s include examples in their constructors, so their __call__ methods don't require examples.
         is_tripy_module_call_method = False
         if what == "method" and obj.__name__ == "__call__":
-            class_name = "tripy." + name.rpartition(".")[0]
-            # Class names are prefixed with tripy.<...>, so we need to import it here to make eval() work.
-            import tripy
+            class_name = "nvtripy." + name.rpartition(".")[0]
+            # Class names are prefixed with nvtripy.<...>, so we need to import it here to make eval() work.
+            import nvtripy
 
             is_tripy_module_call_method = issubclass(eval(class_name), tp.Module)
 

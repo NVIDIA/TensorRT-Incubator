@@ -15,9 +15,9 @@
 # limitations under the License.
 #
 
-import tripy as tp
+import nvtripy as tp
 
-from tripy.frontend.trace.ops import Fill
+from nvtripy.frontend.trace.ops import Fill
 
 
 class TestFull:
