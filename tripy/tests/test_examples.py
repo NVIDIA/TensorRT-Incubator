@@ -82,7 +82,10 @@ class Example:
 
 EXAMPLES = [
     Example(["nanogpt"]),
-    Example(["segment-anything-model-v2"], artifact_names=["truck.jpg", "saved_engines/", "output/", "checkpoints/"]),
+    Example(
+        ["segment-anything-model-v2"],
+        artifact_names=["truck.jpg", "bedroom", "saved_engines/", "output/", "checkpoints/"],
+    ),
 ]
 
 

@@ -349,8 +349,24 @@ class MaskDecoder(tp.Module):
         batch_inds = tp.arange(multimask_iou_scores.shape[0], dtype=self.dtype)
         batch_inds = tp.cast(batch_inds, tp.int32)
 
-        best_multimask_logits = multimask_logits[batch_inds, best_scores_inds]
-        best_multimask_iou_scores = multimask_iou_scores[batch_inds, best_scores_inds]
+        def indexing(tensor, first_index, second_index):
+            step1 = tp.gather(tensor, dim=0, index=first_index)
+
+            batch_size = first_index.shape[0]
+            row_indices = tp.arange(batch_size, dtype=tp.int32)
+
+            combined_indices = tp.stack([row_indices, second_index], dim=1)
+
+            flattened = tp.flatten(step1)
+
+            flat_indices = combined_indices[:, 0] * batch_size + combined_indices[:, 1]
+
+            result = tp.gather(flattened, dim=0, index=flat_indices)
+
+            return result
+
+        best_multimask_logits = indexing(multimask_logits, batch_inds, best_scores_inds)
+        best_multimask_iou_scores = indexing(multimask_iou_scores, batch_inds, best_scores_inds)
 
         best_multimask_logits = tp.unsqueeze(best_multimask_logits, 1)
         best_multimask_iou_scores = tp.unsqueeze(best_multimask_iou_scores, 1)

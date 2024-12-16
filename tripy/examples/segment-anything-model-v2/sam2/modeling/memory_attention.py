@@ -22,7 +22,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional
+from typing import Optional, List
 
 from sam2.modeling.sam.transformer import RoPEAttention
 from sam2.modeling.sam2_utils import get_activation_fn
@@ -117,19 +117,72 @@ class MemoryAttention(tp.Module):
         self,
         d_model: int,
         pos_enc_at_input: bool,
-        layer: tp.Module,
         num_layers: int,
-        batch_first: bool = True,  # Do layers expect batch first input?
+        activation: str,
+        dim_feedforward: int,
+        dropout: float,
+        pos_enc_at_attn: bool,
+        pos_enc_at_cross_attn_keys: bool,
+        pos_enc_at_cross_attn_queries: bool,
+        sa_rope_theta: float,
+        sa_feat_sizes: List[int],
+        sa_embedding_dim: int,
+        sa_num_heads: int,
+        sa_downsample_rate: int,
+        sa_dropout: float,
+        ca_rope_theta: float,
+        ca_feat_sizes: List[int],
+        ca_rope_k_repeat: bool,
+        ca_embedding_dim: int,
+        ca_num_heads: int,
+        ca_downsample_rate: int,
+        ca_dropout: float,
+        ca_kv_in_dim: int,
+        batch_first: bool = True,
         dtype="float32",
     ):
         super().__init__()
         self.d_model = d_model
-        self.layers = [layer for i in range(num_layers)]
         self.num_layers = num_layers
         self.norm = tp.LayerNorm(d_model)
         self.pos_enc_at_input = pos_enc_at_input
         self.batch_first = batch_first
         self.dtype = getattr(tp, dtype)
+        self.layers = []
+        for _ in range(num_layers):
+            self_attn = RoPEAttention(
+                sa_embedding_dim,
+                sa_num_heads,
+                sa_downsample_rate,
+                sa_dropout,
+                rope_theta=sa_rope_theta,
+                feat_sizes=sa_feat_sizes,
+                dtype=dtype,
+            )
+            cross_attn = RoPEAttention(
+                ca_embedding_dim,
+                ca_num_heads,
+                ca_downsample_rate,
+                ca_dropout,
+                ca_kv_in_dim,
+                rope_theta=ca_rope_theta,
+                rope_k_repeat=ca_rope_k_repeat,
+                feat_sizes=ca_feat_sizes,
+                dtype=dtype,
+            )
+            memory_attn_layer = MemoryAttentionLayer(
+                activation=activation,
+                cross_attention=cross_attn,
+                d_model=d_model,
+                dim_feedforward=dim_feedforward,
+                dropout=dropout,
+                pos_enc_at_attn=pos_enc_at_attn,
+                pos_enc_at_cross_attn_keys=pos_enc_at_cross_attn_keys,
+                pos_enc_at_cross_attn_queries=pos_enc_at_cross_attn_queries,
+                self_attention=self_attn,
+                dtype=dtype,
+            )
+            self.layers.append(memory_attn_layer)
 
     def __call__(
         self,
