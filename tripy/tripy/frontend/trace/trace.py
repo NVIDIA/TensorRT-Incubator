@@ -34,8 +34,8 @@ class Trace:
 
     def __init__(
         self,
-        tensors: Sequence["tripy.frontend.trace.tensor.TraceTensor"],
-        inputs: Sequence["tripy.frontend.trace.tensor.TraceTensor"] = [],
+        tensors: Sequence[TraceTensor],
+        inputs: Sequence[TraceTensor] = [],
         shapes: Sequence[ShapeBounds] = None,
     ) -> None:
         """
