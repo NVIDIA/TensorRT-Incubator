@@ -16,10 +16,11 @@
 #
 
 CONSTANT_IR_PRINT_VOLUME_THRESHOLD = 5
-STROGE_OP_CACHE_VOLUME_THRESHOLD = (
-    64  # We want to exclude shape tensors, and TensorRT shape dims supports up to 8 dimensions, so
-)
-# we want a threshold value a lot bigger than 8
+
+
+# Aim is to exclude shape tensors, and TensorRT shape dims supports up to 8 dimensions
+# so threshold value should be a lot bigger than 8
+STROGE_OP_CACHE_VOLUME_THRESHOLD = 64
 
 """
 A volume threshold for displaying constants in IR logging messages.
