@@ -205,7 +205,7 @@ def should_omit_constant_in_str(shape):
 
 
 def should_lift_storage_op_as_input(shape):
-    return math.prod(shape) >= constants.STROGE_OP_PRINT_VOLUME_THRESHOLD
+    return math.prod(shape) >= constants.STROGE_OP_CACHE_VOLUME_THRESHOLD
 
 
 def get_dataclass_fields(obj: Any, BaseClass: type) -> List[dataclasses.Field]:
