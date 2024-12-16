@@ -22,11 +22,6 @@ from tripy.frontend.cache import ExecutableCache
 
 
 @pytest.fixture
-def set_env(monkeypatch):
-    monkeypatch.setenv("TRIPY_EAGER_CACHE", "1")
-
-
-@pytest.fixture
 def cache():
     return ExecutableCache()
 
@@ -101,3 +96,4 @@ class TestCache:
     # test_trace_normalize
     # test_trace_normalize with storage op shape < thershold
     # test_trace_normalize with storage op shape > thershold
+    # test cache not being used

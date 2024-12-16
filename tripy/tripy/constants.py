@@ -16,7 +16,7 @@
 #
 
 CONSTANT_IR_PRINT_VOLUME_THRESHOLD = 5
-STROGE_OP_PRINT_VOLUME_THRESHOLD = 64
+STROGE_OP_CACHE_VOLUME_THRESHOLD = 64  # TensorRT dim supports up to 8 dimensions
 
 """
 A volume threshold for displaying constants in IR logging messages.
