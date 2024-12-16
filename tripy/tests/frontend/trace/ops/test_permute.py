@@ -19,8 +19,8 @@ import numpy as np
 import pytest
 from tests import helper
 
-import tripy as tp
-from tripy.frontend.trace.ops import Permute
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import Permute
 
 
 class TestPermute:

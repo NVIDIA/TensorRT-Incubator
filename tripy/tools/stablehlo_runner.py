@@ -20,7 +20,7 @@ import re
 
 import numpy as np
 
-from tripy.backend.mlir.compiler import Compiler
+from nvtripy.backend.mlir.compiler import Compiler
 
 
 def preprocess_program(program):

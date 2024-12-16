@@ -14,7 +14,7 @@
 # limitations under the License.
 import cupy as cp
 
-import tripy as tp
+import nvtripy as tp
 
 
 def test_default_stream_creation():

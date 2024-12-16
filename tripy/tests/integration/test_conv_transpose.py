@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import pytest
 import torch
 
-import tripy as tp
+import nvtripy as tp
 
 DTYPES = [
     (torch.float16, tp.float16),

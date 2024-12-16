@@ -33,11 +33,11 @@ import numpy as np
 import pytest
 import torch
 
-import tripy as tp
-from tripy import utils
-from tripy.common.exception import str_from_stack_info
-from tripy.frontend import Tensor
-from tripy.frontend.trace import Trace
+import nvtripy as tp
+from nvtripy import utils
+from nvtripy.common.exception import str_from_stack_info
+from nvtripy.frontend import Tensor
+from nvtripy.frontend.trace import Trace
 
 TAB_SIZE = 4
 
@@ -213,7 +213,7 @@ def discover_tripy_objects():
             obj
             for obj in mod.__dict__.values()
             if hasattr(obj, "__module__")
-            and obj.__module__.startswith("tripy")
+            and obj.__module__.startswith("nvtripy")
             and (inspect.isclass(obj) or inspect.isfunction(obj))
         ]
 

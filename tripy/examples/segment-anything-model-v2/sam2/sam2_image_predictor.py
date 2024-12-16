@@ -28,7 +28,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import torch
-import tripy as tp
+import nvtripy as tp
 
 from PIL.Image import Image
 

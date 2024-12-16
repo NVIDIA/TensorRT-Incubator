@@ -19,8 +19,8 @@ import cupy as cp
 import numpy as np
 import pytest
 
-import tripy as tp
-from tripy.frontend import Tensor
+import nvtripy as tp
+from nvtripy.frontend import Tensor
 
 
 class TestWhereOp:

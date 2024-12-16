@@ -17,9 +17,9 @@
 
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace.ops import Flip
+from nvtripy.frontend.trace.ops import Flip
 
 
 class TestFlip:

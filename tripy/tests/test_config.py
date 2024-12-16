@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-import tripy as tp
+import nvtripy as tp
 
 
 def test_timing_cache(tmp_path):

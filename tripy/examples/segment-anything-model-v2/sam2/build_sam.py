@@ -31,7 +31,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from typing import Dict, Any, Optional
 
-import tripy as tp
+import nvtripy as tp
 import time
 import os
 

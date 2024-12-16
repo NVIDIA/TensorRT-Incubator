@@ -4,7 +4,7 @@
 
 ## Using Quantized Modules
 
-Various modules predefined by Tripy support quantization. For example, the {class}`tripy.Linear`
+Various modules predefined by Tripy support quantization. For example, the {class}`nvtripy.Linear`
 module includes two arguments to configure the quantization mode. Let's construct the following
 quantized linear module:
 
@@ -18,7 +18,7 @@ quant_linear = tp.Linear(
 )
 ```
 
-As described in {class}`tripy.Linear`, the quantized linear module has
+As described in {class}`nvtripy.Linear`, the quantized linear module has
 2 additional parameters compared to a normal linear layer:
 
 1. `weight_scale`: The quantization scale for `weight`.
@@ -45,13 +45,13 @@ out = quant_linear(x)
 assert tp.equal(out, tp.Tensor([[0.0000, 1.0000], [6.0000, 23.0000], [12.0000, 45.0000]])) # doc: omit
 ```
 
-The result still has a data type of {class}`tripy.float32`, but internally, TensorRT quantized the
-input and weight, executed the linear layer with {class}`tripy.int8` precision, and finally dequantized
+The result still has a data type of {class}`nvtripy.float32`, but internally, TensorRT quantized the
+input and weight, executed the linear layer with {class}`nvtripy.int8` precision, and finally dequantized
 the output back to the original precision.
 
 ## Running Quantized Models
 
-Now that we have covered how quantization works in {class}`tripy.Linear`, we will walk through
+Now that we have covered how quantization works in {class}`nvtripy.Linear`, we will walk through
 the workflow of running a real-world quantized model: [nanoGPT](source:/examples/nanogpt/).
 
 ### Calibration With Model Optimizer
@@ -132,7 +132,7 @@ def convert_to_scale(amax, maxbound):
     return amax.float() / maxbound
 ```
 
-Let's convert the `amax` to the scaling factor and load it to a compatible {class}`tripy.Linear` module:
+Let's convert the `amax` to the scaling factor and load it to a compatible {class}`nvtripy.Linear` module:
 
 ```py
 # doc: print-locals weight_only_qlinear

@@ -18,7 +18,7 @@
 import cupy as cp
 import numpy as np
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
 from textwrap import dedent
 
@@ -103,7 +103,7 @@ class TestModule:
 
         with helper.raises(
             tp.TripyException,
-            match=r"Not a valid overload because: For parameter: 'state_dict', expected an instance of type: 'Dict\[str, tripy.Tensor\]' but got argument of type: 'Dict\[str, List\[int\]\]'.",
+            match=r"Not a valid overload because: For parameter: 'state_dict', expected an instance of type: 'Dict\[str, nvtripy.Tensor\]' but got argument of type: 'Dict\[str, List\[int\]\]'.",
         ):
             network.load_state_dict(state_dict, strict=False)
 

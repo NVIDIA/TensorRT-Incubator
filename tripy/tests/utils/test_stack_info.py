@@ -19,8 +19,8 @@ import sys
 
 import pytest
 
-import tripy.utils
-from tripy.utils.stack_info import SourceInfo
+import nvtripy.utils
+from nvtripy.utils.stack_info import SourceInfo
 
 
 class TestGetStackInfo:
@@ -28,7 +28,7 @@ class TestGetStackInfo:
         def func():
             # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
             expected_line_num = sys._getframe().f_lineno + 1
-            return tripy.utils.get_stack_info(), expected_line_num
+            return nvtripy.utils.get_stack_info(), expected_line_num
 
         # Make sure these two lines remain adjacent since we need to know the offset to use for the line number.
         expected_outer_line_num = sys._getframe().f_lineno + 1
@@ -40,7 +40,7 @@ class TestGetStackInfo:
             file=__file__,
             line=expected_inner_line_num,
             function=func.__name__,
-            code="            return tripy.utils.get_stack_info(), expected_line_num",
+            code="            return nvtripy.utils.get_stack_info(), expected_line_num",
             _dispatch_target="",
             column_range=None,
         )
@@ -58,7 +58,7 @@ class TestGetStackInfo:
     def test_include_code_index(self, include_code_index):
         # We should include code for all frames up to user code. If the index is past the user frame,
         # then code is included only for the user frame.
-        stack_info = tripy.utils.get_stack_info(include_code_index=include_code_index)
+        stack_info = nvtripy.utils.get_stack_info(include_code_index=include_code_index)
         stack_info.fetch_source_code()
 
         num_frames_with_code = len([frame for frame in stack_info if frame.code])

@@ -16,7 +16,7 @@
 #
 
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestDimensionSize:

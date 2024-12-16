@@ -25,7 +25,7 @@ The `FlatIR` operator is usually the most challenging aspect of implementing ope
 in Tripy. The good news is that you might not even need to do this if the low-level operators
 you need already exist in the `FlatIR`. And if you do, then it'll only get easier after this!
 
-We'll start by adding a new file under [`tripy/flat_ir/ops`](source:/tripy/flat_ir/ops/) called
+We'll start by adding a new file under [`nvtripy/flat_ir/ops`](source:/nvtripy/flat_ir/ops/) called
 `theta.py`; see the inline comments for explanations of what's happening:
 
 ```py
@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from mlir_tensorrt.compiler import ir
 from mlir_tensorrt.compiler.dialects import stablehlo
 
-from tripy.flat_ir.ops.base import BaseFlatIROp
+from nvtripy.flat_ir.ops.base import BaseFlatIROp
 
 
 # Every `FlatIR` operator is implemented as a `dataclass` so that the base
@@ -73,13 +73,13 @@ from the submodule.
 
 To make this possible, we need to import the `ThetaOp` into the `flat_ir.ops` submodule.
 We can do so by adding the following line into
-[`tripy/flat_ir/ops/__init__.py`](source:/tripy/flat_ir/ops/__init__.py):
+[`nvtripy/flat_ir/ops/__init__.py`](source:/nvtripy/flat_ir/ops/__init__.py):
 
 <!-- Tripy: TEST: IGNORE Start -->
 
 ```py
 # doc: no-eval
-from tripy.flat_ir.ops.theta import ThetaOp
+from nvtripy.flat_ir.ops.theta import ThetaOp
 ```
 <!-- Tripy: TEST: IGNORE End -->
 
@@ -89,8 +89,8 @@ from tripy.flat_ir.ops.theta import ThetaOp
 
 ```py
 # doc: no-eval
-import tripy.flat_ir.ops
-tripy.flat_ir.ops.ThetaOp = ThetaOp
+import nvtripy.flat_ir.ops
+nvtripy.flat_ir.ops.ThetaOp = ThetaOp
 ```
 <!-- Tripy: DOC: OMIT End -->
 
@@ -99,7 +99,7 @@ tripy.flat_ir.ops.ThetaOp = ThetaOp
 
 Now that we have a `FlatIR` operator, we can implement a `Trace` operator that will use it
 along with a public API function. Let's create a new file under
-[`tripy/frontend/trace/ops`](source:/tripy/frontend/trace/ops/) called `theta.py`.
+[`nvtripy/frontend/trace/ops`](source:/nvtripy/frontend/trace/ops/) called `theta.py`.
 
 ### `Trace` Operator
 
@@ -110,11 +110,11 @@ First, we'll implement the `Trace` operator itself:
 from dataclasses import dataclass
 from typing import Tuple
 
-from tripy import utils
-from tripy.common import datatype, device
-from tripy.common.exception import raise_error
-from tripy.frontend.trace.ops.base import BaseTraceOp
-import tripy.frontend.trace.ops.utils as op_utils
+from nvtripy import utils
+from nvtripy.common import datatype, device
+from nvtripy.common.exception import raise_error
+from nvtripy.frontend.trace.ops.base import BaseTraceOp
+import nvtripy.frontend.trace.ops.utils as op_utils
 
 
 # Just like with `FlatIR` operators, all `Trace` operators are implemented
@@ -151,8 +151,8 @@ class Theta(BaseTraceOp):
     def to_flat_ir(self, inputs, outputs):
         # Note that we import the `FlatIR` operator within the function
         # call - this is to avoid circular dependencies.
-        from tripy.flat_ir.ops import ThetaOp
-        import tripy.frontend.trace.ops.utils as op_utils
+        from nvtripy.flat_ir.ops import ThetaOp
+        import nvtripy.frontend.trace.ops.utils as op_utils
 
         # This code may look a bit confusing; for more details, look at the
         # 'FlatIR section in the architecture document' (linked below).
@@ -169,19 +169,19 @@ Next, we can define the public interface. Since our public interface maps 1:1 wi
 operator we just implemented and does not require weights, we'll add it in the same file.
 
 If our API required a composition of multiple `Trace` operators, then we would instead implement
-it under [`frontend/ops/`](source:/tripy/frontend/ops).
+it under [`frontend/ops/`](source:/nvtripy/frontend/ops).
 
 If it required weights (i.e. inputs that are expected to always be constant), then we would implement
-it as a `tripy.Module` under [`frontend/module`](source:/tripy/frontend/module).
+it as a `nvtripy.Module` under [`frontend/module`](source:/nvtripy/frontend/module).
 
 ```py
 # doc: no-eval
-from tripy import export, wrappers
-from tripy.types import ShapeLike
+from nvtripy import export, wrappers
+from nvtripy.types import ShapeLike
 
 # We can use the `export.public_api()` decorator to automatically export this
 # function into the top-level module. This means it will be accessible as
-# `tripy.theta`.
+# `nvtripy.theta`.
 #
 # This decorator also controls how the API is exposed in the documentation -
 # the `document_under` option determines where in the documentation hierarchy
@@ -197,7 +197,7 @@ from tripy.types import ShapeLike
 # We will aim to include most constraints and transformations in this decorator
 # so as to avoid layering too many decorators.
 @wrappers.interface(convert_to_tensors=True)
-def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "tripy.Tensor":
+def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float32) -> "nvtripy.Tensor":
     # For any public facing interfaces, we have documentation requirements which
     # you can read about in the 'Docs README' (linked below). The docstring
     # we've implemented here adheres to all of these requirements. Non-compliant
@@ -245,8 +245,8 @@ def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float
 
 ```py
 # doc: no-eval
-import tripy
-tripy.theta = theta
+import nvtripy
+nvtripy.theta = theta
 ```
 <!-- Tripy: DOC: OMIT End -->
 
@@ -259,13 +259,13 @@ Links:
 
 Similarly to the `FlatIR` operator, we need to import `Theta` into the
 `frontend.trace.ops` submodule. We can do so by adding the following line into
-[`tripy/frontend/trace/ops/__init__.py`](source:/tripy/frontend/trace/ops/__init__.py):
+[`nvtripy/frontend/trace/ops/__init__.py`](source:/nvtripy/frontend/trace/ops/__init__.py):
 
 <!-- Tripy: TEST: IGNORE Start -->
 
 ```py
 # doc: no-eval
-from tripy.frontend.trace.ops.theta import Theta, theta
+from nvtripy.frontend.trace.ops.theta import Theta, theta
 ```
 <!-- Tripy: TEST: IGNORE End -->
 
@@ -273,16 +273,16 @@ from tripy.frontend.trace.ops.theta import Theta, theta
 <!-- Need to simulate the __init__.py changes to make the tests work: -->
 ```py
 # doc: no-eval
-import tripy.frontend.trace.ops
-tripy.frontend.trace.ops.Theta = Theta
-tripy.frontend.trace.ops.theta = theta
+import nvtripy.frontend.trace.ops
+nvtripy.frontend.trace.ops.Theta = Theta
+nvtripy.frontend.trace.ops.theta = theta
 ```
 <!-- Tripy: DOC: OMIT End -->
 
 ## Testing
 
 Now that we've implemented our operator, let's write tests for it. The structure of the
-[`tests/`](source:/tests/) directory mirrors that of the [`tripy/`](source:/tripy/) directory
+[`tests/`](source:/tests/) directory mirrors that of the [`nvtripy/`](source:/nvtripy/) directory
 (you can read more about that [here](source:/tests/README.md)). We need to test both the `FlatIR`
 and `Trace` operators.
 
@@ -290,16 +290,16 @@ and `Trace` operators.
 ### Testing The Trace Operator And Public API
 
 Since we implemented our `Trace` operator and public API in
-[`tripy/frontend/trace/ops`](source:/tripy/frontend/trace/ops/), we'll add the test under
+[`nvtripy/frontend/trace/ops`](source:/nvtripy/frontend/trace/ops/), we'll add the test under
 [`tests/frontend/trace/ops`](source:/tests/frontend/trace/ops/).
 Create a new file there called `test_theta.py`:
 
 
 ```py
 # doc: no-eval
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace.ops import Theta
+from nvtripy.frontend.trace.ops import Theta
 
 
 class TestTheta:
@@ -333,7 +333,7 @@ Create a new file called `test_theta.py` under [`tests/integration`](source:/tes
 import numpy as np
 import cupy as cp
 
-import tripy as tp
+import nvtripy as tp
 
 
 def test_multi_dimensional():

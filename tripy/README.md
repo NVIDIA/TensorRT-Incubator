@@ -29,11 +29,11 @@ an excellent user experience without compromising performance. Some of the goals
 <!-- Tripy: DOC: OMIT End -->
 
 ```bash
-python3 -m pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
-python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
+python3 -m pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html nvtripy --no-deps
+python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html nvtripy
 ```
 
-***Important:** There is another package named `tripy` on PyPI.*
+***Important:** There is another package named `nvtripy` on PyPI.*
 *Note that it is **not** the package from this repository.*
 *Please use the instructions above to ensure you install the correct package.*
 
@@ -58,13 +58,13 @@ To get the latest changes in the repository, you can build Tripy wheels from sou
     From the [`tripy` root directory](.), run:
 
     ```bash
-    python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html dist/tripy-*.whl
+    python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html dist/nvtripy-*.whl
     ```
 
 4. **[Optional]** To ensure that Tripy was installed correctly, you can run a sanity check:
 
     ```bash
-    python3 -c "import tripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5"
+    python3 -c "import nvtripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5"
     ```
 
 <!-- Tripy: DOC: OMIT End -->

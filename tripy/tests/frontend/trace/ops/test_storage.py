@@ -19,12 +19,12 @@ import pytest
 import cupy as cp
 import numpy as np
 
-import tripy as tp
+import nvtripy as tp
 
 
-from tripy.backend.mlir import memref
-from tripy.frontend.trace.ops import Storage
-from tripy.frontend.trace.tensor import TraceTensor
+from nvtripy.backend.mlir import memref
+from nvtripy.frontend.trace.ops import Storage
+from nvtripy.frontend.trace.tensor import TraceTensor
 
 
 class TestStorage:

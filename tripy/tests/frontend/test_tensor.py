@@ -25,9 +25,9 @@ import torch
 from tests.conftest import DATA_TYPE_TEST_CASES
 from tests.helper import NUMPY_TO_TRIPY
 
-import tripy as tp
-from tripy.common.utils import get_element_type
-from tripy.utils.stack_info import SourceInfo
+import nvtripy as tp
+from nvtripy.common.utils import get_element_type
+from nvtripy.utils.stack_info import SourceInfo
 
 
 class TestTensor:
@@ -94,7 +94,7 @@ class TestTensor:
     def test_dtype_printing(self, dtype):
         if dtype == tp.int4:
             pytest.skip(f"Unsupported front-end data type {dtype}")
-        from tripy.logging import logger
+        from nvtripy.logging import logger
 
         # This is required to print intermediate data representations.
         with tp.logger.use_verbosity("ir"):
@@ -215,7 +215,7 @@ class TestTensor:
         assert a.dtype == tp.float16
 
     def test_no_explicit_cast(self):
-        from tripy.frontend.trace.ops import Storage
+        from nvtripy.frontend.trace.ops import Storage
 
         a_np = np.ones((2, 2), dtype=np.float32)
         a = tp.Tensor(a_np, dtype=tp.float32)
@@ -245,7 +245,7 @@ class TestTensor:
         ],
     )
     def test_no_explicit_copy(self, devices):
-        from tripy.frontend.trace.ops import Storage
+        from nvtripy.frontend.trace.ops import Storage
 
         a_torch = torch.ones((2, 2), dtype=torch.float32)
         if devices[0] == "gpu":

@@ -20,9 +20,9 @@ NumPy and PyTorch. Hopefully, the code above is self-explanatory, so we won't go
 
 ## Organizing Code Using Modules
 
-The {class}`tripy.Module` API allows you to create reusable blocks that can be composed together
+The {class}`nvtripy.Module` API allows you to create reusable blocks that can be composed together
 to create models. Modules may be comprised of other modules, including modules predefined
-by Tripy, like {class}`tripy.Linear` and {class}`tripy.LayerNorm`.
+by Tripy, like {class}`nvtripy.Linear` and {class}`nvtripy.LayerNorm`.
 
 For example, we can define a Transfomer MLP block like so:
 
@@ -56,7 +56,7 @@ All the code we've seen so far has been using Tripy's eager mode. It is also pos
 functions or modules ahead of time, which can result in significantly better performance.
 
 *Note that the compiler imposes some requirements on the functions/modules it can compile.*
-*See {func}`tripy.compile` for details.*
+*See {func}`nvtripy.compile` for details.*
 
 Let's compile the MLP module we defined above as an example:
 

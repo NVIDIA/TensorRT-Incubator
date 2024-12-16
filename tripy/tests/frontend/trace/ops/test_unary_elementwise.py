@@ -17,8 +17,8 @@
 
 import pytest
 
-import tripy as tp
-from tripy.frontend.trace.ops import UnaryElementwise
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import UnaryElementwise
 
 
 _UNARY_OPS = {

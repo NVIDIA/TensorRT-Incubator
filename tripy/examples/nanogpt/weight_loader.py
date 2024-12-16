@@ -18,7 +18,7 @@
 import torch
 from transformers import GPT2LMHeadModel
 
-import tripy as tp
+import nvtripy as tp
 
 
 def load_weights_from_hf(model, model_type, dtype):

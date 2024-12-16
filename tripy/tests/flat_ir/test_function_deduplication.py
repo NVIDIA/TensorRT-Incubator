@@ -17,13 +17,13 @@ import re
 from dataclasses import dataclass
 from typing import List, Optional
 
-from tripy.flat_ir.flat_ir import FlatIR
-from tripy.flat_ir.function import FlatIRFunction
-from tripy.flat_ir.ops.base import BaseFlatIROp
-from tripy.flat_ir.ops import ConstantOp
-from tripy.flat_ir.tensor import FlatIRTensor
-from tripy.common.device import device
-from tripy.common.datatype import float32, int32
+from nvtripy.flat_ir.flat_ir import FlatIR
+from nvtripy.flat_ir.function import FlatIRFunction
+from nvtripy.flat_ir.ops.base import BaseFlatIROp
+from nvtripy.flat_ir.ops import ConstantOp
+from nvtripy.flat_ir.tensor import FlatIRTensor
+from nvtripy.common.device import device
+from nvtripy.common.datatype import float32, int32
 
 
 @dataclass(repr=False, eq=False)

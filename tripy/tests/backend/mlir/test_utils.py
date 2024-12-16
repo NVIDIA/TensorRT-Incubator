@@ -22,16 +22,16 @@ import cupy as cp
 import numpy as np
 import torch
 
-import tripy
-from tripy.backend.mlir import utils as mlir_utils
-from tripy.common.datatype import DATA_TYPES
+import nvtripy
+from nvtripy.backend.mlir import utils as mlir_utils
+from nvtripy.common.datatype import DATA_TYPES
 import os
 
 
 class TestUtils:
     @pytest.mark.parametrize("dtype", DATA_TYPES.values())
     def test_convert_dtype(self, dtype):
-        if dtype in {tripy.bool}:
+        if dtype in {nvtripy.bool}:
             pytest.skip("Bool is not working correctly yet")
 
         with mlir_utils.make_ir_context():

@@ -17,7 +17,7 @@
 
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 
 
 @pytest.fixture(params=["compile", "eager"])

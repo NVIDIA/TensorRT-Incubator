@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from tests import helper
-import tripy as tp
+import nvtripy as tp
 
 
 class TestPooling:

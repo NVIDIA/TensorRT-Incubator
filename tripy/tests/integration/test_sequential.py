@@ -17,7 +17,7 @@
 from collections import OrderedDict
 
 import torch
-import tripy as tp
+import nvtripy as tp
 
 
 class TestSequential:

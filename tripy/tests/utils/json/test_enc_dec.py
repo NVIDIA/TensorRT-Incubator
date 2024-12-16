@@ -17,9 +17,9 @@
 
 import pytest
 
-from tripy.common.exception import TripyException
-from tripy.utils.json import Decoder, Encoder, from_json, to_json
-from tripy.utils.json.enc_dec import TYPE_MARKER
+from nvtripy.common.exception import TripyException
+from nvtripy.utils.json import Decoder, Encoder, from_json, to_json
+from nvtripy.utils.json.enc_dec import TYPE_MARKER
 
 
 class Dummy:

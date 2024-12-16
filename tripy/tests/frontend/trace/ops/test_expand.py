@@ -16,9 +16,9 @@
 #
 
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace.ops import Expand
+from nvtripy.frontend.trace.ops import Expand
 
 
 class TestExpand:

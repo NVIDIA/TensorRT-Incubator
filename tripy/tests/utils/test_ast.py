@@ -19,7 +19,7 @@ import sys
 
 import pytest
 
-from tripy.utils.ast import get_arg_candidate_column_offsets
+from nvtripy.utils.ast import get_arg_candidate_column_offsets
 
 
 class TestAst:

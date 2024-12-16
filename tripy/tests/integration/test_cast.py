@@ -19,7 +19,7 @@ import cupy as cp
 import numpy as np
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 from tests.conftest import skip_if_older_than_sm89
 from tests.helper import NUMPY_TO_TRIPY
 
