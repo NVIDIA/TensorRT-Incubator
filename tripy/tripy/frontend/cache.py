@@ -17,6 +17,8 @@ from typing import List, Dict, Any
 
 import mlir_tensorrt.runtime.api as runtime
 
+from tripy import utils
+
 
 class ExecutableCache:
     """Global cache for storing compiled executables."""
@@ -121,7 +123,7 @@ class ExecutableCache:
         """
         normalized_trace = self._normalize_trace(trace)
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
-        return hashlib.sha256(key.encode("utf-8")).hexdigest()
+        return utils.md5(key.encode("utf-8"))
 
     def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> runtime.Executable:
         """

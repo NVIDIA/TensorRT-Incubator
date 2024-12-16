@@ -33,7 +33,7 @@ def mock_global_cache(monkeypatch, cache):
 
 
 class TestCache:
-    def test_identical_graph_different_input_shapes(self, mock_global_cache, set_env):
+    def test_identical_graph_different_input_shapes(self, mock_global_cache):
         """Test caching with identical computation graph but different input shapes."""
         input1 = tp.Tensor([[1.0, 2.0], [3.0, 4.0]], dtype=tp.float32)
         input2 = tp.Tensor([[[1.0, 2.0], [3.0, 4.0]]], dtype=tp.float32)
@@ -50,7 +50,7 @@ class TestCache:
         output2.eval()
         assert mock_global_cache.get(Trace([layer(input2).trace_tensor]), devices=[output2.device]) is not None
 
-    def test_identical_graph_different_input_names(self, mock_global_cache, set_env):
+    def test_identical_graph_different_input_names(self, mock_global_cache):
         """Test caching with identical computation graph but different input names."""
         input1 = tp.Tensor([[1.0, 2.0]], dtype=tp.float32, name="input_a")
         input2 = tp.Tensor([[1.0, 2.0]], dtype=tp.float32, name="input_b")
@@ -62,7 +62,7 @@ class TestCache:
         output2 = layer(input2)
         assert mock_global_cache.get(Trace([output2.trace_tensor]), devices=[output2.device]) is not None
 
-    def test_identical_graph_different_output_names(self, mock_global_cache, set_env):
+    def test_identical_graph_different_output_names(self, mock_global_cache):
         """Test caching with identical computation graph but different output tensor names."""
         input_tensor = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
 
@@ -76,7 +76,7 @@ class TestCache:
         output2.name = "output_b"
         assert mock_global_cache.get(Trace([output2.trace_tensor]), devices=[output2.device]) is not None
 
-    def test_different_graphs_different_cache_entries(self, mock_global_cache, set_env):
+    def test_different_graphs_different_cache_entries(self, mock_global_cache):
         """Test caching with different computation graphs having different cache entries."""
         input_tensor = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
 

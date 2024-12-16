@@ -214,10 +214,9 @@ class Tensor(metaclass=TensorMeta):
         from tripy.frontend.cache import global_cache
 
         # Collect inputs
-        inputs = Trace._collect_storage_tensors(self.trace_tensor)  # TODO: how to test real inputs? not shape inputs
-        input_shapes = [ShapeBounds(min=tuple(inp.shape), opt=tuple(inp.shape), max=tuple(inp.shape)) for inp in inputs]
+        inputs = Trace._collect_storage_tensors(self.trace_tensor)
 
-        trace = Trace([self.trace_tensor], inputs=inputs, shapes=input_shapes)
+        trace = Trace([self.trace_tensor], inputs=inputs)
         output_devices = [out.device for out in trace.outputs]
 
         executable = global_cache.get(trace, devices=output_devices) if config.eager_cache else None
