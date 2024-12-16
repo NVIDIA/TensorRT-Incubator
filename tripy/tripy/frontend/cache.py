@@ -123,7 +123,7 @@ class ExecutableCache:
         key = normalized_trace + "\ndevices:\n" + "\n".join([str(device) for device in devices])
         return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
-    def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> runtime.Executable:
+    def get(self, trace: "Trace", devices: List["tripy.common.device"]) -> Optional[runtime.Executable]:
         """
         Retrieve a cached executable for the given trace and devices.
 
