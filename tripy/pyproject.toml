@@ -1,11 +1,11 @@
 [project]
 name = "nvtripy"
-version = "0.0.6"
-authors = [{name = "NVIDIA", email="svc_tensorrt@nvidia.com"}]
+version = "0.0.7"
+authors = [{ name = "NVIDIA", email = "svc_tensorrt@nvidia.com" }]
 description = "Tripy: A Python Programming Model For TensorRT"
 readme = "README.md"
 requires-python = ">= 3.9"
-license = {text = "Apache 2.0"}
+license = { text = "Apache 2.0" }
 dependencies = [
   "tensorrt~=10.0",
   "mlir-tensorrt-compiler==0.1.38+cuda12.trt105",
@@ -30,9 +30,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
-dev = [
-  "pre-commit==3.6.0",
-]
+dev = ["pre-commit==3.6.0"]
 build = [
   "setuptools==75.3.0",
   "wheel==0.44.0",
@@ -93,11 +91,9 @@ exclude = '''
 '''
 
 [tool.pytest.ini_options]
-testpaths = [
-    "tests",
-]
+testpaths = ["tests"]
 addopts = "--strict-markers"
 markers = [
-    "l1: Indicates that the test should only be run in nightlies.",
-    "l1_release_package: Indicates that the test should be run in nightlies using the public build of Tripy."
+  "l1: Indicates that the test should only be run in nightlies.",
+  "l1_release_package: Indicates that the test should be run in nightlies using the public build of Tripy.",
 ]
