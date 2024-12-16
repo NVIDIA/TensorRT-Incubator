@@ -135,7 +135,7 @@ class ExecutableCache:
             Executable: The cached executable, or None if not found.
         """
         key = self._generate_key(trace, devices)
-        return self._cache.get(key, None)
+        return self._cache.get(key)
 
     def set(self, trace: "Trace", executable: runtime.Executable, devices: List["tripy.common.device"]) -> None:
         """
