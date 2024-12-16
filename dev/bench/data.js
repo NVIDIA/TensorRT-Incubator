@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734385836610,
+  "lastUpdate": 1734387496281,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -8806,6 +8806,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000004667063177878455",
             "extra": "mean: 44.49633373519464 usec\nrounds: 23851"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "77d5d204371140ff2a38774bf70b2bd6b4d29ef4",
+          "message": "Use singleton class to manage sharing of models across image and vide…",
+          "timestamp": "2024-12-13T18:34:47Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/449/commits/77d5d204371140ff2a38774bf70b2bd6b4d29ef4"
+        },
+        "date": 1734387495467,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6154.005995655653,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033393581168983025",
+            "extra": "mean: 162.49577928684795 usec\nrounds: 6508"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6815.117446447019,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000694427978710383",
+            "extra": "mean: 146.73261434714354 usec\nrounds: 7514"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22529.656158446218,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002338180272291587",
+            "extra": "mean: 44.38594148828617 usec\nrounds: 23771"
           }
         ]
       }
