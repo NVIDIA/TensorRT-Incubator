@@ -54,7 +54,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: release-dists
-        path: dist/
+        path: /tripy/dist/
 
     - name: Release
       uses: softprops/action-gh-release@v2
