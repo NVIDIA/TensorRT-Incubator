@@ -49,17 +49,13 @@ namespace mlirtrt::compiler {
 // StableHLOToExecutableOptions
 //===----------------------------------------------------------------------===//
 
-class StableHloToExecutableTask;
+class StablehloToExecutableTask;
 
-struct StableHLOToExecutableOptions
+struct StablehloToExecutableOptions
     : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
-  StableHLOToExecutableOptions(TaskExtensionRegistry extensions);
-
-  /// Return the hash of the options. Returns `nullopt` when the TensorRT
-  /// layer metadata callback is set since that can't be reliably hashed.
-  std::optional<llvm::hash_code> getHash() const override;
+  StablehloToExecutableOptions(TaskExtensionRegistry extensions);
 
   /// Whether to disallow host tensors in TensorRT clusters.
   bool disallowHostTensorsInTensorRTClusters = false;
@@ -71,18 +67,16 @@ struct StableHLOToExecutableOptions
   /// Entrypoint function name.
   std::string entrypoint = "main";
 
-  std::function<std::string(mlir::Operation *)> layerMetadataCallback{nullptr};
-
   /// Base class for extensions associated with StableHloToExecutableTask.
   class ExtensionBase : public TaskExtensionBase {
   public:
     ExtensionBase(mlir::TypeID typeID)
         : TaskExtensionBase(typeID,
-                            mlir::TypeID::get<StableHloToExecutableTask>()) {}
+                            mlir::TypeID::get<StablehloToExecutableTask>()) {}
 
     static bool classof(const TaskExtensionBase *extension) {
       return extension->getTaskID() ==
-             mlir::TypeID::get<StableHloToExecutableTask>();
+             mlir::TypeID::get<StablehloToExecutableTask>();
     }
 
     enum class Phase {
@@ -98,7 +92,7 @@ struct StableHLOToExecutableOptions
     /// relative to each other (yet).
     virtual void
     populatePasses(mlir::OpPassManager &pm, Phase phase,
-                   const StableHLOToExecutableOptions &options) const = 0;
+                   const StablehloToExecutableOptions &options) const = 0;
   };
 
   /// A StableHLOToExecutableOptions::Extension is an extension that must
@@ -120,39 +114,39 @@ struct StableHLOToExecutableOptions
 /// A StableHloToExecutableTask is a concrete CompilationTask (PassManager) that
 /// accepts StableHLO input IR and lowers it down to Executor IR which can be
 /// translated into a MLIR-TensorRT executable.
-class StableHloToExecutableTask
-    : public CompilationTask<StableHloToExecutableTask,
-                             StableHLOToExecutableOptions> {
+class StablehloToExecutableTask
+    : public CompilationTask<StablehloToExecutableTask,
+                             StablehloToExecutableOptions> {
 public:
   using Base::Base;
 
   /// Build the clustering pipeline that occurs on Stablehlo Ops.
   static void
   buildStablehloClusteringPipeline(mlir::OpPassManager &pm,
-                                   const StableHLOToExecutableOptions &options);
+                                   const StablehloToExecutableOptions &options);
 
   /// Build the pipeline (bufferization and lowering) that runs after
   /// clustering.
   static void
   buildPostClusteringPipeline(mlir::OpPassManager &pm,
-                              const StableHLOToExecutableOptions &options);
+                              const StablehloToExecutableOptions &options);
 
   static void populatePassManager(mlir::PassManager &pm,
-                                  const StableHLOToExecutableOptions &options);
+                                  const StablehloToExecutableOptions &options);
 
   /// Compile a StableHLO module into a MLIR-TensorRT Runtime executable.
   /// This is the "functional" entrypoint that will allocate a new PassManager
   /// for a single run.
   static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
   compileStableHLOToExecutable(mlir::ModuleOp module,
-                               const StableHLOToExecutableOptions &options);
+                               const StablehloToExecutableOptions &options);
 
   /// Compile a StableHLO module into a MLIR-TensorRT Runtime executable.
   /// This is the "functional" entrypoint that will allocate a new PassManager
   /// for a single run.
   static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
   compileStableHLOToExecutable(CompilerClient &client, mlir::ModuleOp module,
-                               const StableHLOToExecutableOptions &options);
+                               const StablehloToExecutableOptions &options);
 };
 
 /// Register the task/options with the client's registry.
@@ -175,7 +169,7 @@ void registerStablehloClusteringPipelines();
 
 } // namespace mlirtrt::compiler
 
-MLIR_DECLARE_EXPLICIT_TYPE_ID(mlirtrt::compiler::StableHloToExecutableTask)
+MLIR_DECLARE_EXPLICIT_TYPE_ID(mlirtrt::compiler::StablehloToExecutableTask)
 
 #endif // MLIR_TRT_ENABLE_HLO
 #endif // MLIR_TENSORRT_COMPILER_STABLEHLOTOEXECUTABLE

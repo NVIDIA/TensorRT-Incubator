@@ -150,7 +150,6 @@ def test_host_memref():
             print(host_array.shape)
             print(host_array.strides)
             print(host_array.address_space)
-            print(host_array._CAPIPtr)
         except Exception as e:
             print("Exception caught: ", e)
 
@@ -160,37 +159,30 @@ def test_host_memref():
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
-#  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
 #  CHECK-NEXT: testing dtype float32
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
-#  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
 #  CHECK-NEXT: testing dtype float16
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
-#  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
 #  CHECK-NEXT: testing dtype int64
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
-#  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
 #  CHECK-NEXT: testing dtype int32
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
-#  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
 #  CHECK-NEXT: testing dtype int16
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
-#  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
 #  CHECK-NEXT: testing dtype int8
 #  CHECK-NEXT: [2, 8]
 #  CHECK-NEXT: [8, 1]
 #  CHECK-NEXT: PointerType.host
-#  CHECK-NEXT:  mlir_tensorrt.compiler.api.MemRefValue._CAPIPtr
 
 if __name__ == "__main__":
     for t in TESTS:

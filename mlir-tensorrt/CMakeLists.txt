@@ -262,9 +262,3 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/tensorrt/include)
 
 add_subdirectory(compiler)
 add_subdirectory(python)
-
-if(MLIR_TRT_ENABLE_TESTING)
-  add_subdirectory(test)
-endif()
-
-add_subdirectory(tools)

@@ -21,21 +21,6 @@ set(LLVM_LINK_COMPONENTS
   )
 
 # ----------------------------------------------------------------------------
-# mlir-tensorrt-tblgen
-# ----------------------------------------------------------------------------
-add_mlir_tool(mlir-tensorrt-tblgen
-  MlirTensorRtTblgen.cpp
-  PARTIAL_SOURCES_INTENDED
-
-  DEPENDS
-  MLIRTblgenLib
-)
-target_link_libraries(mlir-tensorrt-tblgen PRIVATE MLIRTblgenLib)
-llvm_update_compile_flags(mlir-tensorrt-tblgen)
-mlir_check_all_link_libraries(mlir-tensorrt-tblgen)
-_mtrt_set_target_compile_defs(mlir-tensorrt-tblgen)
-
-# ----------------------------------------------------------------------------
 # mlir-tensorrt-translate
 # ----------------------------------------------------------------------------
 set(trt_translate_deps_
@@ -47,7 +32,7 @@ if(MLIR_TRT_TARGET_CPP)
 endif()
 
 add_mlir_tool(mlir-tensorrt-translate
-  MlirTensorRtTranslate.cpp
+  mlir-tensorrt-translate.cpp
   PARTIAL_SOURCES_INTENDED
   )
 
@@ -62,7 +47,7 @@ _mtrt_set_target_compile_defs(mlir-tensorrt-translate)
 # mlir-tensorrt-lsp-server
 # ----------------------------------------------------------------------------
 add_mlir_tool(mlir-tensorrt-lsp-server
-  MlirTensorRtLspServer.cpp
+  mlir-tensorrt-lsp-server.cpp
   PARTIAL_SOURCES_INTENDED
 
   DEPENDS
@@ -83,7 +68,7 @@ set_target_properties(mlir-tensorrt-lsp-server PROPERTIES EXCLUDE_FROM_ALL TRUE)
 # mlir-tensorrt-opt
 # ----------------------------------------------------------------------------
 add_mlir_tool(mlir-tensorrt-opt
-  MlirTensorRtOpt.cpp
+  mlir-tensorrt-opt.cpp
   PARTIAL_SOURCES_INTENDED
 
   DEPENDS
@@ -111,7 +96,7 @@ export_executable_symbols_for_plugins(mlir-tensorrt-opt)
 if(MLIR_TRT_TARGET_LUA)
   add_llvm_executable(mlir-tensorrt-runner
     PARTIAL_SOURCES_INTENDED
-    MlirTensorRtRunner.cpp)
+    mlir-tensorrt-runner.cpp)
   _mtrt_set_target_compile_defs(mlir-tensorrt-runner)
   set(libs_
     MLIRExecutorRunnerLib

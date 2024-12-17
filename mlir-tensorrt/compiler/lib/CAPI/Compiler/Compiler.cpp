@@ -47,7 +47,7 @@ using namespace mlir;
 #endif
 DEFINE_C_API_PTR_METHODS(MTRT_CompilerClient, CompilerClient)
 DEFINE_C_API_PTR_METHODS(MTRT_StableHLOToExecutableOptions,
-                         StableHLOToExecutableOptions)
+                         StablehloToExecutableOptions)
 DEFINE_C_API_PTR_METHODS(MTRT_OptionsContext, OptionsContext)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
@@ -84,7 +84,7 @@ MTRT_Status mtrtCompilerClientCreate(MlirContext context,
       ctx->getOrLoadDialect<mlir::plan::PlanDialect>();
   assert(planDialect && "expected loaded PlanDialect");
   if (failed(planDialect->extensionConstructors.addCheckedExtensionConstructor<
-             compiler::StableHloToExecutableTask,
+             compiler::StablehloToExecutableTask,
              compiler::StableHLOToExecutableTensorRTExtension>()))
     emitWarning(mlir::UnknownLoc::get(ctx))
         << "ignoring duplicate extension load request; TensorRTExtension is "
@@ -156,7 +156,7 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreate(
       context->getLoadedDialect<mlir::plan::PlanDialect>();
   compiler::TaskExtensionRegistry extensions =
       planDialect->extensionConstructors
-          .getExtensionRegistryForTask<compiler::StableHloToExecutableTask>();
+          .getExtensionRegistryForTask<compiler::StablehloToExecutableTask>();
 
   // Check that default extension set is loaded and set options on the TRT
   // extension.
@@ -168,7 +168,7 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreate(
   trtExtension->setOptions(translationOpts);
 
   auto result =
-      std::make_unique<StableHLOToExecutableOptions>(std::move(extensions));
+      std::make_unique<StablehloToExecutableOptions>(std::move(extensions));
 
   llvm::Error finalizeStatus = result->finalize();
 
@@ -194,7 +194,7 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
       context->getLoadedDialect<mlir::plan::PlanDialect>();
   compiler::TaskExtensionRegistry extensions =
       planDialect->extensionConstructors
-          .getExtensionRegistryForTask<compiler::StableHloToExecutableTask>();
+          .getExtensionRegistryForTask<compiler::StablehloToExecutableTask>();
 
   // Check that default extension set is loaded.
   assert(
@@ -203,7 +203,7 @@ MTRT_Status mtrtStableHloToExecutableOptionsCreateFromArgs(
       "expected valid StableHLOToExecutableTensorRTExtension");
 
   auto result =
-      std::make_unique<StableHLOToExecutableOptions>(std::move(extensions));
+      std::make_unique<StablehloToExecutableOptions>(std::move(extensions));
   std::vector<llvm::StringRef> argvStrRef(argc);
   for (unsigned i = 0; i < argc; i++)
     argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
@@ -234,7 +234,7 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
     const char **debugTypes, size_t debugTypeSizes, const char *dumpIrTreeDir,
     const char *dumpTensorRTDir) {
 
-  StableHLOToExecutableOptions *cppOpts = unwrap(options);
+  StablehloToExecutableOptions *cppOpts = unwrap(options);
   cppOpts->get<DebugOptions>().enableLLVMDebugFlag = enableDebugging;
   for (unsigned i = 0; i < debugTypeSizes; i++)
     cppOpts->get<DebugOptions>().llvmDebugTypes.emplace_back(debugTypes[i]);
@@ -245,35 +245,9 @@ MTRT_Status mtrtStableHloToExecutableOptionsSetDebugOptions(
   return mtrtStatusGetOk();
 }
 
-MTRT_Status
-mtrtStableHloToExecutableOptionsSetTensorRTTranslationMetadataCallback(
-    MTRT_StableHLOToExecutableOptions options, MTRT_MetadataCallback callback,
-    void *userData) {
-  StableHLOToExecutableOptions *cppOpts = unwrap(options);
-
-  // Construct the append callback which we will pass to the callback provided
-  // by the user. We do it this way to avoid needing a string construct in the C
-  // API.
-  auto appendFunc = [](MlirStringRef str, void *appendCtx) {
-    std::string &accum = *reinterpret_cast<std::string *>(appendCtx);
-    accum += std::string(str.data, str.length);
-  };
-
-  // Capturing by reference here will cause `callback` to point to the wrong
-  // place at the time this callback is invoked.
-  cppOpts->layerMetadataCallback = [=](Operation *op) {
-    std::string accum;
-    void *appendCtx = reinterpret_cast<void *>(&accum);
-    callback(wrap(op), appendFunc, appendCtx, userData);
-    return accum;
-  };
-
-  return mtrtStatusGetOk();
-}
-
 MTRT_Status mtrtStableHloToExecutableOptionsDestroy(
     MTRT_StableHLOToExecutableOptions options) {
-  delete reinterpret_cast<StableHLOToExecutableOptions *>(options.ptr);
+  delete reinterpret_cast<StablehloToExecutableOptions *>(options.ptr);
   return mtrtStatusGetOk();
 }
 
@@ -288,7 +262,7 @@ mtrtStableHloPipelineGetCached(MTRT_CompilerClient client,
 
   mlir::PassManager *runner{};
   if (unwrap(options)->getHash()) {
-    runner = &unwrap(client)->getOrCreatePassManager<StableHloToExecutableTask>(
+    runner = &unwrap(client)->getOrCreatePassManager<StablehloToExecutableTask>(
         *unwrap(options));
     result->ptr = runner;
     return mtrtStatusGetOk();
@@ -340,7 +314,7 @@ MTRT_Status mtrtCompilerStableHLOToExecutable(
         "StableHLO-to-Executable compilation expects a ModuleOp");
 
   StatusOr<std::unique_ptr<mlirtrt::runtime::Executable>> exe =
-      compiler::StableHloToExecutableTask::compileStableHLOToExecutable(
+      compiler::StablehloToExecutableTask::compileStableHLOToExecutable(
           *unwrap(client), moduleOp, *unwrap(stableHloToExecutableOptions));
   if (!exe.isOk())
     return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,

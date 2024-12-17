@@ -165,8 +165,7 @@ public:
     if constexpr (cFuncTable.capsuleToCApi == nullptr) {
       throw py::value_error("object cannot be converted from opaque capsule");
     } else {
-      MTRT_StableHLOToExecutableOptions cObj =
-          cFuncTable.capsuleToCApi(capsule.ptr());
+      CType cObj = cFuncTable.capsuleToCApi(capsule.ptr());
       return py::cast(Derived(cObj), py::return_value_policy::move);
     }
   }
@@ -199,8 +198,7 @@ public:
     if constexpr (cFuncTable.capsuleToCApi == nullptr) {
       throw py::value_error("boject cannot be converted from opaque capsule");
     } else {
-      MTRT_StableHLOToExecutableOptions cObj =
-          cFuncTable.capsuleToCApi(capsule.ptr());
+      CType cObj = cFuncTable.capsuleToCApi(capsule.ptr());
       return py::cast(Derived(cObj), py::return_value_policy::move);
     }
   }

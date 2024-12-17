@@ -27,7 +27,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include <exception>
 #include <memory>
-#include <numeric>
 #include <stdexcept>
 #include <string_view>
 
@@ -36,85 +35,18 @@ using namespace mlirtrt;
 
 //===----------------------------------------------------------------------===//
 // MTRT_* <-> PyCapsule utilities.
+// These are only needed in the case where we want to use implicitly cast the
+// PyBind11 object to the original C API type. This  is required to use
+// `std::optional<...>` of the original C API type as an argument type in the
+// functions bound to Python through Pybind11 below.
 //===----------------------------------------------------------------------===//
 
 MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(Device)
 MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(Stream)
-MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(RuntimeValue)
-MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(MemRefValue)
-MTRT_DEFINE_RUNTIME_INLINE_PY_CAPSULE_CASTER_FUNCS(ScalarValue)
-
-//===----------------------------------------------------------------------===//
-// PyBind Casters
-//===----------------------------------------------------------------------===//
-static py::object mtrtApiObjectToCapsule(py::handle apiObject) {
-  if (PyCapsule_CheckExact(apiObject.ptr()))
-    return py::reinterpret_borrow<py::object>(apiObject);
-  if (!py::hasattr(apiObject, MTRT_PYTHON_CAPI_PTR_ATTR)) {
-    auto repr = py::repr(apiObject).cast<std::string>();
-    throw py::type_error(
-        (llvm::Twine("Expected an MLIR-TensorRT object (got ") + repr + ").")
-            .str());
-  }
-  return apiObject.attr(MTRT_PYTHON_CAPI_PTR_ATTR);
-}
 
 namespace pybind11::detail {
-/// Casts object (capsule) -> MTRT_Device
-template <>
-struct type_caster<MTRT_Device> {
-  PYBIND11_TYPE_CASTER(MTRT_Device, _("MTRT_Device"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToDevice(capsule.ptr());
-    return !mtrtDeviceIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_Stream
-template <>
-struct type_caster<MTRT_Stream> {
-  PYBIND11_TYPE_CASTER(MTRT_Stream, _("MTRT_Stream"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToStream(capsule.ptr());
-    return !mtrtStreamIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_RuntimeValue
-template <>
-struct type_caster<MTRT_RuntimeValue> {
-  PYBIND11_TYPE_CASTER(MTRT_RuntimeValue, _("MTRT_RuntimeValue"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToRuntimeValue(capsule.ptr());
-    return !mtrtRuntimeValueIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_ScalarValue
-template <>
-struct type_caster<MTRT_ScalarValue> {
-  PYBIND11_TYPE_CASTER(MTRT_ScalarValue, _("MTRT_ScalarValue"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToScalarValue(capsule.ptr());
-    return !mtrtScalarValueIsNull(value);
-  }
-};
-
-/// Casts object (capsule) -> MTRT_MemRefValue
-template <>
-struct type_caster<MTRT_MemRefValue> {
-  PYBIND11_TYPE_CASTER(MTRT_MemRefValue, _("MTRT_MemRefValue"));
-  bool load(handle src, bool) {
-    py::object capsule = mtrtApiObjectToCapsule(src);
-    value = mtrtPythonCapsuleToMemRefValue(capsule.ptr());
-    return !mtrtMemRefValueIsNull(value);
-  }
-};
-
+MTRT_DEFINE_PYBIND_CASTER(Device, MTRT_Device);
+MTRT_DEFINE_PYBIND_CASTER(Stream, MTRT_Stream);
 } // namespace pybind11::detail
 
 namespace {
@@ -182,12 +114,10 @@ public:
   DECLARE_WRAPPER_CONSTRUCTORS(PyScalarValue);
 
   static constexpr auto kMethodTable = CAPITable<MTRT_ScalarValue>{
-      mtrtScalarValueIsNull,
-      [](MTRT_ScalarValue value) {
+      mtrtScalarValueIsNull, [](MTRT_ScalarValue value) {
         (void)value;
         return mtrtStatusGetOk();
-      },
-      mtrtPythonCapsuleToScalarValue, mtrtPythonScalarValueToCapsule};
+      }};
 };
 
 /// Python wrapper around MTRT_MemRefValue.
@@ -197,8 +127,7 @@ public:
   DECLARE_WRAPPER_CONSTRUCTORS(PyMemRefValue);
 
   static constexpr auto kMethodTable = CAPITable<MTRT_MemRefValue>{
-      mtrtMemRefValueIsNull, mtrtMemRefValueDestroy,
-      mtrtPythonCapsuleToMemRefValue, mtrtPythonMemRefValueToCapsule};
+      mtrtMemRefValueIsNull, mtrtMemRefValueDestroy};
 
   MTRT_RuntimeClient getClient() { return mtrtMemRefGetClient(*this); }
 };
@@ -210,8 +139,7 @@ public:
   DECLARE_WRAPPER_CONSTRUCTORS(PyRuntimeValue);
 
   static constexpr auto kMethodTable = CAPITable<MTRT_RuntimeValue>{
-      mtrtRuntimeValueIsNull, mtrtRuntimeValueDestroy,
-      mtrtPythonCapsuleToRuntimeValue, mtrtPythonRuntimeValueToCapsule};
+      mtrtRuntimeValueIsNull, mtrtRuntimeValueDestroy};
 };
 
 /// Python object type wrapper for `MTRT_StableHLOToExecutableOptions`.

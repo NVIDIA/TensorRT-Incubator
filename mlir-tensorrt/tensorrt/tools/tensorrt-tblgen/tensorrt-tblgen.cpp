@@ -1,4 +1,4 @@
-//===- MlirTensorRtTblgen.cpp -----------------------------------*- C++ -*-===//
+//===- tensorrt-tblgen.cpp --------------------------------------*- C++ -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -18,7 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// This file contains the main function for mlir-tensorrt-tblgen.
+/// This file contains the main function for tensorrt-tblgen.
 ///
 //===----------------------------------------------------------------------===//
 
