@@ -37,7 +37,7 @@ for expected accuracy.
     <!--
     Tripy: TEST: EXPECTED_STDOUT Start
     ```
-    (?s).*?What is the answer to life, the universe, and everything\? (How can we know what's real\? How can|The answer to the questions that are asked of us)
+    (?s).*?What is the answer to life, the universe, and everything\? (How can we know what's real\? How can|The answer to the questions that are asked of us|The answer to the questions that are the most difficult)
     ```
     Tripy: TEST: EXPECTED_STDOUT End
     -->

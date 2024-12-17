@@ -52,7 +52,7 @@ jobs:
     - name : test
       run: |
         cd /tripy/
-        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -n 4 --durations=15 --ignore tests/performance
+        pytest --cov=tripy/ --cov-config=.coveragerc tests/ -v -m "not l1" -n 4 --durations=15 --ignore tests/performance
 
     - name: Release
       uses: softprops/action-gh-release@v2
