@@ -8,7 +8,7 @@ This document explains how to release a new version of Tripy.
     Often, updates to Tripy will also require updates to dependencies,
     like MLIR-TRT, so make sure to update those version numbers as well.
 
-2. Add a new entry to [`packages.html`](./docs/packages.html).
+2. If there were any MLIR-TRT releases, add new entries to [`packages.html`](./docs/packages.html).
     This ensures that we will be able to `pip install` Tripy.
 
 3. If there were any other functional changes since the most recent

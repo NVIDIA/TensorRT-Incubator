@@ -29,13 +29,8 @@ an excellent user experience without compromising performance. Some of the goals
 <!-- Tripy: DOC: OMIT End -->
 
 ```bash
-python3 -m pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html nvtripy --no-deps
-python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html nvtripy
+python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
 ```
-
-***Important:** There is another package named `nvtripy` on PyPI.*
-*Note that it is **not** the package from this repository.*
-*Please use the instructions above to ensure you install the correct package.*
 
 <!-- Tripy: DOC: OMIT Start -->
 ### Building Wheels From Source
