@@ -216,7 +216,7 @@ class Tensor(metaclass=TensorMeta):
         trace = Trace([self.trace_tensor], inputs=inputs)
         output_devices = [out.device for out in trace.outputs]
 
-        executable = global_cache.get(trace, devices=output_devices) if config.eager_cache else None
+        executable = global_cache.get(trace, devices=output_devices) if config.tripy_eager_cache else None
         if executable is None:
             flat_ir = trace.to_flat_ir()
             mlir = flat_ir.to_mlir()
@@ -224,7 +224,7 @@ class Tensor(metaclass=TensorMeta):
             compiler = Compiler(trt_builder_opt_level=0)
             executable = compiler.compile(mlir, flat_ir=flat_ir)
 
-            if config.eager_cache:
+            if config.tripy_eager_cache:
                 global_cache.set(trace, executable=executable, devices=output_devices)
 
         executor = Executor(executable)

@@ -38,7 +38,7 @@ mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/",
 enable_tensorrt_debug = os.environ.get("TRIPY_TRT_DEBUG_ENABLED", "0") == "1"
 tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "nvtripy", "tensorrt-dumps"))
 
-eager_cache: str = export.public_api(
+tripy_eager_cache: str = export.public_api(
     document_under="config.rst",
     autodoc_options=[":no-value:"],
     module=sys.modules[__name__],

@@ -51,10 +51,14 @@ class TestStorage:
         assert storage.device.kind == "gpu"
         assert storage.data_str == "[[1 1]\n [1 1]]"
 
-    def test_from_dlpack_float(self):
-        data = cp.ones((2, 2), dtype=cp.float32)
+    @pytest.mark.parametrize("dtype", ["float16", "float32"])
+    def test_from_dlpack_float(self, dtype):
+        cp_dtype = cp.float16 if dtype == "float16" else cp.float32
+        tripy_dtype = tp.float16 if dtype == "float16" else tp.float32
+
+        data = cp.ones((2, 2), dtype=cp_dtype)
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
-        assert storage.dtype == tp.float32
+        assert storage.dtype == tripy_dtype
         assert storage.shape == (2, 2)
         assert storage.device.kind == "gpu"
         assert storage.data_str == "[[1. 1.]\n [1. 1.]]"
@@ -87,3 +91,11 @@ class TestStorage:
         arr = [1.0, 2.0, 3.0]
         t = tp.Tensor(arr)
         assert t.trace_tensor.rank == 1
+
+    def test_from_dlpack_large_shape(self):
+        data = cp.ones((1, 70), dtype=cp.float32)
+        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        assert storage.dtype == tp.float32
+        assert storage.shape == (1, 70)
+        assert storage.device.kind == "gpu"
+        assert storage.data_str == ""

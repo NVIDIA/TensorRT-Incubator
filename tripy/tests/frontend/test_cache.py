@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-import os
+
+from tests import helper
 
 import nvtripy as tp
+import cupy as cp
 
+from nvtripy.constants import STROGE_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.frontend.trace import Trace
 from nvtripy.frontend.cache import ExecutableCache
 
@@ -34,7 +37,6 @@ def mock_global_cache(monkeypatch, cache):
 
 class TestCache:
     def test_identical_graph_different_input_shapes(self, mock_global_cache):
-        """Test caching with identical computation graph but different input shapes."""
         input1 = tp.Tensor([[1.0, 2.0], [3.0, 4.0]], dtype=tp.float32)
         input2 = tp.Tensor([[[1.0, 2.0], [3.0, 4.0]]], dtype=tp.float32)
 
@@ -51,7 +53,6 @@ class TestCache:
         assert mock_global_cache.get(Trace([layer(input2).trace_tensor]), devices=[output2.device]) is not None
 
     def test_identical_graph_different_input_names(self, mock_global_cache):
-        """Test caching with identical computation graph but different input names."""
         input1 = tp.Tensor([[1.0, 2.0]], dtype=tp.float32, name="input_a")
         input2 = tp.Tensor([[1.0, 2.0]], dtype=tp.float32, name="input_b")
 
@@ -63,7 +64,6 @@ class TestCache:
         assert mock_global_cache.get(Trace([output2.trace_tensor]), devices=[output2.device]) is not None
 
     def test_identical_graph_different_output_names(self, mock_global_cache):
-        """Test caching with identical computation graph but different output tensor names."""
         input_tensor = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
 
         layer = tp.Linear(2, 3)
@@ -77,7 +77,6 @@ class TestCache:
         assert mock_global_cache.get(Trace([output2.trace_tensor]), devices=[output2.device]) is not None
 
     def test_different_graphs_different_cache_entries(self, mock_global_cache):
-        """Test caching with different computation graphs having different cache entries."""
         input_tensor = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
 
         layer1 = tp.Linear(2, 3)
@@ -93,7 +92,12 @@ class TestCache:
         output2.eval()
         assert mock_global_cache.get(Trace([layer2(input_tensor).trace_tensor]), devices=[output2.device]) is not None
 
-    # test_trace_normalize
-    # test_trace_normalize with storage op shape < thershold
-    # test_trace_normalize with storage op shape > thershold
-    # test cache not being used
+    # test change value of small shape tensor to see should fail since it is not lifted
+    # test change value of big shape tensor to see should not fail since it is lifted as input
+
+    def test_cache_not_being_used(self, mock_global_cache):
+        with helper.config("tripy_eager_cache", False):
+            input_tensor = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
+
+            input_tensor.eval()
+            assert mock_global_cache.get(Trace([input_tensor.trace_tensor]), devices=[input_tensor.device]) is None
