@@ -21,10 +21,6 @@ concurrency:
 jobs:
   build-and-release:
     runs-on: tripy-self-hosted
-    permissions:
-      # IMPORTANT: this permission is mandatory for trusted publishing
-      id-token: write
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
