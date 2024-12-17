@@ -72,7 +72,7 @@ def main():
         "--quant-mode",
         type=str,
         help="Quantization mode.",
-        choices=["int8-weight-only", "int4-weight-only"],
+        choices=["int8-weight-only", "int4-weight-only", "float8"],
     )
 
     args = parser.parse_args()
