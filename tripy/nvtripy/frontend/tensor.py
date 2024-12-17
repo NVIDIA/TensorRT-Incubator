@@ -206,6 +206,7 @@ class Tensor(metaclass=TensorMeta):
             # This happens before the imports below so we don't incur extra overhead.
             return self.trace_tensor.producer.data
 
+        from nvtripy.backend.api.compile import REVERT_GRAPH_AFTER_COMPILING
         from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.backend.mlir.executor import Executor
         from nvtripy.frontend.trace import Trace
@@ -224,11 +225,17 @@ class Tensor(metaclass=TensorMeta):
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
 
-        # If we are tracing, we should not replace the tensor with a storage op. However, even so,
-        # evaluating while tracing could introduce errors (e.g., if the evaluated value is used to create a constant
-        # that is in the graph) and is likely also to slow down compilation, so we still give warnings in that case.
-        if not self.trace_tensor.is_compile_tracer:
-            Storage.build_internal([], [self.trace_tensor], data)
+        # If we are tracing for compilation, we record the change we make so that we can revert it before producing
+        # the final executable. However, even so, evaluating while tracing could introduce errors
+        # (e.g., if the result of evaluation is used to create a constant that is in the graph),
+        # so we still give warnings in that case.
+        #
+        # In principle, we could avoid inserting the storage op altogether, but that could slow down other
+        # evaluations that occur during the trace.
+        if REVERT_GRAPH_AFTER_COMPILING is not None:
+            REVERT_GRAPH_AFTER_COMPILING.append((self.trace_tensor, self.trace_tensor.producer))
+
+        Storage.build_internal([], [self.trace_tensor], data)
 
         # TODO(#155): Remove this hack of overriding the device type.
         self.trace_tensor.device = flat_ir.outputs[0].device
@@ -269,15 +276,8 @@ class Tensor(metaclass=TensorMeta):
 
         data_list = self.tolist()
 
-        if isinstance(self.trace_tensor.producer, Storage):
-            data_shape = self.trace_tensor.producer.shape
-        else:
-            from nvtripy.utils.utils import get_shape
-
-            # If the producer isn't a storage after evaluating, we must be tracing.
-            # This situation is inadvisable and the user would have been warned.
-            assert self.trace_tensor.is_compile_tracer
-            data_shape = get_shape(data_list)
+        assert isinstance(self.trace_tensor.producer, Storage)
+        data_shape = self.trace_tensor.producer.shape
 
         arr_str = pretty_print(data_list, data_shape)
         indentation = ""

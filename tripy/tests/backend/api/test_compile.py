@@ -165,14 +165,18 @@ class TestCompile:
     def test_no_error_if_evaling_input_during_compile(self, capsys):
         def func(a):
             print(a)
-            # Also check that the producer has not been updated after the eval
-            assert not isinstance(a.trace_tensor.producer, Storage)
             return a + 1
 
-        tp.compile(func, args=[tp.InputInfo((2, 3), dtype=tp.float32)])
+        compiled_inc = tp.compile(func, args=[tp.InputInfo((1,), dtype=tp.float32)])
         # Make sure that there was a warning.
         out, _ = capsys.readouterr()
         assert "Tensor was evaluated while compiling here:" in out
+
+        # Run it twice to ensure that we are not fixing the value of "a" during the trace.
+        inc_out_1 = compiled_inc(tp.Tensor([2.0]))
+        assert inc_out_1.tolist() == [3.0]
+        inc_out_2 = compiled_inc(tp.Tensor([5.0]))
+        assert inc_out_2.tolist() == [6.0]
 
     def test_no_error_if_evaling_intermediate_tensor_during_compile(self, capsys):
         def func(a):

@@ -25,6 +25,11 @@ from nvtripy.backend.mlir import Compiler as MLIRCompiler
 from nvtripy.common.exception import raise_error
 from nvtripy.frontend import Tensor, Trace
 
+# If a tensor is evaluated during the trace (and hence replaced with a Storage node),
+# we should keep track of which ones are evaluated so we could revert them tracing to
+# avoid modifying the compiled model.
+REVERT_GRAPH_AFTER_COMPILING = None
+
 
 # TODO (#230): Support collections of tensors in args/kwargs
 @export.public_api(document_under="compiling_code/compile.rst")
@@ -165,7 +170,15 @@ def compile(
     # as `InputInfo`s, but the order needs to match the signature of the original function.
     compiled_arg_names = [name for name in signature.parameters.keys() if name in input_names]
 
+    # If we evaluate any tensors when calling func(), we set up REVERT_GRAPH_AFTER_COMPILING
+    # to record any changes made to the graph (done by BaseTraceOp when it changes the trace tensors' producers)
+    # so we can revert them before proceeding.
+    global REVERT_GRAPH_AFTER_COMPILING
+    REVERT_GRAPH_AFTER_COMPILING = []
     trace_outputs = utils.make_list(func(*new_args, **new_kwargs))
+    for trace_tensor, orig_producer in REVERT_GRAPH_AFTER_COMPILING:
+        trace_tensor.producer = orig_producer
+    REVERT_GRAPH_AFTER_COMPILING = None
 
     if not trace_outputs:
         raise_error(
