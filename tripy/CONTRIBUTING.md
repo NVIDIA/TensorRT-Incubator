@@ -39,10 +39,10 @@ Thank you for considering contributing to Tripy!
         docker run --gpus all -it -p 8080:8080 -v $(pwd):/tripy/ --rm tripy:latest
         ```
 
-3. You should now be able to use `tripy` in the container. To test it out, you can run a quick sanity check:
+3. You should now be able to use `nvtripy` in the container. To test it out, you can run a quick sanity check:
 
     ```bash
-    python3 -c "import tripy as tp; print(tp.ones((2, 3)))"
+    python3 -c "import nvtripy as tp; print(tp.ones((2, 3)))"
     ```
 
     This should give you some output like:
@@ -180,5 +180,5 @@ The Tripy container includes a build of MLIR-TensorRT, but in some cases, you ma
 
 4. Verify everything works:
     ```bash
-    python3 -c "import tripy as tp; print(tp.ones((2, 3)))"
+    python3 -c "import nvtripy as tp; print(tp.ones((2, 3)))"
     ```

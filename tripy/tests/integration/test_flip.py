@@ -18,7 +18,7 @@
 import cupy as cp
 import numpy as np
 import pytest
-import tripy as tp
+import nvtripy as tp
 
 
 class TestFlip:

@@ -19,8 +19,8 @@ import pytest
 from tests import helper
 from tests.backend.api.conftest import *
 
-import tripy as tp
-from tripy.frontend.trace.ops.storage import Storage
+import nvtripy as tp
+from nvtripy.frontend.trace.ops.storage import Storage
 
 
 class TestCompile:

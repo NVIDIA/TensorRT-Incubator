@@ -24,9 +24,9 @@ from typing import Optional
 import pytest
 import torch
 
-import tripy as tp
+import nvtripy as tp
 from tests.helper import ROOT_DIR
-from tripy.common.datatype import DATA_TYPES
+from nvtripy.common.datatype import DATA_TYPES
 
 skip_if_older_than_sm89 = pytest.mark.skipif(
     torch.cuda.get_device_capability() < (8, 9), reason="Some features (e.g. fp8) are not available before SM90"

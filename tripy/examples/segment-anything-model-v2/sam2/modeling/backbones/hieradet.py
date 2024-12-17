@@ -25,7 +25,7 @@
 from functools import partial
 from typing import Callable, List, Tuple, Union
 
-import tripy as tp
+import nvtripy as tp
 from sam2.modeling.backbones.utils import (
     PatchEmbed,
     window_partition,

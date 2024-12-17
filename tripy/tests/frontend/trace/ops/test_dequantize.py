@@ -18,9 +18,9 @@
 import numpy as np
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace.ops import Dequantize
+from nvtripy.frontend.trace.ops import Dequantize
 
 
 class TestDequantize:

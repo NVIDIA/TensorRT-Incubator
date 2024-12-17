@@ -15,8 +15,8 @@
 # limitations under the License.
 #
 
-import tripy as tp
-from tripy.frontend.trace.ops import Resize
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import Resize
 from tests import helper
 
 

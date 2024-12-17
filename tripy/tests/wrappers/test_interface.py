@@ -26,11 +26,11 @@ from tests import helper
 from tests.conftest import skip_if_older_than_sm89
 from tests.wrappers.object_builders import create_obj
 
-import tripy as tp
-from tripy import wrappers
-from tripy.common.datatype import DATA_TYPES
-from tripy.wrappers import TYPE_VERIFICATION
-from tripy.export import PUBLIC_APIS
+import nvtripy as tp
+from nvtripy import wrappers
+from nvtripy.common.datatype import DATA_TYPES
+from nvtripy.wrappers import TYPE_VERIFICATION
+from nvtripy.export import PUBLIC_APIS
 
 # Get all functions/methods which have tensors in the type signature
 PUBLIC_API_TENSOR_FUNCTIONS = []
@@ -80,7 +80,7 @@ for func_name, (
     for param_name in param_dict.keys():
         # Check if there are any provided constraints and add them to the constraint dict.
         inputs[param_name] = dtype_constraints.get(param_name, None)
-    # Update dtype_exceptions from string to tripy dtype.
+    # Update dtype_exceptions from string to nvtripy dtype.
     for i, dtype_exception in enumerate(dtype_exceptions):
         for key, val in dtype_exception.items():
             dtype_exceptions[i][key] = getattr(tp, val)

@@ -80,12 +80,12 @@ inp = tp.full((2, 3), value=0.5)
 The `tp.full()` and `tp.tanh()` APIs are part of the frontend and like other frontend functions, map to one or more
 (just one in this case) `Trace` operations. For frontend functions that map to exactly one `Trace` operation,
 we define the function directly alongside the corresponding `Trace` operation.
-In this case, the [`Fill` operation](source:/tripy/frontend/trace/ops/fill.py) provides `tp.full()` and
-the [`UnaryElementwise` operation](source:/tripy/frontend/trace/ops/unary_elementwise.py) provides `tp.tanh()`.
+In this case, the [`Fill` operation](source:/nvtripy/frontend/trace/ops/fill.py) provides `tp.full()` and
+the [`UnaryElementwise` operation](source:/nvtripy/frontend/trace/ops/unary_elementwise.py) provides `tp.tanh()`.
 
 *We organize it this way to reduce the number of files that need to be touched when adding new ops.*
     *If an operation is composed of multiple `Trace` operations, the frontend function can be*
-    *defined under the [`frontend/ops`](source:/tripy/frontend/ops) submodule instead.*
+    *defined under the [`frontend/ops`](source:/nvtripy/frontend/ops) submodule instead.*
 
 #### What Does It Do?
 
@@ -145,7 +145,7 @@ Here's the textual representation for the `Trace` from our example:
 <!-- Tripy: DOC: OMIT Start -->
 ```py
 # doc: no-print-locals
-from tripy.frontend.trace import Trace
+from nvtripy.frontend.trace import Trace
 # Output has been eval'd already, so we'll construct a new one
 new_out = tp.tanh(inp)
 trace = Trace([new_out.trace_tensor])
@@ -169,7 +169,7 @@ but this is good enough for a conceptual understanding):
 
 ```py
 def to_flat_ir(self, inputs, outputs):
-    from tripy.flat_ir.ops import TanhOp
+    from nvtripy.flat_ir.ops import TanhOp
 
     TanhOp.build(inputs, outputs)
 ```
@@ -178,9 +178,9 @@ Wait a second - what's happening here? The function doesn't return anything; in 
 anything at all!
 
 The way this works is as follows: when we call `to_flat_ir()` we provide input and output
-[`FlatIRTensor`](source:/tripy/flat_ir/tensor.py)s. `to_flat_ir()` is responsible for generating a
+[`FlatIRTensor`](source:/nvtripy/flat_ir/tensor.py)s. `to_flat_ir()` is responsible for generating a
 subgraph of `FlatIR` operations that bind to these inputs and outputs. The
-[`BaseFlatIROp` build function](source:/tripy/flat_ir/ops/base.py) updates the producer of the output tensors,
+[`BaseFlatIROp` build function](source:/nvtripy/flat_ir/ops/base.py) updates the producer of the output tensors,
 meaning that *just building a `FlatIR` operation is enough to add it to the subgraph*. Once this binding
 is done, we take the resulting subgraph and inline it into the `FlatIR`, remapping the I/O tensors to those
 that already exist in the `FlatIR`.
@@ -203,7 +203,7 @@ Our final translation step is to go from `FlatIR` into MLIR.
 Similar to `Trace` operations, `FlatIR` operations implement `to_mlir()` which generates MLIR operations.
 Unlike `Trace` operations, this is always a 1:1 mapping.
 
-Here's a snippet for how [`tanh()` is implemented](source:/tripy/flat_ir/ops/tanh.py):
+Here's a snippet for how [`tanh()` is implemented](source:/nvtripy/flat_ir/ops/tanh.py):
 ```py
 def to_mlir(self, operands):
     return [stablehlo.TanhOp(*operands)]
@@ -227,4 +227,4 @@ Once we have the complete MLIR representation, we then compile it to an executab
 
 Finally, we use the MLIR-TRT executor to launch the executable and retrieve the output tensors.
 The executable returns [`memref`s](https://mlir.llvm.org/docs/Dialects/MemRef/) which we then
-wrap in Tripy frontend {class}`tripy.Tensor`s.
+wrap in Tripy frontend {class}`nvtripy.Tensor`s.

@@ -24,7 +24,7 @@
 
 import math
 import numpy as np
-import tripy as tp
+import nvtripy as tp
 from typing import Optional, Tuple
 from sam2.modeling.sam2_utils import cartesian_via_polar, mul_as_complex
 

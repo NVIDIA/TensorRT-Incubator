@@ -18,7 +18,7 @@
 import math
 from dataclasses import dataclass
 
-import tripy as tp
+import nvtripy as tp
 
 
 @dataclass
@@ -31,7 +31,7 @@ class GPTConfig:
     bias: bool = True
     seq_len: int = 1
     batch_size: int = 1
-    dtype: "tripy.datatype" = tp.float32
+    dtype: "nvtripy.datatype" = tp.float32
     quant_mode: str = None
 
 

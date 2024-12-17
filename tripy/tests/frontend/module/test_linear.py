@@ -18,7 +18,7 @@
 import pytest
 from tests import helper
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestLinear:

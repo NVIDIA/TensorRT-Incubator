@@ -19,7 +19,7 @@ import numpy as np
 import cupy as cp
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 
 
 class DummyNestedOp(tp.Module):

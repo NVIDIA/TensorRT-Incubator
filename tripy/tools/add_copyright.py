@@ -58,7 +58,7 @@ def get_files(args):
     else:
         command = ["git", "ls-files"]
         result = subprocess.run(command, capture_output=True, text=True).stdout.splitlines()
-    return [f for f in result if f.endswith(".py") and f.startswith("tripy/")]
+    return [f for f in result if f.endswith(".py") and f.startswith("nvtripy/")]
 
 
 def main():

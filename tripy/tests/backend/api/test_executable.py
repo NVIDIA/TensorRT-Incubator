@@ -21,7 +21,7 @@ import pytest
 from tests import helper
 from tests.backend.api.conftest import *
 
-import tripy as tp
+import nvtripy as tp
 
 
 @pytest.fixture(scope="session")

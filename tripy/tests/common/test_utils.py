@@ -18,15 +18,15 @@
 import pytest
 from tests import helper
 
-import tripy.common.datatype
-from tripy.common.exception import TripyException
-from tripy.common.utils import convert_list_to_array, get_element_type
+import nvtripy.common.datatype
+from nvtripy.common.exception import TripyException
+from nvtripy.common.utils import convert_list_to_array, get_element_type
 
 
 def test_get_element_type():
-    assert get_element_type([1, 2, 3]) == tripy.common.datatype.int32
-    assert get_element_type([1.0, 2.0, 3.0]) == tripy.common.datatype.float32
-    assert get_element_type([[1], [2], [3]]) == tripy.common.datatype.int32
+    assert get_element_type([1, 2, 3]) == nvtripy.common.datatype.int32
+    assert get_element_type([1.0, 2.0, 3.0]) == nvtripy.common.datatype.float32
+    assert get_element_type([[1], [2], [3]]) == nvtripy.common.datatype.int32
 
     with helper.raises(
         TripyException,
@@ -38,10 +38,10 @@ def test_get_element_type():
 @pytest.mark.parametrize(
     "values, dtype, expected",
     [
-        ([True, False, True], tripy.common.datatype.bool, b"\x01\x00\x01"),
-        ([100000, 200000], tripy.common.datatype.int32, b"\xa0\x86\x01\x00@\x0d\x03\x00"),
-        ([1, 2], tripy.common.datatype.int64, b"\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00"),
-        ([1.0, 2.0], tripy.common.datatype.float32, b"\x00\x00\x80?\x00\x00\x00@"),
+        ([True, False, True], nvtripy.common.datatype.bool, b"\x01\x00\x01"),
+        ([100000, 200000], nvtripy.common.datatype.int32, b"\xa0\x86\x01\x00@\x0d\x03\x00"),
+        ([1, 2], nvtripy.common.datatype.int64, b"\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00"),
+        ([1.0, 2.0], nvtripy.common.datatype.float32, b"\x00\x00\x80?\x00\x00\x00@"),
     ],
 )
 def test_convert_list_to_array(values, dtype, expected):

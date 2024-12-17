@@ -3,7 +3,7 @@
 Modules and functions can be compiled ahead of time for better runtime performance.
 
 *Note that the compiler imposes some requirements on the functions/modules it can compile.*
-*See {func}`tripy.compile` for details.*
+*See {func}`nvtripy.compile` for details.*
 
 In this guide, we'll work with the [GEGLU](https://arxiv.org/abs/2002.05202v1) module defined below:
 
@@ -32,10 +32,10 @@ out = layer(inp)
 
 ## Compiling
 
-Let's optimize the module using {func}`tripy.compile`.
+Let's optimize the module using {func}`nvtripy.compile`.
 
 When we compile in Tripy, we need to provide shape and data type information about each runtime input
-using the {class}`tripy.InputInfo` API. Other parameters to the function will be considered compile-time
+using the {class}`nvtripy.InputInfo` API. Other parameters to the function will be considered compile-time
 constants and will be folded into the compiled function.
 
 `GEGLU` only has one input, for which we'll create an `InputInfo` like so:
@@ -44,7 +44,7 @@ constants and will be folded into the compiled function.
 inp_info = tp.InputInfo(shape=(1, 2), dtype=tp.float32)
 ```
 
-Then we'll compile, which will give us a {class}`tripy.Executable` that we can run:
+Then we'll compile, which will give us a {class}`nvtripy.Executable` that we can run:
 
 ```py
 # doc: no-print-locals fast_geglu

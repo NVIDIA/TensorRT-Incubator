@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from tripy.utils import Result
+from nvtripy.utils import Result
 
 from tests import helper
 

@@ -22,7 +22,7 @@ import cupy as cp
 import numpy as np
 import torch
 
-import tripy as tp
+import nvtripy as tp
 from tests.helper import raises
 
 

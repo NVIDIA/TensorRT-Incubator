@@ -17,7 +17,7 @@ import cupy as cp
 import numpy as np
 from tests import helper
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestArange:

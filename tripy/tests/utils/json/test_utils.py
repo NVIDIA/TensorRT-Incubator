@@ -17,7 +17,7 @@
 
 import pytest
 
-from tripy.utils.json import load
+from nvtripy.utils.json import load
 
 
 def test_load_json_errors_if_file_nonexistent():

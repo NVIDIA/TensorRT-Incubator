@@ -19,9 +19,9 @@ from textwrap import dedent
 
 import cupy as cp
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace import Trace
+from nvtripy.frontend.trace import Trace
 
 
 class TestTrace:

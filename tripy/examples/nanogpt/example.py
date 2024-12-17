@@ -23,7 +23,7 @@ import torch
 from model import GPT, GPTConfig
 from weight_loader import load_quant_weights_from_hf, load_weights_from_hf
 
-import tripy as tp
+import nvtripy as tp
 
 
 def initialize_gpt_model(model_type, padded_seq_len, dtype, quant_mode):

@@ -24,7 +24,7 @@
 
 from typing import List, Optional
 
-import tripy as tp
+import nvtripy as tp
 
 
 class ImageEncoder(tp.Module):

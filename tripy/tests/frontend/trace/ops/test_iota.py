@@ -17,8 +17,8 @@
 
 from tests import helper
 
-import tripy as tp
-from tripy.frontend.trace.ops import Iota
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import Iota
 
 
 class TestIota:

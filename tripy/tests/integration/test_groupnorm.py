@@ -18,7 +18,7 @@
 import pytest
 import torch
 
-import tripy as tp
+import nvtripy as tp
 
 DTYPES = [(torch.float16, tp.float16), (torch.float32, tp.float32)]
 

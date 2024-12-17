@@ -25,7 +25,7 @@
 import torch
 import torch.distributed
 import torch.nn.functional as F
-import tripy as tp
+import nvtripy as tp
 
 from torch.nn.init import trunc_normal_
 

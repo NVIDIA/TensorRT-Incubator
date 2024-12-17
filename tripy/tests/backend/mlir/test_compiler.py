@@ -18,10 +18,10 @@
 import pytest
 from tests import helper
 
-import tripy as tp
-from tripy.backend.mlir.compiler import map_error_to_user_code_and_raise
-from tripy.flat_ir.tensor import FlatIRTensor
-from tripy.frontend.trace import Trace
+import nvtripy as tp
+from nvtripy.backend.mlir.compiler import map_error_to_user_code_and_raise
+from nvtripy.flat_ir.tensor import FlatIRTensor
+from nvtripy.frontend.trace import Trace
 
 
 # Tests to ensure that we're able to map errors from MLIR-TRT back to the Python code cleanly.

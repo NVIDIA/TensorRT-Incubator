@@ -15,8 +15,8 @@
 # limitations under the License.
 #
 
-import tripy as tp
-from tripy.frontend.trace import Trace
+import nvtripy as tp
+from nvtripy.frontend.trace import Trace
 
 
 class TestFlatIR:

@@ -53,7 +53,7 @@ class BuildPyCommand(build_py):
 # Dynamically update the package exclusion list to include "notebooks".
 # This ensures that non-essential directories like "examples" and "tests" are excluded,
 # while allowing for dynamic discovery of other sub-packages.
-# Explicitly setting "tripy" as the only included package in pyproject.toml caused failures in Level 1 testing.
+# Explicitly setting "nvtripy" as the only included package in pyproject.toml caused failures in Level 1 testing.
 default_excludes = list(FlatLayoutPackageFinder.DEFAULT_EXCLUDE) + ["notebooks"]
 
 if __name__ == "__main__":

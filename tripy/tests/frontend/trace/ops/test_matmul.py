@@ -19,9 +19,9 @@ import pytest
 
 import numpy as np
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.frontend.trace.ops import MatrixMultiplication
+from nvtripy.frontend.trace.ops import MatrixMultiplication
 
 
 class TestMatMul:

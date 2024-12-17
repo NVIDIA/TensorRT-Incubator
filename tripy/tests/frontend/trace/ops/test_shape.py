@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-import tripy as tp
+import nvtripy as tp
 
 
 class TestShape:

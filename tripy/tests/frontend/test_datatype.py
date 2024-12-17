@@ -17,14 +17,14 @@
 
 import pytest
 
-import tripy as tp
-from tripy.common.datatype import DATA_TYPES
+import nvtripy as tp
+from nvtripy.common.datatype import DATA_TYPES
 
 
 class TestDataType:
     @pytest.mark.parametrize("name", DATA_TYPES.keys())
     def test_api(self, name):
-        # Make sure we can access data types at the top-level, e.g. `tripy.float32`
+        # Make sure we can access data types at the top-level, e.g. `nvtripy.float32`
         assert isinstance(getattr(tp, name), tp.dtype)
 
     @pytest.mark.parametrize("name, dtype", DATA_TYPES.items())

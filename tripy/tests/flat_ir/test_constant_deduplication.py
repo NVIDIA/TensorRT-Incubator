@@ -14,12 +14,12 @@
 # limitations under the License.
 
 import pytest
-from tripy.flat_ir.flat_ir import FlatIR
-from tripy.flat_ir.function import FlatIRFunction
-from tripy.flat_ir.ops import ConstantOp
-from tripy.flat_ir.tensor import FlatIRTensor
-from tripy.common.device import device
-from tripy.common.datatype import int32
+from nvtripy.flat_ir.flat_ir import FlatIR
+from nvtripy.flat_ir.function import FlatIRFunction
+from nvtripy.flat_ir.ops import ConstantOp
+from nvtripy.flat_ir.tensor import FlatIRTensor
+from nvtripy.common.device import device
+from nvtripy.common.datatype import int32
 
 
 class MockOp:

@@ -21,7 +21,7 @@ import inspect
 import pytest
 
 from tests import helper
-from tripy.flat_ir.ops import BaseFlatIROp
+from nvtripy.flat_ir.ops import BaseFlatIROp
 
 OP_TYPES = sorted(
     {obj for obj in helper.discover_tripy_objects() if inspect.isclass(obj) and issubclass(obj, BaseFlatIROp)},

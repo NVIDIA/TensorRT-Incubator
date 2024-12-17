@@ -10,13 +10,13 @@ were chosen over alternatives.
 One way we deviate from frameworks like PyTorch is that our API only provides one way to do things.
 For example, in PyTorch, `softmax` is exposed as `torch.softmax`, `torch.nn.functional.softmax`,
 `torch.Tensor.softmax`, `torch.nn.Softmax`, etc. All of these are functionally identical and unnecessarily
-increase the API surface. In Tripy, we only expose `tripy.softmax`. Trying to use anything else will
+increase the API surface. In Tripy, we only expose `nvtripy.softmax`. Trying to use anything else will
 result in a (helpful) error message:
 
 ```
 >>> tp.Tensor([1, 2, 3]).softmax
 ...
-AttributeError: Module: 'tripy.Tensor' does not have attribute: 'softmax'. Did you mean: 'tripy.softmax'?
+AttributeError: Module: 'nvtripy.Tensor' does not have attribute: 'softmax'. Did you mean: 'nvtripy.softmax'?
 ```
 
 
@@ -44,7 +44,7 @@ For example:
 ```py
 # doc: no-eval
 def to_flat_ir(self, inputs, outputs):
-    from tripy.flat_ir.ops import TanhOp
+    from nvtripy.flat_ir.ops import TanhOp
 
     TanhOp.build(inputs, outputs)
 ```
@@ -57,7 +57,7 @@ In a previous version of Tripy, we would return a list of operators that we want
 ```py
 # doc: no-eval
 def to_flat_ir(self, inputs, outputs):
-    from tripy.flat_ir.ops import TanhOp
+    from nvtripy.flat_ir.ops import TanhOp
 
     tanh = TanhOp.build(inputs, outputs)
     return [tanh]

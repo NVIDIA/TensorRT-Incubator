@@ -18,8 +18,8 @@
 
 from tests import helper
 
-import tripy as tp
-from tripy.frontend.trace.ops import Reshape
+import nvtripy as tp
+from nvtripy.frontend.trace.ops import Reshape
 
 
 class TestReshape:

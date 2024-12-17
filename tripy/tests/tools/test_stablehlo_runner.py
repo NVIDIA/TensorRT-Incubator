@@ -21,9 +21,9 @@ import tempfile
 import cupy as cp
 import pytest
 
-import tripy as tp
+import nvtripy as tp
 from tools.stablehlo_runner import compile_code, preprocess_program, read_program_from_file
-from tripy.frontend.trace import Trace
+from nvtripy.frontend.trace import Trace
 
 
 @pytest.fixture

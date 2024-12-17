@@ -19,8 +19,8 @@ import cupy as cp
 import numpy as np
 import pytest
 
-import tripy as tp
-import tripy.common.datatype
+import nvtripy as tp
+import nvtripy.common.datatype
 
 
 def gemm(a, b):
@@ -40,8 +40,8 @@ class TestMatrixMultiplication:
     def test_1d_tensors(self, eager_or_compiled):
         a_np = np.arange(64).astype(np.float32)  # 1D Tensor
         b_np = np.arange(64).astype(np.float32)  # 1D Tensor
-        a = tripy.Tensor(cp.asanyarray(a_np))
-        b = tripy.Tensor(cp.asanyarray(b_np))
+        a = nvtripy.Tensor(cp.asanyarray(a_np))
+        b = nvtripy.Tensor(cp.asanyarray(b_np))
 
         out = eager_or_compiled(gemm, a, b)
         assert tp.allclose(out, tp.Tensor(cp.array(a_np @ b_np)), atol=1e-2)

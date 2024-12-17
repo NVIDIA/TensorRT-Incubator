@@ -15,10 +15,10 @@
 import pytest
 import os
 
-import tripy as tp
+import nvtripy as tp
 
-from tripy.frontend.trace import Trace
-from tripy.frontend.cache import ExecutableCache
+from nvtripy.frontend.trace import Trace
+from nvtripy.frontend.cache import ExecutableCache
 
 
 @pytest.fixture

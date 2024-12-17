@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 import torch
 
-import tripy as tp
+import nvtripy as tp
 from tests.helper import raises, TORCH_DTYPES
 from tests.conftest import skip_if_older_than_sm80, skip_if_older_than_sm89
 

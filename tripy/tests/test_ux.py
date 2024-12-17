@@ -27,9 +27,9 @@ import re
 import pytest
 import requests
 
-import tripy as tp
+import nvtripy as tp
 from tests import helper
-from tripy.export import PUBLIC_APIS
+from nvtripy.export import PUBLIC_APIS
 
 
 class TestReadme:
@@ -91,9 +91,9 @@ class TestReadme:
                 ), f"In README: '{readme}', link: '{link}' does not exist. Note: Full path was: {link_full_path}"
 
         for doc_reference in doc_references:
-            # Each doc reference should point to a fully qualified name using the name "tripy"
+            # Each doc reference should point to a fully qualified name using the name "nvtripy"
             try:
-                exec(doc_reference, {"tripy": tp}, {})
+                exec(doc_reference, {"nvtripy": tp}, {})
             except:
                 print(f"Error while processing document reference: {doc_reference}")
                 raise
@@ -114,7 +114,7 @@ class TestMissingAttributes:
     @pytest.mark.parametrize(
         "get_func, message",
         [
-            (lambda x: x.ones_like, "tripy.ones_like"),
+            (lambda x: x.ones_like, "nvtripy.ones_like"),
         ],
     )
     def test_nice_error_for_tensor_attr(self, get_func, message):
@@ -133,7 +133,7 @@ class TestImports:
 
     @pytest.mark.parametrize(
         "file_path",
-        [file_path for file_path in glob.iglob(os.path.join(helper.ROOT_DIR, "tripy", "**", "*.py"), recursive=True)],
+        [file_path for file_path in glob.iglob(os.path.join(helper.ROOT_DIR, "nvtripy", "**", "*.py"), recursive=True)],
     )
     def test_no_invalid_imports(self, file_path):
         with open(file_path, "r") as file:
