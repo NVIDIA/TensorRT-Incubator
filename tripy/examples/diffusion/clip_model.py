@@ -66,7 +66,7 @@ class CLIPAttention(tp.Module):
             for x in (q, k, v)
         ]
         attn_output = scaled_dot_product_attention(
-            q, k, v, embedding_dim=self.head_dim, attn_mask=causal_attention_mask, dtype=self.dtype,
+            q, k, v, embedding_dim=self.head_dim, attn_mask=causal_attention_mask,
         )
         out = self.out_proj(tp.reshape(tp.transpose(attn_output, 1, 2), (bsz, tgt_len, embed_dim)))
         return out

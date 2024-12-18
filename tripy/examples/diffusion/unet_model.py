@@ -80,7 +80,7 @@ class CrossAttention(tp.Module):
             tp.transpose(tp.reshape(y, (x.shape[0], -1, self.num_heads, self.head_size)), 1, 2) for y in (q, k, v)
         ]
         attention = tp.transpose(
-            scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size, dtype=self.dtype), 1, 2
+            scaled_dot_product_attention(q, k, v, embedding_dim=self.head_size), 1, 2
         )
         h_ = tp.reshape(attention, (x.shape[0], -1, self.num_heads * self.head_size))
         out = self.to_out(h_)

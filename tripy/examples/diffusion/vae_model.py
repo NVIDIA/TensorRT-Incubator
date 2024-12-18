@@ -51,7 +51,7 @@ class AttnBlock(tp.Module):
         q, k, v = self.to_q(h_flat), self.to_k(h_flat), self.to_v(h_flat)
 
         # compute attention
-        h_ = scaled_dot_product_attention(q, k, v, embedding_dim=self.in_channels, dtype=self.dtype)
+        h_ = scaled_dot_product_attention(q, k, v, embedding_dim=self.in_channels)
         out = tp.reshape(
             tp.transpose(self.to_out[0](h_), 1, 2),
             (b, c, h, w),
