@@ -43,6 +43,5 @@ jobs:
         cd /tripy/
         unset PYTHONPATH
         pip uninstall tripy -y
-        pip install --no-index -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy --no-deps
-        pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html tripy
+        python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
         pytest --cov=nvtripy/ --cov-config=.coveragerc tests/ -v -m "l1_release_package" --durations=15 --ignore tests/performance
