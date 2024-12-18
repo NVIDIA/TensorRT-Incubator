@@ -23,18 +23,18 @@ using namespace mlirtrt::compiler;
 
 static llvm::ManagedStatic<llvm::StringMap<OptionsConstructorFuncT>> registry{};
 
-void mlirtrt::compiler::registerOption(const llvm::StringRef optionsType,
+void mlirtrt::compiler::registerOption(llvm::StringRef optionsType,
                                        OptionsConstructorFuncT func) {
   (*registry)[optionsType] = std::move(func);
 }
 
 mlirtrt::StatusOr<std::unique_ptr<mlir::OptionsContext>>
-mlirtrt::compiler::createOptions(const CompilerClient &client,
-                                 const llvm::StringRef optionsType,
-                                 const llvm::ArrayRef<llvm::StringRef> args) {
+mlirtrt::compiler::createOptions(mlir::MLIRContext *ctx,
+                                 llvm::StringRef optionsType,
+                                 llvm::ArrayRef<llvm::StringRef> args) {
   if (!registry->contains(optionsType))
     return getInvalidArgStatus(
         "{0} is not a valid option type. Valid options were: {1:$[ ]}",
         optionsType, llvm::iterator_range(registry->keys()));
-  return (*registry)[optionsType](client, args);
+  return (*registry)[optionsType](ctx, args);
 }

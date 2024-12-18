@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
 
@@ -61,6 +62,22 @@ void OptionsContext::print(llvm::raw_ostream &os) const {
           printer(os);
       },
       " ");
+}
+
+SmallVector<std::string> OptionsContext::serialize() const {
+  assert(getHash() && "cannot serialize non-hashable options");
+  SmallVector<std::string> result;
+  for (const auto &[key, option] : this->OptionsMap) {
+    std::string val;
+    {
+      llvm::raw_string_ostream ss(val);
+      auto printer = this->printers.lookup(option);
+      if (printer)
+        printer(ss);
+    }
+    result.push_back(llvm::formatv("--{0}={1}", key, val));
+  }
+  return result;
 }
 
 std::optional<llvm::hash_code> OptionsContext::getHash() const {
