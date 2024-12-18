@@ -72,11 +72,13 @@ pre-commit install
 
 ### Getting Up To Speed
 
-We've added several guides [here](./docs/post0_developer_guides/) that can help you better understand
-the codebase. We recommend starting with the [architecture](./docs/post0_developer_guides/architecture.md)
+We've added several guides that can help you better understand
+the codebase. We recommend starting with the
+[architecture](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/architecture.html)
 documentation.
 
-If you're intersted in adding a new operator to Tripy, refer to [this guide](./docs/post0_developer_guides/how-to-add-new-ops.md).
+If you're intersted in adding a new operator to Tripy, refer to
+[this guide](https://nvidia.github.io/TensorRT-Incubator/post0_developer_guides/how-to-add-new-ops.html).
 
 
 ### Making Commits
