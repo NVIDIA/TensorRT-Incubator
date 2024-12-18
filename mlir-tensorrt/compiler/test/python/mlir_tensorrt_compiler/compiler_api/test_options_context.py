@@ -15,7 +15,7 @@ with Context() as context:
 
     opts = api.OptionsContext(
         client,
-        "stable-hlo-to-executable",
+        "stablehlo-to-executable",
         # Set some options explicitly so we can spot check the `print` output.
         [
             "--tensorrt-builder-opt-level=3",
@@ -27,5 +27,5 @@ with Context() as context:
     print(opts)
 
 
-# CHECK: InvalidArgument: InvalidArgument: non-existent-options-type is not a valid option type. Valid options were: stable-hlo-to-executable
+# CHECK: InvalidArgument: InvalidArgument: non-existent-options-type is not a valid option type. Valid options were: stablehlo-to-executable
 # CHECK: Options[{{.*--tensorrt-workspace-memory-pool-limit=1073741824.*--tensorrt-strongly-typed=false.*--tensorrt-builder-opt-level=3.*}}]

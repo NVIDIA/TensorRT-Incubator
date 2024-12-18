@@ -23,12 +23,14 @@
 
 using namespace mlirtrt;
 
+#ifdef MLIR_EXECUTOR_ENABLE_CUDA
 static Status makeCudaStringError(cudaError_t errCode,
                                   llvm::StringRef context) {
   // Create a detailed error message using llvm::createStringError
   return getInternalErrorStatus("{0}: {1}", context,
                                 cudaGetErrorString(errCode));
 }
+#endif
 
 StatusOr<DeviceInfo> mlirtrt::getDeviceInformationFromHost() {
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA

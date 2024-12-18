@@ -21,9 +21,10 @@
 /// TensorRT dialect ops defintion for automatic python bindings generation.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_COMPILER_MLIR_TENSORRT_COMPILER_DIALECTS_TENSORRTOPS
-#define MLIR_TENSORRT_COMPILER_MLIR_TENSORRT_COMPILER_DIALECTS_TENSORRTOPS
+#ifndef TENSORRT_PYTHON_DIALECTS_PYTHONTENSORRTOPS
+#define TENSORRT_PYTHON_DIALECTS_PYTHONTENSORRTOPS
 
 include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTOps.td"
 
-#endif // MLIR_TENSORRT_COMPILER_MLIR_TENSORRT_COMPILER_DIALECTS_TENSORRTOPS
+#endif // TENSORRT_PYTHON_DIALECTS_PYTHONTENSORRTOPS
+

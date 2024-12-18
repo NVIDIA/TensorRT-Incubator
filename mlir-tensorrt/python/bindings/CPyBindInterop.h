@@ -12,11 +12,8 @@
 #ifndef BINDINGS_CPYBINDINTEROP
 #define BINDINGS_CPYBINDINTEROP
 
-#if !defined(_MSC_VER)
-#include <Python.h>
-#endif
-
-#include "mlir-tensorrt-c/Compiler/Compiler.h"
+#include "pybind11/pybind11.h"
+#include "llvm/ADT/Twine.h"
 
 #define MTRT_PYTHON_CAPI_PTR_ATTR "_CAPIPtr"
 
@@ -27,7 +24,7 @@
   MTRT_PYTHON_COMPILER_API_NAMESPACE "." #x "." MTRT_PYTHON_CAPI_PTR_ATTR
 
 #define MTRT_RUNTIME_CAPI_PTR_PATH(x)                                          \
-  MTRT_PYTHON_COMPILER_API_NAMESPACE "." #x "." MTRT_PYTHON_CAPI_PTR_ATTR
+  MTRT_PYTHON_RUNTIME_API_NAMESPACE "." #x "." MTRT_PYTHON_CAPI_PTR_ATTR
 
 /// A utility macro that declares inline static functions
 /// `mtrtPython[objName]ToCapsule` and `mtrtPythonCapsuleTo[objName]`. These can
@@ -57,6 +54,29 @@
     void *ptr =                                                                \
         PyCapsule_GetPointer(capsule, MTRT_RUNTIME_CAPI_PTR_PATH(objName));    \
     return MTRT_##objName{ptr};                                                \
+  }
+
+#define MTRT_QUOTE(x) #x
+
+inline pybind11::object mtrtApiObjectToCapsule(pybind11::handle apiObject) {
+  if (!pybind11::hasattr(apiObject, MTRT_PYTHON_CAPI_PTR_ATTR)) {
+    auto repr = pybind11::repr(apiObject).cast<std::string>();
+    throw pybind11::type_error(
+        (llvm::Twine("Expected an MLIR-TensorRT object (got ") + repr + ").")
+            .str());
+  }
+  return apiObject.attr(MTRT_PYTHON_CAPI_PTR_ATTR);
+}
+
+#define MTRT_DEFINE_PYBIND_CASTER(Name, CType)                                 \
+  template <>                                                                  \
+  struct type_caster<CType> {                                                  \
+    PYBIND11_TYPE_CASTER(CType, _(MTRT_QUOTE(Name)));                          \
+    bool load(handle src, bool) {                                              \
+      py::object capsule = mtrtApiObjectToCapsule(src);                        \
+      value = mtrtPythonCapsuleTo##Name(capsule.ptr());                        \
+      return !mtrt##Name##IsNull(value);                                       \
+    }                                                                          \
   }
 
 #endif // BINDINGS_CPYBINDINTEROP

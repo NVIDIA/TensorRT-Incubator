@@ -53,7 +53,6 @@ inline void registerAllMlirTensorRtPasses() {
   mlir::registerConvertPDLToPDLInterp();
 
 #ifdef MLIR_TRT_ENABLE_HLO
-  mlirtrt::compiler::registerStableHloToExecutableTask();
   mlirtrt::compiler::registerStablehloClusteringPipelines();
   registerStableHloInputPipelines();
   stablehlo_ext::registerStableHloExtPasses();

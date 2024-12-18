@@ -1,7 +1,6 @@
-
-//===- TensorRTModule.cpp -------------------------------------------------===//
+//===- DialectTensorRT.cpp ------------------------------------------------===//
 //
-// Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
 //
 //===----------------------------------------------------------------------===//
 ///

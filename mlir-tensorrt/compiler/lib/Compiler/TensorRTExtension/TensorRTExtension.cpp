@@ -42,7 +42,7 @@ StableHLOToExecutableTensorRTExtension::
 
 void StableHLOToExecutableTensorRTExtension::populatePasses(
     mlir::OpPassManager &pm, Phase phase,
-    const StableHLOToExecutableOptions &options) const {
+    const StablehloToExecutableOptions &options) const {
   if (this->disabled)
     return;
 
@@ -64,8 +64,8 @@ void StableHLOToExecutableTensorRTExtension::populatePasses(
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
     tensorrt::buildTensorRTModuleTransformationPipeline(
         trtPM, translationOptions.enableStronglyTyped);
-    trtPM.addPass(tensorrt::createTranslateTensorRTPass(
-        nullptr, options.layerMetadataCallback, translationOptions));
+    trtPM.addPass(
+        tensorrt::createTranslateTensorRTPass(nullptr, translationOptions));
     return;
   }
 

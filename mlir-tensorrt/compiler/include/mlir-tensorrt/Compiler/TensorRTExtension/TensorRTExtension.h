@@ -34,7 +34,7 @@ namespace mlirtrt::compiler {
 //===----------------------------------------------------------------------===//
 
 class StableHLOToExecutableTensorRTExtension
-    : public StableHLOToExecutableOptions::Extension<
+    : public StablehloToExecutableOptions::Extension<
           StableHLOToExecutableTensorRTExtension> {
 public:
   StableHLOToExecutableTensorRTExtension();
@@ -45,7 +45,7 @@ public:
   /// It is not guarunteed the order in which different extensions are run
   /// relative to each other (yet).
   void populatePasses(mlir::OpPassManager &pm, Phase phase,
-                      const StableHLOToExecutableOptions &options) const final;
+                      const StablehloToExecutableOptions &options) const final;
 
   /// Allows the extension to hook into the option parsing infrastructure.
   void addToOptions(mlir::OptionsContext &context) final {
