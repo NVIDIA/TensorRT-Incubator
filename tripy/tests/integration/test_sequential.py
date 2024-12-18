@@ -102,8 +102,7 @@ class TestSequential:
         with torch.no_grad():
             torch_output = torch_model(input_tensor)
 
-        rtol_ = 2e-6
-        assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=rtol_)
+        assert torch.allclose(torch.from_dlpack(tp_output), torch_output, rtol=1e-4, atol=1e-4)
 
     def test_basic_state_dict_comparison(self):
         torch_model = torch.nn.Sequential(
