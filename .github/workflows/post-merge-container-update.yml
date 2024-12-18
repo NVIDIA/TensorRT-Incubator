@@ -92,8 +92,6 @@ jobs:
           push: true
           tags: ${{ env.TAGS }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       # Sign the resulting Docker image digest.
       # This will only write to the public Rekor transparency log when the Docker
