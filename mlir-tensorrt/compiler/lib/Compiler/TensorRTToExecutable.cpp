@@ -74,7 +74,7 @@ void TensorRTToExecutableTask::populatePassManager(
   tensorrt::buildTensorRTModuleTransformationPipeline(
       trtPM, options.get<TensorRTOptions>().options.enableStronglyTyped);
   trtPM.addPass(tensorrt::createTranslateTensorRTPass(
-      nullptr, nullptr, options.get<TensorRTOptions>().options));
+      nullptr, options.get<TensorRTOptions>().options));
 
   pm.addPass(createMemRefCastEliminationPass());
   pm.addPass(plan::createPlanAllocTensorsPass());
