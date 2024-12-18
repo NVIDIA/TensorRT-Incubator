@@ -200,7 +200,7 @@ def maxpool(
 @export.public_api(document_under="operations/functions")
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
-    dtype_variables={"T1": ["float32", "float16", "int8"]},
+    dtype_variables={"T1": ["float32", "float16"]},  # TODO: Add int8 once MLIR-TRT supports (issue #457)
 )
 def avgpool(
     input: "nvtripy.Tensor",

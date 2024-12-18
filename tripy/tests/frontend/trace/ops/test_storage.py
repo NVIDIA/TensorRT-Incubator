@@ -21,7 +21,7 @@ import numpy as np
 
 import nvtripy as tp
 
-
+from nvtripy.constants import STROGE_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.backend.mlir import memref
 from nvtripy.frontend.trace.ops import Storage
 from nvtripy.frontend.trace.tensor import TraceTensor
@@ -63,6 +63,15 @@ class TestStorage:
         assert storage.device.kind == "gpu"
         assert storage.data_str == "[[1. 1.]\n [1. 1.]]"
 
+    def test_from_large_input_shape(self):
+        shape = (1, STROGE_OP_CACHE_VOLUME_THRESHOLD + 10)
+        data = cp.ones(shape, dtype=cp.float32)
+        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        assert storage.dtype == tp.float32
+        assert storage.shape == shape
+        assert storage.device.kind == "gpu"
+        assert storage.data_str == ""
+
     def test_from_list_int(self):
         data = [[1, 2], [3, 4]]
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
@@ -91,11 +100,3 @@ class TestStorage:
         arr = [1.0, 2.0, 3.0]
         t = tp.Tensor(arr)
         assert t.trace_tensor.rank == 1
-
-    def test_from_dlpack_large_shape(self):
-        data = cp.ones((1, 70), dtype=cp.float32)
-        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
-        assert storage.dtype == tp.float32
-        assert storage.shape == (1, 70)
-        assert storage.device.kind == "gpu"
-        assert storage.data_str == ""

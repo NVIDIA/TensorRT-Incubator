@@ -17,7 +17,7 @@ import pytest
 from tests import helper
 
 import nvtripy as tp
-import cupy as cp
+import cupy as cu
 
 from nvtripy.constants import STROGE_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.frontend.trace import Trace
@@ -76,7 +76,36 @@ class TestCache:
         output2.name = "output_b"
         assert mock_global_cache.get(Trace([output2.trace_tensor]), devices=[output2.device]) is not None
 
-    def test_different_graphs_different_cache_entries(self, mock_global_cache):
+    def test_different_small_input_values_not_lifted(self, mock_global_cache):
+        shape = (1, 2)
+        input1 = tp.ones(shape, dtype=tp.float32)
+        input2 = tp.zeros(shape, dtype=tp.float32)
+
+        layer = tp.Linear(2, 3)
+
+        output1 = layer(input1)
+        output1.eval()
+
+        output2 = layer(input2)
+        assert mock_global_cache.get(Trace([output2.trace_tensor]), devices=[output2.device]) is None
+        output2.eval()
+        assert mock_global_cache.get(Trace([layer(input2).trace_tensor]), devices=[output2.device]) is not None
+
+    def test_different_large_input_values_lifted(self, mock_global_cache):
+        shape = (STROGE_OP_CACHE_VOLUME_THRESHOLD, 2)
+        input1 = tp.Tensor(cu.ones(shape, dtype=cu.float32), dtype=tp.float32)
+        input2 = tp.Tensor(cu.zeros(shape, dtype=cu.float32), dtype=tp.float32)
+
+        layer = tp.Linear(2, 3)
+
+        output1 = layer(input1)
+        output1.eval()
+
+        output2 = layer(input2)
+        output2_trace = Trace([output2.trace_tensor], inputs=Trace._collect_storage_tensors(output2.trace_tensor))
+        assert mock_global_cache.get(output2_trace, devices=[output2.device]) is not None
+
+    def test_different_graphs(self, mock_global_cache):
         input_tensor = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
 
         layer1 = tp.Linear(2, 3)
@@ -92,13 +121,23 @@ class TestCache:
         output2.eval()
         assert mock_global_cache.get(Trace([layer2(input_tensor).trace_tensor]), devices=[output2.device]) is not None
 
-    # test change value of small shape tensor to see should fail since it is not lifted
-    # test change value of big shape tensor to see should not fail since it is lifted as input
-    # test cache_not being used value match
-
-    def test_cache_not_being_used(self, mock_global_cache):
+    def test_cache_not_being_used_empty_cache(self, mock_global_cache):
         with helper.config("tripy_eager_cache", False):
-            input_tensor = tp.Tensor([[1.0, 2.0]], dtype=tp.float32)
+            tensor1 = tp.ones((1, 1), dtype=tp.float32)
 
-            input_tensor.eval()
-            assert mock_global_cache.get(Trace([input_tensor.trace_tensor]), devices=[input_tensor.device]) is None
+            tensor1.eval()
+            assert mock_global_cache.get(Trace([tensor1.trace_tensor]), devices=[tensor1.device]) is None
+
+    def test_cache_not_being_used_value_match(self, mock_global_cache):
+        tensor1 = tp.ones((1, 1), dtype=tp.float32)
+        tensor1.eval()
+
+        tensor1_cached = tp.ones((1, 1), dtype=tp.float32)
+        assert mock_global_cache.get(Trace([tensor1_cached.trace_tensor]), devices=[tensor1.device]) is not None
+        tensor1_cached.eval()
+
+        with helper.config("tripy_eager_cache", False):
+            tensor2 = tp.ones((1, 1), dtype=tp.float32)
+            tensor2.eval()
+
+        assert tp.equal(tensor1_cached, tensor2)

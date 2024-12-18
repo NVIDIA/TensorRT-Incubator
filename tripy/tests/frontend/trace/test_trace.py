@@ -21,6 +21,7 @@ import cupy as cp
 
 import nvtripy as tp
 from tests import helper
+from nvtripy.constants import STROGE_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.frontend.trace import Trace
 
 
@@ -215,3 +216,25 @@ class TestTrace:
             has_stack_info_for=[a, b],
         ):
             Trace([c.trace_tensor])
+
+    def test_collect_storage_ops_small_inputs(self):
+        shape = 1
+        a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
+        b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
+
+        c = a + b
+
+        storage_inputs = Trace._collect_storage_tensors(c.trace_tensor)
+        assert len(storage_inputs) == 0
+
+    def test_collect_storage_ops_large_inputs(self):
+        shape = (1, STROGE_OP_CACHE_VOLUME_THRESHOLD + 10)
+        a = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="a")
+        b = tp.Tensor(cp.ones(shape, dtype=cp.float32), name="b")
+
+        c = a + b
+
+        storage_inputs = Trace._collect_storage_tensors(c.trace_tensor)
+        assert len(storage_inputs) == 2
+        assert storage_inputs[0].name == "a"
+        assert storage_inputs[1].name == "b"
