@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734554588149,
+  "lastUpdate": 1734555945631,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -9298,6 +9298,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000023205235402113147",
             "extra": "mean: 44.019102323925445 usec\nrounds: 23522"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "9411b6c52993c3e60a26f7955e09093516e750b3",
+          "message": "Fixes a flaky test by increasing tolerance",
+          "timestamp": "2024-12-18T20:47:41Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/462/commits/9411b6c52993c3e60a26f7955e09093516e750b3"
+        },
+        "date": 1734555944738,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6022.065252034321,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003283495436703077",
+            "extra": "mean: 166.05598879258056 usec\nrounds: 6364"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6609.346749103772,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006833369544344614",
+            "extra": "mean: 151.30088312216333 usec\nrounds: 7255"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22452.24779355823,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000001839268022702166",
+            "extra": "mean: 44.53897040486565 usec\nrounds: 23414"
           }
         ]
       }
