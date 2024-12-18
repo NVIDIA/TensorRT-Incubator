@@ -52,7 +52,8 @@ namespace mlirtrt::compiler {
 class StablehloToExecutableTask;
 
 struct StablehloToExecutableOptions
-    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions> {
+    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions,
+                                 CommonCompilationOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
   StablehloToExecutableOptions(TaskExtensionRegistry extensions);
@@ -63,9 +64,6 @@ struct StablehloToExecutableOptions
   /// Use non-DPS style calling convention for entrypoint function
   /// and backend types that support allocating results.
   bool enableNonDPSReturns = false;
-
-  /// Entrypoint function name.
-  std::string entrypoint = "main";
 
   /// Base class for extensions associated with StableHloToExecutableTask.
   class ExtensionBase : public TaskExtensionBase {
