@@ -85,15 +85,9 @@ jobs:
         tool: 'pytest'
         output-file-path: ${{ github.workspace }}/tripy/benchmark.json
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        auto-push: false
+        auto-push: ${{ !github.event.pull_request.head.repo.fork }}
         # Show alert with commit comment on detecting possible performance regression
         alert-threshold: '105%'
         comment-on-alert: true
         fail-on-alert: true
         gh-pages-branch: benchmarks
-
-    - name: Upload benchmark result
-      uses: actions/upload-artifact@v4
-      with:
-        name: benchmark-results
-        path: ${{ github.workspace }}/tripy/benchmark.json
