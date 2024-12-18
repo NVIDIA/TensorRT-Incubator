@@ -27,6 +27,8 @@ from nvtripy import export
 
 export.public_api(autodoc_options=[":no-members:", ":no-special-members:"])(sys.modules[__name__])
 
+eager_cache_env_var = os.environ.get("TRIPY_EAGER_CACHE", "1") == "1"
+
 # MLIR-TRT Debug options
 enable_mlir_debug = os.environ.get("TRIPY_MLIR_DEBUG_ENABLED", "0") == "1"
 mlir_debug_types = os.environ.get("TRIPY_MLIR_DEBUG_TYPES", "-mlir-print-ir-after-all,-translate-to-tensorrt").split(
@@ -43,7 +45,7 @@ tripy_eager_cache: str = export.public_api(
     autodoc_options=[":no-value:"],
     module=sys.modules[__name__],
     symbol="tripy_eager_cache",
-)(True)
+)(eager_cache_env_var)
 """Whether to enable eager mode caching."""
 
 timing_cache_file_path: str = export.public_api(
