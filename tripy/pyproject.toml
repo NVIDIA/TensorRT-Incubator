@@ -1,6 +1,6 @@
 [project]
 name = "nvtripy"
-version = "0.0.7"
+version = "0.0.8"
 authors = [{ name = "NVIDIA", email = "svc_tensorrt@nvidia.com" }]
 description = "Tripy: A Python Programming Model For TensorRT"
 readme = "README.md"
