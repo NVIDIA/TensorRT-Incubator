@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734555945631,
+  "lastUpdate": 1734558324929,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -9339,6 +9339,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000001839268022702166",
             "extra": "mean: 44.53897040486565 usec\nrounds: 23414"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "bde61740075c9a4ea806cd0ce02328fb7b76b9ee",
+          "message": "Fixes a flaky test by increasing tolerance",
+          "timestamp": "2024-12-18T20:47:41Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/462/commits/bde61740075c9a4ea806cd0ce02328fb7b76b9ee"
+        },
+        "date": 1734558324084,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6173.285188551154,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003217585376106324",
+            "extra": "mean: 161.9883043560954 usec\nrounds: 6534"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6719.168567625084,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007004788976190519",
+            "extra": "mean: 148.82793755440102 usec\nrounds: 7404"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22177.64419341094,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000033150058337951135",
+            "extra": "mean: 45.09045195598835 usec\nrounds: 23618"
           }
         ]
       }
