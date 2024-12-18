@@ -149,7 +149,7 @@ public:
 // StableHLOToExecutableOptions
 //===----------------------------------------------------------------------===//
 
-StableHLOToExecutableOptions::StableHLOToExecutableOptions(
+StablehloToExecutableOptions::StablehloToExecutableOptions(
     TaskExtensionRegistry extensions)
     : extensions(std::move(extensions)) {
 
@@ -167,30 +167,22 @@ StableHLOToExecutableOptions::StableHLOToExecutableOptions(
             llvm::cl::desc("entrypoint function name"));
 }
 
-std::optional<llvm::hash_code> StableHLOToExecutableOptions::getHash() const {
-  // If a callback is provided, we have no way of reliably hashing it.
-  if (layerMetadataCallback)
-    return std::nullopt;
-
-  return OptionsContext::getHash();
-}
-
 //===----------------------------------------------------------------------===//
 // StableHloToExecutableTask
 //===----------------------------------------------------------------------===//
 
 static void populateExtensionPasses(
-    mlir::OpPassManager &pm, const StableHLOToExecutableOptions &options,
-    StableHLOToExecutableOptions::ExtensionBase::Phase phase) {
+    mlir::OpPassManager &pm, const StablehloToExecutableOptions &options,
+    StablehloToExecutableOptions::ExtensionBase::Phase phase) {
   for (auto &[key, ext] : options.extensions) {
-    llvm::cast<StableHLOToExecutableOptions::ExtensionBase>(ext.get())
+    llvm::cast<StablehloToExecutableOptions::ExtensionBase>(ext.get())
         ->populatePasses(pm, phase, options);
   }
 }
 
-void StableHloToExecutableTask::buildStablehloClusteringPipeline(
-    OpPassManager &pm, const StableHLOToExecutableOptions &opts) {
-  using Phase = StableHLOToExecutableOptions::ExtensionBase::Phase;
+void StablehloToExecutableTask::buildStablehloClusteringPipeline(
+    OpPassManager &pm, const StablehloToExecutableOptions &opts) {
+  using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
   pm.addPass(createConvertStablehloToScfPass());
 
   // Add pre-clustering extension passes
@@ -223,9 +215,9 @@ void StableHloToExecutableTask::buildStablehloClusteringPipeline(
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 }
 
-void StableHloToExecutableTask::buildPostClusteringPipeline(
-    OpPassManager &pm, const StableHLOToExecutableOptions &opts) {
-  using Phase = StableHLOToExecutableOptions::ExtensionBase::Phase;
+void StablehloToExecutableTask::buildPostClusteringPipeline(
+    OpPassManager &pm, const StablehloToExecutableOptions &opts) {
+  using Phase = StablehloToExecutableOptions::ExtensionBase::Phase;
   populateExtensionPasses(pm, opts, Phase::PreBufferization);
 
   // Perform bufferization.
@@ -259,8 +251,8 @@ void StableHloToExecutableTask::buildPostClusteringPipeline(
   pm.addPass(createDropNestedModulesPass());
 }
 
-void StableHloToExecutableTask::populatePassManager(
-    mlir::PassManager &pm, const StableHLOToExecutableOptions &options) {
+void StablehloToExecutableTask::populatePassManager(
+    mlir::PassManager &pm, const StablehloToExecutableOptions &options) {
   if (failed(setupPassManager(pm, options.get<DebugOptions>()))) {
     /// TODO: Ignored. This can fail if pass manager static CL options were not
     /// registered/initialized. This happens through invocation of e.g. this
@@ -292,7 +284,7 @@ void StableHloToExecutableTask::populatePassManager(
 /// (TensorRT + host clusters).
 static void
 maybePopulateDefaultClusterKinds(mlir::ModuleOp module,
-                                 const StableHLOToExecutableOptions &options) {
+                                 const StablehloToExecutableOptions &options) {
   if (!module->hasAttr(plan::PlanDialect::kModuleClusterKindsAttrName)) {
     SmallVector<Attribute> clusterKinds;
     clusterKinds.push_back(mlir::plan::TensorRTClusterKindAttr::get(
@@ -306,8 +298,8 @@ maybePopulateDefaultClusterKinds(mlir::ModuleOp module,
 }
 
 StatusOr<std::unique_ptr<runtime::Executable>>
-StableHloToExecutableTask::compileStableHLOToExecutable(
-    mlir::ModuleOp module, const StableHLOToExecutableOptions &options) {
+StablehloToExecutableTask::compileStableHLOToExecutable(
+    mlir::ModuleOp module, const StablehloToExecutableOptions &options) {
   LLVM_DEBUG({
     DBGS() << "compiling with options:\n";
     options.print(llvm::dbgs());
@@ -334,7 +326,7 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
   // Setup pass manager
   //===----------------------------------------------------------------------===//
 
-  StableHloToExecutableTask runner(module->getContext(), options);
+  StablehloToExecutableTask runner(module->getContext(), options);
   if (failed(setupPassManager(runner, options.get<DebugOptions>()))) {
     /// TODO: Ignored. This can fail if pass manager static CL options were not
     /// registered/initialized. This happens through invocation of e.g. this
@@ -369,9 +361,9 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
 }
 
 mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
-StableHloToExecutableTask::compileStableHLOToExecutable(
+StablehloToExecutableTask::compileStableHLOToExecutable(
     CompilerClient &client, mlir::ModuleOp module,
-    const StableHLOToExecutableOptions &options) {
+    const StablehloToExecutableOptions &options) {
   if (client.getContext() != module->getContext())
     return getInternalErrorStatus("CompilerClient has a MLIRContext that is "
                                   "different from the ModuleOp's MLIRContext");
@@ -396,12 +388,12 @@ StableHloToExecutableTask::compileStableHLOToExecutable(
 #endif
 
   mlir::PassManager *runner;
-  std::unique_ptr<StableHloToExecutableTask> pm{};
+  std::unique_ptr<StablehloToExecutableTask> pm{};
 
   if (options.getHash())
-    runner = &client.getOrCreatePassManager<StableHloToExecutableTask>(options);
+    runner = &client.getOrCreatePassManager<StablehloToExecutableTask>(options);
   else {
-    pm.reset(new StableHloToExecutableTask(client.getContext(), options));
+    pm.reset(new StablehloToExecutableTask(client.getContext(), options));
     CompilerClient::setupPassManagerLogging(*pm, options.get<DebugOptions>());
     runner = pm.get();
   }
@@ -459,14 +451,14 @@ struct ClusteringPipelineCliOpts
 
 /// Convert a `ClusteringPipelineCliOpts` into a
 /// `StablehloClusteringPipelineOpts`.
-static StableHLOToExecutableOptions populateStablehloClusteringPipelineOpts(
+static StablehloToExecutableOptions populateStablehloClusteringPipelineOpts(
     const ClusteringPipelineCliOpts &cliOpts) {
   // Load a default extension set since we don't have access to MLIRContext at
   // this point.
   TaskExtensionRegistry extensions;
   extensions.getOrCreateExtension<StableHLOToExecutableTensorRTExtension>();
 
-  StableHLOToExecutableOptions opts(std::move(extensions));
+  StablehloToExecutableOptions opts(std::move(extensions));
   opts.get<DeviceOptions>().info.computeCapability =
       cliOpts.deviceComputeCapability;
   opts.get<DeviceOptions>().info.maxSharedMemoryPerBlockKb =
@@ -478,9 +470,9 @@ static StableHLOToExecutableOptions populateStablehloClusteringPipelineOpts(
 }
 
 void mlirtrt::compiler::registerStableHloToExecutableTask() {
-  registerOption("stable-hlo-to-executable",
-                 optionsCreateFromArgs<StableHLOToExecutableOptions,
-                                       StableHloToExecutableTask>);
+  registerOption("stablehlo-to-executable",
+                 optionsCreateFromArgs<StablehloToExecutableOptions,
+                                       StablehloToExecutableTask>);
 }
 
 void mlirtrt::compiler::registerStablehloClusteringPipelines() {
@@ -491,20 +483,20 @@ void mlirtrt::compiler::registerStablehloClusteringPipelines() {
       "stablehlo-clustering-pipeline",
       "apply clustering and initial transformations to stablehlo IR",
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
-        StableHloToExecutableTask::buildStablehloClusteringPipeline(
+        StablehloToExecutableTask::buildStablehloClusteringPipeline(
             pm, populateStablehloClusteringPipelineOpts(opts));
       });
 
   PassPipelineRegistration<ClusteringPipelineCliOpts>(
       "post-clustering-pipeline", "apply compilation post-clustering",
       [](OpPassManager &pm, const ClusteringPipelineCliOpts &opts) {
-        StableHLOToExecutableOptions finalOpts =
+        StablehloToExecutableOptions finalOpts =
             populateStablehloClusteringPipelineOpts(opts);
-        StableHloToExecutableTask::buildPostClusteringPipeline(pm, finalOpts);
+        StablehloToExecutableTask::buildPostClusteringPipeline(pm, finalOpts);
       });
 }
 
-MLIR_DEFINE_EXPLICIT_TYPE_ID(mlirtrt::compiler::StableHloToExecutableTask)
+MLIR_DEFINE_EXPLICIT_TYPE_ID(mlirtrt::compiler::StablehloToExecutableTask)
 
 #else
 

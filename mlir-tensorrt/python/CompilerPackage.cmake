@@ -65,33 +65,13 @@ foreach(dialect IN LISTS MLIR_TRT_PYTHON_UPSTREAM_DIALECTS_EMBED)
     MLIRPythonSources.Dialects.${dialect})
 endforeach()
 
-# Declare the TensorRT dialect python bindings.
-declare_mlir_dialect_python_bindings(
-  DIALECT_NAME tensorrt
-  ADD_TO_PARENT MLIRTensorRTPythonCompiler.Dialects
-  ROOT_DIR "${SRC_DIR}"
-  TD_FILE
-    dialects/TensorRTOps.td
-  SOURCES
-    dialects/tensorrt.py
-  )
+# Add the tensorrt dialect from the 'tensorrt/python' directory.
+set_property(TARGET MLIRTensorRTPythonCompiler.Dialects APPEND PROPERTY mlir_python_DEPENDS
+  MLIRTensorRTDialectPythonSources.Dialect.tensorrt)
 
 ################################################################################
 # Python extensions.
 ################################################################################
-
-# Declare the PyBind11 module associated with the TensorRT dialect bindings.
-declare_mlir_python_extension(MLIRTensorRTPythonCompiler.Dialects.tensorrt.PyBind
-  MODULE_NAME _tensorrt
-  ADD_TO_PARENT MLIRTensorRTPythonCompiler.Dialects.tensorrt
-  SOURCES
-    bindings/Compiler/Dialects/DialectTensorRT.cpp
-  EMBED_CAPI_LINK_LIBS
-    MLIRTensorRTCAPITensorRTDialect
-    MLIRCAPITransforms
-  PRIVATE_LINK_LIBS
-    LLVMSupport
-  )
 
 # Declare the site initializer.
 declare_mlir_python_extension(MLIRTensorRTPythonCompiler.SiteInitializer.PyBind

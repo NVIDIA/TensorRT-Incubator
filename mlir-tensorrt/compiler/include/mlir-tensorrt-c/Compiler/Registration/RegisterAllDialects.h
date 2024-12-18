@@ -32,10 +32,13 @@ extern "C" {
 
 /// Add all the dialects used by MLIR-TensorRT to the registry.
 MLIR_CAPI_EXPORTED void
-mlirTensorRTRegisterAllDialects(MlirDialectRegistry registry);
+mtrtCompilerRegisterDialects(MlirDialectRegistry registry);
 
 /// Register all the compiler passes used by MLIR-TensorRT.
-MLIR_CAPI_EXPORTED void mlirTensorRTRegisterAllPasses();
+MLIR_CAPI_EXPORTED void mtrtCompilerRegisterPasses();
+
+/// Register all the compiler task types (pass manager types).
+MLIR_CAPI_EXPORTED void mtrtCompilerRegisterTasks();
 
 #ifdef __cplusplus
 }

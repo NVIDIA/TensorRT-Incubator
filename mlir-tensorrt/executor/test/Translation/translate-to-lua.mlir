@@ -666,6 +666,7 @@ func.func @cf_if_op(%arg0: i64, %arg1: i64) -> i64 attributes {executor.function
 
 // CHECK-LABEL: cf_if_op
 //  CHECK-SAME: ([[v1:.+]], [[v2:.+]])
+//  CHECK-NEXT:   local [[barg2:.+]] = nil
 //  CHECK-NEXT:   local [[v3:.+]] <const> = _icmp_eq_i64([[v1]], [[v2]])
 //  CHECK-NEXT:   if ([[v3]] == 1) or ([[v3]] == true) then
 //  CHECK-NEXT:     goto label1;
@@ -674,17 +675,17 @@ func.func @cf_if_op(%arg0: i64, %arg1: i64) -> i64 attributes {executor.function
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label1:: do
 //  CHECK-NEXT:     local [[v4:.+]] <const> = [[v1]] + [[v2]];
-//  CHECK-NEXT:     [[v5:.+]] = [[v4]];
+//  CHECK-NEXT:     [[barg2:.+]] = [[v4]];
 //  CHECK-NEXT:     goto label3;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label2:: do
 //  CHECK-NEXT:     local [[v6:.+]] <const> = [[v1]] - [[v2]];
 //  CHECK-NEXT:     local [[v7:.+]] <const> = [[v1]] * [[v6]];
-//  CHECK-NEXT:     [[v5:.+]] = [[v7]];
+//  CHECK-NEXT:     [[barg2:.+]] = [[v7]];
 //  CHECK-NEXT:     goto label3;
 //  CHECK-NEXT:   end
 //  CHECK-NEXT:   ::label3:: do
-//  CHECK-NEXT:     return[[v5]];
+//  CHECK-NEXT:     return[[barg2]];
 //  CHECK-NEXT: end
 
 // -----
@@ -705,27 +706,30 @@ func.func @cf_cond_br_forward_entry(%arg0: i64, %arg1: i64) -> i64 attributes {e
 
 // CHECK-LABEL: function cf_cond_br_forward_entry
 // CHECK-SAME: ([[arg0:.+]], [[arg1:.+]])
+// CHECK-NEXT:   local [[barg2:barg.+]] = nil
+// CHECK-NEXT:   local [[barg3:barg.+]] = nil
+// CHECK-NEXT:   local [[barg4:barg.+]] = nil
 // CHECK-NEXT:   local [[l2:.+]] <const>  = _icmp_eq_i64([[arg0]], [[arg1]]);
 // CHECK-NEXT:   local [[l3:.+]] <const>  = 1;
-// CHECK-NEXT:   local [[barg4:barg.+]] = [[arg0]];
-// CHECK-NEXT:   local [[barg5:barg.+]] = [[arg1]];
+// CHECK-NEXT:   [[barg2]] = [[arg0]]
+// CHECK-NEXT:   [[barg3]] = [[arg1]]
 // CHECK-NEXT:   if ([[l2]] == 1) or ([[l2]] == true) then
 // CHECK-NEXT:     goto label1;
 // CHECK-NEXT:   else
 // CHECK-NEXT:     goto label2;
 // CHECK-NEXT:   end
 // CHECK-NEXT:   ::label1:: do
-// CHECK-NEXT:     local [[l6:.+]] <const>  = l3 + barg4;
-// CHECK-NEXT:     [[barg1:barg.+]] = [[l6]];
+// CHECK-NEXT:     local [[l6:.+]] <const>  = [[l3]] + [[barg2]];
+// CHECK-NEXT:     [[barg4]] = [[l6]];
 // CHECK-NEXT:     goto label3;
 // CHECK-NEXT:   end
 // CHECK-NEXT:   ::label2:: do
-// CHECK-NEXT:     local [[l6:.+]] <const>  = [[l3]] - barg5;
-// CHECK-NEXT:     [[barg1:barg.+]] = [[l6]];
+// CHECK-NEXT:     local [[l6:.+]] <const>  = [[l3]] - [[barg3]];
+// CHECK-NEXT:     [[barg4]] = [[l6]];
 // CHECK-NEXT:     goto label3;
 // CHECK-NEXT:   end
 // CHECK-NEXT:   ::label3:: do
-// CHECK-NEXT:     return [[barg1]];
+// CHECK-NEXT:     return [[barg4]];
 // CHECK-NEXT:   end
 // CHECK-NEXT: end
 
@@ -769,9 +773,11 @@ func.func @cf_for_op(%arg0: i64, %arg1: i64, %arg2: i64) -> i64 attributes {exec
 
 // CHECK-LABEL: cf_for_op
 //  CHECK-SAME: ([[v1:.+]], [[v2:.+]], [[v3:.+]])
+//  CHECK-NEXT:   local [[v5:barg.+]] = nil
+//  CHECK-NEXT:   local [[v6:barg.+]] = nil
 //  CHECK-NEXT:   local [[v4:.+]] <const> = 0;
-//  CHECK-NEXT:   local [[v5:barg.+]] = [[v1]];
-//  CHECK-NEXT:   local [[v6:barg.+]] = [[v4]];
+//  CHECK-NEXT:   [[v5]] = [[v1]];
+//  CHECK-NEXT:   [[v6]] = [[v4]];
 //  CHECK-NEXT:   goto label1;
 //  CHECK-NEXT:   ::label1:: do
 //  CHECK-NEXT:     local [[v7:.+]] <const> = _icmp_slt_i64([[v5]], [[v2]])

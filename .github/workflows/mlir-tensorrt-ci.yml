@@ -101,8 +101,8 @@ jobs:
             cat > run_format_check.sh <<EOF
             #!/bin/bash
             set -e
-            python3 -m black --check --exclude='.*\.pyi' mlir-tensorrt/test/
-            python3 -m black --check --exclude='.*\.pyi' mlir-tensorrt/python/
+            python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/compiler/
+            python3 -m black --check --extend-exclude='.*\.pyi' mlir-tensorrt/python/
             git clang-format HEAD~1 --diff
             EOF
 

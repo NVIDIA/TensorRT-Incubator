@@ -20,8 +20,9 @@ PYBIND11_MODULE(_site_initialize_0, m) {
   m.doc() = "MLIR all MLIR-TensorRT related dialects and passes";
 
   m.def("register_dialects", [](MlirDialectRegistry registry) {
-    mlirTensorRTRegisterAllDialects(registry);
+    mtrtCompilerRegisterDialects(registry);
   });
 
-  mlirTensorRTRegisterAllPasses();
+  mtrtCompilerRegisterPasses();
+  mtrtCompilerRegisterTasks();
 }

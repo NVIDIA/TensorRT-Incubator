@@ -231,17 +231,11 @@ static LogicalResult emitAttribute(raw_ostream &os, Location loc,
 
 static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::BranchOp op) {
   Block *destBlock = op.getDest();
-  bool isEntry = op->getBlock()->isEntryBlock();
-
   // Declare non-local args to hold block arguments.
   for (auto [operand, blockArg] :
        llvm::zip(op.getDestOperands(), destBlock->getArguments())) {
     // If we are branching from a entry block, we can can use a local.
-    if (isEntry)
-      emitter << "local ";
-    emitter << (isEntry
-                    ? emitter.createLocalVariableName(blockArg, "barg")
-                    : emitter.getOrCreateGlobalVariableName(blockArg, "barg"));
+    emitter << emitter.getVariableName(blockArg);
     emitter << " = " << emitter.getVariableName(operand) << ";\n";
   }
   emitter << "goto " << emitter.getOrCreateLabel(*op.getDest()) << ";\n";
@@ -250,8 +244,6 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter, cf::BranchOp op) {
 
 static LogicalResult printControlFlowOp(LuaEmitter &emitter,
                                         cf::CondBranchOp op) {
-
-  bool isEntry = op->getBlock()->isEntryBlock();
 
   SmallVector<Value> trueOperands, falseOperands;
 
@@ -263,12 +255,7 @@ static LogicalResult printControlFlowOp(LuaEmitter &emitter,
     // Declare non-local args to hold block arguments.
     for (auto [operand, blockArg] :
          llvm::zip(operands, destBlock->getArguments())) {
-      // If we are branching from a entry block, we can can use a local.
-      if (isEntry)
-        emitter << "local ";
-      emitter << (isEntry ? emitter.createLocalVariableName(blockArg, "barg")
-                          : emitter.getOrCreateGlobalVariableName(blockArg,
-                                                                  "barg"));
+      emitter << emitter.getVariableName(blockArg);
       emitter << " = " << emitter.getVariableName(operand) << ";\n";
     }
   };
@@ -836,7 +823,22 @@ LogicalResult LuaEmitter::emitBlock(Block &block, bool isEntryBlock) {
   if (!isEntryBlock) {
     os << "::" << getOrCreateLabel(block) << ":: do\n";
     os.indent();
+  } else {
+    // In the entry block, declare all of the block arguments needed throughout
+    // the region as local variables. Initialize them all to nil. This avoids
+    // having to use ad-hoc globals at the branch points.
+    Region *region = block.getParent();
+    for (auto [idx, otherBlock] : llvm::enumerate(region->getBlocks())) {
+      // We don't need to declare block arguments for the entry block; those are
+      // e.g. function arguments and are handled by the parent op.
+      if (idx == 0)
+        continue;
+      for (BlockArgument arg : otherBlock.getArguments())
+        getStream() << "local " << createLocalVariableName(arg, "barg")
+                    << " = nil;\n";
+    }
   }
+
   for (Operation &op : block.getOperations()) {
     if (failed(emitOperation(op)))
       return failure();
