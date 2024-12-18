@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+import time
+
 from transformers import AutoTokenizer
 import modelopt.torch.quantization as mtq
 
@@ -23,7 +25,7 @@ from modelopt.torch.utils.dataset_utils import create_forward_loop
 
 def modelopt_quantize(model_hf, quant_mode):
     # quantize and calibrate pytorch model using modelopt
-
+    start_time = time.perf_counter()
     MAX_SEQ_LEN = 2048
     tokenizer = AutoTokenizer.from_pretrained(
         "gpt2",
@@ -43,10 +45,10 @@ def modelopt_quantize(model_hf, quant_mode):
     else:
         raise NotImplementedError(f"Unsupported quantization mode: {quant_mode}")
 
-    calib_size = 512
+    calib_size = 64
     batch_size = 1
     if quant_mode == "int4-weight-only":
-        calib_size = 32
+        calib_size = 16
         batch_size = 16
     forward_loop = create_forward_loop(
         model=model_hf,
@@ -58,5 +60,6 @@ def modelopt_quantize(model_hf, quant_mode):
     )
 
     mtq.quantize(model_hf, quant_cfg, forward_loop=forward_loop)
-    print("Quantization complete.")
+    end_time = time.perf_counter()
+    print(f"Quantization took {end_time - start_time} seconds.")
     return model_hf
