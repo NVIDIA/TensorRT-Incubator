@@ -16,7 +16,6 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/NVIDIA/tensorrt-incubator/tripy/"
 Issues = "https://github.com/NVIDIA/tensorrt-incubator/issues"
-Changelog = "https://github.com/NVIDIA/tensorrt-incubator/blob/main/tripy/CHANGELOG.md"
 Documentation = "https://nvidia.github.io/TensorRT-Incubator/"
 
 
