@@ -31,22 +31,18 @@ namespace mlir {
 template <typename... OptionProviders>
 class OptionsBundle : public OptionsContext {
 public:
-  OptionsBundle() {
-    std::apply(
-        [&](auto &...optionProvider) {
-          (optionProvider.addToOptions(*this), ...);
-        },
-        optionProviders);
-  }
+  OptionsBundle()
+      : optionProviders(std::make_unique<OptionProviders>(
+            *static_cast<OptionsContext *>(this))...) {}
 
   template <typename OptionsProviderT>
   const OptionsProviderT &get() const {
-    return std::get<OptionsProviderT>(optionProviders);
+    return *std::get<std::unique_ptr<OptionsProviderT>>(optionProviders);
   }
 
   template <typename OptionsProviderT>
   OptionsProviderT &get() {
-    return std::get<OptionsProviderT>(optionProviders);
+    return *std::get<std::unique_ptr<OptionsProviderT>>(optionProviders);
   }
 
   llvm::Error finalize() override {
@@ -54,7 +50,7 @@ public:
     std::apply(
         [&](auto &...optionProvider) {
           ((result = std::move(llvm::joinErrors(std::move(result),
-                                                optionProvider.finalize()))),
+                                                optionProvider->finalize()))),
            ...);
         },
         optionProviders);
@@ -63,7 +59,7 @@ public:
   }
 
 private:
-  std::tuple<OptionProviders...> optionProviders{};
+  std::tuple<std::unique_ptr<OptionProviders>...> optionProviders;
 };
 } // namespace mlir
 

@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-c/Compiler/Compiler.h"
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Target/Lua/TranslateToRuntimeExecutable.h"
@@ -35,6 +36,7 @@
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
 #include "mlir/CAPI/IR.h"
 #include "mlir/CAPI/Utils.h"
+#include "mlir/Pass/PassManager.h"
 #include "llvm/ADT/StringExtras.h"
 
 using namespace mlirtrt;
@@ -104,6 +106,22 @@ MTRT_Status mtrtCompilerClientDestroy(MTRT_CompilerClient client) {
   return mtrtStatusGetOk();
 }
 
+MTRT_Status mtrtCompilerClientGetCompilationTask(MTRT_CompilerClient client,
+                                                 MlirStringRef taskMnemonic,
+                                                 const MlirStringRef *argv,
+                                                 unsigned argc,
+                                                 MlirPassManager *result) {
+  std::vector<llvm::StringRef> argvStrRef(argc);
+  for (unsigned i = 0; i < argc; i++)
+    argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
+  StatusOr<CompilationTaskBase *> task = unwrap(client)->getCompilationTask(
+      StringRef(taskMnemonic.data, taskMnemonic.length), argvStrRef);
+  if (!task.isOk())
+    return wrap(task.getStatus());
+  *result = MlirPassManager{static_cast<mlir::PassManager *>(*task)};
+  return mtrtStatusGetOk();
+}
+
 //===----------------------------------------------------------------------===//
 // MTRT_OptionsContext
 //===----------------------------------------------------------------------===//
@@ -116,8 +134,8 @@ MLIR_CAPI_EXPORTED MTRT_Status mtrtOptionsContextCreateFromArgs(
     argvStrRef[i] = llvm::StringRef(argv[i].data, argv[i].length);
 
   auto result = createOptions(
-      *unwrap(client), llvm::StringRef(optionsType.data, optionsType.length),
-      argvStrRef);
+      unwrap(client)->getContext(),
+      llvm::StringRef(optionsType.data, optionsType.length), argvStrRef);
   if (!result.isOk())
     return wrap(result.getStatus());
 
@@ -260,15 +278,16 @@ mtrtStableHloPipelineGetCached(MTRT_CompilerClient client,
                                MTRT_StableHLOToExecutableOptions options,
                                MlirPassManager *result) {
 
-  mlir::PassManager *runner{};
-  if (unwrap(options)->getHash()) {
-    runner = &unwrap(client)->getOrCreatePassManager<StablehloToExecutableTask>(
-        *unwrap(options));
-    result->ptr = runner;
-    return mtrtStatusGetOk();
-  }
-  return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
-                          "options cannot be hashed");
+  if (!unwrap(options)->getHash())
+    return mtrtStatusCreate(MTRT_StatusCode::MTRT_StatusCode_InternalError,
+                            "options cannot be hashed");
+  StatusOr<CompilationTaskBase *> runner =
+      unwrap(client)->getCompilationTask<StablehloToExecutableTask>(
+          unwrap(options)->serialize());
+  if (!runner.isOk())
+    return wrap(runner.getStatus());
+  *result = MlirPassManager{static_cast<mlir::PassManager *>(*runner)};
+  return mtrtStatusGetOk();
 }
 
 //===----------------------------------------------------------------------===//

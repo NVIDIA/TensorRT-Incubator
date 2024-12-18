@@ -52,6 +52,10 @@ static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient options) {
   return !options.ptr;
 }
 
+MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerClientGetCompilationTask(
+    MTRT_CompilerClient client, MlirStringRef taskMnemonic,
+    const MlirStringRef *argv, unsigned argc, MlirPassManager *result);
+
 //===----------------------------------------------------------------------===//
 // MTRT_OptionsContext
 //===----------------------------------------------------------------------===//

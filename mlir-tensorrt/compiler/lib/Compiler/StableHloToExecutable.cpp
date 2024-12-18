@@ -156,15 +156,6 @@ StablehloToExecutableOptions::StablehloToExecutableOptions(
   // Link in options for all extensions.
   for (auto &[id, ext] : this->extensions)
     ext->addToOptions(*this);
-
-  addOption(
-      "plan-clustering-disallow-host-tensors-in-tensorrt-clusters",
-      disallowHostTensorsInTensorRTClusters, llvm::cl::init(false),
-      llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
-                     "calculations (but they can still be inputs)"));
-
-  addOption("entrypoint", entrypoint, llvm::cl::init("main"),
-            llvm::cl::desc("entrypoint function name"));
 }
 
 //===----------------------------------------------------------------------===//
@@ -297,69 +288,6 @@ maybePopulateDefaultClusterKinds(mlir::ModuleOp module,
   }
 }
 
-StatusOr<std::unique_ptr<runtime::Executable>>
-StablehloToExecutableTask::compileStableHLOToExecutable(
-    mlir::ModuleOp module, const StablehloToExecutableOptions &options) {
-  LLVM_DEBUG({
-    DBGS() << "compiling with options:\n";
-    options.print(llvm::dbgs());
-    llvm::dbgs() << "\n";
-  });
-
-  maybePopulateDefaultClusterKinds(module, options);
-
-#ifndef NDEBUG
-  //===----------------------------------------------------------------------===//
-  // Set debug options.
-  //===----------------------------------------------------------------------===//
-  if (options.get<DebugOptions>().enableLLVMDebugFlag) {
-    SmallVector<const char *> debugTypeLiterals =
-        llvm::map_to_vector(options.get<DebugOptions>().llvmDebugTypes,
-                            [](const std::string &x) { return x.c_str(); });
-    llvm::setCurrentDebugTypes(debugTypeLiterals.data(),
-                               debugTypeLiterals.size());
-    llvm::DebugFlag = true;
-  }
-#endif
-
-  //===----------------------------------------------------------------------===//
-  // Setup pass manager
-  //===----------------------------------------------------------------------===//
-
-  StablehloToExecutableTask runner(module->getContext(), options);
-  if (failed(setupPassManager(runner, options.get<DebugOptions>()))) {
-    /// TODO: Ignored. This can fail if pass manager static CL options were not
-    /// registered/initialized. This happens through invocation of e.g. this
-    /// function in e.g. Python bindings or standalone calls to C++ or C API
-    /// without doing all the typical static CL setup. We should instead be
-    /// accepting a PassManager here that has already been setup to the caller's
-    /// specifications.
-  }
-  if (failed(runner.run(module)))
-    return getInternalErrorStatus(
-        "failed to run compilation on module with symbol name: {0}",
-        module.getName() ? *module.getName() : "no-symbol-name");
-
-  //===----------------------------------------------------------------------===//
-  // Translate to Runtime Executable
-  //===----------------------------------------------------------------------===//
-
-  FailureOr<std::unique_ptr<runtime::ExecutableStorage>> exeStorage =
-      mlir::translateToRuntimeExecutable(module);
-  if (failed(exeStorage))
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to translate compiled MLIR module to a "
-                            "MLIR-TensorRT runtime Executable");
-
-#ifndef NDEBUG
-  // Turn debugging back off if we turned it on.
-  if (options.get<DebugOptions>().enableLLVMDebugFlag)
-    llvm::DebugFlag = false;
-#endif
-
-  return std::make_unique<runtime::Executable>(std::move(*exeStorage));
-}
-
 mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
 StablehloToExecutableTask::compileStableHLOToExecutable(
     CompilerClient &client, mlir::ModuleOp module,
@@ -387,19 +315,13 @@ StablehloToExecutableTask::compileStableHLOToExecutable(
   }
 #endif
 
-  mlir::PassManager *runner;
-  std::unique_ptr<StablehloToExecutableTask> pm{};
-
-  if (options.getHash())
-    runner = &client.getOrCreatePassManager<StablehloToExecutableTask>(options);
-  else {
-    pm.reset(new StablehloToExecutableTask(client.getContext(), options));
-    CompilerClient::setupPassManagerLogging(*pm, options.get<DebugOptions>());
-    runner = pm.get();
-  }
+  StatusOr<CompilationTaskBase *> runner =
+      client.getCompilationTask<StablehloToExecutableTask>(options.serialize());
+  if (!runner.isOk())
+    return runner.getStatus();
 
   // Setup pass manager
-  if (failed(runner->run(module)))
+  if (failed((*runner)->run(module)))
     return getInternalErrorStatus(
         "failed to run compilation on module with symbol name: {0}",
         module.getName() ? *module.getName() : "no-symbol-name");
@@ -470,9 +392,64 @@ static StablehloToExecutableOptions populateStablehloClusteringPipelineOpts(
 }
 
 void mlirtrt::compiler::registerStableHloToExecutableTask() {
-  registerOption("stablehlo-to-executable",
-                 optionsCreateFromArgs<StablehloToExecutableOptions,
-                                       StablehloToExecutableTask>);
+  registerOption(
+      "stablehlo-to-executable",
+      [](MLIRContext *ctx, ArrayRef<StringRef> opts)
+          -> StatusOr<std::unique_ptr<OptionsContext>> {
+        auto task = optionsCreateFromArgs<StablehloToExecutableOptions,
+                                          StablehloToExecutableTask>(ctx, opts);
+        if (!task.isOk())
+          return task.getStatus();
+        return std::unique_ptr<OptionsContext>(std::move(*task));
+      });
+
+  registerCompilationTask<StablehloToExecutableTask>(
+      "stablehlo-to-executable",
+      [](CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options)
+          -> StatusOr<CompilationTaskBase *> {
+        // Load available extensions.
+        mlir::MLIRContext *context = client.getContext();
+        mlir::plan::PlanDialect *planDialect =
+            context->getLoadedDialect<mlir::plan::PlanDialect>();
+        compiler::TaskExtensionRegistry extensions =
+            planDialect->extensionConstructors
+                .getExtensionRegistryForTask<StablehloToExecutableTask>();
+
+        StablehloToExecutableOptions result(std::move(extensions));
+
+        std::string err;
+        if (failed(result.parse(options, err)))
+          return getInvalidArgStatus(
+              "failed to parse options string \"{0:$[ ]}\" due to error {1}",
+              llvm::iterator_range(options), err);
+
+        llvm::Error finalizeStatus = result.finalize();
+        std::optional<std::string> errMsg{};
+        llvm::handleAllErrors(std::move(finalizeStatus),
+                              [&errMsg](const llvm::StringError &err) {
+                                errMsg = err.getMessage();
+                              });
+
+        if (errMsg)
+          return getInvalidArgStatus("failed to parse options due to error {0}",
+                                     errMsg);
+
+        std::optional<llvm::hash_code> hashCode = result.getHash();
+        if (!hashCode)
+          return getInvalidArgStatus("failed to hash options");
+
+        CompilationTaskBase *cached = client.lookupCachedCompilationTask(
+            mlir::TypeID::get<StablehloToExecutableTask>(), *hashCode);
+        if (cached)
+          return cached;
+
+        auto newPM = std::make_unique<StablehloToExecutableTask>(
+            client.getContext(), result);
+        auto ptr = newPM.get();
+        client.updateCachedCompilationTask<StablehloToExecutableTask>(
+            *hashCode, std::move(newPM));
+        return ptr;
+      });
 }
 
 void mlirtrt::compiler::registerStablehloClusteringPipelines() {

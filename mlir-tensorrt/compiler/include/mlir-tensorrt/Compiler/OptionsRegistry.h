@@ -28,8 +28,8 @@
 #define MLIR_TENSORRT_COMPILER_OPTIONS_REGISTRY
 
 #include "mlir-tensorrt-dialect/Utils/Options.h"
-#include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Dialect/Plan/IR/Plan.h"
+#include "mlir/IR/MLIRContext.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Error.h"
@@ -39,25 +39,23 @@ namespace mlirtrt::compiler {
 
 using OptionsConstructorFuncT =
     std::function<StatusOr<std::unique_ptr<mlir::OptionsContext>>(
-        const CompilerClient &client, const llvm::ArrayRef<llvm::StringRef>)>;
+        mlir::MLIRContext *, llvm::ArrayRef<llvm::StringRef>)>;
 
 /// Registers an options creation function for a specific options type.
-void registerOption(const llvm::StringRef optionsType,
-                    OptionsConstructorFuncT func);
+void registerOption(llvm::StringRef optionsType, OptionsConstructorFuncT func);
 
 /// Creates an options instance for the specified options type using a creation
 /// function that was previously registered.
 StatusOr<std::unique_ptr<mlir::OptionsContext>>
-createOptions(const CompilerClient &client, const llvm::StringRef optionsType,
-              const llvm::ArrayRef<llvm::StringRef> args);
+createOptions(mlir::MLIRContext *client, llvm::StringRef optionsType,
+              llvm::ArrayRef<llvm::StringRef> args);
 
 /// Helper to build callbacks that can create options.
 template <typename OptionsT, typename TaskT>
-StatusOr<std::unique_ptr<mlir::OptionsContext>>
-optionsCreateFromArgs(const CompilerClient &client,
-                      const llvm::ArrayRef<llvm::StringRef> args) {
+StatusOr<std::unique_ptr<OptionsT>>
+optionsCreateFromArgs(mlir::MLIRContext *context,
+                      llvm::ArrayRef<llvm::StringRef> args) {
   // Load available extensions.
-  mlir::MLIRContext *context = client.getContext();
   mlir::plan::PlanDialect *planDialect =
       context->getLoadedDialect<mlir::plan::PlanDialect>();
   compiler::TaskExtensionRegistry extensions =
@@ -83,7 +81,7 @@ optionsCreateFromArgs(const CompilerClient &client,
     return getInternalErrorStatus("failed to initialize options: %s",
                                   errMsg->c_str());
 
-  return std::unique_ptr<mlir::OptionsContext>(result.release());
+  return result;
 }
 } // namespace mlirtrt::compiler
 
