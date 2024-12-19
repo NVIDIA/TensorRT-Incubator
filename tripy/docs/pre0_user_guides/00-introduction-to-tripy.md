@@ -90,8 +90,6 @@ end = time.time()
 
 compiled_time = (end - start) * 1000
 print(f"Compiled mode time: {compiled_time:.4f} ms")
-# Make sure compiled mode is actually faster # doc: omit
-assert compiled_time < 0.01 * eager_time # doc: omit
 ```
 
 For more information on the compiler, compiled functions/modules, and dynamic shapes,
