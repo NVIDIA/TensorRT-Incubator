@@ -42,7 +42,6 @@ tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "
 
 tripy_eager_cache: str = export.public_api(
     document_under="config.rst",
-    autodoc_options=[":no-value:"],
     module=sys.modules[__name__],
     symbol="tripy_eager_cache",
 )(eager_cache_env_var)
