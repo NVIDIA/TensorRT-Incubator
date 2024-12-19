@@ -192,7 +192,9 @@ class Executable:
             tensor.eval()
 
         try:
-            executor_outputs = self._executor.execute(self._output_devices, input_tensors)
+            executor_outputs = self._executor.execute(
+                self._output_devices, inputs=[tensor.trace_tensor for tensor in input_tensors]
+            )
         except runtime.MTRTException as err:
             # TODO: Evaluate whether this should be moved into the executor
             if "function expects a memref type with element type" in str(err):

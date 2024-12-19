@@ -18,8 +18,10 @@
 import copy
 from typing import List, Sequence, Set
 
+from nvtripy import utils
 from nvtripy.common.exception import raise_error
 from nvtripy.common.shape_bounds import ShapeBounds
+from nvtripy.frontend.trace.ops import Storage
 from nvtripy.frontend.trace.tensor import TraceTensor
 from nvtripy.frontend.utils import topological_sort
 from nvtripy.logging import logger
@@ -32,25 +34,25 @@ class Trace:
 
     def __init__(
         self,
-        tensors: Sequence["nvtripy.Tensor"],
-        inputs: Sequence["nvtripy.Tensor"] = [],
+        tensors: Sequence[TraceTensor],
+        inputs: Sequence[TraceTensor] = [],
         shapes: Sequence[ShapeBounds] = None,
     ) -> None:
         """
         Args:
-            tensors: The tensor(s) to evaluate. These are effectively the desired outputs.
-            inputs: Input tensors.
-            shapes: The shape profile, consisting of min, opt, and max shapes for each input tensors.
+            tensors: The output TraceTensor(s) to evaluate.
+            inputs: Input TraceTensor(s).
+            shapes: The shape profile, consisting of min, opt, and max shapes for each input tensor.
                     Must be in the same order as `inputs`.
         """
         self.ops: List["BaseTraceOp"] = []
-        self.inputs: List[TraceTensor] = [inp.trace_tensor for inp in inputs]
-        self.outputs: List[TraceTensor] = [tensor.trace_tensor for tensor in tensors]
+        self.inputs: List[TraceTensor] = inputs
+        self.outputs: List[TraceTensor] = tensors
         self.shapes = shapes
 
-        exprs = [tensor.trace_tensor.producer for tensor in tensors]
+        exprs = [tensor.producer for tensor in tensors]
 
-        input_op_ids = set(id(inp.trace_tensor.producer) for inp in inputs)
+        input_op_ids = set(id(inp.producer) for inp in inputs)
         seen_op_ids: Set[int] = set()
 
         # Check all tensors for duplicate names. We currently rely on tensor names being
@@ -89,6 +91,11 @@ class Trace:
 
     def __str__(self) -> str:
         layer_strs: List[str] = []
+        if self.shapes:
+            layer_strs.append("input shapes:")
+            for shape in self.shapes:
+                layer_strs.append(f"    {str(shape)}")
+
         if len(self.inputs):
             layer_strs.append("inputs:")
         for inp in self.inputs:
@@ -99,6 +106,26 @@ class Trace:
         for out in self.outputs:
             layer_strs.append(f"    {str(out)}")
         return "\n".join(layer_strs)
+
+    @staticmethod
+    def _collect_storage_tensors(trace_tensor):
+        visited = set()
+        inputs = []
+
+        def dfs(trace_tensor):
+            if id(trace_tensor) in visited:
+                return
+            visited.add(id(trace_tensor))
+
+            producer = trace_tensor.producer
+            if isinstance(producer, Storage) and utils.should_lift_storage_op_as_input(producer.shape):
+                inputs.append(trace_tensor)
+            else:
+                for inp in producer.inputs:
+                    dfs(inp)
+
+        dfs(trace_tensor)
+        return inputs
 
     def to_flat_ir(self):
         from nvtripy.flat_ir.flat_ir import FlatIR

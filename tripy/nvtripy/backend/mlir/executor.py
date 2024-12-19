@@ -71,7 +71,7 @@ class Executor:
     def _get_inputs_runtime_shape(self, inputs):
         inputs_shape = []
         for input in inputs:
-            inputs_shape.append(input.trace_tensor.producer.data.shape)
+            inputs_shape.append(input.producer.data.shape)
         return inputs_shape
 
     def _execute_shape_inference(self, inputs_shape, outputs_shape):
@@ -115,10 +115,10 @@ class Executor:
         output_tensor_info = self._get_output_tensor_info(outputs_shape, output_devices)
         return output_tensor_info
 
-    def execute(self, output_devices: List[device], inputs: List["Tensor"] = []) -> List[runtime.MemRefValue]:
+    def execute(self, output_devices: List[device], inputs: List["TraceTensor"] = []) -> List[runtime.MemRefValue]:
         in_args = []
         for inp in inputs:
-            memref = inp.trace_tensor.producer.data
+            memref = inp.producer.data
             # HACK (#155): MLIR-TensorRT requires inputs to be on device.
             # Remove explicit copy to device once #155 is addressed.
             if memref.address_space != runtime.PointerType.device:

@@ -54,7 +54,8 @@ class TestErrorMapping:
                 # We need to emit an error from one of the internally created `FlatIRTensor`s to see the context
                 a = tp.ones((1,))
                 b = tp.ones((1,))
-                trace = Trace([a + b])
+                out = a + b
+                trace = Trace([out.trace_tensor])
                 flat_ir = trace.to_flat_ir()
                 producer = flat_ir.outputs[0].producer.inputs[0]
                 flat_ir_inputs = ",".join(map(lambda i: i.name, producer.producer.inputs))
