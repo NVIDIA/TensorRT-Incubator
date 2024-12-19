@@ -21,7 +21,7 @@ import numpy as np
 
 import nvtripy as tp
 
-from nvtripy.constants import STROGE_OP_CACHE_VOLUME_THRESHOLD
+from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.backend.mlir import memref
 from nvtripy.frontend.trace.ops import Storage
 from nvtripy.frontend.trace.tensor import TraceTensor
@@ -64,7 +64,7 @@ class TestStorage:
         assert storage.data_str == "[[1. 1.]\n [1. 1.]]"
 
     def test_from_large_input_shape(self):
-        shape = (1, STROGE_OP_CACHE_VOLUME_THRESHOLD + 10)
+        shape = (1, STORAGE_OP_CACHE_VOLUME_THRESHOLD + 10)
         data = cp.ones(shape, dtype=cp.float32)
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
         assert storage.dtype == tp.float32

@@ -19,7 +19,7 @@ from tests import helper
 import nvtripy as tp
 import cupy as cu
 
-from nvtripy.constants import STROGE_OP_CACHE_VOLUME_THRESHOLD
+from nvtripy.constants import STORAGE_OP_CACHE_VOLUME_THRESHOLD
 from nvtripy.frontend.trace import Trace
 from nvtripy.frontend.cache import ExecutableCache
 
@@ -92,7 +92,7 @@ class TestCache:
         assert mock_global_cache.get(Trace([layer(input2).trace_tensor]), devices=[output2.device]) is not None
 
     def test_different_large_input_values_lifted(self, mock_global_cache):
-        shape = (STROGE_OP_CACHE_VOLUME_THRESHOLD, 2)
+        shape = (STORAGE_OP_CACHE_VOLUME_THRESHOLD, 2)
         input1 = tp.Tensor(cu.ones(shape, dtype=cu.float32), dtype=tp.float32)
         input2 = tp.Tensor(cu.zeros(shape, dtype=cu.float32), dtype=tp.float32)
 
