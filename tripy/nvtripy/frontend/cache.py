@@ -18,6 +18,7 @@ from typing import List, Dict, Optional
 import mlir_tensorrt.runtime.api as runtime
 
 from nvtripy import utils
+from nvtripy import config
 
 
 class ExecutableCache:
@@ -136,6 +137,9 @@ class ExecutableCache:
         Returns:
             Executable: The cached executable, or None if not found.
         """
+        if not config.tripy_eager_cache:
+            return None
+
         key = self._generate_key(trace, devices)
         return self._cache.get(key)
 
@@ -148,6 +152,9 @@ class ExecutableCache:
             executable (Executable): The executable to cache.
             devices (List[Device]): List of devices associated with the trace.
         """
+        if not config.tripy_eager_cache:
+            return
+
         key = self._generate_key(trace, devices)
         self._cache[key] = executable
 
