@@ -30,13 +30,21 @@ from nvtripy.frontend.trace.tensor import TraceTensor
 class TestStorage:
 
     @pytest.mark.parametrize("device", ["cpu", "gpu"])
-    def test_from_memref(self, device):
+    def test_from_small_memref(self, device):
         module = np if device == "cpu" else cp
         data = memref.create_memref_view(module.ones((2, 2), dtype=module.float32))
         storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
         assert storage.dtype == tp.float32
         assert storage.shape == (2, 2)
         assert storage.device.kind == device
+        assert storage.data_str.startswith("<mlir_tensorrt.runtime._mlir_libs._api.MemRefValue object at 0x")
+
+    def test_from_large_memref(self):
+        data = memref.create_memref_view(cp.ones((2, STORAGE_OP_CACHE_VOLUME_THRESHOLD), dtype=cp.float32))
+        storage = Storage([], [TraceTensor("test", None, None, None, None, None)], data)
+        assert storage.dtype == tp.float32
+        assert storage.shape == (2, STORAGE_OP_CACHE_VOLUME_THRESHOLD)
+        assert storage.device.kind == "gpu"
         assert storage.data_str == ""
 
     @pytest.mark.parametrize("dtype", ["int64", "int32"])

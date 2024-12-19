@@ -76,8 +76,8 @@ class Storage(BaseTraceOp):
             )
             self.device = utils.default(device, tp_device.create_directly("gpu", 0))
 
-        # Set data_str only for non memref original data objects that won't be treated as Trace inputs
-        if not is_memref and not utils.should_lift_storage_op_as_input(self.shape):
+        # Set data_str only for objects that won't be treated as Trace inputs
+        if not utils.should_lift_storage_op_as_input(self.shape):
             self.data_str = str(original_data)  # TODO: Fix floating point str representation issue #448
 
         self.outputs[0].shape = list(self.shape)
