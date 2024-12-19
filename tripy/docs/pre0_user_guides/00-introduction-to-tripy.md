@@ -74,7 +74,7 @@ Now let's benchmark the compiled version against eager mode:
 from nvtripy.frontend.cache import global_cache
 
 global_cache._cache.clear()
-``
+```
 -->
 
 ```py
