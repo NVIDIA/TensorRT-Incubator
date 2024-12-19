@@ -104,7 +104,7 @@ class ExecutableCache:
         self._update_trace_names(trace, tensor_map, next_tensor_id, backup_tensor_map)
 
         # Get normalized trace string
-        trace_str = str(trace)
+        trace_str = str(trace)  # TODO (#467): Add custom context manager
 
         # Restore original names
         self._update_trace_names(trace, backup_tensor_map, next_tensor_id)

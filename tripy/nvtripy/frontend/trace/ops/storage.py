@@ -78,7 +78,7 @@ class Storage(BaseTraceOp):
 
         # Set data_str only for objects that won't be treated as Trace inputs
         if not utils.should_lift_storage_op_as_input(self.shape):
-            self.data_str = str(original_data)  # TODO: Fix floating point str representation issue #448
+            self.data_str = str(original_data)  # TODO (#448): Fix floating point str representation
 
         self.outputs[0].shape = list(self.shape)
 
