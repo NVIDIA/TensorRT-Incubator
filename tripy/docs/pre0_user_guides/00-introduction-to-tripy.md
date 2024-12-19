@@ -69,6 +69,14 @@ fast_mlp = tp.compile(mlp, args=[tp.InputInfo(shape=(1, 2), dtype=tp.float32)])
 ```
 
 Now let's benchmark the compiled version against eager mode:
+<!--
+```py
+from nvtripy.frontend.cache import global_cache
+
+global_cache._cache.clear()
+``
+-->
+
 ```py
 # doc: no-print-locals
 import time
@@ -90,6 +98,8 @@ end = time.time()
 
 compiled_time = (end - start) * 1000
 print(f"Compiled mode time: {compiled_time:.4f} ms")
+# Make sure compiled mode is actually faster # doc: omit
+assert compiled_time < 0.01 * eager_time # doc: omit
 ```
 
 For more information on the compiler, compiled functions/modules, and dynamic shapes,
