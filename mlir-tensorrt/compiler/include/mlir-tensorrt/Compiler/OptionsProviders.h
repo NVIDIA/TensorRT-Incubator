@@ -47,6 +47,24 @@ constexpr bool has_finalize_impl_v<
 // a default implementation otherwise.
 template <typename Derived>
 struct OptionsProvider {
+  OptionsProvider(mlir::OptionsContext &ctx) : ctx(ctx) {}
+
+  // We don't allow move construction since the actual ptrs/locations of
+  // individual member elements of an OptionsProvider are captured into the
+  // OptionsContext. If the OptionsContext is populated upon construction,
+  // moving can change the memory location of the owned values, which will cause
+  // a crash later on. This is in particular can happen if you are constructing
+  // a tuple of `OptionsProviders`. Since we are deleting the move constructor,
+  // one must instead use a tuple of `unique_ptr<OptionsProviders...>`.
+  OptionsProvider(OptionsProvider &&) = delete;
+
+  mlir::OptionsContext &ctx;
+
+  template <typename T, typename... Mods>
+  using Option = mlir::OptionsContext::Option<T, Mods...>;
+  template <typename T, typename... Mods>
+  using ListOption = mlir::OptionsContext::ListOption<T, Mods...>;
+
   /// Modifies options after parsing. This is required since we may need
   /// to make changes to options based on the values of other options.
   /// Do *not* override this method; instead, implement `finalizeImpl()`.
@@ -62,67 +80,63 @@ struct OptionsProvider {
 /// interfaces.
 struct DebugOptions : public OptionsProvider<DebugOptions> {
 public:
+  using OptionsProvider::OptionsProvider;
   /// A directory path where the IR will be dumped during compilation
   /// using the `mlir-print-ir-tree-dir` mechanism.
-  std::string dumpIRPath = "";
+  Option<std::string> dumpIRPath{&this->ctx, "mlir-print-ir-tree-dir",
+                                 llvm::cl::init("")};
 
   /// Whether the LLVM 'debug' flag that enables execution of code guarded by
   /// the `LLVM_DEBUG` macro should be set to 'on'. This results in very verbose
   /// output from the compiler dumped to stderr.
-  bool enableLLVMDebugFlag = false;
+  Option<bool> enableLLVMDebugFlag{&this->ctx, "debug", llvm::cl::init(false)};
 
   /// A set of names to be given to the LLVM 'debug types' option, akin to
   /// setting
   /// `-debug-types=...` from the command line.
-  mlir::SmallVector<std::string> llvmDebugTypes = {};
-
-public:
-  void addToOptions(mlir::OptionsContext &context) {
-    context.addOption("mlir-print-ir-tree-dir", dumpIRPath, llvm::cl::init(""));
-    context.addOption("debug", enableLLVMDebugFlag);
-    context.addList<std::string>("debug-only", llvmDebugTypes,
-                                 llvm::cl::ZeroOrMore,
-                                 llvm::cl::CommaSeparated);
-  }
+  ListOption<std::string> llvmDebugTypes{
+      &this->ctx, "debug-only", llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated};
 };
 
 struct ExecutorOptions : public OptionsProvider<ExecutorOptions> {
 public:
-  /// The host index bit-width.
-  int64_t indexBitwidth{64};
+  using OptionsProvider::OptionsProvider;
 
-  /// Whether to pass memref's as struct/table in function calls.
-  bool usePackedMemRefCConv{true};
+  Option<int64_t> indexBitwidth{&this->ctx, "executor-index-bitwidth",
+                                llvm::cl::init(64),
+                                llvm::cl::desc("executor index bitwidth")};
 
-public:
-  void addToOptions(mlir::OptionsContext &context) {
-    context.addOption("executor-index-bitwidth", indexBitwidth,
-                      llvm::cl::init(64));
-  }
+  Option<bool> usePackedMemRefCConv{
+      &this->ctx, "executor-use-packed-memref-cconv", llvm::cl::init(true),
+      llvm::cl::desc(
+          "whether to use packed or unpacked memref calling convention")};
 };
 
 struct DeviceOptions : public OptionsProvider<DeviceOptions> {
 public:
+  using OptionsProvider::OptionsProvider;
+
+  /// Device information. Members are manually bound to options in the
+  /// constructor.
   DeviceInfo info;
 
-  /// Whether to ignore `deviceX` options and instead infer them from the GPUs
-  /// on the host system running the compilation.
-  bool shouldInferFromHost = false;
+  Option<bool> shouldInferFromHost{
+      &this->ctx, "device-infer-from-host", llvm::cl::init(true),
+      llvm::cl::desc("whether to ignore `deviceX` options and instead infer "
+                     "them from the host GPU")};
+
   Status inferFromHost();
 
 public:
-  void addToOptions(mlir::OptionsContext &context) {
-    context.addOption(
+  DeviceOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {
+    ctx.addOption(
         "device-compute-capability", info.computeCapability, llvm::cl::init(60),
         llvm::cl::desc("Sets the device compute capbility. Only relevant "
                        "if '--device-infer-from-host=false'"));
-    context.addOption("device-max-shared-memory-per-block-kb",
-                      info.maxSharedMemoryPerBlockKb, llvm::cl::init(48));
-    context.addOption("device-max-registers-per-block",
-                      info.maxRegistersPerBlock, llvm::cl::init(65536));
-    context.addOption("device-infer-from-host", shouldInferFromHost,
-                      llvm::cl::init(true),
-                      llvm::cl::desc("Infers device information from host"));
+    ctx.addOption("device-max-shared-memory-per-block-kb",
+                  info.maxSharedMemoryPerBlockKb, llvm::cl::init(48));
+    ctx.addOption("device-max-registers-per-block", info.maxRegistersPerBlock,
+                  llvm::cl::init(65536));
   }
 
   llvm::Error finalizeImpl();

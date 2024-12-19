@@ -58,14 +58,18 @@ struct StablehloToExecutableOptions
   StablehloToExecutableOptions(TaskExtensionRegistry extensions);
 
   /// Whether to disallow host tensors in TensorRT clusters.
-  bool disallowHostTensorsInTensorRTClusters = false;
+  Option<bool> disallowHostTensorsInTensorRTClusters{
+      this, "plan-clustering-disallow-host-tensors-in-tensorrt-clusters",
+      llvm::cl::init(false),
+      llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
+                     "calculations (but they can still be inputs)")};
+
+  Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
+                                 llvm::cl::desc("entrypoint function name")};
 
   /// Use non-DPS style calling convention for entrypoint function
   /// and backend types that support allocating results.
   bool enableNonDPSReturns = false;
-
-  /// Entrypoint function name.
-  std::string entrypoint = "main";
 
   /// Base class for extensions associated with StableHloToExecutableTask.
   class ExtensionBase : public TaskExtensionBase {
@@ -133,13 +137,6 @@ public:
 
   static void populatePassManager(mlir::PassManager &pm,
                                   const StablehloToExecutableOptions &options);
-
-  /// Compile a StableHLO module into a MLIR-TensorRT Runtime executable.
-  /// This is the "functional" entrypoint that will allocate a new PassManager
-  /// for a single run.
-  static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
-  compileStableHLOToExecutable(mlir::ModuleOp module,
-                               const StablehloToExecutableOptions &options);
 
   /// Compile a StableHLO module into a MLIR-TensorRT Runtime executable.
   /// This is the "functional" entrypoint that will allocate a new PassManager

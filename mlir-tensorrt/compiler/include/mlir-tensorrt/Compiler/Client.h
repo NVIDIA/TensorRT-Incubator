@@ -29,6 +29,7 @@
 
 #include "mlir-executor/Support/Status.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir-tensorrt/Compiler/OptionsRegistry.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/TypeID.h"
@@ -100,28 +101,69 @@ public:
 
   ~CompilerClient() = default;
 
-  /// Create or retrieve a cached PassManager of the given derived type using
-  /// the provided options. PassManagers are cached by type and a hash of the
-  /// string representation of the options.
-  /// This function should only be called if the options have a valid hash.
-  template <typename CompilationTaskType, typename OptionsType>
-  mlir::PassManager &getOrCreatePassManager(const OptionsType &options) {
-    std::optional<llvm::hash_code> hash = options.getHash();
-    if (!hash)
-      llvm::report_fatal_error("attempted to lookup a PassManager from a cache "
-                               "with an un-hashable options key");
+  /// Create or retrieve from the cache a compilation task of the specified
+  /// type and options. If an existing compilation task is not in the cache,
+  /// then it is constructed using the registered construction function and
+  /// inserted into the cache.
+  StatusOr<CompilationTaskBase *>
+  getCompilationTask(mlir::TypeID taskID,
+                     llvm::ArrayRef<llvm::StringRef> options);
 
-    auto key =
-        std::make_pair(mlir::TypeID::get<CompilationTaskType>(), hash.value());
+  /// Create or retrieve from the cache a compilation task of the specified
+  /// type ID and options. If an existing compilation task is not in the cache,
+  /// then it is constructed using the registered construction function and
+  /// inserted into the cache.
+  StatusOr<CompilationTaskBase *>
+  getCompilationTask(mlir::TypeID taskID, llvm::ArrayRef<std::string> options) {
+    return getCompilationTask(
+        taskID, llvm::map_to_vector(options, [](const std::string &x) {
+          return llvm::StringRef(x);
+        }));
+  }
+
+  StatusOr<CompilationTaskBase *>
+  getCompilationTask(llvm::StringRef mnemonic,
+                     llvm::ArrayRef<llvm::StringRef> options);
+
+  /// Create or retrieve from the cache a compilation task of the specified
+  /// type and options. If an existing compilation task is not in the cache,
+  /// then it is constructed using the registered construction function and
+  /// inserted into the cache.
+  template <typename T, typename... Args>
+  StatusOr<CompilationTaskBase *> getCompilationTask(Args &&...args) {
+    return getCompilationTask(mlir::TypeID::get<T>(),
+                              std::forward<Args>(args)...);
+  }
+
+  /// Insert a compilation task of type T with options hash `hash` into the
+  /// cache.
+  template <typename T>
+  void updateCachedCompilationTask(const llvm::hash_code &hash,
+                                   std::unique_ptr<CompilationTaskBase> task) {
+    cachedPassManagers[std::make_pair(mlir::TypeID::get<T>(), hash)] =
+        std::move(task);
+  }
+
+  /// Check whether a CompilationTask with the specified typeID and whose
+  /// options have the given hash is in the cache. If so, return it; otherwise
+  /// returns nullptr.
+  CompilationTaskBase *
+  lookupCachedCompilationTask(mlir::TypeID taskID,
+                              const llvm::hash_code &optionsHash) {
+    auto key = std::make_pair(taskID, optionsHash);
     auto it = cachedPassManagers.find(key);
-    if (it == cachedPassManagers.end()) {
-      auto pm = std::make_unique<CompilationTaskType>(context, options);
-      setupPassManagerLogging(*pm, options.template get<DebugOptions>());
-      auto *ptr = pm.get();
-      cachedPassManagers[key] = std::move(pm);
-      return *ptr;
-    }
-    return *it->second;
+    if (it == cachedPassManagers.end())
+      return nullptr;
+    return it->second.get();
+  }
+
+  /// Check whether a CompilationTask with the specified type T and whose
+  /// options have the given hash is in the cache. If so, return it; otherwise
+  /// returns nullptr.
+  template <typename T>
+  CompilationTaskBase *
+  lookupCachedCompilationTask(const llvm::hash_code &optionsHash) {
+    return lookupCachedCompilationTask(mlir::TypeID::get<T>(), optionsHash);
   }
 
   /// Return the MLIRContext associated with the client.
@@ -146,6 +188,68 @@ protected:
   llvm::DenseMap<PassManagerKey, std::unique_ptr<CompilationTaskBase>>
       cachedPassManagers;
 };
+
+/// A registry function that adds passes to the given pass manager. This should
+/// also parse options and return success() if parsing succeeded.
+/// `errorHandler` is a functor used to emit errors during parsing.
+/// parameter corresponds to the raw location within the pipeline string. This
+/// should always return failure.
+using TaskRegistryFunction = std::function<StatusOr<CompilationTaskBase *>(
+    CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options)>;
+
+struct TaskRegistration {
+  TaskRegistryFunction registryFunc;
+};
+
+void registerCompilationTask(llvm::StringRef mnemonic, mlir::TypeID typeID,
+                             TaskRegistryFunction func);
+
+template <typename T>
+void registerCompilationTask(llvm::StringRef mnemonic,
+                             TaskRegistryFunction func) {
+  return registerCompilationTask(mnemonic, mlir::TypeID::get<T>(),
+                                 std::move(func));
+}
+
+template <typename T, typename OptionsType>
+void registerCompilationTaskWithNoExtensions(llvm::StringRef mnemonic) {
+  registerCompilationTask<T>(
+      mnemonic,
+      [](CompilerClient &client, llvm::ArrayRef<llvm::StringRef> options)
+          -> StatusOr<CompilationTaskBase *> {
+        OptionsType result;
+        std::string err;
+        if (failed(result.parse(options, err)))
+          return getInvalidArgStatus(
+              "failed to parse options string \"{0:$[ ]}\" due to error {1}",
+              llvm::iterator_range(options), err);
+
+        llvm::Error finalizeStatus = result.finalize();
+        std::optional<std::string> errMsg{};
+        llvm::handleAllErrors(std::move(finalizeStatus),
+                              [&errMsg](const llvm::StringError &err) {
+                                errMsg = err.getMessage();
+                              });
+
+        if (errMsg)
+          return getInvalidArgStatus("failed to parse options due to error {0}",
+                                     errMsg);
+
+        std::optional<llvm::hash_code> hashCode = result.getHash();
+        if (!hashCode)
+          return getInvalidArgStatus("failed to hash options");
+
+        CompilationTaskBase *cached =
+            client.lookupCachedCompilationTask<T>(*hashCode);
+        if (cached)
+          return cached;
+
+        auto newPM = std::make_unique<T>(client.getContext(), result);
+        auto ptr = newPM.get();
+        client.updateCachedCompilationTask<T>(*hashCode, std::move(newPM));
+        return ptr;
+      });
+}
 
 } // namespace mlirtrt::compiler
 

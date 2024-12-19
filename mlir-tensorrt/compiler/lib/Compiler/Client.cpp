@@ -22,8 +22,11 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt/Compiler/Client.h"
+#include "mlir-executor/Support/Status.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/Support/FileUtilities.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/ManagedStatic.h"
 
 using namespace mlirtrt;
 using namespace mlirtrt::compiler;
@@ -31,6 +34,12 @@ using namespace mlir;
 
 #define DEBUG_TYPE "compiler-api"
 #define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]")
+
+static llvm::ManagedStatic<llvm::DenseMap<mlir::TypeID, TaskRegistration>>
+    taskRegistry{};
+
+/// Global registry for mapping task mnemonics to type IDs.
+static llvm::ManagedStatic<llvm::StringMap<mlir::TypeID>> taskNameRegistry;
 
 //===----------------------------------------------------------------------===//
 // CompilationTask
@@ -66,4 +75,36 @@ void CompilerClient::setupPassManagerLogging(mlir::PassManager &pm,
         false, options.dumpIRPath,
         mlir::OpPrintingFlags().elideLargeElementsAttrs(32));
   }
+}
+
+StatusOr<CompilationTaskBase *>
+CompilerClient::getCompilationTask(mlir::TypeID taskID,
+                                   llvm::ArrayRef<llvm::StringRef> options) {
+  auto it = taskRegistry->find(taskID);
+  if (it == taskRegistry->end())
+    llvm::report_fatal_error("no such task registered");
+  return it->second.registryFunc(*this, options);
+}
+
+StatusOr<CompilationTaskBase *>
+CompilerClient::getCompilationTask(llvm::StringRef mnemonic,
+                                   llvm::ArrayRef<StringRef> options) {
+  auto it = taskNameRegistry->find(mnemonic);
+  if (it == taskNameRegistry->end())
+    return getInvalidArgStatus("no compilation task registered with name {0}",
+                               mnemonic);
+
+  return getCompilationTask(taskNameRegistry->lookup(mnemonic), options);
+}
+
+void compiler::registerCompilationTask(llvm::StringRef mnemonic,
+                                       mlir::TypeID typeID,
+                                       TaskRegistryFunction func) {
+  if (taskNameRegistry->contains(mnemonic) || taskRegistry->contains(typeID))
+    llvm::report_fatal_error(
+        "detected double registration of compilation task \"" + mnemonic +
+        "\"");
+  taskNameRegistry->insert({mnemonic, typeID});
+  taskRegistry->insert(
+      std::make_pair(typeID, TaskRegistration{std::move(func)}));
 }

@@ -26,6 +26,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
+#include <type_traits>
 
 namespace mlir {
 
@@ -88,6 +89,67 @@ public:
   OptionsContext(OptionsContext &&) = default;
   virtual ~OptionsContext() = default;
 
+  /// Convenience type for declaring options as class/struct member without
+  /// having to explicitly write `addOption` in the constructor of the options
+  /// container class.
+  template <typename T, typename... Mods>
+  struct Option {
+
+    T value;
+    operator const T &() const { return value; }
+    Option &operator=(const T &rhs) {
+      value = rhs;
+      return *this;
+    }
+
+    template <typename U = T>
+    std::enable_if_t<std::is_same_v<std::string, U>, bool> empty() const {
+      return value.empty();
+    }
+
+    // Implicit conversion operator to StringRef, enabled only if T is
+    // std::string
+    template <typename U = T>
+    operator typename std::enable_if_t<std::is_same_v<U, std::string>,
+                                       llvm::StringRef>() const {
+      return value;
+    }
+
+    template <typename... Args>
+    Option(OptionsContext *ctx, llvm::StringRef name, Args &&...args) {
+      ctx->addOption<T, Mods...>(name, value, std::forward<Args>(args)...);
+    }
+
+    Option() = delete;
+    Option(const Option &) = delete;
+    Option(Option &&) = default;
+    Option &operator=(const Option &) = delete;
+  };
+
+  /// Convenience type for declaring vector class member as an option without
+  /// having to explicitly write `addList` in the constructor of the options
+  /// container class.
+  template <typename T, typename... Mods>
+  struct ListOption {
+    std::vector<T> value;
+    operator const std::vector<T> &() const { return value; }
+
+    auto empty() const { return value.empty(); }
+    auto begin() const { return value.begin(); }
+    auto end() const { return value.end(); }
+    auto front() const { return value.front(); }
+    auto back() const { return value.back(); }
+    auto emplace_back(T &&item) {
+      return value.emplace_back(std::forward<T>(item));
+    }
+    auto push_back(T &&item) { return value.push_back(std::forward<T>(item)); }
+
+    template <typename... Args>
+    ListOption(OptionsContext *ctx, llvm::StringRef name, Args &&...args) {
+      ctx->addList<T, Mods...>(name, value, std::forward<Args>(args)...);
+    }
+  };
+
 protected:
   /// Add an option to this context. The storage `value` must outlive the
   /// OptionsContext.
@@ -147,6 +209,8 @@ public:
 
   /// Print the options to the stream.
   void print(llvm::raw_ostream &os) const;
+
+  SmallVector<std::string> serialize() const;
 
   /// Get a hash derived from the string representation of the options.
   /// Derived classes can use this method to incorporate additional factors

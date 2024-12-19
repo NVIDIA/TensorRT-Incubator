@@ -66,7 +66,7 @@ using namespace mlir::tensorrt;
 bool ByteSizeParser::parse(llvm::cl::Option &option, StringRef argName,
                            StringRef arg, std::optional<uint64_t> &val) {
   val = std::nullopt;
-  if (arg.empty())
+  if (arg.empty() || arg.lower() == "none")
     return false;
 
   char *End;
