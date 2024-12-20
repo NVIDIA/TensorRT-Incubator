@@ -37,7 +37,7 @@ def init_mlir_textual():
     b = tp.Tensor(b_cp)
 
     out = a + b
-    trace = Trace([out])
+    trace = Trace([out.trace_tensor])
     mlir_textual = trace.to_flat_ir().to_mlir().operation.get_asm(large_elements_limit=32)
     return mlir_textual
 

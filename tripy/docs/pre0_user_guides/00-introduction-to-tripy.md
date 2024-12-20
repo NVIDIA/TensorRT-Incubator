@@ -69,6 +69,15 @@ fast_mlp = tp.compile(mlp, args=[tp.InputInfo(shape=(1, 2), dtype=tp.float32)])
 ```
 
 Now let's benchmark the compiled version against eager mode:
+<!--
+```py
+from nvtripy.frontend.cache import global_cache
+
+# Clear the cache to get accurate timing results.
+global_cache._cache.clear()
+```
+-->
+
 ```py
 # doc: no-print-locals
 import time

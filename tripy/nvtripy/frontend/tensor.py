@@ -23,6 +23,7 @@ import mlir_tensorrt.runtime.api as runtime
 # Import ops to populate the registry before we define our Tensor class
 import nvtripy.frontend.ops
 import nvtripy.frontend.trace.ops
+from nvtripy import config
 from nvtripy import export, utils
 from nvtripy.backend.mlir import memref
 from nvtripy.common import datatype
@@ -145,12 +146,10 @@ class Tensor(metaclass=TensorMeta):
         if data is None:
             return
 
-        if hasattr(data, "__dlpack__"):
-            if not isinstance(data, runtime.MemRefValue):
-                data = memref.create_memref_view(data)
-            Storage.build_internal([], [instance.trace_tensor], data)
-        else:
-            Storage.build_internal([], [instance.trace_tensor], data, device)
+        Storage.build_internal(
+            [], [instance.trace_tensor], data, device=device if not hasattr(data, "__dlpack__") else None
+        )
+
         # TODO(#155): Remove this hack:
         instance.trace_tensor.device = utils.default(device, instance.trace_tensor.device)
 
@@ -209,24 +208,36 @@ class Tensor(metaclass=TensorMeta):
         from nvtripy.backend.mlir.compiler import Compiler
         from nvtripy.backend.mlir.executor import Executor
         from nvtripy.frontend.trace import Trace
+        from nvtripy.frontend.cache import global_cache
 
-        trace = Trace([self])
-        flat_ir = trace.to_flat_ir()
-        mlir = flat_ir.to_mlir()
+        # Collect inputs
+        inputs = Trace._collect_storage_tensors(self.trace_tensor)
 
-        compiler = Compiler(trt_builder_opt_level=0)
-        executable = compiler.compile(mlir, flat_ir=flat_ir)
+        trace = Trace([self.trace_tensor], inputs=inputs)
+        output_devices = [out.device for out in trace.outputs]
+
+        executable = global_cache.get(trace, devices=output_devices)
+        if executable is None:
+            flat_ir = trace.to_flat_ir()
+            mlir = flat_ir.to_mlir()
+
+            compiler = Compiler(trt_builder_opt_level=0)
+            executable = compiler.compile(mlir, flat_ir=flat_ir)
+
+            global_cache.set(trace, executable=executable, devices=output_devices)
+
         executor = Executor(executable)
+
         # Upon computing the value of this tensor, we switch it to have a `Storage`
         # parameter so that it does not need to be computed again.
-        data = executor.execute([out.device for out in flat_ir.outputs])
+        data = executor.execute(output_devices, inputs)
         executor.stream.synchronize()
         assert len(data) == 1, "Expects only one output from mlir_tensorrt.compiler executor"
         data = data[0]
 
         Storage.build_internal([], [self.trace_tensor], data)
         # TODO(#155): Remove this hack of overriding the device type.
-        self.trace_tensor.device = flat_ir.outputs[0].device
+        self.trace_tensor.device = output_devices[0]
 
         self.trace_tensor.eval_stack_info = utils.get_stack_info()
         if self.trace_tensor.is_compile_tracer:
