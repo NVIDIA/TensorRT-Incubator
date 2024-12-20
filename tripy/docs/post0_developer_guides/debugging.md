@@ -8,7 +8,7 @@ This guide outlines some methods of doing so.
 
 We include some environment variables to enable extra debugging information from MLIR-TRT:
 
-- `export TRIPY_EAGER_CACHE=0` will disable eager caching for Tripy tensors (by defualt tripy caches all intermediate IRs for tensor evals in eager mode for future reuse.) 
+- `export TRIPY_EAGER_CACHE=0` will disable eager caching for Tripy tensors (by default Tripy caches all IRs for tensor evals in eager mode for future reuse.) 
 - `export TRIPY_MLIR_DEBUG_ENABLED=1` will enable debug prints in MLIR-TRT and dump all intermediate IRs to a directory.
 - `export TRIPY_MLIR_DEBUG_PATH=<mlir-debug-path>` sets the directory for IR dumps. The default path is `mlir-dumps`.
 - `export TRIPY_TRT_DEBUG_ENABLED=1` will dump TensorRT engines and their layer information.
