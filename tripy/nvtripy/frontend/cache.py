@@ -31,7 +31,6 @@ class ExecutableCache:
         self,
         tensor: "tripy.frontend.trace.tensor.TraceTensor",
         tensor_map: Dict[int, str],
-        next_id: List[int],
         backup_map: Dict[int, str] = None,
     ) -> str:
         """
@@ -40,7 +39,6 @@ class ExecutableCache:
         Args:
             tensor (TraceTensor): The tensor to name.
             tensor_map (Dict[int, str]): Mapping of tensor ids to names (clean or original).
-            next_id (List[int]): Mutable list for tracking next tensor ID.
             backup_map (Dict[int, str], optional): Mapping to store original names. Defaults to None.
 
         Returns:
@@ -50,16 +48,15 @@ class ExecutableCache:
 
         # If tensor not in map, assign new name
         if t_id not in tensor_map:
-            new_name = f"t{next_id[0]}"
+            new_name = f"t{len(tensor_map)}"
             tensor_map[t_id] = new_name
             if backup_map is not None:
                 backup_map[t_id] = tensor.name
-            next_id[0] += 1
 
         return tensor_map[t_id]
 
     def _update_trace_names(
-        self, trace: "Trace", tensor_map: Dict[int, str], next_id: List[int], backup_map: Dict[int, str] = None
+        self, trace: "Trace", tensor_map: Dict[int, str], backup_map: Dict[int, str] = None
     ) -> None:
         """
         Update names for inputs, outputs, and operations in the trace.
@@ -67,23 +64,22 @@ class ExecutableCache:
         Args:
             trace (Trace): The trace to update.
             tensor_map (Dict[int, str]): Mapping of tensor ids to names.
-            next_id (List[int]): Mutable list for tracking next tensor ID.
             backup_map (Dict[int, str], optional): Mapping of original tensor names. Defaults to None.
         """
         # Update input names
         for inp in trace.inputs:
-            inp.name = self._assign_tensor_name(inp, tensor_map, next_id, backup_map)
+            inp.name = self._assign_tensor_name(inp, tensor_map, backup_map)
 
         # Update operation input and output names
         for op in trace.ops:
             for inp in op.inputs:
-                inp.name = self._assign_tensor_name(inp, tensor_map, next_id, backup_map)
+                inp.name = self._assign_tensor_name(inp, tensor_map, backup_map)
             for out in op.outputs:
-                out.name = self._assign_tensor_name(out, tensor_map, next_id, backup_map)
+                out.name = self._assign_tensor_name(out, tensor_map, backup_map)
 
         # Update output names
         for out in trace.outputs:
-            out.name = self._assign_tensor_name(out, tensor_map, next_id, backup_map)
+            out.name = self._assign_tensor_name(out, tensor_map, backup_map)
 
     def _normalize_trace(self, trace: "Trace") -> str:
         """
@@ -95,19 +91,18 @@ class ExecutableCache:
         Returns:
             str: Normalized trace as a string.
         """
-        # Initialize maps and next tensor ID
+        # Initialize maps
         tensor_map: Dict[int, str] = {}
         backup_tensor_map: Dict[int, str] = {}
-        next_tensor_id: List[int] = [0]
 
         # Clean trace names with sequential names
-        self._update_trace_names(trace, tensor_map, next_tensor_id, backup_tensor_map)
+        self._update_trace_names(trace, tensor_map, backup_tensor_map)
 
         # Get normalized trace string
         trace_str = str(trace)  # TODO (#467): Add custom context manager
 
         # Restore original names
-        self._update_trace_names(trace, backup_tensor_map, next_tensor_id)
+        self._update_trace_names(trace, backup_tensor_map)
 
         return trace_str
 

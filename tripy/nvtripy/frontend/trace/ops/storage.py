@@ -48,7 +48,6 @@ class Storage(BaseTraceOp):
         super().__init__(inputs, outputs)
 
         original_data = data
-        is_memref = isinstance(data, runtime.MemRefValue)
 
         # Handle if data is dlpacked but not memref yet
         if hasattr(data, "__dlpack__") and not isinstance(data, runtime.MemRefValue):

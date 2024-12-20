@@ -25,12 +25,8 @@ from nvtripy.frontend.cache import ExecutableCache
 
 
 @pytest.fixture
-def cache():
-    return ExecutableCache()
-
-
-@pytest.fixture
-def mock_global_cache(monkeypatch, cache):
+def mock_global_cache(monkeypatch):
+    cache = ExecutableCache()
     monkeypatch.setattr(tp.frontend.cache, "global_cache", cache)
     return cache
 
