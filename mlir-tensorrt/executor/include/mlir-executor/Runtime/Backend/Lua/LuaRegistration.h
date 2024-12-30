@@ -23,9 +23,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir-executor/Runtime/API/API.h"
-#include "mlir-executor/Support/Allocators.h"
-#include <cstdint>
-#include <string_view>
 
 struct lua_State;
 

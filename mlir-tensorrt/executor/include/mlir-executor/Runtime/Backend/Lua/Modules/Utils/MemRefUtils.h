@@ -21,20 +21,16 @@
 /// Utilities for handling memref arguments in Lua.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
-#include "llvm/ADT/DenseMap.h"
+
+#include <cstdint>
+#include <vector>
+
+namespace sol {
+struct this_state;
+struct variadic_args;
+} // namespace sol
 
 namespace mlirtrt::runtime {
-
-/// Returns the memref aligned ptr (and offset, shape, and strides through
-/// the relevant arguments) given a variadic argument container. The
-/// variadic args could contain multiple unpacked memrefs (of the same
-/// rank), so `memrefIdx` indicates which memref is desired.
-PointerInfo getMemRefInfoSafe(sol::this_state state, AllocTracker &tracker,
-                              sol::variadic_args args, unsigned rank,
-                              unsigned memrefIdx, int64_t &offset,
-                              std::vector<int64_t> &shape,
-                              std::vector<int64_t> &strides);
 
 /// Populates `offset`, `shape` and `strides` with memref info derived from the
 /// list `args` and returns pointer. This method differs from the "safe" version

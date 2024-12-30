@@ -1,13 +1,12 @@
 # RUN: %PYTHON %s 2>&1 | FileCheck %s
 # REQUIRES: host-has-at-least-1-gpus
 
+import array
 import gc
 
-import array
 import cupy as cp
-import numpy as np
-
 import mlir_tensorrt.runtime.api as runtime
+import numpy as np
 
 client = runtime.RuntimeClient()
 stream = client.create_stream()

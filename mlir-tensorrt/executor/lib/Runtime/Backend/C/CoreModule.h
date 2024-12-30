@@ -1,4 +1,4 @@
-//===- CuBLASModule.h --------------------------------------------*- C++-*-===//
+//===- CoreModule.h -----------------------------------------------*- C -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -18,27 +18,28 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Executor CuBLAS module runtime components.
+/// Core C runtime declarations.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CUBLAS_CUBLASMODULE_H
-#define MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CUBLAS_CUBLASMODULE_H
+#ifndef MLIR_EXECUTOR_RUNTIME_BACKEND_C_COREMODULE
+#define MLIR_EXECUTOR_RUNTIME_BACKEND_C_COREMODULE
 
-#include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor-c/Support/Status.h"
+#include "stdint.h"
 
-struct lua_State;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace mlirtrt::runtime {
+MTRT_CAPI_EXPORTED void __memset_8(uintptr_t pointer, size_t offset,
+                                   size_t numBytes, uint8_t fillInt);
+MTRT_CAPI_EXPORTED void __memset_16(uintptr_t pointer, size_t offset,
+                                    size_t numBytes, uint16_t fillInt);
+MTRT_CAPI_EXPORTED void __memset_32(uintptr_t pointer, size_t offset,
+                                    size_t numBytes, uint32_t fillInt);
 
-#ifdef MLIR_EXECUTOR_ENABLE_CUBLAS
+#ifdef __cplusplus
+}
+#endif
 
-/// Register various external functions with the given Lua state.
-void registerExecutorCuBLASModuleLuaRuntimeMethods(
-    lua_State *state, AllocTracker *allocTracker,
-    ResourceTracker *resourceTracker);
-
-#endif // MLIR_EXECUTOR_ENABLE_CUBLAS
-
-} // namespace mlirtrt::runtime
-
-#endif // MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CUBLAS_CUBLASMODULE_H
+#endif // MLIR_EXECUTOR_RUNTIME_BACKEND_C_COREMODULE

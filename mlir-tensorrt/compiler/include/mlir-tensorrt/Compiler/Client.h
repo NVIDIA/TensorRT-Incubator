@@ -169,10 +169,6 @@ public:
   /// Return the MLIRContext associated with the client.
   mlir::MLIRContext *getContext() const { return context; }
 
-  /// Helper for setting the correct logging options on cached PassManagers.
-  static void setupPassManagerLogging(mlir::PassManager &pm,
-                                      const DebugOptions &options);
-
 protected:
   CompilerClient(mlir::MLIRContext *context);
 

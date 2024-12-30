@@ -15,4 +15,5 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeNCCLModu
   $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:MPI::MPI_C>
   $<$<BOOL:${MLIR_EXECUTOR_ENABLE_NCCL}>:NCCL>
   MLIRTensorRTExecutorRuntimeCommon
+  MLIRTensorRTLuaExtensionRegistry
 )

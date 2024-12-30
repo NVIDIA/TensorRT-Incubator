@@ -11,6 +11,8 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCoreModu
   MLIRTensorRTExecutorRuntimeCommon
   MLIRTensorRTExecutorRuntimeModuleUtils
   MLIRTensorRTSupportAllocators
+  MLIRExecutorCAPIRuntimeCore
+  MLIRTensorRTLuaExtensionRegistry
 )
 
 target_compile_options(obj.MLIRTensorRTExecutorRuntimeCoreModule

@@ -14,6 +14,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCUDAModu
   nvtx3-cpp
   CUDA::cudart
   CUDA::cuda_driver
+  MLIRTensorRTLuaExtensionRegistry
 )
 
 target_compile_options(MLIRTensorRTExecutorRuntimeCUDAModule

@@ -98,12 +98,9 @@ if(MLIR_TRT_TARGET_LUA)
     PARTIAL_SOURCES_INTENDED
     mlir-tensorrt-runner.cpp)
   _mtrt_set_target_compile_defs(mlir-tensorrt-runner)
-  set(libs_
+  target_link_libraries(mlir-tensorrt-runner PRIVATE
     MLIRExecutorRunnerLib
     )
-  target_link_libraries(mlir-tensorrt-runner PRIVATE
-    ${libs_}
-  )
   target_include_directories(mlir-tensorrt-runner PRIVATE
     ${MLIR_TENSORRT_ROOT_DIR}/include
     ${MLIR_TENSORRT_ROOT_DIR}/executor/include)
