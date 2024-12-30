@@ -1,0 +1,128 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 822afa0a..987c8bd2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -44,6 +44,14 @@ if(TORCH_MLIR_ENABLE_STABLEHLO)
+   add_definitions(-DTORCH_MLIR_ENABLE_STABLEHLO)
+ endif()
+ 
++# It is possible that both stablehlo and torch_mlir projects are used in some compiler project.
++# In this case, we don't want to use stablehlo that is downloaded by torch_mlir (in external/stablehlo)
++# folder but instead stablehlo that is part of top level compiler project.
++# TORCH_MLIR_EXTERNAL_STABLEHLO_DIR represents stablehlo directory (<some_path>/stablehlo)
++# that is included in torch_mlir. It is assumed that top level compiler project makes
++# stablehlo targets available (for example with `add_subdirectory`) and thus they are not added.
++set(TORCH_MLIR_EXTERNAL_STABLEHLO_DIR "" CACHE STRING "Path to stablehlo dir from super project")
++
+ option(TORCH_MLIR_OUT_OF_TREE_BUILD "Specifies an out of tree build" OFF)
+ 
+ # PyTorch native extension gate. If OFF, then no features which depend on
+@@ -142,7 +150,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
+ 
+ function(torch_mlir_target_includes target)
+   set(_dirs
+-    $<BUILD_INTERFACE:${MLIR_INCLUDE_DIRS}>
++    $<BUILD_INTERFACE:${MLIR_INCLUDE_DIR}>
++    $<BUILD_INTERFACE:${MLIR_GENERATED_INCLUDE_DIR}>
+     $<BUILD_INTERFACE:${TORCH_MLIR_SOURCE_DIR}/include>
+     $<BUILD_INTERFACE:${TORCH_MLIR_BINARY_DIR}/include>
+   )
+@@ -233,12 +242,16 @@ endif()
+ # project that we don't actually depend on. Further some of those parts
+ # do not even compile on all platforms.
+ if (TORCH_MLIR_ENABLE_STABLEHLO)
+-  set(STABLEHLO_BUILD_EMBEDDED ON)
+-  set(STABLEHLO_ENABLE_BINDINGS_PYTHON ON)
+-  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo
+-    ${CMAKE_CURRENT_BINARY_DIR}/stablehlo
+-    EXCLUDE_FROM_ALL)
+-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo)
++  if (NOT "${TORCH_MLIR_EXTERNAL_STABLEHLO_DIR}" STREQUAL "")
++    include_directories(${TORCH_MLIR_EXTERNAL_STABLEHLO_DIR})
++  else()
++    set(STABLEHLO_BUILD_EMBEDDED ON)
++    set(STABLEHLO_ENABLE_BINDINGS_PYTHON ON)
++    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo
++      ${CMAKE_CURRENT_BINARY_DIR}/stablehlo
++      EXCLUDE_FROM_ALL)
++    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/stablehlo)
++  endif()
+ endif()
+ 
+ #-------------------------------------------------------------------------------
+diff --git a/lib/Conversion/TorchConversionToMLProgram/TorchConversionToMLProgram.cpp b/lib/Conversion/TorchConversionToMLProgram/TorchConversionToMLProgram.cpp
+index ddb6e5a5..22b95c8a 100644
+--- a/lib/Conversion/TorchConversionToMLProgram/TorchConversionToMLProgram.cpp
++++ b/lib/Conversion/TorchConversionToMLProgram/TorchConversionToMLProgram.cpp
+@@ -59,6 +59,12 @@ public:
+   matchAndRewrite(GetNextSeedOp op, OpAdaptor adaptor,
+                   ConversionPatternRewriter &rewriter) const override {
+     Location loc = op.getLoc();
++    // Find parent module to add global seed, if not present already.
++    auto module = op->getParentOfType<ModuleOp>();
++    OpBuilder b(module.getBodyRegion());
++    if (failed(getOrCreateGlobalVariableForSeed(b, module)))
++      return failure();
++
+     // Generate sequence for getting the next seed with LCG step:
+     //    nextSeed = (multiplier * currentSeed + incrementStep) mod 2^64.
+     // Refer to https://en.wikipedia.org/wiki/Linear_congruential_generator.
+@@ -115,11 +121,6 @@ public:
+     typeConverter.addConversion([](Type type) { return type; });
+     TorchConversion::setupBackendTypeConversion(target, typeConverter);
+ 
+-    auto module = getOperation();
+-    OpBuilder b(module.getBodyRegion());
+-    if (failed(getOrCreateGlobalVariableForSeed(b, module)))
+-      signalPassFailure();
+-
+     RewritePatternSet patterns(context);
+     target.addIllegalOp<GetNextSeedOp>();
+     patterns.add<ConvertGetNextSeedOp>(typeConverter, context);
+diff --git a/python/torch_mlir/compiler_utils.py b/python/torch_mlir/compiler_utils.py
+index ecf129d7..cf07526e 100644
+--- a/python/torch_mlir/compiler_utils.py
++++ b/python/torch_mlir/compiler_utils.py
+@@ -10,8 +10,8 @@ import tempfile
+ from typing import Union, List
+ 
+ import torch
+-from torch_mlir.passmanager import PassManager
+-from torch_mlir.ir import StringAttr
++from .passmanager import PassManager
++from .ir import StringAttr
+ 
+ 
+ class TensorPlaceholder:
+diff --git a/python/torch_mlir/fx.py b/python/torch_mlir/fx.py
+index cfe87348..5309f573 100644
+--- a/python/torch_mlir/fx.py
++++ b/python/torch_mlir/fx.py
+@@ -13,11 +13,11 @@ import torch.export
+ import torch.nn as nn
+ from torch.export import ExportedProgram
+ 
+-from torch_mlir.extras.fx_importer import FxImporter, FxImporterHooks
+-from torch_mlir import ir
+-from torch_mlir.dialects import torch as torch_d
+-from torch_mlir.extras.fx_decomp_util import get_decomposition_table
+-from torch_mlir.compiler_utils import (
++from .extras.fx_importer import FxImporter, FxImporterHooks
++from . import ir
++from .dialects import torch as torch_d
++from .extras.fx_decomp_util import get_decomposition_table
++from .compiler_utils import (
+     OutputType,
+     run_pipeline_with_repro_report,
+     lower_mlir_module,
+diff --git a/test/Conversion/TorchConversionToMLProgram/multiple_functions.mlir b/test/Conversion/TorchConversionToMLProgram/multiple_functions.mlir
+index 8ef04d95..da2424fc 100644
+--- a/test/Conversion/TorchConversionToMLProgram/multiple_functions.mlir
++++ b/test/Conversion/TorchConversionToMLProgram/multiple_functions.mlir
+@@ -11,5 +11,5 @@ module {
+   func.func private @f7() -> i64
+ }
+ 
+-// CHECK:     ml_program.global private mutable @global_seed(dense<0> : tensor<i64>) : tensor<i64>
++// CHECK-NOT:     ml_program.global private mutable @global_seed(dense<0> : tensor<i64>) : tensor<i64>
+ // CHECK-NOT: @global_seed
