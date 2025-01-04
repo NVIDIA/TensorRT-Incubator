@@ -2,7 +2,6 @@
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
 
-
 with ir.Context() as ctx:
     client = compiler.CompilerClient(ctx)
     ASM = """

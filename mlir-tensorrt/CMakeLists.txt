@@ -53,6 +53,7 @@ mtrt_option(MLIR_TRT_ENABLE_TESTING "Enable building optional tests" ON)
 mtrt_option(MLIR_TRT_TARGET_LUA "Enable translating MLIR to the Lua target" ON)
 mtrt_option(MLIR_TRT_ENABLE_EXECUTOR "Build the Executor dialect and MLIR-TensorRT Execution Engine" ON)
 mtrt_option(MLIR_TRT_ENABLE_NCCL "Enable the NCCL runtime module" ON)
+mtrt_option(MLIR_TRT_ENABLE_TORCH "Whether to include torch-mlir features" OFF)
 
 set(MLIR_TRT_TENSORRT_DIR "" CACHE STRING "Path to TensorRT install directory")
 set(MLIR_TRT_DOWNLOAD_TENSORRT_VERSION "10.5" CACHE STRING
@@ -191,6 +192,14 @@ if(MLIR_TRT_ENABLE_HLO AND NOT TARGET StablehloOps)
       "STABLEHLO_ENABLE_BINDINGS_PYTHON ${MLIR_TRT_ENABLE_PYTHON}"
       "STABLEHLO_BUILD_EMBEDDED ON"
     EXCLUDE_FROM_ALL TRUE
+  )
+endif()
+
+if(MLIR_TRT_ENABLE_TORCH)
+  mtrt_add_torch_mlir(
+    GIT_TAG "30c519369ed7eabad0282d0f874500a9b41fcbbd"
+    PATCHES
+      "${CMAKE_CURRENT_LIST_DIR}/build_tools/patches/torch_mlir/torch_mlir.patch"
   )
 endif()
 

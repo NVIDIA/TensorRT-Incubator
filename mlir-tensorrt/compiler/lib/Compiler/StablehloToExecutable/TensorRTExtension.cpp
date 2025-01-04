@@ -21,7 +21,7 @@
 /// TensorRT-specific compilation hooks.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-tensorrt/Compiler/TensorRTExtension/TensorRTExtension.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/TensorRTExtension.h"
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
 #include "mlir-tensorrt/Conversion/Passes.h"
@@ -31,18 +31,16 @@ using namespace mlirtrt::compiler;
 using namespace mlirtrt;
 using namespace mlir;
 
-#define DEBUG_TYPE "tensorrt-extension"
-#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "] ")
-
 //===----------------------------------------------------------------------===//
 // TensorRTCompilerExtension
 //===----------------------------------------------------------------------===//
-StableHLOToExecutableTensorRTExtension::
-    StableHLOToExecutableTensorRTExtension() {}
+StablehloToExecutableTensorRTExtension::
+    StablehloToExecutableTensorRTExtension() {}
 
-void StableHLOToExecutableTensorRTExtension::populatePasses(
+void StablehloToExecutableTensorRTExtension::populatePasses(
     mlir::OpPassManager &pm, Phase phase,
     const StablehloToExecutableOptions &options) const {
+
   if (this->disabled)
     return;
 
@@ -84,4 +82,4 @@ void StableHLOToExecutableTensorRTExtension::populatePasses(
 }
 
 MLIR_DEFINE_EXPLICIT_TYPE_ID(
-    mlirtrt::compiler::StableHLOToExecutableTensorRTExtension)
+    mlirtrt::compiler::StablehloToExecutableTensorRTExtension)

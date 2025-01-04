@@ -29,7 +29,8 @@
 #include "mlir/Transforms/Passes.h"
 
 #ifdef MLIR_TRT_ENABLE_HLO
-#include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/Passes.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 #include "mlir-tensorrt/Dialect/Plan/Transforms/Passes.h"
 #include "mlir-tensorrt/Dialect/StableHloExt/Transforms/Passes.h"
 #include "mlir-tensorrt/Pipelines/StableHloInputPipelines.h"
@@ -53,7 +54,8 @@ inline void registerAllMlirTensorRtPasses() {
   mlir::registerConvertPDLToPDLInterp();
 
 #ifdef MLIR_TRT_ENABLE_HLO
-  mlirtrt::compiler::registerStablehloClusteringPipelines();
+  mlirtrt::compiler::registerStablehloToExecutablePasses();
+  mlirtrt::compiler::registerStablehloToExecutablePipelines();
   registerStableHloInputPipelines();
   stablehlo_ext::registerStableHloExtPasses();
   stablehlo::registerPasses();

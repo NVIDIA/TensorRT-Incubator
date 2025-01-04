@@ -56,6 +56,17 @@ extern "C" {
 typedef struct MTRT_RuntimeClient MTRT_Runtimeclient;
 
 //===----------------------------------------------------------------------===//
+// Global Initialization / Shutdown
+//===----------------------------------------------------------------------===//
+
+/// Perform global initialization of the runtime. This should only be called
+/// once. Calling multiple times will result in an error.
+MLIR_CAPI_EXPORTED void mtrtRuntimeInitialize();
+
+/// Perform global de-initialization of the runtime.
+MLIR_CAPI_EXPORTED void mtrtRuntimeShutdown();
+
+//===----------------------------------------------------------------------===//
 // MTRT_GlobalDebug
 //===----------------------------------------------------------------------===//
 

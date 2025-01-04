@@ -14,6 +14,7 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeTensorRT
   lua::core
   nvtx3-cpp
   TensorRTHeaderOnly
+  MLIRTensorRTLuaExtensionRegistry
 )
 
 target_include_directories(MLIRTensorRTExecutorRuntimeTensorRTModule

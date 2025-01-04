@@ -57,25 +57,10 @@ CompilationTaskBase::~CompilationTaskBase() {}
 
 StatusOr<std::unique_ptr<CompilerClient>>
 CompilerClient::create(MLIRContext *context) {
-  context->disableMultithreading();
   return std::unique_ptr<CompilerClient>(new CompilerClient(context));
 }
 
 CompilerClient::CompilerClient(mlir::MLIRContext *context) : context(context) {}
-
-void CompilerClient::setupPassManagerLogging(mlir::PassManager &pm,
-                                             const DebugOptions &options) {
-  pm.enableVerifier(true);
-  if (!options.dumpIRPath.empty()) {
-    // Enable IR printing after passes run. We can expand the debug options to
-    // match MLIR's global CL options if needed in the future.
-    pm.enableIRPrintingToFileTree(
-        [](mlir::Pass *, mlir::Operation *) { return true; },
-        [](mlir::Pass *, mlir::Operation *) { return false; }, true, false,
-        false, options.dumpIRPath,
-        mlir::OpPrintingFlags().elideLargeElementsAttrs(32));
-  }
-}
 
 StatusOr<CompilationTaskBase *>
 CompilerClient::getCompilationTask(mlir::TypeID taskID,

@@ -20,6 +20,7 @@
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -33,55 +34,6 @@ constexpr unsigned kOffsetArgNum = 2;
 unsigned mrt::getNumArgsPerMemRef(unsigned rank) { return 3 + 2 * rank; }
 unsigned mrt::getStrideBeginArgNum(unsigned rank) {
   return kShapeBeginArgNum + rank;
-}
-
-/// Returns the memref aligned ptr (and offset, shape, and strides through
-/// the relevant arguments) given a variadic argument container. The
-/// variadic args could contain multiple unpacked memrefs (of the same
-/// rank), so `memrefIdx` indicates which memref is desired.
-PointerInfo mrt::getMemRefInfoSafe(sol::this_state state, AllocTracker &tracker,
-                                   sol::variadic_args args, unsigned rank,
-                                   unsigned memrefIdx, int64_t &offset,
-                                   std::vector<int64_t> &shape,
-                                   std::vector<int64_t> &strides) {
-  const auto &arg =
-      args[getNumArgsPerMemRef(rank) * memrefIdx + kAlignedPtrArgNum];
-  if (!arg.is<uintptr_t>()) {
-    luaL_error(state, "unexpected type for executor pointer argument");
-    return PointerInfo{0, 0, PointerType::unknown};
-  }
-
-  const auto &offsetArg =
-      args[getNumArgsPerMemRef(rank) * memrefIdx + kOffsetArgNum];
-  if (!offsetArg.is<int>()) {
-    luaL_error(state, "unexpected type for executor memref offset argument");
-    return PointerInfo{0, 0, PointerType::unknown};
-  }
-  offset = offsetArg.as<int>();
-
-  unsigned startOffset =
-      getNumArgsPerMemRef(rank) * memrefIdx + kShapeBeginArgNum;
-  for (unsigned i = startOffset, e = startOffset + rank; i < e; i++) {
-    if (!args[i].is<int>()) {
-      luaL_error(state, "unexpected type for executor shape size argument");
-      return PointerInfo{0, 0, PointerType::unknown};
-    }
-    shape.push_back(args[i].as<int>());
-  }
-
-  // Strides
-  startOffset =
-      getNumArgsPerMemRef(rank) * memrefIdx + getStrideBeginArgNum(rank);
-  for (unsigned i = startOffset, e = startOffset + rank; i < e; i++) {
-    if (!args[i].is<int>()) {
-      luaL_error(state, "unexpected type for executor shape size argument");
-      return PointerInfo{0, 0, PointerType::unknown};
-    }
-    strides.push_back(args[i].as<int>());
-  }
-
-  uintptr_t ptr = arg.as<uintptr_t>();
-  return tracker.get(ptr);
 }
 
 /// Returns the memref aligned ptr (and offset, shape, and strides through

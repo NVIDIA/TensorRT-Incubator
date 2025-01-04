@@ -13,6 +13,7 @@ config.host_arch = "@HOST_ARCH@"
 config.enable_assertions = @MLIR_TRT_ENABLE_ASSERTIONS@
 
 config.enable_bindings_python = @MLIR_TRT_ENABLE_PYTHON@
+config.enable_torch_mlir = @MLIR_TRT_ENABLE_TORCH@
 config.python_executable = "@Python3_EXECUTABLE@"
 
 config.enable_hlo = @MLIR_TRT_ENABLE_HLO@

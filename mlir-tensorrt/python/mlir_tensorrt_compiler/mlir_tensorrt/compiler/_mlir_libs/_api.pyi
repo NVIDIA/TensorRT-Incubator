@@ -1,11 +1,15 @@
 from __future__ import annotations
+
 import typing
-from mlir_tensorrt.compiler.ir import Context, Operation, FunctionType
+
+from ..ir import Context, Operation
 
 __all__ = [
     "CompilerClient",
     "Executable",
     "MemRefType",
+    "OptionsContext",
+    "PassManagerReference",
     "PluginFieldInfo",
     "PluginFieldType",
     "PointerType",
@@ -16,23 +20,22 @@ __all__ = [
     "StableHLOToExecutableOptions",
     "Type",
     "bf16",
-    "PyStableHloPipeline",
-    "get_executable",
     "compiler_stablehlo_to_executable",
     "device",
     "f16",
     "f32",
     "f64",
     "f8e4m3fn",
-    "get_stablehlo_program_refined_signature",
     "get_tensorrt_plugin_field_schema",
     "host",
     "i1",
     "i16",
     "i32",
+    "i4",
     "i64",
     "i8",
     "pinned_host",
+    "translate_mlir_to_executable",
     "ui8",
     "unified",
     "unknown",
@@ -40,6 +43,7 @@ __all__ = [
 
 class CompilerClient:
     def __init__(self, arg0: Context) -> None: ...
+    def get_compilation_task(self, arg0: str, arg1: list[str]) -> ...: ...
 
 class Executable:
     def __init__(self, buffer: str) -> None:
@@ -81,6 +85,15 @@ class MemRefType(Type):
     def shape(self) -> list[int]: ...
     @property
     def strides(self) -> list[int]: ...
+
+class OptionsContext:
+    def __init__(
+        self, client: CompilerClient, options_type: str, args: list[str]
+    ) -> None: ...
+    def __repr__(self) -> str: ...
+
+class PassManagerReference:
+    def run(self, arg0: Operation) -> None: ...
 
 class PluginFieldInfo:
     @property
@@ -241,6 +254,8 @@ class ScalarTypeCode:
 
       i1
 
+      i4
+
       i8
 
       ui8
@@ -254,7 +269,7 @@ class ScalarTypeCode:
 
     __members__: typing.ClassVar[
         dict[str, ScalarTypeCode]
-    ]  # value = {'f8e4m3fn': <ScalarTypeCode.f8e4m3fn: 1>, 'f16': <ScalarTypeCode.f16: 2>, 'bf16': <ScalarTypeCode.bf16: 11>, 'f32': <ScalarTypeCode.f32: 3>, 'f64': <ScalarTypeCode.f64: 4>, 'i1': <ScalarTypeCode.i1: 5>, 'i8': <ScalarTypeCode.i8: 6>, 'ui8': <ScalarTypeCode.ui8: 7>, 'i16': <ScalarTypeCode.i16: 8>, 'i32': <ScalarTypeCode.i32: 9>, 'i64': <ScalarTypeCode.i64: 10>}
+    ]  # value = {'f8e4m3fn': <ScalarTypeCode.f8e4m3fn: 1>, 'f16': <ScalarTypeCode.f16: 2>, 'bf16': <ScalarTypeCode.bf16: 11>, 'f32': <ScalarTypeCode.f32: 3>, 'f64': <ScalarTypeCode.f64: 4>, 'i1': <ScalarTypeCode.i1: 5>, 'i4': <ScalarTypeCode.i4: 12>, 'i8': <ScalarTypeCode.i8: 6>, 'ui8': <ScalarTypeCode.ui8: 7>, 'i16': <ScalarTypeCode.i16: 8>, 'i32': <ScalarTypeCode.i32: 9>, 'i64': <ScalarTypeCode.i64: 10>}
     bf16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.bf16: 11>
     f16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f16: 2>
     f32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.f32: 3>
@@ -263,6 +278,7 @@ class ScalarTypeCode:
     i1: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i1: 5>
     i16: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i16: 8>
     i32: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i32: 9>
+    i4: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i4: 12>
     i64: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i64: 10>
     i8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.i8: 6>
     ui8: typing.ClassVar[ScalarTypeCode]  # value = <ScalarTypeCode.ui8: 7>
@@ -294,24 +310,17 @@ class StableHLOToExecutableOptions:
 class Type:
     def __init__(self, cast_from_type: Type) -> None: ...
 
-class PyStableHloPipeline:
-    def __init__(
-        self, arg0: CompilerClient, arg1: StableHLOToExecutableOptions
-    ) -> None: ...
-
-def get_executable(client: CompilerClient, module: Operation) -> Executable: ...
 def compiler_stablehlo_to_executable(
     client: CompilerClient, module: Operation, options: StableHLOToExecutableOptions
 ) -> Executable: ...
-def get_stablehlo_program_refined_signature(
-    client: CompilerClient, module: Operation, func_name: str
-) -> FunctionType: ...
 def get_tensorrt_plugin_field_schema(
-    name: str, version: str, plugin_namespace: str, dso_path: str
+    name: str, version: str, plugin_namespace: str, dso_path: str | None
 ) -> dict[str, PluginFieldInfo]:
     """
     Queries the global TensorRT plugin registry for a creator for a plugin of the given name, version, and namespace. It then queries the plugin creator for the expected PluginField information.
     """
+
+def translate_mlir_to_executable(arg0: Operation) -> Executable: ...
 
 bf16: ScalarTypeCode  # value = <ScalarTypeCode.bf16: 11>
 device: PointerType  # value = <PointerType.device: 2>
@@ -323,6 +332,7 @@ host: PointerType  # value = <PointerType.host: 0>
 i1: ScalarTypeCode  # value = <ScalarTypeCode.i1: 5>
 i16: ScalarTypeCode  # value = <ScalarTypeCode.i16: 8>
 i32: ScalarTypeCode  # value = <ScalarTypeCode.i32: 9>
+i4: ScalarTypeCode  # value = <ScalarTypeCode.i4: 12>
 i64: ScalarTypeCode  # value = <ScalarTypeCode.i64: 10>
 i8: ScalarTypeCode  # value = <ScalarTypeCode.i8: 6>
 pinned_host: PointerType  # value = <PointerType.pinned_host: 1>

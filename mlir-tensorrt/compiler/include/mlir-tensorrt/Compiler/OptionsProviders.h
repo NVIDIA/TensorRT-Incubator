@@ -26,6 +26,7 @@
 
 #include "mlir-executor/Support/DeviceInfo.h"
 #include "mlir-tensorrt-dialect/Utils/Options.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/LLVM.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
@@ -47,6 +48,8 @@ constexpr bool has_finalize_impl_v<
 // a default implementation otherwise.
 template <typename Derived>
 struct OptionsProvider {
+  using OmitFromCLI = mlir::OptionsContext::OmitFromCLI;
+
   OptionsProvider(mlir::OptionsContext &ctx) : ctx(ctx) {}
 
   // We don't allow move construction since the actual ptrs/locations of
@@ -81,21 +84,88 @@ struct OptionsProvider {
 struct DebugOptions : public OptionsProvider<DebugOptions> {
 public:
   using OptionsProvider::OptionsProvider;
-  /// A directory path where the IR will be dumped during compilation
-  /// using the `mlir-print-ir-tree-dir` mechanism.
-  Option<std::string> dumpIRPath{&this->ctx, "mlir-print-ir-tree-dir",
-                                 llvm::cl::init("")};
+  //===--------------------------------------------------------------------===//
+  // Crash Reproducer Generator
+  //===--------------------------------------------------------------------===//
+  Option<std::string> reproducerFile{
+      &this->ctx, "mlir-pass-pipeline-crash-reproducer",
+      llvm::cl::desc("Generate a .mlir reproducer file at the given output path"
+                     " if the pass manager crashes or fails"),
+      OmitFromCLI{}};
+  Option<bool> localReproducer{
+      &this->ctx, "mlir-pass-pipeline-local-reproducer",
+      llvm::cl::desc("When generating a crash reproducer, attempt to generated "
+                     "a reproducer with the smallest pipeline."),
+      llvm::cl::init(false), OmitFromCLI{}};
+
+  //===--------------------------------------------------------------------===//
+  // IR Printing
+  //===--------------------------------------------------------------------===//
+
+  Option<bool> printBeforeAll{&this->ctx, "mlir-print-ir-before-all",
+                              llvm::cl::desc("Print IR before each pass"),
+                              llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printAfterAll{&this->ctx, "mlir-print-ir-after-all",
+                             llvm::cl::desc("Print IR after each pass"),
+                             llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printAfterChange{
+      &this->ctx, "mlir-print-ir-after-change",
+      llvm::cl::desc(
+          "When printing the IR after a pass, only print if the IR changed"),
+      llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printAfterFailure{
+      &this->ctx, "mlir-print-ir-after-failure",
+      llvm::cl::desc(
+          "When printing the IR after a pass, only print if the pass failed"),
+      llvm::cl::init(false), OmitFromCLI{}};
+  Option<bool> printModuleScope{
+      &this->ctx, "mlir-print-ir-module-scope",
+      llvm::cl::desc("When printing IR for print-ir-[before|after]{-all} "
+                     "always print the top-level operation"),
+      llvm::cl::init(false), OmitFromCLI{}};
+  Option<std::string> printTreeDir{
+      &this->ctx, "mlir-print-ir-tree-dir",
+      llvm::cl::desc("When printing the IR before/after a pass, print file "
+                     "tree rooted at this directory. Use in conjunction with "
+                     "mlir-print-ir-* flags"),
+      OmitFromCLI{}};
+
+  //===--------------------------------------------------------------------===//
+  // Pass Statistics
+  //===--------------------------------------------------------------------===//
+  Option<bool> passStatistics{
+      &this->ctx, "mlir-pass-statistics",
+      llvm::cl::desc("Display the statistics of each pass"),
+      llvm::cl::init(false), OmitFromCLI{}};
+
+  //===--------------------------------------------------------------------===//
+  // Pass Timing
+  //===--------------------------------------------------------------------===//
+  Option<bool> enableTiming{
+      &this->ctx, "mlir-timing",
+      llvm::cl::desc(
+          "Time each pass and print to stderr after the pipeline completes"),
+      llvm::cl::init(false), OmitFromCLI{}};
+
+  //===----------------------------------------------------------------------===//
+  // Debug Printing
+  //===----------------------------------------------------------------------===//
 
   /// Whether the LLVM 'debug' flag that enables execution of code guarded by
   /// the `LLVM_DEBUG` macro should be set to 'on'. This results in very verbose
   /// output from the compiler dumped to stderr.
-  Option<bool> enableLLVMDebugFlag{&this->ctx, "debug", llvm::cl::init(false)};
+  Option<bool> enableLLVMDebugFlag{&this->ctx, "debug", llvm::cl::init(false),
+                                   OmitFromCLI{}};
 
   /// A set of names to be given to the LLVM 'debug types' option, akin to
   /// setting
   /// `-debug-types=...` from the command line.
   ListOption<std::string> llvmDebugTypes{
-      &this->ctx, "debug-only", llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated};
+      &this->ctx, "debug-only", llvm::cl::ZeroOrMore, llvm::cl::CommaSeparated,
+      OmitFromCLI{}};
+
+  /// Apply these options to the current pass manager.
+  void applyToPassManager(mlir::PassManager &pm) const;
 };
 
 struct ExecutorOptions : public OptionsProvider<ExecutorOptions> {
@@ -131,7 +201,7 @@ public:
   DeviceOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {
     ctx.addOption(
         "device-compute-capability", info.computeCapability, llvm::cl::init(60),
-        llvm::cl::desc("Sets the device compute capbility. Only relevant "
+        llvm::cl::desc("Sets the device compute capability. Only relevant "
                        "if '--device-infer-from-host=false'"));
     ctx.addOption("device-max-shared-memory-per-block-kb",
                   info.maxSharedMemoryPerBlockKb, llvm::cl::init(48));

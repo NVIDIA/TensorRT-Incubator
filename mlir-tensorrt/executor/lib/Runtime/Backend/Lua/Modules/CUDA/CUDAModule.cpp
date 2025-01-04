@@ -21,7 +21,6 @@
 /// Executor CUDA module runtime implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Lua/Modules/CUDA/CudaModule.h"
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Runtime/API/API.h"
@@ -29,7 +28,9 @@
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Common/NvPtxCompilerUtils.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "llvm/Support/Alignment.h"
@@ -512,11 +513,19 @@ registerCudaMemoryManagementOps(sol::state_view &lua,
   };
 }
 
-void mlirtrt::runtime::registerExecutorCUDAModuleLuaRuntimeMethods(
-    lua_State *state, AllocTracker *allocTracker,
-    PinnedMemoryAllocator *pinnedMemoryAllocator,
-    ResourceTracker *resourceTracker) {
-  sol::state_view lua(state);
-  registerCudaOps(lua, allocTracker, pinnedMemoryAllocator, resourceTracker);
-  registerCudaMemoryManagementOps(lua, allocTracker, pinnedMemoryAllocator);
+namespace mlirtrt::runtime {
+void registerLuaCudaRuntimeExtension() {
+  registerLuaRuntimeExtension(
+      "cuda",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            sol::state_view lua(state);
+            registerCudaOps(lua, allocTracker, pinnedMemoryAllocator,
+                            resourceTracker);
+            registerCudaMemoryManagementOps(lua, allocTracker,
+                                            pinnedMemoryAllocator);
+          }});
 }
+} // namespace mlirtrt::runtime

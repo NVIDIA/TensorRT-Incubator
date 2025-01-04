@@ -4,7 +4,6 @@ import mlir_tensorrt.compiler.ir as ir
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
 
-
 ASM = """
 func.func @main(%arg0: tensor<2x2xf32>) -> tensor<2x2xf32> {
   %cst = stablehlo.constant dense<[[0.0, 1.0], [2.0, 3.0]]> : tensor<2x2xf32>

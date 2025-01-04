@@ -24,9 +24,71 @@
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
 #include "cuda_runtime_api.h"
 #include "mlir-executor/Support/DeviceInfo.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Support/Timing.h"
 #include "llvm/Support/Error.h"
 
-mlirtrt::Status mlirtrt::compiler::DeviceOptions::inferFromHost() {
+using namespace mlir;
+using namespace mlirtrt;
+using namespace mlirtrt::compiler;
+
+//===----------------------------------------------------------------------===//
+// DebugOptions
+//===----------------------------------------------------------------------===//
+
+void DebugOptions::applyToPassManager(PassManager &pm) const {
+  std::function<bool(Pass *, Operation *)> shouldPrintBeforePass;
+  std::function<bool(Pass *, Operation *)> shouldPrintAfterPass;
+
+  // Enable statistics dumping.
+  if (passStatistics)
+    pm.enableStatistics(mlir::PassDisplayMode::Pipeline);
+
+  // Generate a reproducer on crash/failure.
+  if (!reproducerFile.empty())
+    pm.enableCrashReproducerGeneration(reproducerFile, localReproducer);
+
+  if (enableTiming) {
+    auto tm = std::make_unique<DefaultTimingManager>();
+    tm->setEnabled(true);
+    tm->setDisplayMode(mlir::DefaultTimingManager::DisplayMode::Tree);
+    pm.enableTiming(std::move(tm));
+  }
+
+  // Handle print-before.
+  if (printBeforeAll) {
+    // If we are printing before all, then just return true for the filter.
+    shouldPrintBeforePass = [](Pass *, Operation *) { return true; };
+  }
+  // Handle print-after.
+  if (printAfterAll || printAfterFailure) {
+    // If we are printing after all or failure, then just return true for the
+    // filter.
+    shouldPrintAfterPass = [](Pass *, Operation *) { return true; };
+  }
+
+  // If there are no valid printing filters, then just return.
+  if (!shouldPrintBeforePass && !shouldPrintAfterPass)
+    return;
+
+  // Otherwise, add the IR printing instrumentation.
+  if (!printTreeDir.empty()) {
+    pm.enableIRPrintingToFileTree(shouldPrintBeforePass, shouldPrintAfterPass,
+                                  printModuleScope, printAfterChange,
+                                  printAfterFailure, printTreeDir);
+    return;
+  }
+
+  pm.enableIRPrinting(shouldPrintBeforePass, shouldPrintAfterPass,
+                      printModuleScope, printAfterChange, printAfterFailure,
+                      llvm::errs());
+}
+
+//===----------------------------------------------------------------------===//
+// DeviceOptions
+//===----------------------------------------------------------------------===//
+
+Status DeviceOptions::inferFromHost() {
   cudaDeviceProp properties;
   cudaError_t err = cudaGetDeviceProperties(&properties, 0);
   if (err != cudaSuccess)
@@ -52,7 +114,7 @@ mlirtrt::Status mlirtrt::compiler::DeviceOptions::inferFromHost() {
   return Status::getOk();
 }
 
-llvm::Error mlirtrt::compiler::DeviceOptions::finalizeImpl() {
+llvm::Error DeviceOptions::finalizeImpl() {
   if (shouldInferFromHost) {
     StatusOr<DeviceInfo> deviceInfo = getDeviceInformationFromHost();
 

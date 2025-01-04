@@ -30,6 +30,31 @@
 
 namespace mlir {
 
+namespace detail {
+
+/// MlirOptionAdaptor is derived from the MLIR base option class used to define
+/// pass and pipeline options. It is used to override the parent `llvm::cl::opt`
+/// callback to also populate an external storage reference.
+template <typename DataType,
+          typename OptionParser =
+              mlir::detail::PassOptions::OptionParser<DataType>>
+class MlirOptionAdaptor
+    : public mlir::detail::PassOptions::Option<DataType, OptionParser> {
+public:
+  using Base = mlir::detail::PassOptions::Option<DataType, OptionParser>;
+
+  template <typename... Args>
+  MlirOptionAdaptor(mlir::detail::PassOptions &parent, StringRef arg,
+                    DataType &external, Args &&...args)
+      : Base(parent, arg, std::forward<Args>(args)...) {
+    this->setCallback([&](const auto &v) {
+      external = v;
+      this->optHasValue = true;
+    });
+  }
+};
+} // namespace detail
+
 /// This is a very simple class that wraps the parsing/printing of a set of
 /// textual flags/options. It only supports named options (not positional
 /// arguments). This class is loosely inspired by both the 'option binder'
@@ -150,20 +175,91 @@ public:
     }
   };
 
+  /// A tag which can be passed to an option constructed to the constructor
+  /// argument list using the `Option|ListOption` classes above or the
+  /// `addOption|addList` functions defined below. The tag indicates that the
+  /// option should be omitted from CLI parameters when converting the derived
+  /// OptionsContext class to a `mlir::PassPipelineOptions|PassOptions` class
+  /// when using a templated adaptor class defined below.
+  struct OmitFromCLI {};
+
 protected:
+  // Helper function to exclude all elements of type `OmitFromCLI` from the
+  // tuple `t`.
+  template <typename Tuple, std::size_t I>
+  static constexpr auto filterCLIOmissionTag(const Tuple &t,
+                                             bool &omitFromMlirPipeline) {
+    if constexpr (!std::is_same_v<OmitFromCLI,
+                                  std::tuple_element_t<I, Tuple>>) {
+      return std::make_tuple(std::get<I>(t));
+    } else {
+      omitFromMlirPipeline = true;
+      return std::tuple<>();
+    }
+  }
+
+  // Helper to collect valid arguments into a new tuple
+  template <typename Tuple, std::size_t... I>
+  constexpr auto filterCLIOmissionTag(bool &omitFromMlirPipeline,
+                                      const Tuple &t,
+                                      std::index_sequence<I...>) {
+    return std::tuple_cat(
+        filterCLIOmissionTag<Tuple, I>(t, omitFromMlirPipeline)...);
+  }
+
+  // Helper to construct llvm::cl::opt values.
+  template <typename OptType, typename... Args>
+  auto buildOpt(bool &omitFromMlirPipeline, Args &&...args) {
+    // Pack all arguments into a tuple.
+    auto t = std::make_tuple(std::forward<Args>(args)...);
+    // Create an index sequence based on the tuple size
+    constexpr std::size_t size = std::tuple_size<decltype(t)>::value;
+    constexpr auto indices = std::make_index_sequence<size>{};
+    // Collect only the arguments that are not of type `OmitFromCLI`, which is
+    // our custom tag. Arguments of all other types are forwarded to the option
+    // construction function.
+    auto valid_args = filterCLIOmissionTag(omitFromMlirPipeline, t, indices);
+    return std::apply(
+        [&](auto &&...valid_args_inner) {
+          return std::make_unique<OptType>(
+              std::forward<decltype(valid_args_inner)>(valid_args_inner)...);
+        },
+        valid_args);
+  }
+
   /// Add an option to this context. The storage `value` must outlive the
   /// OptionsContext.
   template <typename DataType, typename ParserClass, typename... Mods>
   void addOptionImpl(llvm::StringRef name, DataType &value, Mods &&...mods) {
-    auto opt =
-        std::make_unique<llvm::cl::opt<DataType, /*ExternalStorage=*/true,
-                                       /*ParserClass=*/ParserClass>>(
-            llvm::cl::sub(*this), name, llvm::cl::location(value),
-            std::forward<Mods>(mods)...);
+    bool omitFromMlirPipeline = false;
+    auto opt = buildOpt<llvm::cl::opt<DataType, true, ParserClass>>(
+        omitFromMlirPipeline, llvm::cl::sub(*this), name,
+        llvm::cl::location(value), std::forward<Mods>(mods)...);
+
+    // Add to the map of printers.
     printers[opt.get()] = [opt = opt.get()](llvm::raw_ostream &os) {
       mlir::detail::pass_options::printOptionValue<decltype(opt->getParser())>(
           os, opt->getValue());
     };
+
+    // Populate the callback which allows for converting this option
+    // into a MLIR pipeline option on-the-fly.
+    if (!omitFromMlirPipeline)
+      mlirOptionConverters[opt.get()] =
+          [opt = opt.get(), name = name.str(),
+           &value](mlir::detail::PassOptions &parent,
+                   std::vector<std::unique_ptr<llvm::cl::Option>> &storage) {
+            auto converted =
+                std::make_unique<detail::MlirOptionAdaptor<DataType>>(
+                    parent, name, value);
+            const llvm::cl::OptionValue<DataType> &V = opt->getDefault();
+            converted->setInitialValue(V.hasValue() ? V.getValue()
+                                                    : DataType());
+            converted->setDescription(opt->HelpStr);
+            storage.emplace_back(
+                std::unique_ptr<llvm::cl::Option>(std::move(converted)));
+          };
+
     options.push_back(OptionInfo{std::move(opt)});
   }
 
@@ -190,8 +286,10 @@ public:
   /// Remember to pass `llvm::cl::CommaSeparated` for comma separated lists.
   template <typename DataType, typename ValueType, typename... Mods>
   void addList(llvm::StringRef name, ValueType &value, Mods... mods) {
-    auto item = std::make_unique<llvm::cl::list<DataType>>(
-        name, llvm::cl::sub(*this), std::forward<Mods>(mods)...);
+    bool omitFromMlirPipeline = false;
+    auto item = buildOpt<llvm::cl::list<DataType>>(omitFromMlirPipeline, name,
+                                                   llvm::cl::sub(*this),
+                                                   std::forward<Mods>(mods)...);
     item->setCallback(
         [&value](const DataType &newVal) { value.push_back(newVal); });
     printers[item.get()] = [opt = item.get()](llvm::raw_ostream &os) {
@@ -225,6 +323,17 @@ public:
   /// (instead of just a default value).
   virtual llvm::Error finalize() = 0;
 
+  using MlirOptionConverter =
+      std::function<void(mlir::detail::PassOptions &,
+                         std::vector<std::unique_ptr<llvm::cl::Option>> &)>;
+
+  /// Return the callbacks used to populate a PassOptions or
+  /// PassPipelineOptions adaptor.
+  const llvm::DenseMap<llvm::cl::Option *, MlirOptionConverter> &
+  getMlirOptionsConverters() const {
+    return mlirOptionConverters;
+  }
+
 private:
   struct OptionInfo {
     std::unique_ptr<llvm::cl::Option> option;
@@ -233,7 +342,38 @@ private:
   std::vector<OptionInfo> options;
   llvm::DenseMap<llvm::cl::Option *, std::function<void(llvm::raw_ostream &)>>
       printers;
+
+  /// Holds a set of callbacks for populating options of a MLIR PassOptions.
+  /// This is only used to implement conversion to and from a MLIR pipeline or
+  /// pass options.
+  llvm::DenseMap<llvm::cl::Option *, MlirOptionConverter> mlirOptionConverters;
 };
+
+/// This type is used to declare an adaptor object which allows using the
+/// "AdaptedType", which is derived from OptionsContext, as a MLIR
+/// PassPipelineOptions. Note that currently only regular options (and not list
+/// options) are passed through. Any list options will retain their defaults.
+/// TODO: support list options
+template <typename Derived, typename AdaptedType>
+class PassPipelineOptionsAdaptor : public mlir::PassPipelineOptions<Derived> {
+public:
+  static_assert(std::is_base_of_v<mlir::OptionsContext, AdaptedType>,
+                "expected AdaptedType to be derived from OptionsContext");
+
+  PassPipelineOptionsAdaptor() {
+    storage = std::make_unique<AdaptedType>();
+    mlirOptionStorage.reserve(storage->getMlirOptionsConverters().size());
+    for (auto &[key, converter] : storage->getMlirOptionsConverters())
+      converter(*this, mlirOptionStorage);
+  }
+
+  operator const AdaptedType &() const { return *storage; }
+
+private:
+  std::vector<std::unique_ptr<llvm::cl::Option>> mlirOptionStorage;
+  std::unique_ptr<AdaptedType> storage{nullptr};
+};
+
 } // namespace mlir
 
 #endif /* MLIR_TENSORRT_DIALECT_UTILS_OPTIONS */

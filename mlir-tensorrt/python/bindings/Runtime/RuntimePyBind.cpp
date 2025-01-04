@@ -532,7 +532,16 @@ static MTRT_RuntimeValue convertArgType(py::object obj) {
 // Declare the bindings.
 //===----------------------------------------------------------------------===//
 
+namespace {
+struct ExecutorRuntimeGlobalSetup {
+  ExecutorRuntimeGlobalSetup() { mtrtRuntimeInitialize(); }
+  ~ExecutorRuntimeGlobalSetup() { mtrtRuntimeShutdown(); }
+};
+} // namespace
+
 PYBIND11_MODULE(_api, m) {
+  static ExecutorRuntimeGlobalSetup globalSetup;
+
   py::register_exception<MTRTException>(m, "MTRTException");
 
   populateCommonBindingsInModule(m);

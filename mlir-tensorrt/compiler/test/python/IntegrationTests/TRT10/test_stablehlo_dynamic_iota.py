@@ -1,9 +1,9 @@
 # RUN: %PYTHON %s
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
-from mlir_tensorrt.compiler.dialects import builtin, stablehlo, func
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
+from mlir_tensorrt.compiler.dialects import builtin, func, stablehlo
 
 
 def build_program(dtype, iota_dim):

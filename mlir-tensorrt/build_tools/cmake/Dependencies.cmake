@@ -123,7 +123,7 @@ function(download_tensorrt)
     elseif(NOT (ARCH STREQUAL "x86_64"))
       message(FATAL_ERROR "Direct download not available for architecture: ${ARCH}")
     endif()
-    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_short_version}/tars/TensorRT-${TRT_VERSION}.${OS}.${ARCH}-gnu.cuda-${CUDA_VERSION}.tar.gz") 
+    set(_url "https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/${trt_short_version}/tars/TensorRT-${TRT_VERSION}.${OS}.${ARCH}-gnu.cuda-${CUDA_VERSION}.tar.gz")
   endif()
 
   # Handle TensorRT 9 versions. These are publicly accessible download links.
@@ -284,4 +284,24 @@ function(mlir_tensorrt_find_dlpack)
       $<BUILD_INTERFACE:${dlpack_SOURCE_DIR}/include>)
     add_library(DLPack::Headers ALIAS DLPackHeaderOnly)
   endif()
+endfunction()
+
+#-------------------------------------------------------------------------------------
+# Download Torch-MLIR
+#-------------------------------------------------------------------------------------
+
+function(mtrt_add_torch_mlir)
+  CPMAddPackage(
+    NAME torch_mlir
+    GIT_REPOSITORY https://github.com/llvm/torch-mlir.git
+    EXCLUDE_FROM_ALL TRUE
+    OPTIONS
+      "TORCH_MLIR_OUT_OF_TREE_BUILD ON"
+      "TORCH_MLIR_ENABLE_STABLEHLO ON"
+      "TORCH_MLIR_EXTERNAL_STABLEHLO_DIR ${stablehlo_SOURCE_DIR}"
+      "MLIR_DIR ${CMAKE_BINARY_DIR}/lib/cmake/mlir"
+      "LLVM_DIR ${llvm_project_BINARY_DIR}/lib/cmake/llvm"
+    ${ARGN}
+  )
+  set(torch_mlir_SOURCE_DIR "${torch_mlir_SOURCE_DIR}" PARENT_SCOPE)
 endfunction()
