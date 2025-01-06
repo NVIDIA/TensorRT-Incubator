@@ -27,7 +27,7 @@ from typing import Tuple
 import nvtripy as tp
 
 
-def window_partition(x, window_size):
+def window_partition(x, window_size, pad_size):
     """
     Partition into non-overlapping windows with padding if needed.
     Args:
@@ -38,8 +38,12 @@ def window_partition(x, window_size):
         (Hp, Wp): padded height and width before partition
     """
     B, H, W, C = x.shape
-    # padding is not triggered
+    pad_h, pad_w = pad_size
     Hp, Wp = H, W
+    if pad_h > 0 or pad_w > 0:
+        x = tp.pad(x, pad=((0, 0), (0, pad_h), (0, pad_w), (0, 0)))
+        Hp, Wp = H + pad_h, W + pad_w
+
     x = tp.reshape(x, (B, Hp // window_size, window_size, Wp // window_size, window_size, C))
     x = tp.permute(x, (0, 1, 3, 2, 4, 5))
     windows = tp.reshape(x, (-1, window_size, window_size, C))
@@ -58,11 +62,16 @@ def window_unpartition(windows, window_size, pad_hw, hw):
         x: unpartitioned sequences with [B, H, W, C].
     """
     Hp, Wp = pad_hw
+    H, W = hw
     B = windows.shape[0] // (Hp * Wp // window_size // window_size)
 
     x = tp.reshape(windows, (B, Hp // window_size, Wp // window_size, window_size, window_size, -1))
     x = tp.permute(x, (0, 1, 3, 2, 4, 5))  # [B, Hp//window_size, window_size, Wp//window_size, window_size, C]
     x = tp.reshape(x, (B, Hp, Wp, -1))  # [B, Hp, Wp, C]
+
+    if H > 0 or W > 0:
+        x = x[:, :H, :W, :]
+
     return x
 
 
