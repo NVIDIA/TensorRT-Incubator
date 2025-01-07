@@ -84,6 +84,8 @@ source_suffix = [".rst"]
 # The master toctree document.
 master_doc = "index"
 
+templates_path = ["_templates"]
+
 # General information about the project.
 project = "Tripy"
 copyright = "2024, NVIDIA"
