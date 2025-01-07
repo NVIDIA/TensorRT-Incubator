@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1735933282011,
+  "lastUpdate": 1736273951634,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -9667,6 +9667,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000021968941143562592",
             "extra": "mean: 44.29893560070724 usec\nrounds: 23492"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "bf92b05ada8682677a0966c4139d2f69dff5a721",
+          "message": "Fix sam2 sample artifact removal",
+          "timestamp": "2025-01-06T18:06:45Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/470/commits/bf92b05ada8682677a0966c4139d2f69dff5a721"
+        },
+        "date": 1736273950771,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 6070.825612579375,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003399040980934122",
+            "extra": "mean: 164.7222410618907 usec\nrounds: 6436"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6700.328796814354,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007048711719970723",
+            "extra": "mean: 149.2464072025012 usec\nrounds: 7288"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 21443.343946229714,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004659250606825831",
+            "extra": "mean: 46.634517569067185 usec\nrounds: 23257"
           }
         ]
       }
