@@ -135,6 +135,7 @@ def build_root_index_file(constituents, guide_sets, processed_markdown_dirname):
             dedent(
                 f"""
                 .. toctree::
+                    :hidden:
                     :caption: {guide_set.title}
                     :maxdepth: 1
                 """
@@ -151,6 +152,7 @@ def build_root_index_file(constituents, guide_sets, processed_markdown_dirname):
             dedent(
                 f"""
                 .. toctree::
+                    :hidden:
                     :caption: API Reference
                     :maxdepth: 1
                 """
@@ -311,7 +313,7 @@ def main():
 
     print(f"Generating documentation hierarchy:\n{str_from_hierarchy(doc_hierarcy)}")
 
-    EXCLUDE_DIRS = ["_static"]
+    EXCLUDE_DIRS = ["_static", "_templates"]
 
     guide_sets: List[GuideSet] = []
     guide_dirs = list(
