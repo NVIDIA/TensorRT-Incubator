@@ -1,86 +1,36 @@
 
 # Tripy: A Python Programming Model For TensorRT
 
-<!-- Tripy: DOC: OMIT Start -->
-[**Installation**](#installation) | [**Getting Started**](#getting-started) | [**Documentation**](https://nvidia.github.io/TensorRT-Incubator/) | [**Notebooks**](./notebooks) | [**Examples**](./examples) | [**Contributing**](./CONTRIBUTING.md)
+[**Installation**](#installation)
+| [**Getting Started**](#getting-started)
+| [**Examples**](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy/examples)
+| [**Notebooks**](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy/notebooks)
+| [**Contributing**](https://github.com/NVIDIA/TensorRT-Incubator/blob/main/tripy/CONTRIBUTING.md)
+| [**Documentation**](https://nvidia.github.io/TensorRT-Incubator/)
 
+<!-- Tripy: DOC: OMIT Start -->
 [![Tripy L1](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml/badge.svg)](https://github.com/NVIDIA/TensorRT-Incubator/actions/workflows/tripy-l1.yml)
 <!-- Tripy: DOC: OMIT End -->
 
-Tripy is a Python programming model for [TensorRT](https://developer.nvidia.com/tensorrt) that aims to provide
-an excellent user experience without compromising performance. Some of the goals of Tripy are:
+**Tripy** is a debuggable, Pythonic frontend for [TensorRT](https://developer.nvidia.com/tensorrt),
+a deep learning inference compiler.
 
-- **Intuitive API**: Tripy doesn't reinvent the wheel: If you have used NumPy or
-    PyTorch before, Tripy APIs should feel familiar.
+What you can expect:
 
-- **Excellent Error Messages**: When something goes wrong, Tripy tries to provide
-    informative and actionable error messages. Even in cases where the error comes
-    from deep within the software stack, Tripy is usually able to map it back to the
-    related Python code.
+- **High Performance:** Leveraging [TensorRT](https://developer.nvidia.com/tensorrt)'s optimization capabilties.
 
-- **Friendly Documentation**: The documentation is meant to be accessible and comprehensive,
-    with plenty of examples to illustrate important points.
+- **Intuitive API:** A familiar API that follows conventions of the ecosystem.
 
+- **Debuggability:** **Eager mode** to interactively debug mistakes.
 
-## Installation
+- **Excellent Error Messages**: Informative and actionable.
 
-<!-- Tripy: DOC: OMIT Start -->
-### Installing Prebuilt Wheels
-<!-- Tripy: DOC: OMIT End -->
+- **Friendly Documentation**: Comprehensive but straight-to-the-point, with code examples.
 
-```bash
-python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
-```
-
-<!-- Tripy: DOC: OMIT Start -->
-### Building Wheels From Source
-
-To get the latest changes in the repository, you can build Tripy wheels from source.
-
-1. Make sure `build` is installed:
-
-    ```bash
-    python3 -m pip install build
-    ```
-
-2. From the [`tripy` root directory](.), run:
-
-    ```bash
-    python3 -m build . -w
-    ```
-
-3. Install the wheel, which should have been created in the `dist/` directory.
-    From the [`tripy` root directory](.), run:
-
-    ```bash
-    python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html dist/nvtripy-*.whl
-    ```
-
-4. **[Optional]** To ensure that Tripy was installed correctly, you can run a sanity check:
-
-    ```bash
-    python3 -c "import nvtripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5"
-    ```
-
-<!-- Tripy: DOC: OMIT End -->
-
-## Getting Started
-
-We've included several guides in Tripy to make it easy to get started.
-We recommend starting with the
-[Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/00-introduction-to-tripy.html)
-guide.
-
-Other features covered in our guides include:
-
-- [Compiling code (including dynamic shape support)](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/02-compiler.html)
-- [Quantization](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/01-quantization.html)
-
-To get an idea of the look and feel of Tripy, let's take a look at a short code example.
-All of the features used in this example are explained in more detail in the
-introduction guide mentioned above.
+Code is worth 1,000 words:
 
 ```py
+# doc: no-print-locals
 # Define our model:
 class Model(tp.Module):
     def __init__(self):
@@ -92,7 +42,7 @@ class Model(tp.Module):
         return x
 
 
-# Initialize the model and populate weights:
+# Initialize the model and load weights:
 model = Model()
 model.load_state_dict(
     {
@@ -114,3 +64,55 @@ compiled_model = tp.compile(
 
 compiled_out = compiled_model(inp)
 ```
+
+
+## Installation
+
+<!-- Tripy: DOC: OMIT Start -->
+### Installing Prebuilt Wheels
+<!-- Tripy: DOC: OMIT End -->
+
+```bash
+python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
+```
+
+<!-- Tripy: DOC: OMIT Start -->
+### Building Wheels From Source
+
+For the latest changes, build Tripy wheels from source:
+
+1. Install `build`:
+
+    ```bash
+    python3 -m pip install build
+    ```
+
+2. Build a wheel from the [`tripy` root directory](.):
+
+    ```bash
+    python3 -m build . -w
+    ```
+
+3. Install the wheel from the [`tripy` root directory](.):
+
+    ```bash
+    python3 -m pip install -f https://nvidia.github.io/TensorRT-Incubator/packages.html dist/nvtripy-*.whl
+    ```
+
+4. **[Optional]** Sanity check:
+
+    ```bash
+    python3 -c "import nvtripy as tp; x = tp.ones((5,), dtype=tp.int32); assert x.tolist() == [1] * 5"
+    ```
+<!-- Tripy: DOC: OMIT End -->
+
+
+## Getting Started
+
+- **Start with**:
+    [Introduction To Tripy](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/00-introduction-to-tripy.html)
+
+Other guides:
+
+- [Compiling For Better Performance](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/02-compiler.html)
+- [Quantization](https://nvidia.github.io/TensorRT-Incubator/pre0_user_guides/01-quantization.html)
