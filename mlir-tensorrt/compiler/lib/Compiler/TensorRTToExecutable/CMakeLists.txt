@@ -1,12 +1,11 @@
 add_mlir_tensorrt_library(MLIRTensorRTCompilerTensorRTToExecutable
     TensorRTToExecutable.cpp
-    TensorRTExtension.cpp
     Passes.cpp
 
     PARTIAL_SOURCES_INTENDED
 
     DEPENDS
-    MLIRTensorRTStablehloToExecutableIncGen
+    MLIRTensorRTTensorRTToExecutableIncGen
 
     LINK_LIBS PUBLIC
     MLIRIR

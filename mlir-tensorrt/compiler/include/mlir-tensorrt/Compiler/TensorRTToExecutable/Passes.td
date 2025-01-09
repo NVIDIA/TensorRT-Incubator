@@ -1,4 +1,4 @@
-//===- Passes.h ----------------------------------------------===//
+//===- Passes.td ----------------------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -17,33 +17,18 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-///
-/// Declarations for opt tool pipeline command-line registration for pipelines
-/// related to "tensorrt-to-executable".
-///
-//===----------------------------------------------------------------------===//
 #ifndef MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES
 #define MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES
 
-#include <memory>
-#include <mlir/Pass/Pass.h>
-
-namespace mlirtrt::compiler {
+include "mlir/Pass/PassBase.td"
 
 //===----------------------------------------------------------------------===//
-// Add Tablegen'd pass declarations and registration methods.
-//===----------------------------------------------------------------------===//
-#define GEN_PASS_DECL
-#define GEN_PASS_REGISTRATION
-#include "mlir-tensorrt/Compiler/TensorRTToExecutable/Passes.h.inc"
-
-//===----------------------------------------------------------------------===//
-// Pipeline Registrations
+// OutlineTensorRTOpPass
 //===----------------------------------------------------------------------===//
 
-/// Register the TensorRT clustering and compilation pipelines.
-void registerTensorRTToExecutablePipelines();
-
-} // namespace mlirtrt::compiler
+def OutlineTensorRTOpPass : Pass<"outline-tensorrt-op",
+      "::mlir::ModuleOp"> {
+  let summary = "Outline all tensorrt ops into a tensorrt module";
+}
 
 #endif // MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES

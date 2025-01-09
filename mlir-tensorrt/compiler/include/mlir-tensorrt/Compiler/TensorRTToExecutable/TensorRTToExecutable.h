@@ -25,11 +25,16 @@
 // won't need it.
 #ifdef MLIR_TRT_TARGET_TENSORRT
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
+
+#include "mlir-executor/Runtime/API/API.h"
+#include "mlir-executor/Support/Status.h"
 #include "mlir-tensorrt-dialect/Utils/Options.h"
 #include "mlir-tensorrt-dialect/Utils/OptionsBundle.h"
 #include "mlir-tensorrt/Compiler/Client.h"
 #include "mlir-tensorrt/Compiler/Extension.h"
 #include "mlir-tensorrt/Compiler/OptionsProviders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Pass/PassManager.h"
 #include "mlir/Support/TypeID.h"
 
 namespace mlirtrt::compiler {
@@ -38,11 +43,16 @@ namespace mlirtrt::compiler {
 // TensorRTToExecutableOptions
 //===----------------------------------------------------------------------===//
 
+class TensorRTToExecutableTask;
+
 // TODO (pranavm): Figure out a better way to reuse TRT translation options -
 // maybe move to options providers?
-struct TensorRTOptions
-    : public mlirtrt::compiler::OptionsProvider<TensorRTOptions> {
+struct TensorRTOptions : public OptionsProvider<TensorRTOptions> {
+public:
+  using OptionsProvider::OptionsProvider;
   mlir::tensorrt::TensorRTTranslationOptions options;
+
+  TensorRTOptions(mlir::OptionsContext &ctx) : OptionsProvider(ctx) {}
 
   void addToOptions(mlir::OptionsContext &context) {
     options.addToOptions(context);
@@ -52,12 +62,10 @@ struct TensorRTOptions
 struct TensorRTToExecutableOptions
     : public mlir::OptionsBundle<DeviceOptions, DebugOptions, ExecutorOptions,
                                  TensorRTOptions> {
+  // Default initialization does not require any extensions.
+  TensorRTToExecutableOptions() = default;
 
   TensorRTToExecutableOptions(TaskExtensionRegistry extensions);
-
-  /// Initializes the options using a default extension set (TensorRT
-  /// extension).
-  StablehloToExecutableOptions();
   
   Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
                                  llvm::cl::desc("entrypoint function name")};
@@ -71,6 +79,8 @@ class TensorRTToExecutableTask
     : public CompilationTask<TensorRTToExecutableTask,
                              TensorRTToExecutableOptions> {
 public:
+  TensorRTToExecutableTask(mlir::MLIRContext *ctx,
+                            const TensorRTToExecutableOptions &options);
 
   /// Build the clustering pipeline that occurs on TensorRT Ops.
   static void
@@ -84,13 +94,6 @@ public:
 
   static void populatePassManager(mlir::PassManager &pm,
                                   const TensorRTToExecutableOptions &options);
-
-  /// Compile a TensorRT module into a MLIR-TensorRT Runtime executable.
-  /// This is the "functional" entrypoint that will allocate a new PassManager
-  /// for a single run.
-  // static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
-  // compileTensorRTToExecutable(CompilerClient &client, mlir::ModuleOp module,
-  //                              const TensorRTToExecutableOptions &options);
 };
 
 /// Register the task/options with the client's registry.
