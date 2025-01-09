@@ -181,8 +181,8 @@ def compile(
             )
 
     # Order of trace inputs also needs to match that of the compiled_arg_names
-    trace_inputs = [trace_input_map[name] for name in compiled_arg_names]
-    trace = Trace(trace_outputs, trace_inputs, shapes=shapes)
+    trace_inputs = [trace_input_map[name].trace_tensor for name in compiled_arg_names]
+    trace = Trace([tensor.trace_tensor for tensor in trace_outputs], trace_inputs, shapes=shapes)
 
     for op in trace.ops:
         for tensor in op.inputs + op.outputs:

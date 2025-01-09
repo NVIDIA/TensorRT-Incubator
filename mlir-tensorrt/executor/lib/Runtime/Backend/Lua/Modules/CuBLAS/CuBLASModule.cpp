@@ -21,12 +21,13 @@
 /// Executor CuBLAS module runtime implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Lua/Modules/CuBLAS/CuBLASModule.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -517,7 +518,7 @@ static void runCublasMatmul(sol::this_state state, CublasLtHandle handle,
   MTRT_DBGF("%s", "[cuBLAS] successfully executed matmul");
 }
 
-void mlirtrt::runtime::registerExecutorCuBLASModuleLuaRuntimeMethods(
+static void registerExecutorCuBLASModuleLuaRuntimeMethods(
     lua_State *state, AllocTracker *allocTracker,
     ResourceTracker *resourceTracker) {
   sol::state_view lua(state);
@@ -574,3 +575,18 @@ void mlirtrt::runtime::registerExecutorCuBLASModuleLuaRuntimeMethods(
           runCublasGemm(state, handle, stream, *algo, *allocTracker, varArgs);
       };
 }
+
+namespace mlirtrt::runtime {
+void registerLuaCublasRuntimeExtension() {
+  registerLuaRuntimeExtension(
+      "cublas",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            registerExecutorCuBLASModuleLuaRuntimeMethods(state, allocTracker,
+                                                          resourceTracker);
+          }});
+}
+
+} // namespace mlirtrt::runtime

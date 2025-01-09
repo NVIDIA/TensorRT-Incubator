@@ -1,4 +1,4 @@
-//===- PassManagerUtils.cpp -------------------------------------*- C++ -*-===//
+//===- Passes.h ----------------------------------------------===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -17,27 +17,29 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+///
+/// Declarations for opt tool pipeline command-line registration for pipelines
+/// related to "tensorrt-to-executable".
+///
+//===----------------------------------------------------------------------===//
+#ifndef MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES
+#define MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES
 
-#include "mlir-tensorrt/Compiler/PassManagerUtils.h"
+#include <memory>
+#include <mlir/Pass/Pass.h>
 
-using namespace mlirtrt::compiler;
-using namespace mlir;
+namespace mlirtrt::compiler {
+
+// TODO: Does this also need Tablegen'd pass?
 
 //===----------------------------------------------------------------------===//
-// Common helpers
+// Pipeline Registrations
 //===----------------------------------------------------------------------===//
 
-mlir::LogicalResult setupPassManager(mlir::PassManager &pm,
-                                     const DebugOptions &options) {
-  pm.enableVerifier(true);
-  mlir::applyDefaultTimingPassManagerCLOptions(pm);
-  if (failed(mlir::applyPassManagerCLOptions(pm)))
-    return mlir::failure();
-  if (!options.dumpIRPath.empty()) {
-    pm.enableIRPrintingToFileTree(
-        [](Pass *, Operation *) { return false; },
-        [](Pass *, Operation *) { return true; }, true, false, false,
-        options.dumpIRPath, OpPrintingFlags().elideLargeElementsAttrs(32));
-  }
-  return mlir::success();
-}
+/// Register the TensorRT clustering and compilation pipelines.
+// TODO (pranavm): How to do pipeline registration?
+void registerTensorRTToExecutablePipelines();
+
+} // namespace mlirtrt::compiler
+
+#endif // MLIR_TENSORRT_COMPILER_TENSORRTTOEXECUTABLE_PASSES

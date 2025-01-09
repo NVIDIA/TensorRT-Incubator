@@ -1,4 +1,4 @@
-//===- StableHloToExecutable.h ----------------------------------*- C++ -*-===//
+//===- StablehloToExecutable.h ----------------------------------*- C++ -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -52,14 +52,24 @@ namespace mlirtrt::compiler {
 class StablehloToExecutableTask;
 
 struct StablehloToExecutableOptions
-    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions,
-                                 CommonCompilationOptions> {
+    : public mlir::OptionsBundle<DebugOptions, ExecutorOptions, DeviceOptions> {
   /// Initializes the options. The extensions in the provided registry
   /// must be extensions for the StableHloToExecutable task.
   StablehloToExecutableOptions(TaskExtensionRegistry extensions);
 
+  /// Initializes the options using a default extension set (TensorRT
+  /// extension).
+  StablehloToExecutableOptions();
+
   /// Whether to disallow host tensors in TensorRT clusters.
-  bool disallowHostTensorsInTensorRTClusters = false;
+  Option<bool> disallowHostTensorsInTensorRTClusters{
+      this, "plan-clustering-disallow-host-tensors-in-tensorrt-clusters",
+      llvm::cl::init(false),
+      llvm::cl::desc("Don't allow TensorRt clusters to contain host tensor "
+                     "calculations (but they can still be inputs)")};
+
+  Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
+                                 llvm::cl::desc("entrypoint function name")};
 
   /// Use non-DPS style calling convention for entrypoint function
   /// and backend types that support allocating results.
@@ -116,7 +126,8 @@ class StablehloToExecutableTask
     : public CompilationTask<StablehloToExecutableTask,
                              StablehloToExecutableOptions> {
 public:
-  using Base::Base;
+  StablehloToExecutableTask(mlir::MLIRContext *ctx,
+                            const StablehloToExecutableOptions &options);
 
   /// Build the clustering pipeline that occurs on Stablehlo Ops.
   static void
@@ -136,34 +147,12 @@ public:
   /// This is the "functional" entrypoint that will allocate a new PassManager
   /// for a single run.
   static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
-  compileStableHLOToExecutable(mlir::ModuleOp module,
-                               const StablehloToExecutableOptions &options);
-
-  /// Compile a StableHLO module into a MLIR-TensorRT Runtime executable.
-  /// This is the "functional" entrypoint that will allocate a new PassManager
-  /// for a single run.
-  static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
   compileStableHLOToExecutable(CompilerClient &client, mlir::ModuleOp module,
                                const StablehloToExecutableOptions &options);
 };
 
 /// Register the task/options with the client's registry.
 void registerStableHloToExecutableTask();
-
-//===----------------------------------------------------------------------===//
-// Pipeline Registrations
-//===----------------------------------------------------------------------===//
-
-/// Register the StableHLO clustering and compilation pipelines.
-/// Note that currently it's not possible to use dynamically loaded extensions
-/// when using pass pipelines directly from the command line. Instead, you need
-/// to invoke the extension passes directly in the appropriate locations.
-/// TODO: this limitation is caused by not having access to MLIRContext when the
-/// pass pipeline is constructed. We can only use the dynamic extension
-/// population mechanism when we have a context/CompilationClient, e.g. in
-/// or from Python API.
-/// The pipelines registered here will use "default extensions" (e.g. TensorRT).
-void registerStablehloClusteringPipelines();
 
 } // namespace mlirtrt::compiler
 

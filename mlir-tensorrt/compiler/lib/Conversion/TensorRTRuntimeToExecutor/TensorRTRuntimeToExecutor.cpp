@@ -41,14 +41,14 @@ using namespace mlir;
 using namespace mlir::executor;
 using namespace mlir::cuda;
 
-static ExecutorOpaqueType getTrtRuntimeOpaqueType(MLIRContext *ctx) {
-  return ExecutorOpaqueType::get(ctx, "trtrt_runtime");
+static executor::PointerType getTrtRuntimeOpaqueType(MLIRContext *ctx) {
+  return executor::PointerType::get(ctx, executor::MemoryType::host);
 }
-static ExecutorOpaqueType getTrtContextOpaqueType(MLIRContext *ctx) {
-  return ExecutorOpaqueType::get(ctx, "trtrt_context");
+static executor::PointerType getTrtContextOpaqueType(MLIRContext *ctx) {
+  return executor::PointerType::get(ctx, executor::MemoryType::host);
 }
-static ExecutorOpaqueType getTrtEngineOpaqueType(MLIRContext *ctx) {
-  return ExecutorOpaqueType::get(ctx, "trtrt_engine");
+static executor::PointerType getTrtEngineOpaqueType(MLIRContext *ctx) {
+  return executor::PointerType::get(ctx, executor::MemoryType::host);
 }
 static PointerType getCudaStreamOpaqueType(MLIRContext *ctx) {
   return PointerType::get(ctx, MemoryType::host);
@@ -92,14 +92,13 @@ struct TensorRTRuntimeBuiltinCallBuilders {
   ExecutorCallBuilder loadEngine = {
       ctx,
       "_trtrt_load",
-      executor::ExecutorOpaqueType::get(ctx, "trtrt_engine"),
-      {executor::ExecutorOpaqueType::get(ctx, "trtrt_runtime"),
+      getTrtEngineOpaqueType(ctx),
+      {getTrtRuntimeOpaqueType(ctx),
        executor::PointerType::get(ctx, MemoryType::host), indexType}};
 
-  ExecutorCallBuilder createContext = {
-      ctx, "_trtrt_create_context",
-      executor::ExecutorOpaqueType::get(ctx, "trtrt_context"),
-      executor::ExecutorOpaqueType::get(ctx, "trtrt_engine")};
+  ExecutorCallBuilder createContext = {ctx, "_trtrt_create_context",
+                                       getTrtContextOpaqueType(ctx),
+                                       getTrtEngineOpaqueType(ctx)};
 };
 
 /// Create a `executor.global` to load the TensorRT engine/execution context.
@@ -111,7 +110,7 @@ static GlobalOp getOrCreateExecutionContextGlobal(RewriterBase &rewriter,
   std::string name = (trtFunc.getName() + "_exec_ctx").str();
   auto parentModule = trtFunc->getParentOfType<ModuleOp>();
   SymbolTable symbolTable(parentModule);
-  ExecutorOpaqueType execOpaqueType =
+  executor::PointerType execOpaqueType =
       getTrtContextOpaqueType(rewriter.getContext());
 
   TensorRTRuntimeBuiltinCallBuilders callBuilder{indexType};

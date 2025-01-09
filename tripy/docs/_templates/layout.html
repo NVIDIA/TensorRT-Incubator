@@ -1,0 +1,5 @@
+<!-- This template lets us hide the TOCs from the main page and only include them in the sidebars -->
+{% block sidebartoc %}
+<h3>{{ _('Table Of Contents') }}</h3>
+{{ toctree(includehidden=True) }}
+{% endblock %}

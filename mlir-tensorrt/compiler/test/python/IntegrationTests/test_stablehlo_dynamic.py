@@ -67,9 +67,6 @@ def infer_output_shape(client, session, exe, input_shape):
     in_1 = np.array(input_shape, dtype=np.int64).view(np.uint8)
     out_0 = np.array(output_shape, dtype=np.int64).view(np.uint8)
 
-    # GPU device
-    devices = client.get_devices()
-
     ins = [
         client.create_memref(in_0, shape=shape, dtype=runtime.ScalarTypeCode.i64),
         client.create_memref(in_1, shape=shape, dtype=runtime.ScalarTypeCode.i64),

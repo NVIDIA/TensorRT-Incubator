@@ -18,4 +18,5 @@ add_mlir_executor_runtime_capability_library(MLIRTensorRTExecutorRuntimeCuBLASMo
   # for distiribution as pip package, see https://github.com/pypa/manylinux
   CUDA::cublasLt
   CUDA::cublas
+  MLIRTensorRTLuaExtensionRegistry
 )

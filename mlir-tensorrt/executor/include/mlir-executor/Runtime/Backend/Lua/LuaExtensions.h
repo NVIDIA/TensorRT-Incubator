@@ -1,4 +1,4 @@
-//===- TensorRTModule.h -----------------------------------------*- C++ -*-===//
+//===- LuaExtensions.h -----------------------------------------*- C++ -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -18,27 +18,16 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// Declarations for the TensorRT runtime module of the Lua executor backend.
+/// Declarations for module registration functions.
 ///
 //===----------------------------------------------------------------------===//
-#ifndef MLIR_TENSORRT_RUNTIME_BACKEND_LUA_MODULES_TENSORRT_TENSORRTMODULE_H
-#define MLIR_TENSORRT_RUNTIME_BACKEND_LUA_MODULES_TENSORRT_TENSORRTMODULE_H
-
-#include "mlir-executor/Support/Allocators.h"
-
-struct lua_State;
+#ifndef MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CORE_COREMODULE_H
+#define MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CORE_COREMODULE_H
 
 namespace mlirtrt::runtime {
 
-class AllocTracker;
-class ResourceTracker;
-
-/// Register functions that implement the Executor TensorRT module in the given
-/// Lua state.
-void registerExecutorTensorRTModuleLuaRuntimeMethods(
-    lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
-    AllocTracker *allocTracker, ResourceTracker *resourceTracker);
+void registerLuaRuntimeExtensions();
 
 } // namespace mlirtrt::runtime
 
-#endif // MLIR_TENSORRT_RUNTIME_BACKEND_LUA_MODULES_TENSORRT_TENSORRTMODULE_H
+#endif // MLIR_TENSORRT_RUNTIME_LUARUNTIME_MODULES_CORE_COREMODULE_H

@@ -1,11 +1,12 @@
 # RUN: %PYTHON %s
+from dataclasses import dataclass
+from typing import List, Optional
+
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
 import mlir_tensorrt.runtime.api as runtime
 import numpy as np
-from dataclasses import dataclass
-from typing import List, Optional
-from ml_dtypes import float8_e4m3fn, bfloat16
+from ml_dtypes import bfloat16, float8_e4m3fn
 
 
 @dataclass

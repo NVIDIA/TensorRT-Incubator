@@ -11,9 +11,11 @@
 #include "../Utils.h"
 #include "NvInferRuntime.h"
 #include "mlir-c/IR.h"
+#include "mlir-c/Pass.h"
 #include "mlir-c/Support.h"
 #include "mlir-executor-c/Common/Common.h"
 #include "mlir-executor-c/Support/Status.h"
+#include "mlir-executor-c/Target/ExecutorTranslations.h"
 #include "mlir-tensorrt-c/Compiler/Compiler.h"
 #include "mlir/Bindings/Python/PybindAdaptors.h"
 #include "pybind11/pybind11.h"
@@ -71,14 +73,14 @@ public:
 };
 
 /// Python object type wrapper for `MlirPassManager`.
-class PyStableHloPipeline
-    : public PyMTRTWrapper<PyStableHloPipeline, MlirPassManager> {
+class PyPassManagerReference
+    : public PyMTRTWrapper<PyPassManagerReference, MlirPassManager> {
 public:
   using PyMTRTWrapper::PyMTRTWrapper;
-  DECLARE_WRAPPER_CONSTRUCTORS(PyStableHloPipeline);
+  DECLARE_WRAPPER_CONSTRUCTORS(PyPassManagerReference);
 
   static constexpr auto kMethodTable =
-      CAPITable<MlirPassManager>{mtrtStableHloPipelineIsNull, nullptr};
+      CAPITable<MlirPassManager>{mtrtPassManagerReferenceIsNull, nullptr};
 };
 } // namespace
 
@@ -240,13 +242,35 @@ PYBIND11_MODULE(_api, m) {
 
   populateCommonBindingsInModule(m);
 
+  m.def("translate_mlir_to_executable", [](MlirOperation op) {
+    MTRT_Executable exe{nullptr};
+    MTRT_Status status = translateToRuntimeExecutable(op, &exe);
+    THROW_IF_MTRT_ERROR(status);
+    return new PyExecutable(exe);
+  });
+
   py::class_<PyCompilerClient>(m, "CompilerClient", py::module_local())
       .def(py::init<>([](MlirContext context) -> PyCompilerClient * {
         MTRT_CompilerClient client;
         MTRT_Status s = mtrtCompilerClientCreate(context, &client);
         THROW_IF_MTRT_ERROR(s);
         return new PyCompilerClient(client);
-      }));
+      }))
+      .def(
+          "get_compilation_task",
+          [](PyCompilerClient &self, const std::string &mnemonic,
+             const std::vector<std::string> &args) -> PyPassManagerReference * {
+            std::vector<MlirStringRef> refs(args.size());
+            for (unsigned i = 0; i < args.size(); i++)
+              refs[i] = mlirStringRefCreate(args[i].data(), args[i].size());
+
+            MlirPassManager pm{nullptr};
+            MTRT_Status status = mtrtCompilerClientGetCompilationTask(
+                self, mlirStringRefCreate(mnemonic.data(), mnemonic.size()),
+                refs.data(), refs.size(), &pm);
+            THROW_IF_MTRT_ERROR(status);
+            return new PyPassManagerReference(pm);
+          });
 
   py::class_<PyOptionsContext>(m, "OptionsContext", py::module_local())
       .def(py::init<>([](PyCompilerClient &client,
@@ -315,26 +339,13 @@ PYBIND11_MODULE(_api, m) {
           py::arg("dump_ir_tree_dir") = py::none(),
           py::arg("dump_tensorrt_dir") = py::none());
 
-  py::class_<PyStableHloPipeline>(m, "StableHloPipeline", py::module_local())
-      .def(py::init<>([](PyCompilerClient &client,
-                         PyStableHLOToExecutableOptions &options) {
-             MlirPassManager pm{};
-             MTRT_Status status =
-                 mtrtStableHloPipelineGetCached(client, options, &pm);
-             THROW_IF_MTRT_ERROR(status);
-             return new PyStableHloPipeline(pm);
-           }),
-           py::arg("client"), py::arg("options"));
-
-  m.def(
-      "get_executable",
-      [](PyStableHloPipeline &pm, MlirOperation module) {
-        MTRT_Executable exe{nullptr};
-        MTRT_Status status = mtrtCompilerGetExecutable(pm, module, &exe);
-        THROW_IF_MTRT_ERROR(status);
-        return new PyExecutable(exe);
-      },
-      py::arg("pm"), py::arg("module"));
+  py::class_<PyPassManagerReference>(m, "PassManagerReference",
+                                     py::module_local())
+      .def("run", [](PyPassManagerReference &self, MlirOperation op) {
+        MlirLogicalResult result = mlirPassManagerRunOnOp(self.get(), op);
+        if (mlirLogicalResultIsFailure(result))
+          throw MTRTException("failed to run pass pipeline");
+      });
 
   m.def(
       "compiler_stablehlo_to_executable",

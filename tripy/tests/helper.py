@@ -564,16 +564,7 @@ def process_code_block_for_outputs_and_locals(
                 locals_str += f"\n{obj}"
 
     def split_block_lines(title, contents, lang="python"):
-        line = block.splitlines()[1]
-        indentation = len(line) - len(line.lstrip())
-
-        out = (
-            indent(
-                format_contents(title, contents, lang),
-                prefix=" " * (indentation - 4),
-            )
-            + "\n\n"
-        )
+        out = format_contents(title, contents, lang, indentation) + "\n\n"
         return out.splitlines()
 
     if locals_str:

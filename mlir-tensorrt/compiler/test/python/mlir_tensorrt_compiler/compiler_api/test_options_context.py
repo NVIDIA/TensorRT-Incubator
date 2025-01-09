@@ -4,7 +4,6 @@
 import mlir_tensorrt.compiler.api as api
 from mlir_tensorrt.compiler.ir import *
 
-
 with Context() as context:
     client = api.CompilerClient(context)
     # Try to create a non-existent option type
@@ -28,4 +27,4 @@ with Context() as context:
 
 
 # CHECK: InvalidArgument: InvalidArgument: non-existent-options-type is not a valid option type. Valid options were: stablehlo-to-executable
-# CHECK: Options[{{.*--tensorrt-workspace-memory-pool-limit=1073741824.*--tensorrt-strongly-typed=false.*--tensorrt-builder-opt-level=3.*}}]
+# CHECK: Options[{{.*--tensorrt-workspace-memory-pool-limit=1073741824.*--tensorrt-strongly-typed=false.*}}]

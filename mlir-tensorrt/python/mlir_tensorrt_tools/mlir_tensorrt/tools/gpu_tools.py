@@ -5,8 +5,8 @@ GPUs, selecting a GPU for running a test workload, and estimating the number of
 tests which should be allowed to run in parallel.
 """
 
-from contextlib import contextmanager
 import time
+from contextlib import contextmanager
 from typing import List, Optional, Tuple
 
 import click

@@ -1,3 +1,5 @@
-checkpoints/
+checkpoints/*.pt
 saved_engines/
 output/
+*.jpg
+bedroom/

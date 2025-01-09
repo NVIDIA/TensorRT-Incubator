@@ -52,6 +52,10 @@ static inline bool mtrtCompilerClientIsNull(MTRT_CompilerClient options) {
   return !options.ptr;
 }
 
+MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerClientGetCompilationTask(
+    MTRT_CompilerClient client, MlirStringRef taskMnemonic,
+    const MlirStringRef *argv, unsigned argc, MlirPassManager *result);
+
 //===----------------------------------------------------------------------===//
 // MTRT_OptionsContext
 //===----------------------------------------------------------------------===//
@@ -110,24 +114,16 @@ static inline bool mtrtStableHloToExecutableOptionsIsNull(
 }
 
 //===----------------------------------------------------------------------===//
-// StableHloPipeline APIs
+// PassManagerReference APIs
 //===----------------------------------------------------------------------===//
 
-static inline bool mtrtStableHloPipelineIsNull(MlirPassManager pm) {
+static inline bool mtrtPassManagerReferenceIsNull(MlirPassManager pm) {
   return !pm.ptr;
 }
-
-MLIR_CAPI_EXPORTED MTRT_Status mtrtStableHloPipelineGetCached(
-    MTRT_CompilerClient client, MTRT_StableHLOToExecutableOptions options,
-    MlirPassManager *result);
 
 //===----------------------------------------------------------------------===//
 // Main StableHLO Compiler API Functions
 //===----------------------------------------------------------------------===//
-
-/// Get Executable using StableHloPassManager.
-MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerGetExecutable(
-    MlirPassManager pm, MlirOperation module, MTRT_Executable *result);
 
 /// Compiler StableHLO to Executable.
 MLIR_CAPI_EXPORTED MTRT_Status mtrtCompilerStableHLOToExecutable(

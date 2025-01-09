@@ -21,11 +21,13 @@
 /// Executor Core module Lua runtime implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Lua/Modules/Core/CoreModule.h"
+#include "../../../C/CoreModule.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Common/Int4.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
@@ -145,7 +147,7 @@ static bool checkAccessBounds(lua_State *state, const AllocTracker &tracker,
 //===----------------------------------------------------------------------===//
 // Executor - Core operations
 //===----------------------------------------------------------------------===//
-void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
+static void registerExecutorCoreModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
     AllocTracker *allocTracker) {
   sol::state_view lua(luaState);
@@ -881,27 +883,21 @@ void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
                           size_t offset, size_t numBytes, uint32_t fillInt) {
     MTRT_DBGF("memset32 @ 0x%lx, %lu bytes fill value = %u", pointer, numBytes,
               fillInt);
-    llvm::MutableArrayRef<uint32_t> buffer(
-        reinterpret_cast<uint32_t *>(pointer), numBytes / sizeof(fillInt));
-    std::fill(buffer.begin(), buffer.end(), fillInt);
+    __memset_32(pointer, offset, numBytes, fillInt);
   };
 
   lua["__memset_16"] = [](sol::this_state state, uintptr_t pointer,
                           size_t offset, size_t numBytes, uint16_t fillInt) {
     MTRT_DBGF("memset16 @ 0x%lx, %lu bytes fill value = %u", pointer, numBytes,
               fillInt);
-    llvm::MutableArrayRef<uint16_t> buffer(
-        reinterpret_cast<uint16_t *>(pointer), numBytes / sizeof(fillInt));
-    std::fill(buffer.begin(), buffer.end(), fillInt);
+    __memset_16(pointer, offset, numBytes, fillInt);
   };
 
   lua["__memset_8"] = [](sol::this_state state, uintptr_t pointer,
                          size_t offset, size_t numBytes, uint8_t fillInt) {
     MTRT_DBGF("memset8 @ 0x%lx, %lu bytes fill value = %u", pointer, numBytes,
               fillInt);
-    llvm::MutableArrayRef<uint8_t> buffer(reinterpret_cast<uint8_t *>(pointer),
-                                          numBytes / sizeof(fillInt));
-    std::fill(buffer.begin(), buffer.end(), fillInt);
+    __memset_8(pointer, offset, numBytes, fillInt);
   };
 
   //===----------------------------------------------------------------------===//
@@ -1033,3 +1029,17 @@ void mlirtrt::runtime::registerExecutorCoreModuleLuaRuntimeMethods(
 
 #undef DEFINE_BINARY_OP_
 #undef DEFINE_UNARY_OP_
+
+namespace mlirtrt::runtime {
+void registerLuaCoreRuntimeExtension() {
+  registerLuaRuntimeExtension(
+      "core",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            registerExecutorCoreModuleLuaRuntimeMethods(
+                state, pinnedMemoryAllocator, allocTracker);
+          }});
+}
+} // namespace mlirtrt::runtime

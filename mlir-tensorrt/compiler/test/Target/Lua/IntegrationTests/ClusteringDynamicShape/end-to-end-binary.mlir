@@ -1,9 +1,9 @@
 // RUN: mlir-tensorrt-opt %s  \
 // RUN: -pass-pipeline="builtin.module(stablehlo-preprocessing-pipeline{disable-inliner},\
-// RUN: stablehlo-clustering-pipeline, \
+// RUN: stablehlo-clustering-pipeline{entrypoint=}, \
 // RUN: post-clustering-pipeline, \
 // RUN: executor-lowering-pipeline)" \
-// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect |  mlir-tensorrt-runner -input-type=rtexe
+// RUN: | mlir-tensorrt-translate -mlir-to-runtime-executable -allow-unregistered-dialect |  mlir-tensorrt-runner -input-type=rtexe | FileCheck %s
 
 #profile = #tensorrt.shape_profile<min = [2], opt = [4], max = [6]>
 #profile1 = #tensorrt.shape_profile<min = [1], opt = [3], max = [5]>
@@ -67,7 +67,7 @@ builtin.module @end_to_end_binary attributes {
 // CHECK-NEXT: result[2] = 2.000
 // CHECK-NEXT: result[3] = 2.000
 
-// CHECK-NEXT: result[0] = 2.000
+//      CHECK: result[0] = 2.000
 // CHECK-NEXT: result[1] = 4.000
 // CHECK-NEXT: result[2] = 6.000
 // CHECK-NEXT: result[3] = 8.000

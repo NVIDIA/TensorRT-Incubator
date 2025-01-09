@@ -22,6 +22,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import torch
 from sam2.build_sam import build_sam2_video_predictor
 import numpy as np
@@ -34,6 +35,9 @@ import os
 import time
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("-t", "--type", type=str, default="large", choices=["large", "small", "tiny"], help="type of the sam2 model")
+
 def compute_mask_properties(mask):
     # Ensure we have a boolean array
     test_mask = np.asarray(mask, dtype=bool)
@@ -42,9 +46,11 @@ def compute_mask_properties(mask):
     volume = np.sum(test_mask)
 
     # Calculate centroid (center of mass)
-    indices = np.where(test_mask)
-    assert volume > 0
-    centroid = tuple(float(np.mean(idx)) for idx in indices)
+    if volume > 0:
+        indices = np.where(test_mask)
+        centroid = tuple(float(np.mean(idx)) for idx in indices)
+    else:
+        centroid = None
     return volume, centroid
 
 
@@ -60,8 +66,11 @@ def main(video_dir: str, save_path: Optional[str] = None):
         Dict[str, np.ndarray]: Processing results
     """
 
-    sam2_checkpoint = "./checkpoints/sam2.1_hiera_large.pt"
-    model_cfg = "sam2_hiera_l.yaml"
+    args = parser.parse_args()
+
+    sam2_type = args.type
+    sam2_checkpoint = f"./checkpoints/sam2.1_hiera_{sam2_type}.pt"
+    model_cfg = f"sam2_hiera_{sam2_type[0]}.yaml"
     predictor = build_sam2_video_predictor(model_cfg, sam2_checkpoint, device=torch.device("cuda"))
 
     # scan all the JPEG frame names in this directory
@@ -70,6 +79,7 @@ def main(video_dir: str, save_path: Optional[str] = None):
     # take a look the first video frame
     frame_idx = 0
     if save_path:
+        os.makedirs(save_path, exist_ok=True)
         plt.figure(figsize=(9, 6))
         plt.title(f"frame {frame_idx}")
         plt.imshow(Image.open(os.path.join(video_dir, frame_names[frame_idx])))
@@ -154,7 +164,6 @@ def main(video_dir: str, save_path: Optional[str] = None):
     print(f"Video segmentation took {(end - start)}s")
 
     if save_path:
-        os.makedirs(save_path, exist_ok=True)
         # render the segmentation results every few frames
         vis_frame_stride = 30
         for out_frame_idx in range(0, len(frame_names), vis_frame_stride):

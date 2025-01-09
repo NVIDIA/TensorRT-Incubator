@@ -17,9 +17,12 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Tools/ExecutorRunnerMain.h"
 
 int main(int argc, char *argv[]) {
+  mlirtrt::runtime::registerLuaRuntimeExtensions();
+
   return mlir::executor::asMainReturnCode(
       mlir::executor::ExecutorRunnerMain(argc, argv));
 }

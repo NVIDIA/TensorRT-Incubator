@@ -1,7 +1,3 @@
-import distutils.util
-import re
-import sys
-
 import requests
 from setuptools import setup
 from setuptools.dist import Distribution

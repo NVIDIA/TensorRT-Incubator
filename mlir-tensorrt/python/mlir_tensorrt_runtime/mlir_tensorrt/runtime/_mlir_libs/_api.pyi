@@ -1,6 +1,8 @@
 from __future__ import annotations
-import numpy as np
+
 import typing
+
+import numpy as np
 import typing_extensions
 
 __all__ = [

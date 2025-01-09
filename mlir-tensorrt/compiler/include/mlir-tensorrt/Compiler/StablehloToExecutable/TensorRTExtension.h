@@ -25,7 +25,7 @@
 #define MLIR_TENSORRT_COMPILER_TENSORRTEXTENSION_TENSORRTEXTENSION
 
 #include "mlir-tensorrt-dialect/Target/TranslateToTensorRT.h"
-#include "mlir-tensorrt/Compiler/StableHloToExecutable.h"
+#include "mlir-tensorrt/Compiler/StablehloToExecutable/StablehloToExecutable.h"
 
 namespace mlirtrt::compiler {
 
@@ -33,11 +33,11 @@ namespace mlirtrt::compiler {
 // TensorRT-specific compilation data
 //===----------------------------------------------------------------------===//
 
-class StableHLOToExecutableTensorRTExtension
+class StablehloToExecutableTensorRTExtension
     : public StablehloToExecutableOptions::Extension<
-          StableHLOToExecutableTensorRTExtension> {
+          StablehloToExecutableTensorRTExtension> {
 public:
-  StableHLOToExecutableTensorRTExtension();
+  StablehloToExecutableTensorRTExtension();
 
   llvm::StringRef getName() const final { return "tensorrt-extension"; }
 
@@ -70,6 +70,6 @@ private:
 } // namespace mlirtrt::compiler
 
 MLIR_DECLARE_EXPLICIT_TYPE_ID(
-    mlirtrt::compiler::StableHLOToExecutableTensorRTExtension)
+    mlirtrt::compiler::StablehloToExecutableTensorRTExtension)
 
 #endif // MLIR_TENSORRT_COMPILER_TENSORRTEXTENSION_TENSORRTEXTENSION

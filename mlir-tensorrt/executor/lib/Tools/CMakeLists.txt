@@ -6,4 +6,5 @@ add_mlir_executor_library(MLIRExecutorRunnerLib
   MLIRTensorRTExecutorRuntimeAPI
   MLIRTensorRTExecutionEngineLuaRuntime
   MLIRIR
+  MLIRExecutorRuntimeCapabilities
   )

@@ -1,4 +1,4 @@
-//===- PassManagerUtils.h ---------------------------------------*- C++ -*-===//
+//===- ExecutorTranslations.h ------------------------------------*- C -*-===//
 //
 // SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
 // All rights reserved.
@@ -17,14 +17,21 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+#ifndef MLIR_EXECUTOR_C_TARGET_EXECUTORTRANSLATIONS
+#define MLIR_EXECUTOR_C_TARGET_EXECUTORTRANSLATIONS
 
-#include "mlir-tensorrt/Compiler/OptionsProviders.h"
-#include "mlir/Pass/PassManager.h"
+#include "mlir-c/IR.h"
+#include "mlir-executor-c/Common/Common.h"
 
-//===----------------------------------------------------------------------===//
-// Common helpers
-//===----------------------------------------------------------------------===//
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-mlir::LogicalResult
-setupPassManager(mlir::PassManager &pm,
-                 const mlirtrt::compiler::DebugOptions &options);
+MLIR_CAPI_EXPORTED MTRT_Status
+translateToRuntimeExecutable(MlirOperation op, MTRT_Executable *executable);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // MLIR_EXECUTOR_C_TARGET_EXECUTORTRANSLATIONS

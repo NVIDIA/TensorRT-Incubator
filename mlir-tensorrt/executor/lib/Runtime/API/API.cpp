@@ -1106,6 +1106,22 @@ RuntimeClient::~RuntimeClient() {
 }
 
 //===----------------------------------------------------------------------===//
+// NCCL Support Functions
+//===----------------------------------------------------------------------===//
+
+StatusOr<std::string> runtime::getCommunicatorUniqueId() {
+#ifdef MLIR_EXECUTOR_ENABLE_NCCL
+  ncclUniqueId id;
+  RETURN_ERROR_IF_NCCL_ERROR(ncclGetUniqueId(&id), nullptr);
+  std::string asString = std::string(id.internal, NCCL_UNIQUE_ID_BYTES);
+  MTRT_DBGF("NCCL unique id: %s", asString.c_str());
+  return asString;
+#else
+  return std::string{};
+#endif
+}
+
+//===----------------------------------------------------------------------===//
 // Print Utilities
 //===----------------------------------------------------------------------===//
 

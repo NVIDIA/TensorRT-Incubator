@@ -51,9 +51,16 @@ struct TensorRTOptions
 
 struct TensorRTToExecutableOptions
     : public mlir::OptionsBundle<DeviceOptions, DebugOptions, ExecutorOptions,
-                                 CommonCompilationOptions, TensorRTOptions> {
+                                 TensorRTOptions> {
 
   TensorRTToExecutableOptions(TaskExtensionRegistry extensions);
+
+  /// Initializes the options using a default extension set (TensorRT
+  /// extension).
+  StablehloToExecutableOptions();
+  
+  Option<std::string> entrypoint{this, "entrypoint", llvm::cl::init("main"),
+                                 llvm::cl::desc("entrypoint function name")};
 };
 
 //===----------------------------------------------------------------------===//
@@ -64,21 +71,30 @@ class TensorRTToExecutableTask
     : public CompilationTask<TensorRTToExecutableTask,
                              TensorRTToExecutableOptions> {
 public:
-  using Base::Base;
+
+  /// Build the clustering pipeline that occurs on TensorRT Ops.
+  static void
+  buildTensorRTClusteringPipeline(mlir::OpPassManager &pm,
+                                   const TensorRTToExecutableOptions &options);
+
+  /// Build the compilation pipeline that runs after clustering.
+  static void
+  buildPostClusteringPipeline(mlir::OpPassManager &pm,
+                              const TensorRTToExecutableOptions &options);
 
   static void populatePassManager(mlir::PassManager &pm,
                                   const TensorRTToExecutableOptions &options);
+
+  /// Compile a TensorRT module into a MLIR-TensorRT Runtime executable.
+  /// This is the "functional" entrypoint that will allocate a new PassManager
+  /// for a single run.
+  // static mlirtrt::StatusOr<std::unique_ptr<runtime::Executable>>
+  // compileTensorRTToExecutable(CompilerClient &client, mlir::ModuleOp module,
+  //                              const TensorRTToExecutableOptions &options);
 };
 
 /// Register the task/options with the client's registry.
 void registerTensorRTToExecutableTask();
-
-//===----------------------------------------------------------------------===//
-// Pipeline Registrations
-//===----------------------------------------------------------------------===//
-
-// TODO (pranavm): How to do pipeline registration?
-// void registerTensorRTPipelines();
 
 } // namespace mlirtrt::compiler
 

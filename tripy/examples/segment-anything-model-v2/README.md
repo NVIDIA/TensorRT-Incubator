@@ -17,7 +17,7 @@ This is an implementation of SAM2 model ([original repository](https://github.co
 
     ```bash
     python3 download_test_data.py
-    mkdir checkpoints && cd checkpoints && wget https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt
+    cd checkpoints && sh download_ckpt.sh
     ```
 
 ### Image pipeline

@@ -41,17 +41,19 @@ TensorRTToExecutableOptions::TensorRTToExecutableOptions(
   assert(extensions.extensions.size() == 0);
 }
 
-void TensorRTToExecutableTask::populatePassManager(
-    mlir::PassManager &pm, const TensorRTToExecutableOptions &options) {
-  if (failed(setupPassManager(pm, options.get<DebugOptions>()))) {
-    /// TODO: Ignored. This can fail if pass manager static CL options were not
-    /// registered/initialized. This happens through invocation of e.g. this
-    /// function in e.g. Python bindings or standalone calls to C++ or C API
-    /// without doing all the typical static CL setup. We should instead be
-    /// accepting a PassManager here that has already been setup to the caller's
-    /// specifications.
-  }
 
+//===----------------------------------------------------------------------===//
+// TensorRTToExecutableTask
+//===----------------------------------------------------------------------===//
+
+void TensorRTToExecutableTask::buildTensorRTClusteringPipeline(
+    OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
+  // TODO: add TRT clustering passes.
+  return;
+}
+
+void TensorRTToExecutableTask::buildPostClusteringPipeline(
+    OpPassManager &pm, const TensorRTToExecutableOptions &opts) {
   // Post-clustering
   pm.addPass(createConvertTensorRTToTensorRTRuntimePass());
 
@@ -109,6 +111,17 @@ void TensorRTToExecutableTask::populatePassManager(
   pm.addPass(createConvertCUDAToExecutorPass(cudaToExecutorOpts));
 
   pm.addPass(createDropNestedModulesPass());
+}
+
+void TensorRTToExecutableTask::populatePassManager(
+    mlir::PassManager &pm, const TensorRTToExecutableOptions &options) {
+  pm.addPass(createPopulateDefaultBackendMetadataPass(
+      PopulateDefaultBackendMetadataPassOptions{
+          options.disallowHostTensorsInTensorRTClusters, NV_TENSORRT_MAJOR}));
+
+  buildTensorRTClusteringPipeline(pm, options);
+
+  buildPostClusteringPipeline(pm, options);
 
   mlir::executor::ConvertStdToExecutorPassOptions stdToExecOpts;
   stdToExecOpts.indexBitwidth = options.get<ExecutorOptions>().indexBitwidth;

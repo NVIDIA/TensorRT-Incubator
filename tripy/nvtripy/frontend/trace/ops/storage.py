@@ -15,10 +15,8 @@
 # limitations under the License.
 #
 
-import copy
-import numbers
 from dataclasses import dataclass
-from typing import List, Sequence, Set, Union
+from typing import List, Sequence, Set, Any
 
 import mlir_tensorrt.runtime.api as runtime
 
@@ -38,15 +36,22 @@ class Storage(BaseTraceOp):
     shape: Sequence[int]
     dtype: type
     device: tp_device
+    data_str: str = ""
 
     def __init__(
         self,
         inputs: List["Tensor"],
         outputs: List["Tensor"],
-        data: Union[runtime.MemRefValue, Sequence[numbers.Number]],
+        data: Any,
         device: tp_device = None,
     ) -> None:
         super().__init__(inputs, outputs)
+
+        original_data = data
+
+        # Handle if data is dlpacked but not memref yet
+        if hasattr(data, "__dlpack__") and not isinstance(data, runtime.MemRefValue):
+            data = memref.create_memref_view(data)
 
         if isinstance(data, runtime.MemRefValue):
             self.data = data
@@ -69,6 +74,10 @@ class Storage(BaseTraceOp):
                 array=data_array,
             )
             self.device = utils.default(device, tp_device.create_directly("gpu", 0))
+
+        # Set data_str only for objects that won't be treated as Trace inputs
+        if not utils.should_lift_storage_op_as_input(self.shape):
+            self.data_str = str(original_data)  # TODO (#448): Fix floating point str representation
 
         self.outputs[0].shape = list(self.shape)
 

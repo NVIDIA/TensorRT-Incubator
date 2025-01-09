@@ -26,13 +26,16 @@
 #include "mlir-executor-c/Support/Status.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/API/ExecutableFlatbuffer.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensions.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaRuntime.h"
 #include "mlir-executor/Support/Status.h"
 #include "mlir/Support/FileUtilities.h"
 #include "llvm/Support/Debug.h"
 
 #include "llvm/ADT/SmallVectorExtras.h"
+#include "llvm/Support/ErrorHandling.h"
 #include <memory>
+#include <mutex>
 #ifdef MLIR_EXECUTOR_ENABLE_CUDA
 #include "cuda_runtime_api.h"
 #endif
@@ -141,6 +144,44 @@ static MTRT_Status wrap(const Status &status) {
   return mtrtStatusCreate(
       getMTRTStatusCodeFromRuntimeStatusCode(status.getCode()),
       status.getString().c_str());
+}
+
+//===----------------------------------------------------------------------===//
+// Global Initialization / Shutdown
+//===----------------------------------------------------------------------===//
+
+namespace {
+struct ExecutorRuntimeGlobalInit {
+  static std::mutex m;
+
+  ExecutorRuntimeGlobalInit() {
+    mlirtrt::runtime::registerLuaRuntimeExtensions();
+  }
+};
+} // namespace
+
+std::mutex ExecutorRuntimeGlobalInit::m;
+
+static ExecutorRuntimeGlobalInit *globalInit = nullptr;
+
+/// Perform global initialization of the runtime. This should only be called
+/// once. Calling multiple times will result in an error.
+void mtrtRuntimeInitialize() {
+  std::scoped_lock<std::mutex> lock(ExecutorRuntimeGlobalInit::m);
+  if (globalInit)
+    llvm::report_fatal_error("mtrtRuntimeInitialize invoked multiple times");
+
+  globalInit = new ExecutorRuntimeGlobalInit();
+}
+
+/// Perform global de-initialization of the runtime.
+void mtrtRuntimeShutdown() {
+  std::scoped_lock<std::mutex> lock(ExecutorRuntimeGlobalInit::m);
+  if (!globalInit)
+    llvm::report_fatal_error(
+        "mtrtRuntimeShutdown called, but runtime was not initialized "
+        "(mtrtRuntimeInitialize) or is already shutdown");
+  delete globalInit;
 }
 
 //===----------------------------------------------------------------------===//

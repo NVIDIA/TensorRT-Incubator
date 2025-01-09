@@ -17,12 +17,13 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Lua/Modules/TensorRT/TensorRTModule.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
 #include "mlir-executor/Runtime/Backend/Lua/Modules/Utils/MemRefUtils.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Runtime/Backend/Utils/NvtxUtils.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
@@ -643,7 +644,7 @@ static Status enqueueAllocV3Wrapper(AllocTracker &tracker,
 //===----------------------------------------------------------------------===//
 // Executor TensorRT Methods
 //===----------------------------------------------------------------------===//
-void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
+static void registerExecutorTensorRTModuleLuaRuntimeMethods(
     lua_State *luaState, PinnedMemoryAllocator *pinnedMemoryAllocator,
     AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
   sol::state_view lua(luaState);
@@ -719,3 +720,17 @@ void mlirtrt::runtime::registerExecutorTensorRTModuleLuaRuntimeMethods(
         SET_LUA_ERROR_IF_ERROR(result, state);
       };
 }
+
+namespace mlirtrt::runtime {
+void registerLuaTensorRTRuntimeExtension() {
+  registerLuaRuntimeExtension(
+      "tensorrt",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            registerExecutorTensorRTModuleLuaRuntimeMethods(
+                state, pinnedMemoryAllocator, allocTracker, resourceTracker);
+          }});
+}
+} // namespace mlirtrt::runtime

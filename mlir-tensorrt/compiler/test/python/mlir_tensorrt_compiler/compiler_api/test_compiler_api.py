@@ -7,8 +7,6 @@
 # to set the 'tensorrt-strongly-typed' flag.
 
 import sys
-from pathlib import Path
-from typing import Callable
 
 import mlir_tensorrt.compiler.api as api
 from mlir_tensorrt.compiler.ir import *
@@ -112,9 +110,11 @@ def compile_asm(ASM):
                 "--tensorrt-builder-opt-level=1",
                 "--tensorrt-strongly-typed=true",
                 "--tensorrt-workspace-memory-pool-limit=1024kiB",
+                "--debug",
+                "--debug-only=translate-to-tensorrt",
+                "--mlir-timing",
             ],
         )
-        opts.set_debug_options(True, ["translate-to-tensorrt"])
         try:
             print("running compilation (3)")
             flush()
@@ -162,6 +162,7 @@ compile_asm(STATIC_ASM)
 # CHECK: [translate-to-tensorrt] enabling 'strongly-typed' mode in TensorRT translation
 # CHECK: [translate-to-tensorrt] Setting builder optimization level to 1
 # CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1048576 bytes
+# CHECK: Execution time report
 
 
 print("Compiling dynamic asm")
@@ -203,3 +204,4 @@ compile_asm(DYNAMIC_ASM)
 # CHECK: [translate-to-tensorrt] enabling 'strongly-typed' mode in TensorRT translation
 # CHECK: [translate-to-tensorrt] Setting builder optimization level to 1
 # CHECK: [translate-to-tensorrt] setting TensorRT builder workspace memory pool limit = 1048576 bytes
+# CHECK: Execution time report

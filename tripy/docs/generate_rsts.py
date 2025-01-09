@@ -1,4 +1,3 @@
-#
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -136,6 +135,7 @@ def build_root_index_file(constituents, guide_sets, processed_markdown_dirname):
             dedent(
                 f"""
                 .. toctree::
+                    :hidden:
                     :caption: {guide_set.title}
                     :maxdepth: 1
                 """
@@ -152,6 +152,7 @@ def build_root_index_file(constituents, guide_sets, processed_markdown_dirname):
             dedent(
                 f"""
                 .. toctree::
+                    :hidden:
                     :caption: API Reference
                     :maxdepth: 1
                 """
@@ -197,12 +198,15 @@ def process_guide(guide_path: str, processed_guide_path: str):
         if should_eval and block.lang.startswith("py"):
             print("Evaluating Python block")
 
-            def add_block(title, contents, lang):
-                # Only include the "Output:" heading when the code block is actually rendered in the documentation.
-                return (
+            def add_block(title, contents, lang, code_indentation):
+                # Indent our block to match the indentation of the code in the original block.
+                return indent(
                     "\n"
+                    # Only include the "Output:" title when the code block is rendered.
+                    # Hidden code blocks can be used to dynamically generate documentation.
                     + (title if not block.has_marker("doc: omit") else "")
-                    + f"\n```{lang}\n{dedent(contents).strip()}\n```"
+                    + f"\n```{lang}\n{dedent(contents).strip()}\n```",
+                    prefix=" " * code_indentation,
                 )
 
             code_block_lines, local_var_lines, output_lines, code_locals = (
@@ -309,7 +313,7 @@ def main():
 
     print(f"Generating documentation hierarchy:\n{str_from_hierarchy(doc_hierarcy)}")
 
-    EXCLUDE_DIRS = ["_static"]
+    EXCLUDE_DIRS = ["_static", "_templates"]
 
     guide_sets: List[GuideSet] = []
     guide_dirs = list(

@@ -56,6 +56,15 @@ declare_mlir_python_sources(MLIRTensorRTPythonCompiler.CompilerAPI.Python
     _mlir_libs/_api.pyi
   )
 
+if(MLIR_TRT_ENABLE_TORCH)
+  declare_mlir_python_sources(MLIRTensorRTPythonCompiler.TorchBridge
+  ADD_TO_PARENT MLIRTensorRTPythonCompiler
+  ROOT_DIR "${SRC_DIR}"
+  SOURCES
+    torch_bridge.py
+  )
+endif()
+
 
 ################################################################################
 # Dialect bindings
@@ -95,6 +104,7 @@ declare_mlir_python_extension(MLIRTensorRTPythonCompiler.CompilerAPI.PyBind
     MLIRTensorRTCAPICompiler
     MLIRTensorRTCAPISupportStatus
     MLIRTensorRTCAPICommon
+    MLIRTensorRTCAPIExecutorTranslations
   PRIVATE_LINK_LIBS
     LLVMSupport
     TensorRTHeaderOnly
@@ -118,6 +128,12 @@ if(MLIR_TRT_ENABLE_HLO)
     StablehloPythonSources
     ChloPythonExtensions
     StablehloPythonExtensions
+  )
+endif()
+if(MLIR_TRT_ENABLE_TORCH)
+  list(APPEND source_groups
+    TorchMLIRPythonSources
+    TorchMLIRPythonExtensions
   )
 endif()
 

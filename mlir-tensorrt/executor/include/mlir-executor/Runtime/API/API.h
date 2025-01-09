@@ -26,7 +26,6 @@
 #define MLIR_TENSORRT_RUNTIME_API_API
 
 #include "dlpack/dlpack.h"
-#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include "mlir-executor/Support/Allocators.h"
 #include "mlir-executor/Support/Status.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -37,7 +36,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <atomic>
-#include <functional>
 #include <memory>
 #include <string_view>
 
@@ -713,7 +711,7 @@ public:
   /// Construct session options by directly specifying the device ID, number of
   /// devices, and NCCL UUID. Single-device sessions can use the default
   /// options.
-  RuntimeSessionOptions(int32_t numDevices = 1, int32_t deviceId = 1,
+  RuntimeSessionOptions(int32_t numDevices = 1, int32_t deviceId = 0,
                         llvm::StringRef ncclUuid = "")
       : numDevices(numDevices), deviceId(deviceId), ncclUuid(ncclUuid) {}
 
@@ -989,6 +987,15 @@ private:
   ResourceTracker resourceTracker;
   llvm::SmallPtrSet<DLManagedTensor *, 16> dlPackTensors;
 };
+
+//===----------------------------------------------------------------------===//
+// NCCL Support functions
+//===----------------------------------------------------------------------===//
+
+/// Return the NCCL unique communicator ID as a string if the project was
+/// configured with NCCL enabled. If the project was not configured with NCCL
+/// enabled, then returns an empty string.
+StatusOr<std::string> getCommunicatorUniqueId();
 
 //===----------------------------------------------------------------------===//
 // Debug Print Utilities

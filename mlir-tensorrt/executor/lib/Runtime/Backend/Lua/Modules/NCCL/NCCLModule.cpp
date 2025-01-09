@@ -21,11 +21,12 @@
 /// Executor NCCL module runtime implementation.
 ///
 //===----------------------------------------------------------------------===//
-#include "mlir-executor/Runtime/Backend/Lua/Modules/NCCL/NcclModule.h"
 #include "mlir-executor/Runtime/API/API.h"
 #include "mlir-executor/Runtime/Backend/Common/CUDACommon.h"
 #include "mlir-executor/Runtime/Backend/Common/CommonRuntime.h"
 #include "mlir-executor/Runtime/Backend/Lua/LuaErrorHandling.h"
+#include "mlir-executor/Runtime/Backend/Lua/LuaExtensionRegistry.h"
+#include "mlir-executor/Runtime/Backend/Lua/SolAdaptor.h"
 #include <chrono>
 
 #define OMPI_SKIP_MPICXX
@@ -379,23 +380,17 @@ static void registerNcclOps(sol::state_view &lua, ResourceTracker *tracker) {
   };
 }
 
-void mlirtrt::runtime::registerExecutorNCCLModuleLuaRuntimeMethods(
-    lua_State *state, ResourceTracker *tracker) {
+static void
+registerExecutorNCCLModuleLuaRuntimeMethods(lua_State *state,
+                                            ResourceTracker *tracker) {
   sol::state_view lua(state);
   registerNcclOps(lua, tracker);
 }
 
-StatusOr<std::string> mlirtrt::runtime::getCommunicatorUniqueId() {
-  ncclUniqueId id;
-  RETURN_ERROR_IF_NCCL_ERROR(ncclGetUniqueId(&id), nullptr);
-  std::string asString = std::string(id.internal, NCCL_UNIQUE_ID_BYTES);
-  MTRT_DBGF("NCCL unique id: %s", asString.c_str());
-  return asString;
-}
-
-void mlirtrt::runtime::registerDeviceDependentNCCLMethods(
-    lua_State *state, int32_t numDevices, int32_t deviceIdx,
-    llvm::StringRef ncclUuid) {
+static void registerDeviceDependentNCCLMethods(lua_State *state,
+                                               int32_t numDevices,
+                                               int32_t deviceIdx,
+                                               llvm::StringRef ncclUuid) {
   sol::state_view lua(state);
   lua["__spmd_global_num_ranks"] = [numDevices](sol::this_state state) {
     return numDevices;
@@ -410,3 +405,19 @@ void mlirtrt::runtime::registerDeviceDependentNCCLMethods(
     return id;
   };
 }
+
+namespace mlirtrt::runtime {
+void registerLuaNcclRuntimeExtension() {
+  registerLuaRuntimeExtension(
+      "nccl",
+      LuaRuntimeExtension{
+          [](const RuntimeSessionOptions &options, lua_State *state,
+             PinnedMemoryAllocator *pinnedMemoryAllocator,
+             AllocTracker *allocTracker, ResourceTracker *resourceTracker) {
+            registerExecutorNCCLModuleLuaRuntimeMethods(state, resourceTracker);
+            registerDeviceDependentNCCLMethods(state, options.getNumDevices(),
+                                               options.getDeviceId(),
+                                               options.getNcclUuid());
+          }});
+}
+} // namespace mlirtrt::runtime

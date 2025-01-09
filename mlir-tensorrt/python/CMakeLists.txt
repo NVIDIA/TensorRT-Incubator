@@ -21,6 +21,7 @@ include_directories(
   # Upstream stablehlo python extension modules doesn't properly declare include
   # requirements.
   "$<$<BOOL:${MLIR_TRT_ENABLE_HLO}>:${stablehlo_SOURCE_DIR}>"
+  "$<$<BOOL:${MLIR_TRT_ENABLE_TORCH}>:${torch_mlir_SOURCE_DIR}/include>"
   )
 
 # Create an aggregate target for building all wheels. The below

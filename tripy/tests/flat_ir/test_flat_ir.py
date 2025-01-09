@@ -29,7 +29,7 @@ class TestFlatIR:
         b = tp.tanh(inp)
         out = tp.tanh(b)
 
-        trace = Trace([out])
+        trace = Trace([out.trace_tensor])
         flat_ir = trace.to_flat_ir()
 
         # Check that `b` is connected to `inp`
