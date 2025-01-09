@@ -16,9 +16,9 @@ import glob
 import os
 
 import pytest
-from tests import helper
+from tests import paths
 
-NOTEBOOKS_ROOT = os.path.join(helper.ROOT_DIR, "notebooks")
+NOTEBOOKS_ROOT = os.path.join(paths.ROOT_DIR, "notebooks")
 
 NOTEBOOKS = glob.glob(os.path.join(NOTEBOOKS_ROOT, "*.ipynb"))
 # Paranoid check:
@@ -29,5 +29,9 @@ assert os.path.join(NOTEBOOKS_ROOT, "resnet50.ipynb") in NOTEBOOKS
 @pytest.mark.l1
 @pytest.mark.l1_release_package
 @pytest.mark.parametrize("notebook_path", NOTEBOOKS)
-def test_notebooks(nb_regression, notebook_path):
-    nb_regression.check(notebook_path)
+def test_notebooks(notebook_path, tripy_virtualenv):
+    # Install the minimum packages needed to execute notebook tests.
+    # The notebooks should install everything else themselves.
+    for package in ["notebook==7.2.2", "pytest==7.1.3", "pytest-notebook==0.10.0"]:
+        tripy_virtualenv.install_package(package)
+    tripy_virtualenv.run(f"python3 -m pytest --nb-test-files {notebook_path}")
