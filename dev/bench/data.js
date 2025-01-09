@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1736373593051,
+  "lastUpdate": 1736457602140,
   "repoUrl": "https://github.com/NVIDIA/TensorRT-Incubator",
   "entries": {
     "Benchmark": [
@@ -9913,6 +9913,47 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000022363881039325422",
             "extra": "mean: 43.02784214489268 usec\nrounds: 24378"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "committer": {
+            "name": "NVIDIA",
+            "username": "NVIDIA"
+          },
+          "id": "84c2f93df0290f767fbd6efb4a6e6a14b29b5875",
+          "message": "Sandboxes notebook and example tests",
+          "timestamp": "2025-01-08T22:31:34Z",
+          "url": "https://github.com/NVIDIA/TensorRT-Incubator/pull/473/commits/84c2f93df0290f767fbd6efb4a6e6a14b29b5875"
+        },
+        "date": 1736457601195,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float32]",
+            "value": 5846.799234050513,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006330106701896317",
+            "extra": "mean: 171.03375025710017 usec\nrounds: 6321"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_perf_regression[linear_block-float16]",
+            "value": 6434.096923391043,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008860145724043948",
+            "extra": "mean: 155.42196704630268 usec\nrounds: 7125"
+          },
+          {
+            "name": "tests/performance/test_perf.py::test_tripy_param_update",
+            "value": 22172.960897407433,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000002444739108690613",
+            "extra": "mean: 45.099975805077285 usec\nrounds: 23191"
           }
         ]
       }
