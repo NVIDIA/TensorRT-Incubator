@@ -28,12 +28,12 @@ import pytest
 import requests
 
 import nvtripy as tp
-from tests import helper
+from tests import paths
 from nvtripy.export import PUBLIC_APIS
 
 
 class TestReadme:
-    @pytest.mark.parametrize("readme", helper.MARKDOWN_FILES)
+    @pytest.mark.parametrize("readme", paths.MARKDOWN_FILES)
     def test_links_valid(self, readme):
         MD_LINK_PAT = re.compile(r"\[.*?\]\((.*?)\)")
         DOC_REFERENCE_PAT = re.compile(r"\{[a-z]+\}`(.*?)`")
@@ -82,7 +82,7 @@ class TestReadme:
                     )
 
                 if link.startswith(os.path.sep):
-                    link_full_path = os.path.join(helper.ROOT_DIR, link.lstrip(os.path.sep))
+                    link_full_path = os.path.join(paths.ROOT_DIR, link.lstrip(os.path.sep))
                 else:
                     link_full_path = os.path.abspath(os.path.join(readme_dir, link))
 
@@ -133,7 +133,7 @@ class TestImports:
 
     @pytest.mark.parametrize(
         "file_path",
-        [file_path for file_path in glob.iglob(os.path.join(helper.ROOT_DIR, "nvtripy", "**", "*.py"), recursive=True)],
+        [file_path for file_path in glob.iglob(os.path.join(paths.ROOT_DIR, "nvtripy", "**", "*.py"), recursive=True)],
     )
     def test_no_invalid_imports(self, file_path):
         with open(file_path, "r") as file:

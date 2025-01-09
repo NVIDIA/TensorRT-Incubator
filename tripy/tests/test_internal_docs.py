@@ -23,7 +23,7 @@ from typing import Dict, List
 
 import pytest
 
-from tests import helper
+from tests import helper, paths
 import tempfile
 
 # Maps out code blocks for each README. The first element in the tuple is the README path.
@@ -36,7 +36,7 @@ ALL_DOC_CODE_BLOCKS = {
         for code_block in helper.consolidate_code_blocks_from_readme(readme)
         if "py" in code_block.lang and not code_block.has_marker("test: ignore")
     ]
-    for readme in helper.MARKDOWN_FILES
+    for readme in paths.MARKDOWN_FILES
 }
 
 

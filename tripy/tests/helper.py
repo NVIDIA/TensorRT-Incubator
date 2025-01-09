@@ -17,11 +17,9 @@
 
 import contextlib
 import copy
-import glob
 import importlib
 import inspect
 import io
-import os
 import pkgutil
 import re
 from textwrap import dedent, indent
@@ -30,37 +28,13 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 import black
 import cupy as cp
 import numpy as np
+import nvtripy as tp
 import pytest
 import torch
-
-import nvtripy as tp
 from nvtripy import utils
 from nvtripy.common.exception import str_from_stack_info
-from nvtripy.frontend import Tensor
-from nvtripy.frontend.trace import Trace
 
 TAB_SIZE = 4
-
-ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
-
-
-def get_files_with_extension(ext):
-    return [
-        path
-        for path in glob.glob(os.path.join(ROOT_DIR, "**", f"*{ext}"), recursive=True)
-        if not path.startswith(
-            (
-                os.path.join(ROOT_DIR, "build"),
-                os.path.join(ROOT_DIR, "mlir-tensorrt"),
-                os.path.join(ROOT_DIR, "stablehlo"),
-            )
-        )
-    ]
-
-
-MARKDOWN_FILES = get_files_with_extension(".md")
-
-PYTHON_FILES = get_files_with_extension(".py")
 
 
 @contextlib.contextmanager

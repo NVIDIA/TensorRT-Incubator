@@ -44,9 +44,7 @@ for expected accuracy.
 
 ### Running with Quantization
 
-This section shows how to run this example with different quantization modes.
-
-In `quantization.py`, we use `nvidia-modelopt` to quantize the pytorch GPT model, and then calibrate the quantization parameters.
+In [`quantization.py`](./quantization.py), we use `nvidia-modelopt` to quantize the pytorch GPT model, and then calibrate the quantization parameters.
 Then the quantization parameters are converted to scales and loaded into the Tripy model by
 `load_quant_weights_from_hf` in [`weight_loader.py`](./weight_loader.py).
 
