@@ -253,6 +253,14 @@ include(AddMLIRPython)
 include(MLIRDetectPythonEnv)
 mlir_configure_python_dev_packages()
 
+# Declare the Python source targets ahead-of-time since the sources may be built
+# up across multiple sub-directories.
+if(MLIR_TRT_ENABLE_PYTHON)
+  declare_mlir_python_sources(MLIRTensorRTPythonCompiler)
+  declare_mlir_python_sources(MLIRTensorRTPythonCompiler.Dialects
+    ADD_TO_PARENT MLIRTensorRTPythonCompiler)
+endif()
+
 # Add a meta target for all documentation generation targets. You can generate
 # all documentation under `${buildDir}/docs` by building this target.
 add_custom_target("mlir-tensorrt-doc")

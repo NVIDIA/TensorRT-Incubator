@@ -23,12 +23,9 @@ configure_file(
 # Structural groupings.
 ################################################################################
 
-declare_mlir_python_sources(MLIRTensorRTPythonCompiler)
 declare_mlir_python_sources(MLIRTensorRTPythonCompiler.Core
   ADD_TO_PARENT MLIRTensorRTPythonCompiler)
 declare_mlir_python_sources(MLIRTensorRTPythonCompiler.CompilerAPI
-  ADD_TO_PARENT MLIRTensorRTPythonCompiler)
-declare_mlir_python_sources(MLIRTensorRTPythonCompiler.Dialects
   ADD_TO_PARENT MLIRTensorRTPythonCompiler)
 
 ################################################################################
