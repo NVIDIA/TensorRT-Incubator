@@ -126,6 +126,25 @@ documentation is generated. Specifically:
 To avoid running code entirely, you can add `# doc: no-eval` in the docstring. Note that this will
 not prevent the code block from being executed in the tests.
 
+#### Code Example Format
+
+The code block format for docstrings is:
+```py
+"""
+.. code-block:: python
+    :linenos:
+    :caption: Descriptive Title
+
+    <example code>
+"""
+```
+
+Captions will have a prefix of `Example: ` prepended to them.
+
+**NOTE: The docstrings must *not* import `nvtripy`, `numpy`, or `torch`. They will be imported**
+    **automatically as `tp`, `np`, and `torch` respectively. Any other modules will need to be imported.**
+
+
 
 ### Dynamically Generating Content In Guides
 

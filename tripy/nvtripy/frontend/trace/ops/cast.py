@@ -124,7 +124,6 @@ def cast(input: "nvtripy.Tensor", dtype: "nvtripy.dtype") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([1, 2], dtype=tp.int32)
         output = tp.cast(input, tp.float32)

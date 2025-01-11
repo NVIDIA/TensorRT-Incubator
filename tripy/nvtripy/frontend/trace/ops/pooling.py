@@ -176,7 +176,6 @@ def maxpool(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
         output = tp.maxpool(input, kernel_dims=(2, 2))
@@ -201,7 +200,7 @@ def maxpool(
 @wrappers.interface(
     dtype_constraints={"input": "T1", wrappers.RETURN_VALUE: "T1"},
     # TODO (#457): Add int8 once MLIR-TRT supports
-    dtype_variables={"T1": ["float32", "float16"]},  
+    dtype_variables={"T1": ["float32", "float16"]},
 )
 def avgpool(
     input: "nvtripy.Tensor",
@@ -236,7 +235,6 @@ def avgpool(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
         output = tp.avgpool(input, kernel_dims=(2, 2))

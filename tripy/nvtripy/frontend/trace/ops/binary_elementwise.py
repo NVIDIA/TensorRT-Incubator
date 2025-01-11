@@ -205,7 +205,6 @@ def __add__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([1, 2])
         b = tp.Tensor([2, 3])
@@ -236,7 +235,6 @@ def __sub__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 2])
@@ -267,7 +265,6 @@ def __rsub__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = 1
         b = tp.Tensor([1, 2])
@@ -298,7 +295,6 @@ def __pow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
@@ -329,7 +325,6 @@ def __rpow__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = 2.0
         b = tp.Tensor([2.0, 3.0])
@@ -362,7 +357,6 @@ def __mul__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([1.0, 2.0])
         b = tp.Tensor([2.0, 3.0])
@@ -393,7 +387,6 @@ def __truediv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([4.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
@@ -424,7 +417,6 @@ def __rtruediv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = 6.0
         b = tp.Tensor([2.0, 3.0])
@@ -455,7 +447,6 @@ def __floordiv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([4.0, 6.0])
         b = tp.Tensor([3.0, 4.0])
@@ -491,7 +482,6 @@ def __rfloordiv__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor"
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = 2
         b = tp.Tensor([2.0, 3.0])
@@ -527,7 +517,6 @@ def __mod__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([4.0, 6.0])
         b = tp.Tensor([3.0, 4.0])
@@ -558,7 +547,6 @@ def __rmod__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([4.0, 6.0])
         output = 2 % a
@@ -587,7 +575,6 @@ def maximum(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([1.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
@@ -617,7 +604,6 @@ def minimum(lhs: "nvtripy.Tensor", rhs: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([1.0, 6.0])
         b = tp.Tensor([2.0, 3.0])
@@ -651,7 +637,6 @@ def __lt__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 5])
@@ -685,7 +670,6 @@ def __le__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
@@ -719,7 +703,6 @@ def __eq__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 5])
@@ -753,7 +736,6 @@ def __ne__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([1, 3])
@@ -787,7 +769,6 @@ def __ge__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([2, 1])
@@ -821,7 +802,6 @@ def __gt__(self: "nvtripy.Tensor", other: TensorLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.Tensor([2, 3])
         b = tp.Tensor([3, 1])

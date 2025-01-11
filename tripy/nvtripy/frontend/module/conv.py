@@ -186,7 +186,6 @@ class Conv(ConvBase):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
             conv = tp.Conv(in_channels=1, out_channels=1, kernel_dims=(2, 2), dtype=tp.float32)

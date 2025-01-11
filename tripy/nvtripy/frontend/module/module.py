@@ -90,8 +90,8 @@ class Module:
     ::
 
         self.dict_modules = {
-            "convolution": tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1), stride=(1,1)),
-            "pool": lambda x: tp.avgpool(x, kernel_dims=(2,2), stride=(1,1))
+            "convolution": tp.Conv(in_channels=2, out_channels=2, kernel_dims=(1,1)),
+            "pool": lambda x: tp.avgpool(x, kernel_dims=(2,2))
         }
 
     Whereas this is not supported:
@@ -104,7 +104,6 @@ class Module:
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         class AddBias(tp.Module):
             def __init__(self):
@@ -138,7 +137,6 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: print-locals state_dict
 
@@ -183,7 +181,6 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: no-print-locals
 
@@ -271,7 +268,6 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: no-print-locals
 
@@ -297,7 +293,6 @@ class Module:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             # doc: no-print-locals
 

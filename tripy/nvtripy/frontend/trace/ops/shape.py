@@ -54,7 +54,6 @@ def shape(self: "nvtripy.Tensor") -> ShapeLike:
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         # doc: print-locals input shape
         input = tp.ones((8, 2))

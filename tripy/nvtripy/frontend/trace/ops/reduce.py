@@ -154,7 +154,6 @@ def sum(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.sum(input, 0)
@@ -187,7 +186,6 @@ def all(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([True, True], dtype=tp.bool)
         out = tp.all(input)
@@ -219,7 +217,6 @@ def any(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([True, False], dtype=tp.bool)
         out = tp.any(input)
@@ -251,7 +248,6 @@ def max(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.max(input, 0)
@@ -284,7 +280,6 @@ def prod(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.prod(input, 0)
@@ -338,7 +333,6 @@ def mean(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.mean(input, dim=1, keepdim=True)
@@ -379,7 +373,6 @@ def var(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.var(input, dim=1, keepdim=True)
@@ -437,7 +430,6 @@ def argmax(input: "nvtripy.Tensor", dim: Optional[int] = None, keepdim: bool = F
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.argmax(input, 0)
@@ -469,7 +461,6 @@ def argmin(input: "nvtripy.Tensor", dim: Optional[int] = None, keepdim: bool = F
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.argmin(input, 0)

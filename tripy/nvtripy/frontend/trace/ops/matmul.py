@@ -172,7 +172,6 @@ def __matmul__(self: "nvtripy.Tensor", other: "nvtripy.Tensor") -> "nvtripy.Tens
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.iota((2, 3), dtype=tp.float32)
         b = tp.iota((3, 2), dtype=tp.float32)

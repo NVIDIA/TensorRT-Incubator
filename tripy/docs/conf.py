@@ -300,22 +300,20 @@ def process_docstring_impl(app, what, name, obj, options, lines):
             strip_assertions=True,
         )
 
-        # Sphinx requires a new line after markup
-        code_block_lines += ["\n"] + local_var_lines + output_lines
-
         # Extract the caption from the example code block.
+        CAPTION_MARKER = ":caption:"
         for index, line in enumerate(code_block_lines):
-            caption_marker = ":caption:"
-            if caption_marker in line:
-                _, _, caption = line.partition(caption_marker)
-                caption = caption.strip()
-                if caption != "Example":
-                    caption = f"Example: {caption}"
+            if CAPTION_MARKER in line:
+                _, _, caption = line.partition(CAPTION_MARKER)
+                caption = f"Example: {caption.strip()}"
                 # Remove the caption line from the original code block
                 del code_block_lines[index]
                 break
         else:
-            assert False, f"For: {obj}, example does not have a caption. Please add a caption to each example!"
+            caption = "Example"
+
+        # Sphinx requires a new line after markup
+        code_block_lines += ["\n"] + local_var_lines + output_lines
 
         # Put the entire code block + output under a collapsible section to save space.
         line = code_block_lines[0]

@@ -62,7 +62,6 @@ def flip(input: "nvtripy.Tensor", dims: Optional[Union[int, Sequence[int]]] = No
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(10), (2, 5))
         output = tp.flip(input) # equivalent to tp.flip(input, dims=[0, 1])

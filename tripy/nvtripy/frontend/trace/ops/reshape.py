@@ -81,7 +81,6 @@ def reshape(input: "nvtripy.Tensor", shape: ShapeLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.iota((2, 3), dtype=tp.float32)
         output = tp.reshape(input, (1, 6))

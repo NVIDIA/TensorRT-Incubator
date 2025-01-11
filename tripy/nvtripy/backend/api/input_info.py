@@ -38,7 +38,6 @@ class InputInfo:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             inp = tp.InputInfo((2, 4), dtype=tp.float32)
             assert inp.shape_bounds.min == [2, 4]

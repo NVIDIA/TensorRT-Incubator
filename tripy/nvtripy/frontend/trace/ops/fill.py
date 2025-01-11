@@ -90,7 +90,6 @@ def full(shape: ShapeLike, value: TensorLike, dtype: "nvtripy.dtype" = datatype.
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         output = tp.full(shape=[2, 3], value=2)
 
@@ -123,7 +122,6 @@ def full_like(input: "nvtripy.Tensor", value: TensorLike, dtype: Optional["nvtri
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([[1, 2], [3, 4]])
         output = tp.full_like(input, value=2)

@@ -135,7 +135,6 @@ class Executable:
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             def add(a, b):
                 return a + b

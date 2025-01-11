@@ -61,7 +61,6 @@ def concatenate(tensors: Sequence["nvtripy.Tensor"], dim: int) -> "nvtripy.Tenso
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.iota((1, 2), dtype=tp.float32)
         b = tp.iota((2, 2), dtype=tp.float32)

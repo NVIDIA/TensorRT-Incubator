@@ -67,7 +67,6 @@ class GroupNorm(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             group_norm = tp.GroupNorm(2, 4)
             group_norm.weight = tp.ones_like(group_norm.weight)

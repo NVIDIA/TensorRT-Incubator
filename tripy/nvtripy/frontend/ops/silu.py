@@ -42,7 +42,6 @@ def silu(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([1., 2., 3., 4.], dtype=tp.float32)
         output = tp.silu(input)

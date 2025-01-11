@@ -117,7 +117,6 @@ def where(condition: "nvtripy.Tensor", input: "nvtripy.Tensor", other: "nvtripy.
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         condition = tp.Tensor([[True, False], [True, True]])
         input = tp.ones([2, 2], dtype=tp.float32)
@@ -152,7 +151,6 @@ def masked_fill(input: "nvtripy.Tensor", mask: "nvtripy.Tensor", value: numbers.
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         mask = tp.Tensor([[True, False], [True, True]])
         input = tp.zeros([2, 2])

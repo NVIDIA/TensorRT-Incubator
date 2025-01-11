@@ -76,7 +76,6 @@ class Linear(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             linear = tp.Linear(3, 4)
 

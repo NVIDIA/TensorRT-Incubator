@@ -67,7 +67,6 @@ class LayerNorm(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             layer_norm = tp.LayerNorm(3)
 

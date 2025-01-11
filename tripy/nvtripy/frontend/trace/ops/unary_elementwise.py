@@ -77,7 +77,6 @@ def exp(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32)
         output = tp.exp(input)
@@ -104,7 +103,6 @@ def tanh(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32)
         output = tp.tanh(input)
@@ -131,7 +129,6 @@ def sin(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32)
         output = tp.sin(input)
@@ -158,7 +155,6 @@ def cos(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32)
         output = tp.cos(input)
@@ -185,7 +181,6 @@ def rsqrt(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.rsqrt(input)
@@ -212,7 +207,6 @@ def sqrt(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.arange(3, dtype=tp.float32) + 1.0
         output = tp.sqrt(input)
@@ -239,7 +233,6 @@ def log(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.arange(1, 3, dtype=tp.float32)
         output = tp.log(input)
@@ -266,7 +259,6 @@ def abs(input: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([-1, -2], dtype=tp.int32)
         output = tp.abs(input)

@@ -47,7 +47,6 @@ def softmax(input: "nvtripy.Tensor", dim: int = None) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.iota([2, 2], dtype=tp.float32)
         output = tp.softmax(input, dim=0)

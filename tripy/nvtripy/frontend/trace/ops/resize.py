@@ -130,7 +130,6 @@ def resize(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
         output = tp.resize(input, "nearest", output_shape=(1, 1, 8, 8))
@@ -170,7 +169,6 @@ def resize(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(16, dtype=tp.float32), (1, 1, 4, 4))
         output = tp.resize(input, "nearest", scales=(1, 1, 2, 2))

@@ -134,7 +134,6 @@ class ConvTranspose(ConvBase):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             input = tp.reshape(tp.arange(4, dtype=tp.float32), (1, 1, 2, 2))
             upsample = tp.ConvTranspose(1, 1, (3, 3), stride=(2, 2), bias=False, dtype=tp.float32)
