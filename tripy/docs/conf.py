@@ -139,6 +139,8 @@ suppress_warnings = ["myst.xref_missing"]
 
 myst_fence_as_directive = ["mermaid"]
 
+myst_enable_extensions = ["colon_fence"]
+
 myst_url_schemes = {
     "http": None,
     "https": None,
@@ -289,8 +291,11 @@ def process_docstring_impl(app, what, name, obj, options, lines):
         code_block_lines, local_var_lines, output_lines, _ = helper.process_code_block_for_outputs_and_locals(
             block,
             # We don't care about indentation of code within the block, so we ignore that parameter.
-            format_contents=lambda title, contents, lang, _: f"\n\n.. code-block:: {lang}\n"
-            + indent((f":caption: {title}" if title else "") + f"\n\n{contents}", prefix=" " * helper.TAB_SIZE),
+            format_contents=lambda kind, contents, lang, _: f"\n\n.. code-block:: {lang}\n"
+            + indent(
+                f":caption: {'Output' if kind == helper.BlockKind.OUTPUT else 'Local Variables'}" + f"\n\n{contents}",
+                prefix=" " * helper.TAB_SIZE,
+            ),
             err_msg=f"Failed while processing docstring for: {what}: {name} ({obj}): ",
             strip_assertions=True,
         )
@@ -298,14 +303,16 @@ def process_docstring_impl(app, what, name, obj, options, lines):
         # Sphinx requires a new line after markup
         code_block_lines += ["\n"] + local_var_lines + output_lines
 
-        # Grab the caption from the example code block.
-        for line in code_block_lines:
+        # Extract the caption from the example code block.
+        for index, line in enumerate(code_block_lines):
             caption_marker = ":caption:"
             if caption_marker in line:
                 _, _, caption = line.partition(caption_marker)
                 caption = caption.strip()
                 if caption != "Example":
                     caption = f"Example: {caption}"
+                # Remove the caption line from the original code block
+                del code_block_lines[index]
                 break
         else:
             assert False, f"For: {obj}, example does not have a caption. Please add a caption to each example!"
@@ -322,6 +329,7 @@ def process_docstring_impl(app, what, name, obj, options, lines):
                 prefix=" " * indentation,
             ).splitlines()
         )
+
         code_block_lines = indent("\n".join(code_block_lines) + "\n", prefix=" " * helper.TAB_SIZE).splitlines()
         lines.extend(code_block_lines)
 
