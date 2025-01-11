@@ -33,6 +33,7 @@ import pytest
 import torch
 from nvtripy import utils
 from nvtripy.common.exception import str_from_stack_info
+import enum
 
 TAB_SIZE = 4
 
@@ -366,6 +367,11 @@ def consolidate_code_blocks_from_readme(readme_path: str) -> List[ReadmeCodeBloc
 ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
+class BlockKind(enum.Enum):
+    OUTPUT = 0
+    LOCAL_VARS = 1
+
+
 def process_code_block_for_outputs_and_locals(
     block: str,
     format_contents: Callable[[str, str, str], str],
@@ -536,13 +542,14 @@ def process_code_block_for_outputs_and_locals(
                 locals_str += f"\n{pretty_str_from_dict(obj)}"
             else:
                 locals_str += f"\n{obj}"
+            locals_str += "\n"
 
-    def split_block_lines(title, contents, lang="python"):
-        out = format_contents(title, contents, lang, indentation) + "\n\n"
+    def split_block_lines(kind, contents, lang="python"):
+        out = format_contents(kind, contents, lang, indentation) + "\n\n"
         return out.splitlines()
 
     if locals_str:
-        local_var_lines = split_block_lines("", locals_str)
+        local_var_lines = split_block_lines(BlockKind.LOCAL_VARS, locals_str)
 
     # Add output as a separate code block.
     stdout = outfile.read() or ""
@@ -550,6 +557,6 @@ def process_code_block_for_outputs_and_locals(
     if stdout:
         # Strip out ANSI control sequences from output:
         stdout = ANSI_ESCAPE.sub("", stdout)
-        output_lines = split_block_lines("Output:", stdout, lang="")
+        output_lines = split_block_lines(BlockKind.OUTPUT, stdout, lang="")
 
     return stripped_code_block_lines, local_var_lines, output_lines, code_locals

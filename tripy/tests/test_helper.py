@@ -15,8 +15,8 @@
 from tests import helper
 
 
-def format_contents(title, contents, lang):
-    return f"{title}\n{contents}"
+def format_contents(kind, contents, lang):
+    return f"{'Output' if kind == helper.BlockKind.OUTPUT else ''}\n{contents}"
 
 
 class TestProcessCodeBlock:

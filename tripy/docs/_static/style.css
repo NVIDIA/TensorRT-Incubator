@@ -4,8 +4,11 @@ code.literal {
     font-size: var(--font-size-normal);
 }
 
-.summary-example {
-    margin-bottom: .75rem
+details[class^="summary-"] {
+    background: var(--color-background-secondary);
+    padding: 0.5rem;
+    margin-bottom: 0.75rem;
+    border-radius: .2rem;
 }
 
 .sidebar-brand-text {
