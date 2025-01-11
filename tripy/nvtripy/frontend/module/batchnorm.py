@@ -73,7 +73,6 @@ class BatchNorm(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             batch_norm = tp.BatchNorm(2)
 

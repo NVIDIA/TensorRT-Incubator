@@ -49,7 +49,6 @@ def ones(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         output = tp.ones([2, 3])
 
@@ -83,7 +82,6 @@ def zeros(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         output = tp.zeros([2, 3])
 
@@ -115,7 +113,6 @@ def ones_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) -
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.zeros([2, 3], dtype=tp.float32)
         output = tp.ones_like(input)
@@ -148,7 +145,6 @@ def zeros_like(input: "nvtripy.Tensor", dtype: Optional[datatype.dtype] = None) 
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.iota([2, 3], dtype=tp.float32)
         output = tp.zeros_like(input)
@@ -305,7 +301,6 @@ def arange(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         output = tp.arange(0.5, 2.5)
 
@@ -366,7 +361,6 @@ def arange(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         output = tp.arange(5)
 

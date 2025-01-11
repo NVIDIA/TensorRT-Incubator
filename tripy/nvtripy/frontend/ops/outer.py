@@ -37,7 +37,6 @@ def outer(vec1: "nvtripy.Tensor", vec2: "nvtripy.Tensor") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         v1 = tp.arange(5, dtype=tp.float32)
         v2 = tp.arange(4, dtype=tp.float32)

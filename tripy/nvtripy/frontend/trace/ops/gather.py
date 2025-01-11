@@ -111,7 +111,6 @@ def gather(input: "nvtripy.Tensor", dim: int, index: "nvtripy.Tensor") -> "nvtri
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         data = tp.iota((3, 3, 2))
         indices = tp.Tensor([0, 2], dtype=tp.int32)

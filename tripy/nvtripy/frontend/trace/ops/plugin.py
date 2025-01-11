@@ -73,7 +73,6 @@ def plugin(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         inp = tp.iota((2, 1, 4))
         out = tp.plugin(

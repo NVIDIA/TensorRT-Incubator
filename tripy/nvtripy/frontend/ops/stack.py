@@ -39,7 +39,6 @@ def stack(tensors: Sequence["nvtripy.Tensor"], dim: int = 0) -> "nvtripy.Tensor"
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         a = tp.iota((2, 3), dtype=tp.float32)
         b = tp.iota((2, 3), dtype=tp.float32)

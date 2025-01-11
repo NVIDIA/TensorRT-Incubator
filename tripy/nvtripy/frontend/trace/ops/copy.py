@@ -58,7 +58,6 @@ def copy(input: "nvtripy.Tensor", device: "nvtripy.device") -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.Tensor([1, 2], device=tp.device("gpu"))
         output = tp.copy(input, tp.device("cpu"))

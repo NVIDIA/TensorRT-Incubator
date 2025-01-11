@@ -56,7 +56,6 @@ def permute(input: "nvtripy.Tensor", perm: Sequence[int]) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.permute(input, (1, 0))

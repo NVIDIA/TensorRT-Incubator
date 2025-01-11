@@ -106,30 +106,6 @@ def test_really_slow_things():
 
 Supported markers are documented in [pyproject.toml](../pyproject.toml).
 
-### Docstring Tests
-
-For public-facing interfaces, you should add examples in the docstrings.
-Avoid doing this for internal interfaces since we do not build documentation for
-those anyway.
-
-Any code blocks in docstrings are automatically tested by `tests/test_ux.py`.
-The code block format is:
-```py
-"""
-.. code-block:: python
-    :linenos:
-    :caption: Descriptive Title
-
-    <example code>
-"""
-```
-
-Any caption other than `Example` will have a prefix of `Example: ` prepended to it.
-
-**NOTE: The docstrings must *not* import `nvtripy`, `numpy`, or `torch`. They will be imported**
-    **automatically as `tp`, `np`, and `torch` respectively. Any other modules will need to be imported.**
-
-
 ### Performance Tests
 
 In addition to functional tests, we also run performance tests of three kinds:

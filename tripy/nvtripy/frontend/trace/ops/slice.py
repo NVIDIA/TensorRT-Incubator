@@ -148,7 +148,6 @@ def __getitem__(
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (1, 2, 3, 1))
         output = input[:, 1:2, :-1, 0]

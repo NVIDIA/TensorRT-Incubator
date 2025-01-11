@@ -36,7 +36,6 @@ def transpose(input: "nvtripy.Tensor", dim0: int, dim1: int) -> "nvtripy.Tensor"
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.reshape(tp.arange(6, dtype=tp.float32), (2, 3))
         output = tp.transpose(input, 0, 1)

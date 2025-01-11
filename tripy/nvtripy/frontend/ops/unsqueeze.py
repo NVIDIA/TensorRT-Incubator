@@ -38,7 +38,6 @@ def unsqueeze(input: "nvtripy.Tensor", dim: int) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.iota((2, 2), dtype=tp.float32)
         output = tp.unsqueeze(input, 1)

@@ -48,7 +48,6 @@ class Embedding(Module):
 
         .. code-block:: python
             :linenos:
-            :caption: Example
 
             embedding = tp.Embedding(num_embeddings=4, embedding_dim=6)
 

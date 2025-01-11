@@ -95,7 +95,6 @@ def expand(input: "nvtripy.Tensor", sizes: ShapeLike) -> "nvtripy.Tensor":
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         input = tp.iota((2, 1), dtype=tp.float32)
         output = tp.expand(input, (-1, 4))
