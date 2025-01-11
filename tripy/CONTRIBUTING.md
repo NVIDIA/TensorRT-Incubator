@@ -56,10 +56,9 @@ Thanks for your interest in contributing to Tripy!
 
 ### Before You Start: Install pre-commit
 
-Install the pre-commit hook before making commits.
-
-- **Suggestion:** Install the hook and use `git` *outside* the container
-    so you don't have to repeat this step each time you launch the container.
+> [!TIP]
+> Install the hook and use `git` *outside* the container
+> so you don't have to repeat this step each time you launch the container.
 
 From the [`tripy` root directory](.), run:
 ```bash

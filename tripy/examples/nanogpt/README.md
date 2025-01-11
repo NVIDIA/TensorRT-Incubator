@@ -1,4 +1,4 @@
-# Implementing Nano-GPT With Tripy
+# Implementing NanoGPT
 
 ## Introduction
 
@@ -61,10 +61,10 @@ Use `--quant-mode` in `example.py` to enable quantization. Supported modes:
     Tripy: TEST: EXPECTED_STDOUT End
     -->
 
-- Weight-only `int4` quantization:
 
-    **Warning**: For this model, `int4` quantization may result in poor accuracy.
-        We include it only to demonstrate the workflow.
+> [!WARNING]
+> For this model, `int4` quantization may result in poor accuracy. We include it only to demonstrate the workflow.
+- Weight-only `int4` quantization:
 
     ```bash
     python3 example.py --input-text "What is the answer to life, the universe, and everything?" --seed=0 --quant-mode int4-weight-only
