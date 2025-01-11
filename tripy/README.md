@@ -25,7 +25,7 @@ What you can expect:
 
 - **Excellent Error Messages**: Informative and actionable.
 
-- **Friendly Documentation**: Comprehensive but straight-to-the-point, with code examples.
+- **Friendly Documentation**: Comprehensive but concise, with code examples.
 
 Code is worth 1,000 words:
 

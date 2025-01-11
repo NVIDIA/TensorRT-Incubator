@@ -223,7 +223,6 @@ def theta(shape: ShapeLike, dim: int = 0, dtype: datatype.dtype = datatype.float
 
     .. code-block:: python
         :linenos:
-        :caption: Example
 
         output = tp.theta([3])
 

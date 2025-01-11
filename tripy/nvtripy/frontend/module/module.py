@@ -301,13 +301,13 @@ class Module:
 
             # doc: no-print-locals
 
-            class Linear(tp.Module):
+            class MyModule(tp.Module):
                 def __init__(self):
                     super().__init__()
                     self.alpha = tp.Tensor(1)
                     self.beta = tp.Tensor(2)
 
-            linear = Linear()
+            linear = MyModule()
 
             for name, parameter in linear.named_parameters():
                 print(f"{name}: {parameter}")
