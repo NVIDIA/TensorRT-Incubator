@@ -235,7 +235,8 @@ def process_guide(guide_path: str, processed_guide_path: str):
             if not block.has_marker("doc: omit"):
                 new_blocks.extend(code_block_lines)
 
-            new_blocks.extend(local_var_lines)
+            if not block.has_marker("doc: no_print_locals"):
+                new_blocks.extend(local_var_lines)
             new_blocks.extend(output_lines)
 
         else:

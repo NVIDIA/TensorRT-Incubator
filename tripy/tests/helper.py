@@ -247,6 +247,9 @@ AVAILABLE_MARKERS = {
     "doc: omit": Marker.from_name("DOC: OMIT"),
     # Indicates that a block should not be evaluated for the documentation.
     "doc: no_eval": Marker.from_name("DOC: NO_EVAL"),
+    # Indicates that local variables should not be displayed for a code block in the documentation.
+    # Useful when the raw code block is also publicly visible and we don't want inline markers (e.g. in the main README.md).
+    "doc: no_print_locals": Marker.from_name("DOC: NO_PRINT_LOCALS"),
 }
 
 

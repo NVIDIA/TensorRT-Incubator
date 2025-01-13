@@ -29,8 +29,8 @@ What you can expect:
 
 Code is worth 1,000 words:
 
+<!-- Tripy: DOC: NO_PRINT_LOCALS Start -->
 ```py
-# doc: no-print-locals
 # Define our model:
 class Model(tp.Module):
     def __init__(self):
@@ -64,6 +64,7 @@ compiled_model = tp.compile(
 
 compiled_out = compiled_model(inp)
 ```
+<!-- Tripy: DOC: NO_PRINT_LOCALS End -->
 
 
 ## Installation
