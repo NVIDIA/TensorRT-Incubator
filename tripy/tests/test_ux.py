@@ -54,7 +54,10 @@ class TestReadme:
                 continue
 
             if link.startswith("https://"):
-                assert requests.get(link).status_code == 200
+                # Separating the requests.get(link) into a separate step since otherwise the
+                # pytest backtrace becomes unreadably large.
+                link_status = requests.get(link).status_code
+                assert link_status == 200, f"Broken link: {link}"
             else:
                 assert os.path.sep * 2 not in link, f"Duplicate slashes break links in GitHub. Link was: {link}"
                 SOURCE_TAG = "source:"
