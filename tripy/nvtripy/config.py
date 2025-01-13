@@ -38,12 +38,17 @@ mlir_debug_tree_path = os.environ.get("TRIPY_MLIR_DEBUG_PATH", os.path.join("/",
 enable_tensorrt_debug = os.environ.get("TRIPY_TRT_DEBUG_ENABLED", "0") == "1"
 tensorrt_debug_path = os.environ.get("TRIPY_TRT_DEBUG_PATH", os.path.join("/", "nvtripy", "tensorrt-dumps"))
 
-tripy_eager_cache: str = export.public_api(
+use_cache_in_eager_mode: bool = export.public_api(
     document_under="config.rst",
     module=sys.modules[__name__],
-    symbol="tripy_eager_cache",
-)(os.environ.get("TRIPY_EAGER_CACHE", "1") == "1")
-"""Whether to enable eager mode caching."""
+    symbol="use_cache_in_eager_mode",
+)(os.environ.get("TRIPY_USE_CACHE_IN_EAGER_MODE", "1") == "1")
+"""
+Whether to enable executable caching to speed up eager mode.
+
+This can also be enabled/disabled by setting the ``TRIPY_USE_CACHE_IN_EAGER_MODE``
+environment variable to ``1``/``0`` respectively.
+"""
 
 timing_cache_file_path: str = export.public_api(
     document_under="config.rst",

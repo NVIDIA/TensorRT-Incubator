@@ -118,7 +118,7 @@ class TestCache:
         assert mock_global_cache.get(Trace([layer2(input_tensor).trace_tensor]), devices=[output2.device]) is not None
 
     def test_cache_not_being_used_empty_cache(self, mock_global_cache):
-        with helper.config("tripy_eager_cache", False):
+        with helper.config("use_cache_in_eager_mode", False):
             tensor1 = tp.ones((1, 1), dtype=tp.float32)
 
             tensor1.eval()
@@ -132,7 +132,7 @@ class TestCache:
         assert mock_global_cache.get(Trace([tensor1_cached.trace_tensor]), devices=[tensor1.device]) is not None
         tensor1_cached.eval()
 
-        with helper.config("tripy_eager_cache", False):
+        with helper.config("use_cache_in_eager_mode", False):
             tensor2 = tp.ones((1, 1), dtype=tp.float32)
             tensor2.eval()
 
