@@ -132,7 +132,7 @@ class ExecutableCache:
         Returns:
             Executable: The cached executable, or None if not found.
         """
-        if not config.tripy_eager_cache:
+        if not config.use_cache_in_eager_mode:
             return None
 
         key = self._generate_key(trace, devices)
@@ -147,7 +147,7 @@ class ExecutableCache:
             executable (Executable): The executable to cache.
             devices (List[Device]): List of devices associated with the trace.
         """
-        if not config.tripy_eager_cache:
+        if not config.use_cache_in_eager_mode:
             return
 
         key = self._generate_key(trace, devices)
