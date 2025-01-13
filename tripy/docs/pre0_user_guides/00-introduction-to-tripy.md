@@ -1,7 +1,11 @@
 # An Introduction To Tripy
 
 **Tripy** is a debuggable, Pythonic frontend for [TensorRT](https://developer.nvidia.com/tensorrt),
-a deep learning inference compiler:
+a deep learning inference compiler.
+
+## API Semantics
+
+Unlike TensorRT's graph-based semantics, Tripy uses a functional style:
 
 ```py
 # doc: no-print-locals
