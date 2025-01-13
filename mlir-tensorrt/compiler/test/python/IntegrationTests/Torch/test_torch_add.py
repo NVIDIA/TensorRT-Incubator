@@ -2,12 +2,11 @@
 
 import mlir_tensorrt.compiler.api as compiler
 import mlir_tensorrt.compiler.ir as ir
-import mlir_tensorrt.runtime.api as runtime
 import mlir_tensorrt.compiler.torch_bridge as torch_bridge
-
+import mlir_tensorrt.runtime.api as runtime
 import numpy as np
-import torch.nn as nn
 import torch
+import torch.nn as nn
 
 
 class Model(nn.Module):

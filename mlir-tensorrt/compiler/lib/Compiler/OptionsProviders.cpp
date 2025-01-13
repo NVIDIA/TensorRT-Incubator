@@ -27,6 +27,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/Timing.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace mlir;
 using namespace mlirtrt;
@@ -37,6 +38,18 @@ using namespace mlirtrt::compiler;
 //===----------------------------------------------------------------------===//
 
 void DebugOptions::applyToPassManager(PassManager &pm) const {
+  // If the options specify to use global MLIR CL flags, then apply those
+  // options. Otherwise, use our local options. Using global options is only
+  // possible if the LLVM global command line flag environment is initialized
+  // correctly.
+  if (useGlobalCLPrintingOptions) {
+    if (failed(applyPassManagerCLOptions(pm)))
+      llvm::report_fatal_error("failed to populate pass manager "
+                               "instrumentation from global CL options");
+    applyDefaultTimingPassManagerCLOptions(pm);
+    return;
+  }
+
   std::function<bool(Pass *, Operation *)> shouldPrintBeforePass;
   std::function<bool(Pass *, Operation *)> shouldPrintAfterPass;
 
@@ -78,7 +91,6 @@ void DebugOptions::applyToPassManager(PassManager &pm) const {
                                   printAfterFailure, printTreeDir);
     return;
   }
-
   pm.enableIRPrinting(shouldPrintBeforePass, shouldPrintAfterPass,
                       printModuleScope, printAfterChange, printAfterFailure,
                       llvm::errs());
@@ -87,32 +99,6 @@ void DebugOptions::applyToPassManager(PassManager &pm) const {
 //===----------------------------------------------------------------------===//
 // DeviceOptions
 //===----------------------------------------------------------------------===//
-
-Status DeviceOptions::inferFromHost() {
-  cudaDeviceProp properties;
-  cudaError_t err = cudaGetDeviceProperties(&properties, 0);
-  if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device properties");
-  int ccMajor = 0;
-  int ccMinor = 0;
-  err = cudaDeviceGetAttribute(
-      &ccMajor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor, 0);
-  if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device compute capability");
-  err = cudaDeviceGetAttribute(
-      &ccMinor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor, 0);
-  if (err != cudaSuccess)
-    return getStatusWithMsg(StatusCode::InternalError,
-                            "failed to get cuda device compute capability");
-  // We want SM version as a single number.
-  int64_t smVersion = ccMajor * 10 + ccMinor;
-  info.computeCapability = smVersion;
-  info.maxSharedMemoryPerBlockKb = properties.sharedMemPerBlock / 1024;
-  info.maxRegistersPerBlock = properties.regsPerBlock;
-  return Status::getOk();
-}
 
 llvm::Error DeviceOptions::finalizeImpl() {
   if (shouldInferFromHost) {

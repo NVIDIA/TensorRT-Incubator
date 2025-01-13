@@ -1,8 +1,7 @@
 //===- BroadcastElimination.cpp----------------------------------*- c++ -*-===//
 //
-// SPDX-FileCopyrightText: Copyright 2024 NVIDIA CORPORATION & AFFILIATES.
-// All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright 2024 - 2025 NVIDIA CORPORATION &
+// AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,8 +18,7 @@
 //===----------------------------------------------------------------------===//
 #include "mlir-tensorrt-dialect/TensorRT/IR/TensorRTDialect.h"
 #include "mlir-tensorrt-dialect/TensorRT/Transforms/Passes.h"
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/PatternMatch.h"
+#include "mlir/Dialect/Utils/ReshapeOpsUtils.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 
 namespace mlir {
@@ -55,40 +53,58 @@ static FailureOr<BroadcastOp> exchangeCollapseRankAndBroadcast(
       collapseOp.getInputShapeDimIndicesOfRemovedDims();
   if (removedDims.empty())
     return failure();
+  llvm::sort(removedDims, [](int64_t lhs, int64_t rhs) { return lhs > rhs; });
 
-  // Let's just focus on the first removed dimension.
-  int64_t focusDim = removedDims.front();
   SmallVector<int64_t> bcastInputShape(bcastOp.getInput().getType().getShape());
+  SmallVector<int64_t> bcastResultShape(bcastOp.getType().getShape());
   SmallVector<int64_t> broadcastDims(bcastOp.getBroadcastDims());
 
-  // If it is broadcasted, then we must remove it at the input. Drop this dim
-  // from the list, and all indices higher than this must be decremented.
-  int64_t *bcastDimIter = llvm::find(broadcastDims, focusDim);
-  // TODO: can we handle this case?
-  if (bcastDimIter == broadcastDims.end())
-    return failure();
+  auto getBroadcastDimsIndex = [&](int64_t dim) -> std::optional<unsigned> {
+    auto it = llvm::find(broadcastDims, dim);
+    if (it != broadcastDims.end())
+      return std::distance(broadcastDims.begin(), it);
 
-  // Find which input dimension this corresponds to.
-  unsigned inputShapeDimIdx =
-      std::distance(broadcastDims.begin(), bcastDimIter);
-  assert(bcastInputShape[inputShapeDimIdx] == 1);
+    return {};
+  };
 
-  // Erase this broadcast dimension.
-  bcastInputShape.erase(bcastInputShape.begin() + inputShapeDimIdx);
-  broadcastDims.erase(bcastDimIter);
-  // Adjust all the other broadcast dimensions.
-  for (auto &bcastDim : broadcastDims) {
-    if (bcastDim > focusDim)
-      bcastDim--;
+  bool changed = false;
+  for (int64_t removedDim : removedDims) {
+    std::optional<unsigned> inputShapeDimIdx =
+        getBroadcastDimsIndex(removedDim);
+    if (!inputShapeDimIdx)
+      continue;
+
+    assert((bcastInputShape[*inputShapeDimIdx] == 1 ||
+            ShapedType::isDynamic(bcastInputShape[*inputShapeDimIdx])) &&
+           "expected size-1 dimension");
+
+    // Erase this broadcast dimension.
+    changed = true;
+    bcastInputShape.erase(bcastInputShape.begin() + *inputShapeDimIdx);
+    broadcastDims.erase(broadcastDims.begin() + *inputShapeDimIdx);
+    bcastResultShape.erase(bcastResultShape.begin() + removedDim);
+    // Adjust all the other broadcast dimensions.
+    for (int64_t &bcastDim : broadcastDims) {
+      if (bcastDim > removedDim)
+        bcastDim--;
+    }
   }
 
-  Type newCollapseShapeType =
-      RankedTensorType::Builder(
-          cast<RankedTensorType>(bcastOp.getInput().getType()))
-          .setShape(bcastInputShape);
+  if (!changed)
+    return failure();
 
-  Value newBcastInput = rewriter.create<CollapseRankOp>(
-      bcastOp.getLoc(), newCollapseShapeType, bcastOp.getInput());
+  RankedTensorType newCollapseShapeType =
+      bcastOp.getInput().getType().clone(bcastInputShape);
+
+  Value newBcastInput;
+  if (getReassociationIndicesForCollapse(
+          bcastOp.getInput().getType().getShape(), bcastInputShape))
+    newBcastInput = rewriter.create<CollapseRankOp>(
+        bcastOp.getLoc(), newCollapseShapeType, bcastOp.getInput());
+  else
+    newBcastInput = rewriter.create<ReshapeOp>(
+        bcastOp.getLoc(), newCollapseShapeType, bcastOp.getInput());
+
   auto newBroadcastOp = rewriter.create<BroadcastOp>(
       collapseOp.getLoc(), collapseOp.getType(), newBcastInput, broadcastDims);
 

@@ -1,11 +1,13 @@
-from typing import Optional, Union, Dict, Tuple, Any
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple, Union
+
 from torch import nn
 from torch.export import ExportedProgram
-from dataclasses import dataclass, field
-from .compiler_utils import OutputType
+
 from . import fx
-from .extras.fx_importer import FxImporter
+from .compiler_utils import OutputType
 from .dialects import torch as torch_d
+from .extras.fx_importer import FxImporter
 
 __all__ = ["TorchInput", "get_mlir_module_from_torch_module"]
 

@@ -44,8 +44,12 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
   if (this->disabled)
     return;
 
+  tensorrt::TensorRTTranslationOptions translationOpts =
+      useGlobalCLFlags ? tensorrt::TensorRTTranslationOptions::fromCLFlags()
+                       : translationOptions;
+
   if (phase == Phase::PreClustering) {
-    // We must materialize TRT plugin shape regions prior to clustering.
+    // We must materialize TRT plugion shape regions prior to clustering.
     pm.addNestedPass<func::FuncOp>(tensorrt::createInferPluginShapesPass());
     return;
   }
@@ -61,9 +65,9 @@ void StablehloToExecutableTensorRTExtension::populatePasses(
     // Simplify and translate functions nested in `tensorrt.module` ops.
     auto &trtPM = pm.nest<tensorrt::TensorRTModuleOp>();
     tensorrt::buildTensorRTModuleTransformationPipeline(
-        trtPM, translationOptions.enableStronglyTyped);
+        trtPM, translationOpts.enableStronglyTyped);
     trtPM.addPass(
-        tensorrt::createTranslateTensorRTPass(nullptr, translationOptions));
+        tensorrt::createTranslateTensorRTPass(nullptr, translationOpts));
     return;
   }
 
