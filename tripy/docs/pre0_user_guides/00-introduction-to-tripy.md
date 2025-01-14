@@ -5,7 +5,7 @@ a deep learning inference compiler.
 
 ## API Semantics
 
-Unlike TensorRT's graph-based semantics, Tripy uses a functional style:
+Unlike TensorRT's graph-based semantics, Tripy uses a **functional** style:
 
 ```py
 # doc: no-print-locals
